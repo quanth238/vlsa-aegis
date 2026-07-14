@@ -29,6 +29,7 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The preregistered H05 stop rule fired. H06--H09 were not run, and no learned probe was trained.
 - R00 apparatus run `r00-calibration-20260714a` completed all 120 cases on Slurm array `27276` with no case failures. Its allocation-backed summary job `27285` correctly refused promotion because the scientific config hash included per-array WebSocket ports. This run also measured scene motion only at the endpoint, so it remains apparatus evidence rather than calibration evidence.
 - R00 now excludes host, port, output root, and run ID from the scientific config identity; it records immutable manifest/case hashes, verifies exact reset branches, and measures target/obstacle maximum displacement over all 125 physics substeps. A fresh allocation-backed R00 run is required.
+- Strict R00 smoke job `27290` exercised the new measurements and then failed closed before finalization because the legacy MIG smoke was not an array and therefore had no `SLURM_ARRAY_TASK_ID`. No scientific artifact was written; the smoke template is now a one-element `%1` array like the full-run provenance contract.
 
 ## Active gate
 

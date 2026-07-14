@@ -23,6 +23,7 @@ class ProgressCalibrationHpcContractTest(unittest.TestCase):
         full = (ROOT / "slurm/reach_progress_calibration_main.sbatch").read_text(encoding="utf-8")
         summary = (ROOT / "slurm/reach_progress_summary.sbatch").read_text(encoding="utf-8")
         self.assertIn("#SBATCH --gres=gpu:1", smoke)
+        self.assertIn("#SBATCH --array=0-0%1", smoke)
         self.assertIn("#SBATCH --gres=gpu:1", full)
         self.assertIn("CRFS_RUNNER_MODE=reach_calibration", smoke)
         self.assertIn("CRFS_RUNNER_MODE=reach_calibration", full)
