@@ -18,7 +18,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
-from crfs_harness.artifacts import atomic_write_json, content_hash, load_json
+from crfs_harness.artifacts import atomic_write_json, content_hash, load_json, scientific_config
 
 from .reach_progress import (
     EXECUTED_REACH_ACTIONS,
@@ -55,6 +55,18 @@ class ReachCalibrationConfig:
     simulator_safety_margin_m: float
     maximum_target_displacement_m: float
     maximum_obstacle_displacement_m: float
+    scene_motion_measurement: str
+    minimum_positive_examples: int
+    quantile: float
+    quantile_method: str
+
+
+def _is_sha256(value: Any) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def reach_calibration_config_from_mapping(value: Mapping[str, Any], oracle: OracleConfig) -> ReachCalibrationConfig:
@@ -68,17 +80,43 @@ def reach_calibration_config_from_mapping(value: Mapping[str, Any], oracle: Orac
         raise ValueError("R00 is registered for the first five executed actions")
     if oracle.action_horizon != 10:
         raise ValueError("R00 must retain the baseline ten-action model horizon")
+    if oracle.measurement_repeats < 2:
+        raise ValueError("R00 requires at least two simulator replay measurements")
+    if progress.get("phase") != "pregrasp_reach":
+        raise ValueError("R00 is restricted to the pregrasp_reach phase")
+    if progress.get("reference_position") != "frozen_branch_target_position":
+        raise ValueError("R00 must freeze the branch-start target position")
+    if progress.get("metric") != "start_eef_target_distance_minus_end_eef_target_distance":
+        raise ValueError("R00 has an unexpected progress metric")
     safety_margin = float(progress["simulator_safety_margin_m"])
     target_tolerance = float(progress["maximum_target_displacement_m"])
     obstacle_tolerance = float(progress["maximum_obstacle_displacement_m"])
+    scene_motion_measurement = str(progress.get("scene_motion_measurement", ""))
+    minimum_positive_examples = int(progress.get("minimum_positive_examples", 0))
+    quantile = float(progress.get("quantile", float("nan")))
+    quantile_method = str(progress.get("quantile_method", ""))
     if safety_margin <= 0 or target_tolerance < 0 or obstacle_tolerance < 0:
         raise ValueError("R00 margins and displacement tolerances are invalid")
+    if target_tolerance > 0.001 or obstacle_tolerance > 0.001:
+        raise ValueError("R00 displacement tolerances cannot exceed 1 mm")
+    if scene_motion_measurement != "maximum_substep_displacement":
+        raise ValueError("R00 requires maximum-substep target and obstacle motion")
+    if abs(safety_margin - 0.005) > 1e-12:
+        raise ValueError("R00 simulator safety margin must remain fixed at 5 mm")
+    if minimum_positive_examples != 50:
+        raise ValueError("R00 requires exactly 50 eligible positive examples")
+    if abs(quantile - 0.25) > 1e-12 or quantile_method != "inverted_cdf":
+        raise ValueError("R00 must use the preregistered inverted_cdf lower quartile")
     return ReachCalibrationConfig(
         oracle=oracle,
         target_name=target_name,
         simulator_safety_margin_m=safety_margin,
         maximum_target_displacement_m=target_tolerance,
         maximum_obstacle_displacement_m=obstacle_tolerance,
+        scene_motion_measurement=scene_motion_measurement,
+        minimum_positive_examples=minimum_positive_examples,
+        quantile=quantile,
+        quantile_method=quantile_method,
     )
 
 
@@ -112,22 +150,124 @@ def validate_reach_calibration_result(value: Mapping[str, Any]) -> list[str]:
         reach = trial.get("reach")
         if not isinstance(reach, Mapping) or not isinstance(reach.get("reach_progress_m"), (int, float)):
             errors.append("trial.reach.reach_progress_m must be numeric")
+        elif not all(
+            isinstance(reach.get(key), (int, float))
+            for key in (
+                "maximum_target_displacement_m",
+                "maximum_active_obstacle_displacement_m",
+            )
+        ):
+            errors.append("trial.reach maximum scene displacements must be numeric")
         if not isinstance(trial.get("eligible_for_p_min"), bool):
             errors.append("trial.eligible_for_p_min must be boolean")
     nominal = value.get("nominal")
     if not isinstance(nominal, Mapping) or not isinstance(nominal.get("actions"), list):
         errors.append("nominal.actions must be an array")
-    if not isinstance(value.get("provenance"), Mapping):
+    else:
+        actions = nominal["actions"]
+        try:
+            action_array = np.asarray(actions, dtype=np.float64)
+        except (TypeError, ValueError):
+            action_array = np.asarray([])
+        if action_array.shape != (EXECUTED_REACH_ACTIONS, 7):
+            errors.append("nominal.actions must be a finite 5x7 array")
+        elif not np.isfinite(action_array).all():
+            errors.append("nominal.actions must be finite")
+        elif nominal.get("actions_sha256") != _array_hash(action_array):
+            errors.append("nominal.actions_sha256 does not match nominal.actions")
+    provenance = value.get("provenance")
+    if not isinstance(provenance, Mapping):
         errors.append("provenance must be an object")
+    else:
+        required_provenance = {
+            "git_commit",
+            "git_dirty",
+            "baseline_commit",
+            "task_suite",
+            "safety_level",
+            "task_index",
+            "episode_index",
+            "environment_seed",
+            "policy_seed",
+            "random_control_seed",
+            "group_id",
+            "case_record",
+            "case_record_sha256",
+            "input_manifest_sha256",
+            "checkpoint_id",
+            "checkpoint_sha256",
+            "noise_sha256",
+            "sampler_steps",
+            "model_action_horizon",
+            "executed_action_horizon",
+            "action_frame",
+            "scene_motion_measurement",
+            "slurm_job_id",
+            "slurm_array_task_id",
+            "partition",
+            "device",
+            "policy_determinism",
+            "simulator_replay_exact",
+        }
+        absent = required_provenance - set(provenance)
+        if absent:
+            errors.append(f"provenance missing fields: {sorted(absent)}")
+        for key in (
+            "case_record_sha256",
+            "input_manifest_sha256",
+            "checkpoint_sha256",
+            "noise_sha256",
+        ):
+            if key in provenance and not _is_sha256(provenance[key]):
+                errors.append(f"provenance.{key} must be a lowercase SHA-256 digest")
+        case_record = provenance.get("case_record")
+        if not isinstance(case_record, Mapping):
+            errors.append("provenance.case_record must be an object")
+        else:
+            if provenance.get("case_record_sha256") != content_hash(dict(case_record)):
+                errors.append("provenance.case_record_sha256 does not match case_record")
+            if case_record.get("case_id") != value.get("case_id"):
+                errors.append("provenance.case_record does not match result case_id")
+        for key in ("slurm_job_id", "slurm_array_task_id", "partition", "device"):
+            if not isinstance(provenance.get(key), str) or not provenance.get(key):
+                errors.append(f"provenance.{key} must be a non-empty allocation value")
+        determinism = provenance.get("policy_determinism")
+        if not isinstance(determinism, Mapping) or determinism.get("passed") is not True:
+            errors.append("provenance.policy_determinism must pass")
+        if provenance.get("simulator_replay_exact") is not True:
+            errors.append("provenance.simulator_replay_exact must be true")
+        if provenance.get("scene_motion_measurement") != (
+            "maximum direct MuJoCo body displacement over 125 substeps"
+        ):
+            errors.append("provenance.scene_motion_measurement must cover all 125 substeps")
     return errors
 
 
-def valid_reach_calibration_completion(path: str | Path) -> bool:
+def valid_reach_calibration_completion(
+    path: str | Path,
+    *,
+    case_id: str | None = None,
+    run_id: str | None = None,
+    config_hash: str | None = None,
+    input_manifest_sha256: str | None = None,
+) -> bool:
     try:
         value = load_json(path)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return False
-    return isinstance(value, Mapping) and not validate_reach_calibration_result(value)
+    if not isinstance(value, Mapping) or validate_reach_calibration_result(value):
+        return False
+    if case_id is not None and value.get("case_id") != case_id:
+        return False
+    if run_id is not None and value.get("run_id") != run_id:
+        return False
+    if config_hash is not None and value.get("config_hash") != config_hash:
+        return False
+    if input_manifest_sha256 is not None and value.get("provenance", {}).get(
+        "input_manifest_sha256"
+    ) != input_manifest_sha256:
+        return False
+    return True
 
 
 def _target_contact_at_branch(environment: SafeLiberoCase, target_name: str) -> bool:
@@ -149,6 +289,8 @@ def _exact_rollout_replay(first: Mapping[str, Any], second: Mapping[str, Any]) -
         ("reach", "reach_progress_m"),
         ("reach", "target_displacement_m"),
         ("reach", "active_obstacle_displacement_m"),
+        ("reach", "maximum_target_displacement_m"),
+        ("reach", "maximum_active_obstacle_displacement_m"),
     )
 
     def get(value: Mapping[str, Any], path: tuple[str, ...]) -> Any:
@@ -186,6 +328,7 @@ def run_reach_calibration_case(
     config: ReachCalibrationConfig,
     *,
     repo_root: str | Path,
+    input_manifest_sha256: str,
     client=None,
     environment: SafeLiberoCase | None = None,
 ) -> tuple[Path, str]:
@@ -194,8 +337,26 @@ def run_reach_calibration_case(
 
     oracle = config.oracle
     root = Path(repo_root).resolve()
+    normalized_config = {
+        **scientific_config(oracle.__dict__),
+        "target_name": config.target_name,
+        "simulator_safety_margin_m": config.simulator_safety_margin_m,
+        "maximum_target_displacement_m": config.maximum_target_displacement_m,
+        "maximum_obstacle_displacement_m": config.maximum_obstacle_displacement_m,
+        "scene_motion_measurement": config.scene_motion_measurement,
+        "minimum_positive_examples": config.minimum_positive_examples,
+        "quantile": config.quantile,
+        "quantile_method": config.quantile_method,
+    }
+    config_hash = content_hash(normalized_config)
     output = Path(oracle.output_root) / oracle.run_id / str(case["case_id"]) / "reach-calibration.json"
-    if valid_reach_calibration_completion(output):
+    if valid_reach_calibration_completion(
+        output,
+        case_id=str(case["case_id"]),
+        run_id=oracle.run_id,
+        config_hash=config_hash,
+        input_manifest_sha256=input_manifest_sha256,
+    ):
         return output, "skipped_valid_completion"
 
     git_commit, git_dirty = _git_state(root)
@@ -252,10 +413,11 @@ def run_reach_calibration_case(
             and not bool(first_rollout["contact"])
         )
         target_stationary = bool(
-            float(reach["target_displacement_m"]) <= config.maximum_target_displacement_m
+            float(reach["maximum_target_displacement_m"])
+            <= config.maximum_target_displacement_m
         )
         obstacle_stationary = bool(
-            float(reach["active_obstacle_displacement_m"])
+            float(reach["maximum_active_obstacle_displacement_m"])
             <= config.maximum_obstacle_displacement_m
         )
         positive = bool(float(reach["reach_progress_m"]) > 0.0)
@@ -273,14 +435,6 @@ def run_reach_calibration_case(
         else:
             status = "eligible_positive"
 
-        normalized_config = {
-            **oracle.__dict__,
-            "output_root": "<declared-output-root>",
-            "target_name": config.target_name,
-            "simulator_safety_margin_m": config.simulator_safety_margin_m,
-            "maximum_target_displacement_m": config.maximum_target_displacement_m,
-            "maximum_obstacle_displacement_m": config.maximum_obstacle_displacement_m,
-        }
         provenance = {
             "evidence_tier": "real_safelibero_reach_progress_calibration",
             "git_commit": git_commit,
@@ -297,6 +451,9 @@ def run_reach_calibration_case(
             "policy_seed": case["policy_seed"],
             "random_control_seed": case["random_control_seed"],
             "group_id": case["group_id"],
+            "case_record": dict(case),
+            "case_record_sha256": content_hash(dict(case)),
+            "input_manifest_sha256": input_manifest_sha256,
             "checkpoint_id": oracle.checkpoint_id,
             "checkpoint_sha256": oracle.checkpoint_sha256,
             "noise_sha256": _array_hash(noise),
@@ -305,6 +462,9 @@ def run_reach_calibration_case(
             "executed_action_horizon": oracle.executed_prefix,
             "action_frame": "world-frame OSC translation delta",
             "policy_action_space": "unnormalized LIBERO controller action",
+            "scene_motion_measurement": (
+                "maximum direct MuJoCo body displacement over 125 substeps"
+            ),
             "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
             "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
             "partition": os.environ.get("SLURM_JOB_PARTITION"),
@@ -318,7 +478,7 @@ def run_reach_calibration_case(
             "case_id": case["case_id"],
             "run_id": oracle.run_id,
             "status": status,
-            "config_hash": content_hash(normalized_config),
+            "config_hash": config_hash,
             "provenance": provenance,
             "nominal": {
                 "actions": actions.tolist(),

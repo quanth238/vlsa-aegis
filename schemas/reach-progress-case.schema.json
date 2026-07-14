@@ -11,7 +11,28 @@
     "run_id": {"type": "string", "minLength": 1},
     "status": {"enum": ["eligible_positive", "nonpositive_progress", "unsafe", "target_moved", "obstacle_moved", "invalid_phase"]},
     "config_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "provenance": {"type": "object"},
+    "provenance": {
+      "type": "object",
+      "required": [
+        "git_commit",
+        "git_dirty",
+        "baseline_commit",
+        "case_record",
+        "case_record_sha256",
+        "input_manifest_sha256",
+        "checkpoint_id",
+        "checkpoint_sha256",
+        "noise_sha256",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "scene_motion_measurement",
+        "slurm_job_id",
+        "slurm_array_task_id",
+        "partition",
+        "device"
+      ]
+    },
     "nominal": {"type": "object", "required": ["actions", "actions_sha256", "full_model_actions_sha256"]},
     "trial": {
       "type": "object",
@@ -22,7 +43,14 @@
         "eligible_for_p_min": {"type": "boolean"},
         "reach": {
           "type": "object",
-          "required": ["executed_actions", "reach_progress_m", "target_displacement_m", "active_obstacle_displacement_m"]
+          "required": [
+            "executed_actions",
+            "reach_progress_m",
+            "target_displacement_m",
+            "active_obstacle_displacement_m",
+            "maximum_target_displacement_m",
+            "maximum_active_obstacle_displacement_m"
+          ]
         }
       }
     }

@@ -4,11 +4,43 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from crfs_harness.artifacts import atomic_write_json, valid_completion, validate_case_result
+from crfs_harness.artifacts import (
+    atomic_write_json,
+    content_hash,
+    scientific_config,
+    valid_completion,
+    validate_case_result,
+)
 from crfs_harness.manifest import build_cases, validate_case
 
 
 class ManifestArtifactTest(unittest.TestCase):
+    def test_scientific_config_ignores_only_runtime_transport_fields(self) -> None:
+        first = {
+            "host": "127.0.0.1",
+            "port": 8130,
+            "output_root": "/first",
+            "run_id": "run-a",
+            "safety_margin_m": 0.005,
+            "checkpoint_sha256": "a" * 64,
+        }
+        second = {
+            **first,
+            "host": "localhost",
+            "port": 8131,
+            "output_root": "/second",
+            "run_id": "run-b",
+        }
+        self.assertEqual(
+            content_hash(scientific_config(first)),
+            content_hash(scientific_config(second)),
+        )
+        second["safety_margin_m"] = 0.006
+        self.assertNotEqual(
+            content_hash(scientific_config(first)),
+            content_hash(scientific_config(second)),
+        )
+
     def test_case_schedule_is_deterministic_and_unique(self) -> None:
         first = build_cases("safelibero_spatial", "II", 0, [0, 1], 3, "test")
         second = build_cases("safelibero_spatial", "II", 0, [0, 1], 3, "test")

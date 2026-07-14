@@ -8,7 +8,7 @@ import json
 import traceback
 from pathlib import Path
 
-from crfs_harness.artifacts import atomic_write_json, validate_jsonl_unique
+from crfs_harness.artifacts import atomic_write_json, file_sha256, validate_jsonl_unique
 from crfs_harness.manifest import validate_case
 from crfs_oracle.progress_calibration import (
     reach_calibration_config_from_mapping,
@@ -40,6 +40,11 @@ def main() -> int:
     if errors:
         raise SystemExit("invalid manifest: " + "; ".join(errors))
     value = json.loads(Path(args.config).read_text(encoding="utf-8"))
+    declared_manifest = value.get("manifest")
+    if not isinstance(declared_manifest, str) or Path(declared_manifest).name != Path(
+        args.manifest
+    ).name:
+        raise SystemExit("R00 command manifest does not match the manifest frozen in its config")
     oracle = oracle_config_from_mapping(
         value,
         host=args.host,
@@ -50,6 +55,7 @@ def main() -> int:
         run_id=args.run_id,
     )
     config = reach_calibration_config_from_mapping(value, oracle)
+    input_manifest_sha256 = file_sha256(args.manifest)
 
     from openpi_client import websocket_client_policy
 
@@ -65,6 +71,7 @@ def main() -> int:
                     case,
                     config,
                     repo_root=root,
+                    input_manifest_sha256=input_manifest_sha256,
                     client=client,
                     environment=environment,
                 )

@@ -74,6 +74,10 @@ phase-valid chunks from episode groups disjoint from R01. Reject calibration
 chunks that move the target bowl or active obstacle beyond 1 mm. Retain and
 report unsafe, nonpositive, moved-object, and invalid-phase cases.
 
+Measure bowl and obstacle displacement from direct MuJoCo body positions after
+every physics substep. Endpoint-only displacement is insufficient because a
+body can move beyond tolerance and return before the fifth action ends.
+
 ### R01: endpoint-free physical feasibility
 
 Search all 5x3 translation commands under action bounds with no zero-sum or
@@ -91,6 +95,14 @@ Also search and report witnesses at `p = 0`. A case safe at `p = 0` but not at
 local safe detour. A finite search miss is `not_found_within_budget`, never an
 infeasibility certificate. The development gate passes at 12/20 verified
 safe-progress witnesses.
+
+Before entering the rescue numerator, the paired nominal replay must reproduce
+the registered collision (`D_sim < 0` or contact). Record a non-reproduced
+nominal as a population mismatch rather than a trivial rescue. A rescue must
+change at least one translational command while preserving all nominal
+orientation and gripper commands. Direct candidates nominated by both the
+`p_min` and `p = 0` searches are pooled and classified against both progress
+thresholds; the two searches use the same registered random stream.
 
 ### R02--R04: causal ordering
 

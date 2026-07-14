@@ -18,8 +18,18 @@ class EndpointFreeHpcContractTest(unittest.TestCase):
         self.assertEqual(config["action_horizon"], 10)
         self.assertEqual(config["progress"]["phase"], "pregrasp_reach")
         self.assertEqual(config["progress"]["target_object"], "akita_black_bowl_1")
+        self.assertEqual(
+            config["progress"]["scene_motion_measurement"],
+            "maximum_substep_displacement",
+        )
         self.assertIsNone(config["progress"]["minimum_progress_m"])
         self.assertFalse(config["planner"]["endpoint_preservation"])
+        self.assertEqual(config["planner"]["translation_action_bounds"], [-1.0, 1.0])
+        self.assertEqual(config["planner"]["method"], "deterministic_cem_multistart")
+        self.assertEqual(config["planner"]["simulator_verification_candidates"], 12)
+        self.assertEqual(config["planner"]["simulator_verification_repeats"], 2)
+        self.assertEqual(config["planner"]["search"]["population_size"], 512)
+        self.assertEqual(config["planner"]["search"]["generations"], 12)
         self.assertEqual(config["planner"]["optimizer_safety_margin_m"], 0.01)
         self.assertEqual(config["planner"]["simulator_safety_margin_m"], 0.005)
         serialized = json.dumps(config).lower()
@@ -46,7 +56,8 @@ class EndpointFreeHpcContractTest(unittest.TestCase):
     def test_submit_wrappers_default_to_one_and_cap_at_two(self) -> None:
         smoke = (ROOT / "scripts/hpc/submit_endpoint_free_smoke.sh").read_text(encoding="utf-8")
         array = (ROOT / "scripts/hpc/submit_endpoint_free_array.sh").read_text(encoding="utf-8")
-        self.assertIn("endpoint-free smoke manifest must contain exactly one case", smoke)
+        self.assertIn("smoke requires the frozen 20-case evaluation manifest", smoke)
+        self.assertIn("array requires the frozen 20-case evaluation manifest", array)
         self.assertIn("CONCURRENCY=${2:-1}", array)
         self.assertIn("1|2)", array)
         self.assertIn("--array='0-$LAST%$CONCURRENCY'", array)

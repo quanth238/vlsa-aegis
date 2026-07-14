@@ -16,6 +16,8 @@ from typing import Any, Iterable, Mapping, Sequence
 TARGET_OBJECT_NAME = "akita_black_bowl_1"
 EXECUTED_REACH_ACTIONS = 5
 EMPIRICAL_QUANTILE_METHOD = "inverted_cdf"
+BRANCH_REPLAY_ATOL_M = 1e-9
+TRACKED_REACH_SUBSTEPS = EXECUTED_REACH_ACTIONS * 25
 
 
 def _position3(value: Sequence[float], *, label: str) -> tuple[float, float, float]:
@@ -130,6 +132,8 @@ class ReachRolloutAnnotation:
     reach_progress_m: float
     target_displacement_m: float
     active_obstacle_displacement_m: float
+    maximum_target_displacement_m: float | None = None
+    maximum_active_obstacle_displacement_m: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -140,6 +144,8 @@ def annotate_reach_snapshots(
     end: ReachSnapshot,
     *,
     executed_actions: int,
+    maximum_target_displacement_m: float | None = None,
+    maximum_active_obstacle_displacement_m: float | None = None,
 ) -> ReachRolloutAnnotation:
     """Annotate a five-action rollout using the branch-start bowl as target."""
     if int(executed_actions) != EXECUTED_REACH_ACTIONS:
@@ -159,6 +165,30 @@ def annotate_reach_snapshots(
     branch_target = start.target_world_m
     start_distance = _distance(start.eef_world_m, branch_target)
     end_distance = _distance(end.eef_world_m, branch_target)
+    target_endpoint_displacement = _distance(start.target_world_m, end.target_world_m)
+    obstacle_endpoint_displacement = _distance(
+        start.active_obstacle_world_m, end.active_obstacle_world_m
+    )
+    target_maximum_displacement = (
+        target_endpoint_displacement
+        if maximum_target_displacement_m is None
+        else float(maximum_target_displacement_m)
+    )
+    obstacle_maximum_displacement = (
+        obstacle_endpoint_displacement
+        if maximum_active_obstacle_displacement_m is None
+        else float(maximum_active_obstacle_displacement_m)
+    )
+    for label, maximum, endpoint in (
+        ("target", target_maximum_displacement, target_endpoint_displacement),
+        ("active obstacle", obstacle_maximum_displacement, obstacle_endpoint_displacement),
+    ):
+        if not math.isfinite(maximum) or maximum < 0.0:
+            raise ValueError(f"Maximum {label} displacement must be finite and non-negative")
+        if maximum + BRANCH_REPLAY_ATOL_M < endpoint:
+            raise ValueError(
+                f"Maximum {label} displacement cannot be below endpoint displacement"
+            )
     return ReachRolloutAnnotation(
         target_object_name=start.target_object_name,
         active_obstacle_name=start.active_obstacle_name,
@@ -173,11 +203,107 @@ def annotate_reach_snapshots(
         start_distance_to_branch_target_m=start_distance,
         end_distance_to_branch_target_m=end_distance,
         reach_progress_m=start_distance - end_distance,
-        target_displacement_m=_distance(start.target_world_m, end.target_world_m),
-        active_obstacle_displacement_m=_distance(
-            start.active_obstacle_world_m, end.active_obstacle_world_m
+        target_displacement_m=target_endpoint_displacement,
+        active_obstacle_displacement_m=obstacle_endpoint_displacement,
+        maximum_target_displacement_m=target_maximum_displacement,
+        maximum_active_obstacle_displacement_m=obstacle_maximum_displacement,
+    )
+
+
+def _tracked_reach_snapshots(
+    rollout: Mapping[str, Any],
+    *,
+    target_name: str,
+    obstacle_name: str,
+) -> tuple[ReachSnapshot, ReachSnapshot, float, float]:
+    tracking = rollout.get("tracked_body_motion")
+    if not isinstance(tracking, Mapping):
+        raise RuntimeError("reach rollout did not return opt-in tracked-body measurements")
+    if int(tracking.get("substep_samples", -1)) != TRACKED_REACH_SUBSTEPS:
+        raise RuntimeError(
+            "reach rollout must track target and obstacle across exactly "
+            f"{TRACKED_REACH_SUBSTEPS} physics substeps"
+        )
+    bodies = tracking.get("bodies")
+    if not isinstance(bodies, Mapping):
+        raise RuntimeError("tracked-body measurements have no bodies object")
+    missing = [name for name in (target_name, obstacle_name) if name not in bodies]
+    if missing:
+        raise RuntimeError(f"tracked-body measurements are missing {missing}")
+    target = bodies[target_name]
+    obstacle = bodies[obstacle_name]
+    if not isinstance(target, Mapping) or not isinstance(obstacle, Mapping):
+        raise RuntimeError("tracked target and obstacle records must be objects")
+
+    branch = ReachSnapshot(
+        target_object_name=target_name,
+        active_obstacle_name=obstacle_name,
+        eef_world_m=_position3(
+            tracking.get("branch_eef_world_m", ()), label="tracked branch EEF position"
+        ),
+        target_world_m=_position3(
+            target.get("branch_world_m", ()), label="tracked branch target position"
+        ),
+        active_obstacle_world_m=_position3(
+            obstacle.get("branch_world_m", ()), label="tracked branch obstacle position"
         ),
     )
+    end = ReachSnapshot(
+        target_object_name=target_name,
+        active_obstacle_name=obstacle_name,
+        eef_world_m=_position3(
+            tracking.get("end_eef_world_m", ()), label="tracked end EEF position"
+        ),
+        target_world_m=_position3(
+            target.get("end_world_m", ()), label="tracked end target position"
+        ),
+        active_obstacle_world_m=_position3(
+            obstacle.get("end_world_m", ()), label="tracked end obstacle position"
+        ),
+    )
+    target_maximum = float(target.get("maximum_displacement_m", float("nan")))
+    obstacle_maximum = float(obstacle.get("maximum_displacement_m", float("nan")))
+    for label, record, branch_position, end_position in (
+        ("target", target, branch.target_world_m, end.target_world_m),
+        (
+            "active obstacle",
+            obstacle,
+            branch.active_obstacle_world_m,
+            end.active_obstacle_world_m,
+        ),
+    ):
+        reported_endpoint = float(record.get("endpoint_displacement_m", float("nan")))
+        direct_endpoint = _distance(branch_position, end_position)
+        if not math.isfinite(reported_endpoint) or not math.isclose(
+            reported_endpoint,
+            direct_endpoint,
+            rel_tol=0.0,
+            abs_tol=BRANCH_REPLAY_ATOL_M,
+        ):
+            raise RuntimeError(f"tracked {label} endpoint displacement is inconsistent")
+    return branch, end, target_maximum, obstacle_maximum
+
+
+def _assert_paired_branch(reference: ReachSnapshot, actual: ReachSnapshot) -> None:
+    comparisons = (
+        ("EEF", reference.eef_world_m, actual.eef_world_m),
+        ("target", reference.target_world_m, actual.target_world_m),
+        (
+            "active obstacle",
+            reference.active_obstacle_world_m,
+            actual.active_obstacle_world_m,
+        ),
+    )
+    mismatches = [
+        f"{label}={_distance(expected, observed):.12g} m"
+        for label, expected, observed in comparisons
+        if _distance(expected, observed) > BRANCH_REPLAY_ATOL_M
+    ]
+    if mismatches:
+        raise RuntimeError(
+            "paired reset branch does not match the supplied initial snapshot: "
+            + ", ".join(mismatches)
+        )
 
 
 def annotate_reach_rollout(
@@ -219,14 +345,24 @@ def annotate_reach_rollout(
     rollout_fn = getattr(environment, "rollout", None)
     if rollout_fn is None:
         raise TypeError("environment does not expose the additive rollout method")
-    rollout = rollout_fn(actions)
+    rollout = rollout_fn(
+        actions,
+        tracked_body_names=(target_name, obstacle_name),
+    )
     if not isinstance(rollout, Mapping):
         raise TypeError("environment.rollout must return a mapping")
-    final_snapshot = capture_reach_snapshot(environment, target_name, obstacle_name)
+    actual_branch, final_snapshot, target_maximum, obstacle_maximum = _tracked_reach_snapshots(
+        rollout,
+        target_name=target_name,
+        obstacle_name=obstacle_name,
+    )
+    _assert_paired_branch(initial_snapshot, actual_branch)
     annotation = annotate_reach_snapshots(
-        initial_snapshot,
+        actual_branch,
         final_snapshot,
         executed_actions=executed_actions,
+        maximum_target_displacement_m=target_maximum,
+        maximum_active_obstacle_displacement_m=obstacle_maximum,
     )
     return dict(rollout), annotation.to_dict()
 

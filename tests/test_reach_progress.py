@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import math
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -18,6 +19,7 @@ SPEC.loader.exec_module(REACH_PROGRESS)
 
 EXECUTED_REACH_ACTIONS = REACH_PROGRESS.EXECUTED_REACH_ACTIONS
 TARGET_OBJECT_NAME = REACH_PROGRESS.TARGET_OBJECT_NAME
+TRACKED_REACH_SUBSTEPS = REACH_PROGRESS.TRACKED_REACH_SUBSTEPS
 ReachSnapshot = REACH_PROGRESS.ReachSnapshot
 annotate_reach_snapshots = REACH_PROGRESS.annotate_reach_snapshots
 annotate_reach_rollout = REACH_PROGRESS.annotate_reach_rollout
@@ -42,6 +44,49 @@ def annotation(progress: float):
     start = snapshot(eef=(0.0, 0.0, 0.0))
     end = snapshot(eef=(progress, 0.0, 0.0))
     return annotate_reach_snapshots(start, end, executed_actions=EXECUTED_REACH_ACTIONS)
+
+
+def tracked_motion(
+    *,
+    branch_eef=(0.0, 0.0, 0.0),
+    end_eef=(0.4, 0.0, 0.0),
+    branch_target=(1.0, 0.0, 0.0),
+    end_target=(1.0, 0.0, 0.0),
+    branch_obstacle=(0.0, 2.0, 0.0),
+    end_obstacle=(0.0, 2.0, 0.0),
+    target_maximum=None,
+    obstacle_maximum=None,
+):
+    def distance(left, right):
+        return math.sqrt(sum((float(a) - float(b)) ** 2 for a, b in zip(left, right)))
+
+    target_endpoint = distance(branch_target, end_target)
+    obstacle_endpoint = distance(branch_obstacle, end_obstacle)
+    return {
+        "substep_samples": TRACKED_REACH_SUBSTEPS,
+        "branch_eef_world_m": branch_eef,
+        "end_eef_world_m": end_eef,
+        "bodies": {
+            TARGET_OBJECT_NAME: {
+                "body_id": 0,
+                "branch_world_m": branch_target,
+                "end_world_m": end_target,
+                "maximum_displacement_m": (
+                    target_endpoint if target_maximum is None else target_maximum
+                ),
+                "endpoint_displacement_m": target_endpoint,
+            },
+            OBSTACLE: {
+                "body_id": 1,
+                "branch_world_m": branch_obstacle,
+                "end_world_m": end_obstacle,
+                "maximum_displacement_m": (
+                    obstacle_endpoint if obstacle_maximum is None else obstacle_maximum
+                ),
+                "endpoint_displacement_m": obstacle_endpoint,
+            },
+        },
+    }
 
 
 class ReachProgressTest(unittest.TestCase):
@@ -83,6 +128,8 @@ class ReachProgressTest(unittest.TestCase):
         self.assertAlmostEqual(result.reach_progress_m, 0.4)
         self.assertAlmostEqual(result.target_displacement_m, 0.3)
         self.assertAlmostEqual(result.active_obstacle_displacement_m, 0.25)
+        self.assertAlmostEqual(result.maximum_target_displacement_m, 0.3)
+        self.assertAlmostEqual(result.maximum_active_obstacle_displacement_m, 0.25)
         self.assertEqual(result.branch_target_world_m, start.target_world_m)
 
     def test_annotation_requires_exactly_the_committed_five_actions(self) -> None:
@@ -109,15 +156,21 @@ class ReachProgressTest(unittest.TestCase):
             def __init__(self):
                 self.env = render_environment
                 self.reset_calls = 0
+                self.tracked_body_names = None
 
             def reset_and_settle(self):
                 self.reset_calls += 1
                 data.site_xpos[0] = (0.0, 0.0, 0.0)
 
-            def rollout(self, actions):
+            def rollout(self, actions, *, tracked_body_names=None):
+                self.tracked_body_names = tuple(tracked_body_names or ())
                 self.reset_and_settle()
                 data.site_xpos[0] = (0.4, 0.0, 0.0)
-                return {"clearance_m": 0.01, "action_count": len(actions)}
+                return {
+                    "clearance_m": 0.01,
+                    "action_count": len(actions),
+                    "tracked_body_motion": tracked_motion(),
+                }
 
         environment = FakeSafeLiberoCase()
         rollout, reach = annotate_reach_rollout(
@@ -127,10 +180,63 @@ class ReachProgressTest(unittest.TestCase):
             obstacle_name=OBSTACLE,
         )
 
-        self.assertEqual(rollout, {"clearance_m": 0.01, "action_count": 5})
+        self.assertEqual(rollout["clearance_m"], 0.01)
+        self.assertEqual(rollout["action_count"], 5)
         self.assertAlmostEqual(reach["reach_progress_m"], 0.4)
         self.assertEqual(reach["executed_actions"], 5)
         self.assertEqual(environment.reset_calls, 2)
+        self.assertEqual(
+            environment.tracked_body_names,
+            (TARGET_OBJECT_NAME, OBSTACLE),
+        )
+
+    def test_transient_body_motion_is_not_hidden_by_endpoint_return(self) -> None:
+        class TransientCase:
+            def rollout(self, actions, *, tracked_body_names=None):
+                self.requested = tuple(tracked_body_names or ())
+                return {
+                    "clearance_m": 0.01,
+                    "tracked_body_motion": tracked_motion(
+                        target_maximum=0.02,
+                        obstacle_maximum=0.03,
+                    ),
+                }
+
+        environment = TransientCase()
+        initial = snapshot(eef=(0.0, 0.0, 0.0))
+
+        _, reach = annotate_reach_rollout(
+            environment,
+            [[0.0] * 7 for _ in range(5)],
+            target_name=TARGET_OBJECT_NAME,
+            obstacle_name=OBSTACLE,
+            initial_snapshot=initial,
+        )
+
+        self.assertEqual(reach["target_displacement_m"], 0.0)
+        self.assertEqual(reach["active_obstacle_displacement_m"], 0.0)
+        self.assertEqual(reach["maximum_target_displacement_m"], 0.02)
+        self.assertEqual(reach["maximum_active_obstacle_displacement_m"], 0.03)
+
+    def test_annotation_rejects_a_mismatched_actual_reset_branch(self) -> None:
+        class MismatchedCase:
+            def rollout(self, actions, *, tracked_body_names=None):
+                return {
+                    "clearance_m": 0.01,
+                    "tracked_body_motion": tracked_motion(
+                        branch_target=(1.0001, 0.0, 0.0),
+                        end_target=(1.0001, 0.0, 0.0),
+                    ),
+                }
+
+        with self.assertRaisesRegex(RuntimeError, "paired reset branch.*target"):
+            annotate_reach_rollout(
+                MismatchedCase(),
+                [[0.0] * 7 for _ in range(5)],
+                target_name=TARGET_OBJECT_NAME,
+                obstacle_name=OBSTACLE,
+                initial_snapshot=snapshot(eef=(0.0, 0.0, 0.0)),
+            )
 
     def test_calibration_uses_positive_inverted_cdf_q25_and_counts_failures(self) -> None:
         examples = [annotation(value) for value in (-0.1, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05)]

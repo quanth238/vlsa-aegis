@@ -28,6 +28,7 @@
     "simulator_safety_margin_m": 0.005,
     "maximum_target_displacement_m": 0.001,
     "maximum_obstacle_displacement_m": 0.001,
+    "scene_motion_measurement": "maximum_substep_displacement",
     "minimum_positive_examples": 50,
     "quantile": 0.25,
     "quantile_method": "inverted_cdf"

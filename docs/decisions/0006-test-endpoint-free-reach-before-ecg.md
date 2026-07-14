@@ -34,7 +34,19 @@ R01 then searches all five translational commands without a zero-sum or endpoint
 - no forbidden EEF--obstacle contact;
 - no target-bowl or active-obstacle displacement beyond the registered tolerance.
 
+Object-motion tolerances apply to the maximum displacement observed over all
+125 physics substeps, not only the fifth-action endpoint. Every candidate reset
+must reproduce the exact branch EEF, target, and obstacle state within the
+registered numerical tolerance.
+
 Report safe witnesses at both `p = 0` and `p = p_min`. A finite optimizer miss is `not_found_within_budget`, never an infeasibility certificate. Keep model-feasible, simulator-verified, proxy-false-safe, proxy-false-negative, safe-without-progress, and invalid-phase outcomes separate.
+
+Only cases whose paired nominal replay reproduces the registered collision can
+enter the 12/20 rescue numerator, and the counted witness must differ from the
+nominal translation commands. A non-reproduced collision is a population or
+proxy diagnosis, not an endpoint-free rescue. Pool all directly replayed
+candidates from the paired-seed `p = p_min` and `p = 0` searches before deciding
+whether either threshold has a witness.
 
 If at least 12 of the 20 frozen cases have verified safe-progress witnesses, advance to an endpoint-free oracle flow-steerability test. Compare the exact planner direction and an analytic geometry direction with equal-norm random guidance under identical state, observation, policy noise, and execution horizon. Do not train a probe before the oracle intervention and grouped oracle analysis gates pass.
 

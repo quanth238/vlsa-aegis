@@ -31,6 +31,8 @@ def main() -> int:
     parser.add_argument("--output", required=True)
     parser.add_argument("--minimum-positive-examples", type=int, default=50)
     args = parser.parse_args()
+    if args.minimum_positive_examples != 50:
+        raise SystemExit("R00 requires the preregistered minimum of 50 positive examples")
 
     cases, manifest_errors = validate_jsonl_unique(args.manifest, "case_id")
     evaluation, evaluation_errors = validate_jsonl_unique(args.evaluation_manifest, "case_id")
@@ -45,11 +47,17 @@ def main() -> int:
 
     calibration_groups = {str(case["group_id"]) for case in cases}
     evaluation_groups = {str(case["group_id"]) for case in evaluation}
+    if len(calibration_groups) != 30 or len(evaluation_groups) != 20:
+        raise SystemExit(
+            "R00 requires exactly 30 calibration groups and 20 frozen evaluation groups"
+        )
     overlapping_groups = sorted(calibration_groups & evaluation_groups)
     if overlapping_groups:
         raise SystemExit(f"calibration/evaluation group leakage: {overlapping_groups}")
 
     root = Path(args.results_root)
+    manifest_sha256 = file_sha256(args.manifest)
+    expected_run_id = root.name
     records = []
     missing = []
     invalid = []
@@ -63,8 +71,16 @@ def main() -> int:
         errors = validate_reach_calibration_result(value)
         if value.get("case_id") != case["case_id"]:
             errors.append("artifact case_id does not match manifest")
+        if value.get("run_id") != expected_run_id:
+            errors.append("artifact run_id does not match results root")
         if value.get("provenance", {}).get("group_id") != case["group_id"]:
             errors.append("artifact group_id does not match manifest")
+        if value.get("provenance", {}).get("case_record") != case:
+            errors.append("artifact case_record does not match immutable manifest row")
+        if value.get("provenance", {}).get("input_manifest_sha256") != manifest_sha256:
+            errors.append("artifact input manifest hash does not match")
+        if value.get("provenance", {}).get("git_dirty") is not False:
+            errors.append("artifact code state must be clean")
         if errors:
             invalid.append({"case_id": case["case_id"], "errors": errors})
             continue
@@ -81,10 +97,19 @@ def main() -> int:
         {str(value["provenance"]["checkpoint_sha256"]) for value in records}
     )
     git_commits = sorted({str(value["provenance"]["git_commit"]) for value in records})
-    if len(config_hashes) != 1 or len(checkpoint_hashes) != 1 or len(git_commits) != 1:
+    baseline_commits = sorted(
+        {str(value["provenance"]["baseline_commit"]) for value in records}
+    )
+    if (
+        len(config_hashes) != 1
+        or len(checkpoint_hashes) != 1
+        or len(git_commits) != 1
+        or len(baseline_commits) != 1
+    ):
         raise SystemExit(
             "R00 artifacts mix config/checkpoint/code identities: "
-            f"config={config_hashes}, checkpoint={checkpoint_hashes}, code={git_commits}"
+            f"config={config_hashes}, checkpoint={checkpoint_hashes}, "
+            f"code={git_commits}, baseline={baseline_commits}"
         )
 
     eligible = [value for value in records if value["trial"]["eligible_for_p_min"]]
@@ -115,7 +140,7 @@ def main() -> int:
         ),
         "failure": failure,
         "manifest": str(args.manifest),
-        "manifest_sha256": file_sha256(args.manifest),
+        "manifest_sha256": manifest_sha256,
         "evaluation_manifest": str(args.evaluation_manifest),
         "evaluation_manifest_sha256": file_sha256(args.evaluation_manifest),
         "calibration_and_evaluation_groups_disjoint": True,
@@ -131,6 +156,8 @@ def main() -> int:
         "config_hash": config_hashes[0],
         "checkpoint_sha256": checkpoint_hashes[0],
         "git_commit": git_commits[0],
+        "baseline_commit": baseline_commits[0],
+        "scene_motion_measurement": "maximum direct MuJoCo body displacement over 125 substeps",
         "ordered_result_set_digest": content_hash(result_hashes),
         "result_hashes": result_hashes,
         "case_records": [
@@ -143,6 +170,12 @@ def main() -> int:
                 "target_displacement_m": value["trial"]["reach"]["target_displacement_m"],
                 "active_obstacle_displacement_m": value["trial"]["reach"][
                     "active_obstacle_displacement_m"
+                ],
+                "maximum_target_displacement_m": value["trial"]["reach"][
+                    "maximum_target_displacement_m"
+                ],
+                "maximum_active_obstacle_displacement_m": value["trial"]["reach"][
+                    "maximum_active_obstacle_displacement_m"
                 ],
                 "eligible_for_p_min": value["trial"]["eligible_for_p_min"],
             }

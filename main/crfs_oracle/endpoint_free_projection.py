@@ -49,6 +49,8 @@ class EndpointFreeSearchResult:
     outcome: str
     candidates: list[EndpointFreeCandidate]
     best_attempt: EndpointFreeCandidate
+    maximum_clearance_attempt: EndpointFreeCandidate
+    maximum_progress_attempt: EndpointFreeCandidate
     controls: list[EndpointFreeCandidate]
     evaluations: int
     evaluation_budget: int
@@ -441,6 +443,14 @@ def solve_endpoint_free_projection(
 
     all_evaluated = list(cache.values())
     best_attempt = min(all_evaluated, key=rank)
+    maximum_clearance_attempt = max(
+        all_evaluated,
+        key=lambda item: (item.d_opt_m, item.progress_opt, -item.objective, item.source),
+    )
+    maximum_progress_attempt = max(
+        all_evaluated,
+        key=lambda item: (item.progress_opt, item.d_opt_m, -item.objective, item.source),
+    )
     feasible = sorted((item for item in all_evaluated if passes(item)), key=rank)
     shortlisted = [public(item) for item in feasible[:max_candidates]]
     outcome = "candidate_found" if shortlisted else "not_found_within_budget"
@@ -458,6 +468,8 @@ def solve_endpoint_free_projection(
         outcome=outcome,
         candidates=shortlisted,
         best_attempt=public(best_attempt),
+        maximum_clearance_attempt=public(maximum_clearance_attempt),
+        maximum_progress_attempt=public(maximum_progress_attempt),
         controls=[public(item) for item in control_evaluations],
         evaluations=len(cache),
         evaluation_budget=len(templates) + restarts * generations * population_size,

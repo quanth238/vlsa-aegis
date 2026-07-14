@@ -27,6 +27,8 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The H=5 population run completed all 20 H03-colliding states: 20/20 certified infeasible, `F_proj=0.00`, with endpoint-clearance upper bounds from -48.221 mm to -7.723 mm.
 - The one registered H=10 refinement also completed all 20 states: 20/20 certified infeasible, `F_proj=0.00`, with endpoint-clearance upper bounds from -75.234 mm to -44.895 mm.
 - The preregistered H05 stop rule fired. H06--H09 were not run, and no learned probe was trained.
+- R00 apparatus run `r00-calibration-20260714a` completed all 120 cases on Slurm array `27276` with no case failures. Its allocation-backed summary job `27285` correctly refused promotion because the scientific config hash included per-array WebSocket ports. This run also measured scene motion only at the endpoint, so it remains apparatus evidence rather than calibration evidence.
+- R00 now excludes host, port, output root, and run ID from the scientific config identity; it records immutable manifest/case hashes, verifies exact reset branches, and measures target/obstacle maximum displacement over all 125 physics substeps. A fresh allocation-backed R00 run is required.
 
 ## Active gate
 
@@ -34,7 +36,7 @@ R00 — freeze a five-action pre-grasp reach-progress threshold on baseline-safe
 
 ## Next
 
-1. Add opt-in reach-progress measurement and freeze `p_min` without using the 20 evaluation groups.
+1. Push and sync the strict R00 apparatus, then run `RUN_ID=r00-calibration-20260714b scripts/hpc/submit_reach_progress_calibration.sh manifests/reach_progress_calibration.jsonl 60` and summarize it in Slurm.
 2. Run endpoint-free five-action planning on the same 20 H05 cases and count only direct simulator-verified safe-progress witnesses.
 3. If at least 12/20 witnesses exist, test endpoint-free oracle flow steerability against equal-norm random guidance before training any probe.
 4. Collect new post-grasp states if a separate transport-phase claim is pursued.

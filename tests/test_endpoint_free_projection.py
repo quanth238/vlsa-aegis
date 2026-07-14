@@ -109,6 +109,14 @@ class EndpointFreeProjectionTest(unittest.TestCase):
         self.assertIn("front_detour_z_negative", sources)
         self.assertEqual(result.evaluation_budget, len(result.controls) + 32)
         self.assertLessEqual(result.evaluations, result.evaluation_budget)
+        self.assertGreaterEqual(
+            result.maximum_clearance_attempt.d_opt_m,
+            max(item.d_opt_m for item in result.controls),
+        )
+        self.assertGreaterEqual(
+            result.maximum_progress_attempt.progress_opt,
+            max(item.progress_opt for item in result.controls),
+        )
 
 
 if __name__ == "__main__":

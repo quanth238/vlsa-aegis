@@ -22,6 +22,18 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("if update_observables:", source)
         self.assertIn("if collect_observations:", source)
 
+    def test_reach_body_tracking_is_opt_in_to_the_existing_rollout(self) -> None:
+        source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
+        self.assertIn("tracked_body_names: Sequence[str] | None = None", source)
+        self.assertIn("tracked_substep_samples += 1", source)
+        self.assertIn("tracked_maximum_displacements[name] = max(", source)
+        self.assertIn("expected_substeps = int(prefix.shape[0]) * 25", source)
+        result_start = source.index("        result = {", source.index("def rollout("))
+        opt_in_start = source.index("        if tracked_names is not None:", result_start)
+        default_result = source[result_start:opt_in_start]
+        self.assertNotIn("tracked_body_motion", default_result)
+        self.assertIn('result["tracked_body_motion"]', source[opt_in_start:])
+
     def test_real_runner_discloses_preliminary_limitations(self) -> None:
         source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
         self.assertIn('"evidence_tier": "real_safelibero_preliminary"', source)

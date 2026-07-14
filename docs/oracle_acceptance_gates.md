@@ -22,7 +22,7 @@ endpoint-free pivot, R03 is the replacement oracle-analysis prerequisite.
 | Gate | Evidence | Pass condition |
 |---|---|---|
 | R00 reach calibration | complete nominal first-five artifacts on disjoint calibration groups | at least 50 safe, phase-valid, positive-progress chunks; frozen `inverted_cdf` Q25 artifact |
-| R01 endpoint-free feasibility | frozen 20 H05 cases; bounded proxy search plus repeated direct simulator verification | at least 12/20 have `D_sim >= 5 mm`, no contact/pushing, and reach progress at least `p_min` |
+| R01 endpoint-free feasibility | frozen 20 H05 cases; bounded proxy search plus repeated direct simulator verification | at least 12/20 reproduce the nominal collision and have a changed-action witness with `D_sim >= 5 mm`, no contact or >1 mm substep scene motion, and reach progress at least `p_min` |
 | R02 oracle intervention | same state/observation/noise/horizon direct, random, analytic, and endpoint-free oracle arms | schema-valid paired artifacts; direct witnesses remain separate from flow outcomes |
 | R03 oracle analysis | complete episode groups and clustered intervals | oracle direction beats equal-norm random under preregistered safety-progress criteria |
 | R04 learned ECG | continuation-matched labels, false-safe audit, gradient causality, closed-loop test | authorized only after R03 passes |

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MANIFEST_LOCAL=${1:?usage: submit_reach_progress_smoke.sh ONE_CASE_MANIFEST_JSONL}
+MANIFEST_LOCAL=${1:?usage: submit_reach_progress_smoke.sh CALIBRATION_MANIFEST_JSONL}
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$ROOT"
 HOST=${VINUNI_HOST:-vinuni}
@@ -12,6 +12,6 @@ EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-$REMOTE_REPO/configs/experiments/reach_pr
 
 scripts/hpc/preflight.sh
 COUNT=$(awk 'NF {count++} END {print count+0}' "$MANIFEST_LOCAL")
-test "$COUNT" -eq 1 || { echo "R00 smoke manifest must contain exactly one case" >&2; exit 2; }
+test "$COUNT" -eq 120 || { echo "R00 smoke must index case 0 from the frozen 120-case calibration manifest" >&2; exit 2; }
 ssh "$HOST" "test -f '$REMOTE_REPO/slurm/reach_progress_calibration_mig.sbatch' && test -f '$MANIFEST' && test -f '$EXPERIMENT_CONFIG'"
 ssh "$HOST" "mkdir -p /mnt/data/quanth/slurm_logs/crfs-oracle && cd '$REMOTE_REPO' && RUN_ID='$RUN_ID' MANIFEST='$MANIFEST' EXPERIMENT_CONFIG='$EXPERIMENT_CONFIG' REMOTE_REPO='$REMOTE_REPO' sbatch --output='/mnt/data/quanth/slurm_logs/crfs-oracle/%x-%j.out' slurm/reach_progress_calibration_mig.sbatch"

@@ -76,7 +76,7 @@ Real execution uses the existing two-environment baseline boundary: Python 3.11/
 
 ```bash
 scripts/hpc/preflight.sh
-scripts/hpc/submit_reach_progress_smoke.sh manifests/reach_progress_smoke.jsonl
+scripts/hpc/submit_reach_progress_smoke.sh manifests/reach_progress_calibration.jsonl
 ```
 
 Do not submit a validation array until:
@@ -96,4 +96,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `references.bib`: bibliography;
 - `CRFS_Proposal_Preview.pdf`: compiled preview.
 
-The proposal’s reported safety measure is minimum simulator geom clearance over every physics substep, cross-checked against contact pairs. The released obstacle-displacement flag remains useful only as a later benchmark-comparability metric.
+The proposal’s reported safety measure is minimum controlled simulator clearance
+over every physics substep, cross-checked against contact pairs. R00/R01 also
+measure maximum target and active-obstacle displacement over those substeps;
+endpoint-only motion does not satisfy the no-pushing gate.

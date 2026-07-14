@@ -4,7 +4,6 @@
   "evidence_tier": "real_safelibero_preliminary",
   "ready_to_run": false,
   "blocked_on": [
-    "CRFS_RUNNER_MODE=endpoint_free integration",
     "frozen reach-progress calibration artifact"
   ],
   "manifest": "manifests/oracle_h05_colliding.jsonl",
@@ -17,6 +16,7 @@
   "action_horizon": 10,
   "action_dim": 32,
   "sampler_steps": 10,
+  "intervention_step": 5,
   "safety_margin_m": 0.005,
   "distance_limit_m": 1.0,
   "eef_radius_m": 0.06,
@@ -35,18 +35,34 @@
     "minimum_progress_m": null,
     "calibration_artifact": null,
     "calibration_sha256": null,
-    "reject_target_motion_above_m": 0.001
+    "reject_target_motion_above_m": 0.001,
+    "reject_obstacle_motion_above_m": 0.001,
+    "scene_motion_measurement": "maximum_substep_displacement"
   },
   "planner": {
-    "method": "slsqp_deterministic_multistart",
+    "method": "deterministic_cem_multistart",
     "objective": "minimum_squared_translation_change",
     "endpoint_preservation": false,
+    "translation_action_bounds": [-1.0, 1.0],
     "optimizer_safety_margin_m": 0.01,
     "simulator_safety_margin_m": 0.005,
     "optimizer_max_iterations": 120,
-    "simulator_verification_candidates": 3,
+    "simulator_verification_candidates": 12,
+    "simulator_verification_repeats": 2,
     "planner_seed": 20260714,
-    "no_candidate_status": "no_verified_plan"
+    "no_candidate_status": "no_verified_safe_progress",
+    "search": {
+      "population_size": 512,
+      "generations": 12,
+      "restarts": 4,
+      "elite_fraction": 0.1,
+      "initial_std_fraction": 0.25,
+      "std_floor_fraction": 0.02,
+      "template_amplitude": 0.15,
+      "max_candidates": 12,
+      "samples_per_segment": 26,
+      "h04_calibration_limit": 0.15
+    }
   },
   "action_frame": "world-frame OSC translation delta",
   "correction_space": "physical",

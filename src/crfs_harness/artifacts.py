@@ -22,6 +22,7 @@ CASE_RESULT_REQUIRED = {
 }
 TRIAL_NAMES = {"nominal", "direct_repair", "random_residual", "oracle_residual", "bridge_edit"}
 FINAL_STATUSES = {"completed", "infeasible", "failed"}
+RUNTIME_TRANSPORT_FIELDS = {"host", "port", "output_root", "run_id"}
 
 
 def canonical_json(value: Any) -> str:
@@ -30,6 +31,15 @@ def canonical_json(value: Any) -> str:
 
 def content_hash(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def scientific_config(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove allocation/transport routing from a scientific config identity."""
+    return {
+        key: item
+        for key, item in value.items()
+        if key not in RUNTIME_TRANSPORT_FIELDS
+    }
 
 
 def file_sha256(path: str | Path) -> str:

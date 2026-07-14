@@ -19,6 +19,10 @@ class ProgressCalibrationContractTest(unittest.TestCase):
         self.assertEqual(value["progress_calibration"]["minimum_positive_examples"], 50)
         self.assertEqual(value["progress_calibration"]["simulator_safety_margin_m"], 0.005)
         self.assertEqual(value["progress_calibration"]["quantile_method"], "inverted_cdf")
+        self.assertEqual(
+            value["progress_calibration"]["scene_motion_measurement"],
+            "maximum_substep_displacement",
+        )
 
     def test_runner_is_nominal_only_and_writes_atomically(self) -> None:
         source = (ROOT / "main/crfs_oracle/progress_calibration.py").read_text(encoding="utf-8")
@@ -26,6 +30,11 @@ class ProgressCalibrationContractTest(unittest.TestCase):
         self.assertIn("atomic_write_json(output, result)", source)
         self.assertIn("simulator_safety_margin_m", source)
         self.assertIn("eligible_for_p_min", source)
+        self.assertIn('reach["maximum_target_displacement_m"]', source)
+        self.assertIn('reach["maximum_active_obstacle_displacement_m"]', source)
+        self.assertIn("scientific_config(oracle.__dict__)", source)
+        self.assertIn('"input_manifest_sha256": input_manifest_sha256', source)
+        self.assertIn('"case_record_sha256": content_hash(dict(case))', source)
         self.assertNotIn("solve_kinematic_projection", source)
         self.assertNotIn("torch", source.lower())
         self.assertNotIn("train", source.lower())
@@ -36,6 +45,8 @@ class ProgressCalibrationContractTest(unittest.TestCase):
         self.assertIn("results are not validation-ready", source)
         self.assertIn("minimum_positive_examples", source)
         self.assertIn("ordered_result_set_digest", source)
+        self.assertIn("maximum direct MuJoCo body displacement over 125 substeps", source)
+        self.assertIn("artifact code state must be clean", source)
 
 
 if __name__ == "__main__":

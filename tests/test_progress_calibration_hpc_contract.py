@@ -35,6 +35,13 @@ class ProgressCalibrationHpcContractTest(unittest.TestCase):
         self.assertIn('test "$TASKS" -le 2', source)
         self.assertIn("--array='0-$LAST%2'", source)
 
+    def test_smoke_indexes_the_frozen_full_manifest(self) -> None:
+        source = (ROOT / "scripts/hpc/submit_reach_progress_smoke.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("frozen 120-case calibration manifest", source)
+        self.assertIn("scripts/hpc/preflight.sh", source)
+
 
 if __name__ == "__main__":
     unittest.main()

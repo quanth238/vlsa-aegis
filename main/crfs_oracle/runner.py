@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -218,18 +218,59 @@ class SafeLiberoCase:
         self.obstacle_geoms = obstacle_geoms
         return observation
 
-    def rollout(self, actions: np.ndarray) -> dict[str, Any]:
+    def rollout(
+        self,
+        actions: np.ndarray,
+        *,
+        tracked_body_names: Sequence[str] | None = None,
+    ) -> dict[str, Any]:
+        """Replay one action prefix, optionally tracking selected MuJoCo bodies.
+
+        The default call preserves the original return surface.  Body tracking
+        is opt-in so baseline H03--H05 callers do not pay for, or observe, the
+        additional reach-diagnostic measurements.
+        """
         prefix = np.asarray(actions, dtype=np.float64)
         if prefix.shape != (self.config.executed_prefix, 7):
             raise ValueError(f"Expected action prefix shape ({self.config.executed_prefix}, 7), got {prefix.shape}")
+        tracked_names = None
+        if tracked_body_names is not None:
+            tracked_names = tuple(str(name) for name in tracked_body_names)
+            if not tracked_names or any(not name for name in tracked_names):
+                raise ValueError("tracked_body_names must contain non-empty names")
+            if len(set(tracked_names)) != len(tracked_names):
+                raise ValueError("tracked_body_names must be unique")
         observation = self.reset_and_settle()
         start_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64).copy()
         eef_site_id = int(self.env.robots[0].eef_site_id)
+        branch_eef = np.asarray(
+            self.env.sim.data.site_xpos[eef_site_id], dtype=np.float64
+        ).copy()
         site_rotation = np.asarray(self.env.sim.data.site_xmat[eef_site_id], dtype=np.float64).reshape(3, 3)
         start_eef_center = (
-            np.asarray(self.env.sim.data.site_xpos[eef_site_id], dtype=np.float64)
+            branch_eef
             + site_rotation @ np.asarray((0.0, 0.0, -0.08), dtype=np.float64)
         )
+
+        tracked_body_ids: dict[str, int] = {}
+        tracked_branch_positions: dict[str, np.ndarray] = {}
+        tracked_maximum_displacements: dict[str, float] = {}
+        tracked_substep_samples = 0
+        if tracked_names is not None:
+            body_ids = getattr(self.env.env, "obj_body_id", None)
+            if body_ids is None:
+                raise RuntimeError("SafeLIBERO domain exposes no obj_body_id mapping")
+            missing = [name for name in tracked_names if name not in body_ids]
+            if missing:
+                raise ValueError(f"Unknown tracked SafeLIBERO bodies: {missing}")
+            tracked_body_ids = {name: int(body_ids[name]) for name in tracked_names}
+            tracked_branch_positions = {
+                name: np.asarray(
+                    self.env.sim.data.body_xpos[body_id], dtype=np.float64
+                ).copy()
+                for name, body_id in tracked_body_ids.items()
+            }
+            tracked_maximum_displacements = {name: 0.0 for name in tracked_names}
         import mujoco
 
         box_type = int(mujoco.mjtGeom.mjGEOM_BOX)
@@ -264,7 +305,18 @@ class SafeLiberoCase:
         done = False
         for action_index, action in enumerate(prefix):
             def observe_global_substep(sim, substep_index, *, _action_index=action_index):
+                nonlocal tracked_substep_samples
                 monitor.observe(sim, _action_index * 25 + int(substep_index))
+                if tracked_names is not None:
+                    for name, body_id in tracked_body_ids.items():
+                        position = np.asarray(sim.data.body_xpos[body_id], dtype=np.float64)
+                        displacement = float(
+                            np.linalg.norm(position - tracked_branch_positions[name])
+                        )
+                        tracked_maximum_displacements[name] = max(
+                            tracked_maximum_displacements[name], displacement
+                        )
+                    tracked_substep_samples += 1
 
             _, _, done, _ = self.env.step_with_substep_callback(
                 action.tolist(),
@@ -278,7 +330,7 @@ class SafeLiberoCase:
         end_eef = np.asarray(
             self.env.sim.data.site_xpos[int(self.env.robots[0].eef_site_id)], dtype=np.float64
         ).copy()
-        return {
+        result = {
             # Eq. (3) in main.tex: signed obstacle distance at the conservative
             # EEF-sphere center, minus the preregistered EEF radius.
             "clearance_m": measurement.conservative_clearance_m,
@@ -294,6 +346,38 @@ class SafeLiberoCase:
             "branch_obstacle_boxes": branch_obstacle_boxes,
             "task_success": bool(done or self.env.check_success()),
         }
+        if tracked_names is not None:
+            expected_substeps = int(prefix.shape[0]) * 25
+            if tracked_substep_samples != expected_substeps:
+                raise RuntimeError(
+                    "tracked-body callback did not observe every physics substep: "
+                    f"expected {expected_substeps}, got {tracked_substep_samples}"
+                )
+            bodies = {}
+            for name, body_id in tracked_body_ids.items():
+                end_position = np.asarray(
+                    self.env.sim.data.body_xpos[body_id], dtype=np.float64
+                ).copy()
+                endpoint_displacement = float(
+                    np.linalg.norm(end_position - tracked_branch_positions[name])
+                )
+                maximum_displacement = max(
+                    tracked_maximum_displacements[name], endpoint_displacement
+                )
+                bodies[name] = {
+                    "body_id": body_id,
+                    "branch_world_m": tracked_branch_positions[name].tolist(),
+                    "end_world_m": end_position.tolist(),
+                    "maximum_displacement_m": maximum_displacement,
+                    "endpoint_displacement_m": endpoint_displacement,
+                }
+            result["tracked_body_motion"] = {
+                "substep_samples": tracked_substep_samples,
+                "branch_eef_world_m": branch_eef.tolist(),
+                "end_eef_world_m": end_eef.tolist(),
+                "bodies": bodies,
+            }
+        return result
 
     def close(self) -> None:
         self.env.close()

@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/endpoint-free-case.schema.json",
+  "title": "R01 endpoint-free reach feasibility case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "config_hash",
+    "provenance",
+    "calibration",
+    "nominal",
+    "searches",
+    "verification",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "gate": {"const": "R01"},
+    "case_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": [
+        "verified_safe_progress",
+        "no_verified_safe_progress",
+        "nominal_collision_not_reproduced"
+      ]
+    },
+    "config_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provenance": {
+      "type": "object",
+      "required": [
+        "git_commit",
+        "git_dirty",
+        "baseline_commit",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "episode_index",
+        "group_id",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "planner_seed_p_min",
+        "planner_seed_p_zero",
+        "case_record",
+        "case_record_sha256",
+        "checkpoint_id",
+        "checkpoint_sha256",
+        "noise_sha256",
+        "input_manifest_sha256",
+        "r00_summary_sha256",
+        "model_action_horizon",
+        "executed_action_horizon",
+        "action_frame",
+        "normalization_space",
+        "d_opt_model",
+        "d_sim_model",
+        "scene_motion_measurement",
+        "optimizer_safety_margin_m",
+        "simulator_safety_margin_m",
+        "search_registration",
+        "slurm_job_id",
+        "slurm_array_task_id",
+        "partition",
+        "host",
+        "device"
+      ],
+      "properties": {
+        "git_dirty": {"type": "boolean"},
+        "task_index": {"const": 0},
+        "environment_seed": {"type": "integer"},
+        "policy_seed": {"type": "integer"},
+        "random_control_seed": {"type": "integer"},
+        "planner_seed_p_min": {"type": "integer"},
+        "planner_seed_p_zero": {"type": "integer"},
+        "case_record": {"type": "object"},
+        "case_record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "checkpoint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "noise_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "input_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "r00_summary_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "model_action_horizon": {"const": 10},
+        "executed_action_horizon": {"const": 5},
+        "search_registration": {"type": "object"},
+        "slurm_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_task_id": {"type": "string", "minLength": 1},
+        "partition": {"type": "string", "minLength": 1},
+        "host": {"type": "string", "minLength": 1},
+        "device": {"type": "string", "minLength": 1}
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "required": ["gate", "summary_sha256", "p_min_m"],
+      "properties": {
+        "gate": {"const": "R00"},
+        "summary_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "p_min_m": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "nominal": {
+      "type": "object",
+      "required": [
+        "actions",
+        "actions_sha256",
+        "full_model_actions_sha256",
+        "branch_snapshot",
+        "collision_reproduced",
+        "fails_registered_margin",
+        "repeats"
+      ]
+    },
+    "searches": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p_min", "p_zero"],
+      "properties": {
+        "p_min": {"$ref": "#/$defs/search"},
+        "p_zero": {"$ref": "#/$defs/search"}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p_min", "p_zero"],
+      "properties": {
+        "p_min": {"$ref": "#/$defs/verification"},
+        "p_zero": {"$ref": "#/$defs/verification"}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": [
+        "p_min_verified",
+        "p_zero_verified",
+        "nominal_collision_reproduced",
+        "nominal_fails_registered_margin",
+        "p_min_any_action_verified",
+        "p_zero_any_action_verified",
+        "p_min_changed_witness_verified",
+        "p_zero_changed_witness_verified",
+        "interpretation"
+      ],
+      "properties": {
+        "p_min_verified": {"type": "boolean"},
+        "p_zero_verified": {"type": "boolean"},
+        "nominal_collision_reproduced": {"type": "boolean"},
+        "nominal_fails_registered_margin": {"type": "boolean"},
+        "p_min_any_action_verified": {"type": "boolean"},
+        "p_zero_any_action_verified": {"type": "boolean"},
+        "p_min_changed_witness_verified": {"type": "boolean"},
+        "p_zero_changed_witness_verified": {"type": "boolean"},
+        "interpretation": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "search": {
+      "type": "object",
+      "required": [
+        "outcome",
+        "candidates",
+        "best_attempt",
+        "maximum_clearance_attempt",
+        "maximum_progress_attempt",
+        "evaluations",
+        "evaluation_budget"
+      ],
+      "properties": {
+        "outcome": {"enum": ["candidate_found", "not_found_within_budget"]},
+        "candidates": {"type": "array"},
+        "best_attempt": {"type": "object"},
+        "maximum_clearance_attempt": {"type": "object"},
+        "maximum_progress_attempt": {"type": "object"},
+        "evaluations": {"type": "integer", "minimum": 1},
+        "evaluation_budget": {"type": "integer", "minimum": 1}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "minimum_progress_m",
+        "attempted_candidates",
+        "verified",
+        "verified_at_p_min",
+        "verified_at_p_zero",
+        "changed_witness_at_p_min",
+        "changed_witness_at_p_zero",
+        "selected",
+        "attempts"
+      ],
+      "properties": {
+        "minimum_progress_m": {"type": "number"},
+        "attempted_candidates": {"type": "integer", "minimum": 0},
+        "verified": {"type": "boolean"},
+        "verified_at_p_min": {"type": "boolean"},
+        "verified_at_p_zero": {"type": "boolean"},
+        "changed_witness_at_p_min": {"type": "boolean"},
+        "changed_witness_at_p_zero": {"type": "boolean"},
+        "selected": {"type": ["object", "null"]},
+        "attempts": {"type": "array"}
+      }
+    }
+  }
+}
