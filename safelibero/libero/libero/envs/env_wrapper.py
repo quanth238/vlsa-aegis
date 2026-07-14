@@ -88,7 +88,14 @@ class ControlEnv:
     def step(self, action):
         return self.env.step(action)
 
-    def step_with_substep_callback(self, action, callback):
+    def step_with_substep_callback(
+        self,
+        action,
+        callback,
+        *,
+        update_observables=True,
+        collect_observations=True,
+    ):
         """Execute one control action and observe every MuJoCo physics substep.
 
         SafeLIBERO's public ``step`` API returns only after all physics
@@ -109,18 +116,23 @@ class ControlEnv:
             self.env._pre_action(action, policy_step)
             self.env.sim.step()
             callback(self.env.sim, substep_index)
-            self.env._update_observables()
+            if update_observables:
+                self.env._update_observables()
             policy_step = False
 
         self.env.cur_time += self.env.control_timestep
         reward, done, info = self.env._post_action(action)
         if self.env.viewer is not None and self.env.renderer != "mujoco":
             self.env.viewer.update()
-        observations = (
-            self.env.viewer._get_observations()
-            if self.env.viewer_get_obs
-            else self.env._get_observations()
-        )
+        observations = None
+        if collect_observations:
+            if not update_observables:
+                raise ValueError("collect_observations requires update_observables")
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
         return observations, reward, done, info
 
     def reset(self):

@@ -193,9 +193,18 @@ class SafeLiberoCase:
     def reset_and_settle(self) -> dict[str, Any]:
         self.env.seed(self._environment_seed)
         self.env.reset()
-        observation = self.env.set_init_state(self._init_state.copy())
+        self.env.set_init_state(self._init_state.copy())
         for _ in range(self.config.settle_steps):
-            observation, _, _, _ = self.env.step(LIBERO_DUMMY_ACTION.tolist())
+            self.env.step_with_substep_callback(
+                LIBERO_DUMMY_ACTION.tolist(),
+                lambda _sim, _substep: None,
+                update_observables=False,
+                collect_observations=False,
+            )
+        # Sensor evaluation has no effect on physics. Render exactly once at
+        # the settled branch point rather than on all 20 dummy control steps.
+        self.env._update_observables(force=True)
+        observation = self.env.env._get_observations()
         obstacle_name = _active_obstacle(self.env, observation)
         eef_geoms, obstacle_geoms = resolve_crfs_geom_groups(self.env, obstacle_name)
         self.obstacle_name = obstacle_name
@@ -225,11 +234,18 @@ class SafeLiberoCase:
             def observe_global_substep(sim, substep_index, *, _action_index=action_index):
                 monitor.observe(sim, _action_index * 25 + int(substep_index))
 
-            observation, _, done, _ = self.env.step_with_substep_callback(action.tolist(), observe_global_substep)
+            _, _, done, _ = self.env.step_with_substep_callback(
+                action.tolist(),
+                observe_global_substep,
+                update_observables=False,
+                collect_observations=False,
+            )
         measurement = monitor.result()
         if measurement.conservative_clearance_m is None:
             raise RuntimeError("Controlled sphere/box metric found no obstacle box geoms")
-        end_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64).copy()
+        end_eef = np.asarray(
+            self.env.sim.data.site_xpos[int(self.env.robots[0].eef_site_id)], dtype=np.float64
+        ).copy()
         return {
             # Eq. (3) in main.tex: signed obstacle distance at the conservative
             # EEF-sphere center, minus the preregistered EEF radius.

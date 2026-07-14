@@ -19,6 +19,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("def step(self, action):\n        return self.env.step(action)", source)
         self.assertIn("def step_with_substep_callback", source)
         self.assertIn("callback(self.env.sim, substep_index)", source)
+        self.assertIn("if update_observables:", source)
+        self.assertIn("if collect_observations:", source)
 
     def test_real_runner_discloses_preliminary_limitations(self) -> None:
         source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
@@ -29,6 +31,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn('_progress("projection_started")', source)
         self.assertIn("H03 conservative proxy missed a physical contact; refusing projection", source)
         self.assertIn('"measurement-audit.json"', source)
+        self.assertIn("Sensor evaluation has no effect on physics", source)
 
     def test_full_h100_array_has_no_long_run_time_limit(self) -> None:
         source = (ROOT / "slurm/oracle_main_array.sbatch").read_text(encoding="utf-8")
