@@ -16,7 +16,8 @@ MANIFEST = ROOT / "manifests/r03a_analytic_kill_test_eligible.jsonl"
 CONFIG = ROOT / "configs/experiments/r03a_analytic_kill_test.json"
 RUN_ID = "r03a-population-fixture"
 CHECKPOINT_ID = "/fixture/checkpoint"
-SOURCE_ARRAY_JOB_ID = "7001"
+SOURCE_ARRAY_JOB_IDS_BY_HOST = {"worker-1": "7001", "worker-2": "7002"}
+SUMMARY_JOB_ID = "7003"
 
 
 def _cases() -> list[dict]:
@@ -27,7 +28,9 @@ def _cases() -> list[dict]:
     ]
 
 
-def _source(case: dict, *, oracle_passed: bool, delta_record: dict) -> dict:
+def _source(
+    case: dict, *, oracle_passed: bool, delta_record: dict, source_host: str
+) -> dict:
     base = CASE_FIXTURES.fixture()
     source_arms = {
         name: {"gate": {"passed": False}, "repeats": []}
@@ -53,6 +56,7 @@ def _source(case: dict, *, oracle_passed: bool, delta_record: dict) -> dict:
         "status": "completed",
         "provenance": {
             "case_record": dict(case),
+            "host": source_host,
             "noise": copy.deepcopy(base["provenance"]["noise"]),
         },
         "pairing": {
@@ -117,6 +121,7 @@ def _result(
     source: dict,
     source_path: Path,
     *,
+    case_index: int,
     config_hash: str,
     config_file_sha256: str,
     r03_summary_path: Path,
@@ -131,7 +136,13 @@ def _result(
     value["provenance"]["case_record"] = dict(case)
     value["provenance"]["config_file_sha256"] = config_file_sha256
     value["provenance"]["checkpoint_id"] = CHECKPOINT_ID
-    value["provenance"]["slurm_array_job_id"] = SOURCE_ARRAY_JOB_ID
+    source_host = source["provenance"]["host"]
+    value["provenance"]["host"] = source_host
+    value["provenance"]["partition"] = "main"
+    value["provenance"]["slurm_array_task_id"] = str(case_index)
+    value["provenance"]["slurm_array_job_id"] = SOURCE_ARRAY_JOB_IDS_BY_HOST[
+        source_host
+    ]
     value["source_evidence"]["r03_summary_path"] = str(r03_summary_path)
     value["source_evidence"]["r02_case_path"] = str(source_path)
     value["source_evidence"]["r02_case_sha256"] = file_sha256(source_path)
@@ -200,11 +211,13 @@ class PopulationFixture:
         source_hashes: dict[str, str] = {}
         cases = _cases()
         for index, case in enumerate(cases):
+            source_host = "worker-2" if index == 5 else "worker-1"
             delta_record = CASE_FIXTURES.fixture()["budget"]["source_delta_star_model"]
             source = _source(
                 case,
                 oracle_passed=index < SUMMARY.VALIDATION.PRIVILEGED_REFERENCE_SPS_COUNT,
                 delta_record=delta_record,
+                source_host=source_host,
             )
             source_path = self.source_root / case["case_id"] / "r02-paired.json"
             atomic_write_json(source_path, source)
@@ -213,6 +226,7 @@ class PopulationFixture:
                 case,
                 source,
                 source_path,
+                case_index=index,
                 config_hash=config_hash,
                 config_file_sha256=config_file_sha256,
                 r03_summary_path=self.r03_summary_path,
@@ -248,9 +262,75 @@ class PopulationFixture:
             run_id=RUN_ID,
             checkpoint_id=CHECKPOINT_ID,
             checkpoint_sha256=SUMMARY.VALIDATION.CHECKPOINT_SHA256,
-            expected_source_slurm_array_job_id=SOURCE_ARRAY_JOB_ID,
+            expected_source_slurm_array_job_ids_by_host=(
+                SOURCE_ARRAY_JOB_IDS_BY_HOST
+            ),
             expected_git_commit="3" * 40,
+            expected_summary_slurm_job_id=SUMMARY_JOB_ID,
         )
+        fixed_launch = {
+            "schema_version": "1.0",
+            "scientific_claim_allowed": False,
+            "run_id": RUN_ID,
+            "git_commit": "3" * 40,
+            "manifest_sha256": file_sha256(MANIFEST),
+            "config_sha256": config_file_sha256,
+            "schema_sha256": (
+                "2f0f9db28ae9d62582e88bc70afe40ef4e37245a60190863e2f3419a135d70c3"
+            ),
+            "decision_sha256": SUMMARY.VALIDATION.DECISION_SHA256,
+            "r03_summary_sha256": SUMMARY.VALIDATION.R03_SUMMARY_SHA256,
+            "checkpoint_sha256": SUMMARY.VALIDATION.CHECKPOINT_SHA256,
+        }
+        reservation = {
+            **fixed_launch,
+            "artifact_role": "r03a_source_node_grouped_launch_reservation",
+            "status": "reserved",
+            "groups": {
+                "worker-1": {"indices": "0-4,6-16", "concurrency": 1},
+                "worker-2": {"indices": "5", "concurrency": 1},
+            },
+        }
+        reservation_path = self.results_root / "launch-reservation.json"
+        atomic_write_json(reservation_path, reservation)
+        launch = {
+            **fixed_launch,
+            "artifact_role": "r03a_source_node_grouped_launch",
+            "status": "held_validated",
+            "launch_reservation_sha256": file_sha256(reservation_path),
+            "groups": {
+                host: {
+                    "indices": "0-4,6-16" if host == "worker-1" else "5",
+                    "concurrency": 1,
+                    "slurm_array_job_id": job_id,
+                }
+                for host, job_id in SOURCE_ARRAY_JOB_IDS_BY_HOST.items()
+            },
+        }
+        launch_path = self.results_root / "grouped-launch.json"
+        atomic_write_json(launch_path, launch)
+        summary_submission = {
+            **fixed_launch,
+            "artifact_role": "r03a_population_summary_submission",
+            "status": "dependency_registered",
+            "grouped_launch_sha256": file_sha256(launch_path),
+            "source_slurm_array_job_ids_by_host": dict(
+                SOURCE_ARRAY_JOB_IDS_BY_HOST
+            ),
+            "slurm_summary_job_id": SUMMARY_JOB_ID,
+            "dependency": "afterany:7001:7002",
+        }
+        atomic_write_json(
+            self.results_root / "summary-submission.json", summary_submission
+        )
+
+    def mark_as_real_allocation_evidence(self) -> None:
+        for case in self.contract.manifest_cases:
+            path = self.results_root / case["case_id"] / SUMMARY.RESULT_FILENAME
+            result = json.loads(path.read_text(encoding="utf-8"))
+            result["provenance"]["evidence_tier"] = SUMMARY.REAL_EVIDENCE_TIER
+            result["provenance"]["git_dirty"] = False
+            atomic_write_json(path, result)
 
     def summarize(self, *, allow_synthetic: bool = True) -> dict:
         return SUMMARY.summarize_r03a_population(
@@ -263,7 +343,9 @@ class PopulationFixture:
             checkpoint_id=CHECKPOINT_ID,
             checkpoint_sha256=SUMMARY.VALIDATION.CHECKPOINT_SHA256,
             expected_git_commit="3" * 40,
-            expected_source_slurm_array_job_id=SOURCE_ARRAY_JOB_ID,
+            expected_source_slurm_array_job_ids_by_host=(
+                SOURCE_ARRAY_JOB_IDS_BY_HOST
+            ),
             source_validator=lambda _value: [],
             contract_override=self.contract,
             allow_synthetic_implementation_evidence=allow_synthetic,
@@ -272,9 +354,26 @@ class PopulationFixture:
 
 
 class SummarizeR03ATest(unittest.TestCase):
+    def test_source_job_map_requires_two_distinct_numeric_ids(self) -> None:
+        for value in (
+            {"worker-1": "7001"},
+            {"worker-1": "7001", "worker-2": "7001"},
+            {"worker-1": "7001", "worker-2": "not-a-job"},
+            {"worker-1": "7001", "worker-2": None},
+        ):
+            with self.subTest(value=value), self.assertRaises(
+                SUMMARY.SummaryContractError
+            ):
+                SUMMARY._source_job_ids_by_host(value)  # type: ignore[arg-type]
+
     def test_source_geometry_hash_uses_sorted_padded_identity_not_raw_box_order(self) -> None:
         delta = CASE_FIXTURES.fixture()["budget"]["source_delta_star_model"]
-        source = _source(_cases()[0], oracle_passed=True, delta_record=delta)
+        source = _source(
+            _cases()[0],
+            oracle_passed=True,
+            delta_record=delta,
+            source_host="worker-1",
+        )
         boxes = source["arms"]["frozen"]["repeats"][0]["branch_obstacle_boxes"]
         boxes.append(
             {
@@ -333,6 +432,40 @@ class SummarizeR03ATest(unittest.TestCase):
             summary = population.summarize()
         self.assertEqual(summary["population"]["validated_cases"], 17)
         self.assertEqual(len(summary["population"]["case_ids"]), 17)
+        source_reference = summary["source_r03_reference"]
+        self.assertEqual(source_reference["privileged_arm"], "oracle_residual")
+        self.assertEqual(
+            {
+                name: value["successes"]
+                for name, value in source_reference["arms"].items()
+            },
+            {
+                "frozen": 0,
+                "direct_witness": 17,
+                "random_residual": 0,
+                "analytic_geometry_residual": 0,
+                "oracle_residual": 9,
+                "bridge_diagnostic": 0,
+            },
+        )
+        self.assertEqual(
+            source_reference["arms"]["direct_witness"]["success_case_ids"],
+            summary["population"]["case_ids"],
+        )
+        self.assertEqual(
+            len(source_reference["arms"]["oracle_residual"]["success_case_ids"]),
+            9,
+        )
+        self.assertEqual(
+            summary["identities"]["source_slurm_array_job_ids_by_host"],
+            SOURCE_ARRAY_JOB_IDS_BY_HOST,
+        )
+        self.assertEqual(
+            summary["identities"]["summary_slurm_job_id"], SUMMARY_JOB_ID
+        )
+        self.assertRegex(
+            summary["identities"]["summary_submission_sha256"], r"^[0-9a-f]{64}$"
+        )
         for arm_name in SUMMARY.ANALYTIC_ARMS:
             arm = summary["arms"][arm_name]
             self.assertEqual(len(arm["success_case_ids"]), arm["successes"])
@@ -345,8 +478,10 @@ class SummarizeR03ATest(unittest.TestCase):
             population = PopulationFixture(
                 Path(directory), mid_successes=12, early_successes=12, terminal_index=0
             )
-            summary = population.summarize()
+            population.mark_as_real_allocation_evidence()
+            summary = population.summarize(allow_synthetic=False)
         self.assertEqual(summary["status"], "failed_population_integrity")
+        self.assertIs(summary["scientific_evidence"], False)
         self.assertEqual(summary["kill_test"]["decision"], "not_evaluable_population_mismatch")
         self.assertIsNone(
             summary["kill_test"]["pure_learned_clearance_probe_necessity_rejected"]
@@ -364,9 +499,11 @@ class SummarizeR03ATest(unittest.TestCase):
                 early_successes=8,
                 policy_failure_index=0,
             )
-            summary = population.summarize()
+            population.mark_as_real_allocation_evidence()
+            summary = population.summarize(allow_synthetic=False)
         case_id = summary["population"]["case_ids"][0]
         self.assertEqual(summary["status"], "failed_population_integrity")
+        self.assertIs(summary["scientific_evidence"], False)
         self.assertEqual(summary["population"]["validated_cases"], 17)
         self.assertIs(summary["population"]["fixed_denominator_preserved"], True)
         self.assertEqual(summary["population"]["policy_failure_case_ids"], [case_id])
@@ -425,8 +562,58 @@ class SummarizeR03ATest(unittest.TestCase):
             ):
                 population.summarize()
 
+    def test_grouped_launch_and_reservation_are_claim_bindings(self) -> None:
+        for mutation in ("job", "commit", "reservation"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                population = PopulationFixture(Path(directory))
+                launch_path = population.results_root / "grouped-launch.json"
+                launch = json.loads(launch_path.read_text(encoding="utf-8"))
+                if mutation == "job":
+                    launch["groups"]["worker-2"]["slurm_array_job_id"] = "9999"
+                elif mutation == "commit":
+                    launch["git_commit"] = "4" * 40
+                else:
+                    launch["launch_reservation_sha256"] = "a" * 64
+                atomic_write_json(launch_path, launch)
+                with self.assertRaisesRegex(
+                    SUMMARY.SummaryContractError, "grouped launch"
+                ):
+                    population.summarize()
+
+    def test_summary_submission_is_a_claim_binding(self) -> None:
+        for mutation in ("job", "dependency", "launch", "missing"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                population = PopulationFixture(Path(directory))
+                path = population.results_root / "summary-submission.json"
+                submission = json.loads(path.read_text(encoding="utf-8"))
+                if mutation == "job":
+                    submission["slurm_summary_job_id"] = "9999"
+                elif mutation == "dependency":
+                    submission["dependency"] = "afterany:7002:7001"
+                elif mutation == "launch":
+                    submission["grouped_launch_sha256"] = "a" * 64
+                else:
+                    path.unlink()
+                if mutation != "missing":
+                    atomic_write_json(path, submission)
+                with self.assertRaisesRegex(
+                    SUMMARY.SummaryContractError, "summary submission"
+                ):
+                    population.summarize()
+
     def test_missing_extra_and_cross_source_tampering_fail_closed(self) -> None:
-        mutations = ("missing", "extra", "source_hash", "source_arm", "budget", "pairing")
+        mutations = (
+            "missing",
+            "extra",
+            "source_hash",
+            "source_arm",
+            "budget",
+            "pairing",
+            "source_job",
+            "source_host",
+            "source_task",
+            "partition",
+        )
         for mutation in mutations:
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
                 population = PopulationFixture(Path(directory))
@@ -449,6 +636,19 @@ class SummarizeR03ATest(unittest.TestCase):
                         digest = "e" * 64
                         result["pairing"]["branch_geometry"]["source_sha256"] = digest
                         result["pairing"]["branch_geometry"]["fresh_sha256"] = digest
+                    elif mutation == "source_job":
+                        result["provenance"]["slurm_array_job_id"] = (
+                            SOURCE_ARRAY_JOB_IDS_BY_HOST["worker-2"]
+                        )
+                    elif mutation == "source_host":
+                        result["provenance"]["host"] = "worker-2"
+                        result["provenance"]["slurm_array_job_id"] = (
+                            SOURCE_ARRAY_JOB_IDS_BY_HOST["worker-2"]
+                        )
+                    elif mutation == "source_task":
+                        result["provenance"]["slurm_array_task_id"] = "16"
+                    elif mutation == "partition":
+                        result["provenance"]["partition"] = "mig"
                     atomic_write_json(result_path, result)
                 with self.assertRaises(SUMMARY.SummaryContractError):
                     population.summarize()

@@ -11,8 +11,10 @@ five-action and all 20 ten-action repairs analytically infeasible. R00/R01 then
 showed endpoint-free safe-progress actions for 17/20 pregrasp reach states.
 R02/R03 passed the preregistered oracle-steerability and analysis gates: the
 distributed oracle residual passed 9/17 eligible cases versus 0/17 for matched
-random and registered analytic controls. R04 is now the only active gate. This
-authorizes a bounded learned-probe investigation, not training by default.
+random and registered analytic controls. R03A is now the only active gate: it
+tests two stronger, recomputed analytic trajectory fields on those same 17
+development groups before any probe training. R04 is blocked until R03A is
+resolved and a transport-valid untouched source population is frozen.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -22,11 +24,10 @@ ordinary-baseline contract. Independent state provenance,
 perturbation support, and powered group counts remain unresolved. No probe has
 yet been trained or shown effective.
 
-ADR-0021 now freezes a new, explicitly non-Level-II
-`task0_single_obstacle_generated_v1` source population. Its reviewed first
-allocation is a one-request baseline-OSMesa/replay canary plus an independent CPU
-validator; the remaining nine retired design groups run only after that passes.
-These groups can size the later experiment but cannot train or evaluate ECG.
+ADR-0021's proposed non-Level-II generated source route stopped at its
+outcome-blind runtime-identity canary. ADR-0022 retires that route and its nine
+dependent groups. A claim-bearing learned study still needs an untouched
+official source population; no generated group may train or evaluate ECG.
 
 ## Baseline and extensions
 
@@ -51,7 +52,7 @@ No-control sampler calls retain the baseline return type and integration path.
 ## Evidence ladder
 
 The completed CRFS sequence is H00–H10; the endpoint-free pivot is R00–R04 in
-`feature_list.json`. R00–R03 are passing and R04 is the only active gate.
+`feature_list.json`. R00–R03 are passing, R03A is active, and R04 is blocked.
 
 ```text
 baseline + provenance + replay
@@ -68,7 +69,8 @@ paired oracle intervention -> population analysis -> go / stop
 H05 endpoint contradiction -> R00 progress calibration
                               -> R01 endpoint-free feasibility
                               -> R02/R03 oracle steerability and analysis
-                              -> R04 learned probe only after oracle success
+                              -> R03A strong-analytic necessity test
+                              -> R04 learned probe only if prerequisites pass
 ```
 
 The dependency-free synthetic fixture checks implementation only. Real artifacts
@@ -113,6 +115,8 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0019-freeze-r04b-exact-resume-parity.md`: final apparatus contract before direct probe experiments;
 - `docs/decisions/0020-accept-r04b-focus-direct-probe-test.md`: passed R04B evidence and frozen direct research question;
 - `docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md`: new-state identity, canary, and direct privileged-transfer stop rule;
+- `docs/decisions/0023-run-strong-analytic-kill-test.md`: frozen no-learning R03A necessity test;
+- `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: allocation-backed smoke evidence and exact grouped-population launch contract;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `evidence/r04b/r04b-validation.json`: compact exact-resume allocation/validator record;
 - `references.bib`: bibliography;

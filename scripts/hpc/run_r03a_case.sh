@@ -15,6 +15,7 @@ set -euo pipefail
 : "${R03_SUMMARY:?R03_SUMMARY is required}"
 : "${R03_SUMMARY_SHA256:?R03_SUMMARY_SHA256 is required}"
 : "${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT must bind the reviewed source commit}"
+: "${EXPECTED_SOURCE_NODE:?EXPECTED_SOURCE_NODE must bind the immutable R02 source host}"
 : "${CASE_INDEX:=${SLURM_ARRAY_TASK_ID:-0}}"
 
 EXPECTED_MANIFEST_SHA256=241f1b94a5434973dcfb235b43b9386ad15046ff87d35d5b0c34e295c2132916
@@ -49,6 +50,17 @@ case "${#EXPECTED_GIT_COMMIT}" in
 esac
 test "$R03_SUMMARY_SHA256" = "$EXPECTED_R03_SUMMARY_SHA256" || {
   echo "R03_SUMMARY_SHA256 differs from the accepted R03 evidence" >&2
+  exit 2
+}
+case "$EXPECTED_SOURCE_NODE" in
+  *[!A-Za-z0-9._-]*|'')
+    echo "EXPECTED_SOURCE_NODE is missing or unsafe" >&2
+    exit 2
+    ;;
+esac
+ACTUAL_SOURCE_NODE=$(hostname -s)
+test "$ACTUAL_SOURCE_NODE" = "$EXPECTED_SOURCE_NODE" || {
+  echo "allocation host $ACTUAL_SOURCE_NODE differs from immutable source host $EXPECTED_SOURCE_NODE" >&2
   exit 2
 }
 
@@ -379,6 +391,7 @@ if [ -z "${CUDA_VISIBLE_DEVICES:-}" ] || [ "$CUDA_VISIBLE_DEVICES" = NoDevFiles 
 fi
 
 echo "host=$(hostname)"
+echo "expected_source_node=$EXPECTED_SOURCE_NODE"
 echo "date=$(date --iso-8601=seconds)"
 echo "job_id=$SLURM_JOB_ID"
 echo "array_job_id=${SLURM_ARRAY_JOB_ID:-none}"

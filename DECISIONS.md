@@ -26,3 +26,4 @@
 - [0024 — Preserve source-node trace pairing before interpreting R03A](docs/decisions/0024-preserve-source-node-trace-pairing.md)
 - [0025 — Bind the R03A trace gate to exact native-leaf evidence](docs/decisions/0025-bind-r03a-trace-gate-to-native-leaf-evidence.md)
 - [0026 — Validate R03A protocol scalars in their recorded dtype](docs/decisions/0026-validate-r03a-scalars-in-recorded-dtype.md)
+- [0027 — Register the source-node-grouped R03A population](docs/decisions/0027-register-source-node-grouped-r03a-population.md)

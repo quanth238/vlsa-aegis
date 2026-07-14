@@ -72,8 +72,9 @@ class SummaryContract:
     run_id: str
     checkpoint_id: str
     checkpoint_sha256: str
-    expected_source_slurm_array_job_id: Optional[str]
+    expected_source_slurm_array_job_ids_by_host: Optional[Mapping[str, str]]
     expected_git_commit: str
+    expected_summary_slurm_job_id: Optional[str] = None
 
 
 class SummaryContractError(ValueError):
@@ -82,6 +83,146 @@ class SummaryContractError(ValueError):
 
 def _is_sha256(value: Any) -> bool:
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _source_job_ids_by_host(
+    value: Optional[Mapping[str, str]],
+) -> Optional[Dict[str, str]]:
+    if value is None:
+        return None
+    expected_hosts = {"worker-1", "worker-2"}
+    if not isinstance(value, Mapping) or set(value) != expected_hosts:
+        raise SummaryContractError(
+            "source Slurm array jobs must bind exactly worker-1 and worker-2"
+        )
+    normalized: Dict[str, str] = {}
+    for host in sorted(expected_hosts):
+        job_id = value.get(host)
+        if not isinstance(job_id, str) or re.fullmatch(r"[0-9]+", job_id) is None:
+            raise SummaryContractError(
+                f"source Slurm array job for {host} must be one numeric job id"
+            )
+        normalized[host] = job_id
+    if len(set(normalized.values())) != len(normalized):
+        raise SummaryContractError("source-node groups must use distinct Slurm array jobs")
+    return normalized
+
+
+def _summary_job_id(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str) or re.fullmatch(r"[0-9]+", value) is None:
+        raise SummaryContractError("summary Slurm job must be one numeric job id")
+    return value
+
+
+def _validate_grouped_launch_evidence(
+    results_root: Path, contract: SummaryContract
+) -> Tuple[str, Optional[str]]:
+    source_jobs = contract.expected_source_slurm_array_job_ids_by_host
+    if source_jobs is None:
+        raise SummaryContractError("grouped R03A summary requires both source-node jobs")
+    launch_path = results_root / "grouped-launch.json"
+    reservation_path = results_root / "launch-reservation.json"
+    try:
+        launch = load_json(launch_path)
+        reservation = load_json(reservation_path)
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
+        raise SummaryContractError(f"cannot load grouped launch evidence: {error}") from error
+    if not isinstance(launch, Mapping) or not isinstance(reservation, Mapping):
+        raise SummaryContractError("grouped launch evidence must contain two JSON objects")
+    fixed_bindings = {
+        "run_id": contract.run_id,
+        "git_commit": contract.expected_git_commit,
+        "manifest_sha256": contract.manifest_sha256,
+        "config_sha256": contract.config_file_sha256,
+        "schema_sha256": "2f0f9db28ae9d62582e88bc70afe40ef4e37245a60190863e2f3419a135d70c3",
+        "decision_sha256": VALIDATION.DECISION_SHA256,
+        "r03_summary_sha256": contract.r03_summary_sha256,
+        "checkpoint_sha256": contract.checkpoint_sha256,
+    }
+    if (
+        launch.get("artifact_role") != "r03a_source_node_grouped_launch"
+        or launch.get("status") != "held_validated"
+        or launch.get("scientific_claim_allowed") is not False
+    ):
+        raise SummaryContractError("grouped launch record role/status differs")
+    if (
+        reservation.get("artifact_role")
+        != "r03a_source_node_grouped_launch_reservation"
+        or reservation.get("status") != "reserved"
+        or reservation.get("scientific_claim_allowed") is not False
+    ):
+        raise SummaryContractError("grouped launch reservation role/status differs")
+    for key, expected in fixed_bindings.items():
+        if launch.get(key) != expected or reservation.get(key) != expected:
+            raise SummaryContractError(f"grouped launch binding {key} differs")
+    reservation_sha = file_sha256(reservation_path)
+    if launch.get("launch_reservation_sha256") != reservation_sha:
+        raise SummaryContractError("grouped launch reservation hash differs")
+    expected_groups = {
+        "worker-1": {
+            "indices": "0-4,6-16",
+            "concurrency": 1,
+            "slurm_array_job_id": source_jobs["worker-1"],
+        },
+        "worker-2": {
+            "indices": "5",
+            "concurrency": 1,
+            "slurm_array_job_id": source_jobs["worker-2"],
+        },
+    }
+    if launch.get("groups") != expected_groups:
+        raise SummaryContractError("grouped launch source-node jobs/indices differ")
+    reservation_groups = reservation.get("groups")
+    if not isinstance(reservation_groups, Mapping) or {
+        host: {
+            "indices": group.get("indices") if isinstance(group, Mapping) else None,
+            "concurrency": (
+                group.get("concurrency") if isinstance(group, Mapping) else None
+            ),
+        }
+        for host, group in reservation_groups.items()
+    } != {
+        host: {"indices": group["indices"], "concurrency": 1}
+        for host, group in expected_groups.items()
+    }:
+        raise SummaryContractError("grouped launch reservation groups differ")
+    launch_sha = file_sha256(launch_path)
+    summary_job_id = contract.expected_summary_slurm_job_id
+    if summary_job_id is None:
+        return launch_sha, None
+    if summary_job_id in set(source_jobs.values()):
+        raise SummaryContractError("summary and source arrays must use distinct jobs")
+    submission_path = results_root / "summary-submission.json"
+    try:
+        submission = load_json(submission_path)
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
+        raise SummaryContractError(
+            f"cannot load summary submission evidence: {error}"
+        ) from error
+    if not isinstance(submission, Mapping):
+        raise SummaryContractError("summary submission evidence must be one JSON object")
+    if (
+        submission.get("artifact_role") != "r03a_population_summary_submission"
+        or submission.get("status") != "dependency_registered"
+        or submission.get("scientific_claim_allowed") is not False
+    ):
+        raise SummaryContractError("summary submission role/status differs")
+    for key, expected in fixed_bindings.items():
+        if submission.get(key) != expected:
+            raise SummaryContractError(f"summary submission binding {key} differs")
+    expected_dependency = (
+        f"afterany:{source_jobs['worker-1']}:{source_jobs['worker-2']}"
+    )
+    if (
+        submission.get("grouped_launch_sha256") != launch_sha
+        or submission.get("source_slurm_array_job_ids_by_host") != dict(source_jobs)
+        or submission.get("slurm_summary_job_id") != summary_job_id
+        or submission.get("dependency") != expected_dependency
+    ):
+        raise SummaryContractError("summary submission jobs/dependency differ")
+    return launch_sha, file_sha256(submission_path)
 
 
 def _resolve(path_value: Union[str, Path], repo_root: Path) -> Path:
@@ -213,7 +354,8 @@ def load_summary_contract(
     checkpoint_id: str,
     checkpoint_sha256: str,
     expected_git_commit: str,
-    expected_source_slurm_array_job_id: Optional[str] = None,
+    expected_source_slurm_array_job_ids_by_host: Optional[Mapping[str, str]] = None,
+    expected_summary_slurm_job_id: Optional[str] = None,
     repo_root: Path = REPO_ROOT,
 ) -> SummaryContract:
     manifest = _resolve(manifest_path, repo_root)
@@ -295,6 +437,16 @@ def load_summary_contract(
         actual_sha256=r03_sha,
         manifest_case_ids=case_ids,
     )
+    source_job_ids = _source_job_ids_by_host(
+        expected_source_slurm_array_job_ids_by_host
+    )
+    summary_job_id = _summary_job_id(expected_summary_slurm_job_id)
+    if (
+        summary_job_id is not None
+        and source_job_ids is not None
+        and summary_job_id in set(source_job_ids.values())
+    ):
+        raise SummaryContractError("summary and source arrays must use distinct jobs")
     return SummaryContract(
         manifest_cases=tuple(cases),
         manifest_sha256=manifest_sha,
@@ -309,8 +461,9 @@ def load_summary_contract(
         run_id=run_id,
         checkpoint_id=checkpoint_id,
         checkpoint_sha256=checkpoint_sha256,
-        expected_source_slurm_array_job_id=expected_source_slurm_array_job_id,
+        expected_source_slurm_array_job_ids_by_host=source_job_ids,
         expected_git_commit=expected_git_commit,
+        expected_summary_slurm_job_id=summary_job_id,
     )
 
 
@@ -478,6 +631,7 @@ def _cross_validate_case(
     source: Mapping[str, Any],
     *,
     case: Mapping[str, Any],
+    case_index: int,
     source_path: Path,
     source_sha256: str,
     contract: SummaryContract,
@@ -497,11 +651,25 @@ def _cross_validate_case(
         raise SummaryContractError("R03A checkpoint path differs")
     if provenance.get("checkpoint_sha256") != contract.checkpoint_sha256:
         raise SummaryContractError("R03A checkpoint hash differs")
-    if (
-        contract.expected_source_slurm_array_job_id is not None
-        and provenance.get("slurm_array_job_id") != contract.expected_source_slurm_array_job_id
-    ):
-        raise SummaryContractError("R03A source Slurm array job differs")
+    if provenance.get("partition") != "main":
+        raise SummaryContractError("R03A full-population case did not run on main")
+    if provenance.get("slurm_array_task_id") != str(case_index):
+        raise SummaryContractError("R03A Slurm array task differs from manifest index")
+    source_provenance = source.get("provenance")
+    source_host = (
+        source_provenance.get("host")
+        if isinstance(source_provenance, Mapping)
+        else None
+    )
+    if source_host not in {"worker-1", "worker-2"}:
+        raise SummaryContractError("immutable R02 source host is not registered")
+    if provenance.get("host") != source_host:
+        raise SummaryContractError("R03A result host differs from its immutable R02 source host")
+    source_jobs = contract.expected_source_slurm_array_job_ids_by_host
+    if source_jobs is not None and provenance.get("slurm_array_job_id") != source_jobs[
+        source_host
+    ]:
+        raise SummaryContractError("R03A source-node Slurm array job differs")
     source_evidence = result.get("source_evidence")
     if not isinstance(source_evidence, Mapping):
         raise SummaryContractError("R03A source_evidence is missing")
@@ -639,7 +807,8 @@ def summarize_r03a_population(
     checkpoint_id: str,
     checkpoint_sha256: str,
     expected_git_commit: str,
-    expected_source_slurm_array_job_id: Optional[str] = None,
+    expected_source_slurm_array_job_ids_by_host: Optional[Mapping[str, str]] = None,
+    expected_summary_slurm_job_id: Optional[str] = None,
     repo_root: Path = REPO_ROOT,
     validator: Validator = VALIDATION.validate_r03a_result,
     source_validator: Optional[Validator] = None,
@@ -656,11 +825,17 @@ def summarize_r03a_population(
         checkpoint_id=checkpoint_id,
         checkpoint_sha256=checkpoint_sha256,
         expected_git_commit=expected_git_commit,
-        expected_source_slurm_array_job_id=expected_source_slurm_array_job_id,
+        expected_source_slurm_array_job_ids_by_host=(
+            expected_source_slurm_array_job_ids_by_host
+        ),
+        expected_summary_slurm_job_id=expected_summary_slurm_job_id,
         repo_root=repo_root,
     )
     source_validator = source_validator or _load_r02_validator()
     output_root = _resolve(results_root, repo_root)
+    grouped_launch_sha256, summary_submission_sha256 = (
+        _validate_grouped_launch_evidence(output_root, contract)
+    )
     source_root = Path(contract.r02_results_root)
     expected_ids = [str(case["case_id"]) for case in contract.manifest_cases]
     found = sorted(output_root.rglob(RESULT_FILENAME)) if output_root.exists() else []
@@ -677,9 +852,11 @@ def summarize_r03a_population(
     evidence_tiers: set[str] = set()
     git_commits: set[str] = set()
     git_dirty_values: set[bool] = set()
-    source_oracle_successes = 0
+    source_arm_success_case_ids: Dict[str, List[str]] = {
+        name: [] for name in SOURCE_ARM_KEYS
+    }
     case_by_id = {str(case["case_id"]): case for case in contract.manifest_cases}
-    for case_id in expected_ids:
+    for case_index, case_id in enumerate(expected_ids):
         case = case_by_id[case_id]
         result_path = output_root / case_id / RESULT_FILENAME
         source_path = source_root / case_id / "r02-paired.json"
@@ -705,6 +882,7 @@ def summarize_r03a_population(
             result,
             source,
             case=case,
+            case_index=case_index,
             source_path=source_path,
             source_sha256=source_sha,
             contract=contract,
@@ -713,7 +891,10 @@ def summarize_r03a_population(
         evidence_tiers.add(str(provenance["evidence_tier"]))
         git_commits.add(str(provenance["git_commit"]))
         git_dirty_values.add(bool(provenance["git_dirty"]))
-        source_oracle_successes += int(result["outcome"]["source_arm_gate_pass"]["oracle_residual"])
+        source_arm_pass = result["outcome"]["source_arm_gate_pass"]
+        for source_arm in SOURCE_ARM_KEYS:
+            if source_arm_pass[source_arm] is True:
+                source_arm_success_case_ids[source_arm].append(case_id)
         records.append(result)
         result_hashes.append({"case_id": case_id, "sha256": file_sha256(result_path)})
         source_hashes.append({"case_id": case_id, "sha256": source_sha})
@@ -733,8 +914,30 @@ def summarize_r03a_population(
         )
     if evidence_tier == REAL_EVIDENCE_TIER and git_dirty_values != {False}:
         raise SummaryContractError("real R03A evidence requires a clean reviewed commit")
-    if source_oracle_successes != 9:
-        raise SummaryContractError("retained source oracle outcomes no longer total 9/17")
+    expected_source_successes = {
+        "frozen": 0,
+        "direct_witness": 17,
+        "random_residual": 0,
+        "analytic_geometry_residual": 0,
+        "oracle_residual": 9,
+        "bridge_diagnostic": 0,
+    }
+    observed_source_successes = {
+        name: len(source_arm_success_case_ids[name]) for name in SOURCE_ARM_KEYS
+    }
+    if observed_source_successes != expected_source_successes:
+        raise SummaryContractError(
+            "retained source R03 arm outcomes no longer match the accepted baseline"
+        )
+    source_arm_populations = {
+        name: {
+            "denominator": EXPECTED_CASES,
+            "successes": observed_source_successes[name],
+            "spsr": observed_source_successes[name] / EXPECTED_CASES,
+            "success_case_ids": source_arm_success_case_ids[name],
+        }
+        for name in SOURCE_ARM_KEYS
+    }
 
     arm_populations = {name: _arm_population(records, name) for name in EXPECTED_ARMS}
     nominal_mismatch_ids = [
@@ -774,7 +977,7 @@ def summarize_r03a_population(
     else:
         decision = "strong_analytic_below_privileged_reference_mandatory_future_baseline"
         necessity_rejected = False
-    scientific_evidence = evidence_tier == REAL_EVIDENCE_TIER
+    scientific_evidence = evidence_tier == REAL_EVIDENCE_TIER and population_valid
     return {
         "schema_version": "1.0",
         "artifact_type": SUMMARY_ARTIFACT_TYPE,
@@ -793,7 +996,17 @@ def summarize_r03a_population(
             "checkpoint_sha256": contract.checkpoint_sha256,
             "git_commit": next(iter(git_commits)),
             "git_dirty": next(iter(git_dirty_values)),
-            "source_slurm_array_job_id": contract.expected_source_slurm_array_job_id,
+            "source_slurm_array_job_ids_by_host": dict(
+                sorted(
+                    (
+                        contract.expected_source_slurm_array_job_ids_by_host
+                        or {}
+                    ).items()
+                )
+            ),
+            "source_grouped_launch_sha256": grouped_launch_sha256,
+            "summary_slurm_job_id": contract.expected_summary_slurm_job_id,
+            "summary_submission_sha256": summary_submission_sha256,
         },
         "population": {
             "expected_cases": EXPECTED_CASES,
@@ -809,7 +1022,8 @@ def summarize_r03a_population(
             "privileged_sps_count": 9,
             "population_size": 17,
             "privileged_spsr": 9 / 17,
-            "source_oracle_outcomes_revalidated": source_oracle_successes,
+            "privileged_arm": "oracle_residual",
+            "arms": source_arm_populations,
         },
         "arms": arm_populations,
         "kill_test": {
@@ -846,7 +1060,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--checkpoint-id", required=True)
     parser.add_argument("--checkpoint-sha256", required=True)
     parser.add_argument("--expected-git-commit", required=True)
-    parser.add_argument("--source-slurm-array-job-id", required=True)
+    parser.add_argument("--source-worker-1-slurm-array-job-id", required=True)
+    parser.add_argument("--source-worker-2-slurm-array-job-id", required=True)
+    parser.add_argument("--summary-slurm-job-id", required=True)
     args = parser.parse_args(argv)
     summary = summarize_r03a_population(
         args.manifest,
@@ -858,7 +1074,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         checkpoint_id=args.checkpoint_id,
         checkpoint_sha256=args.checkpoint_sha256,
         expected_git_commit=args.expected_git_commit,
-        expected_source_slurm_array_job_id=args.source_slurm_array_job_id,
+        expected_source_slurm_array_job_ids_by_host={
+            "worker-1": args.source_worker_1_slurm_array_job_id,
+            "worker-2": args.source_worker_2_slurm_array_job_id,
+        },
+        expected_summary_slurm_job_id=args.summary_slurm_job_id,
     )
     atomic_write_json(Path(args.output), summary)
     print(json.dumps(summary["kill_test"], sort_keys=True))

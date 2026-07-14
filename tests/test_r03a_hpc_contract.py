@@ -13,6 +13,7 @@ SUBMIT_JOB = ROOT / "scripts/hpc/submit_r03a_job.sh"
 SUBMIT_SMOKE = ROOT / "scripts/hpc/submit_r03a_smoke.sh"
 SUBMIT_H100_SMOKE = ROOT / "scripts/hpc/submit_r03a_h100_smoke.sh"
 SUBMIT_ARRAY = ROOT / "scripts/hpc/submit_r03a_array.sh"
+SUBMIT_GROUPED_ARRAY = ROOT / "scripts/hpc/submit_r03a_grouped_array.sh"
 SUBMIT_SUMMARY = ROOT / "scripts/hpc/submit_r03a_summary.sh"
 WORKER = ROOT / "scripts/hpc/run_r03a_case.sh"
 JSONSCHEMA_OVERLAY = ROOT / "scripts/hpc/prepare_jsonschema_overlay.sh"
@@ -37,6 +38,7 @@ class R03AHPCContractTest(unittest.TestCase):
             SUBMIT_SMOKE,
             SUBMIT_H100_SMOKE,
             SUBMIT_ARRAY,
+            SUBMIT_GROUPED_ARRAY,
             SUBMIT_SUMMARY,
             WORKER,
             JSONSCHEMA_OVERLAY,
@@ -71,6 +73,9 @@ class R03AHPCContractTest(unittest.TestCase):
         self.assertIn("#SBATCH --cpus-per-task=8", array)
         self.assertIn("#SBATCH --mem=128G", array)
         self.assertIn("scripts/hpc/run_r03a_case.sh", array)
+        self.assertIn("--array=0-4,6-16%1", array)
+        self.assertIn("--array=5%1", array)
+        self.assertNotIn("0-16", array)
         for value in (smoke, h100_smoke, array):
             self.assertNotIn("main/run_crfs_r03a.py", value)
             self.assertNotIn("serve_policy.py", value)
@@ -96,6 +101,7 @@ class R03AHPCContractTest(unittest.TestCase):
             'R02_RAW_ROOT="$r02_raw_root"',
             'R03_SUMMARY_SHA256="$r03_summary_sha256"',
             'EXPECTED_GIT_COMMIT="$expected_commit"',
+            'EXPECTED_SOURCE_NODE="$group_node"',
         ):
             self.assertIn(binding, value)
         self.assertNotRegex(value, r"(?m)^\s*(python|python3|uv run)\b")
@@ -112,6 +118,9 @@ class R03AHPCContractTest(unittest.TestCase):
             "export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src"
         )
         self.assertLess(dependency, runner_path)
+        self.assertIn("EXPECTED_SOURCE_NODE", value)
+        self.assertIn('ACTUAL_SOURCE_NODE=$(hostname -s)', value)
+        self.assertLess(value.index('ACTUAL_SOURCE_NODE=$(hostname -s)'), value.index('mkdir -p "$CASE_DIR"'))
 
     def test_jsonschema_overlay_is_allocation_only_exact_and_offline(self) -> None:
         value = JSONSCHEMA_OVERLAY.read_text(encoding="utf-8")
@@ -145,7 +154,7 @@ class R03AHPCContractTest(unittest.TestCase):
     def test_submission_caps_resources_and_excludes_unhealthy_nodes(self) -> None:
         value = SUBMIT_JOB.read_text(encoding="utf-8")
         self.assertIn('1|2)', value)
-        self.assertIn('--array="0-16%$concurrency"', value)
+        self.assertNotIn('--array="0-16%$concurrency"', value)
         self.assertIn('-t PENDING', value)
         self.assertIn('ReqTRES=', value)
         self.assertIn('allocated_job_ids=$(squeue', value)
@@ -170,11 +179,76 @@ class R03AHPCContractTest(unittest.TestCase):
         self.assertIn("0024-preserve-source-node-trace-pairing.md", value)
         self.assertIn("0025-bind-r03a-trace-gate-to-native-leaf-evidence.md", value)
         self.assertIn("0026-validate-r03a-scalars-in-recorded-dtype.md", value)
+        self.assertIn("0027-register-source-node-grouped-r03a-population.md", value)
         self.assertIn('if [ "$mode" = h100_smoke ]', value)
         self.assertIn(".provenance.host // empty", value)
-        self.assertIn("selected R02 source hash differs", value)
-        self.assertIn('node" != "$required_source_node', value)
-        self.assertIn("required source node $required_source_node", value)
+        self.assertIn("R02 source hash differs before source-node pinning", value)
+        self.assertIn("required source node $required_node", value)
+
+    def test_grouped_full_is_hash_derived_pinned_held_and_receipted(self) -> None:
+        value = SUBMIT_JOB.read_text(encoding="utf-8")
+        expected_worker_1 = "0,1,2,3,4,6,7,8,9,10,11,12,13,14,15,16"
+        self.assertIn(f"expected_worker_1_indices={expected_worker_1}", value)
+        self.assertIn("expected_worker_2_indices=5", value)
+        hash_loop_start = value.index("hash_checked=0")
+        hash_loop_end = value.index(
+            'test "$hash_checked" -eq "$required_case_count"', hash_loop_start
+        )
+        host_loop_start = value.index("host_checked=0", hash_loop_end)
+        host_read = value.index("source_host=$(jq -r", host_loop_start)
+        self.assertIn('sha256sum "$source_result"', value[hash_loop_start:hash_loop_end])
+        self.assertNotIn("source_host=$(jq -r", value[hash_loop_start:hash_loop_end])
+        self.assertLess(hash_loop_end, host_loop_start)
+        self.assertLess(host_loop_start, host_read)
+        for node, indices in (("worker-1", "0-4,6-16"), ("worker-2", "5")):
+            self.assertIn(f"submit_group {node} {indices}", value)
+        self.assertIn("sbatch --parsable --hold", value)
+        self.assertIn('--array="$group_indices%1"', value)
+        self.assertIn('--nodelist="$group_node"', value)
+        self.assertIn('ArrayTaskThrottle=1', value)
+        self.assertIn('JobState=PENDING', value)
+        self.assertIn('Reason=JobHeldUser', value)
+        self.assertIn('Priority=0', value)
+        self.assertIn('summary_dependency=afterany:$worker_1_job_id:$worker_2_job_id', value)
+        summary_submit = value.index('--dependency="$summary_dependency"')
+        summary_receipt = value.index(
+            'mv "$summary_receipt_tmp" "$run_root/summary-submission.json"'
+        )
+        release = value.index('scontrol release "$worker_1_job_id" "$worker_2_job_id"')
+        self.assertLess(summary_submit, summary_receipt)
+        self.assertLess(summary_receipt, release)
+        self.assertIn('scontrol release "$worker_1_job_id" "$worker_2_job_id"', value)
+        self.assertIn("launch-reservation.json", value)
+        self.assertIn("grouped-launch.json", value)
+        self.assertIn("r03a_source_node_group_submission", value)
+        self.assertLess(value.index('mkdir "$run_root"'), value.index("submit_group worker-1"))
+        self.assertLess(
+            value.index('mv "$reservation_tmp" "$run_root/launch-reservation.json"'),
+            value.index("submit_group worker-1"),
+        )
+        self.assertLess(
+            value.index("submit_group worker-1"), value.index("submit_group worker-2")
+        )
+
+    def test_grouped_wrapper_rejects_nonregistered_concurrency_before_preflight(self) -> None:
+        completed = subprocess.run(
+            [
+                str(SUBMIT_GROUPED_ARRAY),
+                "unused",
+                "unused",
+                "unused",
+                "unused",
+                "unused",
+                "1",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "RUN_ID": "r03a-grouped-concurrency-rejection"},
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("fixed total concurrency two", completed.stderr)
+        self.assertNotIn("Live Slurm state", completed.stdout + completed.stderr)
 
     def test_adr0024_retires_cross_node_smoke_and_ungrouped_array(self) -> None:
         env = {**os.environ, "RUN_ID": "r03a-adr0024-rejection-test"}
@@ -209,9 +283,9 @@ class R03AHPCContractTest(unittest.TestCase):
         )
         self.assertNotIn('"nonfinite_failure"', value)
 
-    def test_summary_is_cpu_only_and_has_an_exact_afterok_submission_path(self) -> None:
+    def test_summary_is_cpu_only_and_has_an_exact_dual_afterany_path(self) -> None:
         sbatch = SLURM_SUMMARY.read_text(encoding="utf-8")
-        submit = SUBMIT_SUMMARY.read_text(encoding="utf-8")
+        submit = SUBMIT_JOB.read_text(encoding="utf-8")
         self.assertNotRegex(sbatch, r"(?m)^#SBATCH\s+--gres")
         self.assertIn("#SBATCH --cpus-per-task=2", sbatch)
         self.assertIn("#SBATCH --mem=16G", sbatch)
@@ -226,18 +300,42 @@ class R03AHPCContractTest(unittest.TestCase):
             "--r02-raw-root",
             "--r03-summary",
             "--results-root",
-            "--source-slurm-array-job-id",
+            "--source-worker-1-slurm-array-job-id",
+            "--source-worker-2-slurm-array-job-id",
+            "--summary-slurm-job-id",
             "--expected-git-commit",
         ):
             self.assertIn(option, sbatch)
         self.assertIn(sha256(CONFIG), submit)
-        self.assertIn('SOURCE_ARRAY_JOB_ID must be one exact numeric Slurm job id', submit)
-        self.assertIn('--dependency="afterok:$source_array_job_id"', submit)
-        self.assertIn('SOURCE_SLURM_ARRAY_JOB_ID="$source_array_job_id"', submit)
+        self.assertIn(
+            'summary_dependency=afterany:$worker_1_job_id:$worker_2_job_id',
+            submit,
+        )
+        self.assertIn(
+            'SOURCE_WORKER_1_SLURM_ARRAY_JOB_ID="$worker_1_job_id"',
+            submit,
+        )
+        self.assertIn(
+            'SOURCE_WORKER_2_SLURM_ARRAY_JOB_ID="$worker_2_job_id"',
+            submit,
+        )
+        self.assertIn('indices: "0-4,6-16"', submit)
+        self.assertIn('indices: "5"', submit)
+        self.assertIn(r"*\**", submit)
         self.assertIn('EXPECTED_GIT_COMMIT="$expected_commit"', submit)
         self.assertIn('CONFIG_SHA256="$config_sha256"', submit)
         self.assertIn('R03_SUMMARY_SHA256="$r03_summary_sha256"', submit)
+        self.assertIn("summary-submission.json", submit)
+        self.assertIn("r03a_population_summary_submission", submit)
         self.assertNotRegex(submit, r"(?m)^\s*(python|python3|uv run)\b")
+
+    def test_standalone_summary_submission_is_retired_before_preflight(self) -> None:
+        completed = subprocess.run(
+            [str(SUBMIT_SUMMARY)], check=False, capture_output=True, text=True
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("standalone R03A summary submission is retired", completed.stderr)
+        self.assertIn("before releasing either source array", completed.stderr)
 
     def test_wrappers_cannot_select_unregistered_modes(self) -> None:
         self.assertIn("R03A_SUBMISSION_MODE=smoke", SUBMIT_SMOKE.read_text(encoding="utf-8"))
@@ -246,10 +344,17 @@ class R03AHPCContractTest(unittest.TestCase):
             SUBMIT_H100_SMOKE.read_text(encoding="utf-8"),
         )
         self.assertIn("R03A_SUBMISSION_MODE=array", SUBMIT_ARRAY.read_text(encoding="utf-8"))
+        self.assertIn(
+            "R03A_SUBMISSION_MODE=grouped_array",
+            SUBMIT_GROUPED_ARRAY.read_text(encoding="utf-8"),
+        )
         common = SUBMIT_JOB.read_text(encoding="utf-8")
         self.assertRegex(
             common,
-            re.compile(r"case \"\$MODE\" in.*smoke\).*h100_smoke\).*array\)", re.S),
+            re.compile(
+                r"case \"\$MODE\" in.*smoke\).*h100_smoke\).*grouped_array\).*array\)",
+                re.S,
+            ),
         )
 
 
