@@ -218,6 +218,32 @@ class SafeLiberoCase:
             raise ValueError(f"Expected action prefix shape ({self.config.executed_prefix}, 7), got {prefix.shape}")
         observation = self.reset_and_settle()
         start_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64).copy()
+        eef_site_id = int(self.env.robots[0].eef_site_id)
+        site_rotation = np.asarray(self.env.sim.data.site_xmat[eef_site_id], dtype=np.float64).reshape(3, 3)
+        start_eef_center = (
+            np.asarray(self.env.sim.data.site_xpos[eef_site_id], dtype=np.float64)
+            + site_rotation @ np.asarray((0.0, 0.0, -0.08), dtype=np.float64)
+        )
+        import mujoco
+
+        box_type = int(mujoco.mjtGeom.mjGEOM_BOX)
+        branch_obstacle_boxes = []
+        for name in self.obstacle_geoms:
+            geom_id = int(self.env.sim.model.geom_name2id(name))
+            if int(self.env.sim.model.geom_type[geom_id]) != box_type:
+                continue
+            branch_obstacle_boxes.append(
+                {
+                    "name": name,
+                    "center_m": np.asarray(self.env.sim.data.geom_xpos[geom_id], dtype=np.float64).tolist(),
+                    "rotation_world": np.asarray(
+                        self.env.sim.data.geom_xmat[geom_id], dtype=np.float64
+                    ).reshape(-1).tolist(),
+                    "half_size_m": np.asarray(
+                        self.env.sim.model.geom_size[geom_id], dtype=np.float64
+                    ).tolist(),
+                }
+            )
         monitor = GeomClearanceMonitor(
             self.env.sim,
             self.eef_geoms,
@@ -257,7 +283,9 @@ class SafeLiberoCase:
             "raw_mujoco_minimum_geom_pair": measurement.min_pair,
             "measurement": measurement.to_dict(),
             "start_eef_m": start_eef.tolist(),
+            "start_eef_center_m": start_eef_center.tolist(),
             "end_eef_m": end_eef.tolist(),
+            "branch_obstacle_boxes": branch_obstacle_boxes,
             "task_success": bool(done or self.env.check_success()),
         }
 
