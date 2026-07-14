@@ -33,6 +33,10 @@ class ClearanceMeasurement:
     conservative_min_substep_index: int | None
     conservative_obstacle_geom: str | None
     conservative_eef_center_m: tuple[float, float, float] | None
+    conservative_eef_radius_m: float | None
+    conservative_obstacle_center_m: tuple[float, float, float] | None
+    conservative_obstacle_rotation_world: tuple[float, ...] | None
+    conservative_obstacle_half_size_m: tuple[float, float, float] | None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -155,6 +159,9 @@ class GeomClearanceMonitor:
         self._conservative_substep: int | None = None
         self._conservative_obstacle_geom: str | None = None
         self._conservative_eef_center: tuple[float, float, float] | None = None
+        self._conservative_obstacle_center: tuple[float, float, float] | None = None
+        self._conservative_obstacle_rotation: tuple[float, ...] | None = None
+        self._conservative_obstacle_half_size: tuple[float, float, float] | None = None
 
     def _observe_conservative_sphere_boxes(self, sim, mujoco_module, substep_index: int) -> None:
         if self._eef_site_id is None or self._eef_radius_m is None:
@@ -178,6 +185,15 @@ class GeomClearanceMonitor:
                 self._conservative_substep = int(substep_index)
                 self._conservative_obstacle_geom = obstacle_name
                 self._conservative_eef_center = tuple(float(value) for value in eef_center)
+                self._conservative_obstacle_center = tuple(
+                    float(value) for value in sim.data.geom_xpos[obstacle_id]
+                )
+                self._conservative_obstacle_rotation = tuple(
+                    float(value) for value in np.asarray(sim.data.geom_xmat[obstacle_id]).reshape(-1)
+                )
+                self._conservative_obstacle_half_size = tuple(
+                    float(value) for value in sim.model.geom_size[obstacle_id]
+                )
 
     def observe(self, sim, substep_index: int | None = None) -> None:
         """Record one post-integration physics state."""
@@ -263,6 +279,10 @@ class GeomClearanceMonitor:
             conservative_min_substep_index=self._conservative_substep,
             conservative_obstacle_geom=self._conservative_obstacle_geom,
             conservative_eef_center_m=self._conservative_eef_center,
+            conservative_eef_radius_m=self._eef_radius_m,
+            conservative_obstacle_center_m=self._conservative_obstacle_center,
+            conservative_obstacle_rotation_world=self._conservative_obstacle_rotation,
+            conservative_obstacle_half_size_m=self._conservative_obstacle_half_size,
         )
 
 
