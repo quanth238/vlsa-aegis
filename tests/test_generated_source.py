@@ -156,6 +156,53 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
 
 
 class GeneratedSourcePortabilityTest(unittest.TestCase):
+    def test_libero_asset_locator_resolves_concrete_package_below_namespace(self) -> None:
+        package_root = ROOT / "safelibero/libero/libero"
+        asset = package_root / "bddl_files/safelibero_spatial" / (
+            "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate.bddl"
+        )
+        concrete_package = mock.Mock(__file__=str(package_root / "__init__.py"))
+        with mock.patch.object(
+            _MODULE.importlib, "import_module", return_value=concrete_package
+        ) as import_module:
+            locator = _MODULE._asset_locator(asset, ROOT / "not-the-repository-root")
+            restored = _MODULE._locator_path(locator, ROOT / "not-the-repository-root")
+        self.assertEqual(locator["kind"], "libero_package_relative")
+        self.assertEqual(locator["path"], asset.relative_to(package_root).as_posix())
+        self.assertEqual(restored, asset.resolve())
+        self.assertEqual(import_module.call_args_list, [mock.call("libero.libero")] * 2)
+
+    def test_concrete_package_without_file_fails_explicitly(self) -> None:
+        namespace_package = mock.Mock(__file__=None)
+        with mock.patch.object(
+            _MODULE.importlib, "import_module", return_value=namespace_package
+        ):
+            with self.assertRaisesRegex(ValueError, "has no filesystem location"):
+                _MODULE._package_root("libero")
+
+    def test_robosuite_asset_falls_through_concrete_libero_and_round_trips(self) -> None:
+        libero_root = ROOT / "safelibero/libero/libero"
+        robosuite_root = ROOT / "fake-site-packages/robosuite"
+        asset = robosuite_root / "models/assets/meshes/test.stl"
+        packages = {
+            "libero.libero": mock.Mock(__file__=str(libero_root / "__init__.py")),
+            "robosuite": mock.Mock(__file__=str(robosuite_root / "__init__.py")),
+        }
+        with mock.patch.object(
+            _MODULE.importlib, "import_module", side_effect=packages.__getitem__
+        ) as import_module:
+            locator = _MODULE._asset_locator(asset, ROOT / "not-the-repository-root")
+            restored = _MODULE._locator_path(locator, ROOT / "not-the-repository-root")
+        self.assertEqual(
+            locator,
+            {"kind": "robosuite_package_relative", "path": "models/assets/meshes/test.stl"},
+        )
+        self.assertEqual(restored, asset.resolve())
+        self.assertEqual(
+            import_module.call_args_list,
+            [mock.call("libero.libero"), mock.call("robosuite"), mock.call("robosuite")],
+        )
+
     def test_static_model_validator_never_raises_on_non_mapping_asset(self) -> None:
         malformed = {
             "format": "wrong",

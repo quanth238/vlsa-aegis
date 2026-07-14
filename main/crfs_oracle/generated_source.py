@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 from datetime import datetime, timezone
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -377,6 +378,17 @@ def allocation_provenance(repo_root: str | Path) -> dict[str, Any]:
     }
 
 
+def _package_root(package_name: str) -> Path:
+    """Resolve the concrete package that owns portable model assets."""
+
+    module_name = "libero.libero" if package_name == "libero" else package_name
+    package = importlib.import_module(module_name)
+    package_file = getattr(package, "__file__", None)
+    if not isinstance(package_file, str) or not package_file:
+        raise ValueError(f"concrete package {module_name!r} has no filesystem location")
+    return Path(package_file).resolve().parent
+
+
 def _asset_locator(path: Path, repo_root: Path) -> dict[str, str]:
     resolved = path.resolve()
     try:
@@ -384,8 +396,7 @@ def _asset_locator(path: Path, repo_root: Path) -> dict[str, str]:
     except ValueError:
         pass
     for package_name in ("libero", "robosuite"):
-        package = __import__(package_name)
-        package_root = Path(package.__file__).resolve().parent
+        package_root = _package_root(package_name)
         try:
             relative = resolved.relative_to(package_root)
         except ValueError:
@@ -474,8 +485,7 @@ def _locator_path(locator: Mapping[str, Any], repo_root: Path) -> Path:
         base = repo_root
     elif kind in {"libero_package_relative", "robosuite_package_relative"}:
         package_name = str(kind).split("_", 1)[0]
-        package = __import__(package_name)
-        base = Path(package.__file__).resolve().parent
+        base = _package_root(package_name)
     else:
         raise ValueError(f"unsupported asset locator kind: {kind!r}")
     path = (base / relative).resolve()

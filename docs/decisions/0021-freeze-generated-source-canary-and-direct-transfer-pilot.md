@@ -77,6 +77,14 @@ UUID as an integer. Its rejection is retained. Freezing OSMesa aligns this
 source-only path with the already used SafeLIBERO baseline renderer; no state
 seed, placement, or selection rule changed.
 
+The first OSMesa task, `27584_0`, performed its one seeded reset and raw-state
+read, then exposed a portability bug before obstacle edits, settling, source
+acceptance, or policy/safety outcomes: the runtime's outer `libero` directory
+is intentionally a namespace package, so `libero.__file__` is `None`.
+Portable assets are now located relative to the concrete `libero.libero`
+package. This does not change the frozen config, state seeds, placements,
+acceptance rule, or any policy outcome.
+
 No sampler parity, R04A, or R04B job is repeated. The direct efficacy
 comparison remains frozen for later untouched groups: frozen pi0.5, one locked
 ECG arm, realized-final-norm random, a strong time-structured margin analytic

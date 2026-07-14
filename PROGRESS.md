@@ -76,6 +76,7 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Independent pre-submission review returned GO for the request-0 canary after verifying retained failed-validation JSON and queue-time commit binding. The activated OSMesa retry contract passes 41/41 focused tests; `./init.sh` passes 245 tests with 68 dependency/allocation skips, and all new Python entry points parse under the Python 3.8 grammar.
 - Request-0 Slurm task `27578_0` failed cleanly before a simulator reset or any scientific outcome because robosuite's EGL path attempted to parse the allocated MIG UUID as an integer. The structured rejection and launch failure are retained under `generated-source-canary-20260714a`; dependent validator `27579` did not run. The replacement config freezes the same OSMesa backend used by the existing SafeLIBERO baseline jobs; no source seed, pose, identity rule, or policy criterion changed.
 - The first OSMesa retry preflight refused submission because 81,206 MiB fresh host memory was just below the inherited 80 GiB request. Since source generation loads no policy or checkpoint, its reviewed allocation is reduced to 4 CPUs and 32 GiB; this transport-only resource correction does not change config SHA-256, source seeds, placements, or outcomes.
+- OSMesa request-0 task `27584_0` performed its one preregistered seeded reset and raw-state read, then rejected before obstacle edits, settling, source acceptance, or policy/safety outcomes because the portable-asset resolver treated the intentionally namespace-only `libero` package as concrete and passed its `None` `__file__` to `Path`. The retained rejection is under `generated-source-canary-osmesa-20260715a`; dependent validator `27585` did not run. The resolver now addresses the actual `libero.libero` package root and fails explicitly if a concrete package has no filesystem location. This changes no config, seed, placement, scene acceptance rule, or policy outcome.
 
 ## Active gate
 
@@ -117,7 +118,7 @@ open.
 Exact next command after committing and synchronizing the reviewed source:
 
 ```bash
-RUN_ID=generated-source-canary-osmesa-20260715a scripts/hpc/submit_generated_source_pilot.sh configs/experiments/task0_single_obstacle_generated_v1.json
+RUN_ID=generated-source-canary-osmesa-assetfix-20260715a scripts/hpc/submit_generated_source_pilot.sh configs/experiments/task0_single_obstacle_generated_v1.json
 ```
 
 No learned-training submission is authorized yet.
