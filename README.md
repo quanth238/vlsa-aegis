@@ -22,6 +22,12 @@ ordinary-baseline contract. Independent state provenance,
 perturbation support, and powered group counts remain unresolved. No probe has
 yet been trained or shown effective.
 
+ADR-0021 now freezes a new, explicitly non-Level-II
+`task0_single_obstacle_generated_v1` source population. Its reviewed first
+allocation is a one-request EGL/replay canary plus an independent CPU
+validator; the remaining nine retired design groups run only after that passes.
+These groups can size the later experiment but cannot train or evaluate ECG.
+
 ## Baseline and extensions
 
 The released baseline remains in its original locations:
@@ -106,6 +112,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0018-accept-r04a-stop-before-training.md`: passed plumbing evidence and current stop;
 - `docs/decisions/0019-freeze-r04b-exact-resume-parity.md`: final apparatus contract before direct probe experiments;
 - `docs/decisions/0020-accept-r04b-focus-direct-probe-test.md`: passed R04B evidence and frozen direct research question;
+- `docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md`: new-state identity, canary, and direct privileged-transfer stop rule;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `evidence/r04b/r04b-validation.json`: compact exact-resume allocation/validator record;
 - `references.bib`: bibliography;

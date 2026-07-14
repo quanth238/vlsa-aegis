@@ -153,13 +153,30 @@ class SafeLiberoCase:
         from libero.libero import benchmark, get_libero_path
         from libero.libero.envs import OffScreenRenderEnv
 
-        suite = benchmark.get_benchmark_dict()[case["task_suite"]](safety_level=case["safety_level"])
+        self._generated_source = "source_estimand" in case
+        if self._generated_source:
+            if case.get("source_estimand") != "task0_single_obstacle_generated_v1":
+                raise ValueError("Unsupported generated source estimand")
+            if case.get("safety_level") == "II":
+                raise ValueError("Generated source states must never be labeled SafeLIBERO Level II")
+            from crfs_oracle.generated_source import load_generated_source_bundle
+
+            suite = benchmark.get_benchmark_dict()[case["task_suite"]]()
+            self._generated_bundle = load_generated_source_bundle(case)
+        else:
+            suite = benchmark.get_benchmark_dict()[case["task_suite"]](safety_level=case["safety_level"])
+            self._generated_bundle = None
         self._task = suite.get_task(int(case["task_index"]))
         self._suite = suite
         self._task_suite = str(case["task_suite"])
-        self._safety_level = str(case["safety_level"])
+        self._safety_level = None if self._generated_source else str(case["safety_level"])
         self._task_index = int(case["task_index"])
-        self._init_state = np.asarray(suite.get_task_init_states(self._task_index)[int(case["episode_index"])])
+        self._source_estimand = str(case["source_estimand"]) if self._generated_source else None
+        self._init_state = (
+            None
+            if self._generated_source
+            else np.asarray(suite.get_task_init_states(self._task_index)[int(case["episode_index"])])
+        )
         bddl_path = Path(get_libero_path("bddl_files")) / self._task.problem_folder / self._task.bddl_file
         self.env = OffScreenRenderEnv(
             bddl_file_name=bddl_path,
@@ -179,6 +196,29 @@ class SafeLiberoCase:
 
     def configure_case(self, case: dict[str, Any]) -> None:
         """Select another saved state without recompiling the identical task."""
+        generated_source = "source_estimand" in case
+        if generated_source != self._generated_source:
+            raise ValueError("Shared environment cannot mix released and generated state sources")
+        if self._generated_source:
+            identity = (
+                str(case["task_suite"]),
+                int(case["task_index"]),
+                str(case["source_estimand"]),
+            )
+            expected = (self._task_suite, self._task_index, self._source_estimand)
+            if identity != expected:
+                raise ValueError(f"Shared environment task/source mismatch: expected {expected}, got {identity}")
+            if case.get("safety_level") == "II":
+                raise ValueError("Generated source states must never be labeled SafeLIBERO Level II")
+            from crfs_oracle.generated_source import load_generated_source_bundle
+
+            self._generated_bundle = load_generated_source_bundle(case)
+            self._environment_seed = int(case["environment_seed"])
+            self.env.seed(self._environment_seed)
+            self.obstacle_name = None
+            self.eef_geoms = ()
+            self.obstacle_geoms = ()
+            return
         identity = (str(case["task_suite"]), str(case["safety_level"]), int(case["task_index"]))
         expected = (self._task_suite, self._safety_level, self._task_index)
         if identity != expected:
@@ -197,22 +237,45 @@ class SafeLiberoCase:
         return str(self._task.language)
 
     def reset_and_settle(self) -> dict[str, Any]:
-        self.env.seed(self._environment_seed)
-        self.env.reset()
-        self.env.set_init_state(self._init_state.copy())
-        for _ in range(self.config.settle_steps):
-            self.env.step_with_substep_callback(
-                LIBERO_DUMMY_ACTION.tolist(),
-                lambda _sim, _substep: None,
-                update_observables=False,
-                collect_observations=False,
-            )
-        # Sensor evaluation has no effect on physics. Render exactly once at
-        # the settled branch point rather than on all 20 dummy control steps.
-        self.env._update_observables(force=True)
-        observation = self.env.env._get_observations()
+        if self._generated_source:
+            if self.config.settle_steps != 20:
+                raise ValueError("Generated source replay requires the recorded 20-step settle history")
+            if self._generated_bundle is None:
+                raise RuntimeError("Generated source bundle is not loaded")
+            from crfs_oracle.generated_source import restore_generated_source_branch
+
+            self.env.seed(self._environment_seed)
+            observation = restore_generated_source_branch(self.env, self._generated_bundle)
+        else:
+            self.env.seed(self._environment_seed)
+            self.env.reset()
+            self.env.set_init_state(self._init_state.copy())
+            for _ in range(self.config.settle_steps):
+                self.env.step_with_substep_callback(
+                    LIBERO_DUMMY_ACTION.tolist(),
+                    lambda _sim, _substep: None,
+                    update_observables=False,
+                    collect_observations=False,
+                )
+            # Sensor evaluation has no effect on physics. Render exactly once at
+            # the settled branch point rather than on all 20 dummy control steps.
+            self.env._update_observables(force=True)
+            observation = self.env.env._get_observations()
         obstacle_name = _active_obstacle(self.env, observation)
         eef_geoms, obstacle_geoms = resolve_crfs_geom_groups(self.env, obstacle_name)
+        if self._generated_source:
+            from crfs_oracle.generated_source import verify_generated_source_branch
+
+            errors = verify_generated_source_branch(
+                self._generated_bundle,
+                env=self.env,
+                observation=observation,
+                active_obstacle_name=obstacle_name,
+            )
+            if errors:
+                raise RuntimeError(
+                    "Generated source branch verification failed: " + "; ".join(errors)
+                )
         self.obstacle_name = obstacle_name
         self.eef_geoms = eef_geoms
         self.obstacle_geoms = obstacle_geoms

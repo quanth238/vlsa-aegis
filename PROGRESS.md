@@ -71,6 +71,9 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - R04B source task `27558_0` completed on `worker-mig-3g40gb-0` at clean commit `15b97b63f77b1b8b60fa53b5efec334ff2d32a3e`. All 6 dependency-backed seam tests passed, the exact-job validator returned zero errors, and the raw artifact SHA-256 is `977084df18cdccf1a8cdca42a1af1faaa4ef039ce2d83df716f14b8b43e3dae1`.
 - Independent CPU Slurm validator `27559` completed on `worker-2`, was bound to source identifiers `27558/27558/0`, reconstructed the same artifact SHA-256, and returned zero errors. `evidence/r04b/r04b-validation.json` is the compact record. This passes exact-resume apparatus only; no perturbation label, probe training, sampled-policy efficacy action, or guidance outcome ran.
 - ADR-0020 now stops apparatus expansion. The direct research question is whether one locked learned clearance-gradient arm improves paired Safe-Progress Success over frozen, realized-norm random, strong time-structured margin analytic, and AEGIS/system baselines while retaining progress and reducing online cost. R04 remains active.
+- ADR-0021 freezes the additive `task0_single_obstacle_generated_v1` retired design population and activates config SHA-256 `ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f`. Independent review closed silent reset resampling, flattened-state identity, path-dependent asset identity, and outcome-field acceptance. The generator now binds complete portable branch identity, performs one underlying reset, records all 20 settle states, and requires two fresh-load exact replays.
+- The first allocation is request 0 only, followed by a dependency-backed independent CPU validator. Requests 1--9 run only after that canary passes. These ten groups may support retired prevalence/power design but can never train, calibrate, validate, test, or support a claim for the probe.
+- Independent pre-submission review returned GO for the request-0 canary after verifying retained failed-validation JSON and queue-time commit binding. The activated focused contract passes 40/40 tests; `./init.sh` passes 244 tests with 68 dependency/allocation skips, and all new Python entry points parse under the Python 3.8 grammar.
 
 ## Active gate
 
@@ -84,12 +87,11 @@ open.
 
 ## Next
 
-1. Seek the benchmark authors' original Level-II state generator in parallel.
-   Since no generator exists in the repository, implement the additive
-   `task0_single_obstacle_generated_v1` estimand with finalized XML, full
-   pre-settle state/history, hash-bound observation/geometry, structured
-   rejection records, and fresh-load replay checks. Do not label it Level II.
-2. Run a retired allocation pilot to estimate valid-state, nominal-collision,
+1. Run and independently validate the frozen request-0 generated-source
+   allocation canary. If it passes, run requests 1--9 without changing the
+   scientific config. Do not label this population Level II.
+2. Freeze accepted bundles into a v2 manifest before policy outcomes, then run
+   the existing direct R01/R02 ladder as a retired allocation pilot to estimate valid-state, nominal-collision,
    boundary, unsafe, trigger-positive, and direct-witness prevalence. Freeze a
    joint-powered production count, then repeat R00--R03 on disjoint generated
    groups. A failed privileged-flow transfer stops probe training.
@@ -110,10 +112,10 @@ open.
    inference latency, and reject clearance-only gains. Do not submit training
    before the preceding prerequisites pass.
 
-Exact next local starting command:
+Exact next command after committing and synchronizing the reviewed source:
 
 ```bash
-rg -n "get_task_init_states|_reset_internal|set_init_state|model.xml" safelibero/libero/libero main/crfs_oracle
+RUN_ID=generated-source-canary-20260714a scripts/hpc/submit_generated_source_pilot.sh configs/experiments/task0_single_obstacle_generated_v1.json
 ```
 
 No learned-training submission is authorized yet.

@@ -1,0 +1,373 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/generated-source-state.schema.json",
+  "title": "Custom task-0 generated source state",
+  "oneOf": [
+    {"$ref": "#/$defs/acceptedBundle"},
+    {"$ref": "#/$defs/rejectedBundle"}
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "arrayRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"type": "string", "minLength": 1},
+        "shape": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "values": {"type": "array"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "settleState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256", "settle_step"],
+      "properties": {
+        "dtype": {"type": "string", "minLength": 1},
+        "shape": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "values": {"type": "array"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "settle_step": {"type": "integer", "minimum": 1, "maximum": 20}
+      }
+    },
+    "numpyLegacyState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "keys", "position", "has_gauss", "cached_gaussian"],
+      "properties": {
+        "algorithm": {"const": "MT19937"},
+        "keys": {"$ref": "#/$defs/arrayRecord"},
+        "position": {"type": "integer", "minimum": 0},
+        "has_gauss": {"enum": [0, 1]},
+        "cached_gaussian": {"type": "number"}
+      }
+    },
+    "rng": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reset_seed", "reset_api", "numpy_legacy_state_before_reset", "numpy_legacy_state_after_reset",
+        "placement_seed", "placement_algorithm", "placement_state_before", "placement_state_after",
+        "active_x_uniform_draw_m", "active_x_uniform_range_m"
+      ],
+      "properties": {
+        "reset_seed": {"type": "integer", "minimum": 0},
+        "reset_api": {"const": "env.seed_plus_numpy_legacy_seed_before_exactly_one_reset"},
+        "numpy_legacy_state_before_reset": {"$ref": "#/$defs/numpyLegacyState"},
+        "numpy_legacy_state_after_reset": {"$ref": "#/$defs/numpyLegacyState"},
+        "placement_seed": {"type": "integer", "minimum": 0},
+        "placement_algorithm": {"const": "numpy.random.PCG64"},
+        "placement_state_before": {"type": "object"},
+        "placement_state_after": {"type": "object"},
+        "active_x_uniform_draw_m": {"type": "number", "minimum": -0.08, "maximum": -0.07},
+        "active_x_uniform_range_m": {"const": [-0.08, -0.07]}
+      }
+    },
+    "editRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "object_name", "joint_name", "joint_type", "addressing", "before", "after"],
+      "properties": {
+        "operation": {"enum": ["park_declared_obstacle", "activate_assigned_obstacle", "move_box_base_to_active_xy"]},
+        "object_name": {"type": "string"},
+        "joint_name": {"type": "string"},
+        "joint_type": {"const": "free"},
+        "addressing": {"const": "named_joint_no_hard_coded_qpos_offset"},
+        "before": {"$ref": "#/$defs/arrayRecord"},
+        "after": {"$ref": "#/$defs/arrayRecord"}
+      }
+    },
+    "edits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "active_pose_xyz_m", "box_base_pose_xyz_m", "log"],
+      "properties": {
+        "contract": {"const": "named_free_joints_only_no_hard_coded_qpos_offsets"},
+        "active_pose_xyz_m": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "box_base_pose_xyz_m": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "log": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "#/$defs/editRecord"}}
+      }
+    },
+    "settle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_count", "action_semantics", "actions"],
+      "properties": {
+        "step_count": {"const": 20},
+        "action_semantics": {"const": "baseline_LIBERO_dummy_control_no_policy_action"},
+        "actions": {"$ref": "#/$defs/arrayRecord"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_commit", "git_dirty", "baseline_commit", "slurm_job_id", "slurm_array_job_id",
+        "slurm_array_task_id", "partition", "host", "python", "physics_device", "render_device",
+        "mujoco_gl", "pyopengl_platform", "purpose", "policy_server_started", "policy_calls",
+        "model_loaded", "training", "created_at_utc"
+      ],
+      "properties": {
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_dirty": {"const": false},
+        "baseline_commit": {"const": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"},
+        "slurm_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_task_id": {"type": "string", "minLength": 1},
+        "partition": {"type": ["string", "null"]},
+        "host": {"type": "string", "minLength": 1},
+        "python": {"type": "string", "minLength": 1},
+        "physics_device": {"const": "cpu"},
+        "render_device": {"type": "string", "minLength": 1},
+        "mujoco_gl": {"type": ["string", "null"]},
+        "pyopengl_platform": {"type": ["string", "null"]},
+        "purpose": {"const": "source_state_generation_and_rendering_only"},
+        "policy_server_started": {"const": false},
+        "policy_calls": {"const": 0},
+        "model_loaded": {"const": false},
+        "training": {"const": false},
+        "created_at_utc": {"type": "string", "minLength": 1}
+      }
+    },
+    "sourceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_state_id", "source_state_sha256", "source_branch_sha256", "generation_request_id", "group_index",
+        "task_suite", "safety_level", "task_index", "task_name", "active_obstacle_name"
+      ],
+      "properties": {
+        "source_state_id": {"type": "string", "pattern": "^gsrc-[0-9a-f]{16}$"},
+        "source_state_sha256": {"$ref": "#/$defs/sha256"},
+        "source_branch_sha256": {"$ref": "#/$defs/sha256"},
+        "generation_request_id": {"type": "string", "pattern": "^greq-task0-single-obstacle-v1-[0-9]{4}$"},
+        "group_index": {"type": "integer", "minimum": 0, "maximum": 9},
+        "task_suite": {"const": "safelibero_spatial"},
+        "safety_level": {"const": "generated"},
+        "task_index": {"const": 0},
+        "task_name": {"const": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate"},
+        "active_obstacle_name": {
+          "enum": [
+            "moka_pot_obstacle_1", "milk_obstacle_1", "wine_bottle_obstacle_1",
+            "red_coffee_mug_obstacle_1", "yellow_book_obstacle_1"
+          ]
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome_blind", "one_reset_attempt_per_source_group", "resampling", "policy_called",
+        "policy_actions_executed", "safety_or_task_outcomes_computed", "prohibited_rejection_signals"
+      ],
+      "properties": {
+        "outcome_blind": {"const": true},
+        "one_reset_attempt_per_source_group": {"const": true},
+        "resampling": {"const": false},
+        "policy_called": {"const": false},
+        "policy_actions_executed": {"const": 0},
+        "safety_or_task_outcomes_computed": {"const": false},
+        "prohibited_rejection_signals": {
+          "const": ["collision", "clearance", "probe", "planner", "progress", "policy_action"]
+        }
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rejected", "outcome_blind", "stage", "code", "message"],
+      "properties": {
+        "rejected": {"type": "boolean"},
+        "outcome_blind": {"const": true},
+        "stage": {"type": ["string", "null"]},
+        "code": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]}
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "element_tag", "element_name", "original_path", "locator", "size_bytes", "sha256"],
+      "properties": {
+        "token": {"type": "string", "pattern": "^crfs-asset://[0-9]{4}$"},
+        "element_tag": {"type": "string"},
+        "element_name": {"type": ["string", "null"]},
+        "original_path": {"type": "string"},
+        "locator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": {"enum": ["repo_relative", "libero_package_relative", "robosuite_package_relative"]},
+            "path": {"type": "string", "minLength": 1}
+          }
+        },
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "xml", "sha256", "assets", "assets_sha256"],
+      "properties": {
+        "format": {"const": "portable_finalized_mujoco_xml_with_hashed_asset_tokens"},
+        "xml": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asset"}},
+        "assets_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sourceBranchPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bddl_sha256", "portable_model_xml_sha256", "model_asset_manifest_sha256",
+        "final_flattened_state_sha256", "observation_sha256", "geometry_sha256"
+      ],
+      "properties": {
+        "bddl_sha256": {"$ref": "#/$defs/sha256"},
+        "portable_model_xml_sha256": {"$ref": "#/$defs/sha256"},
+        "model_asset_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "final_flattened_state_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"},
+        "geometry_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sourceBranch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_sha256", "observation_sha256", "observation_components", "geometry_sha256",
+        "geometry", "active_obstacle_name", "source_branch_identity", "source_branch_sha256"
+      ],
+      "properties": {
+        "state_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_components": {"type": "object"},
+        "geometry_sha256": {"$ref": "#/$defs/sha256"},
+        "geometry": {"type": "object"},
+        "active_obstacle_name": {"type": "string"},
+        "source_branch_identity": {"$ref": "#/$defs/sourceBranchPayload"},
+        "source_branch_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fresh_load_index", "model_xml_sha256", "pre_settle_state_sha256", "settle_state_sha256",
+        "final_state_sha256", "observation_sha256", "geometry_sha256", "exact_replay"
+      ],
+      "properties": {
+        "fresh_load_index": {"enum": [1, 2]},
+        "model_xml_sha256": {"$ref": "#/$defs/sha256"},
+        "pre_settle_state_sha256": {"$ref": "#/$defs/sha256"},
+        "settle_state_sha256": {
+          "type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/sha256"}
+        },
+        "final_state_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"},
+        "geometry_sha256": {"$ref": "#/$defs/sha256"},
+        "exact_replay": {"const": true}
+      }
+    },
+    "acceptedBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "artifact_type", "source_estimand", "status", "run_id", "source_state",
+        "config", "bddl", "model", "rng", "edits", "states", "settle", "branch", "replay_proofs",
+        "selection", "rejection", "provenance", "usage_restriction", "bundle_content_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "artifact_type": {"const": "generated_source_state_bundle"},
+        "source_estimand": {"const": "task0_single_obstacle_generated_v1"},
+        "status": {"const": "accepted"},
+        "run_id": {"type": "string", "minLength": 1},
+        "source_state": {"$ref": "#/$defs/sourceState"},
+        "config": {
+          "type": "object", "additionalProperties": false,
+          "required": ["file_sha256", "scientific_sha256", "snapshot"],
+          "properties": {
+            "file_sha256": {"$ref": "#/$defs/sha256"},
+            "scientific_sha256": {"$ref": "#/$defs/sha256"},
+            "snapshot": {"type": "object"}
+          }
+        },
+        "bddl": {
+          "type": "object", "additionalProperties": false,
+          "required": ["repo_relative_path", "sha256", "content"],
+          "properties": {
+            "repo_relative_path": {"type": "string"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "content": {"type": "string"}
+          }
+        },
+        "model": {"$ref": "#/$defs/model"},
+        "rng": {"$ref": "#/$defs/rng"},
+        "edits": {"$ref": "#/$defs/edits"},
+        "states": {
+          "type": "object", "additionalProperties": false,
+          "required": ["raw_reset", "pre_settle", "settle_history", "final"],
+          "properties": {
+            "raw_reset": {"$ref": "#/$defs/arrayRecord"},
+            "pre_settle": {"$ref": "#/$defs/arrayRecord"},
+            "settle_history": {
+              "type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/settleState"}
+            },
+            "final": {"$ref": "#/$defs/arrayRecord"}
+          }
+        },
+        "settle": {"$ref": "#/$defs/settle"},
+        "branch": {"$ref": "#/$defs/sourceBranch"},
+        "replay_proofs": {
+          "type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [
+            {"$ref": "#/$defs/proof"}, {"$ref": "#/$defs/proof"}
+          ]
+        },
+        "selection": {"$ref": "#/$defs/selection"},
+        "rejection": {"$ref": "#/$defs/rejection"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "usage_restriction": {"const": "retired_design_pilot_only_never_probe_train_calibrate_validate_test_or_claim"},
+        "bundle_content_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "rejectedBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "artifact_type", "source_estimand", "status", "run_id", "source_state",
+        "config", "selection", "rejection", "provenance", "usage_restriction", "bundle_content_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "artifact_type": {"const": "generated_source_state_bundle"},
+        "source_estimand": {"const": "task0_single_obstacle_generated_v1"},
+        "status": {"const": "rejected"},
+        "run_id": {"type": "string", "minLength": 1},
+        "source_state": {
+          "type": "object", "additionalProperties": false,
+          "required": ["generation_request_id", "group_index", "active_obstacle_name"],
+          "properties": {
+            "generation_request_id": {"type": "string"},
+            "group_index": {"type": "integer"},
+            "active_obstacle_name": {"type": ["string", "null"]}
+          }
+        },
+        "config": {"type": "object"},
+        "selection": {"$ref": "#/$defs/selection"},
+        "rejection": {"$ref": "#/$defs/rejection"},
+        "provenance": {"type": "object"},
+        "usage_restriction": {"const": "retired_design_pilot_only_never_probe_train_calibrate_validate_test_or_claim"},
+        "bundle_content_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

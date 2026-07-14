@@ -1,31 +1,94 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/quanth238/vlsa-aegis/schemas/case-manifest.schema.json",
-  "title": "CRFS oracle case",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "case_id",
-    "task_suite",
-    "safety_level",
-    "task_index",
-    "episode_index",
-    "environment_seed",
-    "policy_seed",
-    "random_control_seed",
-    "group_id"
+  "title": "CRFS oracle released or generated case",
+  "oneOf": [
+    { "$ref": "#/$defs/releasedCase" },
+    { "$ref": "#/$defs/generatedCase" }
   ],
-  "properties": {
-    "schema_version": { "const": "1.0" },
-    "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
-    "task_suite": { "type": "string", "minLength": 1 },
-    "safety_level": { "enum": ["I", "II"] },
-    "task_index": { "type": "integer", "minimum": 0 },
-    "episode_index": { "type": "integer", "minimum": 0 },
-    "environment_seed": { "type": "integer", "minimum": 0 },
-    "policy_seed": { "type": "integer", "minimum": 0 },
-    "random_control_seed": { "type": "integer", "minimum": 0 },
-    "group_id": { "type": "string", "minLength": 1 }
+  "$defs": {
+    "commonProperties": {
+      "type": "object",
+      "properties": {
+        "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
+        "task_suite": { "type": "string", "minLength": 1 },
+        "task_index": { "type": "integer", "minimum": 0 },
+        "episode_index": { "type": "integer", "minimum": 0 },
+        "environment_seed": { "type": "integer", "minimum": 0 },
+        "policy_seed": { "type": "integer", "minimum": 0 },
+        "random_control_seed": { "type": "integer", "minimum": 0 },
+        "group_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "releasedCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "case_id",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "episode_index",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "group_id"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
+        "task_suite": { "type": "string", "minLength": 1 },
+        "safety_level": { "enum": ["I", "II"] },
+        "task_index": { "type": "integer", "minimum": 0 },
+        "episode_index": { "type": "integer", "minimum": 0 },
+        "environment_seed": { "type": "integer", "minimum": 0 },
+        "policy_seed": { "type": "integer", "minimum": 0 },
+        "random_control_seed": { "type": "integer", "minimum": 0 },
+        "group_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "generatedCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "case_id",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "episode_index",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "group_id",
+        "source_index",
+        "source_estimand",
+        "source_state_id",
+        "source_branch_sha256",
+        "source_state_sha256",
+        "source_bundle_sha256",
+        "source_bundle_path"
+      ],
+      "properties": {
+        "schema_version": { "const": "2.0" },
+        "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
+        "task_suite": { "const": "safelibero_spatial" },
+        "safety_level": { "const": "generated" },
+        "task_index": { "const": 0 },
+        "episode_index": { "type": "integer", "minimum": 0 },
+        "environment_seed": { "type": "integer", "minimum": 0 },
+        "policy_seed": { "type": "integer", "minimum": 0 },
+        "random_control_seed": { "type": "integer", "minimum": 0 },
+        "group_id": { "type": "string", "pattern": "^task0_single_obstacle_generated_v1:gsrc-[0-9a-f]{16}$" },
+        "source_index": { "type": "integer", "minimum": 0 },
+        "source_estimand": { "const": "task0_single_obstacle_generated_v1" },
+        "source_state_id": { "type": "string", "pattern": "^gsrc-[0-9a-f]{16}$" },
+        "source_branch_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "source_state_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "source_bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "source_bundle_path": { "type": "string", "minLength": 1 }
+      }
+    }
   }
 }
