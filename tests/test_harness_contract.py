@@ -34,6 +34,13 @@ class HarnessContractTest(unittest.TestCase):
         self.assertNotIn("tracked_body_motion", default_result)
         self.assertIn('result["tracked_body_motion"]', source[opt_in_start:])
 
+    def test_prefix_task_success_is_additive_and_monotone(self) -> None:
+        source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
+        self.assertIn("task_success_during_prefix = False", source)
+        self.assertIn("task_success_during_prefix or final_task_success", source)
+        self.assertIn('"task_success": final_task_success', source)
+        self.assertIn('"task_success_during_prefix": task_success_during_prefix', source)
+
     def test_real_runner_discloses_preliminary_limitations(self) -> None:
         source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
         self.assertIn('"evidence_tier": "real_safelibero_preliminary"', source)

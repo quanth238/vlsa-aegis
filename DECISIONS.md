@@ -22,3 +22,4 @@
 - [0020 — Accept R04B and focus the direct learned-probe test](docs/decisions/0020-accept-r04b-focus-direct-probe-test.md)
 - [0021 — Freeze the generated-source canary and direct transfer pilot](docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md)
 - [0022 — Retire the custom generated-source route](docs/decisions/0022-retire-generated-source-route.md)
+- [0023 — Run the strong analytic kill test before probe training](docs/decisions/0023-run-strong-analytic-kill-test.md)

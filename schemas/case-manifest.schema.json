@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/quanth238/vlsa-aegis/schemas/case-manifest.schema.json",
-  "title": "CRFS oracle released or generated case",
+  "title": "CRFS oracle legacy, generated, or official-state-bound case",
   "oneOf": [
     { "$ref": "#/$defs/releasedCase" },
-    { "$ref": "#/$defs/generatedCase" }
+    { "$ref": "#/$defs/generatedCase" },
+    { "$ref": "#/$defs/officialStateCase" }
   ],
   "$defs": {
     "commonProperties": {
@@ -88,6 +89,54 @@
         "source_state_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "source_bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "source_bundle_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "officialStateCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "case_id",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "task_name",
+        "episode_index",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "group_id",
+        "init_state_relative_path",
+        "init_state_file_sha256",
+        "init_state_row_dtype",
+        "init_state_row_shape",
+        "init_state_row_bytes_sha256"
+      ],
+      "properties": {
+        "schema_version": { "const": "3.0" },
+        "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
+        "task_suite": { "type": "string", "minLength": 1 },
+        "safety_level": { "enum": ["I", "II"] },
+        "task_index": { "type": "integer", "minimum": 0 },
+        "task_name": { "type": "string", "minLength": 1 },
+        "episode_index": { "type": "integer", "minimum": 0 },
+        "environment_seed": { "type": "integer", "minimum": 0 },
+        "policy_seed": { "type": "integer", "minimum": 0 },
+        "random_control_seed": { "type": "integer", "minimum": 0 },
+        "group_id": { "type": "string", "minLength": 1 },
+        "init_state_relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^/\\\\][^\\\\]*_level_(I|II)\\.pruned_init$"
+        },
+        "init_state_file_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "init_state_row_dtype": { "type": "string", "minLength": 1 },
+        "init_state_row_shape": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "init_state_row_bytes_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     }
   }

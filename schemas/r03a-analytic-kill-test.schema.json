@@ -1,0 +1,487 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/crfs/r03a-analytic-kill-test.schema.json",
+  "title": "R03A strong analytic kill-test case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "config_hash",
+    "source_evidence",
+    "provenance",
+    "pairing",
+    "budget",
+    "arms",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r03a_analytic_kill_test_case"},
+    "gate": {"const": "R03A"},
+    "case_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": ["completed", "nominal_collision_not_reconfirmed"]
+    },
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "source_evidence": {"$ref": "#/$defs/sourceEvidence"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "pairing": {"$ref": "#/$defs/pairing"},
+    "budget": {"$ref": "#/$defs/budget"},
+    "arms": {"$ref": "#/$defs/arms"},
+    "outcome": {"$ref": "#/$defs/outcome"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableBoolean": {
+      "type": ["boolean", "null"]
+    },
+    "finiteNumber": {
+      "type": "number"
+    },
+    "nonnegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "arrayRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "sha256", "values"],
+      "properties": {
+        "dtype": {"enum": ["float32", "float64"]},
+        "shape": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "values": {"type": "array"}
+      }
+    },
+    "hashBinding": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["source_sha256", "fresh_sha256"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "fresh_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "r03_summary_path",
+        "r03_summary_sha256",
+        "r03_ordered_result_set_digest",
+        "r02_case_path",
+        "r02_case_sha256",
+        "r02_case_validator",
+        "r02_config_sha256",
+        "decision_artifact",
+        "decision_sha256",
+        "eligible_manifest_sha256"
+      ],
+      "properties": {
+        "r03_summary_path": {"type": "string", "minLength": 1},
+        "r03_summary_sha256": {
+          "const": "dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e"
+        },
+        "r03_ordered_result_set_digest": {
+          "const": "fa79a132f2fecbedab5917111ef71f022e52c933d8e535aaca118add5f5b7895"
+        },
+        "r02_case_path": {"type": "string", "minLength": 1},
+        "r02_case_sha256": {"$ref": "#/$defs/sha256"},
+        "r02_case_validator": {"const": "validate_r02_result:passed"},
+        "r02_config_sha256": {
+          "const": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+        },
+        "decision_artifact": {
+          "const": "docs/decisions/0023-run-strong-analytic-kill-test.md"
+        },
+        "decision_sha256": {
+          "const": "b1b717856ebee8d3e93a21b35606e62ad6cc4baa2b9346f7bd1f415c84b25ead"
+        },
+        "eligible_manifest_sha256": {
+          "const": "241f1b94a5434973dcfb235b43b9386ad15046ff87d35d5b0c34e295c2132916"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "evidence_tier",
+        "git_commit",
+        "git_dirty",
+        "baseline_commit",
+        "host",
+        "device",
+        "slurm_job_id",
+        "slurm_array_job_id",
+        "slurm_array_task_id",
+        "partition",
+        "case_record",
+        "input_manifest_sha256",
+        "config_file_sha256",
+        "checkpoint_id",
+        "checkpoint_sha256"
+      ],
+      "properties": {
+        "evidence_tier": {"type": "string", "minLength": 1},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "git_dirty": {"type": "boolean"},
+        "baseline_commit": {
+          "const": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
+        },
+        "host": {"type": "string", "minLength": 1},
+        "device": {"type": ["string", "null"]},
+        "slurm_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_job_id": {"type": ["string", "null"]},
+        "slurm_array_task_id": {"type": ["string", "null"]},
+        "partition": {"type": "string", "minLength": 1},
+        "case_record": {"type": "object"},
+        "input_manifest_sha256": {
+          "const": "241f1b94a5434973dcfb235b43b9386ad15046ff87d35d5b0c34e295c2132916"
+        },
+        "config_file_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_id": {"type": "string", "minLength": 1},
+        "checkpoint_sha256": {
+          "const": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
+        }
+      },
+      "additionalProperties": true
+    },
+    "pairingChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_record_exact_to_source",
+        "observation_exact_to_source",
+        "branch_snapshot_exact_to_source",
+        "geometry_exact_to_source",
+        "noise_exact_to_source",
+        "fresh_frozen_actions_exact_to_source",
+        "fresh_frozen_trace_exact_to_source"
+      ],
+      "properties": {
+        "case_record_exact_to_source": {"const": true},
+        "observation_exact_to_source": {"const": true},
+        "branch_snapshot_exact_to_source": {"const": true},
+        "geometry_exact_to_source": {"const": true},
+        "noise_exact_to_source": {"const": true},
+        "fresh_frozen_actions_exact_to_source": {"const": true},
+        "fresh_frozen_trace_exact_to_source": {"const": true}
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "policy_observation",
+        "branch_snapshot",
+        "branch_geometry",
+        "noise",
+        "source_frozen_actions",
+        "source_frozen_trace",
+        "checks"
+      ],
+      "properties": {
+        "passed": {"const": true},
+        "policy_observation": {"$ref": "#/$defs/hashBinding"},
+        "branch_snapshot": {"$ref": "#/$defs/hashBinding"},
+        "branch_geometry": {"$ref": "#/$defs/hashBinding"},
+        "noise": {"$ref": "#/$defs/hashBinding"},
+        "source_frozen_actions": {"$ref": "#/$defs/hashBinding"},
+        "source_frozen_trace": {"$ref": "#/$defs/hashBinding"},
+        "checks": {"$ref": "#/$defs/pairingChecks"}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "definition",
+        "source_direction_key",
+        "source_delta_star_model",
+        "source_array_sha256",
+        "first_five_xyz_model_l2",
+        "source_reported_full_model_l2"
+      ],
+      "properties": {
+        "definition": {
+          "const": "r02.directions.delta_star_model:first_five_xyz_l2"
+        },
+        "source_direction_key": {"const": "delta_star_model"},
+        "source_delta_star_model": {"$ref": "#/$defs/arrayRecord"},
+        "source_array_sha256": {"$ref": "#/$defs/sha256"},
+        "first_five_xyz_model_l2": {"type": "number", "exclusiveMinimum": 0},
+        "source_reported_full_model_l2": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "armStatus": {
+      "enum": [
+        "passed_gate",
+        "failed_gate",
+        "bounds_failure",
+        "saturation_failure",
+        "zero_gradient_failure",
+        "nonfinite_failure",
+        "budget_failure",
+        "policy_failure",
+        "terminal_failure",
+        "not_evaluated_after_nominal_collision_not_reconfirmed"
+      ]
+    },
+    "timingSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "p50", "p95"],
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/nonnegativeNumber"}
+        },
+        "p50": {"type": ["number", "null"], "minimum": 0},
+        "p95": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "descriptive_only",
+        "warmed_batch_one",
+        "timer_scope",
+        "quantile_method",
+        "policy_seconds",
+        "analytic_gradient_seconds"
+      ],
+      "properties": {
+        "descriptive_only": {"const": true},
+        "warmed_batch_one": {"type": "boolean"},
+        "timer_scope": {
+          "const": "client_round_trip_batch_one_infer_including_analytic_field"
+        },
+        "quantile_method": {"const": "inverted_cdf"},
+        "policy_seconds": {"$ref": "#/$defs/timingSeries"},
+        "analytic_gradient_seconds": {"$ref": "#/$defs/timingSeries"}
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "mechanism",
+        "applicable",
+        "status",
+        "controls",
+        "full_actions",
+        "executed_actions",
+        "bounds",
+        "trace",
+        "timing",
+        "diagnostics",
+        "policy_replay_exact",
+        "replay_exact",
+        "repeats",
+        "gate"
+      ],
+      "properties": {
+        "mechanism": {"type": "string", "minLength": 1},
+        "applicable": {"const": true},
+        "status": {"$ref": "#/$defs/armStatus"},
+        "controls": {"type": "object"},
+        "failure_reason": {"type": "string", "minLength": 1},
+        "correction": {"oneOf": [{"$ref": "#/$defs/arrayRecord"}, {"type": "null"}]},
+        "full_actions": {"oneOf": [{"$ref": "#/$defs/arrayRecord"}, {"type": "null"}]},
+        "executed_actions": {"oneOf": [{"$ref": "#/$defs/arrayRecord"}, {"type": "null"}]},
+        "bounds": {"type": "object"},
+        "trace": {"type": ["object", "null"]},
+        "trace_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "preintervention_trace_exact_to_frozen": {"$ref": "#/$defs/nullableBoolean"},
+        "timing": {"$ref": "#/$defs/timing"},
+        "diagnostics": {"type": ["object", "null"]},
+        "policy_replay_exact": {"$ref": "#/$defs/nullableBoolean"},
+        "policy_duplicate_actions": {"oneOf": [{"$ref": "#/$defs/arrayRecord"}, {"type": "null"}]},
+        "policy_duplicate_trace": {"type": ["object", "null"]},
+        "replay_exact": {"$ref": "#/$defs/nullableBoolean"},
+        "repeats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task_success", "task_success_during_prefix"],
+            "properties": {
+              "task_success": {"type": "boolean"},
+              "task_success_during_prefix": {"type": "boolean"}
+            }
+          }
+        },
+        "gate": {
+          "type": "object",
+          "required": ["passed"],
+          "properties": {"passed": {"$ref": "#/$defs/nullableBoolean"}},
+          "additionalProperties": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": {
+              "status": {"enum": ["policy_failure", "nonfinite_failure"]}
+            }
+          },
+          "then": {
+            "required": ["failure_reason"],
+            "properties": {
+              "full_actions": {"type": "null"},
+              "executed_actions": {"type": "null"},
+              "trace": {"type": "null"},
+              "diagnostics": {"type": "null"},
+              "policy_replay_exact": {"type": "null"},
+              "replay_exact": {"type": "null"},
+              "repeats": {"maxItems": 0},
+              "gate": {
+                "required": ["passed"],
+                "properties": {"passed": {"const": false}}
+              },
+              "timing": {
+                "properties": {
+                  "warmed_batch_one": {"const": false},
+                  "policy_seconds": {
+                    "properties": {
+                      "values": {"maxItems": 0},
+                      "p50": {"type": "null"},
+                      "p95": {"type": "null"}
+                    }
+                  },
+                  "analytic_gradient_seconds": {
+                    "properties": {
+                      "values": {"maxItems": 0},
+                      "p50": {"type": "null"},
+                      "p95": {"type": "null"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "enum": [
+                  "passed_gate",
+                  "failed_gate",
+                  "bounds_failure",
+                  "saturation_failure",
+                  "zero_gradient_failure",
+                  "terminal_failure",
+                  "budget_failure"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "full_actions": {"$ref": "#/$defs/arrayRecord"},
+              "executed_actions": {"$ref": "#/$defs/arrayRecord"},
+              "trace": {"type": "object"},
+              "diagnostics": {"type": "object"},
+              "policy_replay_exact": {"const": true},
+              "timing": {
+                "properties": {"warmed_batch_one": {"const": true}}
+              }
+            }
+          }
+        }
+      ]
+    },
+    "arms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozen", "analytic_trajectory_mid", "analytic_trajectory_early"],
+      "properties": {
+        "frozen": {"$ref": "#/$defs/arm"},
+        "analytic_trajectory_mid": {"$ref": "#/$defs/arm"},
+        "analytic_trajectory_early": {"$ref": "#/$defs/arm"}
+      }
+    },
+    "sourceArmPass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frozen",
+        "direct_witness",
+        "random_residual",
+        "analytic_geometry_residual",
+        "oracle_residual",
+        "bridge_diagnostic"
+      ],
+      "properties": {
+        "frozen": {"type": "boolean"},
+        "direct_witness": {"const": true},
+        "random_residual": {"type": "boolean"},
+        "analytic_geometry_residual": {"type": "boolean"},
+        "oracle_residual": {"type": "boolean"},
+        "bridge_diagnostic": {"type": "boolean"}
+      }
+    },
+    "registeredArmPass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozen", "analytic_trajectory_mid", "analytic_trajectory_early"],
+      "properties": {
+        "frozen": {"$ref": "#/$defs/nullableBoolean"},
+        "analytic_trajectory_mid": {"$ref": "#/$defs/nullableBoolean"},
+        "analytic_trajectory_early": {"$ref": "#/$defs/nullableBoolean"}
+      }
+    },
+    "registeredArmStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frozen", "analytic_trajectory_mid", "analytic_trajectory_early"],
+      "properties": {
+        "frozen": {"$ref": "#/$defs/armStatus"},
+        "analytic_trajectory_mid": {"$ref": "#/$defs/armStatus"},
+        "analytic_trajectory_early": {"$ref": "#/$defs/armStatus"}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "population",
+        "source_arm_gate_pass",
+        "fresh_nominal_collision_reproduced",
+        "arm_gate_pass",
+        "arm_status",
+        "privileged_reference_sps_count",
+        "privileged_reference_population_size",
+        "kill_threshold_sps_count",
+        "population_decision"
+      ],
+      "properties": {
+        "population": {"const": "r03_witness_confirmed_development_diagnostic"},
+        "source_arm_gate_pass": {"$ref": "#/$defs/sourceArmPass"},
+        "fresh_nominal_collision_reproduced": {"type": "boolean"},
+        "arm_gate_pass": {"$ref": "#/$defs/registeredArmPass"},
+        "arm_status": {"$ref": "#/$defs/registeredArmStatus"},
+        "privileged_reference_sps_count": {"const": 9},
+        "privileged_reference_population_size": {"const": 17},
+        "kill_threshold_sps_count": {"const": 9},
+        "population_decision": {"const": "deferred_to_population_summary"}
+      }
+    }
+  }
+}

@@ -83,33 +83,41 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Full-integration canary task `27606_0` restored and rechecked the complete pre-settle MuJoCo state, then retained an outcome-blind rejection at the first dummy control: source flattened hash `45a06e...` differed from fresh hash `489fca...` over 171 values (`max_abs=0.0335322919`). This isolates state outside `mjSTATE_INTEGRATION`; no policy, collision, clearance, progress, planner, or probe outcome was computed, and dependent validator `27607` did not run. Inspection of the pinned robosuite 1.4.1 control path identified output-driving Python state in the fixed `OSC_POSE` controller and Panda gripper.
 - The final bounded source hypothesis now canonicalizes exactly one Panda fixed `OSC_POSE` controller with null interpolators before settle and again at the final branch in the source, both fresh loads, and experiment restoration. It refreshes live kinematics/nullspace state, resets the goal twice through the public controller API, zeros the gripper accumulator, resets the three lazy action-scaling caches, verifies robosuite 1.4.1 and the raw baseline `osc_pose.json` hash, and fail-closes the instantiated input/output scales, gains, limits, controller flags, and frequency. Pre/final controller fingerprints are bound into the branch identity and both replay proofs; flattened and full integration state are rechecked after each canonical boundary and before observation/first VLA action. Rehashed scale/gain/cache tampering fails, the generated-source suite passes 59 tests with one expected MuJoCo skip, the isolated MuJoCo suite passes 40 tests with three dependency skips, and `./init.sh` passes 268 tests with 86 expected dependency skips. The scientific config SHA-256 remains `332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a`.
 - Final canary task `27614_0` ran at clean commit `314772cb783295d9598e68f3c432b95b72202bdb` and retained an outcome-blind rejection before settling, controller fingerprinting, policy inference, safety/task measurement, planning, or probe work: `controller canonicalization requires the Panda robot`. SafeLIBERO's floor problem rewrites the requested `Panda` to the runtime identity `OnTheGroundPanda`, invalidating the final canary's exact-robot premise; dependent validator `27615` did not run. ADR-0022 fires the hard stop: no name patch or resubmission, no requests 1--9, no generated R01/R02 transfer pilot, and no probe training. This apparatus failure is not evidence against probe steering; it leaves the original privileged 9/17 baseline result positive but learned efficacy and transport unverified.
+- A primary-source novelty audit found that OmniGuide already recomputes a differentiable Cartesian collision field during VLA denoising, Guided Action Flow/QGF already apply approximate-clean critic gradients to frozen flow policies, PPGuide already steers a diffusion policy with a lightweight learned failure predictor, neuro-symbolic constrained flow already applies trajectory-level corrections to pi0.5 on SafeLIBERO, and AEGIS reports a 0.356 ms QP. The direct learned-necessity question is therefore whether exact-continuation ECG beats a faithful full-trajectory analytic field, not whether gradient guidance is possible.
+- ADR-0023 freezes R03A before any new-arm action, outcome, or latency is observed. R03A reuses the 17 R03 development branches only for a no-learning analytic kill test: midpoint and early-start full-trajectory OBB fields recompute at every active flow step with the privileged direction's integrated model-L2 path budget. These groups remain forbidden for probe training, calibration, and final testing.
+- The R03A apparatus is now locally complete. The opt-in sampler preserves the default Euler path; the case validator independently reconstructs `A_hat`, gradient normalization, guidance velocity, actual integrated path, every Euler transition, and the exact physical reply. Canonical geometry, explicit failure precedence, monotone prefix termination, Draft-2020-12 validation, fixed-denominator population logic, reviewed-commit binding, and smoke/full/summary Slurm paths are fail-closed. `./init.sh` passes 342 tests with 112 dependency skips; the dependency-backed Python 3.12 discovery passes 342 tests with 12 skips, including rotated-OBB/non-symmetric-response Torch checks. This is implementation evidence only; real OpenPI/SafeLIBERO behavior still requires the allocation smoke.
 
 ## Active gate
 
-No gate is active. R04 is blocked by ADR-0022 after the final custom-source
-canary failed its exact baseline-robot premise. R02/R03 still establish partial
-privileged steerability on the original frozen population, but no independent
-claim-bearing groups are available for learned-probe training and evaluation.
-ECG effectiveness, necessity, novelty, latency advantage, and transport-phase
-validity remain open.
+R03A is active. It is the direct strong-analytic necessity test frozen by
+ADR-0023 on the existing 17 paired R03 development groups. No probe training is
+authorized. R04 remains blocked on R03A and on untouched transport-valid source
+groups. ECG effectiveness, necessity, novelty, latency advantage, and
+transport-phase validity remain open.
 
 ## Next
 
-1. Obtain a defensible independent source population: benchmark-author
-   generator/new official saved states, or a separately preregistered expansion
-   to untouched tasks and episode groups. Do not reopen the retired custom
-   task-0 source route.
-2. On the untouched population, run the shortest baseline-first ladder:
+1. Implement, structurally verify, and run the two ADR-0023 analytic trajectory
+   field arms. Compare Safe-Progress Success, clearance, progress, failures,
+   realized correction, and p50/p95 latency against the frozen, registered
+   analytic, privileged 9/17, and direct references. Do not tune from simulator
+   outcomes.
+2. If R03A does not remove learned necessity, freeze the untouched official
+   source expansion. The repository contains 150 unused official Spatial
+   Level-II groups in tasks 1--3 with the same bowl target, plus further
+   official groups in Object, Goal, and Long that require phase-specific target
+   and progress definitions. Do not reopen the retired custom task-0 route.
+3. On the untouched population, run the shortest baseline-first ladder:
    unsteered collision prevalence, endpoint-free direct safe-progress existence,
    and privileged distributed-flow transfer versus random and strong analytic
    controls. A failed privileged transfer stops probe training.
-3. Only after transfer passes, replace one-sided local perturbations with a preregistered antithetic,
+4. Only after transfer passes, replace one-sided local perturbations with a preregistered antithetic,
    multiscale design. Measure actual post-edit feature support and forbid causal
    doses outside it.
-4. Freeze the boundary band, equal-group evaluation unit, conformal count,
+5. Freeze the boundary band, equal-group evaluation unit, conformal count,
    unsafe/boundary/trigger-positive counts, paired discordance assumptions, and
    joint power simulation before any label or final outcome is opened.
-5. Run the direct research ladder: held-out clearance/false-safe prediction,
+6. Run the direct research ladder: held-out clearance/false-safe prediction,
    one-step learned-gradient versus equal-norm random causality, and then full
    margin-stopped guidance. Pair frozen, learned-gradient,
    equal-realized-norm random, registered analytic, margin-stopped/time-structured
@@ -120,9 +128,15 @@ validity remain open.
    inference latency, and reject clearance-only gains. Do not submit training
    before the preceding prerequisites pass.
 
-Exact next compute command: none. R04 is blocked pending a new independent
-source-population decision and preregistration. No generated-source retry or
-learned-training submission is authorized.
+Exact next command after committing, pushing, and synchronizing the reviewed
+tree:
+
+```bash
+RUN_ID=r03a-analytic-kill-smoke-20260715a scripts/hpc/submit_r03a_smoke.sh manifests/r03a_analytic_kill_test_eligible.jsonl configs/experiments/r03a_analytic_kill_test.json /mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a /home/quanth/working_space/vlsa-aegis-crfs/evidence/r03/r03-summary.json dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e 1
+```
+
+No full population or learned-training submission is authorized before that
+one-case artifact passes its semantic and frozen-schema checks.
 
 ## Open scientific risks
 
@@ -142,11 +156,12 @@ learned-training submission is authorized.
 - Boundary MAE and rank correlation do not control false-safe predictions at the 5 mm decision threshold. R04 needs a frozen one-sided boundary calibration or false-safe criterion in addition to scalar regression metrics.
 - Excluding low-progress actions from probe training does not guarantee that a clearance gradient remains on the progress-preserving action manifold. The gradient-causality gate must therefore retain safe-progress success and cannot be replaced by clearance improvement.
 - Analytic 0/17 rejects only the registered static, equal-L2, one-midpoint geometry normal. It does not establish that learning is necessary or rule out stronger margin-aware or time-structured analytic guidance.
+- The analytic field and ECG both receive oracle OBB geometry for a simple EEF-sphere model. If R03A matches the privileged reference, a pure learned-clearance probe is unnecessary in this controlled setting; learning would need to target dynamics/perception mismatch or task compatibility instead.
 - Every current result is a five-step pregrasp reach study. Post-grasp transport still requires a separate phase-specific oracle ladder and cannot inherit R04 evidence.
 - Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. R04 must demonstrate held-out prediction, gradient causality, and a paired advantage with clearly stated sensing/runtime assumptions before supporting an ECG claim.
 - The passed R00 source has only 30 state groups, a minimum clearance of 10.327 mm, and zero rows in the inclusive 0--10 mm band around the 5 mm decision margin. R00 can exercise R04A plumbing but cannot support probe fitting, calibration, boundary evaluation, or a claim.
 - All 50 currently saved same-task initial episodes are already partitioned across prior development/evaluation work. Repeated policy seeds or replay-derived intermediate branches are not new independent states; claim-bearing R04 needs a newly frozen source-state population or an explicitly expanded scope.
-- R04A follows an unedited deterministic trajectory and does not expose exact latent resume. The existing one-shot bridge trace is pre-edit, so it cannot label a perturbed feature; a post-edit continuation seam remains a prerequisite for the perturbation study.
+- R04A follows an unedited deterministic trajectory, but R04B now exposes and allocation-validates exact latent resume/edit continuation. This closes the sampler seam only; no nonzero perturbed label or learned efficacy outcome has been collected.
 - Plain BDDL resets instantiate all declared workspace obstacles and are not equivalent to the released one-active-obstacle Level-II states. The repository contains no author generator for the pruning/parking transformation; a custom generator changes the estimand and requires renewed prerequisite evidence.
 - Sixteen one-sided perturbations from `[-0.15,0.15]^15` have root-mean-square population scale `sqrt(E[RMS^2]) = 0.0866` and maximum RMS `0.15`; they cannot support the proposed `0.25`--`4.0` causal doses or the `0.77`--`1.15` witness range. Support must be measured in the actual post-edit feature space.
 - With 30 unsafe groups, the registered exact false-safe UCB passes only at zero errors. Independent boundary, conformal, trigger-positive, and paired causal group counts remain unpowered until a prospective joint design calculation is frozen.

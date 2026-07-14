@@ -1,5 +1,6 @@
 import logging
 import math
+import time as _time
 
 import torch
 from torch import Tensor
@@ -7,6 +8,12 @@ from torch import nn
 import torch.nn.functional as F  # noqa: N812
 
 import openpi.models.gemma as _gemma
+from openpi.models_pytorch.crfs_analytic import SAFETY_MARGIN_M as _CRFS_ANALYTIC_MARGIN_M
+from openpi.models_pytorch.crfs_analytic import SAMPLES_PER_SEGMENT as _CRFS_ANALYTIC_SAMPLES
+from openpi.models_pytorch.crfs_analytic import SOFTPLUS_TAU_M as _CRFS_ANALYTIC_TAU_M
+from openpi.models_pytorch.crfs_analytic import analytic_trajectory_field as _analytic_trajectory_field
+from openpi.models_pytorch.crfs_analytic import scale_field_to_velocity as _scale_field_to_velocity
+from openpi.models_pytorch.crfs_analytic import validate_analytic_controls as _validate_analytic_controls
 from openpi.models_pytorch.gemma_pytorch import PaliGemmaWithExpertModel
 import openpi.models_pytorch.preprocessing_pytorch as _preprocessing
 
@@ -391,6 +398,15 @@ class PI0Pytorch(nn.Module):
         crfs_resume_time=None,
         crfs_latent_edit=None,
         crfs_return_normalized_final=False,
+        crfs_action_offset_xyz=None,
+        crfs_action_scale_xyz=None,
+        crfs_branch_eef_center_m=None,
+        crfs_response_matrix_m_per_action=None,
+        crfs_obstacle_centers_m=None,
+        crfs_obstacle_rotations_world=None,
+        crfs_obstacle_half_sizes_m=None,
+        crfs_eef_radius_m=None,
+        crfs_model_l2_path_budget=None,
     ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
         """Sample an action, optionally applying a CRFS oracle intervention.
 
@@ -406,17 +422,33 @@ class PI0Pytorch(nn.Module):
         at the edited latent, and executes the remaining ordinary Euler steps.
         The explicit ``noise`` is retained as a required pairing input but is
         not used to initialize this resume path.
+
+        ``analytic_trajectory_field`` is a separate eager-only comparator.  At
+        every active step it differentiates the frozen full-trajectory
+        sphere/OBB margin energy with respect to a detached approximate-clean
+        leaf.  It therefore never backpropagates through the VLA.  Its positive
+        energy gradient is added to the reverse-time velocity; because
+        ``dt < 0``, the final action moves along negative energy gradient.
         """
         bsize = observation.state.shape[0]
         actions_shape = (bsize, self.config.action_horizon, self.config.action_dim)
-        supported_modes = {"none", "residual", "bridge_edit", "latent_resume_edit"}
+        supported_modes = {
+            "none",
+            "residual",
+            "bridge_edit",
+            "latent_resume_edit",
+            "analytic_trajectory_field",
+        }
         if crfs_intervention_mode not in supported_modes:
             raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
         is_latent_resume = crfs_intervention_mode == "latent_resume_edit"
+        is_analytic_field = crfs_intervention_mode == "analytic_trajectory_field"
 
         if noise is None:
             if is_latent_resume:
                 raise ValueError("CRFS latent_resume_edit requires explicit paired noise")
+            if is_analytic_field:
+                raise ValueError("CRFS analytic_trajectory_field requires explicit paired noise")
             noise = self.sample_noise(actions_shape, device)
         if noise.shape != actions_shape:
             raise ValueError(f"noise shape {tuple(noise.shape)} does not match model shape {actions_shape}")
@@ -494,6 +526,54 @@ class PI0Pytorch(nn.Module):
         elif any(value is not None for value in resume_values):
             raise ValueError("CRFS resume_latent, resume_time, and latent_edit are valid only for latent_resume_edit")
 
+        analytic_values = (
+            crfs_action_offset_xyz,
+            crfs_action_scale_xyz,
+            crfs_branch_eef_center_m,
+            crfs_response_matrix_m_per_action,
+            crfs_obstacle_centers_m,
+            crfs_obstacle_rotations_world,
+            crfs_obstacle_half_sizes_m,
+            crfs_eef_radius_m,
+            crfs_model_l2_path_budget,
+        )
+        if is_analytic_field:
+            if crfs_return_trace is not True:
+                raise ValueError("CRFS analytic_trajectory_field requires crfs_return_trace=True")
+            if crfs_correction is not None:
+                raise ValueError("CRFS analytic_trajectory_field forbids crfs_correction")
+            if bsize != 1:
+                raise ValueError("CRFS analytic_trajectory_field currently requires batch size one")
+            if any(value is None for value in analytic_values):
+                raise ValueError("CRFS analytic_trajectory_field requires the complete affine, geometry, and budget")
+            expected_device = torch.device(device)
+            if noise.dtype != torch.float32:
+                raise ValueError(f"CRFS paired noise must be float32, got {noise.dtype}")
+            if noise.device.type != expected_device.type or (
+                expected_device.index is not None and noise.device.index != expected_device.index
+            ):
+                raise ValueError(f"CRFS paired noise device {noise.device} does not match sampler device {device}")
+            if not bool(torch.isfinite(noise).all().item()):
+                raise ValueError("CRFS paired noise contains a nonfinite value")
+            _validate_analytic_controls(
+                action_horizon=int(self.config.action_horizon),
+                action_dim=int(self.config.action_dim),
+                device=noise.device,
+                action_offset_xyz=crfs_action_offset_xyz,
+                action_scale_xyz=crfs_action_scale_xyz,
+                branch_eef_center_m=crfs_branch_eef_center_m,
+                response_matrix_m_per_action=crfs_response_matrix_m_per_action,
+                obstacle_centers_m=crfs_obstacle_centers_m,
+                obstacle_rotations_world=crfs_obstacle_rotations_world,
+                obstacle_half_sizes_m=crfs_obstacle_half_sizes_m,
+                eef_radius_m=crfs_eef_radius_m,
+                model_l2_path_budget=crfs_model_l2_path_budget,
+            )
+        elif any(value is not None for value in analytic_values):
+            raise ValueError(
+                "CRFS analytic affine, geometry, and budget controls are valid only for analytic_trajectory_field"
+            )
+
         images, img_masks, lang_tokens, lang_masks, state = self._preprocess_observation(observation, train=False)
 
         prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(images, img_masks, lang_tokens, lang_masks)
@@ -525,6 +605,11 @@ class PI0Pytorch(nn.Module):
             step_index = 0
         crfs_trace = None
         crfs_residual_horizon = 1.0 - crfs_intervention_step / num_steps
+        analytic_active_horizon = (num_steps - crfs_intervention_step) / num_steps
+        analytic_integrated_field_l2 = (
+            torch.zeros((bsize,), dtype=torch.float32, device=device) if is_analytic_field else None
+        )
+        analytic_step_records = [] if is_analytic_field else None
         latent_resume_pending = is_latent_resume
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
@@ -566,7 +651,7 @@ class PI0Pytorch(nn.Module):
                     expanded_time,
                 )
 
-                if step_index == crfs_intervention_step:
+                if step_index == crfs_intervention_step and not is_analytic_field:
                     crfs_trace = {
                         "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
                         "time": expanded_time.detach().clone(),
@@ -590,10 +675,135 @@ class PI0Pytorch(nn.Module):
                     raise RuntimeError("CRFS residual intervention has no remaining integration time")
                 v_t = v_t - crfs_correction / crfs_residual_horizon
 
+            if is_analytic_field:
+                predicted_clean = (x_t - time * v_base).detach()
+                zero_scalar = torch.zeros((bsize,), dtype=torch.float32, device=device)
+                zero_bool = torch.zeros((bsize,), dtype=torch.bool, device=device)
+                zero_action = torch.zeros_like(x_t)
+                field_record = {
+                    "physical_predicted_clean_xyz": torch.zeros(
+                        (bsize, 5, 3), dtype=torch.float32, device=device
+                    ),
+                    "predicted_eef_centers_m": torch.zeros((bsize, 5, 3), dtype=torch.float32, device=device),
+                    "hard_min_clearance_m": zero_scalar,
+                    "energy": zero_scalar,
+                    "energy_gradient": zero_action,
+                    "normalized_energy_gradient": zero_action,
+                    "gradient_l2": zero_scalar,
+                    "margin_satisfied": zero_bool,
+                    "gradient_finite": zero_bool,
+                    "gradient_valid": zero_bool,
+                    "applied": zero_bool,
+                }
+                analytic_gradient_ms = 0.0
+                active = step_index >= crfs_intervention_step
+                if active:
+                    if x_t.is_cuda:
+                        torch.cuda.synchronize(x_t.device)
+                    analytic_start = _time.perf_counter()
+                    field_record = _analytic_trajectory_field(
+                        predicted_clean,
+                        action_offset_xyz=crfs_action_offset_xyz,
+                        action_scale_xyz=crfs_action_scale_xyz,
+                        branch_eef_center_m=crfs_branch_eef_center_m,
+                        response_matrix_m_per_action=crfs_response_matrix_m_per_action,
+                        obstacle_centers_m=crfs_obstacle_centers_m,
+                        obstacle_rotations_world=crfs_obstacle_rotations_world,
+                        obstacle_half_sizes_m=crfs_obstacle_half_sizes_m,
+                        eef_radius_m=crfs_eef_radius_m,
+                    )
+                    if x_t.is_cuda:
+                        torch.cuda.synchronize(x_t.device)
+                    analytic_gradient_ms = (_time.perf_counter() - analytic_start) * 1000.0
+                    if not bool(field_record["gradient_finite"].all().item()):
+                        raise RuntimeError("CRFS analytic trajectory field produced a nonfinite energy or gradient")
+                guidance_velocity = _scale_field_to_velocity(
+                    field_record["normalized_energy_gradient"],
+                    field_record["applied"],
+                    model_l2_path_budget=crfs_model_l2_path_budget,
+                    active_horizon=analytic_active_horizon,
+                )
+                guidance_velocity_l2 = torch.linalg.vector_norm(
+                    guidance_velocity[:, :5, :3].reshape(bsize, -1), dim=1
+                )
+                path_increment_l2 = torch.abs(dt) * guidance_velocity_l2
+                if analytic_integrated_field_l2 is None:
+                    raise RuntimeError("CRFS analytic trajectory field lost its path-budget accumulator")
+                analytic_integrated_field_l2 = analytic_integrated_field_l2 + path_increment_l2
+                # Positive energy gradient is added to velocity.  The ordinary
+                # reverse-time Euler step below has dt < 0, so action motion is
+                # along negative energy gradient, away from the obstacle.
+                v_t = v_t + guidance_velocity
+                analytic_step_records.append(
+                    {
+                        "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
+                        "time": expanded_time.detach().clone(),
+                        "active": torch.full((bsize,), active, dtype=torch.bool, device=device),
+                        "field_evaluated": torch.full((bsize,), active, dtype=torch.bool, device=device),
+                        "x_t_steps": x_t.detach().clone(),
+                        "v_base_steps": v_base.detach().clone(),
+                        "predicted_clean_steps": predicted_clean,
+                        "physical_predicted_clean_xyz_steps": field_record[
+                            "physical_predicted_clean_xyz"
+                        ],
+                        "predicted_eef_centers_m_steps": field_record["predicted_eef_centers_m"],
+                        "hard_min_clearance_m": field_record["hard_min_clearance_m"],
+                        "energy": field_record["energy"],
+                        "energy_gradient_steps": field_record["energy_gradient"],
+                        "normalized_energy_gradient_steps": field_record["normalized_energy_gradient"],
+                        "gradient_l2": field_record["gradient_l2"],
+                        "margin_satisfied": field_record["margin_satisfied"],
+                        "gradient_finite": field_record["gradient_finite"],
+                        "gradient_valid": field_record["gradient_valid"],
+                        "applied": field_record["applied"],
+                        "guidance_velocity_steps": guidance_velocity.detach().clone(),
+                        "guidance_velocity_l2": guidance_velocity_l2.detach().clone(),
+                        "path_increment_l2": path_increment_l2.detach().clone(),
+                        "cumulative_integrated_field_l2": analytic_integrated_field_l2.detach().clone(),
+                        "analytic_gradient_ms": torch.full(
+                            (bsize,), analytic_gradient_ms, dtype=torch.float32, device=device
+                        ),
+                    }
+                )
+
             # Euler step - use new tensor assignment instead of in-place operation
             x_t = x_t + dt * v_t
             time += dt
             step_index += 1
+        if is_analytic_field:
+            if analytic_step_records is None or len(analytic_step_records) != num_steps:
+                raise RuntimeError("CRFS analytic trajectory trace did not cover every Euler step")
+            analytic_trace = {
+                key: torch.stack([record[key] for record in analytic_step_records], dim=1)
+                for key in analytic_step_records[0]
+            }
+            analytic_trace.update(
+                {
+                    "intervention_step": torch.full(
+                        (bsize,), crfs_intervention_step, dtype=torch.int64, device=device
+                    ),
+                    "dt": dt.expand(bsize).detach().clone(),
+                    "active_horizon": torch.full(
+                        (bsize,), analytic_active_horizon, dtype=torch.float32, device=device
+                    ),
+                    "model_l2_path_budget": crfs_model_l2_path_budget.expand(bsize).detach().clone(),
+                    "velocity_gain": (crfs_model_l2_path_budget / analytic_active_horizon)
+                    .expand(bsize)
+                    .detach()
+                    .clone(),
+                    "safety_margin_m": torch.full(
+                        (bsize,), _CRFS_ANALYTIC_MARGIN_M, dtype=torch.float32, device=device
+                    ),
+                    "softplus_tau_m": torch.full(
+                        (bsize,), _CRFS_ANALYTIC_TAU_M, dtype=torch.float32, device=device
+                    ),
+                    "samples_per_segment": torch.full(
+                        (bsize,), _CRFS_ANALYTIC_SAMPLES, dtype=torch.int64, device=device
+                    ),
+                    "integrated_field_l2": analytic_integrated_field_l2.detach().clone(),
+                }
+            )
+            crfs_trace = analytic_trace
         if crfs_return_trace:
             if crfs_trace is None:
                 raise RuntimeError("CRFS trace step was not reached")

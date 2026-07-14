@@ -1,0 +1,143 @@
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+import re
+import subprocess
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SUBMIT_JOB = ROOT / "scripts/hpc/submit_r03a_job.sh"
+SUBMIT_SMOKE = ROOT / "scripts/hpc/submit_r03a_smoke.sh"
+SUBMIT_ARRAY = ROOT / "scripts/hpc/submit_r03a_array.sh"
+SUBMIT_SUMMARY = ROOT / "scripts/hpc/submit_r03a_summary.sh"
+WORKER = ROOT / "scripts/hpc/run_r03a_case.sh"
+SLURM_SMOKE = ROOT / "slurm/r03a_mig.sbatch"
+SLURM_ARRAY = ROOT / "slurm/r03a_main_array.sbatch"
+SLURM_SUMMARY = ROOT / "slurm/r03a_summary.sbatch"
+CONFIG = ROOT / "configs/experiments/r03a_analytic_kill_test.json"
+MANIFEST = ROOT / "manifests/r03a_analytic_kill_test_eligible.jsonl"
+SCHEMA = ROOT / "schemas/r03a-analytic-kill-test.schema.json"
+DECISION = ROOT / "docs/decisions/0023-run-strong-analytic-kill-test.md"
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class R03AHPCContractTest(unittest.TestCase):
+    def test_every_shell_entry_point_has_valid_bash_syntax(self) -> None:
+        paths = (
+            SUBMIT_JOB,
+            SUBMIT_SMOKE,
+            SUBMIT_ARRAY,
+            SUBMIT_SUMMARY,
+            WORKER,
+            SLURM_SMOKE,
+            SLURM_ARRAY,
+            SLURM_SUMMARY,
+        )
+        for path in paths:
+            with self.subTest(path=path.name):
+                subprocess.run(["bash", "-n", str(path)], check=True)
+
+    def test_gpu_slurm_profiles_call_only_the_in_allocation_worker(self) -> None:
+        smoke = SLURM_SMOKE.read_text(encoding="utf-8")
+        array = SLURM_ARRAY.read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --partition=mig", smoke)
+        self.assertIn("#SBATCH --array=0-0%1", smoke)
+        self.assertIn("#SBATCH --gres=gpu:1", smoke)
+        self.assertIn("#SBATCH --cpus-per-task=6", smoke)
+        self.assertIn("#SBATCH --mem=80G", smoke)
+        self.assertIn("scripts/hpc/run_r03a_case.sh", smoke)
+        self.assertIn("#SBATCH --partition=main", array)
+        self.assertNotRegex(array, r"(?m)^#SBATCH --array")
+        self.assertIn("#SBATCH --gres=gpu:1", array)
+        self.assertIn("#SBATCH --cpus-per-task=8", array)
+        self.assertIn("#SBATCH --mem=128G", array)
+        self.assertIn("scripts/hpc/run_r03a_case.sh", array)
+        for value in (smoke, array):
+            self.assertNotIn("main/run_crfs_r03a.py", value)
+            self.assertNotIn("serve_policy.py", value)
+
+    def test_submitter_binds_frozen_inputs_reviewed_commit_and_worker_env(self) -> None:
+        value = SUBMIT_JOB.read_text(encoding="utf-8")
+        expected = {
+            "EXPECTED_MANIFEST_SHA256": sha256(MANIFEST),
+            "EXPECTED_CONFIG_SHA256": sha256(CONFIG),
+            "EXPECTED_SCHEMA_SHA256": sha256(SCHEMA),
+            "EXPECTED_DECISION_SHA256": sha256(DECISION),
+        }
+        for name, digest in expected.items():
+            self.assertIn(f"{name}={digest}", value)
+        self.assertIn("scripts/hpc/preflight.sh", value)
+        self.assertIn("EXPECTED_GIT_COMMIT=$(git rev-parse HEAD)", value)
+        self.assertIn("git -C \"$remote_repo\" status --porcelain", value)
+        self.assertIn("/^\\?\\? tmp\\//", value)
+        for binding in (
+            'EXPERIMENT_CONFIG="$config"',
+            'CHECKPOINT_DIR="$checkpoint_id"',
+            'EXPERIMENT_ROOT="$output_root"',
+            'R02_RAW_ROOT="$r02_raw_root"',
+            'R03_SUMMARY_SHA256="$r03_summary_sha256"',
+            'EXPECTED_GIT_COMMIT="$expected_commit"',
+        ):
+            self.assertIn(binding, value)
+        self.assertNotRegex(value, r"(?m)^\s*(python|python3|uv run)\b")
+
+    def test_worker_preflights_production_schema_dependency_before_server(self) -> None:
+        value = WORKER.read_text(encoding="utf-8")
+        dependency = value.index("import jsonschema")
+        server = value.rindex("scripts/serve_policy.py")
+        runner = value.rindex("main/run_crfs_r03a.py")
+        self.assertLess(dependency, server)
+        self.assertLess(dependency, runner)
+
+    def test_submission_caps_resources_and_excludes_unhealthy_nodes(self) -> None:
+        value = SUBMIT_JOB.read_text(encoding="utf-8")
+        self.assertIn('1|2)', value)
+        self.assertIn('--array="0-16%$concurrency"', value)
+        self.assertIn('test "$projected_gpus" -le 2', value)
+        self.assertIn('test "$projected_cpus" -le 16', value)
+        self.assertIn('test "$projected_mem_mb" -le $((256 * 1024))', value)
+        for state in ("*down*", "*drain*", "*not_resp*"):
+            self.assertIn(state, value)
+        self.assertIn('sbatch_args+=(--exclude="$excluded_csv")', value)
+
+    def test_summary_is_cpu_only_and_has_an_exact_afterok_submission_path(self) -> None:
+        sbatch = SLURM_SUMMARY.read_text(encoding="utf-8")
+        submit = SUBMIT_SUMMARY.read_text(encoding="utf-8")
+        self.assertNotRegex(sbatch, r"(?m)^#SBATCH\s+--gres")
+        self.assertIn("#SBATCH --cpus-per-task=2", sbatch)
+        self.assertIn("#SBATCH --mem=16G", sbatch)
+        self.assertIn("main/summarize_r03a.py", sbatch)
+        self.assertIn("import jsonschema", sbatch)
+        for option in (
+            "--manifest",
+            "--config",
+            "--r02-raw-root",
+            "--r03-summary",
+            "--results-root",
+            "--source-slurm-array-job-id",
+            "--expected-git-commit",
+        ):
+            self.assertIn(option, sbatch)
+        self.assertIn(sha256(CONFIG), submit)
+        self.assertIn('SOURCE_ARRAY_JOB_ID must be one exact numeric Slurm job id', submit)
+        self.assertIn('--dependency="afterok:$source_array_job_id"', submit)
+        self.assertIn('SOURCE_SLURM_ARRAY_JOB_ID="$source_array_job_id"', submit)
+        self.assertIn('EXPECTED_GIT_COMMIT="$expected_commit"', submit)
+        self.assertIn('CONFIG_SHA256="$config_sha256"', submit)
+        self.assertIn('R03_SUMMARY_SHA256="$r03_summary_sha256"', submit)
+        self.assertNotRegex(submit, r"(?m)^\s*(python|python3|uv run)\b")
+
+    def test_wrappers_cannot_select_unregistered_modes(self) -> None:
+        self.assertIn("R03A_SUBMISSION_MODE=smoke", SUBMIT_SMOKE.read_text(encoding="utf-8"))
+        self.assertIn("R03A_SUBMISSION_MODE=array", SUBMIT_ARRAY.read_text(encoding="utf-8"))
+        common = SUBMIT_JOB.read_text(encoding="utf-8")
+        self.assertRegex(common, re.compile(r"case \"\$MODE\" in.*smoke\).*array\)", re.S))
+
+
+if __name__ == "__main__":
+    unittest.main()

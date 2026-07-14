@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -19,6 +20,8 @@ for path in (ROOT / "main", ROOT / "src"):
         sys.path.insert(0, str(path))
 
 if np is not None:
+    from crfs_harness.manifest import build_official_cases
+    from crfs_harness.official_state import file_sha256, init_state_row_identity
     from crfs_oracle.runner import OracleConfig, SafeLiberoCase
 
 
@@ -30,6 +33,14 @@ class GeneratedSourceRunnerStructuralTest(unittest.TestCase):
         self.assertIn("restore_generated_source_branch(self.env, self._generated_bundle)", source)
         self.assertIn("verify_generated_source_branch(", source)
         self.assertIn("Generated source states must never be labeled SafeLIBERO Level II", source)
+
+    def test_official_saved_state_loading_is_opt_in_and_fail_closed(self) -> None:
+        source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
+        self.assertIn('self._official_state_bound = case.get("schema_version") == "3.0"', source)
+        self.assertIn("verify_official_state_bindings(", source)
+        self.assertIn("Invalid official saved-state manifest record", source)
+        self.assertIn("Official saved-state identity verification failed", source)
+        self.assertIn("cannot mix legacy released and official-state-bound records", source)
 
 
 def _config(*, settle_steps: int = 20) -> "OracleConfig":
@@ -101,8 +112,10 @@ class _FakeSuite:
         if task_index != 0:
             raise AssertionError("unexpected task")
         return SimpleNamespace(
+            name="task0",
             problem_folder="safelibero_spatial",
             bddl_file="task0.bddl",
+            init_states_file="task0.pruned_init",
             language="pick up the bowl",
         )
 
@@ -165,14 +178,18 @@ def _observation() -> dict:
     }
 
 
-def _fake_libero_modules(factory: _FakeSuiteFactory) -> dict[str, types.ModuleType]:
+def _fake_libero_modules(
+    factory: _FakeSuiteFactory,
+    *,
+    init_states_root: str = "/tmp/libero",
+) -> dict[str, types.ModuleType]:
     libero = types.ModuleType("libero")
     libero_package = types.ModuleType("libero.libero")
     benchmark = SimpleNamespace(
         get_benchmark_dict=lambda: {"safelibero_spatial": factory}
     )
     libero_package.benchmark = benchmark
-    libero_package.get_libero_path = lambda _name: "/tmp/libero"
+    libero_package.get_libero_path = lambda _name: init_states_root
     envs = types.ModuleType("libero.libero.envs")
     envs.OffScreenRenderEnv = _FakeRenderEnv
     return {
@@ -331,6 +348,91 @@ class GeneratedSourceRunnerRuntimeTest(unittest.TestCase):
             environment = SafeLiberoCase(_released_case(), _config())
             with self.assertRaisesRegex(ValueError, "cannot mix"):
                 environment.configure_case(_generated_case())
+
+    def test_official_state_record_verifies_before_environment_construction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            relative_path = "safelibero_spatial/task0_level_II.pruned_init"
+            state_path = root / relative_path
+            state_path.parent.mkdir(parents=True)
+            state_path.write_bytes(b"official-state-file")
+            case = build_official_cases(
+                task_suite="safelibero_spatial",
+                safety_level="II",
+                task_index=0,
+                task_name="task0",
+                init_state_relative_path=relative_path,
+                init_state_file_sha256=file_sha256(state_path),
+                row_identities={1: init_state_row_identity(self.suite.states[1])},
+                seeds_per_episode=1,
+                seed_namespace="official-runner-test",
+            )[0]
+            modules = _fake_libero_modules(self.factory, init_states_root=directory)
+            with mock.patch.dict(sys.modules, modules):
+                environment = SafeLiberoCase(case, _config())
+
+            np.testing.assert_array_equal(environment._init_state, self.suite.states[1])
+            self.assertEqual(len(_FakeRenderEnv.instances), 1)
+
+            wrong_file = build_official_cases(
+                task_suite="safelibero_spatial",
+                safety_level="II",
+                task_index=0,
+                task_name="task0",
+                init_state_relative_path=relative_path,
+                init_state_file_sha256="0" * 64,
+                row_identities={1: init_state_row_identity(self.suite.states[1])},
+                seeds_per_episode=1,
+                seed_namespace="official-runner-test",
+            )[0]
+            before = len(_FakeRenderEnv.instances)
+            with mock.patch.dict(sys.modules, modules):
+                with self.assertRaisesRegex(ValueError, "init_state_file_sha256"):
+                    SafeLiberoCase(wrong_file, _config())
+            self.assertEqual(len(_FakeRenderEnv.instances), before)
+
+            wrong_row = build_official_cases(
+                task_suite="safelibero_spatial",
+                safety_level="II",
+                task_index=0,
+                task_name="task0",
+                init_state_relative_path=relative_path,
+                init_state_file_sha256=file_sha256(state_path),
+                row_identities={
+                    1: init_state_row_identity(
+                        np.asarray([9.0, 9.0, 9.0], dtype=np.float64)
+                    )
+                },
+                seeds_per_episode=1,
+                seed_namespace="official-runner-test",
+            )[0]
+            with mock.patch.dict(sys.modules, modules):
+                with self.assertRaisesRegex(ValueError, "init_state_row_bytes_sha256"):
+                    SafeLiberoCase(wrong_row, _config())
+
+    def test_shared_environment_cannot_downgrade_official_record_to_legacy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            relative_path = "safelibero_spatial/task0_level_II.pruned_init"
+            state_path = root / relative_path
+            state_path.parent.mkdir(parents=True)
+            state_path.write_bytes(b"official-state-file")
+            official = build_official_cases(
+                task_suite="safelibero_spatial",
+                safety_level="II",
+                task_index=0,
+                task_name="task0",
+                init_state_relative_path=relative_path,
+                init_state_file_sha256=file_sha256(state_path),
+                row_identities={1: init_state_row_identity(self.suite.states[1])},
+                seeds_per_episode=1,
+                seed_namespace="official-runner-test",
+            )[0]
+            modules = _fake_libero_modules(self.factory, init_states_root=directory)
+            with mock.patch.dict(sys.modules, modules):
+                environment = SafeLiberoCase(official, _config())
+                with self.assertRaisesRegex(ValueError, "cannot mix legacy"):
+                    environment.configure_case(_released_case())
 
 
 if __name__ == "__main__":

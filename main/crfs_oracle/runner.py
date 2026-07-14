@@ -18,6 +18,8 @@ from typing import Any, Sequence
 import numpy as np
 
 from crfs_harness.artifacts import atomic_write_json, content_hash, valid_completion
+from crfs_harness.manifest import validate_case
+from crfs_harness.official_state import verify_official_state_bindings
 
 from .measurement import GeomClearanceMonitor, resolve_crfs_geom_groups
 from .projection import ProjectionResult, solve_kinematic_projection
@@ -154,6 +156,16 @@ class SafeLiberoCase:
         from libero.libero.envs import OffScreenRenderEnv
 
         self._generated_source = "source_estimand" in case
+        self._official_state_bound = case.get("schema_version") == "3.0"
+        if self._generated_source and self._official_state_bound:
+            raise ValueError("A case cannot be both generated and official-state-bound")
+        if self._official_state_bound:
+            manifest_errors = validate_case(case)
+            if manifest_errors:
+                raise ValueError(
+                    "Invalid official saved-state manifest record: "
+                    + "; ".join(manifest_errors)
+                )
         if self._generated_source:
             if case.get("source_estimand") != "task0_single_obstacle_generated_v1":
                 raise ValueError("Unsupported generated source estimand")
@@ -172,10 +184,13 @@ class SafeLiberoCase:
         self._safety_level = None if self._generated_source else str(case["safety_level"])
         self._task_index = int(case["task_index"])
         self._source_estimand = str(case["source_estimand"]) if self._generated_source else None
+        self._init_states_root = (
+            None if self._generated_source else Path(get_libero_path("init_states"))
+        )
         self._init_state = (
             None
             if self._generated_source
-            else np.asarray(suite.get_task_init_states(self._task_index)[int(case["episode_index"])])
+            else self._load_released_init_state(case)
         )
         bddl_path = Path(get_libero_path("bddl_files")) / self._task.problem_folder / self._task.bddl_file
         self.env = OffScreenRenderEnv(
@@ -194,11 +209,54 @@ class SafeLiberoCase:
         self.eef_geoms: tuple[str, ...] = ()
         self.obstacle_geoms: tuple[str, ...] = ()
 
+    def _released_init_state_path(self) -> Path:
+        if self._generated_source or self._init_states_root is None:
+            raise RuntimeError("Released init-state path requested for a generated source")
+        filename = str(self._task.init_states_file)
+        suffix = ".pruned_init"
+        if not filename.endswith(suffix):
+            raise ValueError(f"SafeLIBERO task has an unsupported init-state filename: {filename}")
+        level_filename = f"{filename[:-len(suffix)]}_level_{self._safety_level}{suffix}"
+        return self._init_states_root / str(self._task.problem_folder) / level_filename
+
+    def _load_released_init_state(self, case: dict[str, Any]) -> np.ndarray:
+        if self._generated_source:
+            raise RuntimeError("Released init-state loader called for a generated source")
+        states = self._suite.get_task_init_states(self._task_index)
+        row = np.asarray(states[int(case["episode_index"])])
+        if not self._official_state_bound:
+            return row
+
+        manifest_errors = validate_case(case)
+        if manifest_errors:
+            raise ValueError(
+                "Invalid official saved-state manifest record: " + "; ".join(manifest_errors)
+            )
+        row = np.ascontiguousarray(row)
+        binding_errors = verify_official_state_bindings(
+            case,
+            actual_task_name=str(self._task.name),
+            init_states_root=self._init_states_root,
+            init_state_path=self._released_init_state_path(),
+            row=row,
+        )
+        if binding_errors:
+            raise ValueError(
+                "Official saved-state identity verification failed: "
+                + "; ".join(binding_errors)
+            )
+        return row
+
     def configure_case(self, case: dict[str, Any]) -> None:
         """Select another saved state without recompiling the identical task."""
         generated_source = "source_estimand" in case
         if generated_source != self._generated_source:
             raise ValueError("Shared environment cannot mix released and generated state sources")
+        official_state_bound = case.get("schema_version") == "3.0"
+        if official_state_bound != self._official_state_bound:
+            raise ValueError(
+                "Shared environment cannot mix legacy released and official-state-bound records"
+            )
         if self._generated_source:
             identity = (
                 str(case["task_suite"]),
@@ -223,9 +281,7 @@ class SafeLiberoCase:
         expected = (self._task_suite, self._safety_level, self._task_index)
         if identity != expected:
             raise ValueError(f"Shared environment task mismatch: expected {expected}, got {identity}")
-        self._init_state = np.asarray(
-            self._suite.get_task_init_states(self._task_index)[int(case["episode_index"])]
-        )
+        self._init_state = self._load_released_init_state(case)
         self._environment_seed = int(case["environment_seed"])
         self.env.seed(self._environment_seed)
         self.obstacle_name = None
@@ -366,6 +422,8 @@ class SafeLiberoCase:
         # Include the branch point itself before executing the first action.
         monitor.observe(self.env.sim, -1)
         done = False
+        final_task_success = False
+        task_success_during_prefix = False
         for action_index, action in enumerate(prefix):
             def observe_global_substep(sim, substep_index, *, _action_index=action_index):
                 nonlocal tracked_substep_samples
@@ -387,6 +445,10 @@ class SafeLiberoCase:
                 update_observables=False,
                 collect_observations=False,
             )
+            final_task_success = bool(done or self.env.check_success())
+            task_success_during_prefix = bool(
+                task_success_during_prefix or final_task_success
+            )
         measurement = monitor.result()
         if measurement.conservative_clearance_m is None:
             raise RuntimeError("Controlled sphere/box metric found no obstacle box geoms")
@@ -407,7 +469,10 @@ class SafeLiberoCase:
             "start_eef_center_m": start_eef_center.tolist(),
             "end_eef_m": end_eef.tolist(),
             "branch_obstacle_boxes": branch_obstacle_boxes,
-            "task_success": bool(done or self.env.check_success()),
+            # Preserve the baseline final-state field and add a monotone prefix
+            # diagnostic for R03A's pregrasp terminal criterion.
+            "task_success": final_task_success,
+            "task_success_during_prefix": task_success_during_prefix,
         }
         if tracked_names is not None:
             expected_substeps = int(prefix.shape[0]) * 25

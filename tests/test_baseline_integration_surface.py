@@ -90,6 +90,8 @@ class BaselineIntegrationSurfaceTest(unittest.TestCase):
         self.assertIn("np.isfinite(noise_array)", source)
         self.assertIn("np.isfinite(value)", source)
         self.assertIn('trace["predicted_clean_post_edit_physical"]', source)
+        self.assertIn('trace["final_normalized_physical"]', source)
+        self.assertIn('np.array(trace["final_normalized"], copy=True)', source)
 
     def test_default_policy_route_does_not_require_crfs_envelope(self) -> None:
         path = ROOT / "openpi/src/openpi/policies/policy.py"
