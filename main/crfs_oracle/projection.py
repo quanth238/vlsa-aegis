@@ -99,31 +99,32 @@ def solve_kinematic_projection(
     def clearance_constraint(free_delta: np.ndarray) -> float:
         return evaluate(free_delta)[1] - safety_margin_m
 
-    def fifth_lower_bound(free_delta: np.ndarray) -> np.ndarray:
-        return _decode_translation(free_delta, nominal, low, high)[4, :3] - low[4, :3]
+    def final_lower_bound(free_delta: np.ndarray) -> np.ndarray:
+        return _decode_translation(free_delta, nominal, low, high)[-1, :3] - low[-1, :3]
 
-    def fifth_upper_bound(free_delta: np.ndarray) -> np.ndarray:
-        return high[4, :3] - _decode_translation(free_delta, nominal, low, high)[4, :3]
+    def final_upper_bound(free_delta: np.ndarray) -> np.ndarray:
+        return high[-1, :3] - _decode_translation(free_delta, nominal, low, high)[-1, :3]
 
+    horizon = nominal.shape[0]
     bounds = [
         (low[row, column] - nominal[row, column], high[row, column] - nominal[row, column])
-        for row in range(4)
+        for row in range(horizon - 1)
         for column in range(3)
     ]
     constraints = [
         {"type": "ineq", "fun": clearance_constraint},
-        {"type": "ineq", "fun": fifth_lower_bound},
-        {"type": "ineq", "fun": fifth_upper_bound},
+        {"type": "ineq", "fun": final_lower_bound},
+        {"type": "ineq", "fun": final_upper_bound},
     ]
-    starts = [np.zeros(12, dtype=np.float64)]
+    starts = [np.zeros((horizon - 1) * 3, dtype=np.float64)]
     # The pointwise minimum over obstacle boxes is nonsmooth. Generic temporal
     # bump starts prevent the colliding zero correction from being the only
     # basin considered; all starts still satisfy exact zero-sum correction.
-    bump = np.asarray((1.0, 1.0, -1.0, -1.0), dtype=np.float64)
+    bump = np.sin(2.0 * np.pi * np.arange(horizon, dtype=np.float64) / horizon)[:-1]
     for axis in range(3):
         for sign in (-1.0, 1.0):
             for amplitude in (0.25, 0.5):
-                start = np.zeros((4, 3), dtype=np.float64)
+                start = np.zeros((horizon - 1, 3), dtype=np.float64)
                 start[:, axis] = sign * amplitude * bump
                 starts.append(start.reshape(-1))
 
@@ -175,11 +176,12 @@ def _decode_translation(
     action_low: np.ndarray,
     action_high: np.ndarray,
 ) -> np.ndarray:
-    """Use the fifth correction to enforce exact zero-sum translation."""
+    """Use the final correction to enforce exact zero-sum translation."""
     prefix = nominal.copy()
-    delta = np.zeros((5, 3), dtype=np.float64)
-    delta[:4] = np.asarray(free_delta, dtype=np.float64).reshape(4, 3)
-    delta[4] = -delta[:4].sum(axis=0)
+    horizon = nominal.shape[0]
+    delta = np.zeros((horizon, 3), dtype=np.float64)
+    delta[:-1] = np.asarray(free_delta, dtype=np.float64).reshape(horizon - 1, 3)
+    delta[-1] = -delta[:-1].sum(axis=0)
     prefix[:, :3] += delta
     return prefix
 

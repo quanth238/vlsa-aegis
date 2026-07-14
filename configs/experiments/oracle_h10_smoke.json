@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "name": "oracle_h10_smoke",
+  "evidence_tier": "safelibero_h10_refinement",
+  "task_suite": "safelibero_spatial",
+  "safety_level": "II",
+  "task_index": 0,
+  "episode_indices": [46],
+  "seeds_per_episode": 1,
+  "resize_size": 224,
+  "settle_steps": 20,
+  "executed_prefix": 10,
+  "action_horizon": 10,
+  "action_dim": 32,
+  "sampler_steps": 10,
+  "intervention_step": 5,
+  "safety_margin_m": 0.005,
+  "distance_limit_m": 1.0,
+  "optimizer_max_iterations": 80,
+  "eef_radius_m": 0.06,
+  "response_matrix_m_per_action": [
+    [0.009370281145853376, 0.00014623337157483132, -0.0009171200705674251],
+    [0.0000039560765073778535, 0.012040711768393353, 0.0000006816739267718219],
+    [-0.002845391485346128, 0.000025633541617775525, 0.011826427878652547]
+  ],
+  "action_frame": "libero_controller",
+  "correction_space": "physical",
+  "allow_test_tuning": false
+}
