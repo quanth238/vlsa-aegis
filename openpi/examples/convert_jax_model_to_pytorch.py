@@ -532,13 +532,23 @@ def convert_pi0_checkpoint(
     # Save model weights as SafeTensors using save_model to handle tied weights
     safetensors.torch.save_model(pi0_model, os.path.join(output_path, "model.safetensors"))
 
-    # Copy assets folder if it exists
-    assets_source = pathlib.Path(checkpoint_dir).parent / "assets"
-    if assets_source.exists():
+    # Public OpenPI checkpoints keep normalization assets inside the checkpoint
+    # directory. Older layouts placed them next to the checkpoint. Prefer the
+    # self-contained layout and retain the fallback for backwards compatibility.
+    asset_candidates = [
+        pathlib.Path(checkpoint_dir) / "assets",
+        pathlib.Path(checkpoint_dir).parent / "assets",
+    ]
+    assets_source = next((candidate for candidate in asset_candidates if candidate.exists()), None)
+    if assets_source is not None:
         assets_dest = pathlib.Path(output_path) / "assets"
         if assets_dest.exists():
             shutil.rmtree(assets_dest)
         shutil.copytree(assets_source, assets_dest)
+    else:
+        raise FileNotFoundError(
+            f"Checkpoint normalization assets not found in any of: {[str(path) for path in asset_candidates]}"
+        )
 
     # Save config as JSON for reference
     config_dict = {

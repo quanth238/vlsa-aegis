@@ -31,6 +31,8 @@ class Policy(BasePolicy):
         output_transforms: Sequence[_transforms.DataTransformFn] = (),
         sample_kwargs: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        action_norm_stats: Any | None = None,
+        use_quantile_norm: bool = False,
         pytorch_device: str = "cpu",
         is_pytorch: bool = False,
     ):
@@ -43,6 +45,9 @@ class Policy(BasePolicy):
             output_transforms: Output data transformations to apply after inference.
             sample_kwargs: Additional keyword arguments to pass to model.sample_actions.
             metadata: Additional metadata to store with the policy.
+            action_norm_stats: Checkpoint action statistics used to convert
+                physical CRFS displacement vectors to normalized coordinates.
+            use_quantile_norm: Whether action normalization uses q01/q99.
             pytorch_device: Device to use for PyTorch models (e.g., "cpu", "cuda:0").
                           Only relevant when is_pytorch=True.
             is_pytorch: Whether the model is a PyTorch model. If False, assumes JAX model.
@@ -52,6 +57,8 @@ class Policy(BasePolicy):
         self._output_transform = _transforms.compose(output_transforms)
         self._sample_kwargs = sample_kwargs or {}
         self._metadata = metadata or {}
+        self._action_norm_stats = action_norm_stats
+        self._use_quantile_norm = use_quantile_norm
         self._is_pytorch_model = is_pytorch
         self._pytorch_device = pytorch_device
 
@@ -68,6 +75,12 @@ class Policy(BasePolicy):
     def infer(self, obs: dict, *, noise: np.ndarray | None = None) -> dict:  # type: ignore[misc]
         # Make a copy since transformations may modify the inputs in place.
         inputs = jax.tree.map(lambda x: x, obs)
+        # The websocket client can only send one observation object. Keep CRFS
+        # experiment controls in a reserved envelope and remove it before the
+        # normal dataset/model transforms see the observation.
+        crfs_controls = inputs.pop("__crfs__", None)
+        if crfs_controls is not None and not self._is_pytorch_model:
+            raise ValueError("CRFS oracle controls are currently supported only by the PyTorch sampler")
         inputs = self._input_transform(inputs)
         if not self._is_pytorch_model:
             # Make a batch and convert to jax.Array.
@@ -80,6 +93,24 @@ class Policy(BasePolicy):
 
         # Prepare kwargs for sample_actions
         sample_kwargs = dict(self._sample_kwargs)
+        if crfs_controls is not None:
+            if noise is None and crfs_controls.get("noise") is not None:
+                noise = np.asarray(crfs_controls["noise"])
+            correction = crfs_controls.get("correction")
+            if correction is not None:
+                correction = np.asarray(correction, dtype=np.float32)
+                correction_space = str(crfs_controls.get("correction_space", "model"))
+                if correction_space == "physical":
+                    correction = self._physical_delta_to_model(correction)
+                elif correction_space != "model":
+                    raise ValueError(f"Unsupported CRFS correction_space: {correction_space!r}")
+                correction = torch.from_numpy(correction).to(self._pytorch_device)
+                if correction.ndim == 2:
+                    correction = correction[None, ...]
+                sample_kwargs["crfs_correction"] = correction
+            sample_kwargs["crfs_intervention_step"] = int(crfs_controls.get("intervention_step", 5))
+            sample_kwargs["crfs_intervention_mode"] = str(crfs_controls.get("intervention_mode", "none"))
+            sample_kwargs["crfs_return_trace"] = bool(crfs_controls.get("return_trace", False))
         if noise is not None:
             noise = torch.from_numpy(noise).to(self._pytorch_device) if self._is_pytorch_model else jnp.asarray(noise)
 
@@ -89,9 +120,13 @@ class Policy(BasePolicy):
 
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
+        sampled = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs)
+        trace = None
+        if isinstance(sampled, tuple):
+            sampled, trace = sampled
         outputs = {
             "state": inputs["state"],
-            "actions": self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs),
+            "actions": sampled,
         }
         model_time = time.monotonic() - start_time
         if self._is_pytorch_model:
@@ -100,10 +135,39 @@ class Policy(BasePolicy):
             outputs = jax.tree.map(lambda x: np.asarray(x[0, ...]), outputs)
 
         outputs = self._output_transform(outputs)
+        if trace is not None:
+            outputs["crfs_trace"] = jax.tree.map(lambda x: np.asarray(x[0, ...].detach().cpu()), trace)
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,
         }
         return outputs
+
+    def _physical_delta_to_model(self, correction: np.ndarray) -> np.ndarray:
+        """Scale and pad a displacement without applying a normalization mean."""
+        if self._action_norm_stats is None:
+            raise ValueError("Checkpoint action normalization statistics are unavailable")
+        if correction.ndim != 2:
+            raise ValueError(f"Physical CRFS correction must be rank 2, got shape {correction.shape}")
+        action_horizon = int(self._model.config.action_horizon)
+        action_dim = int(self._model.config.action_dim)
+        if correction.shape[0] > action_horizon or correction.shape[1] > action_dim:
+            raise ValueError(
+                f"Physical CRFS correction shape {correction.shape} exceeds model shape "
+                f"({action_horizon}, {action_dim})"
+            )
+        physical_dim = correction.shape[1]
+        if self._use_quantile_norm:
+            if self._action_norm_stats.q01 is None or self._action_norm_stats.q99 is None:
+                raise ValueError("Quantile normalization requested but q01/q99 action statistics are unavailable")
+            q01 = np.asarray(self._action_norm_stats.q01)[..., :physical_dim]
+            q99 = np.asarray(self._action_norm_stats.q99)[..., :physical_dim]
+            scaled = correction * (2.0 / (q99 - q01 + 1e-6))
+        else:
+            std = np.asarray(self._action_norm_stats.std)[..., :physical_dim]
+            scaled = correction / (std + 1e-6)
+        padded = np.zeros((action_horizon, action_dim), dtype=np.float32)
+        padded[: correction.shape[0], :physical_dim] = scaled
+        return padded
 
     @property
     def metadata(self) -> dict[str, Any]:

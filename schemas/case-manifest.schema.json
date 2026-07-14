@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/case-manifest.schema.json",
+  "title": "CRFS oracle case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_suite",
+    "safety_level",
+    "task_index",
+    "episode_index",
+    "environment_seed",
+    "policy_seed",
+    "random_control_seed",
+    "group_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "case_id": { "type": "string", "pattern": "^crfs-[0-9a-f]{16}$" },
+    "task_suite": { "type": "string", "minLength": 1 },
+    "safety_level": { "enum": ["I", "II"] },
+    "task_index": { "type": "integer", "minimum": 0 },
+    "episode_index": { "type": "integer", "minimum": 0 },
+    "environment_seed": { "type": "integer", "minimum": 0 },
+    "policy_seed": { "type": "integer", "minimum": 0 },
+    "random_control_seed": { "type": "integer", "minimum": 0 },
+    "group_id": { "type": "string", "minLength": 1 }
+  }
+}

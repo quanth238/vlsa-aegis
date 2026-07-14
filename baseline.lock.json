@@ -1,0 +1,12 @@
+{
+  "baseline_repository": "https://github.com/THU-RCSCT/vlsa-aegis.git",
+  "baseline_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+  "harness_reference_repository": "https://github.com/walkinglabs/learn-harness-engineering.git",
+  "harness_reference_commit": "e587e4cce9cfe9b0523fd79d6e0152d4a1f1dfc3",
+  "robosuite_version": "1.4.1",
+  "mujoco_version": "3.2.3",
+  "python_environments": {
+    "openpi_server": "3.11",
+    "libero_client": "baseline pinned environment"
+  }
+}

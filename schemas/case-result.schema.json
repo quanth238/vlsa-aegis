@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/case-result.schema.json",
+  "title": "CRFS oracle case result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "run_id", "status", "config_hash", "provenance", "repair", "trials"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "case_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["completed", "infeasible", "failed"] },
+    "config_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "provenance": { "type": "object" },
+    "repair": {
+      "type": "object",
+      "required": ["feasible"],
+      "properties": { "feasible": { "type": "boolean" } }
+    },
+    "trials": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nominal": { "$ref": "#/$defs/trial" },
+        "direct_repair": { "$ref": "#/$defs/trial" },
+        "random_residual": { "$ref": "#/$defs/trial" },
+        "oracle_residual": { "$ref": "#/$defs/trial" },
+        "bridge_edit": { "$ref": "#/$defs/trial" }
+      }
+    }
+  },
+  "$defs": {
+    "trial": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["clearance_m", "safe", "endpoint_error_m"],
+      "properties": {
+        "clearance_m": { "type": "number" },
+        "safe": { "type": "boolean" },
+        "endpoint_error_m": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

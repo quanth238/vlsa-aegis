@@ -1,0 +1,12 @@
+{
+  "partition": "main",
+  "qos": "normal",
+  "gpus": 1,
+  "cpus": 8,
+  "memory_gb": 64,
+  "array_concurrency": 2,
+  "time_limit": null,
+  "output_root": "/mnt/data/quanth/experiments/crfs-oracle",
+  "log_root": "/mnt/data/quanth/slurm_logs/crfs-oracle",
+  "cache_root": "/mnt/data/quanth/cache"
+}

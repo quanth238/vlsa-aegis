@@ -373,12 +373,46 @@ class PI0Pytorch(nn.Module):
         return F.mse_loss(u_t, v_t, reduction="none")
 
     @torch.no_grad()
-    def sample_actions(self, device, observation, noise=None, num_steps=10) -> Tensor:
-        """Do a full inference forward and compute the action (batch_size x num_steps x num_motors)"""
+    def sample_actions(
+        self,
+        device,
+        observation,
+        noise=None,
+        num_steps=10,
+        *,
+        crfs_correction=None,
+        crfs_intervention_step=None,
+        crfs_intervention_mode="none",
+        crfs_return_trace=False,
+    ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
+        """Sample an action, optionally applying a CRFS oracle intervention.
+
+        The default call path is unchanged. CRFS controls are deliberately
+        explicit and operate in the model's normalized action coordinates.
+        ``crfs_correction`` must have the same padded shape as ``x_t``; callers
+        are responsible for converting a physical action displacement using
+        normalization *scale only* before it reaches this method.
+        """
         bsize = observation.state.shape[0]
         if noise is None:
             actions_shape = (bsize, self.config.action_horizon, self.config.action_dim)
             noise = self.sample_noise(actions_shape, device)
+
+        if crfs_intervention_step is None:
+            crfs_intervention_step = num_steps // 2
+        if not 0 <= crfs_intervention_step < num_steps:
+            raise ValueError(
+                f"crfs_intervention_step must be in [0, {num_steps}), got {crfs_intervention_step}"
+            )
+        supported_modes = {"none", "residual", "bridge_edit"}
+        if crfs_intervention_mode not in supported_modes:
+            raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
+        if crfs_intervention_mode != "none" and crfs_correction is None:
+            raise ValueError(f"CRFS mode {crfs_intervention_mode!r} requires crfs_correction")
+        if crfs_correction is not None and crfs_correction.shape != noise.shape:
+            raise ValueError(
+                f"crfs_correction shape {tuple(crfs_correction.shape)} does not match noise shape {tuple(noise.shape)}"
+            )
 
         images, img_masks, lang_tokens, lang_masks, state = self._preprocess_observation(observation, train=False)
 
@@ -403,9 +437,13 @@ class PI0Pytorch(nn.Module):
 
         x_t = noise
         time = torch.tensor(1.0, dtype=torch.float32, device=device)
+        step_index = 0
+        crfs_trace = None
+        crfs_residual_horizon = 1.0 - crfs_intervention_step / num_steps
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
-            v_t = self.denoise_step(
+            x_before_intervention = x_t
+            v_base = self.denoise_step(
                 state,
                 prefix_pad_masks,
                 past_key_values,
@@ -413,9 +451,38 @@ class PI0Pytorch(nn.Module):
                 expanded_time,
             )
 
+            if step_index == crfs_intervention_step:
+                crfs_trace = {
+                    "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
+                    "time": expanded_time.detach().clone(),
+                    "x_t": x_before_intervention.detach().clone(),
+                    "v_base": v_base.detach().clone(),
+                    "predicted_clean": (x_before_intervention - time * v_base).detach().clone(),
+                }
+                if crfs_intervention_mode == "bridge_edit":
+                    x_t = x_t + (1.0 - time) * crfs_correction
+                    v_base = self.denoise_step(
+                        state,
+                        prefix_pad_masks,
+                        past_key_values,
+                        x_t,
+                        expanded_time,
+                    )
+
+            v_t = v_base
+            if crfs_intervention_mode == "residual" and step_index >= crfs_intervention_step:
+                if crfs_residual_horizon <= 0:
+                    raise RuntimeError("CRFS residual intervention has no remaining integration time")
+                v_t = v_t - crfs_correction / crfs_residual_horizon
+
             # Euler step - use new tensor assignment instead of in-place operation
             x_t = x_t + dt * v_t
             time += dt
+            step_index += 1
+        if crfs_return_trace:
+            if crfs_trace is None:
+                raise RuntimeError("CRFS trace step was not reached")
+            return x_t, crfs_trace
         return x_t
 
     def denoise_step(

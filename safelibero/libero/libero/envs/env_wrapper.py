@@ -88,6 +88,41 @@ class ControlEnv:
     def step(self, action):
         return self.env.step(action)
 
+    def step_with_substep_callback(self, action, callback):
+        """Execute one control action and observe every MuJoCo physics substep.
+
+        SafeLIBERO's public ``step`` API returns only after all physics
+        substeps for a control action have completed.  CRFS needs the minimum
+        clearance over those substeps, so this additive entry point mirrors
+        robosuite 1.4.1's ``MujocoEnv.step`` loop and invokes ``callback``
+        immediately after each ``sim.step()``.  The ordinary baseline path is
+        intentionally unchanged.
+        """
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+
+        self.env.timestep += 1
+        policy_step = True
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        for substep_index in range(substeps):
+            self.env.sim.forward()
+            self.env._pre_action(action, policy_step)
+            self.env.sim.step()
+            callback(self.env.sim, substep_index)
+            self.env._update_observables()
+            policy_step = False
+
+        self.env.cur_time += self.env.control_timestep
+        reward, done, info = self.env._post_action(action)
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = (
+            self.env.viewer._get_observations()
+            if self.env.viewer_get_obs
+            else self.env._get_observations()
+        )
+        return observations, reward, done, info
+
     def reset(self):
         success = False
         while not success:

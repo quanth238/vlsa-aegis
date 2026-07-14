@@ -89,6 +89,8 @@ def create_trained_policy(
         ],
         sample_kwargs=sample_kwargs,
         metadata=train_config.policy_metadata,
+        action_norm_stats=norm_stats["actions"],
+        use_quantile_norm=data_config.use_quantile_norm,
         is_pytorch=is_pytorch,
         pytorch_device=pytorch_device if is_pytorch else None,
     )

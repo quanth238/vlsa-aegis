@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crfs-oracle-harness"
+version = "0.1.0"
+description = "Reproducible harness for falsifying CRFS oracle action-flow steering"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "quanth238" }]
+dependencies = []
+
+[project.optional-dependencies]
+experiment = [
+  "mujoco==3.2.3",
+  "numpy>=1.26,<3",
+  "scipy>=1.11,<2",
+  "torch>=2.7,<3",
+]
+dev = [
+  "jsonschema>=4.23,<5",
+  "pytest>=8,<9",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+crfs-harness = "crfs_harness.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"

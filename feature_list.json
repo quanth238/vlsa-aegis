@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "wip_limit": 1,
+  "features": [
+    {"id": "H00", "name": "Bootstrap", "description": "Baseline-derived restartable harness", "dependencies": [], "status": "passing", "evidence": "13 dependency-free tests passed on 2026-07-14; baseline commit pinned."},
+    {"id": "H01", "name": "Provenance", "description": "Immutable cases, hashes, code/model/environment metadata", "dependencies": ["H00"], "status": "passing", "evidence": "Manifest/artifact tests and JSON schemas pass locally."},
+    {"id": "H02", "name": "Deterministic replay", "description": "Same state and policy noise replay exactly", "dependencies": ["H01"], "status": "passing", "evidence": "Synthetic restart and paired-seed tests pass; real runner refuses non-exact policy/simulator replay."},
+    {"id": "H03", "name": "Measurement audit", "description": "Physics-substep signed distance and contact cross-check", "dependencies": ["H02"], "status": "active", "evidence": "Substep hook and geom monitor implemented; allocation-backed SafeLIBERO audit pending."},
+    {"id": "H04", "name": "Kinematics calibration", "description": "Measure action-to-EEF scale and D_opt versus D_sim error", "dependencies": ["H03"], "status": "not_started", "evidence": ""},
+    {"id": "H05", "name": "Projection teacher", "description": "Nearest-safe endpoint-preserving direct repair passes teacher gates", "dependencies": ["H04"], "status": "not_started", "evidence": ""},
+    {"id": "H06", "name": "Direct safe replay", "description": "A+ remains safe from identical simulator state", "dependencies": ["H05"], "status": "not_started", "evidence": ""},
+    {"id": "H07", "name": "Sampler trace", "description": "PyTorch conversion parity and residual sign/integral validated", "dependencies": ["H06"], "status": "not_started", "evidence": ""},
+    {"id": "H08", "name": "Oracle intervention", "description": "Paired nominal/random/oracle/direct arms execute", "dependencies": ["H07"], "status": "not_started", "evidence": ""},
+    {"id": "H09", "name": "Oracle analysis", "description": "Preregistered population metrics and clustered CIs decide go/no-go", "dependencies": ["H08"], "status": "not_started", "evidence": ""},
+    {"id": "H10", "name": "Report and handoff", "description": "Evidence, limitations, decision, and reproducible commands published", "dependencies": ["H09"], "status": "not_started", "evidence": ""}
+  ]
+}

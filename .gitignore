@@ -1,0 +1,47 @@
+.DS_Store
+.harness/
+.idea/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Research outputs and machine-local state
+outputs/
+results/
+results_new/
+policy_records/
+videos/
+logs/
+checkpoints/
+datasets/
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
+# Local design transcript; the proposal and decision records are the public source of truth.
+Chat - Probe in Diffusion Model.md
+
+# Large generated model and simulator artifacts
+*.safetensors
+*.hdf5
+*.mp4
+*.npy
+*.npz
+
+# LaTeX intermediates; retain the checked-in proposal preview PDF.
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
