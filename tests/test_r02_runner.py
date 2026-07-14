@@ -49,6 +49,8 @@ if np is not None:
         _no_witness_result,
         _normalized_config,
         _path_diagnostic,
+        _portable_array_reconstruction_equal,
+        _portable_diagnostic_reconstruction_equal,
         _reconfirmation_failure_result,
         _trace_record,
         r02_config_from_mapping,
@@ -1127,6 +1129,65 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
         missing["pairing"]["historical_r01_diagnostic"]["delta_comparison"] = None
         errors = validate_r02_result(missing)
         self.assertTrue(any("Delta comparison" in item for item in errors), errors)
+
+    def test_portable_reconstruction_accepts_only_float64_last_bit_drift(self) -> None:
+        base = np.asarray([[1.0, -0.25], [0.0, 2.0]], dtype=np.float64)
+        one_ulp = np.array(base, copy=True)
+        one_ulp[0, 0] = np.nextafter(one_ulp[0, 0], np.inf)
+        self.assertTrue(_portable_array_reconstruction_equal(base, one_ulp))
+
+        meaningful = np.array(base, copy=True)
+        meaningful[0, 0] += 2.0e-12
+        self.assertFalse(_portable_array_reconstruction_equal(base, meaningful))
+
+        diagnostic = {
+            "selected_pair": {"segment_index": 4, "distance": 0.01},
+            "direction": [[1.0, 0.0]],
+        }
+        portable = copy.deepcopy(diagnostic)
+        portable["direction"][0][0] = float(
+            np.nextafter(portable["direction"][0][0], np.inf)
+        )
+        self.assertTrue(
+            _portable_diagnostic_reconstruction_equal(diagnostic, portable)
+        )
+        wrong_pair = copy.deepcopy(diagnostic)
+        wrong_pair["selected_pair"]["segment_index"] = 3
+        self.assertFalse(
+            _portable_diagnostic_reconstruction_equal(diagnostic, wrong_pair)
+        )
+
+    def test_portable_validator_accepts_ulp_reconstruction_not_direction_change(self) -> None:
+        portable = self._eligible_result()
+        random_record = portable["directions"]["arrays"]["random_model"]
+        random_direction = np.asarray(random_record["values"], dtype=np.float64)
+        nonzero = np.argwhere(random_direction != 0.0)[0]
+        row, column = (int(nonzero[0]), int(nonzero[1]))
+        random_direction[row, column] = np.nextafter(
+            random_direction[row, column], np.inf
+        )
+        portable["directions"]["arrays"]["random_model"] = _array_record(
+            random_direction
+        )
+        portable["directions"]["l2_norms"]["random_model"] = float(
+            np.linalg.norm(random_direction)
+        )
+        self.assertEqual(validate_r02_result(portable), [])
+
+        changed = self._eligible_result()
+        random_record = changed["directions"]["arrays"]["random_model"]
+        random_direction = np.asarray(random_record["values"], dtype=np.float64)
+        nonzero = np.argwhere(random_direction != 0.0)[0]
+        row, column = (int(nonzero[0]), int(nonzero[1]))
+        random_direction[row, column] += 2.0e-12
+        changed["directions"]["arrays"]["random_model"] = _array_record(
+            random_direction
+        )
+        changed["directions"]["l2_norms"]["random_model"] = float(
+            np.linalg.norm(random_direction)
+        )
+        errors = validate_r02_result(changed)
+        self.assertTrue(any("seeded equal-L2" in item for item in errors), errors)
 
     def test_completed_eligible_rejects_raw_and_constructed_direction_tampering(self) -> None:
         completed = self._eligible_result()

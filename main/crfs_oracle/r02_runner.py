@@ -86,6 +86,8 @@ HISTORICAL_TRANSLATION_MAX_ABS_LIMIT = 0.010
 HISTORICAL_TRANSLATION_RMS_LIMIT = 0.005
 HISTORICAL_EXECUTED_MAX_ABS_LIMIT = 0.050
 HISTORICAL_EXECUTED_RMS_LIMIT = 0.015
+PORTABLE_RECONSTRUCTION_ABS_TOL = 1.0e-12
+PORTABLE_ANGLE_ABS_TOL_DEGREES = 1.0e-10
 REGISTERED_TRANSLATION_ACTION_SCALE = (0.8422505, 0.827813, 0.937313)
 REGISTERED_EEF_RADIUS_M = 0.06
 REGISTERED_DISTANCE_LIMIT_M = 1.0
@@ -800,6 +802,81 @@ def _bounded_drift_diagnostic(
             and rms <= rms_absolute_error_limit
         ),
     }
+
+
+def _portable_array_reconstruction_equal(left: Any, right: Any) -> bool:
+    """Compare independently reconstructed float arrays across CPU runtimes.
+
+    The stored direction remains content-bound and is still required to match
+    the float32 correction actually sent to the policy.  This comparison is
+    only for a second reconstruction, where BLAS/libm reductions can differ by
+    a few final float64 bits across allocation and verifier hosts.
+    """
+
+    lhs = np.asarray(left, dtype=np.float64)
+    rhs = np.asarray(right, dtype=np.float64)
+    return bool(
+        lhs.shape == rhs.shape
+        and np.all(np.isfinite(lhs))
+        and np.all(np.isfinite(rhs))
+        and np.allclose(
+            lhs,
+            rhs,
+            rtol=0.0,
+            atol=PORTABLE_RECONSTRUCTION_ABS_TOL,
+        )
+    )
+
+
+def _portable_diagnostic_reconstruction_equal(left: Any, right: Any) -> bool:
+    """Preserve diagnostic structure while tolerating float64 last-bit drift."""
+
+    if isinstance(left, bool) or isinstance(right, bool):
+        return isinstance(left, bool) and isinstance(right, bool) and left is right
+    if isinstance(left, int) or isinstance(right, int):
+        return (
+            isinstance(left, int)
+            and not isinstance(left, bool)
+            and isinstance(right, int)
+            and not isinstance(right, bool)
+            and left == right
+        )
+    if isinstance(left, float) or isinstance(right, float):
+        if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
+            return False
+        lhs = float(left)
+        rhs = float(right)
+        return bool(
+            math.isfinite(lhs)
+            and math.isfinite(rhs)
+            and math.isclose(
+                lhs,
+                rhs,
+                rel_tol=0.0,
+                abs_tol=PORTABLE_RECONSTRUCTION_ABS_TOL,
+            )
+        )
+    if isinstance(left, Mapping) or isinstance(right, Mapping):
+        if not isinstance(left, Mapping) or not isinstance(right, Mapping):
+            return False
+        return bool(
+            set(left) == set(right)
+            and all(
+                _portable_diagnostic_reconstruction_equal(left[key], right[key])
+                for key in left
+            )
+        )
+    if isinstance(left, (list, tuple)) or isinstance(right, (list, tuple)):
+        if not isinstance(left, (list, tuple)) or not isinstance(right, (list, tuple)):
+            return False
+        return bool(
+            len(left) == len(right)
+            and all(
+                _portable_diagnostic_reconstruction_equal(lhs, rhs)
+                for lhs, rhs in zip(left, right)
+            )
+        )
+    return left == right
 
 
 def _delta_comparison_diagnostic(
@@ -1905,6 +1982,11 @@ def _validate_exact_pairing(
                 else:
                     for key, expected in expected_comparison.items():
                         claim = delta_comparison.get(key)
+                        absolute_tolerance = (
+                            PORTABLE_ANGLE_ABS_TOL_DEGREES
+                            if key == "angle_degrees"
+                            else PORTABLE_RECONSTRUCTION_ABS_TOL
+                        )
                         if (
                             not isinstance(claim, (int, float))
                             or isinstance(claim, bool)
@@ -1913,7 +1995,7 @@ def _validate_exact_pairing(
                                 float(claim),
                                 expected,
                                 rel_tol=0.0,
-                                abs_tol=1e-12,
+                                abs_tol=absolute_tolerance,
                             )
                         ):
                             errors.append(
@@ -2762,7 +2844,9 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             if construction_failures.get("random_model") != str(error):
                 errors.append("random direction failure differs from deterministic reconstruction")
         else:
-            if not np.array_equal(direction_values.get("random_model"), expected_random):
+            if not _portable_array_reconstruction_equal(
+                direction_values.get("random_model"), expected_random
+            ):
                 errors.append("random direction differs from seeded equal-L2 reconstruction")
             if construction_failures.get("random_model") is not None:
                 errors.append("successful random direction cannot claim construction failure")
@@ -2804,7 +2888,7 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             expected_analytic = np.asarray(
                 expected_analytic_result.direction_model, dtype=np.float64
             )
-            if not np.array_equal(
+            if not _portable_array_reconstruction_equal(
                 direction_values.get("analytic_geometry_model"), expected_analytic
             ):
                 errors.append("analytic direction differs from exact D_opt reconstruction")
@@ -2813,8 +2897,8 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             stored_diagnostic = directions.get("diagnostics", {}).get("analytic_geometry") if isinstance(
                 directions.get("diagnostics"), Mapping
             ) else None
-            if content_hash(stored_diagnostic) != content_hash(
-                expected_analytic_result.to_dict()
+            if not _portable_diagnostic_reconstruction_equal(
+                stored_diagnostic, expected_analytic_result.to_dict()
             ):
                 errors.append("analytic diagnostic differs from exact D_opt reconstruction")
     for key in ("random_model", "analytic_geometry_model"):

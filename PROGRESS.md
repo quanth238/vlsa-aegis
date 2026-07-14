@@ -44,7 +44,9 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - ADR-0012 separates the R03 oracle-steerability claim from permission to train a learned probe. A learned probe is authorized only if R03 passes, the matched analytic arm does not, and oracle exceeds analytic under both a grouped bootstrap and an exact one-sided paired discordance test.
 - The first R02 smoke, Slurm job `27393`, failed closed before any simulator action. The fresh branch snapshot used tuple coordinates while the JSON-loaded R01 snapshot used lists, and the runner also imposed invalid byte equality between MIG and full-H100 eager outputs. The exact launch-failure artifact and logs remain under `r02-oracle-flow-smoke-20260714a`; no `r02-paired.json` was produced.
 - Independent comparison showed that R01 MIG smoke `27303` and the MIG parity eager path agree within `5.9e-8`, while the same H100 R01 case differs by at most `0.003532818` over first-five XYZ. ADR-0013 therefore canonicalizes the branch exactly, bounds historical drift with the already-frozen ADR-0010 tolerances, and defines the applied oracle direction as the immutable witness minus the fresh paired eager baseline. The stale R01 delta remains a hashed norm/angle diagnostic only.
-- The revised combined local R02 gate passes: 153 tests passed and 33 allocation-runtime tests were skipped by `./init.sh`; the NumPy-backed focused R02/parity suite passed 59/59. These are apparatus checks only, not research evidence.
+- The revised combined local R02 gate passes: 155 tests passed and 35 allocation-runtime tests were skipped by `./init.sh`; the NumPy-backed focused R02/parity suite passed 61/61. These are apparatus checks only, not research evidence.
+- Replacement smoke job `27403` completed all six paired arms for case `crfs-1069f29a8d76463a`. The frozen arm reconfirmed collision (`D_sim=-4.356 mm`), the immutable direct witness reconfirmed (`31.806 mm` clearance, `33.372 mm` progress), and the distributed oracle residual passed (`28.997 mm`, `32.984 mm`) while equal-L2 random and analytic controls failed progress and the one-shot bridge failed clearance. This one case is smoke evidence only, not a population claim.
+- The job-27403 artifact validated on its allocation host, but an independent CPU-runtime validator reconstructed the random/analytic directions with maximum `2.22e-16` float64 differences and the near-parallel angle with `7.42e-12` degree difference. ADR-0014 confines numerical tolerance to independently derived float64 reconstructions (`1e-12`, or `1e-10` degrees after `acos`); stored arrays, applied corrections, discrete geometry choices, pairing, actions, outcomes, and scientific gates remain content-bound or exact. A new smoke from the updated clean commit is required before population launch.
 
 ## Active gate
 
@@ -52,11 +54,11 @@ R02 — with allocation-backed public-JAX/PyTorch numerical parity established, 
 
 ## Next
 
-1. Commit and push the clean R02 apparatus, synchronize the exact commit to `/home/quanth/working_space/vlsa-aegis-crfs`, and verify the remote worktree is clean.
-2. Run the exact strict smoke command below. This uses an immutable smoke-only run ID and must not be reused for the final H100 population:
+1. Finish the ADR-0014 portability regression gate, commit and push the clean R02 apparatus, synchronize the exact commit to `/home/quanth/working_space/vlsa-aegis-crfs`, and verify the remote worktree is clean.
+2. Run the exact strict replacement smoke command below. This uses a new immutable smoke-only run ID because `r02-oracle-flow-smoke-20260714b` is already complete and must not be reused:
 
    ```bash
-   RUN_ID=r02-oracle-flow-smoke-20260714b scripts/hpc/submit_r02_smoke.sh \
+   RUN_ID=r02-oracle-flow-smoke-20260714c scripts/hpc/submit_r02_smoke.sh \
      manifests/oracle_h05_colliding.jsonl \
      configs/experiments/r02_oracle_flow.json \
      /mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a \
@@ -77,7 +79,7 @@ R02 — with allocation-backed public-JAX/PyTorch numerical parity established, 
 - The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
 - Sampler parity passed for the frozen public-JAX/PyTorch comparison, but compiled and eager PyTorch paths are numerically rather than byte-for-byte identical; R02 therefore uses the validated eager trace-only path for every paired arm.
 - Eager BF16 actions are hardware/kernel conditioned at small numerical scale. Historical R01-to-R02 drift is bounded by the pre-outcome ADR-0010 limits and reported; all causal arm comparisons remain exact within one allocation.
-- No allocation-backed R02 intervention outcome exists yet. Local and synthetic tests establish implementation behavior only.
+- Only one allocation-backed R02 smoke intervention outcome exists. It is useful apparatus evidence but cannot establish an oracle/random or oracle/analytic population effect.
 - A bounded endpoint-free search miss is not an infeasibility certificate. Only a simulator-verified witness proves existence.
 - The R01 witness corrections are large and action-saturating. Physical action existence may therefore lie outside the reachable or task-preserving support of a local flow intervention.
 - The three branch-margin failures show that the registered intervention instant is already too late for some cases. An earlier-state or recovery-barrier study must be a separately frozen experiment, not a post-hoc R01 relabeling.
