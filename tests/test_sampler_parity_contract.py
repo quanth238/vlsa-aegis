@@ -417,5 +417,28 @@ class SamplerParityContractTest(unittest.TestCase):
             )
 
 
+def valid_parity_artifact(
+    *, pytorch_model_sha256: str = "4" * 64, git_dirty: bool = False
+) -> dict:
+    """Return the authoritative raw-array fixture for downstream gate tests."""
+
+    case = SamplerParityContractTest()
+    case.runner = _load_runner()
+    artifact = case._valid_artifact()
+    artifact["identity"]["pytorch_model_sha256"] = pytorch_model_sha256
+    artifact["checkpoints"]["converted_pytorch"][
+        "model_sha256"
+    ] = pytorch_model_sha256
+    artifact["identity"]["git_dirty"] = git_dirty
+    artifact["provenance"]["git_dirty"] = git_dirty
+    artifact["acceptance"][
+        "primary_path"
+    ] = "public JAX default versus PyTorch eager trace-only"
+    artifact["acceptance"][
+        "compiled_path_role"
+    ] = "ordinary-baseline numerical diagnostic; not byte-exact to eager"
+    return artifact
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -39,17 +39,33 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Allocation-backed verifier `27364` independently recomputed the gate from raw actions and repeated rollouts and passed R01 at 17/20. The committed summary is `evidence/r01/r01-summary.json`, SHA-256 `715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5`.
 - All three R01 negatives began below the immutable 5 mm branch margin; one began in penetration. Under the registered branch-plus-125-substep predicate, no same-instant action can make those initial samples pass. All 17 branch-margin-valid cases produced witnesses.
 - Physical existence did not establish a local flow edit: every selected witness was outside the H04 `+/-0.15` calibration domain and saturated at least one translation component. Median correction L2 was 3.243 and median RMS over the 15 translation coordinates was 0.837.
+- Allocation-backed sampler-parity job `27389` passed the frozen R02 numerical gates on the public-JAX default path versus the PyTorch eager trace-only path. The validated artifact is `/mnt/data/quanth/experiments/crfs-oracle/sampler-parity-r02-20260714c/sampler-parity.json`, SHA-256 `26083b0a71ec41cf67e0978b815a77bfe71e4b4a4a08a8ddcdaece608de9818a`; first-five physical XYZ maximum error was 1.148 mm and full 10x7 physical maximum error was 5.306 mm.
+- The frozen R02 apparatus now contains six distinct arms: frozen, direct R01 witness, equal-L2 seeded random residual, equal-L2 analytic-geometry residual, distributed oracle residual, and one-shot bridge diagnostic. Raw R01 cases, sampler parity, directions, simulator transforms, substep measurements, policy traces, bounds, and terminal failures are independently revalidated before aggregation.
+- ADR-0012 separates the R03 oracle-steerability claim from permission to train a learned probe. A learned probe is authorized only if R03 passes, the matched analytic arm does not, and oracle exceeds analytic under both a grouped bootstrap and an exact one-sided paired discordance test.
+- The combined local R02 gate passes: 143 tests passed and 25 allocation-runtime tests were skipped by `./init.sh`; the NumPy-backed focused R02/parity suite passed 49/49. These are apparatus checks only, not research evidence.
 
 ## Active gate
 
-R02 — establish exact public-JAX/PyTorch conversion parity, then test whether the frozen flow can realize the known endpoint-free witness direction and outperform an equal-norm random direction. The direct witness, analytic geometry direction, distributed residual, and one-shot bridge remain distinct arms.
+R02 — with allocation-backed public-JAX/PyTorch numerical parity established, test whether the frozen flow can realize the known endpoint-free witness direction and outperform an equal-norm random direction. The direct witness, analytic geometry direction, distributed residual, and one-shot bridge remain distinct arms.
 
 ## Next
 
-1. Add an allocation-backed same-input, same-noise public-JAX/PyTorch sampler parity artifact; do not interpret R02 policy outcomes until it passes.
-2. Freeze an R02 config content-bound to the R01 summary and implement paired frozen, direct-witness, equal-norm random, analytic-geometry, distributed-oracle-residual, and bridge-diagnostic arms.
-3. Run one strict allocation smoke, then the complete feasible-conditioned population and an allocation-backed grouped R03 summary. Report the original 20-case population separately.
-4. Train no learned probe unless the distributed oracle passes R03 and the analytic baseline leaves a demonstrated need for learned continuation clearance.
+1. Commit and push the clean R02 apparatus, synchronize the exact commit to `/home/quanth/working_space/vlsa-aegis-crfs`, and verify the remote worktree is clean.
+2. Run the exact strict smoke command below. This uses an immutable smoke-only run ID and must not be reused for the final H100 population:
+
+   ```bash
+   RUN_ID=r02-oracle-flow-smoke-20260714a scripts/hpc/submit_r02_smoke.sh \
+     manifests/oracle_h05_colliding.jsonl \
+     configs/experiments/r02_oracle_flow.json \
+     /mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a \
+     /home/quanth/working_space/vlsa-aegis-crfs/evidence/r01/r01-summary.json \
+     715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5 \
+     /mnt/data/quanth/experiments/crfs-oracle/sampler-parity-r02-20260714c/sampler-parity.json \
+     26083b0a71ec41cf67e0978b815a77bfe71e4b4a4a08a8ddcdaece608de9818a
+   ```
+
+3. Independently validate the smoke artifact. If it is valid, run all 20 cases on H100 under a new immutable population ID with concurrency at most two, then run the CPU allocation-backed R03 summary.
+4. Report the feasible-conditioned 17 and original intent-to-treat 20 populations separately. Train no learned probe unless both R03 and the stricter ADR-0012 authorization pass.
 5. Collect new immutable post-grasp states and a new progress calibration before making any transport-phase claim.
 
 ## Open scientific risks
@@ -57,7 +73,8 @@ R02 — establish exact public-JAX/PyTorch conversion parity, then test whether 
 - Raw MuJoCo mesh--box `mj_geomDistance` is unreliable in this stack. The primary controlled metric is the proposal's EEF-sphere/known-box signed distance evaluated from simulator transforms; physical contacts remain a one-way conservatism check.
 - Released SafeLIBERO obstacles are movable; the proposal preregisters a static asymmetric-convex controlled pilot.
 - The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
-- Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting R02 outcomes.
+- Sampler parity passed for the frozen public-JAX/PyTorch comparison, but compiled and eager PyTorch paths are numerically rather than byte-for-byte identical; R02 therefore uses the validated eager trace-only path for every paired arm.
+- No allocation-backed R02 intervention outcome exists yet. Local and synthetic tests establish implementation behavior only.
 - A bounded endpoint-free search miss is not an infeasibility certificate. Only a simulator-verified witness proves existence.
 - The R01 witness corrections are large and action-saturating. Physical action existence may therefore lie outside the reachable or task-preserving support of a local flow intervention.
 - The three branch-margin failures show that the registered intervention instant is already too late for some cases. An earlier-state or recovery-barrier study must be a separately frozen experiment, not a post-hoc R01 relabeling.

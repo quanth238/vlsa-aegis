@@ -152,6 +152,10 @@ paired complete-group 95% bootstrap LCB(SPSR_oracle - SPSR_random) > 0
 ```
 
 Report feasible-conditioned and original-20-case populations separately. If
-the oracle gate fails, do not train a probe. If the analytic geometry arm
-already satisfies the same safety-progress gate at comparable cost, the
-controlled oracle-geometry pilot does not by itself justify a learned probe.
+the oracle gate fails, do not train a probe. R03 passing establishes oracle
+steerability only. Apply ADR-0012's separate learned-probe authorization: the
+analytic arm must fail its matched oracle-style gate, the grouped 95% bootstrap
+LCB for oracle minus analytic must be positive, and the exact one-sided paired
+label-swap test must have `p < 0.05`. Bounds/direction failures remain fixed-
+denominator zeroes. If analytic geometry already explains the gain at the same
+intervention budget, this pilot does not justify a learned probe.

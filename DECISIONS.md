@@ -11,3 +11,4 @@
 - [0009 — Accept endpoint-free physical witnesses and require oracle flow](docs/decisions/0009-accept-r01-require-oracle-flow.md)
 - [0010 — Freeze R02 parity and direction semantics before outcomes](docs/decisions/0010-freeze-r02-parity-and-directions.md)
 - [0011 — Compare parity on the eager intervention path](docs/decisions/0011-use-eager-path-for-r02-parity.md)
+- [0012 — Separate oracle steerability from learned-probe authorization](docs/decisions/0012-separate-r03-from-probe-authorization.md)
