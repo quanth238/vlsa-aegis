@@ -85,6 +85,37 @@ Portable assets are now located relative to the concrete `libero.libero`
 package. This does not change the frozen config, state seeds, placements,
 acceptance rule, or any policy outcome.
 
+The asset-fixed task, `27592_0`, then completed its original edit/settle branch
+but rejected on fresh-load settle step 1. The installed robosuite flattened
+state contains only time, qpos, and qvel; it omits MuJoCo integration fields
+that affect the exact next transition, including solver warmstart and user
+inputs. The generated-source identity and replay contract therefore bind
+MuJoCo's full `mjSTATE_INTEGRATION` state before settle, after every settle
+step, and at the final branch. The failed request remains retained and is not
+redrawn; this correction was made without opening a policy, safety, planner,
+progress, or probe outcome.
+
+A second independent pre-submission audit found a schema/semantic mismatch:
+the semantic validator discarded unexpected settle-record keys before calling
+the exact array validator, and it did not enforce the declared one-reset API
+string. Those paths now fail closed for both flattened and integration-state
+histories, boolean/non-integer step indices, the reset API, and nested geometry
+array records. Positive accepted-fixture, recomputed-hash outcome-field,
+integration/proof/MJB binding, JSON-Schema, and exact restore-call-order tests
+cover the correction. This validation fix changes no source request, seed,
+placement, acceptance criterion, or scientific config hash.
+
+The same audit then exercised fully rehashed, cross-rebound records rather than
+stopping at local hashes. The final contract requires the seven ordered source
+joints to agree with the named edit log, requires the active edit to reuse the
+matching parked joint, freezes a nonempty sorted typed active-geom record in
+both semantic validation and JSON Schema, and binds compiled-MJB byte count as
+well as SHA-256 into both fresh-replay proofs. MJB diagnostics remain excluded
+from the portable scientific source identity. After the relational joint-name
+mutation also failed closed, independent review returned GO for a fresh
+request-0 canary; the frozen source config and all request seeds remain
+unchanged.
+
 No sampler parity, R04A, or R04B job is repeated. The direct efficacy
 comparison remains frozen for later untouched groups: frozen pi0.5, one locked
 ECG arm, realized-final-norm random, a strong time-structured margin analytic

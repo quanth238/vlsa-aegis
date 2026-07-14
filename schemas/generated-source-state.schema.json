@@ -22,6 +22,130 @@
         "sha256": {"$ref": "#/$defs/sha256"}
       }
     },
+    "float64Vector7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [7]},
+        "values": {
+          "type": "array", "minItems": 7, "maxItems": 7,
+          "items": {"type": "number"}
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Vector3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [3]},
+        "values": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {"type": "number"}
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Matrix3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [3, 3]},
+        "values": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {
+            "type": "array", "minItems": 3, "maxItems": 3,
+            "items": {"type": "number"}
+          }
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "geometryJointPose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_name", "joint_name", "qpos"],
+      "properties": {
+        "object_name": {"type": "string", "minLength": 1},
+        "joint_name": {"type": "string", "minLength": 1},
+        "qpos": {"$ref": "#/$defs/float64Vector7"}
+      }
+    },
+    "geometryGeom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "body_name", "type_id", "contype", "conaffinity",
+        "size", "world_position", "world_rotation"
+      ],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "body_name": {"type": "string", "minLength": 1},
+        "type_id": {"type": "integer", "minimum": 0},
+        "contype": {"type": "integer", "minimum": 0},
+        "conaffinity": {"type": "integer", "minimum": 0},
+        "size": {"$ref": "#/$defs/float64Vector3"},
+        "world_position": {"$ref": "#/$defs/float64Vector3"},
+        "world_rotation": {"$ref": "#/$defs/float64Matrix3"}
+      }
+    },
+    "sourceGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_obstacle_name", "joint_poses", "active_obstacle_geoms"],
+      "properties": {
+        "active_obstacle_name": {
+          "enum": [
+            "moka_pot_obstacle_1", "milk_obstacle_1", "wine_bottle_obstacle_1",
+            "red_coffee_mug_obstacle_1", "yellow_book_obstacle_1"
+          ]
+        },
+        "joint_poses": {
+          "type": "array", "minItems": 7, "maxItems": 7,
+          "prefixItems": [
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "moka_pot_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "white_storage_box_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "milk_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "wine_bottle_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "red_coffee_mug_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "yellow_book_obstacle_1"}}}
+            ]},
+            {"allOf": [
+              {"$ref": "#/$defs/geometryJointPose"},
+              {"properties": {"object_name": {"const": "box_base_1"}}}
+            ]}
+          ],
+          "items": false
+        },
+        "active_obstacle_geoms": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "#/$defs/geometryGeom"}
+        }
+      }
+    },
     "settleState": {
       "type": "object",
       "additionalProperties": false,
@@ -32,6 +156,32 @@
         "values": {"type": "array"},
         "sha256": {"$ref": "#/$defs/sha256"},
         "settle_step": {"type": "integer", "minimum": 1, "maximum": 20}
+      }
+    },
+    "integrationStateSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "size", "dtype"],
+      "properties": {
+        "name": {"const": "mjSTATE_INTEGRATION"},
+        "value": {"const": 8191},
+        "size": {"type": "integer", "minimum": 1},
+        "dtype": {"const": "float64"}
+      }
+    },
+    "integrationStates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spec", "pre_settle", "settle_history", "settle_sequence_sha256", "final"],
+      "properties": {
+        "spec": {"$ref": "#/$defs/integrationStateSpec"},
+        "pre_settle": {"$ref": "#/$defs/arrayRecord"},
+        "settle_history": {
+          "type": "array", "minItems": 20, "maxItems": 20,
+          "items": {"$ref": "#/$defs/settleState"}
+        },
+        "settle_sequence_sha256": {"$ref": "#/$defs/sha256"},
+        "final": {"$ref": "#/$defs/arrayRecord"}
       }
     },
     "numpyLegacyState": {
@@ -216,13 +366,18 @@
     "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["format", "xml", "sha256", "assets", "assets_sha256"],
+      "required": [
+        "format", "xml", "sha256", "assets", "assets_sha256",
+        "compiled_mjb_size_bytes", "compiled_mjb_sha256"
+      ],
       "properties": {
         "format": {"const": "portable_finalized_mujoco_xml_with_hashed_asset_tokens"},
         "xml": {"type": "string", "minLength": 1},
         "sha256": {"$ref": "#/$defs/sha256"},
         "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asset"}},
-        "assets_sha256": {"$ref": "#/$defs/sha256"}
+        "assets_sha256": {"$ref": "#/$defs/sha256"},
+        "compiled_mjb_size_bytes": {"type": "integer", "minimum": 1},
+        "compiled_mjb_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "sourceBranchPayload": {
@@ -230,7 +385,11 @@
       "additionalProperties": false,
       "required": [
         "bddl_sha256", "portable_model_xml_sha256", "model_asset_manifest_sha256",
-        "final_flattened_state_sha256", "observation_sha256", "geometry_sha256"
+        "final_flattened_state_sha256", "observation_sha256", "geometry_sha256",
+        "integration_state_spec_name", "integration_state_spec_value",
+        "integration_state_size", "integration_state_dtype",
+        "pre_settle_integration_state_sha256", "settle_integration_state_sequence_sha256",
+        "final_integration_state_sha256"
       ],
       "properties": {
         "bddl_sha256": {"$ref": "#/$defs/sha256"},
@@ -238,7 +397,14 @@
         "model_asset_manifest_sha256": {"$ref": "#/$defs/sha256"},
         "final_flattened_state_sha256": {"$ref": "#/$defs/sha256"},
         "observation_sha256": {"$ref": "#/$defs/sha256"},
-        "geometry_sha256": {"$ref": "#/$defs/sha256"}
+        "geometry_sha256": {"$ref": "#/$defs/sha256"},
+        "integration_state_spec_name": {"const": "mjSTATE_INTEGRATION"},
+        "integration_state_spec_value": {"const": 8191},
+        "integration_state_size": {"type": "integer", "minimum": 1},
+        "integration_state_dtype": {"const": "float64"},
+        "pre_settle_integration_state_sha256": {"$ref": "#/$defs/sha256"},
+        "settle_integration_state_sequence_sha256": {"$ref": "#/$defs/sha256"},
+        "final_integration_state_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "sourceBranch": {
@@ -253,7 +419,7 @@
         "observation_sha256": {"$ref": "#/$defs/sha256"},
         "observation_components": {"type": "object"},
         "geometry_sha256": {"$ref": "#/$defs/sha256"},
-        "geometry": {"type": "object"},
+        "geometry": {"$ref": "#/$defs/sourceGeometry"},
         "active_obstacle_name": {"type": "string"},
         "source_branch_identity": {"$ref": "#/$defs/sourceBranchPayload"},
         "source_branch_sha256": {"$ref": "#/$defs/sha256"}
@@ -263,17 +429,31 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "fresh_load_index", "model_xml_sha256", "pre_settle_state_sha256", "settle_state_sha256",
-        "final_state_sha256", "observation_sha256", "geometry_sha256", "exact_replay"
+        "fresh_load_index", "model_xml_sha256", "compiled_model_mjb_size_bytes",
+        "compiled_model_mjb_sha256",
+        "pre_settle_state_sha256", "settle_state_sha256", "final_state_sha256",
+        "integration_state_spec", "pre_settle_integration_state_sha256",
+        "settle_integration_state_sha256", "settle_integration_state_sequence_sha256",
+        "final_integration_state_sha256", "observation_sha256", "geometry_sha256", "exact_replay"
       ],
       "properties": {
         "fresh_load_index": {"enum": [1, 2]},
         "model_xml_sha256": {"$ref": "#/$defs/sha256"},
+        "compiled_model_mjb_size_bytes": {"type": "integer", "minimum": 1},
+        "compiled_model_mjb_sha256": {"$ref": "#/$defs/sha256"},
         "pre_settle_state_sha256": {"$ref": "#/$defs/sha256"},
         "settle_state_sha256": {
           "type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/sha256"}
         },
         "final_state_sha256": {"$ref": "#/$defs/sha256"},
+        "integration_state_spec": {"$ref": "#/$defs/integrationStateSpec"},
+        "pre_settle_integration_state_sha256": {"$ref": "#/$defs/sha256"},
+        "settle_integration_state_sha256": {
+          "type": "array", "minItems": 20, "maxItems": 20,
+          "items": {"$ref": "#/$defs/sha256"}
+        },
+        "settle_integration_state_sequence_sha256": {"$ref": "#/$defs/sha256"},
+        "final_integration_state_sha256": {"$ref": "#/$defs/sha256"},
         "observation_sha256": {"$ref": "#/$defs/sha256"},
         "geometry_sha256": {"$ref": "#/$defs/sha256"},
         "exact_replay": {"const": true}
@@ -317,14 +497,15 @@
         "edits": {"$ref": "#/$defs/edits"},
         "states": {
           "type": "object", "additionalProperties": false,
-          "required": ["raw_reset", "pre_settle", "settle_history", "final"],
+          "required": ["raw_reset", "pre_settle", "settle_history", "final", "integration"],
           "properties": {
             "raw_reset": {"$ref": "#/$defs/arrayRecord"},
             "pre_settle": {"$ref": "#/$defs/arrayRecord"},
             "settle_history": {
               "type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/settleState"}
             },
-            "final": {"$ref": "#/$defs/arrayRecord"}
+            "final": {"$ref": "#/$defs/arrayRecord"},
+            "integration": {"$ref": "#/$defs/integrationStates"}
           }
         },
         "settle": {"$ref": "#/$defs/settle"},

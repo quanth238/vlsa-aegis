@@ -30,6 +30,9 @@ SOURCE_ESTIMAND = "task0_single_obstacle_generated_v1"
 ACCEPTED_STATUS = "accepted"
 REJECTED_STATUS = "rejected"
 SETTLE_STEPS = 20
+INTEGRATION_STATE_SPEC_NAME = "mjSTATE_INTEGRATION"
+INTEGRATION_STATE_SPEC_VALUE = 8191
+INTEGRATION_STATE_DTYPE = "float64"
 TASK_SUITE = "safelibero_spatial"
 TASK_INDEX = 0
 TASK_NAME = "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate"
@@ -99,6 +102,8 @@ REJECTED_BUNDLE_KEYS = frozenset(
         "bundle_content_sha256",
     }
 )
+ARRAY_RECORD_KEYS = frozenset({"dtype", "shape", "values", "sha256"})
+SETTLE_STATE_KEYS = frozenset({"dtype", "shape", "values", "sha256", "settle_step"})
 
 
 def _numpy():
@@ -132,6 +137,42 @@ def _array_hash(value: Any) -> str:
     return digest.hexdigest()
 
 
+def _array_bytes_equal(left: Any, right: Any) -> bool:
+    np = _numpy()
+    left_array = np.ascontiguousarray(left)
+    right_array = np.ascontiguousarray(right)
+    return (
+        left_array.dtype == right_array.dtype
+        and left_array.shape == right_array.shape
+        and left_array.tobytes() == right_array.tobytes()
+    )
+
+
+def _array_difference_summary(actual: Any, expected: Any) -> str:
+    np = _numpy()
+    actual_array = np.ascontiguousarray(actual)
+    expected_array = np.ascontiguousarray(expected)
+    if actual_array.dtype != expected_array.dtype or actual_array.shape != expected_array.shape:
+        return (
+            f"expected_dtype={expected_array.dtype}, actual_dtype={actual_array.dtype}, "
+            f"expected_shape={expected_array.shape}, actual_shape={actual_array.shape}"
+        )
+    differing_values = int(np.count_nonzero(actual_array != expected_array))
+    differing_bytes = int(
+        np.count_nonzero(actual_array.view(np.uint8) != expected_array.view(np.uint8))
+    )
+    max_abs = (
+        float(np.max(np.abs(actual_array.astype(np.float64) - expected_array.astype(np.float64))))
+        if actual_array.size
+        else 0.0
+    )
+    return (
+        f"expected_sha256={_array_hash(expected_array)}, actual_sha256={_array_hash(actual_array)}, "
+        f"differing_values={differing_values}, differing_bytes={differing_bytes}, "
+        f"max_abs={max_abs:.17g}"
+    )
+
+
 def _array_record(value: Any) -> dict[str, Any]:
     np = _numpy()
     array = np.ascontiguousarray(value)
@@ -150,7 +191,7 @@ def _array_from_record(value: Any, *, name: str, shape: tuple[int, ...] | None =
     errors: list[str] = []
     if not isinstance(value, Mapping):
         return None, [f"{name} must be an array record"]
-    if set(value) != {"dtype", "shape", "values", "sha256"}:
+    if set(value) != ARRAY_RECORD_KEYS:
         errors.append(f"{name} has unexpected or missing array-record fields")
     dtype_name = value.get("dtype")
     if not isinstance(dtype_name, str):
@@ -601,14 +642,165 @@ def _state(env: Any):
     return np.ascontiguousarray(value, dtype=np.float64)
 
 
-def _set_state(env: Any, value: Any) -> None:
+def _mujoco_integration_spec():
+    try:
+        mujoco = importlib.import_module("mujoco")
+    except ModuleNotFoundError as error:  # pragma: no cover - allocation dependency
+        raise RuntimeError("generated-source runtime requires MuJoCo") from error
+    try:
+        spec = mujoco.mjtState.mjSTATE_INTEGRATION
+    except AttributeError as error:  # pragma: no cover - incompatible allocation dependency
+        raise RuntimeError("MuJoCo does not expose mjSTATE_INTEGRATION") from error
+    if int(spec) != INTEGRATION_STATE_SPEC_VALUE:
+        raise RuntimeError(
+            "live mjSTATE_INTEGRATION value differs from the frozen MuJoCo 3.2.3 contract"
+        )
+    return mujoco, spec
+
+
+def _mujoco_model_data(env: Any) -> tuple[Any, Any]:
+    """Return the native handles hidden below robosuite's simulation wrapper."""
+
+    sim = env.sim
+    model = getattr(sim.model, "_model", sim.model)
+    data = getattr(sim.data, "_data", sim.data)
+    return model, data
+
+
+def _integration_state_spec(env: Any) -> dict[str, Any]:
+    mujoco, spec = _mujoco_integration_spec()
+    model, _data = _mujoco_model_data(env)
+    size = int(mujoco.mj_stateSize(model, spec))
+    if size <= 0:
+        raise RuntimeError("mjSTATE_INTEGRATION has non-positive size for the source model")
+    return {
+        "name": INTEGRATION_STATE_SPEC_NAME,
+        "value": int(spec),
+        "size": size,
+        "dtype": INTEGRATION_STATE_DTYPE,
+    }
+
+
+def _compiled_model_identity(env: Any) -> dict[str, Any]:
+    """Same-build execution diagnostic, not part of the portable source ID."""
+
     np = _numpy()
-    state = np.ascontiguousarray(value, dtype=np.float64)
-    if hasattr(env, "set_state"):
-        env.set_state(state)
+    mujoco, _spec = _mujoco_integration_spec()
+    model, _data = _mujoco_model_data(env)
+    size = int(mujoco.mj_sizeModel(model))
+    if size <= 0:
+        raise RuntimeError("MuJoCo compiled model has non-positive MJB size")
+    first = np.empty(size, dtype=np.uint8)
+    second = np.empty(size, dtype=np.uint8)
+    mujoco.mj_saveModel(model, None, first)
+    mujoco.mj_saveModel(model, None, second)
+    if first.tobytes() != second.tobytes():
+        raise RuntimeError("repeated mj_saveModel calls differ for the same native model")
+    return {
+        "compiled_mjb_size_bytes": size,
+        "compiled_mjb_sha256": hashlib.sha256(first.tobytes()).hexdigest(),
+    }
+
+
+def _assert_live_integration_spec(env: Any, expected: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+    live = _integration_state_spec(env)
+    if dict(expected) != live:
+        raise RuntimeError(
+            f"live MuJoCo integration-state spec differs: expected {dict(expected)}, found {live}"
+        )
+    mujoco, spec = _mujoco_integration_spec()
+    model, data = _mujoco_model_data(env)
+    return mujoco, spec, (model, data)
+
+
+def _integration_state(env: Any, expected_spec: Mapping[str, Any]):
+    np = _numpy()
+    mujoco, spec, (model, data) = _assert_live_integration_spec(env, expected_spec)
+    state = np.empty(int(expected_spec["size"]), dtype=np.float64)
+    mujoco.mj_getState(model, data, state, spec)
+    if not np.all(np.isfinite(state)):
+        raise RuntimeError("mjSTATE_INTEGRATION contains non-finite values")
+    return np.ascontiguousarray(state, dtype=np.float64)
+
+
+def _integration_array_from_record(
+    value: Any,
+    *,
+    name: str,
+    spec: Mapping[str, Any],
+):
+    size = spec.get("size")
+    shape = (int(size),) if isinstance(size, int) and not isinstance(size, bool) and size > 0 else None
+    state, errors = _array_from_record(value, name=name, shape=shape)
+    if isinstance(value, Mapping) and value.get("dtype") != INTEGRATION_STATE_DTYPE:
+        errors.append(f"{name}.dtype must be exactly {INTEGRATION_STATE_DTYPE}")
+    return state, errors
+
+
+def _settle_array_from_record(
+    value: Any,
+    *,
+    name: str,
+    settle_step: int,
+    shape: tuple[int, ...] | None = None,
+    integration_spec: Mapping[str, Any] | None = None,
+):
+    errors: list[str] = []
+    if not isinstance(value, Mapping):
+        return None, [f"{name} must be a settle-state record"]
+    if set(value) != SETTLE_STATE_KEYS:
+        errors.append(f"{name} has unexpected or missing settle-state fields")
+    actual_step = value.get("settle_step")
+    if (
+        not isinstance(actual_step, int)
+        or isinstance(actual_step, bool)
+        or actual_step != settle_step
+    ):
+        errors.append(f"{name}.settle_step must equal {settle_step}")
+    array_record = {key: value.get(key) for key in ARRAY_RECORD_KEYS}
+    if integration_spec is None:
+        state, item_errors = _array_from_record(array_record, name=name, shape=shape)
     else:
-        env.sim.set_state_from_flattened(state)
-    env.sim.forward()
+        state, item_errors = _integration_array_from_record(
+            array_record,
+            name=name,
+            spec=integration_spec,
+        )
+    return state, errors + item_errors
+
+
+def _restore_integration_state(
+    env: Any,
+    value: Any,
+    *,
+    name: str,
+    expected_spec: Mapping[str, Any],
+):
+    """Restore every MuJoCo field that can affect the next integration step."""
+
+    np = _numpy()
+    expected, errors = _integration_array_from_record(
+        value,
+        name=name,
+        spec=expected_spec,
+    )
+    if errors or expected is None:
+        raise ValueError(f"invalid {name}: " + "; ".join(errors))
+    mujoco, spec, (model, data) = _assert_live_integration_spec(env, expected_spec)
+    expected = np.ascontiguousarray(expected, dtype=np.float64)
+    mujoco.mj_setState(model, data, expected, spec)
+    # Rebuild derived quantities from the restored generalized state.  A second
+    # set preserves warmstart / user / plugin fields byte-exactly if mj_forward
+    # updates any integration-state member while rebuilding those quantities.
+    mujoco.mj_forward(model, data)
+    mujoco.mj_setState(model, data, expected, spec)
+    actual = _integration_state(env, expected_spec)
+    if not _array_bytes_equal(actual, expected):
+        raise RuntimeError(
+            f"restored {name} differs byte-for-byte "
+            f"({_array_difference_summary(actual, expected)})"
+        )
+    return actual
 
 
 def _render_observation(env: Any) -> Mapping[str, Any]:
@@ -728,37 +920,104 @@ def _fresh_replay(
     pre_settle: Any,
     actions: Any,
     expected_history: Sequence[Mapping[str, Any]],
+    integration_states: Mapping[str, Any],
     active_obstacle_name: str,
     expected_branch: Mapping[str, Any],
 ) -> dict[str, Any]:
-    np = _numpy()
     env = _make_environment(bddl_path, camera_size)
     state_hashes: list[str] = []
+    integration_hashes: list[str] = []
     try:
         runtime_xml = rehydrate_model_xml(model, repo_root=repo_root)
         env.reset_from_xml_string(runtime_xml)
         env.sim.reset()
-        _set_state(env, pre_settle)
+        fresh_model_identity = _compiled_model_identity(env)
+        expected_model_identity = {
+            key: model[key] for key in ("compiled_mjb_size_bytes", "compiled_mjb_sha256")
+        }
+        if fresh_model_identity != expected_model_identity:
+            raise RuntimeError(
+                "fresh-load compiled MuJoCo model MJB differs: "
+                f"expected={expected_model_identity}, actual={fresh_model_identity}"
+            )
+        integration_spec = integration_states["spec"]
+        restored_integration = _restore_integration_state(
+            env,
+            integration_states["pre_settle"],
+            name="states.integration.pre_settle",
+            expected_spec=integration_spec,
+        )
+        pre_integration_hash = _array_hash(restored_integration)
         pre_hash = _array_hash(_state(env))
         if pre_hash != _array_hash(pre_settle):
-            raise RuntimeError("fresh-load pre-settle state differs")
+            raise RuntimeError(
+                "fresh-load pre-settle flattened state differs byte-for-byte "
+                f"({_array_difference_summary(_state(env), pre_settle)})"
+            )
         for settle_index in range(SETTLE_STEPS):
             _step_dummy(env, actions[settle_index])
             state = _state(env)
             state_hash = _array_hash(state)
             state_hashes.append(state_hash)
-            if state_hash != expected_history[settle_index].get("sha256"):
-                raise RuntimeError(f"fresh-load settle state {settle_index + 1} differs")
+            expected_state, state_errors = _settle_array_from_record(
+                expected_history[settle_index],
+                name=f"states.settle_history[{settle_index}]",
+                settle_step=settle_index + 1,
+            )
+            if state_errors or expected_state is None:
+                raise ValueError("invalid expected settle state: " + "; ".join(state_errors))
+            if not _array_bytes_equal(state, expected_state):
+                raise RuntimeError(
+                    f"fresh-load flattened settle state {settle_index + 1} differs byte-for-byte "
+                    f"({_array_difference_summary(state, expected_state)})"
+                )
+            expected_integration, integration_errors = _settle_array_from_record(
+                integration_states["settle_history"][settle_index],
+                name=f"states.integration.settle_history[{settle_index}]",
+                settle_step=settle_index + 1,
+                integration_spec=integration_spec,
+            )
+            if integration_errors or expected_integration is None:
+                raise ValueError(
+                    "invalid expected settle integration state: " + "; ".join(integration_errors)
+                )
+            actual_integration = _integration_state(env, integration_spec)
+            if not _array_bytes_equal(actual_integration, expected_integration):
+                raise RuntimeError(
+                    f"fresh-load settle integration state {settle_index + 1} differs byte-for-byte "
+                    f"({_array_difference_summary(actual_integration, expected_integration)})"
+                )
+            integration_hashes.append(_array_hash(actual_integration))
         _observation, branch = _branch_identity(env, active_obstacle_name)
         for key in ("state_sha256", "observation_sha256", "geometry_sha256", "active_obstacle_name"):
             if branch.get(key) != expected_branch.get(key):
                 raise RuntimeError(f"fresh-load branch {key} differs")
+        expected_final_integration, final_errors = _integration_array_from_record(
+            integration_states["final"],
+            name="states.integration.final",
+            spec=integration_spec,
+        )
+        if final_errors or expected_final_integration is None:
+            raise ValueError("invalid expected final integration state: " + "; ".join(final_errors))
+        final_integration = _integration_state(env, integration_spec)
+        if not _array_bytes_equal(final_integration, expected_final_integration):
+            raise RuntimeError(
+                "fresh-load final integration state differs byte-for-byte "
+                f"({_array_difference_summary(final_integration, expected_final_integration)})"
+            )
         return {
             "fresh_load_index": index,
             "model_xml_sha256": model["sha256"],
+            "compiled_model_mjb_size_bytes": model["compiled_mjb_size_bytes"],
+            "compiled_model_mjb_sha256": model["compiled_mjb_sha256"],
             "pre_settle_state_sha256": pre_hash,
             "settle_state_sha256": state_hashes,
             "final_state_sha256": branch["state_sha256"],
+            "integration_state_spec": dict(integration_spec),
+            "pre_settle_integration_state_sha256": pre_integration_hash,
+            "settle_integration_state_sha256": integration_hashes,
+            "settle_integration_state_sequence_sha256": content_hash(integration_hashes),
+            "final_integration_state_sha256": _array_hash(final_integration),
             "observation_sha256": branch["observation_sha256"],
             "geometry_sha256": branch["geometry_sha256"],
             "exact_replay": True,
@@ -787,6 +1046,13 @@ def source_branch_identity(
     final_flattened_state_sha256: str,
     observation_sha256: str,
     geometry_sha256: str,
+    integration_state_spec_name: str,
+    integration_state_spec_value: int,
+    integration_state_size: int,
+    integration_state_dtype: str,
+    pre_settle_integration_state_sha256: str,
+    settle_integration_state_sequence_sha256: str,
+    final_integration_state_sha256: str,
 ) -> dict[str, Any]:
     """Return the provenance-independent, branch-complete source identity."""
 
@@ -797,10 +1063,44 @@ def source_branch_identity(
         "final_flattened_state_sha256": final_flattened_state_sha256,
         "observation_sha256": observation_sha256,
         "geometry_sha256": geometry_sha256,
+        "integration_state_spec_name": integration_state_spec_name,
+        "integration_state_spec_value": integration_state_spec_value,
+        "integration_state_size": integration_state_size,
+        "integration_state_dtype": integration_state_dtype,
+        "pre_settle_integration_state_sha256": pre_settle_integration_state_sha256,
+        "settle_integration_state_sequence_sha256": settle_integration_state_sequence_sha256,
+        "final_integration_state_sha256": final_integration_state_sha256,
     }
-    invalid = [key for key, item in payload.items() if not _is_sha256(item)]
+    sha256_fields = (
+        "bddl_sha256",
+        "portable_model_xml_sha256",
+        "model_asset_manifest_sha256",
+        "final_flattened_state_sha256",
+        "observation_sha256",
+        "geometry_sha256",
+        "pre_settle_integration_state_sha256",
+        "settle_integration_state_sequence_sha256",
+        "final_integration_state_sha256",
+    )
+    invalid = [key for key in sha256_fields if not _is_sha256(payload[key])]
     if invalid:
         raise ValueError("source branch identity contains invalid SHA-256 fields: " + ", ".join(invalid))
+    if integration_state_spec_name != INTEGRATION_STATE_SPEC_NAME:
+        raise ValueError("source branch identity must use mjSTATE_INTEGRATION")
+    if (
+        not isinstance(integration_state_spec_value, int)
+        or isinstance(integration_state_spec_value, bool)
+        or integration_state_spec_value != INTEGRATION_STATE_SPEC_VALUE
+    ):
+        raise ValueError("source branch identity integration-state spec value differs")
+    if (
+        not isinstance(integration_state_size, int)
+        or isinstance(integration_state_size, bool)
+        or integration_state_size <= 0
+    ):
+        raise ValueError("source branch identity integration-state size is invalid")
+    if integration_state_dtype != INTEGRATION_STATE_DTYPE:
+        raise ValueError("source branch identity integration-state dtype must be float64")
     return {"payload": payload, "sha256": content_hash(payload)}
 
 
@@ -856,6 +1156,7 @@ def generate_source_group(
         reset_rng_state_after = np.random.get_state()
         raw_reset = _state(env)
         finalized_model = freeze_model_xml(env.sim.model.get_xml(), repo_root=root)
+        finalized_model.update(_compiled_model_identity(env))
 
         edit_log: list[dict[str, Any]] = []
         for object_name, (parking_xyz, quaternion) in OBSTACLE_POSES.items():
@@ -888,23 +1189,45 @@ def generate_source_group(
         )
         env.sim.forward()
         pre_settle = _state(env)
+        integration_spec = _integration_state_spec(env)
+        pre_settle_integration = _integration_state(env, integration_spec)
         actions = np.repeat(np.asarray(DUMMY_ACTION, dtype=np.float64)[None, :], SETTLE_STEPS, axis=0)
         settle_history: list[dict[str, Any]] = []
+        integration_settle_history: list[dict[str, Any]] = []
         for settle_index in range(SETTLE_STEPS):
             _step_dummy(env, actions[settle_index])
             record = _array_record(_state(env))
             record["settle_step"] = settle_index + 1
             settle_history.append(record)
-        final_state = _state(env)
+            integration_record = _array_record(_integration_state(env, integration_spec))
+            integration_record["settle_step"] = settle_index + 1
+            integration_settle_history.append(integration_record)
         _observation, branch = _branch_identity(env, active_name)
+        final_state = _state(env)
+        final_integration_state = _integration_state(env, integration_spec)
         if branch["state_sha256"] != settle_history[-1]["sha256"]:
             raise RuntimeError("final state differs from settle history step 20")
+        if not _array_bytes_equal(
+            final_integration_state,
+            np.asarray(integration_settle_history[-1]["values"], dtype=np.float64),
+        ):
+            raise RuntimeError("final integration state differs from settle history step 20")
+
+        integration_hashes = [record["sha256"] for record in integration_settle_history]
+        integration_states = {
+            "spec": integration_spec,
+            "pre_settle": _array_record(pre_settle_integration),
+            "settle_history": integration_settle_history,
+            "settle_sequence_sha256": content_hash(integration_hashes),
+            "final": _array_record(final_integration_state),
+        }
 
         states = {
             "raw_reset": _array_record(raw_reset),
             "pre_settle": _array_record(pre_settle),
             "settle_history": settle_history,
             "final": _array_record(final_state),
+            "integration": integration_states,
         }
         branch_identity = source_branch_identity(
             bddl_sha256=config["bddl_sha256"],
@@ -913,6 +1236,15 @@ def generate_source_group(
             final_flattened_state_sha256=states["final"]["sha256"],
             observation_sha256=branch["observation_sha256"],
             geometry_sha256=branch["geometry_sha256"],
+            integration_state_spec_name=integration_spec["name"],
+            integration_state_spec_value=integration_spec["value"],
+            integration_state_size=integration_spec["size"],
+            integration_state_dtype=integration_spec["dtype"],
+            pre_settle_integration_state_sha256=integration_states["pre_settle"]["sha256"],
+            settle_integration_state_sequence_sha256=integration_states[
+                "settle_sequence_sha256"
+            ],
+            final_integration_state_sha256=integration_states["final"]["sha256"],
         )
         branch["source_branch_identity"] = branch_identity["payload"]
         branch["source_branch_sha256"] = branch_identity["sha256"]
@@ -926,6 +1258,7 @@ def generate_source_group(
                 pre_settle=pre_settle,
                 actions=actions,
                 expected_history=settle_history,
+                integration_states=integration_states,
                 active_obstacle_name=active_name,
                 expected_branch=branch,
             )
@@ -1068,7 +1401,10 @@ def _validate_model_static(model: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(model, Mapping):
         return ["model must be an object"]
-    if set(model) != {"format", "xml", "sha256", "assets", "assets_sha256"}:
+    if set(model) != {
+        "format", "xml", "sha256", "assets", "assets_sha256",
+        "compiled_mjb_size_bytes", "compiled_mjb_sha256",
+    }:
         errors.append("model has unexpected or missing fields")
     if model.get("format") != "portable_finalized_mujoco_xml_with_hashed_asset_tokens":
         errors.append("model.format differs")
@@ -1088,6 +1424,14 @@ def _validate_model_static(model: Any) -> list[str]:
         semantic_assets = []
     if model.get("assets_sha256") != content_hash(semantic_assets):
         errors.append("model.assets_sha256 differs")
+    if (
+        not isinstance(model.get("compiled_mjb_size_bytes"), int)
+        or isinstance(model.get("compiled_mjb_size_bytes"), bool)
+        or model.get("compiled_mjb_size_bytes", 0) <= 0
+    ):
+        errors.append("model.compiled_mjb_size_bytes is invalid")
+    if not _is_sha256(model.get("compiled_mjb_sha256")):
+        errors.append("model.compiled_mjb_sha256 is invalid")
     tokens: list[Any] = []
     for index, asset in enumerate(assets):
         if not isinstance(asset, Mapping):
@@ -1231,6 +1575,10 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
             errors.append("rng.placement_seed differs from the generation request")
     if rng_record.get("placement_algorithm") != "numpy.random.PCG64":
         errors.append("rng placement algorithm differs")
+    if rng_record.get("reset_api") != (
+        "env.seed_plus_numpy_legacy_seed_before_exactly_one_reset"
+    ):
+        errors.append("rng reset API differs from the frozen one-reset contract")
     if rng_record.get("active_x_uniform_range_m") != list(ACTIVE_X_RANGE_M):
         errors.append("rng active-x range differs")
     active_x = rng_record.get("active_x_uniform_draw_m")
@@ -1294,7 +1642,7 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
     if not isinstance(states, Mapping):
         errors.append("states must be an object")
         states = {}
-    elif set(states) != {"raw_reset", "pre_settle", "settle_history", "final"}:
+    elif set(states) != {"raw_reset", "pre_settle", "settle_history", "final", "integration"}:
         errors.append("states has unexpected or missing fields")
     raw, item_errors = _array_from_record(states.get("raw_reset"), name="states.raw_reset")
     errors.extend(item_errors)
@@ -1312,13 +1660,10 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         errors.append("states.settle_history must contain exactly 20 states")
         history = []
     for index, record in enumerate(history):
-        if not isinstance(record, Mapping) or record.get("settle_step") != index + 1:
-            errors.append(f"states.settle_history[{index}] step index differs")
-            continue
-        array_record = {key: record.get(key) for key in ("dtype", "shape", "values", "sha256")}
-        array, item_errors = _array_from_record(
-            array_record,
+        array, item_errors = _settle_array_from_record(
+            record,
             name=f"states.settle_history[{index}]",
+            settle_step=index + 1,
             shape=tuple(pre.shape) if pre is not None else None,
         )
         errors.extend(item_errors)
@@ -1328,6 +1673,82 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         errors.append("states.final differs from settle step 20")
     if final is not None and source.get("source_state_sha256") != _array_hash(final):
         errors.append("source_state_sha256 differs from the final flattened state bytes")
+
+    integration = states.get("integration")
+    if not isinstance(integration, Mapping):
+        errors.append("states.integration must be an object")
+        integration = {}
+    elif set(integration) != {
+        "spec", "pre_settle", "settle_history", "settle_sequence_sha256", "final"
+    }:
+        errors.append("states.integration has unexpected or missing fields")
+    integration_spec = integration.get("spec")
+    if not isinstance(integration_spec, Mapping):
+        errors.append("states.integration.spec must be an object")
+        integration_spec = {}
+    elif set(integration_spec) != {"name", "value", "size", "dtype"}:
+        errors.append("states.integration.spec has unexpected or missing fields")
+    if integration_spec.get("name") != INTEGRATION_STATE_SPEC_NAME:
+        errors.append("states.integration.spec.name must be mjSTATE_INTEGRATION")
+    integration_spec_value = integration_spec.get("value")
+    if (
+        not isinstance(integration_spec_value, int)
+        or isinstance(integration_spec_value, bool)
+        or integration_spec_value != INTEGRATION_STATE_SPEC_VALUE
+    ):
+        errors.append("states.integration.spec.value differs from frozen mjSTATE_INTEGRATION")
+    integration_size = integration_spec.get("size")
+    if (
+        not isinstance(integration_size, int)
+        or isinstance(integration_size, bool)
+        or integration_size <= 0
+    ):
+        errors.append("states.integration.spec.size is invalid")
+    if integration_spec.get("dtype") != INTEGRATION_STATE_DTYPE:
+        errors.append("states.integration.spec.dtype must be exactly float64")
+
+    _integration_pre, item_errors = _integration_array_from_record(
+        integration.get("pre_settle"),
+        name="states.integration.pre_settle",
+        spec=integration_spec,
+    )
+    errors.extend(item_errors)
+    integration_history = integration.get("settle_history")
+    integration_history_hashes: list[str] = []
+    integration_history_arrays: list[Any] = []
+    if not isinstance(integration_history, list) or len(integration_history) != SETTLE_STEPS:
+        errors.append("states.integration.settle_history must contain exactly 20 states")
+        integration_history = []
+    for index, record in enumerate(integration_history):
+        array, item_errors = _settle_array_from_record(
+            record,
+            name=f"states.integration.settle_history[{index}]",
+            settle_step=index + 1,
+            integration_spec=integration_spec,
+        )
+        errors.extend(item_errors)
+        if array is not None:
+            integration_history_arrays.append(array)
+            integration_history_hashes.append(_array_hash(array))
+    integration_sequence_hash = (
+        content_hash(integration_history_hashes)
+        if len(integration_history_hashes) == SETTLE_STEPS
+        else None
+    )
+    if integration.get("settle_sequence_sha256") != integration_sequence_hash:
+        errors.append("states.integration.settle_sequence_sha256 differs from the ordered history")
+    integration_final, item_errors = _integration_array_from_record(
+        integration.get("final"),
+        name="states.integration.final",
+        spec=integration_spec,
+    )
+    errors.extend(item_errors)
+    if (
+        integration_final is not None
+        and integration_history_arrays
+        and not _array_bytes_equal(integration_final, integration_history_arrays[-1])
+    ):
+        errors.append("states.integration.final differs byte-for-byte from settle step 20")
 
     settle = value.get("settle")
     if not isinstance(settle, Mapping) or settle.get("step_count") != SETTLE_STEPS:
@@ -1366,9 +1787,11 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         "activate_assigned_obstacle", "move_box_base_to_active_xy"
     ]
     after_poses: list[Any] = []
+    edit_joint_names: list[Any] = []
     for index, edit in enumerate(log):
         if not isinstance(edit, Mapping):
             errors.append(f"edits.log[{index}] must be an object")
+            edit_joint_names.append(None)
             continue
         if set(edit) != {
             "operation", "object_name", "joint_name", "joint_type", "addressing", "before", "after"
@@ -1380,11 +1803,29 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
             "named_joint_no_hard_coded_qpos_offset"
         ):
             errors.append(f"edits.log[{index}] is not a named free-joint edit")
+        joint_name = edit.get("joint_name")
+        if not isinstance(joint_name, str) or not joint_name:
+            errors.append(f"edits.log[{index}].joint_name is invalid")
+        edit_joint_names.append(joint_name)
         _before, item_errors = _array_from_record(edit.get("before"), name=f"edits.log[{index}].before", shape=(7,))
         errors.extend(item_errors)
         _after, item_errors = _array_from_record(edit.get("after"), name=f"edits.log[{index}].after", shape=(7,))
         errors.extend(item_errors)
         after_poses.append(_after)
+    active_name = source.get("active_obstacle_name")
+    if (
+        len(edit_joint_names) == 8
+        and isinstance(active_name, str)
+        and active_name in OBSTACLE_POSES
+    ):
+        parked_active_index = list(OBSTACLE_POSES).index(active_name)
+        if edit_joint_names[6] != edit_joint_names[parked_active_index]:
+            errors.append("active edit joint name differs from the matching parked obstacle joint")
+        expected_geometry_joint_names: list[Any] | None = (
+            edit_joint_names[:6] + [edit_joint_names[7]]
+        )
+    else:
+        expected_geometry_joint_names = None
     if isinstance(active_x, (int, float)) and not isinstance(active_x, bool):
         expected_active_xyz = [float(active_x), ACTIVE_Y_M, ACTIVE_Z_M]
         expected_base_xyz = [float(active_x), ACTIVE_Y_M, BOX_BASE_Z_M]
@@ -1397,8 +1838,7 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
             np.asarray(position + quaternion, dtype=np.float64)
             for position, quaternion in OBSTACLE_POSES.values()
         ]
-        active_name = source.get("active_obstacle_name")
-        if active_name in OBSTACLE_POSES:
+        if isinstance(active_name, str) and active_name in OBSTACLE_POSES:
             expected_after.append(
                 np.asarray(tuple(expected_active_xyz) + OBSTACLE_POSES[active_name][1], dtype=np.float64)
             )
@@ -1446,23 +1886,110 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
     elif set(geometry) != {"active_obstacle_name", "joint_poses", "active_obstacle_geoms"}:
         errors.append("branch geometry has unexpected or missing fields")
     else:
+        if geometry.get("active_obstacle_name") != branch.get("active_obstacle_name"):
+            errors.append("branch geometry active obstacle differs from the branch identity")
+        if geometry.get("active_obstacle_name") != source.get("active_obstacle_name"):
+            errors.append("branch geometry active obstacle differs from the source identity")
         joint_poses = geometry.get("joint_poses")
-        if not isinstance(joint_poses, list):
-            errors.append("branch geometry joint_poses must be a list")
+        expected_geometry_objects = list(OBSTACLE_POSES) + [BOX_BASE_NAME]
+        joint_names: list[str] = []
+        if not isinstance(joint_poses, list) or len(joint_poses) != len(
+            expected_geometry_objects
+        ):
+            errors.append("branch geometry joint_poses must contain exactly seven ordered objects")
+            joint_poses = [] if not isinstance(joint_poses, list) else joint_poses
         else:
-            for index, pose in enumerate(joint_poses):
-                if not isinstance(pose, Mapping) or set(pose) != {"object_name", "joint_name", "qpos"}:
-                    errors.append(f"branch geometry joint_poses[{index}] is malformed")
+            if [pose.get("object_name") if isinstance(pose, Mapping) else None for pose in joint_poses] != (
+                expected_geometry_objects
+            ):
+                errors.append("branch geometry joint_poses object order differs")
+        for index, pose in enumerate(joint_poses):
+            if not isinstance(pose, Mapping) or set(pose) != {
+                "object_name", "joint_name", "qpos"
+            }:
+                errors.append(f"branch geometry joint_poses[{index}] is malformed")
+                continue
+            joint_name = pose.get("joint_name")
+            if not isinstance(joint_name, str) or not joint_name:
+                errors.append(f"branch geometry joint_poses[{index}].joint_name is invalid")
+            else:
+                joint_names.append(joint_name)
+            qpos_record = pose.get("qpos")
+            _qpos, item_errors = _array_from_record(
+                qpos_record,
+                name=f"branch.geometry.joint_poses[{index}].qpos",
+                shape=(7,),
+            )
+            errors.extend(item_errors)
+            if isinstance(qpos_record, Mapping) and qpos_record.get("dtype") != "float64":
+                errors.append(
+                    f"branch.geometry.joint_poses[{index}].qpos.dtype must be exactly float64"
+                )
+        if len(joint_names) != len(set(joint_names)):
+            errors.append("branch geometry joint names must be unique")
+        geometry_joint_names = [
+            pose.get("joint_name") if isinstance(pose, Mapping) else None
+            for pose in joint_poses
+        ]
+        if (
+            expected_geometry_joint_names is not None
+            and geometry_joint_names != expected_geometry_joint_names
+        ):
+            errors.append("branch geometry joint names differ from the edit log")
         geoms = geometry.get("active_obstacle_geoms")
-        if not isinstance(geoms, list):
-            errors.append("branch geometry active_obstacle_geoms must be a list")
-        else:
-            for index, geom in enumerate(geoms):
-                if not isinstance(geom, Mapping) or set(geom) != {
-                    "name", "body_name", "type_id", "contype", "conaffinity", "size",
-                    "world_position", "world_rotation",
-                }:
-                    errors.append(f"branch geometry active_obstacle_geoms[{index}] is malformed")
+        if not isinstance(geoms, list) or not geoms:
+            errors.append("branch geometry active_obstacle_geoms must be non-empty")
+            geoms = [] if not isinstance(geoms, list) else geoms
+        geom_names: list[str] = []
+        for index, geom in enumerate(geoms):
+            if not isinstance(geom, Mapping) or set(geom) != {
+                "name", "body_name", "type_id", "contype", "conaffinity", "size",
+                "world_position", "world_rotation",
+            }:
+                errors.append(f"branch geometry active_obstacle_geoms[{index}] is malformed")
+                continue
+            geom_name = geom.get("name")
+            body_name = geom.get("body_name")
+            if not isinstance(geom_name, str) or not geom_name:
+                errors.append(f"branch geometry active_obstacle_geoms[{index}].name is invalid")
+            else:
+                geom_names.append(geom_name)
+            if not isinstance(body_name, str) or not body_name:
+                errors.append(
+                    f"branch geometry active_obstacle_geoms[{index}].body_name is invalid"
+                )
+            for field in ("type_id", "contype", "conaffinity"):
+                scalar = geom.get(field)
+                if (
+                    not isinstance(scalar, int)
+                    or isinstance(scalar, bool)
+                    or scalar < 0
+                ):
+                    errors.append(
+                        f"branch geometry active_obstacle_geoms[{index}].{field} "
+                        "must be a nonnegative integer"
+                    )
+            for field, shape in (
+                ("size", (3,)),
+                ("world_position", (3,)),
+                ("world_rotation", (3, 3)),
+            ):
+                array_record = geom.get(field)
+                _array, item_errors = _array_from_record(
+                    array_record,
+                    name=f"branch.geometry.active_obstacle_geoms[{index}].{field}",
+                    shape=shape,
+                )
+                errors.extend(item_errors)
+                if isinstance(array_record, Mapping) and array_record.get("dtype") != "float64":
+                    errors.append(
+                        f"branch.geometry.active_obstacle_geoms[{index}].{field}.dtype "
+                        "must be exactly float64"
+                    )
+        if len(geom_names) != len(set(geom_names)):
+            errors.append("branch geometry geom names must be unique")
+        if geom_names != sorted(geom_names):
+            errors.append("branch geometry geom names must be lexicographically sorted")
     if branch.get("active_obstacle_name") != source.get("active_obstacle_name"):
         errors.append("branch active obstacle differs from source identity")
     model = value.get("model") if isinstance(value.get("model"), Mapping) else {}
@@ -1475,6 +2002,23 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
             final_flattened_state_sha256=branch.get("state_sha256"),
             observation_sha256=branch.get("observation_sha256"),
             geometry_sha256=branch.get("geometry_sha256"),
+            integration_state_spec_name=integration_spec.get("name"),
+            integration_state_spec_value=integration_spec.get("value"),
+            integration_state_size=integration_spec.get("size"),
+            integration_state_dtype=integration_spec.get("dtype"),
+            pre_settle_integration_state_sha256=(
+                integration.get("pre_settle", {}).get("sha256")
+                if isinstance(integration.get("pre_settle"), Mapping)
+                else None
+            ),
+            settle_integration_state_sequence_sha256=integration.get(
+                "settle_sequence_sha256"
+            ),
+            final_integration_state_sha256=(
+                integration.get("final", {}).get("sha256")
+                if isinstance(integration.get("final"), Mapping)
+                else None
+            ),
         )
     except ValueError as error:
         errors.append(str(error))
@@ -1496,12 +2040,33 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         if not isinstance(proof, Mapping):
             errors.append(f"replay_proofs[{index - 1}] must be an object")
             continue
+        model_record = value.get("model") if isinstance(value.get("model"), Mapping) else {}
+        pre_record = states.get("pre_settle")
+        integration_pre_record = integration.get("pre_settle")
+        integration_final_record = integration.get("final")
         expected = {
             "fresh_load_index": index,
-            "model_xml_sha256": value.get("model", {}).get("sha256") if isinstance(value.get("model"), Mapping) else None,
-            "pre_settle_state_sha256": states.get("pre_settle", {}).get("sha256") if isinstance(states.get("pre_settle"), Mapping) else None,
+            "model_xml_sha256": model_record.get("sha256"),
+            "compiled_model_mjb_size_bytes": model_record.get("compiled_mjb_size_bytes"),
+            "compiled_model_mjb_sha256": model_record.get("compiled_mjb_sha256"),
+            "pre_settle_state_sha256": (
+                pre_record.get("sha256") if isinstance(pre_record, Mapping) else None
+            ),
             "settle_state_sha256": history_hashes,
             "final_state_sha256": branch.get("state_sha256"),
+            "integration_state_spec": dict(integration_spec),
+            "pre_settle_integration_state_sha256": (
+                integration_pre_record.get("sha256")
+                if isinstance(integration_pre_record, Mapping)
+                else None
+            ),
+            "settle_integration_state_sha256": integration_history_hashes,
+            "settle_integration_state_sequence_sha256": integration_sequence_hash,
+            "final_integration_state_sha256": (
+                integration_final_record.get("sha256")
+                if isinstance(integration_final_record, Mapping)
+                else None
+            ),
             "observation_sha256": branch.get("observation_sha256"),
             "geometry_sha256": branch.get("geometry_sha256"),
             "exact_replay": True,
@@ -1591,12 +2156,33 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
     runtime_xml = rehydrate_model_xml(bundle["model"], repo_root=root)
     env.reset_from_xml_string(runtime_xml)
     env.sim.reset()
+    restored_model_identity = _compiled_model_identity(env)
+    expected_model_identity = {
+        key: bundle["model"][key]
+        for key in ("compiled_mjb_size_bytes", "compiled_mjb_sha256")
+    }
+    if restored_model_identity != expected_model_identity:
+        raise RuntimeError(
+            "generated-source compiled MuJoCo model MJB differs: "
+            f"expected={expected_model_identity}, actual={restored_model_identity}"
+        )
     pre, pre_errors = _array_from_record(bundle["states"]["pre_settle"], name="states.pre_settle")
     if pre_errors or pre is None:
         raise ValueError("invalid pre-settle state: " + "; ".join(pre_errors))
-    _set_state(env, pre)
-    if _array_hash(_state(env)) != bundle["states"]["pre_settle"]["sha256"]:
-        raise RuntimeError("restored pre-settle state differs")
+    integration = bundle["states"]["integration"]
+    integration_spec = integration["spec"]
+    _restore_integration_state(
+        env,
+        integration["pre_settle"],
+        name="states.integration.pre_settle",
+        expected_spec=integration_spec,
+    )
+    restored_pre = _state(env)
+    if not _array_bytes_equal(restored_pre, pre):
+        raise RuntimeError(
+            "restored pre-settle flattened state differs byte-for-byte "
+            f"({_array_difference_summary(restored_pre, pre)})"
+        )
     actions, action_errors = _array_from_record(
         bundle["settle"]["actions"], name="settle.actions", shape=(SETTLE_STEPS, 7)
     )
@@ -1604,12 +2190,58 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
         raise ValueError("invalid settle actions: " + "; ".join(action_errors))
     for index in range(SETTLE_STEPS):
         _step_dummy(env, np.asarray(actions[index]))
-        if _array_hash(_state(env)) != bundle["states"]["settle_history"][index]["sha256"]:
-            raise RuntimeError(f"generated-source settle replay differs at step {index + 1}")
+        expected_state_record = bundle["states"]["settle_history"][index]
+        expected_state, state_errors = _settle_array_from_record(
+            expected_state_record,
+            name=f"states.settle_history[{index}]",
+            settle_step=index + 1,
+        )
+        if state_errors or expected_state is None:
+            raise ValueError("invalid settle state: " + "; ".join(state_errors))
+        actual_state = _state(env)
+        if not _array_bytes_equal(actual_state, expected_state):
+            raise RuntimeError(
+                f"generated-source flattened settle replay differs at step {index + 1} "
+                f"({_array_difference_summary(actual_state, expected_state)})"
+            )
+        expected_integration_record = integration["settle_history"][index]
+        expected_integration, integration_errors = _settle_array_from_record(
+            expected_integration_record,
+            name=f"states.integration.settle_history[{index}]",
+            settle_step=index + 1,
+            integration_spec=integration_spec,
+        )
+        if integration_errors or expected_integration is None:
+            raise ValueError("invalid settle integration state: " + "; ".join(integration_errors))
+        actual_integration = _integration_state(env, integration_spec)
+        if not _array_bytes_equal(actual_integration, expected_integration):
+            raise RuntimeError(
+                f"generated-source integration settle replay differs at step {index + 1} "
+                f"({_array_difference_summary(actual_integration, expected_integration)})"
+            )
     observation = _render_observation(env)
-    final_hash = _array_hash(_state(env))
-    if final_hash != bundle["states"]["final"]["sha256"]:
-        raise RuntimeError("generated-source final state differs after full settle replay")
+    final, final_errors = _array_from_record(bundle["states"]["final"], name="states.final")
+    if final_errors or final is None:
+        raise ValueError("invalid final state: " + "; ".join(final_errors))
+    actual_final = _state(env)
+    if not _array_bytes_equal(actual_final, final):
+        raise RuntimeError(
+            "generated-source final flattened state differs after full settle replay "
+            f"({_array_difference_summary(actual_final, final)})"
+        )
+    expected_final_integration, integration_errors = _integration_array_from_record(
+        integration["final"],
+        name="states.integration.final",
+        spec=integration_spec,
+    )
+    if integration_errors or expected_final_integration is None:
+        raise ValueError("invalid final integration state: " + "; ".join(integration_errors))
+    actual_final_integration = _integration_state(env, integration_spec)
+    if not _array_bytes_equal(actual_final_integration, expected_final_integration):
+        raise RuntimeError(
+            "generated-source final integration state differs after full settle replay "
+            f"({_array_difference_summary(actual_final_integration, expected_final_integration)})"
+        )
     return observation
 
 
@@ -1626,6 +2258,8 @@ def verify_generated_source_branch(
         return ["bundle.branch must be an object"]
     try:
         state_sha = _array_hash(_state(env))
+        integration = bundle["states"]["integration"]
+        integration_sha = _array_hash(_integration_state(env, integration["spec"]))
         observation_record = observation_identity(observation)
         geometry_record = geometry_identity(env, active_obstacle_name)
     except (AttributeError, KeyError, TypeError, ValueError, RuntimeError, OverflowError) as error:
@@ -1639,4 +2273,6 @@ def verify_generated_source_branch(
     for key, actual in comparisons.items():
         if branch.get(key) != actual:
             errors.append(f"generated-source branch {key} differs")
+    if integration_sha != integration.get("final", {}).get("sha256"):
+        errors.append("generated-source branch final integration state differs")
     return errors
