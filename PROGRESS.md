@@ -55,24 +55,30 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The eight eligible oracle misses split exactly into four clearance-only and four progress-only failures; none failed both and every direct witness passed. All 17 registered equal-L2 one-midpoint analytic arms passed clearance but failed progress, while all 17 registered `t=0.5` one-shot bridges failed clearance. The failures therefore occur after the physical-existence gate, under the registered flow-intervention mapping; they are consistent with gain, timing, parameterization, nonlinear continuation, and a safety-progress tradeoff, but R03 does not isolate those mechanisms.
 - Independent Python 3.12 validation exposed one additional one-ULP reach-distance mismatch caused by Python's changed float `sum` implementation. ADR-0015 freezes explicit left-to-right three-coordinate accumulation, preserves the full exact annotation, and exactly validates the original H100 case without changing any artifact, action, threshold, or outcome.
 - The final local gate passes after the R03 transition and ADR-0015 fix: `./init.sh` reports 156 passed and 35 allocation-runtime skips; the dependency-backed focused R02 suite passes 84/84; the copied H100 case reconstructs with zero validation errors. These are regression checks, not new research evidence.
+- Re-auditing `main.tex`, `Chat - Probe in Diffusion Model.md`, the R00--R03 artifacts, and the revised ECG manuscript confirms that ECG is a plausible next experiment but is not yet evidence of a solution. The exact-endpoint premise was the primary failure; the remaining R02 misses occur after direct safe-progress witnesses exist and are consistent with intervention gain/timing/parameterization, nonlinear continuation, and a safety-progress tradeoff.
+- The revised manuscript now narrows the evidence to a five-action pregrasp reach pilot with a controlled 6 cm EEF sphere against active-obstacle OBBs, distinguishes `D_opt` from `D_sim`, uses continuation-matched labels and groupwise false-safe control, retains progress in the causal outcome, and marks R04 as prospective. Its compiled PDF is nine pages and visually clean; the sparse final references page remains a presentation/page-limit risk.
+- ADR-0017 freezes R04A as a no-learning, one-case real-continuation label-contract smoke. The frozen config SHA-256 is `561128a5a05710e50b282582463127ee3f8cd87c9ebbaee822f8c4602fda1c25`. The reused R00 row is `apparatus_only` and may never enter training, calibration, validation, testing, or a claim.
+- The opt-in R04A apparatus requests duplicate eager no-intervention traces at steps 1--5, enforces `predicted_clean = x_t - t*v_base`, exact physical 10x7 actions across all ten calls, two exact five-action simulator replays, raw 126-sample `D_sim`/tracked-reach reconstruction, world-frame padded 21-OBB geometry, complete source/allocation/hash provenance, explicit optimizer/`D_opt` not-applicable status, atomic finalization, and clean-reviewed-commit resume semantics. It does not edit/resume a latent, train a probe, or apply guidance.
+- An independent patch audit found and closed endpoint-only-label acceptance, approximate-clean semantic, stale-resume, and source-episode split-leakage defects. The dependency-backed focused R04 suite passes 20/20; the complete `./init.sh` gate passes 176 tests with 43 allocation-runtime skips; shell/JSON/whitespace checks and Python 3.8 grammar compatibility pass; malformed artifacts fail validation without throwing. These are local apparatus checks only; no R04A Slurm result exists yet.
 
 ## Active gate
 
-R04 — learned ECG probe. R02 and R03 passed and authorize a bounded learned-probe experiment. No probe has yet been trained or evaluated, so ECG effectiveness, necessity, novelty, and transport-phase validity remain open.
+R04 — learned ECG probe. R02 and R03 authorize a bounded investigation, and ADR-0017 freezes the preceding R04A label-contract smoke. R04A has not yet produced allocation-backed evidence. No probe has been trained or evaluated, so ECG effectiveness, necessity, novelty, and transport-phase validity remain open.
 
 ## Next
 
-1. Freeze the R04 estimand, immutable manifests, group-preserving train/validation/test split, deterministic-continuation label, intervention times, dose-calibration groups, and stop rules before training. Do not tune on the 17 R02 claim cases.
-2. Resolve the phase claim before collecting data: either run R04 explicitly as a pregrasp reach pilot, or collect new immutable post-grasp states and calibrate a transport-specific progress threshold before retaining the draft's transport framing.
-3. Before freezing R04, reconcile the draft's fixed `eta=0.1` and Gate-2-only `t_start` rule with any proposed calibration-only intervention-time/dose grid. The primary prediction study should measure held-out deterministic-continuation clearance; the first intervention study should test gradient causality before full guidance.
-4. Pair frozen, learned-gradient, equal-norm random, registered analytic, preregistered margin-stopped analytic, privileged oracle-direction reference, and direct-planner upper-reference arms by simulator state, observation, policy noise, and executed horizon. Keep safe-progress success as the joint outcome and report infeasible or late-intervention cases.
-5. The exact safe command at the start of the next implementation turn is:
+1. Commit, push, and synchronize the reviewed R04A apparatus, then rerun live VinUni preflight. Submit only the one-element MIG smoke if a healthy node has at least 80 GiB fresh host memory and the aggregate user ceilings remain satisfied.
+2. Validate the allocation artifact independently. A pass establishes label plumbing only; it does not authorize training or satisfy R04.
+3. Before training, create genuinely new immutable source-episode/state groups, freeze complete group-preserving train/calibration/validation/test splits before labels, exclude the R02 claim cases, and preregister boundary power/coverage around 5 mm. All replay-derived branches from one source stay together.
+4. Add and regression-test an exact post-edit latent resume/continuation path before any local perturbation labels. Then run held-out prediction/false-safe and gradient-causality gates before full guidance.
+5. Pair frozen, learned-gradient, equal-realized-norm random, registered analytic, margin-stopped/time-structured analytic, privileged oracle-direction, and direct-planner arms by state, observation, policy noise, and executed horizon. Keep safe-progress success as the joint outcome.
+6. Until the reviewed commit is synchronized and live capacity passes, the exact safe local command is:
 
    ```bash
    ./init.sh
    ```
 
-   Do not submit training until the R04 protocol and data identities are frozen.
+   Do not submit training. The R04A submission wrapper itself fails closed on source, capacity, node-health, and memory checks.
 
 ## Open scientific risks
 
@@ -94,3 +100,6 @@ R04 — learned ECG probe. R02 and R03 passed and authorize a bounded learned-pr
 - Analytic 0/17 rejects only the registered static, equal-L2, one-midpoint geometry normal. It does not establish that learning is necessary or rule out stronger margin-aware or time-structured analytic guidance.
 - The paper draft describes post-grasp transport, but every current R00--R03 result is a five-step pregrasp reach study. Claims must be reframed or supported by a new phase-specific dataset and calibration.
 - Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. R04 must demonstrate held-out prediction, gradient causality, and a paired advantage with clearly stated sensing/runtime assumptions before supporting an ECG claim.
+- The passed R00 source has only 30 state groups, a minimum clearance of 10.327 mm, and zero rows in the inclusive 0--10 mm band around the 5 mm decision margin. R00 can exercise R04A plumbing but cannot support probe fitting, calibration, boundary evaluation, or a claim.
+- All 50 currently saved same-task initial episodes are already partitioned across prior development/evaluation work. Repeated policy seeds or replay-derived intermediate branches are not new independent states; claim-bearing R04 needs a newly frozen source-state population or an explicitly expanded scope.
+- R04A follows an unedited deterministic trajectory and does not expose exact latent resume. The existing one-shot bridge trace is pre-edit, so it cannot label a perturbed feature; a post-edit continuation seam remains a prerequisite for the perturbation study.

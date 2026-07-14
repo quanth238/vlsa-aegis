@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/r04-label-contract.schema.json",
+  "title": "R04A frozen-continuation label-contract case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "apparatus_scope",
+    "config_hash",
+    "source_evidence",
+    "provenance",
+    "pairing",
+    "geometry",
+    "simulator",
+    "label",
+    "outcome",
+    "usage_restriction"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "arrayRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"type": "string", "minLength": 1},
+        "shape": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "values": {"type": "array"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_feature_space", "physical_feature_role", "leaves", "sha256"],
+      "properties": {
+        "primary_feature_space": {"const": "normalized_model_coordinates"},
+        "physical_feature_role": {"const": "inverse_transformed_audit_only"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "leaves": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["step_index", "time", "x_t", "v_base", "predicted_clean", "predicted_clean_physical"],
+          "properties": {
+            "step_index": {"$ref": "#/$defs/arrayRecord"},
+            "time": {"$ref": "#/$defs/arrayRecord"},
+            "x_t": {"$ref": "#/$defs/arrayRecord"},
+            "v_base": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean_physical": {"$ref": "#/$defs/arrayRecord"}
+          }
+        }
+      }
+    },
+    "traceCopy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace", "final_action_sha256", "policy_timing"],
+      "properties": {
+        "trace": {"$ref": "#/$defs/trace"},
+        "final_action_sha256": {"$ref": "#/$defs/sha256"},
+        "policy_timing": {"type": "object"}
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r04_continuation_label_contract"},
+    "gate": {"const": "R04A"},
+    "case_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"const": "completed"},
+    "apparatus_scope": {"const": "label_contract_smoke_only"},
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "source_evidence": {
+      "type": "object",
+      "required": [
+        "case_record",
+        "case_record_sha256",
+        "input_manifest_sha256",
+        "config_file_sha256",
+        "checkpoint_id",
+        "checkpoint_sha256",
+        "r00_summary",
+        "r03_summary",
+        "sampler_parity"
+      ],
+      "properties": {
+        "case_record": {"type": "object"},
+        "case_record_sha256": {"$ref": "#/$defs/sha256"},
+        "input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "config_file_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_id": {"type": "string", "minLength": 1},
+        "checkpoint_sha256": {"$ref": "#/$defs/sha256"},
+        "r00_summary": {"type": "object", "required": ["path", "sha256", "status", "p_min_m"]},
+        "r03_summary": {"type": "object", "required": ["path", "sha256", "status", "learned_probe_authorized"]},
+        "sampler_parity": {"type": "object", "required": ["path", "sha256", "status", "checkpoint_sha256", "normalization_asset_sha256"]}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "evidence_tier",
+        "git_commit",
+        "reviewed_git_commit",
+        "git_dirty",
+        "baseline_commit",
+        "python_version",
+        "host",
+        "timestamp",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "episode_index",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "group_id",
+        "noise_sha256",
+        "sampler_steps",
+        "trace_steps",
+        "model_action_horizon",
+        "model_action_dimension",
+        "executed_action_horizon",
+        "duplicate_trace_requests",
+        "simulator_repeats",
+        "measurement_samples_per_trial",
+        "eef_radius_m",
+        "distance_limit_m",
+        "simulator_safety_margin_m",
+        "minimum_progress_m",
+        "action_frame",
+        "geometry_frame",
+        "phase",
+        "intermediate_trace_space",
+        "intermediate_trace_semantics",
+        "final_action_space",
+        "normalization_asset_sha256",
+        "no_training",
+        "no_guidance",
+        "no_correction",
+        "intervention_mode",
+        "optimizer_status",
+        "D_opt_status",
+        "D_sim_status",
+        "slurm_job_id",
+        "slurm_array_job_id",
+        "slurm_array_task_id",
+        "partition",
+        "device"
+      ],
+      "properties": {
+        "git_dirty": {"const": false},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "reviewed_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "baseline_commit": {"const": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"},
+        "noise_sha256": {"$ref": "#/$defs/sha256"},
+        "trace_steps": {"const": [1, 2, 3, 4, 5]},
+        "model_action_horizon": {"const": 10},
+        "model_action_dimension": {"const": 32},
+        "executed_action_horizon": {"const": 5},
+        "duplicate_trace_requests": {"const": 2},
+        "simulator_repeats": {"const": 2},
+        "measurement_samples_per_trial": {"const": 126},
+        "eef_radius_m": {"const": 0.06},
+        "distance_limit_m": {"const": 1.0},
+        "simulator_safety_margin_m": {"const": 0.005},
+        "minimum_progress_m": {"const": 0.029897349105658888},
+        "geometry_frame": {"const": "world"},
+        "phase": {"const": "pregrasp_reach"},
+        "intermediate_trace_space": {"const": "checkpoint-normalized model action coordinates (10x32)"},
+        "intermediate_trace_semantics": {"const": "x_t, v_base, and predicted_clean only; final normalized x_0 is not exposed"},
+        "final_action_space": {"const": "inverse-transformed physical LIBERO controller action (10x7)"},
+        "normalization_asset_sha256": {"$ref": "#/$defs/sha256"},
+        "no_training": {"const": true},
+        "no_guidance": {"const": true},
+        "no_correction": {"const": true},
+        "intervention_mode": {"const": "none"},
+        "optimizer_status": {"const": "not_run_not_applicable"},
+        "D_opt_status": {"const": "not_run_not_applicable"},
+        "D_sim_status": {"const": "measured_twice_from_raw_substeps"},
+        "slurm_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_task_id": {"type": "string", "minLength": 1},
+        "partition": {"type": "string", "minLength": 1},
+        "device": {"type": "string", "minLength": 1}
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixed_observation",
+        "noise",
+        "trace_requests",
+        "all_final_actions_exact",
+        "final_full_physical_actions",
+        "executed_action_prefix_sha256",
+        "trace_to_label_bindings"
+      ],
+      "properties": {
+        "fixed_observation": {"type": "object", "required": ["array_leaves", "prompt_sha256", "sha256"]},
+        "noise": {"$ref": "#/$defs/arrayRecord"},
+        "trace_requests": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_index", "expected_time", "intervention_mode", "correction_supplied", "exact_duplicate", "primary", "duplicate"],
+            "properties": {
+              "step_index": {"enum": [1, 2, 3, 4, 5]},
+              "expected_time": {"type": "number"},
+              "intervention_mode": {"const": "none"},
+              "correction_supplied": {"const": false},
+              "exact_duplicate": {"const": true},
+              "primary": {"$ref": "#/$defs/traceCopy"},
+              "duplicate": {"$ref": "#/$defs/traceCopy"}
+            }
+          }
+        },
+        "all_final_actions_exact": {"const": true},
+        "final_full_physical_actions": {"$ref": "#/$defs/arrayRecord"},
+        "executed_action_prefix_sha256": {"$ref": "#/$defs/sha256"},
+        "trace_to_label_bindings": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"type": "object"}}
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame",
+        "representation",
+        "padding_value",
+        "maximum_obbs",
+        "num_valid_obbs",
+        "geom_names",
+        "validity_mask",
+        "centers_m",
+        "rotations_world",
+        "half_sizes_m",
+        "branch_eef_center_m",
+        "eef_center_offset_local_m",
+        "sha256"
+      ],
+      "properties": {
+        "frame": {"const": "world"},
+        "representation": {"const": "geom_name_sorted_padded_obb"},
+        "padding_value": {"const": 0.0},
+        "maximum_obbs": {"const": 21},
+        "num_valid_obbs": {"type": "integer", "minimum": 1, "maximum": 21},
+        "geom_names": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"type": "string"}},
+        "validity_mask": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"type": "boolean"}},
+        "centers_m": {"type": "array", "minItems": 21, "maxItems": 21},
+        "rotations_world": {"type": "array", "minItems": 21, "maxItems": 21},
+        "half_sizes_m": {"type": "array", "minItems": 21, "maxItems": 21},
+        "branch_eef_center_m": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}},
+        "eef_center_offset_local_m": {"const": [0.0, 0.0, -0.08]},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "simulator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measurement", "repeats", "exact_replay", "rollout_set_sha256"],
+      "properties": {
+        "measurement": {"const": "inclusive branch plus every hidden MuJoCo substep"},
+        "repeats": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "required": ["repeat_index", "final_action_sha256", "branch_geometry_sha256", "rollout_sha256", "rollout"]}},
+        "exact_replay": {"const": true},
+        "rollout_set_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "label": {
+      "type": "object",
+      "required": [
+        "definition",
+        "D_sim_m",
+        "contact_any",
+        "reach_progress_m",
+        "maximum_target_displacement_m",
+        "maximum_active_obstacle_displacement_m",
+        "repeat_clearance_m",
+        "repeat_contact",
+        "repeat_reach_progress_m",
+        "final_action_sha256",
+        "rollout_set_sha256",
+        "sha256"
+      ],
+      "properties": {
+        "D_sim_m": {"type": "number"},
+        "contact_any": {"type": "boolean"},
+        "final_action_sha256": {"$ref": "#/$defs/sha256"},
+        "rollout_set_sha256": {"$ref": "#/$defs/sha256"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["retained_regardless_of_safety_or_progress", "phase", "phase_valid", "initial_target_contact", "initial_task_success", "D_sim_m", "contact", "reach_progress_m", "maximum_target_displacement_m", "maximum_active_obstacle_displacement_m", "descriptive_checks"],
+      "properties": {
+        "retained_regardless_of_safety_or_progress": {"const": true},
+        "phase": {"const": "pregrasp_reach"},
+        "phase_valid": {"type": "boolean"},
+        "initial_target_contact": {"type": "boolean"},
+        "initial_task_success": {"type": "boolean"}
+      }
+    },
+    "usage_restriction": {"const": "apparatus_only_never_train_calibrate_validate_test_or_claim"}
+  }
+}

@@ -165,3 +165,29 @@ LCB for oracle minus analytic must be positive, and the exact one-sided paired
 label-swap test must have `p < 0.05`. Bounds/direction failures remain fixed-
 denominator zeroes. If analytic geometry already explains the gain at the same
 intervention budget, this pilot does not justify a learned probe.
+
+### R04A: real-continuation label-contract smoke
+
+R04A is the no-learning prerequisite in ADR-0017. It reuses exactly one R00
+row as `apparatus_only`; that row may never enter training, calibration,
+validation, testing, or a claim. From one fixed branch, observation, checkpoint,
+and 10x32 policy-noise tensor, request eager no-intervention traces twice at
+steps 1--5. Every request must return the exact same physical 10x7 final action,
+and each normalized `predicted_clean` record must reconstruct exactly as
+`x_t - t*v_base`.
+
+Execute the resulting physical five-action prefix twice from the exact branch.
+For each replay, independently reconstruct the inclusive branch-plus-125-
+substep sphere/OBB `D_sim` witness and the tracked-body reach annotation. Bind
+every trace to the final-action hash, both raw rollout hashes, and the minimum
+`D_sim` label. `D_opt` and optimizer status are explicitly not applicable.
+Invalid phase, collision, negative progress, moved objects, and launch failures
+remain recorded rather than filtered.
+
+R04A does not resume or edit a latent and cannot validate gradient causality.
+A later perturbation gate must expose and test a deterministic post-edit
+resume path; the existing bridge trace is pre-edit and invalid for that label.
+For claim-bearing data, split and bootstrap immutable source initial
+episode/state groups: every replay-derived branch, history, policy noise,
+perturbation, and rollout from one source remains together. New grouped states
+and registered 5 mm boundary coverage are required before training.

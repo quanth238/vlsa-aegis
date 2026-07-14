@@ -16,3 +16,4 @@
 - [0014 — Use numeric portability for derived R02 reconstruction](docs/decisions/0014-use-numeric-portability-for-derived-r02-reconstruction.md)
 - [0015 — Freeze reach-distance reconstruction arithmetic](docs/decisions/0015-freeze-reach-distance-arithmetic.md)
 - [0016 — Accept R03 and authorize a bounded R04 study](docs/decisions/0016-accept-r03-authorize-r04.md)
+- [0017 — Freeze the R04A real-continuation label contract](docs/decisions/0017-freeze-r04a-continuation-label-contract.md)
