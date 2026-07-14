@@ -12,7 +12,8 @@ class MeasurementCalibrationContractTest(unittest.TestCase):
         source = (ROOT / "main/audit_mujoco_sphere_box.py").read_text(encoding="utf-8")
         self.assertIn('if samples < 50:', source)
         self.assertIn('"missed_contact_count": 0', source)
-        self.assertIn('max_error <= 1e-8', source)
+        self.assertIn('max_boundary_error <= 1e-8', source)
+        self.assertIn('sign_disagreements == 0', source)
 
     def test_calibration_runs_only_in_slurm(self) -> None:
         source = (ROOT / "slurm/measurement_calibration_mig.sbatch").read_text(encoding="utf-8")

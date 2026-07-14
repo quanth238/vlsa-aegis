@@ -45,7 +45,10 @@ def run_calibration(samples: int) -> dict:
     box_id = int(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "obstacle_box"))
     positions = np.linspace(0.24, -0.02, samples, dtype=np.float64)
     records = []
-    max_error = 0.0
+    max_full_range_error = 0.0
+    max_boundary_error = 0.0
+    boundary_samples = 0
+    sign_disagreements = 0
     false_contacts = 0
     missed_contacts = 0
     first_contact_clearance = None
@@ -74,7 +77,12 @@ def run_calibration(samples: int) -> dict:
         contact = bool(paired_contacts)
         contact_distance = min((float(value.dist) for value in paired_contacts), default=None)
         error = abs(raw - analytic)
-        max_error = max(max_error, error)
+        max_full_range_error = max(max_full_range_error, error)
+        if abs(analytic) <= 0.01:
+            boundary_samples += 1
+            max_boundary_error = max(max_boundary_error, error)
+        if (raw < 0) != (analytic < 0):
+            sign_disagreements += 1
         if contact and analytic > 1e-9:
             false_contacts += 1
         if not contact and analytic < -1e-9:
@@ -95,7 +103,9 @@ def run_calibration(samples: int) -> dict:
 
     spacing = float(abs(positions[1] - positions[0]))
     passed = bool(
-        max_error <= 1e-8
+        boundary_samples >= 10
+        and max_boundary_error <= 1e-8
+        and sign_disagreements == 0
         and false_contacts == 0
         and missed_contacts == 0
         and first_contact_clearance is not None
@@ -112,12 +122,21 @@ def run_calibration(samples: int) -> dict:
         "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
         "samples": samples,
         "sample_spacing_m": spacing,
-        "max_analytic_vs_mujoco_error_m": max_error,
+        # MuJoCo reports collision penetration depth, which need not equal the
+        # obstacle signed-distance field when the sphere center is deep inside
+        # the box. CRFS only relies on the zero-clearance boundary and sign.
+        "max_full_range_analytic_vs_mujoco_error_m": max_full_range_error,
+        "boundary_band_m": [-0.01, 0.01],
+        "boundary_samples": boundary_samples,
+        "max_boundary_analytic_vs_mujoco_error_m": max_boundary_error,
+        "sign_disagreement_count": sign_disagreements,
         "false_contact_count": false_contacts,
         "missed_contact_count": missed_contacts,
         "first_contact_clearance_m": first_contact_clearance,
         "pass_thresholds": {
-            "max_distance_error_m": 1e-8,
+            "min_boundary_samples": 10,
+            "max_boundary_distance_error_m": 1e-8,
+            "sign_disagreement_count": 0,
             "false_contact_count": 0,
             "missed_contact_count": 0,
             "first_contact_interval_m": [-spacing - 1e-8, 1e-8],
