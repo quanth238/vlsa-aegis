@@ -96,10 +96,10 @@ class Policy(BasePolicy):
         sample_kwargs = dict(self._sample_kwargs)
         if crfs_controls is not None:
             if noise is None and crfs_controls.get("noise") is not None:
-                noise = np.asarray(crfs_controls["noise"])
+                noise = np.array(crfs_controls["noise"], copy=True)
             correction = crfs_controls.get("correction")
             if correction is not None:
-                correction = np.asarray(correction, dtype=np.float32)
+                correction = np.array(correction, dtype=np.float32, copy=True)
                 correction_space = str(crfs_controls.get("correction_space", "model"))
                 if correction_space == "physical":
                     correction = self._physical_delta_to_model(correction)

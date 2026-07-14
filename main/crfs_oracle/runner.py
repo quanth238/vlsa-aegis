@@ -25,6 +25,10 @@ from .projection import ProjectionResult, solve_simulator_projection
 LIBERO_DUMMY_ACTION = np.asarray([0.0] * 6 + [-1.0], dtype=np.float64)
 
 
+def _progress(event: str, **values: Any) -> None:
+    print(json.dumps({"event": event, **values}, sort_keys=True), flush=True)
+
+
 def quat_to_axisangle(quat: np.ndarray) -> np.ndarray:
     quat = np.asarray(quat, dtype=np.float64).copy()
     quat[3] = np.clip(quat[3], -1.0, 1.0)
@@ -115,6 +119,9 @@ class SafeLiberoCase:
             camera_heights=config.resize_size,
             camera_widths=config.resize_size,
             camera_depths=True,
+            # The scene is immutable across paired branches. A soft reset
+            # resets simulator/controller state without recompiling MuJoCo.
+            hard_reset=False,
         )
         self.env.seed(int(case["environment_seed"]))
         self._environment_seed = int(case["environment_seed"])
@@ -229,12 +236,17 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
     noise_rng = np.random.default_rng(int(case["policy_seed"]))
     noise = noise_rng.normal(size=(config.action_horizon, config.action_dim)).astype(np.float32)
     client = websocket_client_policy.WebsocketClientPolicy(config.host, config.port)
+    _progress("policy_client_connected", case_id=case["case_id"])
     environment = SafeLiberoCase(case, config)
+    _progress("safelibero_environment_ready", case_id=case["case_id"])
     try:
         initial_observation = environment.reset_and_settle()
+        _progress("branch_state_ready", obstacle=environment.obstacle_name)
         policy_input = policy_observation(initial_observation, environment.prompt, config.resize_size)
         nominal_reply = _infer(client, policy_input, noise, config, intervention_mode="none")
+        _progress("nominal_policy_first_complete")
         repeated_reply = _infer(client, policy_input, noise, config, intervention_mode="none")
+        _progress("nominal_policy_replay_complete")
         determinism = _determinism_check(nominal_reply, repeated_reply)
         if not determinism["passed"]:
             raise RuntimeError(f"Fixed observation/noise policy replay is not exact: {determinism}")
@@ -242,6 +254,11 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         nominal_actions = np.asarray(nominal_reply["actions"], dtype=np.float64)[: config.executed_prefix, :7]
         nominal_rollout = environment.rollout(nominal_actions)
         repeated_rollout = environment.rollout(nominal_actions)
+        _progress(
+            "nominal_simulator_replay_complete",
+            clearance_m=float(nominal_rollout["clearance_m"]),
+            contact=bool(nominal_rollout["contact"]),
+        )
         simulator_deterministic = bool(
             np.allclose(nominal_rollout["end_eef_m"], repeated_rollout["end_eef_m"], atol=1e-9, rtol=0.0)
             and math.isclose(
@@ -269,11 +286,18 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
                 evaluations=0,
             )
         else:
+            _progress("projection_started")
             repair = solve_simulator_projection(
                 nominal_actions,
                 environment.rollout,
                 safety_margin_m=config.safety_margin_m,
                 max_iterations=config.optimizer_max_iterations,
+            )
+            _progress(
+                "projection_complete",
+                feasible=repair.feasible,
+                evaluations=repair.evaluations,
+                clearance_m=repair.verified_clearance_m,
             )
 
         provenance = {
@@ -331,6 +355,7 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         correction = np.asarray(repair.correction, dtype=np.float32)
         random_correction = _random_equal_norm(correction, int(case["random_control_seed"])).astype(np.float32)
         direct_rollout = environment.rollout(repaired_actions)
+        _progress("direct_repair_rollout_complete", clearance_m=float(direct_rollout["clearance_m"]))
         oracle_reply = _infer(
             client,
             policy_input,
@@ -361,6 +386,7 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         oracle_rollout = environment.rollout(np.asarray(oracle_reply["actions"])[: config.executed_prefix, :7])
         random_rollout = environment.rollout(np.asarray(random_reply["actions"])[: config.executed_prefix, :7])
         bridge_rollout = environment.rollout(np.asarray(bridge_reply["actions"])[: config.executed_prefix, :7])
+        _progress("paired_intervention_rollouts_complete")
         result = {
             **base_result,
             "status": "completed",

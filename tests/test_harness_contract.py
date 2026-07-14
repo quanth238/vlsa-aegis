@@ -25,6 +25,8 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn('"evidence_tier": "real_safelibero_preliminary"', source)
         self.assertIn("D_opt/D_sim independence is not yet established", source)
         self.assertIn("Fixed observation/noise policy replay is not exact", source)
+        self.assertIn("hard_reset=False", source)
+        self.assertIn('_progress("projection_started")', source)
 
     def test_full_h100_array_has_no_long_run_time_limit(self) -> None:
         source = (ROOT / "slurm/oracle_main_array.sbatch").read_text(encoding="utf-8")
