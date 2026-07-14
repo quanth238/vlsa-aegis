@@ -19,6 +19,8 @@ class H05ContractTest(unittest.TestCase):
         self.assertIn("feasible_attempts", projection)
         self.assertIn("horizon = nominal.shape[0]", projection)
         self.assertIn("delta[-1]", projection)
+        self.assertIn('"type": "fixed_endpoint_clearance"', projection)
+        self.assertLess(projection.index("fixed_endpoint ="), projection.index("from scipy.optimize import minimize"))
 
 
 if __name__ == "__main__":

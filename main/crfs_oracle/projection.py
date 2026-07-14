@@ -20,6 +20,7 @@ class ProjectionResult:
     optimizer_status: int
     optimizer_message: str
     evaluations: int
+    infeasibility_certificate: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -70,12 +71,51 @@ def solve_kinematic_projection(
     ftol: float = 1e-7,
 ) -> ProjectionResult:
     """Solve Eq. (8) with frozen H04 kinematics and static branch geometry."""
-    from scipy.optimize import minimize
-
     nominal = np.asarray(nominal_prefix, dtype=np.float64)
+    if nominal.ndim != 2 or nominal.shape[0] < 2 or nominal.shape[1] < 3:
+        raise ValueError(f"Expected nominal prefix shape (H>=2, >=3), got {nominal.shape}")
     low = np.broadcast_to(np.asarray(action_low, dtype=np.float64), nominal.shape)
     high = np.broadcast_to(np.asarray(action_high, dtype=np.float64), nominal.shape)
+    if np.any(nominal < low - 1e-8) or np.any(nominal > high + 1e-8):
+        raise ValueError("Nominal prefix lies outside declared action bounds")
     response = np.asarray(response_matrix, dtype=np.float64).reshape(3, 3)
+
+    # Every admissible correction has zero translational sum, so all candidates
+    # share this endpoint in the frozen H04 model.  If the endpoint itself
+    # violates the requested margin, the swept-path constraint is impossible;
+    # this is a certificate, not an optimizer failure.
+    fixed_endpoint = np.asarray(start_eef_center_m, dtype=np.float64) + response @ nominal[:, :3].sum(axis=0)
+    endpoint_clearance = _kinematic_clearance(
+        np.zeros((1, nominal.shape[1]), dtype=np.float64),
+        fixed_endpoint,
+        response,
+        obstacle_boxes,
+        eef_radius_m,
+        samples_per_segment=1,
+    )
+    if endpoint_clearance < safety_margin_m:
+        certificate = {
+            "type": "fixed_endpoint_clearance",
+            "endpoint_m": fixed_endpoint.tolist(),
+            "clearance_upper_bound_m": float(endpoint_clearance),
+            "safety_margin_m": float(safety_margin_m),
+        }
+        return ProjectionResult(
+            feasible=False,
+            actions=None,
+            correction=None,
+            objective=None,
+            verified_clearance_m=float(endpoint_clearance),
+            endpoint_error_m=0.0,
+            optimizer_success=False,
+            optimizer_status=2,
+            optimizer_message="fixed endpoint violates the safety margin",
+            evaluations=1,
+            infeasibility_certificate=certificate,
+        )
+
+    from scipy.optimize import minimize
+
     evaluations = 0
     cache: dict[bytes, tuple[np.ndarray, float]] = {}
 
