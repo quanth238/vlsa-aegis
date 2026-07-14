@@ -25,7 +25,24 @@ class BaselineIntegrationSurfaceTest(unittest.TestCase):
         self.assertIn('inputs.pop("__crfs__", None)', source)
         self.assertIn("_physical_delta_to_model", source)
         self.assertIn("correction_space", source)
-        self.assertIn("self._sample_actions_crfs if crfs_controls is not None", source)
+        self.assertIn("self._sample_actions_crfs if use_crfs_sampler", source)
+        self.assertIn('sample_kwargs["crfs_return_trace"]', source)
+        self.assertIn('sample_kwargs["crfs_intervention_mode"] != "none"', source)
+        self.assertIn('trace["predicted_clean_physical"]', source)
+        self.assertIn('np.array(trace["predicted_clean"], copy=True)', source)
+
+    def test_default_policy_route_does_not_require_crfs_envelope(self) -> None:
+        path = ROOT / "openpi/src/openpi/policies/policy.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        assignments = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "use_crfs_sampler" for target in node.targets)
+        ]
+        self.assertTrue(assignments)
+        self.assertIsInstance(assignments[0].value, ast.Constant)
+        self.assertIs(assignments[0].value.value, False)
 
     def test_checkpoint_conversion_preserves_nested_norm_assets(self) -> None:
         path = ROOT / "openpi/examples/convert_jax_model_to_pytorch.py"

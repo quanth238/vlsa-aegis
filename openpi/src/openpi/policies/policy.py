@@ -94,6 +94,7 @@ class Policy(BasePolicy):
 
         # Prepare kwargs for sample_actions
         sample_kwargs = dict(self._sample_kwargs)
+        use_crfs_sampler = False
         if crfs_controls is not None:
             if noise is None and crfs_controls.get("noise") is not None:
                 noise = np.array(crfs_controls["noise"], copy=True)
@@ -112,6 +113,23 @@ class Policy(BasePolicy):
             sample_kwargs["crfs_intervention_step"] = int(crfs_controls.get("intervention_step", 5))
             sample_kwargs["crfs_intervention_mode"] = str(crfs_controls.get("intervention_mode", "none"))
             sample_kwargs["crfs_return_trace"] = bool(crfs_controls.get("return_trace", False))
+            # An explicit-noise, no-intervention request is an experiment-only
+            # way to exercise the untouched compiled baseline sampler through
+            # the WebSocket transport.  Trace dictionaries and interventions
+            # still require the eager CRFS path.  With no reserved envelope,
+            # this reduces to the original baseline routing exactly.
+            use_crfs_sampler = bool(
+                sample_kwargs["crfs_return_trace"]
+                or sample_kwargs["crfs_intervention_mode"] != "none"
+                or correction is not None
+            )
+            if not use_crfs_sampler:
+                # Do not even pass experiment-only keyword arguments to the
+                # compiled function.  Apart from the explicit noise supplied
+                # below, this is the ordinary baseline sampler call.
+                sample_kwargs.pop("crfs_intervention_step")
+                sample_kwargs.pop("crfs_intervention_mode")
+                sample_kwargs.pop("crfs_return_trace")
         if noise is not None:
             noise = torch.from_numpy(noise).to(self._pytorch_device) if self._is_pytorch_model else jnp.asarray(noise)
 
@@ -121,7 +139,7 @@ class Policy(BasePolicy):
 
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
-        sample_function = self._sample_actions_crfs if crfs_controls is not None else self._sample_actions
+        sample_function = self._sample_actions_crfs if use_crfs_sampler else self._sample_actions
         sampled = sample_function(sample_rng_or_pytorch_device, observation, **sample_kwargs)
         trace = None
         if isinstance(sampled, tuple):
@@ -136,9 +154,23 @@ class Policy(BasePolicy):
         else:
             outputs = jax.tree.map(lambda x: np.asarray(x[0, ...]), outputs)
 
+        if trace is not None:
+            trace = jax.tree.map(lambda x: np.asarray(x[0, ...].detach().cpu()), trace)
+            # ``predicted_clean`` is an absolute model action, so its physical
+            # representation must use the complete existing inverse output
+            # transform, including the normalization offset.  This is distinct
+            # from displacement corrections, which use scale only in
+            # ``_physical_delta_to_model``.
+            trace_physical = self._output_transform(
+                {
+                    "state": np.array(outputs["state"], copy=True),
+                    "actions": np.array(trace["predicted_clean"], copy=True),
+                }
+            )
+            trace["predicted_clean_physical"] = np.asarray(trace_physical["actions"])
         outputs = self._output_transform(outputs)
         if trace is not None:
-            outputs["crfs_trace"] = jax.tree.map(lambda x: np.asarray(x[0, ...].detach().cpu()), trace)
+            outputs["crfs_trace"] = trace
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,
         }
