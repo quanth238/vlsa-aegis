@@ -42,6 +42,14 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn('SAFELIBERO_ROOT=$REMOTE_REPO/safelibero/libero/libero', source)
         self.assertLess(source.index('"$LIBERO_CONFIG_PATH/config.yaml"'), source.index("scripts/serve_policy.py"))
 
+    def test_launchers_forward_the_declared_experiment_config(self) -> None:
+        for relative_path in (
+            "scripts/hpc/submit_oracle_smoke.sh",
+            "scripts/hpc/submit_oracle_array.sh",
+        ):
+            source = (ROOT / relative_path).read_text(encoding="utf-8")
+            self.assertIn("EXPERIMENT_CONFIG='$EXPERIMENT_CONFIG'", source)
+
 
 if __name__ == "__main__":
     unittest.main()
