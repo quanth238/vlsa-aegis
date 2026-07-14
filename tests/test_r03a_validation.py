@@ -36,6 +36,66 @@ def array_record(values: list[list[float]], dtype: str = "float64") -> dict:
     }
 
 
+def native_vector_record(values: list, dtype: str, form: str) -> dict:
+    digest = hashlib.sha256()
+    digest.update(dtype.encode("utf-8"))
+    digest.update(str((len(values),)).encode("utf-8"))
+    for item in values:
+        digest.update(struct.pack("<" + form, item))
+    return {
+        "dtype": dtype,
+        "shape": [len(values)],
+        "sha256": digest.hexdigest(),
+        "values": values,
+    }
+
+
+def trace_record() -> dict:
+    leaves = {
+        "active": native_vector_record([False, True], "bool", "?"),
+        "step": array_record([[0.0]]),
+        "step_index": native_vector_record([5], "int64", "q"),
+        "time": native_vector_record([0.5], "float32", "f"),
+    }
+    return {"sha256": VALIDATION.content_hash(leaves), "leaves": leaves}
+
+
+def observation_fingerprint() -> dict:
+    leaves = [
+        {
+            "key": "observation/state",
+            "kind": "array",
+            "dtype": "float32",
+            "shape": [1, 2],
+            "sha256": "6" * 64,
+        },
+        {
+            "key": "prompt",
+            "kind": "string",
+            "sha256": hashlib.sha256(b"fixture prompt").hexdigest(),
+            "value": "fixture prompt",
+        },
+    ]
+    digest = hashlib.sha256()
+    for leaf in leaves:
+        framed = json.dumps(leaf, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+        digest.update(len(framed).to_bytes(8, "big"))
+        digest.update(framed)
+    return {"sha256": digest.hexdigest(), "leaves": leaves}
+
+
+def hash_binding(record: dict, *, digest: str | None = None) -> dict:
+    identity = digest or record["sha256"]
+    return {
+        "source": copy.deepcopy(record),
+        "fresh": copy.deepcopy(record),
+        "source_sha256": identity,
+        "fresh_sha256": identity,
+    }
+
+
 def timing(values: list[float]) -> dict:
     if not values:
         return {"values": [], "p50": None, "p95": None}
@@ -54,6 +114,8 @@ def arm(name: str, *, passed: bool = False, terminal: bool = False) -> dict:
         full_actions = None
         executed_actions = None
         trace = None
+        policy_duplicate_actions = None
+        policy_duplicate_trace = None
         policy_seconds = timing([])
         gradient_seconds = timing([])
         policy_replay_exact = None
@@ -64,7 +126,9 @@ def arm(name: str, *, passed: bool = False, terminal: bool = False) -> dict:
         status = "passed_gate" if passed else "failed_gate"
         full_actions = array_record([[0.0] * 7 for _ in range(10)])
         executed_actions = array_record([[0.0] * 7 for _ in range(5)])
-        trace = {"sha256": "7" * 64, "leaves": {"step": {}}}
+        trace = trace_record()
+        policy_duplicate_actions = copy.deepcopy(full_actions)
+        policy_duplicate_trace = copy.deepcopy(trace)
         policy_seconds = timing([0.02, 0.03])
         gradient_seconds = (
             timing(
@@ -122,6 +186,7 @@ def arm(name: str, *, passed: bool = False, terminal: bool = False) -> dict:
         "executed_actions": executed_actions,
         "bounds": {"checked": not (terminal and analytic), "passed": None if terminal and analytic else True, "clipped": False},
         "trace": trace,
+        "trace_sha256": trace["sha256"] if trace is not None else None,
         "timing": {
             "descriptive_only": True,
             "warmed_batch_one": not (terminal and analytic),
@@ -132,6 +197,8 @@ def arm(name: str, *, passed: bool = False, terminal: bool = False) -> dict:
         },
         "diagnostics": diagnostics,
         "policy_replay_exact": policy_replay_exact,
+        "policy_duplicate_actions": policy_duplicate_actions,
+        "policy_duplicate_trace": policy_duplicate_trace,
         "replay_exact": replay_exact,
         "repeats": repeats,
         "gate": gate,
@@ -161,6 +228,7 @@ def pre_rollout_failure_arm(name: str, status: str, xyz_value: float) -> dict:
     executed[0][0] = xyz_value
     value["full_actions"] = array_record(full)
     value["executed_actions"] = array_record(executed)
+    value["policy_duplicate_actions"] = copy.deepcopy(value["full_actions"])
     value["status"] = status
     value["gate"] = {"passed": False, "trial_checks": [], "reason": status}
     value["replay_exact"] = None
@@ -180,6 +248,24 @@ def fixture(*, terminal: bool = False) -> dict:
     arms = {
         name: arm(name, terminal=terminal)
         for name in VALIDATION.EXPECTED_ARMS
+    }
+    noise = array_record([[0.0] * 32 for _ in range(10)], dtype="float32")
+    observation = observation_fingerprint()
+    branch_snapshot = {"fixture_state": [1, 2, 3]}
+    branch_geometry = {"fixture_geometry": [4, 5, 6]}
+    pairing = {
+        "passed": True,
+        "policy_observation": hash_binding(observation),
+        "branch_snapshot": hash_binding(
+            branch_snapshot, digest=VALIDATION.content_hash(branch_snapshot)
+        ),
+        "branch_geometry": hash_binding(
+            branch_geometry, digest=VALIDATION.content_hash(branch_geometry)
+        ),
+        "noise": hash_binding(noise),
+        "source_frozen_actions": hash_binding(arms["frozen"]["full_actions"]),
+        "source_frozen_trace": hash_binding(arms["frozen"]["trace"]),
+        "checks": {key: True for key in VALIDATION.PAIRING_CHECK_KEYS},
     }
     return {
         "schema_version": "1.0",
@@ -217,26 +303,9 @@ def fixture(*, terminal: bool = False) -> dict:
             "config_file_sha256": "4" * 64,
             "checkpoint_id": "/fixture/checkpoint",
             "checkpoint_sha256": VALIDATION.CHECKPOINT_SHA256,
+            "noise": copy.deepcopy(noise),
         },
-        "pairing": {
-            "passed": True,
-            **{
-                key: {
-                    "source_sha256": "5" * 64,
-                    "fresh_sha256": "5" * 64,
-                    "source_record": {},
-                }
-                for key in (
-                    "policy_observation",
-                    "branch_snapshot",
-                    "branch_geometry",
-                    "noise",
-                    "source_frozen_actions",
-                    "source_frozen_trace",
-                )
-            },
-            "checks": {key: True for key in VALIDATION.PAIRING_CHECK_KEYS},
-        },
+        "pairing": pairing,
         "budget": {
             "definition": VALIDATION.BUDGET_DEFINITION,
             "source_direction_key": "delta_star_model",
@@ -313,6 +382,66 @@ class R03AValidationTest(unittest.TestCase):
         mutations.append(decision)
         for value in mutations:
             self.assertTrue(VALIDATION.validate_r03a_result(value))
+
+    def test_pairing_payloads_and_retained_frozen_records_are_fail_closed(self) -> None:
+        missing = fixture()
+        del missing["pairing"]["noise"]["source"]
+
+        extra = fixture()
+        extra["pairing"]["noise"]["unregistered"] = True
+
+        divergent = fixture()
+        divergent["pairing"]["branch_snapshot"]["fresh"]["fixture_state"][0] = 9
+
+        spoofed_trace = fixture()
+        for side in ("source", "fresh"):
+            spoofed_trace["pairing"]["source_frozen_trace"][side]["leaves"][
+                "step"
+            ]["values"][0][0] = 1.0
+
+        tampered_analytic_trace = fixture()
+        tampered_analytic_trace["arms"]["analytic_trajectory_mid"]["trace"][
+            "leaves"
+        ]["step"]["values"][0][0] = 1.0
+
+        tampered_duplicate_trace = fixture()
+        tampered_duplicate_trace["arms"]["analytic_trajectory_mid"][
+            "policy_duplicate_trace"
+        ]["leaves"]["step"]["values"][0][0] = 1.0
+
+        tampered_duplicate_actions = fixture()
+        tampered_duplicate_actions["arms"]["analytic_trajectory_mid"][
+            "policy_duplicate_actions"
+        ] = array_record([[0.25] + [0.0] * 6] + [[0.0] * 7 for _ in range(9)])
+
+        relabeled_actions = fixture()
+        replacement_actions = array_record(
+            [[0.25] + [0.0] * 6] + [[0.0] * 7 for _ in range(9)]
+        )
+        relabeled_actions["pairing"]["source_frozen_actions"] = hash_binding(
+            replacement_actions
+        )
+
+        relabeled_noise = fixture()
+        replacement_noise = [[0.0] * 32 for _ in range(10)]
+        replacement_noise[0][0] = 0.25
+        relabeled_noise["provenance"]["noise"] = array_record(
+            replacement_noise, dtype="float32"
+        )
+
+        for value in (
+            missing,
+            extra,
+            divergent,
+            spoofed_trace,
+            tampered_analytic_trace,
+            tampered_duplicate_trace,
+            tampered_duplicate_actions,
+            relabeled_actions,
+            relabeled_noise,
+        ):
+            with self.subTest(value=value):
+                self.assertTrue(VALIDATION.validate_r03a_result(value))
 
     def test_arm_set_mode_timing_and_outcome_cross_binding_fail_closed(self) -> None:
         wrong_set = fixture()
@@ -427,6 +556,9 @@ class R03AValidationTest(unittest.TestCase):
         executed[0][0] = 0.999999999
         candidate["full_actions"] = array_record(full)
         candidate["executed_actions"] = array_record(executed)
+        candidate["policy_duplicate_actions"] = copy.deepcopy(
+            candidate["full_actions"]
+        )
         bind_arm(near_bound, "analytic_trajectory_mid", candidate)
         self.assertEqual(VALIDATION.validate_r03a_result(near_bound), [])
 
@@ -510,6 +642,9 @@ class R03AValidationTest(unittest.TestCase):
         executed[0][1] = 1.0
         replacement["full_actions"] = array_record(full)
         replacement["executed_actions"] = array_record(executed)
+        replacement["policy_duplicate_actions"] = copy.deepcopy(
+            replacement["full_actions"]
+        )
         bind_arm(value, "analytic_trajectory_mid", replacement)
         self.assertEqual(VALIDATION.validate_r03a_result(value), [])
 

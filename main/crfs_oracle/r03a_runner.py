@@ -48,7 +48,6 @@ from .r02_runner import (
     _observation_fingerprint,
     _policy_timing_control,
     _reply_policy_timing,
-    _same_trace,
     _trace_record,
     _validate_array_record,
     validate_r02_result,
@@ -687,21 +686,46 @@ def _science_trace(trace: Mapping[str, Any]) -> Mapping[str, Any]:
 def _trace_pairing_diagnostics(
     source: Mapping[str, Any], fresh: Mapping[str, Any]
 ) -> Mapping[str, Any]:
-    """Summarize a frozen-trace mismatch without retaining large tensor values."""
+    """Bind the exact trace predicate to the same bounded evidence it reports."""
 
-    source_keys = {str(key) for key in source}
-    fresh_keys = {str(key) for key in fresh}
+    source_items = list(source.items())
+    fresh_items = list(fresh.items())
+    source_keys_are_strings = all(isinstance(key, str) for key, _ in source_items)
+    fresh_keys_are_strings = all(isinstance(key, str) for key, _ in fresh_items)
+    source_raw_keys = {key for key, _ in source_items}
+    fresh_raw_keys = {key for key, _ in fresh_items}
+    raw_key_sets_equal = source_raw_keys == fresh_raw_keys
+    source_snapshot = {
+        key: np.ascontiguousarray(np.asarray(value)).copy()
+        for key, value in source_items
+        if isinstance(key, str)
+    }
+    fresh_snapshot = {
+        key: np.ascontiguousarray(np.asarray(value)).copy()
+        for key, value in fresh_items
+        if isinstance(key, str)
+    }
+    source_keys = set(source_snapshot)
+    fresh_keys = set(fresh_snapshot)
     leaves: Dict[str, Any] = {}
     for key in sorted(source_keys | fresh_keys):
         record: Dict[str, Any] = {
-            "present_in_source": key in source,
-            "present_in_fresh": key in fresh,
+            "present_in_source": key in source_snapshot,
+            "present_in_fresh": key in fresh_snapshot,
         }
-        if key in source and key in fresh:
-            source_array = np.ascontiguousarray(np.asarray(source[key]))
-            fresh_array = np.ascontiguousarray(np.asarray(fresh[key]))
+        if key in source_snapshot and key in fresh_snapshot:
+            source_array = source_snapshot[key]
+            fresh_array = fresh_snapshot[key]
             same_shape = source_array.shape == fresh_array.shape
             same_dtype = source_array.dtype == fresh_array.dtype
+            source_supported_dtype = source_array.dtype.kind in "biuf"
+            fresh_supported_dtype = fresh_array.dtype.kind in "biuf"
+            source_finite = bool(
+                source_supported_dtype and np.all(np.isfinite(source_array))
+            )
+            fresh_finite = bool(
+                fresh_supported_dtype and np.all(np.isfinite(fresh_array))
+            )
             record.update(
                 {
                     "source_dtype": str(source_array.dtype),
@@ -710,6 +734,10 @@ def _trace_pairing_diagnostics(
                     "fresh_shape": list(fresh_array.shape),
                     "same_dtype": bool(same_dtype),
                     "same_shape": bool(same_shape),
+                    "source_supported_dtype": bool(source_supported_dtype),
+                    "fresh_supported_dtype": bool(fresh_supported_dtype),
+                    "source_finite": source_finite,
+                    "fresh_finite": fresh_finite,
                     "array_equal": bool(np.array_equal(source_array, fresh_array)),
                     "native_bytes_equal": bool(
                         same_shape
@@ -724,8 +752,10 @@ def _trace_pairing_diagnostics(
             )
             if (
                 same_shape
-                and np.issubdtype(source_array.dtype, np.number)
-                and np.issubdtype(fresh_array.dtype, np.number)
+                and source_array.dtype.kind in "iuf"
+                and fresh_array.dtype.kind in "iuf"
+                and source_finite
+                and fresh_finite
             ):
                 difference = np.asarray(fresh_array, dtype=np.float64) - np.asarray(
                     source_array, dtype=np.float64
@@ -741,11 +771,68 @@ def _trace_pairing_diagnostics(
                         else 0.0
                     )
         leaves[key] = record
+    exact_leaves = bool(
+        source_keys_are_strings
+        and fresh_keys_are_strings
+        and raw_key_sets_equal
+        and source_keys == fresh_keys
+        and bool(leaves)
+        and all(
+            record.get("present_in_source") is True
+            and record.get("present_in_fresh") is True
+            and record.get("same_dtype") is True
+            and record.get("same_shape") is True
+            and record.get("source_supported_dtype") is True
+            and record.get("fresh_supported_dtype") is True
+            and record.get("source_finite") is True
+            and record.get("fresh_finite") is True
+            and record.get("array_equal") is True
+            and record.get("native_bytes_equal") is True
+            and record.get("source_sha256") == record.get("fresh_sha256")
+            for record in leaves.values()
+        )
+    )
+    source_recordable = bool(
+        source_keys_are_strings
+        and source_snapshot
+        and all(
+            value.dtype.kind in "biuf" and np.all(np.isfinite(value))
+            for value in source_snapshot.values()
+        )
+    )
+    fresh_recordable = bool(
+        fresh_keys_are_strings
+        and fresh_snapshot
+        and all(
+            value.dtype.kind in "biuf" and np.all(np.isfinite(value))
+            for value in fresh_snapshot.values()
+        )
+    )
+    source_record_sha256 = (
+        _trace_record(source_snapshot)["sha256"] if source_recordable else None
+    )
+    fresh_record_sha256 = (
+        _trace_record(fresh_snapshot)["sha256"] if fresh_recordable else None
+    )
+    canonical_record_equal = bool(
+        source_recordable
+        and fresh_recordable
+        and source_record_sha256 == fresh_record_sha256
+    )
     return {
+        "source_keys_are_strings": source_keys_are_strings,
+        "fresh_keys_are_strings": fresh_keys_are_strings,
+        "raw_key_sets_equal": raw_key_sets_equal,
+        "source_recordable": source_recordable,
+        "fresh_recordable": fresh_recordable,
         "source_keys": sorted(source_keys),
         "fresh_keys": sorted(fresh_keys),
         "missing_from_fresh": sorted(source_keys - fresh_keys),
         "extra_in_fresh": sorted(fresh_keys - source_keys),
+        "source_trace_record_sha256": source_record_sha256,
+        "fresh_trace_record_sha256": fresh_record_sha256,
+        "canonical_record_equal": canonical_record_equal,
+        "exact_native_leaf_pairing": bool(exact_leaves and canonical_record_equal),
         "leaves": leaves,
     }
 
@@ -800,7 +887,10 @@ def _timed_replies(
             != np.ascontiguousarray(candidate_actions).tobytes()
         ):
             raise RuntimeError("R03A repeated policy actions are not exact")
-        if not _same_trace(reference_trace, _science_trace(reply["crfs_trace"])):
+        repeat_trace_diagnostic = _trace_pairing_diagnostics(
+            reference_trace, _science_trace(reply["crfs_trace"])
+        )
+        if not repeat_trace_diagnostic["exact_native_leaf_pairing"]:
             raise RuntimeError("R03A repeated deterministic trace leaves are not exact")
     analytic_seconds: Mapping[str, Any] = _empty_timing_series()
     if controls.get("intervention_mode") == "analytic_trajectory_field":
@@ -1815,13 +1905,13 @@ def run_r03a_case(
         checks["fresh_frozen_actions_exact_to_source"] = bool(
             np.array_equal(frozen_actions, np.asarray(source_frozen_actions))
         )
-        checks["fresh_frozen_trace_exact_to_source"] = _same_trace(
-            frozen_mid_trace, source_mid_trace
+        trace_diagnostics = _trace_pairing_diagnostics(
+            source_mid_trace, frozen_mid_trace
+        )
+        checks["fresh_frozen_trace_exact_to_source"] = bool(
+            trace_diagnostics["exact_native_leaf_pairing"]
         )
         if not all(checks.values()):
-            trace_diagnostics = _trace_pairing_diagnostics(
-                source_mid_trace, frozen_mid_trace
-            )
             raise R03ASourceError(
                 "R03A policy pairing failed: "
                 f"{checks}; trace_diagnostics="

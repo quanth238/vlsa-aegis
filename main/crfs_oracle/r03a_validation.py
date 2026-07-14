@@ -151,6 +151,7 @@ PAIRING_KEYS = {
     "source_frozen_trace",
     "checks",
 }
+HASH_BINDING_KEYS = {"source", "fresh", "source_sha256", "fresh_sha256"}
 PAIRING_CHECK_KEYS = {
     "case_record_exact_to_source",
     "observation_exact_to_source",
@@ -188,9 +189,12 @@ ARM_REQUIRED_KEYS = {
     "executed_actions",
     "bounds",
     "trace",
+    "trace_sha256",
     "timing",
     "diagnostics",
     "policy_replay_exact",
+    "policy_duplicate_actions",
+    "policy_duplicate_trace",
     "replay_exact",
     "repeats",
     "gate",
@@ -315,6 +319,23 @@ def _shape_and_values(value: Any) -> Tuple[Tuple[int, ...], List[float]]:
     return (len(value),) + first_shape, flattened
 
 
+def _shape_and_scalars(value: Any) -> Tuple[Tuple[int, ...], List[Any]]:
+    """Flatten a rectangular JSON array without coercing Boolean/integer leaves."""
+
+    if not isinstance(value, list):
+        return (), [value]
+    if not value:
+        return (0,), []
+    child = [_shape_and_scalars(item) for item in value]
+    first_shape = child[0][0]
+    if any(shape != first_shape for shape, _flat in child[1:]):
+        raise ValueError("array values must be rectangular")
+    flattened: List[Any] = []
+    for _shape, flat in child:
+        flattened.extend(flat)
+    return (len(value),) + first_shape, flattened
+
+
 def _array_hash(dtype: str, shape: Tuple[int, ...], flat: Sequence[float]) -> str:
     formats = {"float32": "<f", "float64": "<d"}
     if dtype not in formats:
@@ -362,9 +383,159 @@ def _validate_array_record(
     return flat, errors
 
 
+def _validate_observation_fingerprint(value: Any, *, name: str) -> List[str]:
+    """Validate the dependency-free aggregate used by `_observation_fingerprint`."""
+
+    if not isinstance(value, Mapping) or set(value) != {"sha256", "leaves"}:
+        return [f"{name} must be an observation fingerprint"]
+    leaves = value.get("leaves")
+    if not isinstance(leaves, list) or not leaves:
+        return [f"{name}.leaves must be a non-empty list"]
+    errors: List[str] = []
+    digest = hashlib.sha256()
+    observed_keys: List[str] = []
+    for index, leaf in enumerate(leaves):
+        leaf_name = f"{name}.leaves[{index}]"
+        if not isinstance(leaf, Mapping):
+            errors.append(f"{leaf_name} must be an object")
+            continue
+        kind = leaf.get("kind")
+        expected_fields = (
+            {"key", "kind", "sha256", "value"}
+            if kind == "string"
+            else {"key", "kind", "dtype", "shape", "sha256"}
+        )
+        if kind not in {"string", "array"} or set(leaf) != expected_fields:
+            errors.append(f"{leaf_name} has invalid fingerprint fields")
+            continue
+        key = leaf.get("key")
+        if not isinstance(key, str) or not key:
+            errors.append(f"{leaf_name}.key must be a non-empty string")
+        else:
+            observed_keys.append(key)
+        if kind == "string":
+            string_value = leaf.get("value")
+            if not isinstance(string_value, str):
+                errors.append(f"{leaf_name}.value must be a string")
+            elif leaf.get("sha256") != hashlib.sha256(
+                string_value.encode("utf-8")
+            ).hexdigest():
+                errors.append(f"{leaf_name}.sha256 conflicts with its string value")
+        else:
+            dtype = leaf.get("dtype")
+            shape = leaf.get("shape")
+            if not isinstance(dtype, str) or not dtype:
+                errors.append(f"{leaf_name}.dtype must be a non-empty string")
+            if not isinstance(shape, list) or any(
+                not _nonnegative_int(item) for item in shape
+            ):
+                errors.append(f"{leaf_name}.shape must be nonnegative integers")
+            if not _is_sha256(leaf.get("sha256")):
+                errors.append(f"{leaf_name}.sha256 must be SHA-256")
+        try:
+            framed = json.dumps(
+                dict(leaf), sort_keys=True, separators=(",", ":"), allow_nan=False
+            ).encode("utf-8")
+        except (TypeError, ValueError) as error:
+            errors.append(f"{leaf_name} cannot be canonically encoded: {error}")
+        else:
+            digest.update(len(framed).to_bytes(8, "big"))
+            digest.update(framed)
+    if observed_keys != sorted(observed_keys) or len(set(observed_keys)) != len(
+        observed_keys
+    ):
+        errors.append(f"{name}.leaves must use unique sorted keys")
+    if value.get("sha256") != digest.hexdigest():
+        errors.append(f"{name}.sha256 conflicts with leaves")
+    return errors
+
+
+def _validate_trace_record(value: Any, *, name: str) -> List[str]:
+    """Validate the content-addressed trace envelope without NumPy."""
+
+    if not isinstance(value, Mapping) or set(value) != {"sha256", "leaves"}:
+        return [f"{name} must be a trace record"]
+    leaves = value.get("leaves")
+    if not isinstance(leaves, Mapping) or not leaves:
+        return [f"{name}.leaves must be a non-empty object"]
+    errors: List[str] = []
+    for key, leaf in leaves.items():
+        if not isinstance(key, str) or not key:
+            errors.append(f"{name}.leaves keys must be non-empty strings")
+        errors.extend(_validate_trace_leaf_record(leaf, name=f"{name}.leaves.{key}"))
+    if value.get("sha256") != content_hash(dict(leaves)):
+        errors.append(f"{name}.sha256 conflicts with leaves")
+    return errors
+
+
+def _validate_trace_leaf_record(value: Any, *, name: str) -> List[str]:
+    """Recompute native numeric trace-leaf bytes without importing NumPy."""
+
+    if not isinstance(value, Mapping) or set(value) != {
+        "dtype",
+        "shape",
+        "sha256",
+        "values",
+    }:
+        return [f"{name} must be an exact trace array record"]
+    dtype = value.get("dtype")
+    formats = {
+        "bool": ("?", "bool"),
+        "int8": ("b", "int"),
+        "uint8": ("B", "int"),
+        "int16": ("h", "int"),
+        "uint16": ("H", "int"),
+        "int32": ("i", "int"),
+        "uint32": ("I", "int"),
+        "int64": ("q", "int"),
+        "uint64": ("Q", "int"),
+        "float16": ("e", "float"),
+        "float32": ("f", "float"),
+        "float64": ("d", "float"),
+    }
+    if dtype not in formats:
+        return [f"{name}.dtype is not a supported native trace dtype"]
+    errors: List[str] = []
+    try:
+        actual_shape, flat = _shape_and_scalars(value.get("values"))
+    except ValueError as error:
+        return [f"{name}.values are invalid: {error}"]
+    if value.get("shape") != list(actual_shape):
+        errors.append(f"{name}.shape conflicts with values")
+    form, kind = formats[dtype]
+    digest = hashlib.sha256()
+    digest.update(dtype.encode("utf-8"))
+    digest.update(str(actual_shape).encode("utf-8"))
+    for index, item in enumerate(flat):
+        if kind == "bool":
+            valid = isinstance(item, bool)
+        elif kind == "int":
+            valid = isinstance(item, int) and not isinstance(item, bool)
+        else:
+            valid = (
+                isinstance(item, (int, float))
+                and not isinstance(item, bool)
+                and math.isfinite(float(item))
+            )
+        if not valid:
+            errors.append(f"{name}.values[{index}] conflicts with dtype {dtype}")
+            continue
+        try:
+            digest.update(struct.pack("<" + form, item))
+        except (OverflowError, struct.error) as error:
+            errors.append(f"{name}.values[{index}] cannot be packed: {error}")
+    if not errors and value.get("sha256") != digest.hexdigest():
+        errors.append(f"{name}.sha256 conflicts with dtype/shape/values")
+    elif errors and not _is_sha256(value.get("sha256")):
+        errors.append(f"{name}.sha256 must be SHA-256")
+    return errors
+
+
 def _validate_hash_binding(value: Any, *, name: str) -> List[str]:
-    if not isinstance(value, Mapping) or not {"source_sha256", "fresh_sha256"}.issubset(value):
-        return [f"pairing.{name} must contain source_sha256/fresh_sha256 fields"]
+    if not isinstance(value, Mapping) or set(value) != HASH_BINDING_KEYS:
+        return [f"pairing.{name} must contain the exact source/fresh binding fields"]
+    source_record = value.get("source")
+    fresh_record = value.get("fresh")
     source = value.get("source_sha256")
     fresh = value.get("fresh_sha256")
     errors: List[str] = []
@@ -372,6 +543,64 @@ def _validate_hash_binding(value: Any, *, name: str) -> List[str]:
         errors.append(f"pairing.{name} hashes must be SHA-256")
     if source != fresh:
         errors.append(f"pairing.{name} source/fresh hashes differ")
+    if source_record != fresh_record:
+        errors.append(f"pairing.{name} source/fresh payloads differ")
+
+    if name == "policy_observation":
+        errors.extend(
+            _validate_observation_fingerprint(
+                source_record, name=f"pairing.{name}.source"
+            )
+        )
+        errors.extend(
+            _validate_observation_fingerprint(
+                fresh_record, name=f"pairing.{name}.fresh"
+            )
+        )
+        expected_source = (
+            source_record.get("sha256") if isinstance(source_record, Mapping) else None
+        )
+        expected_fresh = (
+            fresh_record.get("sha256") if isinstance(fresh_record, Mapping) else None
+        )
+    elif name in {"noise", "source_frozen_actions"}:
+        expected_shape = (10, 32) if name == "noise" else (10, 7)
+        expected_dtype = "float32" if name == "noise" else "float64"
+        for side, record in (("source", source_record), ("fresh", fresh_record)):
+            _flat, item_errors = _validate_array_record(
+                record, name=f"pairing.{name}.{side}", shape=expected_shape
+            )
+            errors.extend(item_errors)
+            if isinstance(record, Mapping) and record.get("dtype") != expected_dtype:
+                errors.append(
+                    f"pairing.{name}.{side}.dtype must be {expected_dtype}"
+                )
+        expected_source = (
+            source_record.get("sha256") if isinstance(source_record, Mapping) else None
+        )
+        expected_fresh = (
+            fresh_record.get("sha256") if isinstance(fresh_record, Mapping) else None
+        )
+    elif name == "source_frozen_trace":
+        errors.extend(
+            _validate_trace_record(source_record, name=f"pairing.{name}.source")
+        )
+        errors.extend(
+            _validate_trace_record(fresh_record, name=f"pairing.{name}.fresh")
+        )
+        expected_source = (
+            source_record.get("sha256") if isinstance(source_record, Mapping) else None
+        )
+        expected_fresh = (
+            fresh_record.get("sha256") if isinstance(fresh_record, Mapping) else None
+        )
+    else:
+        expected_source = content_hash(source_record)
+        expected_fresh = content_hash(fresh_record)
+    if source != expected_source:
+        errors.append(f"pairing.{name}.source_sha256 conflicts with source payload")
+    if fresh != expected_fresh:
+        errors.append(f"pairing.{name}.fresh_sha256 conflicts with fresh payload")
     return errors
 
 
@@ -530,7 +759,14 @@ def _validate_arm(name: str, value: Any, *, terminal: bool, budget_l2: float) ->
     if terminal and analytic:
         if status != NOT_EVALUATED_STATUS:
             errors.append(f"arms.{name} must be explicit not-evaluated after nominal mismatch")
-        for field in ("full_actions", "executed_actions", "trace"):
+        for field in (
+            "full_actions",
+            "executed_actions",
+            "trace",
+            "trace_sha256",
+            "policy_duplicate_actions",
+            "policy_duplicate_trace",
+        ):
             if value.get(field) is not None:
                 errors.append(f"arms.{name}.{field} must be null after nominal mismatch")
         if value.get("repeats") != []:
@@ -546,7 +782,15 @@ def _validate_arm(name: str, value: Any, *, terminal: bool, budget_l2: float) ->
     if unrun_failure:
         if not isinstance(failure_reason, str) or not failure_reason.strip():
             errors.append(f"arms.{name} unrun failure must retain failure_reason")
-        for field in ("full_actions", "executed_actions", "trace", "diagnostics"):
+        for field in (
+            "full_actions",
+            "executed_actions",
+            "trace",
+            "trace_sha256",
+            "diagnostics",
+            "policy_duplicate_actions",
+            "policy_duplicate_trace",
+        ):
             if value.get(field) is not None:
                 errors.append(f"arms.{name}.{field} must be null for a pre-reply failure")
         if value.get("policy_replay_exact") is not None:
@@ -578,6 +822,58 @@ def _validate_arm(name: str, value: Any, *, terminal: bool, budget_l2: float) ->
         errors.extend(item_errors)
         if not isinstance(value.get("trace"), Mapping) or not value.get("trace"):
             errors.append(f"arms.{name}.trace must retain the complete policy trace")
+        else:
+            errors.extend(
+                _validate_trace_record(value["trace"], name=f"arms.{name}.trace")
+            )
+            if value.get("trace_sha256") != value["trace"].get("sha256"):
+                errors.append(f"arms.{name}.trace_sha256 differs from the retained trace")
+        duplicate_actions = value.get("policy_duplicate_actions")
+        _duplicate_flat, item_errors = _validate_array_record(
+            duplicate_actions,
+            name=f"arms.{name}.policy_duplicate_actions",
+            shape=(10, 7),
+        )
+        errors.extend(item_errors)
+        if (
+            isinstance(duplicate_actions, Mapping)
+            and duplicate_actions.get("dtype") != "float64"
+        ):
+            errors.append(f"arms.{name}.policy_duplicate_actions.dtype must be float64")
+        if duplicate_actions != value.get("full_actions"):
+            errors.append(f"arms.{name} policy duplicate actions differ from primary")
+        duplicate_trace = value.get("policy_duplicate_trace")
+        if not isinstance(duplicate_trace, Mapping):
+            errors.append(f"arms.{name}.policy_duplicate_trace must retain a trace record")
+        else:
+            errors.extend(
+                _validate_trace_record(
+                    duplicate_trace,
+                    name=f"arms.{name}.policy_duplicate_trace",
+                )
+            )
+            primary_trace = value.get("trace")
+            primary_leaves = (
+                primary_trace.get("leaves")
+                if isinstance(primary_trace, Mapping)
+                else None
+            )
+            duplicate_leaves = duplicate_trace.get("leaves")
+            if isinstance(primary_leaves, Mapping) and isinstance(
+                duplicate_leaves, Mapping
+            ):
+                primary_science = {
+                    key: item
+                    for key, item in primary_leaves.items()
+                    if key != "analytic_gradient_ms"
+                }
+                duplicate_science = {
+                    key: item
+                    for key, item in duplicate_leaves.items()
+                    if key != "analytic_gradient_ms"
+                }
+                if primary_science != duplicate_science:
+                    errors.append(f"arms.{name} policy duplicate science trace differs")
         if value.get("policy_replay_exact") is not True:
             errors.append(f"arms.{name} policy duplicate must be exact")
         repeats = value.get("repeats")
@@ -799,6 +1095,7 @@ def validate_r03a_result(value: Mapping[str, Any]) -> List[str]:
         "config_file_sha256",
         "checkpoint_id",
         "checkpoint_sha256",
+        "noise",
     }
     if not isinstance(provenance, Mapping) or not required_provenance.issubset(provenance):
         errors.append("provenance is missing required allocation/source fields")
@@ -818,6 +1115,15 @@ def validate_r03a_result(value: Mapping[str, Any]) -> List[str]:
         case = provenance.get("case_record")
         if not isinstance(case, Mapping) or case.get("case_id") != value.get("case_id"):
             errors.append("provenance.case_record differs from result case")
+        _noise, item_errors = _validate_array_record(
+            provenance.get("noise"), name="provenance.noise", shape=(10, 32)
+        )
+        errors.extend(item_errors)
+        if (
+            isinstance(provenance.get("noise"), Mapping)
+            and provenance["noise"].get("dtype") != "float32"
+        ):
+            errors.append("provenance.noise.dtype must be float32")
 
     pairing = value.get("pairing")
     if not isinstance(pairing, Mapping) or set(pairing) != PAIRING_KEYS:
@@ -885,6 +1191,50 @@ def validate_r03a_result(value: Mapping[str, Any]) -> List[str]:
     else:
         for name in EXPECTED_ARMS:
             errors.extend(_validate_arm(name, arms[name], terminal=terminal, budget_l2=budget_l2))
+
+    if (
+        isinstance(pairing, Mapping)
+        and set(pairing) == PAIRING_KEYS
+        and isinstance(provenance, Mapping)
+        and isinstance(arms, Mapping)
+        and set(arms) == set(EXPECTED_ARMS)
+        and isinstance(arms.get("frozen"), Mapping)
+    ):
+        frozen = arms["frozen"]
+        cross_links = (
+            (
+                "noise",
+                provenance.get("noise"),
+                provenance.get("noise", {}).get("sha256")
+                if isinstance(provenance.get("noise"), Mapping)
+                else None,
+            ),
+            (
+                "source_frozen_actions",
+                frozen.get("full_actions"),
+                frozen.get("full_actions", {}).get("sha256")
+                if isinstance(frozen.get("full_actions"), Mapping)
+                else None,
+            ),
+            (
+                "source_frozen_trace",
+                frozen.get("trace"),
+                frozen.get("trace_sha256"),
+            ),
+        )
+        for name, expected_payload, expected_sha in cross_links:
+            binding = pairing.get(name)
+            if not isinstance(binding, Mapping):
+                continue
+            if binding.get("fresh") != expected_payload:
+                errors.append(f"pairing.{name}.fresh differs from its retained result payload")
+            if expected_sha is not None and binding.get("fresh_sha256") != expected_sha:
+                errors.append(f"pairing.{name}.fresh_sha256 differs from its retained result SHA")
+        frozen_trace = frozen.get("trace")
+        if isinstance(frozen_trace, Mapping) and frozen.get("trace_sha256") != frozen_trace.get(
+            "sha256"
+        ):
+            errors.append("arms.frozen.trace_sha256 differs from arms.frozen.trace")
 
     outcome = value.get("outcome")
     if not isinstance(outcome, Mapping) or set(outcome) != OUTCOME_KEYS:

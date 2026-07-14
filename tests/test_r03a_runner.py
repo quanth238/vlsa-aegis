@@ -104,6 +104,8 @@ class R03ARunnerContractTest(unittest.TestCase):
             "extra": np.asarray([1], dtype=np.int64),
         }
         diagnostic = _trace_pairing_diagnostics(source, fresh)
+        self.assertFalse(diagnostic["exact_native_leaf_pairing"])
+        self.assertFalse(diagnostic["canonical_record_equal"])
         self.assertEqual(diagnostic["missing_from_fresh"], ["time"])
         self.assertEqual(diagnostic["extra_in_fresh"], ["extra"])
         leaf = diagnostic["leaves"]["x_t"]
@@ -112,6 +114,98 @@ class R03ARunnerContractTest(unittest.TestCase):
         self.assertFalse(leaf["native_bytes_equal"])
         self.assertEqual(leaf["maximum_absolute_error"], 0.25)
         self.assertNotEqual(leaf["source_sha256"], leaf["fresh_sha256"])
+
+    def test_trace_pairing_exactness_requires_dtype_shape_values_and_native_bytes(self) -> None:
+        from crfs_oracle.r03a_runner import _trace_pairing_diagnostics
+
+        source = {
+            "x_t": np.asarray([[0.0, -0.0, 2.0]], dtype=np.float32),
+            "time": np.asarray([0.5], dtype=np.float32),
+        }
+        exact = _trace_pairing_diagnostics(
+            source, {key: value.copy() for key, value in source.items()}
+        )
+        self.assertTrue(exact["raw_key_sets_equal"])
+        self.assertTrue(exact["canonical_record_equal"])
+        self.assertTrue(exact["exact_native_leaf_pairing"])
+
+        changed_dtype = {key: value.copy() for key, value in source.items()}
+        changed_dtype["time"] = changed_dtype["time"].astype(np.float64)
+        self.assertFalse(
+            _trace_pairing_diagnostics(source, changed_dtype)[
+                "exact_native_leaf_pairing"
+            ]
+        )
+
+        changed_signed_zero = {key: value.copy() for key, value in source.items()}
+        changed_signed_zero["x_t"][0, 1] = np.float32(0.0)
+        signed_zero = _trace_pairing_diagnostics(source, changed_signed_zero)
+        self.assertTrue(signed_zero["leaves"]["x_t"]["array_equal"])
+        self.assertFalse(signed_zero["leaves"]["x_t"]["native_bytes_equal"])
+        self.assertFalse(signed_zero["exact_native_leaf_pairing"])
+
+        changed_ulp = {key: value.copy() for key, value in source.items()}
+        changed_ulp["x_t"][0, 2] = np.nextafter(
+            changed_ulp["x_t"][0, 2], np.float32(np.inf)
+        )
+        self.assertFalse(
+            _trace_pairing_diagnostics(source, changed_ulp)[
+                "exact_native_leaf_pairing"
+            ]
+        )
+
+        changed_shape = {key: value.copy() for key, value in source.items()}
+        changed_shape["x_t"] = changed_shape["x_t"].reshape(3)
+        self.assertFalse(
+            _trace_pairing_diagnostics(source, changed_shape)[
+                "exact_native_leaf_pairing"
+            ]
+        )
+
+        nonfinite = {key: value.copy() for key, value in source.items()}
+        nonfinite["x_t"][0, 2] = np.float32(np.inf)
+        nonfinite_pair = _trace_pairing_diagnostics(nonfinite, nonfinite)
+        self.assertFalse(nonfinite_pair["leaves"]["x_t"]["source_finite"])
+        self.assertFalse(nonfinite_pair["canonical_record_equal"])
+        self.assertFalse(nonfinite_pair["exact_native_leaf_pairing"])
+
+        missing = {"x_t": source["x_t"].copy()}
+        self.assertFalse(
+            _trace_pairing_diagnostics(source, missing)["exact_native_leaf_pairing"]
+        )
+        extra = {**source, "extra": np.asarray([1], dtype=np.int64)}
+        self.assertFalse(
+            _trace_pairing_diagnostics(source, extra)["exact_native_leaf_pairing"]
+        )
+
+        raw_key_collision = {1: source["x_t"], "1": source["time"]}
+        collision = _trace_pairing_diagnostics(
+            raw_key_collision, {"1": source["time"]}
+        )
+        self.assertFalse(collision["source_keys_are_strings"])
+        self.assertFalse(collision["raw_key_sets_equal"])
+        self.assertFalse(collision["exact_native_leaf_pairing"])
+
+        bool_source = {"active": np.asarray([False, True], dtype=np.bool_)}
+        bool_exact = _trace_pairing_diagnostics(
+            bool_source, {"active": bool_source["active"].copy()}
+        )
+        self.assertTrue(bool_exact["exact_native_leaf_pairing"])
+        bool_changed = {"active": np.asarray([False, False], dtype=np.bool_)}
+        self.assertFalse(
+            _trace_pairing_diagnostics(bool_source, bool_changed)[
+                "exact_native_leaf_pairing"
+            ]
+        )
+
+    def test_source_and_repeat_trace_gates_use_the_unified_exact_predicate(self) -> None:
+        runner = (
+            self.root / "main/crfs_oracle/r03a_runner.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("_same_trace(", runner)
+        self.assertGreaterEqual(
+            runner.count('["exact_native_leaf_pairing"]'), 2
+        )
 
     def test_unrun_policy_and_nonfinite_failures_remain_in_denominator(self) -> None:
         from crfs_oracle.r03a_runner import (

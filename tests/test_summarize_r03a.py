@@ -28,6 +28,7 @@ def _cases() -> list[dict]:
 
 
 def _source(case: dict, *, oracle_passed: bool, delta_record: dict) -> dict:
+    base = CASE_FIXTURES.fixture()
     source_arms = {
         name: {"gate": {"passed": False}, "repeats": []}
         for name in SUMMARY.SOURCE_ARM_KEYS
@@ -52,13 +53,17 @@ def _source(case: dict, *, oracle_passed: bool, delta_record: dict) -> dict:
         "status": "completed",
         "provenance": {
             "case_record": dict(case),
-            "noise": {"sha256": "d" * 64},
+            "noise": copy.deepcopy(base["provenance"]["noise"]),
         },
         "pairing": {
-            "policy_observation": {"sha256": "a" * 64},
-            "branch_snapshot": {"fixture_state": [1, 2, 3]},
-            "eager_actions": {"sha256": "b" * 64},
-            "eager_trace": {"sha256": "c" * 64},
+            "policy_observation": copy.deepcopy(
+                base["pairing"]["policy_observation"]["source"]
+            ),
+            "branch_snapshot": copy.deepcopy(
+                base["pairing"]["branch_snapshot"]["source"]
+            ),
+            "eager_actions": copy.deepcopy(base["arms"]["frozen"]["full_actions"]),
+            "eager_trace": copy.deepcopy(base["arms"]["frozen"]["trace"]),
         },
         "directions": {
             "arrays": {"delta_star_model": copy.deepcopy(delta_record)},
@@ -77,17 +82,33 @@ def _source(case: dict, *, oracle_passed: bool, delta_record: dict) -> dict:
     }
 
 
-def _source_pairing_hashes(source: dict) -> dict[str, str]:
+def _source_pairing_records(source: dict) -> dict[str, dict]:
     repeat = source["arms"]["frozen"]["repeats"][0]
     return {
-        "policy_observation": source["pairing"]["policy_observation"]["sha256"],
-        "branch_snapshot": content_hash(source["pairing"]["branch_snapshot"]),
-        "branch_geometry": content_hash(
-            SUMMARY._canonical_rollout_geometry(repeat)
-        ),
-        "noise": source["provenance"]["noise"]["sha256"],
-        "source_frozen_actions": source["pairing"]["eager_actions"]["sha256"],
-        "source_frozen_trace": source["pairing"]["eager_trace"]["sha256"],
+        "policy_observation": source["pairing"]["policy_observation"],
+        "branch_snapshot": source["pairing"]["branch_snapshot"],
+        "branch_geometry": SUMMARY._canonical_rollout_geometry(repeat),
+        "noise": source["provenance"]["noise"],
+        "source_frozen_actions": source["pairing"]["eager_actions"],
+        "source_frozen_trace": source["pairing"]["eager_trace"],
+    }
+
+
+def _source_pairing_hashes(source: dict) -> dict[str, str]:
+    records = _source_pairing_records(source)
+    return {
+        name: (
+            record["sha256"]
+            if name
+            in {
+                "policy_observation",
+                "noise",
+                "source_frozen_actions",
+                "source_frozen_trace",
+            }
+            else content_hash(record)
+        )
+        for name, record in records.items()
     }
 
 
@@ -115,9 +136,15 @@ def _result(
     value["source_evidence"]["r02_case_path"] = str(source_path)
     value["source_evidence"]["r02_case_sha256"] = file_sha256(source_path)
 
+    source_records = _source_pairing_records(source)
     for name, digest in _source_pairing_hashes(source).items():
-        value["pairing"][name]["source_sha256"] = digest
-        value["pairing"][name]["fresh_sha256"] = digest
+        value["pairing"][name] = {
+            "source": copy.deepcopy(source_records[name]),
+            "fresh": copy.deepcopy(source_records[name]),
+            "source_sha256": digest,
+            "fresh_sha256": digest,
+        }
+    value["provenance"]["noise"] = copy.deepcopy(source["provenance"]["noise"])
     value["outcome"]["source_arm_gate_pass"] = {
         name: source["arms"][name]["gate"]["passed"]
         for name in SUMMARY.SOURCE_ARM_KEYS
@@ -132,6 +159,15 @@ def _result(
                 "analytic_trajectory_early", passed=early_passed
             ),
         }
+        value["arms"]["frozen"]["full_actions"] = copy.deepcopy(
+            source["pairing"]["eager_actions"]
+        )
+        value["arms"]["frozen"]["trace"] = copy.deepcopy(
+            source["pairing"]["eager_trace"]
+        )
+        value["arms"]["frozen"]["trace_sha256"] = source["pairing"][
+            "eager_trace"
+        ]["sha256"]
         value["outcome"]["arm_gate_pass"] = {
             name: value["arms"][name]["gate"]["passed"]
             for name in SUMMARY.EXPECTED_ARMS
