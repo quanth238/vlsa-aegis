@@ -1039,12 +1039,19 @@ def _validate_analytic_trace(
         raise RuntimeError("analytic trace active mask differs from the registered start")
     if int(np.asarray(trace["intervention_step"]).item()) != intervention_step:
         raise RuntimeError("analytic trace intervention_step differs")
-    dt = float(np.asarray(trace["dt"]).item())
-    if not math.isclose(dt, -0.1, rel_tol=0.0, abs_tol=2e-8):
+    # These are fixed protocol constants serialized by the sampler as native
+    # float32 scalars.  Construct their expected values in that same recorded
+    # dtype and compare exactly; a binary64 literal plus a fitted allowance is
+    # not their identity (notably for the early horizon, float32(0.9)).
+    dt_scalar = np.asarray(trace["dt"])
+    expected_dt_scalar = np.asarray(np.float32(-0.1))
+    if not np.array_equal(dt_scalar, expected_dt_scalar):
         raise RuntimeError("analytic trace reverse-time Euler step differs from -0.1")
-    active_horizon = float(np.asarray(trace["active_horizon"]).item())
+    dt = float(dt_scalar.item())
     expected_horizon = (10 - intervention_step) / 10.0
-    if not math.isclose(active_horizon, expected_horizon, rel_tol=0.0, abs_tol=2e-8):
+    active_horizon_scalar = np.asarray(trace["active_horizon"])
+    expected_horizon_scalar = np.asarray(np.float32(expected_horizon))
+    if not np.array_equal(active_horizon_scalar, expected_horizon_scalar):
         raise RuntimeError("analytic trace active horizon differs")
     reported_budget = float(np.asarray(trace["model_l2_path_budget"]).item())
     if not math.isclose(reported_budget, budget, rel_tol=2e-6, abs_tol=2e-6):
@@ -1054,18 +1061,14 @@ def _validate_analytic_trace(
         velocity_gain, budget / expected_horizon, rel_tol=2e-6, abs_tol=2e-6
     ):
         raise RuntimeError("analytic trace velocity gain does not integrate to the budget")
-    if not math.isclose(
-        float(np.asarray(trace["safety_margin_m"]).item()),
-        ENERGY_MARGIN_M,
-        rel_tol=0.0,
-        abs_tol=1e-9,
+    if not np.array_equal(
+        np.asarray(trace["safety_margin_m"]),
+        np.asarray(np.float32(ENERGY_MARGIN_M)),
     ):
         raise RuntimeError("analytic trace safety margin differs")
-    if not math.isclose(
-        float(np.asarray(trace["softplus_tau_m"]).item()),
-        ENERGY_TEMPERATURE_M,
-        rel_tol=0.0,
-        abs_tol=1e-9,
+    if not np.array_equal(
+        np.asarray(trace["softplus_tau_m"]),
+        np.asarray(np.float32(ENERGY_TEMPERATURE_M)),
     ):
         raise RuntimeError("analytic trace softplus temperature differs")
     if int(np.asarray(trace["samples_per_segment"]).item()) != SAMPLES_PER_SEGMENT:

@@ -279,8 +279,11 @@ class R03ARunnerContractTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "translation mask"):
             _source_budget(raw)
 
-    def _valid_analytic_trace(self) -> tuple[dict, dict, np.ndarray]:
-        active = np.arange(10) >= 5
+    def _valid_analytic_trace(
+        self, intervention_step: int = 5
+    ) -> tuple[dict, dict, np.ndarray]:
+        active = np.arange(10) >= intervention_step
+        active_horizon = np.float32((10 - intervention_step) / 10.0)
         x_steps = np.zeros((10, 10, 32), dtype=np.float32)
         trace = {
             "step_index": np.arange(10, dtype=np.int64),
@@ -311,18 +314,18 @@ class R03ARunnerContractTest(unittest.TestCase):
             "analytic_gradient_ms": np.where(active, 1.0, 0.0).astype(np.float32),
             "final_normalized": np.zeros((10, 32), dtype=np.float32),
             "final_normalized_physical": np.zeros((10, 7), dtype=np.float32),
-            "intervention_step": np.int64(5),
+            "intervention_step": np.int64(intervention_step),
             "dt": np.float32(-0.1),
-            "active_horizon": np.float32(0.5),
+            "active_horizon": active_horizon,
             "model_l2_path_budget": np.float32(0.3),
-            "velocity_gain": np.float32(0.6),
+            "velocity_gain": np.float32(np.float32(0.3) / active_horizon),
             "safety_margin_m": np.float32(0.005),
             "softplus_tau_m": np.float32(0.005),
             "samples_per_segment": np.int64(26),
             "integrated_field_l2": np.float32(0.0),
         }
         frozen = {
-            "step_index": np.int64(5),
+            "step_index": np.int64(intervention_step),
             "x_t": np.zeros((10, 32), dtype=np.float32),
             "v_base": np.zeros((10, 32), dtype=np.float32),
             "predicted_clean": np.zeros((10, 32), dtype=np.float32),
@@ -346,6 +349,61 @@ class R03ARunnerContractTest(unittest.TestCase):
         self.assertTrue(diagnostics["physical_reply_exact"])
         self.assertEqual(diagnostics["euler_recurrence_max_abs_error"], 0.0)
         self.assertEqual(diagnostics["euler_terminal_max_abs_error"], 0.0)
+
+    def test_early_active_horizon_uses_exact_recorded_float32_value(self) -> None:
+        from crfs_oracle.r03a_runner import _validate_analytic_trace
+
+        trace, frozen, actions = self._valid_analytic_trace(intervention_step=1)
+        diagnostics = _validate_analytic_trace(
+            trace,
+            reply_actions=actions,
+            intervention_step=1,
+            budget=0.3,
+            config=self.config,
+            frozen_reference_trace=frozen,
+        )
+        self.assertEqual(diagnostics["active_step_count"], 9)
+
+        for direction in (np.float32(-np.inf), np.float32(np.inf)):
+            changed = copy.deepcopy(trace)
+            changed["active_horizon"] = np.nextafter(
+                changed["active_horizon"], direction
+            )
+            with self.subTest(direction=direction), self.assertRaisesRegex(
+                RuntimeError, "active horizon"
+            ):
+                _validate_analytic_trace(
+                    changed,
+                    reply_actions=actions,
+                    intervention_step=1,
+                    budget=0.3,
+                    config=self.config,
+                    frozen_reference_trace=frozen,
+                )
+
+    def test_fixed_protocol_scalars_reject_adjacent_float32_values(self) -> None:
+        from crfs_oracle.r03a_runner import _validate_analytic_trace
+
+        trace, frozen, actions = self._valid_analytic_trace()
+        cases = (
+            ("dt", "Euler step"),
+            ("safety_margin_m", "safety margin"),
+            ("softplus_tau_m", "softplus temperature"),
+        )
+        for field, message in cases:
+            changed = copy.deepcopy(trace)
+            changed[field] = np.nextafter(changed[field], np.float32(np.inf))
+            with self.subTest(field=field), self.assertRaisesRegex(
+                RuntimeError, message
+            ):
+                _validate_analytic_trace(
+                    changed,
+                    reply_actions=actions,
+                    intervention_step=5,
+                    budget=0.3,
+                    config=self.config,
+                    frozen_reference_trace=frozen,
+                )
 
     def test_analytic_trace_rejects_disconnected_trajectory_or_reply(self) -> None:
         from crfs_oracle.r03a_runner import _validate_analytic_trace

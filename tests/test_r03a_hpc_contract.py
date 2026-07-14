@@ -169,6 +169,7 @@ class R03AHPCContractTest(unittest.TestCase):
         self.assertIn('sbatch_args+=(--exclude="$excluded_csv")', value)
         self.assertIn("0024-preserve-source-node-trace-pairing.md", value)
         self.assertIn("0025-bind-r03a-trace-gate-to-native-leaf-evidence.md", value)
+        self.assertIn("0026-validate-r03a-scalars-in-recorded-dtype.md", value)
         self.assertIn('if [ "$mode" = h100_smoke ]', value)
         self.assertIn(".provenance.host // empty", value)
         self.assertIn("selected R02 source hash differs", value)

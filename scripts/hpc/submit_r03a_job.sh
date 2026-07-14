@@ -146,6 +146,7 @@ SOURCE_FILES=(
   docs/decisions/0023-run-strong-analytic-kill-test.md
   docs/decisions/0024-preserve-source-node-trace-pairing.md
   docs/decisions/0025-bind-r03a-trace-gate-to-native-leaf-evidence.md
+  docs/decisions/0026-validate-r03a-scalars-in-recorded-dtype.md
   main/crfs_oracle/r03a_runner.py
   main/crfs_oracle/r03a_validation.py
   main/run_crfs_r03a.py
