@@ -98,12 +98,42 @@ class R03AHPCContractTest(unittest.TestCase):
         value = SUBMIT_JOB.read_text(encoding="utf-8")
         self.assertIn('1|2)', value)
         self.assertIn('--array="0-16%$concurrency"', value)
+        self.assertIn('-t PENDING', value)
+        self.assertIn('ReqTRES=', value)
+        self.assertIn('allocated_job_ids=$(squeue', value)
+        self.assertIn('pending_job_ids=$(squeue', value)
+        self.assertLess(
+            value.index('pending_job_ids=$(squeue'),
+            value.index('allocated_job_ids=$(squeue'),
+        )
+        self.assertIn('node_states=$(sinfo', value)
+        self.assertNotIn('done < <(squeue', value)
+        self.assertNotIn('done < <(sinfo', value)
+        self.assertIn('pending_gpus + concurrency', value)
+        self.assertIn('pending_cpus + cpus_per_task * concurrency', value)
+        self.assertIn('pending_mem_mb + memory_per_task_mb * concurrency', value)
         self.assertIn('test "$projected_gpus" -le 2', value)
         self.assertIn('test "$projected_cpus" -le 16', value)
         self.assertIn('test "$projected_mem_mb" -le $((256 * 1024))', value)
         for state in ("*down*", "*drain*", "*not_resp*"):
             self.assertIn(state, value)
+        self.assertIn(r"*\**", value)
         self.assertIn('sbatch_args+=(--exclude="$excluded_csv")', value)
+
+    def test_worker_rejects_integrity_failures_but_keeps_nonfinite_science(self) -> None:
+        value = WORKER.read_text(encoding="utf-8")
+        result_exists = value.index('test -f "$EXPECTED_RESULT"')
+        acceptance = value.index("FAILURE_STAGE=r03a_apparatus_acceptance")
+        complete = value.index("FAILURE_STAGE=complete")
+        self.assertLess(result_exists, acceptance)
+        self.assertLess(acceptance, complete)
+        self.assertIn('value.get("status") != "completed"', value)
+        self.assertIn('"fresh_nominal_collision_reproduced"', value)
+        self.assertIn('"policy_failure"', value)
+        self.assertIn(
+            '"not_evaluated_after_nominal_collision_not_reconfirmed"', value
+        )
+        self.assertNotIn('"nonfinite_failure"', value)
 
     def test_summary_is_cpu_only_and_has_an_exact_afterok_submission_path(self) -> None:
         sbatch = SLURM_SUMMARY.read_text(encoding="utf-8")

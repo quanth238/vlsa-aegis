@@ -261,6 +261,8 @@ memory_to_mb() {
   esac
 }
 
+pending_job_ids=$(squeue -h -r -u "$(whoami)" -t PENDING -o '%i')
+allocated_job_ids=$(squeue -h -u "$(whoami)" -t RUNNING,COMPLETING,CONFIGURING,SUSPENDED -o '%i')
 allocated_cpus=0
 allocated_mem_mb=0
 allocated_gpus=0
@@ -278,11 +280,35 @@ while IFS= read -r job_id; do
   allocated_cpus=$((allocated_cpus + job_cpus))
   allocated_mem_mb=$((allocated_mem_mb + job_mem_mb))
   allocated_gpus=$((allocated_gpus + job_gpus))
-done < <(squeue -h -u "$(whoami)" -t RUNNING,COMPLETING,CONFIGURING,SUSPENDED -o '%i')
+done < <(printf '%s\n' "$allocated_job_ids")
 
-projected_gpus=$((allocated_gpus + concurrency))
-projected_cpus=$((allocated_cpus + cpus_per_task * concurrency))
-projected_mem_mb=$((allocated_mem_mb + memory_per_task_mb * concurrency))
+pending_cpus=0
+pending_mem_mb=0
+pending_gpus=0
+while IFS= read -r job_id; do
+  test -n "$job_id" || continue
+  req_tres=$(scontrol show job "$job_id" -o | sed -n 's/.* ReqTRES=\([^ ]*\).*/\1/p')
+  test -n "$req_tres" && test "$req_tres" != "(null)" || {
+    echo "cannot determine ReqTRES for pending job $job_id" >&2; exit 2;
+  }
+  job_cpus=$(printf '%s' "$req_tres" | tr ',' '\n' | sed -n 's/^cpu=\([0-9][0-9]*\)$/\1/p')
+  job_mem=$(printf '%s' "$req_tres" | tr ',' '\n' | sed -n 's/^mem=\([^,]*\)$/\1/p')
+  job_gpus=$(printf '%s' "$req_tres" | tr ',' '\n' | sed -n 's#^gres/gpu[^=]*=\([0-9][0-9]*\)$#\1#p' | awk '{sum += $1} END {print sum+0}')
+  test -n "$job_cpus" && test -n "$job_mem" || {
+    echo "cannot parse pending request for $job_id: $req_tres" >&2; exit 2;
+  }
+  job_mem_mb=$(memory_to_mb "$job_mem") || exit 2
+  pending_cpus=$((pending_cpus + job_cpus))
+  pending_mem_mb=$((pending_mem_mb + job_mem_mb))
+  pending_gpus=$((pending_gpus + job_gpus))
+done < <(printf '%s\n' "$pending_job_ids")
+
+projected_gpus=$((allocated_gpus + pending_gpus + concurrency))
+projected_cpus=$((allocated_cpus + pending_cpus + cpus_per_task * concurrency))
+projected_mem_mb=$((allocated_mem_mb + pending_mem_mb + memory_per_task_mb * concurrency))
+echo "existing_allocated_gpus=$allocated_gpus existing_pending_gpus=$pending_gpus"
+echo "existing_allocated_cpus=$allocated_cpus existing_pending_cpus=$pending_cpus"
+echo "existing_allocated_mem_mb=$allocated_mem_mb existing_pending_mem_mb=$pending_mem_mb"
 echo "projected_gpus=$projected_gpus projected_cpus=$projected_cpus projected_mem_mb=$projected_mem_mb"
 test "$projected_gpus" -le 2 || { echo "R03A would exceed the two-GPU ceiling" >&2; exit 2; }
 test "$projected_cpus" -le 16 || { echo "R03A would exceed the 16-CPU ceiling" >&2; exit 2; }
@@ -290,11 +316,12 @@ test "$projected_mem_mb" -le $((256 * 1024)) || { echo "R03A would exceed the 25
 
 eligible_nodes=()
 excluded_nodes=()
+node_states=$(sinfo -h -p "$partition" -N -o '%N|%T' | sort -u)
 while IFS='|' read -r node state; do
   test -n "$node" || continue
   normalized=$(printf '%s' "$state" | tr '[:upper:]' '[:lower:]')
   case "$normalized" in
-    *down*|*drain*|*drng*|*fail*|*maint*|*not_resp*|*notresponding*|*no_resp*|*power*|*unknown*)
+    *down*|*drain*|*drng*|*fail*|*maint*|*not_resp*|*notresponding*|*no_resp*|*power*|*unknown*|*\**)
       excluded_nodes+=("$node")
       continue
       ;;
@@ -304,7 +331,7 @@ while IFS='|' read -r node state; do
   if [ "$free_mem" -ge "$memory_per_task_mb" ]; then
     eligible_nodes+=("$node")
   fi
-done < <(sinfo -h -p "$partition" -N -o '%N|%T' | sort -u)
+done < <(printf '%s\n' "$node_states")
 test "${#eligible_nodes[@]}" -gt 0 || {
   echo "no healthy $partition node has the requested live free memory" >&2; exit 2;
 }

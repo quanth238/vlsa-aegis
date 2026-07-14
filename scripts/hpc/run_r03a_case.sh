@@ -445,6 +445,41 @@ test -f "$EXPECTED_RESULT" || {
   echo "R03A runner returned without final artifact: $EXPECTED_RESULT" >&2
   exit 5
 }
+FAILURE_STAGE=r03a_apparatus_acceptance
+"$LIBERO_PYTHON" - "$EXPECTED_RESULT" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+value = json.loads(path.read_text(encoding="utf-8"))
+if value.get("status") != "completed":
+    raise SystemExit(
+        "R03A apparatus rejection: fresh nominal collision was not reconfirmed"
+    )
+outcome = value.get("outcome")
+if not isinstance(outcome, dict) or outcome.get(
+    "fresh_nominal_collision_reproduced"
+) is not True:
+    raise SystemExit(
+        "R03A apparatus rejection: fresh_nominal_collision_reproduced is not true"
+    )
+arms = value.get("arms")
+if not isinstance(arms, dict):
+    raise SystemExit("R03A apparatus rejection: arms object is missing")
+for name in ("analytic_trajectory_mid", "analytic_trajectory_early"):
+    arm = arms.get(name)
+    if not isinstance(arm, dict):
+        raise SystemExit(f"R03A apparatus rejection: {name} arm is missing")
+    status = arm.get("status")
+    if status in {
+        "policy_failure",
+        "not_evaluated_after_nominal_collision_not_reconfirmed",
+    }:
+        raise SystemExit(
+            f"R03A apparatus rejection: {name} has unacceptable status {status}"
+        )
+PY
 echo "result=$EXPECTED_RESULT"
 echo "result_sha256=$(sha256sum "$EXPECTED_RESULT" | awk '{print $1}')"
 FAILURE_STAGE=complete
