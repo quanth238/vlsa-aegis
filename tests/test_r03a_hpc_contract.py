@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -166,6 +167,30 @@ class R03AHPCContractTest(unittest.TestCase):
             self.assertIn(state, value)
         self.assertIn(r"*\**", value)
         self.assertIn('sbatch_args+=(--exclude="$excluded_csv")', value)
+        self.assertIn("0024-preserve-source-node-trace-pairing.md", value)
+        self.assertIn('if [ "$mode" = h100_smoke ]', value)
+        self.assertIn(".provenance.host // empty", value)
+        self.assertIn("selected R02 source hash differs", value)
+        self.assertIn('node" != "$required_source_node', value)
+        self.assertIn("required source node $required_source_node", value)
+
+    def test_adr0024_retires_cross_node_smoke_and_ungrouped_array(self) -> None:
+        env = {**os.environ, "RUN_ID": "r03a-adr0024-rejection-test"}
+        for wrapper, reason in (
+            (SUBMIT_SMOKE, "retires the cross-node MIG smoke"),
+            (SUBMIT_ARRAY, "blocks the ungrouped full array"),
+        ):
+            with self.subTest(wrapper=wrapper.name):
+                completed = subprocess.run(
+                    [str(wrapper), "unused", "unused", "unused", "unused", "unused"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                )
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn(reason, completed.stderr)
+                self.assertNotIn("Live Slurm state", completed.stdout + completed.stderr)
 
     def test_worker_rejects_integrity_failures_but_keeps_nonfinite_science(self) -> None:
         value = WORKER.read_text(encoding="utf-8")

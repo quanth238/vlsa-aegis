@@ -23,3 +23,4 @@
 - [0021 — Freeze the generated-source canary and direct transfer pilot](docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md)
 - [0022 — Retire the custom generated-source route](docs/decisions/0022-retire-generated-source-route.md)
 - [0023 — Run the strong analytic kill test before probe training](docs/decisions/0023-run-strong-analytic-kill-test.md)
+- [0024 — Preserve source-node trace pairing before interpreting R03A](docs/decisions/0024-preserve-source-node-trace-pairing.md)

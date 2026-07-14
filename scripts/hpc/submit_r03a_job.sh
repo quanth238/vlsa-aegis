@@ -66,6 +66,17 @@ case "$MODE" in
     ;;
 esac
 
+case "$MODE" in
+  smoke)
+    echo "ADR-0024 retires the cross-node MIG smoke; use the source-node H100 smoke" >&2
+    exit 2
+    ;;
+  array)
+    echo "ADR-0024 blocks the ungrouped full array until a hash-derived source-node launcher is registered" >&2
+    exit 2
+    ;;
+esac
+
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$ROOT"
 HOST=${VINUNI_HOST:-vinuni}
@@ -133,6 +144,7 @@ jq -e \
 SOURCE_FILES=(
   configs/experiments/r03a_analytic_kill_test.json
   docs/decisions/0023-run-strong-analytic-kill-test.md
+  docs/decisions/0024-preserve-source-node-trace-pairing.md
   main/crfs_oracle/r03a_runner.py
   main/crfs_oracle/r03a_validation.py
   main/run_crfs_r03a.py
@@ -263,6 +275,34 @@ test "$checked" -eq "$required_case_count" || {
   echo "R03A source-case audit did not reach the required population" >&2; exit 2;
 }
 
+required_source_node=
+if [ "$mode" = h100_smoke ]; then
+  selected_case_id=$(printf '%s\n' "$case_ids" | awk 'NF {print; exit}')
+  selected_r02_result=$r02_raw_root/$selected_case_id/r02-paired.json
+  expected_selected_sha=$(jq -r --arg case_id "$selected_case_id" '
+    [.result_hashes[] | select(.case_id == $case_id) | .sha256] as $matches |
+    if ($matches | length) == 1 then $matches[0] else empty end
+  ' "$r03_summary")
+  test -n "$expected_selected_sha" || {
+    echo "R03 summary has no unique hash for H100 smoke case" >&2; exit 2;
+  }
+  test "$(sha256sum "$selected_r02_result" | awk '{print $1}')" = "$expected_selected_sha" || {
+    echo "selected R02 source hash differs before source-node pinning" >&2; exit 2;
+  }
+  required_source_node=$(jq -r '.provenance.host // empty' "$selected_r02_result")
+  case "$required_source_node" in
+    *[!A-Za-z0-9._-]*|'')
+      echo "selected R02 source host is missing or unsafe" >&2
+      exit 2
+      ;;
+  esac
+  test "$(sinfo -h -p main -N -n "$required_source_node" -o '%N' | sort -u)" = "$required_source_node" || {
+    echo "selected R02 source host is not an exact main-partition node" >&2
+    exit 2
+  }
+  echo "required_source_node=$required_source_node"
+fi
+
 memory_to_mb() {
   value=$1
   case "$value" in
@@ -333,6 +373,9 @@ excluded_nodes=()
 node_states=$(sinfo -h -p "$partition" -N -o '%N|%T' | sort -u)
 while IFS='|' read -r node state; do
   test -n "$node" || continue
+  if [ -n "$required_source_node" ] && [ "$node" != "$required_source_node" ]; then
+    continue
+  fi
   normalized=$(printf '%s' "$state" | tr '[:upper:]' '[:lower:]')
   case "$normalized" in
     *down*|*drain*|*drng*|*fail*|*maint*|*not_resp*|*notresponding*|*no_resp*|*power*|*unknown*|*\**)
@@ -347,7 +390,12 @@ while IFS='|' read -r node state; do
   fi
 done < <(printf '%s\n' "$node_states")
 test "${#eligible_nodes[@]}" -gt 0 || {
-  echo "no healthy $partition node has the requested live free memory" >&2; exit 2;
+  if [ -n "$required_source_node" ]; then
+    echo "required source node $required_source_node is unhealthy or lacks requested live free memory" >&2
+  else
+    echo "no healthy $partition node has the requested live free memory" >&2
+  fi
+  exit 2
 }
 eligible_csv=$(IFS=,; echo "${eligible_nodes[*]}")
 sbatch_args=(--nodelist="$eligible_csv")
