@@ -9,7 +9,7 @@ from pathlib import Path
 
 from crfs_harness.artifacts import validate_jsonl_unique
 from crfs_harness.manifest import validate_case
-from crfs_oracle.runner import OracleConfig, run_case
+from crfs_oracle.runner import oracle_config_from_mapping, run_case
 
 
 def main() -> int:
@@ -33,22 +33,10 @@ def main() -> int:
         raise SystemExit("invalid manifest: " + "; ".join(errors))
     with Path(args.config).open(encoding="utf-8") as handle:
         value = json.load(handle)
-    config = OracleConfig(
+    config = oracle_config_from_mapping(
+        value,
         host=args.host,
         port=args.port,
-        resize_size=int(value["resize_size"]),
-        settle_steps=int(value["settle_steps"]),
-        executed_prefix=int(value["executed_prefix"]),
-        action_horizon=int(value["action_horizon"]),
-        action_dim=int(value["action_dim"]),
-        sampler_steps=int(value["sampler_steps"]),
-        intervention_step=int(value["intervention_step"]),
-        safety_margin_m=float(value["safety_margin_m"]),
-        distance_limit_m=float(value["distance_limit_m"]),
-        eef_radius_m=float(value["eef_radius_m"]),
-        measurement_repeats=int(value.get("measurement_repeats", 2)),
-        stop_after_measurement=bool(value.get("stop_after_measurement", False)),
-        optimizer_max_iterations=int(value["optimizer_max_iterations"]),
         checkpoint_id=args.checkpoint_id,
         checkpoint_sha256=args.checkpoint_sha256,
         output_root=args.output_root,

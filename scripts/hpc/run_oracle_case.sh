@@ -11,13 +11,20 @@ set -euo pipefail
 : "${RUN_ID:?RUN_ID is required}"
 : "${MANIFEST:?MANIFEST is required}"
 : "${CASE_INDEX:=${SLURM_ARRAY_TASK_ID:-0}}"
+: "${CASE_START:=}"
+: "${CASE_END:=}"
 : "${EXPERIMENT_CONFIG:=$REMOTE_REPO/configs/experiments/oracle_smoke.json}"
 : "${PORT:=8130}"
 
 MODEL=$CHECKPOINT_DIR/model.safetensors
 test -f "$MODEL" || { echo "missing converted checkpoint: $MODEL" >&2; exit 2; }
 CHECKPOINT_SHA256=$(sha256sum "$MODEL" | awk '{print $1}')
-CASE_DIR=$EXPERIMENT_ROOT/$RUN_ID/case-$CASE_INDEX
+if [ -n "$CASE_START" ]; then
+  : "${CASE_END:?CASE_END is required with CASE_START}"
+  CASE_DIR=$EXPERIMENT_ROOT/$RUN_ID/batch-$CASE_START-$CASE_END
+else
+  CASE_DIR=$EXPERIMENT_ROOT/$RUN_ID/case-$CASE_INDEX
+fi
 mkdir -p "$CASE_DIR"
 SERVER_LOG=$CASE_DIR/policy-server.log
 CLIENT_LOG=$CASE_DIR/oracle-client.log
@@ -122,16 +129,23 @@ test "$ready" = 1 || { tail -n 200 "$SERVER_LOG" >&2 || true; exit 4; }
 
 export PYTHONPATH=$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/packages/openpi-client/src
 cd "$REMOTE_REPO"
-"$LIBERO_PYTHON" main/run_crfs_oracle.py \
-  --manifest "$MANIFEST" \
-  --case-index "$CASE_INDEX" \
-  --config "$EXPERIMENT_CONFIG" \
-  --output-root "$EXPERIMENT_ROOT" \
-  --run-id "$RUN_ID" \
-  --host 127.0.0.1 \
-  --port "$PORT" \
-  --checkpoint-id "$CHECKPOINT_DIR" \
-  --checkpoint-sha256 "$CHECKPOINT_SHA256" >"$CLIENT_LOG" 2>&1
+COMMON_ARGS=(
+  --manifest "$MANIFEST"
+  --config "$EXPERIMENT_CONFIG"
+  --output-root "$EXPERIMENT_ROOT"
+  --run-id "$RUN_ID"
+  --host 127.0.0.1
+  --port "$PORT"
+  --checkpoint-id "$CHECKPOINT_DIR"
+  --checkpoint-sha256 "$CHECKPOINT_SHA256"
+)
+if [ -n "$CASE_START" ]; then
+  "$LIBERO_PYTHON" main/run_crfs_measurement_batch.py \
+    "${COMMON_ARGS[@]}" --case-start "$CASE_START" --case-end "$CASE_END" >"$CLIENT_LOG" 2>&1
+else
+  "$LIBERO_PYTHON" main/run_crfs_oracle.py \
+    "${COMMON_ARGS[@]}" --case-index "$CASE_INDEX" >"$CLIENT_LOG" 2>&1
+fi
 
 if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
   kill "$SERVER_PID" 2>/dev/null || true

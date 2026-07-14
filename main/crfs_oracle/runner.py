@@ -106,6 +106,40 @@ class OracleConfig:
     run_id: str
 
 
+def oracle_config_from_mapping(
+    value: dict[str, Any],
+    *,
+    host: str,
+    port: int,
+    checkpoint_id: str,
+    checkpoint_sha256: str,
+    output_root: str,
+    run_id: str,
+) -> OracleConfig:
+    """Build the runtime config once for single-case and batched launchers."""
+    return OracleConfig(
+        host=host,
+        port=port,
+        resize_size=int(value["resize_size"]),
+        settle_steps=int(value["settle_steps"]),
+        executed_prefix=int(value["executed_prefix"]),
+        action_horizon=int(value["action_horizon"]),
+        action_dim=int(value["action_dim"]),
+        sampler_steps=int(value["sampler_steps"]),
+        intervention_step=int(value["intervention_step"]),
+        safety_margin_m=float(value["safety_margin_m"]),
+        distance_limit_m=float(value["distance_limit_m"]),
+        eef_radius_m=float(value["eef_radius_m"]),
+        measurement_repeats=int(value.get("measurement_repeats", 2)),
+        stop_after_measurement=bool(value.get("stop_after_measurement", False)),
+        optimizer_max_iterations=int(value["optimizer_max_iterations"]),
+        checkpoint_id=checkpoint_id,
+        checkpoint_sha256=checkpoint_sha256,
+        output_root=output_root,
+        run_id=run_id,
+    )
+
+
 class SafeLiberoCase:
     """Reset/replay wrapper that retains the baseline task and controller."""
 
