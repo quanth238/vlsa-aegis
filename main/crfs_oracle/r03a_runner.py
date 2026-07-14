@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 import math
 import os
@@ -680,6 +681,72 @@ def _science_trace(trace: Mapping[str, Any]) -> Mapping[str, Any]:
         str(key): value
         for key, value in trace.items()
         if str(key) != "analytic_gradient_ms"
+    }
+
+
+def _trace_pairing_diagnostics(
+    source: Mapping[str, Any], fresh: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    """Summarize a frozen-trace mismatch without retaining large tensor values."""
+
+    source_keys = {str(key) for key in source}
+    fresh_keys = {str(key) for key in fresh}
+    leaves: Dict[str, Any] = {}
+    for key in sorted(source_keys | fresh_keys):
+        record: Dict[str, Any] = {
+            "present_in_source": key in source,
+            "present_in_fresh": key in fresh,
+        }
+        if key in source and key in fresh:
+            source_array = np.ascontiguousarray(np.asarray(source[key]))
+            fresh_array = np.ascontiguousarray(np.asarray(fresh[key]))
+            same_shape = source_array.shape == fresh_array.shape
+            same_dtype = source_array.dtype == fresh_array.dtype
+            record.update(
+                {
+                    "source_dtype": str(source_array.dtype),
+                    "fresh_dtype": str(fresh_array.dtype),
+                    "source_shape": list(source_array.shape),
+                    "fresh_shape": list(fresh_array.shape),
+                    "same_dtype": bool(same_dtype),
+                    "same_shape": bool(same_shape),
+                    "array_equal": bool(np.array_equal(source_array, fresh_array)),
+                    "native_bytes_equal": bool(
+                        same_shape
+                        and same_dtype
+                        and source_array.tobytes() == fresh_array.tobytes()
+                    ),
+                    "source_sha256": hashlib.sha256(source_array.tobytes()).hexdigest(),
+                    "fresh_sha256": hashlib.sha256(fresh_array.tobytes()).hexdigest(),
+                    "maximum_absolute_error": None,
+                    "rms_absolute_error": None,
+                }
+            )
+            if (
+                same_shape
+                and np.issubdtype(source_array.dtype, np.number)
+                and np.issubdtype(fresh_array.dtype, np.number)
+            ):
+                difference = np.asarray(fresh_array, dtype=np.float64) - np.asarray(
+                    source_array, dtype=np.float64
+                )
+                if np.all(np.isfinite(difference)):
+                    absolute = np.abs(difference)
+                    record["maximum_absolute_error"] = (
+                        float(np.max(absolute)) if absolute.size else 0.0
+                    )
+                    record["rms_absolute_error"] = (
+                        float(np.sqrt(np.mean(np.square(difference))))
+                        if difference.size
+                        else 0.0
+                    )
+        leaves[key] = record
+    return {
+        "source_keys": sorted(source_keys),
+        "fresh_keys": sorted(fresh_keys),
+        "missing_from_fresh": sorted(source_keys - fresh_keys),
+        "extra_in_fresh": sorted(fresh_keys - source_keys),
+        "leaves": leaves,
     }
 
 
@@ -1752,7 +1819,14 @@ def run_r03a_case(
             frozen_mid_trace, source_mid_trace
         )
         if not all(checks.values()):
-            raise R03ASourceError(f"R03A policy pairing failed: {checks}")
+            trace_diagnostics = _trace_pairing_diagnostics(
+                source_mid_trace, frozen_mid_trace
+            )
+            raise R03ASourceError(
+                "R03A policy pairing failed: "
+                f"{checks}; trace_diagnostics="
+                + json.dumps(trace_diagnostics, sort_keys=True, separators=(",", ":"))
+            )
 
         early_reference_reply, _ = _request(
             client,

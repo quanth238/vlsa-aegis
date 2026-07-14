@@ -92,6 +92,27 @@ class R03ARunnerContractTest(unittest.TestCase):
             {"values": [2.0, 1.0], "p50": 1.0, "p95": 2.0},
         )
 
+    def test_trace_pairing_diagnostic_reports_keys_bytes_and_error(self) -> None:
+        from crfs_oracle.r03a_runner import _trace_pairing_diagnostics
+
+        source = {
+            "x_t": np.asarray([[1.0, 2.0]], dtype=np.float32),
+            "time": np.asarray([0.5], dtype=np.float32),
+        }
+        fresh = {
+            "x_t": np.asarray([[1.0, 2.25]], dtype=np.float32),
+            "extra": np.asarray([1], dtype=np.int64),
+        }
+        diagnostic = _trace_pairing_diagnostics(source, fresh)
+        self.assertEqual(diagnostic["missing_from_fresh"], ["time"])
+        self.assertEqual(diagnostic["extra_in_fresh"], ["extra"])
+        leaf = diagnostic["leaves"]["x_t"]
+        self.assertTrue(leaf["same_dtype"])
+        self.assertTrue(leaf["same_shape"])
+        self.assertFalse(leaf["native_bytes_equal"])
+        self.assertEqual(leaf["maximum_absolute_error"], 0.25)
+        self.assertNotEqual(leaf["source_sha256"], leaf["fresh_sha256"])
+
     def test_unrun_policy_and_nonfinite_failures_remain_in_denominator(self) -> None:
         from crfs_oracle.r03a_runner import (
             _analytic_failure_status,
