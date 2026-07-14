@@ -184,8 +184,8 @@ while IFS= read -r job_id; do
 done < <(squeue -h -u "$(whoami)" -t RUNNING,COMPLETING,CONFIGURING,SUSPENDED -o '%i')
 
 projected_gpus=$((allocated_gpus + 1))
-projected_cpus=$((allocated_cpus + 6))
-projected_mem_mb=$((allocated_mem_mb + 80 * 1024))
+projected_cpus=$((allocated_cpus + 4))
+projected_mem_mb=$((allocated_mem_mb + 32 * 1024))
 echo "current_allocated_gpus=$allocated_gpus current_allocated_cpus=$allocated_cpus current_allocated_mem_mb=$allocated_mem_mb"
 echo "projected_gpus=$projected_gpus projected_cpus=$projected_cpus projected_mem_mb=$projected_mem_mb"
 test "$projected_gpus" -le 2 || {
@@ -201,7 +201,7 @@ test "$projected_mem_mb" -le $((256 * 1024)) || {
   exit 2
 }
 
-minimum_free_mem_mb=$((80 * 1024))
+minimum_free_mem_mb=$((32 * 1024))
 eligible_nodes=()
 excluded_nodes=()
 while IFS='|' read -r node state; do
@@ -226,7 +226,7 @@ while IFS='|' read -r node state; do
 done < <(sinfo -h -p mig -N -o '%N|%T' | sort -u)
 
 test "${#eligible_nodes[@]}" -gt 0 || {
-  echo "generated-source pilot not submitted: no healthy MIG node has a fresh 80 GiB of free host memory" >&2
+  echo "generated-source pilot not submitted: no healthy MIG node has a fresh 32 GiB of free host memory" >&2
   exit 2
 }
 eligible_csv=$(IFS=,; echo "${eligible_nodes[*]}")

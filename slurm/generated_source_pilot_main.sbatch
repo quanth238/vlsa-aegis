@@ -4,8 +4,8 @@
 #SBATCH --account=normal
 #SBATCH --qos=normal
 #SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=80G
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
 #SBATCH --time=01:00:00
 #SBATCH --array=0-0%1
 
