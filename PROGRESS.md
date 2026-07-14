@@ -47,30 +47,32 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The revised combined local R02 gate passes: 155 tests passed and 35 allocation-runtime tests were skipped by `./init.sh`; the NumPy-backed focused R02/parity suite passed 61/61. These are apparatus checks only, not research evidence.
 - Replacement smoke job `27403` completed all six paired arms for case `crfs-1069f29a8d76463a`. The frozen arm reconfirmed collision (`D_sim=-4.356 mm`), the immutable direct witness reconfirmed (`31.806 mm` clearance, `33.372 mm` progress), and the distributed oracle residual passed (`28.997 mm`, `32.984 mm`) while equal-L2 random and analytic controls failed progress and the one-shot bridge failed clearance. This one case is smoke evidence only, not a population claim.
 - The job-27403 artifact validated on its allocation host, but an independent CPU-runtime validator reconstructed the random/analytic directions with maximum `2.22e-16` float64 differences and the near-parallel angle with `7.42e-12` degree difference. ADR-0014 confines numerical tolerance to independently derived float64 reconstructions (`1e-12`, or `1e-10` degrees after `acos`); stored arrays, applied corrections, discrete geometry choices, pairing, actions, outcomes, and scientific gates remain content-bound or exact. A new smoke from the updated clean commit is required before population launch.
+- Commit `83bd671b892d7d8829a34dc986c0b86d9e4c0c16` froze the ADR-0014 portability fix. Clean-commit smoke `27404` completed all six arms, validated independently with no errors, and reproduced the earlier smoke's actions, traces, directions, and scientific outcomes. Its artifact SHA-256 is `220139382fadc6dd90eb08b6f057e6d1ab8fde3a6dfa50e9df0659c63fdc51ce` and records a clean worktree.
+- Full H100 array `27405` completed all 20 immutable cases with exit code 0 and produced exactly 20 final `r02-paired.json` artifacts, with no launch failures. All frozen collisions and all 17 applicable direct witnesses were reconfirmed; there were no missing, duplicate, invalid, direction, bounds, drift, pairing, or source-hash failures.
+- Allocation-backed CPU verifier `27450` passed R02/R03. The committed artifact is `evidence/r03/r03-summary.json`, SHA-256 `dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e`, with ordered result-set digest `fa79a132f2fecbedab5917111ef71f022e52c933d8e535aaca118add5f5b7895`.
+- On the 17 R01-feasible groups, direct witnesses passed 17/17, distributed oracle passed 9/17, and frozen, equal-L2 random, equal-L2 analytic, and one-shot bridge passed 0/17. Oracle minus random was `0.5294118`; its 10,000-replicate grouped 95% bootstrap LCB was `0.2941176`, so every preregistered R03 criterion passed. On the original 20-case population, direct was 17/20 and oracle was 9/20.
+- The analytic matched gate failed with analytic minus random equal to zero and LCB zero. Oracle minus analytic had LCB `0.2941176` and exact one-sided paired `b=9`, `c=0`, `p=0.001953125`. ADR-0012 therefore authorizes R04; this is permission to test a learned probe, not evidence that ECG works or is novel.
+- The eight eligible oracle misses split exactly into four clearance-only and four progress-only failures; none failed both and every direct witness passed. All 17 registered equal-L2 one-midpoint analytic arms passed clearance but failed progress, while all 17 registered `t=0.5` one-shot bridges failed clearance. The failures therefore occur after the physical-existence gate, under the registered flow-intervention mapping; they are consistent with gain, timing, parameterization, nonlinear continuation, and a safety-progress tradeoff, but R03 does not isolate those mechanisms.
+- Independent Python 3.12 validation exposed one additional one-ULP reach-distance mismatch caused by Python's changed float `sum` implementation. ADR-0015 freezes explicit left-to-right three-coordinate accumulation, preserves the full exact annotation, and exactly validates the original H100 case without changing any artifact, action, threshold, or outcome.
+- The final local gate passes after the R03 transition and ADR-0015 fix: `./init.sh` reports 156 passed and 35 allocation-runtime skips; the dependency-backed focused R02 suite passes 84/84; the copied H100 case reconstructs with zero validation errors. These are regression checks, not new research evidence.
 
 ## Active gate
 
-R02 — with allocation-backed public-JAX/PyTorch numerical parity established, test whether the frozen flow can realize the known endpoint-free witness direction and outperform an equal-norm random direction. The direct witness, analytic geometry direction, distributed residual, and one-shot bridge remain distinct arms.
+R04 — learned ECG probe. R02 and R03 passed and authorize a bounded learned-probe experiment. No probe has yet been trained or evaluated, so ECG effectiveness, necessity, novelty, and transport-phase validity remain open.
 
 ## Next
 
-1. Finish the ADR-0014 portability regression gate, commit and push the clean R02 apparatus, synchronize the exact commit to `/home/quanth/working_space/vlsa-aegis-crfs`, and verify the remote worktree is clean.
-2. Run the exact strict replacement smoke command below. This uses a new immutable smoke-only run ID because `r02-oracle-flow-smoke-20260714b` is already complete and must not be reused:
+1. Freeze the R04 estimand, immutable manifests, group-preserving train/validation/test split, deterministic-continuation label, intervention times, dose-calibration groups, and stop rules before training. Do not tune on the 17 R02 claim cases.
+2. Resolve the phase claim before collecting data: either run R04 explicitly as a pregrasp reach pilot, or collect new immutable post-grasp states and calibrate a transport-specific progress threshold before retaining the draft's transport framing.
+3. Before freezing R04, reconcile the draft's fixed `eta=0.1` and Gate-2-only `t_start` rule with any proposed calibration-only intervention-time/dose grid. The primary prediction study should measure held-out deterministic-continuation clearance; the first intervention study should test gradient causality before full guidance.
+4. Pair frozen, learned-gradient, equal-norm random, registered analytic, preregistered margin-stopped analytic, privileged oracle-direction reference, and direct-planner upper-reference arms by simulator state, observation, policy noise, and executed horizon. Keep safe-progress success as the joint outcome and report infeasible or late-intervention cases.
+5. The exact safe command at the start of the next implementation turn is:
 
    ```bash
-   RUN_ID=r02-oracle-flow-smoke-20260714c scripts/hpc/submit_r02_smoke.sh \
-     manifests/oracle_h05_colliding.jsonl \
-     configs/experiments/r02_oracle_flow.json \
-     /mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a \
-     /home/quanth/working_space/vlsa-aegis-crfs/evidence/r01/r01-summary.json \
-     715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5 \
-     /mnt/data/quanth/experiments/crfs-oracle/sampler-parity-r02-20260714c/sampler-parity.json \
-     26083b0a71ec41cf67e0978b815a77bfe71e4b4a4a08a8ddcdaece608de9818a
+   ./init.sh
    ```
 
-3. Independently validate the smoke artifact. If it is valid, run all 20 cases on H100 under a new immutable population ID with concurrency at most two, then run the CPU allocation-backed R03 summary.
-4. Report the feasible-conditioned 17 and original intent-to-treat 20 populations separately. Train no learned probe unless both R03 and the stricter ADR-0012 authorization pass.
-5. Collect new immutable post-grasp states and a new progress calibration before making any transport-phase claim.
+   Do not submit training until the R04 protocol and data identities are frozen.
 
 ## Open scientific risks
 
@@ -79,9 +81,16 @@ R02 — with allocation-backed public-JAX/PyTorch numerical parity established, 
 - The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
 - Sampler parity passed for the frozen public-JAX/PyTorch comparison, but compiled and eager PyTorch paths are numerically rather than byte-for-byte identical; R02 therefore uses the validated eager trace-only path for every paired arm.
 - Eager BF16 actions are hardware/kernel conditioned at small numerical scale. Historical R01-to-R02 drift is bounded by the pre-outcome ADR-0010 limits and reported; all causal arm comparisons remain exact within one allocation.
-- Only one allocation-backed R02 smoke intervention outcome exists. It is useful apparatus evidence but cannot establish an oracle/random or oracle/analytic population effect.
+- R03 is a small, single-task development population. The oracle passed at the minimum integer count above the registered 0.50 threshold (9/17), and its eight failures remain unresolved.
 - A bounded endpoint-free search miss is not an infeasibility certificate. Only a simulator-verified witness proves existence.
 - The R01 witness corrections are large and action-saturating. Physical action existence may therefore lie outside the reachable or task-preserving support of a local flow intervention.
 - The three branch-margin failures show that the registered intervention instant is already too late for some cases. An earlier-state or recovery-barrier study must be a separately frozen experiment, not a post-hoc R01 relabeling.
 - The current controlled metric covers a 6 cm EEF sphere against the active obstacle's oriented boxes, not full-arm mesh safety.
-- Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. A learned probe is justified only by a measured advantage over the analytic geometry arm or a material runtime/representation benefit.
+- The draft currently defines minimum clearance over exact forbidden robot--obstacle geometry, which does not match the controlled EEF-sphere/active-OBB evidence. The formal manuscript metric must be narrowed or the stated full-geometry experiment must be run.
+- The oracle direction is privileged planner-witness information, not a learned clearance gradient. Oracle steerability does not guarantee that a scalar continuation-clearance probe can recover a task-preserving direction.
+- The draft currently constructs synthetic straight-path latents around a source action and labels them with that source action's clearance. For R04, the label must be the exact simulator clearance of the action actually represented by the feature—preferably the frozen deterministic continuation from a real sampler latent—not a different planner or perturbation action.
+- Boundary MAE and rank correlation do not control false-safe predictions at the 5 mm decision threshold. R04 needs a frozen one-sided boundary calibration or false-safe criterion in addition to scalar regression metrics.
+- Excluding low-progress actions from probe training does not guarantee that a clearance gradient remains on the progress-preserving action manifold. The gradient-causality gate must therefore retain safe-progress success and cannot be replaced by clearance improvement.
+- Analytic 0/17 rejects only the registered static, equal-L2, one-midpoint geometry normal. It does not establish that learning is necessary or rule out stronger margin-aware or time-structured analytic guidance.
+- The paper draft describes post-grasp transport, but every current R00--R03 result is a five-step pregrasp reach study. Claims must be reframed or supported by a new phase-specific dataset and calibration.
+- Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. R04 must demonstrate held-out prediction, gradient causality, and a paired advantage with clearly stated sensing/runtime assumptions before supporting an ECG claim.

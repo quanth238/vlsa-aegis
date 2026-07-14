@@ -14,3 +14,5 @@
 - [0012 — Separate oracle steerability from learned-probe authorization](docs/decisions/0012-separate-r03-from-probe-authorization.md)
 - [0013 — Reference the oracle direction to the fresh paired baseline](docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md)
 - [0014 — Use numeric portability for derived R02 reconstruction](docs/decisions/0014-use-numeric-portability-for-derived-r02-reconstruction.md)
+- [0015 — Freeze reach-distance reconstruction arithmetic](docs/decisions/0015-freeze-reach-distance-arithmetic.md)
+- [0016 — Accept R03 and authorize a bounded R04 study](docs/decisions/0016-accept-r03-authorize-r04.md)

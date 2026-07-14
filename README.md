@@ -7,10 +7,13 @@ The original oracle question was deliberately narrower than learning a safety pr
 > Given the exact nearest safe, endpoint-preserving correction for a colliding five-action prefix, can an intervention inside the frozen π0.5 action flow rescue the same observation–noise sample more often than an equal-norm random direction?
 
 H05 stopped before that intervention: exact endpoint preservation made all 20
-five-action and all 20 ten-action repairs analytically infeasible. The active
-R00/R01 pivot now asks whether the same pre-grasp reach states admit any
-endpoint-free action that preserves calibrated task progress. A learned probe
-remains forbidden until endpoint-free oracle intervention and analysis pass.
+five-action and all 20 ten-action repairs analytically infeasible. R00/R01 then
+showed endpoint-free safe-progress actions for 17/20 pregrasp reach states.
+R02/R03 passed the preregistered oracle-steerability and analysis gates: the
+distributed oracle residual passed 9/17 eligible cases versus 0/17 for matched
+random and registered analytic controls. R04 is now the only active gate. This
+authorizes a frozen-protocol learned-probe study; no probe has yet been trained
+or shown effective.
 
 ## Baseline and extensions
 
@@ -25,7 +28,8 @@ The harness adds opt-in seams:
 1. the PyTorch sampler can expose the midpoint trace and apply either distributed residual velocity or a one-shot bridge edit;
 2. policy requests may carry a reserved `__crfs__` control envelope with fixed noise and a physical or normalized correction;
 3. SafeLIBERO can call back after each hidden MuJoCo physics substep without changing ordinary `env.step`;
-4. `main/crfs_oracle/` runs same-state/same-noise nominal, direct-repair, equal-norm random, oracle-residual, and bridge-edit branches.
+4. `main/crfs_oracle/` runs same-state/same-noise nominal, direct-repair,
+   equal-norm random, registered analytic, oracle-residual, and bridge-edit branches.
 5. the R00/R01 path separately measures five-action reach progress and searches
    endpoint-free candidates while keeping `D_opt` and direct `D_sim` verification distinct.
 
@@ -34,7 +38,7 @@ No-control sampler calls retain the baseline return type and integration path.
 ## Evidence ladder
 
 The completed CRFS sequence is H00–H10; the endpoint-free pivot is R00–R04 in
-`feature_list.json`. R00 is the only active gate.
+`feature_list.json`. R00–R03 are passing and R04 is the only active gate.
 
 ```text
 baseline + provenance + replay
@@ -70,22 +74,16 @@ make synthetic
 
 `./init.sh` compiles all new Python modules, runs unit tests, audits required harness artifacts and baseline compatibility, and checks the patch for whitespace errors.
 
-## One-case real experiment
+## Allocation-backed experiments
 
 Real execution uses the existing two-environment baseline boundary: Python 3.11/PyTorch for the OpenPI server and the LIBERO client environment for simulation. Both processes run inside one Slurm allocation; the transient server is terminated by a shell trap.
 
-```bash
-scripts/hpc/preflight.sh
-scripts/hpc/submit_reach_progress_smoke.sh manifests/reach_progress_calibration.jsonl
-```
-
-Do not submit a validation array until:
-
-- the converted PyTorch checkpoint has a recorded hash and parity evidence;
-- deterministic policy and simulator replay pass;
-- the substep geometry/contact audit passes;
-- one `reach-calibration.json` validates;
-- the preliminary scientific deviations are reviewed.
+The R00–R03 allocation evidence and exact Slurm job IDs are recorded in
+`PROGRESS.md` and `evidence/`. There is intentionally no R04 training command
+yet. Before any learned job is submitted, freeze the R04 data identities,
+group-preserving splits, deterministic-continuation label, prediction and
+gradient-causality gates, intervention schedule, and matched controls. Run live
+preflight immediately before every eventual submission.
 
 The detailed procedure is in [the experiment protocol](docs/experiment_protocol.md) and [VinUni runbook](docs/infrastructure/vinuni_h100_runbook.md).
 

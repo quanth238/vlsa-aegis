@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import math
 from pathlib import Path
 import sys
@@ -90,6 +92,40 @@ def tracked_motion(
 
 
 class ReachProgressTest(unittest.TestCase):
+    def test_allocation_distance_reconstructs_exactly_across_python_versions(self) -> None:
+        start = ReachSnapshot(
+            target_object_name=TARGET_OBJECT_NAME,
+            active_obstacle_name="milk_obstacle_1",
+            eef_world_m=(-0.22321332279868714, -0.00268991440858397, 1.1629438753911616),
+            target_world_m=(-0.05856095881552641, 0.18592485042105739, 0.8984041501882155),
+            active_obstacle_world_m=(-0.07512001092655214, 0.029999821980335475, 1.1785310443198294),
+        )
+        end = ReachSnapshot(
+            target_object_name=TARGET_OBJECT_NAME,
+            active_obstacle_name="milk_obstacle_1",
+            eef_world_m=(-0.2314635829430369, 0.02744962281845183, 1.1670508969938587),
+            target_world_m=(-0.05856095881552639, 0.18592485042105739, 0.898404150188853),
+            active_obstacle_world_m=(-0.075120010929088, 0.02999982198027309, 1.1785310443252348),
+        )
+
+        result = annotate_reach_snapshots(start, end, executed_actions=5)
+
+        # These are the allocation-era Python 3.8 values stored in the H100
+        # population artifact.  Exact reconstruction preserves the complete
+        # annotation hash and keeps the progress gate fail-closed.
+        self.assertEqual(
+            result.end_distance_to_branch_target_m.hex(),
+            "0x1.6d2ee216ebf6ep-2",
+        )
+        self.assertEqual(result.reach_progress_m.hex(), "0x1.f2ca29b3edf80p-8")
+        canonical = json.dumps(
+            result.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        )
+        self.assertEqual(
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "34a3c99d1e05e2a995a3df0360fa0c194a9defb521225d17b74c14673d9873a8",
+        )
+
     def test_snapshot_reads_authoritative_simulator_positions(self) -> None:
         data = SimpleNamespace(
             site_xpos=[(0.2, 0.3, 0.4)],

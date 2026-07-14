@@ -1,0 +1,882 @@
+{
+  "analysis_scope": "pregrasp R01-feasible-conditioned oracle-flow test; synthetic inputs, when explicitly enabled through the Python test API, remain implementation evidence only",
+  "analytic_matched_gate": {
+    "analytic_minus_random_at_least_0_20": false,
+    "analytic_spsr_at_least_0_50": false,
+    "criteria_met": false,
+    "grouped_bootstrap_lcb_above_zero": false,
+    "registered_thresholds": {
+      "analytic_minus_random_minimum": 0.2,
+      "analytic_spsr_minimum": 0.5,
+      "grouped_bootstrap_lcb_strictly_above": 0.0
+    },
+    "scientific_gate_passed": false
+  },
+  "artifact_type": "r02_r03_population_summary",
+  "decision": "The preregistered distributed-oracle R03 criteria passed.",
+  "failures": {
+    "analytic": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [
+        "crfs-1069f29a8d76463a",
+        "crfs-1ba89ba2bd5d2446",
+        "crfs-1fb59f5f776abdb7",
+        "crfs-2b4a9be3141b6497",
+        "crfs-4ae9764a0ac917ab",
+        "crfs-4db90bad9285c42f",
+        "crfs-7eddaafffb4f9474",
+        "crfs-85576fa80ecf9213",
+        "crfs-9c24a1bac11c802e",
+        "crfs-b42834119d47932b",
+        "crfs-bd7b0adf95145623",
+        "crfs-c5acc4012a56d2ff",
+        "crfs-ce1ea5633a7c3260",
+        "crfs-dca78fe04e94c903",
+        "crfs-dced90c346cbc407",
+        "crfs-e56e2c7eb67b3f0b",
+        "crfs-fe60945777ecc68e"
+      ],
+      "failed_gate_count": 17,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    },
+    "bridge": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [
+        "crfs-1069f29a8d76463a",
+        "crfs-1ba89ba2bd5d2446",
+        "crfs-1fb59f5f776abdb7",
+        "crfs-2b4a9be3141b6497",
+        "crfs-4ae9764a0ac917ab",
+        "crfs-4db90bad9285c42f",
+        "crfs-7eddaafffb4f9474",
+        "crfs-85576fa80ecf9213",
+        "crfs-9c24a1bac11c802e",
+        "crfs-b42834119d47932b",
+        "crfs-bd7b0adf95145623",
+        "crfs-c5acc4012a56d2ff",
+        "crfs-ce1ea5633a7c3260",
+        "crfs-dca78fe04e94c903",
+        "crfs-dced90c346cbc407",
+        "crfs-e56e2c7eb67b3f0b",
+        "crfs-fe60945777ecc68e"
+      ],
+      "failed_gate_count": 17,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    },
+    "direct": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [],
+      "failed_gate_count": 0,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    },
+    "frozen": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [
+        "crfs-1069f29a8d76463a",
+        "crfs-1ba89ba2bd5d2446",
+        "crfs-1fb59f5f776abdb7",
+        "crfs-2b4a9be3141b6497",
+        "crfs-3bd38b2879b8b0a9",
+        "crfs-4ae9764a0ac917ab",
+        "crfs-4db90bad9285c42f",
+        "crfs-7eddaafffb4f9474",
+        "crfs-85576fa80ecf9213",
+        "crfs-9c24a1bac11c802e",
+        "crfs-b22f5fccb666732f",
+        "crfs-b42834119d47932b",
+        "crfs-bd7b0adf95145623",
+        "crfs-c5acc4012a56d2ff",
+        "crfs-ce1ea5633a7c3260",
+        "crfs-dbbf42a4f4614e0a",
+        "crfs-dca78fe04e94c903",
+        "crfs-dced90c346cbc407",
+        "crfs-e56e2c7eb67b3f0b",
+        "crfs-fe60945777ecc68e"
+      ],
+      "failed_gate_count": 20,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    },
+    "oracle": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [
+        "crfs-7eddaafffb4f9474",
+        "crfs-85576fa80ecf9213",
+        "crfs-9c24a1bac11c802e",
+        "crfs-bd7b0adf95145623",
+        "crfs-ce1ea5633a7c3260",
+        "crfs-dced90c346cbc407",
+        "crfs-e56e2c7eb67b3f0b",
+        "crfs-fe60945777ecc68e"
+      ],
+      "failed_gate_count": 8,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    },
+    "random": {
+      "bounds_failure_case_ids": [],
+      "bounds_failure_count": 0,
+      "direction_failure_case_ids": [],
+      "direction_failure_count": 0,
+      "failed_gate_case_ids": [
+        "crfs-1069f29a8d76463a",
+        "crfs-1ba89ba2bd5d2446",
+        "crfs-1fb59f5f776abdb7",
+        "crfs-2b4a9be3141b6497",
+        "crfs-4ae9764a0ac917ab",
+        "crfs-4db90bad9285c42f",
+        "crfs-7eddaafffb4f9474",
+        "crfs-85576fa80ecf9213",
+        "crfs-9c24a1bac11c802e",
+        "crfs-b42834119d47932b",
+        "crfs-bd7b0adf95145623",
+        "crfs-c5acc4012a56d2ff",
+        "crfs-ce1ea5633a7c3260",
+        "crfs-dca78fe04e94c903",
+        "crfs-dced90c346cbc407",
+        "crfs-e56e2c7eb67b3f0b",
+        "crfs-fe60945777ecc68e"
+      ],
+      "failed_gate_count": 17,
+      "not_evaluated_after_reconfirmation_failure_case_ids": [],
+      "not_evaluated_after_reconfirmation_failure_count": 0
+    }
+  },
+  "gate": "R03",
+  "gate_passed": true,
+  "identities": {
+    "baseline_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    "checkpoint_id": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch",
+    "checkpoint_sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed",
+    "config": "/home/quanth/working_space/vlsa-aegis-crfs/configs/experiments/r02_oracle_flow.json",
+    "config_file_sha256": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e",
+    "config_hash": "92b53ba587132c5b05a68c038de3b2f19d7694c6b0c9b051deafd3f3ce008c34",
+    "direction_reference": "immutable R01 witness translation minus fresh paired eager translation",
+    "direction_semantics_decision": "/home/quanth/working_space/vlsa-aegis-crfs/docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md",
+    "direction_semantics_decision_sha256": "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c",
+    "frozen_manifest_sha256": "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
+    "git_commit": "83bd671b892d7d8829a34dc986c0b86d9e4c0c16",
+    "manifest": "/home/quanth/working_space/vlsa-aegis-crfs/manifests/oracle_h05_colliding.jsonl",
+    "manifest_sha256": "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
+    "probe_authorization_decision": "/home/quanth/working_space/vlsa-aegis-crfs/docs/decisions/0012-separate-r03-from-probe-authorization.md",
+    "probe_authorization_decision_sha256": "de04c05c38a47c1febd45d8f80e087e69adaca1f805c3844fca75ac79582912f",
+    "r01_ordered_result_set_digest": "6cc9bcf435dbe06396b90e34a0f4930994039538a6cc6ecad82876a538513140",
+    "r01_summary": "/home/quanth/working_space/vlsa-aegis-crfs/evidence/r01/r01-summary.json",
+    "r01_summary_sha256": "715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5",
+    "run_id": "r02-oracle-flow-population-20260714a",
+    "sampler_parity_sha256": "26083b0a71ec41cf67e0978b815a77bfe71e4b4a4a08a8ddcdaece608de9818a",
+    "test_only_contract_or_validator_override": false
+  },
+  "learned_probe_authorized": true,
+  "observed_rollouts": {
+    "arms": {
+      "analytic": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 17,
+        "scope": "actually rolled-out R01-feasible cases only",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "bridge": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 17,
+        "scope": "actually rolled-out R01-feasible cases only",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "direct": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 17,
+        "scope": "actually rolled-out R01-feasible cases only",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 1.0,
+        "successes": 17
+      },
+      "frozen": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-3bd38b2879b8b0a9",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b22f5fccb666732f",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dbbf42a4f4614e0a",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 20,
+        "scope": "all 20 actually rolled-out frozen cases",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "oracle": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 17,
+        "scope": "actually rolled-out R01-feasible cases only",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 0.5294117647058824,
+        "successes": 9
+      },
+      "random": {
+        "evaluated_case_ids": [
+          "crfs-1069f29a8d76463a",
+          "crfs-1ba89ba2bd5d2446",
+          "crfs-1fb59f5f776abdb7",
+          "crfs-2b4a9be3141b6497",
+          "crfs-4ae9764a0ac917ab",
+          "crfs-4db90bad9285c42f",
+          "crfs-7eddaafffb4f9474",
+          "crfs-85576fa80ecf9213",
+          "crfs-9c24a1bac11c802e",
+          "crfs-b42834119d47932b",
+          "crfs-bd7b0adf95145623",
+          "crfs-c5acc4012a56d2ff",
+          "crfs-ce1ea5633a7c3260",
+          "crfs-dca78fe04e94c903",
+          "crfs-dced90c346cbc407",
+          "crfs-e56e2c7eb67b3f0b",
+          "crfs-fe60945777ecc68e"
+        ],
+        "evaluated_rollouts": 17,
+        "scope": "actually rolled-out R01-feasible cases only",
+        "structural_no_witness_cases_in_denominator": 0,
+        "success_rate": 0.0,
+        "successes": 0
+      }
+    },
+    "definition": "actually executed eligible rollouts; structural no-witness cases never enter this denominator"
+  },
+  "ordered_result_set_digest": "fa79a132f2fecbedab5917111ef71f022e52c933d8e535aaca118add5f5b7895",
+  "paired_analytic_minus_random": {
+    "analytic_spsr": 0.0,
+    "bootstrap": {
+      "confidence_level": 0.95,
+      "group_count": 17,
+      "group_ids": [
+        "safelibero_spatial:II:0:0",
+        "safelibero_spatial:II:0:1",
+        "safelibero_spatial:II:0:10",
+        "safelibero_spatial:II:0:11",
+        "safelibero_spatial:II:0:20",
+        "safelibero_spatial:II:0:21",
+        "safelibero_spatial:II:0:25",
+        "safelibero_spatial:II:0:26",
+        "safelibero_spatial:II:0:30",
+        "safelibero_spatial:II:0:31",
+        "safelibero_spatial:II:0:35",
+        "safelibero_spatial:II:0:36",
+        "safelibero_spatial:II:0:40",
+        "safelibero_spatial:II:0:41",
+        "safelibero_spatial:II:0:45",
+        "safelibero_spatial:II:0:46",
+        "safelibero_spatial:II:0:6"
+      ],
+      "lower_confidence_bound": 0.0,
+      "lower_quantile": 0.025,
+      "method": "fixed-seed nonparametric percentile bootstrap; complete groups resampled with replacement",
+      "quantile_convention": "inverted_cdf (ceil(p*n)-1)",
+      "replicates": 10000,
+      "seed": 20260714,
+      "unit": "complete state/episode group"
+    },
+    "case_count": 17,
+    "matched_gate_criteria": {
+      "analytic_minus_random_at_least_0_20": false,
+      "analytic_spsr_at_least_0_50": false,
+      "criteria_met": false,
+      "grouped_bootstrap_lcb_above_zero": false
+    },
+    "point_difference": 0.0,
+    "random_spsr": 0.0,
+    "scope": "R01-feasible-conditioned complete groups",
+    "structural_no_witness_cases_in_denominator": 0
+  },
+  "paired_oracle_minus_analytic": {
+    "analytic_spsr": 0.0,
+    "bootstrap": {
+      "confidence_level": 0.95,
+      "group_count": 17,
+      "group_ids": [
+        "safelibero_spatial:II:0:0",
+        "safelibero_spatial:II:0:1",
+        "safelibero_spatial:II:0:10",
+        "safelibero_spatial:II:0:11",
+        "safelibero_spatial:II:0:20",
+        "safelibero_spatial:II:0:21",
+        "safelibero_spatial:II:0:25",
+        "safelibero_spatial:II:0:26",
+        "safelibero_spatial:II:0:30",
+        "safelibero_spatial:II:0:31",
+        "safelibero_spatial:II:0:35",
+        "safelibero_spatial:II:0:36",
+        "safelibero_spatial:II:0:40",
+        "safelibero_spatial:II:0:41",
+        "safelibero_spatial:II:0:45",
+        "safelibero_spatial:II:0:46",
+        "safelibero_spatial:II:0:6"
+      ],
+      "lower_confidence_bound": 0.29411764705882354,
+      "lower_quantile": 0.025,
+      "method": "fixed-seed nonparametric percentile bootstrap; complete groups resampled with replacement",
+      "quantile_convention": "inverted_cdf (ceil(p*n)-1)",
+      "replicates": 10000,
+      "seed": 20260714,
+      "unit": "complete state/episode group"
+    },
+    "case_count": 17,
+    "exact_one_sided_paired_test": {
+      "discordant_groups": 9,
+      "first_only_wins_b": 9,
+      "formula": "sum(k=b..b+c, choose(b+c,k)) / 2^(b+c); p=1 if b+c=0",
+      "p_value": 0.001953125,
+      "second_only_wins_c": 0,
+      "test": "exact one-sided paired label-swap discordance tail"
+    },
+    "oracle_spsr": 0.5294117647058824,
+    "point_difference": 0.5294117647058824,
+    "scope": "R01-feasible-conditioned complete groups",
+    "structural_no_witness_cases_in_denominator": 0
+  },
+  "paired_oracle_minus_random": {
+    "bootstrap": {
+      "confidence_level": 0.95,
+      "group_count": 17,
+      "group_ids": [
+        "safelibero_spatial:II:0:0",
+        "safelibero_spatial:II:0:1",
+        "safelibero_spatial:II:0:10",
+        "safelibero_spatial:II:0:11",
+        "safelibero_spatial:II:0:20",
+        "safelibero_spatial:II:0:21",
+        "safelibero_spatial:II:0:25",
+        "safelibero_spatial:II:0:26",
+        "safelibero_spatial:II:0:30",
+        "safelibero_spatial:II:0:31",
+        "safelibero_spatial:II:0:35",
+        "safelibero_spatial:II:0:36",
+        "safelibero_spatial:II:0:40",
+        "safelibero_spatial:II:0:41",
+        "safelibero_spatial:II:0:45",
+        "safelibero_spatial:II:0:46",
+        "safelibero_spatial:II:0:6"
+      ],
+      "lower_confidence_bound": 0.29411764705882354,
+      "lower_quantile": 0.025,
+      "method": "fixed-seed nonparametric percentile bootstrap; complete groups resampled with replacement",
+      "quantile_convention": "inverted_cdf (ceil(p*n)-1)",
+      "replicates": 10000,
+      "seed": 20260714,
+      "unit": "complete state/episode group"
+    },
+    "case_count": 17,
+    "oracle_spsr": 0.5294117647058824,
+    "point_difference": 0.5294117647058824,
+    "random_spsr": 0.0,
+    "scope": "R01-feasible-conditioned complete groups",
+    "structural_no_witness_cases_in_denominator": 0
+  },
+  "population": {
+    "direct_witness_not_reconfirmed_case_ids": [],
+    "duplicate_case_ids": [],
+    "eligible_case_ids": [
+      "crfs-1069f29a8d76463a",
+      "crfs-1ba89ba2bd5d2446",
+      "crfs-1fb59f5f776abdb7",
+      "crfs-2b4a9be3141b6497",
+      "crfs-4ae9764a0ac917ab",
+      "crfs-4db90bad9285c42f",
+      "crfs-7eddaafffb4f9474",
+      "crfs-85576fa80ecf9213",
+      "crfs-9c24a1bac11c802e",
+      "crfs-b42834119d47932b",
+      "crfs-bd7b0adf95145623",
+      "crfs-c5acc4012a56d2ff",
+      "crfs-ce1ea5633a7c3260",
+      "crfs-dca78fe04e94c903",
+      "crfs-dced90c346cbc407",
+      "crfs-e56e2c7eb67b3f0b",
+      "crfs-fe60945777ecc68e"
+    ],
+    "errors": [],
+    "expected_cases": 20,
+    "expected_feasible_conditioned_cases": 17,
+    "expected_structural_no_witness_cases": 3,
+    "final_artifacts_found": 20,
+    "fully_validated_artifacts": 20,
+    "invalid_artifacts": {},
+    "launch_failures": {
+      "case_ids": [],
+      "case_ids_with_both_failure_and_final_artifact": [],
+      "found": 0,
+      "interpretation": "launch failures are audit evidence only and never satisfy a final case",
+      "invalid_records": [],
+      "missing_final_case_ids_with_launch_failure": [],
+      "population_credit": 0,
+      "valid_records": []
+    },
+    "missing_case_ids": [],
+    "nominal_collision_not_reconfirmed_case_ids": [],
+    "paired_baseline_reconfirmed": true,
+    "raw_r01_source": {
+      "invalid_artifacts": {},
+      "result_hashes": [
+        {
+          "case_id": "crfs-1069f29a8d76463a",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-1069f29a8d76463a/endpoint-free-feasibility.json",
+          "sha256": "a14ee3c60124c13fad89673b557ef2c01b72729c1ff35ac49ccd2210820cf12e"
+        },
+        {
+          "case_id": "crfs-1ba89ba2bd5d2446",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-1ba89ba2bd5d2446/endpoint-free-feasibility.json",
+          "sha256": "528cd8e3b8a89a81d68aa5520ab3edc24658b0f84e18c75fd620f8d9c5fb93f7"
+        },
+        {
+          "case_id": "crfs-1fb59f5f776abdb7",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-1fb59f5f776abdb7/endpoint-free-feasibility.json",
+          "sha256": "db86fa62054ac8b5b6cb0720834e2c4e0a4291dabaaacbc1a1af870628edd3eb"
+        },
+        {
+          "case_id": "crfs-2b4a9be3141b6497",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-2b4a9be3141b6497/endpoint-free-feasibility.json",
+          "sha256": "5d040d04b03361d69aaafb4f3160dce776ffde7ab66cd3f32297d6e366aee30a"
+        },
+        {
+          "case_id": "crfs-3bd38b2879b8b0a9",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-3bd38b2879b8b0a9/endpoint-free-feasibility.json",
+          "sha256": "fb0eb3f376dd537b3c79c7ceaeb1e9d1f1359b392c6a0454dafd15474b2db254"
+        },
+        {
+          "case_id": "crfs-4ae9764a0ac917ab",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-4ae9764a0ac917ab/endpoint-free-feasibility.json",
+          "sha256": "acbbe7bdc62bc6d192ef65d66099a7579b1401f7a5e80b131eb6d434b1f6950f"
+        },
+        {
+          "case_id": "crfs-4db90bad9285c42f",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-4db90bad9285c42f/endpoint-free-feasibility.json",
+          "sha256": "49d51330e1843899712ce0f44729dc6f7b0826579642be7401db23a6f46a0aad"
+        },
+        {
+          "case_id": "crfs-7eddaafffb4f9474",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-7eddaafffb4f9474/endpoint-free-feasibility.json",
+          "sha256": "9ca5b605a89b5b4bb7b95c0d20cfee4e16ee4c1e63ca70544c694c26011e8e9d"
+        },
+        {
+          "case_id": "crfs-85576fa80ecf9213",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-85576fa80ecf9213/endpoint-free-feasibility.json",
+          "sha256": "0f1b156be3572768518f1eef0412b769a4cdfb6ebcf31388af35c42a153fd673"
+        },
+        {
+          "case_id": "crfs-9c24a1bac11c802e",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-9c24a1bac11c802e/endpoint-free-feasibility.json",
+          "sha256": "d657da6d402f5e71ac328d0c3638c30df70415e871ca1186e2e9103871f51898"
+        },
+        {
+          "case_id": "crfs-b22f5fccb666732f",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-b22f5fccb666732f/endpoint-free-feasibility.json",
+          "sha256": "24e23db03d52be3c3d4731ad2573c0290f72762cc597232ebd0d31d56e33bec1"
+        },
+        {
+          "case_id": "crfs-b42834119d47932b",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-b42834119d47932b/endpoint-free-feasibility.json",
+          "sha256": "d4f09c82381106c7dd3263b9bb3af800b72fb285a1271a82f0dd1393f68f5751"
+        },
+        {
+          "case_id": "crfs-bd7b0adf95145623",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-bd7b0adf95145623/endpoint-free-feasibility.json",
+          "sha256": "d224b92f2f03fe4efa07d40691e41aa3cb2daa1336761361eead51ffe5e18e57"
+        },
+        {
+          "case_id": "crfs-c5acc4012a56d2ff",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-c5acc4012a56d2ff/endpoint-free-feasibility.json",
+          "sha256": "65c71019c89847f1be1fc612ab8205fe066d377cfd43b396e0bc3dd859b4e2df"
+        },
+        {
+          "case_id": "crfs-ce1ea5633a7c3260",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-ce1ea5633a7c3260/endpoint-free-feasibility.json",
+          "sha256": "e113e9efaba976078bf1838ff59f7cc39d62a4e8ecca9528fa1cbe9ef01158ae"
+        },
+        {
+          "case_id": "crfs-dbbf42a4f4614e0a",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-dbbf42a4f4614e0a/endpoint-free-feasibility.json",
+          "sha256": "e0204db7398fc5def63f3ce73835246f71f2e36552501baafc259865eeacd1f6"
+        },
+        {
+          "case_id": "crfs-dca78fe04e94c903",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-dca78fe04e94c903/endpoint-free-feasibility.json",
+          "sha256": "de32fc3c1ce028dc3529f045dc03a2ba3683144b1982fb8fd10dd40ff1c80dce"
+        },
+        {
+          "case_id": "crfs-dced90c346cbc407",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-dced90c346cbc407/endpoint-free-feasibility.json",
+          "sha256": "20c201e9c77bca63a80e397744f4990601a99d03589a162342bb3d52ba24cf7e"
+        },
+        {
+          "case_id": "crfs-e56e2c7eb67b3f0b",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-e56e2c7eb67b3f0b/endpoint-free-feasibility.json",
+          "sha256": "fcdf066ec28f2e83243be047cac0dacf756c2e2877595845128371a7ff761857"
+        },
+        {
+          "case_id": "crfs-fe60945777ecc68e",
+          "path": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a/crfs-fe60945777ecc68e/endpoint-free-feasibility.json",
+          "sha256": "edb4fdf1d64ff7f85236cbbc95f2e444957a8593fbdbcc5e6a2ebec7b33e4630"
+        }
+      ],
+      "results_root": "/mnt/data/quanth/experiments/crfs-oracle/r01-endpoint-free-population-20260714a",
+      "validated_artifacts": 20
+    },
+    "structural_no_witness_case_ids": [
+      "crfs-3bd38b2879b8b0a9",
+      "crfs-b22f5fccb666732f",
+      "crfs-dbbf42a4f4614e0a"
+    ],
+    "synthetic_implementation_case_ids": [],
+    "terminal_status_counts": {
+      "completed": 17,
+      "not_applicable_no_r01_witness": 3
+    },
+    "unexpected_case_ids": [],
+    "valid": true
+  },
+  "populations": {
+    "feasible_conditioned_17": {
+      "arm_spsr": {
+        "analytic": {
+          "denominator": 17,
+          "raw_arm": "analytic_geometry_residual",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 0
+        },
+        "bridge": {
+          "denominator": 17,
+          "raw_arm": "bridge_diagnostic",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 0
+        },
+        "direct": {
+          "denominator": 17,
+          "raw_arm": "direct_witness",
+          "spsr": 1.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 17
+        },
+        "frozen": {
+          "denominator": 17,
+          "raw_arm": "frozen",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 0
+        },
+        "oracle": {
+          "denominator": 17,
+          "raw_arm": "oracle_residual",
+          "spsr": 0.5294117647058824,
+          "structural_no_witness_zeroes": 0,
+          "successes": 9
+        },
+        "random": {
+          "denominator": 17,
+          "raw_arm": "random_residual",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 0
+        }
+      },
+      "definition": "17 R01 changed-action p_min witness groups",
+      "population_size": 17
+    },
+    "original_20_intent_to_treat": {
+      "arm_spsr": {
+        "analytic": {
+          "denominator": 20,
+          "raw_arm": "analytic_geometry_residual",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 3,
+          "successes": 0
+        },
+        "bridge": {
+          "denominator": 20,
+          "raw_arm": "bridge_diagnostic",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 3,
+          "successes": 0
+        },
+        "direct": {
+          "denominator": 20,
+          "raw_arm": "direct_witness",
+          "spsr": 0.85,
+          "structural_no_witness_zeroes": 3,
+          "successes": 17
+        },
+        "frozen": {
+          "denominator": 20,
+          "raw_arm": "frozen",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 0,
+          "successes": 0
+        },
+        "oracle": {
+          "denominator": 20,
+          "raw_arm": "oracle_residual",
+          "spsr": 0.45,
+          "structural_no_witness_zeroes": 3,
+          "successes": 9
+        },
+        "random": {
+          "denominator": 20,
+          "raw_arm": "random_residual",
+          "spsr": 0.0,
+          "structural_no_witness_zeroes": 3,
+          "successes": 0
+        }
+      },
+      "definition": "original frozen collision population; the frozen arm is observed on all 20, while three R01 no-witness cases are structural zeros for witness-dependent arms",
+      "population_size": 20,
+      "structural_no_witness_cases": 3,
+      "structural_zero_policy": "direct/random/analytic/oracle/bridge only; frozen is observed"
+    }
+  },
+  "primary": {
+    "criteria_met": true,
+    "grouped_bootstrap_lcb_above_zero": true,
+    "oracle_minus_random_at_least_0_20": true,
+    "oracle_spsr_at_least_0_50": true,
+    "registered_thresholds": {
+      "grouped_bootstrap_lcb_strictly_above": 0.0,
+      "oracle_minus_random_minimum": 0.2,
+      "oracle_spsr_minimum": 0.5
+    },
+    "scientific_gate_passed": true
+  },
+  "probe_authorization": {
+    "conditions": {
+      "analytic_vs_random_matched_gate_did_not_pass": true,
+      "oracle_minus_analytic_grouped_lcb_above_zero": true,
+      "oracle_vs_analytic_exact_one_sided_p_below_0_05": true,
+      "r03_oracle_vs_random_scientific_gate_passed": true
+    },
+    "decision": "docs/decisions/0012-separate-r03-from-probe-authorization.md",
+    "decision_sha256": "de04c05c38a47c1febd45d8f80e087e69adaca1f805c3844fca75ac79582912f",
+    "interpretation": "authorization permits R04 only; it is not evidence that ECG is effective or novel",
+    "learned_probe_authorized": true,
+    "outcome_conditions_met_before_evidence_tier": true
+  },
+  "r02_apparatus_passed": true,
+  "r03_primary_criteria_met": true,
+  "result_hashes": [
+    {
+      "case_id": "crfs-1069f29a8d76463a",
+      "sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+    },
+    {
+      "case_id": "crfs-1ba89ba2bd5d2446",
+      "sha256": "47860eb7b97dbb23f45be64c078389f087f9d37d2e84e34969450f3a33d7f3fc"
+    },
+    {
+      "case_id": "crfs-1fb59f5f776abdb7",
+      "sha256": "171ccc77a9ea044cad384914f2104678ed29b53c7baaf2c493714bab46ba4818"
+    },
+    {
+      "case_id": "crfs-2b4a9be3141b6497",
+      "sha256": "7661ba3acec2b41918ed84d3e8fa187cdd24789c47b7a0c04580e2fc885f5e63"
+    },
+    {
+      "case_id": "crfs-3bd38b2879b8b0a9",
+      "sha256": "0f284a7cc1eb427e526aa4b0f0ab8b7860273f53999ce9bcf1c505284e5860fb"
+    },
+    {
+      "case_id": "crfs-4ae9764a0ac917ab",
+      "sha256": "83b718d63f4b7e9b9f17ebb5d6ca42e05142ba52c1b3706a384c91c0c785efeb"
+    },
+    {
+      "case_id": "crfs-4db90bad9285c42f",
+      "sha256": "7db5fa3e9b4d49c1257dfa85ce95ae563d6a42cf32f24fedc5a9bb8797d150a4"
+    },
+    {
+      "case_id": "crfs-7eddaafffb4f9474",
+      "sha256": "6ff7292df6e0cc531f8cac87c9a4d607143dd9eb67f12ea4482a6de2a3de5aae"
+    },
+    {
+      "case_id": "crfs-85576fa80ecf9213",
+      "sha256": "44e025da33e61be4e7abde8403e8836700f4353706c97db147bc4767c24f07c6"
+    },
+    {
+      "case_id": "crfs-9c24a1bac11c802e",
+      "sha256": "09df1b14086facdd96e7b6dc2fbc7e7c888edf44e1b51bb11b3c07b1fd70206d"
+    },
+    {
+      "case_id": "crfs-b22f5fccb666732f",
+      "sha256": "780eb6ed8d5a68f232281e989e3d216252a5c1dce6fc5011463f8f5edbc39b47"
+    },
+    {
+      "case_id": "crfs-b42834119d47932b",
+      "sha256": "316913641547410622a6945418741355f69dc0119287599ecff4cc526735d135"
+    },
+    {
+      "case_id": "crfs-bd7b0adf95145623",
+      "sha256": "bc942463329cac0e78d44bf2897f83a8b1144895b1f5cec3988c2bd6c90216bf"
+    },
+    {
+      "case_id": "crfs-c5acc4012a56d2ff",
+      "sha256": "d7f9997b761be9c8e2061060058cc2cdb3ea7adf1156c1c5dc9e55de4d241efe"
+    },
+    {
+      "case_id": "crfs-ce1ea5633a7c3260",
+      "sha256": "e5caeb0168af6dae986d7838d954bb3d3a0f2255fcd5d15c0fbbd7cf44e2afde"
+    },
+    {
+      "case_id": "crfs-dbbf42a4f4614e0a",
+      "sha256": "714a20daa6d45c1761a8175c03dae666d44a52bdfba0ed3d43c54670fcec0278"
+    },
+    {
+      "case_id": "crfs-dca78fe04e94c903",
+      "sha256": "5bad1bc815ea015d21e02294e039f1e43b7b1a55b11383e262b2532327e7d892"
+    },
+    {
+      "case_id": "crfs-dced90c346cbc407",
+      "sha256": "f3466f2037a6bf4fde18e62506d0d4573d669b55e989c98e4d2305abcf07d627"
+    },
+    {
+      "case_id": "crfs-e56e2c7eb67b3f0b",
+      "sha256": "6fbc29a816dec2011f362f2b77691fdfb26607cc8aa5268cffd3284e57391bea"
+    },
+    {
+      "case_id": "crfs-fe60945777ecc68e",
+      "sha256": "09eaae73b269c0711e9e98566e91083c66efad023f751f801afe8db14834c16d"
+    }
+  ],
+  "schema_version": "1.0",
+  "scientific_evidence": true,
+  "status": "passed",
+  "status_counts": {
+    "analytic": {
+      "failed_gate": 17,
+      "not_applicable_no_r01_witness": 3
+    },
+    "bridge": {
+      "failed_gate": 17,
+      "not_applicable_no_r01_witness": 3
+    },
+    "direct": {
+      "not_applicable_no_r01_witness": 3,
+      "passed_gate": 17
+    },
+    "frozen": {
+      "failed_gate": 20
+    },
+    "oracle": {
+      "failed_gate": 8,
+      "not_applicable_no_r01_witness": 3,
+      "passed_gate": 9
+    },
+    "random": {
+      "failed_gate": 17,
+      "not_applicable_no_r01_witness": 3
+    }
+  }
+}

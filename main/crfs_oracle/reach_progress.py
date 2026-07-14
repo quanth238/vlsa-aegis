@@ -30,7 +30,12 @@ def _position3(value: Sequence[float], *, label: str) -> tuple[float, float, flo
 def _distance(left: Sequence[float], right: Sequence[float]) -> float:
     # The allocation's SafeLIBERO client is Python 3.8, before ``zip(strict=)``.
     # Both vectors have already passed the exact length-three snapshot check.
-    return math.sqrt(sum((float(a) - float(b)) ** 2 for a, b in zip(left, right)))
+    # Accumulate explicitly so reconstruction is identical before and after
+    # Python 3.12 changed the implementation of ``sum`` for floats.
+    squared_distance = 0.0
+    for a, b in zip(left, right):
+        squared_distance += (float(a) - float(b)) ** 2
+    return math.sqrt(squared_distance)
 
 
 def _environment_chain(environment):
