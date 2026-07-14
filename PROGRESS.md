@@ -59,27 +59,55 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The revised manuscript now narrows the evidence to a five-action pregrasp reach pilot with a controlled 6 cm EEF sphere against active-obstacle OBBs, distinguishes `D_opt` from `D_sim`, uses continuation-matched labels and groupwise false-safe control, retains progress in the causal outcome, and marks R04 as prospective. Its compiled PDF is nine pages and visually clean; the sparse final references page remains a presentation/page-limit risk.
 - ADR-0017 freezes R04A as a no-learning, one-case real-continuation label-contract smoke. The frozen config SHA-256 is `561128a5a05710e50b282582463127ee3f8cd87c9ebbaee822f8c4602fda1c25`. The reused R00 row is `apparatus_only` and may never enter training, calibration, validation, testing, or a claim.
 - The opt-in R04A apparatus requests duplicate eager no-intervention traces at steps 1--5, enforces `predicted_clean = x_t - t*v_base`, exact physical 10x7 actions across all ten calls, two exact five-action simulator replays, raw 126-sample `D_sim`/tracked-reach reconstruction, world-frame padded 21-OBB geometry, complete source/allocation/hash provenance, explicit optimizer/`D_opt` not-applicable status, atomic finalization, and clean-reviewed-commit resume semantics. It does not edit/resume a latent, train a probe, or apply guidance.
-- An independent patch audit found and closed endpoint-only-label acceptance, approximate-clean semantic, stale-resume, and source-episode split-leakage defects. The dependency-backed focused R04 suite passes 20/20; the complete `./init.sh` gate passes 176 tests with 43 allocation-runtime skips; shell/JSON/whitespace checks and Python 3.8 grammar compatibility pass; malformed artifacts fail validation without throwing. These are local apparatus checks only; no R04A Slurm result exists yet.
-- Reviewed apparatus commit `a54ebc4` is pushed to `origin/agent/crfs-oracle-harness`. Remote synchronization and live preflight could not proceed because the Ruijie SSLVPN was disconnected and SSH to `10.254.152.76:22` timed out twice. No remote source, Slurm job, or result artifact was changed.
+- An independent patch audit found and closed endpoint-only-label acceptance, approximate-clean semantic, stale-resume, and source-episode split-leakage defects. The dependency-backed focused R04 suite passes 20/20; the complete `./init.sh` gate passes 176 tests with 43 allocation-runtime skips; shell/JSON/whitespace checks and Python 3.8 grammar compatibility pass; malformed artifacts fail validation without throwing.
+- The exact remote worktree was cleanly fast-forwarded to reviewed commit `1138be311e255d891e8a3dfaace1a4e631da7479`. A fresh preflight found no user jobs, excluded drained/not-responding `worker-mig-3g40gb-1`, and confirmed 90,771 MiB fresh host memory on healthy `worker-mig-3g40gb-0` before submission.
+- R04A Slurm array task `27514_0` completed in 1m28s with exit `0:0`. Its final artifact is `/mnt/data/quanth/experiments/crfs-oracle/r04a-label-contract-smoke-20260714a/crfs-93365b8b851365f2/r04-label-contract.json`, SHA-256 `b820793ec42a5228c858e297d13806d8ae7f02e5cc7a765769316473d795f285`.
+- All five registered trace steps had exact duplicate requests, all ten complete sampler calls returned the exact same physical action, both five-action simulator replays were exact, and the fixed geometry encoded 21/21 OBBs without truncation. The retained descriptive result had `D_sim=11.531 mm`, no contact, and `26.739 mm` reach progress, below `p_min`; retention of that low-progress row confirms that the apparatus did not filter an unfavorable outcome.
+- Independent CPU Slurm validator `27516` reconstructed the artifact on `worker-2` with zero errors and the same SHA-256. Descriptive inspection job `27518` changed no artifact. The compact record is `evidence/r04a/r04a-validation.json`. This passes the label-plumbing apparatus only; feature R04 remains active and no probe is trained.
+- The post-smoke design audit found that the current bridge cannot label an edited feature, plain BDDL resets are not released Level-II states, the released 50-state task-0 file is exhausted, the proposed `[-0.15,0.15]^15` perturbations do not support doses `0.25`--`4.0`, and current boundary/false-safe/causal group counts are not powered. ADR-0018 freezes the stop before perturbation labels or training.
 
 ## Active gate
 
-R04 — learned ECG probe. R02 and R03 authorize a bounded investigation, and ADR-0017 freezes the preceding R04A label-contract smoke. R04A has not yet produced allocation-backed evidence. No probe has been trained or evaluated, so ECG effectiveness, necessity, novelty, and transport-phase validity remain open.
+R04 — learned ECG probe. R02/R03 authorize a bounded investigation and R04A
+has now passed its allocation-backed label-plumbing contract. ADR-0018 keeps
+R04 active and stops before perturbation labels or training. Exact post-edit
+resume parity, a defensible new state estimand, support-matched perturbations,
+and powered group manifests remain prerequisites. ECG effectiveness,
+necessity, novelty, and transport-phase validity remain open.
 
 ## Next
 
-1. Reconnect the Ruijie SSLVPN, confirm the exact remote worktree is clean, and fast-forward `/home/quanth/working_space/vlsa-aegis-crfs` to the latest pushed `agent/crfs-oracle-harness` commit. Then rerun live VinUni preflight. Submit only the one-element MIG smoke if a healthy node has at least 80 GiB fresh host memory and the aggregate user ceilings remain satisfied.
-2. Validate the allocation artifact independently. A pass establishes label plumbing only; it does not authorize training or satisfy R04.
-3. Before training, create genuinely new immutable source-episode/state groups, freeze complete group-preserving train/calibration/validation/test splits before labels, exclude the R02 claim cases, and preregister boundary power/coverage around 5 mm. All replay-derived branches from one source stay together.
-4. Add and regression-test an exact post-edit latent resume/continuation path before any local perturbation labels. Then run held-out prediction/false-safe and gradient-causality gates before full guidance.
-5. Pair frozen, learned-gradient, equal-realized-norm random, registered analytic, margin-stopped/time-structured analytic, privileged oracle-direction, and direct-planner arms by state, observation, policy noise, and executed horizon. Keep safe-progress success as the joint outcome.
-6. Until VPN connectivity is restored, the exact safe connectivity check is:
+1. Implement the opt-in R04B exact saved-latent resume/edit seam. Capture the
+   float32 trace time, return post-edit feature fields and the normalized final
+   action, and preserve default/residual/bridge behavior with structural and
+   dependency-backed regressions.
+2. Run allocation-backed zero-edit parity at all five registered steps. Every
+   resumed normalized and physical final action must equal the corresponding
+   full eager continuation exactly; do not relax this to an outcome-fitted
+   tolerance.
+3. Seek the benchmark authors' original Level-II state generator. If it is not
+   available, freeze an explicitly new controlled generator with XML plus full
+   state/history provenance and repeat R00--R03 on that new estimand before
+   training.
+4. Replace one-sided local perturbations with a preregistered antithetic,
+   multiscale design. Measure actual post-edit feature support and forbid causal
+   doses outside it.
+5. Freeze the boundary band, equal-group evaluation unit, conformal count,
+   unsafe/boundary/trigger-positive counts, paired discordance assumptions, and
+   joint power simulation before any label or final outcome is opened.
+6. Only after those prerequisites pass, pair frozen, learned-gradient,
+   equal-realized-norm random, registered analytic, margin-stopped/time-structured
+   analytic, privileged oracle-direction, and direct-planner arms by state,
+   observation, policy noise, and executed horizon. Keep safe-progress success
+   as the joint outcome. Do not submit training now.
 
-   ```bash
-   ssh -o BatchMode=yes -o ConnectTimeout=10 vinuni 'hostname'
-   ```
+Exact next local starting command:
 
-   After that succeeds, inspect and fast-forward only the exact remote repository, then run `RUN_ID=r04a-label-contract-smoke-20260714a scripts/hpc/submit_r04_label_smoke.sh manifests/reach_progress_calibration.jsonl configs/experiments/r04_continuation_labels.json`. Do not submit training. The R04A wrapper itself fails closed on source, synchronization, capacity, node-health, and memory checks.
+```bash
+rg -n "crfs_intervention_mode|crfs_return_trace|def sample_actions" openpi/src/openpi/models_pytorch/pi0_pytorch.py openpi/src/openpi/policies/policy.py
+```
+
+No R04B allocation or learned-training submission command is authorized yet.
 
 ## Open scientific risks
 
@@ -93,14 +121,17 @@ R04 — learned ECG probe. R02 and R03 authorize a bounded investigation, and AD
 - The R01 witness corrections are large and action-saturating. Physical action existence may therefore lie outside the reachable or task-preserving support of a local flow intervention.
 - The three branch-margin failures show that the registered intervention instant is already too late for some cases. An earlier-state or recovery-barrier study must be a separately frozen experiment, not a post-hoc R01 relabeling.
 - The current controlled metric covers a 6 cm EEF sphere against the active obstacle's oriented boxes, not full-arm mesh safety.
-- The draft currently defines minimum clearance over exact forbidden robot--obstacle geometry, which does not match the controlled EEF-sphere/active-OBB evidence. The formal manuscript metric must be narrowed or the stated full-geometry experiment must be run.
+- The controlled result remains limited to an EEF sphere against the active obstacle's OBB union; narrowing the manuscript does not provide full-arm safety evidence.
 - The oracle direction is privileged planner-witness information, not a learned clearance gradient. Oracle steerability does not guarantee that a scalar continuation-clearance probe can recover a task-preserving direction.
-- The draft currently constructs synthetic straight-path latents around a source action and labels them with that source action's clearance. For R04, the label must be the exact simulator clearance of the action actually represented by the feature—preferably the frozen deterministic continuation from a real sampler latent—not a different planner or perturbation action.
+- The revised draft now requires exact deterministic-continuation labels, but the required post-edit latent resume seam is not yet implemented or allocation-tested.
 - Boundary MAE and rank correlation do not control false-safe predictions at the 5 mm decision threshold. R04 needs a frozen one-sided boundary calibration or false-safe criterion in addition to scalar regression metrics.
 - Excluding low-progress actions from probe training does not guarantee that a clearance gradient remains on the progress-preserving action manifold. The gradient-causality gate must therefore retain safe-progress success and cannot be replaced by clearance improvement.
 - Analytic 0/17 rejects only the registered static, equal-L2, one-midpoint geometry normal. It does not establish that learning is necessary or rule out stronger margin-aware or time-structured analytic guidance.
-- The paper draft describes post-grasp transport, but every current R00--R03 result is a five-step pregrasp reach study. Claims must be reframed or supported by a new phase-specific dataset and calibration.
+- Every current result is a five-step pregrasp reach study. Post-grasp transport still requires a separate phase-specific oracle ladder and cannot inherit R04 evidence.
 - Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. R04 must demonstrate held-out prediction, gradient causality, and a paired advantage with clearly stated sensing/runtime assumptions before supporting an ECG claim.
 - The passed R00 source has only 30 state groups, a minimum clearance of 10.327 mm, and zero rows in the inclusive 0--10 mm band around the 5 mm decision margin. R00 can exercise R04A plumbing but cannot support probe fitting, calibration, boundary evaluation, or a claim.
 - All 50 currently saved same-task initial episodes are already partitioned across prior development/evaluation work. Repeated policy seeds or replay-derived intermediate branches are not new independent states; claim-bearing R04 needs a newly frozen source-state population or an explicitly expanded scope.
 - R04A follows an unedited deterministic trajectory and does not expose exact latent resume. The existing one-shot bridge trace is pre-edit, so it cannot label a perturbed feature; a post-edit continuation seam remains a prerequisite for the perturbation study.
+- Plain BDDL resets instantiate all declared workspace obstacles and are not equivalent to the released one-active-obstacle Level-II states. The repository contains no author generator for the pruning/parking transformation; a custom generator changes the estimand and requires renewed prerequisite evidence.
+- Sixteen one-sided perturbations from `[-0.15,0.15]^15` have root-mean-square population scale `sqrt(E[RMS^2]) = 0.0866` and maximum RMS `0.15`; they cannot support the proposed `0.25`--`4.0` causal doses or the `0.77`--`1.15` witness range. Support must be measured in the actual post-edit feature space.
+- With 30 unsafe groups, the registered exact false-safe UCB passes only at zero errors. Independent boundary, conformal, trigger-positive, and paired causal group counts remain unpowered until a prospective joint design calculation is frozen.

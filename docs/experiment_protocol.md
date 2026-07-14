@@ -191,3 +191,42 @@ For claim-bearing data, split and bootstrap immutable source initial
 episode/state groups: every replay-derived branch, history, policy noise,
 perturbation, and rollout from one source remains together. New grouped states
 and registered 5 mm boundary coverage are required before training.
+
+Allocation-backed task `27514_0` and independent Slurm validator `27516`
+passed this contract; see ADR-0018 and `evidence/r04a/`. The row remains
+apparatus-only, and the R04 feature remains active rather than passing.
+
+### R04B: exact saved-latent resume/edit parity
+
+Before any perturbation label, add a distinct opt-in resume/edit mode. Consume
+the absolute normalized latent and the captured float32 trace time, apply one
+direct normalized latent edit, recompute the velocity at the edited state, and
+return the post-edit latent, velocity, `predicted_clean`, normalized final
+action, and existing physical final action. Do not overload bridge or residual
+semantics. A zero edit at every registered step must reproduce the complete
+eager normalized and physical final actions exactly in an allocation.
+
+### Claim-bearing R04 stop before training
+
+The released task-0 Level-II finite state file contains only the 50 checked-in
+states already used by R00--R03. Plain BDDL reset is a different six-obstacle
+population, because `safety_level` only selects a pruned state file and no
+pruning generator is checked in. Prefer new draws from the original author
+generator. Any custom single-obstacle generator defines a new estimand, must
+serialize model XML plus full state and setup history, and must repeat the
+R00--R03 prerequisite ladder before learned training.
+
+Reject the proposed 16 one-sided `[-0.15,0.15]^15` perturbations: their maximum
+active-coordinate RMS is `0.15`, below every proposed dose from `0.25` through
+`4.0` and below the prior witness scale. Freeze antithetic, multiscale
+perturbations and measure support in the actual post-edit feature coordinates.
+Guidance doses outside demonstrated valid support are an apparatus limitation.
+
+Define every `N` as immutable source groups with equal group weight. Freeze the
+boundary interval, independent boundary groups at every active time, conformal
+groups, unsafe groups, trigger-positive groups, and paired causal discordance
+model before labels. At 30 unsafe groups the current exact false-safe rule
+passes only with zero errors (`UCB_95=0.09503`); one error gives `0.14860`.
+Separate nominal minimum counts do not establish joint power, so simulate the
+probability that all registered conditions pass before fixing the final
+manifest.

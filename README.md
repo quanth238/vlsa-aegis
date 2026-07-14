@@ -13,8 +13,11 @@ R02/R03 passed the preregistered oracle-steerability and analysis gates: the
 distributed oracle residual passed 9/17 eligible cases versus 0/17 for matched
 random and registered analytic controls. R04 is now the only active gate. This
 authorizes a bounded learned-probe investigation, not training by default.
-ADR-0017 first freezes an allocation-backed, one-case R04A label-contract
-smoke. No probe has yet been trained or shown effective.
+ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
+independent validator `27516` passed that plumbing contract. ADR-0018 still
+stops before perturbation labels or training because exact latent resume,
+independent state provenance, perturbation support, and powered group counts
+remain unresolved. No probe has yet been trained or shown effective.
 
 ## Baseline and extensions
 
@@ -79,13 +82,14 @@ make synthetic
 
 Real execution uses the existing two-environment baseline boundary: Python 3.11/PyTorch for the OpenPI server and the LIBERO client environment for simulation. Both processes run inside one Slurm allocation; the transient server is terminated by a shell trap.
 
-The R00–R03 allocation evidence and exact Slurm job IDs are recorded in
+The R00–R04A allocation evidence and exact Slurm job IDs are recorded in
 `PROGRESS.md` and `evidence/`. There is intentionally no R04 training command.
-The opt-in R04A command only verifies real sampler-trace to physical-action to
-raw-simulator-label plumbing on one reused R00 state; it cannot support a
-learning or efficacy claim. Claim-bearing R04 still requires genuinely new
-source-episode groups, a frozen group-preserving split, boundary coverage,
-prediction and gradient-causality gates, and matched controls. Run live
+R04A verified real sampler-trace to physical-action to raw-simulator-label
+plumbing on one reused R00 state; it cannot support a learning or efficacy
+claim. Claim-bearing R04 still requires exact post-edit continuation parity,
+genuinely new source-episode groups from a defined estimand, a frozen
+group-preserving split, support-matched perturbations, powered boundary and
+false-safe coverage, gradient causality, and matched controls. Run live
 preflight immediately before every submission.
 
 The detailed procedure is in [the experiment protocol](docs/experiment_protocol.md) and [VinUni runbook](docs/infrastructure/vinuni_h100_runbook.md).
@@ -94,7 +98,9 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 
 - `main.tex`: historical proposal containing the stopped exact-endpoint premise;
 - `Chat - Probe in Diffusion Model.md`: design discussion and the endpoint-free pivot record;
-- `docs/decisions/0017-freeze-r04a-continuation-label-contract.md`: active R04A contract;
+- `docs/decisions/0017-freeze-r04a-continuation-label-contract.md`: frozen R04A contract;
+- `docs/decisions/0018-accept-r04a-stop-before-training.md`: passed plumbing evidence and current stop;
+- `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `references.bib`: bibliography;
 - `CRFS_Proposal_Preview.pdf`: compiled preview.
 
