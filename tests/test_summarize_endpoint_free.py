@@ -28,6 +28,75 @@ def manifest_cases() -> list[dict]:
     return [json.loads(line) for line in MANIFEST.read_text(encoding="utf-8").splitlines()]
 
 
+def trial(progress: float) -> dict:
+    return {
+        "clearance_m": 0.006,
+        "contact": False,
+        "measurement_samples": 126,
+        "reach": {
+            "reach_progress_m": progress,
+            "maximum_target_displacement_m": 0.0,
+            "maximum_active_obstacle_displacement_m": 0.0,
+        },
+    }
+
+
+def witness_attempt(*, p_min_changed: bool, p_zero_changed: bool) -> dict | None:
+    if not p_zero_changed:
+        return None
+    progress = 0.02 if p_min_changed else 0.005
+    actions = [[0.0] * 7 for _ in range(5)]
+    actions[0][0] = 0.1
+    repeated = trial(progress)
+    return {
+        "candidate_index": 0,
+        "source": "fixture",
+        "actions": actions,
+        "d_opt_m": 0.02,
+        "progress_opt_m": progress,
+        "objective": 0.005,
+        "within_h04_calibration_domain": True,
+        "proxy_clearance_pass": True,
+        "proxy_progress_pass": p_min_changed,
+        "simulator_safety_pass": True,
+        "simulator_progress_pass": p_min_changed,
+        "scene_stationary": True,
+        "proxy_clearance_false_safe": False,
+        "proxy_clearance_false_negative": False,
+        "proxy_joint_false_negative_at_search_threshold": False,
+        "action_changed_from_nominal": True,
+        "nontranslation_preserved": True,
+        "direct_replay_exact": True,
+        "verified": p_min_changed,
+        "verified_at_p_min": p_min_changed,
+        "verified_at_p_zero": True,
+        "changed_witness_at_p_min": p_min_changed,
+        "changed_witness_at_p_zero": True,
+        "rejection_reasons": [] if p_min_changed else ["progress_below_threshold"],
+        "trials": [repeated, json.loads(json.dumps(repeated))],
+    }
+
+
+def diagnostic_attempt() -> dict:
+    value = witness_attempt(p_min_changed=False, p_zero_changed=True)
+    assert value is not None
+    repeated = trial(-0.005)
+    value.update(
+        {
+            "progress_opt_m": -0.005,
+            "simulator_progress_pass": False,
+            "verified": False,
+            "verified_at_p_min": False,
+            "verified_at_p_zero": False,
+            "changed_witness_at_p_min": False,
+            "changed_witness_at_p_zero": False,
+            "rejection_reasons": ["progress_below_threshold"],
+            "trials": [repeated, json.loads(json.dumps(repeated))],
+        }
+    )
+    return value
+
+
 def artifact(
     case: dict,
     *,
@@ -42,6 +111,32 @@ def artifact(
         p_zero_changed = p_min_changed
     p_min_any = p_min_changed
     p_zero_any = p_zero_changed or p_min_changed
+    raw_attempt = witness_attempt(
+        p_min_changed=p_min_changed,
+        p_zero_changed=bool(p_zero_changed),
+    )
+    supplied_attempts = list(attempts or [])
+    if raw_attempt is None and supplied_attempts:
+        raw_attempt = diagnostic_attempt()
+    if raw_attempt is not None:
+        if supplied_attempts:
+            raw_attempt.update(supplied_attempts[0])
+            supplied_attempts = supplied_attempts[1:]
+        supplied_attempts.insert(0, raw_attempt)
+    nominal_trial = {
+        "clearance_m": -0.001,
+        "contact": False,
+        "measurement_samples": 126,
+        "reach": {
+            "reach_progress_m": 0.02,
+            "maximum_target_displacement_m": 0.0,
+            "maximum_active_obstacle_displacement_m": 0.0,
+        },
+    }
+    selected = next(
+        (item for item in supplied_attempts if item.get("verified") is True),
+        None,
+    )
     return {
         "schema_version": "1.0",
         "gate": "R01",
@@ -78,19 +173,49 @@ def artifact(
             "partition": "main",
             "host": "gpu01",
             "device": "0",
+            "simulator_safety_margin_m": 0.005,
+            "simulator_verification_repeats": 2,
         },
         "calibration": {"summary_sha256": R00_HASH, "p_min_m": 0.01},
-        "nominal": {"collision_reproduced": nominal_reproduced},
+        "nominal": {
+            "actions": [[0.0] * 7 for _ in range(5)],
+            "collision_reproduced": nominal_reproduced,
+            "fails_registered_margin": nominal_reproduced,
+            "repeats": [nominal_trial, json.loads(json.dumps(nominal_trial))],
+        },
         "searches": {
             "p_min": {"outcome": "not_found_within_budget" if p_min_miss else "candidate_found"},
             "p_zero": {"outcome": "not_found_within_budget" if p_zero_miss else "candidate_found"},
         },
         "verification": {
-            "p_min": {"attempts": list(attempts or [])},
-            "p_zero": {"attempts": []},
+            "p_min": {
+                "minimum_progress_m": 0.01,
+                "attempted_candidates": len(supplied_attempts),
+                "verified": selected is not None,
+                "verified_at_p_min": p_min_changed,
+                "verified_at_p_zero": bool(p_zero_changed),
+                "changed_witness_at_p_min": p_min_changed,
+                "changed_witness_at_p_zero": bool(p_zero_changed),
+                "selected": selected,
+                "attempts": supplied_attempts,
+            },
+            "p_zero": {
+                "minimum_progress_m": 0.0,
+                "attempted_candidates": 0,
+                "verified": False,
+                "verified_at_p_min": False,
+                "verified_at_p_zero": False,
+                "changed_witness_at_p_min": False,
+                "changed_witness_at_p_zero": False,
+                "selected": None,
+                "attempts": [],
+            },
         },
         "outcome": {
             "nominal_collision_reproduced": nominal_reproduced,
+            "nominal_fails_registered_margin": nominal_reproduced,
+            "p_min_verified": nominal_reproduced and p_min_changed,
+            "p_zero_verified": nominal_reproduced and bool(p_zero_changed),
             "p_min_changed_witness_verified": p_min_changed,
             "p_zero_changed_witness_verified": p_zero_changed,
             "p_min_any_action_verified": p_min_any,
@@ -167,6 +292,27 @@ class EndpointFreeSummaryTest(unittest.TestCase):
         self.assertEqual(summary["counts"]["bounded_search_miss_p_min"], 1)
         self.assertEqual(summary["counts"]["bounded_search_miss_p_zero"], 2)
         self.assertEqual(summary["counts"]["bounded_search_miss_both"], 1)
+        self.assertEqual(
+            summary["witness_quality"]["selected_changed_p_min_witnesses"], 12
+        )
+        self.assertEqual(summary["witness_quality"]["within_h04_calibration_domain"], 12)
+        self.assertEqual(summary["witness_quality"]["outside_h04_calibration_domain"], 0)
+
+    def test_raw_replay_tamper_cannot_enter_gate_numerator(self) -> None:
+        records = [artifact(case, p_min_changed=True) for case in manifest_cases()]
+        records[0]["verification"]["p_min"]["attempts"][0]["trials"][0][
+            "clearance_m"
+        ] = -0.001
+
+        with tempfile.TemporaryDirectory() as directory:
+            write_population(Path(directory), records)
+            summary = self.summarize(Path(directory), lambda _value: [])
+
+        self.assertFalse(summary["population"]["valid"])
+        self.assertFalse(summary["gate_passed"])
+        self.assertEqual(summary["counts"]["changed_action_p_min_gate_numerator"], 0)
+        errors = summary["population"]["invalid_artifacts"][0]["errors"]
+        self.assertTrue(any("raw replay evidence" in error for error in errors))
 
     def test_population_mismatch_zeroes_gate_numerator(self) -> None:
         cases = manifest_cases()

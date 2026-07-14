@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
+import math
 from pathlib import Path
+import statistics
 from typing import Any, Callable, Mapping
 
 from crfs_harness.artifacts import (
@@ -23,6 +25,11 @@ EXPECTED_CASES = 20
 REQUIRED_CHANGED_ACTION_P_MIN_WITNESSES = 12
 FROZEN_MANIFEST_RELATIVE_PATH = Path("manifests/oracle_h05_colliding.jsonl")
 RESULT_FILENAME = "endpoint-free-feasibility.json"
+EXECUTED_ACTIONS = 5
+EXECUTED_ACTION_WIDTH = 7
+TRANSLATION_DIMENSIONS = 3
+EXPECTED_MEASUREMENT_SAMPLES = 126
+REGISTERED_MAXIMUM_SCENE_MOTION_M = 0.001
 
 Validator = Callable[[Mapping[str, Any]], list[str]]
 
@@ -161,6 +168,442 @@ def _attempts(value: Mapping[str, Any]) -> list[Mapping[str, Any]]:
             continue
         result.extend(item for item in search["attempts"] if isinstance(item, Mapping))
     return result
+
+
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    result = float(value)
+    return result if math.isfinite(result) else None
+
+
+def _action_matrix(value: Any) -> list[list[float]] | None:
+    if not isinstance(value, list) or len(value) != EXECUTED_ACTIONS:
+        return None
+    result = []
+    for row in value:
+        if not isinstance(row, list) or len(row) != EXECUTED_ACTION_WIDTH:
+            return None
+        converted = [_finite_number(item) for item in row]
+        if any(item is None for item in converted):
+            return None
+        result.append([float(item) for item in converted])
+    return result
+
+
+def _trial_passes(
+    trial: Mapping[str, Any],
+    *,
+    minimum_progress_m: float,
+    simulator_safety_margin_m: float,
+) -> bool:
+    clearance = _finite_number(trial.get("clearance_m"))
+    reach = trial.get("reach")
+    if clearance is None or not isinstance(reach, Mapping):
+        return False
+    progress = _finite_number(reach.get("reach_progress_m"))
+    target_motion = _finite_number(reach.get("maximum_target_displacement_m"))
+    obstacle_motion = _finite_number(
+        reach.get("maximum_active_obstacle_displacement_m")
+    )
+    samples = trial.get("measurement_samples")
+    return bool(
+        clearance >= simulator_safety_margin_m
+        and trial.get("contact") is False
+        and progress is not None
+        and progress >= minimum_progress_m
+        and target_motion is not None
+        and target_motion <= REGISTERED_MAXIMUM_SCENE_MOTION_M
+        and obstacle_motion is not None
+        and obstacle_motion <= REGISTERED_MAXIMUM_SCENE_MOTION_M
+        and isinstance(samples, int)
+        and not isinstance(samples, bool)
+        and samples == EXPECTED_MEASUREMENT_SAMPLES
+    )
+
+
+def _attempt_truth(
+    attempt: Mapping[str, Any],
+    *,
+    nominal: list[list[float]],
+    minimum_progress_m: float,
+    p_min_m: float,
+    simulator_safety_margin_m: float,
+    expected_repeats: int,
+) -> dict[str, Any] | None:
+    actions = _action_matrix(attempt.get("actions"))
+    trials_value = attempt.get("trials")
+    if actions is None or not isinstance(trials_value, list) or not all(
+        isinstance(trial, Mapping) for trial in trials_value
+    ):
+        return None
+    trials = list(trials_value)
+    replay_exact = bool(
+        len(trials) == expected_repeats
+        and trials
+        and all(content_hash(trial) == content_hash(trials[0]) for trial in trials[1:])
+    )
+    nontranslation_preserved = all(
+        actions[row][column] == nominal[row][column]
+        for row in range(EXECUTED_ACTIONS)
+        for column in range(TRANSLATION_DIMENSIONS, EXECUTED_ACTION_WIDTH)
+    )
+    action_changed = any(
+        actions[row][column] != nominal[row][column]
+        for row in range(EXECUTED_ACTIONS)
+        for column in range(EXECUTED_ACTION_WIDTH)
+    )
+    translation_within_bounds = all(
+        -1.0 <= actions[row][column] <= 1.0
+        for row in range(EXECUTED_ACTIONS)
+        for column in range(TRANSLATION_DIMENSIONS)
+    )
+    simulator_safety_pass = bool(
+        replay_exact
+        and all(
+            _finite_number(trial.get("clearance_m")) is not None
+            and float(trial["clearance_m"]) >= simulator_safety_margin_m
+            and trial.get("contact") is False
+            and trial.get("measurement_samples") == EXPECTED_MEASUREMENT_SAMPLES
+            for trial in trials
+        )
+    )
+    scene_stationary = bool(
+        replay_exact
+        and all(
+            isinstance(trial.get("reach"), Mapping)
+            and _finite_number(trial["reach"].get("maximum_target_displacement_m"))
+            is not None
+            and float(trial["reach"]["maximum_target_displacement_m"])
+            <= REGISTERED_MAXIMUM_SCENE_MOTION_M
+            and _finite_number(
+                trial["reach"].get("maximum_active_obstacle_displacement_m")
+            )
+            is not None
+            and float(trial["reach"]["maximum_active_obstacle_displacement_m"])
+            <= REGISTERED_MAXIMUM_SCENE_MOTION_M
+            for trial in trials
+        )
+    )
+    simulator_progress_pass = bool(
+        replay_exact
+        and all(
+            isinstance(trial.get("reach"), Mapping)
+            and _finite_number(trial["reach"].get("reach_progress_m")) is not None
+            and float(trial["reach"]["reach_progress_m"]) >= minimum_progress_m
+            for trial in trials
+        )
+    )
+
+    def verified_at(threshold: float) -> bool:
+        return bool(
+            nontranslation_preserved
+            and translation_within_bounds
+            and replay_exact
+            and all(
+                _trial_passes(
+                    trial,
+                    minimum_progress_m=threshold,
+                    simulator_safety_margin_m=simulator_safety_margin_m,
+                )
+                for trial in trials
+            )
+        )
+
+    verified = verified_at(minimum_progress_m)
+    verified_at_p_min = verified_at(p_min_m)
+    verified_at_p_zero = verified_at(0.0)
+    correction = [
+        actions[row][column] - nominal[row][column]
+        for row in range(EXECUTED_ACTIONS)
+        for column in range(TRANSLATION_DIMENSIONS)
+    ]
+    return {
+        "actions": actions,
+        "trials": trials,
+        "direct_replay_exact": replay_exact,
+        "nontranslation_preserved": nontranslation_preserved,
+        "action_changed_from_nominal": action_changed,
+        "translation_within_bounds": translation_within_bounds,
+        "simulator_safety_pass": simulator_safety_pass,
+        "simulator_progress_pass": simulator_progress_pass,
+        "scene_stationary": scene_stationary,
+        "verified": verified,
+        "verified_at_p_min": verified_at_p_min,
+        "verified_at_p_zero": verified_at_p_zero,
+        "changed_witness_at_p_min": bool(action_changed and verified_at_p_min),
+        "changed_witness_at_p_zero": bool(action_changed and verified_at_p_zero),
+        "objective": 0.5 * sum(item * item for item in correction),
+        "correction_l2": math.sqrt(sum(item * item for item in correction)),
+        "correction_rms": math.sqrt(
+            sum(item * item for item in correction) / len(correction)
+        ),
+        "correction_max_abs": max(abs(item) for item in correction),
+        "saturated_translation_components": sum(
+            abs(actions[row][column]) >= 1.0 - 1e-12
+            for row in range(EXECUTED_ACTIONS)
+            for column in range(TRANSLATION_DIMENSIONS)
+        ),
+    }
+
+
+def _direct_evidence_errors(value: Mapping[str, Any]) -> list[str]:
+    """Recompute the R01 numerator from raw actions and repeated rollouts."""
+
+    errors = []
+    provenance = value.get("provenance")
+    calibration = value.get("calibration")
+    nominal_value = value.get("nominal")
+    verification = value.get("verification")
+    outcome = value.get("outcome")
+    if not all(
+        isinstance(item, Mapping)
+        for item in (provenance, calibration, nominal_value, verification, outcome)
+    ):
+        return ["cannot recompute direct evidence from malformed result sections"]
+    nominal = _action_matrix(nominal_value.get("actions"))
+    p_min_m = _finite_number(calibration.get("p_min_m"))
+    simulator_margin = _finite_number(provenance.get("simulator_safety_margin_m"))
+    expected_repeats = provenance.get("simulator_verification_repeats")
+    if (
+        nominal is None
+        or p_min_m is None
+        or simulator_margin is None
+        or not isinstance(expected_repeats, int)
+        or isinstance(expected_repeats, bool)
+        or expected_repeats < 2
+    ):
+        return ["cannot recompute direct evidence from invalid registered thresholds"]
+
+    nominal_repeats = nominal_value.get("repeats")
+    nominal_replay_exact = bool(
+        isinstance(nominal_repeats, list)
+        and len(nominal_repeats) >= 2
+        and all(isinstance(trial, Mapping) for trial in nominal_repeats)
+        and all(
+            content_hash(trial) == content_hash(nominal_repeats[0])
+            for trial in nominal_repeats[1:]
+        )
+    )
+    if not nominal_replay_exact:
+        errors.append("nominal raw repeats are not exact")
+        nominal_collision_reproduced = False
+        nominal_fails_margin = False
+    else:
+        first_nominal = nominal_repeats[0]
+        clearance = _finite_number(first_nominal.get("clearance_m"))
+        contact = first_nominal.get("contact")
+        samples = first_nominal.get("measurement_samples")
+        if (
+            clearance is None
+            or not isinstance(contact, bool)
+            or samples != EXPECTED_MEASUREMENT_SAMPLES
+        ):
+            errors.append("nominal raw repeat lacks valid clearance/contact/sample evidence")
+            nominal_collision_reproduced = False
+            nominal_fails_margin = False
+        else:
+            nominal_collision_reproduced = bool(clearance < 0.0 or contact)
+            nominal_fails_margin = bool(clearance < simulator_margin or contact)
+    for key, expected in (
+        ("collision_reproduced", nominal_collision_reproduced),
+        ("fails_registered_margin", nominal_fails_margin),
+    ):
+        if nominal_value.get(key) is not expected:
+            errors.append(f"nominal.{key} conflicts with raw repeated rollout")
+
+    pooled = {
+        "p_min_any_action_verified": False,
+        "p_zero_any_action_verified": False,
+        "p_min_changed_witness_verified": False,
+        "p_zero_changed_witness_verified": False,
+    }
+    for search_name, expected_threshold in (("p_min", p_min_m), ("p_zero", 0.0)):
+        search = verification.get(search_name)
+        if not isinstance(search, Mapping):
+            errors.append(f"verification.{search_name} is not an object")
+            continue
+        threshold = _finite_number(search.get("minimum_progress_m"))
+        if threshold is None or not math.isclose(
+            threshold, expected_threshold, rel_tol=0.0, abs_tol=1e-12
+        ):
+            errors.append(f"verification.{search_name} has the wrong progress threshold")
+            continue
+        attempts = search.get("attempts")
+        if not isinstance(attempts, list) or not all(
+            isinstance(attempt, Mapping) for attempt in attempts
+        ):
+            errors.append(f"verification.{search_name}.attempts is malformed")
+            continue
+        truths = []
+        for index, attempt in enumerate(attempts):
+            truth = _attempt_truth(
+                attempt,
+                nominal=nominal,
+                minimum_progress_m=threshold,
+                p_min_m=p_min_m,
+                simulator_safety_margin_m=simulator_margin,
+                expected_repeats=expected_repeats,
+            )
+            if truth is None:
+                errors.append(
+                    f"verification.{search_name}.attempts[{index}] lacks raw replay evidence"
+                )
+                continue
+            truths.append(truth)
+            for key in (
+                "direct_replay_exact",
+                "nontranslation_preserved",
+                "action_changed_from_nominal",
+                "simulator_safety_pass",
+                "simulator_progress_pass",
+                "scene_stationary",
+                "verified",
+                "verified_at_p_min",
+                "verified_at_p_zero",
+                "changed_witness_at_p_min",
+                "changed_witness_at_p_zero",
+            ):
+                if attempt.get(key) is not truth[key]:
+                    errors.append(
+                        f"verification.{search_name}.attempts[{index}].{key} "
+                        "conflicts with raw replay evidence"
+                    )
+            objective = _finite_number(attempt.get("objective"))
+            if objective is None or not math.isclose(
+                objective, truth["objective"], rel_tol=0.0, abs_tol=1e-10
+            ):
+                errors.append(
+                    f"verification.{search_name}.attempts[{index}].objective "
+                    "conflicts with action displacement"
+                )
+            if not truth["translation_within_bounds"]:
+                errors.append(
+                    f"verification.{search_name}.attempts[{index}] violates action bounds"
+                )
+        aggregate = {
+            "verified": any(item["verified"] for item in truths),
+            "verified_at_p_min": any(item["verified_at_p_min"] for item in truths),
+            "verified_at_p_zero": any(item["verified_at_p_zero"] for item in truths),
+            "changed_witness_at_p_min": any(
+                item["changed_witness_at_p_min"] for item in truths
+            ),
+            "changed_witness_at_p_zero": any(
+                item["changed_witness_at_p_zero"] for item in truths
+            ),
+        }
+        for key, expected in aggregate.items():
+            if search.get(key) is not expected:
+                errors.append(
+                    f"verification.{search_name}.{key} conflicts with raw attempts"
+                )
+        pooled["p_min_any_action_verified"] |= aggregate["verified_at_p_min"]
+        pooled["p_zero_any_action_verified"] |= aggregate["verified_at_p_zero"]
+        pooled["p_min_changed_witness_verified"] |= aggregate[
+            "changed_witness_at_p_min"
+        ]
+        pooled["p_zero_changed_witness_verified"] |= aggregate[
+            "changed_witness_at_p_zero"
+        ]
+
+    pooled["p_min_verified"] = bool(
+        nominal_collision_reproduced and pooled["p_min_changed_witness_verified"]
+    )
+    pooled["p_zero_verified"] = bool(
+        nominal_collision_reproduced and pooled["p_zero_changed_witness_verified"]
+    )
+    pooled["nominal_collision_reproduced"] = nominal_collision_reproduced
+    pooled["nominal_fails_registered_margin"] = nominal_fails_margin
+    for key, expected in pooled.items():
+        if outcome.get(key) is not expected:
+            errors.append(f"outcome.{key} conflicts with recomputed direct evidence")
+    return errors
+
+
+def _witness_quality(records: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    case_metrics = []
+    for case_id, value in sorted(records.items()):
+        nominal = _action_matrix(value["nominal"]["actions"])
+        p_min_m = float(value["calibration"]["p_min_m"])
+        simulator_margin = float(value["provenance"]["simulator_safety_margin_m"])
+        expected_repeats = int(value["provenance"]["simulator_verification_repeats"])
+        if nominal is None:
+            continue
+        selected = None
+        for search_name in ("p_min", "p_zero"):
+            search = value["verification"][search_name]
+            for attempt in search["attempts"]:
+                truth = _attempt_truth(
+                    attempt,
+                    nominal=nominal,
+                    minimum_progress_m=float(search["minimum_progress_m"]),
+                    p_min_m=p_min_m,
+                    simulator_safety_margin_m=simulator_margin,
+                    expected_repeats=expected_repeats,
+                )
+                if truth is not None and truth["changed_witness_at_p_min"]:
+                    selected = (search_name, attempt, truth)
+                    break
+            if selected is not None:
+                break
+        if selected is None:
+            continue
+        search_name, attempt, truth = selected
+        first_trial = truth["trials"][0]
+        reach = first_trial["reach"]
+        case_metrics.append(
+            {
+                "case_id": case_id,
+                "search": search_name,
+                "candidate_index": attempt["candidate_index"],
+                "source": attempt["source"],
+                "within_h04_calibration_domain": bool(
+                    attempt["within_h04_calibration_domain"]
+                ),
+                "correction_l2": truth["correction_l2"],
+                "correction_rms": truth["correction_rms"],
+                "correction_max_abs": truth["correction_max_abs"],
+                "saturated_translation_components": truth[
+                    "saturated_translation_components"
+                ],
+                "d_sim_m": float(first_trial["clearance_m"]),
+                "reach_progress_m": float(reach["reach_progress_m"]),
+                "target_max_displacement_m": float(
+                    reach["maximum_target_displacement_m"]
+                ),
+                "obstacle_max_displacement_m": float(
+                    reach["maximum_active_obstacle_displacement_m"]
+                ),
+            }
+        )
+
+    def distribution(key: str) -> dict[str, float] | None:
+        values = [float(item[key]) for item in case_metrics]
+        if not values:
+            return None
+        return {
+            "minimum": min(values),
+            "median": statistics.median(values),
+            "maximum": max(values),
+        }
+
+    return {
+        "selected_changed_p_min_witnesses": len(case_metrics),
+        "within_h04_calibration_domain": sum(
+            bool(item["within_h04_calibration_domain"]) for item in case_metrics
+        ),
+        "outside_h04_calibration_domain": sum(
+            not bool(item["within_h04_calibration_domain"]) for item in case_metrics
+        ),
+        "with_saturated_translation_component": sum(
+            int(item["saturated_translation_components"]) > 0 for item in case_metrics
+        ),
+        "correction_l2": distribution("correction_l2"),
+        "correction_rms": distribution("correction_rms"),
+        "d_sim_m": distribution("d_sim_m"),
+        "reach_progress_m": distribution("reach_progress_m"),
+        "case_metrics": case_metrics,
+    }
 
 
 def _case_diagnostics(records: Mapping[str, Mapping[str, Any]]) -> tuple[dict[str, int], dict[str, list[str]]]:
@@ -333,6 +776,9 @@ def summarize_endpoint_free_population(
                     expected_r00_summary_sha256=expected_r00_summary_sha256,
                 )
             )
+            errors.extend(
+                f"direct evidence: {error}" for error in _direct_evidence_errors(value)
+            )
         if errors:
             invalid_artifacts.append(
                 {"case_id": folder_case_id, "path": str(path), "errors": errors}
@@ -379,6 +825,7 @@ def summarize_endpoint_free_population(
         population_errors.append(f"population mixes frozen p_min values: {p_min_values}")
 
     observed_counts, case_ids = _case_diagnostics(valid_records)
+    witness_quality = _witness_quality(valid_records)
     population_valid = not population_errors
     observed_numerator = observed_counts["changed_action_p_min_rescues"]
     gate_numerator = observed_numerator if population_valid else 0
@@ -448,6 +895,7 @@ def summarize_endpoint_free_population(
         "status_counts": dict(
             sorted(Counter(str(value["status"]) for value in valid_records.values()).items())
         ),
+        "witness_quality": witness_quality,
         "ordered_result_set_digest": content_hash(ordered_hashes),
         "result_hashes": ordered_hashes,
     }
