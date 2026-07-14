@@ -60,6 +60,7 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - ADR-0017 freezes R04A as a no-learning, one-case real-continuation label-contract smoke. The frozen config SHA-256 is `561128a5a05710e50b282582463127ee3f8cd87c9ebbaee822f8c4602fda1c25`. The reused R00 row is `apparatus_only` and may never enter training, calibration, validation, testing, or a claim.
 - The opt-in R04A apparatus requests duplicate eager no-intervention traces at steps 1--5, enforces `predicted_clean = x_t - t*v_base`, exact physical 10x7 actions across all ten calls, two exact five-action simulator replays, raw 126-sample `D_sim`/tracked-reach reconstruction, world-frame padded 21-OBB geometry, complete source/allocation/hash provenance, explicit optimizer/`D_opt` not-applicable status, atomic finalization, and clean-reviewed-commit resume semantics. It does not edit/resume a latent, train a probe, or apply guidance.
 - An independent patch audit found and closed endpoint-only-label acceptance, approximate-clean semantic, stale-resume, and source-episode split-leakage defects. The dependency-backed focused R04 suite passes 20/20; the complete `./init.sh` gate passes 176 tests with 43 allocation-runtime skips; shell/JSON/whitespace checks and Python 3.8 grammar compatibility pass; malformed artifacts fail validation without throwing. These are local apparatus checks only; no R04A Slurm result exists yet.
+- Reviewed apparatus commit `a54ebc4` is pushed to `origin/agent/crfs-oracle-harness`. Remote synchronization and live preflight could not proceed because the Ruijie SSLVPN was disconnected and SSH to `10.254.152.76:22` timed out twice. No remote source, Slurm job, or result artifact was changed.
 
 ## Active gate
 
@@ -67,18 +68,18 @@ R04 — learned ECG probe. R02 and R03 authorize a bounded investigation, and AD
 
 ## Next
 
-1. Commit, push, and synchronize the reviewed R04A apparatus, then rerun live VinUni preflight. Submit only the one-element MIG smoke if a healthy node has at least 80 GiB fresh host memory and the aggregate user ceilings remain satisfied.
+1. Reconnect the Ruijie SSLVPN, confirm the exact remote worktree is clean, and fast-forward `/home/quanth/working_space/vlsa-aegis-crfs` to the latest pushed `agent/crfs-oracle-harness` commit. Then rerun live VinUni preflight. Submit only the one-element MIG smoke if a healthy node has at least 80 GiB fresh host memory and the aggregate user ceilings remain satisfied.
 2. Validate the allocation artifact independently. A pass establishes label plumbing only; it does not authorize training or satisfy R04.
 3. Before training, create genuinely new immutable source-episode/state groups, freeze complete group-preserving train/calibration/validation/test splits before labels, exclude the R02 claim cases, and preregister boundary power/coverage around 5 mm. All replay-derived branches from one source stay together.
 4. Add and regression-test an exact post-edit latent resume/continuation path before any local perturbation labels. Then run held-out prediction/false-safe and gradient-causality gates before full guidance.
 5. Pair frozen, learned-gradient, equal-realized-norm random, registered analytic, margin-stopped/time-structured analytic, privileged oracle-direction, and direct-planner arms by state, observation, policy noise, and executed horizon. Keep safe-progress success as the joint outcome.
-6. Until the reviewed commit is synchronized and live capacity passes, the exact safe local command is:
+6. Until VPN connectivity is restored, the exact safe connectivity check is:
 
    ```bash
-   ./init.sh
+   ssh -o BatchMode=yes -o ConnectTimeout=10 vinuni 'hostname'
    ```
 
-   Do not submit training. The R04A submission wrapper itself fails closed on source, capacity, node-health, and memory checks.
+   After that succeeds, inspect and fast-forward only the exact remote repository, then run `RUN_ID=r04a-label-contract-smoke-20260714a scripts/hpc/submit_r04_label_smoke.sh manifests/reach_progress_calibration.jsonl configs/experiments/r04_continuation_labels.json`. Do not submit training. The R04A wrapper itself fails closed on source, synchronization, capacity, node-health, and memory checks.
 
 ## Open scientific risks
 
