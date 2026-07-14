@@ -21,6 +21,7 @@ class H05ContractTest(unittest.TestCase):
         self.assertIn("delta[-1]", projection)
         self.assertIn('"type": "fixed_endpoint_clearance"', projection)
         self.assertLess(projection.index("fixed_endpoint ="), projection.index("from scipy.optimize import minimize"))
+        self.assertIn("candidate[:, :3] >= low[:, :3]", projection)
 
 
 if __name__ == "__main__":

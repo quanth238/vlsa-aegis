@@ -76,8 +76,6 @@ def solve_kinematic_projection(
         raise ValueError(f"Expected nominal prefix shape (H>=2, >=3), got {nominal.shape}")
     low = np.broadcast_to(np.asarray(action_low, dtype=np.float64), nominal.shape)
     high = np.broadcast_to(np.asarray(action_high, dtype=np.float64), nominal.shape)
-    if np.any(nominal < low - 1e-8) or np.any(nominal > high + 1e-8):
-        raise ValueError("Nominal prefix lies outside declared action bounds")
     response = np.asarray(response_matrix, dtype=np.float64).reshape(3, 3)
 
     # Every admissible correction has zero translational sum, so all candidates
@@ -113,6 +111,11 @@ def solve_kinematic_projection(
             evaluations=1,
             infeasibility_certificate=certificate,
         )
+
+    if np.any(nominal[:, :3] < low[:, :3] - 1e-8) or np.any(
+        nominal[:, :3] > high[:, :3] + 1e-8
+    ):
+        raise ValueError("Nominal translation lies outside declared action bounds")
 
     from scipy.optimize import minimize
 
@@ -194,7 +197,10 @@ def solve_kinematic_projection(
         result, candidate, clearance, selected_objective = max(attempts, key=lambda item: item[2])
     correction = candidate[:, :3] - nominal[:, :3]
     endpoint_error = float(np.linalg.norm(response @ correction.sum(axis=0)))
-    within_bounds = bool(np.all(candidate >= low - 1e-7) and np.all(candidate <= high + 1e-7))
+    within_bounds = bool(
+        np.all(candidate[:, :3] >= low[:, :3] - 1e-7)
+        and np.all(candidate[:, :3] <= high[:, :3] + 1e-7)
+    )
     feasible = bool(clearance >= safety_margin_m and endpoint_error <= 1e-6 and within_bounds)
     return ProjectionResult(
         feasible=feasible,
