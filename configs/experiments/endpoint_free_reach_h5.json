@@ -2,10 +2,8 @@
   "schema_version": "1.0",
   "name": "endpoint_free_reach_h5",
   "evidence_tier": "real_safelibero_preliminary",
-  "ready_to_run": false,
-  "blocked_on": [
-    "frozen reach-progress calibration artifact"
-  ],
+  "ready_to_run": true,
+  "blocked_on": [],
   "manifest": "manifests/oracle_h05_colliding.jsonl",
   "task_suite": "safelibero_spatial",
   "safety_level": "II",
@@ -32,9 +30,9 @@
     "target_object": "akita_black_bowl_1",
     "reference_position": "frozen_branch_target_position",
     "metric": "start_eef_target_distance_minus_end_eef_target_distance",
-    "minimum_progress_m": null,
-    "calibration_artifact": null,
-    "calibration_sha256": null,
+    "minimum_progress_m": 0.029897349105658888,
+    "calibration_artifact": "evidence/r00/r00-summary.json",
+    "calibration_sha256": "90fe09e075b30e680e5cfbd81c802afa03c94b58ba7f0e95e66080c61af2096f",
     "reject_target_motion_above_m": 0.001,
     "reject_obstacle_motion_above_m": 0.001,
     "scene_motion_measurement": "maximum_substep_displacement"

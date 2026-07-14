@@ -1,0 +1,1992 @@
+{
+  "baseline_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+  "calibration": {
+    "minimum_positive_examples": 50,
+    "nonpositive_examples": 0,
+    "p_min_m": 0.029897349105658888,
+    "positive_examples": 120,
+    "quantile": 0.25,
+    "quantile_method": "inverted_cdf",
+    "total_examples": 120
+  },
+  "calibration_and_evaluation_groups_disjoint": true,
+  "calibration_groups": 30,
+  "case_records": [
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-93365b8b851365f2",
+      "clearance_m": 0.011482489914077673,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:2",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 2.1072228459946054e-05,
+      "reach_progress_m": 0.02680051020314478,
+      "status": "eligible_positive",
+      "target_displacement_m": 2.1072228459946054e-05
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995592004984e-09,
+      "case_id": "crfs-34948d613f740bde",
+      "clearance_m": 0.011538412441678483,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:2",
+      "maximum_active_obstacle_displacement_m": 3.806995592004984e-09,
+      "maximum_target_displacement_m": 2.107222845999904e-05,
+      "reach_progress_m": 0.026578688418102625,
+      "status": "eligible_positive",
+      "target_displacement_m": 2.107222845999904e-05
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995601449616e-09,
+      "case_id": "crfs-011adabcda5afc39",
+      "clearance_m": 0.011302999218334886,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:2",
+      "maximum_active_obstacle_displacement_m": 3.806995601449616e-09,
+      "maximum_target_displacement_m": 2.107222845997396e-05,
+      "reach_progress_m": 0.027383271235907725,
+      "status": "eligible_positive",
+      "target_displacement_m": 2.107222845997396e-05
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995604482178e-09,
+      "case_id": "crfs-046b49f2a09db2a0",
+      "clearance_m": 0.010326895138387013,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:2",
+      "maximum_active_obstacle_displacement_m": 3.806995604482178e-09,
+      "maximum_target_displacement_m": 2.107222845998697e-05,
+      "reach_progress_m": 0.02563035213199716,
+      "status": "eligible_positive",
+      "target_displacement_m": 2.107222845998697e-05
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "case_id": "crfs-6c7a68c3f9ac7933",
+      "clearance_m": 0.030826271102565736,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:3",
+      "maximum_active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "maximum_target_displacement_m": 1.721392218768542e-05,
+      "reach_progress_m": 0.03510547047262741,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.721392218768542e-05
+    },
+    {
+      "active_obstacle_displacement_m": 6.697864488470816e-12,
+      "case_id": "crfs-a81bf4facc65b7d1",
+      "clearance_m": 0.0321055540843789,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:3",
+      "maximum_active_obstacle_displacement_m": 6.697864488470816e-12,
+      "maximum_target_displacement_m": 1.72139221876787e-05,
+      "reach_progress_m": 0.034943346644412954,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.72139221876787e-05
+    },
+    {
+      "active_obstacle_displacement_m": 6.697864488470816e-12,
+      "case_id": "crfs-086af90fd86eafa6",
+      "clearance_m": 0.03158138920208735,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:3",
+      "maximum_active_obstacle_displacement_m": 6.697864488470816e-12,
+      "maximum_target_displacement_m": 1.721392218769282e-05,
+      "reach_progress_m": 0.03572781326141955,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.721392218769282e-05
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "case_id": "crfs-5f8f871ef66fc685",
+      "clearance_m": 0.03163108278706832,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:3",
+      "maximum_active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "maximum_target_displacement_m": 1.7213922187679626e-05,
+      "reach_progress_m": 0.03536700447885227,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.7213922187679626e-05
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-3f05e6d5138c7fbc",
+      "clearance_m": 0.03958259346490593,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:4",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.83295084180794e-13,
+      "reach_progress_m": 0.03356773207962166,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.83295084180794e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180383508907e-09,
+      "case_id": "crfs-57996f14762ba0ba",
+      "clearance_m": 0.03949292531516228,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:4",
+      "maximum_active_obstacle_displacement_m": 4.145001414171596e-09,
+      "maximum_target_displacement_m": 8.83295084180794e-13,
+      "reach_progress_m": 0.03484905171064834,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.83295084180794e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180383508907e-09,
+      "case_id": "crfs-75fe5344bac14be1",
+      "clearance_m": 0.03947172197573488,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:4",
+      "maximum_active_obstacle_displacement_m": 4.145001414171596e-09,
+      "maximum_target_displacement_m": 8.83295084180794e-13,
+      "reach_progress_m": 0.032085289190667166,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.83295084180794e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-beb79642b7a5dd67",
+      "clearance_m": 0.03865955204236565,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:4",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.83295084180794e-13,
+      "reach_progress_m": 0.03332059551362332,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.83295084180794e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995601449616e-09,
+      "case_id": "crfs-8c5ee0525791a4f6",
+      "clearance_m": 0.025685305324493632,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:7",
+      "maximum_active_obstacle_displacement_m": 3.806995601449616e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03081161434233931,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-bbdd3a91b0a43de8",
+      "clearance_m": 0.024134486446276596,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:7",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.034329994455612245,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-7767accc5cd6ba4e",
+      "clearance_m": 0.024005093092414165,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:7",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031003671539046262,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-e9f451069b0b6dff",
+      "clearance_m": 0.025042845763262267,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:7",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03175281537939656,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-a666bf31a398478b",
+      "clearance_m": 0.03141365095502459,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:8",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03186149762887647,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-569dec5feeecf093",
+      "clearance_m": 0.029959581434118185,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:8",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03278392284842019,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-16f132d843c8765e",
+      "clearance_m": 0.03101075830391488,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:8",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031403528533455904,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-36b6ff535749fa69",
+      "clearance_m": 0.03043888063170752,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:8",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03304557656337753,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-c5358ee5a53d8ff2",
+      "clearance_m": 0.046804435681439396,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:9",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.029928772419636263,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-73b699e59fdf56ec",
+      "clearance_m": 0.045163782708151065,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:9",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.028801513046746385,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-f1ae97c4d293bb32",
+      "clearance_m": 0.04579316789443891,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:9",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031227790869277794,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-cd82f9006eadf3ae",
+      "clearance_m": 0.04596472221281704,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:9",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.030488577869951128,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995602965897e-09,
+      "case_id": "crfs-14deab7d86d4d202",
+      "clearance_m": 0.01992436908886079,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:12",
+      "maximum_active_obstacle_displacement_m": 3.806995602965897e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03242638725842889,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-88add20fe1b3bc29",
+      "clearance_m": 0.018743622464555923,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:12",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03316876189147561,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.80699557952779e-09,
+      "case_id": "crfs-a4004b81c9dc6031",
+      "clearance_m": 0.018296463372171223,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:12",
+      "maximum_active_obstacle_displacement_m": 3.80699557952779e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03319221519802007,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-6a01bc54b42720bd",
+      "clearance_m": 0.01754637852526056,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:12",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031166850343513852,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-36e2065ff9db6522",
+      "clearance_m": 0.03635300186283939,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:13",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 9.958330497052433e-13,
+      "reach_progress_m": 0.02983143138045541,
+      "status": "eligible_positive",
+      "target_displacement_m": 9.958330497052433e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-bd23d392ce54deed",
+      "clearance_m": 0.033026863047866464,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:13",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 9.958330497052433e-13,
+      "reach_progress_m": 0.030191341809827965,
+      "status": "eligible_positive",
+      "target_displacement_m": 9.958330497052433e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-592fdf0f8efb84a1",
+      "clearance_m": 0.03311301437156319,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:13",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 9.958330497052433e-13,
+      "reach_progress_m": 0.03221260195748349,
+      "status": "eligible_positive",
+      "target_displacement_m": 9.958330497052433e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-6e874048075c37fa",
+      "clearance_m": 0.034457093840876404,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:13",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 9.958330497052433e-13,
+      "reach_progress_m": 0.03195800013479727,
+      "status": "eligible_positive",
+      "target_displacement_m": 9.958330497052433e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-f087bc94d927c0a1",
+      "clearance_m": 0.05959862046139319,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:14",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.181875453392173e-13,
+      "reach_progress_m": 0.02847504140763124,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.181875453392173e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-89f827c8035206db",
+      "clearance_m": 0.05919663143513536,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:14",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.181875453392173e-13,
+      "reach_progress_m": 0.028700413525791224,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.181875453392173e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-a2af49db0f5f89bb",
+      "clearance_m": 0.059878481070615844,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:14",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.181875453392173e-13,
+      "reach_progress_m": 0.027875978316236616,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.181875453392173e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-0abb536a1b1927f3",
+      "clearance_m": 0.060287703705151144,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:14",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 8.181875453392173e-13,
+      "reach_progress_m": 0.027217764250130116,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.181875453392173e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.8069955780115094e-09,
+      "case_id": "crfs-40d54283a909cafe",
+      "clearance_m": 0.02916758340626971,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:17",
+      "maximum_active_obstacle_displacement_m": 3.8069955780115094e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.035031526474609775,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995602965897e-09,
+      "case_id": "crfs-72be3d3b5828eb6b",
+      "clearance_m": 0.026526107622538972,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:17",
+      "maximum_active_obstacle_displacement_m": 3.806995602965897e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03471552567806596,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-5e24b02964786ad1",
+      "clearance_m": 0.02621979775993359,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:17",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03410126113876105,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-d5cdd2c33b72f24d",
+      "clearance_m": 0.027639924947225433,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:17",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03377136082860305,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-4b7e1946875962a8",
+      "clearance_m": 0.03828047035926356,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:18",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 1.2169079623167229e-12,
+      "reach_progress_m": 0.024833722071228304,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.2169079623167229e-12
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-a952860cfe1d3876",
+      "clearance_m": 0.03820361086807518,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:18",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 1.2169079623167229e-12,
+      "reach_progress_m": 0.025341520370533333,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.2169079623167229e-12
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "case_id": "crfs-8250aa81ee5ecc87",
+      "clearance_m": 0.03905861739771099,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:18",
+      "maximum_active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "maximum_target_displacement_m": 1.2169079623167229e-12,
+      "reach_progress_m": 0.024879809855644697,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.2169079623167229e-12
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "case_id": "crfs-f88fe86d5ccd90c7",
+      "clearance_m": 0.03702004467166392,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:18",
+      "maximum_active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "maximum_target_displacement_m": 1.2169079623167229e-12,
+      "reach_progress_m": 0.025767117310427023,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.2169079623167229e-12
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-7da6ccca22971f10",
+      "clearance_m": 0.050479758668222255,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:19",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.681336870430805e-13,
+      "reach_progress_m": 0.030637788837243607,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.681336870430805e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-177031c167023f93",
+      "clearance_m": 0.051358231920166794,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:19",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.681336870430805e-13,
+      "reach_progress_m": 0.029302730913007946,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.681336870430805e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-80fa5d881d72780a",
+      "clearance_m": 0.047819886203989484,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:19",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.681336870430805e-13,
+      "reach_progress_m": 0.03107063506769786,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.681336870430805e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-cae23e3974cb51ac",
+      "clearance_m": 0.049209723214245715,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:19",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.681336870430805e-13,
+      "reach_progress_m": 0.031107785794023346,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.681336870430805e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995601449616e-09,
+      "case_id": "crfs-96b43139b0f544c6",
+      "clearance_m": 0.022706268675824343,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:22",
+      "maximum_active_obstacle_displacement_m": 3.806995601449616e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03272148638912231,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995599933334e-09,
+      "case_id": "crfs-d78c7a1c8a7f36e2",
+      "clearance_m": 0.02153318877219433,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:22",
+      "maximum_active_obstacle_displacement_m": 3.806995599933334e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03458174891967625,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-b9276f3b2ae45cc9",
+      "clearance_m": 0.02330657970581726,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:22",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.0325201104192836,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995602965897e-09,
+      "case_id": "crfs-e6630403e50c2b24",
+      "clearance_m": 0.020423019477725485,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:22",
+      "maximum_active_obstacle_displacement_m": 3.806995602965897e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03357869188874735,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-7c8c8e528f0921ed",
+      "clearance_m": 0.03273367345077349,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:23",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.034561180387219115,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-e7ce3acf599bd298",
+      "clearance_m": 0.03230347184704385,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:23",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.03427036623670471,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-ee5d8e24417fac00",
+      "clearance_m": 0.03232649188219379,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:23",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.035426445576191345,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-bbaba0461621147c",
+      "clearance_m": 0.03232147130582137,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:23",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.0352035250832789,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-540b8a97e135b625",
+      "clearance_m": 0.048094247962994066,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:24",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 7.76096177849667e-13,
+      "reach_progress_m": 0.027548481142544046,
+      "status": "eligible_positive",
+      "target_displacement_m": 7.76096177849667e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-e20ac23c76981d53",
+      "clearance_m": 0.047474199414379956,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:24",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 7.76096177849667e-13,
+      "reach_progress_m": 0.02961102765515644,
+      "status": "eligible_positive",
+      "target_displacement_m": 7.76096177849667e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-6a56d1f2919c6533",
+      "clearance_m": 0.049493700992792725,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:24",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 7.76096177849667e-13,
+      "reach_progress_m": 0.02656971234470784,
+      "status": "eligible_positive",
+      "target_displacement_m": 7.76096177849667e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-02ee3b0de5d8502e",
+      "clearance_m": 0.046482401178000954,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:24",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 7.76096177849667e-13,
+      "reach_progress_m": 0.02983837064416539,
+      "status": "eligible_positive",
+      "target_displacement_m": 7.76096177849667e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995602965897e-09,
+      "case_id": "crfs-2d83764355a99edb",
+      "clearance_m": 0.025596831646666388,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:27",
+      "maximum_active_obstacle_displacement_m": 3.806995602965897e-09,
+      "maximum_target_displacement_m": 8.696738248771235e-13,
+      "reach_progress_m": 0.030780837920972137,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.696738248771235e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995604482178e-09,
+      "case_id": "crfs-2b243f006034c1b8",
+      "clearance_m": 0.02418841442608241,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:27",
+      "maximum_active_obstacle_displacement_m": 3.806995604482178e-09,
+      "maximum_target_displacement_m": 8.696738248771235e-13,
+      "reach_progress_m": 0.03019373706251649,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.696738248771235e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-dfa3d8b014fc5cef",
+      "clearance_m": 0.026768333700822614,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:27",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 8.696738248771235e-13,
+      "reach_progress_m": 0.027642695767311265,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.696738248771235e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-5bd5608b7692747a",
+      "clearance_m": 0.025899101742834135,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:27",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 8.696738248771235e-13,
+      "reach_progress_m": 0.028455770009070958,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.696738248771235e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.69786908970058e-12,
+      "case_id": "crfs-e6e60a1d245c8ab8",
+      "clearance_m": 0.028152775582987025,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:28",
+      "maximum_active_obstacle_displacement_m": 6.69786908970058e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.033162787150187,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-f66639531aa89d9b",
+      "clearance_m": 0.026857215679326307,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:28",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03336810857507683,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-e2a336c080655476",
+      "clearance_m": 0.030324833868820414,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:28",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.029127272038888263,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "case_id": "crfs-cb7f71ba03aa7c6f",
+      "clearance_m": 0.027070731871254597,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:28",
+      "maximum_active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03306270797460936,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-7cd7452b4f317c57",
+      "clearance_m": 0.04822564748537009,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:29",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.61140793869645e-13,
+      "reach_progress_m": 0.03301280708665699,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.61140793869645e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-bf1a9ddbc74a6e8d",
+      "clearance_m": 0.04922319562932005,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:29",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.61140793869645e-13,
+      "reach_progress_m": 0.03191489216331844,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.61140793869645e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-9cca24f73e29c93e",
+      "clearance_m": 0.04809596731494761,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:29",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.61140793869645e-13,
+      "reach_progress_m": 0.033321272944090596,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.61140793869645e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-d1d459f6eef71721",
+      "clearance_m": 0.048821705693386785,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:29",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.611407737332519e-13,
+      "reach_progress_m": 0.031848810029189434,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.611407737332519e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.8069955780115094e-09,
+      "case_id": "crfs-ad73f7531667ab57",
+      "clearance_m": 0.029643381075055472,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:32",
+      "maximum_active_obstacle_displacement_m": 3.8069955780115094e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.0340676848502946,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-197885d029c0ca7b",
+      "clearance_m": 0.03150732104777805,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:32",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03216513837480367,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-5beb787f61b06145",
+      "clearance_m": 0.032846014023991954,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:32",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03190301655879091,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-4e02e6760b2ad668",
+      "clearance_m": 0.03153890759555672,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:32",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03127511378091791,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-db9bb12ad9436fc8",
+      "clearance_m": 0.028790494032555042,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:33",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03474713793678813,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-a5671c0bed7c7729",
+      "clearance_m": 0.02954914765981792,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:33",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03451417238370347,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-f4e20049f9a63f31",
+      "clearance_m": 0.028763964681641607,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:33",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.034027482220603256,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "case_id": "crfs-a74a15168cd1bfd7",
+      "clearance_m": 0.029047112940577574,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:33",
+      "maximum_active_obstacle_displacement_m": 6.6978676471503784e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03486772017393697,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-d71277ac64484d54",
+      "clearance_m": 0.04571457644230294,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:34",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03167090753508556,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-990ca1960118966a",
+      "clearance_m": 0.04344240033982047,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:34",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03207462418285306,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-84e3699de841d4bf",
+      "clearance_m": 0.04897296377243979,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:34",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.025002633091012028,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-426d1dc2deb55098",
+      "clearance_m": 0.044436651881382516,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:34",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.030689075981190805,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.80699558745614e-09,
+      "case_id": "crfs-aba62b54eba4922d",
+      "clearance_m": 0.020003123313422383,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:37",
+      "maximum_active_obstacle_displacement_m": 3.80699558745614e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03078320630798448,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995592004984e-09,
+      "case_id": "crfs-ce25a4a34bc6e2d2",
+      "clearance_m": 0.01976212804098311,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:37",
+      "maximum_active_obstacle_displacement_m": 3.806995592004984e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03281680121797148,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-0be43810498327f6",
+      "clearance_m": 0.02035194929031632,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:37",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031028555132033175,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995576495228e-09,
+      "case_id": "crfs-9999eb6fca68163e",
+      "clearance_m": 0.018806577824360945,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:37",
+      "maximum_active_obstacle_displacement_m": 3.806995576495228e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03234867036324496,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-25d4bd5b3f436d53",
+      "clearance_m": 0.031794109504212215,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:38",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031611859593783764,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-747093cb18bea2ec",
+      "clearance_m": 0.03186676805888802,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:38",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03130035264788483,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-c884d1060f7c9698",
+      "clearance_m": 0.031627344762827206,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:38",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03261657619041486,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-50c482add8629fdb",
+      "clearance_m": 0.03144917509006895,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:38",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03389213842896088,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-cb10ee2f5e1ce073",
+      "clearance_m": 0.05159473890896811,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:39",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.0279756396661765,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-1aab8598ffe95982",
+      "clearance_m": 0.05075341601853371,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:39",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.031241549488415232,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-e1666eb8318ca7ea",
+      "clearance_m": 0.05051068104595011,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:39",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.030122274866555387,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180383508907e-09,
+      "case_id": "crfs-af6e448724dc94ac",
+      "clearance_m": 0.05033264864129858,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:39",
+      "maximum_active_obstacle_displacement_m": 4.145001414171596e-09,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.03134682558307267,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995592004984e-09,
+      "case_id": "crfs-785fe12b9228b990",
+      "clearance_m": 0.015163820724701765,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:42",
+      "maximum_active_obstacle_displacement_m": 3.806995592004984e-09,
+      "maximum_target_displacement_m": 8.718891854816584e-13,
+      "reach_progress_m": 0.03270791010741042,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.718891854816584e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-477dc155fbd4439e",
+      "clearance_m": 0.016273918804048146,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:42",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 8.718891854816584e-13,
+      "reach_progress_m": 0.03270452566635795,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.718891854816584e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-159014c60276fc33",
+      "clearance_m": 0.016499707924245238,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:42",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 8.718891854816584e-13,
+      "reach_progress_m": 0.03228054959401905,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.718891854816584e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-0ca5082ff6ea3e99",
+      "clearance_m": 0.01652746089071827,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:42",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 8.718891854816584e-13,
+      "reach_progress_m": 0.03203303281365488,
+      "status": "eligible_positive",
+      "target_displacement_m": 8.718891854816584e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-20de99d0ac14cfea",
+      "clearance_m": 0.02681642669599206,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:43",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.032017002680711004,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-efe634207e7bc135",
+      "clearance_m": 0.02599802122735617,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:43",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.03064096094223978,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-9445e7a80e24b1e9",
+      "clearance_m": 0.026342017681997426,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:43",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.03221408566975448,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "case_id": "crfs-deb7de6dfdade1ae",
+      "clearance_m": 0.026911318082645894,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:43",
+      "maximum_active_obstacle_displacement_m": 6.6978662046304176e-12,
+      "maximum_target_displacement_m": 6.374900607397649e-13,
+      "reach_progress_m": 0.03154481905124318,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900607397649e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-c4869f318d8a47a6",
+      "clearance_m": 0.03859612999154885,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:44",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03225434458876669,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-1d1b01dea4e6eaf6",
+      "clearance_m": 0.038632546519930616,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:44",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03095140770450261,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-11ccbc91b9ee9da9",
+      "clearance_m": 0.04086336705958708,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:44",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.029782900963680747,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-7a85536e319e1cf9",
+      "clearance_m": 0.03831148815387643,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:44",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03235245680499671,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-2a1fef2339fc9f09",
+      "clearance_m": 0.014421552641486285,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:47",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 1.0014713181580333e-12,
+      "reach_progress_m": 0.029897349105658888,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.0014713181580333e-12
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-68219e2226480905",
+      "clearance_m": 0.016114007518049644,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:47",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 1.0014713181580333e-12,
+      "reach_progress_m": 0.02789537290531824,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.0014713181580333e-12
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995590488703e-09,
+      "case_id": "crfs-3a7bcb15c72d08fe",
+      "clearance_m": 0.015754905663027577,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:47",
+      "maximum_active_obstacle_displacement_m": 3.806995590488703e-09,
+      "maximum_target_displacement_m": 1.0014713181580333e-12,
+      "reach_progress_m": 0.028425262362293202,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.0014713181580333e-12
+    },
+    {
+      "active_obstacle_displacement_m": 3.806995588972422e-09,
+      "case_id": "crfs-36651d83cb43e00e",
+      "clearance_m": 0.012767517725327623,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:47",
+      "maximum_active_obstacle_displacement_m": 3.806995588972422e-09,
+      "maximum_target_displacement_m": 1.0014713181580333e-12,
+      "reach_progress_m": 0.028706764749729274,
+      "status": "eligible_positive",
+      "target_displacement_m": 1.0014713181580333e-12
+    },
+    {
+      "active_obstacle_displacement_m": 6.697867920791377e-12,
+      "case_id": "crfs-2ac8ef33f387e0c6",
+      "clearance_m": 0.03413654707006282,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:48",
+      "maximum_active_obstacle_displacement_m": 6.697867920791377e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03312545201930556,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869363312765e-12,
+      "case_id": "crfs-dac89db4ac0c2681",
+      "clearance_m": 0.03378621506429545,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:48",
+      "maximum_active_obstacle_displacement_m": 6.697869363312765e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031902612740406955,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-ebfa8b9fd8f4b85c",
+      "clearance_m": 0.0325975757717034,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:48",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.033505448659438164,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 6.697869636953694e-12,
+      "case_id": "crfs-09175fdb23949ba8",
+      "clearance_m": 0.033856593456487394,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:48",
+      "maximum_active_obstacle_displacement_m": 6.697869636953694e-12,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03276287469045286,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-72f5c808bd69cf00",
+      "clearance_m": 0.04693144015387617,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:49",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03139981644002626,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180383508907e-09,
+      "case_id": "crfs-f90ef2ef0c3654d5",
+      "clearance_m": 0.04578759473040568,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:49",
+      "maximum_active_obstacle_displacement_m": 4.145001414171596e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.03239740335208391,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-98db6dd1e75a2e53",
+      "clearance_m": 0.046591264709021904,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:49",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.031150047866420005,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    },
+    {
+      "active_obstacle_displacement_m": 2.4999180395885092e-09,
+      "case_id": "crfs-c5d2b29ac1cb8f7e",
+      "clearance_m": 0.05018078331484105,
+      "eligible_for_p_min": true,
+      "group_id": "safelibero_spatial:II:0:49",
+      "maximum_active_obstacle_displacement_m": 4.145001415716911e-09,
+      "maximum_target_displacement_m": 6.374900608908206e-13,
+      "reach_progress_m": 0.027667569641248946,
+      "status": "eligible_positive",
+      "target_displacement_m": 6.374900608908206e-13
+    }
+  ],
+  "cases": 120,
+  "checkpoint_sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed",
+  "config_hash": "e89abe6ddf1bef370809a029706b1b530ddf1f6477f85641236fcfe0adcf19b2",
+  "decision": "Freeze p_min and advance to endpoint-free planning.",
+  "eligible_positive_examples": 120,
+  "eligible_positive_groups": 30,
+  "evaluation_groups": 20,
+  "evaluation_manifest": "/home/quanth/working_space/vlsa-aegis-crfs/manifests/oracle_h05_colliding.jsonl",
+  "evaluation_manifest_sha256": "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
+  "failure": null,
+  "gate": "R00",
+  "git_commit": "0adbd67654b4071329c3c20b1edd29701c926c21",
+  "manifest": "/home/quanth/working_space/vlsa-aegis-crfs/manifests/reach_progress_calibration.jsonl",
+  "manifest_sha256": "3180836991e64b774670218f5fe4edaa10775fbb33fcdb330cc781b8b8937dad",
+  "minimum_positive_examples": 50,
+  "ordered_result_set_digest": "3c9709b9a567a27014bc55e70df1c84e57b39d413bed54b51dc4f6711bd74602",
+  "positive_examples_per_group": {
+    "safelibero_spatial:II:0:12": 4,
+    "safelibero_spatial:II:0:13": 4,
+    "safelibero_spatial:II:0:14": 4,
+    "safelibero_spatial:II:0:17": 4,
+    "safelibero_spatial:II:0:18": 4,
+    "safelibero_spatial:II:0:19": 4,
+    "safelibero_spatial:II:0:2": 4,
+    "safelibero_spatial:II:0:22": 4,
+    "safelibero_spatial:II:0:23": 4,
+    "safelibero_spatial:II:0:24": 4,
+    "safelibero_spatial:II:0:27": 4,
+    "safelibero_spatial:II:0:28": 4,
+    "safelibero_spatial:II:0:29": 4,
+    "safelibero_spatial:II:0:3": 4,
+    "safelibero_spatial:II:0:32": 4,
+    "safelibero_spatial:II:0:33": 4,
+    "safelibero_spatial:II:0:34": 4,
+    "safelibero_spatial:II:0:37": 4,
+    "safelibero_spatial:II:0:38": 4,
+    "safelibero_spatial:II:0:39": 4,
+    "safelibero_spatial:II:0:4": 4,
+    "safelibero_spatial:II:0:42": 4,
+    "safelibero_spatial:II:0:43": 4,
+    "safelibero_spatial:II:0:44": 4,
+    "safelibero_spatial:II:0:47": 4,
+    "safelibero_spatial:II:0:48": 4,
+    "safelibero_spatial:II:0:49": 4,
+    "safelibero_spatial:II:0:7": 4,
+    "safelibero_spatial:II:0:8": 4,
+    "safelibero_spatial:II:0:9": 4
+  },
+  "result_hashes": [
+    {
+      "case_id": "crfs-93365b8b851365f2",
+      "sha256": "811761e7e47290dbe636d685b158a2d3b765bd68823713803ac45ca62a2fe4a6"
+    },
+    {
+      "case_id": "crfs-34948d613f740bde",
+      "sha256": "9cde62f5d12cbefa3eec522b88a801f331b4cbb8bbcbd724a751f3d43b67ddf2"
+    },
+    {
+      "case_id": "crfs-011adabcda5afc39",
+      "sha256": "241f20c9c2814e58d4a2b9f60f4e93e6289f096a3bd13979060104da19c46912"
+    },
+    {
+      "case_id": "crfs-046b49f2a09db2a0",
+      "sha256": "a246101b68096f9f5042aab9a0edc5522131614e05242a29171014bc42219b4c"
+    },
+    {
+      "case_id": "crfs-6c7a68c3f9ac7933",
+      "sha256": "af61ff68304efe45be083e25ad10920eb5d95f6f1166b820216ed45128aa6605"
+    },
+    {
+      "case_id": "crfs-a81bf4facc65b7d1",
+      "sha256": "5a4e22b543b7bec616ec137053429b299c5e40b470b35b855d80281ce0ddc5a1"
+    },
+    {
+      "case_id": "crfs-086af90fd86eafa6",
+      "sha256": "b550543611cb69823d5e91d6a52dd74f4d15ae00d5ace8c4b698b039b9fee292"
+    },
+    {
+      "case_id": "crfs-5f8f871ef66fc685",
+      "sha256": "644988c4f333d371aef3b0abe445ff5fa0bc2bbd2a493e7e7b35469c2c051758"
+    },
+    {
+      "case_id": "crfs-3f05e6d5138c7fbc",
+      "sha256": "b881c0685939cb52a3e772604e5f9a0bbd00da55c16126d3d57cf32abeaba594"
+    },
+    {
+      "case_id": "crfs-57996f14762ba0ba",
+      "sha256": "cf95521a2cf7414955f1ca05b6432ebf3359303c66e126f15c415ac9b21c42de"
+    },
+    {
+      "case_id": "crfs-75fe5344bac14be1",
+      "sha256": "3c76bb2ff42e7952580c2f0ceba5c960dc30310d9c43be4316e96715c7e35ee6"
+    },
+    {
+      "case_id": "crfs-beb79642b7a5dd67",
+      "sha256": "61b6215b6974e121c4aa8dba02211805e648273ed7c4e5aae8ecfe3af0803294"
+    },
+    {
+      "case_id": "crfs-8c5ee0525791a4f6",
+      "sha256": "13c89a22c89c2ea80ed0635d790729754e35ae21bd22e19f6a38ec63f002b3a3"
+    },
+    {
+      "case_id": "crfs-bbdd3a91b0a43de8",
+      "sha256": "d8489942434554d8e70536b4bab419fa7c7e98d326edcc12639b66d39958683d"
+    },
+    {
+      "case_id": "crfs-7767accc5cd6ba4e",
+      "sha256": "fbc5391be613ac060ff62aaf12f086e7f01a33a5516ca3900b00a7aa7404e3b7"
+    },
+    {
+      "case_id": "crfs-e9f451069b0b6dff",
+      "sha256": "8126d0024f02e1512882abf613b6b0b255d7ec8ed5e1278eec53e1e781174af9"
+    },
+    {
+      "case_id": "crfs-a666bf31a398478b",
+      "sha256": "f168c787a7a3e090f58b556d703c928f4e971bfd061ec89c1f8fb7bf1acec9fc"
+    },
+    {
+      "case_id": "crfs-569dec5feeecf093",
+      "sha256": "7d16105ee451f8e8f8ac379d5833fabef1b82c467ee705459ed68159d4588aed"
+    },
+    {
+      "case_id": "crfs-16f132d843c8765e",
+      "sha256": "dd63be1a7dd7b0eef8ca0710198b62d0f90577c180cf1400dbe123f5c2d052e2"
+    },
+    {
+      "case_id": "crfs-36b6ff535749fa69",
+      "sha256": "48f18eecdbada9c92ec0aaa6f376a701415870d1f245c5e8f8747e5903317478"
+    },
+    {
+      "case_id": "crfs-c5358ee5a53d8ff2",
+      "sha256": "f96b9eec226b42171f682b024d529b8a1f921b0900ba4c83e493a4a041ff3fe7"
+    },
+    {
+      "case_id": "crfs-73b699e59fdf56ec",
+      "sha256": "0482ebc9a475e6abab28cf62c8410ef081a06987c8ca3c87e144942dc3c0cfa6"
+    },
+    {
+      "case_id": "crfs-f1ae97c4d293bb32",
+      "sha256": "df1f74ac6893aea809e1e2dd5d5cd7332cdc4b991b7db472e9965e8b0bbc0e91"
+    },
+    {
+      "case_id": "crfs-cd82f9006eadf3ae",
+      "sha256": "6836701aadfc12fa21314f182d34607459b32a9b7a4b5652f8e9910aef2ff9a8"
+    },
+    {
+      "case_id": "crfs-14deab7d86d4d202",
+      "sha256": "13cc4cbb5b7de7a5d09e0e256534a45bf0366a0b9ee1a1b8d16b8d6e43be11d7"
+    },
+    {
+      "case_id": "crfs-88add20fe1b3bc29",
+      "sha256": "f29897679620a3cde95b0bd423f60ec2bdf9687c5580caf6cac8b24f821d915e"
+    },
+    {
+      "case_id": "crfs-a4004b81c9dc6031",
+      "sha256": "de52af154d8d65191ab236d580cdcee06f2a1a20b167ae00c035c1e0398b1dc4"
+    },
+    {
+      "case_id": "crfs-6a01bc54b42720bd",
+      "sha256": "4f96788bd865e4738844f94018c6139c4edde2730a5a71b4b5bc3b4e17afbf00"
+    },
+    {
+      "case_id": "crfs-36e2065ff9db6522",
+      "sha256": "a2a87cffab6f0a4a48be2727f360a1bdffbe1aba4760e4e053424a74247a5b01"
+    },
+    {
+      "case_id": "crfs-bd23d392ce54deed",
+      "sha256": "df3a2ef9bfc093bfba7c20e3cef2b8c5430521cfda73c82b1a1df2f0abb23def"
+    },
+    {
+      "case_id": "crfs-592fdf0f8efb84a1",
+      "sha256": "4f0dfc01b5ed4f71d77882fcd6299d811fe2c62f8ede2968bac9df43f9322637"
+    },
+    {
+      "case_id": "crfs-6e874048075c37fa",
+      "sha256": "97cbc209ff75674ff516a23fb8ed9d36708ad903a6da80e240faeba34630c7a0"
+    },
+    {
+      "case_id": "crfs-f087bc94d927c0a1",
+      "sha256": "8b991d5e0c2a92a7d7d069fc1b09ed5213711c4ef986030a506332720cf5baaa"
+    },
+    {
+      "case_id": "crfs-89f827c8035206db",
+      "sha256": "6638ce0060f398643eeccfe902556f8b08a0f018092a50d3321e660e17cc0ec4"
+    },
+    {
+      "case_id": "crfs-a2af49db0f5f89bb",
+      "sha256": "6bc47d901e32fb84dce37e542315003223089a6cef6b984208198cbaa6d8211b"
+    },
+    {
+      "case_id": "crfs-0abb536a1b1927f3",
+      "sha256": "5ecaebf2bb96e8953c4816674faec13ff98464be8224802f5b4e500b056bf5a0"
+    },
+    {
+      "case_id": "crfs-40d54283a909cafe",
+      "sha256": "d028ae29222a99a4b3c6caa4938fa82dfeacbf8965c564f40d3b0a8cb1552b87"
+    },
+    {
+      "case_id": "crfs-72be3d3b5828eb6b",
+      "sha256": "4db05fe1bbf87c0ca38b067ee24e88f892dcd0770f20bdc65a45c68aa6d0e2e3"
+    },
+    {
+      "case_id": "crfs-5e24b02964786ad1",
+      "sha256": "7e02b1a532ca5f3266b29ae133d2e0bd6d06ea8611512aed928a2bfce6917788"
+    },
+    {
+      "case_id": "crfs-d5cdd2c33b72f24d",
+      "sha256": "5b89e84c9fcb6c22c9984e02e061348cf855962aee5964b319eac97ec7942cae"
+    },
+    {
+      "case_id": "crfs-4b7e1946875962a8",
+      "sha256": "a289cd094a81e491cc7f9bc600f1d9ad0c4a01a1422773a6f9ad826208667102"
+    },
+    {
+      "case_id": "crfs-a952860cfe1d3876",
+      "sha256": "07b3bdafd570450b2da42e847e01946bd3380d654d2abbab7e2b669c49b957b5"
+    },
+    {
+      "case_id": "crfs-8250aa81ee5ecc87",
+      "sha256": "6db5a0801c72f58f75ad950ee7ffb8570d429f5728b090a8e7eaeb1a824c013d"
+    },
+    {
+      "case_id": "crfs-f88fe86d5ccd90c7",
+      "sha256": "e6cfb318060a6b4270bfcc1b6b0ffd3d8ca8508ad746e5552e8f42ab21d46422"
+    },
+    {
+      "case_id": "crfs-7da6ccca22971f10",
+      "sha256": "15bcbcb2fe24e9b313744aa469ca81df62a4ec9d9eeed8eda898604d4deff898"
+    },
+    {
+      "case_id": "crfs-177031c167023f93",
+      "sha256": "e26e2787a63cee59adad1cc207a466b0f9c49f4e5bd62e2f48b748a769c765d9"
+    },
+    {
+      "case_id": "crfs-80fa5d881d72780a",
+      "sha256": "b7b9b8cc5150352d7b6a0addf210265ca7660fad7b6e53d88b34364d5319e32c"
+    },
+    {
+      "case_id": "crfs-cae23e3974cb51ac",
+      "sha256": "99ee4b25866317e37f5a1d023a57f42894195451e8fe7428b1c99be6e91c7959"
+    },
+    {
+      "case_id": "crfs-96b43139b0f544c6",
+      "sha256": "3c421ad9566b3f24aaa325235effe3d44a5db8d85f52474b06e99ba52d482f80"
+    },
+    {
+      "case_id": "crfs-d78c7a1c8a7f36e2",
+      "sha256": "e55171a6342a7a0a825b3cded11b5a4ab0fce779f73ef3ab2c392927df2d94c9"
+    },
+    {
+      "case_id": "crfs-b9276f3b2ae45cc9",
+      "sha256": "e0b92c7d1bbb0695ef5802cd87d2190ee2aca825ea6b6ec896649a85e428bb20"
+    },
+    {
+      "case_id": "crfs-e6630403e50c2b24",
+      "sha256": "935988a7e65e293b6ea59da99acbe862ffdfdb5c00dab6464b4e6c6b78c039c5"
+    },
+    {
+      "case_id": "crfs-7c8c8e528f0921ed",
+      "sha256": "c2be81d49ec128b8c8c36bd69dd816372029c5e2618199c2b13f49f3bfdbe628"
+    },
+    {
+      "case_id": "crfs-e7ce3acf599bd298",
+      "sha256": "4f72b0ddebb607c10ef0b7b9c546ab03ecd412056baa732238ee7e48a9d061f2"
+    },
+    {
+      "case_id": "crfs-ee5d8e24417fac00",
+      "sha256": "1833b28dfc6b0ff5f8c85b34a0819bb9aafb8db571ab928bc4853d743e27c661"
+    },
+    {
+      "case_id": "crfs-bbaba0461621147c",
+      "sha256": "f97142505cf2ff2307448b054961d5bce2156c35f222b1129befa339c40bc0ad"
+    },
+    {
+      "case_id": "crfs-540b8a97e135b625",
+      "sha256": "7b303332dad20a24336cbe610292aeed3c6eff71865c3920426c0fdf19c922a3"
+    },
+    {
+      "case_id": "crfs-e20ac23c76981d53",
+      "sha256": "d3c4dbdae86d3da65d33e6e9fd4a6a7fc379330982439b0c49641255e44e7e50"
+    },
+    {
+      "case_id": "crfs-6a56d1f2919c6533",
+      "sha256": "980d7f6ea164f8355cbb28116161fb8db46b79e7dc7120526337bb329ddd6e87"
+    },
+    {
+      "case_id": "crfs-02ee3b0de5d8502e",
+      "sha256": "5c7648f6433c1920a0b98aac75235d4ba7f67f5068371c6e5cf7d90f59a2d059"
+    },
+    {
+      "case_id": "crfs-2d83764355a99edb",
+      "sha256": "a1b54103ca890cff0c212e9c31668101c57df64b2d234cbbf1c4fe6be60e392b"
+    },
+    {
+      "case_id": "crfs-2b243f006034c1b8",
+      "sha256": "aabadff4653a9b4dded243a67972b6496ea1ddd48c26c19ed64a86caf273645c"
+    },
+    {
+      "case_id": "crfs-dfa3d8b014fc5cef",
+      "sha256": "c18ec6137f93cea4b9d3188466c92e8db67527def798c1ed638a3ee0bd85d4ae"
+    },
+    {
+      "case_id": "crfs-5bd5608b7692747a",
+      "sha256": "22698c0b2c788a8045591846f1e1dbc6c8ddd0a63b2b2510b3da1e7018967956"
+    },
+    {
+      "case_id": "crfs-e6e60a1d245c8ab8",
+      "sha256": "6c72431d9d187c89ccc3fad5cee8fb6ee84813955f7fed57fd76f0c5a7cc6608"
+    },
+    {
+      "case_id": "crfs-f66639531aa89d9b",
+      "sha256": "ac3760d98d2d79ef37610e66a3809ac018f38d1479df6785acd614198fdb768a"
+    },
+    {
+      "case_id": "crfs-e2a336c080655476",
+      "sha256": "732449fad9b19287d5c9ce967b3e73863013ac13caa40ff2049e6c9027b1c89f"
+    },
+    {
+      "case_id": "crfs-cb7f71ba03aa7c6f",
+      "sha256": "cdd439b08f6216931946fd5136d16f0365d782d7ca6f5f096f543a97f2d30542"
+    },
+    {
+      "case_id": "crfs-7cd7452b4f317c57",
+      "sha256": "9c838a1e5c982d92cd062318f1504f010cb604a84ee093173921651ee1c08800"
+    },
+    {
+      "case_id": "crfs-bf1a9ddbc74a6e8d",
+      "sha256": "baf9fe043c5449a979aac66741ee76a0ecb8e76aace60c6f8f4e94ecca833534"
+    },
+    {
+      "case_id": "crfs-9cca24f73e29c93e",
+      "sha256": "d75f56b522a85107bd01480022a785c11f632a68c2679da4434775511446d498"
+    },
+    {
+      "case_id": "crfs-d1d459f6eef71721",
+      "sha256": "e74d90a85d77530e9b66cee0a0c67a69f45caca16a624d23482d79f84853936e"
+    },
+    {
+      "case_id": "crfs-ad73f7531667ab57",
+      "sha256": "5007d8d792b1ffaa1181ed127e6ecbd660f6948fd0a2c862c2d3e9f8a125bd28"
+    },
+    {
+      "case_id": "crfs-197885d029c0ca7b",
+      "sha256": "b7e1fdc331a6731f71379933704697ac9251d554be331a4fc5890ea56d74c920"
+    },
+    {
+      "case_id": "crfs-5beb787f61b06145",
+      "sha256": "7ddb629d4482902050200e4cedc1b07797abd933b0c8e5e91080417952294c66"
+    },
+    {
+      "case_id": "crfs-4e02e6760b2ad668",
+      "sha256": "a6b199aeda19086b76f756407fb24d0ce9a36f89e1b6e61a39e5ae7590932332"
+    },
+    {
+      "case_id": "crfs-db9bb12ad9436fc8",
+      "sha256": "6c00a61da63c3333e2f6335fafdd1706d12ec4dd41b8beed44abbdb6bdd91de3"
+    },
+    {
+      "case_id": "crfs-a5671c0bed7c7729",
+      "sha256": "b0f143ef732014e146a1c7fd72997413f6a2b19109a243c42bdf83372f6922c5"
+    },
+    {
+      "case_id": "crfs-f4e20049f9a63f31",
+      "sha256": "3f759495afe5da06084eed107c9d3ee19a27b6369143f696b647c05206f28134"
+    },
+    {
+      "case_id": "crfs-a74a15168cd1bfd7",
+      "sha256": "ee54c9958161f2f798399c95b778b2b49258db8644c584baa2ce665ce48c0605"
+    },
+    {
+      "case_id": "crfs-d71277ac64484d54",
+      "sha256": "e71e79369905d9d78294740c4ddc745d92bba6f63e2af2efd76ef27591b29028"
+    },
+    {
+      "case_id": "crfs-990ca1960118966a",
+      "sha256": "c045c841ec25ea4c0373622042da7a1d89fb3600ee3eb6ec2d987cc40bf9b43c"
+    },
+    {
+      "case_id": "crfs-84e3699de841d4bf",
+      "sha256": "1777ab04d1759f0eb1776fa280dde3810b5c1b74e2edaa72c754ce58a5a9a0c9"
+    },
+    {
+      "case_id": "crfs-426d1dc2deb55098",
+      "sha256": "9a86573f3ffc1c627279edb3c1c2b80b51fb0a9b45d730612a75d368744452aa"
+    },
+    {
+      "case_id": "crfs-aba62b54eba4922d",
+      "sha256": "4d16388fe76e39aca5861ea6c327a45e60d59d9a82aa0256efd5a820c96c83d8"
+    },
+    {
+      "case_id": "crfs-ce25a4a34bc6e2d2",
+      "sha256": "eee5abf48027440d231a4c099be6e6c306221a2fe4a05ff7f0eeb6be24bbc4fc"
+    },
+    {
+      "case_id": "crfs-0be43810498327f6",
+      "sha256": "07d83f76eee4f83ecfe52f88527b8a0298d53207c18b1f3596b79ede2e4e8789"
+    },
+    {
+      "case_id": "crfs-9999eb6fca68163e",
+      "sha256": "c6f45fef77a56132d8ae954e4d541467dcce726983641f69fd8108d55797737f"
+    },
+    {
+      "case_id": "crfs-25d4bd5b3f436d53",
+      "sha256": "9e4d0396620ba659bbe1222c8bb74c0635d786a1f38ec98e5cabc4410aaf6d24"
+    },
+    {
+      "case_id": "crfs-747093cb18bea2ec",
+      "sha256": "ee3e0f251989089a1372c4c885d094610d094b8100081d3c0accadd445134cc4"
+    },
+    {
+      "case_id": "crfs-c884d1060f7c9698",
+      "sha256": "4118f55861f7bef451c41a7778fbdaba6cdb7f057afa423b054f27eeed69eace"
+    },
+    {
+      "case_id": "crfs-50c482add8629fdb",
+      "sha256": "7f11e5d615e2b96df86ac140866ddcd0c9bcc2d498ea2d6490f8e1dc074f43a4"
+    },
+    {
+      "case_id": "crfs-cb10ee2f5e1ce073",
+      "sha256": "16936ed1bfbcad24317a6d92e3895ceba1d983f55beab9dc87f2a6fa08a27d5f"
+    },
+    {
+      "case_id": "crfs-1aab8598ffe95982",
+      "sha256": "d0a759a30de85505ca0d96c8f31e837357ceebaa34ee965bdcbfdf8cbcd46427"
+    },
+    {
+      "case_id": "crfs-e1666eb8318ca7ea",
+      "sha256": "90b5661c511404768a304dbb215f323ae98b32293c5664504d24ecfb6dad8744"
+    },
+    {
+      "case_id": "crfs-af6e448724dc94ac",
+      "sha256": "cb0d9e63960a3673e57a815abd2790ad2f7c301c1654988431b1c8ce626cb2d7"
+    },
+    {
+      "case_id": "crfs-785fe12b9228b990",
+      "sha256": "22b81cbeec3835fcbe48b93dfda5a06663399a55c432b95012bfd44a6127590d"
+    },
+    {
+      "case_id": "crfs-477dc155fbd4439e",
+      "sha256": "31d4cbdae77de058aa83f9caad97d4a0048e3d8e87c8f7bd6b0ea87c673705f7"
+    },
+    {
+      "case_id": "crfs-159014c60276fc33",
+      "sha256": "4d0ebd7bcc3bfda612cb97adaaf1b36b0032a8d52ac2b8b8f44d71f15f23ca53"
+    },
+    {
+      "case_id": "crfs-0ca5082ff6ea3e99",
+      "sha256": "ae11e448ed560e7132861ab70a87a946ed2c511e287da1a553aad8d8b0815d1e"
+    },
+    {
+      "case_id": "crfs-20de99d0ac14cfea",
+      "sha256": "0824256080f23d0793a79f1a8a899c6dbfb24b88d4461d1d4d70ad3ceab414d9"
+    },
+    {
+      "case_id": "crfs-efe634207e7bc135",
+      "sha256": "ad52bf3b23a871d7ea401092ffb5040fef8cf1f50ad8bb392a1594ba9c5a84b5"
+    },
+    {
+      "case_id": "crfs-9445e7a80e24b1e9",
+      "sha256": "8eb6fc81e6f546acd445efb379549461d945aff54d673bed0e733bf614feb9cb"
+    },
+    {
+      "case_id": "crfs-deb7de6dfdade1ae",
+      "sha256": "69a4d1a6cebc18f1bd022b8510c284bf9ef61f685c1fed8bc07104091201322b"
+    },
+    {
+      "case_id": "crfs-c4869f318d8a47a6",
+      "sha256": "fd3119c48527b737931d0d15b0a1fb9fa45682c0bdada9a5fa0e8123a9ca82f6"
+    },
+    {
+      "case_id": "crfs-1d1b01dea4e6eaf6",
+      "sha256": "db937fb094858c9cdae01fd89b672b064e55306dc752b3aaacfa68f7b170626c"
+    },
+    {
+      "case_id": "crfs-11ccbc91b9ee9da9",
+      "sha256": "f2e8001693666ff30feb6568e148ce015885a99991be94c7d7fa74478ab9a301"
+    },
+    {
+      "case_id": "crfs-7a85536e319e1cf9",
+      "sha256": "7e4c9485680c67d0d81ad485aaae5a70194c8e10e9e3e687556cc3d3540274aa"
+    },
+    {
+      "case_id": "crfs-2a1fef2339fc9f09",
+      "sha256": "6c9be700c7665ae2b096f6d53c4ec834490cb63623f4a17e250b03ffdc1159f4"
+    },
+    {
+      "case_id": "crfs-68219e2226480905",
+      "sha256": "b061ac6e7b767c8aa9c5b230274d0c5fb5cec3bc5e154cd7b0a880f5bcbc2ef6"
+    },
+    {
+      "case_id": "crfs-3a7bcb15c72d08fe",
+      "sha256": "c17026916cd544843fd79ac69bc79d1fb1267c255aa82c436e50557e8594deff"
+    },
+    {
+      "case_id": "crfs-36651d83cb43e00e",
+      "sha256": "d7da77ef3830adc9bd8899c3127566a5c46e6991c5b386bafdfc70e5cb38ce88"
+    },
+    {
+      "case_id": "crfs-2ac8ef33f387e0c6",
+      "sha256": "73187d5695ab0964c8c20de3136b2eb81ea8b38befcc33e9c5648d1b69be19d6"
+    },
+    {
+      "case_id": "crfs-dac89db4ac0c2681",
+      "sha256": "847429fa3f28edff92da974502c4bc69256b3fc1b3e4a36d30b147ef1c5ef04f"
+    },
+    {
+      "case_id": "crfs-ebfa8b9fd8f4b85c",
+      "sha256": "1de27e630b9ced001271871c7ba4ac7d5b1dc8b447cfe458005637ee87a1a70a"
+    },
+    {
+      "case_id": "crfs-09175fdb23949ba8",
+      "sha256": "48102ac9ff3de787c724e5c6bb09a76fb8d5bb33cdd2348644d03980b91148c7"
+    },
+    {
+      "case_id": "crfs-72f5c808bd69cf00",
+      "sha256": "ed449f992daad53fed403a1e9f43e108e1250ad4bd104d553df13e8116ff1e1f"
+    },
+    {
+      "case_id": "crfs-f90ef2ef0c3654d5",
+      "sha256": "b5470764eb3fcba7419fbb26f09865865958b5f1f0ad9f353e33516c744e46e2"
+    },
+    {
+      "case_id": "crfs-98db6dd1e75a2e53",
+      "sha256": "f91361da05b4d1f47481e7148ea3db3ddbfa1c251ec817b4167d3e3fcfe59318"
+    },
+    {
+      "case_id": "crfs-c5d2b29ac1cb8f7e",
+      "sha256": "fe28c69847058d1dc599a468b14010ac8aab53c1ddd8ca79da00574bac3dc945"
+    }
+  ],
+  "scene_motion_measurement": "maximum direct MuJoCo body displacement over 125 substeps",
+  "schema_version": "1.0",
+  "status": "passed",
+  "status_counts": {
+    "eligible_positive": 120
+  }
+}

@@ -9,11 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class EndpointFreeHpcContractTest(unittest.TestCase):
-    def test_config_is_endpoint_free_but_fail_closed_until_calibrated(self) -> None:
+    def test_config_is_endpoint_free_and_bound_to_passed_calibration(self) -> None:
         config = json.loads(
             (ROOT / "configs/experiments/endpoint_free_reach_h5.json").read_text(encoding="utf-8")
         )
-        self.assertFalse(config["ready_to_run"])
+        self.assertTrue(config["ready_to_run"])
+        self.assertEqual(config["blocked_on"], [])
         self.assertEqual(config["executed_prefix"], 5)
         self.assertEqual(config["action_horizon"], 10)
         self.assertEqual(config["progress"]["phase"], "pregrasp_reach")
@@ -22,7 +23,13 @@ class EndpointFreeHpcContractTest(unittest.TestCase):
             config["progress"]["scene_motion_measurement"],
             "maximum_substep_displacement",
         )
-        self.assertIsNone(config["progress"]["minimum_progress_m"])
+        self.assertAlmostEqual(config["progress"]["minimum_progress_m"], 0.029897349105658888)
+        calibration_path = ROOT / config["progress"]["calibration_artifact"]
+        self.assertTrue(calibration_path.is_file())
+        self.assertEqual(
+            config["progress"]["calibration_sha256"],
+            "90fe09e075b30e680e5cfbd81c802afa03c94b58ba7f0e95e66080c61af2096f",
+        )
         self.assertFalse(config["planner"]["endpoint_preservation"])
         self.assertEqual(config["planner"]["translation_action_bounds"], [-1.0, 1.0])
         self.assertEqual(config["planner"]["method"], "deterministic_cem_multistart")

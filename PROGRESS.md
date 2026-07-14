@@ -30,17 +30,20 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - R00 apparatus run `r00-calibration-20260714a` completed all 120 cases on Slurm array `27276` with no case failures. Its allocation-backed summary job `27285` correctly refused promotion because the scientific config hash included per-array WebSocket ports. This run also measured scene motion only at the endpoint, so it remains apparatus evidence rather than calibration evidence.
 - R00 now excludes host, port, output root, and run ID from the scientific config identity; it records immutable manifest/case hashes, verifies exact reset branches, and measures target/obstacle maximum displacement over all 125 physics substeps. A fresh allocation-backed R00 run is required.
 - Strict R00 smoke job `27290` exercised the new measurements and then failed closed before finalization because the legacy MIG smoke was not an array and therefore had no `SLURM_ARRAY_TASK_ID`. No scientific artifact was written; the smoke template is now a one-element `%1` array like the full-run provenance contract.
+- Strict one-element smoke array `27291_0` passed at commit `0adbd67`, including exact replay, 126 safety measurements, 125 body-tracking substeps, and transport-neutral scientific config hash `e89abe6ddf1bef370809a029706b1b530ddf1f6477f85641236fcfe0adcf19b2`.
+- Strict R00 array `27292` completed all 120 cases with zero batch failures. Allocation-backed verifier `27298` passed: all 120 chunks were eligible positive examples across 30 groups disjoint from the frozen 20 evaluation groups, and the registered inverted-CDF lower quartile froze `p_min = 0.029897349105658888 m`.
+- The passed R00 artifact is committed as `evidence/r00/r00-summary.json`, SHA-256 `90fe09e075b30e680e5cfbd81c802afa03c94b58ba7f0e95e66080c61af2096f`. R01 is now content-bound to that threshold and artifact.
 
 ## Active gate
 
-R00 — freeze a five-action pre-grasp reach-progress threshold on baseline-safe calibration groups. The frozen H05 cases are initial reach states, not transport states; `akita_black_bowl_1` is the fixed branch-start target.
+R01 — search for directly simulator-verified endpoint-free safe-progress witnesses on the same frozen 20 H05 pre-grasp reach cases. `D_opt` nominates candidates; repeated `D_sim` replay decides whether a changed-action witness exists.
 
 ## Next
 
-1. Push and sync the strict R00 apparatus, then run `RUN_ID=r00-calibration-20260714b scripts/hpc/submit_reach_progress_calibration.sh manifests/reach_progress_calibration.jsonl 60` and summarize it in Slurm.
-2. Run endpoint-free five-action planning on the same 20 H05 cases and count only direct simulator-verified safe-progress witnesses.
-3. If at least 12/20 witnesses exist, test endpoint-free oracle flow steerability against equal-norm random guidance before training any probe.
-4. Collect new post-grasp states if a separate transport-phase claim is pursued.
+1. Commit and sync the R00 evidence-bound R01 activation, then run `RUN_ID=r01-endpoint-free-smoke-20260714a scripts/hpc/submit_endpoint_free_smoke.sh manifests/oracle_h05_colliding.jsonl`.
+2. If the smoke passes, run all 20 frozen H05 cases with at most two H100 workers and summarize them in a separate Slurm allocation.
+3. Advance to endpoint-free oracle flow steerability against equal-norm random guidance only if at least 12/20 cases have changed-action, repeated-`D_sim`, safe-progress witnesses.
+4. Collect new immutable post-grasp states if a separate transport-phase claim is pursued.
 
 ## Open scientific risks
 
