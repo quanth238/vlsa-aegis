@@ -415,6 +415,11 @@ class EndpointFreeSummaryTest(unittest.TestCase):
         self.assertIn("main/summarize_endpoint_free.py", source)
         self.assertIn('--config-hash "$CONFIG_HASH"', source)
 
+    def test_runtime_type_alias_supports_python38_allocation(self) -> None:
+        source = (ROOT / "main/summarize_endpoint_free.py").read_text(encoding="utf-8")
+        self.assertIn("Validator = Callable[[Mapping[str, Any]], List[str]]", source)
+        self.assertNotIn("Validator = Callable[[Mapping[str, Any]], list[str]]", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ import json
 import math
 from pathlib import Path
 import statistics
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, List, Mapping
 
 from crfs_harness.artifacts import (
     atomic_write_json,
@@ -31,7 +31,7 @@ TRANSLATION_DIMENSIONS = 3
 EXPECTED_MEASUREMENT_SAMPLES = 126
 REGISTERED_MAXIMUM_SCENE_MOTION_M = 0.001
 
-Validator = Callable[[Mapping[str, Any]], list[str]]
+Validator = Callable[[Mapping[str, Any]], List[str]]
 
 
 def _is_sha256(value: Any) -> bool:
