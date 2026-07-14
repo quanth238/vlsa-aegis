@@ -23,21 +23,24 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - H03 population composition was 20 proxy-colliding, 30 proxy-safe, and 4 physical-contact cases. Sixteen cases reproduced the raw mesh-query inconsistency, which is now advisory-only evidence rather than the primary safety signal.
 - The H03 summary and minimum-pair visualization are committed under `evidence/h03/`; raw allocation artifacts remain under `/mnt/data/quanth/experiments/crfs-oracle/h03-population-20260714a`.
 - Slurm job `27123` passed H04 on 10 calibration states and 20 held-out prefixes: median endpoint error 0.971 mm, 95th-percentile absolute `D_opt`/`D_sim` error 1.082 mm, and zero false-safe predictions at a 10 mm margin.
+- H05 added an optimizer-independent endpoint certificate: zero-sum translation fixes the H04 endpoint, so an unsafe endpoint proves the swept-path constraint infeasible before optimization.
+- The H=5 population run completed all 20 H03-colliding states: 20/20 certified infeasible, `F_proj=0.00`, with endpoint-clearance upper bounds from -48.221 mm to -7.723 mm.
+- The one registered H=10 refinement also completed all 20 states: 20/20 certified infeasible, `F_proj=0.00`, with endpoint-clearance upper bounds from -75.234 mm to -44.895 mm.
+- The preregistered H05 stop rule fired. H06--H09 were not run, and no learned probe was trained.
 
 ## Active gate
 
-`H05-projection-teacher`: solve the nearest safe endpoint-preserving repair with the frozen H04 response and primitive geometry, then verify it by independent simulator replay.
+None. The experiment reached a terminal negative decision at H05.
 
 ## Next
 
-1. Run one colliding teacher smoke with the frozen response matrix and static branch geometry.
-2. Verify the repaired prefix directly with physics-substep `D_sim` before any flow intervention counts.
-3. Measure feasible fraction and teacher safety on a bounded colliding population before advancing H06.
+1. Preserve this branch as the reproducible negative-result harness.
+2. Start a new formulation only if endpoint equivalence is replaced by task-level preservation, or intervention moves to an earlier/global planner.
+3. Re-run H03/H04 calibration for any changed geometry, controller, or task before comparing methods.
 
 ## Open scientific risks
 
-- The first runner uses simulator geometry during optimization, so it does not yet establish an independent `D_opt` versus `D_sim` audit; it remains disabled until H04 passes.
 - Raw MuJoCo mesh--box `mj_geomDistance` is unreliable in this stack. The primary controlled metric is the proposal's EEF-sphere/known-box signed distance evaluated from simulator transforms; physical contacts remain a one-way conservatism check.
 - Released SafeLIBERO obstacles are movable; the proposal preregisters a static asymmetric-convex controlled pilot.
-- A one-case smoke cannot pass the population-level oracle gate; it only validates the causal experiment apparatus.
+- The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
 - Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting outcomes.

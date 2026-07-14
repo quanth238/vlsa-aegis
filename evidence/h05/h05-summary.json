@@ -1,0 +1,25 @@
+{
+  "decision": "Reject the local endpoint-preserving premise for this pilot and pivot before flow intervention.",
+  "gate": "H05",
+  "h5": {
+    "cases": 20,
+    "certified_infeasible": 20,
+    "feasible_fraction": 0.0,
+    "maximum_endpoint_clearance_upper_bound_m": -0.007722567085501682,
+    "minimum_endpoint_clearance_upper_bound_m": -0.04822106799413038,
+    "run_id": "h05-population-20260714a",
+    "slurm_array_submission": "27149"
+  },
+  "h10_refinement": {
+    "cases": 20,
+    "certified_infeasible": 20,
+    "feasible_fraction": 0.0,
+    "maximum_endpoint_clearance_upper_bound_m": -0.044895055111883714,
+    "minimum_endpoint_clearance_upper_bound_m": -0.07523384242561962,
+    "run_id": "h05-h10-population-20260714b",
+    "slurm_array_submission": "27191"
+  },
+  "pass_threshold": 0.6,
+  "schema_version": "1.0",
+  "status": "failed_stop_rule"
+}

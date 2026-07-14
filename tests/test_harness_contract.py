@@ -9,9 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class HarnessContractTest(unittest.TestCase):
-    def test_exactly_one_gate_is_active(self) -> None:
+    def test_at_most_one_gate_is_active(self) -> None:
         features = json.loads((ROOT / "feature_list.json").read_text(encoding="utf-8"))["features"]
-        self.assertEqual(sum(feature["status"] == "active" for feature in features), 1)
+        self.assertLessEqual(sum(feature["status"] == "active" for feature in features), 1)
         self.assertEqual({feature["status"] for feature in features} - {"not_started", "active", "blocked", "passing"}, set())
 
     def test_substep_measurement_is_additive_to_baseline_step(self) -> None:

@@ -33,6 +33,14 @@ class H05ContractTest(unittest.TestCase):
         self.assertEqual(len(cases), 20)
         self.assertEqual(len({case["case_id"] for case in cases}), 20)
 
+    def test_terminal_evidence_records_both_registered_horizons(self) -> None:
+        summary = json.loads((ROOT / "evidence/h05/h05-summary.json").read_text(encoding="utf-8"))
+        self.assertEqual(summary["status"], "failed_stop_rule")
+        self.assertEqual(summary["h5"]["certified_infeasible"], 20)
+        self.assertEqual(summary["h10_refinement"]["certified_infeasible"], 20)
+        self.assertEqual(summary["h5"]["feasible_fraction"], 0.0)
+        self.assertEqual(summary["h10_refinement"]["feasible_fraction"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

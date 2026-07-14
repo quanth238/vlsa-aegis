@@ -4,3 +4,4 @@
 - [0002 — Keep synthetic checks outside the research evidence tier](docs/decisions/0002-evidence-tiers.md)
 - [0003 — Treat residual and one-shot bridge edits as separate interventions](docs/decisions/0003-intervention-semantics.md)
 - [0004 — Use the calibrated primitive metric as D_sim](docs/decisions/0004-calibrated-primitive-distance.md)
+- [0005 — Stop at endpoint infeasibility](docs/decisions/0005-stop-at-endpoint-infeasibility.md)
