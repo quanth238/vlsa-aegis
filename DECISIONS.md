@@ -21,3 +21,4 @@
 - [0019 — Freeze R04B exact resume parity as the final apparatus gate](docs/decisions/0019-freeze-r04b-exact-resume-parity.md)
 - [0020 — Accept R04B and focus the direct learned-probe test](docs/decisions/0020-accept-r04b-focus-direct-probe-test.md)
 - [0021 — Freeze the generated-source canary and direct transfer pilot](docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md)
+- [0022 — Retire the custom generated-source route](docs/decisions/0022-retire-generated-source-route.md)

@@ -82,31 +82,28 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Full-state canary task `27604_0` retained an outcome-blind rejection before any policy or safety/task outcome because the source and fresh-load compiled MJB files had the same byte count but different raw SHA-256 values (`766883...` versus `38423b...`) despite identical finalized XML/assets and the same MuJoCo build; dependent validator `27605` did not run. This allocation evidence falsifies raw MJB bytes as a canonical cross-compilation identity. The MJB fields/helper/gates were therefore removed entirely rather than retained as an unverifiable diagnostic. Model inputs remain bound by exact portable finalized XML and asset bytes, and behavioral equivalence remains gated by two fresh loads reproducing every flattened and full `mjSTATE_INTEGRATION` state over all 20 controls plus final observation and geometry. Independent review returned GO for this correction; `python3.12 -m unittest discover -s tests -p 'test_generated_source*.py'` reports `Ran 51 tests`, `OK (skipped=1)`, the isolated MuJoCo 3.2.3 suite passes its integration round-trip/call-order checks, and `./init.sh` reports `Ran 260 tests`, `OK (skipped=79)`. Config, requests, and seeds are unchanged.
 - Full-integration canary task `27606_0` restored and rechecked the complete pre-settle MuJoCo state, then retained an outcome-blind rejection at the first dummy control: source flattened hash `45a06e...` differed from fresh hash `489fca...` over 171 values (`max_abs=0.0335322919`). This isolates state outside `mjSTATE_INTEGRATION`; no policy, collision, clearance, progress, planner, or probe outcome was computed, and dependent validator `27607` did not run. Inspection of the pinned robosuite 1.4.1 control path identified output-driving Python state in the fixed `OSC_POSE` controller and Panda gripper.
 - The final bounded source hypothesis now canonicalizes exactly one Panda fixed `OSC_POSE` controller with null interpolators before settle and again at the final branch in the source, both fresh loads, and experiment restoration. It refreshes live kinematics/nullspace state, resets the goal twice through the public controller API, zeros the gripper accumulator, resets the three lazy action-scaling caches, verifies robosuite 1.4.1 and the raw baseline `osc_pose.json` hash, and fail-closes the instantiated input/output scales, gains, limits, controller flags, and frequency. Pre/final controller fingerprints are bound into the branch identity and both replay proofs; flattened and full integration state are rechecked after each canonical boundary and before observation/first VLA action. Rehashed scale/gain/cache tampering fails, the generated-source suite passes 59 tests with one expected MuJoCo skip, the isolated MuJoCo suite passes 40 tests with three dependency skips, and `./init.sh` passes 268 tests with 86 expected dependency skips. The scientific config SHA-256 remains `332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a`.
+- Final canary task `27614_0` ran at clean commit `314772cb783295d9598e68f3c432b95b72202bdb` and retained an outcome-blind rejection before settling, controller fingerprinting, policy inference, safety/task measurement, planning, or probe work: `controller canonicalization requires the Panda robot`. SafeLIBERO's floor problem rewrites the requested `Panda` to the runtime identity `OnTheGroundPanda`, invalidating the final canary's exact-robot premise; dependent validator `27615` did not run. ADR-0022 fires the hard stop: no name patch or resubmission, no requests 1--9, no generated R01/R02 transfer pilot, and no probe training. This apparatus failure is not evidence against probe steering; it leaves the original privileged 9/17 baseline result positive but learned efficacy and transport unverified.
 
 ## Active gate
 
-R04 — learned ECG probe. R02/R03 authorize a bounded investigation, and R04A
-and R04B have now passed their allocation-backed label-plumbing and exact-resume
-apparatus contracts. ADR-0020 ends sampler apparatus work. A defensible new
-state estimand, support-matched perturbations, and powered group manifests
-remain prerequisites to the decisive probe experiment.
-ECG effectiveness, necessity, novelty, and transport-phase validity remain
-open.
+No gate is active. R04 is blocked by ADR-0022 after the final custom-source
+canary failed its exact baseline-robot premise. R02/R03 still establish partial
+privileged steerability on the original frozen population, but no independent
+claim-bearing groups are available for learned-probe training and evaluation.
+ECG effectiveness, necessity, novelty, latency advantage, and transport-phase
+validity remain open.
 
 ## Next
 
-1. Run and independently validate the one final controller-canonicalized
-   request-0 generated-source allocation canary. If any controller fingerprint,
-   first control transition, settle state, final fingerprint, or independent
-   validation differs, retire the generated-source route with no further replay
-   repair and do not train a probe. If it passes, run requests 1--9 without
-   changing the scientific config. Do not label this population Level II.
-2. Freeze accepted bundles into a v2 manifest before policy outcomes, then run
-   the existing direct R01/R02 ladder as a retired allocation pilot to estimate valid-state, nominal-collision,
-   boundary, unsafe, trigger-positive, and direct-witness prevalence. Freeze a
-   joint-powered production count, then repeat R00--R03 on disjoint generated
-   groups. A failed privileged-flow transfer stops probe training.
-3. Replace one-sided local perturbations with a preregistered antithetic,
+1. Obtain a defensible independent source population: benchmark-author
+   generator/new official saved states, or a separately preregistered expansion
+   to untouched tasks and episode groups. Do not reopen the retired custom
+   task-0 source route.
+2. On the untouched population, run the shortest baseline-first ladder:
+   unsteered collision prevalence, endpoint-free direct safe-progress existence,
+   and privileged distributed-flow transfer versus random and strong analytic
+   controls. A failed privileged transfer stops probe training.
+3. Only after transfer passes, replace one-sided local perturbations with a preregistered antithetic,
    multiscale design. Measure actual post-edit feature support and forbid causal
    doses outside it.
 4. Freeze the boundary band, equal-group evaluation unit, conformal count,
@@ -123,13 +120,9 @@ open.
    inference latency, and reject clearance-only gains. Do not submit training
    before the preceding prerequisites pass.
 
-Exact next command after committing and synchronizing the reviewed source:
-
-```bash
-RUN_ID=generated-source-canary-controllercanon-20260715c scripts/hpc/submit_generated_source_pilot.sh configs/experiments/task0_single_obstacle_generated_v1.json
-```
-
-No learned-training submission is authorized yet.
+Exact next compute command: none. R04 is blocked pending a new independent
+source-population decision and preregistration. No generated-source retry or
+learned-training submission is authorized.
 
 ## Open scientific risks
 
