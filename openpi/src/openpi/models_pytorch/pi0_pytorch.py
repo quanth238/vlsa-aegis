@@ -387,6 +387,10 @@ class PI0Pytorch(nn.Module):
         crfs_intervention_step=None,
         crfs_intervention_mode="none",
         crfs_return_trace=False,
+        crfs_resume_latent=None,
+        crfs_resume_time=None,
+        crfs_latent_edit=None,
+        crfs_return_normalized_final=False,
     ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
         """Sample an action, optionally applying a CRFS oracle intervention.
 
@@ -395,11 +399,27 @@ class PI0Pytorch(nn.Module):
         ``crfs_correction`` must have the same padded shape as ``x_t``; callers
         are responsible for converting a physical action displacement using
         normalization *scale only* before it reaches this method.
+
+        ``latent_resume_edit`` is a separate, eager-only continuation seam. It
+        starts from an absolute saved float32 latent and its captured float32
+        time, applies one direct model-coordinate edit, recomputes the velocity
+        at the edited latent, and executes the remaining ordinary Euler steps.
+        The explicit ``noise`` is retained as a required pairing input but is
+        not used to initialize this resume path.
         """
         bsize = observation.state.shape[0]
+        actions_shape = (bsize, self.config.action_horizon, self.config.action_dim)
+        supported_modes = {"none", "residual", "bridge_edit", "latent_resume_edit"}
+        if crfs_intervention_mode not in supported_modes:
+            raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
+        is_latent_resume = crfs_intervention_mode == "latent_resume_edit"
+
         if noise is None:
-            actions_shape = (bsize, self.config.action_horizon, self.config.action_dim)
+            if is_latent_resume:
+                raise ValueError("CRFS latent_resume_edit requires explicit paired noise")
             noise = self.sample_noise(actions_shape, device)
+        if noise.shape != actions_shape:
+            raise ValueError(f"noise shape {tuple(noise.shape)} does not match model shape {actions_shape}")
 
         if crfs_intervention_step is None:
             crfs_intervention_step = num_steps // 2
@@ -407,15 +427,72 @@ class PI0Pytorch(nn.Module):
             raise ValueError(
                 f"crfs_intervention_step must be in [0, {num_steps}), got {crfs_intervention_step}"
             )
-        supported_modes = {"none", "residual", "bridge_edit"}
-        if crfs_intervention_mode not in supported_modes:
-            raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
-        if crfs_intervention_mode != "none" and crfs_correction is None:
+        if crfs_return_normalized_final and not crfs_return_trace:
+            raise ValueError("crfs_return_normalized_final requires crfs_return_trace")
+        if crfs_intervention_mode in {"residual", "bridge_edit"} and crfs_correction is None:
             raise ValueError(f"CRFS mode {crfs_intervention_mode!r} requires crfs_correction")
-        if crfs_correction is not None and crfs_correction.shape != noise.shape:
+        if crfs_correction is not None and crfs_correction.shape != actions_shape:
             raise ValueError(
-                f"crfs_correction shape {tuple(crfs_correction.shape)} does not match noise shape {tuple(noise.shape)}"
+                f"crfs_correction shape {tuple(crfs_correction.shape)} does not match model shape {actions_shape}"
             )
+        resume_values = (crfs_resume_latent, crfs_resume_time, crfs_latent_edit)
+        if is_latent_resume:
+            if crfs_return_trace is not True or crfs_return_normalized_final is not True:
+                raise ValueError(
+                    "CRFS latent_resume_edit requires crfs_return_trace=True and "
+                    "crfs_return_normalized_final=True"
+                )
+            if crfs_correction is not None:
+                raise ValueError("CRFS latent_resume_edit uses crfs_latent_edit, not crfs_correction")
+            if any(value is None for value in resume_values):
+                raise ValueError(
+                    "CRFS latent_resume_edit requires crfs_resume_latent, crfs_resume_time, and crfs_latent_edit"
+                )
+            if noise.dtype != torch.float32:
+                raise ValueError(f"CRFS paired noise must be float32, got {noise.dtype}")
+            if crfs_resume_latent.dtype != torch.float32:
+                raise ValueError(f"crfs_resume_latent must be float32, got {crfs_resume_latent.dtype}")
+            if crfs_latent_edit.dtype != torch.float32:
+                raise ValueError(f"crfs_latent_edit must be float32, got {crfs_latent_edit.dtype}")
+            if crfs_resume_time.dtype != torch.float32:
+                raise ValueError(f"crfs_resume_time must be float32, got {crfs_resume_time.dtype}")
+            expected_device = torch.device(device)
+            if noise.device.type != expected_device.type or (
+                expected_device.index is not None and noise.device.index != expected_device.index
+            ):
+                raise ValueError(f"CRFS paired noise device {noise.device} does not match sampler device {device}")
+            for name, value in (
+                ("crfs_resume_latent", crfs_resume_latent),
+                ("crfs_resume_time", crfs_resume_time),
+                ("crfs_latent_edit", crfs_latent_edit),
+            ):
+                if value.device != noise.device:
+                    raise ValueError(f"{name} device {value.device} does not match paired noise device {noise.device}")
+            if crfs_resume_latent.shape != actions_shape:
+                raise ValueError(
+                    f"crfs_resume_latent shape {tuple(crfs_resume_latent.shape)} does not match model shape "
+                    f"{actions_shape}"
+                )
+            if crfs_latent_edit.shape != actions_shape:
+                raise ValueError(
+                    f"crfs_latent_edit shape {tuple(crfs_latent_edit.shape)} does not match model shape "
+                    f"{actions_shape}"
+                )
+            if tuple(crfs_resume_time.shape) != ():
+                raise ValueError(f"crfs_resume_time must have scalar shape (), got {tuple(crfs_resume_time.shape)}")
+            for name, value in (
+                ("paired noise", noise),
+                ("crfs_resume_latent", crfs_resume_latent),
+                ("crfs_resume_time", crfs_resume_time),
+                ("crfs_latent_edit", crfs_latent_edit),
+            ):
+                if not bool(torch.isfinite(value).all().item()):
+                    raise ValueError(f"CRFS {name} contains a nonfinite value")
+            resume_time_value = float(crfs_resume_time.item())
+            if not 0.0 < resume_time_value <= 1.0:
+                raise ValueError(f"crfs_resume_time must be active in (0, 1], got {resume_time_value}")
+        elif any(value is not None for value in resume_values):
+            raise ValueError("CRFS resume_latent, resume_time, and latent_edit are valid only for latent_resume_edit")
 
         images, img_masks, lang_tokens, lang_masks, state = self._preprocess_observation(observation, train=False)
 
@@ -438,39 +515,74 @@ class PI0Pytorch(nn.Module):
         dt = -1.0 / num_steps
         dt = torch.tensor(dt, dtype=torch.float32, device=device)
 
-        x_t = noise
-        time = torch.tensor(1.0, dtype=torch.float32, device=device)
-        step_index = 0
+        if is_latent_resume:
+            x_t = crfs_resume_latent.detach().clone()
+            time = crfs_resume_time.detach().clone().reshape(())
+            step_index = crfs_intervention_step
+        else:
+            x_t = noise
+            time = torch.tensor(1.0, dtype=torch.float32, device=device)
+            step_index = 0
         crfs_trace = None
         crfs_residual_horizon = 1.0 - crfs_intervention_step / num_steps
+        latent_resume_pending = is_latent_resume
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
-            x_before_intervention = x_t
-            v_base = self.denoise_step(
-                state,
-                prefix_pad_masks,
-                past_key_values,
-                x_t,
-                expanded_time,
-            )
-
-            if step_index == crfs_intervention_step:
+            if latent_resume_pending:
+                x_t_pre_edit = x_t
+                # Preserve every unedited coordinate byte-for-byte.  A plain
+                # `-0.0 + +0.0` can flip the sign bit, which would make the
+                # registered zero-edit resume arm a false no-op even though
+                # its numeric values compare equal.
+                x_t = torch.where(
+                    crfs_latent_edit == 0,
+                    x_t,
+                    x_t + crfs_latent_edit,
+                )
+                v_base = self.denoise_step(
+                    state,
+                    prefix_pad_masks,
+                    past_key_values,
+                    x_t,
+                    expanded_time,
+                )
                 crfs_trace = {
                     "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
                     "time": expanded_time.detach().clone(),
-                    "x_t": x_before_intervention.detach().clone(),
-                    "v_base": v_base.detach().clone(),
-                    "predicted_clean": (x_before_intervention - time * v_base).detach().clone(),
+                    "x_t_pre_edit": x_t_pre_edit.detach().clone(),
+                    "latent_edit": crfs_latent_edit.detach().clone(),
+                    "x_t_post_edit": x_t.detach().clone(),
+                    "v_post_edit": v_base.detach().clone(),
+                    "predicted_clean_post_edit": (x_t - time * v_base).detach().clone(),
                 }
-                if crfs_intervention_mode == "bridge_edit":
-                    x_t = x_t + (1.0 - time) * crfs_correction
-                    v_base = self.denoise_step(
-                        state,
-                        prefix_pad_masks,
-                        past_key_values,
-                        x_t,
-                        expanded_time,
-                    )
+                latent_resume_pending = False
+            else:
+                x_before_intervention = x_t
+                v_base = self.denoise_step(
+                    state,
+                    prefix_pad_masks,
+                    past_key_values,
+                    x_t,
+                    expanded_time,
+                )
+
+                if step_index == crfs_intervention_step:
+                    crfs_trace = {
+                        "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
+                        "time": expanded_time.detach().clone(),
+                        "x_t": x_before_intervention.detach().clone(),
+                        "v_base": v_base.detach().clone(),
+                        "predicted_clean": (x_before_intervention - time * v_base).detach().clone(),
+                    }
+                    if crfs_intervention_mode == "bridge_edit":
+                        x_t = x_t + (1.0 - time) * crfs_correction
+                        v_base = self.denoise_step(
+                            state,
+                            prefix_pad_masks,
+                            past_key_values,
+                            x_t,
+                            expanded_time,
+                        )
 
             v_t = v_base
             if crfs_intervention_mode == "residual" and step_index >= crfs_intervention_step:
@@ -485,6 +597,8 @@ class PI0Pytorch(nn.Module):
         if crfs_return_trace:
             if crfs_trace is None:
                 raise RuntimeError("CRFS trace step was not reached")
+            if crfs_return_normalized_final:
+                crfs_trace["final_normalized"] = x_t.detach().clone()
             return x_t, crfs_trace
         return x_t
 

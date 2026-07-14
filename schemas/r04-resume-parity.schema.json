@@ -1,0 +1,499 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/r04-resume-parity.schema.json",
+  "title": "R04B exact saved-latent resume/edit parity case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "apparatus_scope",
+    "config_hash",
+    "source_evidence",
+    "provenance",
+    "pairing",
+    "execution_boundaries",
+    "usage_restriction"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "arrayRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"type": "string", "minLength": 1},
+        "shape": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "values": {"type": "array"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sourceTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_feature_space", "physical_feature_role", "leaves", "sha256"],
+      "properties": {
+        "primary_feature_space": {"const": "normalized_model_coordinates"},
+        "physical_feature_role": {"const": "inverse_transformed_audit_only"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "leaves": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["step_index", "time", "x_t", "v_base", "predicted_clean", "predicted_clean_physical"],
+          "properties": {
+            "step_index": {"$ref": "#/$defs/arrayRecord"},
+            "time": {"$ref": "#/$defs/arrayRecord"},
+            "x_t": {"$ref": "#/$defs/arrayRecord"},
+            "v_base": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean_physical": {"$ref": "#/$defs/arrayRecord"}
+          }
+        }
+      }
+    },
+    "resumeTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_feature_space", "physical_feature_role", "leaves", "sha256"],
+      "properties": {
+        "primary_feature_space": {"const": "normalized_model_coordinates"},
+        "physical_feature_role": {"const": "inverse_transformed_audit_only"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "leaves": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step_index",
+            "time",
+            "x_t_pre_edit",
+            "latent_edit",
+            "x_t_post_edit",
+            "v_post_edit",
+            "predicted_clean_post_edit",
+            "predicted_clean_post_edit_physical",
+            "final_normalized"
+          ],
+          "properties": {
+            "step_index": {"$ref": "#/$defs/arrayRecord"},
+            "time": {"$ref": "#/$defs/arrayRecord"},
+            "x_t_pre_edit": {"$ref": "#/$defs/arrayRecord"},
+            "latent_edit": {"$ref": "#/$defs/arrayRecord"},
+            "x_t_post_edit": {"$ref": "#/$defs/arrayRecord"},
+            "v_post_edit": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean_post_edit": {"$ref": "#/$defs/arrayRecord"},
+            "predicted_clean_post_edit_physical": {"$ref": "#/$defs/arrayRecord"},
+            "final_normalized": {"$ref": "#/$defs/arrayRecord"}
+          }
+        }
+      }
+    },
+    "sourceCopy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace", "final_normalized", "final_physical", "policy_timing"],
+      "properties": {
+        "trace": {"$ref": "#/$defs/sourceTrace"},
+        "final_normalized": {"$ref": "#/$defs/arrayRecord"},
+        "final_physical": {"$ref": "#/$defs/arrayRecord"},
+        "policy_timing": {"type": "object"}
+      }
+    },
+    "resumeCopy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trace", "final_physical", "policy_timing"],
+      "properties": {
+        "trace": {"$ref": "#/$defs/resumeTrace"},
+        "final_physical": {"$ref": "#/$defs/arrayRecord"},
+        "policy_timing": {"type": "object"}
+      }
+    },
+    "resumeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resume_latent", "resume_time", "latent_edit", "latent_edit_space", "noise_sha256", "sha256"],
+      "properties": {
+        "resume_latent": {"$ref": "#/$defs/arrayRecord"},
+        "resume_time": {"$ref": "#/$defs/arrayRecord"},
+        "latent_edit": {"$ref": "#/$defs/arrayRecord"},
+        "latent_edit_space": {"const": "model"},
+        "noise_sha256": {"$ref": "#/$defs/sha256"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "resumeArm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "exact_duplicate", "algebra_exact", "primary", "duplicate"],
+      "properties": {
+        "request": {"$ref": "#/$defs/resumeInput"},
+        "exact_duplicate": {"const": true},
+        "algebra_exact": {"const": true},
+        "primary": {"$ref": "#/$defs/resumeCopy"},
+        "duplicate": {"$ref": "#/$defs/resumeCopy"},
+        "source_parity": {"$ref": "#/$defs/sourceParity"}
+      }
+    },
+    "sourceParity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x_t_post_edit_equals_source_x_t",
+        "v_post_edit_equals_source_v_base",
+        "predicted_clean_post_edit_equals_source_predicted_clean",
+        "predicted_clean_post_edit_physical_equals_source_predicted_clean_physical",
+        "final_normalized_equals_source",
+        "final_physical_equals_source"
+      ],
+      "properties": {
+        "x_t_post_edit_equals_source_x_t": {"const": true},
+        "v_post_edit_equals_source_v_base": {"const": true},
+        "predicted_clean_post_edit_equals_source_predicted_clean": {"const": true},
+        "predicted_clean_post_edit_physical_equals_source_predicted_clean_physical": {"const": true},
+        "final_normalized_equals_source": {"const": true},
+        "final_physical_equals_source": {"const": true}
+      }
+    },
+    "compiledCopy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["final_physical", "policy_timing"],
+      "properties": {
+        "final_physical": {"$ref": "#/$defs/arrayRecord"},
+        "policy_timing": {"type": "object"}
+      }
+    },
+    "traceHashBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_index", "sha256"],
+      "properties": {
+        "step_index": {"enum": [1, 2, 3, 4, 5]},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "errorMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "max_absolute_error", "rmse", "max_limit", "rms_limit", "passed"],
+      "properties": {
+        "shape": {"enum": [[5, 3], [10, 7]]},
+        "max_absolute_error": {"type": "number", "minimum": 0},
+        "rmse": {"type": "number", "minimum": 0},
+        "max_limit": {"type": "number", "exclusiveMinimum": 0},
+        "rms_limit": {"type": "number", "exclusiveMinimum": 0},
+        "passed": {"const": true}
+      }
+    },
+    "physicalComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physical_first_five_xyz", "physical_full_10x7", "all_registered_physical_limits_pass"],
+      "properties": {
+        "physical_first_five_xyz": {"$ref": "#/$defs/errorMetric"},
+        "physical_full_10x7": {"$ref": "#/$defs/errorMetric"},
+        "all_registered_physical_limits_pass": {"const": true}
+      }
+    },
+    "baselineReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_contract", "r04a_golden", "current_eager_golden_binding", "compiled_default", "compiled_vs_current_eager"],
+      "properties": {
+        "request_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["semantics", "placement", "call_count", "explicit_noise_sha256", "intervention_mode", "return_trace", "correction_supplied", "resume_controls_supplied"],
+          "properties": {
+            "semantics": {"const": "reserved_envelope_explicit_paired_noise_mode_none_no_trace_no_correction_or_resume"},
+            "placement": {"const": "one_before_and_one_after_eager_resume_sequence"},
+            "call_count": {"const": 2},
+            "explicit_noise_sha256": {"$ref": "#/$defs/sha256"},
+            "intervention_mode": {"const": "none"},
+            "return_trace": {"const": false},
+            "correction_supplied": {"const": false},
+            "resume_controls_supplied": {"const": false}
+          }
+        },
+        "r04a_golden": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["raw_artifact_sha256", "observation_sha256", "noise_sha256", "source_trace_sha256_by_step", "final_physical_sha256", "device_conditioning"],
+          "properties": {
+            "raw_artifact_sha256": {"const": "b820793ec42a5228c858e297d13806d8ae7f02e5cc7a765769316473d795f285"},
+            "observation_sha256": {"const": "c27069074f08dbeb4ae5c0b8c6afe41222e6a305f8784d3284c9865944700082"},
+            "noise_sha256": {"const": "8b3e29cce20eb702936bd4d72509bb08117f19b7bea65d49f4232a60e0d86d00"},
+            "source_trace_sha256_by_step": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/traceHashBinding"}},
+            "final_physical_sha256": {"const": "f620a67d1979413812d171f6617033086e5fcf27d87855c91a551827fb03db60"},
+            "device_conditioning": {"const": "exact_same_observation_noise_checkpoint_path_regression_only_not_cross_device_portability_evidence"}
+          }
+        },
+        "current_eager_golden_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["observation_sha256", "noise_sha256", "source_trace_sha256_by_step", "final_physical_sha256", "all_exact"],
+          "properties": {
+            "observation_sha256": {"$ref": "#/$defs/sha256"},
+            "noise_sha256": {"$ref": "#/$defs/sha256"},
+            "source_trace_sha256_by_step": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/traceHashBinding"}},
+            "final_physical_sha256": {"$ref": "#/$defs/sha256"},
+            "all_exact": {"const": true}
+          }
+        },
+        "compiled_default": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pre_sequence", "post_sequence", "exact_dtype_shape_and_canonical_bytes_across_sequence"],
+          "properties": {
+            "pre_sequence": {"$ref": "#/$defs/compiledCopy"},
+            "post_sequence": {"$ref": "#/$defs/compiledCopy"},
+            "exact_dtype_shape_and_canonical_bytes_across_sequence": {"const": true}
+          }
+        },
+        "compiled_vs_current_eager": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tolerance_source", "tolerance_source_sha256", "registered_physical_limits", "normalized_model_comparison_status", "pre_sequence", "post_sequence", "all_registered_physical_limits_pass"],
+          "properties": {
+            "tolerance_source": {"const": "docs/decisions/0011-use-eager-path-for-r02-parity.md"},
+            "tolerance_source_sha256": {"const": "11646bec37bdb2d15e9507080156755300782e0a4eabf91449dcc5105ca10d36"},
+            "registered_physical_limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["physical_xyz5_max", "physical_xyz5_rms", "physical_action7_max", "physical_action7_rms"],
+              "properties": {
+                "physical_xyz5_max": {"const": 0.01},
+                "physical_xyz5_rms": {"const": 0.005},
+                "physical_action7_max": {"const": 0.05},
+                "physical_action7_rms": {"const": 0.015}
+              }
+            },
+            "normalized_model_comparison_status": {"const": "not_exposed_by_ordinary_compiled_physical_policy_reply_validated_R02_predecessor_remains_authority"},
+            "pre_sequence": {"$ref": "#/$defs/physicalComparison"},
+            "post_sequence": {"$ref": "#/$defs/physicalComparison"},
+            "all_registered_physical_limits_pass": {"const": true}
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r04_saved_latent_resume_parity"},
+    "gate": {"const": "R04B"},
+    "case_id": {"const": "crfs-93365b8b851365f2"},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"const": "completed"},
+    "apparatus_scope": {"const": "exact_saved_latent_resume_edit_parity_smoke_only"},
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "source_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_record",
+        "case_record_sha256",
+        "input_manifest_sha256",
+        "config_file_sha256",
+        "checkpoint_id",
+        "checkpoint_sha256",
+        "r00_summary",
+        "r03_summary",
+        "r04a_validation_summary",
+        "r04a_raw_artifact",
+        "sampler_parity"
+      ],
+      "properties": {
+        "case_record": {"type": "object"},
+        "case_record_sha256": {"$ref": "#/$defs/sha256"},
+        "input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "config_file_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_id": {"type": "string", "minLength": 1},
+        "checkpoint_sha256": {"$ref": "#/$defs/sha256"},
+        "r00_summary": {"type": "object"},
+        "r03_summary": {"type": "object"},
+        "r04a_validation_summary": {"type": "object"},
+        "r04a_raw_artifact": {"type": "object"},
+        "sampler_parity": {"type": "object"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "evidence_tier",
+        "git_commit",
+        "reviewed_git_commit",
+        "git_dirty",
+        "baseline_commit",
+        "python_version",
+        "host",
+        "timestamp",
+        "task_suite",
+        "safety_level",
+        "task_index",
+        "episode_index",
+        "environment_seed",
+        "policy_seed",
+        "random_control_seed",
+        "group_id",
+        "noise_sha256",
+        "normalization_asset_sha256",
+        "sampler_steps",
+        "source_trace_steps",
+        "source_eager_calls",
+        "zero_resume_calls",
+        "nonzero_resume_calls",
+        "compiled_default_calls",
+        "total_policy_calls",
+        "model_action_shape",
+        "physical_action_shape",
+        "source_intervention_mode",
+        "resume_intervention_mode",
+        "latent_edit_space",
+        "time_contract",
+        "noise_contract",
+        "exact_equality_contract",
+        "nonzero_edit_role",
+        "simulator_setup",
+        "policy_generated_action_steps_executed",
+        "efficacy_rollouts_executed",
+        "simulator_efficacy_evaluated",
+        "no_training",
+        "no_guidance",
+        "no_learned_probe",
+        "scientific_claim_authorized",
+        "D_opt_status",
+        "D_sim_status",
+        "slurm_job_id",
+        "slurm_array_job_id",
+        "slurm_array_task_id",
+        "partition",
+        "device"
+      ],
+      "properties": {
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "reviewed_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_dirty": {"const": false},
+        "baseline_commit": {"const": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"},
+        "noise_sha256": {"$ref": "#/$defs/sha256"},
+        "normalization_asset_sha256": {"$ref": "#/$defs/sha256"},
+        "source_trace_steps": {"const": [1, 2, 3, 4, 5]},
+        "source_eager_calls": {"const": 10},
+        "zero_resume_calls": {"const": 10},
+        "nonzero_resume_calls": {"const": 10},
+        "compiled_default_calls": {"const": 2},
+        "total_policy_calls": {"const": 32},
+        "model_action_shape": {"const": [10, 32]},
+        "physical_action_shape": {"const": [10, 7]},
+        "source_intervention_mode": {"const": "none"},
+        "resume_intervention_mode": {"const": "latent_resume_edit"},
+        "latent_edit_space": {"const": "model"},
+        "exact_equality_contract": {"const": "dtype_shape_and_c_contiguous_array_bytes_sha256"},
+        "nonzero_edit_role": {"const": "implementation_sentinel_only_never_support_or_dose_evidence"},
+        "simulator_setup": {"const": "one_reset_plus_20_dummy_settle_control_steps"},
+        "policy_generated_action_steps_executed": {"const": 0},
+        "efficacy_rollouts_executed": {"const": 0},
+        "simulator_efficacy_evaluated": {"const": false},
+        "no_training": {"const": true},
+        "no_guidance": {"const": true},
+        "no_learned_probe": {"const": true},
+        "scientific_claim_authorized": {"const": false},
+        "D_opt_status": {"const": "not_run_not_applicable"},
+        "D_sim_status": {"const": "not_run_not_applicable"},
+        "slurm_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_job_id": {"type": "string", "minLength": 1},
+        "slurm_array_task_id": {"type": "string", "minLength": 1},
+        "partition": {"type": "string", "minLength": 1},
+        "device": {"type": "string", "minLength": 1}
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixed_observation",
+        "noise",
+        "step_records",
+        "baseline_reference",
+        "source_call_count",
+        "zero_resume_call_count",
+        "nonzero_resume_call_count",
+        "compiled_default_call_count",
+        "total_policy_call_count",
+        "all_source_duplicates_exact",
+        "all_source_finals_exact_across_steps",
+        "all_zero_resume_duplicates_exact",
+        "all_zero_resume_source_parity_exact",
+        "all_nonzero_resume_duplicates_exact",
+        "all_nonzero_edit_algebra_exact"
+      ],
+      "properties": {
+        "fixed_observation": {"type": "object"},
+        "noise": {"$ref": "#/$defs/arrayRecord"},
+        "step_records": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_index", "captured_time", "source", "zero_resume", "nonzero_resume"],
+            "properties": {
+              "step_index": {"enum": [1, 2, 3, 4, 5]},
+              "captured_time": {"$ref": "#/$defs/arrayRecord"},
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["exact_duplicate", "primary", "duplicate"],
+                "properties": {
+                  "exact_duplicate": {"const": true},
+                  "primary": {"$ref": "#/$defs/sourceCopy"},
+                  "duplicate": {"$ref": "#/$defs/sourceCopy"}
+                }
+              },
+              "zero_resume": {"allOf": [{"$ref": "#/$defs/resumeArm"}, {"required": ["source_parity"]}]},
+              "nonzero_resume": {"$ref": "#/$defs/resumeArm"}
+            }
+          }
+        },
+        "baseline_reference": {"$ref": "#/$defs/baselineReference"},
+        "source_call_count": {"const": 10},
+        "zero_resume_call_count": {"const": 10},
+        "nonzero_resume_call_count": {"const": 10},
+        "compiled_default_call_count": {"const": 2},
+        "total_policy_call_count": {"const": 32},
+        "all_source_duplicates_exact": {"const": true},
+        "all_source_finals_exact_across_steps": {"const": true},
+        "all_zero_resume_duplicates_exact": {"const": true},
+        "all_zero_resume_source_parity_exact": {"const": true},
+        "all_nonzero_resume_duplicates_exact": {"const": true},
+        "all_nonzero_edit_algebra_exact": {"const": true}
+      }
+    },
+    "execution_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["simulator_setup", "policy_generated_action_steps_executed", "efficacy_rollouts_executed", "simulator_efficacy_evaluated", "training_executed", "guidance_executed", "learned_probe_executed", "scientific_claim_authorized", "D_opt_status", "D_sim_status", "nonzero_edit_role"],
+      "properties": {
+        "simulator_setup": {"const": "one_reset_plus_20_dummy_settle_control_steps"},
+        "policy_generated_action_steps_executed": {"const": 0},
+        "efficacy_rollouts_executed": {"const": 0},
+        "simulator_efficacy_evaluated": {"const": false},
+        "training_executed": {"const": false},
+        "guidance_executed": {"const": false},
+        "learned_probe_executed": {"const": false},
+        "scientific_claim_authorized": {"const": false},
+        "D_opt_status": {"const": "not_run_not_applicable"},
+        "D_sim_status": {"const": "not_run_not_applicable"},
+        "nonzero_edit_role": {"const": "implementation_sentinel_only_never_support_or_dose_evidence"}
+      }
+    },
+    "usage_restriction": {"const": "apparatus_only_never_train_calibrate_validate_test_or_claim"}
+  }
+}

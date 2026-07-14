@@ -198,13 +198,29 @@ apparatus-only, and the R04 feature remains active rather than passing.
 
 ### R04B: exact saved-latent resume/edit parity
 
-Before any perturbation label, add a distinct opt-in resume/edit mode. Consume
-the absolute normalized latent and the captured float32 trace time, apply one
-direct normalized latent edit, recompute the velocity at the edited state, and
-return the post-edit latent, velocity, `predicted_clean`, normalized final
-action, and existing physical final action. Do not overload bridge or residual
-semantics. A zero edit at every registered step must reproduce the complete
-eager normalized and physical final actions exactly in an allocation.
+ADR-0019 freezes the final apparatus-only prerequisite before any perturbation
+label. A distinct opt-in resume/edit mode consumes the absolute normalized
+latent and captured float32 trace time, applies one direct normalized latent
+edit, recomputes the velocity at the edited state, and returns the post-edit
+latent, velocity, `predicted_clean`, normalized final action, and existing
+physical final action. Do not overload bridge or residual semantics.
+
+The one-case allocation makes 32 policy calls: an ordinary compiled no-trace
+call before and after 30 eager calls comprising duplicate source, zero-resume,
+and nonzero-resume requests at steps 1--5. All calls share the exact fixed
+observation and float32 noise. Current eager observation/noise/trace/action
+hashes must reproduce the independently validated R04A golden artifact. The
+compiled pair must be byte-identical and remain within the unchanged
+ADR-0010/0011 physical compiled/eager limits.
+
+A zero edit at every registered step must reproduce, by dtype, shape, and
+contiguous bytes, the source post-edit latent, velocity, normalized and
+inverse-transformed predicted-clean features, normalized final action, and
+physical final action. The nonzero edit is an implementation sentinel only.
+The setup performs one reset and 20 dummy settle controls, but executes no
+sampled-policy action and no efficacy rollout. Allocation pass plus a separate
+CPU Slurm validation establishes label-collection plumbing only; it is not a
+probe or guidance result.
 
 ### Claim-bearing R04 stop before training
 

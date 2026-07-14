@@ -98,7 +98,61 @@ class Policy(BasePolicy):
         if crfs_controls is not None:
             if noise is None and crfs_controls.get("noise") is not None:
                 noise = np.array(crfs_controls["noise"], copy=True)
+            intervention_mode = str(crfs_controls.get("intervention_mode", "none"))
+            return_trace = bool(crfs_controls.get("return_trace", False))
+            return_normalized_final = bool(crfs_controls.get("return_normalized_final", False))
             correction = crfs_controls.get("correction")
+            resume_control_names = ("resume_latent", "resume_time", "latent_edit")
+            if intervention_mode == "latent_resume_edit":
+                if "correction" in crfs_controls or "correction_space" in crfs_controls:
+                    raise ValueError("CRFS latent_resume_edit forbids correction and correction_space")
+                if crfs_controls.get("return_trace") is not True:
+                    raise ValueError("CRFS latent_resume_edit requires return_trace=true")
+                if crfs_controls.get("return_normalized_final") is not True:
+                    raise ValueError("CRFS latent_resume_edit requires return_normalized_final=true")
+                if crfs_controls.get("latent_edit_space") != "model":
+                    raise ValueError("CRFS latent_resume_edit requires latent_edit_space='model'")
+                missing = [name for name in resume_control_names if crfs_controls.get(name) is None]
+                if missing:
+                    raise ValueError(f"CRFS latent_resume_edit is missing required controls: {missing}")
+                if noise is None:
+                    raise ValueError("CRFS latent_resume_edit requires explicit paired noise")
+
+                action_shape = (int(self._model.config.action_horizon), int(self._model.config.action_dim))
+                noise_array = np.asarray(noise)
+                if noise_array.dtype != np.dtype(np.float32):
+                    raise ValueError(f"CRFS paired noise must preserve float32 dtype, got {noise_array.dtype}")
+                if noise_array.shape != action_shape:
+                    raise ValueError(
+                        f"CRFS paired noise must have unbatched shape {action_shape}, got {noise_array.shape}"
+                    )
+                if not bool(np.isfinite(noise_array).all()):
+                    raise ValueError("CRFS paired noise contains a nonfinite value")
+                noise = np.array(noise_array, copy=True)
+
+                for control_name, sample_name, expected_shape in (
+                    ("resume_latent", "crfs_resume_latent", action_shape),
+                    ("resume_time", "crfs_resume_time", ()),
+                    ("latent_edit", "crfs_latent_edit", action_shape),
+                ):
+                    value = np.asarray(crfs_controls[control_name])
+                    if value.dtype != np.dtype(np.float32):
+                        raise ValueError(
+                            f"CRFS {control_name} must preserve captured float32 dtype, got {value.dtype}"
+                        )
+                    if value.shape != expected_shape:
+                        raise ValueError(
+                            f"CRFS {control_name} must have unbatched shape {expected_shape}, got {value.shape}"
+                        )
+                    if not bool(np.isfinite(value).all()):
+                        raise ValueError(f"CRFS {control_name} contains a nonfinite value")
+                    value = torch.from_numpy(np.array(value, copy=True)).to(self._pytorch_device)
+                    if control_name != "resume_time":
+                        value = value[None, ...]
+                    sample_kwargs[sample_name] = value
+            elif any(name in crfs_controls for name in (*resume_control_names, "latent_edit_space")):
+                raise ValueError("CRFS resume controls are valid only for latent_resume_edit")
+
             if correction is not None:
                 correction = np.array(correction, dtype=np.float32, copy=True)
                 correction_space = str(crfs_controls.get("correction_space", "model"))
@@ -111,8 +165,9 @@ class Policy(BasePolicy):
                     correction = correction[None, ...]
                 sample_kwargs["crfs_correction"] = correction
             sample_kwargs["crfs_intervention_step"] = int(crfs_controls.get("intervention_step", 5))
-            sample_kwargs["crfs_intervention_mode"] = str(crfs_controls.get("intervention_mode", "none"))
-            sample_kwargs["crfs_return_trace"] = bool(crfs_controls.get("return_trace", False))
+            sample_kwargs["crfs_intervention_mode"] = intervention_mode
+            sample_kwargs["crfs_return_trace"] = return_trace
+            sample_kwargs["crfs_return_normalized_final"] = return_normalized_final
             # An explicit-noise, no-intervention request is an experiment-only
             # way to exercise the untouched compiled baseline sampler through
             # the WebSocket transport.  Trace dictionaries and interventions
@@ -122,6 +177,7 @@ class Policy(BasePolicy):
                 sample_kwargs["crfs_return_trace"]
                 or sample_kwargs["crfs_intervention_mode"] != "none"
                 or correction is not None
+                or sample_kwargs["crfs_return_normalized_final"]
             )
             if not use_crfs_sampler:
                 # Do not even pass experiment-only keyword arguments to the
@@ -130,6 +186,7 @@ class Policy(BasePolicy):
                 sample_kwargs.pop("crfs_intervention_step")
                 sample_kwargs.pop("crfs_intervention_mode")
                 sample_kwargs.pop("crfs_return_trace")
+                sample_kwargs.pop("crfs_return_normalized_final")
         if noise is not None:
             noise = torch.from_numpy(noise).to(self._pytorch_device) if self._is_pytorch_model else jnp.asarray(noise)
 
@@ -161,13 +218,22 @@ class Policy(BasePolicy):
             # transform, including the normalization offset.  This is distinct
             # from displacement corrections, which use scale only in
             # ``_physical_delta_to_model``.
-            trace_physical = self._output_transform(
-                {
-                    "state": np.array(outputs["state"], copy=True),
-                    "actions": np.array(trace["predicted_clean"], copy=True),
-                }
-            )
-            trace["predicted_clean_physical"] = np.asarray(trace_physical["actions"])
+            if "predicted_clean" in trace:
+                trace_physical = self._output_transform(
+                    {
+                        "state": np.array(outputs["state"], copy=True),
+                        "actions": np.array(trace["predicted_clean"], copy=True),
+                    }
+                )
+                trace["predicted_clean_physical"] = np.asarray(trace_physical["actions"])
+            if "predicted_clean_post_edit" in trace:
+                post_edit_physical = self._output_transform(
+                    {
+                        "state": np.array(outputs["state"], copy=True),
+                        "actions": np.array(trace["predicted_clean_post_edit"], copy=True),
+                    }
+                )
+                trace["predicted_clean_post_edit_physical"] = np.asarray(post_edit_physical["actions"])
         outputs = self._output_transform(outputs)
         if trace is not None:
             outputs["crfs_trace"] = trace

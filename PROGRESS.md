@@ -65,49 +65,57 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - All five registered trace steps had exact duplicate requests, all ten complete sampler calls returned the exact same physical action, both five-action simulator replays were exact, and the fixed geometry encoded 21/21 OBBs without truncation. The retained descriptive result had `D_sim=11.531 mm`, no contact, and `26.739 mm` reach progress, below `p_min`; retention of that low-progress row confirms that the apparatus did not filter an unfavorable outcome.
 - Independent CPU Slurm validator `27516` reconstructed the artifact on `worker-2` with zero errors and the same SHA-256. Descriptive inspection job `27518` changed no artifact. The compact record is `evidence/r04a/r04a-validation.json`. This passes the label-plumbing apparatus only; feature R04 remains active and no probe is trained.
 - The post-smoke design audit found that the current bridge cannot label an edited feature, plain BDDL resets are not released Level-II states, the released 50-state task-0 file is exhausted, the proposed `[-0.15,0.15]^15` perturbations do not support doses `0.25`--`4.0`, and current boundary/false-safe/causal group counts are not powered. ADR-0018 freezes the stop before perturbation labels or training.
+- ADR-0019 freezes R04B as the final apparatus-only subgate. Its config SHA-256 is `a0edb7edac86d2abd887218002d14e28e072cd472d631797d18d540f5140be33`: one compiled call before and after duplicate source/zero-resume/nonzero-resume calls at steps 1--5, for 32 calls total on one reused apparatus state.
+- Independent review caught and closed three pre-submission defects. R04B now records its one reset plus 20 dummy settle-control steps instead of claiming no simulator execution; zero resumes require byte-exact latent, velocity, predicted-clean in both coordinate spaces, normalized final, and physical final parity; and the current eager path is bound exactly to the validated R04A observation/noise/trace/action hashes while the ordinary compiled path is rerun under the unchanged R02 limits.
+- The final local R04B contract passes 13/13 Python 3.12 tests with Draft 2020-12 schema validation. The complete `./init.sh` gate passes 204 tests with 58 allocation-runtime skips. The allocation wrapper also runs the dependency-backed PyTorch/OpenPI control tests before loading the policy. No R04B allocation, perturbation label, probe training, or guidance outcome has yet run.
 
 ## Active gate
 
 R04 — learned ECG probe. R02/R03 authorize a bounded investigation and R04A
 has now passed its allocation-backed label-plumbing contract. ADR-0018 keeps
-R04 active and stops before perturbation labels or training. Exact post-edit
-resume parity, a defensible new state estimand, support-matched perturbations,
-and powered group manifests remain prerequisites. ECG effectiveness,
-necessity, novelty, and transport-phase validity remain open.
+R04 active and stops before perturbation labels or training. ADR-0019 freezes
+the final one-case R04B exact-resume apparatus, whose allocation pass remains
+pending. A defensible new state estimand, support-matched perturbations, and
+powered group manifests remain prerequisites to the decisive probe experiment.
+ECG effectiveness, necessity, novelty, and transport-phase validity remain
+open.
 
 ## Next
 
-1. Implement the opt-in R04B exact saved-latent resume/edit seam. Capture the
-   float32 trace time, return post-edit feature fields and the normalized final
-   action, and preserve default/residual/bridge behavior with structural and
-   dependency-backed regressions.
-2. Run allocation-backed zero-edit parity at all five registered steps. Every
-   resumed normalized and physical final action must equal the corresponding
-   full eager continuation exactly; do not relax this to an outcome-fitted
-   tolerance.
-3. Seek the benchmark authors' original Level-II state generator. If it is not
+1. Commit and synchronize the reviewed R04B contract, run live preflight, then
+   submit exactly one one-case allocation smoke. Every zero resume must match
+   the corresponding source feature and final actions byte-for-byte; do not
+   relax this after seeing the result. Run a separate CPU Slurm validator bound
+   to the source job, array, and task identifiers.
+2. Seek the benchmark authors' original Level-II state generator. If it is not
    available, freeze an explicitly new controlled generator with XML plus full
    state/history provenance and repeat R00--R03 on that new estimand before
    training.
-4. Replace one-sided local perturbations with a preregistered antithetic,
+3. Replace one-sided local perturbations with a preregistered antithetic,
    multiscale design. Measure actual post-edit feature support and forbid causal
    doses outside it.
-5. Freeze the boundary band, equal-group evaluation unit, conformal count,
+4. Freeze the boundary band, equal-group evaluation unit, conformal count,
    unsafe/boundary/trigger-positive counts, paired discordance assumptions, and
    joint power simulation before any label or final outcome is opened.
-6. Only after those prerequisites pass, pair frozen, learned-gradient,
+5. Run the direct research ladder: held-out clearance/false-safe prediction,
+   one-step learned-gradient versus equal-norm random causality, and then full
+   margin-stopped guidance. Pair frozen, learned-gradient,
    equal-realized-norm random, registered analytic, margin-stopped/time-structured
    analytic, privileged oracle-direction, and direct-planner arms by state,
    observation, policy noise, and executed horizon. Keep safe-progress success
-   as the joint outcome. Do not submit training now.
+   as the joint outcome, report paired effect sizes/confidence intervals and
+   inference latency, and reject clearance-only gains. Do not submit training
+   before the preceding prerequisites pass.
 
 Exact next local starting command:
 
 ```bash
-rg -n "crfs_intervention_mode|crfs_return_trace|def sample_actions" openpi/src/openpi/models_pytorch/pi0_pytorch.py openpi/src/openpi/policies/policy.py
+RUN_ID=r04b-resume-parity-smoke-20260714a scripts/hpc/submit_r04_resume_parity.sh manifests/reach_progress_calibration.jsonl configs/experiments/r04_resume_parity.json
 ```
 
-No R04B allocation or learned-training submission command is authorized yet.
+This command is authorized only from a clean committed worktree synchronized to
+the remote source after a fresh live preflight. No learned-training submission
+is authorized yet.
 
 ## Open scientific risks
 
@@ -123,7 +131,7 @@ No R04B allocation or learned-training submission command is authorized yet.
 - The current controlled metric covers a 6 cm EEF sphere against the active obstacle's oriented boxes, not full-arm mesh safety.
 - The controlled result remains limited to an EEF sphere against the active obstacle's OBB union; narrowing the manuscript does not provide full-arm safety evidence.
 - The oracle direction is privileged planner-witness information, not a learned clearance gradient. Oracle steerability does not guarantee that a scalar continuation-clearance probe can recover a task-preserving direction.
-- The revised draft now requires exact deterministic-continuation labels, but the required post-edit latent resume seam is not yet implemented or allocation-tested.
+- The exact deterministic post-edit continuation seam and fail-closed validator now pass locally, but allocation-backed byte parity is not yet established.
 - Boundary MAE and rank correlation do not control false-safe predictions at the 5 mm decision threshold. R04 needs a frozen one-sided boundary calibration or false-safe criterion in addition to scalar regression metrics.
 - Excluding low-progress actions from probe training does not guarantee that a clearance gradient remains on the progress-preserving action manifold. The gradient-causality gate must therefore retain safe-progress success and cannot be replaced by clearance improvement.
 - Analytic 0/17 rejects only the registered static, equal-L2, one-midpoint geometry normal. It does not establish that learning is necessary or rule out stronger margin-aware or time-structured analytic guidance.

@@ -15,9 +15,12 @@ random and registered analytic controls. R04 is now the only active gate. This
 authorizes a bounded learned-probe investigation, not training by default.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
-stops before perturbation labels or training because exact latent resume,
-independent state provenance, perturbation support, and powered group counts
-remain unresolved. No probe has yet been trained or shown effective.
+stops before perturbation labels or training. ADR-0019 now freezes the final
+apparatus subgate: a one-case exact saved-latent resume/parity smoke, including
+a current-commit ordinary-baseline regression. Its local contract passes, but
+allocation evidence is still pending. Independent state provenance,
+perturbation support, and powered group counts remain unresolved. No probe has
+yet been trained or shown effective.
 
 ## Baseline and extensions
 
@@ -86,11 +89,12 @@ The R00–R04A allocation evidence and exact Slurm job IDs are recorded in
 `PROGRESS.md` and `evidence/`. There is intentionally no R04 training command.
 R04A verified real sampler-trace to physical-action to raw-simulator-label
 plumbing on one reused R00 state; it cannot support a learning or efficacy
-claim. Claim-bearing R04 still requires exact post-edit continuation parity,
-genuinely new source-episode groups from a defined estimand, a frozen
-group-preserving split, support-matched perturbations, powered boundary and
-false-safe coverage, gradient causality, and matched controls. Run live
-preflight immediately before every submission.
+claim. R04B is limited to one exact post-edit continuation/parity smoke and
+does not execute a guidance outcome. Claim-bearing R04 still requires genuinely
+new source-episode groups from a defined estimand, a frozen group-preserving
+split, support-matched perturbations, powered boundary and false-safe coverage,
+gradient causality, and matched controls. Run live preflight immediately before
+every submission.
 
 The detailed procedure is in [the experiment protocol](docs/experiment_protocol.md) and [VinUni runbook](docs/infrastructure/vinuni_h100_runbook.md).
 
@@ -100,6 +104,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `Chat - Probe in Diffusion Model.md`: design discussion and the endpoint-free pivot record;
 - `docs/decisions/0017-freeze-r04a-continuation-label-contract.md`: frozen R04A contract;
 - `docs/decisions/0018-accept-r04a-stop-before-training.md`: passed plumbing evidence and current stop;
+- `docs/decisions/0019-freeze-r04b-exact-resume-parity.md`: final apparatus contract before direct probe experiments;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `references.bib`: bibliography;
 - `CRFS_Proposal_Preview.pdf`: compiled preview.

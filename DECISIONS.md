@@ -18,3 +18,4 @@
 - [0016 — Accept R03 and authorize a bounded R04 study](docs/decisions/0016-accept-r03-authorize-r04.md)
 - [0017 — Freeze the R04A real-continuation label contract](docs/decisions/0017-freeze-r04a-continuation-label-contract.md)
 - [0018 — Accept R04A plumbing and stop before probe training](docs/decisions/0018-accept-r04a-stop-before-training.md)
+- [0019 — Freeze R04B exact resume parity as the final apparatus gate](docs/decisions/0019-freeze-r04b-exact-resume-parity.md)
