@@ -32,6 +32,12 @@ class HarnessContractTest(unittest.TestCase):
         wrapper = (ROOT / "scripts/hpc/submit_oracle_array.sh").read_text(encoding="utf-8")
         self.assertIn('case "$CONCURRENCY" in 1|2)', wrapper)
 
+    def test_remote_case_preconfigures_safelibero_noninteractively(self) -> None:
+        source = (ROOT / "scripts/hpc/run_oracle_case.sh").read_text(encoding="utf-8")
+        self.assertIn('"$LIBERO_CONFIG_PATH/config.yaml"', source)
+        self.assertIn('SAFELIBERO_ROOT=$REMOTE_REPO/safelibero/libero/libero', source)
+        self.assertLess(source.index('"$LIBERO_CONFIG_PATH/config.yaml"'), source.index("scripts/serve_policy.py"))
+
 
 if __name__ == "__main__":
     unittest.main()

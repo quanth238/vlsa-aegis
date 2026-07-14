@@ -37,6 +37,29 @@ export PYOPENGL_PLATFORM=osmesa
 export LIBERO_CONFIG_PATH=$CASE_DIR/libero-config
 export PYTHONUNBUFFERED=1
 mkdir -p "$LIBERO_CONFIG_PATH"
+SAFELIBERO_ROOT=$REMOTE_REPO/safelibero/libero/libero
+"$LIBERO_PYTHON" - "$LIBERO_CONFIG_PATH/config.yaml" "$SAFELIBERO_ROOT" <<'PY'
+import os
+import pathlib
+import sys
+import tempfile
+
+destination = pathlib.Path(sys.argv[1])
+root = pathlib.Path(sys.argv[2]).resolve()
+lines = {
+    "benchmark_root": root,
+    "bddl_files": root / "bddl_files",
+    "init_states": root / "init_files",
+    "datasets": root.parent / "datasets",
+    "assets": root / "assets",
+}
+destination.parent.mkdir(parents=True, exist_ok=True)
+with tempfile.NamedTemporaryFile("w", dir=destination.parent, delete=False) as handle:
+    for key, value in lines.items():
+        handle.write(f"{key}: {value}\n")
+    temporary = handle.name
+os.replace(temporary, destination)
+PY
 
 echo "host=$(hostname)"
 echo "date=$(date --iso-8601=seconds)"
