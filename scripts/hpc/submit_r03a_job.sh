@@ -142,6 +142,7 @@ SOURCE_FILES=(
   openpi/src/openpi/models_pytorch/pi0_pytorch.py
   openpi/src/openpi/policies/policy.py
   schemas/r03a-analytic-kill-test.schema.json
+  scripts/hpc/prepare_jsonschema_overlay.sh
   scripts/hpc/run_r03a_case.sh
   scripts/hpc/submit_r03a_array.sh
   scripts/hpc/submit_r03a_h100_smoke.sh

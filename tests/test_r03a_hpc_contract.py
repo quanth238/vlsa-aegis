@@ -14,6 +14,7 @@ SUBMIT_H100_SMOKE = ROOT / "scripts/hpc/submit_r03a_h100_smoke.sh"
 SUBMIT_ARRAY = ROOT / "scripts/hpc/submit_r03a_array.sh"
 SUBMIT_SUMMARY = ROOT / "scripts/hpc/submit_r03a_summary.sh"
 WORKER = ROOT / "scripts/hpc/run_r03a_case.sh"
+JSONSCHEMA_OVERLAY = ROOT / "scripts/hpc/prepare_jsonschema_overlay.sh"
 SLURM_SMOKE = ROOT / "slurm/r03a_mig.sbatch"
 SLURM_H100_SMOKE = ROOT / "slurm/r03a_h100_smoke.sbatch"
 SLURM_ARRAY = ROOT / "slurm/r03a_main_array.sbatch"
@@ -37,6 +38,7 @@ class R03AHPCContractTest(unittest.TestCase):
             SUBMIT_ARRAY,
             SUBMIT_SUMMARY,
             WORKER,
+            JSONSCHEMA_OVERLAY,
             SLURM_SMOKE,
             SLURM_H100_SMOKE,
             SLURM_ARRAY,
@@ -99,11 +101,45 @@ class R03AHPCContractTest(unittest.TestCase):
 
     def test_worker_preflights_production_schema_dependency_before_server(self) -> None:
         value = WORKER.read_text(encoding="utf-8")
+        self.assertIn("prepare_jsonschema_overlay.sh", value)
         dependency = value.index("import jsonschema")
         server = value.rindex("scripts/serve_policy.py")
         runner = value.rindex("main/run_crfs_r03a.py")
         self.assertLess(dependency, server)
         self.assertLess(dependency, runner)
+        runner_path = value.index(
+            "export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src"
+        )
+        self.assertLess(dependency, runner_path)
+
+    def test_jsonschema_overlay_is_allocation_only_exact_and_offline(self) -> None:
+        value = JSONSCHEMA_OVERLAY.read_text(encoding="utf-8")
+        self.assertIn("SLURM_JOB_ID", value)
+        self.assertIn(
+            "EXPECTED_SOURCE_BUNDLE_SHA256="
+            "72ccff502fcffe6ab4515cff5f9e3de8fa70e0a2b54c235389df003d25880a6c",
+            value,
+        )
+        for package in (
+            "jsonschema-4.23.0.dist-info",
+            "jsonschema_specifications-2023.12.1.dist-info",
+            "pkgutil_resolve_name-1.3.10.dist-info",
+            "referencing-0.35.1.dist-info",
+            "rpds_py-0.20.1.dist-info",
+        ):
+            self.assertIn(package, value)
+        self.assertIn("sys.version_info[:2] == (3, 8)", value)
+        self.assertIn("flock -x", value)
+        self.assertIn("expected_top_level=", value)
+        self.assertIn("observed_top_level=", value)
+        self.assertIn('test ! -L "$root/.source-bundle-sha256"', value)
+        self.assertIn("! -type f ! -type d", value)
+        self.assertIn("mv -T", value)
+        self.assertNotRegex(value, r"\b(pip|uv|curl|wget)\b")
+        worker = WORKER.read_text(encoding="utf-8")
+        summary = SLURM_SUMMARY.read_text(encoding="utf-8")
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1", worker)
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1", summary)
 
     def test_submission_caps_resources_and_excludes_unhealthy_nodes(self) -> None:
         value = SUBMIT_JOB.read_text(encoding="utf-8")
@@ -154,6 +190,9 @@ class R03AHPCContractTest(unittest.TestCase):
         self.assertIn("#SBATCH --mem=16G", sbatch)
         self.assertIn("main/summarize_r03a.py", sbatch)
         self.assertIn("import jsonschema", sbatch)
+        self.assertIn("prepare_jsonschema_overlay.sh", sbatch)
+        self.assertIn("PYTHONPATH=$JSONSCHEMA_OVERLAY", sbatch)
+        self.assertIn("scripts/hpc/prepare_jsonschema_overlay.sh", submit)
         for option in (
             "--manifest",
             "--config",

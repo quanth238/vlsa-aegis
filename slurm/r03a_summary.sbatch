@@ -43,10 +43,13 @@ test ! -e "$OUTPUT" || {
   echo "immutable R03A population summary already exists: $OUTPUT" >&2
   exit 2
 }
-"$LIBERO_PYTHON" -c 'import jsonschema' || {
-  echo "R03A production summary requires jsonschema in the allocation venv" >&2
+test -x "$REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh" || {
+  echo "missing JSON Schema overlay helper" >&2
   exit 2
 }
+JSONSCHEMA_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh)
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$JSONSCHEMA_OVERLAY "$LIBERO_PYTHON" -c \
+  'import jsonschema; jsonschema.Draft202012Validator.check_schema({"type": "object"})'
 test "$(sha256sum "$MANIFEST" | awk '{print $1}')" = "$MANIFEST_SHA256" || {
   echo "R03A summary allocation manifest hash mismatch" >&2
   exit 2
@@ -60,9 +63,10 @@ test "$(sha256sum "$R03_SUMMARY" | awk '{print $1}')" = "$R03_SUMMARY_SHA256" ||
   exit 2
 }
 
-export PYTHONPATH=$REMOTE_REPO/src:$REMOTE_REPO/main
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src:$REMOTE_REPO/main
 cd "$REMOTE_REPO"
-"$LIBERO_PYTHON" -c 'import jsonschema; print("jsonschema", jsonschema.__version__)'
+"$LIBERO_PYTHON" -c 'import importlib.metadata; print("jsonschema", importlib.metadata.version("jsonschema"))'
 "$LIBERO_PYTHON" main/summarize_r03a.py \
   --manifest "$MANIFEST" \
   --config "$CONFIG" \

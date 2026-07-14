@@ -170,6 +170,10 @@ test -x "$REMOTE_REPO/scripts/hpc/prepare_transformers_overlay.sh" || {
   echo "missing transformers overlay helper" >&2
   exit 2
 }
+test -x "$REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh" || {
+  echo "missing JSON Schema overlay helper" >&2
+  exit 2
+}
 test -f "$RUNNER" || { echo "missing R03A runner: $RUNNER" >&2; exit 2; }
 test -f "$MANIFEST" || { echo "missing frozen R03A manifest: $MANIFEST" >&2; exit 2; }
 test -f "$EXPERIMENT_CONFIG" || { echo "missing external R03A config: $EXPERIMENT_CONFIG" >&2; exit 2; }
@@ -394,7 +398,23 @@ echo "checkpoint_sha256=$CHECKPOINT_SHA256"
 echo "expected_result=$EXPECTED_RESULT"
 "$OPENPI_PYTHON" -V
 "$OPENPI_PYTHON" -c 'import torch; assert torch.cuda.is_available(), "CUDA unavailable"; print(torch.__version__); print(torch.cuda.get_device_name(0))'
-"$LIBERO_PYTHON" -c 'import jsonschema; print("jsonschema", jsonschema.__version__)'
+FAILURE_STAGE=schema_dependency
+JSONSCHEMA_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh)
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=$JSONSCHEMA_OVERLAY "$LIBERO_PYTHON" - \
+  "$REMOTE_REPO/schemas/r03a-analytic-kill-test.schema.json" <<'PY'
+import importlib.metadata
+import json
+import pathlib
+import sys
+
+import jsonschema
+
+schema = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+jsonschema.Draft202012Validator.check_schema(schema)
+print("jsonschema", importlib.metadata.version("jsonschema"))
+PY
+echo "jsonschema_overlay=$JSONSCHEMA_OVERLAY"
+echo "jsonschema_bundle_sha256=$(tr -d '[:space:]' < "$JSONSCHEMA_OVERLAY/.source-bundle-sha256")"
 
 FAILURE_STAGE=policy_server_startup
 TRANSFORMERS_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_transformers_overlay.sh)
@@ -424,7 +444,8 @@ done
 test "$ready" = 1 || { tail -n 200 "$SERVER_LOG" >&2 || true; exit 4; }
 
 FAILURE_STAGE=r03a_runner
-export PYTHONPATH=$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/packages/openpi-client/src
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/packages/openpi-client/src
 cd "$REMOTE_REPO"
 "$LIBERO_PYTHON" main/run_crfs_r03a.py \
   --manifest "$MANIFEST" \

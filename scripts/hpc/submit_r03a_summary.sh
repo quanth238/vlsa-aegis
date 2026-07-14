@@ -65,6 +65,7 @@ SOURCE_FILES=(
   main/crfs_oracle/r03a_validation.py
   main/summarize_r03a.py
   manifests/r03a_analytic_kill_test_eligible.jsonl
+  scripts/hpc/prepare_jsonschema_overlay.sh
   scripts/hpc/submit_r03a_summary.sh
   slurm/r03a_summary.sbatch
 )
@@ -108,6 +109,7 @@ for path in \
   "$manifest" "$config" "$r03_summary" \
   "$remote_repo/main/summarize_r03a.py" \
   "$remote_repo/main/crfs_oracle/r03a_validation.py" \
+  "$remote_repo/scripts/hpc/prepare_jsonschema_overlay.sh" \
   "$remote_repo/slurm/r03a_summary.sbatch"; do
   test -f "$path" || { echo "missing remote R03A summary input: $path" >&2; exit 2; }
 done
