@@ -282,6 +282,8 @@ class SamplerParityContractTest(unittest.TestCase):
         source = RUNNER_PATH.read_text(encoding="utf-8")
         self.assertIn("SafeLiberoCase", source)
         self.assertIn("policy_observation", source)
+        self.assertIn('config_mapping.setdefault(\n        "intervention_step"', source)
+        self.assertIn('"optimizer_max_iterations"', source)
         self.assertIn("_atomic_write_array_tree", source)
         self.assertIn("_load_array_tree", source)
         self.assertIn("applied once by public-JAX worker", source)

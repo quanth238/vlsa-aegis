@@ -542,6 +542,23 @@ def _run_observation_worker(args: argparse.Namespace) -> int:
         raise IndexError(args.case_index)
     case = records[args.case_index]
     config_mapping = load_json(args.experiment_config)
+    if not isinstance(config_mapping, Mapping):
+        raise ValueError("sampler parity experiment config must be an object")
+    # The endpoint-free scientific config nests planner-only values, whereas
+    # the shared baseline environment wrapper consumes its small legacy
+    # runtime surface at top level.  Mirror the already allocation-tested R01
+    # CLI adapter; these fields do not alter the reconstructed branch.
+    config_mapping = dict(config_mapping)
+    config_mapping.setdefault(
+        "intervention_step", int(config_mapping["sampler_steps"]) // 2
+    )
+    planner = config_mapping.get("planner", {})
+    config_mapping.setdefault(
+        "optimizer_max_iterations",
+        int(planner.get("optimizer_max_iterations", 1))
+        if isinstance(planner, Mapping)
+        else 1,
+    )
     config = oracle_config_from_mapping(
         config_mapping,
         host="127.0.0.1",
