@@ -108,6 +108,7 @@
       "required": [
         "git_commit", "git_dirty", "baseline_commit", "slurm_job_id", "slurm_array_job_id",
         "slurm_array_task_id", "partition", "host", "python", "physics_device", "render_device",
+        "allocation_visible_gpu",
         "mujoco_gl", "pyopengl_platform", "purpose", "policy_server_started", "policy_calls",
         "model_loaded", "training", "created_at_utc"
       ],
@@ -122,9 +123,10 @@
         "host": {"type": "string", "minLength": 1},
         "python": {"type": "string", "minLength": 1},
         "physics_device": {"const": "cpu"},
-        "render_device": {"type": "string", "minLength": 1},
-        "mujoco_gl": {"type": ["string", "null"]},
-        "pyopengl_platform": {"type": ["string", "null"]},
+        "render_device": {"const": "cpu_osmesa"},
+        "allocation_visible_gpu": {"type": "string", "minLength": 1},
+        "mujoco_gl": {"const": "osmesa"},
+        "pyopengl_platform": {"const": "osmesa"},
         "purpose": {"const": "source_state_generation_and_rendering_only"},
         "policy_server_started": {"const": false},
         "policy_calls": {"const": 0},

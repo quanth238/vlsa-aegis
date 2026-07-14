@@ -24,7 +24,7 @@ yet been trained or shown effective.
 
 ADR-0021 now freezes a new, explicitly non-Level-II
 `task0_single_obstacle_generated_v1` source population. Its reviewed first
-allocation is a one-request EGL/replay canary plus an independent CPU
+allocation is a one-request baseline-OSMesa/replay canary plus an independent CPU
 validator; the remaining nine retired design groups run only after that passes.
 These groups can size the later experiment but cannot train or evaluate ECG.
 

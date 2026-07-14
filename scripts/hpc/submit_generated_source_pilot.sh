@@ -17,7 +17,7 @@ HOST=${VINUNI_HOST:-vinuni}
 REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-crfs}
 OUTPUT_ROOT=/mnt/data/quanth/experiments/crfs-oracle
 EXPERIMENT_CONFIG=$REMOTE_REPO/configs/experiments/task0_single_obstacle_generated_v1.json
-EXPECTED_CONFIG_SHA256=ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f
+EXPECTED_CONFIG_SHA256=332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a
 
 test "$(basename "$CONFIG_LOCAL")" = task0_single_obstacle_generated_v1.json || {
   echo "generated-source submission requires the frozen task0_single_obstacle_generated_v1 config" >&2

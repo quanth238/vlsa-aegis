@@ -2,7 +2,7 @@
 
 Status: accepted on 2026-07-14 before opening any generated-state or policy
 outcome. The activated config SHA-256 is
-`ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f`.
+`332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a`.
 
 ## Context
 
@@ -44,10 +44,11 @@ replays.
    states, final observation/geometry, allocation/code/RNG provenance, and two
    exact fresh-load replay proofs. No policy, checkpoint, training, safety
    outcome, planner, or probe is loaded during source generation.
-5. Stage request 0 as an allocation canary on MIG/EGL. Submit an independent
+5. Stage request 0 as an allocation canary using the baseline CPU OSMesa
+   renderer inside a MIG allocation. Submit an independent
    dependency-backed CPU validator against the exact source Slurm identifiers.
-   Requests 1--9 may run only after both pass. This canary resolves real EGL,
-   finalized-XML asset, and exact-render replay behavior; it is not another
+   Requests 1--9 may run only after both pass. This canary resolves real
+   offscreen rendering, finalized-XML asset, and exact-render replay behavior; it is not another
    sampler or steering gate.
 6. The ten groups are retired design-pilot inputs only. They may estimate
    valid-state, nominal-collision, boundary, unsafe, and direct-witness
@@ -69,6 +70,12 @@ The source canary cannot demonstrate probe value, collision reduction, or
 novelty. Its only success condition is a reproducible independent source
 branch. The following retired policy pilot is descriptive and cannot mark
 R01--R03 passing.
+
+The first source task, `27578_0`, retired the preregistered EGL transport before
+any reset or scientific outcome because robosuite attempted to parse the MIG
+UUID as an integer. Its rejection is retained. Freezing OSMesa aligns this
+source-only path with the already used SafeLIBERO baseline renderer; no state
+seed, placement, or selection rule changed.
 
 No sampler parity, R04A, or R04B job is repeated. The direct efficacy
 comparison remains frozen for later untouched groups: frozen pi0.5, one locked

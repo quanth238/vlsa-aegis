@@ -74,7 +74,7 @@ CONFIG_KEYS = frozenset(
         "schema_version", "name", "source_estimand", "evidence_tier", "pilot_only",
         "ready_to_run", "ready_for_training", "ready_for_claims", "blocked_on",
         "usage_restriction", "official_safelibero_level_ii", "task_suite", "safety_level",
-        "task_index", "task_name", "bddl_path", "bddl_sha256", "camera_size", "settle_steps",
+        "task_index", "task_name", "bddl_path", "bddl_sha256", "camera_size", "render_backend", "settle_steps",
         "dummy_action", "active_x_uniform_m", "active_y_m", "active_z_m", "box_base_z_m",
         "pose_constants_role", "active_schedule", "obstacles", "box_base", "rng_contract",
         "source_groups",
@@ -224,6 +224,7 @@ def validate_generated_source_config(value: Any, *, repo_root: str | Path | None
         "active_schedule": list(ACTIVE_SCHEDULE),
         "evidence_tier": "new_custom_retired_design_pilot_only",
         "camera_size": 224,
+        "render_backend": "osmesa",
     }
     for key, expected in exact.items():
         if value.get(key) != expected:
@@ -346,9 +347,11 @@ def allocation_provenance(repo_root: str | Path) -> dict[str, Any]:
     missing = [name for name in REQUIRED_SLURM_FIELDS if not os.environ.get(name)]
     if missing:
         raise RuntimeError("real source generation is Slurm-allocation-only; missing " + ", ".join(missing))
-    render_device = os.environ.get("CUDA_VISIBLE_DEVICES")
-    if not render_device:
-        raise RuntimeError("allocation source generation requires CUDA_VISIBLE_DEVICES for EGL rendering provenance")
+    allocation_visible_gpu = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if not allocation_visible_gpu:
+        raise RuntimeError("allocation source generation requires CUDA_VISIBLE_DEVICES provenance")
+    if os.environ.get("MUJOCO_GL") != "osmesa" or os.environ.get("PYOPENGL_PLATFORM") != "osmesa":
+        raise RuntimeError("generated-source rendering is frozen to the baseline OSMesa backend")
     commit, dirty = _git_state(Path(repo_root).resolve())
     return {
         "git_commit": commit,
@@ -361,7 +364,8 @@ def allocation_provenance(repo_root: str | Path) -> dict[str, Any]:
         "host": socket.gethostname(),
         "python": platform.python_version(),
         "physics_device": "cpu",
-        "render_device": render_device,
+        "render_device": "cpu_osmesa",
+        "allocation_visible_gpu": allocation_visible_gpu,
         "mujoco_gl": os.environ.get("MUJOCO_GL"),
         "pyopengl_platform": os.environ.get("PYOPENGL_PLATFORM"),
         "purpose": "source_state_generation_and_rendering_only",
@@ -1501,6 +1505,7 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         if set(provenance) != {
             "git_commit", "git_dirty", "baseline_commit", "slurm_job_id", "slurm_array_job_id",
             "slurm_array_task_id", "partition", "host", "python", "physics_device", "render_device",
+            "allocation_visible_gpu",
             "mujoco_gl", "pyopengl_platform", "purpose", "policy_server_started", "policy_calls",
             "model_loaded", "training", "created_at_utc",
         }:

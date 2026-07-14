@@ -83,6 +83,7 @@ class GeneratedSourceConfigTest(unittest.TestCase):
         self.assertEqual(self.config["active_y_m"], 0.03)
         self.assertEqual(self.config["active_z_m"], 1.55)
         self.assertEqual(self.config["box_base_z_m"], 1.05)
+        self.assertEqual(self.config["render_backend"], "osmesa")
 
     def test_config_validation_rejects_seed_reuse_or_official_level_claim(self) -> None:
         duplicate = copy.deepcopy(self.config)
@@ -221,6 +222,27 @@ class GeneratedSourcePortabilityTest(unittest.TestCase):
         with mock.patch.dict(os.environ, environment, clear=True):
             with self.assertRaisesRegex(RuntimeError, "Slurm-allocation-only"):
                 allocation_provenance(ROOT)
+
+    def test_allocation_provenance_freezes_baseline_osmesa_and_keeps_mig_identity(self) -> None:
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "SLURM_JOB_ID": "123",
+                "SLURM_ARRAY_JOB_ID": "123",
+                "SLURM_ARRAY_TASK_ID": "0",
+                "SLURM_JOB_PARTITION": "mig",
+                "CUDA_VISIBLE_DEVICES": "MIG-test-uuid",
+                "MUJOCO_GL": "osmesa",
+                "PYOPENGL_PLATFORM": "osmesa",
+            }
+        )
+        with mock.patch.dict(os.environ, environment, clear=True):
+            provenance = allocation_provenance(ROOT)
+        self.assertEqual(provenance["physics_device"], "cpu")
+        self.assertEqual(provenance["render_device"], "cpu_osmesa")
+        self.assertEqual(provenance["allocation_visible_gpu"], "MIG-test-uuid")
+        self.assertEqual(provenance["mujoco_gl"], "osmesa")
+        self.assertEqual(provenance["pyopengl_platform"], "osmesa")
 
 
 class GeneratedSourceStructuralTest(unittest.TestCase):

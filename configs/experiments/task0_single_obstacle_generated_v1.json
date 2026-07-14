@@ -17,6 +17,7 @@
   "bddl_path": "safelibero/libero/libero/bddl_files/safelibero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate.bddl",
   "bddl_sha256": "5406d8e65c7a70773573dc01dd53a5f75435072b361c4cc2417ffd95e74ff016",
   "camera_size": 224,
+  "render_backend": "osmesa",
   "settle_steps": 20,
   "dummy_action": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
   "active_x_uniform_m": [-0.08, -0.07],

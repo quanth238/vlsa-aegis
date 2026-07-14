@@ -14,7 +14,7 @@ set -euo pipefail
 : "${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT must bind the reviewed source commit}"
 : "${GROUP_INDEX:=$SLURM_ARRAY_TASK_ID}"
 
-EXPECTED_CONFIG_SHA256=ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f
+EXPECTED_CONFIG_SHA256=332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a
 GENERATOR=$REMOTE_REPO/main/generate_task0_single_obstacle_source.py
 VALIDATOR=$REMOTE_REPO/main/validate_task0_single_obstacle_source.py
 
@@ -103,7 +103,7 @@ value = {
     "pilot_role": "retired_source_integrity_only",
     "scientific_claim_allowed": False,
     "probe_training_authorized": False,
-    "allocation_purpose": "mujoco_offscreen_render_and_observation_hashing_only",
+    "allocation_purpose": "mujoco_offscreen_osmesa_render_and_observation_hashing_only",
     "policy_server_started": False,
     "policy_inference_calls": 0,
     "model_checkpoint_loaded": False,
@@ -120,11 +120,12 @@ value = {
         "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
         "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
         "partition": os.environ.get("SLURM_JOB_PARTITION"),
-        "render_device": os.environ.get("CUDA_VISIBLE_DEVICES"),
-        "mujoco_gl": os.environ.get("MUJOCO_GL", "egl"),
+        "allocation_visible_gpu": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "render_backend": os.environ.get("MUJOCO_GL", "osmesa"),
+        "mujoco_gl": os.environ.get("MUJOCO_GL", "osmesa"),
     },
     "config_sha256": sys.argv[4],
-    "expected_config_sha256": "ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f",
+    "expected_config_sha256": "332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a",
     "generator_sha256": sys.argv[5],
     "validator_sha256": sys.argv[6],
     "artifact_sha256": sys.argv[7],
@@ -179,8 +180,8 @@ test "$GIT_DIRTY" = false || {
   exit 2
 }
 
-export MUJOCO_GL=egl
-export PYOPENGL_PLATFORM=egl
+export MUJOCO_GL=osmesa
+export PYOPENGL_PLATFORM=osmesa
 export PYTHONUNBUFFERED=1
 export WANDB_MODE=disabled
 export TOKENIZERS_PARALLELISM=false
@@ -249,9 +250,10 @@ echo "job_id=$SLURM_JOB_ID"
 echo "array_job_id=$SLURM_ARRAY_JOB_ID"
 echo "array_task_id=$SLURM_ARRAY_TASK_ID"
 echo "partition=$SLURM_JOB_PARTITION"
-echo "render_device=$CUDA_VISIBLE_DEVICES"
+echo "allocation_visible_gpu=$CUDA_VISIBLE_DEVICES"
+echo "render_device=cpu_osmesa"
 echo "mujoco_gl=$MUJOCO_GL"
-echo "allocation_purpose=mujoco_offscreen_render_and_observation_hashing_only"
+echo "allocation_purpose=mujoco_offscreen_osmesa_render_and_observation_hashing_only"
 echo "policy_server_started=false"
 echo "policy_inference_calls=0"
 echo "model_checkpoint_loaded=false"

@@ -19,7 +19,7 @@ VALIDATE_RUN = ROOT / "scripts/hpc/run_generated_source_validation.sh"
 SUBMIT = ROOT / "scripts/hpc/submit_generated_source_pilot.sh"
 SBATCH = ROOT / "slurm/generated_source_pilot_main.sbatch"
 VALIDATE_SBATCH = ROOT / "slurm/generated_source_validate_cpu.sbatch"
-EXPECTED_CONFIG_SHA256 = "ccdccd9465706dd63607afcfa4fb6834168162fe9f0c1f0299a68b26cff46f4f"
+EXPECTED_CONFIG_SHA256 = "332c90fdb9e4560ab522e6333fbe5f0846d1c7caca9190f1730436036856f22a"
 
 
 def _sha256(path: Path) -> str:
@@ -61,10 +61,10 @@ class GeneratedSourceHpcContractTest(unittest.TestCase):
             "CUDA_VISIBLE_DEVICES:?generated-source pilot requires a rendering-only MIG allocation",
             'test "$SLURM_JOB_PARTITION" = mig',
             'test "$GROUP_INDEX" = "$SLURM_ARRAY_TASK_ID"',
-            "MUJOCO_GL=egl",
-            "PYOPENGL_PLATFORM=egl",
+            "MUJOCO_GL=osmesa",
+            "PYOPENGL_PLATFORM=osmesa",
             "OffScreenRenderEnv",
-            "mujoco_offscreen_render_and_observation_hashing_only",
+            "mujoco_offscreen_osmesa_render_and_observation_hashing_only",
             '"policy_server_started": False',
             '"policy_inference_calls": 0',
             '"model_checkpoint_loaded": False',
@@ -346,8 +346,9 @@ class GeneratedSourceHpcContractTest(unittest.TestCase):
                     "slurm_array_job_id": "99101",
                     "slurm_array_task_id": "0",
                     "partition": "mig",
-                    "render_device": "MIG-render-test-device",
-                    "mujoco_gl": "egl",
+                    "allocation_visible_gpu": "MIG-render-test-device",
+                    "render_backend": "osmesa",
+                    "mujoco_gl": "osmesa",
                 },
             )
 
