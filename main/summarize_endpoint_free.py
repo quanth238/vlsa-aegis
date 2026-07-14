@@ -177,6 +177,81 @@ def _finite_number(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
+def _vector3(value: Any) -> tuple[float, float, float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    converted = [_finite_number(item) for item in value]
+    if any(item is None for item in converted):
+        return None
+    return tuple(float(item) for item in converted)  # type: ignore[arg-type,return-value]
+
+
+def _rotation3(value: Any) -> tuple[tuple[float, float, float], ...] | None:
+    if isinstance(value, (list, tuple)) and len(value) == 9:
+        converted = [_finite_number(item) for item in value]
+        if any(item is None for item in converted):
+            return None
+        flat = [float(item) for item in converted]
+        return tuple(tuple(flat[3 * row : 3 * row + 3]) for row in range(3))
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    rows = [_vector3(row) for row in value]
+    if any(row is None for row in rows):
+        return None
+    return tuple(rows)  # type: ignore[arg-type,return-value]
+
+
+def _point_box_signed_distance(
+    point: tuple[float, float, float],
+    center: tuple[float, float, float],
+    rotation: tuple[tuple[float, float, float], ...],
+    half_size: tuple[float, float, float],
+) -> float:
+    """Match the registered conservative sphere/oriented-box primitive."""
+
+    delta = tuple(point[axis] - center[axis] for axis in range(3))
+    local = tuple(
+        sum(rotation[row][column] * delta[row] for row in range(3))
+        for column in range(3)
+    )
+    extent_delta = tuple(abs(local[axis]) - half_size[axis] for axis in range(3))
+    outside = math.sqrt(sum(max(value, 0.0) ** 2 for value in extent_delta))
+    inside = min(max(extent_delta), 0.0)
+    return outside + inside
+
+
+def _branch_clearance_m(trial: Mapping[str, Any]) -> float | None:
+    """Recompute clearance at the immutable branch point from raw geometry."""
+
+    point = _vector3(trial.get("start_eef_center_m"))
+    boxes = trial.get("branch_obstacle_boxes")
+    measurement = trial.get("measurement")
+    if point is None or not isinstance(boxes, list) or not isinstance(measurement, Mapping):
+        return None
+    radius = _finite_number(measurement.get("conservative_eef_radius_m"))
+    if radius is None or radius <= 0.0 or not boxes:
+        return None
+
+    clearances = []
+    for box in boxes:
+        if not isinstance(box, Mapping):
+            return None
+        center = _vector3(box.get("center_m"))
+        half_size = _vector3(box.get("half_size_m"))
+        rotation = _rotation3(box.get("rotation_world"))
+        if (
+            center is None
+            or half_size is None
+            or rotation is None
+            or any(value <= 0.0 for value in half_size)
+        ):
+            return None
+        clearances.append(
+            _point_box_signed_distance(point, center, rotation, half_size) - radius
+        )
+    return min(clearances)
+
+
 def _action_matrix(value: Any) -> list[list[float]] | None:
     if not isinstance(value, list) or len(value) != EXECUTED_ACTIONS:
         return None
@@ -606,6 +681,61 @@ def _witness_quality(records: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]
     }
 
 
+def _branch_clearance_diagnostics(
+    records: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    metrics = []
+    for case_id, value in sorted(records.items()):
+        repeats = value["nominal"].get("repeats")
+        margin = _finite_number(value["provenance"].get("simulator_safety_margin_m"))
+        if not isinstance(repeats, list) or not repeats or not isinstance(repeats[0], Mapping):
+            continue
+        clearance = _branch_clearance_m(repeats[0])
+        if clearance is None or margin is None:
+            continue
+        metrics.append(
+            {
+                "case_id": case_id,
+                "branch_clearance_m": clearance,
+                "registered_margin_m": margin,
+                "branch_in_penetration": clearance < 0.0,
+                "branch_below_registered_margin": clearance < margin,
+            }
+        )
+
+    clearances = [float(item["branch_clearance_m"]) for item in metrics]
+    below_zero = [
+        str(item["case_id"]) for item in metrics if item["branch_in_penetration"]
+    ]
+    below_margin = [
+        str(item["case_id"])
+        for item in metrics
+        if item["branch_below_registered_margin"]
+    ]
+    return {
+        "recomputed_cases": len(metrics),
+        "branch_in_penetration": len(below_zero),
+        "branch_below_registered_margin": len(below_margin),
+        "branch_in_penetration_case_ids": below_zero,
+        "branch_below_registered_margin_case_ids": below_margin,
+        "clearance_m": (
+            {
+                "minimum": min(clearances),
+                "median": statistics.median(clearances),
+                "maximum": max(clearances),
+            }
+            if clearances
+            else None
+        ),
+        "case_metrics": metrics,
+        "interpretation": (
+            "A case below the registered margin at the immutable branch point cannot "
+            "satisfy the inclusive branch-plus-substep R01 safety predicate from that "
+            "same instant, independent of the bounded search result."
+        ),
+    }
+
+
 def _case_diagnostics(records: Mapping[str, Mapping[str, Any]]) -> tuple[dict[str, int], dict[str, list[str]]]:
     case_ids: dict[str, list[str]] = {
         "nominal_collision_reproduced": [],
@@ -826,6 +956,7 @@ def summarize_endpoint_free_population(
 
     observed_counts, case_ids = _case_diagnostics(valid_records)
     witness_quality = _witness_quality(valid_records)
+    branch_clearance = _branch_clearance_diagnostics(valid_records)
     population_valid = not population_errors
     observed_numerator = observed_counts["changed_action_p_min_rescues"]
     gate_numerator = observed_numerator if population_valid else 0
@@ -896,6 +1027,7 @@ def summarize_endpoint_free_population(
             sorted(Counter(str(value["status"]) for value in valid_records.values()).items())
         ),
         "witness_quality": witness_quality,
+        "branch_clearance": branch_clearance,
         "ordered_result_set_digest": content_hash(ordered_hashes),
         "result_hashes": ordered_hashes,
     }

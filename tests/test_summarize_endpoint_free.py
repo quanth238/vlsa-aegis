@@ -41,6 +41,27 @@ def trial(progress: float) -> dict:
     }
 
 
+def branch_limited_trial(progress: float) -> dict:
+    value = trial(progress)
+    # The immutable branch is separated but below the 5 mm margin; the
+    # registered nominal prefix subsequently collides.
+    value["clearance_m"] = -0.001
+    value.update(
+        {
+            "start_eef_center_m": [0.0, 0.0, 0.0],
+            "branch_obstacle_boxes": [
+                {
+                    "center_m": [0.07, 0.0, 0.0],
+                    "half_size_m": [0.01, 0.01, 0.01],
+                    "rotation_world": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                }
+            ],
+            "measurement": {"conservative_eef_radius_m": 0.058},
+        }
+    )
+    return value
+
+
 def witness_attempt(*, p_min_changed: bool, p_zero_changed: bool) -> dict | None:
     if not p_zero_changed:
         return None
@@ -358,6 +379,31 @@ class EndpointFreeSummaryTest(unittest.TestCase):
         self.assertEqual(summary["status"], "failed_threshold")
         self.assertNotIn("infeasible", serialized)
         self.assertIn("not non-existence certificates", summary["decision"])
+
+    def test_branch_margin_limit_is_recomputed_from_raw_geometry(self) -> None:
+        records = [artifact(case, p_min_changed=False) for case in manifest_cases()]
+        branch_trial = branch_limited_trial(0.0)
+        records[0]["nominal"]["repeats"] = [
+            branch_trial,
+            json.loads(json.dumps(branch_trial)),
+        ]
+
+        with tempfile.TemporaryDirectory() as directory:
+            write_population(Path(directory), records)
+            summary = self.summarize(Path(directory), lambda _value: [])
+
+        diagnostic = summary["branch_clearance"]
+        self.assertEqual(diagnostic["recomputed_cases"], 1)
+        self.assertEqual(diagnostic["branch_below_registered_margin"], 1)
+        self.assertEqual(diagnostic["branch_in_penetration"], 0)
+        self.assertEqual(
+            diagnostic["branch_below_registered_margin_case_ids"],
+            [records[0]["case_id"]],
+        )
+        self.assertAlmostEqual(
+            diagnostic["case_metrics"][0]["branch_clearance_m"],
+            0.002,
+        )
 
     def test_cpu_slurm_template_invokes_atomic_summarizer_inputs(self) -> None:
         source = (ROOT / "slurm/endpoint_free_summary.sbatch").read_text(encoding="utf-8")
