@@ -36,6 +36,20 @@
         "sha256": {"$ref": "#/$defs/sha256"}
       }
     },
+    "float64Vector6": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [6]},
+        "values": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": {"type": "number"}
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
     "float64Vector3": {
       "type": "object",
       "additionalProperties": false,
@@ -65,6 +79,152 @@
           }
         },
         "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Vector1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [1]},
+        "values": {
+          "type": "array", "minItems": 1, "maxItems": 1,
+          "items": {"type": "number"}
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Matrix3x7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [3, 7]},
+        "values": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {
+            "type": "array", "minItems": 7, "maxItems": 7,
+            "items": {"type": "number"}
+          }
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Matrix6x7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [6, 7]},
+        "values": {
+          "type": "array", "minItems": 6, "maxItems": 6,
+          "items": {
+            "type": "array", "minItems": 7, "maxItems": 7,
+            "items": {"type": "number"}
+          }
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "float64Matrix7": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dtype", "shape", "values", "sha256"],
+      "properties": {
+        "dtype": {"const": "float64"},
+        "shape": {"const": [7, 7]},
+        "values": {
+          "type": "array", "minItems": 7, "maxItems": 7,
+          "items": {
+            "type": "array", "minItems": 7, "maxItems": 7,
+            "items": {"type": "number"}
+          }
+        },
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "controllerState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "robot_count", "robot_name", "controller_class", "controller_name",
+        "robosuite_version", "controller_config_identity", "controller_config_sha256",
+        "controller_static_sha256", "control_dim", "control_freq", "use_delta", "use_ori",
+        "uncoupling", "position_limits", "orientation_limits", "input_min", "input_max",
+        "output_min", "output_max", "kp", "kd", "action_scale", "action_input_transform",
+        "action_output_transform",
+        "impedance_mode", "position_interpolator", "orientation_interpolator",
+        "gripper_class", "gripper_dof", "ee_position", "ee_orientation_matrix",
+        "ee_linear_velocity", "ee_angular_velocity", "joint_position", "joint_velocity",
+        "jacobian_position", "jacobian_orientation", "jacobian_full", "mass_matrix",
+        "initial_joint", "goal_position", "goal_orientation_matrix", "new_update",
+        "gripper_current_action", "fingerprint_sha256"
+      ],
+      "properties": {
+        "robot_count": {"type": "integer", "const": 1},
+        "robot_name": {"const": "Panda"},
+        "robosuite_version": {"const": "1.4.1"},
+        "controller_config_identity": {
+          "const": "robosuite-1.4.1/robosuite/controllers/config/osc_pose.json"
+        },
+        "controller_config_sha256": {
+          "const": "07f3a8b41d3eecc8a36700a85bd8207ee3fbc36eb73f6a2248340c96770d1e45"
+        },
+        "controller_static_sha256": {"$ref": "#/$defs/sha256"},
+        "controller_class": {"const": "OperationalSpaceController"},
+        "controller_name": {"const": "OSC_POSE"},
+        "impedance_mode": {"const": "fixed"},
+        "control_dim": {"type": "integer", "const": 6},
+        "control_freq": {"type": "integer", "const": 20},
+        "use_delta": {"const": true},
+        "use_ori": {"const": true},
+        "uncoupling": {"const": true},
+        "position_limits": {"type": "null"},
+        "orientation_limits": {"type": "null"},
+        "position_interpolator": {"type": "null"},
+        "orientation_interpolator": {"type": "null"},
+        "input_min": {"$ref": "#/$defs/float64Vector6"},
+        "input_max": {"$ref": "#/$defs/float64Vector6"},
+        "output_min": {"$ref": "#/$defs/float64Vector6"},
+        "output_max": {"$ref": "#/$defs/float64Vector6"},
+        "kp": {"$ref": "#/$defs/float64Vector6"},
+        "kd": {"$ref": "#/$defs/float64Vector6"},
+        "action_scale": {"type": "null"},
+        "action_input_transform": {"type": "null"},
+        "action_output_transform": {"type": "null"},
+        "gripper_class": {"const": "PandaGripper"},
+        "gripper_dof": {"type": "integer", "const": 1},
+        "ee_position": {"$ref": "#/$defs/float64Vector3"},
+        "ee_orientation_matrix": {"$ref": "#/$defs/float64Matrix3"},
+        "ee_linear_velocity": {"$ref": "#/$defs/float64Vector3"},
+        "ee_angular_velocity": {"$ref": "#/$defs/float64Vector3"},
+        "joint_position": {"$ref": "#/$defs/float64Vector7"},
+        "joint_velocity": {"$ref": "#/$defs/float64Vector7"},
+        "jacobian_position": {"$ref": "#/$defs/float64Matrix3x7"},
+        "jacobian_orientation": {"$ref": "#/$defs/float64Matrix3x7"},
+        "jacobian_full": {"$ref": "#/$defs/float64Matrix6x7"},
+        "mass_matrix": {"$ref": "#/$defs/float64Matrix7"},
+        "initial_joint": {"$ref": "#/$defs/float64Vector7"},
+        "goal_position": {"$ref": "#/$defs/float64Vector3"},
+        "goal_orientation_matrix": {"$ref": "#/$defs/float64Matrix3"},
+        "new_update": {"const": false},
+        "gripper_current_action": {"$ref": "#/$defs/float64Vector1"},
+        "fingerprint_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "controllerCanonicalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "pre_settle", "final"],
+      "properties": {
+        "method": {
+          "const": "single_panda_fixed_osc_pose_static_bound_lazy_scale_reset_update_initial_joints_double_reset_goal_zero_gripper_v1"
+        },
+        "pre_settle": {"$ref": "#/$defs/controllerState"},
+        "final": {"$ref": "#/$defs/controllerState"}
       }
     },
     "geometryJointPose": {
@@ -386,7 +546,8 @@
         "integration_state_spec_name", "integration_state_spec_value",
         "integration_state_size", "integration_state_dtype",
         "pre_settle_integration_state_sha256", "settle_integration_state_sequence_sha256",
-        "final_integration_state_sha256"
+        "final_integration_state_sha256", "controller_canonicalization_method",
+        "pre_settle_controller_state_sha256", "final_controller_state_sha256"
       ],
       "properties": {
         "bddl_sha256": {"$ref": "#/$defs/sha256"},
@@ -401,7 +562,12 @@
         "integration_state_dtype": {"const": "float64"},
         "pre_settle_integration_state_sha256": {"$ref": "#/$defs/sha256"},
         "settle_integration_state_sequence_sha256": {"$ref": "#/$defs/sha256"},
-        "final_integration_state_sha256": {"$ref": "#/$defs/sha256"}
+        "final_integration_state_sha256": {"$ref": "#/$defs/sha256"},
+        "controller_canonicalization_method": {
+          "const": "single_panda_fixed_osc_pose_static_bound_lazy_scale_reset_update_initial_joints_double_reset_goal_zero_gripper_v1"
+        },
+        "pre_settle_controller_state_sha256": {"$ref": "#/$defs/sha256"},
+        "final_controller_state_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "sourceBranch": {
@@ -430,7 +596,9 @@
         "pre_settle_state_sha256", "settle_state_sha256", "final_state_sha256",
         "integration_state_spec", "pre_settle_integration_state_sha256",
         "settle_integration_state_sha256", "settle_integration_state_sequence_sha256",
-        "final_integration_state_sha256", "observation_sha256", "geometry_sha256", "exact_replay"
+        "final_integration_state_sha256", "controller_canonicalization_method",
+        "pre_settle_controller_state_sha256", "final_controller_state_sha256",
+        "observation_sha256", "geometry_sha256", "exact_replay"
       ],
       "properties": {
         "fresh_load_index": {"enum": [1, 2]},
@@ -448,6 +616,11 @@
         },
         "settle_integration_state_sequence_sha256": {"$ref": "#/$defs/sha256"},
         "final_integration_state_sha256": {"$ref": "#/$defs/sha256"},
+        "controller_canonicalization_method": {
+          "const": "single_panda_fixed_osc_pose_static_bound_lazy_scale_reset_update_initial_joints_double_reset_goal_zero_gripper_v1"
+        },
+        "pre_settle_controller_state_sha256": {"$ref": "#/$defs/sha256"},
+        "final_controller_state_sha256": {"$ref": "#/$defs/sha256"},
         "observation_sha256": {"$ref": "#/$defs/sha256"},
         "geometry_sha256": {"$ref": "#/$defs/sha256"},
         "exact_replay": {"const": true}
@@ -459,7 +632,8 @@
       "required": [
         "schema_version", "artifact_type", "source_estimand", "status", "run_id", "source_state",
         "config", "bddl", "model", "rng", "edits", "states", "settle", "branch", "replay_proofs",
-        "selection", "rejection", "provenance", "usage_restriction", "bundle_content_sha256"
+        "controller_canonicalization", "selection", "rejection", "provenance",
+        "usage_restriction", "bundle_content_sha256"
       ],
       "properties": {
         "schema_version": {"const": "1.0"},
@@ -503,6 +677,7 @@
           }
         },
         "settle": {"$ref": "#/$defs/settle"},
+        "controller_canonicalization": {"$ref": "#/$defs/controllerCanonicalization"},
         "branch": {"$ref": "#/$defs/sourceBranch"},
         "replay_proofs": {
           "type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [

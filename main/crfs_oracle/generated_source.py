@@ -33,6 +33,13 @@ SETTLE_STEPS = 20
 INTEGRATION_STATE_SPEC_NAME = "mjSTATE_INTEGRATION"
 INTEGRATION_STATE_SPEC_VALUE = 8191
 INTEGRATION_STATE_DTYPE = "float64"
+CONTROLLER_CANONICALIZATION_METHOD = (
+    "single_panda_fixed_osc_pose_static_bound_lazy_scale_reset_"
+    "update_initial_joints_double_reset_goal_zero_gripper_v1"
+)
+ROBOSUITE_VERSION = "1.4.1"
+OSC_POSE_CONFIG_IDENTITY = "robosuite-1.4.1/robosuite/controllers/config/osc_pose.json"
+OSC_POSE_CONFIG_SHA256 = "07f3a8b41d3eecc8a36700a85bd8207ee3fbc36eb73f6a2248340c96770d1e45"
 TASK_SUITE = "safelibero_spatial"
 TASK_INDEX = 0
 TASK_NAME = "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate"
@@ -91,8 +98,8 @@ ACCEPTED_BUNDLE_KEYS = frozenset(
     {
         "schema_version", "artifact_type", "source_estimand", "status", "run_id", "source_state",
         "config", "bddl", "model", "rng", "edits", "states", "settle", "branch",
-        "replay_proofs", "selection", "rejection", "provenance", "usage_restriction",
-        "bundle_content_sha256",
+        "controller_canonicalization", "replay_proofs", "selection", "rejection",
+        "provenance", "usage_restriction", "bundle_content_sha256",
     }
 )
 REJECTED_BUNDLE_KEYS = frozenset(
@@ -104,6 +111,50 @@ REJECTED_BUNDLE_KEYS = frozenset(
 )
 ARRAY_RECORD_KEYS = frozenset({"dtype", "shape", "values", "sha256"})
 SETTLE_STATE_KEYS = frozenset({"dtype", "shape", "values", "sha256", "settle_step"})
+CONTROLLER_STATE_ARRAY_FIELDS = (
+    ("input_min", "input_min", (6,)),
+    ("input_max", "input_max", (6,)),
+    ("output_min", "output_min", (6,)),
+    ("output_max", "output_max", (6,)),
+    ("kp", "kp", (6,)),
+    ("kd", "kd", (6,)),
+    ("ee_position", "ee_pos", (3,)),
+    ("ee_orientation_matrix", "ee_ori_mat", (3, 3)),
+    ("ee_linear_velocity", "ee_pos_vel", (3,)),
+    ("ee_angular_velocity", "ee_ori_vel", (3,)),
+    ("joint_position", "joint_pos", (7,)),
+    ("joint_velocity", "joint_vel", (7,)),
+    ("jacobian_position", "J_pos", (3, 7)),
+    ("jacobian_orientation", "J_ori", (3, 7)),
+    ("jacobian_full", "J_full", (6, 7)),
+    ("mass_matrix", "mass_matrix", (7, 7)),
+    ("initial_joint", "initial_joint", (7,)),
+    ("goal_position", "goal_pos", (3,)),
+    ("goal_orientation_matrix", "goal_ori", (3, 3)),
+)
+CONTROLLER_STATE_KEYS = frozenset(
+    {
+        "robot_count", "robot_name", "controller_class", "controller_name",
+        "impedance_mode", "position_interpolator", "orientation_interpolator",
+        "robosuite_version", "controller_config_identity", "controller_config_sha256",
+        "controller_static_sha256", "control_dim", "control_freq", "use_delta",
+        "use_ori", "uncoupling", "position_limits", "orientation_limits",
+        "action_scale", "action_input_transform", "action_output_transform",
+        "gripper_class", "gripper_dof", "new_update", "gripper_current_action",
+        "fingerprint_sha256",
+    }
+    | {record_name for record_name, _attribute_name, _shape in CONTROLLER_STATE_ARRAY_FIELDS}
+)
+CONTROLLER_STATIC_ARRAY_FIELDS = (
+    "input_min", "input_max", "output_min", "output_max", "kp", "kd"
+)
+CONTROLLER_STATIC_PAYLOAD_FIELDS = (
+    "robosuite_version", "controller_config_identity", "controller_config_sha256",
+    "controller_class", "controller_name", "impedance_mode", "control_dim", "control_freq",
+    "use_delta", "use_ori", "uncoupling", "position_limits", "orientation_limits",
+    "position_interpolator", "orientation_interpolator", *CONTROLLER_STATIC_ARRAY_FIELDS,
+    "action_scale", "action_input_transform", "action_output_transform",
+)
 
 
 def _numpy():
@@ -210,6 +261,364 @@ def _array_from_record(value: Any, *, name: str, shape: tuple[int, ...] | None =
     if value.get("sha256") != _array_hash(array):
         errors.append(f"{name}.sha256 differs from exact dtype/shape/bytes")
     return array, errors
+
+
+def _controller_array(value: Any, *, name: str, shape: tuple[int, ...]):
+    np = _numpy()
+    array = np.ascontiguousarray(np.asarray(value))
+    if array.dtype != np.dtype(np.float64):
+        raise RuntimeError(f"{name} must be exactly float64")
+    if tuple(array.shape) != shape:
+        raise RuntimeError(f"{name} must have shape {shape}")
+    if not np.all(np.isfinite(array)):
+        raise RuntimeError(f"{name} must contain only finite values")
+    return array.copy()
+
+
+def _expected_controller_static_arrays() -> dict[str, Any]:
+    np = _numpy()
+    kp = np.full((6,), 150.0, dtype=np.float64)
+    return {
+        "input_min": np.full((6,), -1.0, dtype=np.float64),
+        "input_max": np.full((6,), 1.0, dtype=np.float64),
+        "output_min": np.asarray(
+            [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5], dtype=np.float64
+        ),
+        "output_max": np.asarray(
+            [0.05, 0.05, 0.05, 0.5, 0.5, 0.5], dtype=np.float64
+        ),
+        "kp": kp,
+        "kd": np.ascontiguousarray(2 * np.sqrt(kp), dtype=np.float64),
+    }
+
+
+def _assert_robosuite_runtime_identity() -> None:
+    robosuite = importlib.import_module("robosuite")
+    if getattr(robosuite, "__version__", None) != ROBOSUITE_VERSION:
+        raise RuntimeError("controller canonicalization requires robosuite 1.4.1")
+    package_file = getattr(robosuite, "__file__", None)
+    if not isinstance(package_file, str) or not package_file:
+        raise RuntimeError("robosuite package has no concrete filesystem location")
+    config_path = Path(package_file).resolve().parent / "controllers/config/osc_pose.json"
+    if not config_path.is_file():
+        raise RuntimeError("robosuite OSC_POSE config file is unavailable")
+    if file_sha256(config_path) != OSC_POSE_CONFIG_SHA256:
+        raise RuntimeError("robosuite OSC_POSE config bytes differ from the pinned 1.4.1 file")
+
+
+def _controller_static_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {field: value.get(field) for field in CONTROLLER_STATIC_PAYLOAD_FIELDS}
+
+
+def _validate_controller_state_record(
+    value: Any, *, name: str
+) -> tuple[dict[str, Any], list[str]]:
+    """Validate the bounded output-driving OSC / gripper cache surface."""
+
+    np = _numpy()
+    errors: list[str] = []
+    arrays: dict[str, Any] = {}
+    if not isinstance(value, Mapping):
+        return arrays, [f"{name} must be a controller-state record"]
+    if set(value) != CONTROLLER_STATE_KEYS:
+        errors.append(f"{name} has unexpected or missing controller-state fields")
+    exact = {
+        "robot_name": "Panda",
+        "robosuite_version": ROBOSUITE_VERSION,
+        "controller_config_identity": OSC_POSE_CONFIG_IDENTITY,
+        "controller_config_sha256": OSC_POSE_CONFIG_SHA256,
+        "controller_class": "OperationalSpaceController",
+        "controller_name": "OSC_POSE",
+        "impedance_mode": "fixed",
+        "position_interpolator": None,
+        "orientation_interpolator": None,
+        "position_limits": None,
+        "orientation_limits": None,
+        "action_scale": None,
+        "action_input_transform": None,
+        "action_output_transform": None,
+        "gripper_class": "PandaGripper",
+    }
+    for field, expected in exact.items():
+        if value.get(field) != expected:
+            errors.append(f"{name}.{field} differs from the bounded Panda OSC contract")
+    for field in ("robot_count", "gripper_dof"):
+        scalar = value.get(field)
+        if not isinstance(scalar, int) or isinstance(scalar, bool) or scalar != 1:
+            errors.append(f"{name}.{field} differs from the bounded Panda OSC contract")
+    if value.get("new_update") is not False:
+        errors.append(f"{name}.new_update differs from the bounded Panda OSC contract")
+    for field, expected in (("control_dim", 6), ("control_freq", 20)):
+        scalar = value.get(field)
+        if not isinstance(scalar, int) or isinstance(scalar, bool) or scalar != expected:
+            errors.append(f"{name}.{field} differs from the pinned OSC_POSE configuration")
+    for field in ("use_delta", "use_ori", "uncoupling"):
+        if value.get(field) is not True:
+            errors.append(f"{name}.{field} differs from the pinned OSC_POSE configuration")
+    for record_name, _attribute_name, shape in CONTROLLER_STATE_ARRAY_FIELDS:
+        record = value.get(record_name)
+        array, item_errors = _array_from_record(
+            record,
+            name=f"{name}.{record_name}",
+            shape=shape,
+        )
+        errors.extend(item_errors)
+        if isinstance(record, Mapping) and record.get("dtype") != "float64":
+            errors.append(f"{name}.{record_name}.dtype must be exactly float64")
+        if array is not None:
+            arrays[record_name] = array
+    for field, expected in _expected_controller_static_arrays().items():
+        if field in arrays and not _array_bytes_equal(arrays[field], expected):
+            errors.append(f"{name}.{field} differs from the pinned OSC_POSE configuration")
+    gripper_record = value.get("gripper_current_action")
+    gripper_action, item_errors = _array_from_record(
+        gripper_record,
+        name=f"{name}.gripper_current_action",
+        shape=(1,),
+    )
+    errors.extend(item_errors)
+    if isinstance(gripper_record, Mapping) and gripper_record.get("dtype") != "float64":
+        errors.append(f"{name}.gripper_current_action.dtype must be exactly float64")
+    if gripper_action is not None:
+        arrays["gripper_current_action"] = gripper_action
+
+    if value.get("controller_static_sha256") != content_hash(
+        _controller_static_payload(value)
+    ):
+        errors.append(
+            f"{name}.controller_static_sha256 differs from the instantiated OSC configuration"
+        )
+
+    relations = (
+        ("initial_joint", "joint_position", "initial joint differs from live joint position"),
+        ("goal_position", "ee_position", "position goal differs from canonical EE position"),
+        (
+            "goal_orientation_matrix",
+            "ee_orientation_matrix",
+            "orientation goal differs from canonical EE orientation",
+        ),
+    )
+    for left_name, right_name, message in relations:
+        if (
+            left_name in arrays
+            and right_name in arrays
+            and not _array_bytes_equal(arrays[left_name], arrays[right_name])
+        ):
+            errors.append(f"{name} {message}")
+    if all(key in arrays for key in ("jacobian_position", "jacobian_orientation", "jacobian_full")):
+        expected_full = np.ascontiguousarray(
+            np.concatenate(
+                [arrays["jacobian_position"], arrays["jacobian_orientation"]], axis=0
+            ),
+            dtype=np.float64,
+        )
+        if not _array_bytes_equal(arrays["jacobian_full"], expected_full):
+            errors.append(f"{name} full Jacobian differs from its position/orientation blocks")
+    if (
+        gripper_action is not None
+        and not _array_bytes_equal(gripper_action, np.zeros((1,), dtype=np.float64))
+    ):
+        errors.append(f"{name} gripper current action is not canonical zero")
+    fingerprint_input = dict(value)
+    fingerprint_input.pop("fingerprint_sha256", None)
+    if value.get("fingerprint_sha256") != content_hash(fingerprint_input):
+        errors.append(f"{name}.fingerprint_sha256 differs from the bounded controller state")
+    return arrays, errors
+
+
+def _validate_controller_canonicalization(value: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(value, Mapping):
+        return ["controller_canonicalization must be an object"]
+    if set(value) != {"method", "pre_settle", "final"}:
+        errors.append("controller_canonicalization has unexpected or missing fields")
+    if value.get("method") != CONTROLLER_CANONICALIZATION_METHOD:
+        errors.append("controller_canonicalization.method differs from the bounded method")
+    for phase in ("pre_settle", "final"):
+        _arrays, item_errors = _validate_controller_state_record(
+            value.get(phase), name=f"controller_canonicalization.{phase}"
+        )
+        errors.extend(item_errors)
+    return errors
+
+
+def _canonicalize_controller_state(env: Any) -> dict[str, Any]:
+    """Canonicalize only the pinned single-Panda fixed-OSC output state."""
+
+    np = _numpy()
+    inner = getattr(env, "env", None)
+    robots = getattr(inner, "robots", None)
+    if not isinstance(robots, (list, tuple)) or len(robots) != 1:
+        raise RuntimeError("controller canonicalization requires exactly one robot")
+    robot = robots[0]
+    if getattr(robot, "name", None) != "Panda":
+        raise RuntimeError("controller canonicalization requires the Panda robot")
+    controller = getattr(robot, "controller", None)
+    if type(controller).__name__ != "OperationalSpaceController":
+        raise RuntimeError("controller canonicalization requires OperationalSpaceController")
+    _assert_robosuite_runtime_identity()
+    if getattr(controller, "name", None) != "OSC_POSE":
+        raise RuntimeError("controller canonicalization requires OSC_POSE")
+    if getattr(controller, "impedance_mode", None) != "fixed":
+        raise RuntimeError("controller canonicalization requires fixed impedance")
+    if getattr(controller, "interpolator_pos", object()) is not None:
+        raise RuntimeError("controller canonicalization requires null position interpolation")
+    if getattr(controller, "interpolator_ori", object()) is not None:
+        raise RuntimeError("controller canonicalization requires null orientation interpolation")
+    for field, expected in (("control_dim", 6), ("control_freq", 20)):
+        scalar = getattr(controller, field, None)
+        if not isinstance(scalar, int) or isinstance(scalar, bool) or scalar != expected:
+            raise RuntimeError(
+                f"controller canonicalization requires {field}={expected}"
+            )
+    for field in ("use_delta", "use_ori", "uncoupling"):
+        if getattr(controller, field, None) is not True:
+            raise RuntimeError(f"controller canonicalization requires {field}=true")
+    for field in ("position_limits", "orientation_limits"):
+        if getattr(controller, field, object()) is not None:
+            raise RuntimeError(f"controller canonicalization requires null {field}")
+    expected_static_arrays = _expected_controller_static_arrays()
+    for field, expected in expected_static_arrays.items():
+        actual = _controller_array(
+            getattr(controller, field, None),
+            name=f"controller.{field}",
+            shape=(6,),
+        )
+        if not _array_bytes_equal(actual, expected):
+            raise RuntimeError(
+                f"controller canonicalization requires pinned OSC_POSE {field}"
+            )
+    if getattr(robot, "has_gripper", None) is not True:
+        raise RuntimeError("controller canonicalization requires the Panda gripper")
+    gripper = getattr(robot, "gripper", None)
+    if type(gripper).__name__ != "PandaGripper":
+        raise RuntimeError("controller canonicalization requires PandaGripper")
+    gripper_dof = getattr(gripper, "dof", None)
+    if not isinstance(gripper_dof, int) or isinstance(gripper_dof, bool) or gripper_dof != 1:
+        raise RuntimeError("controller canonicalization requires one gripper action dimension")
+
+    # Return the lazy scaling path to the exact baseline pre-action state.  The
+    # next set_goal() derives all three arrays from the exact-bound input/output
+    # ranges using Controller.scale_action, including before the first VLA arm
+    # action at the final branch.
+    controller.action_scale = None
+    controller.action_input_transform = None
+    controller.action_output_transform = None
+
+    live_joint_position = _controller_array(
+        getattr(robot, "_joint_positions", None),
+        name="robot._joint_positions",
+        shape=(7,),
+    )
+    update_initial_joints = getattr(controller, "update_initial_joints", None)
+    reset_goal = getattr(controller, "reset_goal", None)
+    if not callable(update_initial_joints) or not callable(reset_goal):
+        raise RuntimeError("controller canonicalization API is unavailable")
+    # OSC.update_initial_joints performs update(force=True) and its first
+    # reset_goal().  The explicit second reset closes over any prior goal-start
+    # cache even though the pinned configuration forbids interpolators.
+    update_initial_joints(live_joint_position.copy())
+    reset_goal()
+    gripper.current_action = np.zeros((gripper_dof,), dtype=np.float64)
+    if getattr(controller, "new_update", None) is not False:
+        raise RuntimeError("controller canonicalization did not consume the forced cache update")
+
+    # Fail closed if either goal-reset callback rebuilt the lazy action-scaling
+    # cache.  The recorded state must describe the live controller immediately
+    # before fingerprinting, not the values assigned before those callbacks.
+    lazy_action_state: dict[str, None] = {}
+    for field in (
+        "action_scale",
+        "action_input_transform",
+        "action_output_transform",
+    ):
+        live_value = getattr(controller, field, object())
+        if live_value is not None:
+            raise RuntimeError(
+                f"controller canonicalization requires null {field} after goal reset"
+            )
+        lazy_action_state[field] = live_value
+
+    record: dict[str, Any] = {
+        "robot_count": 1,
+        "robot_name": "Panda",
+        "robosuite_version": ROBOSUITE_VERSION,
+        "controller_config_identity": OSC_POSE_CONFIG_IDENTITY,
+        "controller_config_sha256": OSC_POSE_CONFIG_SHA256,
+        "controller_class": "OperationalSpaceController",
+        "controller_name": "OSC_POSE",
+        "impedance_mode": "fixed",
+        "control_dim": 6,
+        "control_freq": 20,
+        "use_delta": True,
+        "use_ori": True,
+        "uncoupling": True,
+        "position_limits": None,
+        "orientation_limits": None,
+        "position_interpolator": None,
+        "orientation_interpolator": None,
+        "action_scale": lazy_action_state["action_scale"],
+        "action_input_transform": lazy_action_state["action_input_transform"],
+        "action_output_transform": lazy_action_state["action_output_transform"],
+        "gripper_class": "PandaGripper",
+        "gripper_dof": 1,
+        "new_update": False,
+    }
+    arrays: dict[str, Any] = {}
+    for record_name, attribute_name, shape in CONTROLLER_STATE_ARRAY_FIELDS:
+        arrays[record_name] = _controller_array(
+            getattr(controller, attribute_name, None),
+            name=f"controller.{attribute_name}",
+            shape=shape,
+        )
+        record[record_name] = _array_record(arrays[record_name])
+    arrays["gripper_current_action"] = _controller_array(
+        getattr(gripper, "current_action", None),
+        name="gripper.current_action",
+        shape=(1,),
+    )
+    record["gripper_current_action"] = _array_record(arrays["gripper_current_action"])
+    record["controller_static_sha256"] = content_hash(_controller_static_payload(record))
+
+    if not _array_bytes_equal(arrays["joint_position"], live_joint_position):
+        raise RuntimeError("controller canonical joint position differs from live robot qpos")
+    if not _array_bytes_equal(arrays["initial_joint"], live_joint_position):
+        raise RuntimeError("controller canonical initial joint differs from live robot qpos")
+    if not _array_bytes_equal(arrays["goal_position"], arrays["ee_position"]):
+        raise RuntimeError("controller canonical position goal differs from EE position")
+    if not _array_bytes_equal(
+        arrays["goal_orientation_matrix"], arrays["ee_orientation_matrix"]
+    ):
+        raise RuntimeError("controller canonical orientation goal differs from EE orientation")
+    expected_jacobian = np.ascontiguousarray(
+        np.concatenate(
+            [arrays["jacobian_position"], arrays["jacobian_orientation"]], axis=0
+        ),
+        dtype=np.float64,
+    )
+    if not _array_bytes_equal(arrays["jacobian_full"], expected_jacobian):
+        raise RuntimeError("controller canonical full Jacobian differs from its blocks")
+    if not _array_bytes_equal(
+        arrays["gripper_current_action"], np.zeros((1,), dtype=np.float64)
+    ):
+        raise RuntimeError("controller canonical gripper current action is not zero")
+    record["fingerprint_sha256"] = content_hash(record)
+    _validated_arrays, validation_errors = _validate_controller_state_record(
+        record, name="canonical_controller_state"
+    )
+    if validation_errors:
+        raise RuntimeError("invalid canonical controller state: " + "; ".join(validation_errors))
+    return record
+
+
+def _assert_controller_state_matches(
+    actual: Mapping[str, Any], expected: Any, *, name: str
+) -> None:
+    _arrays, errors = _validate_controller_state_record(expected, name=name)
+    if errors:
+        raise ValueError(f"invalid expected {name}: " + "; ".join(errors))
+    if dict(actual) != dict(expected):
+        raise RuntimeError(f"{name} differs from the canonical controller fingerprint")
 
 
 def _component_record(value: Any) -> dict[str, Any]:
@@ -858,6 +1267,37 @@ def _step_dummy(env: Any, action: Any) -> None:
     )
 
 
+def _capture_source_settle(
+    env: Any, actions: Any, integration_spec: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Record the source settle path between canonical controller boundaries."""
+
+    pre_controller = _canonicalize_controller_state(env)
+    pre_state = _state(env)
+    pre_integration = _integration_state(env, integration_spec)
+    settle_history: list[dict[str, Any]] = []
+    integration_history: list[dict[str, Any]] = []
+    for settle_index in range(SETTLE_STEPS):
+        _step_dummy(env, actions[settle_index])
+        state_record = _array_record(_state(env))
+        state_record["settle_step"] = settle_index + 1
+        settle_history.append(state_record)
+        integration_record = _array_record(_integration_state(env, integration_spec))
+        integration_record["settle_step"] = settle_index + 1
+        integration_history.append(integration_record)
+    final_controller = _canonicalize_controller_state(env)
+    return {
+        "pre_controller": pre_controller,
+        "pre_state": pre_state,
+        "pre_integration": pre_integration,
+        "settle_history": settle_history,
+        "integration_history": integration_history,
+        "final_controller": final_controller,
+        "final_state": _state(env),
+        "final_integration": _integration_state(env, integration_spec),
+    }
+
+
 def _make_environment(bddl_path: Path, camera_size: int):
     from libero.libero.envs import OffScreenRenderEnv
 
@@ -899,7 +1339,9 @@ def _fresh_replay(
     pre_settle: Any,
     actions: Any,
     expected_history: Sequence[Mapping[str, Any]],
+    expected_final_state: Any,
     integration_states: Mapping[str, Any],
+    controller_canonicalization: Mapping[str, Any],
     active_obstacle_name: str,
     expected_branch: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -917,7 +1359,20 @@ def _fresh_replay(
             name="states.integration.pre_settle",
             expected_spec=integration_spec,
         )
-        pre_integration_hash = _array_hash(restored_integration)
+        pre_controller = _canonicalize_controller_state(env)
+        _assert_controller_state_matches(
+            pre_controller,
+            controller_canonicalization["pre_settle"],
+            name="controller_canonicalization.pre_settle",
+        )
+        actual_pre_integration = _integration_state(env, integration_spec)
+        if not _array_bytes_equal(actual_pre_integration, restored_integration):
+            raise RuntimeError(
+                "fresh-load pre-settle integration state changed during controller "
+                "canonicalization "
+                f"({_array_difference_summary(actual_pre_integration, restored_integration)})"
+            )
+        pre_integration_hash = _array_hash(actual_pre_integration)
         pre_hash = _array_hash(_state(env))
         if pre_hash != _array_hash(pre_settle):
             raise RuntimeError(
@@ -958,10 +1413,18 @@ def _fresh_replay(
                     f"({_array_difference_summary(actual_integration, expected_integration)})"
                 )
             integration_hashes.append(_array_hash(actual_integration))
-        _observation, branch = _branch_identity(env, active_obstacle_name)
-        for key in ("state_sha256", "observation_sha256", "geometry_sha256", "active_obstacle_name"):
-            if branch.get(key) != expected_branch.get(key):
-                raise RuntimeError(f"fresh-load branch {key} differs")
+        final_controller = _canonicalize_controller_state(env)
+        _assert_controller_state_matches(
+            final_controller,
+            controller_canonicalization["final"],
+            name="controller_canonicalization.final",
+        )
+        actual_final_state = _state(env)
+        if not _array_bytes_equal(actual_final_state, expected_final_state):
+            raise RuntimeError(
+                "fresh-load final flattened state changed during controller canonicalization "
+                f"({_array_difference_summary(actual_final_state, expected_final_state)})"
+            )
         expected_final_integration, final_errors = _integration_array_from_record(
             integration_states["final"],
             name="states.integration.final",
@@ -975,6 +1438,10 @@ def _fresh_replay(
                 "fresh-load final integration state differs byte-for-byte "
                 f"({_array_difference_summary(final_integration, expected_final_integration)})"
             )
+        _observation, branch = _branch_identity(env, active_obstacle_name)
+        for key in ("state_sha256", "observation_sha256", "geometry_sha256", "active_obstacle_name"):
+            if branch.get(key) != expected_branch.get(key):
+                raise RuntimeError(f"fresh-load branch {key} differs")
         return {
             "fresh_load_index": index,
             "model_xml_sha256": model["sha256"],
@@ -986,6 +1453,9 @@ def _fresh_replay(
             "settle_integration_state_sha256": integration_hashes,
             "settle_integration_state_sequence_sha256": content_hash(integration_hashes),
             "final_integration_state_sha256": _array_hash(final_integration),
+            "controller_canonicalization_method": CONTROLLER_CANONICALIZATION_METHOD,
+            "pre_settle_controller_state_sha256": pre_controller["fingerprint_sha256"],
+            "final_controller_state_sha256": final_controller["fingerprint_sha256"],
             "observation_sha256": branch["observation_sha256"],
             "geometry_sha256": branch["geometry_sha256"],
             "exact_replay": True,
@@ -1021,6 +1491,9 @@ def source_branch_identity(
     pre_settle_integration_state_sha256: str,
     settle_integration_state_sequence_sha256: str,
     final_integration_state_sha256: str,
+    controller_canonicalization_method: str,
+    pre_settle_controller_state_sha256: str,
+    final_controller_state_sha256: str,
 ) -> dict[str, Any]:
     """Return the provenance-independent, branch-complete source identity."""
 
@@ -1038,6 +1511,9 @@ def source_branch_identity(
         "pre_settle_integration_state_sha256": pre_settle_integration_state_sha256,
         "settle_integration_state_sequence_sha256": settle_integration_state_sequence_sha256,
         "final_integration_state_sha256": final_integration_state_sha256,
+        "controller_canonicalization_method": controller_canonicalization_method,
+        "pre_settle_controller_state_sha256": pre_settle_controller_state_sha256,
+        "final_controller_state_sha256": final_controller_state_sha256,
     }
     sha256_fields = (
         "bddl_sha256",
@@ -1049,6 +1525,8 @@ def source_branch_identity(
         "pre_settle_integration_state_sha256",
         "settle_integration_state_sequence_sha256",
         "final_integration_state_sha256",
+        "pre_settle_controller_state_sha256",
+        "final_controller_state_sha256",
     )
     invalid = [key for key in sha256_fields if not _is_sha256(payload[key])]
     if invalid:
@@ -1069,6 +1547,8 @@ def source_branch_identity(
         raise ValueError("source branch identity integration-state size is invalid")
     if integration_state_dtype != INTEGRATION_STATE_DTYPE:
         raise ValueError("source branch identity integration-state dtype must be float64")
+    if controller_canonicalization_method != CONTROLLER_CANONICALIZATION_METHOD:
+        raise ValueError("source branch identity controller canonicalization method differs")
     return {"payload": payload, "sha256": content_hash(payload)}
 
 
@@ -1155,23 +1635,18 @@ def generate_source_group(
             )
         )
         env.sim.forward()
-        pre_settle = _state(env)
         integration_spec = _integration_state_spec(env)
-        pre_settle_integration = _integration_state(env, integration_spec)
         actions = np.repeat(np.asarray(DUMMY_ACTION, dtype=np.float64)[None, :], SETTLE_STEPS, axis=0)
-        settle_history: list[dict[str, Any]] = []
-        integration_settle_history: list[dict[str, Any]] = []
-        for settle_index in range(SETTLE_STEPS):
-            _step_dummy(env, actions[settle_index])
-            record = _array_record(_state(env))
-            record["settle_step"] = settle_index + 1
-            settle_history.append(record)
-            integration_record = _array_record(_integration_state(env, integration_spec))
-            integration_record["settle_step"] = settle_index + 1
-            integration_settle_history.append(integration_record)
+        source_settle = _capture_source_settle(env, actions, integration_spec)
+        pre_settle_controller = source_settle["pre_controller"]
+        pre_settle = source_settle["pre_state"]
+        pre_settle_integration = source_settle["pre_integration"]
+        settle_history = source_settle["settle_history"]
+        integration_settle_history = source_settle["integration_history"]
+        final_controller = source_settle["final_controller"]
         _observation, branch = _branch_identity(env, active_name)
-        final_state = _state(env)
-        final_integration_state = _integration_state(env, integration_spec)
+        final_state = source_settle["final_state"]
+        final_integration_state = source_settle["final_integration"]
         if branch["state_sha256"] != settle_history[-1]["sha256"]:
             raise RuntimeError("final state differs from settle history step 20")
         if not _array_bytes_equal(
@@ -1187,6 +1662,11 @@ def generate_source_group(
             "settle_history": integration_settle_history,
             "settle_sequence_sha256": content_hash(integration_hashes),
             "final": _array_record(final_integration_state),
+        }
+        controller_canonicalization = {
+            "method": CONTROLLER_CANONICALIZATION_METHOD,
+            "pre_settle": pre_settle_controller,
+            "final": final_controller,
         }
 
         states = {
@@ -1212,6 +1692,11 @@ def generate_source_group(
                 "settle_sequence_sha256"
             ],
             final_integration_state_sha256=integration_states["final"]["sha256"],
+            controller_canonicalization_method=controller_canonicalization["method"],
+            pre_settle_controller_state_sha256=pre_settle_controller[
+                "fingerprint_sha256"
+            ],
+            final_controller_state_sha256=final_controller["fingerprint_sha256"],
         )
         branch["source_branch_identity"] = branch_identity["payload"]
         branch["source_branch_sha256"] = branch_identity["sha256"]
@@ -1225,7 +1710,9 @@ def generate_source_group(
                 pre_settle=pre_settle,
                 actions=actions,
                 expected_history=settle_history,
+                expected_final_state=final_state,
                 integration_states=integration_states,
+                controller_canonicalization=controller_canonicalization,
                 active_obstacle_name=active_name,
                 expected_branch=branch,
             )
@@ -1299,6 +1786,7 @@ def generate_source_group(
             "action_semantics": "baseline_LIBERO_dummy_control_no_policy_action",
             "actions": _array_record(actions),
         },
+        "controller_canonicalization": controller_canonicalization,
         "branch": branch,
         "replay_proofs": replay_proofs,
         "selection": _selection_record(),
@@ -1595,6 +2083,22 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         if bddl.get("sha256") != EXPECTED_BDDL_SHA256:
             errors.append("bddl differs from frozen task-0 bytes")
     errors.extend(_validate_model_static(value.get("model")))
+    controller_canonicalization = value.get("controller_canonicalization")
+    errors.extend(_validate_controller_canonicalization(controller_canonicalization))
+    if not isinstance(controller_canonicalization, Mapping):
+        controller_canonicalization = {}
+    pre_controller_record = controller_canonicalization.get("pre_settle")
+    final_controller_record = controller_canonicalization.get("final")
+    pre_controller_sha256 = (
+        pre_controller_record.get("fingerprint_sha256")
+        if isinstance(pre_controller_record, Mapping)
+        else None
+    )
+    final_controller_sha256 = (
+        final_controller_record.get("fingerprint_sha256")
+        if isinstance(final_controller_record, Mapping)
+        else None
+    )
 
     states = value.get("states")
     if not isinstance(states, Mapping):
@@ -1977,6 +2481,9 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
                 if isinstance(integration.get("final"), Mapping)
                 else None
             ),
+            controller_canonicalization_method=controller_canonicalization.get("method"),
+            pre_settle_controller_state_sha256=pre_controller_sha256,
+            final_controller_state_sha256=final_controller_sha256,
         )
     except ValueError as error:
         errors.append(str(error))
@@ -2023,6 +2530,9 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
                 if isinstance(integration_final_record, Mapping)
                 else None
             ),
+            "controller_canonicalization_method": controller_canonicalization.get("method"),
+            "pre_settle_controller_state_sha256": pre_controller_sha256,
+            "final_controller_state_sha256": final_controller_sha256,
             "observation_sha256": branch.get("observation_sha256"),
             "geometry_sha256": branch.get("geometry_sha256"),
             "exact_replay": True,
@@ -2117,17 +2627,29 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
         raise ValueError("invalid pre-settle state: " + "; ".join(pre_errors))
     integration = bundle["states"]["integration"]
     integration_spec = integration["spec"]
-    _restore_integration_state(
+    restored_pre_integration = _restore_integration_state(
         env,
         integration["pre_settle"],
         name="states.integration.pre_settle",
         expected_spec=integration_spec,
+    )
+    pre_controller = _canonicalize_controller_state(env)
+    _assert_controller_state_matches(
+        pre_controller,
+        bundle["controller_canonicalization"]["pre_settle"],
+        name="controller_canonicalization.pre_settle",
     )
     restored_pre = _state(env)
     if not _array_bytes_equal(restored_pre, pre):
         raise RuntimeError(
             "restored pre-settle flattened state differs byte-for-byte "
             f"({_array_difference_summary(restored_pre, pre)})"
+        )
+    actual_pre_integration = _integration_state(env, integration_spec)
+    if not _array_bytes_equal(actual_pre_integration, restored_pre_integration):
+        raise RuntimeError(
+            "restored pre-settle integration state changed during controller canonicalization "
+            f"({_array_difference_summary(actual_pre_integration, restored_pre_integration)})"
         )
     actions, action_errors = _array_from_record(
         bundle["settle"]["actions"], name="settle.actions", shape=(SETTLE_STEPS, 7)
@@ -2165,7 +2687,12 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
                 f"generated-source integration settle replay differs at step {index + 1} "
                 f"({_array_difference_summary(actual_integration, expected_integration)})"
             )
-    observation = _render_observation(env)
+    final_controller = _canonicalize_controller_state(env)
+    _assert_controller_state_matches(
+        final_controller,
+        bundle["controller_canonicalization"]["final"],
+        name="controller_canonicalization.final",
+    )
     final, final_errors = _array_from_record(bundle["states"]["final"], name="states.final")
     if final_errors or final is None:
         raise ValueError("invalid final state: " + "; ".join(final_errors))
@@ -2188,6 +2715,7 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
             "generated-source final integration state differs after full settle replay "
             f"({_array_difference_summary(actual_final_integration, expected_final_integration)})"
         )
+    observation = _render_observation(env)
     return observation
 
 

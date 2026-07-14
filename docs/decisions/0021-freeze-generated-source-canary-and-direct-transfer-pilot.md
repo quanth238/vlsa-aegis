@@ -129,6 +129,27 @@ observation and geometry. The failed allocation is retained, no request is
 redrawn, and independent review returned GO for a new immutable canary ID with
 the same config and seeds.
 
+Allocation `27606_0` restored the complete pre-settle MuJoCo integration state
+but diverged on the first dummy control (171 flattened values, maximum absolute
+difference `0.0335322919`). The remaining causal state is in robosuite's Python
+control layer: fixed OSC retains kinematics, nullspace/goal state, gains and
+lazy action-scaling transforms, while the Panda gripper retains its action
+accumulator. The final bounded correction canonicalizes those states at the
+pre-settle and final branch boundaries in the source, both fresh replays, and
+the experiment restore. It also verifies the installed robosuite 1.4.1 version
+and raw `osc_pose.json` bytes, fail-closes the instantiated fixed-OSC parameters,
+and binds pre/final controller fingerprints into the portable branch identity
+and both proofs. Every final canonicalization precedes observation and the
+first VLA action, with flattened and full integration state reverified after
+it. This changes neither the frozen source config nor its seeds.
+
+This is the last source-replay hypothesis. One fresh request-0 canary is
+authorized. Any controller-fingerprint, first-transition, settle-history,
+final-state, observation, geometry, or independent-validation mismatch retires
+the generated-source route; there will be no further replay repair and no probe
+training. A pass only unlocks the retired direct-feasibility and privileged-flow
+transfer pilot described above; it is not probe evidence.
+
 No sampler parity, R04A, or R04B job is repeated. The direct efficacy
 comparison remains frozen for later untouched groups: frozen pi0.5, one locked
 ECG arm, realized-final-norm random, a strong time-structured margin analytic

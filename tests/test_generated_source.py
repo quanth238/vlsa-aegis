@@ -62,6 +62,67 @@ CONFIG_PATH = ROOT / "configs/experiments/task0_single_obstacle_generated_v1.jso
 SCHEMA_PATH = ROOT / "schemas/generated-source-state.schema.json"
 
 
+def _controller_state_fixture(offset: float = 0.0) -> dict[str, object]:
+    import numpy as np
+
+    def array_record(value):
+        return _MODULE._array_record(np.asarray(value, dtype=np.float64))
+
+    joint = np.arange(7, dtype=np.float64) + offset
+    ee_position = np.asarray([0.1, 0.2, 0.3], dtype=np.float64) + offset
+    ee_orientation = np.eye(3, dtype=np.float64)
+    jacobian_position = np.arange(21, dtype=np.float64).reshape(3, 7) + offset
+    jacobian_orientation = np.arange(21, 42, dtype=np.float64).reshape(3, 7) + offset
+    record = {
+        "robot_count": 1,
+        "robot_name": "Panda",
+        "robosuite_version": _MODULE.ROBOSUITE_VERSION,
+        "controller_config_identity": _MODULE.OSC_POSE_CONFIG_IDENTITY,
+        "controller_config_sha256": _MODULE.OSC_POSE_CONFIG_SHA256,
+        "controller_class": "OperationalSpaceController",
+        "controller_name": "OSC_POSE",
+        "impedance_mode": "fixed",
+        "control_dim": 6,
+        "control_freq": 20,
+        "use_delta": True,
+        "use_ori": True,
+        "uncoupling": True,
+        "position_limits": None,
+        "orientation_limits": None,
+        "position_interpolator": None,
+        "orientation_interpolator": None,
+        "action_scale": None,
+        "action_input_transform": None,
+        "action_output_transform": None,
+        "gripper_class": "PandaGripper",
+        "gripper_dof": 1,
+        "ee_position": array_record(ee_position),
+        "ee_orientation_matrix": array_record(ee_orientation),
+        "ee_linear_velocity": array_record(np.zeros(3)),
+        "ee_angular_velocity": array_record(np.zeros(3)),
+        "joint_position": array_record(joint),
+        "joint_velocity": array_record(np.zeros(7)),
+        "jacobian_position": array_record(jacobian_position),
+        "jacobian_orientation": array_record(jacobian_orientation),
+        "jacobian_full": array_record(
+            np.concatenate([jacobian_position, jacobian_orientation], axis=0)
+        ),
+        "mass_matrix": array_record(np.eye(7)),
+        "initial_joint": array_record(joint),
+        "goal_position": array_record(ee_position),
+        "goal_orientation_matrix": array_record(ee_orientation),
+        "new_update": False,
+        "gripper_current_action": array_record(np.zeros(1)),
+    }
+    for field, value in _MODULE._expected_controller_static_arrays().items():
+        record[field] = array_record(value)
+    record["controller_static_sha256"] = content_hash(
+        _MODULE._controller_static_payload(record)
+    )
+    record["fingerprint_sha256"] = content_hash(record)
+    return record
+
+
 def _accepted_bundle_fixture() -> dict[str, object]:
     """Build a semantic-validator fixture without compiling a simulator model."""
 
@@ -214,6 +275,11 @@ def _accepted_bundle_fixture() -> dict[str, object]:
             }
         ],
     }
+    controller_canonicalization = {
+        "method": _MODULE.CONTROLLER_CANONICALIZATION_METHOD,
+        "pre_settle": _controller_state_fixture(0.0),
+        "final": _controller_state_fixture(0.5),
+    }
     branch_identity = source_branch_identity(
         bddl_sha256=config["bddl_sha256"],
         portable_model_xml_sha256=model["sha256"],
@@ -228,6 +294,13 @@ def _accepted_bundle_fixture() -> dict[str, object]:
         pre_settle_integration_state_sha256=integration["pre_settle"]["sha256"],
         settle_integration_state_sequence_sha256=integration["settle_sequence_sha256"],
         final_integration_state_sha256=integration["final"]["sha256"],
+        controller_canonicalization_method=controller_canonicalization["method"],
+        pre_settle_controller_state_sha256=controller_canonicalization["pre_settle"][
+            "fingerprint_sha256"
+        ],
+        final_controller_state_sha256=controller_canonicalization["final"][
+            "fingerprint_sha256"
+        ],
     )
     branch = {
         "state_sha256": flat["sha256"],
@@ -249,6 +322,13 @@ def _accepted_bundle_fixture() -> dict[str, object]:
         "settle_integration_state_sha256": integration_hashes,
         "settle_integration_state_sequence_sha256": integration["settle_sequence_sha256"],
         "final_integration_state_sha256": integration["final"]["sha256"],
+        "controller_canonicalization_method": controller_canonicalization["method"],
+        "pre_settle_controller_state_sha256": controller_canonicalization["pre_settle"][
+            "fingerprint_sha256"
+        ],
+        "final_controller_state_sha256": controller_canonicalization["final"][
+            "fingerprint_sha256"
+        ],
         "observation_sha256": branch["observation_sha256"],
         "geometry_sha256": branch["geometry_sha256"],
         "exact_replay": True,
@@ -318,6 +398,7 @@ def _accepted_bundle_fixture() -> dict[str, object]:
                 )
             ),
         },
+        "controller_canonicalization": controller_canonicalization,
         "branch": branch,
         "replay_proofs": proofs,
         "selection": _MODULE._selection_record(),
@@ -364,6 +445,7 @@ def _rebind_fixture_branch(bundle: dict[str, object]) -> None:
     branch["geometry_sha256"] = geometry_sha256
     integration = bundle["states"]["integration"]
     model = bundle["model"]
+    controller_canonicalization = bundle["controller_canonicalization"]
     identity = source_branch_identity(
         bddl_sha256=bundle["bddl"]["sha256"],
         portable_model_xml_sha256=model["sha256"],
@@ -378,6 +460,13 @@ def _rebind_fixture_branch(bundle: dict[str, object]) -> None:
         pre_settle_integration_state_sha256=integration["pre_settle"]["sha256"],
         settle_integration_state_sequence_sha256=integration["settle_sequence_sha256"],
         final_integration_state_sha256=integration["final"]["sha256"],
+        controller_canonicalization_method=controller_canonicalization["method"],
+        pre_settle_controller_state_sha256=controller_canonicalization["pre_settle"][
+            "fingerprint_sha256"
+        ],
+        final_controller_state_sha256=controller_canonicalization["final"][
+            "fingerprint_sha256"
+        ],
     )
     branch["source_branch_identity"] = identity["payload"]
     branch["source_branch_sha256"] = identity["sha256"]
@@ -385,6 +474,13 @@ def _rebind_fixture_branch(bundle: dict[str, object]) -> None:
     bundle["source_state"]["source_state_id"] = f"gsrc-{identity['sha256'][:16]}"
     for proof in bundle["replay_proofs"]:
         proof["geometry_sha256"] = geometry_sha256
+        proof["controller_canonicalization_method"] = controller_canonicalization["method"]
+        proof["pre_settle_controller_state_sha256"] = controller_canonicalization[
+            "pre_settle"
+        ]["fingerprint_sha256"]
+        proof["final_controller_state_sha256"] = controller_canonicalization["final"][
+            "fingerprint_sha256"
+        ]
     bundle.pop("bundle_content_sha256", None)
     bundle["bundle_content_sha256"] = content_hash(bundle)
 
@@ -637,6 +733,92 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
                 self.assertNotIn("bundle_content_sha256 differs", errors)
                 self.assertIn(expected_error, errors)
 
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "controller fixture requires NumPy")
+    def test_valid_controller_change_is_cross_bound_to_identity_and_both_proofs(self) -> None:
+        import numpy as np
+
+        tampered = _accepted_bundle_fixture()
+        controller = tampered["controller_canonicalization"]["pre_settle"]
+        controller["joint_velocity"] = _MODULE._array_record(
+            np.ones(7, dtype=np.float64)
+        )
+        controller.pop("fingerprint_sha256")
+        controller["fingerprint_sha256"] = content_hash(controller)
+        tampered.pop("bundle_content_sha256")
+        tampered["bundle_content_sha256"] = content_hash(tampered)
+        errors = validate_generated_source_artifact(tampered)
+        self.assertFalse(any("controller_canonicalization.pre_settle" in error for error in errors))
+        self.assertIn(
+            "branch.source_branch_identity differs from the immutable scientific payload",
+            errors,
+        )
+        self.assertIn("replay_proofs[0] differs from exact recorded history", errors)
+        self.assertIn("replay_proofs[1] differs from exact recorded history", errors)
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "controller fixture requires NumPy")
+    def test_static_gain_scale_and_lazy_cache_each_change_the_fingerprint(self) -> None:
+        import numpy as np
+
+        baseline = _controller_state_fixture()
+        cases = {
+            "output_max": _MODULE._array_record(
+                np.asarray([0.06, 0.05, 0.05, 0.5, 0.5, 0.5], dtype=np.float64)
+            ),
+            "kp": _MODULE._array_record(np.full(6, 151.0, dtype=np.float64)),
+            "action_scale": _MODULE._array_record(np.ones(6, dtype=np.float64)),
+        }
+        for field, replacement in cases.items():
+            with self.subTest(field=field):
+                changed = copy.deepcopy(baseline)
+                changed[field] = replacement
+                changed["controller_static_sha256"] = content_hash(
+                    _MODULE._controller_static_payload(changed)
+                )
+                changed["fingerprint_sha256"] = content_hash({
+                    key: value
+                    for key, value in changed.items()
+                    if key != "fingerprint_sha256"
+                })
+                self.assertNotEqual(
+                    changed["fingerprint_sha256"], baseline["fingerprint_sha256"]
+                )
+                errors = _MODULE._validate_controller_state_record(
+                    changed, name="controller"
+                )[1]
+                self.assertTrue(any(field in error for error in errors), errors)
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "controller fixture requires NumPy")
+    def test_fully_rebound_static_gain_change_still_fails_pinned_semantics(self) -> None:
+        import numpy as np
+
+        tampered = _accepted_bundle_fixture()
+        controller = tampered["controller_canonicalization"]["pre_settle"]
+        kp = np.full(6, 151.0, dtype=np.float64)
+        controller["kp"] = _MODULE._array_record(kp)
+        controller["kd"] = _MODULE._array_record(2 * np.sqrt(kp))
+        controller["controller_static_sha256"] = content_hash(
+            _MODULE._controller_static_payload(controller)
+        )
+        controller["fingerprint_sha256"] = content_hash({
+            key: value
+            for key, value in controller.items()
+            if key != "fingerprint_sha256"
+        })
+        _rebind_fixture_branch(tampered)
+        errors = validate_generated_source_artifact(tampered)
+        self.assertIn(
+            "controller_canonicalization.pre_settle.kp differs from the pinned "
+            "OSC_POSE configuration",
+            errors,
+        )
+        self.assertIn(
+            "controller_canonicalization.pre_settle.kd differs from the pinned "
+            "OSC_POSE configuration",
+            errors,
+        )
+        self.assertFalse(any("source_branch_identity differs" in error for error in errors))
+        self.assertFalse(any("replay_proofs" in error for error in errors))
+
     @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "accepted semantic fixture requires NumPy")
     def test_rehashed_nested_geometry_outcome_key_is_rejected(self) -> None:
         tampered = _accepted_bundle_fixture()
@@ -738,6 +920,380 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
 
 
 class GeneratedSourcePortabilityTest(unittest.TestCase):
+    def test_robosuite_runtime_identity_checks_version_and_raw_config_bytes(self) -> None:
+        package = SimpleNamespace(
+            __version__="1.4.1",
+            __file__="/fixture/robosuite/__init__.py",
+        )
+        expected_path = Path("/fixture/robosuite/controllers/config/osc_pose.json")
+        with mock.patch.object(
+            _MODULE.importlib, "import_module", return_value=package
+        ), mock.patch.object(Path, "is_file", return_value=True), mock.patch.object(
+            _MODULE, "file_sha256", return_value=_MODULE.OSC_POSE_CONFIG_SHA256
+        ) as hash_file:
+            _MODULE._assert_robosuite_runtime_identity()
+        hash_file.assert_called_once_with(expected_path)
+
+        with mock.patch.object(
+            _MODULE.importlib, "import_module", return_value=package
+        ), mock.patch.object(Path, "is_file", return_value=True), mock.patch.object(
+            _MODULE, "file_sha256", return_value="0" * 64
+        ):
+            with self.assertRaisesRegex(RuntimeError, "config bytes differ"):
+                _MODULE._assert_robosuite_runtime_identity()
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "controller canonicalization requires NumPy")
+    def test_controller_canonicalization_refreshes_fixed_osc_and_zeroes_gripper(self) -> None:
+        import numpy as np
+
+        events = []
+
+        class PandaGripper:
+            def __init__(self):
+                self.dof = 1
+                self.current_action = np.asarray([0.75], dtype=np.float64)
+
+        class OperationalSpaceController:
+            def __init__(self):
+                self.name = "OSC_POSE"
+                self.impedance_mode = "fixed"
+                self.control_dim = 6
+                self.control_freq = 20
+                self.use_delta = True
+                self.use_ori = True
+                self.uncoupling = True
+                self.position_limits = None
+                self.orientation_limits = None
+                self.interpolator_pos = None
+                self.interpolator_ori = None
+                for field, value in _MODULE._expected_controller_static_arrays().items():
+                    setattr(self, field, value.copy())
+                self.action_scale = np.full(6, 99.0, dtype=np.float64)
+                self.action_input_transform = np.full(6, 98.0, dtype=np.float64)
+                self.action_output_transform = np.full(6, 97.0, dtype=np.float64)
+                self.repopulate_lazy_cache_on_reset = False
+                self.ee_pos = np.asarray([0.1, 0.2, 0.3], dtype=np.float64)
+                self.ee_ori_mat = np.eye(3, dtype=np.float64)
+                self.ee_pos_vel = np.zeros(3, dtype=np.float64)
+                self.ee_ori_vel = np.zeros(3, dtype=np.float64)
+                self.joint_pos = np.full(7, -1.0, dtype=np.float64)
+                self.joint_vel = np.zeros(7, dtype=np.float64)
+                self.J_pos = np.arange(21, dtype=np.float64).reshape(3, 7)
+                self.J_ori = np.arange(21, 42, dtype=np.float64).reshape(3, 7)
+                self.J_full = np.concatenate([self.J_pos, self.J_ori], axis=0)
+                self.mass_matrix = np.eye(7, dtype=np.float64)
+                self.initial_joint = np.full(7, -2.0, dtype=np.float64)
+                self.goal_pos = np.full(3, -3.0, dtype=np.float64)
+                self.goal_ori = np.full((3, 3), -4.0, dtype=np.float64)
+                self.new_update = True
+
+            def update_initial_joints(self, joints):
+                events.append("update_initial_joints")
+                self.initial_joint = joints.copy()
+                self.joint_pos = joints.copy()
+                self.new_update = False
+                self.reset_goal()
+
+            def reset_goal(self):
+                events.append("reset_goal")
+                self.goal_pos = self.ee_pos.copy()
+                self.goal_ori = self.ee_ori_mat.copy()
+                if self.repopulate_lazy_cache_on_reset:
+                    self.action_scale = np.full(6, 123.0, dtype=np.float64)
+
+            def scale_action(self, action):
+                if self.action_scale is None:
+                    self.action_scale = abs(self.output_max - self.output_min) / abs(
+                        self.input_max - self.input_min
+                    )
+                    self.action_output_transform = (self.output_max + self.output_min) / 2.0
+                    self.action_input_transform = (self.input_max + self.input_min) / 2.0
+                clipped = np.clip(action, self.input_min, self.input_max)
+                return (
+                    (clipped - self.action_input_transform) * self.action_scale
+                    + self.action_output_transform
+                )
+
+        controller = OperationalSpaceController()
+        gripper = PandaGripper()
+        joints = np.arange(7, dtype=np.float64)
+        robot = SimpleNamespace(
+            name="Panda",
+            controller=controller,
+            has_gripper=True,
+            gripper=gripper,
+            _joint_positions=joints,
+        )
+        env = SimpleNamespace(env=SimpleNamespace(robots=[robot]))
+        with mock.patch.object(
+            _MODULE, "_assert_robosuite_runtime_identity", return_value=None
+        ):
+            record = _MODULE._canonicalize_controller_state(env)
+        self.assertEqual(events, ["update_initial_joints", "reset_goal", "reset_goal"])
+        self.assertTrue(np.array_equal(gripper.current_action, np.zeros(1)))
+        self.assertIsNone(controller.action_scale)
+        self.assertIsNone(controller.action_input_transform)
+        self.assertIsNone(controller.action_output_transform)
+        self.assertEqual(
+            _MODULE._validate_controller_state_record(record, name="controller")[1], []
+        )
+        self.assertEqual(record["fingerprint_sha256"], content_hash({
+            key: value for key, value in record.items() if key != "fingerprint_sha256"
+        }))
+        scaled = controller.scale_action(np.full(6, 0.5, dtype=np.float64))
+        self.assertTrue(
+            np.array_equal(
+                scaled,
+                np.asarray([0.025, 0.025, 0.025, 0.25, 0.25, 0.25], dtype=np.float64),
+            )
+        )
+
+        controller.repopulate_lazy_cache_on_reset = True
+        with mock.patch.object(
+            _MODULE, "_assert_robosuite_runtime_identity", return_value=None
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "null action_scale after goal reset"
+            ):
+                _MODULE._canonicalize_controller_state(env)
+        controller.repopulate_lazy_cache_on_reset = False
+
+        for field in ("output_max", "kp"):
+            with self.subTest(live_static_field=field):
+                original = getattr(controller, field).copy()
+                changed = original.copy()
+                changed[0] += 1.0
+                setattr(controller, field, changed)
+                event_count = len(events)
+                with mock.patch.object(
+                    _MODULE, "_assert_robosuite_runtime_identity", return_value=None
+                ):
+                    with self.assertRaisesRegex(RuntimeError, f"OSC_POSE {field}"):
+                        _MODULE._canonicalize_controller_state(env)
+                self.assertEqual(len(events), event_count)
+                setattr(controller, field, original)
+
+        controller.interpolator_pos = object()
+        with self.assertRaisesRegex(RuntimeError, "null position interpolation"):
+            with mock.patch.object(
+                _MODULE, "_assert_robosuite_runtime_identity", return_value=None
+            ):
+                _MODULE._canonicalize_controller_state(env)
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "source settle ordering requires NumPy")
+    def test_source_settle_canonicalizes_before_first_step_and_after_last_step(self) -> None:
+        import numpy as np
+
+        events = []
+        records = iter([_controller_state_fixture(0.0), _controller_state_fixture(0.5)])
+
+        def canonicalize(_env):
+            events.append("canonicalize")
+            return next(records)
+
+        def step(_env, _action):
+            events.append("step")
+
+        with mock.patch.object(
+            _MODULE, "_canonicalize_controller_state", side_effect=canonicalize
+        ), mock.patch.object(_MODULE, "_step_dummy", side_effect=step), mock.patch.object(
+            _MODULE, "_state", return_value=np.zeros(1, dtype=np.float64)
+        ), mock.patch.object(
+            _MODULE, "_integration_state", return_value=np.zeros(1, dtype=np.float64)
+        ):
+            result = _MODULE._capture_source_settle(
+                object(),
+                np.zeros((_MODULE.SETTLE_STEPS, 7), dtype=np.float64),
+                {"size": 1},
+            )
+        self.assertEqual(events, ["canonicalize"] + ["step"] * 20 + ["canonicalize"])
+        self.assertEqual(result["pre_controller"]["fingerprint_sha256"], _controller_state_fixture(0.0)["fingerprint_sha256"])
+        self.assertEqual(result["final_controller"]["fingerprint_sha256"], _controller_state_fixture(0.5)["fingerprint_sha256"])
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "fresh replay ordering requires NumPy")
+    def test_fresh_replay_canonicalizes_both_boundaries_before_observation(self) -> None:
+        import numpy as np
+
+        zero = np.zeros(1, dtype=np.float64)
+        flat_record = _MODULE._array_record(zero)
+        history = []
+        for index in range(_MODULE.SETTLE_STEPS):
+            record = copy.deepcopy(flat_record)
+            record["settle_step"] = index + 1
+            history.append(record)
+        integration = {
+            "spec": {
+                "name": _MODULE.INTEGRATION_STATE_SPEC_NAME,
+                "value": _MODULE.INTEGRATION_STATE_SPEC_VALUE,
+                "size": 1,
+                "dtype": "float64",
+            },
+            "pre_settle": copy.deepcopy(flat_record),
+            "settle_history": copy.deepcopy(history),
+            "settle_sequence_sha256": content_hash([record["sha256"] for record in history]),
+            "final": copy.deepcopy(flat_record),
+        }
+        controllers = {
+            "method": _MODULE.CONTROLLER_CANONICALIZATION_METHOD,
+            "pre_settle": _controller_state_fixture(0.0),
+            "final": _controller_state_fixture(0.5),
+        }
+        branch = {
+            "state_sha256": _MODULE._array_hash(zero),
+            "observation_sha256": "1" * 64,
+            "geometry_sha256": "2" * 64,
+            "active_obstacle_name": "active",
+        }
+        events = []
+        controller_records = iter([controllers["pre_settle"], controllers["final"]])
+
+        class FakeEnv:
+            sim = SimpleNamespace(reset=lambda: None)
+
+            def reset_from_xml_string(self, _xml):
+                pass
+
+            def close(self):
+                pass
+
+        def canonicalize(_env):
+            record = next(controller_records)
+            events.append(
+                "canonicalize_pre"
+                if record is controllers["pre_settle"]
+                else "canonicalize_final"
+            )
+            return record
+
+        def step(_env, _action):
+            events.append("step")
+
+        def branch_identity(_env, _active):
+            events.append("observation")
+            return {}, dict(branch)
+
+        with mock.patch.object(_MODULE, "_make_environment", return_value=FakeEnv()), mock.patch.object(
+            _MODULE, "rehydrate_model_xml", return_value="<mujoco/>"
+        ), mock.patch.object(
+            _MODULE, "_restore_integration_state", return_value=zero.copy()
+        ), mock.patch.object(
+            _MODULE, "_canonicalize_controller_state", side_effect=canonicalize
+        ), mock.patch.object(_MODULE, "_step_dummy", side_effect=step), mock.patch.object(
+            _MODULE, "_state", return_value=zero.copy()
+        ), mock.patch.object(
+            _MODULE, "_integration_state", return_value=zero.copy()
+        ), mock.patch.object(
+            _MODULE, "_branch_identity", side_effect=branch_identity
+        ):
+            proof = _MODULE._fresh_replay(
+                index=1,
+                bddl_path=ROOT / "fixture.bddl",
+                camera_size=224,
+                model={"sha256": "a" * 64},
+                repo_root=ROOT,
+                pre_settle=zero,
+                actions=np.zeros((_MODULE.SETTLE_STEPS, 7), dtype=np.float64),
+                expected_history=history,
+                expected_final_state=zero,
+                integration_states=integration,
+                controller_canonicalization=controllers,
+                active_obstacle_name="active",
+                expected_branch=branch,
+            )
+        self.assertEqual(
+            events,
+            ["canonicalize_pre"] + ["step"] * 20 + ["canonicalize_final", "observation"],
+        )
+        self.assertEqual(
+            proof["pre_settle_controller_state_sha256"],
+            controllers["pre_settle"]["fingerprint_sha256"],
+        )
+        self.assertEqual(
+            proof["final_controller_state_sha256"],
+            controllers["final"]["fingerprint_sha256"],
+        )
+
+    @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "experiment restore ordering requires NumPy")
+    def test_experiment_restore_canonicalizes_both_boundaries_before_observation(self) -> None:
+        import numpy as np
+
+        zero = np.zeros(1, dtype=np.float64)
+        flat_record = _MODULE._array_record(zero)
+        history = []
+        for index in range(_MODULE.SETTLE_STEPS):
+            record = copy.deepcopy(flat_record)
+            record["settle_step"] = index + 1
+            history.append(record)
+        controllers = {
+            "method": _MODULE.CONTROLLER_CANONICALIZATION_METHOD,
+            "pre_settle": _controller_state_fixture(0.0),
+            "final": _controller_state_fixture(0.5),
+        }
+        bundle = {
+            "model": {},
+            "states": {
+                "pre_settle": copy.deepcopy(flat_record),
+                "final": copy.deepcopy(flat_record),
+                "settle_history": copy.deepcopy(history),
+                "integration": {
+                    "spec": {"size": 1},
+                    "pre_settle": copy.deepcopy(flat_record),
+                    "settle_history": copy.deepcopy(history),
+                    "final": copy.deepcopy(flat_record),
+                },
+            },
+            "settle": {
+                "actions": _MODULE._array_record(
+                    np.zeros((_MODULE.SETTLE_STEPS, 7), dtype=np.float64)
+                )
+            },
+            "controller_canonicalization": controllers,
+        }
+        events = []
+        controller_records = iter([controllers["pre_settle"], controllers["final"]])
+
+        class FakeEnv:
+            sim = SimpleNamespace(reset=lambda: None)
+
+            def reset_from_xml_string(self, _xml):
+                pass
+
+        def canonicalize(_env):
+            record = next(controller_records)
+            events.append(
+                "canonicalize_pre"
+                if record is controllers["pre_settle"]
+                else "canonicalize_final"
+            )
+            return record
+
+        def step(_env, _action):
+            events.append("step")
+
+        def render(_env):
+            events.append("observation")
+            return {"observation": zero}
+
+        with mock.patch.object(
+            _MODULE, "validate_generated_source_artifact", return_value=[]
+        ), mock.patch.object(
+            _MODULE, "rehydrate_model_xml", return_value="<mujoco/>"
+        ), mock.patch.object(
+            _MODULE, "_restore_integration_state", return_value=zero.copy()
+        ), mock.patch.object(
+            _MODULE, "_canonicalize_controller_state", side_effect=canonicalize
+        ), mock.patch.object(_MODULE, "_step_dummy", side_effect=step), mock.patch.object(
+            _MODULE, "_state", return_value=zero.copy()
+        ), mock.patch.object(
+            _MODULE, "_integration_state", return_value=zero.copy()
+        ), mock.patch.object(_MODULE, "_render_observation", side_effect=render):
+            observation = _MODULE.restore_generated_source_branch(FakeEnv(), bundle)
+        self.assertEqual(
+            events,
+            ["canonicalize_pre"] + ["step"] * 20 + ["canonicalize_final", "observation"],
+        )
+        self.assertIn("observation", observation)
+
     @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "integration call-order test requires NumPy")
     def test_integration_restore_precedes_step_in_exact_call_order(self) -> None:
         import numpy as np
@@ -902,6 +1458,11 @@ class GeneratedSourcePortabilityTest(unittest.TestCase):
             "pre_settle_integration_state_sha256": "7" * 64,
             "settle_integration_state_sequence_sha256": "8" * 64,
             "final_integration_state_sha256": "a" * 64,
+            "controller_canonicalization_method": (
+                _MODULE.CONTROLLER_CANONICALIZATION_METHOD
+            ),
+            "pre_settle_controller_state_sha256": "c" * 64,
+            "final_controller_state_sha256": "d" * 64,
         }
         identity = source_branch_identity(**fields)
         self.assertEqual(identity["payload"], fields)
@@ -911,6 +1472,7 @@ class GeneratedSourcePortabilityTest(unittest.TestCase):
             "final_flattened_state_sha256", "observation_sha256", "geometry_sha256",
             "pre_settle_integration_state_sha256",
             "settle_integration_state_sequence_sha256", "final_integration_state_sha256",
+            "pre_settle_controller_state_sha256", "final_controller_state_sha256",
         ):
             mutated = dict(fields)
             mutated[key] = "b" * 64
@@ -923,6 +1485,10 @@ class GeneratedSourcePortabilityTest(unittest.TestCase):
                     source_branch_identity(**mutated)
             else:
                 self.assertNotEqual(source_branch_identity(**mutated)["sha256"], identity["sha256"])
+        wrong_method = dict(fields)
+        wrong_method["controller_canonicalization_method"] = "wrong"
+        with self.assertRaisesRegex(ValueError, "canonicalization method differs"):
+            source_branch_identity(**wrong_method)
 
     def test_model_xml_assets_are_tokenized_hash_bound_and_rehydrated(self) -> None:
         asset = ROOT / "safelibero/libero/libero/bddl_files/safelibero_spatial" / (
