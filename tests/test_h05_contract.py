@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -22,6 +23,15 @@ class H05ContractTest(unittest.TestCase):
         self.assertIn('"type": "fixed_endpoint_clearance"', projection)
         self.assertLess(projection.index("fixed_endpoint ="), projection.index("from scipy.optimize import minimize"))
         self.assertIn("candidate[:, :3] >= low[:, :3]", projection)
+
+    def test_colliding_population_manifest_is_bounded_and_unique(self) -> None:
+        cases = [
+            json.loads(line)
+            for line in (ROOT / "manifests/oracle_h05_colliding.jsonl").read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        self.assertEqual(len(cases), 20)
+        self.assertEqual(len({case["case_id"] for case in cases}), 20)
 
 
 if __name__ == "__main__":
