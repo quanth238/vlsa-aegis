@@ -15,10 +15,10 @@ random and registered analytic controls. R04 is now the only active gate. This
 authorizes a bounded learned-probe investigation, not training by default.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
-stops before perturbation labels or training. ADR-0019 now freezes the final
-apparatus subgate: a one-case exact saved-latent resume/parity smoke, including
-a current-commit ordinary-baseline regression. Its local contract passes, but
-allocation evidence is still pending. Independent state provenance,
+stops before perturbation labels or training. ADR-0019 froze the final
+apparatus subgate, and Slurm task `27558_0` plus independent validator `27559`
+now pass its exact saved-latent resume/parity and current-commit
+ordinary-baseline contract. Independent state provenance,
 perturbation support, and powered group counts remain unresolved. No probe has
 yet been trained or shown effective.
 
@@ -105,7 +105,9 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0017-freeze-r04a-continuation-label-contract.md`: frozen R04A contract;
 - `docs/decisions/0018-accept-r04a-stop-before-training.md`: passed plumbing evidence and current stop;
 - `docs/decisions/0019-freeze-r04b-exact-resume-parity.md`: final apparatus contract before direct probe experiments;
+- `docs/decisions/0020-accept-r04b-focus-direct-probe-test.md`: passed R04B evidence and frozen direct research question;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
+- `evidence/r04b/r04b-validation.json`: compact exact-resume allocation/validator record;
 - `references.bib`: bibliography;
 - `CRFS_Proposal_Preview.pdf`: compiled preview.
 

@@ -19,3 +19,4 @@
 - [0017 — Freeze the R04A real-continuation label contract](docs/decisions/0017-freeze-r04a-continuation-label-contract.md)
 - [0018 — Accept R04A plumbing and stop before probe training](docs/decisions/0018-accept-r04a-stop-before-training.md)
 - [0019 — Freeze R04B exact resume parity as the final apparatus gate](docs/decisions/0019-freeze-r04b-exact-resume-parity.md)
+- [0020 — Accept R04B and focus the direct learned-probe test](docs/decisions/0020-accept-r04b-focus-direct-probe-test.md)
