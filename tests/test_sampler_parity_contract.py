@@ -50,6 +50,16 @@ class SamplerParityContractTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         for value in ("0.10", "0.025", "0.20", "0.050", "0.010", "0.005", "0.015"):
             self.assertIn(value, decision)
+        semantics = (ROOT / self.runner.PARITY_SEMANTICS_DECISION).read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("PyTorch eager trace-only", semantics)
+        self.assertIn("compiled PyTorch versus eager PyTorch", semantics)
+        self.assertIn("Do not change any numerical tolerance", semantics)
+        self.assertEqual(
+            self.runner.PARITY_SEMANTICS_SHA256,
+            "11646bec37bdb2d15e9507080156755300782e0a4eabf91449dcc5105ca10d36",
+        )
 
     def test_error_metrics_require_both_maximum_and_rms(self) -> None:
         passing = self.runner.comparison_metrics(
@@ -83,8 +93,12 @@ class SamplerParityContractTest(unittest.TestCase):
         )
 
     def _valid_artifact(self):
-        action = [[[0.0 for _ in range(32)] for _ in range(10)]]
-        physical = [[0.0 for _ in range(7)] for _ in range(10)]
+        eager_action = [[[0.0 for _ in range(32)] for _ in range(10)]]
+        compiled_action = json.loads(json.dumps(eager_action))
+        compiled_action[0][0][0] = 0.01
+        eager_physical = [[0.0 for _ in range(7)] for _ in range(10)]
+        compiled_physical = json.loads(json.dumps(eager_physical))
+        compiled_physical[0][0] = 0.001
         trace_value = [
             [[[0.0 for _ in range(32)] for _ in range(10)]]
             for _ in range(10)
@@ -107,28 +121,41 @@ class SamplerParityContractTest(unittest.TestCase):
                 }
             ],
             "output_sha256": "d" * 64,
-            "default_normalized": action,
-            "traced_normalized": action,
-            "default_unnormalized": physical,
-            "traced_unnormalized": physical,
             "trace": {
                 "time": [1.0 - index / 10 for index in range(10)],
                 "state_before": trace_value,
                 "velocity": trace_value,
                 "state_after": trace_value,
             },
-            "exact_checks": {
-                "instrumented_final_array_equal_ordinary_default": True,
-            },
         }
-        jax_worker = {**common_worker, "worker": "jax"}
+        jax_worker = {
+            **common_worker,
+            "worker": "jax",
+            "default_normalized": eager_action,
+            "traced_normalized": eager_action,
+            "default_unnormalized": eager_physical,
+            "traced_unnormalized": eager_physical,
+            "exact_checks": {
+                "instrumented_final_array_equal_public_default": True,
+            },
+            "path_diagnostics": {},
+        }
         torch_worker = {
             **common_worker,
             "worker": "pytorch",
-            "eager_normalized": action,
+            "default_normalized": compiled_action,
+            "traced_normalized": eager_action,
+            "default_unnormalized": compiled_physical,
+            "traced_unnormalized": eager_physical,
+            "compiled_normalized": compiled_action,
+            "compiled_unnormalized": compiled_physical,
+            "eager_normalized": eager_action,
+            "eager_unnormalized": eager_physical,
             "exact_checks": {
-                **common_worker["exact_checks"],
-                "compiled_default_array_equal_eager_trace_only": True,
+                "instrumented_final_array_equal_eager_trace_only": True,
+            },
+            "path_diagnostics": {
+                "compiled_default_array_equal_eager_trace_only": False,
             },
         }
         cross_x = self.runner._per_step_metrics(
@@ -143,42 +170,47 @@ class SamplerParityContractTest(unittest.TestCase):
             max_limit=0.20,
             rms_limit=0.050,
         )
-        final_model = self.runner.comparison_metrics(
-            action,
-            action,
-            max_limit=0.10,
-            rms_limit=0.025,
-            include_absolute_error=True,
+        eager_final = self.runner._final_path_metrics(
+            eager_action,
+            eager_action,
+            eager_physical,
+            eager_physical,
         )
-        xyz5 = self.runner.comparison_metrics(
-            [row[:3] for row in physical[:5]],
-            [row[:3] for row in physical[:5]],
-            max_limit=0.010,
-            rms_limit=0.005,
-            include_absolute_error=True,
+        compiled_cross_final = self.runner._final_path_metrics(
+            eager_action,
+            compiled_action,
+            eager_physical,
+            compiled_physical,
         )
-        action7 = self.runner.comparison_metrics(
-            physical,
-            physical,
-            max_limit=0.050,
-            rms_limit=0.015,
-            include_absolute_error=True,
+        compiled_eager_final = self.runner._final_path_metrics(
+            compiled_action,
+            eager_action,
+            compiled_physical,
+            eager_physical,
         )
-        exact = self.runner.exact_comparison(action, action)
+        exact = self.runner.exact_comparison(eager_action, eager_action)
+        compiled_eager_exact = self.runner.exact_comparison(
+            compiled_action, eager_action
+        )
         checks = {
             "real_frozen_branch_observation_shared": True,
             "transformed_observation_byte_identical": True,
             "explicit_noise_byte_identical": True,
             "checkpoint_norm_stats_byte_identical": True,
             "checkpoint_norm_stats_match_registered_asset": True,
-            "jax_trace_reproduces_ordinary_final": True,
-            "pytorch_trace_reproduces_ordinary_final": True,
-            "pytorch_compiled_equals_eager_trace_only_final": True,
+            "jax_instrumented_equals_public_default": True,
+            "pytorch_instrumented_equals_eager_trace_only": True,
             "all_ten_cross_backend_pre_update_states_within_limits": True,
             "all_ten_cross_backend_velocities_within_limits": True,
-            "cross_backend_final_normalized_within_tolerance": True,
-            "cross_backend_final_physical_first_five_xyz_within_limits": True,
-            "cross_backend_final_physical_first_seven_within_limits": True,
+            "primary_eager_final_normalized_within_limits": True,
+            "primary_eager_final_physical_first_five_xyz_within_limits": True,
+            "primary_eager_final_physical_first_seven_within_limits": True,
+            "jax_vs_compiled_diagnostic_normalized_within_limits": True,
+            "jax_vs_compiled_diagnostic_physical_first_five_xyz_within_limits": True,
+            "jax_vs_compiled_diagnostic_physical_first_seven_within_limits": True,
+            "compiled_vs_eager_diagnostic_normalized_within_limits": True,
+            "compiled_vs_eager_diagnostic_physical_first_five_xyz_within_limits": True,
+            "compiled_vs_eager_diagnostic_physical_first_seven_within_limits": True,
         }
         norm_hash = self.runner.REGISTERED_NORM_STATS_SHA256
         return {
@@ -202,6 +234,7 @@ class SamplerParityContractTest(unittest.TestCase):
                 "norm_stats_sha256": norm_hash,
                 "runner_sha256": "5" * 64,
                 "tracked_diff_sha256": "6" * 64,
+                "parity_semantics_sha256": self.runner.PARITY_SEMANTICS_SHA256,
                 "git_commit": "commit",
                 "git_dirty": True,
                 "r01_summary_sha256": self.runner.R01_SUMMARY_SHA256,
@@ -215,19 +248,24 @@ class SamplerParityContractTest(unittest.TestCase):
                 "experiment_config_sha256": "7" * 64,
             },
             "acceptance": {
-                "registered_tolerances": dict(self.runner.REGISTERED_LIMITS),
+                "registered_tolerances": {
+                    **self.runner.REGISTERED_LIMITS,
+                    "source": "docs/decisions/0010-freeze-r02-parity-and-directions.md",
+                },
+                "path_identity_decision": self.runner.PARITY_SEMANTICS_DECISION,
+                "path_identity_decision_sha256": self.runner.PARITY_SEMANTICS_SHA256,
                 "checks": checks,
                 "passed": True,
             },
             "comparison": {
-                "jax_trace_vs_ordinary_final": exact,
-                "pytorch_trace_vs_ordinary_final": exact,
-                "pytorch_compiled_vs_eager_trace_only_final": exact,
+                "jax_instrumented_vs_public_default_final": exact,
+                "pytorch_instrumented_vs_eager_trace_only_final": exact,
+                "pytorch_compiled_vs_eager_array_equal_diagnostic": compiled_eager_exact,
                 "cross_backend_pre_update_x_t_per_step": cross_x,
                 "cross_backend_pre_update_v_t_per_step": cross_v,
-                "cross_backend_final_normalized": final_model,
-                "cross_backend_final_physical_first_five_xyz": xyz5,
-                "cross_backend_final_physical_first_seven": action7,
+                "primary_jax_vs_pytorch_eager_final": eager_final,
+                "diagnostic_jax_vs_pytorch_compiled_final": compiled_cross_final,
+                "diagnostic_pytorch_compiled_vs_eager_final": compiled_eager_final,
             },
             "checkpoints": {
                 "public_jax": {
@@ -253,9 +291,23 @@ class SamplerParityContractTest(unittest.TestCase):
     def test_resume_validator_recomputes_comparisons(self) -> None:
         artifact = self._valid_artifact()
         self.assertEqual(self.runner.validate_parity_artifact(artifact), [])
+        self.assertFalse(
+            artifact["comparison"][
+                "pytorch_compiled_vs_eager_array_equal_diagnostic"
+            ]["passed"]
+        )
         tampered = json.loads(json.dumps(artifact))
-        tampered["samplers"]["pytorch"]["default_normalized"][0][0][0] = 1.0
+        tampered["samplers"]["pytorch"]["eager_normalized"][0][0][0] = 1.0
         errors = self.runner.validate_parity_artifact(tampered)
+        self.assertTrue(any("recomputed" in error for error in errors), errors)
+
+    def test_compiled_diagnostics_are_numerically_gated_not_byte_gated(self) -> None:
+        artifact = self._valid_artifact()
+        self.assertEqual(self.runner.validate_parity_artifact(artifact), [])
+        out_of_bounds = json.loads(json.dumps(artifact))
+        out_of_bounds["samplers"]["pytorch"]["compiled_normalized"][0][0][0] = 0.2
+        out_of_bounds["samplers"]["pytorch"]["default_normalized"][0][0][0] = 0.2
+        errors = self.runner.validate_parity_artifact(out_of_bounds)
         self.assertTrue(any("recomputed" in error for error in errors), errors)
 
     def test_resume_validator_rejects_hash_disagreement(self) -> None:
@@ -277,6 +329,12 @@ class SamplerParityContractTest(unittest.TestCase):
         self.assertIn("exact_comparison", source)
         self.assertIn("cross_backend_pre_update_x_t_per_step", source)
         self.assertIn("cross_backend_pre_update_v_t_per_step", source)
+        self.assertIn("primary_jax_vs_pytorch_eager_final", source)
+        self.assertIn("diagnostic_jax_vs_pytorch_compiled_final", source)
+        self.assertIn("diagnostic_pytorch_compiled_vs_eager_final", source)
+        self.assertNotIn(
+            '"pytorch_compiled_equals_eager_trace_only_final"', source
+        )
 
     def test_real_branch_and_identical_transformed_tensor_path(self) -> None:
         source = RUNNER_PATH.read_text(encoding="utf-8")
@@ -318,6 +376,7 @@ class SamplerParityContractTest(unittest.TestCase):
         self.assertIn("XLA_PYTHON_CLIENT_PREALLOCATE=false", source)
         self.assertIn("MUJOCO_GL=osmesa", source)
         self.assertIn('"$OPENPI_PYTHON" "$RUNNER"', source)
+        self.assertIn("0011-use-eager-path-for-r02-parity.md", source)
         expected_arguments = {
             "--step-x-max": "0.10",
             "--step-x-rms": "0.025",
@@ -338,6 +397,7 @@ class SamplerParityContractTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("scripts/hpc/preflight.sh", source)
+        self.assertIn(self.runner.PARITY_SEMANTICS_SHA256, source)
         self.assertIn("sbatch --output=", source)
         self.assertNotIn("rsync", source)
         self.assertNotIn("git pull", source)

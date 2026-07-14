@@ -16,10 +16,13 @@ esac
 
 test -f main/run_sampler_parity.py
 test -f slurm/sampler_parity_mig.sbatch
+test -f docs/decisions/0011-use-eager-path-for-r02-parity.md
 test -f manifests/oracle_h05_colliding.jsonl
 test -f configs/experiments/endpoint_free_reach_h5.json
 test "$(shasum -a 256 evidence/r01/r01-summary.json | awk '{print $1}')" = \
   715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5
+test "$(shasum -a 256 docs/decisions/0011-use-eager-path-for-r02-parity.md | awk '{print $1}')" = \
+  11646bec37bdb2d15e9507080156755300782e0a4eabf91449dcc5105ca10d36
 
 # Live cluster/QOS/storage state is authoritative.  This also rejects any
 # experiment-like Python/CUDA process left on the login node.
@@ -27,6 +30,7 @@ scripts/hpc/preflight.sh
 
 ssh "$HOST" "test -f '$REMOTE_REPO/main/run_sampler_parity.py' && \
 test -f '$REMOTE_REPO/slurm/sampler_parity_mig.sbatch' && \
+test -f '$REMOTE_REPO/docs/decisions/0011-use-eager-path-for-r02-parity.md' && \
 test -f '$REMOTE_REPO/manifests/oracle_h05_colliding.jsonl' && \
 test -d /mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero/params && \
 test -f /mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/model.safetensors && \

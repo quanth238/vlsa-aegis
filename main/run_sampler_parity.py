@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Allocation-backed public-JAX / converted-PyTorch sampler parity gate.
 
-The ordinary OpenPI samplers remain untouched.  Each backend worker first calls
-its ordinary sampler, then runs a harness-local instrumented copy of the same
-ten Euler updates.  The instrumented final value must reproduce the ordinary
-sampler before any cross-framework trace comparison is accepted.
+The ordinary OpenPI samplers remain untouched.  The public JAX instrumented
+loop must reproduce the public default exactly.  The converted PyTorch
+instrumented loop must reproduce the eager trace-only path exactly because
+that is the path used by R01 and every R02 intervention.  The ordinary compiled
+PyTorch call remains recorded and numerically gated as a path-seam diagnostic.
 
 The parent process obtains one real, frozen SafeLIBERO branch observation in a
 short-lived LIBERO worker and passes the exact serialized observation and
@@ -52,6 +53,8 @@ BASELINE_COMMIT = "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
 R01_SUMMARY_RELATIVE = Path("evidence/r01/r01-summary.json")
 R01_SUMMARY_SHA256 = "715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5"
 REGISTERED_NORM_STATS_SHA256 = "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+PARITY_SEMANTICS_DECISION = "docs/decisions/0011-use-eager-path-for-r02-parity.md"
+PARITY_SEMANTICS_SHA256 = "11646bec37bdb2d15e9507080156755300782e0a4eabf91449dcc5105ca10d36"
 FIXTURE_ID = "r01-frozen-manifest-branch"
 NUM_STEPS = 10
 ACTION_HORIZON = 10
@@ -773,15 +776,27 @@ def _run_model_worker(args: argparse.Namespace) -> int:
     traced_physical = _unnormalize_actions(
         output_transform, transformed_unbatched, trace_arrays["final"][0]
     )
-    exact_checks = {
-        "instrumented_final_array_equal_ordinary_default": bool(
-            np.array_equal(default_array, trace_arrays["final"])
-        ),
-    }
-    if args.worker_mode == "pytorch":
-        exact_checks["compiled_default_array_equal_eager_trace_only"] = bool(
-            np.array_equal(default_array, eager_array)
+    if args.worker_mode == "jax":
+        exact_checks = {
+            "instrumented_final_array_equal_public_default": bool(
+                np.array_equal(default_array, trace_arrays["final"])
+            ),
+        }
+        path_diagnostics: dict[str, Any] = {}
+    else:
+        eager_physical = _unnormalize_actions(
+            output_transform, transformed_unbatched, eager_array[0]
         )
+        exact_checks = {
+            "instrumented_final_array_equal_eager_trace_only": bool(
+                np.array_equal(eager_array, trace_arrays["final"])
+            ),
+        }
+        path_diagnostics = {
+            "compiled_default_array_equal_eager_trace_only": bool(
+                np.array_equal(default_array, eager_array)
+            ),
+        }
     output_hash, output_manifest = fingerprint_tree(
         {
             "default_normalized": default_array,
@@ -792,7 +807,12 @@ def _run_model_worker(args: argparse.Namespace) -> int:
             "trace_state_after": trace_arrays["state_after"],
             "trace_velocity": trace_arrays["velocity"],
             **(
-                {"eager_normalized": eager_array}
+                {
+                    "compiled_normalized": default_array,
+                    "compiled_unnormalized": default_physical,
+                    "eager_normalized": eager_array,
+                    "eager_unnormalized": eager_physical,
+                }
                 if args.worker_mode == "pytorch"
                 else {}
             ),
@@ -830,6 +850,7 @@ def _run_model_worker(args: argparse.Namespace) -> int:
         "default_unnormalized": default_physical.tolist(),
         "traced_unnormalized": traced_physical.tolist(),
         "exact_checks": exact_checks,
+        "path_diagnostics": path_diagnostics,
         "trace": {
             "time": trace_arrays["time"].tolist(),
             "state_before": trace_arrays["state_before"].tolist(),
@@ -838,7 +859,10 @@ def _run_model_worker(args: argparse.Namespace) -> int:
         },
         **(
             {
+                "compiled_normalized": default_array.tolist(),
+                "compiled_unnormalized": default_physical.tolist(),
                 "eager_normalized": eager_array.tolist(),
+                "eager_unnormalized": eager_physical.tolist(),
                 "eager_midpoint_trace": {
                     key: value.tolist() for key, value in eager_midpoint.items()
                 },
@@ -945,6 +969,39 @@ def _per_step_metrics(
         }
         for index in range(NUM_STEPS)
     ]
+
+
+def _final_path_metrics(
+    reference_normalized: Any,
+    candidate_normalized: Any,
+    reference_physical: Any,
+    candidate_physical: Any,
+) -> dict[str, Any]:
+    reference_actions = _plain_nested(reference_physical)
+    candidate_actions = _plain_nested(candidate_physical)
+    return {
+        "normalized": comparison_metrics(
+            reference_normalized,
+            candidate_normalized,
+            max_limit=REGISTERED_LIMITS["final_model_max"],
+            rms_limit=REGISTERED_LIMITS["final_model_rms"],
+            include_absolute_error=True,
+        ),
+        "physical_first_five_xyz": comparison_metrics(
+            [row[:3] for row in reference_actions[:5]],
+            [row[:3] for row in candidate_actions[:5]],
+            max_limit=REGISTERED_LIMITS["physical_xyz5_max"],
+            rms_limit=REGISTERED_LIMITS["physical_xyz5_rms"],
+            include_absolute_error=True,
+        ),
+        "physical_first_seven": comparison_metrics(
+            reference_actions,
+            candidate_actions,
+            max_limit=REGISTERED_LIMITS["physical_action7_max"],
+            rms_limit=REGISTERED_LIMITS["physical_action7_rms"],
+            include_absolute_error=True,
+        ),
+    }
 
 
 def exact_comparison(reference: Any, candidate: Any) -> dict[str, Any]:
@@ -1091,9 +1148,12 @@ def validate_parity_artifact(value: Any) -> list[str]:
             "norm_stats_sha256",
             "runner_sha256",
             "tracked_diff_sha256",
+            "parity_semantics_sha256",
         ):
             if not _is_sha256(identity.get(key)):
                 errors.append(f"identity.{key} must be a lowercase SHA-256")
+        if identity.get("parity_semantics_sha256") != PARITY_SEMANTICS_SHA256:
+            errors.append("identity is not content-bound to accepted ADR-0011")
 
     acceptance = value.get("acceptance")
     if not isinstance(acceptance, Mapping):
@@ -1113,6 +1173,12 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 errors.append(
                     f"registered tolerance {key} must equal ADR-0010 value {expected}"
                 )
+        if criteria.get("source") != "docs/decisions/0010-freeze-r02-parity-and-directions.md":
+            errors.append("registered tolerance source must remain ADR-0010")
+    if acceptance.get("path_identity_decision") != PARITY_SEMANTICS_DECISION:
+        errors.append("parity path identity must be bound to ADR-0011")
+    if acceptance.get("path_identity_decision_sha256") != PARITY_SEMANTICS_SHA256:
+        errors.append("parity path identity hash must match accepted ADR-0011")
 
     observation = value.get("observation")
     if not isinstance(observation, Mapping):
@@ -1277,15 +1343,33 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 )["passed"]:
                     errors.append(f"samplers.{name} trace state continuity failed")
 
+            pytorch_shapes = {
+                "compiled_normalized": (1, ACTION_HORIZON, ACTION_DIM),
+                "eager_normalized": (1, ACTION_HORIZON, ACTION_DIM),
+                "compiled_unnormalized": (ACTION_HORIZON, LIBERO_ACTION_DIM),
+                "eager_unnormalized": (ACTION_HORIZON, LIBERO_ACTION_DIM),
+            }
+            for key, expected_shape in pytorch_shapes.items():
+                if _nested_shape(_plain_nested(torch_worker[key])) != expected_shape:
+                    errors.append(f"samplers.pytorch.{key} has the wrong shape")
+            if not exact_comparison(
+                torch_worker["default_normalized"],
+                torch_worker["compiled_normalized"],
+            )["passed"] or not exact_comparison(
+                torch_worker["default_unnormalized"],
+                torch_worker["compiled_unnormalized"],
+            )["passed"]:
+                errors.append("PyTorch default fields must alias the compiled path")
+
             jax_exact = exact_comparison(
                 jax_worker["default_normalized"], jax_worker["traced_normalized"]
             )
             torch_exact = exact_comparison(
-                torch_worker["default_normalized"],
+                torch_worker["eager_normalized"],
                 torch_worker["traced_normalized"],
             )
             torch_compiled_eager = exact_comparison(
-                torch_worker["default_normalized"],
+                torch_worker["compiled_normalized"],
                 torch_worker["eager_normalized"],
             )
             cross_x = _per_step_metrics(
@@ -1300,38 +1384,33 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 max_limit=REGISTERED_LIMITS["step_v_max"],
                 rms_limit=REGISTERED_LIMITS["step_v_rms"],
             )
-            final_model = comparison_metrics(
+            eager_final = _final_path_metrics(
                 jax_worker["default_normalized"],
-                torch_worker["default_normalized"],
-                max_limit=REGISTERED_LIMITS["final_model_max"],
-                rms_limit=REGISTERED_LIMITS["final_model_rms"],
-                include_absolute_error=True,
+                torch_worker["eager_normalized"],
+                jax_worker["default_unnormalized"],
+                torch_worker["eager_unnormalized"],
             )
-            jax_physical = _plain_nested(jax_worker["default_unnormalized"])
-            torch_physical = _plain_nested(torch_worker["default_unnormalized"])
-            physical_xyz5 = comparison_metrics(
-                [row[:3] for row in jax_physical[:5]],
-                [row[:3] for row in torch_physical[:5]],
-                max_limit=REGISTERED_LIMITS["physical_xyz5_max"],
-                rms_limit=REGISTERED_LIMITS["physical_xyz5_rms"],
-                include_absolute_error=True,
+            compiled_cross_final = _final_path_metrics(
+                jax_worker["default_normalized"],
+                torch_worker["compiled_normalized"],
+                jax_worker["default_unnormalized"],
+                torch_worker["compiled_unnormalized"],
             )
-            physical_action7 = comparison_metrics(
-                jax_physical,
-                torch_physical,
-                max_limit=REGISTERED_LIMITS["physical_action7_max"],
-                rms_limit=REGISTERED_LIMITS["physical_action7_rms"],
-                include_absolute_error=True,
+            compiled_eager_final = _final_path_metrics(
+                torch_worker["compiled_normalized"],
+                torch_worker["eager_normalized"],
+                torch_worker["compiled_unnormalized"],
+                torch_worker["eager_unnormalized"],
             )
             recomputed_comparison = {
-                "jax_trace_vs_ordinary_final": jax_exact,
-                "pytorch_trace_vs_ordinary_final": torch_exact,
-                "pytorch_compiled_vs_eager_trace_only_final": torch_compiled_eager,
+                "jax_instrumented_vs_public_default_final": jax_exact,
+                "pytorch_instrumented_vs_eager_trace_only_final": torch_exact,
+                "pytorch_compiled_vs_eager_array_equal_diagnostic": torch_compiled_eager,
                 "cross_backend_pre_update_x_t_per_step": cross_x,
                 "cross_backend_pre_update_v_t_per_step": cross_v,
-                "cross_backend_final_normalized": final_model,
-                "cross_backend_final_physical_first_five_xyz": physical_xyz5,
-                "cross_backend_final_physical_first_seven": physical_action7,
+                "primary_jax_vs_pytorch_eager_final": eager_final,
+                "diagnostic_jax_vs_pytorch_compiled_final": compiled_cross_final,
+                "diagnostic_pytorch_compiled_vs_eager_final": compiled_eager_final,
             }
             for key, recomputed in recomputed_comparison.items():
                 if comparison.get(key) != recomputed:
@@ -1358,12 +1437,9 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 == torch_norm_hash,
                 "checkpoint_norm_stats_match_registered_asset": jax_norm_hash
                 == REGISTERED_NORM_STATS_SHA256,
-                "jax_trace_reproduces_ordinary_final": bool(jax_exact["passed"]),
-                "pytorch_trace_reproduces_ordinary_final": bool(
+                "jax_instrumented_equals_public_default": bool(jax_exact["passed"]),
+                "pytorch_instrumented_equals_eager_trace_only": bool(
                     torch_exact["passed"]
-                ),
-                "pytorch_compiled_equals_eager_trace_only_final": bool(
-                    torch_compiled_eager["passed"]
                 ),
                 "all_ten_cross_backend_pre_update_states_within_limits": all(
                     item["passed"] for item in cross_x
@@ -1371,14 +1447,32 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 "all_ten_cross_backend_velocities_within_limits": all(
                     item["passed"] for item in cross_v
                 ),
-                "cross_backend_final_normalized_within_tolerance": bool(
-                    final_model["passed"]
+                "primary_eager_final_normalized_within_limits": bool(
+                    eager_final["normalized"]["passed"]
                 ),
-                "cross_backend_final_physical_first_five_xyz_within_limits": bool(
-                    physical_xyz5["passed"]
+                "primary_eager_final_physical_first_five_xyz_within_limits": bool(
+                    eager_final["physical_first_five_xyz"]["passed"]
                 ),
-                "cross_backend_final_physical_first_seven_within_limits": bool(
-                    physical_action7["passed"]
+                "primary_eager_final_physical_first_seven_within_limits": bool(
+                    eager_final["physical_first_seven"]["passed"]
+                ),
+                "jax_vs_compiled_diagnostic_normalized_within_limits": bool(
+                    compiled_cross_final["normalized"]["passed"]
+                ),
+                "jax_vs_compiled_diagnostic_physical_first_five_xyz_within_limits": bool(
+                    compiled_cross_final["physical_first_five_xyz"]["passed"]
+                ),
+                "jax_vs_compiled_diagnostic_physical_first_seven_within_limits": bool(
+                    compiled_cross_final["physical_first_seven"]["passed"]
+                ),
+                "compiled_vs_eager_diagnostic_normalized_within_limits": bool(
+                    compiled_eager_final["normalized"]["passed"]
+                ),
+                "compiled_vs_eager_diagnostic_physical_first_five_xyz_within_limits": bool(
+                    compiled_eager_final["physical_first_five_xyz"]["passed"]
+                ),
+                "compiled_vs_eager_diagnostic_physical_first_seven_within_limits": bool(
+                    compiled_eager_final["physical_first_seven"]["passed"]
                 ),
             }
             if checks != expected_checks:
@@ -1388,20 +1482,23 @@ def validate_parity_artifact(value: Any) -> list[str]:
                 errors.append("acceptance.passed differs from recomputed gate")
             if (value.get("status") == "passed") != recomputed_pass:
                 errors.append("status differs from recomputed gate")
-            for name, worker, exact_result in (
-                ("jax", jax_worker, jax_exact),
-                ("pytorch", torch_worker, torch_exact),
-            ):
-                exact_checks = worker.get("exact_checks")
-                if not isinstance(exact_checks, Mapping) or exact_checks.get(
-                    "instrumented_final_array_equal_ordinary_default"
-                ) != exact_result["passed"]:
-                    errors.append(f"samplers.{name}.exact_checks conflicts with arrays")
-            torch_exact_checks = torch_worker.get("exact_checks", {})
-            if not isinstance(torch_exact_checks, Mapping) or torch_exact_checks.get(
-                "compiled_default_array_equal_eager_trace_only"
-            ) != torch_compiled_eager["passed"]:
-                errors.append("PyTorch compiled/eager exact check conflicts with arrays")
+            jax_exact_checks = jax_worker.get("exact_checks")
+            if not isinstance(jax_exact_checks, Mapping) or jax_exact_checks != {
+                "instrumented_final_array_equal_public_default": jax_exact["passed"]
+            }:
+                errors.append("JAX exact checks conflict with stored arrays")
+            torch_exact_checks = torch_worker.get("exact_checks")
+            if not isinstance(torch_exact_checks, Mapping) or torch_exact_checks != {
+                "instrumented_final_array_equal_eager_trace_only": torch_exact["passed"]
+            }:
+                errors.append("PyTorch eager exact checks conflict with stored arrays")
+            path_diagnostics = torch_worker.get("path_diagnostics")
+            if not isinstance(path_diagnostics, Mapping) or path_diagnostics != {
+                "compiled_default_array_equal_eager_trace_only": torch_compiled_eager[
+                    "passed"
+                ]
+            }:
+                errors.append("PyTorch compiled/eager diagnostic conflicts with arrays")
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             errors.append(f"stored sampler arrays cannot be independently validated: {error}")
 
@@ -1482,6 +1579,9 @@ def _run_parent(args: argparse.Namespace) -> int:
     r01_path = ROOT / R01_SUMMARY_RELATIVE
     if file_sha256(r01_path) != R01_SUMMARY_SHA256:
         raise RuntimeError("accepted R01 summary content hash changed")
+    semantics_path = ROOT / PARITY_SEMANTICS_DECISION
+    if file_sha256(semantics_path) != PARITY_SEMANTICS_SHA256:
+        raise RuntimeError("accepted ADR-0011 parity semantics content hash changed")
 
     source_norm_preflight = (
         args.jax_checkpoint
@@ -1527,6 +1627,7 @@ def _run_parent(args: argparse.Namespace) -> int:
         "git_commit": git["commit"],
         "git_dirty": git["dirty"],
         "tracked_diff_sha256": git["tracked_diff_sha256"],
+        "parity_semantics_sha256": PARITY_SEMANTICS_SHA256,
         "noise_seed": args.noise_seed,
         "num_steps": NUM_STEPS,
         "action_horizon": ACTION_HORIZON,
@@ -1619,11 +1720,11 @@ def _run_parent(args: argparse.Namespace) -> int:
         jax_worker["traced_normalized"],
     )
     torch_backend = exact_comparison(
-        torch_worker["default_normalized"],
+        torch_worker["eager_normalized"],
         torch_worker["traced_normalized"],
     )
     torch_compiled_vs_eager = exact_comparison(
-        torch_worker["default_normalized"],
+        torch_worker["compiled_normalized"],
         torch_worker["eager_normalized"],
     )
     cross_steps = _per_step_metrics(
@@ -1638,28 +1739,23 @@ def _run_parent(args: argparse.Namespace) -> int:
         max_limit=args.step_v_max,
         rms_limit=args.step_v_rms,
     )
-    cross_final_normalized = comparison_metrics(
+    eager_final = _final_path_metrics(
         jax_worker["default_normalized"],
-        torch_worker["default_normalized"],
-        max_limit=args.final_model_max,
-        rms_limit=args.final_model_rms,
-        include_absolute_error=True,
-    )
-    jax_physical = np.asarray(jax_worker["default_unnormalized"])
-    torch_physical = np.asarray(torch_worker["default_unnormalized"])
-    cross_final_physical_xyz5 = comparison_metrics(
-        jax_physical[:5, :3],
-        torch_physical[:5, :3],
-        max_limit=args.physical_xyz5_max,
-        rms_limit=args.physical_xyz5_rms,
-        include_absolute_error=True,
-    )
-    cross_final_physical_action7 = comparison_metrics(
+        torch_worker["eager_normalized"],
         jax_worker["default_unnormalized"],
-        torch_worker["default_unnormalized"],
-        max_limit=args.physical_action7_max,
-        rms_limit=args.physical_action7_rms,
-        include_absolute_error=True,
+        torch_worker["eager_unnormalized"],
+    )
+    compiled_cross_final = _final_path_metrics(
+        jax_worker["default_normalized"],
+        torch_worker["compiled_normalized"],
+        jax_worker["default_unnormalized"],
+        torch_worker["compiled_unnormalized"],
+    )
+    compiled_eager_final = _final_path_metrics(
+        torch_worker["compiled_normalized"],
+        torch_worker["eager_normalized"],
+        torch_worker["compiled_unnormalized"],
+        torch_worker["eager_unnormalized"],
     )
 
     checks = {
@@ -1668,22 +1764,16 @@ def _run_parent(args: argparse.Namespace) -> int:
         "explicit_noise_byte_identical": noise_equal,
         "checkpoint_norm_stats_byte_identical": norms_equal,
         "checkpoint_norm_stats_match_registered_asset": norm_is_registered,
-        "jax_trace_reproduces_ordinary_final": bool(
+        "jax_instrumented_equals_public_default": bool(
             jax_backend["passed"]
             and jax_worker["exact_checks"][
-                "instrumented_final_array_equal_ordinary_default"
+                "instrumented_final_array_equal_public_default"
             ]
         ),
-        "pytorch_trace_reproduces_ordinary_final": bool(
+        "pytorch_instrumented_equals_eager_trace_only": bool(
             torch_backend["passed"]
             and torch_worker["exact_checks"][
-                "instrumented_final_array_equal_ordinary_default"
-            ]
-        ),
-        "pytorch_compiled_equals_eager_trace_only_final": bool(
-            torch_compiled_vs_eager["passed"]
-            and torch_worker["exact_checks"][
-                "compiled_default_array_equal_eager_trace_only"
+                "instrumented_final_array_equal_eager_trace_only"
             ]
         ),
         "all_ten_cross_backend_pre_update_states_within_limits": all(
@@ -1692,14 +1782,32 @@ def _run_parent(args: argparse.Namespace) -> int:
         "all_ten_cross_backend_velocities_within_limits": all(
             item["passed"] for item in cross_velocity_steps
         ),
-        "cross_backend_final_normalized_within_tolerance": bool(
-            cross_final_normalized["passed"]
+        "primary_eager_final_normalized_within_limits": bool(
+            eager_final["normalized"]["passed"]
         ),
-        "cross_backend_final_physical_first_five_xyz_within_limits": bool(
-            cross_final_physical_xyz5["passed"]
+        "primary_eager_final_physical_first_five_xyz_within_limits": bool(
+            eager_final["physical_first_five_xyz"]["passed"]
         ),
-        "cross_backend_final_physical_first_seven_within_limits": bool(
-            cross_final_physical_action7["passed"]
+        "primary_eager_final_physical_first_seven_within_limits": bool(
+            eager_final["physical_first_seven"]["passed"]
+        ),
+        "jax_vs_compiled_diagnostic_normalized_within_limits": bool(
+            compiled_cross_final["normalized"]["passed"]
+        ),
+        "jax_vs_compiled_diagnostic_physical_first_five_xyz_within_limits": bool(
+            compiled_cross_final["physical_first_five_xyz"]["passed"]
+        ),
+        "jax_vs_compiled_diagnostic_physical_first_seven_within_limits": bool(
+            compiled_cross_final["physical_first_seven"]["passed"]
+        ),
+        "compiled_vs_eager_diagnostic_normalized_within_limits": bool(
+            compiled_eager_final["normalized"]["passed"]
+        ),
+        "compiled_vs_eager_diagnostic_physical_first_five_xyz_within_limits": bool(
+            compiled_eager_final["physical_first_five_xyz"]["passed"]
+        ),
+        "compiled_vs_eager_diagnostic_physical_first_seven_within_limits": bool(
+            compiled_eager_final["physical_first_seven"]["passed"]
         ),
     }
     passed = all(checks.values())
@@ -1729,19 +1837,23 @@ def _run_parent(args: argparse.Namespace) -> int:
                 "cross_backend_rule": "both maximum absolute error and RMS absolute error must pass",
                 "source": "docs/decisions/0010-freeze-r02-parity-and-directions.md",
             },
+            "path_identity_decision": PARITY_SEMANTICS_DECISION,
+            "path_identity_decision_sha256": PARITY_SEMANTICS_SHA256,
+            "primary_path": "public JAX default versus PyTorch eager trace-only",
+            "compiled_path_role": "ordinary-baseline numerical diagnostic; not byte-exact to eager",
             "checks": checks,
             "passed": passed,
             "failure_policy": "fail closed; do not interpret R02 policy outcomes",
         },
         "comparison": {
-            "jax_trace_vs_ordinary_final": jax_backend,
-            "pytorch_trace_vs_ordinary_final": torch_backend,
-            "pytorch_compiled_vs_eager_trace_only_final": torch_compiled_vs_eager,
+            "jax_instrumented_vs_public_default_final": jax_backend,
+            "pytorch_instrumented_vs_eager_trace_only_final": torch_backend,
+            "pytorch_compiled_vs_eager_array_equal_diagnostic": torch_compiled_vs_eager,
             "cross_backend_pre_update_x_t_per_step": cross_steps,
             "cross_backend_pre_update_v_t_per_step": cross_velocity_steps,
-            "cross_backend_final_normalized": cross_final_normalized,
-            "cross_backend_final_physical_first_five_xyz": cross_final_physical_xyz5,
-            "cross_backend_final_physical_first_seven": cross_final_physical_action7,
+            "primary_jax_vs_pytorch_eager_final": eager_final,
+            "diagnostic_jax_vs_pytorch_compiled_final": compiled_cross_final,
+            "diagnostic_pytorch_compiled_vs_eager_final": compiled_eager_final,
         },
         "checkpoints": {
             "public_jax": {
@@ -1802,11 +1914,14 @@ def _run_parent(args: argparse.Namespace) -> int:
                 "event": "sampler_parity_complete",
                 "status": artifact["status"],
                 "output": str(args.output),
-                "max_final_normalized_error": cross_final_normalized[
-                    "max_absolute_error"
-                ],
-                "max_final_unnormalized_error": cross_final_physical_action7[
-                    "max_absolute_error"
+                "primary_eager_max_final_normalized_error": eager_final[
+                    "normalized"
+                ]["max_absolute_error"],
+                "primary_eager_max_final_unnormalized_error": eager_final[
+                    "physical_first_seven"
+                ]["max_absolute_error"],
+                "compiled_vs_eager_array_equal_diagnostic": torch_compiled_vs_eager[
+                    "passed"
                 ],
             },
             sort_keys=True,

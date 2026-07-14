@@ -22,10 +22,12 @@ set -euo pipefail
 MANIFEST=$REMOTE_REPO/manifests/oracle_h05_colliding.jsonl
 EXPERIMENT_CONFIG=$REMOTE_REPO/configs/experiments/endpoint_free_reach_h5.json
 RUNNER=$REMOTE_REPO/main/run_sampler_parity.py
+PARITY_DECISION=$REMOTE_REPO/docs/decisions/0011-use-eager-path-for-r02-parity.md
 OUTPUT_DIR=$EXPERIMENT_ROOT/$RUN_ID
 OUTPUT=$OUTPUT_DIR/sampler-parity.json
 
 test -f "$RUNNER"
+test -f "$PARITY_DECISION"
 test -f "$MANIFEST"
 test -f "$EXPERIMENT_CONFIG"
 test -d "$JAX_CHECKPOINT/params"
