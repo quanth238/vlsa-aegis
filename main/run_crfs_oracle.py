@@ -45,6 +45,7 @@ def main() -> int:
         intervention_step=int(value["intervention_step"]),
         safety_margin_m=float(value["safety_margin_m"]),
         distance_limit_m=float(value["distance_limit_m"]),
+        eef_radius_m=float(value["eef_radius_m"]),
         optimizer_max_iterations=int(value["optimizer_max_iterations"]),
         checkpoint_id=args.checkpoint_id,
         checkpoint_sha256=args.checkpoint_sha256,

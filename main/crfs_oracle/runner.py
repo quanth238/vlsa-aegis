@@ -96,6 +96,7 @@ class OracleConfig:
     intervention_step: int
     safety_margin_m: float
     distance_limit_m: float
+    eef_radius_m: float
     optimizer_max_iterations: int
     checkpoint_id: str
     checkpoint_sha256: str
@@ -158,12 +159,18 @@ class SafeLiberoCase:
             self.eef_geoms,
             self.obstacle_geoms,
             distance_limit_m=self.config.distance_limit_m,
+            eef_site_id=int(self.env.robots[0].eef_site_id),
+            eef_center_offset_local_m=(0.0, 0.0, -0.08),
+            eef_radius_m=self.config.eef_radius_m,
         )
         # Include the branch point itself before executing the first action.
         monitor.observe(self.env.sim, -1)
         done = False
-        for action in prefix:
-            observation, _, done, _ = self.env.step_with_substep_callback(action.tolist(), monitor.observe)
+        for action_index, action in enumerate(prefix):
+            def observe_global_substep(sim, substep_index, *, _action_index=action_index):
+                monitor.observe(sim, _action_index * 25 + int(substep_index))
+
+            observation, _, done, _ = self.env.step_with_substep_callback(action.tolist(), observe_global_substep)
         measurement = monitor.result()
         end_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64).copy()
         return {
@@ -171,6 +178,7 @@ class SafeLiberoCase:
             "contact": measurement.contact,
             "measurement_samples": measurement.samples,
             "minimum_geom_pair": measurement.min_pair,
+            "measurement": measurement.to_dict(),
             "start_eef_m": start_eef.tolist(),
             "end_eef_m": end_eef.tolist(),
             "task_success": bool(done or self.env.check_success()),
@@ -254,10 +262,24 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         nominal_actions = np.asarray(nominal_reply["actions"], dtype=np.float64)[: config.executed_prefix, :7]
         nominal_rollout = environment.rollout(nominal_actions)
         repeated_rollout = environment.rollout(nominal_actions)
+        measurement_audit = {
+            "schema_version": "1.0",
+            "gate": "H03",
+            "case_id": case["case_id"],
+            "run_id": config.run_id,
+            "obstacle_name": environment.obstacle_name,
+            "expected_samples": 1 + config.executed_prefix * 25,
+            "first": nominal_rollout["measurement"],
+            "repeat": repeated_rollout["measurement"],
+        }
+        atomic_write_json(output.parent / "measurement-audit.json", measurement_audit)
         _progress(
             "nominal_simulator_replay_complete",
             clearance_m=float(nominal_rollout["clearance_m"]),
             contact=bool(nominal_rollout["contact"]),
+            contact_consistent=bool(nominal_rollout["measurement"]["contact_consistent"]),
+            conservative_clearance_m=nominal_rollout["measurement"]["conservative_clearance_m"],
+            min_pair=nominal_rollout["measurement"]["min_pair"],
         )
         simulator_deterministic = bool(
             np.allclose(nominal_rollout["end_eef_m"], repeated_rollout["end_eef_m"], atol=1e-9, rtol=0.0)
@@ -270,6 +292,17 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         )
         if not simulator_deterministic:
             raise RuntimeError("Reset + initial-state + settle replay is not deterministic")
+        expected_samples = 1 + config.executed_prefix * 25
+        if int(nominal_rollout["measurement_samples"]) != expected_samples:
+            raise RuntimeError(
+                f"Physics-substep audit expected {expected_samples} samples, "
+                f"got {nominal_rollout['measurement_samples']}"
+            )
+        if not bool(nominal_rollout["measurement"]["contact_consistent"]):
+            raise RuntimeError(
+                "H03 signed-distance/contact inconsistency; refusing projection: "
+                + json.dumps(nominal_rollout["measurement"], sort_keys=True)
+            )
         nominal_endpoint = np.asarray(nominal_rollout["end_eef_m"], dtype=np.float64)
 
         if nominal_rollout["clearance_m"] >= 0.0 and not nominal_rollout["contact"]:
