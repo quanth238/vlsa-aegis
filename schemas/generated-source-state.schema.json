@@ -367,17 +367,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "format", "xml", "sha256", "assets", "assets_sha256",
-        "compiled_mjb_size_bytes", "compiled_mjb_sha256"
+        "format", "xml", "sha256", "assets", "assets_sha256"
       ],
       "properties": {
         "format": {"const": "portable_finalized_mujoco_xml_with_hashed_asset_tokens"},
         "xml": {"type": "string", "minLength": 1},
         "sha256": {"$ref": "#/$defs/sha256"},
         "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asset"}},
-        "assets_sha256": {"$ref": "#/$defs/sha256"},
-        "compiled_mjb_size_bytes": {"type": "integer", "minimum": 1},
-        "compiled_mjb_sha256": {"$ref": "#/$defs/sha256"}
+        "assets_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "sourceBranchPayload": {
@@ -429,8 +426,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "fresh_load_index", "model_xml_sha256", "compiled_model_mjb_size_bytes",
-        "compiled_model_mjb_sha256",
+        "fresh_load_index", "model_xml_sha256",
         "pre_settle_state_sha256", "settle_state_sha256", "final_state_sha256",
         "integration_state_spec", "pre_settle_integration_state_sha256",
         "settle_integration_state_sha256", "settle_integration_state_sequence_sha256",
@@ -439,8 +435,6 @@
       "properties": {
         "fresh_load_index": {"enum": [1, 2]},
         "model_xml_sha256": {"$ref": "#/$defs/sha256"},
-        "compiled_model_mjb_size_bytes": {"type": "integer", "minimum": 1},
-        "compiled_model_mjb_sha256": {"$ref": "#/$defs/sha256"},
         "pre_settle_state_sha256": {"$ref": "#/$defs/sha256"},
         "settle_state_sha256": {
           "type": "array", "minItems": 20, "maxItems": 20, "items": {"$ref": "#/$defs/sha256"}

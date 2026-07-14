@@ -142,8 +142,6 @@ def _accepted_bundle_fixture() -> dict[str, object]:
         "sha256": hashlib.sha256(portable_xml.encode("utf-8")).hexdigest(),
         "assets": assets,
         "assets_sha256": content_hash(_MODULE._semantic_asset_manifest(assets)),
-        "compiled_mjb_size_bytes": 1,
-        "compiled_mjb_sha256": "b" * 64,
     }
 
     zero_pose = array_record(np.zeros(7, dtype=np.float64))
@@ -243,8 +241,6 @@ def _accepted_bundle_fixture() -> dict[str, object]:
     }
     proof_base = {
         "model_xml_sha256": model["sha256"],
-        "compiled_model_mjb_size_bytes": model["compiled_mjb_size_bytes"],
-        "compiled_model_mjb_sha256": model["compiled_mjb_sha256"],
         "pre_settle_state_sha256": flat["sha256"],
         "settle_state_sha256": [record["sha256"] for record in settle_history],
         "final_state_sha256": flat["sha256"],
@@ -571,7 +567,7 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
         )
 
     @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "accepted semantic fixture requires NumPy")
-    def test_integration_identity_proof_and_mjb_tampers_fail_closed(self) -> None:
+    def test_integration_identity_and_proof_tampers_fail_closed(self) -> None:
         baseline = _accepted_bundle_fixture()
         history_hashes = baseline["states"]["integration"]["settle_history"]
         cases = (
@@ -630,16 +626,6 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
                 ),
                 "replay_proofs[1] differs from exact recorded history",
             ),
-            (
-                "mjb_proof_binding",
-                lambda value: value["model"].__setitem__("compiled_mjb_sha256", "c" * 64),
-                "replay_proofs[0] differs from exact recorded history",
-            ),
-            (
-                "mjb_size_proof_binding",
-                lambda value: value["model"].__setitem__("compiled_mjb_size_bytes", 2),
-                "replay_proofs[0] differs from exact recorded history",
-            ),
         )
         for label, mutate, expected_error in cases:
             with self.subTest(label=label):
@@ -650,11 +636,6 @@ class GeneratedSourceArtifactTest(unittest.TestCase):
                 errors = validate_generated_source_artifact(tampered)
                 self.assertNotIn("bundle_content_sha256 differs", errors)
                 self.assertIn(expected_error, errors)
-                if label in {"mjb_proof_binding", "mjb_size_proof_binding"}:
-                    self.assertIn(
-                        "replay_proofs[1] differs from exact recorded history",
-                        errors,
-                    )
 
     @unittest.skipUnless(NUMPY_RUNTIME_AVAILABLE, "accepted semantic fixture requires NumPy")
     def test_rehashed_nested_geometry_outcome_key_is_rejected(self) -> None:
@@ -846,7 +827,6 @@ class GeneratedSourcePortabilityTest(unittest.TestCase):
         actual = _MODULE._integration_state(env, spec)
         self.assertEqual(actual.dtype, np.dtype("float64"))
         self.assertTrue(_MODULE._array_bytes_equal(actual, expected))
-        self.assertEqual(_MODULE._compiled_model_identity(env), _MODULE._compiled_model_identity(env))
 
     def test_libero_asset_locator_resolves_concrete_package_below_namespace(self) -> None:
         package_root = ROOT / "safelibero/libero/libero"
@@ -1018,8 +998,6 @@ class GeneratedSourceStructuralTest(unittest.TestCase):
         self.assertIn("mujoco.mj_stateSize(model, spec)", source)
         self.assertIn("mujoco.mj_getState(model, data, state, spec)", source)
         self.assertIn("mujoco.mj_setState(model, data, expected, spec)", source)
-        self.assertIn("mujoco.mj_saveModel(model, None, first)", source)
-        self.assertIn("mujoco.mj_saveModel(model, None, second)", source)
         self.assertNotIn("_set_state(env, pre_settle)", source)
         self.assertIn("for index in (1, 2)", source)
         self.assertIn('f"gsrc-{branch_identity[\'sha256\'][:16]}"', source)
@@ -1033,6 +1011,37 @@ class GeneratedSourceStructuralTest(unittest.TestCase):
         self.assertIn("atomic_write_json(output, bundle)", source)
         self.assertIn('groups[args.group_index]["generation_request_id"]', source)
 
+    def test_compiled_mjb_is_not_an_artifact_or_replay_gate(self) -> None:
+        core = (ROOT / "main/crfs_oracle/generated_source.py").read_text(encoding="utf-8")
+        schema_text = SCHEMA_PATH.read_text(encoding="utf-8")
+        artifact_contract = f"{core}\n{schema_text}"
+        self.assertNotIn("mjb", artifact_contract.lower())
+        self.assertNotIn("mj_saveModel", artifact_contract)
+        self.assertNotIn("mj_sizeModel", artifact_contract)
+
+        schema = json.loads(schema_text)
+        self.assertEqual(
+            schema["$defs"]["model"]["required"],
+            ["format", "xml", "sha256", "assets", "assets_sha256"],
+        )
+        proof_fields = set(schema["$defs"]["proof"]["required"])
+        self.assertTrue(
+            {
+                "model_xml_sha256",
+                "pre_settle_state_sha256",
+                "settle_state_sha256",
+                "final_state_sha256",
+                "integration_state_spec",
+                "pre_settle_integration_state_sha256",
+                "settle_integration_state_sha256",
+                "settle_integration_state_sequence_sha256",
+                "final_integration_state_sha256",
+                "observation_sha256",
+                "geometry_sha256",
+                "exact_replay",
+            }.issubset(proof_fields)
+        )
+
     def test_schema_and_validator_bind_full_source_state_hash_and_source_job(self) -> None:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
         self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
@@ -1043,23 +1052,6 @@ class GeneratedSourceStructuralTest(unittest.TestCase):
         self.assertIn("source_branch_sha256", schema_text)
         self.assertIn("mjSTATE_INTEGRATION", schema_text)
         self.assertIn("settle_integration_state_sequence_sha256", schema_text)
-        self.assertIn("compiled_mjb_sha256", schema_text)
-        self.assertNotIn(
-            "compiled_model_mjb_sha256",
-            schema["$defs"]["sourceBranchPayload"]["required"],
-        )
-        self.assertNotIn(
-            "compiled_model_mjb_size_bytes",
-            schema["$defs"]["sourceBranchPayload"]["required"],
-        )
-        self.assertIn(
-            "compiled_model_mjb_sha256",
-            schema["$defs"]["proof"]["required"],
-        )
-        self.assertIn(
-            "compiled_model_mjb_size_bytes",
-            schema["$defs"]["proof"]["required"],
-        )
         self.assertEqual(
             schema["$defs"]["sourceBranch"]["properties"]["geometry"],
             {"$ref": "#/$defs/sourceGeometry"},

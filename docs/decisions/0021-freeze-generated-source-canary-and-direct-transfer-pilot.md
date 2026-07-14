@@ -116,6 +116,19 @@ mutation also failed closed, independent review returned GO for a fresh
 request-0 canary; the frozen source config and all request seeds remain
 unchanged.
 
+Allocation `27604_0` then showed that the compiled-MJB premise was itself
+invalid: two fresh compilations of the exact finalized XML/assets under the
+same build produced equal-size MJB files with different raw hashes, before the
+full-state replay was attempted. Raw MJB bytes are therefore removed from the
+artifact, proofs, schema, validator, and runtime gate rather than retained as
+an uninterpretable diagnostic. The scientific model input remains the exact
+portable finalized XML plus hashed asset bytes. The functional compile check
+is stronger and directly relevant: two fresh loads must reproduce all 20
+flattened and `mjSTATE_INTEGRATION` transitions byte-for-byte, then match final
+observation and geometry. The failed allocation is retained, no request is
+redrawn, and independent review returned GO for a new immutable canary ID with
+the same config and seeds.
+
 No sampler parity, R04A, or R04B job is repeated. The direct efficacy
 comparison remains frozen for later untouched groups: frozen pi0.5, one locked
 ECG arm, realized-final-norm random, a strong time-structured margin analytic

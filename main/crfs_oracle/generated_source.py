@@ -681,27 +681,6 @@ def _integration_state_spec(env: Any) -> dict[str, Any]:
     }
 
 
-def _compiled_model_identity(env: Any) -> dict[str, Any]:
-    """Same-build execution diagnostic, not part of the portable source ID."""
-
-    np = _numpy()
-    mujoco, _spec = _mujoco_integration_spec()
-    model, _data = _mujoco_model_data(env)
-    size = int(mujoco.mj_sizeModel(model))
-    if size <= 0:
-        raise RuntimeError("MuJoCo compiled model has non-positive MJB size")
-    first = np.empty(size, dtype=np.uint8)
-    second = np.empty(size, dtype=np.uint8)
-    mujoco.mj_saveModel(model, None, first)
-    mujoco.mj_saveModel(model, None, second)
-    if first.tobytes() != second.tobytes():
-        raise RuntimeError("repeated mj_saveModel calls differ for the same native model")
-    return {
-        "compiled_mjb_size_bytes": size,
-        "compiled_mjb_sha256": hashlib.sha256(first.tobytes()).hexdigest(),
-    }
-
-
 def _assert_live_integration_spec(env: Any, expected: Mapping[str, Any]) -> tuple[Any, Any, Any]:
     live = _integration_state_spec(env)
     if dict(expected) != live:
@@ -931,15 +910,6 @@ def _fresh_replay(
         runtime_xml = rehydrate_model_xml(model, repo_root=repo_root)
         env.reset_from_xml_string(runtime_xml)
         env.sim.reset()
-        fresh_model_identity = _compiled_model_identity(env)
-        expected_model_identity = {
-            key: model[key] for key in ("compiled_mjb_size_bytes", "compiled_mjb_sha256")
-        }
-        if fresh_model_identity != expected_model_identity:
-            raise RuntimeError(
-                "fresh-load compiled MuJoCo model MJB differs: "
-                f"expected={expected_model_identity}, actual={fresh_model_identity}"
-            )
         integration_spec = integration_states["spec"]
         restored_integration = _restore_integration_state(
             env,
@@ -1008,8 +978,6 @@ def _fresh_replay(
         return {
             "fresh_load_index": index,
             "model_xml_sha256": model["sha256"],
-            "compiled_model_mjb_size_bytes": model["compiled_mjb_size_bytes"],
-            "compiled_model_mjb_sha256": model["compiled_mjb_sha256"],
             "pre_settle_state_sha256": pre_hash,
             "settle_state_sha256": state_hashes,
             "final_state_sha256": branch["state_sha256"],
@@ -1156,7 +1124,6 @@ def generate_source_group(
         reset_rng_state_after = np.random.get_state()
         raw_reset = _state(env)
         finalized_model = freeze_model_xml(env.sim.model.get_xml(), repo_root=root)
-        finalized_model.update(_compiled_model_identity(env))
 
         edit_log: list[dict[str, Any]] = []
         for object_name, (parking_xyz, quaternion) in OBSTACLE_POSES.items():
@@ -1403,7 +1370,6 @@ def _validate_model_static(model: Any) -> list[str]:
         return ["model must be an object"]
     if set(model) != {
         "format", "xml", "sha256", "assets", "assets_sha256",
-        "compiled_mjb_size_bytes", "compiled_mjb_sha256",
     }:
         errors.append("model has unexpected or missing fields")
     if model.get("format") != "portable_finalized_mujoco_xml_with_hashed_asset_tokens":
@@ -1424,14 +1390,6 @@ def _validate_model_static(model: Any) -> list[str]:
         semantic_assets = []
     if model.get("assets_sha256") != content_hash(semantic_assets):
         errors.append("model.assets_sha256 differs")
-    if (
-        not isinstance(model.get("compiled_mjb_size_bytes"), int)
-        or isinstance(model.get("compiled_mjb_size_bytes"), bool)
-        or model.get("compiled_mjb_size_bytes", 0) <= 0
-    ):
-        errors.append("model.compiled_mjb_size_bytes is invalid")
-    if not _is_sha256(model.get("compiled_mjb_sha256")):
-        errors.append("model.compiled_mjb_sha256 is invalid")
     tokens: list[Any] = []
     for index, asset in enumerate(assets):
         if not isinstance(asset, Mapping):
@@ -2047,8 +2005,6 @@ def validate_generated_source_artifact(value: Any) -> list[str]:
         expected = {
             "fresh_load_index": index,
             "model_xml_sha256": model_record.get("sha256"),
-            "compiled_model_mjb_size_bytes": model_record.get("compiled_mjb_size_bytes"),
-            "compiled_model_mjb_sha256": model_record.get("compiled_mjb_sha256"),
             "pre_settle_state_sha256": (
                 pre_record.get("sha256") if isinstance(pre_record, Mapping) else None
             ),
@@ -2156,16 +2112,6 @@ def restore_generated_source_branch(env: Any, bundle: Mapping[str, Any]):
     runtime_xml = rehydrate_model_xml(bundle["model"], repo_root=root)
     env.reset_from_xml_string(runtime_xml)
     env.sim.reset()
-    restored_model_identity = _compiled_model_identity(env)
-    expected_model_identity = {
-        key: bundle["model"][key]
-        for key in ("compiled_mjb_size_bytes", "compiled_mjb_sha256")
-    }
-    if restored_model_identity != expected_model_identity:
-        raise RuntimeError(
-            "generated-source compiled MuJoCo model MJB differs: "
-            f"expected={expected_model_identity}, actual={restored_model_identity}"
-        )
     pre, pre_errors = _array_from_record(bundle["states"]["pre_settle"], name="states.pre_settle")
     if pre_errors or pre is None:
         raise ValueError("invalid pre-settle state: " + "; ".join(pre_errors))
