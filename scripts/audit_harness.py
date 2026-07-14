@@ -30,6 +30,7 @@ def main() -> int:
         "schemas/provenance.schema.json",
         "scripts/hpc/preflight.sh",
         "scripts/hpc/convert_checkpoint.sh",
+        "scripts/hpc/prepare_transformers_overlay.sh",
         "scripts/hpc/run_oracle_case.sh",
         "scripts/hpc/submit_oracle_smoke.sh",
         "scripts/hpc/submit_oracle_array.sh",
@@ -77,6 +78,7 @@ def main() -> int:
     for script in [
         "scripts/hpc/preflight.sh",
         "scripts/hpc/convert_checkpoint.sh",
+        "scripts/hpc/prepare_transformers_overlay.sh",
         "scripts/hpc/run_oracle_case.sh",
         "scripts/hpc/submit_oracle_smoke.sh",
         "scripts/hpc/submit_oracle_array.sh",

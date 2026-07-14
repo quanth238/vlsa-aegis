@@ -25,7 +25,8 @@ export HF_HOME=/mnt/data/quanth/cache/huggingface
 export XDG_CACHE_HOME=/mnt/data/quanth/cache/xdg
 export UV_CACHE_DIR=/mnt/data/quanth/cache/uv
 export PYTHONUNBUFFERED=1
-export PYTHONPATH=$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src
+TRANSFORMERS_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_transformers_overlay.sh)
+export PYTHONPATH=$TRANSFORMERS_OVERLAY:$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src
 
 echo "host=$(hostname)"
 echo "date=$(date --iso-8601=seconds)"

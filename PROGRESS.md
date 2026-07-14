@@ -12,7 +12,8 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - The ordinary policy and environment entry points remain available; CRFS controls are opt-in.
 - Local dependency-free unit suite passes, including geometry, paired artifacts, restart semantics, and synthetic end-to-end flow.
 - Live VinUni access, Slurm/QOS, storage, and existing OpenPI environments were inspected without login-node compute.
-- A fork exists at `quanth238/vlsa-aegis`; the working branch has not yet been pushed.
+- Commit `2bbd53a` is pushed to `quanth238/vlsa-aegis:agent/crfs-oracle-harness`.
+- Slurm job `27077` reached the MIG worker and failed cleanly before conversion because the existing OpenPI environment lacked its patched Transformers modules. The final checkpoint path was not created; the diagnostic `.incomplete-27077` path is retained.
 
 ## Active gate
 
@@ -20,7 +21,7 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 
 ## Next
 
-1. Convert the cached JAX `pi05_libero` checkpoint to PyTorch in a Slurm allocation and hash `model.safetensors`.
+1. Re-run conversion with the job-local, hash-checked Transformers overlay and hash `model.safetensors`.
 2. Run one MIG allocation-backed environment/import smoke.
 3. Run one paired oracle case with fixed state and noise.
 4. Audit the result schema and limitations before deciding whether validation-scale experiments are justified.

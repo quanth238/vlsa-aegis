@@ -74,7 +74,8 @@ PY
 }
 trap cleanup EXIT INT TERM
 
-export PYTHONPATH=$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src
+TRANSFORMERS_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_transformers_overlay.sh)
+export PYTHONPATH=$TRANSFORMERS_OVERLAY:$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src
 (
   cd "$REMOTE_REPO/openpi"
   "$OPENPI_PYTHON" scripts/serve_policy.py \

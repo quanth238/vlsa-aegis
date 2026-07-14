@@ -66,6 +66,7 @@ class Policy(BasePolicy):
             self._model = self._model.to(pytorch_device)
             self._model.eval()
             self._sample_actions = model.sample_actions
+            self._sample_actions_crfs = getattr(model, "sample_actions_eager", model.sample_actions)
         else:
             # JAX model setup
             self._sample_actions = nnx_utils.module_jit(model.sample_actions)
@@ -120,7 +121,8 @@ class Policy(BasePolicy):
 
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
-        sampled = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs)
+        sample_function = self._sample_actions_crfs if crfs_controls is not None else self._sample_actions
+        sampled = sample_function(sample_rng_or_pytorch_device, observation, **sample_kwargs)
         trace = None
         if isinstance(sampled, tuple):
             sampled, trace = sampled

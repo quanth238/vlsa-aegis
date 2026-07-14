@@ -109,6 +109,9 @@ class PI0Pytorch(nn.Module):
             self.action_time_mlp_out = nn.Linear(action_expert_config.width, action_expert_config.width)
 
         torch.set_float32_matmul_precision("high")
+        # Preserve an eager experimental path for CRFS trace dictionaries and
+        # intervention controls. The ordinary baseline path stays compiled.
+        self.sample_actions_eager = self.sample_actions
         self.sample_actions = torch.compile(self.sample_actions, mode="max-autotune")
 
         # Initialize gradient checkpointing flag

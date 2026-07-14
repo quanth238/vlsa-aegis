@@ -37,6 +37,8 @@ Fail closed if the host is unexpected, the resource budget is occupied, intended
 
 The public cached π0.5 LIBERO checkpoint is JAX. The CRFS trace path is PyTorch. Convert once in a Slurm allocation, save outside home, and hash `model.safetensors`. Keep the source checkpoint immutable. Record conversion source commit, command, output hash, and a JAX/PyTorch fixed-input parity check before interpreting an oracle result.
 
+The existing OpenPI environment lacks the repository's patched Transformers modules. `prepare_transformers_overlay.sh` copies the installed package into a versioned cache overlay, applies the pinned OpenPI replacements there, and exposes it through `PYTHONPATH` inside the allocation. It does not mutate the shared virtual environment.
+
 ## Staged run
 
 1. Local: `./init.sh` and `make synthetic`.

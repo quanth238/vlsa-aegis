@@ -16,6 +16,7 @@ class BaselineIntegrationSurfaceTest(unittest.TestCase):
         self.assertIn("crfs_intervention_mode=\"none\"", source)
         self.assertIn("v_t = v_t - crfs_correction / crfs_residual_horizon", source)
         self.assertIn("predicted_clean", source)
+        self.assertIn("self.sample_actions_eager = self.sample_actions", source)
 
     def test_policy_reserves_websocket_control_envelope(self) -> None:
         path = ROOT / "openpi/src/openpi/policies/policy.py"
@@ -24,6 +25,7 @@ class BaselineIntegrationSurfaceTest(unittest.TestCase):
         self.assertIn('inputs.pop("__crfs__", None)', source)
         self.assertIn("_physical_delta_to_model", source)
         self.assertIn("correction_space", source)
+        self.assertIn("self._sample_actions_crfs if crfs_controls is not None", source)
 
     def test_checkpoint_conversion_preserves_nested_norm_assets(self) -> None:
         path = ROOT / "openpi/examples/convert_jax_model_to_pytorch.py"
