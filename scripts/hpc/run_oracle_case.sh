@@ -14,7 +14,9 @@ set -euo pipefail
 : "${CASE_START:=}"
 : "${CASE_END:=}"
 : "${EXPERIMENT_CONFIG:=$REMOTE_REPO/configs/experiments/oracle_smoke.json}"
-: "${PORT:=8130}"
+if [ -z "${PORT:-}" ]; then
+  PORT=$((8130 + ${SLURM_ARRAY_TASK_ID:-0}))
+fi
 
 MODEL=$CHECKPOINT_DIR/model.safetensors
 test -f "$MODEL" || { echo "missing converted checkpoint: $MODEL" >&2; exit 2; }

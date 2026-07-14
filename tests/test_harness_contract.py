@@ -53,6 +53,10 @@ class HarnessContractTest(unittest.TestCase):
             source = (ROOT / relative_path).read_text(encoding="utf-8")
             self.assertIn("EXPERIMENT_CONFIG='$EXPERIMENT_CONFIG'", source)
 
+    def test_array_tasks_use_isolated_policy_ports(self) -> None:
+        source = (ROOT / "scripts/hpc/run_oracle_case.sh").read_text(encoding="utf-8")
+        self.assertIn("8130 + ${SLURM_ARRAY_TASK_ID:-0}", source)
+
 
 if __name__ == "__main__":
     unittest.main()
