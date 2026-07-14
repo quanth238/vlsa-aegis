@@ -110,19 +110,47 @@ def solve_kinematic_projection(
         for row in range(4)
         for column in range(3)
     ]
-    result = minimize(
-        objective,
-        np.zeros(12, dtype=np.float64),
-        method="SLSQP",
-        bounds=bounds,
-        constraints=[
-            {"type": "ineq", "fun": clearance_constraint},
-            {"type": "ineq", "fun": fifth_lower_bound},
-            {"type": "ineq", "fun": fifth_upper_bound},
-        ],
-        options={"maxiter": int(max_iterations), "ftol": float(ftol), "disp": False},
-    )
-    candidate, clearance = evaluate(np.asarray(result.x, dtype=np.float64))
+    constraints = [
+        {"type": "ineq", "fun": clearance_constraint},
+        {"type": "ineq", "fun": fifth_lower_bound},
+        {"type": "ineq", "fun": fifth_upper_bound},
+    ]
+    starts = [np.zeros(12, dtype=np.float64)]
+    # The pointwise minimum over obstacle boxes is nonsmooth. Generic temporal
+    # bump starts prevent the colliding zero correction from being the only
+    # basin considered; all starts still satisfy exact zero-sum correction.
+    bump = np.asarray((1.0, 1.0, -1.0, -1.0), dtype=np.float64)
+    for axis in range(3):
+        for sign in (-1.0, 1.0):
+            for amplitude in (0.25, 0.5):
+                start = np.zeros((4, 3), dtype=np.float64)
+                start[:, axis] = sign * amplitude * bump
+                starts.append(start.reshape(-1))
+
+    attempts = []
+    for start in starts:
+        clipped = np.asarray(
+            [np.clip(value, lower, upper) for value, (lower, upper) in zip(start, bounds)],
+            dtype=np.float64,
+        )
+        attempt = minimize(
+            objective,
+            clipped,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options={"maxiter": int(max_iterations), "ftol": float(ftol), "disp": False},
+        )
+        actions, attempt_clearance = evaluate(np.asarray(attempt.x, dtype=np.float64))
+        correction = actions[:, :3] - nominal[:, :3]
+        attempt_objective = 0.5 * float(np.sum(correction * correction))
+        attempts.append((attempt, actions, attempt_clearance, attempt_objective))
+
+    feasible_attempts = [item for item in attempts if item[2] >= safety_margin_m]
+    if feasible_attempts:
+        result, candidate, clearance, selected_objective = min(feasible_attempts, key=lambda item: item[3])
+    else:
+        result, candidate, clearance, selected_objective = max(attempts, key=lambda item: item[2])
     correction = candidate[:, :3] - nominal[:, :3]
     endpoint_error = float(np.linalg.norm(response @ correction.sum(axis=0)))
     within_bounds = bool(np.all(candidate >= low - 1e-7) and np.all(candidate <= high + 1e-7))
@@ -131,7 +159,7 @@ def solve_kinematic_projection(
         feasible=feasible,
         actions=candidate.tolist() if feasible else None,
         correction=correction.tolist() if feasible else None,
-        objective=objective(np.asarray(result.x, dtype=np.float64)) if feasible else None,
+        objective=selected_objective if feasible else None,
         verified_clearance_m=clearance,
         endpoint_error_m=endpoint_error,
         optimizer_success=bool(result.success),

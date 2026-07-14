@@ -15,6 +15,8 @@ class H05ContractTest(unittest.TestCase):
         projection = (ROOT / "main/crfs_oracle/projection.py").read_text(encoding="utf-8")
         self.assertIn("static branch geometry", projection)
         self.assertIn("response_matrix", projection)
+        self.assertIn("bump = np.asarray", projection)
+        self.assertIn("feasible_attempts", projection)
 
 
 if __name__ == "__main__":
