@@ -10,10 +10,12 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SUBMIT_JOB = ROOT / "scripts/hpc/submit_r03a_job.sh"
 SUBMIT_SMOKE = ROOT / "scripts/hpc/submit_r03a_smoke.sh"
+SUBMIT_H100_SMOKE = ROOT / "scripts/hpc/submit_r03a_h100_smoke.sh"
 SUBMIT_ARRAY = ROOT / "scripts/hpc/submit_r03a_array.sh"
 SUBMIT_SUMMARY = ROOT / "scripts/hpc/submit_r03a_summary.sh"
 WORKER = ROOT / "scripts/hpc/run_r03a_case.sh"
 SLURM_SMOKE = ROOT / "slurm/r03a_mig.sbatch"
+SLURM_H100_SMOKE = ROOT / "slurm/r03a_h100_smoke.sbatch"
 SLURM_ARRAY = ROOT / "slurm/r03a_main_array.sbatch"
 SLURM_SUMMARY = ROOT / "slurm/r03a_summary.sbatch"
 CONFIG = ROOT / "configs/experiments/r03a_analytic_kill_test.json"
@@ -31,10 +33,12 @@ class R03AHPCContractTest(unittest.TestCase):
         paths = (
             SUBMIT_JOB,
             SUBMIT_SMOKE,
+            SUBMIT_H100_SMOKE,
             SUBMIT_ARRAY,
             SUBMIT_SUMMARY,
             WORKER,
             SLURM_SMOKE,
+            SLURM_H100_SMOKE,
             SLURM_ARRAY,
             SLURM_SUMMARY,
         )
@@ -44,6 +48,7 @@ class R03AHPCContractTest(unittest.TestCase):
 
     def test_gpu_slurm_profiles_call_only_the_in_allocation_worker(self) -> None:
         smoke = SLURM_SMOKE.read_text(encoding="utf-8")
+        h100_smoke = SLURM_H100_SMOKE.read_text(encoding="utf-8")
         array = SLURM_ARRAY.read_text(encoding="utf-8")
         self.assertIn("#SBATCH --partition=mig", smoke)
         self.assertIn("#SBATCH --array=0-0%1", smoke)
@@ -51,13 +56,19 @@ class R03AHPCContractTest(unittest.TestCase):
         self.assertIn("#SBATCH --cpus-per-task=6", smoke)
         self.assertIn("#SBATCH --mem=80G", smoke)
         self.assertIn("scripts/hpc/run_r03a_case.sh", smoke)
+        self.assertIn("#SBATCH --partition=main", h100_smoke)
+        self.assertIn("#SBATCH --array=0-0%1", h100_smoke)
+        self.assertIn("#SBATCH --gres=gpu:1", h100_smoke)
+        self.assertIn("#SBATCH --cpus-per-task=8", h100_smoke)
+        self.assertIn("#SBATCH --mem=128G", h100_smoke)
+        self.assertIn("scripts/hpc/run_r03a_case.sh", h100_smoke)
         self.assertIn("#SBATCH --partition=main", array)
         self.assertNotRegex(array, r"(?m)^#SBATCH --array")
         self.assertIn("#SBATCH --gres=gpu:1", array)
         self.assertIn("#SBATCH --cpus-per-task=8", array)
         self.assertIn("#SBATCH --mem=128G", array)
         self.assertIn("scripts/hpc/run_r03a_case.sh", array)
-        for value in (smoke, array):
+        for value in (smoke, h100_smoke, array):
             self.assertNotIn("main/run_crfs_r03a.py", value)
             self.assertNotIn("serve_policy.py", value)
 
@@ -164,9 +175,16 @@ class R03AHPCContractTest(unittest.TestCase):
 
     def test_wrappers_cannot_select_unregistered_modes(self) -> None:
         self.assertIn("R03A_SUBMISSION_MODE=smoke", SUBMIT_SMOKE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "R03A_SUBMISSION_MODE=h100_smoke",
+            SUBMIT_H100_SMOKE.read_text(encoding="utf-8"),
+        )
         self.assertIn("R03A_SUBMISSION_MODE=array", SUBMIT_ARRAY.read_text(encoding="utf-8"))
         common = SUBMIT_JOB.read_text(encoding="utf-8")
-        self.assertRegex(common, re.compile(r"case \"\$MODE\" in.*smoke\).*array\)", re.S))
+        self.assertRegex(
+            common,
+            re.compile(r"case \"\$MODE\" in.*smoke\).*h100_smoke\).*array\)", re.S),
+        )
 
 
 if __name__ == "__main__":

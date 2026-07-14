@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE=${R03A_SUBMISSION_MODE:?use submit_r03a_smoke.sh or submit_r03a_array.sh}
+MODE=${R03A_SUBMISSION_MODE:?use submit_r03a_smoke.sh, submit_r03a_h100_smoke.sh, or submit_r03a_array.sh}
 usage="usage: RUN_ID=... submit_r03a_${MODE}.sh MANIFEST_JSONL CONFIG_JSON R02_RAW_ROOT_REMOTE R03_SUMMARY_REMOTE R03_SUMMARY_SHA256 [CONCURRENCY]"
 MANIFEST_LOCAL=${1:?$usage}
 CONFIG_LOCAL=${2:?$usage}
@@ -37,6 +37,17 @@ case "$MODE" in
     memory_per_task_mb=$((80 * 1024))
     required_case_count=1
     slurm_file=slurm/r03a_mig.sbatch
+    ;;
+  h100_smoke)
+    test "$CONCURRENCY" -eq 1 || {
+      echo "R03A H100 smoke concurrency is fixed at one" >&2
+      exit 2
+    }
+    partition=main
+    cpus_per_task=8
+    memory_per_task_mb=$((128 * 1024))
+    required_case_count=1
+    slurm_file=slurm/r03a_h100_smoke.sbatch
     ;;
   array)
     case "$CONCURRENCY" in
@@ -133,8 +144,10 @@ SOURCE_FILES=(
   schemas/r03a-analytic-kill-test.schema.json
   scripts/hpc/run_r03a_case.sh
   scripts/hpc/submit_r03a_array.sh
+  scripts/hpc/submit_r03a_h100_smoke.sh
   scripts/hpc/submit_r03a_job.sh
   scripts/hpc/submit_r03a_smoke.sh
+  slurm/r03a_h100_smoke.sbatch
   slurm/r03a_main_array.sbatch
   slurm/r03a_mig.sbatch
 )
