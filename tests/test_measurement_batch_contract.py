@@ -20,6 +20,14 @@ class MeasurementBatchContractTest(unittest.TestCase):
         self.assertIn('--case-start "$CASE_START" --case-end "$CASE_END"', source)
         self.assertLess(source.index("scripts/serve_policy.py"), source.index("main/run_crfs_measurement_batch.py"))
 
+    def test_batch_reuses_one_compiled_environment_for_the_same_task(self) -> None:
+        source = (ROOT / "main/run_crfs_measurement_batch.py").read_text(encoding="utf-8")
+        self.assertEqual(source.count("SafeLiberoCase(selected[0], config)"), 1)
+        self.assertIn("environment=environment", source)
+        runner = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
+        self.assertIn("def configure_case", runner)
+        self.assertIn("Shared environment task mismatch", runner)
+
 
 if __name__ == "__main__":
     unittest.main()

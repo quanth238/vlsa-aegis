@@ -10,7 +10,7 @@ from pathlib import Path
 
 from crfs_harness.artifacts import atomic_write_json, validate_jsonl_unique
 from crfs_harness.manifest import validate_case
-from crfs_oracle.runner import oracle_config_from_mapping, run_case
+from crfs_oracle.runner import SafeLiberoCase, oracle_config_from_mapping, run_case
 
 
 def main() -> int:
@@ -51,41 +51,54 @@ def main() -> int:
     if not config.stop_after_measurement:
         raise SystemExit("batched runner is restricted to stop_after_measurement=true")
 
+    from openpi_client import websocket_client_policy
+
     counts: dict[str, int] = {}
     failures = 0
     root = Path(__file__).resolve().parents[1]
-    for case_index, case in enumerate(selected, start=args.case_start):
-        try:
-            output, status = run_case(case, config, repo_root=root)
-            counts[status] = counts.get(status, 0) + 1
-            print(
-                json.dumps(
+    client = websocket_client_policy.WebsocketClientPolicy(config.host, config.port)
+    environment = SafeLiberoCase(selected[0], config)
+    try:
+        for case_index, case in enumerate(selected, start=args.case_start):
+            try:
+                output, status = run_case(
+                    case,
+                    config,
+                    repo_root=root,
+                    client=client,
+                    environment=environment,
+                )
+                counts[status] = counts.get(status, 0) + 1
+                print(
+                    json.dumps(
+                        {
+                            "event": "measurement_case_complete",
+                            "case_index": case_index,
+                            "case_id": case["case_id"],
+                            "status": status,
+                            "output": str(output),
+                        },
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+            except Exception as error:  # Keep independent manifest cases restartable.
+                failures += 1
+                failure_path = Path(args.output_root) / args.run_id / str(case["case_id"]) / "batch-failure.json"
+                atomic_write_json(
+                    failure_path,
                     {
-                        "event": "measurement_case_complete",
+                        "status": "failed",
                         "case_index": case_index,
                         "case_id": case["case_id"],
-                        "status": status,
-                        "output": str(output),
+                        "error_type": type(error).__name__,
+                        "error": str(error),
+                        "traceback": traceback.format_exc(),
                     },
-                    sort_keys=True,
-                ),
-                flush=True,
-            )
-        except Exception as error:  # Keep independent manifest cases restartable.
-            failures += 1
-            failure_path = Path(args.output_root) / args.run_id / str(case["case_id"]) / "batch-failure.json"
-            atomic_write_json(
-                failure_path,
-                {
-                    "status": "failed",
-                    "case_index": case_index,
-                    "case_id": case["case_id"],
-                    "error_type": type(error).__name__,
-                    "error": str(error),
-                    "traceback": traceback.format_exc(),
-                },
-            )
-            traceback.print_exc()
+                )
+                traceback.print_exc()
+    finally:
+        environment.close()
     print(json.dumps({"event": "measurement_batch_complete", "counts": counts, "failures": failures}, sort_keys=True))
     return 0 if failures == 0 else 1
 

@@ -149,7 +149,11 @@ class SafeLiberoCase:
 
         suite = benchmark.get_benchmark_dict()[case["task_suite"]](safety_level=case["safety_level"])
         self._task = suite.get_task(int(case["task_index"]))
-        self._init_state = np.asarray(suite.get_task_init_states(int(case["task_index"]))[int(case["episode_index"])])
+        self._suite = suite
+        self._task_suite = str(case["task_suite"])
+        self._safety_level = str(case["safety_level"])
+        self._task_index = int(case["task_index"])
+        self._init_state = np.asarray(suite.get_task_init_states(self._task_index)[int(case["episode_index"])])
         bddl_path = Path(get_libero_path("bddl_files")) / self._task.problem_folder / self._task.bddl_file
         self.env = OffScreenRenderEnv(
             bddl_file_name=bddl_path,
@@ -166,6 +170,21 @@ class SafeLiberoCase:
         self.obstacle_name: str | None = None
         self.eef_geoms: tuple[str, ...] = ()
         self.obstacle_geoms: tuple[str, ...] = ()
+
+    def configure_case(self, case: dict[str, Any]) -> None:
+        """Select another saved state without recompiling the identical task."""
+        identity = (str(case["task_suite"]), str(case["safety_level"]), int(case["task_index"]))
+        expected = (self._task_suite, self._safety_level, self._task_index)
+        if identity != expected:
+            raise ValueError(f"Shared environment task mismatch: expected {expected}, got {identity}")
+        self._init_state = np.asarray(
+            self._suite.get_task_init_states(self._task_index)[int(case["episode_index"])]
+        )
+        self._environment_seed = int(case["environment_seed"])
+        self.env.seed(self._environment_seed)
+        self.obstacle_name = None
+        self.eef_geoms = ()
+        self.obstacle_geoms = ()
 
     @property
     def prompt(self) -> str:
@@ -274,7 +293,14 @@ def _determinism_check(first: dict, second: dict) -> dict[str, Any]:
     return {"policy_actions_exact": action_equal, "policy_trace_exact": trace_equal, "passed": action_equal and trace_equal}
 
 
-def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Path) -> tuple[Path, str]:
+def run_case(
+    case: dict[str, Any],
+    config: OracleConfig,
+    *,
+    repo_root: str | Path,
+    client=None,
+    environment: SafeLiberoCase | None = None,
+) -> tuple[Path, str]:
     from openpi_client import websocket_client_policy
 
     root = Path(repo_root).resolve()
@@ -291,9 +317,14 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
     git_commit, git_dirty = _git_state(root)
     noise_rng = np.random.default_rng(int(case["policy_seed"]))
     noise = noise_rng.normal(size=(config.action_horizon, config.action_dim)).astype(np.float32)
-    client = websocket_client_policy.WebsocketClientPolicy(config.host, config.port)
+    if client is None:
+        client = websocket_client_policy.WebsocketClientPolicy(config.host, config.port)
     _progress("policy_client_connected", case_id=case["case_id"])
-    environment = SafeLiberoCase(case, config)
+    owns_environment = environment is None
+    if environment is None:
+        environment = SafeLiberoCase(case, config)
+    else:
+        environment.configure_case(case)
     _progress("safelibero_environment_ready", case_id=case["case_id"])
     try:
         initial_observation = environment.reset_and_settle()
@@ -507,4 +538,5 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
         atomic_write_json(output, result)
         return output, "completed"
     finally:
-        environment.close()
+        if owns_environment:
+            environment.close()
