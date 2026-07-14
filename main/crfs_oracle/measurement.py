@@ -27,7 +27,7 @@ class ClearanceMeasurement:
     first_contact_substep_index: int | None
     first_contact_distance_m: float | None
     minimum_contact_distance_m: float | None
-    contact_consistent: bool
+    raw_mj_contact_consistent: bool
     contact_tolerance_m: float
     conservative_clearance_m: float | None
     conservative_min_substep_index: int | None
@@ -240,7 +240,7 @@ class GeomClearanceMonitor:
         collision_enabled = bool(
             self._minimum_metadata is not None and self._minimum_metadata.get("collision_enabled", False)
         )
-        contact_consistent = collision_enabled and not (
+        raw_mj_contact_consistent = collision_enabled and not (
             (not self._contact and self._minimum < -self._contact_tolerance_m)
             or (self._contact and self._minimum > self._contact_tolerance_m)
         )
@@ -257,7 +257,7 @@ class GeomClearanceMonitor:
             first_contact_substep_index=self._first_contact_substep,
             first_contact_distance_m=self._first_contact_distance,
             minimum_contact_distance_m=self._minimum_contact_distance,
-            contact_consistent=contact_consistent,
+            raw_mj_contact_consistent=raw_mj_contact_consistent,
             contact_tolerance_m=self._contact_tolerance_m,
             conservative_clearance_m=conservative,
             conservative_min_substep_index=self._conservative_substep,

@@ -46,6 +46,8 @@ def main() -> int:
         safety_margin_m=float(value["safety_margin_m"]),
         distance_limit_m=float(value["distance_limit_m"]),
         eef_radius_m=float(value["eef_radius_m"]),
+        measurement_repeats=int(value.get("measurement_repeats", 2)),
+        stop_after_measurement=bool(value.get("stop_after_measurement", False)),
         optimizer_max_iterations=int(value["optimizer_max_iterations"]),
         checkpoint_id=args.checkpoint_id,
         checkpoint_sha256=args.checkpoint_sha256,
@@ -54,7 +56,13 @@ def main() -> int:
     )
     output, status = run_case(cases[args.case_index], config, repo_root=Path(__file__).resolve().parents[1])
     print(f"{status} {output}")
-    return 0 if status in {"completed", "infeasible", "skipped_valid_completion"} else 1
+    return 0 if status in {
+        "completed",
+        "infeasible",
+        "measurement_only_completed",
+        "skipped_valid_completion",
+        "skipped_valid_measurement",
+    } else 1
 
 
 if __name__ == "__main__":

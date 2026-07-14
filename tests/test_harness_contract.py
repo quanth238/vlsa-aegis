@@ -27,7 +27,7 @@ class HarnessContractTest(unittest.TestCase):
         self.assertIn("Fixed observation/noise policy replay is not exact", source)
         self.assertIn("hard_reset=False", source)
         self.assertIn('_progress("projection_started")', source)
-        self.assertIn("H03 signed-distance/contact inconsistency; refusing projection", source)
+        self.assertIn("H03 conservative proxy missed a physical contact; refusing projection", source)
         self.assertIn('"measurement-audit.json"', source)
 
     def test_full_h100_array_has_no_long_run_time_limit(self) -> None:

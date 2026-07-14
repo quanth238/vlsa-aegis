@@ -97,6 +97,8 @@ class OracleConfig:
     safety_margin_m: float
     distance_limit_m: float
     eef_radius_m: float
+    measurement_repeats: int
+    stop_after_measurement: bool
     optimizer_max_iterations: int
     checkpoint_id: str
     checkpoint_sha256: str
@@ -172,12 +174,18 @@ class SafeLiberoCase:
 
             observation, _, done, _ = self.env.step_with_substep_callback(action.tolist(), observe_global_substep)
         measurement = monitor.result()
+        if measurement.conservative_clearance_m is None:
+            raise RuntimeError("Controlled sphere/box metric found no obstacle box geoms")
         end_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64).copy()
         return {
-            "clearance_m": measurement.min_clearance_m,
+            # Eq. (3) in main.tex: signed obstacle distance at the conservative
+            # EEF-sphere center, minus the preregistered EEF radius.
+            "clearance_m": measurement.conservative_clearance_m,
+            "raw_mujoco_clearance_m": measurement.min_clearance_m,
             "contact": measurement.contact,
             "measurement_samples": measurement.samples,
-            "minimum_geom_pair": measurement.min_pair,
+            "minimum_geom_pair": ("crfs_eef_sphere", measurement.conservative_obstacle_geom),
+            "raw_mujoco_minimum_geom_pair": measurement.min_pair,
             "measurement": measurement.to_dict(),
             "start_eef_m": start_eef.tolist(),
             "end_eef_m": end_eef.tolist(),
@@ -237,6 +245,12 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
 
     root = Path(repo_root).resolve()
     output = Path(config.output_root) / config.run_id / str(case["case_id"]) / "results.json"
+    measurement_output = output.parent / "measurement-audit.json"
+    if config.stop_after_measurement and measurement_output.exists():
+        with measurement_output.open(encoding="utf-8") as handle:
+            existing_measurement = json.load(handle)
+        if existing_measurement.get("status") == "passed":
+            return measurement_output, "skipped_valid_measurement"
     if valid_completion(output):
         return output, "skipped_valid_completion"
 
@@ -260,49 +274,74 @@ def run_case(case: dict[str, Any], config: OracleConfig, *, repo_root: str | Pat
             raise RuntimeError(f"Fixed observation/noise policy replay is not exact: {determinism}")
 
         nominal_actions = np.asarray(nominal_reply["actions"], dtype=np.float64)[: config.executed_prefix, :7]
-        nominal_rollout = environment.rollout(nominal_actions)
-        repeated_rollout = environment.rollout(nominal_actions)
+        if config.measurement_repeats < 2:
+            raise ValueError("measurement_repeats must be at least two")
+        measurement_rollouts = [environment.rollout(nominal_actions) for _ in range(config.measurement_repeats)]
+        nominal_rollout = measurement_rollouts[0]
+        repeated_rollout = measurement_rollouts[1]
+        expected_samples = 1 + config.executed_prefix * 25
+        clearance_values = np.asarray(
+            [float(rollout["clearance_m"]) for rollout in measurement_rollouts], dtype=np.float64
+        )
+        endpoint_values = np.asarray(
+            [rollout["end_eef_m"] for rollout in measurement_rollouts], dtype=np.float64
+        )
+        simulator_deterministic = bool(
+            np.max(np.ptp(endpoint_values, axis=0)) <= 1e-9
+            and float(np.ptp(clearance_values)) <= 1e-9
+        )
+        sample_counts_correct = all(
+            int(rollout["measurement_samples"]) == expected_samples for rollout in measurement_rollouts
+        )
+        # A conservative proxy may become negative before physical contact.
+        # The unsafe converse is forbidden: physical contact with positive
+        # conservative clearance would prove that the sphere is not conservative.
+        contact_conservative = all(
+            not bool(rollout["contact"]) or float(rollout["clearance_m"]) <= 1e-4
+            for rollout in measurement_rollouts
+        )
+        measurement_passed = simulator_deterministic and sample_counts_correct and contact_conservative
         measurement_audit = {
             "schema_version": "1.0",
             "gate": "H03",
+            "status": "passed" if measurement_passed else "failed",
             "case_id": case["case_id"],
             "run_id": config.run_id,
             "obstacle_name": environment.obstacle_name,
-            "expected_samples": 1 + config.executed_prefix * 25,
-            "first": nominal_rollout["measurement"],
-            "repeat": repeated_rollout["measurement"],
+            "expected_samples": expected_samples,
+            "repeats": config.measurement_repeats,
+            "max_clearance_variation_m": float(np.ptp(clearance_values)),
+            "max_endpoint_coordinate_variation_m": float(np.max(np.ptp(endpoint_values, axis=0))),
+            "simulator_deterministic": simulator_deterministic,
+            "sample_counts_correct": sample_counts_correct,
+            "contact_conservative": contact_conservative,
+            "raw_mujoco_tracker_advisory_only": True,
+            "runs": measurement_rollouts,
         }
-        atomic_write_json(output.parent / "measurement-audit.json", measurement_audit)
+        atomic_write_json(measurement_output, measurement_audit)
         _progress(
             "nominal_simulator_replay_complete",
             clearance_m=float(nominal_rollout["clearance_m"]),
+            raw_mujoco_clearance_m=float(nominal_rollout["raw_mujoco_clearance_m"]),
             contact=bool(nominal_rollout["contact"]),
-            contact_consistent=bool(nominal_rollout["measurement"]["contact_consistent"]),
-            conservative_clearance_m=nominal_rollout["measurement"]["conservative_clearance_m"],
-            min_pair=nominal_rollout["measurement"]["min_pair"],
-        )
-        simulator_deterministic = bool(
-            np.allclose(nominal_rollout["end_eef_m"], repeated_rollout["end_eef_m"], atol=1e-9, rtol=0.0)
-            and math.isclose(
-                float(nominal_rollout["clearance_m"]),
-                float(repeated_rollout["clearance_m"]),
-                abs_tol=1e-9,
-                rel_tol=0.0,
-            )
+            raw_mj_contact_consistent=bool(
+                nominal_rollout["measurement"]["raw_mj_contact_consistent"]
+            ),
+            min_pair=nominal_rollout["minimum_geom_pair"],
+            repeats=config.measurement_repeats,
         )
         if not simulator_deterministic:
             raise RuntimeError("Reset + initial-state + settle replay is not deterministic")
-        expected_samples = 1 + config.executed_prefix * 25
-        if int(nominal_rollout["measurement_samples"]) != expected_samples:
+        if not sample_counts_correct:
             raise RuntimeError(
-                f"Physics-substep audit expected {expected_samples} samples, "
-                f"got {nominal_rollout['measurement_samples']}"
+                f"Physics-substep audit expected {expected_samples} samples in every repeat"
             )
-        if not bool(nominal_rollout["measurement"]["contact_consistent"]):
+        if not contact_conservative:
             raise RuntimeError(
-                "H03 signed-distance/contact inconsistency; refusing projection: "
-                + json.dumps(nominal_rollout["measurement"], sort_keys=True)
+                "H03 conservative proxy missed a physical contact; refusing projection"
             )
+        if config.stop_after_measurement:
+            return measurement_output, "measurement_only_completed"
         nominal_endpoint = np.asarray(nominal_rollout["end_eef_m"], dtype=np.float64)
 
         if nominal_rollout["clearance_m"] >= 0.0 and not nominal_rollout["contact"]:
