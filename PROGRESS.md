@@ -33,23 +33,33 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Strict one-element smoke array `27291_0` passed at commit `0adbd67`, including exact replay, 126 safety measurements, 125 body-tracking substeps, and transport-neutral scientific config hash `e89abe6ddf1bef370809a029706b1b530ddf1f6477f85641236fcfe0adcf19b2`.
 - Strict R00 array `27292` completed all 120 cases with zero batch failures. Allocation-backed verifier `27298` passed: all 120 chunks were eligible positive examples across 30 groups disjoint from the frozen 20 evaluation groups, and the registered inverted-CDF lower quartile froze `p_min = 0.029897349105658888 m`.
 - The passed R00 artifact is committed as `evidence/r00/r00-summary.json`, SHA-256 `90fe09e075b30e680e5cfbd81c802afa03c94b58ba7f0e95e66080c61af2096f`. R01 is now content-bound to that threshold and artifact.
+- R01 smoke job `27303` produced the first repeated simulator-verified endpoint-free safe-progress witness. Its translation correction was already far outside the H04 local calibration domain, so the smoke was treated as apparatus evidence only.
+- Full R01 array `27306` completed all 20 frozen cases with zero task failures. All 20 paired nominal replays reproduced the registered collision; 17 cases had changed-action witnesses with repeated `D_sim >= 5 mm`, reach progress at least `p_min`, no forbidden contact, and sub-millimetre scene motion.
+- The original queued verifier `27314` failed before analysis because Python 3.8 evaluated a PEP 585 type alias. No summary was written. The compatibility fix has a regression test and did not change any case artifact or scientific criterion.
+- Allocation-backed verifier `27364` independently recomputed the gate from raw actions and repeated rollouts and passed R01 at 17/20. The committed summary is `evidence/r01/r01-summary.json`, SHA-256 `715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5`.
+- All three R01 negatives began below the immutable 5 mm branch margin; one began in penetration. Under the registered branch-plus-125-substep predicate, no same-instant action can make those initial samples pass. All 17 branch-margin-valid cases produced witnesses.
+- Physical existence did not establish a local flow edit: every selected witness was outside the H04 `+/-0.15` calibration domain and saturated at least one translation component. Median correction L2 was 3.243 and median RMS over the 15 translation coordinates was 0.837.
 
 ## Active gate
 
-R01 — search for directly simulator-verified endpoint-free safe-progress witnesses on the same frozen 20 H05 pre-grasp reach cases. `D_opt` nominates candidates; repeated `D_sim` replay decides whether a changed-action witness exists.
+R02 — establish exact public-JAX/PyTorch conversion parity, then test whether the frozen flow can realize the known endpoint-free witness direction and outperform an equal-norm random direction. The direct witness, analytic geometry direction, distributed residual, and one-shot bridge remain distinct arms.
 
 ## Next
 
-1. Commit and sync the R00 evidence-bound R01 activation, then run `RUN_ID=r01-endpoint-free-smoke-20260714a scripts/hpc/submit_endpoint_free_smoke.sh manifests/oracle_h05_colliding.jsonl`.
-2. If the smoke passes, run all 20 frozen H05 cases with at most two H100 workers and summarize them in a separate Slurm allocation.
-3. Advance to endpoint-free oracle flow steerability against equal-norm random guidance only if at least 12/20 cases have changed-action, repeated-`D_sim`, safe-progress witnesses.
-4. Collect new immutable post-grasp states if a separate transport-phase claim is pursued.
+1. Add an allocation-backed same-input, same-noise public-JAX/PyTorch sampler parity artifact; do not interpret R02 policy outcomes until it passes.
+2. Freeze an R02 config content-bound to the R01 summary and implement paired frozen, direct-witness, equal-norm random, analytic-geometry, distributed-oracle-residual, and bridge-diagnostic arms.
+3. Run one strict allocation smoke, then the complete feasible-conditioned population and an allocation-backed grouped R03 summary. Report the original 20-case population separately.
+4. Train no learned probe unless the distributed oracle passes R03 and the analytic baseline leaves a demonstrated need for learned continuation clearance.
+5. Collect new immutable post-grasp states and a new progress calibration before making any transport-phase claim.
 
 ## Open scientific risks
 
 - Raw MuJoCo mesh--box `mj_geomDistance` is unreliable in this stack. The primary controlled metric is the proposal's EEF-sphere/known-box signed distance evaluated from simulator transforms; physical contacts remain a one-way conservatism check.
 - Released SafeLIBERO obstacles are movable; the proposal preregisters a static asymmetric-convex controlled pilot.
 - The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
-- Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting outcomes.
-- The 30 calibration groups may require multiple fixed policy-noise samples to yield 50 valid safe-progress chunks; all inference must continue to preserve complete episode groups.
+- Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting R02 outcomes.
 - A bounded endpoint-free search miss is not an infeasibility certificate. Only a simulator-verified witness proves existence.
+- The R01 witness corrections are large and action-saturating. Physical action existence may therefore lie outside the reachable or task-preserving support of a local flow intervention.
+- The three branch-margin failures show that the registered intervention instant is already too late for some cases. An earlier-state or recovery-barrier study must be a separately frozen experiment, not a post-hoc R01 relabeling.
+- The current controlled metric covers a 6 cm EEF sphere against the active obstacle's oriented boxes, not full-arm mesh safety.
+- Approximate-clean gradient guidance is not itself novel relative to OmniGuide, QGF, Guided Action Flow, and constrained-flow safety guidance. A learned probe is justified only by a measured advantage over the analytic geometry arm or a material runtime/representation benefit.

@@ -8,3 +8,4 @@
 - [0006 — Test endpoint-free reach feasibility before ECG](docs/decisions/0006-test-endpoint-free-reach-before-ecg.md)
 - [0007 — Require substep scene motion and transport-neutral config hashes](docs/decisions/0007-require-substep-scene-motion-and-transport-neutral-hashes.md)
 - [0008 — Freeze R00 reach progress and activate R01](docs/decisions/0008-freeze-r00-and-activate-r01.md)
+- [0009 — Accept endpoint-free physical witnesses and require oracle flow](docs/decisions/0009-accept-r01-require-oracle-flow.md)

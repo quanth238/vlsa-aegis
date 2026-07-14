@@ -113,3 +113,45 @@ passing paired oracle intervention and grouped analysis can authorize probe
 training. Probe labels must describe the actual deterministic continuation (or
 the rolled-out approximate-clean action), not pair `A_hat_t` with the clearance
 of a different action.
+
+Before any R02 policy outcome is interpreted, an allocation-backed parity
+artifact must compare the public JAX checkpoint and its PyTorch conversion on
+identical transformed observations, explicit Gaussian noise, ten Euler steps,
+and unnormalized actions. Record per-step and final absolute errors and fail
+closed if the registered tolerances are not met.
+
+For each R01 changed-action witness, define `Delta_star` as the first-five
+translation commands of the selected direct witness minus the paired nominal
+commands. Convert this displacement to normalized model coordinates with scale
+only. Keep rotation, gripper, and the discarded action tail at zero. At flow
+time `t_s = 0.5`, run these paired arms:
+
+1. frozen sampler;
+2. direct witness execution (physical reference, not a flow arm);
+3. endpoint-free equal-norm random distributed residual;
+4. analytic sphere/box geometry direction with the same translation mask and
+   intervention budget;
+5. endpoint-free oracle distributed residual targeting `Delta_star` over the
+   remaining Euler interval;
+6. one-shot bridge edit as a separate diagnostic.
+
+Every model arm must reuse the exact R01 state, observation, instruction,
+policy noise, and five-action execution horizon. Reconfirm the direct witness
+and nominal collision. Do not clip an out-of-bounds sampled action into a pass;
+record it as a bounds failure. Cases without an R01 witness remain in the
+all-collision report and are never silently dropped.
+
+R02 is an apparatus gate requiring complete schema-valid paired artifacts. R03
+is the scientific gate. On the R01-feasible population, the preregistered
+primary distributed-oracle conditions are:
+
+```text
+SPSR_oracle >= 0.50
+SPSR_oracle - SPSR_random >= 0.20
+paired complete-group 95% bootstrap LCB(SPSR_oracle - SPSR_random) > 0
+```
+
+Report feasible-conditioned and original-20-case populations separately. If
+the oracle gate fails, do not train a probe. If the analytic geometry arm
+already satisfies the same safety-progress gate at comparable cost, the
+controlled oracle-geometry pilot does not by itself justify a learned probe.
