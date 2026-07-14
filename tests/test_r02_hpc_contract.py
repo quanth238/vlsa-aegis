@@ -30,6 +30,18 @@ class R02HpcContractTest(unittest.TestCase):
         self.assertEqual(settings["sampler_parity_slurm_job_id"], "27389")
         self.assertEqual(settings["clipping_policy"], "fail_without_clipping")
         self.assertEqual(settings["simulator_repeats"], 2)
+        self.assertEqual(
+            settings["direction_reference"],
+            "immutable R01 witness translation minus fresh paired eager translation",
+        )
+        self.assertEqual(
+            settings["direction_semantics_decision"],
+            "docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md",
+        )
+        self.assertEqual(
+            settings["direction_semantics_decision_sha256"],
+            "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c",
+        )
 
     def test_allocation_runner_is_standalone_opt_in_and_hash_bound(self) -> None:
         source = (ROOT / "scripts/hpc/run_r02_case.sh").read_text(encoding="utf-8")

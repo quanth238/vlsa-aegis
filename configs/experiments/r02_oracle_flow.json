@@ -52,7 +52,10 @@
     "translation_action_bounds": [-1.0, 1.0],
     "normalization_action_scale": [0.8422505, 0.827813, 0.937313],
     "normalization_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
-    "analytic_samples_per_segment": 26
+    "analytic_samples_per_segment": 26,
+    "direction_reference": "immutable R01 witness translation minus fresh paired eager translation",
+    "direction_semantics_decision": "docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md",
+    "direction_semantics_decision_sha256": "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c"
   },
   "action_frame": "world-frame OSC translation delta",
   "correction_space": "normalized model displacement; physical deltas converted with scale only",

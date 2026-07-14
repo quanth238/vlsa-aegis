@@ -32,6 +32,9 @@ if np is not None:
         ACCEPTED_R01_ORDERED_RESULTS_SHA256,
         ARMS,
         DIRECT_RECONFIRMATION_FAILURE,
+        DIRECTION_REFERENCE,
+        DIRECTION_SEMANTICS_DECISION,
+        DIRECTION_SEMANTICS_DECISION_SHA256,
         NOMINAL_RECONFIRMATION_FAILURE,
         NOT_EVALUATED_AFTER_RECONFIRMATION_FAILURE,
         NORMALIZATION_ASSET_SHA256,
@@ -41,6 +44,8 @@ if np is not None:
         _bounds_check,
         _direction_bundle,
         _direction_records,
+        _historical_r01_diagnostic,
+        _json_compatible,
         _no_witness_result,
         _normalized_config,
         _path_diagnostic,
@@ -70,6 +75,15 @@ else:
         "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
     )
     REGISTERED_TRANSLATION_ACTION_SCALE = (0.8422505, 0.827813, 0.937313)
+    DIRECTION_REFERENCE = (
+        "immutable R01 witness translation minus fresh paired eager translation"
+    )
+    DIRECTION_SEMANTICS_DECISION = (
+        "docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md"
+    )
+    DIRECTION_SEMANTICS_DECISION_SHA256 = (
+        "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c"
+    )
 
 
 CHECKPOINT_SHA = "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
@@ -105,12 +119,21 @@ def _parity() -> dict:
 
 
 def _config_value(summary: Path, raw_root: Path, parity: Path) -> dict:
+    repo_root = summary.parents[2]
+    decision = repo_root / DIRECTION_SEMANTICS_DECISION
+    decision.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / DIRECTION_SEMANTICS_DECISION, decision)
     return {
         "ready_to_run": True,
         "r02": {
             "phase": "pregrasp_reach",
             "required_arms": list(ARMS),
             "clipping_policy": "fail_without_clipping",
+            "direction_reference": DIRECTION_REFERENCE,
+            "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+            "direction_semantics_decision_sha256": (
+                DIRECTION_SEMANTICS_DECISION_SHA256
+            ),
             "r01_summary_artifact": str(summary),
             "r01_summary_sha256": ACCEPTED_R01_SUMMARY_SHA256,
             "r01_results_root": str(raw_root),
@@ -163,6 +186,13 @@ class R02RunnerStructuralTest(unittest.TestCase):
         flow_loop = source.index("for name, (mechanism, mode, direction_key) in arm_specs.items()")
         self.assertLess(direct_failure, flow_loop)
 
+    def test_historical_drift_gate_precedes_any_simulator_rollout(self) -> None:
+        source = (ROOT / "main/crfs_oracle/r02_runner.py").read_text(encoding="utf-8")
+        run_source = source[source.index("def run_r02_case(") :]
+        drift_gate = run_source.index('"historical_r01_drift_within_frozen_limits"')
+        first_rollout = run_source.index('frozen_arm = _evaluated_arm(')
+        self.assertLess(drift_gate, first_rollout)
+
     def test_policy_timing_is_descriptive_and_arm_specific(self) -> None:
         source = (ROOT / "main/crfs_oracle/r02_runner.py").read_text(encoding="utf-8")
         self.assertIn('"descriptive_only": True', source)
@@ -172,6 +202,19 @@ class R02RunnerStructuralTest(unittest.TestCase):
         self.assertIn("duplicate_reply=duplicate_reply", source)
         self.assertIn("direct arm executes the immutable R01 action witness", source)
         self.assertNotIn("policy_timing_gate", source)
+
+    @unittest.skipIf(np is None, "JSON canonicalization test needs runtime imports")
+    def test_reach_snapshot_json_canonicalization_preserves_exact_coordinates(self) -> None:
+        live = ReachSnapshot(
+            target_object_name="akita_black_bowl_1",
+            active_obstacle_name="obstacle",
+            eef_world_m=(0.1, 0.2, 0.3),
+            target_world_m=(0.4, 0.5, 0.6),
+            active_obstacle_world_m=(0.7, 0.8, 0.9),
+        ).to_dict()
+        stored = json.loads(json.dumps(live))
+        self.assertNotEqual(live, stored)
+        self.assertEqual(_json_compatible(live), stored)
 
 
 @unittest.skipIf(np is None, "R02 runtime checks execute in the allocation dependency environment")
@@ -261,6 +304,19 @@ class R02ConfigBindingTest(unittest.TestCase):
                 self.value, _oracle(str(self.root / "out")), repo_root=self.root
             )
 
+    def test_binds_fresh_direction_reference_and_adr_content(self) -> None:
+        for field, replacement in (
+            ("direction_reference", "stale R01 nominal reference"),
+            ("direction_semantics_decision", "docs/decisions/other.md"),
+            ("direction_semantics_decision_sha256", "0" * 64),
+        ):
+            changed = copy.deepcopy(self.value)
+            changed["r02"][field] = replacement
+            with self.assertRaisesRegex(ValueError, "direction|ADR-0013"):
+                r02_config_from_mapping(
+                    changed, _oracle(str(self.root / "out")), repo_root=self.root
+                )
+
 
 @unittest.skipIf(np is None, "R02 runtime checks execute in the allocation dependency environment")
 class R02DirectionIntegrationTest(unittest.TestCase):
@@ -317,6 +373,8 @@ class R02DirectionIntegrationTest(unittest.TestCase):
         }
         predicted = np.zeros((10, 7), dtype=np.float64)
         predicted[:5, 0] = 0.5
+        fresh_eager = np.zeros((10, 7), dtype=np.float64)
+        fresh_eager[:5, 0] = 0.01
         branch = {
             "start_eef_center_m": [0.0, 0.0, 0.0],
             "branch_obstacle_boxes": [
@@ -330,7 +388,7 @@ class R02DirectionIntegrationTest(unittest.TestCase):
         }
 
         _, pointer, directions, failures, diagnostics = _direction_bundle(
-            r01, self.config, predicted, branch
+            r01, self.config, fresh_eager, predicted, branch
         )
 
         self.assertIsNone(failures["random_model"])
@@ -342,6 +400,37 @@ class R02DirectionIntegrationTest(unittest.TestCase):
         self.assertAlmostEqual(
             np.linalg.norm(directions["analytic_geometry_model"]), oracle_norm
         )
+        self.assertAlmostEqual(directions["delta_star_physical"][0, 0], 0.04)
+        self.assertNotEqual(
+            directions["delta_star_physical"][0, 0],
+            np.asarray(
+                _historical_r01_diagnostic(
+                    nominal,
+                    fresh_eager[:5, :7],
+                    witness_actions=witness,
+                )["raw_r01_delta_star_physical"]["values"],
+                dtype=np.float64,
+            )[0, 0],
+        )
+
+    def test_historical_drift_uses_frozen_limits_without_exact_identity(self) -> None:
+        nominal = np.zeros((5, 7), dtype=np.float64)
+        within = np.array(nominal, copy=True)
+        within[:, 0] = 0.005
+        accepted = _historical_r01_diagnostic(nominal, within)
+        self.assertTrue(accepted["passed"])
+        self.assertFalse(accepted["fresh_eager_vs_raw_r01_nominal"]["array_equal"])
+        self.assertEqual(
+            accepted["first_five_translation_drift"][
+                "maximum_absolute_error_limit"
+            ],
+            0.010,
+        )
+        outside = np.array(nominal, copy=True)
+        outside[:, 0] = 0.020
+        rejected = _historical_r01_diagnostic(nominal, outside)
+        self.assertFalse(rejected["passed"])
+        self.assertFalse(rejected["first_five_translation_drift"]["passed"])
 
 
 @unittest.skipIf(np is None, "R02 runtime checks execute in the allocation dependency environment")
@@ -389,6 +478,9 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             "branch_snapshot": {},
             "r01_branch_snapshot": {},
             "r01_nominal_actions": _array_record(actions[:5, :7]),
+            "historical_r01_diagnostic": _historical_r01_diagnostic(
+                actions[:5, :7], actions[:5, :7]
+            ),
             "compiled_actions": _array_record(actions),
             "eager_actions": _array_record(actions),
             "duplicate_eager_actions": _array_record(actions),
@@ -406,7 +498,7 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             "duplicate_eager_actions_exact": True,
             "duplicate_eager_trace_exact": True,
             "branch_snapshot_equals_r01_exact": True,
-            "eager_prefix_equals_r01_nominal_exact": True,
+            "historical_r01_drift_within_frozen_limits": True,
             "order_contamination_check_exact": True,
             "eager_order_contamination_check_exact": True,
         }
@@ -523,6 +615,11 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             "r01_summary_sha256": ACCEPTED_R01_SUMMARY_SHA256,
             "r01_case_result_sha256": "2" * 64,
             "sampler_parity_sha256": self.config.parity_artifact_sha256,
+            "direction_reference": DIRECTION_REFERENCE,
+            "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+            "direction_semantics_decision_sha256": (
+                DIRECTION_SEMANTICS_DECISION_SHA256
+            ),
             "noise": _array_record(noise),
             "sampler_steps": 10,
             "intervention_step": 5,
@@ -681,10 +778,34 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             }
         )
         eligible_pairing = copy.deepcopy(self.pairing)
+        fresh_eager = np.zeros((10, 7), dtype=np.float64)
+        fresh_eager[:5, 0] = 0.005
+        for key in (
+            "compiled_actions",
+            "eager_actions",
+            "duplicate_eager_actions",
+            "final_compiled_actions",
+            "final_eager_actions",
+        ):
+            eligible_pairing[key] = _array_record(fresh_eager)
+        eligible_pairing["historical_r01_diagnostic"] = (
+            _historical_r01_diagnostic(
+                nominal,
+                fresh_eager[:5, :7],
+                witness_actions=witness_actions,
+            )
+        )
+        eligible_pairing["compiled_vs_eager_diagnostic"] = _path_diagnostic(
+            fresh_eager, fresh_eager
+        )
         for key in ("eager_trace", "duplicate_eager_trace", "final_eager_trace"):
             eligible_pairing[key] = copy.deepcopy(eligible_trace)
         _, pointer, values, failures, diagnostics = _direction_bundle(
-            raw_r01, self.config, predicted, frozen["repeats"][0]
+            raw_r01,
+            self.config,
+            fresh_eager,
+            predicted,
+            frozen["repeats"][0],
         )
         self.assertIsNotNone(values["random_model"])
         self.assertIsNotNone(values["analytic_geometry_model"])
@@ -696,6 +817,8 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             diagnostics=diagnostics,
         )
         safe = self._safe_trial()
+        frozen["full_actions"] = _array_record(fresh_eager)
+        frozen["executed_actions"] = _array_record(fresh_eager[:5, :7])
 
         def evaluated_arm(
             name: str,
@@ -792,6 +915,11 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
                 "selected_witness_pointer": pointer,
                 "sampler_parity_sha256": self.config.parity_artifact_sha256,
                 "sampler_parity_status": "passed",
+                "direction_reference": DIRECTION_REFERENCE,
+                "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+                "direction_semantics_decision_sha256": (
+                    DIRECTION_SEMANTICS_DECISION_SHA256
+                ),
             },
             "provenance": provenance,
             "pairing": eligible_pairing,
@@ -836,6 +964,33 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
             direct_arm=direct,
         )
 
+    def _eligible_nominal_mismatch_result(self) -> dict:
+        completed = self._eligible_result()
+        frozen = copy.deepcopy(completed["arms"]["frozen"])
+        safe = self._safe_trial()
+        frozen["status"] = "passed_gate"
+        frozen["repeats"] = [copy.deepcopy(safe), copy.deepcopy(safe)]
+        frozen["gate"]["passed"] = True
+        return _reconfirmation_failure_result(
+            completed["provenance"]["case_record"],
+            self.config,
+            status=NOMINAL_RECONFIRMATION_FAILURE,
+            eligible=True,
+            config_hash=completed["config_hash"],
+            provenance=completed["provenance"],
+            raw_r01_path=Path(completed["source_evidence"]["r01_case_path"]),
+            raw_r01={"status": "verified_safe_progress"},
+            raw_r01_sha256=completed["source_evidence"]["r01_case_sha256"],
+            pairing=completed["pairing"],
+            frozen_arm=frozen,
+            r01_pointer=completed["source_evidence"][
+                "r01_selected_p_min_changed_witness"
+            ],
+            witness_pointer=completed["source_evidence"][
+                "selected_witness_pointer"
+            ],
+        )
+
     def test_no_witness_still_requires_exact_frozen_collision_replay(self) -> None:
         result = self._result()
         self.assertEqual(validate_r02_result(result), [])
@@ -843,6 +998,9 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
         self.assertEqual(validate_r02_result(reloaded), [])
         self.assertEqual(result["arms"]["frozen"]["status"], "failed_gate")
         self.assertTrue(result["outcome"]["nominal_collision_reproduced"])
+        self.assertIsNone(
+            result["pairing"]["historical_r01_diagnostic"]["delta_comparison"]
+        )
         for name in ARMS[1:]:
             self.assertEqual(
                 result["arms"][name]["status"],
@@ -877,6 +1035,16 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
         errors = validate_r02_result(result)
         self.assertTrue(any("not-evaluated" in error for error in errors), errors)
 
+    def test_eligible_nominal_mismatch_retains_historical_source_without_directions(self) -> None:
+        result = self._eligible_nominal_mismatch_result()
+        self.assertEqual(validate_r02_result(result), [])
+        self.assertIsNotNone(
+            result["pairing"]["historical_r01_diagnostic"][
+                "raw_r01_delta_star_physical"
+            ]
+        )
+        self.assertIsNone(result["directions"]["arrays"]["delta_star_physical"])
+
     def test_direct_mismatch_retains_direct_repeats_and_stops_flow_arms(self) -> None:
         result = self._direct_mismatch_result()
         self.assertEqual(validate_r02_result(result), [])
@@ -891,6 +1059,74 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
                 result["arms"][name]["status"],
                 NOT_EVALUATED_AFTER_RECONFIRMATION_FAILURE,
             )
+
+    def test_historical_nominal_drift_is_diagnostic_and_oracle_uses_fresh_eager(self) -> None:
+        result = self._eligible_result()
+        self.assertEqual(validate_r02_result(result), [])
+        historical = result["pairing"]["historical_r01_diagnostic"]
+        self.assertFalse(
+            historical["fresh_eager_vs_raw_r01_nominal"]["array_equal"]
+        )
+        raw_delta = np.asarray(
+            historical["raw_r01_delta_star_physical"]["values"],
+            dtype=np.float64,
+        )
+        applied = np.asarray(
+            result["directions"]["arrays"]["delta_star_physical"]["values"],
+            dtype=np.float64,
+        )
+        self.assertAlmostEqual(raw_delta[0, 0], 0.05)
+        self.assertAlmostEqual(applied[0, 0], 0.045)
+        comparison = historical["delta_comparison"]
+        self.assertAlmostEqual(
+            comparison["raw_model_l2"],
+            0.05 / REGISTERED_TRANSLATION_ACTION_SCALE[0],
+        )
+        self.assertGreater(comparison["fresh_model_l2"], 0.0)
+        self.assertGreater(comparison["fresh_minus_raw_model_l2"], 0.0)
+        self.assertGreaterEqual(comparison["cosine"], -1.0)
+        self.assertLessEqual(comparison["cosine"], 1.0)
+        self.assertGreater(comparison["angle_degrees"], 0.0)
+
+    def test_historical_raw_delta_tampering_fails_closed(self) -> None:
+        result = self._eligible_result()
+        record = result["pairing"]["historical_r01_diagnostic"][
+            "raw_r01_delta_star_physical"
+        ]
+        tampered = np.asarray(record["values"], dtype=np.float64)
+        tampered[0, 0] += 0.001
+        result["pairing"]["historical_r01_diagnostic"][
+            "raw_r01_delta_star_physical"
+        ] = _array_record(tampered)
+        errors = validate_r02_result(result)
+        self.assertTrue(any("historical R01 Delta_star" in item for item in errors), errors)
+
+    def test_historical_drift_hash_or_error_tampering_fails_closed(self) -> None:
+        result = self._eligible_result()
+        historical = result["pairing"]["historical_r01_diagnostic"]
+        historical["fresh_eager_actions_array_sha256"] = "0" * 64
+        historical["first_five_translation_drift"][
+            "maximum_absolute_error"
+        ] = 0.0
+        errors = validate_r02_result(result)
+        self.assertTrue(any("fresh eager array hash" in item for item in errors), errors)
+        self.assertTrue(any("translation drift diagnostic" in item for item in errors), errors)
+
+    def test_historical_delta_norm_and_angle_tampering_fails_closed(self) -> None:
+        result = self._eligible_result()
+        comparison = result["pairing"]["historical_r01_diagnostic"][
+            "delta_comparison"
+        ]
+        comparison["fresh_model_l2"] += 0.001
+        comparison["angle_degrees"] += 1.0
+        errors = validate_r02_result(result)
+        self.assertTrue(any("fresh_model_l2" in item for item in errors), errors)
+        self.assertTrue(any("angle_degrees" in item for item in errors), errors)
+
+        missing = self._eligible_result()
+        missing["pairing"]["historical_r01_diagnostic"]["delta_comparison"] = None
+        errors = validate_r02_result(missing)
+        self.assertTrue(any("Delta comparison" in item for item in errors), errors)
 
     def test_completed_eligible_rejects_raw_and_constructed_direction_tampering(self) -> None:
         completed = self._eligible_result()
@@ -908,7 +1144,7 @@ class R02NoWitnessArtifactTest(unittest.TestCase):
         )
         errors = validate_r02_result(delta_tamper)
         self.assertTrue(
-            any("direct witness minus frozen nominal" in error for error in errors),
+            any("immutable witness minus fresh paired eager" in error for error in errors),
             errors,
         )
 

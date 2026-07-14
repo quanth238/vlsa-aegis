@@ -12,3 +12,4 @@
 - [0010 — Freeze R02 parity and direction semantics before outcomes](docs/decisions/0010-freeze-r02-parity-and-directions.md)
 - [0011 — Compare parity on the eager intervention path](docs/decisions/0011-use-eager-path-for-r02-parity.md)
 - [0012 — Separate oracle steerability from learned-probe authorization](docs/decisions/0012-separate-r03-from-probe-authorization.md)
+- [0013 — Reference the oracle direction to the fresh paired baseline](docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md)

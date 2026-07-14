@@ -56,6 +56,15 @@ REGISTERED_RESPONSE_MATRIX_M_PER_ACTION = (
     (-0.002845391485346128, 0.000025633541617775525, 0.011826427878652547),
 )
 PARITY_SEMANTICS_DECISION = "docs/decisions/0011-use-eager-path-for-r02-parity.md"
+DIRECTION_REFERENCE = (
+    "immutable R01 witness translation minus fresh paired eager translation"
+)
+DIRECTION_SEMANTICS_DECISION = (
+    "docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md"
+)
+DIRECTION_SEMANTICS_DECISION_SHA256 = (
+    "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c"
+)
 PROBE_AUTHORIZATION_DECISION = (
     "docs/decisions/0012-separate-r03-from-probe-authorization.md"
 )
@@ -122,6 +131,9 @@ class SummaryContract:
     checkpoint_id: str
     checkpoint_sha256: str
     sampler_parity_sha256: str
+    direction_reference: str
+    direction_semantics_decision_path: str
+    direction_semantics_decision_sha256: str
     probe_authorization_decision_path: str
     probe_authorization_decision_sha256: str
 
@@ -571,6 +583,25 @@ def load_summary_contract(
     samples_per_segment = int(settings.get("analytic_samples_per_segment", 26))
     if samples_per_segment != 26:
         raise SummaryContractError("R02 analytic geometry must use 26 samples per segment")
+    if settings.get("direction_reference") != DIRECTION_REFERENCE:
+        raise SummaryContractError("R02 oracle direction reference differs from ADR-0013")
+    if settings.get("direction_semantics_decision") != DIRECTION_SEMANTICS_DECISION:
+        raise SummaryContractError("R02 direction decision path differs from ADR-0013")
+    if (
+        settings.get("direction_semantics_decision_sha256")
+        != DIRECTION_SEMANTICS_DECISION_SHA256
+    ):
+        raise SummaryContractError("R02 direction decision hash differs from ADR-0013")
+
+    direction_path = (root / DIRECTION_SEMANTICS_DECISION).resolve()
+    try:
+        direction_sha256 = file_sha256(direction_path)
+    except OSError as error:
+        raise SummaryContractError(f"cannot read ADR-0013: {error}") from error
+    if direction_sha256 != DIRECTION_SEMANTICS_DECISION_SHA256:
+        raise SummaryContractError(
+            "checked-in ADR-0013 content differs from the frozen direction rule"
+        )
 
     r01_results_root = settings.get("r01_results_root")
     if not isinstance(r01_results_root, str) or not r01_results_root:
@@ -616,6 +647,9 @@ def load_summary_contract(
         "normalization_action_scale": list(scale),
         "normalization_asset_sha256": NORMALIZATION_ASSET_SHA256,
         "analytic_samples_per_segment": samples_per_segment,
+        "direction_reference": DIRECTION_REFERENCE,
+        "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+        "direction_semantics_decision_sha256": direction_sha256,
         "required_arms": list(RAW_ARMS),
         "clipping_policy": "fail_without_clipping",
         "r01_summary_sha256": actual_r01_sha256,
@@ -643,6 +677,9 @@ def load_summary_contract(
         checkpoint_id=checkpoint_id,
         checkpoint_sha256=checkpoint_sha256,
         sampler_parity_sha256=actual_parity_sha256,
+        direction_reference=DIRECTION_REFERENCE,
+        direction_semantics_decision_path=str(direction_path),
+        direction_semantics_decision_sha256=direction_sha256,
         probe_authorization_decision_path=str(authorization_path),
         probe_authorization_decision_sha256=authorization_sha256,
     )
@@ -707,6 +744,11 @@ def _identity_errors(
             "r01_ordered_result_set_digest": contract.r01_ordered_result_set_digest,
             "r01_case_sha256": contract.r01_result_hashes.get(expected_case_id),
             "sampler_parity_sha256": contract.sampler_parity_sha256,
+            "direction_reference": contract.direction_reference,
+            "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+            "direction_semantics_decision_sha256": (
+                contract.direction_semantics_decision_sha256
+            ),
         }
         for key, expected in expected_source.items():
             if source.get(key) != expected:
@@ -757,6 +799,16 @@ def _identity_errors(
     for key, expected in expected_hashes.items():
         if provenance.get(key) != expected:
             errors.append(f"provenance.{key} differs from the registered identity")
+    expected_direction_semantics = {
+        "direction_reference": contract.direction_reference,
+        "direction_semantics_decision": DIRECTION_SEMANTICS_DECISION,
+        "direction_semantics_decision_sha256": (
+            contract.direction_semantics_decision_sha256
+        ),
+    }
+    for key, expected in expected_direction_semantics.items():
+        if provenance.get(key) != expected:
+            errors.append(f"provenance.{key} differs from the registered direction semantics")
     if provenance.get("checkpoint_id") != contract.checkpoint_id:
         errors.append("provenance.checkpoint_id differs from the registered checkpoint")
     for key in ("slurm_job_id", "slurm_array_task_id"):
@@ -856,6 +908,52 @@ def _raw_r01_binding_errors(
         errors.append("pairing.r01_nominal_actions must be an array record")
     elif r01_actions_record.get("values") != raw_actions:
         errors.append("pairing.r01_nominal_actions differs from content-bound raw R01")
+
+    # The authoritative R01 validator binds this outcome pointer back to the
+    # raw bounded-search attempt.  Bind R02's duplicated pointer and witness
+    # bytes to that content rather than trusting a self-consistent R02 copy.
+    raw_outcome = raw_r01.get("outcome")
+    if isinstance(raw_outcome, Mapping) and "selected_p_min_changed_witness" in raw_outcome:
+        raw_pointer = raw_outcome.get("selected_p_min_changed_witness")
+        source = r02_value.get("source_evidence")
+        source_pointer = (
+            source.get("r01_selected_p_min_changed_witness")
+            if isinstance(source, Mapping)
+            else None
+        )
+        if source_pointer != raw_pointer:
+            errors.append(
+                "source_evidence R01 witness pointer differs from content-bound raw R01"
+            )
+        selected_pointer = (
+            source.get("selected_witness_pointer")
+            if isinstance(source, Mapping)
+            else None
+        )
+        if isinstance(raw_pointer, Mapping):
+            if not isinstance(selected_pointer, Mapping):
+                errors.append("eligible R02 result has no selected witness pointer")
+            else:
+                expected_subset = {
+                    "search": selected_pointer.get("search"),
+                    "candidate_index": selected_pointer.get("candidate_index"),
+                    "source": selected_pointer.get("source"),
+                    "actions_sha256": selected_pointer.get("actions_sha256"),
+                }
+                if expected_subset != dict(raw_pointer):
+                    errors.append(
+                        "selected R02 witness pointer differs from content-bound raw R01"
+                    )
+            historical = pairing.get("historical_r01_diagnostic")
+            if not isinstance(historical, Mapping) or (
+                historical.get("raw_r01_witness_actions_content_sha256")
+                != raw_pointer.get("actions_sha256")
+            ):
+                errors.append(
+                    "historical R01 witness bytes differ from content-bound raw R01"
+                )
+        elif selected_pointer is not None:
+            errors.append("no-witness raw R01 case cannot bind an R02 witness")
 
     raw_repeats = nominal.get("repeats")
     if not isinstance(raw_repeats, list) or not raw_repeats:
@@ -1641,6 +1739,11 @@ def summarize_r02_population(
             "r01_summary_sha256": contract.r01_summary_sha256,
             "r01_ordered_result_set_digest": contract.r01_ordered_result_set_digest,
             "sampler_parity_sha256": contract.sampler_parity_sha256,
+            "direction_reference": contract.direction_reference,
+            "direction_semantics_decision": contract.direction_semantics_decision_path,
+            "direction_semantics_decision_sha256": (
+                contract.direction_semantics_decision_sha256
+            ),
             "checkpoint_id": contract.checkpoint_id,
             "checkpoint_sha256": contract.checkpoint_sha256,
             "git_commit": git_commits[0] if len(git_commits) == 1 else None,

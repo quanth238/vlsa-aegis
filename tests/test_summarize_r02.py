@@ -88,6 +88,11 @@ def r02_config(parity_path: Path, parity_sha256: str, r01_raw_root: Path) -> dic
             "normalization_action_scale": [0.8422505, 0.827813, 0.937313],
             "normalization_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
             "analytic_samples_per_segment": 26,
+            "direction_reference": SUMMARY.DIRECTION_REFERENCE,
+            "direction_semantics_decision": SUMMARY.DIRECTION_SEMANTICS_DECISION,
+            "direction_semantics_decision_sha256": (
+                SUMMARY.DIRECTION_SEMANTICS_DECISION_SHA256
+            ),
         },
     }
 
@@ -211,6 +216,11 @@ class R02SummaryFixture(unittest.TestCase):
                 "r01_ordered_result_set_digest": self.contract.r01_ordered_result_set_digest,
                 "r01_case_sha256": self.contract.r01_result_hashes[case_id],
                 "sampler_parity_sha256": self.contract.sampler_parity_sha256,
+                "direction_reference": self.contract.direction_reference,
+                "direction_semantics_decision": SUMMARY.DIRECTION_SEMANTICS_DECISION,
+                "direction_semantics_decision_sha256": (
+                    self.contract.direction_semantics_decision_sha256
+                ),
             },
             "provenance": {
                 "evidence_tier": SUMMARY.SYNTHETIC_EVIDENCE_TIER,
@@ -242,6 +252,11 @@ class R02SummaryFixture(unittest.TestCase):
                 "r01_summary_sha256": self.contract.r01_summary_sha256,
                 "r01_case_result_sha256": self.contract.r01_result_hashes[case_id],
                 "sampler_parity_sha256": self.contract.sampler_parity_sha256,
+                "direction_reference": self.contract.direction_reference,
+                "direction_semantics_decision": SUMMARY.DIRECTION_SEMANTICS_DECISION,
+                "direction_semantics_decision_sha256": (
+                    self.contract.direction_semantics_decision_sha256
+                ),
             },
             "pairing": {
                 "branch_snapshot": dict(raw_nominal["branch_snapshot"]),
@@ -315,6 +330,56 @@ class R02SummaryFixture(unittest.TestCase):
 
 
 class R02SummaryTest(R02SummaryFixture):
+    def test_raw_r01_selected_witness_pointer_is_content_bound(self) -> None:
+        raw_pointer = {
+            "search": "p_min",
+            "candidate_index": 7,
+            "source": "pooled_attempt",
+            "actions_sha256": "a" * 64,
+        }
+        raw = {
+            "nominal": {
+                "branch_snapshot": {"state": 1},
+                "actions": [[0.0] * 7 for _ in range(5)],
+                "repeats": [
+                    {
+                        "start_eef_center_m": [0.0, 0.0, 0.0],
+                        "branch_obstacle_boxes": [],
+                    }
+                ],
+            },
+            "outcome": {"selected_p_min_changed_witness": raw_pointer},
+        }
+        r02 = {
+            "source_evidence": {
+                "r01_selected_p_min_changed_witness": dict(raw_pointer),
+                "selected_witness_pointer": {
+                    **raw_pointer,
+                    "actions_array_sha256": "b" * 64,
+                },
+            },
+            "pairing": {
+                "branch_snapshot": {"state": 1},
+                "r01_branch_snapshot": {"state": 1},
+                "r01_nominal_actions": {
+                    "values": [[0.0] * 7 for _ in range(5)]
+                },
+                "historical_r01_diagnostic": {
+                    "raw_r01_witness_actions_content_sha256": "a" * 64
+                },
+            },
+            "arms": {"frozen": {"repeats": raw["nominal"]["repeats"]}},
+        }
+        self.assertEqual(SUMMARY._raw_r01_binding_errors(r02, raw), [])
+        r02["pairing"]["historical_r01_diagnostic"][
+            "raw_r01_witness_actions_content_sha256"
+        ] = "c" * 64
+        errors = SUMMARY._raw_r01_binding_errors(r02, raw)
+        self.assertIn(
+            "historical R01 witness bytes differ from content-bound raw R01",
+            errors,
+        )
+
     def test_reports_feasible_and_intent_to_treat_populations_separately(self) -> None:
         def statuses(_case):
             return {
@@ -515,6 +580,8 @@ class R02SummaryTest(R02SummaryFixture):
         value = json.loads(path.read_text(encoding="utf-8"))
         value["config_hash"] = "0" * 64
         value["provenance"]["sampler_parity_sha256"] = "1" * 64
+        value["source_evidence"]["direction_reference"] = "historical stale delta"
+        value["provenance"]["direction_semantics_decision_sha256"] = "2" * 64
         path.write_text(json.dumps(value), encoding="utf-8")
         tampered_summary = self.summarize()
         self.assertFalse(tampered_summary["population"]["valid"])
@@ -522,6 +589,8 @@ class R02SummaryTest(R02SummaryFixture):
         messages = " ".join(tampered_summary["population"]["invalid_artifacts"][tampered_id])
         self.assertIn("config_hash", messages)
         self.assertIn("sampler_parity_sha256", messages)
+        self.assertIn("source_evidence.direction_reference", messages)
+        self.assertIn("direction_semantics_decision_sha256", messages)
 
         self.write_population(statuses)
         unexpected = self.artifact(self.cases[0], statuses(self.cases[0]))

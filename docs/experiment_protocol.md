@@ -121,10 +121,12 @@ and unnormalized actions. Record per-step and final absolute errors and fail
 closed if the registered tolerances are not met.
 
 For each R01 changed-action witness, define `Delta_star` as the first-five
-translation commands of the selected direct witness minus the paired nominal
-commands. Convert this displacement to normalized model coordinates with scale
-only. Keep rotation, gripper, and the discarded action tail at zero. At flow
-time `t_s = 0.5`, run these paired arms:
+translation commands of the selected immutable direct witness minus the fresh
+paired eager commands from the current allocation. Convert this displacement
+to normalized model coordinates with scale only. Keep the historical R01
+nominal and historical delta as diagnostics, but do not use a stale historical
+delta as the intervention. Keep rotation, gripper, and the discarded action
+tail at zero. At flow time `t_s = 0.5`, run these paired arms:
 
 1. frozen sampler;
 2. direct witness execution (physical reference, not a flow arm);
@@ -135,11 +137,15 @@ time `t_s = 0.5`, run these paired arms:
    remaining Euler interval;
 6. one-shot bridge edit as a separate diagnostic.
 
-Every model arm must reuse the exact R01 state, observation, instruction,
-policy noise, and five-action execution horizon. Reconfirm the direct witness
-and nominal collision. Do not clip an out-of-bounds sampled action into a pass;
-record it as a bounds failure. Cases without an R01 witness remain in the
-all-collision report and are never silently dropped.
+Every model arm must reuse the exact reconstructed R01 state and the same fresh
+observation, instruction, policy noise, pre-intervention eager trace, and
+five-action execution horizon. Duplicate and final eager replays must be exact.
+Fresh-eager versus historical-R01 action drift is reported and must pass the
+already-frozen ADR-0010 numerical limits; no outcome-fitted tolerance is added.
+ADR-0013 defines the current paired baseline as the causal reference. Reconfirm
+the direct witness and nominal collision. Do not clip an out-of-bounds sampled
+action into a pass; record it as a bounds failure. Cases without an R01 witness
+remain in the all-collision report and are never silently dropped.
 
 R02 is an apparatus gate requiring complete schema-valid paired artifacts. R03
 is the scientific gate. On the R01-feasible population, the preregistered

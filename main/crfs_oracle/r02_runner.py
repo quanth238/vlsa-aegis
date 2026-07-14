@@ -73,6 +73,19 @@ NORMALIZATION_ASSET_SHA256 = (
     "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
 )
 PARITY_SEMANTICS_DECISION = "docs/decisions/0011-use-eager-path-for-r02-parity.md"
+DIRECTION_SEMANTICS_DECISION = (
+    "docs/decisions/0013-reference-oracle-to-fresh-paired-baseline.md"
+)
+DIRECTION_SEMANTICS_DECISION_SHA256 = (
+    "9af853d339059d8bbfade06f7d43f5ffe3303d89d98cbfa24158016813251b0c"
+)
+DIRECTION_REFERENCE = (
+    "immutable R01 witness translation minus fresh paired eager translation"
+)
+HISTORICAL_TRANSLATION_MAX_ABS_LIMIT = 0.010
+HISTORICAL_TRANSLATION_RMS_LIMIT = 0.005
+HISTORICAL_EXECUTED_MAX_ABS_LIMIT = 0.050
+HISTORICAL_EXECUTED_RMS_LIMIT = 0.015
 REGISTERED_TRANSLATION_ACTION_SCALE = (0.8422505, 0.827813, 0.937313)
 REGISTERED_EEF_RADIUS_M = 0.06
 REGISTERED_DISTANCE_LIMIT_M = 1.0
@@ -156,6 +169,9 @@ class R02Config:
     parity_artifact_path: str
     parity_artifact_sha256: str
     parity_artifact: Mapping[str, Any]
+    direction_reference: str
+    direction_semantics_decision: str
+    direction_semantics_decision_sha256: str
 
 
 class R02SourceError(ValueError):
@@ -367,6 +383,23 @@ def r02_config_from_mapping(
         raise ValueError("R02 sampled-action bounds failures must never be clipped")
 
     root = Path(repo_root).resolve()
+    direction_reference = settings.get("direction_reference")
+    direction_decision = settings.get("direction_semantics_decision")
+    direction_decision_sha = settings.get("direction_semantics_decision_sha256")
+    if direction_reference != DIRECTION_REFERENCE:
+        raise ValueError(
+            "R02 direction_reference must use the fresh paired eager baseline"
+        )
+    if direction_decision != DIRECTION_SEMANTICS_DECISION:
+        raise ValueError("R02 direction semantics must bind ADR-0013")
+    if direction_decision_sha != DIRECTION_SEMANTICS_DECISION_SHA256:
+        raise ValueError("R02 direction semantics ADR-0013 SHA-256 differs")
+    direction_decision_path = _resolve(str(direction_decision), root)
+    if not _inside(direction_decision_path, root / "docs" / "decisions"):
+        raise ValueError("R02 direction semantics decision must be checked in")
+    if file_sha256(direction_decision_path) != direction_decision_sha:
+        raise ValueError("R02 direction semantics ADR-0013 content hash differs")
+
     summary_value = settings.get("r01_summary_artifact")
     summary_sha = settings.get("r01_summary_sha256")
     if not isinstance(summary_value, str) or not summary_value:
@@ -490,6 +523,9 @@ def r02_config_from_mapping(
         parity_artifact_path=str(parity_path),
         parity_artifact_sha256=actual_parity_sha,
         parity_artifact=parity,
+        direction_reference=str(direction_reference),
+        direction_semantics_decision=str(direction_decision),
+        direction_semantics_decision_sha256=str(direction_decision_sha),
     )
 
 
@@ -519,6 +555,11 @@ def _normalized_config(config: R02Config) -> Dict[str, Any]:
         "eligible_case_ids": list(config.eligible_case_ids),
         "no_witness_case_ids": list(config.no_witness_case_ids),
         "sampler_parity_sha256": config.parity_artifact_sha256,
+        "direction_reference": config.direction_reference,
+        "direction_semantics_decision": config.direction_semantics_decision,
+        "direction_semantics_decision_sha256": (
+            config.direction_semantics_decision_sha256
+        ),
     }
 
 
@@ -729,6 +770,140 @@ def _path_diagnostic(reference: np.ndarray, candidate: np.ndarray) -> Dict[str, 
             float(np.sqrt(np.mean(np.square(error)))) if error.size else 0.0
         ),
     }
+
+
+def _json_compatible(value: Any) -> Any:
+    """Canonicalize tuples and other JSON sequences without numeric tolerance."""
+
+    return json.loads(json.dumps(value, allow_nan=False, sort_keys=True))
+
+
+def _bounded_drift_diagnostic(
+    reference: np.ndarray,
+    candidate: np.ndarray,
+    *,
+    maximum_absolute_error_limit: float,
+    rms_absolute_error_limit: float,
+) -> Dict[str, Any]:
+    diagnostic = _path_diagnostic(reference, candidate)
+    maximum = diagnostic["maximum_absolute_error"]
+    rms = diagnostic["rms_absolute_error"]
+    return {
+        **diagnostic,
+        "maximum_absolute_error_limit": maximum_absolute_error_limit,
+        "rms_absolute_error_limit": rms_absolute_error_limit,
+        "passed": bool(
+            diagnostic["shape_equal"]
+            and isinstance(maximum, float)
+            and isinstance(rms, float)
+            and maximum <= maximum_absolute_error_limit
+            and rms <= rms_absolute_error_limit
+        ),
+    }
+
+
+def _delta_comparison_diagnostic(
+    nominal_actions: Any,
+    fresh_eager_actions: Any,
+    witness_actions: Any,
+) -> Dict[str, float]:
+    """Compare historical and fresh witness deltas in scale-only model space."""
+
+    nominal = np.asarray(nominal_actions, dtype=np.float64)
+    fresh = np.asarray(fresh_eager_actions, dtype=np.float64)
+    witness = np.asarray(witness_actions, dtype=np.float64)
+    if nominal.shape != (5, 7) or fresh.shape != (5, 7) or witness.shape != (5, 7):
+        raise ValueError("Delta comparison requires nominal, fresh, and witness 5x7 actions")
+    if not all(np.all(np.isfinite(item)) for item in (nominal, fresh, witness)):
+        raise ValueError("Delta comparison actions must be finite")
+    scale = np.asarray(REGISTERED_TRANSLATION_ACTION_SCALE, dtype=np.float64)
+    raw_model = np.zeros((10, 32), dtype=np.float64)
+    fresh_model = np.zeros((10, 32), dtype=np.float64)
+    raw_model[:5, :3] = (witness[:5, :3] - nominal[:5, :3]) / scale[None, :]
+    fresh_model[:5, :3] = (witness[:5, :3] - fresh[:5, :3]) / scale[None, :]
+    raw_l2 = float(np.linalg.norm(raw_model))
+    fresh_l2 = float(np.linalg.norm(fresh_model))
+    if raw_l2 <= 0.0 or fresh_l2 <= 0.0:
+        raise ValueError("historical and fresh model-space Delta norms must be nonzero")
+    cosine = float(
+        np.dot(raw_model.reshape(-1), fresh_model.reshape(-1))
+        / (raw_l2 * fresh_l2)
+    )
+    cosine = max(-1.0, min(1.0, cosine))
+    return {
+        "raw_model_l2": raw_l2,
+        "fresh_model_l2": fresh_l2,
+        "fresh_minus_raw_model_l2": float(np.linalg.norm(fresh_model - raw_model)),
+        "cosine": cosine,
+        "angle_degrees": float(math.degrees(math.acos(cosine))),
+    }
+
+
+def _historical_r01_diagnostic(
+    nominal_actions: Any,
+    fresh_eager_actions: Any,
+    *,
+    witness_actions: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Keep the stale R01 action relation visible without applying it.
+
+    The raw R01 nominal and witness came from a different allocation.  Their
+    difference remains useful source evidence, while the applied R02 oracle is
+    constructed separately against the fresh eager baseline below.
+    """
+
+    nominal = np.asarray(nominal_actions, dtype=np.float64)
+    fresh = np.asarray(fresh_eager_actions, dtype=np.float64)
+    if nominal.shape != (5, 7) or fresh.shape != (5, 7):
+        raise ValueError("historical R01 diagnostic requires paired 5x7 actions")
+    if not np.all(np.isfinite(nominal)) or not np.all(np.isfinite(fresh)):
+        raise ValueError("historical R01 diagnostic actions must be finite")
+    translation_drift = _bounded_drift_diagnostic(
+        nominal[:, :3],
+        fresh[:, :3],
+        maximum_absolute_error_limit=HISTORICAL_TRANSLATION_MAX_ABS_LIMIT,
+        rms_absolute_error_limit=HISTORICAL_TRANSLATION_RMS_LIMIT,
+    )
+    executed_drift = _bounded_drift_diagnostic(
+        nominal,
+        fresh,
+        maximum_absolute_error_limit=HISTORICAL_EXECUTED_MAX_ABS_LIMIT,
+        rms_absolute_error_limit=HISTORICAL_EXECUTED_RMS_LIMIT,
+    )
+    result: Dict[str, Any] = {
+        "raw_r01_nominal_actions_content_sha256": content_hash(nominal.tolist()),
+        "raw_r01_nominal_actions_array_sha256": _array_hash(nominal),
+        "fresh_eager_actions_content_sha256": content_hash(fresh.tolist()),
+        "fresh_eager_actions_array_sha256": _array_hash(fresh),
+        "fresh_eager_vs_raw_r01_nominal": _path_diagnostic(nominal, fresh),
+        "first_five_translation_drift": translation_drift,
+        "executed_first_five_action_drift": executed_drift,
+        "passed": bool(translation_drift["passed"] and executed_drift["passed"]),
+        "delta_comparison": None,
+        "raw_r01_witness_actions": None,
+        "raw_r01_witness_actions_content_sha256": None,
+        "raw_r01_delta_star_physical": None,
+    }
+    if witness_actions is None:
+        return result
+    witness = np.asarray(witness_actions, dtype=np.float64)
+    if witness.shape != (5, 7) or not np.all(np.isfinite(witness)):
+        raise ValueError("historical R01 witness must contain finite 5x7 actions")
+    raw_delta = np.zeros((10, 32), dtype=np.float64)
+    raw_delta[:5, :3] = witness[:5, :3] - nominal[:5, :3]
+    result.update(
+        {
+            "raw_r01_witness_actions": _array_record(witness, dtype=np.float64),
+            "raw_r01_witness_actions_content_sha256": content_hash(witness.tolist()),
+            "raw_r01_delta_star_physical": _array_record(
+                raw_delta, dtype=np.float64
+            ),
+            "delta_comparison": _delta_comparison_diagnostic(
+                nominal, fresh, witness
+            ),
+        }
+    )
+    return result
 
 
 def _reply_policy_timing(reply: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1129,6 +1304,7 @@ def _no_witness_arms(frozen_arm: Mapping[str, Any]) -> Dict[str, Any]:
 def _direction_bundle(
     r01: Mapping[str, Any],
     config: R02Config,
+    fresh_eager_physical: np.ndarray,
     predicted_clean_physical: np.ndarray,
     branch_rollout: Mapping[str, Any],
 ) -> Tuple[
@@ -1142,17 +1318,32 @@ def _direction_bundle(
 
     from .r02_directions import (
         analytic_d_opt_ascent_direction,
-        delta_star_model_from_witness,
-        random_direction_from_witness,
+        deterministic_equal_l2_random_direction,
         select_r01_changed_p_min_witness,
     )
 
     witness = select_r01_changed_p_min_witness(r01)
-    delta_physical = np.asarray(witness.delta_star_physical, dtype=np.float64)
-    delta_model = np.asarray(
-        delta_star_model_from_witness(witness, action_scale=config.action_scale),
-        dtype=np.float64,
+    witness_actions = np.asarray(witness.witness_prefix, dtype=np.float64)
+    fresh_eager = np.asarray(fresh_eager_physical, dtype=np.float64)
+    if witness_actions.shape != (5, 7) or fresh_eager.shape != (10, 7):
+        raise ValueError(
+            "fresh-paired oracle requires a 5x7 R01 witness and 10x7 eager actions"
+        )
+    if not np.all(np.isfinite(witness_actions)) or not np.all(np.isfinite(fresh_eager)):
+        raise ValueError("fresh-paired oracle actions must be finite")
+    delta_physical = np.zeros(
+        (config.oracle.action_horizon, config.oracle.action_dim), dtype=np.float64
     )
+    delta_physical[:5, :3] = (
+        witness_actions[:5, :3] - fresh_eager[:5, :3]
+    )
+    delta_model = np.zeros_like(delta_physical)
+    delta_model[:5, :3] = (
+        delta_physical[:5, :3]
+        / np.asarray(config.action_scale, dtype=np.float64)[None, :]
+    )
+    if float(np.linalg.norm(delta_model)) <= 0.0:
+        raise ValueError("fresh-paired Delta_star_model must have nonzero norm")
     directions: Dict[str, Optional[np.ndarray]] = {
         "delta_star_physical": delta_physical,
         "delta_star_model": delta_model,
@@ -1163,10 +1354,13 @@ def _direction_bundle(
     diagnostics: Dict[str, Any] = {"analytic_geometry": None}
     try:
         directions["random_model"] = np.asarray(
-            random_direction_from_witness(
-                witness,
+            deterministic_equal_l2_random_direction(
+                delta_model,
                 base_physical_prefix=predicted_clean_physical[:5, :7],
                 action_scale=config.action_scale,
+                seed=witness.random_seed,
+                action_low=witness.action_low,
+                action_high=witness.action_high,
             ),
             dtype=np.float64,
         )
@@ -1222,6 +1416,11 @@ def _direction_records(
     }
     return {
         "witness_pointer": dict(witness_pointer) if witness_pointer is not None else None,
+        "direction_reference": config.direction_reference,
+        "direction_semantics_decision": config.direction_semantics_decision,
+        "direction_semantics_decision_sha256": (
+            config.direction_semantics_decision_sha256
+        ),
         "translation_mask": "first five actions x first three translation channels; all other entries zero",
         "normalization": "scale-only displacement conversion; no normalization mean subtraction",
         "action_scale_physical_per_model": list(config.action_scale),
@@ -1274,6 +1473,11 @@ def _base_provenance(
         "r01_case_result_sha256": raw_r01_sha256,
         "sampler_parity_path": config.parity_artifact_path,
         "sampler_parity_sha256": config.parity_artifact_sha256,
+        "direction_reference": config.direction_reference,
+        "direction_semantics_decision": config.direction_semantics_decision,
+        "direction_semantics_decision_sha256": (
+            config.direction_semantics_decision_sha256
+        ),
         "noise": _array_record(noise, dtype=np.float32),
         "sampler_steps": config.oracle.sampler_steps,
         "intervention_step": config.oracle.intervention_step,
@@ -1341,11 +1545,21 @@ def _no_witness_result(
             "selected_witness_pointer": None,
             "sampler_parity_sha256": config.parity_artifact_sha256,
             "sampler_parity_status": "passed",
+            "direction_reference": config.direction_reference,
+            "direction_semantics_decision": config.direction_semantics_decision,
+            "direction_semantics_decision_sha256": (
+                config.direction_semantics_decision_sha256
+            ),
         },
         "provenance": _provenance_with_policy_timing(provenance, arms),
         "pairing": dict(pairing),
         "directions": {
             "witness_pointer": None,
+            "direction_reference": config.direction_reference,
+            "direction_semantics_decision": config.direction_semantics_decision,
+            "direction_semantics_decision_sha256": (
+                config.direction_semantics_decision_sha256
+            ),
             "translation_mask": "not applicable: no R01 changed-action p_min witness",
             "normalization": "not applicable",
             "action_scale_physical_per_model": list(config.action_scale),
@@ -1397,6 +1611,11 @@ def _unconstructed_direction_records(
     return {
         "witness_pointer": (
             dict(witness_pointer) if witness_pointer is not None else None
+        ),
+        "direction_reference": config.direction_reference,
+        "direction_semantics_decision": config.direction_semantics_decision,
+        "direction_semantics_decision_sha256": (
+            config.direction_semantics_decision_sha256
         ),
         "translation_mask": (
             "first five actions x first three translation channels; all other entries zero"
@@ -1489,6 +1708,11 @@ def _reconfirmation_failure_result(
             ),
             "sampler_parity_sha256": config.parity_artifact_sha256,
             "sampler_parity_status": "passed",
+            "direction_reference": config.direction_reference,
+            "direction_semantics_decision": config.direction_semantics_decision,
+            "direction_semantics_decision_sha256": (
+                config.direction_semantics_decision_sha256
+            ),
         },
         "provenance": _provenance_with_policy_timing(provenance, arms),
         "pairing": dict(pairing),
@@ -1522,7 +1746,14 @@ def _reconfirmation_failure_result(
 
 def _validate_exact_pairing(
     pairing: Mapping[str, Any],
-) -> Tuple[List[str], Optional[np.ndarray], Optional[np.ndarray]]:
+) -> Tuple[
+    List[str],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+    Optional[np.ndarray],
+]:
     errors: List[str] = []
     if pairing.get("applicable") is not True or pairing.get("passed") is not True:
         errors.append("R02 artifact requires passing exact policy pairing")
@@ -1530,7 +1761,7 @@ def _validate_exact_pairing(
         "duplicate_eager_actions_exact",
         "duplicate_eager_trace_exact",
         "branch_snapshot_equals_r01_exact",
-        "eager_prefix_equals_r01_nominal_exact",
+        "historical_r01_drift_within_frozen_limits",
         "order_contamination_check_exact",
         "eager_order_contamination_check_exact",
     ):
@@ -1570,6 +1801,124 @@ def _validate_exact_pairing(
         shape=(5, 7),
     )
     errors.extend(item_errors)
+    historical_witness: Optional[np.ndarray] = None
+    historical_delta: Optional[np.ndarray] = None
+    historical = pairing.get("historical_r01_diagnostic")
+    expected_historical_fields = {
+        "raw_r01_nominal_actions_content_sha256",
+        "raw_r01_nominal_actions_array_sha256",
+        "fresh_eager_actions_content_sha256",
+        "fresh_eager_actions_array_sha256",
+        "fresh_eager_vs_raw_r01_nominal",
+        "first_five_translation_drift",
+        "executed_first_five_action_drift",
+        "passed",
+        "delta_comparison",
+        "raw_r01_witness_actions",
+        "raw_r01_witness_actions_content_sha256",
+        "raw_r01_delta_star_physical",
+    }
+    if not isinstance(historical, Mapping) or set(historical) != expected_historical_fields:
+        errors.append("pairing historical R01 diagnostic has incorrect fields")
+        historical = {}
+    if r01_nominal is not None:
+        nominal_content_sha = content_hash(
+            np.asarray(r01_nominal, dtype=np.float64).tolist()
+        )
+        if historical.get("raw_r01_nominal_actions_content_sha256") != nominal_content_sha:
+            errors.append("historical R01 nominal content hash conflicts with raw actions")
+        if historical.get("raw_r01_nominal_actions_array_sha256") != _array_hash(
+            np.asarray(r01_nominal, dtype=np.float64)
+        ):
+            errors.append("historical R01 nominal array hash conflicts with raw actions")
+    if eager is not None:
+        fresh_prefix = np.asarray(eager[:5, :7], dtype=np.float64)
+        if historical.get("fresh_eager_actions_content_sha256") != content_hash(
+            fresh_prefix.tolist()
+        ):
+            errors.append("historical fresh eager content hash conflicts with actions")
+        if historical.get("fresh_eager_actions_array_sha256") != _array_hash(
+            fresh_prefix
+        ):
+            errors.append("historical fresh eager array hash conflicts with actions")
+    witness_record = historical.get("raw_r01_witness_actions")
+    witness_content_sha = historical.get("raw_r01_witness_actions_content_sha256")
+    delta_record = historical.get("raw_r01_delta_star_physical")
+    delta_comparison = historical.get("delta_comparison")
+    if witness_record is None:
+        if (
+            witness_content_sha is not None
+            or delta_record is not None
+            or delta_comparison is not None
+        ):
+            errors.append("historical R01 witness diagnostics must be jointly null")
+    else:
+        historical_witness, item_errors = _validate_array_record(
+            witness_record,
+            name="pairing.historical_r01_diagnostic.raw_r01_witness_actions",
+            shape=(5, 7),
+        )
+        errors.extend(item_errors)
+        historical_delta, item_errors = _validate_array_record(
+            delta_record,
+            name="pairing.historical_r01_diagnostic.raw_r01_delta_star_physical",
+            shape=(10, 32),
+        )
+        errors.extend(item_errors)
+        if historical_witness is not None:
+            if witness_content_sha != content_hash(historical_witness.tolist()):
+                errors.append("historical R01 witness content hash conflicts with actions")
+            if r01_nominal is not None:
+                expected_historical_delta = np.zeros((10, 32), dtype=np.float64)
+                expected_historical_delta[:5, :3] = (
+                    historical_witness[:5, :3] - r01_nominal[:5, :3]
+                )
+                if not np.array_equal(historical_delta, expected_historical_delta):
+                    errors.append(
+                        "historical R01 Delta_star is not witness minus R01 nominal"
+                    )
+                if not np.array_equal(
+                    historical_witness[:5, 3:], r01_nominal[:5, 3:]
+                ):
+                    errors.append("historical R01 witness changes nontranslation actions")
+            expected_comparison_fields = {
+                "raw_model_l2",
+                "fresh_model_l2",
+                "fresh_minus_raw_model_l2",
+                "cosine",
+                "angle_degrees",
+            }
+            if (
+                not isinstance(delta_comparison, Mapping)
+                or set(delta_comparison) != expected_comparison_fields
+            ):
+                errors.append("historical versus fresh Delta comparison has incorrect fields")
+            elif r01_nominal is not None and eager is not None:
+                try:
+                    expected_comparison = _delta_comparison_diagnostic(
+                        r01_nominal,
+                        eager[:5, :7],
+                        historical_witness,
+                    )
+                except ValueError as error:
+                    errors.append(f"historical versus fresh Delta comparison failed: {error}")
+                else:
+                    for key, expected in expected_comparison.items():
+                        claim = delta_comparison.get(key)
+                        if (
+                            not isinstance(claim, (int, float))
+                            or isinstance(claim, bool)
+                            or not math.isfinite(float(claim))
+                            or not math.isclose(
+                                float(claim),
+                                expected,
+                                rel_tol=0.0,
+                                abs_tol=1e-12,
+                            )
+                        ):
+                            errors.append(
+                                f"historical versus fresh Delta comparison {key} conflicts with raw actions"
+                            )
     final_compiled, item_errors = _validate_array_record(
         pairing.get("final_compiled_actions"),
         name="pairing.final_compiled_actions",
@@ -1634,12 +1983,39 @@ def _validate_exact_pairing(
                 errors.append("eager trace must be captured at t=0.5")
     if eager is not None and duplicate is not None and not np.array_equal(eager, duplicate):
         errors.append("duplicate eager actions differ despite pairing claim")
-    if (
-        eager is not None
-        and r01_nominal is not None
-        and not np.array_equal(eager[:5, :7], r01_nominal)
-    ):
-        errors.append("eager prefix differs from immutable R01 nominal actions")
+    drift = historical.get("fresh_eager_vs_raw_r01_nominal")
+    if not isinstance(drift, Mapping):
+        errors.append("fresh eager versus historical R01 drift diagnostic is missing")
+    elif eager is not None and r01_nominal is not None:
+        expected_drift = _path_diagnostic(r01_nominal, eager[:5, :7])
+        if dict(drift) != expected_drift:
+            errors.append("historical R01 drift diagnostic conflicts with raw actions")
+        expected_translation_drift = _bounded_drift_diagnostic(
+            r01_nominal[:, :3],
+            eager[:5, :3],
+            maximum_absolute_error_limit=HISTORICAL_TRANSLATION_MAX_ABS_LIMIT,
+            rms_absolute_error_limit=HISTORICAL_TRANSLATION_RMS_LIMIT,
+        )
+        expected_executed_drift = _bounded_drift_diagnostic(
+            r01_nominal,
+            eager[:5, :7],
+            maximum_absolute_error_limit=HISTORICAL_EXECUTED_MAX_ABS_LIMIT,
+            rms_absolute_error_limit=HISTORICAL_EXECUTED_RMS_LIMIT,
+        )
+        if historical.get("first_five_translation_drift") != expected_translation_drift:
+            errors.append("historical translation drift diagnostic conflicts with raw actions")
+        if historical.get("executed_first_five_action_drift") != expected_executed_drift:
+            errors.append("historical executed-action drift diagnostic conflicts with raw actions")
+        expected_historical_pass = bool(
+            expected_translation_drift["passed"]
+            and expected_executed_drift["passed"]
+        )
+        if historical.get("passed") is not expected_historical_pass:
+            errors.append("historical R01 drift pass claim conflicts with raw actions")
+        if pairing.get("historical_r01_drift_within_frozen_limits") is not expected_historical_pass:
+            errors.append("historical R01 pairing gate conflicts with raw actions")
+        if not expected_historical_pass:
+            errors.append("historical R01 drift exceeds frozen ADR-0010 limits")
     if compiled is not None and final_compiled is not None and not np.array_equal(
         compiled, final_compiled
     ):
@@ -1659,7 +2035,14 @@ def _validate_exact_pairing(
         expected_diagnostic = _path_diagnostic(compiled, eager)
         if diagnostic != expected_diagnostic:
             errors.append("compiled/eager diagnostic conflicts with stored actions")
-    return errors, compiled, eager
+    return (
+        errors,
+        compiled,
+        eager,
+        r01_nominal,
+        historical_witness,
+        historical_delta,
+    )
 
 
 def _recompute_serialized_arm_gate(
@@ -1798,6 +2181,15 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             errors.append("raw R01 validator must pass")
         if source.get("sampler_parity_status") != "passed":
             errors.append("sampler parity must pass")
+        if source.get("direction_reference") != DIRECTION_REFERENCE:
+            errors.append("source evidence direction reference differs from ADR-0013")
+        if source.get("direction_semantics_decision") != DIRECTION_SEMANTICS_DECISION:
+            errors.append("source evidence direction semantics decision differs")
+        if (
+            source.get("direction_semantics_decision_sha256")
+            != DIRECTION_SEMANTICS_DECISION_SHA256
+        ):
+            errors.append("source evidence direction semantics hash differs")
 
     provenance = value.get("provenance")
     required_provenance = {
@@ -1820,6 +2212,9 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
         "r01_summary_sha256",
         "r01_case_result_sha256",
         "sampler_parity_sha256",
+        "direction_reference",
+        "direction_semantics_decision",
+        "direction_semantics_decision_sha256",
         "noise",
         "sampler_steps",
         "intervention_step",
@@ -1910,6 +2305,15 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             errors.append("provenance must require at least two simulator repeats")
         if provenance.get("required_arms") != list(ARMS):
             errors.append("provenance arm registration differs")
+        if provenance.get("direction_reference") != DIRECTION_REFERENCE:
+            errors.append("provenance direction reference differs from ADR-0013")
+        if provenance.get("direction_semantics_decision") != DIRECTION_SEMANTICS_DECISION:
+            errors.append("provenance direction semantics decision differs")
+        if (
+            provenance.get("direction_semantics_decision_sha256")
+            != DIRECTION_SEMANTICS_DECISION_SHA256
+        ):
+            errors.append("provenance direction semantics hash differs")
         if isinstance(source, Mapping):
             for source_key, provenance_key in (
                 ("r01_summary_sha256", "r01_summary_sha256"),
@@ -1935,10 +2339,27 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
     if not isinstance(directions, Mapping):
         errors.append("directions must be an object")
         directions = {}
+    else:
+        if directions.get("direction_reference") != DIRECTION_REFERENCE:
+            errors.append("directions use a stale oracle reference")
+        if directions.get("direction_semantics_decision") != DIRECTION_SEMANTICS_DECISION:
+            errors.append("directions semantics decision differs from ADR-0013")
+        if (
+            directions.get("direction_semantics_decision_sha256")
+            != DIRECTION_SEMANTICS_DECISION_SHA256
+        ):
+            errors.append("directions semantics decision hash differs")
     if not isinstance(outcome, Mapping):
         errors.append("outcome must be an object")
         outcome = {}
-    pairing_errors, compiled, eager_frozen = _validate_exact_pairing(pairing)
+    (
+        pairing_errors,
+        compiled,
+        eager_frozen,
+        r01_nominal_actions,
+        historical_witness_actions,
+        historical_r01_delta,
+    ) = _validate_exact_pairing(pairing)
     errors.extend(pairing_errors)
 
     if status == NOMINAL_RECONFIRMATION_FAILURE:
@@ -1984,11 +2405,26 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
                     errors.append("nominal mismatch witness differs from the R01 outcome pointer")
             if isinstance(source, Mapping) and source.get("r01_case_status") != "verified_safe_progress":
                 errors.append("eligible nominal mismatch must come from an eligible R01 case")
+            if historical_witness_actions is None or historical_r01_delta is None:
+                errors.append("eligible nominal mismatch must retain raw R01 action diagnostics")
+            elif float(np.linalg.norm(historical_r01_delta)) <= 0.0:
+                errors.append("eligible nominal mismatch has a zero historical R01 Delta")
+            elif isinstance(source_pointer, Mapping):
+                if source_pointer.get("actions_array_sha256") != _array_hash(
+                    np.asarray(historical_witness_actions, dtype=np.float64)
+                ):
+                    errors.append("nominal mismatch witness diagnostic differs from pointer")
+                if source_pointer.get("actions_sha256") != content_hash(
+                    historical_witness_actions.tolist()
+                ):
+                    errors.append("nominal mismatch witness content hash differs from pointer")
         else:
             if source_pointer is not None or direction_pointer is not None or r01_pointer is not None:
                 errors.append("no-witness nominal mismatch cannot bind a witness")
             if isinstance(source, Mapping) and source.get("r01_case_status") == "verified_safe_progress":
                 errors.append("no-witness nominal mismatch conflicts with the R01 status")
+            if historical_witness_actions is not None or historical_r01_delta is not None:
+                errors.append("no-witness nominal mismatch cannot retain a witness diagnostic")
 
         arrays = directions.get("arrays")
         l2_norms = directions.get("l2_norms")
@@ -2109,6 +2545,8 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             errors.append("no-witness artifact cannot bind a selected witness")
         if isinstance(source, Mapping) and source.get("r01_selected_p_min_changed_witness") is not None:
             errors.append("no-witness artifact cannot have an R01 witness outcome pointer")
+        if historical_witness_actions is not None or historical_r01_delta is not None:
+            errors.append("no-witness artifact cannot retain a witness diagnostic")
         arrays = directions.get("arrays")
         if not isinstance(arrays, Mapping) or any(item is not None for item in arrays.values()):
             errors.append("no-witness direction arrays must all be null")
@@ -2200,6 +2638,19 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
         }
         if source.get("r01_selected_p_min_changed_witness") != expected_r01_pointer:
             errors.append("recomputed witness pointer differs from the bound R01 outcome pointer")
+    if historical_witness_actions is None or historical_r01_delta is None:
+        errors.append("eligible result must retain raw R01 witness and Delta diagnostics")
+    elif float(np.linalg.norm(historical_r01_delta)) <= 0.0:
+        errors.append("historical R01 Delta diagnostic must remain nonzero")
+    elif isinstance(pointer, Mapping):
+        if pointer.get("actions_array_sha256") != _array_hash(
+            np.asarray(historical_witness_actions, dtype=np.float64)
+        ):
+            errors.append("historical R01 witness diagnostic differs from pointer")
+        if pointer.get("actions_sha256") != content_hash(
+            historical_witness_actions.tolist()
+        ):
+            errors.append("historical R01 witness content hash differs from pointer")
     arrays = directions.get("arrays")
     direction_values: Dict[str, Optional[np.ndarray]] = {}
     if not isinstance(arrays, Mapping) or set(arrays) != {
@@ -2230,38 +2681,22 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
         scale = np.asarray(REGISTERED_TRANSLATION_ACTION_SCALE, dtype=np.float64)
         expected_model = np.zeros((10, 32), dtype=np.float64)
         expected_model[:5, :3] = delta_physical[:5, :3] / scale[None, :]
-        if not np.allclose(delta_model, expected_model, rtol=0.0, atol=1e-12):
+        if not np.array_equal(delta_model, expected_model):
             errors.append("Delta_star_model is not the scale-only conversion of Delta_star_physical")
 
-    frozen_executed: Optional[np.ndarray] = None
-    direct_executed: Optional[np.ndarray] = None
-    for arm_name, destination in (
-        ("frozen", "frozen"),
-        ("direct_witness", "direct"),
-    ):
-        arm_value = arms.get(arm_name)
-        if isinstance(arm_value, Mapping) and arm_value.get("executed_actions") is not None:
-            executed_value, item_errors = _validate_array_record(
-                arm_value.get("executed_actions"),
-                name=f"arms.{arm_name}.executed_actions_for_direction",
-                shape=(5, 7),
-            )
-            errors.extend(item_errors)
-            if destination == "frozen":
-                frozen_executed = executed_value
-            else:
-                direct_executed = executed_value
     if (
-        frozen_executed is not None
-        and direct_executed is not None
+        eager_frozen is not None
+        and historical_witness_actions is not None
         and delta_physical is not None
     ):
         expected_delta_physical = np.zeros((10, 32), dtype=np.float64)
         expected_delta_physical[:5, :3] = (
-            direct_executed[:5, :3] - frozen_executed[:5, :3]
+            historical_witness_actions[:5, :3] - eager_frozen[:5, :3]
         )
         if not np.array_equal(delta_physical, expected_delta_physical):
-            errors.append("Delta_star_physical is not direct witness minus frozen nominal")
+            errors.append(
+                "Delta_star_physical is not immutable witness minus fresh paired eager"
+            )
 
     l2_claims = directions.get("l2_norms")
     if not isinstance(l2_claims, Mapping) or set(l2_claims) != {
@@ -2593,6 +3028,16 @@ def validate_r02_result(value: Mapping[str, Any]) -> List[str]:
             np.asarray(direct_executed, dtype=np.float64)
         ):
             errors.append("direct arm actions differ from the selected raw witness pointer")
+        if direct_executed is not None and pointer.get("actions_sha256") != content_hash(
+            np.asarray(direct_executed, dtype=np.float64).tolist()
+        ):
+            errors.append("direct arm content differs from the selected raw witness pointer")
+        if (
+            direct_executed is not None
+            and historical_witness_actions is not None
+            and not np.array_equal(direct_executed, historical_witness_actions)
+        ):
+            errors.append("direct arm differs from the retained immutable R01 witness")
     nominal_collision = False
     if isinstance(frozen, Mapping) and isinstance(frozen.get("repeats"), list) and frozen["repeats"]:
         nominal_collision = bool(
@@ -2812,19 +3257,37 @@ def run_r02_case(
         r01_branch_snapshot = raw_r01.get("nominal", {}).get("branch_snapshot")
         if not isinstance(r01_branch_snapshot, Mapping):
             raise R02SourceError("immutable raw R01 result has no branch snapshot")
-        branch_snapshot = initial.to_dict()
+        # ReachSnapshot stores coordinates as tuples, while the content-bound
+        # R01 artifact was loaded from JSON and therefore contains lists.  A
+        # JSON round trip canonicalizes representation without introducing a
+        # numerical state tolerance.
+        branch_snapshot = _json_compatible(initial.to_dict())
+        registered_witness = None
+        registered_witness_actions: Optional[np.ndarray] = None
+        if eligible:
+            from .r02_directions import select_r01_changed_p_min_witness
+
+            registered_witness = select_r01_changed_p_min_witness(raw_r01)
+            registered_witness_actions = np.asarray(
+                registered_witness.witness_prefix, dtype=np.float64
+            )
+        historical_r01 = _historical_r01_diagnostic(
+            r01_nominal,
+            eager_actions[:5, :7],
+            witness_actions=registered_witness_actions,
+        )
         pairing_checks = {
             "duplicate_eager_actions_exact": bool(np.array_equal(eager_actions, duplicate_actions)),
             "duplicate_eager_trace_exact": _same_trace(eager_trace, duplicate_trace),
             "branch_snapshot_equals_r01_exact": bool(
                 branch_snapshot == dict(r01_branch_snapshot)
             ),
-            "eager_prefix_equals_r01_nominal_exact": bool(
-                np.array_equal(eager_actions[:5, :7], r01_nominal)
+            "historical_r01_drift_within_frozen_limits": bool(
+                historical_r01["passed"]
             ),
         }
         if not all(pairing_checks.values()):
-            raise RuntimeError(f"R02 exact compiled/eager/R01 pairing failed: {pairing_checks}")
+            raise RuntimeError(f"R02 exact fresh-allocation pairing failed: {pairing_checks}")
         pairing = {
             "applicable": True,
             "passed": True,
@@ -2832,6 +3295,7 @@ def run_r02_case(
             "branch_snapshot": branch_snapshot,
             "r01_branch_snapshot": dict(r01_branch_snapshot),
             "r01_nominal_actions": _array_record(r01_nominal, dtype=np.float64),
+            "historical_r01_diagnostic": historical_r01,
             "compiled_actions": _array_record(compiled_actions),
             "eager_actions": _array_record(eager_actions),
             "duplicate_eager_actions": _array_record(duplicate_actions),
@@ -2880,13 +3344,11 @@ def run_r02_case(
             r01_pointer: Optional[Mapping[str, Any]] = None
             pointer: Optional[Mapping[str, Any]] = None
             if eligible:
-                from .r02_directions import select_r01_changed_p_min_witness
-
-                selected_witness = select_r01_changed_p_min_witness(raw_r01)
-                selected_actions = np.asarray(
-                    selected_witness.witness_prefix, dtype=np.float64
+                if registered_witness is None or registered_witness_actions is None:
+                    raise RuntimeError("eligible R02 case lost its bound R01 witness")
+                pointer = _witness_pointer(
+                    registered_witness, registered_witness_actions
                 )
-                pointer = _witness_pointer(selected_witness, selected_actions)
                 r01_pointer = raw_r01.get("outcome", {}).get(
                     "selected_p_min_changed_witness"
                 )
@@ -2965,6 +3427,7 @@ def run_r02_case(
         witness, pointer, direction_values, direction_failures, direction_diagnostics = _direction_bundle(
             raw_r01,
             config,
+            eager_actions,
             np.asarray(eager_trace["predicted_clean_physical"], dtype=np.float64),
             frozen_rollout,
         )
@@ -3191,6 +3654,11 @@ def run_r02_case(
                 "selected_witness_pointer": pointer,
                 "sampler_parity_sha256": config.parity_artifact_sha256,
                 "sampler_parity_status": "passed",
+                "direction_reference": config.direction_reference,
+                "direction_semantics_decision": config.direction_semantics_decision,
+                "direction_semantics_decision_sha256": (
+                    config.direction_semantics_decision_sha256
+                ),
             },
             "provenance": _provenance_with_policy_timing(provenance, arms),
             "pairing": pairing,
