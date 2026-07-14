@@ -20,7 +20,7 @@ import numpy as np
 from crfs_harness.artifacts import atomic_write_json, content_hash, valid_completion
 
 from .measurement import GeomClearanceMonitor, resolve_crfs_geom_groups
-from .projection import ProjectionResult, solve_simulator_projection
+from .projection import ProjectionResult, solve_kinematic_projection
 
 LIBERO_DUMMY_ACTION = np.asarray([0.0] * 6 + [-1.0], dtype=np.float64)
 
@@ -99,6 +99,7 @@ class OracleConfig:
     eef_radius_m: float
     measurement_repeats: int
     stop_after_measurement: bool
+    response_matrix_m_per_action: tuple[tuple[float, ...], ...] | None
     optimizer_max_iterations: int
     checkpoint_id: str
     checkpoint_sha256: str
@@ -132,6 +133,11 @@ def oracle_config_from_mapping(
         eef_radius_m=float(value["eef_radius_m"]),
         measurement_repeats=int(value.get("measurement_repeats", 2)),
         stop_after_measurement=bool(value.get("stop_after_measurement", False)),
+        response_matrix_m_per_action=(
+            tuple(tuple(float(item) for item in row) for row in value["response_matrix_m_per_action"])
+            if value.get("response_matrix_m_per_action") is not None
+            else None
+        ),
         optimizer_max_iterations=int(value["optimizer_max_iterations"]),
         checkpoint_id=checkpoint_id,
         checkpoint_sha256=checkpoint_sha256,
@@ -468,9 +474,14 @@ def run_case(
             )
         else:
             _progress("projection_started")
-            repair = solve_simulator_projection(
+            if config.response_matrix_m_per_action is None:
+                raise RuntimeError("H05 projection requires the frozen H04 response matrix")
+            repair = solve_kinematic_projection(
                 nominal_actions,
-                environment.rollout,
+                start_eef_center_m=np.asarray(nominal_rollout["start_eef_center_m"]),
+                response_matrix=np.asarray(config.response_matrix_m_per_action),
+                obstacle_boxes=nominal_rollout["branch_obstacle_boxes"],
+                eef_radius_m=config.eef_radius_m,
                 safety_margin_m=config.safety_margin_m,
                 max_iterations=config.optimizer_max_iterations,
             )
@@ -484,9 +495,9 @@ def run_case(
         provenance = {
             "evidence_tier": "real_safelibero_preliminary",
             "research_limitations": [
-                "optimizer currently queries simulator geometry directly; D_opt/D_sim independence is not yet established",
                 "released SafeLIBERO obstacles are movable rather than the preregistered static asymmetric-convex pilot",
             ],
+            "d_opt_model": "frozen H04 response matrix plus static branch oriented-box geometry",
             "git_commit": git_commit,
             "git_dirty": git_dirty,
             "baseline_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",

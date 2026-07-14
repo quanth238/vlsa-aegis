@@ -28,6 +28,119 @@ class ProjectionResult:
 RolloutFn = Callable[[np.ndarray], dict]
 
 
+def _kinematic_clearance(
+    actions: np.ndarray,
+    start_eef_center_m: np.ndarray,
+    response_matrix: np.ndarray,
+    obstacle_boxes: list[dict],
+    eef_radius_m: float,
+    samples_per_segment: int = 26,
+) -> float:
+    from .measurement import signed_distance_point_to_oriented_box
+
+    position = np.asarray(start_eef_center_m, dtype=np.float64).copy()
+    minimum = float("inf")
+    for action in actions:
+        next_position = position + response_matrix @ action[:3]
+        for alpha in np.linspace(0.0, 1.0, samples_per_segment):
+            point = (1.0 - alpha) * position + alpha * next_position
+            for box in obstacle_boxes:
+                distance = signed_distance_point_to_oriented_box(
+                    point,
+                    box["center_m"],
+                    np.asarray(box["rotation_world"], dtype=np.float64).reshape(3, 3),
+                    box["half_size_m"],
+                ) - eef_radius_m
+                minimum = min(minimum, float(distance))
+        position = next_position
+    return minimum
+
+
+def solve_kinematic_projection(
+    nominal_prefix: np.ndarray,
+    *,
+    start_eef_center_m: np.ndarray,
+    response_matrix: np.ndarray,
+    obstacle_boxes: list[dict],
+    eef_radius_m: float,
+    safety_margin_m: float,
+    action_low: float | np.ndarray = -1.0,
+    action_high: float | np.ndarray = 1.0,
+    max_iterations: int = 120,
+    ftol: float = 1e-7,
+) -> ProjectionResult:
+    """Solve Eq. (8) with frozen H04 kinematics and static branch geometry."""
+    from scipy.optimize import minimize
+
+    nominal = np.asarray(nominal_prefix, dtype=np.float64)
+    low = np.broadcast_to(np.asarray(action_low, dtype=np.float64), nominal.shape)
+    high = np.broadcast_to(np.asarray(action_high, dtype=np.float64), nominal.shape)
+    response = np.asarray(response_matrix, dtype=np.float64).reshape(3, 3)
+    evaluations = 0
+    cache: dict[bytes, tuple[np.ndarray, float]] = {}
+
+    def evaluate(free_delta: np.ndarray) -> tuple[np.ndarray, float]:
+        nonlocal evaluations
+        key = np.asarray(free_delta, dtype=np.float64).tobytes()
+        if key not in cache:
+            actions = _decode_translation(free_delta, nominal, low, high)
+            clearance = _kinematic_clearance(
+                actions, start_eef_center_m, response, obstacle_boxes, eef_radius_m
+            )
+            cache[key] = actions, clearance
+            evaluations += 1
+        return cache[key]
+
+    def objective(free_delta: np.ndarray) -> float:
+        actions, _ = evaluate(free_delta)
+        difference = actions[:, :3] - nominal[:, :3]
+        return 0.5 * float(np.sum(difference * difference))
+
+    def clearance_constraint(free_delta: np.ndarray) -> float:
+        return evaluate(free_delta)[1] - safety_margin_m
+
+    def fifth_lower_bound(free_delta: np.ndarray) -> np.ndarray:
+        return _decode_translation(free_delta, nominal, low, high)[4, :3] - low[4, :3]
+
+    def fifth_upper_bound(free_delta: np.ndarray) -> np.ndarray:
+        return high[4, :3] - _decode_translation(free_delta, nominal, low, high)[4, :3]
+
+    bounds = [
+        (low[row, column] - nominal[row, column], high[row, column] - nominal[row, column])
+        for row in range(4)
+        for column in range(3)
+    ]
+    result = minimize(
+        objective,
+        np.zeros(12, dtype=np.float64),
+        method="SLSQP",
+        bounds=bounds,
+        constraints=[
+            {"type": "ineq", "fun": clearance_constraint},
+            {"type": "ineq", "fun": fifth_lower_bound},
+            {"type": "ineq", "fun": fifth_upper_bound},
+        ],
+        options={"maxiter": int(max_iterations), "ftol": float(ftol), "disp": False},
+    )
+    candidate, clearance = evaluate(np.asarray(result.x, dtype=np.float64))
+    correction = candidate[:, :3] - nominal[:, :3]
+    endpoint_error = float(np.linalg.norm(response @ correction.sum(axis=0)))
+    within_bounds = bool(np.all(candidate >= low - 1e-7) and np.all(candidate <= high + 1e-7))
+    feasible = bool(clearance >= safety_margin_m and endpoint_error <= 1e-6 and within_bounds)
+    return ProjectionResult(
+        feasible=feasible,
+        actions=candidate.tolist() if feasible else None,
+        correction=correction.tolist() if feasible else None,
+        objective=objective(np.asarray(result.x, dtype=np.float64)) if feasible else None,
+        verified_clearance_m=clearance,
+        endpoint_error_m=endpoint_error,
+        optimizer_success=bool(result.success),
+        optimizer_status=int(result.status),
+        optimizer_message=str(result.message),
+        evaluations=evaluations,
+    )
+
+
 def _decode_translation(
     free_delta: np.ndarray,
     nominal: np.ndarray,

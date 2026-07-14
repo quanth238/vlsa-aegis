@@ -22,16 +22,17 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Slurm jobs `27116` and `27117` completed the strict H03 manifest: 50 unique saved states, five identical replays per state, 126 measurements per replay, zero clearance variation, zero endpoint-coordinate variation, and no conservative-proxy contact miss.
 - H03 population composition was 20 proxy-colliding, 30 proxy-safe, and 4 physical-contact cases. Sixteen cases reproduced the raw mesh-query inconsistency, which is now advisory-only evidence rather than the primary safety signal.
 - The H03 summary and minimum-pair visualization are committed under `evidence/h03/`; raw allocation artifacts remain under `/mnt/data/quanth/experiments/crfs-oracle/h03-population-20260714a`.
+- Slurm job `27123` passed H04 on 10 calibration states and 20 held-out prefixes: median endpoint error 0.971 mm, 95th-percentile absolute `D_opt`/`D_sim` error 1.082 mm, and zero false-safe predictions at a 10 mm margin.
 
 ## Active gate
 
-`H04-kinematics-calibration`: estimate the controller action-to-EEF response and compare independent `D_opt` predictions with physics-substep `D_sim` measurements on held-out prefixes.
+`H05-projection-teacher`: solve the nearest safe endpoint-preserving repair with the frozen H04 response and primitive geometry, then verify it by independent simulator replay.
 
 ## Next
 
-1. Pre-register the action-probe amplitudes and D_opt/D_sim transfer tolerance.
-2. Measure the world-frame OSC response matrix on calibration states and evaluate held-out prefixes.
-3. Advance to the direct projection teacher only if positive-margin predictions transfer without false-safe cases.
+1. Run one colliding teacher smoke with the frozen response matrix and static branch geometry.
+2. Verify the repaired prefix directly with physics-substep `D_sim` before any flow intervention counts.
+3. Measure feasible fraction and teacher safety on a bounded colliding population before advancing H06.
 
 ## Open scientific risks
 

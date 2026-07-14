@@ -1,0 +1,17 @@
+{
+  "calibration_states": 10,
+  "false_safe_at_1cm_margin": 0,
+  "gate": "H04",
+  "heldout_prefixes": 20,
+  "median_endpoint_error_m": 0.0009712703897402925,
+  "p95_absolute_clearance_error_m": 0.0010816359864026179,
+  "probe_amplitude": 0.15,
+  "response_matrix_m_per_action": [
+    [0.009370281145853376, 0.00014623337157483132, -0.0009171200705674251],
+    [3.9560765073778535e-06, 0.012040711768393353, 6.816739267718219e-07],
+    [-0.002845391485346128, 2.5633541617775525e-05, 0.011826427878652547]
+  ],
+  "schema_version": "1.0",
+  "slurm_job_id": "27123",
+  "status": "passed"
+}

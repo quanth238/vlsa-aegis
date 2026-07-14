@@ -25,7 +25,7 @@ class HarnessContractTest(unittest.TestCase):
     def test_real_runner_discloses_preliminary_limitations(self) -> None:
         source = (ROOT / "main/crfs_oracle/runner.py").read_text(encoding="utf-8")
         self.assertIn('"evidence_tier": "real_safelibero_preliminary"', source)
-        self.assertIn("D_opt/D_sim independence is not yet established", source)
+        self.assertIn("frozen H04 response matrix plus static branch oriented-box geometry", source)
         self.assertIn("Fixed observation/noise policy replay is not exact", source)
         self.assertIn("hard_reset=False", source)
         self.assertIn('_progress("projection_started")', source)
