@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="460" viewBox="0 0 920 460">
+<rect width="100%" height="100%" fill="#fbfbfd"/>
+<style>text{font-family:system-ui,sans-serif;fill:#172033}.title{font-size:17px;font-weight:600}.label{font-size:13px}.note{font-size:12px;fill:#4b5563}</style>
+<text x="30" y="28" class="title">Top view (world x/y)</text>
+<rect x="30" y="45" width="410" height="350" rx="8" fill="white" stroke="#d8dee9"/>
+<polygon points="286.36,213.78 310.25,225.25 357.21,127.47 357.22,127.43 333.33,115.96 286.37,213.74" fill="#f59e0b55" stroke="#b45309" stroke-width="2"/>
+<circle cx="231.11" cy="220.00" r="118.34" fill="#2563eb44" stroke="#1d4ed8" stroke-width="2"/>
+<circle cx="231.11" cy="220.00" r="3" fill="#1d4ed8"/>
+<text x="42" y="420" class="label">orange: moka_pot_obstacle_1_g7</text>
+<text x="42" y="440" class="label">blue: CRFS EEF sphere (r=0.060 m)</text>
+<text x="475" y="28" class="title">Side view (world x/z)</text>
+<rect x="475" y="45" width="410" height="350" rx="8" fill="white" stroke="#d8dee9"/>
+<polygon points="702.71,156.53 702.71,342.22 713.27,342.22 734.04,342.22 734.03,156.52 723.47,156.52" fill="#f59e0b55" stroke="#b45309" stroke-width="2"/>
+<circle cx="678.28" cy="150.10" r="52.32" fill="#2563eb44" stroke="#1d4ed8" stroke-width="2"/>
+<circle cx="678.28" cy="150.10" r="3" fill="#1d4ed8"/>
+<text x="487" y="420" class="label">orange: moka_pot_obstacle_1_g7</text>
+<text x="487" y="440" class="label">blue: CRFS EEF sphere (r=0.060 m)</text>
+<text x="30" y="454" class="note">case=crfs-1fb59f5f776abdb7; minimum clearance=-0.030865 m; substep=124</text>
+<metadata>{&quot;audit&quot;: &quot;.harness/live/h03-population-20260714a/crfs-1fb59f5f776abdb7/measurement-audit.json&quot;, &quot;clearance_m&quot;: -0.0308647268640119}</metadata>
+</svg>

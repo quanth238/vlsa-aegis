@@ -1,0 +1,17 @@
+{
+  "boundary_band_m": [-0.01, 0.01],
+  "boundary_samples": 23,
+  "false_contact_count": 0,
+  "first_contact_clearance_m": -0.0006032309852765302,
+  "gate": "H03-primitive-calibration",
+  "max_boundary_analytic_vs_mujoco_error_m": 0.0,
+  "max_full_range_analytic_vs_mujoco_error_m": 0.03980384757672875,
+  "missed_contact_count": 0,
+  "mujoco_version": "3.2.3",
+  "sample_spacing_m": 0.0010000000000000009,
+  "samples": 261,
+  "schema_version": "1.0",
+  "sign_disagreement_count": 0,
+  "slurm_job_id": "27096",
+  "status": "passed"
+}

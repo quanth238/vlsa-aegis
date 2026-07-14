@@ -4,7 +4,7 @@ These are pilot decision criteria, not deployment guarantees.
 
 | Gate | Evidence | Pass condition |
 |---|---|---|
-| H03 measurement | repeated trajectory, substep distance, contact pairs | deterministic; contact/penetration semantics physically consistent |
+| H03 measurement | calibrated primitive, 50 unique states x 5 repeats, substep transforms, contacts, visualization | variation below 0.1 mm; 126 samples/replay; no contact at positive conservative clearance |
 | H04 calibration | measured EEF response and D_opt/D_sim held-out comparison | scale/frame documented; positive-margin predictions transfer reliably |
 | H05 projection | all colliding nominal prefixes | five-step feasible fraction at least 0.40 initially; direct teacher safety at least 0.95; median endpoint error at most 5 mm |
 | H06 direct replay | feasible projection population | repaired `A+` remains safe when replayed from identical state |

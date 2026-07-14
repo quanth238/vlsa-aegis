@@ -348,13 +348,13 @@ A practical pilot collection target is at least 500 colliding and 500 already-sa
 
 \subsection{Ground-truth safety measurement}
 
-The mechanism study uses the minimum signed geometry distance over every physics substep in MuJoCo \cite{todorov2012mujoco} of the five-action execution. A contact event is cross-checked against simulator contact pairs. This is more informative than the obstacle-displacement flag used in the released benchmark runner, which marks a collision after the obstacle position changes by more than a fixed threshold \cite{vlsarepo}. The original benchmark metric should still be reported later for comparability, but it should not be the supervision source for the proposed method.
+The mechanism study uses Eq.~\eqref{eq:clearance} at every physics substep in MuJoCo \cite{todorov2012mujoco}: the EEF-sphere center and each oriented obstacle box are read from simulator transforms, and their exact primitive signed distance is evaluated. Physical end-effector--obstacle contacts provide a one-way conservatism check: a contact at positive proxy clearance is forbidden, while negative conservative clearance before physical contact is expected. Raw \texttt{mj\_geomDistance} queries involving the released gripper collision mesh are retained only for diagnostics because the H03 audit reproduced false negative mesh--box distances without contact, consistent with the upstream open distance-query issue \cite{mujocoissue1784}. This metric is more informative than the obstacle-displacement flag used in the released benchmark runner, which marks a collision after the obstacle position changes by more than a fixed threshold \cite{vlsarepo}. The original benchmark metric should still be reported later for comparability, but it should not be the supervision source for the proposed method.
 
 Before collecting data, the following instrumentation tests are mandatory:
 \begin{enumerate}[leftmargin=*,nosep]
     \item Restore the same simulator state and execute the same action prefix at least five times.
     \item Confirm that the measured minimum signed distance varies by less than $10^{-4}$ m.
-    \item Confirm that reported first contact occurs near zero signed distance within the simulator's numerical tolerance.
+    \item Calibrate the sphere--box zero-clearance boundary against reported first contact within the simulator's numerical tolerance.
     \item Visualize the geometry pair achieving the minimum distance and verify that it belongs to the end effector and designated obstacle.
 \end{enumerate}
 
@@ -547,7 +547,7 @@ The implementation requires three localized changes:
 \begin{enumerate}[leftmargin=*,nosep]
     \item \textbf{Expose the intervention state.} Modify the OpenPI PyTorch sampler to return $x_{t_s}$ and the velocity at the chosen Euler step. The current implementation initializes $x_t$ with Gaussian noise, uses ten Euler steps by default, and returns only the final action chunk \cite{openpirepo,vlsarepo}.
     \item \textbf{Add residual integration.} After $t_s$, subtract $\widehat{\Delta A}/t_s$ from the translational prefix of the predicted velocity at each remaining Euler step.
-    \item \textbf{Branch and measure.} From a saved simulator state, execute nominal, random, oracle, and learned actions separately. Track minimum end-effector--obstacle signed distance at every physics substep. The released runner already exposes a five-step replanning parameter and a safe-success log, but its displacement-based collision flag should not be used as the continuous supervision target \cite{vlsarepo}.
+    \item \textbf{Branch and measure.} From a saved simulator state, execute nominal, random, oracle, and learned actions separately. Track the conservative EEF-sphere--primitive-obstacle signed distance from simulator transforms at every physics substep, and retain physical contacts as a cross-check. The released runner already exposes a five-step replanning parameter and a safe-success log, but its displacement-based collision flag should not be used as the continuous supervision target \cite{vlsarepo}.
 \end{enumerate}
 
 No change to the pretrained VLA weights is required in the first version. The steering network can be trained independently from stored intermediate states and counterfactual vectors.

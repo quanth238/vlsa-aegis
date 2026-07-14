@@ -22,7 +22,9 @@ Do not select among arms or intervention times on the test set.
 
 ## Measurement
 
-For each of five control actions, observe every robosuite/MuJoCo physics substep immediately after `sim.step()`. Compute the minimum `mj_geomDistance` over Panda gripper contact geoms and the active obstacle’s contact geoms. Cross-check all simulator contacts for those geom ID sets. Store the minimum pair, sample count, contact flag, start/end EEF positions, and task-success flag.
+For each of five control actions, observe every robosuite/MuJoCo physics substep immediately after `sim.step()`. The primary controlled metric is Eq. (3): exact signed point-to-oriented-box distance from the simulator EEF-sphere center to every collision box in the active obstacle union, minus the preregistered 6 cm radius. Cross-check physical EEF--obstacle contacts as a one-way conservatism condition and store the raw mesh--box `mj_geomDistance` only as advisory diagnostics. Store the minimum pair and transform, sample count, contact flag, start/end EEF positions, and task-success flag.
+
+H03 evidence is valid only after the separate sphere--box boundary calibration, five repeated executions on each of 50 unique saved states, clearance variation below $10^{-4}$ m, correct 126-sample count, no physical contact at positive proxy clearance, and a rendered minimum-pair artifact.
 
 The released obstacle-displacement threshold is not the CRFS supervision or primary mechanism metric.
 

@@ -1,0 +1,638 @@
+{
+  "case_id": "crfs-1fb59f5f776abdb7",
+  "contact_conservative": true,
+  "expected_samples": 126,
+  "gate": "H03",
+  "max_clearance_variation_m": 0.0,
+  "max_endpoint_coordinate_variation_m": 0.0,
+  "obstacle_name": "moka_pot_obstacle_1",
+  "raw_mujoco_tracker_advisory_only": true,
+  "repeats": 5,
+  "run_id": "h03-population-20260714a",
+  "runs": [
+    {
+      "clearance_m": -0.0308647268640119,
+      "contact": false,
+      "end_eef_m": [
+        -0.17215541744393512,
+        0.027524427445866514,
+        1.1793675180312955
+      ],
+      "measurement": {
+        "conservative_clearance_m": -0.0308647268640119,
+        "conservative_eef_center_m": [
+          -0.1707069459033991,
+          0.027323195814785397,
+          1.2593541508897106
+        ],
+        "conservative_eef_radius_m": 0.06,
+        "conservative_min_substep_index": 124,
+        "conservative_obstacle_center_m": [
+          -0.12473143056228359,
+          0.052367879067124146,
+          1.1455025964956516
+        ],
+        "conservative_obstacle_geom": "moka_pot_obstacle_1_g7",
+        "conservative_obstacle_half_size_m": [
+          0.00672,
+          0.0275,
+          0.10648
+        ],
+        "conservative_obstacle_rotation_world": [
+          -0.9014241966664519,
+          0.4329369665780899,
+          2.5187397271189555e-05,
+          0.4329369670501195,
+          0.9014241925794708,
+          8.714295215946586e-05,
+          1.5022876118218328e-05,
+          8.945732102796476e-05,
+          -0.9999999958858512
+        ],
+        "contact": false,
+        "contact_tolerance_m": 0.0001,
+        "distance_limit_m": 1.0,
+        "first_contact_distance_m": null,
+        "first_contact_substep_index": null,
+        "min_clearance_m": -0.04498243929144219,
+        "min_fromto_m": [
+          -0.1393128590775078,
+          0.04833133432589604,
+          1.182106890913695,
+          -0.15679395356696546,
+          0.03911904823560793,
+          1.2225168521243868
+        ],
+        "min_pair": [
+          "gripper0_hand_collision",
+          "moka_pot_obstacle_1_g7"
+        ],
+        "min_pair_metadata": {
+          "collision_enabled": true,
+          "eef": {
+            "body_id": 13,
+            "body_name": "gripper0_right_gripper",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 73,
+            "margin_m": 0.0,
+            "name": "gripper0_hand_collision",
+            "size_m": [
+              0.03164141185415645,
+              0.04867201348120918,
+              0.10394595510084442
+            ],
+            "type": "mjGEOM_MESH",
+            "world_position_m": [
+              -0.170849686465726,
+              0.027955856717803665,
+              1.252427647932743
+            ]
+          },
+          "obstacle": {
+            "body_id": 29,
+            "body_name": "moka_pot_obstacle_1_main",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 213,
+            "margin_m": 0.0,
+            "name": "moka_pot_obstacle_1_g7",
+            "size_m": [
+              0.00672,
+              0.0275,
+              0.10648
+            ],
+            "type": "mjGEOM_BOX",
+            "world_position_m": [
+              -0.12473143056228359,
+              0.052367879067124146,
+              1.1455025964956516
+            ]
+          }
+        },
+        "min_substep_index": 124,
+        "minimum_contact_distance_m": null,
+        "raw_mj_contact_consistent": false,
+        "samples": 126
+      },
+      "measurement_samples": 126,
+      "minimum_geom_pair": [
+        "crfs_eef_sphere",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "raw_mujoco_clearance_m": -0.04498243929144219,
+      "raw_mujoco_minimum_geom_pair": [
+        "gripper0_hand_collision",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "start_eef_m": [
+        -0.20675139499612102,
+        -0.0015670191677797944,
+        1.1846722893463804
+      ],
+      "task_success": false
+    },
+    {
+      "clearance_m": -0.0308647268640119,
+      "contact": false,
+      "end_eef_m": [
+        -0.17215541744393512,
+        0.027524427445866514,
+        1.1793675180312955
+      ],
+      "measurement": {
+        "conservative_clearance_m": -0.0308647268640119,
+        "conservative_eef_center_m": [
+          -0.1707069459033991,
+          0.027323195814785397,
+          1.2593541508897106
+        ],
+        "conservative_eef_radius_m": 0.06,
+        "conservative_min_substep_index": 124,
+        "conservative_obstacle_center_m": [
+          -0.12473143056228359,
+          0.052367879067124146,
+          1.1455025964956516
+        ],
+        "conservative_obstacle_geom": "moka_pot_obstacle_1_g7",
+        "conservative_obstacle_half_size_m": [
+          0.00672,
+          0.0275,
+          0.10648
+        ],
+        "conservative_obstacle_rotation_world": [
+          -0.9014241966664519,
+          0.4329369665780899,
+          2.5187397271189555e-05,
+          0.4329369670501195,
+          0.9014241925794708,
+          8.714295215946586e-05,
+          1.5022876118218328e-05,
+          8.945732102796476e-05,
+          -0.9999999958858512
+        ],
+        "contact": false,
+        "contact_tolerance_m": 0.0001,
+        "distance_limit_m": 1.0,
+        "first_contact_distance_m": null,
+        "first_contact_substep_index": null,
+        "min_clearance_m": -0.04498243929144219,
+        "min_fromto_m": [
+          -0.1393128590775078,
+          0.04833133432589604,
+          1.182106890913695,
+          -0.15679395356696546,
+          0.03911904823560793,
+          1.2225168521243868
+        ],
+        "min_pair": [
+          "gripper0_hand_collision",
+          "moka_pot_obstacle_1_g7"
+        ],
+        "min_pair_metadata": {
+          "collision_enabled": true,
+          "eef": {
+            "body_id": 13,
+            "body_name": "gripper0_right_gripper",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 73,
+            "margin_m": 0.0,
+            "name": "gripper0_hand_collision",
+            "size_m": [
+              0.03164141185415645,
+              0.04867201348120918,
+              0.10394595510084442
+            ],
+            "type": "mjGEOM_MESH",
+            "world_position_m": [
+              -0.170849686465726,
+              0.027955856717803665,
+              1.252427647932743
+            ]
+          },
+          "obstacle": {
+            "body_id": 29,
+            "body_name": "moka_pot_obstacle_1_main",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 213,
+            "margin_m": 0.0,
+            "name": "moka_pot_obstacle_1_g7",
+            "size_m": [
+              0.00672,
+              0.0275,
+              0.10648
+            ],
+            "type": "mjGEOM_BOX",
+            "world_position_m": [
+              -0.12473143056228359,
+              0.052367879067124146,
+              1.1455025964956516
+            ]
+          }
+        },
+        "min_substep_index": 124,
+        "minimum_contact_distance_m": null,
+        "raw_mj_contact_consistent": false,
+        "samples": 126
+      },
+      "measurement_samples": 126,
+      "minimum_geom_pair": [
+        "crfs_eef_sphere",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "raw_mujoco_clearance_m": -0.04498243929144219,
+      "raw_mujoco_minimum_geom_pair": [
+        "gripper0_hand_collision",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "start_eef_m": [
+        -0.20675139499612102,
+        -0.0015670191677797944,
+        1.1846722893463804
+      ],
+      "task_success": false
+    },
+    {
+      "clearance_m": -0.0308647268640119,
+      "contact": false,
+      "end_eef_m": [
+        -0.17215541744393512,
+        0.027524427445866514,
+        1.1793675180312955
+      ],
+      "measurement": {
+        "conservative_clearance_m": -0.0308647268640119,
+        "conservative_eef_center_m": [
+          -0.1707069459033991,
+          0.027323195814785397,
+          1.2593541508897106
+        ],
+        "conservative_eef_radius_m": 0.06,
+        "conservative_min_substep_index": 124,
+        "conservative_obstacle_center_m": [
+          -0.12473143056228359,
+          0.052367879067124146,
+          1.1455025964956516
+        ],
+        "conservative_obstacle_geom": "moka_pot_obstacle_1_g7",
+        "conservative_obstacle_half_size_m": [
+          0.00672,
+          0.0275,
+          0.10648
+        ],
+        "conservative_obstacle_rotation_world": [
+          -0.9014241966664519,
+          0.4329369665780899,
+          2.5187397271189555e-05,
+          0.4329369670501195,
+          0.9014241925794708,
+          8.714295215946586e-05,
+          1.5022876118218328e-05,
+          8.945732102796476e-05,
+          -0.9999999958858512
+        ],
+        "contact": false,
+        "contact_tolerance_m": 0.0001,
+        "distance_limit_m": 1.0,
+        "first_contact_distance_m": null,
+        "first_contact_substep_index": null,
+        "min_clearance_m": -0.04498243929144219,
+        "min_fromto_m": [
+          -0.1393128590775078,
+          0.04833133432589604,
+          1.182106890913695,
+          -0.15679395356696546,
+          0.03911904823560793,
+          1.2225168521243868
+        ],
+        "min_pair": [
+          "gripper0_hand_collision",
+          "moka_pot_obstacle_1_g7"
+        ],
+        "min_pair_metadata": {
+          "collision_enabled": true,
+          "eef": {
+            "body_id": 13,
+            "body_name": "gripper0_right_gripper",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 73,
+            "margin_m": 0.0,
+            "name": "gripper0_hand_collision",
+            "size_m": [
+              0.03164141185415645,
+              0.04867201348120918,
+              0.10394595510084442
+            ],
+            "type": "mjGEOM_MESH",
+            "world_position_m": [
+              -0.170849686465726,
+              0.027955856717803665,
+              1.252427647932743
+            ]
+          },
+          "obstacle": {
+            "body_id": 29,
+            "body_name": "moka_pot_obstacle_1_main",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 213,
+            "margin_m": 0.0,
+            "name": "moka_pot_obstacle_1_g7",
+            "size_m": [
+              0.00672,
+              0.0275,
+              0.10648
+            ],
+            "type": "mjGEOM_BOX",
+            "world_position_m": [
+              -0.12473143056228359,
+              0.052367879067124146,
+              1.1455025964956516
+            ]
+          }
+        },
+        "min_substep_index": 124,
+        "minimum_contact_distance_m": null,
+        "raw_mj_contact_consistent": false,
+        "samples": 126
+      },
+      "measurement_samples": 126,
+      "minimum_geom_pair": [
+        "crfs_eef_sphere",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "raw_mujoco_clearance_m": -0.04498243929144219,
+      "raw_mujoco_minimum_geom_pair": [
+        "gripper0_hand_collision",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "start_eef_m": [
+        -0.20675139499612102,
+        -0.0015670191677797944,
+        1.1846722893463804
+      ],
+      "task_success": false
+    },
+    {
+      "clearance_m": -0.0308647268640119,
+      "contact": false,
+      "end_eef_m": [
+        -0.17215541744393512,
+        0.027524427445866514,
+        1.1793675180312955
+      ],
+      "measurement": {
+        "conservative_clearance_m": -0.0308647268640119,
+        "conservative_eef_center_m": [
+          -0.1707069459033991,
+          0.027323195814785397,
+          1.2593541508897106
+        ],
+        "conservative_eef_radius_m": 0.06,
+        "conservative_min_substep_index": 124,
+        "conservative_obstacle_center_m": [
+          -0.12473143056228359,
+          0.052367879067124146,
+          1.1455025964956516
+        ],
+        "conservative_obstacle_geom": "moka_pot_obstacle_1_g7",
+        "conservative_obstacle_half_size_m": [
+          0.00672,
+          0.0275,
+          0.10648
+        ],
+        "conservative_obstacle_rotation_world": [
+          -0.9014241966664519,
+          0.4329369665780899,
+          2.5187397271189555e-05,
+          0.4329369670501195,
+          0.9014241925794708,
+          8.714295215946586e-05,
+          1.5022876118218328e-05,
+          8.945732102796476e-05,
+          -0.9999999958858512
+        ],
+        "contact": false,
+        "contact_tolerance_m": 0.0001,
+        "distance_limit_m": 1.0,
+        "first_contact_distance_m": null,
+        "first_contact_substep_index": null,
+        "min_clearance_m": -0.04498243929144219,
+        "min_fromto_m": [
+          -0.1393128590775078,
+          0.04833133432589604,
+          1.182106890913695,
+          -0.15679395356696546,
+          0.03911904823560793,
+          1.2225168521243868
+        ],
+        "min_pair": [
+          "gripper0_hand_collision",
+          "moka_pot_obstacle_1_g7"
+        ],
+        "min_pair_metadata": {
+          "collision_enabled": true,
+          "eef": {
+            "body_id": 13,
+            "body_name": "gripper0_right_gripper",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 73,
+            "margin_m": 0.0,
+            "name": "gripper0_hand_collision",
+            "size_m": [
+              0.03164141185415645,
+              0.04867201348120918,
+              0.10394595510084442
+            ],
+            "type": "mjGEOM_MESH",
+            "world_position_m": [
+              -0.170849686465726,
+              0.027955856717803665,
+              1.252427647932743
+            ]
+          },
+          "obstacle": {
+            "body_id": 29,
+            "body_name": "moka_pot_obstacle_1_main",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 213,
+            "margin_m": 0.0,
+            "name": "moka_pot_obstacle_1_g7",
+            "size_m": [
+              0.00672,
+              0.0275,
+              0.10648
+            ],
+            "type": "mjGEOM_BOX",
+            "world_position_m": [
+              -0.12473143056228359,
+              0.052367879067124146,
+              1.1455025964956516
+            ]
+          }
+        },
+        "min_substep_index": 124,
+        "minimum_contact_distance_m": null,
+        "raw_mj_contact_consistent": false,
+        "samples": 126
+      },
+      "measurement_samples": 126,
+      "minimum_geom_pair": [
+        "crfs_eef_sphere",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "raw_mujoco_clearance_m": -0.04498243929144219,
+      "raw_mujoco_minimum_geom_pair": [
+        "gripper0_hand_collision",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "start_eef_m": [
+        -0.20675139499612102,
+        -0.0015670191677797944,
+        1.1846722893463804
+      ],
+      "task_success": false
+    },
+    {
+      "clearance_m": -0.0308647268640119,
+      "contact": false,
+      "end_eef_m": [
+        -0.17215541744393512,
+        0.027524427445866514,
+        1.1793675180312955
+      ],
+      "measurement": {
+        "conservative_clearance_m": -0.0308647268640119,
+        "conservative_eef_center_m": [
+          -0.1707069459033991,
+          0.027323195814785397,
+          1.2593541508897106
+        ],
+        "conservative_eef_radius_m": 0.06,
+        "conservative_min_substep_index": 124,
+        "conservative_obstacle_center_m": [
+          -0.12473143056228359,
+          0.052367879067124146,
+          1.1455025964956516
+        ],
+        "conservative_obstacle_geom": "moka_pot_obstacle_1_g7",
+        "conservative_obstacle_half_size_m": [
+          0.00672,
+          0.0275,
+          0.10648
+        ],
+        "conservative_obstacle_rotation_world": [
+          -0.9014241966664519,
+          0.4329369665780899,
+          2.5187397271189555e-05,
+          0.4329369670501195,
+          0.9014241925794708,
+          8.714295215946586e-05,
+          1.5022876118218328e-05,
+          8.945732102796476e-05,
+          -0.9999999958858512
+        ],
+        "contact": false,
+        "contact_tolerance_m": 0.0001,
+        "distance_limit_m": 1.0,
+        "first_contact_distance_m": null,
+        "first_contact_substep_index": null,
+        "min_clearance_m": -0.04498243929144219,
+        "min_fromto_m": [
+          -0.1393128590775078,
+          0.04833133432589604,
+          1.182106890913695,
+          -0.15679395356696546,
+          0.03911904823560793,
+          1.2225168521243868
+        ],
+        "min_pair": [
+          "gripper0_hand_collision",
+          "moka_pot_obstacle_1_g7"
+        ],
+        "min_pair_metadata": {
+          "collision_enabled": true,
+          "eef": {
+            "body_id": 13,
+            "body_name": "gripper0_right_gripper",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 73,
+            "margin_m": 0.0,
+            "name": "gripper0_hand_collision",
+            "size_m": [
+              0.03164141185415645,
+              0.04867201348120918,
+              0.10394595510084442
+            ],
+            "type": "mjGEOM_MESH",
+            "world_position_m": [
+              -0.170849686465726,
+              0.027955856717803665,
+              1.252427647932743
+            ]
+          },
+          "obstacle": {
+            "body_id": 29,
+            "body_name": "moka_pot_obstacle_1_main",
+            "conaffinity": 1,
+            "contype": 1,
+            "gap_m": 0.0,
+            "id": 213,
+            "margin_m": 0.0,
+            "name": "moka_pot_obstacle_1_g7",
+            "size_m": [
+              0.00672,
+              0.0275,
+              0.10648
+            ],
+            "type": "mjGEOM_BOX",
+            "world_position_m": [
+              -0.12473143056228359,
+              0.052367879067124146,
+              1.1455025964956516
+            ]
+          }
+        },
+        "min_substep_index": 124,
+        "minimum_contact_distance_m": null,
+        "raw_mj_contact_consistent": false,
+        "samples": 126
+      },
+      "measurement_samples": 126,
+      "minimum_geom_pair": [
+        "crfs_eef_sphere",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "raw_mujoco_clearance_m": -0.04498243929144219,
+      "raw_mujoco_minimum_geom_pair": [
+        "gripper0_hand_collision",
+        "moka_pot_obstacle_1_g7"
+      ],
+      "start_eef_m": [
+        -0.20675139499612102,
+        -0.0015670191677797944,
+        1.1846722893463804
+      ],
+      "task_success": false
+    }
+  ],
+  "sample_counts_correct": true,
+  "schema_version": "1.0",
+  "simulator_deterministic": true,
+  "status": "passed"
+}

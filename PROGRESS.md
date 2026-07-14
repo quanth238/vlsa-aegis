@@ -17,20 +17,26 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 - Slurm job `27079` completed conversion in 1m57s. `model.safetensors` is 6.8 GB with SHA-256 `988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed`; normalization assets are present.
 - Slurm job `27082` loaded the converted policy and opened the WebSocket server, then failed before simulation because SafeLIBERO attempted an interactive first-import config prompt. No research result was written; server cleanup succeeded.
 - Slurm job `27083` passed noninteractive SafeLIBERO import and began the paired run. It exposed `hard_reset=True` recompiling the MuJoCo scene for every branch; after exact-job inspection and confirming no result existed, job `27083` alone was canceled. The runner now uses soft reset plus fixed-state restoration and emits structured progress events.
+- Slurm job `27091` isolated a false raw `mj_geomDistance` signal to the `gripper0_hand_collision` mesh versus an obstacle box. The raw query was negative while the collision-enabled pair had no contact, so projection was stopped before optimization.
+- Slurm job `27096` calibrated the controlled sphere--box primitive on 261 states: zero boundary error over 23 samples within $\pm1$ cm, zero sign disagreements, and first contact at -0.603 mm for a 1 mm sweep step.
+- Slurm jobs `27116` and `27117` completed the strict H03 manifest: 50 unique saved states, five identical replays per state, 126 measurements per replay, zero clearance variation, zero endpoint-coordinate variation, and no conservative-proxy contact miss.
+- H03 population composition was 20 proxy-colliding, 30 proxy-safe, and 4 physical-contact cases. Sixteen cases reproduced the raw mesh-query inconsistency, which is now advisory-only evidence rather than the primary safety signal.
+- The H03 summary and minimum-pair visualization are committed under `evidence/h03/`; raw allocation artifacts remain under `/mnt/data/quanth/experiments/crfs-oracle/h03-population-20260714a`.
 
 ## Active gate
 
-`H03-measurement-audit`: verify the new 25-substep callback and geom-distance/contact monitor inside a real SafeLIBERO allocation.
+`H04-kinematics-calibration`: estimate the controller action-to-EEF response and compare independent `D_opt` predictions with physics-substep `D_sim` measurements on held-out prefixes.
 
 ## Next
 
-1. Re-run the one-case smoke with an explicit noninteractive SafeLIBERO path config.
-2. Run one paired oracle case with fixed state and noise.
-3. Audit the result schema and limitations before deciding whether validation-scale experiments are justified.
+1. Pre-register the action-probe amplitudes and D_opt/D_sim transfer tolerance.
+2. Measure the world-frame OSC response matrix on calibration states and evaluate held-out prefixes.
+3. Advance to the direct projection teacher only if positive-margin predictions transfer without false-safe cases.
 
 ## Open scientific risks
 
-- The first runner uses simulator geometry during optimization, so it does not yet establish an independent `D_opt` versus `D_sim` audit.
+- The first runner uses simulator geometry during optimization, so it does not yet establish an independent `D_opt` versus `D_sim` audit; it remains disabled until H04 passes.
+- Raw MuJoCo mesh--box `mj_geomDistance` is unreliable in this stack. The primary controlled metric is the proposal's EEF-sphere/known-box signed distance evaluated from simulator transforms; physical contacts remain a one-way conservatism check.
 - Released SafeLIBERO obstacles are movable; the proposal preregisters a static asymmetric-convex controlled pilot.
 - A one-case smoke cannot pass the population-level oracle gate; it only validates the causal experiment apparatus.
 - Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting outcomes.

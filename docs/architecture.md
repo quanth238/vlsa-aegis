@@ -34,7 +34,8 @@ CRFS reuses this boundary. It does not combine the simulator and large model int
 ## Safety and evidence boundaries
 
 - `D_opt` is the clearance model used by offline label optimization.
-- `D_sim` is the independently reported MuJoCo geom distance/contact measurement.
+- `D_sim` is the independently reported EEF-sphere/oriented-box distance computed from MuJoCo substep transforms, with physical contact as a one-way conservatism check.
+- Raw mesh--box `mj_geomDistance` is stored for diagnosis only after H03 found false negative values without contacts in 16/50 states.
 - The current preliminary runner queries `D_sim` during optimization and therefore cannot pass the D_opt/D_sim independence gate. This is explicit provenance, not hidden technical debt.
 - The direct repaired action is a teacher upper bound, not a flow-steering result.
 - Equal-norm random and oracle interventions use the same observation, noise, step, and correction norm.
