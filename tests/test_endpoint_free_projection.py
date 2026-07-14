@@ -52,6 +52,14 @@ def _search(**overrides):
 
 
 class EndpointFreeProjectionTest(unittest.TestCase):
+    def test_runtime_type_alias_supports_python38_allocation(self) -> None:
+        source = MODULE_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "ProgressFn = Callable[[Tuple[Tuple[float, float, float], ...]], float]",
+            source,
+        )
+        self.assertNotIn("ProgressFn = Callable[[tuple[", source)
+
     def test_candidate_changes_endpoint_and_preserves_other_channels(self) -> None:
         nominal = _nominal()
         result = _search(nominal_prefix=nominal)

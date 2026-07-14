@@ -19,10 +19,13 @@ import math
 import random
 from dataclasses import asdict, dataclass
 from numbers import Real
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Sequence, Tuple
 
 
-ProgressFn = Callable[[tuple[tuple[float, float, float], ...]], float]
+# This alias is evaluated at import time even with ``annotations`` postponed.
+# SafeLIBERO's allocation environment is Python 3.8, so use ``typing.Tuple``
+# rather than the PEP 585 ``tuple[...]`` syntax introduced in Python 3.9.
+ProgressFn = Callable[[Tuple[Tuple[float, float, float], ...]], float]
 
 
 @dataclass(frozen=True)
