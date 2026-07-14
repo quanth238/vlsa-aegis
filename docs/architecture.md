@@ -29,6 +29,7 @@ CRFS reuses this boundary. It does not combine the simulator and large model int
 | Policy transforms | `openpi.policies.Policy` | Remove `__crfs__`, scale physical displacement without offset, pad |
 | Flow integration | `PI0Pytorch.sample_actions` | Trace and opt-in residual/bridge arms; default unchanged |
 | Oracle runner | new `main/crfs_oracle` | Branch, repair, execute, measure, and write atomic paired artifacts |
+| Endpoint-free reach gate | new `main/crfs_oracle` modules | Calibrate reach progress, search with `D_opt`, and independently replay with `D_sim` |
 | Harness | new `src/crfs_harness` | Manifests, schemas, atomic output, aggregation, synthetic fixture |
 
 ## Safety and evidence boundaries

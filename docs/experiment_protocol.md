@@ -52,3 +52,52 @@ The primary oracle population is `D(A-) < 0` and a feasible verified repair. Sep
 - Stop if direct repaired safety is below 0.95 over feasible cases.
 - If five-step feasibility is below 0.40, try H=10 once; if it remains below 0.60, reject the local endpoint-preserving premise.
 - If oracle steering does not beat equal-norm random after registered intervention-time fallbacks, do not train a learned predictor.
+
+## Endpoint-free pivot after H05
+
+H05 is preserved as a terminal negative result for exact endpoint equivalence.
+The new sequence is opt-in and does not reinterpret H05 as a solver failure.
+
+### R00: reach-progress calibration
+
+The frozen 20 H05 branches are initial pre-grasp reach states for
+`safelibero_spatial:II:0`, not post-grasp transport states. For the same-case
+diagnostic, freeze `akita_black_bowl_1` at its branch-start position and define
+
+```text
+DeltaPhi_reach = ||eef_0 - target_0|| - ||eef_5 - target_0||.
+```
+
+Use the first five executed actions. Calibrate `p_min` as the `inverted_cdf`
+lower quartile of positive nominal progress among at least 50 simulator-safe,
+phase-valid chunks from episode groups disjoint from R01. Reject calibration
+chunks that move the target bowl or active obstacle beyond 1 mm. Retain and
+report unsafe, nonpositive, moved-object, and invalid-phase cases.
+
+### R01: endpoint-free physical feasibility
+
+Search all 5x3 translation commands under action bounds with no zero-sum or
+fixed-endpoint constraint. Keep nominal orientation and gripper commands. The
+frozen H04 response and static branch boxes provide `D_opt` for candidate
+search only. Direct repeated simulator replay decides whether a witness has:
+
+- `D_sim >= 5 mm` at the branch point and all 125 physics substeps;
+- no forbidden EEF--obstacle contact;
+- `DeltaPhi_reach >= p_min`;
+- target-bowl and active-obstacle displacement at most 1 mm.
+
+Also search and report witnesses at `p = 0`. A case safe at `p = 0` but not at
+`p_min` diagnoses a short-horizon progress conflict rather than absence of a
+local safe detour. A finite search miss is `not_found_within_budget`, never an
+infeasibility certificate. The development gate passes at 12/20 verified
+safe-progress witnesses.
+
+### R02--R04: causal ordering
+
+After R01 passes, compare a direct planner reference, endpoint-free oracle flow
+direction, analytic geometry direction, and equal-norm random direction under
+identical state, observation, policy noise, and executed horizon. Only a
+passing paired oracle intervention and grouped analysis can authorize probe
+training. Probe labels must describe the actual deterministic continuation (or
+the rolled-out approximate-clean action), not pair `A_hat_t` with the clearance
+of a different action.

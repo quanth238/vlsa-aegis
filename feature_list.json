@@ -12,6 +12,11 @@
     {"id": "H07", "name": "Sampler trace", "description": "PyTorch conversion parity and residual sign/integral validated", "dependencies": ["H06"], "status": "blocked", "evidence": "Not run after the preregistered H05 stop rule."},
     {"id": "H08", "name": "Oracle intervention", "description": "Paired nominal/random/oracle/direct arms execute", "dependencies": ["H07"], "status": "blocked", "evidence": "Not run after the preregistered H05 stop rule."},
     {"id": "H09", "name": "Oracle analysis", "description": "Preregistered population metrics and clustered CIs decide go/no-go", "dependencies": ["H08"], "status": "blocked", "evidence": "Not run after the preregistered H05 stop rule."},
-    {"id": "H10", "name": "Report and handoff", "description": "Evidence, limitations, decision, and reproducible commands published", "dependencies": ["H09"], "status": "passing", "evidence": "Terminal negative result recorded in evidence/h05 and decision 0005."}
+    {"id": "H10", "name": "Report and handoff", "description": "Evidence, limitations, decision, and reproducible commands published", "dependencies": ["H09"], "status": "passing", "evidence": "Terminal negative result recorded in evidence/h05 and decision 0005."},
+    {"id": "R00", "name": "Reach progress calibration", "description": "Freeze a first-five pre-grasp reach-progress threshold on baseline-safe calibration groups", "dependencies": ["H10"], "status": "active", "evidence": "In progress: endpoint-free formulation review accepted; no threshold frozen yet."},
+    {"id": "R01", "name": "Endpoint-free reach feasibility", "description": "Find and simulator-verify safe-progress witnesses on the frozen 20 H05 cases", "dependencies": ["R00"], "status": "not_started", "evidence": ""},
+    {"id": "R02", "name": "Oracle flow steerability", "description": "Compare endpoint-free oracle flow intervention with equal-norm random guidance", "dependencies": ["R01"], "status": "not_started", "evidence": ""},
+    {"id": "R03", "name": "Oracle analysis", "description": "Use paired grouped inference to decide whether learned clearance guidance is authorized", "dependencies": ["R02"], "status": "not_started", "evidence": ""},
+    {"id": "R04", "name": "Learned ECG probe", "description": "Train and test a scalar continuation-clearance probe only after the oracle gates pass", "dependencies": ["R03"], "status": "not_started", "evidence": ""}
   ]
 }

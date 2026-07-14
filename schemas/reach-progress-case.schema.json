@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/quanth238/vlsa-aegis/schemas/reach-progress-case.schema.json",
+  "title": "R00 reach-progress calibration case",
+  "type": "object",
+  "required": ["schema_version", "gate", "case_id", "run_id", "status", "config_hash", "provenance", "nominal", "trial"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "gate": {"const": "R00"},
+    "case_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["eligible_positive", "nonpositive_progress", "unsafe", "target_moved", "obstacle_moved", "invalid_phase"]},
+    "config_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provenance": {"type": "object"},
+    "nominal": {"type": "object", "required": ["actions", "actions_sha256", "full_model_actions_sha256"]},
+    "trial": {
+      "type": "object",
+      "required": ["clearance_m", "contact", "reach", "eligible_for_p_min", "simulator_safety_margin_m"],
+      "properties": {
+        "clearance_m": {"type": "number"},
+        "contact": {"type": "boolean"},
+        "eligible_for_p_min": {"type": "boolean"},
+        "reach": {
+          "type": "object",
+          "required": ["executed_actions", "reach_progress_m", "target_displacement_m", "active_obstacle_displacement_m"]
+        }
+      }
+    }
+  }
+}

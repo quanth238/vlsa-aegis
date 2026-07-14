@@ -5,3 +5,4 @@
 - [0003 — Treat residual and one-shot bridge edits as separate interventions](docs/decisions/0003-intervention-semantics.md)
 - [0004 — Use the calibrated primitive metric as D_sim](docs/decisions/0004-calibrated-primitive-distance.md)
 - [0005 — Stop at endpoint infeasibility](docs/decisions/0005-stop-at-endpoint-infeasibility.md)
+- [0006 — Test endpoint-free reach feasibility before ECG](docs/decisions/0006-test-endpoint-free-reach-before-ecg.md)

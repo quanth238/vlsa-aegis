@@ -1,0 +1,1 @@
+{"case_id": "crfs-93365b8b851365f2", "environment_seed": 1635240984, "episode_index": 2, "group_id": "safelibero_spatial:II:0:2", "policy_seed": 1250848483, "random_control_seed": 98711256, "safety_level": "II", "schema_version": "1.0", "task_index": 0, "task_suite": "safelibero_spatial"}

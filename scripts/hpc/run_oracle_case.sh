@@ -14,6 +14,7 @@ set -euo pipefail
 : "${CASE_START:=}"
 : "${CASE_END:=}"
 : "${EXPERIMENT_CONFIG:=$REMOTE_REPO/configs/experiments/oracle_smoke.json}"
+: "${CRFS_RUNNER_MODE:=oracle}"
 if [ -z "${PORT:-}" ]; then
   PORT=$((8130 + ${SLURM_ARRAY_TASK_ID:-0}))
 fi
@@ -141,13 +142,31 @@ COMMON_ARGS=(
   --checkpoint-id "$CHECKPOINT_DIR"
   --checkpoint-sha256 "$CHECKPOINT_SHA256"
 )
-if [ -n "$CASE_START" ]; then
-  "$LIBERO_PYTHON" main/run_crfs_measurement_batch.py \
-    "${COMMON_ARGS[@]}" --case-start "$CASE_START" --case-end "$CASE_END" >"$CLIENT_LOG" 2>&1
-else
-  "$LIBERO_PYTHON" main/run_crfs_oracle.py \
-    "${COMMON_ARGS[@]}" --case-index "$CASE_INDEX" >"$CLIENT_LOG" 2>&1
-fi
+case "$CRFS_RUNNER_MODE" in
+  oracle)
+    if [ -n "$CASE_START" ]; then
+      "$LIBERO_PYTHON" main/run_crfs_measurement_batch.py \
+        "${COMMON_ARGS[@]}" --case-start "$CASE_START" --case-end "$CASE_END" >"$CLIENT_LOG" 2>&1
+    else
+      "$LIBERO_PYTHON" main/run_crfs_oracle.py \
+        "${COMMON_ARGS[@]}" --case-index "$CASE_INDEX" >"$CLIENT_LOG" 2>&1
+    fi
+    ;;
+  reach_calibration)
+    test -n "$CASE_START" || { echo "reach_calibration requires CASE_START/CASE_END" >&2; exit 2; }
+    "$LIBERO_PYTHON" main/run_reach_progress_batch.py \
+      "${COMMON_ARGS[@]}" --case-start "$CASE_START" --case-end "$CASE_END" >"$CLIENT_LOG" 2>&1
+    ;;
+  endpoint_free)
+    test -z "$CASE_START" || { echo "endpoint_free currently requires one array-indexed case" >&2; exit 2; }
+    "$LIBERO_PYTHON" main/run_crfs_endpoint_free.py \
+      "${COMMON_ARGS[@]}" --case-index "$CASE_INDEX" >"$CLIENT_LOG" 2>&1
+    ;;
+  *)
+    echo "unknown CRFS_RUNNER_MODE=$CRFS_RUNNER_MODE" >&2
+    exit 2
+    ;;
+esac
 
 if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
   kill "$SERVER_PID" 2>/dev/null || true

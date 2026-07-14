@@ -14,4 +14,20 @@ These are pilot decision criteria, not deployment guarantees.
 
 If H05 five-step feasibility is below 0.40, H=10 may be tested once. If feasibility remains below 0.60, pivot to longer-horizon planning. If the midpoint intervention fails, only `t_s` 0.3 and 0.1 may be tested on validation. If none significantly beats equal-norm random, reject this intervention representation.
 
-No learned steering network is authorized before H09 passes.
+The stopped H sequence never authorized a learned steering network. Under the
+endpoint-free pivot, R03 is the replacement oracle-analysis prerequisite.
+
+## Endpoint-free pivot gates
+
+| Gate | Evidence | Pass condition |
+|---|---|---|
+| R00 reach calibration | complete nominal first-five artifacts on disjoint calibration groups | at least 50 safe, phase-valid, positive-progress chunks; frozen `inverted_cdf` Q25 artifact |
+| R01 endpoint-free feasibility | frozen 20 H05 cases; bounded proxy search plus repeated direct simulator verification | at least 12/20 have `D_sim >= 5 mm`, no contact/pushing, and reach progress at least `p_min` |
+| R02 oracle intervention | same state/observation/noise/horizon direct, random, analytic, and endpoint-free oracle arms | schema-valid paired artifacts; direct witnesses remain separate from flow outcomes |
+| R03 oracle analysis | complete episode groups and clustered intervals | oracle direction beats equal-norm random under preregistered safety-progress criteria |
+| R04 learned ECG | continuation-matched labels, false-safe audit, gradient causality, closed-loop test | authorized only after R03 passes |
+
+R01 search exhaustion is not a certificate. Report model candidates, verified
+witnesses, proxy false-safe/false-negative cases, safe-without-calibrated-
+progress cases, and invalid states separately. Never tune `p_min`, search
+budget, guidance time, or guidance strength on the frozen 20-case population.

@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "name": "endpoint_free_reach_h5",
+  "evidence_tier": "real_safelibero_preliminary",
+  "ready_to_run": false,
+  "blocked_on": [
+    "CRFS_RUNNER_MODE=endpoint_free integration",
+    "frozen reach-progress calibration artifact"
+  ],
+  "manifest": "manifests/oracle_h05_colliding.jsonl",
+  "task_suite": "safelibero_spatial",
+  "safety_level": "II",
+  "task_index": 0,
+  "resize_size": 224,
+  "settle_steps": 20,
+  "executed_prefix": 5,
+  "action_horizon": 10,
+  "action_dim": 32,
+  "sampler_steps": 10,
+  "safety_margin_m": 0.005,
+  "distance_limit_m": 1.0,
+  "eef_radius_m": 0.06,
+  "measurement_repeats": 2,
+  "stop_after_measurement": false,
+  "response_matrix_m_per_action": [
+    [0.009370281145853376, 0.00014623337157483132, -0.0009171200705674251],
+    [0.0000039560765073778535, 0.012040711768393353, 0.0000006816739267718219],
+    [-0.002845391485346128, 0.000025633541617775525, 0.011826427878652547]
+  ],
+  "progress": {
+    "phase": "pregrasp_reach",
+    "target_object": "akita_black_bowl_1",
+    "reference_position": "frozen_branch_target_position",
+    "metric": "start_eef_target_distance_minus_end_eef_target_distance",
+    "minimum_progress_m": null,
+    "calibration_artifact": null,
+    "calibration_sha256": null,
+    "reject_target_motion_above_m": 0.001
+  },
+  "planner": {
+    "method": "slsqp_deterministic_multistart",
+    "objective": "minimum_squared_translation_change",
+    "endpoint_preservation": false,
+    "optimizer_safety_margin_m": 0.01,
+    "simulator_safety_margin_m": 0.005,
+    "optimizer_max_iterations": 120,
+    "simulator_verification_candidates": 3,
+    "planner_seed": 20260714,
+    "no_candidate_status": "no_verified_plan"
+  },
+  "action_frame": "world-frame OSC translation delta",
+  "correction_space": "physical",
+  "allow_test_tuning": false
+}

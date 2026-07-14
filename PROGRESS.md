@@ -30,13 +30,14 @@ Baseline: THU-RCSCT/VLSA-Aegis commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 
 ## Active gate
 
-None. The experiment reached a terminal negative decision at H05.
+R00 — freeze a five-action pre-grasp reach-progress threshold on baseline-safe calibration groups. The frozen H05 cases are initial reach states, not transport states; `akita_black_bowl_1` is the fixed branch-start target.
 
 ## Next
 
-1. Preserve this branch as the reproducible negative-result harness.
-2. Start a new formulation only if endpoint equivalence is replaced by task-level preservation, or intervention moves to an earlier/global planner.
-3. Re-run H03/H04 calibration for any changed geometry, controller, or task before comparing methods.
+1. Add opt-in reach-progress measurement and freeze `p_min` without using the 20 evaluation groups.
+2. Run endpoint-free five-action planning on the same 20 H05 cases and count only direct simulator-verified safe-progress witnesses.
+3. If at least 12/20 witnesses exist, test endpoint-free oracle flow steerability against equal-norm random guidance before training any probe.
+4. Collect new post-grasp states if a separate transport-phase claim is pursued.
 
 ## Open scientific risks
 
@@ -44,3 +45,5 @@ None. The experiment reached a terminal negative decision at H05.
 - Released SafeLIBERO obstacles are movable; the proposal preregisters a static asymmetric-convex controlled pilot.
 - The endpoint certificate is relative to the frozen H04 linear response and static branch geometry; it rejects this registered local-equivalence formulation, not all possible collision-avoidance planners.
 - Exact PyTorch conversion parity with the public JAX checkpoint must be measured before interpreting outcomes.
+- The 30 calibration groups may require multiple fixed policy-noise samples to yield 50 valid safe-progress chunks; all inference must continue to preserve complete episode groups.
+- A bounded endpoint-free search miss is not an infeasibility certificate. Only a simulator-verified witness proves existence.

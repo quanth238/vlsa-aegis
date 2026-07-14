@@ -2,11 +2,15 @@
 
 This repository is a baseline-first research harness for testing Counterfactual Residual Flow Steering (CRFS) in π0.5 on SafeLIBERO. The Git history and implementation start from [THU-RCSCT/VLSA-Aegis](https://github.com/THU-RCSCT/vlsa-aegis) commit `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`. CRFS is an additive experiment layer, not a replacement benchmark or a clean-room reimplementation.
 
-The immediate question is deliberately narrower than learning a safety probe:
+The original oracle question was deliberately narrower than learning a safety probe:
 
 > Given the exact nearest safe, endpoint-preserving correction for a colliding five-action prefix, can an intervention inside the frozen π0.5 action flow rescue the same observation–noise sample more often than an equal-norm random direction?
 
-If the oracle direction is not causal, the project stops before training a predictor.
+H05 stopped before that intervention: exact endpoint preservation made all 20
+five-action and all 20 ten-action repairs analytically infeasible. The active
+R00/R01 pivot now asks whether the same pre-grasp reach states admit any
+endpoint-free action that preserves calibrated task progress. A learned probe
+remains forbidden until endpoint-free oracle intervention and analysis pass.
 
 ## Baseline and extensions
 
@@ -16,18 +20,21 @@ The released baseline remains in its original locations:
 - `safelibero/`: SafeLIBERO task definitions, initial states, objects, and environment wrappers;
 - `openpi/`: the baseline OpenPI fork and π0.5 policy stack.
 
-CRFS adds four opt-in seams:
+The harness adds opt-in seams:
 
 1. the PyTorch sampler can expose the midpoint trace and apply either distributed residual velocity or a one-shot bridge edit;
 2. policy requests may carry a reserved `__crfs__` control envelope with fixed noise and a physical or normalized correction;
 3. SafeLIBERO can call back after each hidden MuJoCo physics substep without changing ordinary `env.step`;
 4. `main/crfs_oracle/` runs same-state/same-noise nominal, direct-repair, equal-norm random, oracle-residual, and bridge-edit branches.
+5. the R00/R01 path separately measures five-action reach progress and searches
+   endpoint-free candidates while keeping `D_opt` and direct `D_sim` verification distinct.
 
 No-control sampler calls retain the baseline return type and integration path.
 
 ## Evidence ladder
 
-The harness is organized into gates H00–H10 in `feature_list.json`. The current gate is H03, allocation-backed measurement audit.
+The completed CRFS sequence is H00–H10; the endpoint-free pivot is R00–R04 in
+`feature_list.json`. R00 is the only active gate.
 
 ```text
 baseline + provenance + replay
@@ -40,9 +47,17 @@ projection teacher -> direct A+ replay -> sampler trace/sign
              |
              v
 paired oracle intervention -> population analysis -> go / stop
+
+H05 endpoint contradiction -> R00 progress calibration
+                              -> R01 endpoint-free feasibility
+                              -> R02/R03 oracle steerability and analysis
+                              -> R04 learned probe only after oracle success
 ```
 
-The dependency-free synthetic fixture checks artifact and intervention plumbing only. Real artifacts currently use `real_safelibero_preliminary` because two preregistered conditions remain unresolved: the optimizer is not yet independent of `D_sim`, and released SafeLIBERO obstacles are movable rather than a static asymmetric-convex controlled pilot.
+The dependency-free synthetic fixture checks implementation only. Real artifacts
+remain preliminary: released SafeLIBERO obstacles are movable, the calibrated
+6 cm EEF sphere is a controlled proxy rather than full-arm geometry, and H04's
+response model is independently validated only over its registered action range.
 
 ## Local verification
 
@@ -61,7 +76,7 @@ Real execution uses the existing two-environment baseline boundary: Python 3.11/
 
 ```bash
 scripts/hpc/preflight.sh
-scripts/hpc/submit_oracle_smoke.sh manifests/oracle_smoke.jsonl
+scripts/hpc/submit_reach_progress_smoke.sh manifests/reach_progress_smoke.jsonl
 ```
 
 Do not submit a validation array until:
@@ -69,7 +84,7 @@ Do not submit a validation array until:
 - the converted PyTorch checkpoint has a recorded hash and parity evidence;
 - deterministic policy and simulator replay pass;
 - the substep geometry/contact audit passes;
-- one `results.json` validates;
+- one `reach-calibration.json` validates;
 - the preliminary scientific deviations are reviewed.
 
 The detailed procedure is in [the experiment protocol](docs/experiment_protocol.md) and [VinUni runbook](docs/infrastructure/vinuni_h100_runbook.md).

@@ -12,3 +12,9 @@ selection creates a new run ID and manifest rather than mutating old evidence.
 `oracle_smoke.jsonl` is the checked-in one-case apparatus smoke. Its immutable
 identity is part of the first allocation-backed audit; replace it only by
 creating a new named manifest and recording the decision.
+
+`reach_progress_calibration.jsonl` is the R00 calibration schedule: four fixed
+policy-noise samples on each of the 30 H03-safe episode groups that are disjoint
+from the frozen 20-case H05/R01 population. `reach_progress_smoke.jsonl` is its
+first immutable row. Repeated noise samples do not create independent episode
+groups; all later inference retains the `group_id` clustering.
