@@ -16,6 +16,7 @@ CONFIG_LOCAL=${2:-configs/experiments/r05a_inverse_flow_canary.json}
 SCHEMA_LOCAL=schemas/r05a-inverse-flow-canary.schema.json
 DECISION_LOCAL=docs/decisions/0028-pivot-to-inverse-flow-transport.md
 R03_SUMMARY_LOCAL=evidence/r03/r03-summary.json
+ALLOCATION_TEST_REGISTRY_LOCAL=main/crfs_oracle/r05a_allocation_tests.json
 REMOTE_MANIFEST=$REMOTE_REPO/manifests/$(basename "$MANIFEST_LOCAL")
 REMOTE_CONFIG=$REMOTE_REPO/configs/experiments/$(basename "$CONFIG_LOCAL")
 R02_RAW_ROOT=/mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a
@@ -29,7 +30,9 @@ EXPECTED_DECISION_SHA256=d2a00b1b049e92bb1ec8f11d60fa447e5e8bd5109cb8cf3f3fbb08f
 EXPECTED_R03_SUMMARY_SHA256=dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e
 EXPECTED_CHECKPOINT_SHA256=988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed
 
-for path in "$MANIFEST_LOCAL" "$CONFIG_LOCAL" "$SCHEMA_LOCAL" "$DECISION_LOCAL" "$R03_SUMMARY_LOCAL"; do
+for path in \
+  "$MANIFEST_LOCAL" "$CONFIG_LOCAL" "$SCHEMA_LOCAL" "$DECISION_LOCAL" \
+  "$R03_SUMMARY_LOCAL" "$ALLOCATION_TEST_REGISTRY_LOCAL"; do
   test -f "$path" || { echo "missing frozen R05A input: $path" >&2; exit 2; }
 done
 test "$(shasum -a 256 "$MANIFEST_LOCAL" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256" || {
@@ -53,11 +56,15 @@ git ls-files --error-unmatch \
   "$CONFIG_LOCAL" \
   "$SCHEMA_LOCAL" \
   "$DECISION_LOCAL" \
+  "$ALLOCATION_TEST_REGISTRY_LOCAL" \
   main/crfs_oracle/r05a_canary.py \
   main/run_crfs_r05a_canary.py \
   main/finalize_crfs_r05a_canary.py \
   main/validate_crfs_r05a_canary.py \
   tests/test_r05a_canary.py \
+  tests/test_cgroup_memory_resolver.py \
+  scripts/hpc/lib/cgroup_memory.sh \
+  scripts/hpc/lib/r05a_allocation_tests.sh \
   scripts/hpc/run_r05a_canary.sh \
   scripts/hpc/validate_r05a_canary.sh \
   scripts/hpc/submit_r05a_canary.sh \
@@ -99,6 +106,7 @@ expected_checkpoint_sha=${14}
 schema=$remote_repo/schemas/r05a-inverse-flow-canary.schema.json
 decision=$remote_repo/docs/decisions/0028-pivot-to-inverse-flow-transport.md
 r03_summary=$remote_repo/evidence/r03/r03-summary.json
+allocation_test_registry=$remote_repo/main/crfs_oracle/r05a_allocation_tests.json
 source_r02=$r02_raw_root/crfs-1069f29a8d76463a/r02-paired.json
 checkpoint=$checkpoint_dir/model.safetensors
 gpu_slurm=$remote_repo/slurm/r05a_canary_h100.sbatch
@@ -109,7 +117,10 @@ receipt=$run_root/cpu-afterany-validation.json
 
 for path in \
   "$manifest" "$config" "$schema" "$decision" "$r03_summary" \
+  "$allocation_test_registry" \
   "$source_r02" "$checkpoint" "$gpu_slurm" "$cpu_slurm" \
+  "$remote_repo/scripts/hpc/lib/cgroup_memory.sh" \
+  "$remote_repo/scripts/hpc/lib/r05a_allocation_tests.sh" \
   "$remote_repo/scripts/hpc/run_r05a_canary.sh" \
   "$remote_repo/scripts/hpc/validate_r05a_canary.sh"; do
   test -e "$path" || { echo "missing remote R05A input: $path" >&2; exit 2; }

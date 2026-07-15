@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "suites": [
+    {
+      "pattern": "test_inverse_flow_control.py",
+      "expected_tests": 17
+    },
+    {
+      "pattern": "test_inverse_flow_sampler.py",
+      "expected_tests": 8
+    },
+    {
+      "pattern": "test_inverse_flow_policy.py",
+      "expected_tests": 10
+    },
+    {
+      "pattern": "test_r05a_canary.py",
+      "expected_tests": 12
+    }
+  ]
+}

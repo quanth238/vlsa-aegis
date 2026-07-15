@@ -18,6 +18,8 @@ CANARY_PATH = ROOT / "main" / "crfs_oracle" / "r05a_canary.py"
 RUNNER_PATH = ROOT / "scripts" / "hpc" / "run_r05a_canary.sh"
 SUBMIT_PATH = ROOT / "scripts" / "hpc" / "submit_r05a_canary.sh"
 GPU_SLURM_PATH = ROOT / "slurm" / "r05a_canary_h100.sbatch"
+ALLOCATION_TEST_REGISTRY_PATH = ROOT / "main" / "crfs_oracle" / "r05a_allocation_tests.json"
+ALLOCATION_TEST_HELPER_PATH = ROOT / "scripts" / "hpc" / "lib" / "r05a_allocation_tests.sh"
 
 
 class R05ACanaryStructuralTest(unittest.TestCase):
@@ -47,26 +49,50 @@ class R05ACanaryStructuralTest(unittest.TestCase):
         self.assertIn("--nodelist=worker-1", source)
         self.assertIn("test ! -e \"$run_root\"", source)
 
-        # The allocation wrapper deliberately freezes zero-skip suite counts.
-        # Bind those counts to the checked-in test declarations so adding a
-        # test cannot silently make every real allocation fail before pi0.5.
+        # One ordered data file owns every expected count. The shell executes
+        # that file, Python finalization loads it, and discovery independently
+        # proves that its reviewed counts still describe the checked-in tests.
+        registry = json.loads(ALLOCATION_TEST_REGISTRY_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(set(registry), {"schema_version", "suites"})
+        self.assertEqual(registry["schema_version"], "1.0")
+        self.assertIsInstance(registry["suites"], list)
+        self.assertGreater(len(registry["suites"]), 0)
+        registered_patterns = [item["pattern"] for item in registry["suites"]]
+        self.assertEqual(
+            registered_patterns,
+            [
+                "test_inverse_flow_control.py",
+                "test_inverse_flow_sampler.py",
+                "test_inverse_flow_policy.py",
+                "test_r05a_canary.py",
+            ],
+        )
+        self.assertEqual(len(registered_patterns), len(set(registered_patterns)))
         runner = RUNNER_PATH.read_text(encoding="utf-8")
-        for filename in (
-            "test_inverse_flow_control.py",
-            "test_inverse_flow_sampler.py",
-            "test_inverse_flow_policy.py",
-            "test_r05a_canary.py",
-        ):
-            tree = ast.parse((ROOT / "tests" / filename).read_text(encoding="utf-8"))
-            declared = sum(
-                1
-                for node in tree.body
-                if isinstance(node, ast.ClassDef)
-                for item in node.body
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and item.name.startswith("test_")
-            )
-            self.assertIn(f"{filename}:{declared}", runner)
+        allocation_test_helper = ALLOCATION_TEST_HELPER_PATH.read_text(encoding="utf-8")
+        canary_source = CANARY_PATH.read_text(encoding="utf-8")
+        self.assertIn("ALLOCATION_TEST_REGISTRY=$REMOTE_REPO/main/crfs_oracle/", runner)
+        self.assertIn("r05a_allocation_tests.json", runner)
+        self.assertIn("crfs_run_r05a_allocation_tests", runner)
+        self.assertIn('jq -e "$registry_contract"', allocation_test_helper)
+        self.assertIn('--host-cgroup-diagnostic "$HOST_CGROUP_DIAGNOSTIC"', runner)
+        self.assertIn(
+            "ALLOCATION_TEST_COUNTS = _load_allocation_test_counts(", canary_source
+        )
+        for item in registry["suites"]:
+            filename = item["pattern"]
+            expected = item["expected_tests"]
+            self.assertIs(type(expected), int)
+            self.assertGreater(expected, 0)
+            discovered = unittest.TestLoader().discover(
+                str(ROOT / "tests"), pattern=filename
+            ).countTestCases()
+            self.assertEqual(discovered, expected, filename)
+            self.assertNotIn(f"{filename}:{expected}", runner)
+            self.assertNotIn(f"{filename}:{expected}", allocation_test_helper)
+        submit_source = SUBMIT_PATH.read_text(encoding="utf-8")
+        self.assertIn("ALLOCATION_TEST_REGISTRY_LOCAL", submit_source)
+        self.assertIn("scripts/hpc/lib/cgroup_memory.sh", submit_source)
 
     def test_submission_allows_zero_free_gpu_and_records_truthful_pending_preflight(self) -> None:
         source = SUBMIT_PATH.read_text(encoding="utf-8")
@@ -100,6 +126,9 @@ class R05ACanaryStructuralTest(unittest.TestCase):
                 remote_repo / "evidence" / "r03" / "r03-summary.json",
                 remote_repo / "slurm" / "r05a_canary_h100.sbatch",
                 remote_repo / "slurm" / "r05a_canary_validate_cpu.sbatch",
+                remote_repo / "main" / "crfs_oracle" / "r05a_allocation_tests.json",
+                remote_repo / "scripts" / "hpc" / "lib" / "cgroup_memory.sh",
+                remote_repo / "scripts" / "hpc" / "lib" / "r05a_allocation_tests.sh",
                 remote_repo / "scripts" / "hpc" / "run_r05a_canary.sh",
                 remote_repo / "scripts" / "hpc" / "validate_r05a_canary.sh",
                 remote_repo / "manifests" / "r05a_inverse_flow_teacher_smoke.jsonl",
@@ -223,6 +252,16 @@ class R05ACanaryStructuralTest(unittest.TestCase):
             'raw_r02.get("arms", {}).get("direct_witness", {}).get("executed_actions")',
             "recomputed_direct_target",
             "and recomputed_direct_target",
+            "_validate_compiled_eager_path_seam_record",
+            "and recomputed_compiled_eager_path_seam",
+            "_array_exact(eager_before_actions, source_before_actions)",
+            "_array_exact(eager_after_actions, source_after_actions)",
+            "exact current/source pairing checks are incomplete or failed",
+            "current policy noise differs from immutable R02 seed/noise",
+            "recorded teacher determinism differs from independent trace recomputation",
+            "recorded zero/frozen checks differ from independent trace recomputation",
+            "recorded nonconvergence fail-closed checks differ from raw traces",
+            "apparatus summary differs from independent trace recomputation",
             "_parse_allocation_test_log(log_path)",
             "_read_gpu_samples(gpu_samples_path)",
             "CONFIG_FILE_SHA256",
@@ -354,7 +393,293 @@ class R05ACanaryRuntimeTest(unittest.TestCase):
             with self.assertRaisesRegex(canary.R05ACanarySourceError, "raw R02 hash mismatch"):
                 canary._load_source_r02(config)
 
-    def test_source_action_and_trace_pairing_detect_native_byte_tampering(self) -> None:
+    def test_exact_source_pairing_and_numeric_compiled_eager_seam(self) -> None:
+        singleton_trace_record = canary._trace_record(
+            {
+                "solver_status": np.asarray([3], dtype=np.int64),
+                "cuda_memory_available": np.asarray([True], dtype=np.bool_),
+                "cuda_process_peak_allocated_bytes": np.asarray(
+                    [123], dtype=np.int64
+                ),
+                "cuda_process_peak_reserved_bytes": np.asarray(
+                    [456], dtype=np.int64
+                ),
+            }
+        )
+        singleton_errors = []
+        singleton_trace = canary._artifact_trace(
+            singleton_trace_record,
+            name="serialized singleton fixture",
+            errors=singleton_errors,
+        )
+        self.assertEqual(singleton_errors, [])
+        self.assertIsNotNone(singleton_trace)
+        self.assertEqual(
+            canary._artifact_scalar(
+                singleton_trace["solver_status"], name="solver_status"
+            ),
+            3,
+        )
+        self.assertTrue(
+            canary._artifact_scalar(
+                singleton_trace["cuda_memory_available"],
+                name="cuda_memory_available",
+            )
+        )
+        self.assertEqual(
+            canary._artifact_cuda_memory_peaks(singleton_trace, singleton_trace),
+            (123, 456),
+        )
+        with self.assertRaisesRegex(ValueError, "serialized singleton scalar"):
+            canary._artifact_scalar(np.asarray([1, 2]), name="nonscalar")
+        with self.assertRaisesRegex(ValueError, "must be scalar"):
+            canary._scalar(np.asarray([3]), name="live trace scalar")
+
+        nonconverged_invariants = {
+            key: key not in {"control_valid", "schedule_applied", "fidelity_passed"}
+            for key in canary.TEACHER_INVARIANT_KEYS
+        }
+        self.assertTrue(
+            canary._teacher_invariant_truth(
+                nonconverged_invariants, converged=False
+            )
+        )
+        self.assertTrue(
+            canary._teacher_invariant_truth(
+                {key: True for key in canary.TEACHER_INVARIANT_KEYS},
+                converged=True,
+            )
+        )
+        self.assertTrue(
+            canary._artifact_teacher_invariant_summary_passed(
+                {"invariants": nonconverged_invariants},
+                nonconverged_invariants,
+                converged=False,
+            )
+        )
+        for key in ("dt_exact", "intervention_step_exact", "num_steps_exact"):
+            with self.subTest(teacher_invariant=key):
+                tampered_invariants = dict(nonconverged_invariants)
+                tampered_invariants[key] = False
+                self.assertFalse(
+                    canary._teacher_invariant_truth(
+                        tampered_invariants, converged=False
+                    )
+                )
+
+        # Coupled tampering is still rejected: changing a raw timing leaf and
+        # changing the stored invariant to agree cannot satisfy the registered
+        # nonconverged truth pattern.
+        coupled_teacher_trace = {
+            "dt": np.asarray([-0.2], dtype=np.float32),
+            "intervention_step": np.asarray([5], dtype=np.int64),
+            "num_steps": np.asarray([10], dtype=np.int64),
+        }
+        coupled_teacher_invariants = dict(nonconverged_invariants)
+        coupled_teacher_invariants.update(
+            canary._artifact_timing_checks(coupled_teacher_trace)
+        )
+        coupled_teacher_summary = {"invariants": coupled_teacher_invariants}
+        self.assertEqual(
+            coupled_teacher_summary["invariants"], coupled_teacher_invariants
+        )
+        self.assertFalse(
+            canary._artifact_teacher_invariant_summary_passed(
+                coupled_teacher_summary,
+                coupled_teacher_invariants,
+                converged=False,
+            )
+        )
+
+        zero_trace = self._zero_trace()
+        zero_trace.update(
+            {
+                "control_source": np.asarray([1], dtype=np.int64),
+                "control_valid": np.asarray([True], dtype=np.bool_),
+                "schedule_applied": np.asarray([True], dtype=np.bool_),
+                "final_normalized_physical": np.zeros((10, 7), dtype=np.float32),
+                "dt": np.asarray([-0.1], dtype=np.float32),
+                "intervention_step": np.asarray([5], dtype=np.int64),
+                "num_steps": np.asarray([10], dtype=np.int64),
+                "schedule_budget": np.asarray([0.0], dtype=np.float32),
+            }
+        )
+        zero_checks = canary._artifact_zero_replay_checks(
+            zero_trace,
+            np.zeros((10, 7), dtype=np.float32),
+            np.zeros((10, 32), dtype=np.float32),
+        )
+        self.assertTrue(all(zero_checks.values()))
+        for key, value, expected_check in (
+            ("dt", -0.2, "dt_exact"),
+            ("intervention_step", 4, "intervention_step_exact"),
+            ("num_steps", 9, "num_steps_exact"),
+        ):
+            with self.subTest(zero_trace=key):
+                tampered_trace = {
+                    name: np.array(item, copy=True)
+                    for name, item in zero_trace.items()
+                }
+                tampered_trace[key][0] = value
+                tampered_checks = canary._artifact_zero_replay_checks(
+                    tampered_trace,
+                    np.zeros((10, 7), dtype=np.float32),
+                    np.zeros((10, 32), dtype=np.float32),
+                )
+                self.assertFalse(tampered_checks[expected_check])
+                self.assertFalse(all(tampered_checks.values()))
+
+        coupled_replay_trace = {
+            name: np.array(item, copy=True) for name, item in zero_trace.items()
+        }
+        coupled_replay_trace["dt"][0] = np.float32(-0.2)
+        coupled_replay_checks = canary._artifact_zero_replay_checks(
+            coupled_replay_trace,
+            np.zeros((10, 7), dtype=np.float32),
+            np.zeros((10, 32), dtype=np.float32),
+        )
+        coupled_replay_summary = {
+            "checks": coupled_replay_checks,
+            "passed": all(coupled_replay_checks.values()),
+        }
+        self.assertTrue(
+            canary._artifact_replay_summary_exact(
+                coupled_replay_summary, coupled_replay_checks
+            )
+        )
+        self.assertFalse(
+            canary._artifact_replay_summary_passed(
+                coupled_replay_summary, coupled_replay_checks
+            )
+        )
+
+        canonical_checks = canary._artifact_canonical_replay_checks(
+            zero_trace,
+            np.zeros((10, 7), dtype=np.float32),
+            np.zeros((10, 32), dtype=np.float32),
+            np.zeros((10, 10, 32), dtype=np.float32),
+            np.float32(0.0),
+            np.zeros((10, 7), dtype=np.float32),
+            np.zeros((10, 32), dtype=np.float32),
+            np.zeros((10, 32), dtype=np.float32),
+        )
+        self.assertTrue(all(canonical_checks.values()))
+        for expected_check, teacher_actions, teacher_final, teacher_internal in (
+            (
+                "teacher_actions_exact",
+                np.full((10, 7), np.float32(1.0)),
+                np.zeros((10, 32), dtype=np.float32),
+                np.zeros((10, 32), dtype=np.float32),
+            ),
+            (
+                "teacher_final_exact",
+                np.zeros((10, 7), dtype=np.float32),
+                np.full((10, 32), np.float32(1.0)),
+                np.zeros((10, 32), dtype=np.float32),
+            ),
+            (
+                "teacher_internal_final_exact",
+                np.zeros((10, 7), dtype=np.float32),
+                np.zeros((10, 32), dtype=np.float32),
+                np.full((10, 32), np.float32(1.0)),
+            ),
+        ):
+            with self.subTest(canonical_teacher_binding=expected_check):
+                tampered_canonical_checks = canary._artifact_canonical_replay_checks(
+                    zero_trace,
+                    np.zeros((10, 7), dtype=np.float32),
+                    np.zeros((10, 32), dtype=np.float32),
+                    np.zeros((10, 10, 32), dtype=np.float32),
+                    np.float32(0.0),
+                    teacher_actions,
+                    teacher_final,
+                    teacher_internal,
+                )
+                self.assertFalse(tampered_canonical_checks[expected_check])
+
+        converged_top = {
+            "applicable": True,
+            "actions": {"fixture": "actions"},
+            "final_normalized": {"fixture": "final"},
+            "trace": {"fixture": "trace"},
+            "schedule_diagnostics": {"fixture": "diagnostics"},
+            "recurrence_errors": [],
+            "schedule_errors": [],
+            "passed": True,
+            "checks": {"recurrence_exact": True},
+            "elapsed_seconds": 0.0,
+        }
+        converged_call = canary._canonical_policy_call_record(converged_top)
+        self.assertEqual(
+            set(converged_call), set(converged_top) - {"applicable"}
+        )
+        self.assertTrue(
+            canary._artifact_canonical_record_pair_exact(
+                converged_top, converged_call
+            )
+        )
+        converged_call_with_top_only_key = dict(converged_call)
+        converged_call_with_top_only_key["applicable"] = True
+        self.assertFalse(
+            canary._artifact_canonical_record_pair_exact(
+                converged_top, converged_call_with_top_only_key
+            )
+        )
+        nonconverged = dict(canary.NONCONVERGED_CANONICAL_REPLAY)
+        self.assertEqual(
+            canary._canonical_policy_call_record(nonconverged), nonconverged
+        )
+        self.assertEqual(
+            nonconverged,
+            {
+                "applicable": False,
+                "passed": False,
+                "reason": "finite_teacher_search_did_not_converge",
+            },
+        )
+        self.assertTrue(
+            canary._artifact_canonical_record_pair_exact(
+                nonconverged, nonconverged
+            )
+        )
+        for key, value in (
+            ("applicable", True),
+            ("passed", True),
+            ("reason", "finite_search_failed"),
+        ):
+            for location in ("top", "policy_call"):
+                with self.subTest(
+                    nonconverged_sentinel=key, sentinel_location=location
+                ):
+                    top = dict(nonconverged)
+                    call = dict(nonconverged)
+                    (top if location == "top" else call)[key] = value
+                    self.assertFalse(
+                        canary._artifact_canonical_record_pair_exact(top, call)
+                    )
+
+        self.assertEqual(
+            canary._artifact_result_status(
+                recomputed_converged=True,
+                recomputed_clean_nonconvergence=False,
+            ),
+            "completed_converged",
+        )
+        self.assertEqual(
+            canary._artifact_result_status(
+                recomputed_converged=False,
+                recomputed_clean_nonconvergence=True,
+            ),
+            "completed_nonconverged",
+        )
+        self.assertEqual(
+            canary._artifact_result_status(
+                recomputed_converged=False,
+                recomputed_clean_nonconvergence=False,
+            ),
+            "completed_apparatus_failure",
+        )
+
         source_actions = np.zeros((10, 7), dtype=np.float32)
         changed_actions = source_actions.copy()
         changed_actions[0, 0] = -0.0
@@ -371,7 +696,85 @@ class R05ACanaryRuntimeTest(unittest.TestCase):
         rejected = canary._trace_pairing_diagnostics(source_trace, changed_trace)
         self.assertFalse(rejected["exact_native_leaf_pairing"])
 
+        self.assertEqual(
+            canary.ADR0011_COMPILED_EAGER_PATH_LIMITS,
+            {
+                "first_five_xyz_max_abs": 0.010,
+                "first_five_xyz_rms": 0.005,
+                "full_10x7_max_abs": 0.050,
+                "full_10x7_rms": 0.015,
+            },
+        )
+        eager = np.zeros((10, 7), dtype=np.float64)
+        compiled = eager.copy()
+        compiled[0, 0] = 0.009
+        seam = canary._compiled_eager_path_seam_record(
+            compiled, eager, compiled, eager
+        )
+        self.assertFalse(seam["before"]["array_equal_diagnostic"])
+        self.assertTrue(seam["passed"])
+
+        errors = []
+        self.assertTrue(
+            canary._validate_compiled_eager_path_seam_record(
+                seam,
+                compiled_before=compiled,
+                eager_before=eager,
+                compiled_after=compiled,
+                eager_after=eager,
+                errors=errors,
+            )
+        )
+        self.assertEqual(errors, [])
+        tampered = json.loads(json.dumps(seam))
+        tampered["before"]["physical_first_five_xyz"]["max_abs"] = 0.0
+        tamper_errors = []
+        self.assertTrue(
+            canary._validate_compiled_eager_path_seam_record(
+                tampered,
+                compiled_before=compiled,
+                eager_before=eager,
+                compiled_after=compiled,
+                eager_after=eager,
+                errors=tamper_errors,
+            )
+        )
+        self.assertTrue(any("independent action recomputation" in item for item in tamper_errors))
+
+        xyz_max_failure = eager.copy()
+        xyz_max_failure[0, 0] = 0.011
+        xyz_max = canary._compiled_eager_path_diagnostics(xyz_max_failure, eager)
+        self.assertFalse(xyz_max["physical_first_five_xyz"]["passed"])
+        self.assertTrue(xyz_max["physical_full_10x7"]["passed"])
+
+        xyz_rms_failure = eager.copy()
+        xyz_rms_failure[:5, :3] = 0.006
+        xyz_rms = canary._compiled_eager_path_diagnostics(xyz_rms_failure, eager)
+        self.assertLess(xyz_rms["physical_first_five_xyz"]["max_abs"], 0.010)
+        self.assertFalse(xyz_rms["physical_first_five_xyz"]["passed"])
+
+        full_max_failure = eager.copy()
+        full_max_failure[9, 6] = 0.051
+        full_max = canary._compiled_eager_path_diagnostics(full_max_failure, eager)
+        self.assertTrue(full_max["physical_first_five_xyz"]["passed"])
+        self.assertFalse(full_max["physical_full_10x7"]["passed"])
+
+        full_rms_failure = eager.copy()
+        full_rms_failure[:, 3:] = 0.020
+        full_rms = canary._compiled_eager_path_diagnostics(full_rms_failure, eager)
+        self.assertLess(full_rms["physical_full_10x7"]["max_abs"], 0.050)
+        self.assertFalse(full_rms["physical_full_10x7"]["passed"])
+
     def test_persisted_allocation_test_log_is_rehashed_and_reparsed(self) -> None:
+        registry = json.loads(ALLOCATION_TEST_REGISTRY_PATH.read_text(encoding="utf-8"))
+        registered_counts = {
+            item["pattern"]: item["expected_tests"] for item in registry["suites"]
+        }
+        self.assertEqual(dict(canary.ALLOCATION_TEST_COUNTS), registered_counts)
+        self.assertEqual(
+            canary.ALLOCATION_TEST_REGISTRY_SHA256,
+            hashlib.sha256(ALLOCATION_TEST_REGISTRY_PATH.read_bytes()).hexdigest(),
+        )
         lines = []
         for suite, count in canary.ALLOCATION_TEST_COUNTS.items():
             lines.extend(
@@ -390,6 +793,66 @@ class R05ACanaryRuntimeTest(unittest.TestCase):
             path.write_text(path.read_text(encoding="utf-8") + "[test_r05a_canary.py] OK (skipped=1)\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "skipped or failed"):
                 canary._parse_allocation_test_log(path)
+
+            registry_path = Path(directory) / "registry.json"
+            invalid_registries = (
+                {**registry, "unknown": True},
+                {
+                    "schema_version": "1.0",
+                    "suites": [registry["suites"][0], registry["suites"][0]],
+                },
+                {
+                    "schema_version": "1.0",
+                    "suites": [{"pattern": "../test_escape.py", "expected_tests": 1}],
+                },
+                {
+                    "schema_version": "1.0",
+                    "suites": [{"pattern": "test_bad.py", "expected_tests": True}],
+                },
+            )
+            for invalid in invalid_registries:
+                registry_path.write_text(json.dumps(invalid), encoding="utf-8")
+                with self.assertRaises(RuntimeError):
+                    canary._load_allocation_test_counts(registry_path)
+
+            diagnostic_path = Path(directory) / "host-cgroup-memory.tsv"
+            diagnostic = {
+                "schema_version": "1.0",
+                "artifact_role": "r05a_live_slurm_cgroup_memory_peak_diagnostic",
+                "status": "measured",
+                "reason": "live_positive_peak",
+                "cgroup_version": "2",
+                "membership_path": "/slurm/uid_1073/job_27726/step_batch",
+                "mount_root": "/",
+                "mount_point": "/sys/fs/cgroup",
+                "membership_relative_to_mount_root": "/slurm/uid_1073/job_27726/step_batch",
+                "peak_file": "/sys/fs/cgroup/slurm/uid_1073/job_27726/step_batch/memory.peak",
+                "peak_bytes": "123456789",
+                "proc_cgroup_file": "/proc/self/cgroup",
+                "mountinfo_file": "/proc/self/mountinfo",
+            }
+            diagnostic_path.write_text(
+                "".join(
+                    f"{key}\t{diagnostic[key]}\n"
+                    for key in canary.CGROUP_MEMORY_DIAGNOSTIC_KEYS
+                ),
+                encoding="utf-8",
+            )
+            diagnostic_sha, parsed_diagnostic = canary._parse_cgroup_memory_diagnostic(
+                diagnostic_path
+            )
+            self.assertEqual(
+                diagnostic_sha, hashlib.sha256(diagnostic_path.read_bytes()).hexdigest()
+            )
+            self.assertEqual(parsed_diagnostic["peak_bytes"], 123456789)
+            diagnostic_path.write_text(
+                diagnostic_path.read_text(encoding="utf-8").replace(
+                    "/memory.peak", "/wrong.peak"
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "peak path is inconsistent"):
+                canary._parse_cgroup_memory_diagnostic(diagnostic_path)
 
     def test_gpu_samples_are_rehashed_and_reject_mixed_device_identity(self) -> None:
         uuid = "GPU-11111111-2222-3333-4444-555555555555"

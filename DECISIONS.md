@@ -31,3 +31,6 @@
 - [0029 — Allow the source-pinned R05A canary to wait in Slurm](docs/decisions/0029-allow-r05a-source-pinned-pending-submission.md)
 - [0030 — Bind the R05A sampler test to the frozen fidelity contract](docs/decisions/0030-bind-r05a-sampler-test-to-frozen-fidelity.md)
 - [0031 — Preserve IFT-00A retry B and repair only its apparatus](docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md)
+- [0032 — Preregister the R05A CPU apparatus regression](docs/decisions/0032-preregister-r05a-cpu-apparatus-regression.md)
+- [0033 — Accept artifact-only singleton scalar decoding for R05A](docs/decisions/0033-accept-r05a-artifact-singleton-scalar-decoding.md)
+- [0034 — Recompute R05A status from exact artifact traces](docs/decisions/0034-recompute-r05a-status-from-exact-artifact-traces.md)

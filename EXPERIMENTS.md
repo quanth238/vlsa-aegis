@@ -104,6 +104,30 @@ and `evidence/r05a/ift00a-attempt-b.json`. This diagnostic neither confirms nor
 refutes target transport formally, but it is strong negative evidence for the
 currently frozen solver on the preservation case.
 
+#### ADR-0031 CPU apparatus regression
+
+Status: **preregistered; not yet submitted**
+
+Exact run ID: `r05a-adr0031-apparatus-cpu-20260715a`.
+
+This is a worker-1, CPU-only, two-CPU, 8 GiB, `0-0%1` Slurm check of the
+ADR-0031 apparatus repairs plus the ADR-0033/0034 artifact trust-path repairs.
+It runs the authoritative 17/8/10/12 registry through the exact shared suite
+helper with zero skips, independently reparses the log, and resolves the live
+allocation cgroup peak through the actual membership and mount paths. It also
+checks artifact-only `(1,)` scalar decoding while keeping live scalars strict,
+and derives teacher, zero-replay, and canonical-replay status from exact raw
+trace metadata instead of trusting stored pass labels. It loads no checkpoint,
+starts no policy server, runs no real pi0.5 teacher search, produces no
+checkpoint teacher observation, executes no simulator action, and cannot
+support a scientific claim. The unit suites do exercise synthetic inverse
+solvers as implementation tests; those are not real checkpoint teacher
+searches. See ADR-0032 through ADR-0034. A pass is only one prerequisite for a
+separately reviewed retry-C decision.
+The submission receipt also binds a separately callable strict validator. It
+recomputes receipt/source hashes, resource identity, the 17/8/10/12 log, and
+the live cgroup sidecar against a hidden candidate before publication.
+
 Pass requires exact fresh source pairing; target equality outside first-five
 XYZ; exact compiled-before/after and eager-before/after zero-control stability;
 the unchanged ADR-0011 numerical compiled/eager seam limits; duplicate

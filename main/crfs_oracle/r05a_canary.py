@@ -15,10 +15,12 @@ from datetime import datetime, timezone
 import json
 import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import platform
+import re
 import socket
 import time
+from types import MappingProxyType
 from typing import Any, Mapping, Optional
 
 import numpy as np
@@ -70,11 +72,38 @@ CONFIG_PATH = "configs/experiments/r05a_inverse_flow_canary.json"
 CONFIG_FILE_SHA256 = "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb"
 SCIENTIFIC_CONFIG_HASH = "9e2ff74cda8ac3b5d4098942a82cc3352cebea3f4b8e1fc1d326c2dc24d2887d"
 REGISTERED_XYZ_SCALE = (0.8422505, 0.827813, 0.937313)
+ADR0011_COMPILED_EAGER_PATH_LIMITS: Mapping[str, float] = {
+    "first_five_xyz_max_abs": 0.010,
+    "first_five_xyz_rms": 0.005,
+    "full_10x7_max_abs": 0.050,
+    "full_10x7_rms": 0.015,
+}
 EXPECTED_RESULT_STATUSES = {
     "completed_converged",
     "completed_nonconverged",
     "completed_apparatus_failure",
 }
+NONCONVERGED_CANONICAL_REPLAY: Mapping[str, Any] = MappingProxyType(
+    {
+        "applicable": False,
+        "passed": False,
+        "reason": "finite_teacher_search_did_not_converge",
+    }
+)
+CONVERGED_CANONICAL_REPLAY_KEYS = frozenset(
+    {
+        "applicable",
+        "actions",
+        "final_normalized",
+        "trace",
+        "schedule_diagnostics",
+        "recurrence_errors",
+        "schedule_errors",
+        "checks",
+        "passed",
+        "elapsed_seconds",
+    }
+)
 SOLVER_CONFIG: Mapping[str, Any] = {
     "num_steps": 10,
     "intervention_step": 5,
@@ -104,12 +133,83 @@ POLICY_CALL_SEQUENCE = (
     "eager_source_pairing_after",
     "compiled_frozen_after",
 )
-ALLOCATION_TEST_COUNTS: Mapping[str, int] = {
-    "test_inverse_flow_control.py": 17,
-    "test_inverse_flow_sampler.py": 8,
-    "test_inverse_flow_policy.py": 10,
-    "test_r05a_canary.py": 10,
+TEACHER_INVARIANT_KEYS = {
+    "control_source_is_teacher",
+    "control_valid",
+    "schedule_applied",
+    "baseline_valid",
+    "schedule_valid",
+    "target_pairing_checked",
+    "target_pairing_exact",
+    "parameter_requires_grad_restored",
+    "parameter_grads_none_before",
+    "parameter_grads_none_after",
+    "parameter_grad_check_performed",
+    "dt_exact",
+    "intervention_step_exact",
+    "num_steps_exact",
+    "fixed_128_updates_complete",
+    "initial_noise_exact",
+    "recurrence_exact",
+    "schedule_constraints_passed",
+    "budget_binding_passed",
+    "fidelity_passed",
+    "final_physical_exact_returned_actions",
+    "cuda_memory_available",
 }
+ALLOCATION_TEST_REGISTRY_PATH = Path(__file__).with_name("r05a_allocation_tests.json")
+
+
+def _load_allocation_test_counts(path: str | Path) -> Mapping[str, int]:
+    """Load the one reviewed suite-count registry without deriving counts at runtime."""
+
+    registry_path = Path(path)
+    try:
+        value = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"cannot load R05A allocation-test registry: {error}") from error
+    if type(value) is not dict or set(value) != {"schema_version", "suites"}:
+        raise RuntimeError("R05A allocation-test registry top-level contract changed")
+    if value.get("schema_version") != "1.0":
+        raise RuntimeError("R05A allocation-test registry schema version changed")
+    suites = value.get("suites")
+    if type(suites) is not list or not suites:
+        raise RuntimeError("R05A allocation-test registry suites must be a nonempty list")
+    counts: dict[str, int] = {}
+    for index, item in enumerate(suites):
+        if type(item) is not dict or set(item) != {"pattern", "expected_tests"}:
+            raise RuntimeError(f"R05A allocation-test registry suite {index} changed shape")
+        pattern = item.get("pattern")
+        expected = item.get("expected_tests")
+        if type(pattern) is not str or re.fullmatch(r"test_[A-Za-z0-9_]+\.py", pattern) is None:
+            raise RuntimeError(f"R05A allocation-test registry suite {index} has unsafe pattern")
+        if pattern in counts:
+            raise RuntimeError(f"R05A allocation-test registry duplicates {pattern}")
+        if type(expected) is not int or expected <= 0:
+            raise RuntimeError(
+                f"R05A allocation-test registry suite {pattern} has invalid expected count"
+            )
+        counts[pattern] = expected
+    return MappingProxyType(counts)
+
+
+ALLOCATION_TEST_COUNTS = _load_allocation_test_counts(ALLOCATION_TEST_REGISTRY_PATH)
+ALLOCATION_TEST_REGISTRY_SHA256 = file_sha256(ALLOCATION_TEST_REGISTRY_PATH)
+CGROUP_MEMORY_DIAGNOSTIC_KEYS = (
+    "schema_version",
+    "artifact_role",
+    "status",
+    "reason",
+    "cgroup_version",
+    "membership_path",
+    "mount_root",
+    "mount_point",
+    "membership_relative_to_mount_root",
+    "peak_file",
+    "peak_bytes",
+    "proc_cgroup_file",
+    "mountinfo_file",
+)
 
 
 class R05ACanarySourceError(ValueError):
@@ -292,6 +392,271 @@ def _scalar(value: Any, *, name: str) -> Any:
     return array.item()
 
 
+def _artifact_scalar(value: Any, *, name: str) -> Any:
+    """Decode one serialized scalar without weakening live-trace strictness."""
+
+    array = np.asarray(value)
+    if array.shape == ():
+        return array.item()
+    if array.shape == (1,):
+        return array[0].item()
+    raise ValueError(f"{name} must be a serialized singleton scalar, got {array.shape}")
+
+
+def _teacher_invariant_truth(
+    invariants: Mapping[str, Any], *, converged: bool
+) -> bool:
+    if set(invariants) != TEACHER_INVARIANT_KEYS:
+        return False
+    false_keys = set() if converged else {
+        "control_valid",
+        "schedule_applied",
+        "fidelity_passed",
+    }
+    return all(
+        value is (key not in false_keys) for key, value in invariants.items()
+    )
+
+
+def _artifact_teacher_invariant_summary_passed(
+    summary: Mapping[str, Any],
+    recomputed_invariants: Mapping[str, Any],
+    *,
+    converged: bool,
+) -> bool:
+    """Bind a stored teacher summary to raw-trace-derived invariant truth."""
+
+    return bool(
+        summary.get("invariants") == recomputed_invariants
+        and _teacher_invariant_truth(recomputed_invariants, converged=converged)
+    )
+
+
+def _artifact_timing_checks(trace: Mapping[str, np.ndarray]) -> Mapping[str, bool]:
+    """Recompute the three frozen sampler timing fields from serialized leaves."""
+
+    return {
+        "dt_exact": np.asarray(
+            _artifact_scalar(trace["dt"], name="artifact dt"), dtype=np.float32
+        ).tobytes()
+        == np.asarray(-0.1, dtype=np.float32).tobytes(),
+        "intervention_step_exact": int(
+            _artifact_scalar(
+                trace["intervention_step"], name="artifact intervention_step"
+            )
+        )
+        == 5,
+        "num_steps_exact": int(
+            _artifact_scalar(trace["num_steps"], name="artifact num_steps")
+        )
+        == 10,
+    }
+
+
+def _artifact_replay_summary_exact(
+    record: Mapping[str, Any], recomputed_checks: Mapping[str, bool]
+) -> bool:
+    """Bind a stored replay summary exactly to independently recomputed checks."""
+
+    recomputed_passed = all(recomputed_checks.values())
+    return bool(
+        record.get("checks") == recomputed_checks
+        and record.get("passed") is recomputed_passed
+    )
+
+
+def _artifact_replay_summary_passed(
+    record: Mapping[str, Any], recomputed_checks: Mapping[str, bool]
+) -> bool:
+    """Require both an exact stored check map and a fully passing raw replay."""
+
+    return bool(
+        _artifact_replay_summary_exact(record, recomputed_checks)
+        and all(recomputed_checks.values())
+    )
+
+
+def _artifact_replay_checks(
+    trace: Mapping[str, np.ndarray],
+    actions: np.ndarray,
+    provenance_noise: np.ndarray,
+    requested_schedule: np.ndarray,
+    source_budget_float32: np.float32,
+) -> Mapping[str, bool]:
+    _diagnostics, schedule_errors = _schedule_diagnostics(
+        trace["control_velocity_steps"],
+        source_budget_float32=source_budget_float32,
+    )
+    del _diagnostics
+    observed_budget = np.asarray(
+        _artifact_scalar(trace["schedule_budget"], name="replay schedule_budget"),
+        dtype=np.float32,
+    )
+    checks = {
+        "control_source_is_replay": int(
+            _artifact_scalar(trace["control_source"], name="replay control_source")
+        )
+        == 1,
+        "control_valid": bool(
+            _artifact_scalar(trace["control_valid"], name="replay control_valid")
+        ),
+        "schedule_applied": bool(
+            _artifact_scalar(trace["schedule_applied"], name="replay schedule_applied")
+        ),
+        "requested_schedule_exact": _array_exact(
+            trace["control_velocity_steps"], requested_schedule
+        ),
+        "final_physical_exact_returned_actions": _array_exact(
+            trace["final_normalized_physical"], actions
+        ),
+        "recurrence_exact": not validate_flow_recurrence(trace),
+        "constraints_passed": not schedule_errors,
+        "initial_noise_exact": _array_exact(trace["initial_noise"], provenance_noise),
+        "source_budget_exact": observed_budget.tobytes()
+        == np.asarray(source_budget_float32, dtype=np.float32).tobytes(),
+    }
+    checks.update(_artifact_timing_checks(trace))
+    return checks
+
+
+def _artifact_zero_replay_checks(
+    trace: Mapping[str, np.ndarray],
+    actions: np.ndarray,
+    provenance_noise: np.ndarray,
+) -> Mapping[str, bool]:
+    return _artifact_replay_checks(
+        trace,
+        actions,
+        provenance_noise,
+        np.zeros((10, 10, 32), dtype=np.float32),
+        np.float32(0.0),
+    )
+
+
+def _artifact_canonical_replay_checks(
+    trace: Mapping[str, np.ndarray],
+    actions: np.ndarray,
+    provenance_noise: np.ndarray,
+    requested_schedule: np.ndarray,
+    source_budget_float32: np.float32,
+    teacher_actions: np.ndarray,
+    teacher_final: np.ndarray,
+    teacher_internal_final: np.ndarray,
+) -> Mapping[str, bool]:
+    checks = dict(
+        _artifact_replay_checks(
+            trace,
+            actions,
+            provenance_noise,
+            requested_schedule,
+            source_budget_float32,
+        )
+    )
+    checks.update(
+        {
+            "teacher_actions_exact": _array_exact(actions, teacher_actions),
+            "teacher_final_exact": _array_exact(
+                trace["final_normalized"], teacher_final
+            ),
+            "teacher_internal_final_exact": _array_exact(
+                trace["final_normalized"], teacher_internal_final
+            ),
+        }
+    )
+    return checks
+
+
+def _canonical_policy_call_record(canonical: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return the exact policy-call shape for one top-level replay record."""
+
+    if canonical.get("applicable") is True:
+        return {key: item for key, item in canonical.items() if key != "applicable"}
+    return dict(canonical)
+
+
+def _artifact_canonical_record_pair_exact(
+    canonical: Any, policy_call: Any
+) -> bool:
+    """Validate the registered top-level/policy-call shapes as one binding."""
+
+    if not isinstance(canonical, Mapping) or not isinstance(policy_call, Mapping):
+        return False
+    if canonical.get("applicable") is True:
+        return bool(
+            set(canonical) == CONVERGED_CANONICAL_REPLAY_KEYS
+            and dict(policy_call) == _canonical_policy_call_record(canonical)
+        )
+    if canonical.get("applicable") is False:
+        sentinel = dict(NONCONVERGED_CANONICAL_REPLAY)
+        return bool(dict(canonical) == sentinel and dict(policy_call) == sentinel)
+    return False
+
+
+def _artifact_cuda_memory_peaks(
+    first_trace: Mapping[str, np.ndarray],
+    duplicate_trace: Mapping[str, np.ndarray],
+) -> tuple[int, int]:
+    """Decode validated serialized CUDA telemetry for status/finalization."""
+
+    if not (
+        bool(
+            _artifact_scalar(
+                first_trace["cuda_memory_available"], name="first CUDA memory"
+            )
+        )
+        and bool(
+            _artifact_scalar(
+                duplicate_trace["cuda_memory_available"],
+                name="duplicate CUDA memory",
+            )
+        )
+    ):
+        raise ValueError("sampler did not expose CUDA process memory")
+    process_allocated = max(
+        int(
+            _artifact_scalar(
+                first_trace["cuda_process_peak_allocated_bytes"],
+                name="first allocated peak",
+            )
+        ),
+        int(
+            _artifact_scalar(
+                duplicate_trace["cuda_process_peak_allocated_bytes"],
+                name="duplicate allocated peak",
+            )
+        ),
+    )
+    process_reserved = max(
+        int(
+            _artifact_scalar(
+                first_trace["cuda_process_peak_reserved_bytes"],
+                name="first reserved peak",
+            )
+        ),
+        int(
+            _artifact_scalar(
+                duplicate_trace["cuda_process_peak_reserved_bytes"],
+                name="duplicate reserved peak",
+            )
+        ),
+    )
+    if process_allocated <= 0 or process_reserved <= 0:
+        raise ValueError("sampler CUDA process peaks are not positive")
+    return process_allocated, process_reserved
+
+
+def _artifact_result_status(
+    *, recomputed_converged: bool, recomputed_clean_nonconvergence: bool
+) -> str:
+    """Select the only status authorized by independently recomputed evidence."""
+
+    if recomputed_converged:
+        return "completed_converged"
+    if recomputed_clean_nonconvergence:
+        return "completed_nonconverged"
+    return "completed_apparatus_failure"
+
+
 def _nested_mapping_value(value: Any, *keys: str) -> Any:
     current = value
     for key in keys:
@@ -308,6 +673,99 @@ def _finite_array(value: Any, *, name: str, shape: Optional[tuple[int, ...]] = N
     if not np.issubdtype(array.dtype, np.number) or not bool(np.isfinite(array).all()):
         raise ValueError(f"{name} must be a finite numeric array")
     return array
+
+
+def _compiled_eager_path_diagnostics(
+    compiled_actions: Any,
+    eager_actions: Any,
+) -> Mapping[str, Any]:
+    """Apply the unchanged ADR-0011 physical gate to one backend seam."""
+
+    compiled = _finite_array(
+        compiled_actions, name="compiled physical actions", shape=(10, 7)
+    )
+    eager = _finite_array(eager_actions, name="eager physical actions", shape=(10, 7))
+    difference = np.asarray(compiled, dtype=np.float64) - np.asarray(
+        eager, dtype=np.float64
+    )
+
+    def metrics(
+        values: np.ndarray,
+        *,
+        max_abs_limit: float,
+        rms_limit: float,
+    ) -> Mapping[str, Any]:
+        max_abs = float(np.max(np.abs(values)))
+        rms = float(np.sqrt(np.mean(np.square(values), dtype=np.float64)))
+        return {
+            "max_abs": max_abs,
+            "rms": rms,
+            "max_abs_limit": max_abs_limit,
+            "rms_limit": rms_limit,
+            "passed": bool(max_abs <= max_abs_limit and rms <= rms_limit),
+        }
+
+    xyz = metrics(
+        difference[:5, :3],
+        max_abs_limit=ADR0011_COMPILED_EAGER_PATH_LIMITS[
+            "first_five_xyz_max_abs"
+        ],
+        rms_limit=ADR0011_COMPILED_EAGER_PATH_LIMITS["first_five_xyz_rms"],
+    )
+    full = metrics(
+        difference,
+        max_abs_limit=ADR0011_COMPILED_EAGER_PATH_LIMITS["full_10x7_max_abs"],
+        rms_limit=ADR0011_COMPILED_EAGER_PATH_LIMITS["full_10x7_rms"],
+    )
+    return {
+        "array_equal_diagnostic": bool(np.array_equal(compiled, eager)),
+        "unequal_elements": int(np.count_nonzero(compiled != eager)),
+        "total_elements": int(difference.size),
+        "physical_first_five_xyz": xyz,
+        "physical_full_10x7": full,
+        "passed": bool(xyz["passed"] and full["passed"]),
+    }
+
+
+def _compiled_eager_path_seam_record(
+    compiled_before: Any,
+    eager_before: Any,
+    compiled_after: Any,
+    eager_after: Any,
+) -> Mapping[str, Any]:
+    before = _compiled_eager_path_diagnostics(compiled_before, eager_before)
+    after = _compiled_eager_path_diagnostics(compiled_after, eager_after)
+    return {
+        "acceptance_rule": "unchanged_adr0011_physical_limits",
+        "limits": dict(ADR0011_COMPILED_EAGER_PATH_LIMITS),
+        "before": before,
+        "after": after,
+        "passed": bool(before["passed"] and after["passed"]),
+    }
+
+
+def _validate_compiled_eager_path_seam_record(
+    recorded: Any,
+    *,
+    compiled_before: np.ndarray,
+    eager_before: np.ndarray,
+    compiled_after: np.ndarray,
+    eager_after: np.ndarray,
+    errors: list[str],
+) -> bool:
+    """Recompute the path seam; recorded diagnostics are never authoritative."""
+
+    recomputed = _compiled_eager_path_seam_record(
+        compiled_before,
+        eager_before,
+        compiled_after,
+        eager_after,
+    )
+    if not isinstance(recorded, Mapping) or dict(recorded) != recomputed:
+        errors.append(
+            "compiled/eager path-seam diagnostics differ from independent action recomputation"
+        )
+    return recomputed["passed"] is True
 
 
 def _load_source_r02(config: R05ACanaryConfig) -> tuple[Path, Mapping[str, Any], str]:
@@ -1266,11 +1724,7 @@ def run_r05a_canary(
             }
             calls["canonical_schedule_replay"] = replay_summary
         else:
-            canonical_replay = {
-                "applicable": False,
-                "passed": False,
-                "reason": "finite_teacher_search_did_not_converge",
-            }
+            canonical_replay = dict(NONCONVERGED_CANONICAL_REPLAY)
             calls["canonical_schedule_replay"] = canonical_replay
 
         zero_after, elapsed = _request(
@@ -1328,20 +1782,14 @@ def run_r05a_canary(
             "compiled_before_after_actions_exact": _array_exact(
                 compiled_before["actions"], compiled_after["actions"]
             ),
-            "compiled_eager_before_actions_exact": _array_exact(
-                compiled_before["actions"], eager_before["actions"]
-            ),
-            "compiled_source_before_actions_exact": _array_exact(
-                compiled_before["actions"], source_before["actions"]
+            "eager_source_before_actions_exact": _array_exact(
+                eager_before["actions"], source_before["actions"]
             ),
             "eager_before_after_actions_exact": _array_exact(
                 eager_before["actions"], eager_after["actions"]
             ),
-            "compiled_eager_after_actions_exact": _array_exact(
-                compiled_after["actions"], eager_after["actions"]
-            ),
-            "compiled_source_after_actions_exact": _array_exact(
-                compiled_after["actions"], source_after["actions"]
+            "eager_source_after_actions_exact": _array_exact(
+                eager_after["actions"], source_after["actions"]
             ),
             "eager_before_after_trace_exact": _trace_exact(
                 eager_before["crfs_trace"], eager_after["crfs_trace"]
@@ -1354,6 +1802,12 @@ def run_r05a_canary(
             "zero_before_recurrence_exact": bool(zero_before_summary["passed"]),
             "zero_after_recurrence_exact": bool(zero_after_summary["passed"]),
         }
+        compiled_eager_path_seam = _compiled_eager_path_seam_record(
+            compiled_before["actions"],
+            eager_before["actions"],
+            compiled_after["actions"],
+            eager_after["actions"],
+        )
         policy_scale = _array_from_record(first_summary["checkpoint_model_to_physical_scale"])
         registered_scale = np.asarray(REGISTERED_XYZ_SCALE, dtype=np.float32)
         scale_checks = {
@@ -1401,6 +1855,7 @@ def run_r05a_canary(
         teacher_invariants_passed = all(first_summary["invariants"].values())
         deterministic_passed = all(teacher_determinism.values())
         zero_frozen_passed = all(zero_frozen_checks.values())
+        compiled_eager_path_seam_passed = compiled_eager_path_seam["passed"] is True
         scale_passed = all(scale_checks.values())
         nonconvergence_fail_closed_checks = {
             "first_returned_actions_exact_frozen": _array_exact(
@@ -1437,6 +1892,7 @@ def run_r05a_canary(
             and deterministic_passed
             and canonical_replay.get("passed") is True
             and zero_frozen_passed
+            and compiled_eager_path_seam_passed
             and scale_passed
             and all(pairing_checks.values())
             and target_physical_checks["within_registered_apparatus_tolerances"]
@@ -1483,6 +1939,7 @@ def run_r05a_canary(
             and all(nonconvergence_fail_closed_checks.values())
             and deterministic_passed
             and zero_frozen_passed
+            and compiled_eager_path_seam_passed
             and scale_passed
             and all(pairing_checks.values())
             and target_physical_checks["within_registered_apparatus_tolerances"]
@@ -1593,8 +2050,13 @@ def run_r05a_canary(
             "determinism": {
                 "teacher": teacher_determinism,
                 "zero_and_frozen_before_after": zero_frozen_checks,
+                "compiled_eager_path_seam": compiled_eager_path_seam,
                 "nonconvergence_fail_closed": nonconvergence_fail_closed_checks,
-                "passed": deterministic_passed and zero_frozen_passed,
+                "passed": (
+                    deterministic_passed
+                    and zero_frozen_passed
+                    and compiled_eager_path_seam_passed
+                ),
             },
             "canonical_replay": canonical_replay,
             "apparatus": {
@@ -1603,6 +2065,7 @@ def run_r05a_canary(
                 "determinism_passed": deterministic_passed,
                 "canonical_replay_passed": canonical_replay.get("passed") is True,
                 "zero_and_frozen_passed": zero_frozen_passed,
+                "compiled_eager_path_seam_passed": compiled_eager_path_seam_passed,
                 "pairing_passed": all(pairing_checks.values()),
                 "checkpoint_scale_passed": scale_passed,
                 "clean_nonconvergence": clean_nonconvergence,
@@ -1681,6 +2144,88 @@ def _artifact_array(
     array, item_errors = _validate_array_record(value, name=name, shape=shape)
     errors.extend(item_errors)
     return array
+
+
+def _decode_cgroup_diagnostic_value(value: str) -> str:
+    decoded: list[str] = []
+    index = 0
+    escapes = {"\\": "\\", "t": "\t", "n": "\n"}
+    while index < len(value):
+        if value[index] != "\\":
+            decoded.append(value[index])
+            index += 1
+            continue
+        if index + 1 >= len(value) or value[index + 1] not in escapes:
+            raise ValueError("cgroup diagnostic contains an invalid escape")
+        decoded.append(escapes[value[index + 1]])
+        index += 2
+    return "".join(decoded)
+
+
+def _parse_cgroup_memory_diagnostic(path: str | Path) -> tuple[str, Mapping[str, Any]]:
+    """Validate the resolver sidecar and its exact mount/membership mapping."""
+
+    diagnostic_path = Path(path)
+    digest = file_sha256(diagnostic_path)
+    lines = diagnostic_path.read_text(encoding="utf-8").splitlines()
+    keys: list[str] = []
+    record: dict[str, str] = {}
+    for line in lines:
+        if "\t" not in line:
+            raise ValueError("cgroup diagnostic line has no tab separator")
+        key, encoded = line.split("\t", 1)
+        if key in record:
+            raise ValueError(f"cgroup diagnostic duplicates {key}")
+        keys.append(key)
+        record[key] = _decode_cgroup_diagnostic_value(encoded)
+    if tuple(keys) != CGROUP_MEMORY_DIAGNOSTIC_KEYS:
+        raise ValueError("cgroup diagnostic keys or order changed")
+    expected_identity = {
+        "schema_version": "1.0",
+        "artifact_role": "r05a_live_slurm_cgroup_memory_peak_diagnostic",
+        "status": "measured",
+        "reason": "live_positive_peak",
+        "proc_cgroup_file": "/proc/self/cgroup",
+        "mountinfo_file": "/proc/self/mountinfo",
+    }
+    for key, expected in expected_identity.items():
+        if record.get(key) != expected:
+            raise ValueError(f"cgroup diagnostic {key} changed")
+    version = record.get("cgroup_version")
+    if version not in {"1", "2"}:
+        raise ValueError("cgroup diagnostic version is not v1 or v2")
+    for key in ("membership_path", "mount_root", "mount_point", "peak_file"):
+        value = record.get(key, "")
+        if not value.startswith("/") or str(PurePosixPath(value)) != value:
+            raise ValueError(f"cgroup diagnostic {key} is not a normalized absolute path")
+    membership = record["membership_path"]
+    mount_root = record["mount_root"]
+    if mount_root == "/":
+        expected_relative = "" if membership == "/" else membership
+    elif membership == mount_root:
+        expected_relative = ""
+    elif membership.startswith(mount_root + "/"):
+        expected_relative = membership[len(mount_root) :]
+    else:
+        raise ValueError("cgroup membership is outside the recorded mount root")
+    relative = record["membership_relative_to_mount_root"]
+    if relative != expected_relative:
+        raise ValueError("cgroup membership-relative path is inconsistent")
+    metric = "memory.peak" if version == "2" else "memory.max_usage_in_bytes"
+    expected_peak_file = str(
+        PurePosixPath(record["mount_point"]) / relative.lstrip("/") / metric
+    )
+    if record["peak_file"] != expected_peak_file:
+        raise ValueError("cgroup peak path is inconsistent with mount provenance")
+    try:
+        peak_bytes = int(record["peak_bytes"])
+    except (TypeError, ValueError) as error:
+        raise ValueError("cgroup diagnostic peak is not an integer") from error
+    if peak_bytes <= 0 or str(peak_bytes) != record["peak_bytes"]:
+        raise ValueError("cgroup diagnostic peak is not a canonical positive integer")
+    normalized: dict[str, Any] = dict(record)
+    normalized["peak_bytes"] = peak_bytes
+    return digest, normalized
 
 
 def _parse_allocation_test_log(path: str | Path) -> tuple[str, Mapping[str, int]]:
@@ -1812,8 +2357,11 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                         else:
                             raw_source_pairing = candidate_pairing
     provenance_noise: Optional[np.ndarray] = None
+    recomputed_case_pairing = False
+    recomputed_noise_pairing = False
     allocation_case_dir: Optional[Path] = None
     gpu_samples_path: Optional[Path] = None
+    host_cgroup_peak_from_sidecar: Optional[int] = None
     provenance = value.get("provenance")
     if not isinstance(provenance, Mapping):
         errors.append("provenance must be an object")
@@ -1828,11 +2376,11 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             errors.append("allocation GPU UUID is missing")
         if provenance.get("git_dirty") is not False:
             errors.append("canary source tree was dirty")
+        expected_case_dir = EXPERIMENT_ROOT / str(value.get("run_id")) / CASE_ID
         allocation_tests = provenance.get("allocation_runtime_tests")
         if not isinstance(allocation_tests, Mapping) or allocation_tests.get("exit_code") != 0:
             errors.append("allocation dependency-backed focused tests did not pass")
         else:
-            expected_case_dir = EXPERIMENT_ROOT / str(value.get("run_id")) / CASE_ID
             log_path_value = allocation_tests.get("log_path")
             if not isinstance(log_path_value, str):
                 errors.append("allocation test log path is missing")
@@ -1851,6 +2399,14 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                         errors.append("allocation expected test counts changed")
                     if allocation_tests.get("observed_counts") != dict(observed_counts):
                         errors.append("allocation observed test counts changed")
+                    if allocation_tests.get("registry_path") != (
+                        "main/crfs_oracle/r05a_allocation_tests.json"
+                    ):
+                        errors.append("allocation test registry path changed")
+                    if allocation_tests.get("registry_sha256") != (
+                        ALLOCATION_TEST_REGISTRY_SHA256
+                    ):
+                        errors.append("allocation test registry digest changed")
                     if allocation_tests.get("zero_skips") is not True:
                         errors.append("allocation tests did not record zero skips")
                 except (OSError, ValueError) as error:
@@ -1867,20 +2423,94 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     errors.append(f"GPU samples cannot be resolved: {error}")
             else:
                 errors.append("GPU samples path is missing")
+        cgroup_provenance = provenance.get("host_cgroup_memory")
+        if not isinstance(cgroup_provenance, Mapping):
+            errors.append("host cgroup path provenance is missing")
+        else:
+            cgroup_path_value = cgroup_provenance.get("diagnostic_path")
+            if not isinstance(cgroup_path_value, str):
+                errors.append("host cgroup diagnostic path is missing")
+            else:
+                cgroup_path = Path(cgroup_path_value)
+                try:
+                    if cgroup_path.resolve(strict=True) != (
+                        expected_case_dir / "host-cgroup-memory.tsv"
+                    ):
+                        errors.append("host cgroup diagnostic escaped the immutable case directory")
+                    cgroup_sha, cgroup_record = _parse_cgroup_memory_diagnostic(cgroup_path)
+                    expected_cgroup_provenance = {
+                        "diagnostic_path": str(cgroup_path),
+                        "diagnostic_sha256": cgroup_sha,
+                        **cgroup_record,
+                    }
+                    if dict(cgroup_provenance) != expected_cgroup_provenance:
+                        errors.append("host cgroup provenance differs from live shared storage")
+                    host_cgroup_peak_from_sidecar = int(cgroup_record["peak_bytes"])
+                except (OSError, ValueError) as error:
+                    errors.append(f"host cgroup evidence is invalid: {error}")
         provenance_noise = _artifact_array(
             provenance.get("noise"),
             name="provenance.noise",
             shape=(10, 32),
             errors=errors,
         )
+        if isinstance(raw_r02, Mapping):
+            raw_provenance = raw_r02.get("provenance")
+            raw_case = (
+                raw_provenance.get("case_record")
+                if isinstance(raw_provenance, Mapping)
+                else None
+            )
+            recomputed_case_pairing = bool(
+                isinstance(raw_case, Mapping)
+                and provenance.get("case_record") == raw_case
+                and provenance.get("case_record_sha256") == content_hash(raw_case)
+            )
+            if not recomputed_case_pairing:
+                errors.append("current case record differs from immutable R02")
+            raw_noise = _artifact_array(
+                raw_provenance.get("noise")
+                if isinstance(raw_provenance, Mapping)
+                else None,
+                name="immutable_r02.provenance.noise",
+                shape=(10, 32),
+                errors=errors,
+            )
+            policy_seed = raw_case.get("policy_seed") if isinstance(raw_case, Mapping) else None
+            if isinstance(policy_seed, bool) or not isinstance(policy_seed, int):
+                errors.append("immutable R02 policy seed is invalid")
+            elif raw_noise is not None and provenance_noise is not None:
+                expected_noise = np.random.default_rng(policy_seed).normal(
+                    size=(10, 32)
+                ).astype(np.float32)
+                recomputed_noise_pairing = bool(
+                    _array_exact(np.asarray(raw_noise, dtype=np.float32), expected_noise)
+                    and _array_exact(provenance_noise, expected_noise)
+                )
+                if not recomputed_noise_pairing:
+                    errors.append("current policy noise differs from immutable R02 seed/noise")
     pairing = value.get("pairing")
+    expected_pairing_check_keys = {
+        "case_record_exact",
+        "observation_exact",
+        "branch_snapshot_exact",
+        "noise_exact",
+        "source_actions_exact_before",
+        "source_trace_exact_before",
+        "source_actions_exact_after",
+        "source_trace_exact_after",
+        "target_outside_mask_bitwise_exact",
+    }
     if not isinstance(pairing, Mapping) or not isinstance(pairing.get("checks"), Mapping):
         errors.append("pairing checks are missing")
-    elif not all(item is True for item in pairing["checks"].values()):
-        errors.append("an exact current/source pairing check failed")
+    elif set(pairing["checks"]) != expected_pairing_check_keys or not all(
+        item is True for item in pairing["checks"].values()
+    ):
+        errors.append("exact current/source pairing checks are incomplete or failed")
     fresh: Optional[np.ndarray] = None
     target_array: Optional[np.ndarray] = None
     realized_target_delta: Optional[np.ndarray] = None
+    recomputed_target_outside_mask_exact = False
     target = value.get("target")
     if not isinstance(target, Mapping):
         errors.append("target must be an object")
@@ -1924,6 +2554,8 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 errors.append("recorded realized target delta is inconsistent")
             if not _array_exact(target_array[~mask], fresh[~mask]):
                 errors.append("target changed an outside-mask byte")
+            else:
+                recomputed_target_outside_mask_exact = True
         if delta64 is not None and delta32 is not None:
             if delta64.dtype != np.dtype(np.float64):
                 errors.append("source Delta* did not preserve float64")
@@ -1962,6 +2594,13 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     errors.append("target source budget scalar differs from immutable R02")
         if target.get("outside_mask_bitwise_exact") is not True:
             errors.append("target outside-mask exact check did not pass")
+        scale_checks = target.get("checkpoint_scale_checks")
+        if not isinstance(scale_checks, Mapping) or set(scale_checks) != {
+            "positive_float32_full_scale",
+            "registered_xyz_scale_exact",
+            "padded_channels_are_one",
+        } or not all(item is True for item in scale_checks.values()):
+            errors.append("checkpoint scale checks are incomplete or failed")
     solver = value.get("solver")
     first: Optional[Mapping[str, Any]] = None
     duplicate: Optional[Mapping[str, Any]] = None
@@ -1993,10 +2632,14 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
     recomputed_clean_nonconvergence = False
     recomputed_determinism = False
     recomputed_zero_frozen = False
+    recomputed_compiled_eager_path_seam = False
     recomputed_pairing = False
     recomputed_scale = False
     recomputed_canonical = False
     recomputed_direct_target = False
+    expected_teacher_determinism: Optional[Mapping[str, bool]] = None
+    expected_zero_frozen_checks: Optional[Mapping[str, bool]] = None
+    expected_nonconvergence_fail_closed: Optional[Mapping[str, bool]] = None
     first_trace_arrays: Optional[Mapping[str, np.ndarray]] = None
     duplicate_trace_arrays: Optional[Mapping[str, np.ndarray]] = None
     if first is not None and duplicate is not None and fresh is not None and target_array is not None:
@@ -2022,8 +2665,13 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
     if duplicate is not None and calls.get("inverse_flow_teacher_duplicate") != duplicate:
         errors.append("policy_calls teacher-duplicate record differs from solver.duplicate")
     top_canonical = value.get("canonical_replay")
-    if isinstance(top_canonical, Mapping) and calls.get("canonical_schedule_replay") != top_canonical:
-        errors.append("policy_calls canonical replay differs from top-level canonical replay")
+    if isinstance(top_canonical, Mapping):
+        if not _artifact_canonical_record_pair_exact(
+            top_canonical, calls.get("canonical_schedule_replay")
+        ):
+            errors.append(
+                "policy_calls canonical replay differs from its top-level record"
+            )
 
     def action_from_call(name: str) -> Optional[np.ndarray]:
         item = calls.get(name)
@@ -2037,10 +2685,23 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             errors=errors,
         )
 
+    def trace_from_call(name: str) -> Optional[Mapping[str, np.ndarray]]:
+        item = calls.get(name)
+        if not isinstance(item, Mapping):
+            errors.append(f"policy_calls.{name} is missing")
+            return None
+        return _artifact_trace(
+            item.get("trace"),
+            name=f"policy_calls.{name}.trace",
+            errors=errors,
+        )
+
     eager_before_actions = action_from_call("eager_normalized_before")
     eager_after_actions = action_from_call("eager_normalized_after")
     source_before_actions = action_from_call("eager_source_pairing_before")
     source_after_actions = action_from_call("eager_source_pairing_after")
+    source_before_call_trace = trace_from_call("eager_source_pairing_before")
+    source_after_call_trace = trace_from_call("eager_source_pairing_after")
     compiled_before_actions = action_from_call("compiled_frozen_before")
     compiled_after_actions = action_from_call("compiled_frozen_after")
     first_actions = (
@@ -2128,6 +2789,9 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
         except (KeyError, TypeError, ValueError) as error:
             errors.append(f"cannot recompute direct-witness target semantics: {error}")
 
+    raw_source_actions: Optional[np.ndarray] = None
+    raw_source_trace_sha: Optional[str] = None
+    raw_source_trace: Optional[Mapping[str, np.ndarray]] = None
     if isinstance(pairing, Mapping):
         pair_checks: list[bool] = []
         for name in ("observation", "branch_snapshot"):
@@ -2154,7 +2818,6 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 and record.get("source_sha256") == source_hash
                 and record.get("current_sha256") == current_hash
             )
-        raw_source_actions: Optional[np.ndarray] = None
         if isinstance(raw_source_pairing, Mapping):
             raw_source_actions = _artifact_array(
                 raw_source_pairing.get("eager_actions"),
@@ -2186,8 +2849,6 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 and _array_exact(source_action, raw_source_actions)
                 and _array_exact(source_action, current_action)
             )
-        raw_source_trace_sha: Optional[str] = None
-        raw_source_trace: Optional[Mapping[str, np.ndarray]] = None
         if isinstance(raw_source_pairing, Mapping):
             raw_trace_record = raw_source_pairing.get("eager_trace")
             if isinstance(raw_trace_record, Mapping) and _is_sha256(raw_trace_record.get("sha256")):
@@ -2230,7 +2891,13 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 and record.get("source_trace_record_sha256") == raw_source_trace_sha
                 and record.get("fresh_trace_record_sha256") == raw_source_trace_sha
             )
-        recomputed_pairing = bool(pair_checks and all(pair_checks))
+        recomputed_pairing = bool(
+            pair_checks
+            and all(pair_checks)
+            and recomputed_case_pairing
+            and recomputed_noise_pairing
+            and recomputed_target_outside_mask_exact
+        )
 
     teacher_common: list[bool] = []
     teacher_converged_checks: list[bool] = []
@@ -2248,12 +2915,12 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             assert summary is not None
             recurrence_ok = not validate_flow_recurrence(trace)
             try:
-                status_code = int(_scalar(trace["solver_status"], name=f"{label}.solver_status"))
-                converged_flag = bool(_scalar(trace["solver_converged"], name=f"{label}.solver_converged"))
-                fields = bool(_scalar(trace["solver_fields_available"], name=f"{label}.fields"))
-                nonfinite = bool(_scalar(trace["solver_nonfinite"], name=f"{label}.nonfinite"))
+                status_code = int(_artifact_scalar(trace["solver_status"], name=f"{label}.solver_status"))
+                converged_flag = bool(_artifact_scalar(trace["solver_converged"], name=f"{label}.solver_converged"))
+                fields = bool(_artifact_scalar(trace["solver_fields_available"], name=f"{label}.fields"))
+                nonfinite = bool(_artifact_scalar(trace["solver_nonfinite"], name=f"{label}.nonfinite"))
                 iterations = int(
-                    _scalar(trace["solver_iterations"], name=f"{label}.solver_iterations")
+                    _artifact_scalar(trace["solver_iterations"], name=f"{label}.solver_iterations")
                 )
                 if label == "first":
                     raw_first_converged = converged_flag
@@ -2271,24 +2938,24 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                         )
                 common = bool(
                     recurrence_ok
-                    and int(_scalar(trace["control_source"], name="control_source")) == 0
-                    and bool(_scalar(trace["solver_baseline_valid"], name="baseline_valid"))
-                    and bool(_scalar(trace["solver_schedule_valid"], name="schedule_valid"))
-                    and bool(_scalar(trace["target_pairing_checked"], name="target_pairing_checked"))
-                    and bool(_scalar(trace["target_pairing_exact"], name="target_pairing_exact"))
-                    and bool(_scalar(trace["parameter_requires_grad_restored"], name="parameter_restore"))
-                    and bool(_scalar(trace["parameter_grads_none_before"], name="grads_before"))
-                    and bool(_scalar(trace["parameter_grads_none_after"], name="grads_after"))
-                    and bool(_scalar(trace["parameter_grad_check_performed"], name="grad_check"))
-                    and bool(_scalar(trace["cuda_memory_available"], name="cuda_memory"))
+                    and int(_artifact_scalar(trace["control_source"], name="control_source")) == 0
+                    and bool(_artifact_scalar(trace["solver_baseline_valid"], name="baseline_valid"))
+                    and bool(_artifact_scalar(trace["solver_schedule_valid"], name="schedule_valid"))
+                    and bool(_artifact_scalar(trace["target_pairing_checked"], name="target_pairing_checked"))
+                    and bool(_artifact_scalar(trace["target_pairing_exact"], name="target_pairing_exact"))
+                    and bool(_artifact_scalar(trace["parameter_requires_grad_restored"], name="parameter_restore"))
+                    and bool(_artifact_scalar(trace["parameter_grads_none_before"], name="grads_before"))
+                    and bool(_artifact_scalar(trace["parameter_grads_none_after"], name="grads_after"))
+                    and bool(_artifact_scalar(trace["parameter_grad_check_performed"], name="grad_check"))
+                    and bool(_artifact_scalar(trace["cuda_memory_available"], name="cuda_memory"))
                     and iterations == 128
                     and _array_exact(trace["inverse_target"], target_array)
                     and provenance_noise is not None
                     and _array_exact(trace["initial_noise"], provenance_noise)
                     and _array_exact(trace["solver_baseline_final"], fresh)
-                    and np.asarray(_scalar(trace["source_control_budget"], name="source_budget"), dtype=np.float32).tobytes()
+                    and np.asarray(_artifact_scalar(trace["source_control_budget"], name="source_budget"), dtype=np.float32).tobytes()
                     == source_budget.tobytes()
-                    and np.asarray(_scalar(trace["schedule_budget"], name="schedule_budget"), dtype=np.float32).tobytes()
+                    and np.asarray(_artifact_scalar(trace["schedule_budget"], name="schedule_budget"), dtype=np.float32).tobytes()
                     == source_budget.tobytes()
                 )
                 schedule_diag, schedule_errors = _schedule_diagnostics(
@@ -2328,65 +2995,55 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 fidelity_ok = bool(
                     _fidelity_diagnostics(internal_final, target_array, scale)["passed"]
                 )
+                timing_checks = _artifact_timing_checks(trace)
                 expected_summary_invariants = {
                     "control_source_is_teacher": int(
-                        _scalar(trace["control_source"], name="control_source")
+                        _artifact_scalar(trace["control_source"], name="control_source")
                     )
                     == 0,
                     "control_valid": bool(
-                        _scalar(trace["control_valid"], name="control_valid")
+                        _artifact_scalar(trace["control_valid"], name="control_valid")
                     ),
                     "schedule_applied": bool(
-                        _scalar(trace["schedule_applied"], name="schedule_applied")
+                        _artifact_scalar(trace["schedule_applied"], name="schedule_applied")
                     ),
                     "baseline_valid": bool(
-                        _scalar(trace["solver_baseline_valid"], name="baseline_valid")
+                        _artifact_scalar(trace["solver_baseline_valid"], name="baseline_valid")
                     ),
                     "schedule_valid": bool(
-                        _scalar(trace["solver_schedule_valid"], name="schedule_valid")
+                        _artifact_scalar(trace["solver_schedule_valid"], name="schedule_valid")
                     ),
                     "target_pairing_checked": bool(
-                        _scalar(trace["target_pairing_checked"], name="target_pairing_checked")
+                        _artifact_scalar(trace["target_pairing_checked"], name="target_pairing_checked")
                     ),
                     "target_pairing_exact": bool(
-                        _scalar(trace["target_pairing_exact"], name="target_pairing_exact")
+                        _artifact_scalar(trace["target_pairing_exact"], name="target_pairing_exact")
                     ),
                     "parameter_requires_grad_restored": bool(
-                        _scalar(
+                        _artifact_scalar(
                             trace["parameter_requires_grad_restored"],
                             name="parameter_requires_grad_restored",
                         )
                     ),
                     "parameter_grads_none_before": bool(
-                        _scalar(
+                        _artifact_scalar(
                             trace["parameter_grads_none_before"],
                             name="parameter_grads_none_before",
                         )
                     ),
                     "parameter_grads_none_after": bool(
-                        _scalar(
+                        _artifact_scalar(
                             trace["parameter_grads_none_after"],
                             name="parameter_grads_none_after",
                         )
                     ),
                     "parameter_grad_check_performed": bool(
-                        _scalar(
+                        _artifact_scalar(
                             trace["parameter_grad_check_performed"],
                             name="parameter_grad_check_performed",
                         )
                     ),
-                    "dt_exact": np.asarray(
-                        _scalar(trace["dt"], name="dt"), dtype=np.float32
-                    ).tobytes()
-                    == np.asarray(-0.1, dtype=np.float32).tobytes(),
-                    "intervention_step_exact": int(
-                        _scalar(trace["intervention_step"], name="intervention_step")
-                    )
-                    == 5,
-                    "num_steps_exact": int(
-                        _scalar(trace["num_steps"], name="num_steps")
-                    )
-                    == 10,
+                    **timing_checks,
                     "fixed_128_updates_complete": iterations == 128,
                     "initial_noise_exact": provenance_noise is not None
                     and _array_exact(trace["initial_noise"], provenance_noise),
@@ -2394,12 +3051,12 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     "schedule_constraints_passed": not schedule_errors,
                     "budget_binding_passed": bool(
                         np.asarray(
-                            _scalar(trace["source_control_budget"], name="source_budget"),
+                            _artifact_scalar(trace["source_control_budget"], name="source_budget"),
                             dtype=np.float32,
                         ).tobytes()
                         == source_budget.tobytes()
                         and np.asarray(
-                            _scalar(trace["schedule_budget"], name="schedule_budget"),
+                            _artifact_scalar(trace["schedule_budget"], name="schedule_budget"),
                             dtype=np.float32,
                         ).tobytes()
                         == source_budget.tobytes()
@@ -2410,17 +3067,23 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     "fidelity_passed": fidelity_ok,
                     "final_physical_exact_returned_actions": physical_binding_exact,
                     "cuda_memory_available": bool(
-                        _scalar(trace["cuda_memory_available"], name="cuda_memory_available")
+                        _artifact_scalar(trace["cuda_memory_available"], name="cuda_memory_available")
                     ),
                 }
+                converged_invariant_truth = _artifact_teacher_invariant_summary_passed(
+                    summary, expected_summary_invariants, converged=True
+                )
+                nonconverged_invariant_truth = _artifact_teacher_invariant_summary_passed(
+                    summary, expected_summary_invariants, converged=False
+                )
                 expected_summary_budget_checks = {
                     "source_control_budget_exact": np.asarray(
-                        _scalar(trace["source_control_budget"], name="source_budget"),
+                        _artifact_scalar(trace["source_control_budget"], name="source_budget"),
                         dtype=np.float32,
                     ).tobytes()
                     == source_budget.tobytes(),
                     "schedule_budget_exact": np.asarray(
-                        _scalar(trace["schedule_budget"], name="schedule_budget"),
+                        _artifact_scalar(trace["schedule_budget"], name="schedule_budget"),
                         dtype=np.float32,
                     ).tobytes()
                     == source_budget.tobytes(),
@@ -2462,6 +3125,7 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 )
                 teacher_converged_checks.append(
                     common
+                    and converged_invariant_truth
                     and not schedule_errors
                     and model_error_exact
                     and realized_elements_exact
@@ -2471,14 +3135,15 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     and converged_flag
                     and fields
                     and not nonfinite
-                    and bool(_scalar(trace["control_valid"], name="control_valid"))
-                    and bool(_scalar(trace["schedule_applied"], name="schedule_applied"))
+                    and bool(_artifact_scalar(trace["control_valid"], name="control_valid"))
+                    and bool(_artifact_scalar(trace["schedule_applied"], name="schedule_applied"))
                     and fidelity_ok
                     and _array_exact(trace["control_velocity_steps"], trace["solver_schedule"])
                     and _array_exact(trace["final_normalized"], internal_final)
                 )
                 teacher_nonconverged_checks.append(
                     common
+                    and nonconverged_invariant_truth
                     and not schedule_errors
                     and model_error_exact
                     and realized_elements_exact
@@ -2488,8 +3153,8 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                     and not converged_flag
                     and fields
                     and not nonfinite
-                    and not bool(_scalar(trace["control_valid"], name="control_valid"))
-                    and not bool(_scalar(trace["schedule_applied"], name="schedule_applied"))
+                    and not bool(_artifact_scalar(trace["control_valid"], name="control_valid"))
+                    and not bool(_artifact_scalar(trace["schedule_applied"], name="schedule_applied"))
                     and not fidelity_ok
                     and np.count_nonzero(trace["control_velocity_steps"]) == 0
                     and _array_exact(trace["final_normalized"], fresh)
@@ -2510,6 +3175,59 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
                 _deterministic_trace(duplicate_trace_arrays),
             )
         )
+        first_schedule = first.get("schedule") if first is not None else None
+        duplicate_schedule = duplicate.get("schedule") if duplicate is not None else None
+        expected_teacher_determinism = {
+            "status_exact": first.get("status_code") == duplicate.get("status_code"),
+            "convergence_exact": first.get("converged") == duplicate.get("converged"),
+            "schedule_exact": bool(
+                (first_schedule is None and duplicate_schedule is None)
+                or (
+                    isinstance(first_schedule, Mapping)
+                    and isinstance(duplicate_schedule, Mapping)
+                    and first_schedule.get("sha256") == duplicate_schedule.get("sha256")
+                )
+            ),
+            "actions_exact": bool(
+                first_actions is not None
+                and duplicate_actions is not None
+                and _array_exact(first_actions, duplicate_actions)
+            ),
+            "deterministic_trace_exact": _trace_exact(
+                _deterministic_trace(first_trace_arrays),
+                _deterministic_trace(duplicate_trace_arrays),
+            ),
+        }
+        expected_nonconvergence_fail_closed = {
+            "first_returned_actions_exact_frozen": bool(
+                first_actions is not None
+                and eager_before_actions is not None
+                and _array_exact(first_actions, eager_before_actions)
+            ),
+            "duplicate_returned_actions_exact_frozen": bool(
+                duplicate_actions is not None
+                and eager_before_actions is not None
+                and _array_exact(duplicate_actions, eager_before_actions)
+            ),
+            "first_returned_final_exact_frozen": _array_exact(
+                first_trace_arrays["final_normalized"], fresh
+            ),
+            "duplicate_returned_final_exact_frozen": _array_exact(
+                duplicate_trace_arrays["final_normalized"], fresh
+            ),
+            "first_applied_control_exact_zero": bool(
+                np.count_nonzero(first_trace_arrays["control_velocity_steps"]) == 0
+            ),
+            "duplicate_applied_control_exact_zero": bool(
+                np.count_nonzero(duplicate_trace_arrays["control_velocity_steps"]) == 0
+            ),
+            "first_canonical_final_exact_frozen": _array_exact(
+                first_trace_arrays["canonical_replay_final"], fresh
+            ),
+            "duplicate_canonical_final_exact_frozen": _array_exact(
+                duplicate_trace_arrays["canonical_replay_final"], fresh
+            ),
+        }
 
     zero_before = calls.get("zero_schedule_before")
     zero_after = calls.get("zero_schedule_after")
@@ -2541,6 +3259,37 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
     )
     zero_before_actions = action_from_call("zero_schedule_before")
     zero_after_actions = action_from_call("zero_schedule_after")
+    determinism = value.get("determinism")
+    if not isinstance(determinism, Mapping):
+        errors.append("determinism record is missing")
+
+    zero_before_replay_checks: Optional[Mapping[str, bool]] = None
+    zero_after_replay_checks: Optional[Mapping[str, bool]] = None
+    if (
+        zero_before_trace is not None
+        and zero_after_trace is not None
+        and zero_before_actions is not None
+        and zero_after_actions is not None
+        and provenance_noise is not None
+    ):
+        try:
+            zero_before_replay_checks = _artifact_zero_replay_checks(
+                zero_before_trace, zero_before_actions, provenance_noise
+            )
+            zero_after_replay_checks = _artifact_zero_replay_checks(
+                zero_after_trace, zero_after_actions, provenance_noise
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            errors.append(f"cannot recompute zero-schedule replay checks: {error}")
+    for label, record, expected_checks in (
+        ("zero_schedule_before", zero_before, zero_before_replay_checks),
+        ("zero_schedule_after", zero_after, zero_after_replay_checks),
+    ):
+        if expected_checks is not None and (
+            not isinstance(record, Mapping)
+            or not _artifact_replay_summary_exact(record, expected_checks)
+        ):
+            errors.append(f"policy_calls.{label} summary differs from raw trace")
     if (
         zero_before_trace is not None
         and zero_after_trace is not None
@@ -2557,7 +3306,17 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
         and zero_after_actions is not None
     ):
         recomputed_zero_frozen = bool(
-            not validate_flow_recurrence(zero_before_trace)
+            zero_before_replay_checks is not None
+            and isinstance(zero_before, Mapping)
+            and _artifact_replay_summary_passed(
+                zero_before, zero_before_replay_checks
+            )
+            and zero_after_replay_checks is not None
+            and isinstance(zero_after, Mapping)
+            and _artifact_replay_summary_passed(
+                zero_after, zero_after_replay_checks
+            )
+            and not validate_flow_recurrence(zero_before_trace)
             and not validate_flow_recurrence(zero_after_trace)
             and np.count_nonzero(zero_before_trace["control_velocity_steps"]) == 0
             and np.count_nonzero(zero_after_trace["control_velocity_steps"]) == 0
@@ -2574,48 +3333,195 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             and _trace_exact(zero_before_trace, zero_after_trace)
             and _array_exact(zero_before_actions, eager_before_actions)
             and _array_exact(zero_after_actions, eager_before_actions)
-            and _array_exact(compiled_before_actions, eager_before_actions)
-            and _array_exact(compiled_before_actions, source_before_actions)
-            and _array_exact(compiled_after_actions, eager_after_actions)
-            and _array_exact(compiled_after_actions, source_after_actions)
             and _array_exact(compiled_before_actions, compiled_after_actions)
+            and _array_exact(eager_before_actions, source_before_actions)
             and _array_exact(eager_before_actions, eager_after_actions)
+            and _array_exact(eager_after_actions, source_after_actions)
         )
-
-    canonical = value.get("canonical_replay")
-    if isinstance(canonical, Mapping) and first_trace_arrays is not None:
-        if canonical.get("applicable") is True:
-            canonical_trace = _artifact_trace(
-                canonical.get("trace"), name="canonical_replay.trace", errors=errors
+        expected_zero_frozen_checks = {
+            "zero_before_actions_exact_frozen": _array_exact(
+                zero_before_actions, eager_before_actions
+            ),
+            "zero_before_final_exact_frozen": _array_exact(
+                zero_before_trace["final_normalized"], fresh
+            ),
+            "zero_after_actions_exact_frozen": _array_exact(
+                zero_after_actions, eager_before_actions
+            ),
+            "zero_after_final_exact_frozen": _array_exact(
+                zero_after_trace["final_normalized"], fresh
+            ),
+            "zero_before_after_trace_exact": _trace_exact(
+                zero_before_trace, zero_after_trace
+            ),
+            "compiled_before_after_actions_exact": _array_exact(
+                compiled_before_actions, compiled_after_actions
+            ),
+            "eager_source_before_actions_exact": _array_exact(
+                eager_before_actions, source_before_actions
+            ),
+            "eager_before_after_actions_exact": _array_exact(
+                eager_before_actions, eager_after_actions
+            ),
+            "eager_source_after_actions_exact": _array_exact(
+                eager_after_actions, source_after_actions
+            ),
+            "eager_before_after_trace_exact": _trace_exact(
+                eager_before_trace, eager_after_trace
+            ),
+            "source_after_actions_exact": bool(
+                raw_source_actions is not None
+                and _array_exact(
+                    np.asarray(source_after_actions, dtype=raw_source_actions.dtype),
+                    raw_source_actions,
+                )
+            ),
+            "source_after_trace_exact": bool(
+                raw_source_trace is not None
+                and source_after_call_trace is not None
+                and _trace_exact(raw_source_trace, source_after_call_trace)
+            ),
+            "zero_before_recurrence_exact": bool(
+                zero_before_replay_checks is not None
+                and all(zero_before_replay_checks.values())
+            ),
+            "zero_after_recurrence_exact": bool(
+                zero_after_replay_checks is not None
+                and all(zero_after_replay_checks.values())
+            ),
+        }
+        recorded_zero_frozen = (
+            determinism.get("zero_and_frozen_before_after")
+            if isinstance(determinism, Mapping)
+            else None
+        )
+        if recorded_zero_frozen != expected_zero_frozen_checks:
+            errors.append(
+                "recorded zero/frozen checks differ from independent trace recomputation"
             )
-            canonical_actions = _artifact_array(
-                canonical.get("actions"),
-                name="canonical_replay.actions",
-                shape=(10, 7),
+        recomputed_compiled_eager_path_seam = (
+            _validate_compiled_eager_path_seam_record(
+                determinism.get("compiled_eager_path_seam")
+                if isinstance(determinism, Mapping)
+                else None,
+                compiled_before=compiled_before_actions,
+                eager_before=eager_before_actions,
+                compiled_after=compiled_after_actions,
+                eager_after=eager_after_actions,
                 errors=errors,
             )
-            if canonical_trace is not None and canonical_actions is not None and first_actions is not None:
+        )
+    if isinstance(determinism, Mapping):
+        if determinism.get("teacher") != expected_teacher_determinism:
+            errors.append(
+                "recorded teacher determinism differs from independent trace recomputation"
+            )
+        if (
+            determinism.get("nonconvergence_fail_closed")
+            != expected_nonconvergence_fail_closed
+        ):
+            errors.append(
+                "recorded nonconvergence fail-closed checks differ from raw traces"
+            )
+
+    canonical = value.get("canonical_replay")
+    canonical_nonconverged_exact = bool(
+        isinstance(canonical, Mapping)
+        and dict(canonical) == dict(NONCONVERGED_CANONICAL_REPLAY)
+    )
+    if isinstance(canonical, Mapping) and canonical.get("applicable") is False:
+        if not canonical_nonconverged_exact:
+            errors.append("nonconverged canonical replay is not the exact fail-closed sentinel")
+    elif (
+        isinstance(canonical, Mapping)
+        and canonical.get("applicable") is True
+        and first_trace_arrays is not None
+    ):
+        if set(canonical) != CONVERGED_CANONICAL_REPLAY_KEYS:
+            errors.append("converged canonical replay has an unexpected record shape")
+        canonical_trace = _artifact_trace(
+            canonical.get("trace"), name="canonical_replay.trace", errors=errors
+        )
+        canonical_actions = _artifact_array(
+            canonical.get("actions"),
+            name="canonical_replay.actions",
+            shape=(10, 7),
+            errors=errors,
+        )
+        canonical_final = _artifact_array(
+            canonical.get("final_normalized"),
+            name="canonical_replay.final_normalized",
+            shape=(10, 32),
+            errors=errors,
+        )
+        elapsed_seconds = canonical.get("elapsed_seconds")
+        elapsed_valid = bool(
+            type(elapsed_seconds) in (int, float)
+            and math.isfinite(float(elapsed_seconds))
+            and float(elapsed_seconds) >= 0.0
+        )
+        if not elapsed_valid:
+            errors.append("canonical replay elapsed_seconds is not finite and nonnegative")
+        if (
+            canonical_trace is not None
+            and canonical_actions is not None
+            and canonical_final is not None
+            and first_actions is not None
+            and provenance_noise is not None
+            and isinstance(target, Mapping)
+        ):
+            try:
+                source_budget = np.asarray(
+                    target.get("source_budget_float32"), dtype=np.float32
+                )
+                if source_budget.shape != ():
+                    raise ValueError("source budget must be scalar")
+                replay_checks = _artifact_canonical_replay_checks(
+                    canonical_trace,
+                    canonical_actions,
+                    provenance_noise,
+                    first_trace_arrays["solver_schedule"],
+                    source_budget,
+                    first_actions,
+                    first_trace_arrays["final_normalized"],
+                    first_trace_arrays["solver_internal_replay_final"],
+                )
+                replay_diagnostics, replay_schedule_errors = _schedule_diagnostics(
+                    canonical_trace["control_velocity_steps"],
+                    source_budget_float32=source_budget,
+                )
+                replay_recurrence_errors = validate_flow_recurrence(canonical_trace)
+                recorded_replay_exact = bool(
+                    _artifact_replay_summary_exact(canonical, replay_checks)
+                    and canonical.get("schedule_diagnostics") == replay_diagnostics
+                    and canonical.get("schedule_errors") == replay_schedule_errors
+                    and canonical.get("recurrence_errors")
+                    == replay_recurrence_errors
+                )
+                if not recorded_replay_exact:
+                    errors.append(
+                        "canonical replay summary differs from independent trace recomputation"
+                    )
                 recomputed_canonical = bool(
-                    not validate_flow_recurrence(canonical_trace)
-                    and provenance_noise is not None
-                    and _array_exact(canonical_trace["initial_noise"], provenance_noise)
+                    set(canonical) == CONVERGED_CANONICAL_REPLAY_KEYS
+                    and elapsed_valid
+                    and _artifact_replay_summary_passed(canonical, replay_checks)
+                    and recorded_replay_exact
                     and _array_exact(
-                        canonical_trace["control_velocity_steps"], first_trace_arrays["solver_schedule"]
-                    )
-                    and _array_exact(
-                        canonical_trace["final_normalized"], first_trace_arrays["solver_internal_replay_final"]
-                    )
-                    and _array_exact(canonical_actions, first_actions)
-                    and _array_exact(
-                        canonical_trace["final_normalized_physical"], canonical_actions
+                        canonical_final, canonical_trace["final_normalized"]
                     )
                 )
+            except (KeyError, TypeError, ValueError) as error:
+                errors.append(f"cannot recompute canonical replay checks: {error}")
+    elif isinstance(canonical, Mapping):
+        errors.append("canonical replay applicable flag is not an exact boolean")
 
     recomputed_converged = bool(
         len(teacher_converged_checks) == 2
         and all(teacher_converged_checks)
         and recomputed_determinism
         and recomputed_zero_frozen
+        and recomputed_compiled_eager_path_seam
         and recomputed_pairing
         and recomputed_scale
         and recomputed_canonical
@@ -2626,15 +3532,18 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
         and all(teacher_nonconverged_checks)
         and recomputed_determinism
         and recomputed_zero_frozen
+        and recomputed_compiled_eager_path_seam
         and recomputed_pairing
         and recomputed_scale
         and recomputed_direct_target
-        and isinstance(canonical, Mapping)
-        and canonical.get("applicable") is False
+        and canonical_nonconverged_exact
     )
-    determinism = value.get("determinism")
-    if not isinstance(determinism, Mapping):
-        errors.append("determinism record is missing")
+    if isinstance(determinism, Mapping) and determinism.get("passed") is not bool(
+        recomputed_determinism
+        and recomputed_zero_frozen
+        and recomputed_compiled_eager_path_seam
+    ):
+        errors.append("determinism.passed differs from independent recomputation")
     canonical = value.get("canonical_replay")
     if not isinstance(canonical, Mapping):
         errors.append("canonical replay record is missing")
@@ -2654,20 +3563,15 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             memory["host_cgroup_peak_bytes"]
         ) > 65536 * 1024 * 1024:
             errors.append("host cgroup peak exceeds the registered 64 GiB allocation")
+        if (
+            host_cgroup_peak_from_sidecar is not None
+            and memory.get("host_cgroup_peak_bytes") != host_cgroup_peak_from_sidecar
+        ):
+            errors.append("host cgroup peak differs from its path-provenance sidecar")
         if first_trace_arrays is not None and duplicate_trace_arrays is not None:
             try:
-                if not (
-                    bool(_scalar(first_trace_arrays["cuda_memory_available"], name="first CUDA"))
-                    and bool(_scalar(duplicate_trace_arrays["cuda_memory_available"], name="duplicate CUDA"))
-                ):
-                    errors.append("teacher CUDA process telemetry is unavailable")
-                expected_allocated = max(
-                    int(_scalar(first_trace_arrays["cuda_process_peak_allocated_bytes"], name="first peak")),
-                    int(_scalar(duplicate_trace_arrays["cuda_process_peak_allocated_bytes"], name="duplicate peak")),
-                )
-                expected_reserved = max(
-                    int(_scalar(first_trace_arrays["cuda_process_peak_reserved_bytes"], name="first reserved")),
-                    int(_scalar(duplicate_trace_arrays["cuda_process_peak_reserved_bytes"], name="duplicate reserved")),
+                expected_allocated, expected_reserved = _artifact_cuda_memory_peaks(
+                    first_trace_arrays, duplicate_trace_arrays
                 )
                 if memory.get("gpu_process_peak_allocated_bytes") != expected_allocated:
                     errors.append("GPU allocated peak differs from raw sampler trace")
@@ -2699,12 +3603,9 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
             except (OSError, ValueError) as error:
                 errors.append(f"GPU sample evidence is invalid: {error}")
     apparatus = value.get("apparatus")
-    expected_status = (
-        "completed_converged"
-        if recomputed_converged
-        else "completed_nonconverged"
-        if recomputed_clean_nonconvergence
-        else "completed_apparatus_failure"
+    expected_status = _artifact_result_status(
+        recomputed_converged=recomputed_converged,
+        recomputed_clean_nonconvergence=recomputed_clean_nonconvergence,
     )
     if status != expected_status:
         errors.append(
@@ -2713,13 +3614,26 @@ def validate_r05a_canary_result(value: Mapping[str, Any]) -> list[str]:
     if not isinstance(apparatus, Mapping):
         errors.append("apparatus record is missing")
     else:
-        if apparatus.get("memory_pending") is not False or apparatus.get("memory_passed") is not True:
-            errors.append("memory finalization did not pass")
-        passed = apparatus.get("passed") is True
-        if passed != recomputed_converged:
-            errors.append("apparatus.passed differs from independent trace recomputation")
-        if apparatus.get("clean_nonconvergence") is not recomputed_clean_nonconvergence:
-            errors.append("clean_nonconvergence differs from independent trace recomputation")
+        first_invariants = first.get("invariants") if isinstance(first, Mapping) else None
+        expected_apparatus = {
+            "passed_before_memory_finalization": recomputed_converged,
+            "teacher_invariants_passed": bool(
+                isinstance(first_invariants, Mapping)
+                and all(item is True for item in first_invariants.values())
+            ),
+            "determinism_passed": recomputed_determinism,
+            "canonical_replay_passed": recomputed_canonical,
+            "zero_and_frozen_passed": recomputed_zero_frozen,
+            "compiled_eager_path_seam_passed": recomputed_compiled_eager_path_seam,
+            "pairing_passed": recomputed_pairing,
+            "checkpoint_scale_passed": recomputed_scale,
+            "clean_nonconvergence": recomputed_clean_nonconvergence,
+            "memory_pending": False,
+            "memory_passed": True,
+            "passed": recomputed_converged,
+        }
+        if dict(apparatus) != expected_apparatus:
+            errors.append("apparatus summary differs from independent trace recomputation")
     outcome = value.get("outcome")
     if not isinstance(outcome, Mapping) or not (
         outcome.get("interpretation")
@@ -2774,6 +3688,7 @@ def finalize_r05a_canary(
     output_path: str | Path,
     *,
     host_cgroup_peak_bytes: int,
+    host_cgroup_diagnostic_path: str | Path,
     gpu_samples_path: str | Path,
     allocation_tests_log: str | Path,
     allocation_tests_exit_code: int,
@@ -2796,6 +3711,16 @@ def finalize_r05a_canary(
     if test_log.stat().st_size <= 0:
         raise ValueError("allocation focused-test log is empty")
     test_log_sha, observed_test_counts = _parse_allocation_test_log(test_log)
+    cgroup_diagnostic_path = Path(host_cgroup_diagnostic_path)
+    if cgroup_diagnostic_path.resolve(strict=True) != (
+        test_log.resolve(strict=True).parent / "host-cgroup-memory.tsv"
+    ):
+        raise ValueError("cgroup diagnostic escaped the allocation case directory")
+    cgroup_diagnostic_sha, cgroup_diagnostic = _parse_cgroup_memory_diagnostic(
+        cgroup_diagnostic_path
+    )
+    if cgroup_diagnostic.get("peak_bytes") != host_cgroup_peak_bytes:
+        raise ValueError("cgroup diagnostic peak differs from the finalized host peak")
     count, gpu_uuid, compute_peak, device_peak, samples_sha = _read_gpu_samples(gpu_samples_path)
     if result.get("provenance", {}).get("allocation_gpu_uuid") != gpu_uuid:
         raise ValueError("GPU samples differ from the allocation-bound GPU UUID")
@@ -2805,21 +3730,9 @@ def finalize_r05a_canary(
     duplicate_trace = _trace_from_record(
         result["solver"]["duplicate"]["trace"], name="solver.duplicate.trace"
     )
-    if not (
-        bool(_scalar(first_trace["cuda_memory_available"], name="first CUDA memory"))
-        and bool(_scalar(duplicate_trace["cuda_memory_available"], name="duplicate CUDA memory"))
-    ):
-        raise ValueError("sampler did not expose CUDA process memory")
-    process_allocated = max(
-        int(_scalar(first_trace["cuda_process_peak_allocated_bytes"], name="first allocated peak")),
-        int(_scalar(duplicate_trace["cuda_process_peak_allocated_bytes"], name="duplicate allocated peak")),
+    process_allocated, process_reserved = _artifact_cuda_memory_peaks(
+        first_trace, duplicate_trace
     )
-    process_reserved = max(
-        int(_scalar(first_trace["cuda_process_peak_reserved_bytes"], name="first reserved peak")),
-        int(_scalar(duplicate_trace["cuda_process_peak_reserved_bytes"], name="duplicate reserved peak")),
-    )
-    if process_allocated <= 0 or process_reserved <= 0:
-        raise ValueError("sampler CUDA process peaks are not positive")
     result["memory"] = {
         "requested_host_memory_mib": 65536,
         "host_cgroup_peak_bytes": host_cgroup_peak_bytes,
@@ -2844,7 +3757,14 @@ def finalize_r05a_canary(
         "log_sha256": test_log_sha,
         "expected_counts": dict(ALLOCATION_TEST_COUNTS),
         "observed_counts": dict(observed_test_counts),
+        "registry_path": "main/crfs_oracle/r05a_allocation_tests.json",
+        "registry_sha256": ALLOCATION_TEST_REGISTRY_SHA256,
         "zero_skips": True,
+    }
+    result["provenance"]["host_cgroup_memory"] = {
+        "diagnostic_path": str(cgroup_diagnostic_path),
+        "diagnostic_sha256": cgroup_diagnostic_sha,
+        **cgroup_diagnostic,
     }
     result["provenance"]["gpu_samples_path"] = str(Path(gpu_samples_path))
     result["apparatus"]["memory_pending"] = False

@@ -173,27 +173,61 @@ first reproduce 9/17.
 - After recording retry B, the terminal-interpretation tree passed `./init.sh`:
   415 tests, 152 declared dependency skips, and all 21 artifact/18 gate audits.
   This does not repair or pass IFT-00A.
+- The three ADR-0031 repairs are implemented without changing the frozen
+  solver or science: the live cgroup resolver maps actual membership through
+  mountinfo and preserves path provenance; one strict JSON registry feeds the
+  shared H100/CPU suite runner and Python finalizer at 17/8/10/12; and the
+  compiled/eager seam is numerical under unchanged ADR-0011 limits while
+  exact eager/source and within-path pairing remain mandatory. With the
+  ADR-0033/0034 artifact trust-path regressions, the current tree passed
+  `./init.sh` with 436 tests, the same 152 declared dependency skips, and all
+  21 artifact/18 gate audits; the dependency-backed R05A canary suite also
+  passed 12/12 with zero skips. This includes the independently callable
+  CPU-result validator, its eight tamper cases, and the held-job
+  failure-transaction fixture. This is local implementation evidence only.
+- ADR-0032 preregisters the exact CPU-only integration run
+  `r05a-adr0031-apparatus-cpu-20260715a`: worker-1, `0-0%1`, two CPUs, 8 GiB,
+  20 minutes, no GPU, checkpoint, policy server, real pi0.5 teacher search or
+  teacher observation, simulator step, efficacy claim, or training
+  authorization. Its required unit suites contain synthetic inverse-solver
+  calls only. A separately callable, receipt-hash-bound validator checks the
+  unpublished result candidate and has dependency-free tamper coverage. It has
+  not been submitted.
+- Independent replay of the exact retry-B payload, SHA-256
+  `d5721d08747cd7c8f335057f2d89f7224d8921ac0bf1cba9bd16475fd3622d2b`,
+  exposed persisted scalar leaves with shape `(1,)`. ADR-0033 accepts a
+  separate artifact-only singleton decoder and keeps live sampler `_scalar`
+  strict. Further coupled-tamper review exposed stored teacher/replay labels
+  that were not all derived from their raw timing and schedule metadata.
+  ADR-0034 now requires exact teacher truth patterns, independently recomputed
+  zero/canonical replay metadata, the converged teacher action/final bindings,
+  branch-aware canonical top-level/policy-call shape, and one exact
+  nonconvergence sentinel. The exact adapted retry-B payload then recomputed as
+  `completed_nonconverged` with zero semantic-validator errors; this is
+  diagnostic re-interpretation, not a repaired result or efficacy evidence.
+  Independent scientific and HPC reviews found no remaining P0/P1 blocker for
+  the preregistered CPU-only apparatus run. They remain explicit NO-GO for
+  retry C, IFT-01, simulator efficacy, and probe/MLP training.
 
 ## Exact next action
 
-Do not resubmit retry B and do not launch IFT-01. Implement only the three
-ADR-0031 apparatus repairs: portable live Slurm cgroup-peak discovery with an
-accurate failure stage, one shared 17/8/10/12 allocation-test registry, and the
-already accepted ADR-0011 compiled/eager numerical seam rule while retaining
-exact within-path/source pairing. Do not change any solver, tolerance, target,
-budget, mask, checkpoint, source case, simulator, or resource setting.
-
-After implementation, run exactly:
+Do not resubmit retry B and do not launch IFT-01. Complete independent review,
+commit and push the repaired tree, synchronize the clean VinUni checkout to
+that exact commit, verify an empty user queue and healthy worker-1, then invoke
+exactly once:
 
 ```bash
-./init.sh
+RUN_ID=r05a-adr0031-apparatus-cpu-20260715a \
+  scripts/hpc/submit_r05a_apparatus_regression.sh
 ```
 
-Then require the four dependency-backed suites and a CPU Slurm regression with
-zero skips, an independent review, clean local/remote commit identity, a new
-immutable run ID, and a newly recorded exact submission command before any
-retry C. If that accepted retry reports the same finite nonconvergence, stop
-IFT-01 and the currently registered inverse-flow teacher direction.
+Interpret only the exact terminal CPU task, immutable receipts, 17/8/10/12
+zero-skip log, independently parsed live cgroup sidecar, and atomic result.
+A pass is apparatus evidence and one retry-C prerequisite, not transport or
+efficacy evidence. Do not choose a retry-C ID or command until this CPU run is
+terminal and independently reviewed. If a later accepted retry C reports the
+same finite nonconvergence, stop IFT-01 and the currently registered
+inverse-flow teacher direction.
 
 ## Non-negotiable stops
 

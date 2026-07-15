@@ -30,6 +30,7 @@ MODEL=$CHECKPOINT_DIR/model.safetensors
 SOURCE_R02=$R02_RAW_ROOT/$CASE_ID/r02-paired.json
 SCHEMA=$REMOTE_REPO/schemas/r05a-inverse-flow-canary.schema.json
 DECISION=$REMOTE_REPO/docs/decisions/0028-pivot-to-inverse-flow-transport.md
+ALLOCATION_TEST_REGISTRY=$REMOTE_REPO/main/crfs_oracle/r05a_allocation_tests.json
 
 case "$RUN_ID" in
   *[!A-Za-z0-9._-]*|'') echo "unsafe R05A RUN_ID" >&2; exit 2 ;;
@@ -66,6 +67,7 @@ SERVER_LOG=$CASE_DIR/policy-server.log
 CLIENT_LOG=$CASE_DIR/canary-client.log
 TEST_LOG=$CASE_DIR/allocation-focused-tests.log
 GPU_SAMPLES=$CASE_DIR/gpu-memory-samples.csv
+HOST_CGROUP_DIAGNOSTIC=$CASE_DIR/host-cgroup-memory.tsv
 PAYLOAD=$CASE_DIR/canary-payload.json
 RESULT=$CASE_DIR/results.json
 SERVER_PID=
@@ -130,12 +132,17 @@ for path in \
   "$EXPERIMENT_CONFIG" \
   "$SCHEMA" \
   "$DECISION" \
+  "$ALLOCATION_TEST_REGISTRY" \
   "$SOURCE_R02" \
   "$MODEL" \
+  "$REMOTE_REPO/scripts/hpc/lib/cgroup_memory.sh" \
+  "$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh" \
   "$REMOTE_REPO/main/run_crfs_r05a_canary.py" \
   "$REMOTE_REPO/main/finalize_crfs_r05a_canary.py"; do
   test -e "$path" || { echo "missing R05A input: $path" >&2; exit 2; }
 done
+. "$REMOTE_REPO/scripts/hpc/lib/cgroup_memory.sh"
+. "$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh"
 GIT_COMMIT=$(git -C "$REMOTE_REPO" rev-parse HEAD)
 GIT_DIRTY=$(test -n "$(git -C "$REMOTE_REPO" status --porcelain)" && echo true || echo false)
 MANIFEST_SHA256=$(sha256sum "$MANIFEST" | awk '{print $1}')
@@ -206,33 +213,8 @@ PY
 TRANSFORMERS_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_transformers_overlay.sh)
 FAILURE_STAGE=dependency_backed_focused_tests
 export PYTHONPATH=$TRANSFORMERS_OVERLAY:$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src
-: >"$TEST_LOG"
-for suite in \
-  test_inverse_flow_control.py:17 \
-  test_inverse_flow_sampler.py:8 \
-  test_inverse_flow_policy.py:10 \
-  test_r05a_canary.py:12; do
-  pattern=${suite%%:*}
-  expected=${suite##*:}
-  suite_log=$CASE_DIR/allocation-$pattern.log
-  "$OPENPI_PYTHON" -m unittest discover -s tests -p "$pattern" -v >"$suite_log" 2>&1
-  observed=$(sed -n 's/^Ran \([0-9][0-9]*\) tests\{0,1\} in .*/\1/p' "$suite_log")
-  test "$observed" = "$expected" || {
-    echo "$pattern ran ${observed:-unknown} tests; expected $expected" >&2
-    exit 2
-  }
-  test "$(grep -xc 'OK' "$suite_log")" = 1 || {
-    echo "$pattern did not finish with exactly one OK" >&2
-    exit 2
-  }
-  if grep -Eq 'skipped=|^FAILED|^ERROR' "$suite_log"; then
-    echo "$pattern skipped or failed allocation-backed tests" >&2
-    exit 2
-  fi
-  printf 'verified_test_suite=%s expected=%s observed=%s skips=0 status=passed\n' \
-    "$pattern" "$expected" "$observed" >>"$TEST_LOG"
-  sed "s/^/[$pattern] /" "$suite_log" >>"$TEST_LOG"
-done
+crfs_run_r05a_allocation_tests \
+  "$ALLOCATION_TEST_REGISTRY" "$OPENPI_PYTHON" tests "$TEST_LOG" "$CASE_DIR"
 
 printf 'timestamp_ns,gpu_uuid,compute_mib,device_mib\n' >"$GPU_SAMPLES"
 monitor_gpu() {
@@ -296,20 +278,21 @@ kill "$MONITOR_PID" 2>/dev/null || true
 wait "$MONITOR_PID" 2>/dev/null || true
 MONITOR_PID=
 
-host_cgroup_peak_bytes=
-v2_path=$(awk -F: '$1 == "0" && $2 == "" {print $3; exit}' /proc/self/cgroup)
-if [ -n "$v2_path" ] && [ -r "/sys/fs/cgroup${v2_path}/memory.peak" ]; then
-  host_cgroup_peak_bytes=$(cat "/sys/fs/cgroup${v2_path}/memory.peak")
-else
-  v1_path=$(awk -F: '$2 ~ /(^|,)memory(,|$)/ {print $3; exit}' /proc/self/cgroup)
-  if [ -n "$v1_path" ] && [ -r "/sys/fs/cgroup/memory${v1_path}/memory.max_usage_in_bytes" ]; then
-    host_cgroup_peak_bytes=$(cat "/sys/fs/cgroup/memory${v1_path}/memory.max_usage_in_bytes")
-  fi
+FAILURE_STAGE=host_cgroup_memory_peak
+if ! host_cgroup_peak_bytes=$(crfs_read_live_cgroup_memory_peak \
+  /proc/self/cgroup /proc/self/mountinfo "$HOST_CGROUP_DIAGNOSTIC"); then
+  echo "live Slurm cgroup memory peak is unavailable; diagnostic=$HOST_CGROUP_DIAGNOSTIC" >&2
+  exit 6
 fi
 case "$host_cgroup_peak_bytes" in
-  *[!0-9]*|'') echo "live Slurm cgroup memory peak is unavailable" >&2; exit 6 ;;
+  *[!0-9]*|'') echo "live Slurm cgroup memory peak is invalid" >&2; exit 6 ;;
 esac
 test "$host_cgroup_peak_bytes" -gt 0 || { echo "live cgroup peak is not positive" >&2; exit 6; }
+test -s "$HOST_CGROUP_DIAGNOSTIC" || {
+  echo "live cgroup peak diagnostic is missing" >&2
+  exit 6
+}
+host_cgroup_diagnostic_sha256=$(sha256sum "$HOST_CGROUP_DIAGNOSTIC" | awk '{print $1}')
 
 FAILURE_STAGE=atomic_memory_finalization
 JSONSCHEMA_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh)
@@ -318,6 +301,7 @@ export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE
   --payload "$PAYLOAD" \
   --output "$RESULT" \
   --host-cgroup-peak-bytes "$host_cgroup_peak_bytes" \
+  --host-cgroup-diagnostic "$HOST_CGROUP_DIAGNOSTIC" \
   --gpu-samples "$GPU_SAMPLES" \
   --allocation-tests-log "$TEST_LOG" \
   --allocation-tests-exit-code 0
@@ -344,4 +328,6 @@ PY
 echo "result=$RESULT"
 echo "result_sha256=$(sha256sum "$RESULT" | awk '{print $1}')"
 echo "host_cgroup_peak_bytes=$host_cgroup_peak_bytes"
+echo "host_cgroup_diagnostic=$HOST_CGROUP_DIAGNOSTIC"
+echo "host_cgroup_diagnostic_sha256=$host_cgroup_diagnostic_sha256"
 FAILURE_STAGE=complete
