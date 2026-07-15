@@ -4,8 +4,11 @@
   "experiment_identity": "R05A-RI-00",
   "evidence_tier": "allocation_backed_shell_only_apparatus",
   "scientific_role": "validate_exact_interpreter_link_chains_before_any_new_h100_release",
-  "ready_to_run": true,
-  "blocked_on": [],
+  "ready_to_run": false,
+  "blocked_on": [
+    "terminal_runtime_identity_regression_pass_consumed",
+    "separate_cfs_h100_release_not_authorized"
+  ],
   "decision_artifact": "docs/decisions/0043-preregister-runtime-identity-regression.md",
   "accepted_runtime_repair_commit": "5a5f3306b96f1491a4baa52657193afc1bfad2b5",
   "resource_contract": {
@@ -57,32 +60,5 @@
     "automatic_cancellation_allowed": false,
     "automatic_next_gate_allowed": false
   },
-  "execution_release": {
-    "schema_version": "1.0",
-    "artifact_role": "r05a_runtime_identity_regression_execution_release",
-    "decision_artifact": "docs/decisions/0044-release-runtime-identity-regression.md",
-    "accepted_implementation_commit": "a669ef2dd15cc59996d332ead54ffcdf06552635",
-    "run_id": "r05a-runtime-identity-regression-20260716a",
-    "single_submission": true,
-    "release_only_parent_required": true,
-    "resources": {
-      "partition": "main",
-      "account": "normal",
-      "qos": "normal",
-      "source_host": "worker-1",
-      "cpus_per_task": 1,
-      "host_memory_mib": 256,
-      "time_limit": "00:02:00",
-      "gpus": 0,
-      "requeue": false
-    },
-    "allowed_release_diff_paths": [
-      "configs/experiments/r05a_runtime_identity_regression.json",
-      "docs/decisions/0044-release-runtime-identity-regression.md"
-    ],
-    "automatic_cancellation_allowed": false,
-    "automatic_resubmission_allowed": false,
-    "h100_submission_authorized": false,
-    "automatic_next_gate_allowed": false
-  }
+  "execution_release": null
 }

@@ -28,9 +28,12 @@ publisher failed on exact Slurm task identity before publication. Therefore no
 accepted canary result exists. CFS-00A launch A then stopped at allocation
 startup because the runner rejected the canonical virtual-environment Python
 symlink before any model, arm, allocation test, or telemetry ran. ADR-0042
-classifies that run as apparatus-inconclusive. The transport hypothesis remains
-untested, the solver has not been declared infeasible, and no simulator
-efficacy or training claim is authorized.
+classifies that run as apparatus-inconclusive. A separate shell-only,
+zero-GPU worker-1 regression (job `28043`) has now validated the repaired
+symlink-aware interpreter identity check, but it did not invoke either
+interpreter or run CFS. The transport hypothesis therefore remains untested,
+the solver has not been declared infeasible, and no simulator efficacy,
+H100-retry, or training claim is authorized until a fresh reviewed release.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

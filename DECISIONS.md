@@ -42,3 +42,6 @@
 - [0040 — Preregister the same-budget constrained-flow diagnostic](docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md)
 - [0041 — Require an exact CFS-00A execution release](docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md)
 - [0042 — Preserve CFS-00A launch A and repair runtime identity](docs/decisions/0042-preserve-cfs00a-launch-a-and-repair-runtime-identity.md)
+- [0043 — Preregister the R05A runtime-identity regression](docs/decisions/0043-preregister-runtime-identity-regression.md)
+- [0044 — Release the R05A runtime-identity regression](docs/decisions/0044-release-runtime-identity-regression.md)
+- [0045 — Accept the runtime-identity regression and require a fresh CFS release](docs/decisions/0045-accept-runtime-identity-regression.md)

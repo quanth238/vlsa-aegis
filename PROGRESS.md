@@ -22,6 +22,15 @@ Reviewed CFS-00A implementation:
 Terminal CFS-00A launch-A release:
 `77bf9f639abe1da224762b0d8e63c64d85698811`.
 
+Accepted runtime-identity repair:
+`5a5f3306b96f1491a4baa52657193afc1bfad2b5`.
+
+Validated zero-GPU identity apparatus implementation:
+`a669ef2dd15cc59996d332ead54ffcdf06552635`.
+
+Terminal zero-GPU identity release:
+`8415b659a46699757de1e99558713e56b95255b5`.
+
 Historical detail is preserved, not deleted:
 
 - pre-inverse-flow chronology:
@@ -32,7 +41,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0042;
+- immutable decisions: ADR-0028 through ADR-0045;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -95,6 +104,13 @@ republication of sampled-current launch B:
   No allocation test, model, arm, telemetry, payload, or generated simulator
   action ran. ADR-0042 classifies the run as apparatus-inconclusive and
   permanently consumes its identity.
+- ADR-0042's exact runtime-identity repair is now allocation-validated.  The
+  separately released zero-GPU, non-array worker-1 job `28043` completed
+  `0:0` in one second and matched both public launcher paths, direct link
+  targets, fully resolved executables, and resolved-binary SHA-256 values.
+  The immutable result SHA-256 is `3bda039c...b0de`; all eight repository
+  bindings and the held/source/submission chain matched.  No interpreter,
+  model, simulator, metric, training path, or GPU ran.
 
 The frozen scientific experiment remains exactly one case,
 `crfs-1069f29a8d76463a`, on source host `worker-1`: one H100, eight CPUs,
@@ -133,10 +149,30 @@ is executed. They begin only in a separately authorized IFT-01.
 - ADR-0042 and `evidence/r05a/cfs00a-same-budget-launch-a.json` preserve the
   terminal apparatus-inconclusive result. The checked-in configs are again
   fail closed with no execution release or H100 authorization.
-- The dependency-backed CFS suite passes 69/69 tests across the linearized
+- ADR-0043/0044 preregistered and released only the shell identity check.
+  Exact job `28043` is terminal `COMPLETED|0:0` on worker-1.  It requested one
+  CPU and 256 MiB; Slurm reported two allocated logical CPUs plus 256 MiB,
+  consistent with worker-1's two threads per core and live `CR_CORE_MEMORY`
+  granularity.  No GPU TRES was requested or allocated.  Held, source,
+  submission, result, and log SHA-256
+  values are `30be8432...3b990`, `45656005...0fbc`, `bef280b1...d1d9`,
+  `3bda039c...b0de`, and `a8383717...8d1`.
+- The full 1,298-line VinUni H100 Server Guide was audited at SHA-256
+  `acee44c...b108`.  The saved preflight `c351ec19...5221` showed an empty
+  queue, healthy worker-1, live 16-CPU/256-GiB/two-GPU-equivalent ceiling,
+  `/mnt/data` at 73%, and no login compute process.  Source synchronization
+  was Git-only; no bulk transfer, broad scan, cleanup, cancellation, or
+  service hosting occurred.
+- ADR-0045 accepts only the runtime-identity apparatus pass and consumes its
+  ID.  It proves the standalone validator accepts the frozen link chains but
+  does not yet validate full CFS integration, gives no CFS or safety evidence,
+  and gives no H100 authority.  The identity config and both CFS configs are
+  fail closed pending a separately reviewed new release.
+- The accepted runtime-identity repair passes 72/72 dependency-backed focused
+  CFS tests across the linearized
   core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
   and exact Slurm transaction. The complete dependency-light `./init.sh` gate
-  passes 590 tests with 198 declared dependency skips plus all 21 artifact and
+  passes 608 tests with 198 declared dependency skips plus all 21 artifact and
   18 gate audits. Shell syntax, JSON parsing, source hashes, and whitespace
   checks pass. These are implementation evidence, not scientific evidence.
 - The hardened source contract binds 51/51 local and remote paths, including
@@ -193,13 +229,14 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Implement only ADR-0042's interpreter identity repair: preserve the canonical
-launcher paths, bind their exact link chains, resolved executable paths, and
-binary hashes, and retain no-symlink enforcement for immutable scientific
-inputs. Run the focused CFS suite and `./init.sh`, obtain independent review,
-then separately preregister one zero-GPU shell-only worker-1 identity check.
-Do not select another H100 run ID or submit another canary yet. IFT-01 remains
-blocked.
+Bind ADR-0045's passed identity evidence into the unchanged CFS-00A apparatus,
+run the focused CFS suite and `./init.sh`, and obtain independent scientific,
+HPC, and publication review.  Only then may a separate direct-child decision
+select one new unused CFS run ID and authorize the exact worker-1 singleton
+H100 plus CPU-afterany transaction.  Re-run the complete VinUni guide preflight
+immediately before submission.  Do not change the method, worker, resources,
+solver, budget, tolerance, case, target, checkpoint, noise, or zero-simulator-
+action boundary.  Do not launch IFT-01 automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed

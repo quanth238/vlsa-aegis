@@ -89,3 +89,12 @@ telemetry, model loading, or Arms A/B/C; the CPU job correctly refused
 publication. ADR-0042 consumes the identity and classifies the run as
 apparatus-inconclusive. It contains no transport, efficacy, infeasibility, or
 training evidence.
+
+`runtime-identity-regression-20260716a.json` records shell-only, zero-GPU
+worker-1 job `28043`. It completed `0:0` and matched both production Python
+launcher paths, direct link targets, fully resolved executable files, and
+resolved-binary SHA-256 values without invoking either interpreter. It
+requested one CPU and 256 MiB; Slurm reported two allocated logical CPUs and
+256 MiB, with no GPU TRES. This validates only the standalone identity
+validator. The full CFS integration, transport hypothesis, simulator efficacy,
+IFT-01, and probe/MLP training remain untested or unauthorized.

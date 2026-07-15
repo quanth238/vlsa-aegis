@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_runtime_identity_regression_terminal_evidence",
+  "evidence_tier": "allocation_backed_shell_only_apparatus_validation",
+  "run_id": "r05a-runtime-identity-regression-20260716a",
+  "accepted_implementation_commit": "a669ef2dd15cc59996d332ead54ffcdf06552635",
+  "release_commit": "8415b659a46699757de1e99558713e56b95255b5",
+  "source_host": "worker-1",
+  "job": {
+    "job_id": "28043",
+    "job_name": "crfs-r05a-runtime-id",
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "state": "COMPLETED",
+    "exit_code": "0:0",
+    "elapsed": "00:00:01",
+    "submitted_utc": "2026-07-15T22:14:55Z",
+    "started_utc": "2026-07-15T22:14:58Z",
+    "ended_utc": "2026-07-15T22:14:59Z",
+    "requested_node": "worker-1",
+    "allocated_node": "worker-1",
+    "requested_cpus": 1,
+    "cpus_per_task": 1,
+    "allocated_logical_cpus": 2,
+    "requested_host_memory_mib": 256,
+    "allocated_host_memory_mib": 256,
+    "requested_gpus": 0,
+    "allocated_gpus": 0,
+    "requested_tres": "billing=1,cpu=1,mem=256M,node=1",
+    "allocated_tres": "billing=2,cpu=2,mem=256M,node=1",
+    "cpu_allocation_note": "Slurm reported two allocated logical CPUs while preserving CPUs/Task=1 and ReqTRES cpu=1. This is consistent with worker-1 ThreadsPerCore=2 and CR_CORE_MEMORY allocation granularity; the truthful allocated count remains two logical CPUs, below the live 16-CPU user ceiling."
+  },
+  "immutable_artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-runtime-identity-regression-20260716a",
+    "held_submission": {
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-runtime-identity-regression-20260716a/held-source-submission.json",
+      "sha256": "30be8432637f96aae7a690cc00c32f64f119cf326b3da66dcc6287621843b990"
+    },
+    "source_contract": {
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-runtime-identity-regression-20260716a/source-contract.json",
+      "sha256": "45656005bf2154c232ed601555e4172a6d18b96f5feac2415ec8dbbf9a4b0fbc",
+      "bound_repository_files": 8,
+      "binding_mismatches": 0
+    },
+    "submission": {
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-runtime-identity-regression-20260716a/submission.json",
+      "sha256": "bef280b1c771a85944405fc03e7d56e36f1c3f768adf45da4b1c14142652d1d9"
+    },
+    "result": {
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-runtime-identity-regression-20260716a/results.json",
+      "sha256": "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"
+    },
+    "slurm_log": {
+      "path": "/mnt/data/quanth/slurm_logs/crfs-oracle/crfs-r05a-runtime-id-28043.out",
+      "sha256": "a83837174b05912482e4500a8dcf0071e4fb247cc249cdfbebe0b6d43582e8d1"
+    },
+    "failure_artifacts_exist": false,
+    "resume_or_reuse_allowed": false
+  },
+  "observed_runtime_identity": {
+    "openpi_python": {
+      "public_path": "/mnt/data/quanth/venvs/openpi/bin/python",
+      "direct_link_target": "/mnt/data/quanth/anaconda3/bin/python",
+      "resolved_executable": "/mnt/data/quanth/anaconda3/bin/python3.11",
+      "resolved_sha256": "c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9",
+      "passed": true
+    },
+    "libero_python": {
+      "public_path": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+      "direct_link_target": "/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+      "resolved_executable": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+      "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62",
+      "passed": true
+    }
+  },
+  "execution": {
+    "shell_only": true,
+    "openpi_python_executed": false,
+    "libero_python_executed": false,
+    "checkpoint_loaded": false,
+    "model_inference_executed": false,
+    "simulator_executed": false,
+    "rendering_executed": false,
+    "metrics_executed": false,
+    "training_executed": false,
+    "h100_allocated": false
+  },
+  "vinuni_guide_compliance": {
+    "guide_path": "/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
+    "guide_sha256": "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
+    "guide_read_in_full": true,
+    "live_state_overrode_stale_examples": true,
+    "preflight_path": "evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt",
+    "preflight_sha256": "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221",
+    "preflight_login_host": "login-restricted-1",
+    "queue_empty_before_submission": true,
+    "worker_1_healthy": true,
+    "live_user_ceiling": {
+      "cpus": 16,
+      "host_memory_gib": 256,
+      "gpu_equivalents": 2
+    },
+    "shared_storage": {
+      "total": "79T",
+      "used": "57T",
+      "available": "23T",
+      "percent_used": 73
+    },
+    "login_compute_processes_observed": false,
+    "compute_submitted_through_slurm": true,
+    "source_sync_only": true,
+    "bulk_data_transfer_performed": false,
+    "broad_storage_scan_performed": false,
+    "cleanup_performed": false,
+    "cancellation_performed": false,
+    "service_or_app_hosted": false
+  },
+  "interpretation": {
+    "apparatus_status": "passed",
+    "runtime_identity_repair_validated": true,
+    "standalone_validator_accepts_frozen_canonical_symlink_chains": true,
+    "cfs_runtime_integration_evaluated": false,
+    "scientific_status": "not_evaluated",
+    "teacher_transport_conclusion": "none",
+    "collision_or_progress_conclusion": "none",
+    "infeasibility_conclusion": "none",
+    "h100_submission_authorized_by_this_result": false,
+    "automatic_resubmission_authorized": false,
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "next_step": "Record the consumed apparatus pass, then require a separate reviewed direct-child release with a new unused run ID and fresh live VinUni preflight before one unchanged CFS-00A H100 retry."
+  }
+}

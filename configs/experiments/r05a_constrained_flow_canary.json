@@ -8,8 +8,7 @@
   "ready_to_run": false,
   "blocked_on": [
     "terminal_cfs00a_launch_a_apparatus_inconclusive",
-    "runtime_identity_repair_not_implemented",
-    "zero_gpu_runtime_identity_regression_not_registered_or_passed",
+    "runtime_identity_repair_passed_but_not_bound_to_new_cfs_release",
     "new_clean_pushed_release_and_unused_run_id_not_authorized"
   ],
   "new_experiment_not_retry": true,

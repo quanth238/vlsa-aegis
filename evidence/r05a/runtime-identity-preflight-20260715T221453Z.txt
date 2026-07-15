@@ -1,0 +1,31 @@
+captured_at=2026-07-15T22:14:54+00:00
+host=login-restricted-1
+user=quanth
+[jobs]
+             JOBID                             NAME ST       TIME   TIME_LIMIT  NODES NODELIST(REASON)
+[partitions]
+PARTITION            AVAIL    TIMELIMIT  NODES    GRES                 NODELIST
+main*                up       infinite   4        gpu:nvidia_h100_80gb worker-[0-3]
+mig                  up       infinite   1        gpu:nvidia_h100_80gb worker-mig-3g40gb-1
+mig                  up       infinite   1        gpu:nvidia_h100_80gb worker-mig-3g40gb-0
+[nodes]
+NODELIST             STATE      CPUS     MEMORY     GRES                 REASON
+worker-0             mix        128      2063899    gpu:nvidia_h100_80gb none
+worker-1             mix        128      2063902    gpu:nvidia_h100_80gb none
+worker-2             mix        128      2063899    gpu:nvidia_h100_80gb none
+worker-3             drain*     128      2063899    gpu:nvidia_h100_80gb reserved for future usage : Not responding
+worker-mig-3g40gb-0  mix        128      2063902    gpu:nvidia_h100_80gb none
+worker-mig-3g40gb-1  drain*     128      2063902    gpu:nvidia_h100_80gb reserved for future usage : Not responding
+[qos]
+normal||cpu=16,gres/gpu=2,gres/nvidia_h100_80gb_hbm3=2,gres/nvidia_h100_80gb_hbm3_3g.40gb=2,mem=256G|cpu=32,gres/gpu=2,gres/nvidia_h100_80gb_hbm3=2,gres/nvidia_h100_80gb_hbm3_3g.40gb=2,mem=256G|||100
+[storage]
+Filesystem                                                    Size  Used Avail Use% Mounted on
+10.200.1.40:/vinuni/pvc-d5de2e88-1e2c-4d3c-9516-9b4fb0e4c791   79T   57T   23T  73% /mnt/data
+[paths]
+present /home/quanth/working_space
+present /mnt/data/quanth/experiments
+present /mnt/data/quanth/slurm_logs
+present /mnt/data/quanth/cache
+present /mnt/data/quanth/venvs/openpi/bin/python
+present /mnt/data/quanth/venvs/openpi-libero-client/bin/python
+[login-process-audit]

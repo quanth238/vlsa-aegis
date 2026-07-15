@@ -1,6 +1,6 @@
 # Controlled experiment ledger
 
-Last updated: 2026-07-15 (Asia/Ho_Chi_Minh)
+Last updated: 2026-07-16 (Asia/Ho_Chi_Minh)
 
 This is the sole active experiment protocol. Completed operational history is
 archived in:
@@ -216,6 +216,19 @@ telemetry, payload, or generated simulator action ran; the CPU validator
 correctly refused publication. ADR-0042 permanently consumes the run ID and
 permits only a separately reviewed runtime-identity repair and zero-GPU
 shell-only validation before any new release.
+
+ADR-0043/0044 then preregistered and released only that shell identity check.
+Exact zero-GPU job `28043` completed `0:0` on worker-1 and matched both public
+launcher paths, their direct link targets, fully resolved regular executable
+files, and frozen resolved-binary SHA-256 values. It requested one CPU and
+256 MiB; Slurm allocated two logical CPUs and 256 MiB, with no GPU TRES. No
+interpreter, model, metric, simulator, arm, or training path ran. ADR-0045
+accepts this as apparatus evidence that the standalone validator recognizes
+the frozen production symlink chains. Its integration into the full CFS
+workload remains untested; it provides no CFS or safety evidence and does not
+itself authorize an H100 submission. Both CFS configs remain fail closed until
+this evidence is bound into a separately tested and reviewed release with a
+new unused run ID and fresh VinUni-guide preflight.
 
 ### IFT-01 — Three-case real transport smoke
 
