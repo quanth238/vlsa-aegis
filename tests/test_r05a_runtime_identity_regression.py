@@ -46,6 +46,12 @@ def _write_executable(path: Path, source: str) -> None:
 
 def _released_config() -> tuple[dict, dict]:
     parent = json.loads(CONFIG.read_text(encoding="utf-8"))
+    parent["ready_to_run"] = False
+    parent["blocked_on"] = [
+        "zero_gpu_identity_apparatus_not_independently_accepted",
+        "exact_execution_release_not_selected",
+    ]
+    parent["execution_release"] = None
     released = copy.deepcopy(parent)
     released["ready_to_run"] = True
     released["blocked_on"] = []
@@ -243,8 +249,7 @@ class R05ARuntimeIdentityRegressionTest(unittest.TestCase):
         self.assertNotIn("#SBATCH --array", slurm)
         self.assertNotIn("#SBATCH --gres", slurm)
 
-    def test_config_is_fail_closed_or_exactly_released(self) -> None:
-        value = json.loads(CONFIG.read_text(encoding="utf-8"))
+    def _assert_config_is_fail_closed_or_exactly_released(self, value: dict) -> None:
         expected_resources = {
             "partition": "main",
             "account": "normal",
@@ -316,6 +321,13 @@ class R05ARuntimeIdentityRegressionTest(unittest.TestCase):
             json.dumps(release, sort_keys=True),
             json.dumps(expected_release, sort_keys=True),
         )
+
+    def test_config_is_fail_closed_or_exactly_released(self) -> None:
+        checked_in = json.loads(CONFIG.read_text(encoding="utf-8"))
+        synthetic_parent, synthetic_release = _released_config()
+        self._assert_config_is_fail_closed_or_exactly_released(checked_in)
+        self._assert_config_is_fail_closed_or_exactly_released(synthetic_parent)
+        self._assert_config_is_fail_closed_or_exactly_released(synthetic_release)
 
     def test_transaction_order_bound_set_and_no_automatic_gpu_path(self) -> None:
         submitter = SUBMITTER.read_text(encoding="utf-8")
