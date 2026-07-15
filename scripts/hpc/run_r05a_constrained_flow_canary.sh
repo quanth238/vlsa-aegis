@@ -93,7 +93,8 @@ jq -e '.vinuni_h100_guide_contract == {
   local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
   sha256:"acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
   line_count:1298,login_node_role:"control_plane_only",allocation_compute_only:true,
-  live_preflight_overrides_examples:true,free_h100_required_before_submission:true,
+  live_preflight_overrides_examples:true,free_h100_required_before_submission:false,
+  pending_submission_allowed:true,
   reroute_when_worker_1_busy:false,shared_storage_stop_percent:90
 }' "$APPARATUS_CONFIG" >/dev/null || { echo "apparatus VinUni H100 guide contract changed" >&2; exit 2; }
 

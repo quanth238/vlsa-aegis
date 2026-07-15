@@ -133,7 +133,8 @@ VINUNI_H100_GUIDE_CONTRACT = {
     "login_node_role": "control_plane_only",
     "allocation_compute_only": True,
     "live_preflight_overrides_examples": True,
-    "free_h100_required_before_submission": True,
+    "free_h100_required_before_submission": False,
+    "pending_submission_allowed": True,
     "reroute_when_worker_1_busy": False,
     "shared_storage_stop_percent": 90,
 }

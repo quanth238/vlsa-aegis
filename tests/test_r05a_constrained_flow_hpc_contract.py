@@ -153,7 +153,8 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertEqual(guide["line_count"], 1298)
         self.assertEqual(guide["login_node_role"], "control_plane_only")
         self.assertTrue(guide["allocation_compute_only"])
-        self.assertTrue(guide["free_h100_required_before_submission"])
+        self.assertFalse(guide["free_h100_required_before_submission"])
+        self.assertTrue(guide["pending_submission_allowed"])
         self.assertFalse(guide["reroute_when_worker_1_busy"])
         self.assertEqual(guide["shared_storage_stop_percent"], 90)
 
@@ -182,14 +183,17 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             "CfgTRES=",
             "AllocTRES=",
             "free_h100",
+            "immediate_h100_capacity_available",
+            "pending_submission_allowed:true",
             "/mnt/data/quanth/slurm_logs/crfs-oracle",
             "--export=ALL",
-            "wait without rerouting",
             "inherited SBATCH options could change the exact transaction",
             "ArrayTaskThrottle=1",
             "CPU publisher unexpectedly became an array",
         ):
             self.assertIn(token, submit)
+        self.assertNotIn('test "$free_h100" -ge 1', submit)
+        self.assertIn('test "$allocated_gpus" -le "$configured_gpus"', submit)
         remote = submit.split("<<'REMOTE'", 1)[1]
         self.assertNotIn('sha256sum "$checkpoint"', remote)
         self.assertIn('sha256sum "$MODEL"', _text(WORKLOAD))

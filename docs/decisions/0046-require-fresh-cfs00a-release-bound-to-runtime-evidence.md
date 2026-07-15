@@ -47,8 +47,9 @@ Only release/apparatus plumbing may change:
 - include the complete VinUni guide login-process audit and fail closed when
   shared storage is at least 90%;
 - require an empty user queue, healthy worker-1, at least 64 GiB free host RAM,
-  live QOS capacity for the frozen request, and at least one currently
-  unallocated worker-1 H100 before reserving a run root or calling `sbatch`;
+  and live QOS capacity for the frozen request before reserving a run root or
+  calling `sbatch`; observe current worker-1 H100 occupancy exactly, while
+  allowing the one pinned job to wait in Slurm when all H100s are occupied;
 - retain exact held-source/CPU-afterany receipts, exact source hashes, and
   one-release/no-resubmit semantics.
 
@@ -73,9 +74,10 @@ experiment, not a training or service template.
 
 Immediately before the single submission, the exact VinUni guide preflight
 must be rerun and inspected.  Live Slurm/QOS/storage state overrides examples.
-If worker-1 has no free H100, wait; do not reroute or submit into a known
-resource wait.  The allocation-local policy server is experiment IPC only and
-must be terminated by the registered exact-PID trap.
+If worker-1 has no free H100, record that fact and allow only this one pinned
+job to remain pending in Slurm; do not reroute or increase concurrency.  The
+allocation-local policy server is experiment IPC only and must be terminated
+by the registered exact-PID trap.
 
 ## Canonical release appendix
 

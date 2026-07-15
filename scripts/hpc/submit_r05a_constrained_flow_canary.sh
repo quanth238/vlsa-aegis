@@ -187,7 +187,8 @@ jq -e '.vinuni_h100_guide_contract == {
   local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
   sha256:"acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
   line_count:1298,login_node_role:"control_plane_only",allocation_compute_only:true,
-  live_preflight_overrides_examples:true,free_h100_required_before_submission:true,
+  live_preflight_overrides_examples:true,free_h100_required_before_submission:false,
+  pending_submission_allowed:true,
   reroute_when_worker_1_busy:false,shared_storage_stop_percent:90
 }' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "apparatus VinUni H100 guide contract changed" >&2; exit 2; }
 
@@ -500,7 +501,7 @@ case "$configured_gpus" in *[!0-9]*|'') echo "cannot parse worker-1 configured G
 case "$allocated_gpus" in '') allocated_gpus=0 ;; *[!0-9]*) echo "cannot parse worker-1 allocated GPU count" >&2; exit 2 ;; esac
 test "$configured_gpus" = "$h100_configured" || { echo "worker-1 generic GPU count is not exclusively the configured H100 count" >&2; exit 2; }
 free_h100=$((configured_gpus - allocated_gpus))
-test "$free_h100" -ge 1 || { echo "worker-1 has no observed unallocated H100; wait without rerouting" >&2; exit 2; }
+test "$allocated_gpus" -le "$configured_gpus" || { echo "worker-1 allocated GPUs exceed configured GPUs" >&2; exit 2; }
 case "$fresh_preflight_sha" in *[!0-9a-f]*|'') echo "invalid fresh preflight digest" >&2; exit 2 ;; esac
 test "${#fresh_preflight_sha}" = 64 || { echo "invalid fresh preflight digest length" >&2; exit 2; }
 case "$fresh_preflight_base64" in *[!A-Za-z0-9+/=]*|'') echo "invalid fresh preflight encoding" >&2; exit 2 ;; esac
@@ -511,7 +512,7 @@ printf '%s' "$fresh_preflight_base64" | base64 -d >"$preflight_tmp"
 test "$(sha256sum "$preflight_tmp" | awk '{print $1}')" = "$fresh_preflight_sha" || { echo "fresh preflight transfer changed" >&2; exit 2; }
 mv "$preflight_tmp" "$live_preflight"
 reservation_tmp=$(mktemp "$run_root/.launch-reservation.XXXXXX")
-jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg implementation "$accepted_implementation_commit" --arg free "$free_mem" --arg free_h100 "$free_h100" --arg preflight "$live_preflight" --arg preflight_sha "$fresh_preflight_sha" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_launch_reservation",status:"preflight_verified_before_queueing",run_id:$run,git_commit:$commit,accepted_implementation_commit:$implementation,release_decision_path:"docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",single_submission:true,source_node:"worker-1",observed_free_mem_mib:($free|tonumber),observed_unallocated_h100_count:($free_h100|tonumber),fresh_preflight_path:$preflight,fresh_preflight_sha256:$preflight_sha,requested_gpus:1,requested_cpus:8,requested_host_memory_mib:65536,array:"0-0%1",scientific_claim_allowed:false,infeasibility_claim_allowed:false,probe_training_authorized:false,timestamp_utc:$now}' >"$reservation_tmp"
+jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg implementation "$accepted_implementation_commit" --arg free "$free_mem" --arg free_h100 "$free_h100" --arg preflight "$live_preflight" --arg preflight_sha "$fresh_preflight_sha" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_launch_reservation",status:"preflight_verified_before_queueing",run_id:$run,git_commit:$commit,accepted_implementation_commit:$implementation,release_decision_path:"docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",single_submission:true,source_node:"worker-1",observed_free_mem_mib:($free|tonumber),observed_unallocated_h100_count:($free_h100|tonumber),immediate_h100_capacity_available:(($free_h100|tonumber) >= 1),pending_submission_allowed:true,fresh_preflight_path:$preflight,fresh_preflight_sha256:$preflight_sha,requested_gpus:1,requested_cpus:8,requested_host_memory_mib:65536,array:"0-0%1",scientific_claim_allowed:false,infeasibility_claim_allowed:false,probe_training_authorized:false,timestamp_utc:$now}' >"$reservation_tmp"
 mv "$reservation_tmp" "$run_root/launch-reservation.json"
 
 gpu_submission=$(RUN_ID="$run_id" MANIFEST="$manifest" CFS_CONFIG="$cfs_config" LEGACY_CONFIG="$legacy_config" R02_RAW_ROOT="$r02_raw_root" CHECKPOINT_DIR="$checkpoint_dir" EXPERIMENT_ROOT="$experiment_root" EXPECTED_GIT_COMMIT="$expected_commit" REMOTE_REPO="$remote_repo" sbatch --parsable --hold --export=ALL --partition=main --account=normal --qos=normal --gres=gpu:1 --cpus-per-task=8 --mem=64G --time=02:00:00 --no-requeue --nodelist=worker-1 --array=0-0%1 --output='/mnt/data/quanth/slurm_logs/crfs-oracle/%x-%A_%a.out' "$gpu_slurm")

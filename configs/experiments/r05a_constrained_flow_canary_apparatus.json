@@ -120,7 +120,8 @@
     "login_node_role": "control_plane_only",
     "allocation_compute_only": true,
     "live_preflight_overrides_examples": true,
-    "free_h100_required_before_submission": true,
+    "free_h100_required_before_submission": false,
+    "pending_submission_allowed": true,
     "reroute_when_worker_1_busy": false,
     "shared_storage_stop_percent": 90
   },
