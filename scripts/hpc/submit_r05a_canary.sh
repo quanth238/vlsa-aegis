@@ -130,7 +130,8 @@ test "$(sha256sum "$source_r02" | awk '{print $1}')" = 055fcf18781071c6c3575b42a
 test ! -e "$run_root" || { echo "immutable R05A run id is already used" >&2; exit 2; }
 
 # Conservative exact canary launch: no competing user allocations or pending
-# jobs are allowed, so its one GPU / eight CPU / 64 GiB request is auditable.
+# jobs are allowed. Slurm may queue this worker-1-pinned request until its one
+# GPU / eight CPU / 64 GiB allocation becomes available (ADR-0029).
 if [ -n "$(squeue -h -u "$(whoami)" -o '%i')" ]; then
   echo "R05A canary not submitted: user queue is not empty" >&2
   exit 2
@@ -159,11 +160,11 @@ configured_gpus=$(printf '%s\n' "$cfg_tres" | tr ',' '\n' | sed -n 's/^gres\/gpu
 allocated_gpus=$(printf '%s\n' "$alloc_tres" | tr ',' '\n' | sed -n 's/^gres\/gpu=\([0-9][0-9]*\)$/\1/p')
 case "$configured_gpus" in *[!0-9]*|'') echo "cannot parse worker-1 configured GPUs" >&2; exit 2 ;; esac
 case "$allocated_gpus" in *[!0-9]*|'') allocated_gpus=0 ;; esac
-free_gpus=$((configured_gpus - allocated_gpus))
-test "$free_gpus" -ge 1 || {
-  echo "R05A canary not submitted: worker-1 has ${free_gpus} free GPUs" >&2
+test "$allocated_gpus" -le "$configured_gpus" || {
+  echo "worker-1 allocated GPUs exceed configured GPUs" >&2
   exit 2
 }
+free_gpus=$((configured_gpus - allocated_gpus))
 
 mkdir "$run_root"
 reservation_tmp=$(mktemp "$run_root/.launch-reservation.XXXXXX")
@@ -176,12 +177,14 @@ jq -n \
   '{
     schema_version: "1.0",
     artifact_role: "r05a_canary_launch_reservation",
-    status: "capacity_verified_before_submission",
+    status: "preflight_verified_before_queueing",
     run_id: $run_id,
     git_commit: $commit,
     source_node: "worker-1",
     observed_free_mem_mib: ($free_mem | tonumber),
     observed_free_gpus: ($free_gpus | tonumber),
+    immediate_gpu_capacity_available: (($free_gpus | tonumber) >= 1),
+    pending_submission_allowed: true,
     requested_gpus: 1,
     requested_cpus: 8,
     requested_host_memory_mib: 65536,
@@ -234,7 +237,8 @@ jq -n \
 mv "$held_tmp" "$run_root/held-gpu-submission.json"
 
 gpu_record=$(scontrol show job "$gpu_job_id" -o)
-case " $gpu_record " in *" JobState=PENDING "*" Reason=JobHeldUser "*) ;; *) echo "GPU canary is not held" >&2; exit 2 ;; esac
+case " $gpu_record " in *" JobState=PENDING "*) ;; *) echo "GPU canary is not pending while held" >&2; exit 2 ;; esac
+case " $gpu_record " in *" Reason=JobHeldUser "*) ;; *) echo "GPU canary is not held by the user" >&2; exit 2 ;; esac
 case " $gpu_record " in *" ReqNodeList=worker-1 "*) ;; *) echo "GPU canary lost worker-1 pin" >&2; exit 2 ;; esac
 
 dependency=afterany:$gpu_job_id

@@ -77,6 +77,10 @@ eight CPUs, 64 GiB host RAM, `%1`, and no requeue. It must measure actual host
 and GPU peaks rather than assume a 128 GiB requirement. A separately registered
 CPU `afterany` validator must inspect the final artifact.
 
+ADR-0029 permits this exact source-pinned request to wait in Slurm when no H100
+is immediately free. The launcher must record the observed capacity truthfully;
+queue delay is operational state and cannot count as research evidence.
+
 Pass requires exact fresh source pairing; target equality outside first-five
 XYZ; compiled/eager zero-control parity before and after the solve; duplicate
 teacher schedules; an independent explicit-schedule replay equal to the

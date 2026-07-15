@@ -113,9 +113,11 @@ first reproduce 9/17.
   and `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
   The apparatus passed an independent launch audit with no P0/P1 findings,
   then the complete local gate passed 413 tests with 152 declared dependency
-  skips. The allocation-dependency R05A suite separately passed 10/10 with
-  zero skips. Apparatus commit `71e7457d8a1052b108da696a34eb3a4ad54abe7e`
-  is pushed.
+  skips. After the ADR-0029 pending-submission correction, the current complete
+  gate passed 415 tests with the same 152 declared skips, and the R05A suite
+  separately passed 12/12 with zero skips, including a zero-free-GPU fake-Slurm
+  atomic transaction. Apparatus commit
+  `71e7457d8a1052b108da696a34eb3a4ad54abe7e` is pushed.
 - The final tracking tree was pushed and synchronized by fast-forward to a
   clean local/remote commit `02ca22b4cb40a6d02b3dfb18c998b0308dfa0e33`.
   Live preflight at `2026-07-15T04:52:46Z` found the exact run ID unused, the
@@ -123,12 +125,19 @@ first reproduce 9/17.
   `194687 MiB` FreeMem. Its Slurm record reported eight configured and eight
   allocated H100s, so the launcher was intentionally not invoked. This is a
   capacity wait, not an apparatus or research outcome.
+- ADR-0029 records the correction to that operational policy. An independent
+  review found no scientific protection in requiring an H100 to be idle before
+  submission, and a control-plane-only `sbatch --test-only` accepted the exact
+  worker-1-pinned request without creating a job. The launcher may therefore
+  submit once and let Slurm hold it `PENDING`; all scientific hashes, resources,
+  source pinning, held-job receipts, and the CPU `afterany` validator remain
+  unchanged.
 - No R05A job has been submitted and no inverse-flow research outcome exists.
 
 ## Exact next action
 
-Wait until worker-1 reports at least one genuinely free H100, repeat the complete
-live control-plane preflight, and invoke exactly once:
+Pass the pending-submission regression, synchronize the final clean reviewed
+tree, repeat the complete live control-plane preflight, and invoke exactly once:
 
 ```bash
 RUN_ID=r05a-inverse-flow-canary-20260715a scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
@@ -136,8 +145,9 @@ RUN_ID=r05a-inverse-flow-canary-20260715a scripts/hpc/submit_r05a_canary.sh mani
 
 This command registers the worker-1-pinned 64 GiB H100 canary on hold, registers
 its CPU `afterany` validator, records both exact IDs, and only then releases the
-canary. It must not be invoked until the local and remote trees are the same
-clean reviewed commit and the exact run ID is unused.
+canary. Slurm may then keep the exact GPU task `PENDING` until worker-1 capacity
+becomes available. It must not be invoked until the local and remote trees are
+the same clean reviewed commit and the exact run ID is unused.
 
 ## Non-negotiable stops
 

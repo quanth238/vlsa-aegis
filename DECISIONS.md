@@ -28,3 +28,4 @@
 - [0026 — Validate R03A protocol scalars in their recorded dtype](docs/decisions/0026-validate-r03a-scalars-in-recorded-dtype.md)
 - [0027 — Register the source-node-grouped R03A population](docs/decisions/0027-register-source-node-grouped-r03a-population.md)
 - [0028 — Retire the pending R03A population and test inverse-flow transport](docs/decisions/0028-pivot-to-inverse-flow-transport.md)
+- [0029 — Allow the source-pinned R05A canary to wait in Slurm](docs/decisions/0029-allow-r05a-source-pinned-pending-submission.md)

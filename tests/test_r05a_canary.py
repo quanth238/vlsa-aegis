@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
+import os
 from pathlib import Path
+import stat
+import subprocess
 from types import SimpleNamespace
 import sys
 import tempfile
@@ -42,6 +46,151 @@ class R05ACanaryStructuralTest(unittest.TestCase):
         self.assertLess(cpu_submit, release)
         self.assertIn("--nodelist=worker-1", source)
         self.assertIn("test ! -e \"$run_root\"", source)
+
+    def test_submission_allows_zero_free_gpu_and_records_truthful_pending_preflight(self) -> None:
+        source = SUBMIT_PATH.read_text(encoding="utf-8")
+        self.assertIn('test "$allocated_gpus" -le "$configured_gpus"', source)
+        self.assertNotIn('test "$free_gpus" -ge 1', source)
+        self.assertIn('status: "preflight_verified_before_queueing"', source)
+        self.assertIn(
+            "immediate_gpu_capacity_available: (($free_gpus | tonumber) >= 1)",
+            source,
+        )
+        self.assertIn("pending_submission_allowed: true", source)
+
+    def test_zero_free_gpu_fake_slurm_transaction_is_queued_after_receipting(self) -> None:
+        source = SUBMIT_PATH.read_text(encoding="utf-8")
+        remote_start = source.index("<<'REMOTE'\n") + len("<<'REMOTE'\n")
+        remote_end = source.rindex("\nREMOTE")
+        remote_script = source[remote_start:remote_end]
+        fixed_hash = "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            remote_repo = root / "repo"
+            experiment_root = root / "experiments"
+            r02_root = root / "r02"
+            checkpoint_dir = root / "checkpoint"
+            fake_bin = root / "bin"
+            call_log = root / "calls.log"
+            for path in (
+                remote_repo / "schemas" / "r05a-inverse-flow-canary.schema.json",
+                remote_repo / "docs" / "decisions" / "0028-pivot-to-inverse-flow-transport.md",
+                remote_repo / "evidence" / "r03" / "r03-summary.json",
+                remote_repo / "slurm" / "r05a_canary_h100.sbatch",
+                remote_repo / "slurm" / "r05a_canary_validate_cpu.sbatch",
+                remote_repo / "scripts" / "hpc" / "run_r05a_canary.sh",
+                remote_repo / "scripts" / "hpc" / "validate_r05a_canary.sh",
+                remote_repo / "manifests" / "r05a_inverse_flow_teacher_smoke.jsonl",
+                remote_repo / "configs" / "experiments" / "r05a_inverse_flow_canary.json",
+                r02_root / "crfs-1069f29a8d76463a" / "r02-paired.json",
+                checkpoint_dir / "model.safetensors",
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("fixture\n", encoding="utf-8")
+            experiment_root.mkdir()
+            fake_bin.mkdir()
+
+            def executable(name: str, body: str) -> None:
+                path = fake_bin / name
+                path.write_text("#!/usr/bin/env bash\nset -eu\n" + body, encoding="utf-8")
+                path.chmod(path.stat().st_mode | stat.S_IXUSR)
+
+            executable("squeue", "exit 0\n")
+            executable(
+                "git",
+                'case " $* " in\n'
+                '  *" rev-parse HEAD "*) printf "%s\\n" "$FAKE_COMMIT" ;;\n'
+                '  *" status --porcelain "*) exit 0 ;;\n'
+                '  *) exit 2 ;;\n'
+                "esac\n",
+            )
+            executable(
+                "sha256sum",
+                'printf "%s  %s\\n" "$FAKE_HASH" "$1"\n',
+            )
+            executable(
+                "sbatch",
+                'printf "sbatch %s\\n" "$*" >>"$FAKE_CALL_LOG"\n'
+                'case "$*" in\n'
+                '  *r05a_canary_h100.sbatch) printf "9101\\n" ;;\n'
+                '  *r05a_canary_validate_cpu.sbatch) printf "9102\\n" ;;\n'
+                '  *) exit 2 ;;\n'
+                "esac\n",
+            )
+            executable(
+                "scontrol",
+                'case "$1 $2" in\n'
+                '  "show node") printf "%s\\n" "NodeName=worker-1 Gres=gpu:nvidia_h100_80gb_hbm3:8(S:0-1) FreeMem=200000 State=MIXED CfgTRES=cpu=128,mem=2000000M,gres/gpu=8 AllocTRES=cpu=64,mem=512G,gres/gpu=8" ;;\n'
+                '  "show job")\n'
+                '    case "$3" in\n'
+                '      9101) printf "%s\\n" "JobId=9101 JobState=PENDING Reason=JobHeldUser ReqNodeList=worker-1" ;;\n'
+                '      9102) printf "%s\\n" "JobId=9102 JobState=PENDING Partition=main ReqTRES=cpu=2,mem=8G Dependency=afterany:9101(unfulfilled)" ;;\n'
+                '      *) exit 2 ;;\n'
+                '    esac ;;\n'
+                '  "release 9101") printf "release 9101\\n" >>"$FAKE_CALL_LOG" ;;\n'
+                '  *) exit 2 ;;\n'
+                "esac\n",
+            )
+
+            run_id = "r05a-zero-free-gpu-test"
+            commit = "a" * 40
+            manifest = remote_repo / "manifests" / "r05a_inverse_flow_teacher_smoke.jsonl"
+            config = remote_repo / "configs" / "experiments" / "r05a_inverse_flow_canary.json"
+            command = [
+                "bash",
+                "-s",
+                "--",
+                str(remote_repo),
+                run_id,
+                str(manifest),
+                str(config),
+                commit,
+                str(experiment_root),
+                str(r02_root),
+                str(checkpoint_dir),
+                fixed_hash,
+                fixed_hash,
+                fixed_hash,
+                fixed_hash,
+                fixed_hash,
+                fixed_hash,
+            ]
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{fake_bin}:{environment['PATH']}",
+                    "FAKE_CALL_LOG": str(call_log),
+                    "FAKE_COMMIT": commit,
+                    "FAKE_HASH": fixed_hash,
+                }
+            )
+            completed = subprocess.run(
+                command,
+                input=remote_script,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=environment,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
+            run_root = experiment_root / run_id
+            reservation = json.loads(
+                (run_root / "launch-reservation.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(reservation["status"], "preflight_verified_before_queueing")
+            self.assertEqual(reservation["observed_free_gpus"], 0)
+            self.assertIs(reservation["immediate_gpu_capacity_available"], False)
+            self.assertIs(reservation["pending_submission_allowed"], True)
+            submission = json.loads(
+                (run_root / "submission.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(submission["gpu_slurm_array_job_id"], "9101")
+            self.assertEqual(submission["cpu_afterany_job_id"], "9102")
+            calls = call_log.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(calls[-1], "release 9101")
 
     def test_validator_recomputes_raw_source_calls_and_direct_witness(self) -> None:
         source = CANARY_PATH.read_text(encoding="utf-8")
