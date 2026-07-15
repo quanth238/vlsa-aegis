@@ -157,7 +157,7 @@ scientific outcome, and the run ID must not be reused.
 
 #### CG-00 — Job-owned cgroup telemetry capability
 
-Status: **preregistered and locally verified; not submitted**
+Status: **terminal capability pass; immutable run ID consumed**
 
 Exact run ID: `r05a-cgroup-v2-current-capability-20260715a`.
 
@@ -190,6 +190,23 @@ Local acceptance: 11/11 capability tests, 6/6 R05A tracker-contract tests,
 and the complete 447-test harness passed with 152 declared dependency skips.
 Independent HPC, semantic, and adversarial-test reviews found no remaining
 P0/P1 issue for CG-00 only.
+
+Exact task `27820_0` completed `0:0` on worker-1 in three seconds from clean
+commit `63b246c5088217bc6d563265b035c44ef376f1c5`. The immutable result reports
+`sampled_current_contract_supported`: 20 sequential strictly increasing
+samples, 110--120 ms adjacent gaps, a 6,045,696-byte sampled high-water, a
+268,435,456-byte job-scope hard limit, hierarchical events, and zero new
+`max`/`oom`/`oom_kill` events. Native `memory.peak` remains missing. Slurm
+requested one CPU and allocated two CPU TRES because of node granularity; it
+kept one task/one CPU per task, 256 MiB, and no GPU. The run root contains only
+the held receipt, submission receipt, TSV, and result. Three independent
+terminal audits reproduced the raw trace, scope, source hashes, and result.
+Evidence: `evidence/r05a/cgroup-v2-current-capability-a.json`.
+
+Interpretation: worker-1 can support separately reviewed full-lifetime sampled
+telemetry. The 6,045,696-byte value describes only this tiny shell job and is
+not an estimate of pi0.5 host memory. CG-00 does not repair retry B or authorize
+retry C, IFT-01, efficacy claims, or training.
 
 ### IFT-01 — Three-case real transport smoke
 

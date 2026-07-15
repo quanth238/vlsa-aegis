@@ -31,6 +31,14 @@ readable `memory.peak`. Synthetic unit-test solver calls ran, but no checkpoint,
 policy server, real teacher observation, simulator action, or training ran.
 This is apparatus evidence only and does not authorize retry C.
 
+`cgroup-v2-current-capability-a.json` records shell-only task `27820_0`. It
+completed on worker-1 with a positive finite 256 MiB job-scope `memory.max`, 20
+strictly increasing `memory.current` samples, a 120 ms maximum gap, a 6,045,696
+byte sampled high-water, and zero new hierarchical `max`/`oom`/`oom_kill`
+events. The sampled high-water is a lower bound, never an exact peak. This
+passes only the telemetry-capability gate and cannot authorize retry C by
+itself, IFT-01, efficacy claims, or training.
+
 `ift00a-attempt-a.json` records the first allocation attempt and its CPU Slurm
 diagnostic. Attempt `20260715a` stopped in synthetic focused tests before pi0.5
 startup: 17/17 inverse-control tests passed, while one sampler test imposed an

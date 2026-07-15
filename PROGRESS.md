@@ -224,39 +224,44 @@ first reproduce 9/17.
   training occurred. Synthetic unit-test solver/model calls did run. Evidence:
   `evidence/r05a/adr0031-apparatus-cpu-a.json`. This blocks retry C and requires
   a bounded leaf-versus-allocation-ancestor diagnostic; never reuse the run ID.
-- ADR-0035 preregisters the exact shell-only capability run
+- ADR-0035 preregistered the exact shell-only capability run
   `r05a-cgroup-v2-current-capability-20260715a`: worker-1, `0-0%1`, one CPU,
   256 MiB, two minutes, no GPU, no requeue, and no Python, model, simulator, or
   training. It reads only the task-to-exact-job cgroup chain. A positive native
   peak or a positive finite job-scope `memory.current`/`memory.max` trace with
   hierarchical zero limit/OOM event deltas is apparatus support only. The
   selected mount must not use `memory_localevents`. Sampled high-water remains
-  a lower bound, never an exact peak. The gate has not been submitted and
-  cannot authorize retry C by itself.
+  a lower bound, never an exact peak.
 - The reviewed CG-00 tree passes 11/11 focused capability tests, 6/6 R05A
   tracker-contract tests, and the complete `./init.sh` gate: 447 tests with 152
   declared dependency skips plus all 21 artifact/18 gate audits. Independent
   HPC, semantic, and adversarial-test reviews report GO for CG-00 only and
   retain NO-GO for retry C, IFT-01, efficacy, and training.
+- CG-00 task `27820_0` completed `0:0` on worker-1 in three seconds from exact
+  clean commit `63b246c5088217bc6d563265b035c44ef376f1c5`. Three independent
+  terminal audits reproduced the bound source hashes and exact four-scope
+  task-to-job mapping, 20 sequential strictly increasing samples, 120 ms
+  maximum gap, 6,045,696-byte sampled high-water, 268,435,456-byte job-scope
+  hard limit, hierarchical event semantics, and zero new
+  `max`/`oom`/`oom_kill` events. Native `memory.peak` remains unavailable. The
+  sampled value is a lower bound for this shell task, not a pi0.5 memory
+  estimate or peak. Evidence:
+  `evidence/r05a/cgroup-v2-current-capability-a.json`. This passes only the
+  telemetry-capability prerequisite and does not authorize retry C by itself.
 
 ## Exact next action
 
-Do not resubmit retry B or reuse the consumed CPU run ID; do not launch IFT-01.
-Finish independent review and the complete local gate for ADR-0035, commit and
-push the exact tree, synchronize VinUni to that clean commit, verify the exact
-run ID is unused, the user queue is empty, and worker-1 is healthy with at least
-256 MiB free. Then invoke exactly once:
-
-```bash
-RUN_ID=r05a-cgroup-v2-current-capability-20260715a \
-  scripts/hpc/submit_r05a_cgroup_v2_current_capability.sh
-```
-
-Interpret only that exact shell-only task, immutable receipt, bounded TSV, and
-atomic result. Do not run Python or experiments on the login node. A supported
-capability permits a separate reviewed telemetry implementation; it does not
-authorize retry C, IFT-01, efficacy claims, or training. An unsupported outcome
-stops this telemetry route. Never relabel sampled high-water as an exact peak.
+Do not resubmit retry B, CG-00, or either consumed CPU run; do not launch IFT-01.
+Do not launch retry C. Preregister a separate full-lifetime sampled-current telemetry
+contract for one otherwise frozen H100 IFT-00A canary. It must start before the
+policy server/model, sample the exact job scope through cleanup, retain all raw
+timestamps/values/gaps, record the job-scope hard limit and hierarchical event
+deltas, and independently recompute them before result publication. It must
+keep native peak and sampled lower-bound semantics distinct, preserve every
+solver/science hash and setting, and add dependency-free success/tamper tests.
+Complete local and independent review, then stop before choosing or submitting
+the immutable H100 run. Retry C, efficacy, IFT-01, and training remain forbidden
+until that separate decision explicitly authorizes only the canary.
 
 ## Non-negotiable stops
 

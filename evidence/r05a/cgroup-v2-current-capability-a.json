@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_cgroup_v2_current_capability_interpretation",
+  "evidence_tier": "allocation_backed_shell_only_apparatus_capability",
+  "run_id": "r05a-cgroup-v2-current-capability-20260715a",
+  "source_commit": "63b246c5088217bc6d563265b035c44ef376f1c5",
+  "job": {
+    "slurm_array_job_id": "27820",
+    "slurm_array_task_id": 0,
+    "exact_task_id": "27820_0",
+    "state": "COMPLETED",
+    "exit_code": "0:0",
+    "node": "worker-1",
+    "submitted_utc": "2026-07-15T09:24:57Z",
+    "started_utc": "2026-07-15T09:24:57Z",
+    "ended_utc": "2026-07-15T09:25:00Z",
+    "elapsed": "00:00:03",
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "requested_cpus": 1,
+    "slurm_allocated_cpu_threads": 2,
+    "requested_host_memory_mib": 256,
+    "requested_gpus": 0,
+    "time_limit": "00:02:00",
+    "requeue": false
+  },
+  "remote_artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-cgroup-v2-current-capability-20260715a",
+    "submission_receipt_sha256": "eade0420c9384771bad816dce000541320e466e197e34b8c5ec696515a6ceca1",
+    "held_submission_sha256": "9cc24bdbcfaa4168820f05be581b788e675356e70fb57a1ab3a2d7b7cdade254",
+    "diagnostic_tsv_sha256": "ef9c5527733527c5949a4a0d240677f3579196249159a4a76295ca6f5adb6096",
+    "results_json_sha256": "b0ea112f0740a4a7080f67a9dd5ede19db157335c672891645bd8fe77b0bd24f",
+    "slurm_log_sha256": "c483dfcf16d1ff7fb0b42133ec8e4590695ec23cc3316e54a54b8fc75f6dfc23",
+    "failure_json_written": false,
+    "results_json_written": true
+  },
+  "bound_source_hashes": {
+    "adr_sha256": "864b26b22195e68506185b3588e5648654e2af08da725c656fc08d00aa60dca5",
+    "helper_sha256": "c31ab4493c0467bdee64fada5dc43dd535c3cb2ff106b7499f9ac143ab4c84cb",
+    "runner_sha256": "058f9ad75685967bb95a44159d091778a6363302ced0f916b098b611517cf1af",
+    "submitter_sha256": "1af71d15fda1ed33bf97c7abcc7c39e3e2dc80335192dfa471f880e0892bffe1",
+    "slurm_sha256": "23753ee27764ab0f7d5442239570f7a2ab50ed1002877dea1ee9736aff52081f"
+  },
+  "cgroup_mapping": {
+    "version": 2,
+    "kernel_osrelease": "5.15.0-130-generic",
+    "membership_path": "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-podaef30fd2_ee60_4582_900c_7754ca902c2b.slice/system.slice/slurmstepd.scope/job_27820/step_batch/user/task_0",
+    "mount_root": "/",
+    "mount_point": "/sys/fs/cgroup",
+    "selected_mountinfo_line": "4663 4516 0:29 / /sys/fs/cgroup rw,relatime - cgroup2 none rw",
+    "memory_events_hierarchy_state": "hierarchical",
+    "constructed_scope_kinds": [
+      "task",
+      "intermediate",
+      "step",
+      "job"
+    ],
+    "scope_count": 4,
+    "stopped_at_exact_job_boundary": true,
+    "shared_ancestor_read": false,
+    "sibling_or_descendant_enumeration": false,
+    "native_memory_peak_state": "missing"
+  },
+  "sampled_current_contract": {
+    "outcome": "sampled_current_contract_supported",
+    "capability_supported": true,
+    "memory_current_state": "readable_integer",
+    "sample_count_requested": 20,
+    "sample_count_observed": 20,
+    "first_monotonic_timestamp_ns": 11647816540000000,
+    "last_monotonic_timestamp_ns": 11647818660000000,
+    "timestamps_strictly_increasing": true,
+    "maximum_adjacent_gap_ns": 120000000,
+    "registered_maximum_gap_ns": 500000000,
+    "sampled_memory_current_high_water_bytes": 6045696,
+    "sampled_high_water_is_lower_bound_not_peak": true,
+    "memory_max_state": "readable_integer",
+    "memory_max_job_scope_hard_limit_bytes": 268435456,
+    "memory_max_is_not_usage_or_tight_effective_hierarchy_limit": true,
+    "memory_events_before": {
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "memory_events_after": {
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "memory_events_deltas": {
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "raw_tsv_recomputed_independently": true
+  },
+  "apparatus_scope": {
+    "shell_only": true,
+    "checkpoint_loaded": false,
+    "policy_server_started": false,
+    "model_inference_executed": false,
+    "teacher_searches_executed": 0,
+    "simulator_steps_executed": 0,
+    "scientific_claim_allowed": false,
+    "retry_c_authorized_by_this_artifact_alone": false,
+    "ift01_authorized": false,
+    "probe_training_authorized": false
+  },
+  "interpretation": {
+    "capability_gate_passed": true,
+    "native_exact_peak_supported": false,
+    "sampled_current_route_supported": true,
+    "future_full_allocation_instrumentation_requires_separate_review": true,
+    "retry_b_repaired": false,
+    "inverse_flow_hypothesis_confirmed": false,
+    "inverse_flow_hypothesis_refuted": false,
+    "next_step": "Preregister and review full-lifetime sampled-current telemetry for one otherwise frozen H100 IFT-00A canary. Do not launch that canary, IFT-01, or training from this artifact alone."
+  }
+}
