@@ -509,6 +509,9 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
                     publication._validate_execution_release(changed, run_id=run_id)
 
         unreleased = json.loads(APPARATUS_CONFIG.read_text(encoding="utf-8"))
+        unreleased["ready_to_run"] = False
+        unreleased["blocked_on"] = ["release_identity_not_selected"]
+        unreleased.pop("execution_release", None)
         with self.assertRaisesRegex(ValueError, "not released"):
             publication._validate_execution_release(unreleased, run_id=run_id)
 
