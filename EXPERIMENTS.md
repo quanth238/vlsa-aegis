@@ -162,9 +162,8 @@ payload may not be retrofitted into an accepted result.
 
 ### CFS-00A — Same-budget constrained-flow diagnostic
 
-Status: **implementation and independent reviews pass locally; fail closed
-until an exact release-only child commit authorizes one H100 submission. No
-real CFS outcome exists yet.**
+Status: **launch A is terminal apparatus-inconclusive; the checked-in apparatus
+is fail closed. No real CFS outcome exists yet.**
 
 ADR-0040 replaces the draft's broad planner-to-student proposal with one
 causal diagnostic of the observed Run-B miss. It preserves the exact case,
@@ -207,6 +206,16 @@ collision, progress, safety, generalization, learnability, or infeasibility
 claim. It does not authorize a trust-region retry, a changed interface,
 IFT-01, a population, label collection, a probe, or an MLP. Any continuation
 requires a separate decision after this canary is interpreted.
+
+Exact release `77bf9f6` submitted launch A as GPU task `28021_0` with CPU
+validator `28022`. The GPU allocation failed at `allocation_contract` because
+the blanket no-symlink input rule rejected the canonical OpenPI virtual-
+environment Python launcher. Both registered interpreter paths are intentional
+symlinks to existing executable binaries. No allocation test, model, arm,
+telemetry, payload, or generated simulator action ran; the CPU validator
+correctly refused publication. ADR-0042 permanently consumes the run ID and
+permits only a separately reviewed runtime-identity repair and zero-GPU
+shell-only validation before any new release.
 
 ### IFT-01 — Three-case real transport smoke
 

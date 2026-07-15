@@ -41,3 +41,4 @@
 - [0039 — Preserve sampled-current launch B and repair exact-task accounting](docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md)
 - [0040 — Preregister the same-budget constrained-flow diagnostic](docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md)
 - [0041 — Require an exact CFS-00A execution release](docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md)
+- [0042 — Preserve CFS-00A launch A and repair runtime identity](docs/decisions/0042-preserve-cfs00a-launch-a-and-repair-runtime-identity.md)

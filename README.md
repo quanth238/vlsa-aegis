@@ -25,8 +25,12 @@ produced a deterministic finite-search miss, but host-memory finalization
 failed. Sampled-current launch B later completed both frozen searches and
 diagnostically reproduced the same finite nonconvergence; its CPU sole
 publisher failed on exact Slurm task identity before publication. Therefore no
-accepted canary result exists, the solver has not been declared infeasible,
-and no simulator efficacy or training claim is authorized.
+accepted canary result exists. CFS-00A launch A then stopped at allocation
+startup because the runner rejected the canonical virtual-environment Python
+symlink before any model, arm, allocation test, or telemetry ran. ADR-0042
+classifies that run as apparatus-inconclusive. The transport hypothesis remains
+untested, the solver has not been declared infeasible, and no simulator
+efficacy or training claim is authorized.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

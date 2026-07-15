@@ -1,18 +1,23 @@
 {
   "schema_version": "1.0",
-  "config_status": "released_exact_single_canary",
+  "config_status": "terminal_apparatus_inconclusive_consumed",
   "name": "r05a_constrained_flow_canary",
   "experiment_identity": "IFT-00B/CFS-00A",
   "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
   "scientific_role": "same_budget_initialization_diagnostic_no_simulator_efficacy",
-  "ready_to_run": true,
-  "blocked_on": [],
+  "ready_to_run": false,
+  "blocked_on": [
+    "terminal_cfs00a_launch_a_apparatus_inconclusive",
+    "runtime_identity_repair_not_implemented",
+    "zero_gpu_runtime_identity_regression_not_registered_or_passed",
+    "new_clean_pushed_release_and_unused_run_id_not_authorized"
+  ],
   "new_experiment_not_retry": true,
   "historical_run_id_reuse_forbidden": true,
   "preregistration": {
     "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
     "implementation_authorized": true,
-    "h100_submission_authorized": true,
+    "h100_submission_authorized": false,
     "automatic_next_gate_authorized": false
   },
   "historical_run_b_binding": {
@@ -293,42 +298,7 @@
     "validator_gpus": 0,
     "requires_separate_release_review": true
   },
-  "execution_release": {
-    "schema_version": "1.0",
-    "artifact_role": "r05a_constrained_flow_canary_execution_release",
-    "decision_artifact": "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md",
-    "accepted_implementation_commit": "65bc57772c2648baa0e75a05d42161f01d9e3634",
-    "run_id": "r05a-constrained-flow-same-budget-canary-20260715a",
-    "single_submission": true,
-    "source_host": "worker-1",
-    "resources": {
-      "partition": "main",
-      "account": "normal",
-      "qos": "normal",
-      "gpus": 1,
-      "cpus_per_task": 8,
-      "host_memory_mib": 65536,
-      "time_limit": "02:00:00",
-      "array": "0-0%1",
-      "requeue": false,
-      "validator_partition": "main",
-      "validator_account": "normal",
-      "validator_qos": "normal",
-      "validator_cpus": 2,
-      "validator_host_memory_mib": 8192,
-      "validator_time_limit": "00:15:00",
-      "validator_gpus": 0,
-      "validator_dependency": "afterany"
-    },
-    "release_only_parent_required": true,
-    "allowed_release_diff_paths": [
-      "configs/experiments/r05a_constrained_flow_canary.json",
-      "configs/experiments/r05a_constrained_flow_canary_apparatus.json",
-      "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"
-    ],
-    "automatic_resubmission_allowed": false,
-    "automatic_next_experiment_allowed": false
-  },
+  "execution_release": null,
   "allow_test_tuning": false,
   "training": false
 }

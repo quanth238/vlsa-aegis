@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-07-15 (Asia/Ho_Chi_Minh)
+Last updated: 2026-07-16 (Asia/Ho_Chi_Minh)
 
 Active branch: `agent/crfs-oracle-harness`
 
@@ -16,6 +16,12 @@ Terminal sampled-current launch-B release:
 Validated exact-task accounting repair:
 `5e595a366cb95d50ee86776f5de701627bf09669`.
 
+Reviewed CFS-00A implementation:
+`65bc57772c2648baa0e75a05d42161f01d9e3634`.
+
+Terminal CFS-00A launch-A release:
+`77bf9f639abe1da224762b0d8e63c64d85698811`.
+
 Historical detail is preserved, not deleted:
 
 - pre-inverse-flow chronology:
@@ -26,7 +32,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0039;
+- immutable decisions: ADR-0028 through ADR-0042;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -82,11 +88,20 @@ republication of sampled-current launch B:
 - Arm A is the real historical baseline (`Delta_model / 5` initialization),
   not zero initialization. There is no separate decoded-action budget, no new
   planner target, no tolerance tuning, and no action overwrite.
+- CFS-00A launch A used exact release `77bf9f6`, GPU task `28021_0`, and CPU
+  validator `28022`. It stopped at `allocation_contract` because the runner's
+  blanket no-symlink rule rejected the canonical OpenPI virtual-environment
+  Python launcher. Both interpreter launchers are valid executable symlinks.
+  No allocation test, model, arm, telemetry, payload, or generated simulator
+  action ran. ADR-0042 classifies the run as apparatus-inconclusive and
+  permanently consumes its identity.
 
-The active experiment is exactly one case, `crfs-1069f29a8d76463a`, on its
-source host `worker-1`: one H100, eight CPUs, exactly 64 GiB host RAM, two
-hours, array `0-0%1`, no requeue, plus one zero-GPU CPU `afterany` validator.
-No teacher- or policy-generated action is executed in the simulator.
+The frozen scientific experiment remains exactly one case,
+`crfs-1069f29a8d76463a`, on source host `worker-1`: one H100, eight CPUs,
+exactly 64 GiB host RAM, two hours, array `0-0%1`, no requeue, plus one
+zero-GPU CPU `afterany` validator. Launch A did not reach that scientific
+boundary, and no teacher- or policy-generated action was executed in the
+simulator.
 
 ## What this experiment can conclude
 
@@ -101,11 +116,23 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Current verification state
 
-- ADR-0040 and ADR-0041 preregister the baseline-faithful method and exact
-  release transaction. All demonstrated science and HPC audit findings are
-  repaired. Independent final reviews report GO for the exact one-case canary
-  with no P0/P1 blocker. The implementation remains fail closed only until a
-  clean pushed direct-child release binds one unused run ID.
+- ADR-0040 and ADR-0041 preregistered the baseline-faithful method and exact
+  release transaction. Exact release `77bf9f6` bound source contract
+  `8bf3501c...f96de` and submission receipt `0252d40a...bd01`; all 51 repository
+  hashes matched the clean release.
+- GPU task `28021_0` failed `2:0` on worker-1 at allocation startup with the
+  exact message `missing or symlinked CFS-00A input:
+  /mnt/data/quanth/venvs/openpi/bin/python`. CPU `afterany` job `28022`
+  correctly observed source `FAILED|2:0`, failed `3:0`, and published no
+  result. Both elapsed `00:00:00`.
+- The OpenPI launcher resolves to the existing executable
+  `/mnt/data/quanth/anaconda3/bin/python3.11`, SHA-256 `c7171890...16bc9`;
+  the LIBERO launcher is likewise an intentional executable symlink. The
+  demonstrated defect is the blanket no-symlink runtime-input assertion, not
+  cluster capacity, memory, source pairing, or CFS mathematics.
+- ADR-0042 and `evidence/r05a/cfs00a-same-budget-launch-a.json` preserve the
+  terminal apparatus-inconclusive result. The checked-in configs are again
+  fail closed with no execution release or H100 authorization.
 - The dependency-backed CFS suite passes 69/69 tests across the linearized
   core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
   and exact Slurm transaction. The complete dependency-light `./init.sh` gate
@@ -166,18 +193,18 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Record the reviewed implementation commit, push and synchronize it, create its
-exact release-only child under ADR-0041 with one unused immutable run ID, and
-invoke the transactional submitter once. Monitor the source-pinned worker-1
-H100 task and zero-GPU CPU `afterany` publisher to
-terminal, interpret only a schema-valid `results.json`, and stop after the
-three-way CFS-00A classification. IFT-01 remains blocked regardless of outcome
-until a separate decision.
+Implement only ADR-0042's interpreter identity repair: preserve the canonical
+launcher paths, bind their exact link chains, resolved executable paths, and
+binary hashes, and retain no-symlink enforcement for immutable scientific
+inputs. Run the focused CFS suite and `./init.sh`, obtain independent review,
+then separately preregister one zero-GPU shell-only worker-1 identity check.
+Do not select another H100 run ID or submit another canary yet. IFT-01 remains
+blocked.
 
-Do not resume job `27928` or jobs `27962`/`27963`; do not reuse launch A or B
-run IDs; and do not republish launch B's observed payload. Do not resubmit retry B,
-CG-00, or the consumed CPU apparatus run. Also, do not launch IFT-01 from this
-gate.
+Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
+not reuse any consumed launch ID; and do not republish launch B's observed
+payload. Do not resubmit retry B, CG-00, or the consumed CPU apparatus run.
+Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops
 

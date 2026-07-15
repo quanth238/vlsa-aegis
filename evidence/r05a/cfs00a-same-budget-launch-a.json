@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_cfs00a_same_budget_launch_a_interpretation",
+  "evidence_tier": "allocation_backed_pre_science_apparatus_failure",
+  "run_id": "r05a-constrained-flow-same-budget-canary-20260715a",
+  "case_id": "crfs-1069f29a8d76463a",
+  "source_host": "worker-1",
+  "accepted_implementation_commit": "65bc57772c2648baa0e75a05d42161f01d9e3634",
+  "release_commit": "77bf9f639abe1da224762b0d8e63c64d85698811",
+  "jobs": {
+    "gpu_array_task": {
+      "job_id": "28021_0",
+      "job_id_raw": "28021",
+      "state": "FAILED",
+      "exit_code": "2:0",
+      "node": "worker-1",
+      "elapsed": "00:00:00",
+      "started_utc": "2026-07-15T19:57:24Z",
+      "ended_utc": "2026-07-15T19:57:24Z",
+      "requested_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+      "allocated_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1"
+    },
+    "cpu_afterany_validator": {
+      "job_id": "28022",
+      "dependency": "afterany:28021",
+      "state": "FAILED",
+      "exit_code": "3:0",
+      "node": "worker-1",
+      "elapsed": "00:00:00",
+      "started_utc": "2026-07-15T19:57:25Z",
+      "ended_utc": "2026-07-15T19:57:25Z",
+      "requested_tres": "billing=2,cpu=2,mem=8G,node=1",
+      "allocated_tres": "billing=2,cpu=2,mem=8G,node=1"
+    }
+  },
+  "immutable_receipts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-constrained-flow-same-budget-canary-20260715a",
+    "repository_binding_count": 51,
+    "repository_binding_mismatches": 0,
+    "source_contract_sha256": "8bf3501c0a9af17c1f65ed16812f976ec978a642b32d1bb3666866b43dcf96de",
+    "submission_sha256": "0252d40ae5d6aa3fa409e867edfadfd77843bf3225d0b9d994719b9d7ddcbd01",
+    "launch_reservation_sha256": "b68c476a6cf766c7514eed1fc50e10e4cd4e1737259b3a21d00d9c1ff4417b1c",
+    "provisional_gpu_job_id_sha256": "cf4b50ed0c31cce68be730b9376eb63de3b114d2c64cbe39c1c1260326fcd416",
+    "provisional_cpu_job_id_sha256": "ee25d33be7e848901e05a8eba9eb39484e011b30fc6d915fa166f8cb42b356b9",
+    "held_gpu_submission_sha256": "df08e2a38524747f23a39ab82a48cd2264bd0bd2dc942463dda71e5d8247c8ca",
+    "launch_failure_sha256": "e641fad17864e53ed2f45f51b580a078c266b5659dac0f27a4f3d4355d00349c",
+    "cpu_failure_receipt_sha256": "7b0652b8b1b9194835d6e72a73fc65892e44496f0b1aa9e177d768d5a33512dc",
+    "gpu_slurm_log_sha256": "46f4b0bc3e4cc8d486376c1042c5e759431045310c363ad8a8a4de444391ecbf",
+    "cpu_slurm_log_sha256": "ca3490746318817a5554c1586b7095bb84da7954b4236883e75c72bbff4b8dd8",
+    "identity_consumed": true,
+    "resume_or_reuse_allowed": false
+  },
+  "failure": {
+    "classification": "canonical_venv_launcher_rejected_by_blanket_no_symlink_rule",
+    "stage": "allocation_contract",
+    "observed_message": "missing or symlinked CFS-00A input: /mnt/data/quanth/venvs/openpi/bin/python",
+    "root_cause": "The runner froze the canonical interpreter path but then required every input path itself to be non-symlinked. Both registered virtual-environment Python launchers are intentional symlinks to existing executable interpreter binaries.",
+    "openpi_python": {
+      "path": "/mnt/data/quanth/venvs/openpi/bin/python",
+      "link_target": "/mnt/data/quanth/anaconda3/bin/python",
+      "resolved_target": "/mnt/data/quanth/anaconda3/bin/python3.11",
+      "resolved_target_sha256": "c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9",
+      "exists": true,
+      "executable": true
+    },
+    "libero_python": {
+      "path": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+      "link_target": "/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+      "resolved_target": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+      "resolved_target_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62",
+      "exists": true,
+      "executable": true
+    },
+    "not_caused_by": [
+      "worker_1_allocation_or_gpu_availability",
+      "host_or_gpu_out_of_memory",
+      "checkpoint_loading",
+      "transformers_overlay",
+      "allocation_tests",
+      "source_pairing",
+      "jacobian_or_fista_math",
+      "arm_a_or_arm_c_adam",
+      "simulator_execution"
+    ]
+  },
+  "execution": {
+    "cleanup_only_failure_writer_executed": true,
+    "scientific_python_executed": false,
+    "allocation_tests_executed": false,
+    "policy_server_started": false,
+    "checkpoint_loaded": false,
+    "arm_a_executed": false,
+    "arm_b_executed": false,
+    "arm_c_executed": false,
+    "finite_difference_checks_executed": false,
+    "canonical_replays_executed": false,
+    "telemetry_started": false,
+    "legacy_payload_exists": false,
+    "constrained_flow_payload_exists": false,
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false
+  },
+  "publication": {
+    "source_task_observed_state": "FAILED",
+    "source_task_observed_exit_code": "2:0",
+    "cpu_receipt_passed": false,
+    "cpu_receipt_published": false,
+    "cpu_receipt_failure_stage": "exact_source_task_accounting",
+    "python_publisher_invoked": false,
+    "hidden_candidate_exists": false,
+    "results_json_exists": false
+  },
+  "interpretation": {
+    "status": "apparatus_inconclusive",
+    "teacher_transport_conclusion": "none",
+    "research_hypothesis_confirmed": false,
+    "research_hypothesis_refuted": false,
+    "simulator_efficacy_conclusion": "none",
+    "infeasibility_conclusion": "none",
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "automatic_h100_resubmission_authorized": false,
+    "next_step": "Repair only exact interpreter link-chain and resolved-binary identity, validate it first in a separately registered zero-GPU shell-only worker-1 allocation, and require a new reviewed immutable release before any H100 retry."
+  }
+}

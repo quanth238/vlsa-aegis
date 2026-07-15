@@ -79,3 +79,13 @@ files matched commit `5e595a3`, and the published result SHA-256 is
 `0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74`.
 Each job requested one CPU, 256 MiB, and zero GPUs. This is apparatus evidence
 only and cannot authorize an H100 retry, IFT-01, a method claim, or training.
+
+`cfs00a-same-budget-launch-a.json` records exact CFS release `77bf9f6`, GPU
+task `28021_0`, CPU `afterany` validator `28022`, all immutable receipt and log
+digests, and the terminal allocation-contract failure. The runner rejected the
+canonical OpenPI virtual-environment Python path because it is an intentional
+symlink to an existing executable. The GPU task failed before allocation tests,
+telemetry, model loading, or Arms A/B/C; the CPU job correctly refused
+publication. ADR-0042 consumes the identity and classifies the run as
+apparatus-inconclusive. It contains no transport, efficacy, infeasibility, or
+training evidence.
