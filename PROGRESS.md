@@ -57,8 +57,9 @@ learn or generalize the controls.
 ## Active gate: R05A inverse-flow teacher transport
 
 IFT-00 passed as synthetic implementation evidence. IFT-00A, the one-case
-allocation integration canary, is now active with an immutable config and
-submission path. See `EXPERIMENTS.md`, ADR-0028, and
+allocation integration canary, remains active after two immutable apparatus
+attempts. Retry B reached real pi0.5 and ran the teacher twice, but no accepted
+`results.json` was finalized. See `EXPERIMENTS.md`, ADR-0028, ADR-0031, and
 `evidence/r05a/ift00-synthetic.json`.
 
 IFT-00 established the deterministic constrained solver, exact iterative
@@ -148,22 +149,50 @@ first reproduce 9/17.
   attempt also exposed a masked allocation-wrapper count mismatch: 10 expected
   versus 12 reviewed R05A tests. Attempt A is retired as apparatus failure and
   provides no inverse-flow research outcome.
+- IFT-00A retry B `r05a-inverse-flow-canary-20260715b` used exact GPU task
+  `27726_0` on worker-1 and CPU `afterany` validator `27727`. All four focused
+  allocation suites passed 17/8/10/12 with zero skips, pi0.5 served the real
+  case, and two deterministic teacher searches completed 128 finite updates.
+  Both searches returned status 3 and failed closed without applying controls;
+  their target errors (`0.8631912` XYZ maximum, `0.3312218` XYZ RMS) were far
+  outside the unchanged fidelity gates. This is a bounded-search diagnostic,
+  not infeasibility and not simulator efficacy.
+- Retry B still failed IFT-00A. GPU task `27726_0` exited `6:0` after the
+  wrapper could not read a live Slurm cgroup host-memory peak, so memory
+  finalization and exact GPU validation never wrote `results.json`; validator
+  `27727` correctly failed closed. GPU telemetry peaked near 8.5 GiB, so this
+  was not a 64 GiB host-memory exceedance. The terminal audit also found a
+  stale finalizer count of 10 versus 12 tests and a cross-path byte-equality
+  gate inconsistent with ADR-0011. Compiled and eager paths were each exactly
+  stable before/after, source eager action/trace pairing was exact, and their
+  numerical seam passed all unchanged ADR-0011 physical limits. ADR-0031
+  freezes apparatus-only repairs and forbids solver tuning. Compact evidence:
+  `evidence/r05a/ift00a-attempt-b.json`, SHA-256
+  `83a09684d474dcc3b38004facd3901fe274b7fcad3b9133827f2ba5bf82d37a4`.
+- After recording retry B, the terminal-interpretation tree passed `./init.sh`: 415 tests,
+  152 declared dependency skips, and all 21 artifact/18 gate audits. This does
+  not repair or pass IFT-00A.
 
 ## Exact next action
 
-Pass the corrected sampler and wrapper-count regressions locally and in a CPU
-Slurm allocation, pass the complete harness, commit/push/synchronize the clean
-reviewed tree, then invoke exactly once with the new immutable run ID:
+Do not resubmit retry B and do not launch IFT-01. Implement only the three
+ADR-0031 apparatus repairs: portable live Slurm cgroup-peak discovery with an
+accurate failure stage, one shared 17/8/10/12 allocation-test registry, and the
+already accepted ADR-0011 compiled/eager numerical seam rule while retaining
+exact within-path/source pairing. Do not change any solver, tolerance, target,
+budget, mask, checkpoint, source case, simulator, or resource setting.
+
+After implementation, run exactly:
 
 ```bash
-RUN_ID=r05a-inverse-flow-canary-20260715b scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
+./init.sh
 ```
 
-This command registers the worker-1-pinned 64 GiB H100 canary on hold, registers
-its CPU `afterany` validator, records both exact IDs, and only then releases the
-canary. Slurm may then keep the exact GPU task `PENDING` until worker-1 capacity
-becomes available. It must not be invoked until the local and remote trees are
-the same clean reviewed commit and the exact run ID is unused.
+Then require the four dependency-backed suites and a CPU Slurm regression with
+zero skips, an independent review, clean local/remote commit identity, a new
+immutable run ID, and a newly recorded exact submission command before any
+retry C. If that accepted retry reports the same finite nonconvergence, stop
+IFT-01 and the currently registered inverse-flow teacher direction.
 
 ## Non-negotiable stops
 

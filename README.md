@@ -20,7 +20,9 @@ through the exact frozen sampler into a budgeted time-dependent residual
 velocity sequence. No probe or residual-field MLP has been trained.
 IFT-00 now passes as synthetic implementation evidence; the next gate is a
 one-case, no-efficacy allocation canary that measures real sampler integration
-and memory before any robot rollout.
+and memory before any robot rollout. Two immutable attempts remain incomplete:
+retry B reached real pi0.5 and produced a deterministic finite-search miss, but
+host-memory finalization failed, so no accepted canary result exists.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -128,6 +130,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0023-run-strong-analytic-kill-test.md`: frozen no-learning R03A necessity test;
 - `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: historical allocation-backed smoke evidence and the now-retired grouped-population launch contract;
 - `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: current controlled pivot and R05A stop rules;
+- `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `evidence/r04b/r04b-validation.json`: compact exact-resume allocation/validator record;

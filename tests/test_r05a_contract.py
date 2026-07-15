@@ -34,7 +34,11 @@ class R05AContractTest(unittest.TestCase):
         self.assertEqual(features["R03A"]["status"], "blocked")
         self.assertEqual(features["R04"]["status"], "blocked")
         self.assertEqual(features["R05A"]["dependencies"], ["R03"])
-        self.assertIn("No inverse-flow action or outcome", features["R05A"]["evidence"])
+        self.assertIn(
+            "No teacher-generated action has been executed in the simulator",
+            features["R05A"]["evidence"],
+        )
+        self.assertIn("forbid solver tuning or IFT-01", features["R05A"]["evidence"])
 
     def test_smoke_manifest_is_exact_unique_development_subset(self):
         raw = MANIFEST.read_bytes()
@@ -91,11 +95,13 @@ class R05AContractTest(unittest.TestCase):
         current = PROGRESS.read_text(encoding="utf-8")
         self.assertNotIn("submit_r03a_grouped_array.sh", current)
         self.assertIn("Do not launch `r03a-analytic-kill-population-20260715a`", current)
-        self.assertIn(
+        self.assertNotIn(
             "RUN_ID=r05a-inverse-flow-canary-20260715b "
             "scripts/hpc/submit_r05a_canary.sh",
             current,
         )
+        self.assertIn("Do not resubmit retry B", current)
+        self.assertIn("do not launch IFT-01", current)
         self.assertIn(
             "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb",
             current,

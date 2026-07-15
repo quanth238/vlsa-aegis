@@ -66,7 +66,7 @@ executed.
 
 ### IFT-00A — One-case allocation integration canary
 
-Status: **active; attempt A retired as apparatus-only failure, retry B pending**
+Status: **active; attempts A and B retired as incomplete apparatus runs**
 
 Purpose: connect the passed solver to the real frozen pi0.5 sampler on only
 `crfs-1069f29a8d76463a`, without executing a teacher-generated action in the
@@ -90,8 +90,23 @@ mismatch (10 expected versus 12 reviewed tests) is repaired and structurally
 bound before immutable retry B. Attempt A contains no transport or efficacy
 outcome; see `evidence/r05a/ift00a-attempt-a.json`.
 
+Retry B `r05a-inverse-flow-canary-20260715b` used GPU task `27726_0` on the
+required worker-1 source host and CPU validator `27727`. It passed all focused
+allocation suites with exact zero-skip counts 17/8/10/12, started real pi0.5,
+and executed two deterministic 128-update teacher searches. Both searches were
+finite but nonconverged and failed closed to the frozen action; the XYZ target
+maximum/RMS errors were `0.8631912`/`0.3312218`. No teacher action entered the
+simulator. The GPU job then failed before `results.json` because live cgroup
+host-memory peak discovery was unavailable; the CPU validator correctly
+rejected the missing result. The unfinalized payload also exposed a stale
+finalizer test count and an ADR-0011 path-seam semantic mismatch. See ADR-0031
+and `evidence/r05a/ift00a-attempt-b.json`. This diagnostic neither confirms nor
+refutes target transport formally, but it is strong negative evidence for the
+currently frozen solver on the preservation case.
+
 Pass requires exact fresh source pairing; target equality outside first-five
-XYZ; compiled/eager zero-control parity before and after the solve; duplicate
+XYZ; exact compiled-before/after and eager-before/after zero-control stability;
+the unchanged ADR-0011 numerical compiled/eager seam limits; duplicate
 teacher schedules; an independent explicit-schedule replay equal to the
 teacher result; exact recurrence, mask, time, budget and fidelity validation;
 all frozen-model parameter gradients remaining `None`; and complete host/GPU
@@ -169,3 +184,4 @@ with zero-control labels. No current case may enter this dataset.
   as inverse-flow success.
 - Do not tune solver settings from simulator outcomes.
 - Do not interpret local or synthetic tests as research evidence.
+- Do not launch IFT-01 or an unchanged IFT-00A retry after retry B.
