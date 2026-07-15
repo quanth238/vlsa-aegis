@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crfs.local/schemas/r05a-constrained-flow-canary-envelope.schema.json",
+  "title": "CFS-00A CPU-published constrained-flow canary envelope",
+  "description": "Fail-closed envelope around independently validated legacy and constrained-flow raw payloads. It supports at most a one-case transport-mechanism claim and never a simulator-efficacy or infeasibility claim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "experiment_identity",
+    "case_id",
+    "run_id",
+    "status",
+    "evidence_tier",
+    "apparatus_config_sha256",
+    "envelope_schema_sha256",
+    "source_job",
+    "raw_payloads",
+    "allocation_tests",
+    "semantic_validation",
+    "telemetry",
+    "simulator_use",
+    "publication",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r05a_constrained_flow_canary_envelope"},
+    "gate": {"const": "CFS-00A"},
+    "experiment_identity": {"const": "IFT-00B/CFS-00A"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "run_id": {"$ref": "#/$defs/runId"},
+    "status": {"$ref": "#/$defs/outcomeStatus"},
+    "evidence_tier": {"const": "real_pi05_allocation_transport_mechanism_canary_only"},
+    "apparatus_config_sha256": {"$ref": "#/$defs/sha256"},
+    "envelope_schema_sha256": {"$ref": "#/$defs/sha256"},
+    "source_job": {"$ref": "#/$defs/sourceJob"},
+    "raw_payloads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy", "constrained_flow", "every_present_payload_rehashed", "gpu_wrote_raw_only"],
+      "properties": {
+        "legacy": {"$ref": "#/$defs/rawPayload"},
+        "constrained_flow": {"$ref": "#/$defs/rawPayload"},
+        "every_present_payload_rehashed": {"const": true},
+        "gpu_wrote_raw_only": {"const": true}
+      }
+    },
+    "allocation_tests": {"$ref": "#/$defs/allocationTests"},
+    "semantic_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legacy_validator",
+        "legacy_validator_module_sha256",
+        "legacy_validation_performed",
+        "legacy_returned_errors",
+        "legacy_returned_errors_exact_allowlist",
+        "constrained_flow_validator",
+        "constrained_flow_validator_module_sha256",
+        "constrained_flow_validation_performed",
+        "constrained_flow_returned_errors",
+        "recomputed_status",
+        "stored_gpu_pass_booleans_trusted"
+      ],
+      "properties": {
+        "legacy_validator": {"const": "crfs_oracle.r05a_canary.validate_r05a_canary_result"},
+        "legacy_validator_module_sha256": {"$ref": "#/$defs/sha256"},
+        "legacy_validation_performed": {"type": "boolean"},
+        "legacy_returned_errors": {"type": "array", "items": {"type": "string"}},
+        "legacy_returned_errors_exact_allowlist": {"type": "boolean"},
+        "constrained_flow_validator": {"const": "crfs_oracle.r05a_constrained_flow_validation.validate_constrained_flow_payload_or_raise"},
+        "constrained_flow_validator_module_sha256": {"$ref": "#/$defs/sha256"},
+        "constrained_flow_validation_performed": {"const": true},
+        "constrained_flow_returned_errors": {"const": []},
+        "recomputed_status": {"$ref": "#/$defs/outcomeStatus"},
+        "stored_gpu_pass_booleans_trusted": {"const": false}
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "gpu", "all_raw_files_rehashed_by_cpu_validator", "telemetry_contract_passed"],
+      "properties": {
+        "host": {"$ref": "#/$defs/hostTelemetry"},
+        "gpu": {"$ref": "#/$defs/gpuTelemetry"},
+        "all_raw_files_rehashed_by_cpu_validator": {"const": true},
+        "telemetry_contract_passed": {"const": true}
+      }
+    },
+    "simulator_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "setup_only",
+        "policy_generated_action_steps_executed",
+        "teacher_generated_action_steps_executed",
+        "efficacy_rollouts_executed",
+        "simulator_efficacy_evaluated"
+      ],
+      "properties": {
+        "setup_only": {"const": true},
+        "policy_generated_action_steps_executed": {"const": 0},
+        "teacher_generated_action_steps_executed": {"const": 0},
+        "efficacy_rollouts_executed": {"const": 0},
+        "simulator_efficacy_evaluated": {"const": false}
+      }
+    },
+    "publication": {"$ref": "#/$defs/publication"},
+    "interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "one_case_transport_mechanism_claim_allowed",
+        "simulator_efficacy_claim_allowed",
+        "collision_or_progress_claim_allowed",
+        "infeasibility_claim_allowed",
+        "student_learning_claim_allowed",
+        "probe_training_authorized",
+        "automatic_next_gate_allowed"
+      ],
+      "properties": {
+        "classification": {"$ref": "#/$defs/outcomeStatus"},
+        "one_case_transport_mechanism_claim_allowed": {"type": "boolean"},
+        "simulator_efficacy_claim_allowed": {"const": false},
+        "collision_or_progress_claim_allowed": {"const": false},
+        "infeasibility_claim_allowed": {"const": false},
+        "student_learning_claim_allowed": {"const": false},
+        "probe_training_authorized": {"const": false},
+        "automatic_next_gate_allowed": {"const": false}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "mechanism_pass"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "interpretation": {
+            "properties": {"one_case_transport_mechanism_claim_allowed": {"const": true}}
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "interpretation": {
+            "properties": {"one_case_transport_mechanism_claim_allowed": {"const": false}}
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["mechanism_pass", "frozen_method_negative"]}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "raw_payloads": {
+            "properties": {
+              "legacy": {"properties": {"present": {"const": true}, "semantically_validated": {"const": true}}},
+              "constrained_flow": {"properties": {"present": {"const": true}, "semantically_validated": {"const": true}}}
+            }
+          },
+          "semantic_validation": {
+            "properties": {
+              "legacy_validation_performed": {"const": true},
+              "legacy_returned_errors_exact_allowlist": {"const": true}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "slurmId": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "runId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 128},
+    "outcomeStatus": {"enum": ["mechanism_pass", "frozen_method_negative", "apparatus_inconclusive"]},
+    "sourceJob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_commit", "source_tree_dirty", "array_job_id", "array_task_id", "exact_task_id",
+        "state", "exit_code", "node", "partition", "account", "qos", "requested_gpus",
+        "requested_cpus_per_task", "requested_host_memory_mib", "time_limit", "array", "requeue"
+      ],
+      "properties": {
+        "source_commit": {"$ref": "#/$defs/gitSha"},
+        "source_tree_dirty": {"const": false},
+        "array_job_id": {"$ref": "#/$defs/slurmId"},
+        "array_task_id": {"const": 0},
+        "exact_task_id": {"type": "string", "pattern": "^[1-9][0-9]*_0$"},
+        "state": {"const": "COMPLETED"},
+        "exit_code": {"const": "0:0"},
+        "node": {"const": "worker-1"},
+        "partition": {"const": "main"},
+        "account": {"const": "normal"},
+        "qos": {"const": "normal"},
+        "requested_gpus": {"const": 1},
+        "requested_cpus_per_task": {"const": 8},
+        "requested_host_memory_mib": {"const": 65536},
+        "time_limit": {"const": "02:00:00"},
+        "array": {"const": "0-0%1"},
+        "requeue": {"const": false}
+      }
+    },
+    "rawPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "present", "sha256", "payload_type", "payload_variant", "status", "bytes_unmodified_by_wrapper", "semantically_validated"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "present": {"type": "boolean"},
+        "sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "payload_type": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "payload_variant": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "status": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "bytes_unmodified_by_wrapper": {"const": true},
+        "semantically_validated": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"present": {"const": true}}, "required": ["present"]},
+          "then": {"properties": {"sha256": {"$ref": "#/$defs/sha256"}, "payload_type": {"type": "string"}}},
+          "else": {"properties": {"sha256": {"type": "null"}, "payload_type": {"type": "null"}, "payload_variant": {"type": "null"}, "status": {"type": "null"}, "semantically_validated": {"const": false}}}
+        }
+      ]
+    },
+    "allocationTests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["log_path", "log_sha256", "registry_path", "registry_sha256", "expected_counts", "observed_counts", "zero_skips", "exit_code", "rehashed_and_reparsed_by_cpu_validator"],
+      "properties": {
+        "log_path": {"type": "string", "pattern": "(^|/)allocation-focused-tests\\.log$"},
+        "log_sha256": {"$ref": "#/$defs/sha256"},
+        "registry_path": {"const": "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json"},
+        "registry_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_counts": {"$ref": "#/$defs/testCounts"},
+        "observed_counts": {"$ref": "#/$defs/testCounts"},
+        "zero_skips": {"const": true},
+        "exit_code": {"const": 0},
+        "rehashed_and_reparsed_by_cpu_validator": {"const": true}
+      }
+    },
+    "testCounts": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 1},
+      "minProperties": 1
+    },
+    "hostTelemetry": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "measurement_kind", "cgroup_version", "raw_trace_path", "raw_trace_sha256", "sample_count",
+        "host_cgroup_sampled_current_high_water_bytes", "host_cgroup_sampled_current_is_lower_bound_not_peak",
+        "memory_max_unchanged", "required_event_deltas_zero", "first_sample_no_later_than_policy_launch",
+        "last_sample_no_earlier_than_workload_cleanup", "sealed_after_workload_cleanup"
+      ],
+      "properties": {
+        "measurement_kind": {"const": "job_scope_sampled_memory_current_lower_bound_with_hard_limit_and_hierarchical_events"},
+        "cgroup_version": {"const": 2},
+        "raw_trace_path": {"type": "string", "pattern": "(^|/)host-cgroup-sampled-current\\.tsv$"},
+        "raw_trace_sha256": {"$ref": "#/$defs/sha256"},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "host_cgroup_sampled_current_high_water_bytes": {"type": "integer", "minimum": 1},
+        "host_cgroup_sampled_current_is_lower_bound_not_peak": {"const": true},
+        "memory_max_unchanged": {"const": true},
+        "required_event_deltas_zero": {"type": "object", "additionalProperties": {"const": true}},
+        "first_sample_no_later_than_policy_launch": {"const": true},
+        "last_sample_no_earlier_than_workload_cleanup": {"const": true},
+        "sealed_after_workload_cleanup": {"const": true}
+      }
+    },
+    "gpuTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocation_gpu_uuid", "raw_samples_path", "raw_samples_sha256", "sample_count", "process_peak_available", "process_peak_owner", "process_peak_allocated_bytes", "process_peak_reserved_bytes", "sampled_compute_high_water_mib", "sampled_device_high_water_mib", "sampled_device_high_water_scope", "sampled_values_are_periodic_not_continuous_peaks", "out_of_memory_observed"],
+      "properties": {
+        "allocation_gpu_uuid": {"type": "string", "pattern": "^GPU-"},
+        "raw_samples_path": {"type": "string", "pattern": "(^|/)gpu-memory-samples\\.csv$"},
+        "raw_samples_sha256": {"$ref": "#/$defs/sha256"},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "process_peak_available": {"type": "boolean"},
+        "process_peak_owner": {"enum": ["historical_arm_a_trace_only", "unavailable_no_legacy_trace"]},
+        "process_peak_allocated_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "process_peak_reserved_bytes": {"type": ["integer", "null"], "minimum": 0},
+        "sampled_compute_high_water_mib": {"type": "number", "minimum": 0},
+        "sampled_device_high_water_mib": {"type": "number", "minimum": 0},
+        "sampled_device_high_water_scope": {"const": "full_cfs_policy_lifecycle_periodic_lower_bound"},
+        "sampled_values_are_periodic_not_continuous_peaks": {"const": true},
+        "out_of_memory_observed": {"const": false}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"process_peak_available": {"const": true}}},
+          "then": {
+            "properties": {
+              "process_peak_owner": {"const": "historical_arm_a_trace_only"},
+              "process_peak_allocated_bytes": {"type": "integer"},
+              "process_peak_reserved_bytes": {"type": "integer"}
+            }
+          },
+          "else": {
+            "properties": {
+              "process_peak_owner": {"const": "unavailable_no_legacy_trace"},
+              "process_peak_allocated_bytes": {"type": "null"},
+              "process_peak_reserved_bytes": {"type": "null"}
+            }
+          }
+        }
+      ]
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_contract_receipt_path", "source_contract_receipt_sha256", "externally_supplied_expected_receipt_sha256",
+        "atomic_submission_receipt_path", "atomic_submission_receipt_sha256", "hidden_candidate_path", "published_result_path",
+        "post_publication_validation_receipt_path", "cpu_validator_job_id", "dependency", "cpu_validator_gpu_count",
+        "source_job_exit_code", "gpu_job_created_result_candidate", "gpu_job_published_results_json",
+        "candidate_created_by_cpu_validator", "candidate_validated_before_publication", "candidate_revalidated_before_publication",
+        "cpu_validator_is_sole_publisher", "raw_files_unchanged_after_candidate", "atomic_candidate_to_result_rename", "validation_passed"
+      ],
+      "properties": {
+        "source_contract_receipt_path": {"type": "string", "pattern": "(^|/)source-contract\\.json$"},
+        "source_contract_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "externally_supplied_expected_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "atomic_submission_receipt_path": {"type": "string", "pattern": "(^|/)submission\\.json$"},
+        "atomic_submission_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "hidden_candidate_path": {"type": "string", "pattern": "(^|/)\\.results\\.candidate\\.json$"},
+        "published_result_path": {"type": "string", "pattern": "(^|/)results\\.json$"},
+        "post_publication_validation_receipt_path": {"type": "string", "pattern": "(^|/)cpu-afterany-validation\\.json$"},
+        "cpu_validator_job_id": {"$ref": "#/$defs/slurmId"},
+        "dependency": {"type": "string", "pattern": "^afterany:[1-9][0-9]*$"},
+        "cpu_validator_gpu_count": {"const": 0},
+        "source_job_exit_code": {"const": "0:0"},
+        "gpu_job_created_result_candidate": {"const": false},
+        "gpu_job_published_results_json": {"const": false},
+        "candidate_created_by_cpu_validator": {"const": true},
+        "candidate_validated_before_publication": {"const": true},
+        "candidate_revalidated_before_publication": {"const": true},
+        "cpu_validator_is_sole_publisher": {"const": true},
+        "raw_files_unchanged_after_candidate": {"const": true},
+        "atomic_candidate_to_result_rename": {"const": true},
+        "validation_passed": {"const": true}
+      }
+    }
+  }
+}

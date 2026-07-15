@@ -160,6 +160,54 @@ R05A apparatus archive. Sampled-current launches A/B are preserved separately
 in the launch archives. No consumed run ID may be reused, and launch B's raw
 payload may not be retrofitted into an accepted result.
 
+### CFS-00A — Same-budget constrained-flow diagnostic
+
+Status: **implementation and independent reviews pass locally; fail closed
+until an exact release-only child commit authorizes one H100 submission. No
+real CFS outcome exists yet.**
+
+ADR-0040 replaces the draft's broad planner-to-student proposal with one
+causal diagnostic of the observed Run-B miss. It preserves the exact case,
+source observation, noise, target, checkpoint, five active flow steps,
+first-five-XYZ mask, source budget `B = 3.6398398876190186`, per-step `B/5`
+cap, historical Adam solver, and all four physical action-fidelity gates. It
+adds no decoded-action budget and performs no new planner or geometry query.
+
+The three paired arms are:
+
+1. **A — historical Run B:** initialize each active integrated increment as
+   `Delta_model / 5`, project it, and run the exact historical 128-update Adam
+   search. The registered schedule/action hashes and metrics must reproduce or
+   the whole comparison is inconclusive.
+2. **B — constrained linearized candidate:** differentiate the 35 physical
+   first-five seven-channel outputs with respect to the 75 active integrated
+   increments at zero control. Solve the fixed product-ball weighted
+   least-squares diagnostic with 4,096 deterministic CPU-float64 projected
+   FISTA updates, then replay the exact float32 schedule through the nonlinear
+   frozen sampler.
+3. **C — linearized initialization plus historical Adam:** change only Arm A's
+   initial integrated increments to Arm B's validated float32 candidate and
+   retain the exact historical optimizer, objective, constraints, and
+   selection rule.
+
+Every arm is invoked twice and canonically replayed. The allocation and CPU
+publisher independently reconstruct pairing, the physical Jacobian checks,
+linear algebra, float32 schedule execution, constraints, recurrence, metrics,
+and returned-action bytes. The experiment has only three terminal scientific
+classes:
+
+| Validated CFS-00A class | Meaning |
+|---|---|
+| `mechanism_pass` | Arm A reproduced and Arm B's nonlinear replay or Arm C's selected replay passed all four physical gates; one-case transport support only |
+| `frozen_method_negative` | Arm A reproduced and deterministic finite B/C both failed the gates; this fixed method is unsupported on the canary, not infeasible |
+| `apparatus_inconclusive` | Any source, reproduction, numeric, determinism, constraint, replay, telemetry, allocation, schema, or publication invariant failed |
+
+CFS-00A executes zero generated actions in the simulator. It cannot support a
+collision, progress, safety, generalization, learnability, or infeasibility
+claim. It does not authorize a trust-region retry, a changed interface,
+IFT-01, a population, label collection, a probe, or an MLP. Any continuation
+requires a separate decision after this canary is interpreted.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

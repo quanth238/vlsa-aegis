@@ -51,10 +51,11 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / IFT-00A mechanism canary
+## Active gate: R05A / CFS-00A same-budget constrained-flow canary
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
-real IFT-00A result:
+real IFT-00A or CFS-00A result. CFS-00A is a new diagnostic, not a retrofit or
+republication of sampled-current launch B:
 
 - attempt A stopped before pi0.5 and is apparatus-only;
 - retry B reached real pi0.5 and produced two deterministic finite 128-update
@@ -73,6 +74,14 @@ real IFT-00A result:
   publisher `27963` failed before Python publication because it compared
   Slurm's parent `JobIDRaw=27962` to exact task `27962_0`. No accepted result
   exists; the raw outcome is diagnostic only.
+- ADR-0040 freezes one direct test of the user's corrected idea: compute the
+  zero-control physical Jacobian with respect to the 75 integrated flow
+  increments, solve one fixed same-budget coupling-aware candidate, and use it
+  either directly or only as the initialization of the unchanged historical
+  Adam solver.
+- Arm A is the real historical baseline (`Delta_model / 5` initialization),
+  not zero initialization. There is no separate decoded-action budget, no new
+  planner target, no tolerance tuning, and no action overwrite.
 
 The active experiment is exactly one case, `crfs-1069f29a8d76463a`, on its
 source host `worker-1`: one H100, eight CPUs, exactly 64 GiB host RAM, two
@@ -83,15 +92,32 @@ No teacher- or policy-generated action is executed in the simulator.
 
 | Validated terminal result | Interpretation | Required next action |
 |---|---|---|
-| `completed_converged` | The frozen pi0.5 sampler can realize this one paired target with the registered time-dependent vector-field residual | Mechanism pass only; stop and separately decide whether IFT-01 efficacy is justified |
-| finite deterministic `completed_nonconverged` after 128 updates | Negative result for this frozen solver on the registered case | Stop this solver direction; do not tune and do not call the target infeasible |
-| pairing, determinism, nonfinite, OOM, test, telemetry, schema, publication, or source-job failure | Apparatus-inconclusive | Repair only the demonstrated apparatus defect under a new decision; no scientific conclusion |
+| `mechanism_pass` | Exact Arm-A reproduction plus Arm-B nonlinear replay or Arm-C replay passes all four physical fidelity gates | One-case transport-mechanism support only; stop and separately decide whether any efficacy gate is justified |
+| `frozen_method_negative` | Exact Arm-A reproduction plus valid deterministic finite B/C, but neither passes | Stop automatic expansion; this fixed method is unsupported on the canary, not infeasible |
+| `apparatus_inconclusive` | Pairing, Arm-A reproduction, numerical, determinism, constraint, replay, OOM, test, telemetry, schema, publication, or source-job failure | Repair only the demonstrated apparatus defect under a new decision; no scientific conclusion |
 
 Clearance and progress are not measured in IFT-00A because no generated action
 is executed. They begin only in a separately authorized IFT-01.
 
 ## Current verification state
 
+- ADR-0040 and ADR-0041 preregister the baseline-faithful method and exact
+  release transaction. All demonstrated science and HPC audit findings are
+  repaired. Independent final reviews report GO for the exact one-case canary
+  with no P0/P1 blocker. The implementation remains fail closed only until a
+  clean pushed direct-child release binds one unused run ID.
+- The dependency-backed CFS suite passes 69/69 tests across the linearized
+  core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
+  and exact Slurm transaction. The complete dependency-light `./init.sh` gate
+  passes 590 tests with 198 declared dependency skips plus all 21 artifact and
+  18 gate audits. Shell syntax, JSON parsing, source hashes, and whitespace
+  checks pass. These are implementation evidence, not scientific evidence.
+- The hardened source contract binds 51/51 local and remote paths, including
+  the ordinary policy server, both overlay helpers, and all five Transformers
+  replacement files. A content-addressed cache validates the reviewed base,
+  replacement, and full-overlay tree hashes and rejects cached bytecode,
+  symlinks, special files, or runtime-path redirection. Policy-server death,
+  an unexpected shutdown status, or OOM cannot become clean terminal evidence.
 - ADR-0037 release commit `223667c` selected launch-A run ID
   `r05a-inverse-flow-sampled-current-canary-20260715a` exactly once.
 - Task `27928_0` is terminal `CANCELLED by 1073`, elapsed `00:00:00`, start
@@ -140,11 +166,13 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Stop after the validated accounting repair and preserve the terminal evidence.
-The H100 apparatus remains unreleased with no replacement identity. A future
-H100 retry is not automatic: it requires a separate scientific decision,
-independent review, a new immutable identity, and an exact release-only commit.
-IFT-01 remains blocked regardless of this apparatus pass.
+Record the reviewed implementation commit, push and synchronize it, create its
+exact release-only child under ADR-0041 with one unused immutable run ID, and
+invoke the transactional submitter once. Monitor the source-pinned worker-1
+H100 task and zero-GPU CPU `afterany` publisher to
+terminal, interpret only a schema-valid `results.json`, and stop after the
+three-way CFS-00A classification. IFT-01 remains blocked regardless of outcome
+until a separate decision.
 
 Do not resume job `27928` or jobs `27962`/`27963`; do not reuse launch A or B
 run IDs; and do not republish launch B's observed payload. Do not resubmit retry B,

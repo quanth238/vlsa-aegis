@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "name": "r05a_constrained_flow_canary_cpu_publication_apparatus",
+  "experiment_identity": "IFT-00B/CFS-00A",
+  "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
+  "scientific_role": "full_lifetime_telemetry_and_cpu_only_publication_around_separate_legacy_and_cfs_raw_payloads",
+  "ready_to_run": false,
+  "blocked_on": [
+    "publication_files_and_semantic_validator_not_finally_hashed",
+    "independent_scientific_hpc_and_adversarial_reviews_not_complete",
+    "clean_pushed_release_commit_and_exact_execution_identity_not_bound",
+    "live_vinuni_preflight_not_passed"
+  ],
+  "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
+  "release_decision_artifact": "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md",
+  "scientific_config": {
+    "path": "configs/experiments/r05a_constrained_flow_canary.json",
+    "sha256": "a5c2ca387fcc1949573e4f8d4d64ed1baf946d584f61b828e50ba45ac7b85940"
+  },
+  "legacy_scientific_config": {
+    "path": "configs/experiments/r05a_inverse_flow_canary.json",
+    "sha256": "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb"
+  },
+  "envelope_schema": {
+    "path": "schemas/r05a-constrained-flow-canary-envelope.schema.json",
+    "sha256": "6561c7c2479016bb02e7a8a01d908e828b5e2c041ce717975dfcef61fcbf242c"
+  },
+  "semantic_validator": {
+    "path": "main/crfs_oracle/r05a_constrained_flow_validation.py",
+    "sha256": "a8f3672498640490d7132d8dc4687e271be1a024dbce0d51de945fb4f5282ef5"
+  },
+  "allocation_test_contract": {
+    "registry_path": "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json",
+    "registry_sha256": "72db95293f1db72fc18bd659fce27ee13a542e632ab22cb4a9cd69dfa0647a40",
+    "expected_counts": {
+      "test_inverse_flow_control.py": 17,
+      "test_inverse_flow_sampler.py": 8,
+      "test_inverse_flow_policy.py": 10,
+      "test_r05a_canary.py": 12,
+      "test_linearized_flow_control.py": 12,
+      "test_constrained_flow_adapter.py": 13,
+      "test_r05a_constrained_flow_canary.py": 15,
+      "test_r05a_constrained_flow_validation.py": 4
+    },
+    "zero_skips_required": true,
+    "log_filename": "allocation-focused-tests.log",
+    "cpu_validator_rehashes_and_reparses": true
+  },
+  "raw_artifact_contract": {
+    "legacy_payload_filename": "canary-payload.json",
+    "constrained_flow_payload_filename": "constrained-flow-payload.json",
+    "host_trace_filename": "host-cgroup-sampled-current.tsv",
+    "gpu_samples_filename": "gpu-memory-samples.csv",
+    "constrained_flow_payload_always_required": true,
+    "legacy_payload_required_for_complete_comparison": true,
+    "legacy_payload_may_be_absent_only_for_consistent_terminal_apparatus_failure": true,
+    "every_present_payload_independently_semantically_validated": true,
+    "gpu_allocation_may_publish_results_json": false,
+    "gpu_allocation_may_create_result_candidate": false
+  },
+  "resource_contract": {
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "source_host": "worker-1",
+    "gpus": 1,
+    "cpus_per_task": 8,
+    "host_memory_mib": 65536,
+    "time_limit": "02:00:00",
+    "array": "0-0%1",
+    "requeue": false,
+    "validator_partition": "main",
+    "validator_account": "normal",
+    "validator_qos": "normal",
+    "validator_cpus": 2,
+    "validator_host_memory_mib": 8192,
+    "validator_time_limit": "00:15:00",
+    "validator_gpus": 0,
+    "validator_dependency": "afterany"
+  },
+  "host_telemetry_contract": {
+    "parser": "crfs_oracle.r05a_full_lifetime_telemetry.parse_full_lifetime_telemetry",
+    "cgroup_version": 2,
+    "scope": "exact_job_boundary_only",
+    "sample_interval_requested_ms": 100,
+    "maximum_adjacent_gap_ns": 500000000,
+    "memory_current_high_water_is_lower_bound_not_native_peak": true,
+    "positive_finite_memory_max_unchanged_required": true,
+    "hierarchical_memory_event_deltas_max_oom_oom_kill_required_zero": true,
+    "lifecycle_must_span_policy_launch_through_cleanup": true,
+    "cpu_validator_rehashes_and_reparses": true
+  },
+  "gpu_telemetry_contract": {
+    "allocation_gpu_uuid_exact": true,
+    "raw_samples_are_periodic_not_continuous_peaks": true,
+    "sampled_device_high_water_scope": "full_cfs_policy_lifecycle_periodic_lower_bound",
+    "process_peak_owner_when_legacy_present": "historical_arm_a_trace_only",
+    "process_peak_when_legacy_absent": "explicit_null_unavailable_not_zero",
+    "out_of_memory_allowed": false,
+    "policy_server_death_or_oom_forces_nonzero_source_task": true,
+    "cpu_validator_rehashes_and_reparses": true
+  },
+  "publication_contract": {
+    "source_job_required_state": "COMPLETED",
+    "source_job_required_exit_code": "0:0",
+    "cpu_afterany_validator_is_sole_candidate_creator_and_results_json_publisher": true,
+    "cpu_validator_gpu_count": 0,
+    "source_contract_sha256_supplied_out_of_band": true,
+    "cpu_validator_rehashes_all_raw_files_and_repository_bindings": true,
+    "hidden_candidate_filename": ".results.candidate.json",
+    "published_filename": "results.json",
+    "receipt_filename": "cpu-afterany-validation.json",
+    "candidate_built_twice_from_raw_inputs": true,
+    "candidate_schema_validated_before_and_after_atomic_rename": true,
+    "raw_mutation_after_candidate_creation": "reject",
+    "publication_operation": "atomic_rename_hidden_candidate_to_results_json",
+    "failure_or_nonzero_source_job_leaves_results_json": false
+  },
+  "submission_recovery_contract": {
+    "gpu_numeric_id_receipt": "provisional-gpu-job-id.json",
+    "cpu_numeric_id_receipt": "provisional-cpu-job-id.json",
+    "receipt_written_immediately_after_numeric_sbatch_return_before_scontrol_validation": true,
+    "automatic_cancellation_allowed": false,
+    "receipts_are_operational_recovery_only_not_scientific_evidence": true
+  },
+  "interpretation_contract": {
+    "mechanism_pass": "one_case_transport_mechanism_support_only",
+    "frozen_method_negative": "one_case_frozen_configuration_negative_not_infeasibility",
+    "apparatus_inconclusive": "no_method_conclusion",
+    "simulator_efficacy_claim_allowed": false,
+    "collision_or_progress_claim_allowed": false,
+    "infeasibility_claim_allowed": false,
+    "student_learning_claim_allowed": false,
+    "probe_training_authorized": false,
+    "automatic_next_gate_allowed": false
+  },
+  "execution_release": null
+}

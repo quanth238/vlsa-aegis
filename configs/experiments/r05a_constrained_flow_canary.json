@@ -1,0 +1,307 @@
+{
+  "schema_version": "1.0",
+  "config_status": "draft_preregistered_not_released",
+  "name": "r05a_constrained_flow_canary",
+  "experiment_identity": "IFT-00B/CFS-00A",
+  "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
+  "scientific_role": "same_budget_initialization_diagnostic_no_simulator_efficacy",
+  "ready_to_run": false,
+  "blocked_on": [
+    "crfs_linearized_control_implementation_not_reviewed",
+    "new_result_schema_and_fail_closed_semantic_validator_not_implemented",
+    "focused_linear_solver_sampler_policy_and_canary_tests_not_frozen",
+    "allocation_telemetry_and_cpu_afterany_publication_contract_not_bound",
+    "independent_scientific_hpc_and_adversarial_reviews_not_complete",
+    "clean_pushed_synchronized_release_commit_and_live_source_hashes_not_bound",
+    "unused_immutable_h100_run_id_not_selected",
+    "live_vinuni_preflight_not_passed"
+  ],
+  "new_experiment_not_retry": true,
+  "historical_run_id_reuse_forbidden": true,
+  "preregistration": {
+    "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
+    "implementation_authorized": true,
+    "h100_submission_authorized": false,
+    "automatic_next_gate_authorized": false
+  },
+  "historical_run_b_binding": {
+    "release_commit": "06b365b5899c2cb31db12187350cce48a3a0ea20",
+    "evidence_path": "evidence/r05a/ift00a-sampled-current-launch-b.json",
+    "evidence_sha256": "c39b842b1bca4364b46f8329b0dd9c533fe25c6b5995cec0527048d170292c9c",
+    "decision_path": "docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md",
+    "decision_sha256": "93a2a187fd4ed59b3c164d1961609167f8a64ab96156be4b86d1c8421fc9ad6f",
+    "raw_payload_semantics": "diagnostic_only_publication_failed_no_accepted_ift00a_result",
+    "expected_status": "completed_nonconverged",
+    "expected_schedule_sha256": "714ac52e791248e7590196b5dfe47cc5f4a4966dce0a0237092a9cd939b72fc7",
+    "expected_returned_actions_sha256": "23c855c3109ffcb78dce3c2671cae52a3fafdd820d2c4ab1d0c248da51fe48c1",
+    "expected_xyz_max_abs_physical": 0.8631911873817444,
+    "expected_xyz_rms_physical": 0.3312218487262726,
+    "expected_full_max_abs_physical": 0.8631911873817444,
+    "expected_full_rms_physical": 0.21697446703910828
+  },
+  "frozen_source_bindings": {
+    "manifest": {
+      "path": "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
+      "sha256": "bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633",
+      "row_index_zero_based": 0
+    },
+    "source_r02": {
+      "run_id": "r02-oracle-flow-population-20260714a",
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a/crfs-1069f29a8d76463a/r02-paired.json",
+      "sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593",
+      "r01_semantics": "immutable_simulator_verified_endpoint_free_safe_progress_witness_embedded_in_r02_delta_star"
+    },
+    "source_r02_config": {
+      "path": "configs/experiments/r02_oracle_flow.json",
+      "sha256": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+    },
+    "checkpoint_sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed",
+    "normalization_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    "baseline_revision": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    "historical_inverse_control": {
+      "path": "openpi/src/openpi/models_pytorch/crfs_inverse_control.py",
+      "sha256": "965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8",
+      "default_path_must_remain_behaviorally_and_byte_preserved": true
+    }
+  },
+  "frozen_case": {
+    "case_index": 0,
+    "case_id": "crfs-1069f29a8d76463a",
+    "group_id": "safelibero_spatial:II:0:46",
+    "environment_seed": 924805038,
+    "policy_seed": 1179198633,
+    "source_host": "worker-1",
+    "task_suite": "safelibero_spatial",
+    "safety_level": "II",
+    "task_index": 0,
+    "episode_index": 46
+  },
+  "target_contract": {
+    "definition": "fresh_frozen_normalized_final_plus_immutable_r02_delta_star_model_first_five_xyz_only",
+    "source": "immutable_row_zero_r01_witness_via_exact_r02_pair",
+    "outside_mask": "bitwise_equal_to_fresh_paired_frozen_final",
+    "normalization": "physical_displacement_uses_checkpoint_scale_only_never_mean",
+    "source_reported_budget_float64": 3.6398398429065115,
+    "source_budget_float32": 3.6398398876190186,
+    "budget_owner": "immutable_r02_reported_delta_star_model_l2_scalar",
+    "recomputed_norm_may_replace_budget": false,
+    "new_planner_or_geometry_query": false
+  },
+  "flow_contract": {
+    "action_horizon": 10,
+    "action_dim": 32,
+    "sampler_steps": 10,
+    "intervention_step": 5,
+    "active_steps": [5, 6, 7, 8, 9],
+    "inactive_steps": [0, 1, 2, 3, 4],
+    "dt": -0.1,
+    "optimization_variable": "integrated_increment_c_k_equals_dt_times_u_k",
+    "independent_variable_count": 75,
+    "mask": "first_five_xyz_only",
+    "per_step_budget": "norm_c_k_lte_source_budget_float32_div_5",
+    "path_budget": "sum_k_norm_c_k_lte_source_budget_float32",
+    "constraint_slack_ulps_float32_validation": 8,
+    "clipping": "forbidden",
+    "terminal_overwrite": "forbidden",
+    "direct_action_delta_after_sampling": "forbidden",
+    "decoded_action_budget_B_action": "forbidden_not_part_of_run_b"
+  },
+  "fidelity_contract": {
+    "units": "physical_action_after_checkpoint_scale",
+    "output_coordinates": "first_five_seven_channels",
+    "output_dimension": 35,
+    "xyz_max_abs_tolerance": 0.01,
+    "xyz_rms_tolerance": 0.005,
+    "full_max_abs_tolerance": 0.05,
+    "full_rms_tolerance": 0.015,
+    "weighted_objective": "mean_concat_square_xyz_div_0.005_and_remaining_first_five_channels_div_0.015",
+    "max_gates_are_objective_terms": false
+  },
+  "arms": {
+    "A_historical_run_b": {
+      "algorithm": "historical_constrained_nonlinear_direct_shooting",
+      "initialization": "each_active_c_k_equals_delta_model_div_5_then_historical_projection",
+      "optimizer": "adam",
+      "max_updates": 128,
+      "learning_rate": 0.02,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 1e-8,
+      "stop_on_first_feasible": false,
+      "causal_role": "exact_historical_reproduction_required"
+    },
+    "B_linearized_candidate": {
+      "linearization_point": "exact_zero_integrated_control",
+      "jacobian_input": "75_active_integrated_increment_coordinates",
+      "jacobian_output": "35_first_five_seven_channel_physical_action_coordinates",
+      "jacobian_shape": [35, 75],
+      "jacobian_source_precision": "frozen_model_autodiff_model_dtype_then_single_cast",
+      "linear_solver_precision": "torch_float64",
+      "initialization": "exact_zero",
+      "objective": "registered_weighted_linearized_mean_square_physical_fidelity",
+      "constraints": "product_of_five_l2_balls_radius_B_div_5",
+      "nonlinear_refinement_updates": 0,
+      "required_evaluation": [
+        "float64_selected_linear_prediction",
+        "exact_float32_dt_times_schedule_executed_linear_prediction",
+        "full_nonlinear_frozen_replay"
+      ]
+    },
+    "C_linearized_then_historical_adam": {
+      "initialization": "validated_float32_arm_B_integrated_increments",
+      "optimizer_objective_constraints_and_selection": "exactly_arm_A",
+      "max_updates": 128,
+      "only_causal_change_from_arm_A": "initial_integrated_increments"
+    }
+  },
+  "linearized_solver": {
+    "module": "openpi.models_pytorch.crfs_linearized_control",
+    "algorithm": "deterministic_projected_fista_over_product_of_five_l2_balls",
+    "numeric_precision": "torch_float64",
+    "numeric_device": "cpu",
+    "initial_point": "x_0_equals_y_0_equals_all_zeros",
+    "weighted_matrix": "A_equals_W_times_J",
+    "weighted_offset": "b_equals_W_times_r_zero",
+    "objective": "one_half_times_squared_l2_norm_of_Ac_plus_b",
+    "historical_reported_objective": "mean_square_Ac_plus_b",
+    "spectral_norm": "exact_torch_linalg_svdvals_A64_maximum",
+    "lipschitz_definition": "sigma_max_squared",
+    "step_size": "one_div_sigma_max_squared",
+    "projection": "independent_exact_radial_projection_of_each_15_coordinate_group_to_radius_B_div_5",
+    "acceleration": "standard_fista_no_adaptive_restart",
+    "early_stopping": false,
+    "tolerance_based_stopping": false,
+    "fixed_update_count": 4096,
+    "candidate_pool": "projected_x_0_through_x_4096_inclusive",
+    "candidate_selection": "lowest_historical_weighted_mean_square_earliest_exact_tie",
+    "zero_jacobian_behavior": {
+      "trigger": "jacobian_exactly_zero",
+      "status": "ZERO_JACOBIAN",
+      "updates": 0,
+      "candidate": "exact_zero"
+    },
+    "selected_model_candidate_conversion": "single_cast_to_model_dtype_then_single_production_product_ball_reprojection",
+    "required_candidate_records": [
+      "float64_selected_candidate",
+      "model_dtype_pre_projection_candidate",
+      "model_dtype_post_projection_actual_replay_candidate"
+    ],
+    "solver_validity": "finite_A_b_singular_values_objectives_iterates_and_candidate_plus_exact_registered_update_count_or_explicit_ZERO_JACOBIAN",
+    "numeric_diagnostic": "projected_gradient_mapping_norm",
+    "numeric_diagnostic_acceptance_threshold": null,
+    "pending_numeric_freeze": false,
+    "infeasibility_certificate": false,
+    "real_outcome_tuning_allowed": false
+  },
+  "jacobian_validation": {
+    "method": "central_finite_difference_of_full_frozen_active_recurrence",
+    "direction_count": 3,
+    "directions": [
+      "normalized_all_ones_length_75",
+      "normalized_alternating_plus_minus_length_75_start_plus",
+      "normalized_plus_when_mod_31_of_17j_plus_3_lt_15_else_minus"
+    ],
+    "epsilon_units": "model_integrated_increment",
+    "epsilon_values": "B_div_5_times_each_fraction",
+    "epsilon_fractions": [0.00390625, 0.001953125],
+    "relative_l2_error_denominator": "max_norm_central_norm_autograd_1e_minus_6",
+    "relative_l2_tolerance": 0.1,
+    "absolute_l2_tolerance": 0.001,
+    "per_direction_pass": "at_least_one_epsilon_meets_relative_or_absolute_tolerance",
+    "all_three_directions_required": true,
+    "independent_internal_consistency": "recompute_central_from_plus_minus_physical_targets_J_times_direction_absolute_relative_errors_and_threshold_map_from_raw_arrays",
+    "internal_consistency_roundoff_bound": "128_times_float32_epsilon_times_max_1_reduction_magnitude",
+    "real_outcome_tuning_allowed": false
+  },
+  "independent_numeric_audit": {
+    "implementation": "numpy_reconstruction_of_W_A_b_svd_fista_objectives_prediction_and_projection",
+    "singular_value_relative_tolerance": 1e-10,
+    "singular_value_absolute_tolerance": 1e-12,
+    "step_size_relative_tolerance": 1e-10,
+    "step_size_absolute_tolerance": 1e-12,
+    "objective_relative_tolerance": 1e-10,
+    "objective_absolute_tolerance": 1e-10,
+    "projected_gradient_mapping_relative_tolerance": 1e-9,
+    "projected_gradient_mapping_absolute_tolerance": 1e-9,
+    "candidate_max_abs_tolerance": 1e-8,
+    "candidate_relative_l2_tolerance": 1e-8,
+    "linear_prediction_relative_tolerance": 1e-6,
+    "linear_prediction_absolute_tolerance": 1e-6,
+    "production_projection_max_abs_tolerance": 2e-7,
+    "independent_selected_iteration_is_acceptance_gate": false,
+    "server_selected_iteration_exact_duplicate_required": true,
+    "real_outcome_tuning_allowed": false
+  },
+  "determinism_contract": {
+    "duplicate_count_per_arm": 2,
+    "exact_duplicate_jacobian_required": true,
+    "exact_duplicate_linear_candidate_required": true,
+    "exact_duplicate_schedule_status_selected_iterate_and_returned_actions_required": true,
+    "canonical_nonlinear_replay_required": true,
+    "arm_B_returned_action_owner": "ordinary_no_simulator_residual_schedule_canonical_replay",
+    "compiled_and_eager_zero_control_before_after_unchanged": true,
+    "model_parameter_gradients_allowed": false,
+    "record_raw_jacobian_and_weighted_matrix_singular_values": true,
+    "effective_rank_owner": "raw_physical_jacobian_J_not_weighted_matrix_A",
+    "effective_rank_threshold": "raw_J_sigma_max_times_max_35_75_times_torch_float64_epsilon",
+    "diagnostics_are_claims_or_certificates": false
+  },
+  "acceptance_contract": {
+    "apparatus_validity_requires": [
+      "all_source_case_observation_instruction_noise_checkpoint_and_hash_bindings_exact",
+      "target_outside_mask_bitwise_exact",
+      "arm_A_exact_historical_status_schedule_returned_actions_and_metrics_reproduction",
+      "finite_valid_jacobian_linear_solver_candidates_and_nonlinear_replays",
+      "duplicate_and_canonical_replay_exact",
+      "mask_timing_per_step_and_path_constraints_valid",
+      "all_four_physical_fidelity_metrics_recorded",
+      "default_sampler_unchanged_before_after",
+      "zero_model_parameter_gradients",
+      "allocation_tests_telemetry_schema_and_cpu_publication_valid"
+    ],
+    "mechanism_pass": "valid_arm_A_reproduction_and_arm_B_nonlinear_replay_or_arm_C_selected_replay_meets_all_four_physical_gates",
+    "frozen_method_negative": "valid_arm_A_reproduction_and_valid_deterministic_finite_B_and_C_but_neither_nonlinear_replay_meets_all_four_gates",
+    "apparatus_inconclusive": "any_source_pairing_hash_arm_A_reproduction_numeric_determinism_constraint_replay_default_regression_telemetry_schema_or_publication_failure",
+    "finite_nonconvergence_is_infeasibility": false,
+    "linear_solver_miss_is_infeasibility": false
+  },
+  "causal_interpretation": {
+    "B_linear_and_nonlinear_pass": "local_coupling_model_sufficient_without_refinement_on_this_case",
+    "B_linear_pass_B_nonlinear_fail_C_pass": "linearization_useful_as_initializer_and_nonlinear_refinement_needed",
+    "B_nonlinear_pass_C_fail": "retain_B_mechanism_pass_and_diagnose_refinement_or_iterate_selection",
+    "B_improves_A_but_B_and_C_fail": "coupling_information_useful_but_frozen_method_insufficient",
+    "B_linear_pass_but_B_and_C_nonlinear_fail": "observed_local_linearization_error_at_registered_displacement_not_infeasibility",
+    "registered_linear_candidate_misses": "weighted_linearized_method_did_not_produce_passing_candidate_not_impossibility",
+    "all_valid_arms_fail_without_material_separation": "hypothesis_not_supported_on_canary_stop_automatic_expansion"
+  },
+  "execution_boundary": {
+    "simulator_setup": "source_observation_restore_only_as_required_for_exact_pairing",
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false,
+    "collision_or_progress_claim_allowed": false,
+    "student_or_generalization_claim_allowed": false,
+    "probe_training_authorized": false,
+    "mlp_training_authorized": false,
+    "ift01_authorized": false,
+    "automatic_three_case_or_population_launch": false
+  },
+  "provisional_resource_contract": {
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "source_host": "worker-1",
+    "gpus": 1,
+    "cpus_per_task": 8,
+    "host_memory_mib": 65536,
+    "time_limit": "02:00:00",
+    "array": "0-0%1",
+    "requeue": false,
+    "validator_dependency": "afterany",
+    "validator_gpus": 0,
+    "requires_separate_release_review": true
+  },
+  "allow_test_tuning": false,
+  "training": false
+}

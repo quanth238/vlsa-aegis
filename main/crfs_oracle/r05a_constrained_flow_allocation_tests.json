@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "suites": [
+    {
+      "pattern": "test_inverse_flow_control.py",
+      "expected_tests": 17
+    },
+    {
+      "pattern": "test_inverse_flow_sampler.py",
+      "expected_tests": 8
+    },
+    {
+      "pattern": "test_inverse_flow_policy.py",
+      "expected_tests": 10
+    },
+    {
+      "pattern": "test_r05a_canary.py",
+      "expected_tests": 12
+    },
+    {
+      "pattern": "test_linearized_flow_control.py",
+      "expected_tests": 12
+    },
+    {
+      "pattern": "test_constrained_flow_adapter.py",
+      "expected_tests": 13
+    },
+    {
+      "pattern": "test_r05a_constrained_flow_canary.py",
+      "expected_tests": 15
+    },
+    {
+      "pattern": "test_r05a_constrained_flow_validation.py",
+      "expected_tests": 4
+    }
+  ]
+}
