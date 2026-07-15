@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0",
+  "name": "r05a_runtime_identity_regression",
+  "experiment_identity": "R05A-RI-00",
+  "evidence_tier": "allocation_backed_shell_only_apparatus",
+  "scientific_role": "validate_exact_interpreter_link_chains_before_any_new_h100_release",
+  "ready_to_run": false,
+  "blocked_on": [
+    "zero_gpu_identity_apparatus_not_independently_accepted",
+    "exact_execution_release_not_selected"
+  ],
+  "decision_artifact": "docs/decisions/0043-preregister-runtime-identity-regression.md",
+  "accepted_runtime_repair_commit": "5a5f3306b96f1491a4baa52657193afc1bfad2b5",
+  "resource_contract": {
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "source_host": "worker-1",
+    "cpus_per_task": 1,
+    "host_memory_mib": 256,
+    "time_limit": "00:02:00",
+    "gpus": 0,
+    "requeue": false
+  },
+  "runtime_identity_contract": {
+    "validation_helper": "scripts/hpc/lib/r05a_runtime_identity.sh",
+    "validation_is_shell_only": true,
+    "interpreter_invocation_during_validation_allowed": false,
+    "openpi_python": {
+      "public_path": "/mnt/data/quanth/venvs/openpi/bin/python",
+      "direct_link_target": "/mnt/data/quanth/anaconda3/bin/python",
+      "resolved_executable": "/mnt/data/quanth/anaconda3/bin/python3.11",
+      "resolved_sha256": "c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9"
+    },
+    "libero_python": {
+      "public_path": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+      "direct_link_target": "/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+      "resolved_executable": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+      "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62"
+    }
+  },
+  "artifact_contract": {
+    "held_submission": "held-source-submission.json",
+    "source_contract": "source-contract.json",
+    "atomic_submission": "submission.json",
+    "result": "results.json",
+    "failure": "failure.json",
+    "atomic_json_writes_required": true,
+    "resume_or_reuse_allowed": false
+  },
+  "claim_boundary": {
+    "shell_only": true,
+    "python_executed": false,
+    "model_or_checkpoint_loaded": false,
+    "simulator_executed": false,
+    "scientific_claim_allowed": false,
+    "transport_hypothesis_conclusion_allowed": false,
+    "h100_submission_authorized": false,
+    "automatic_resubmission_allowed": false,
+    "automatic_cancellation_allowed": false,
+    "automatic_next_gate_allowed": false
+  },
+  "execution_release": null
+}
