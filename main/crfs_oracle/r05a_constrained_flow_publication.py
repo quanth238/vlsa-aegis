@@ -78,6 +78,23 @@ SOURCE_RESOURCE_CONTRACT = {
     "validator_dependency": "afterany",
 }
 APPARATUS_RESOURCE_CONTRACT = {"source_host": SOURCE_NODE, **SOURCE_RESOURCE_CONTRACT}
+RUNTIME_IDENTITY_CONTRACT = {
+    "validation_helper": "scripts/hpc/lib/r05a_runtime_identity.sh",
+    "validation_is_shell_only": True,
+    "interpreter_invocation_during_validation_allowed": False,
+    "openpi_python": {
+        "public_path": "/mnt/data/quanth/venvs/openpi/bin/python",
+        "direct_link_target": "/mnt/data/quanth/anaconda3/bin/python",
+        "resolved_executable": "/mnt/data/quanth/anaconda3/bin/python3.11",
+        "resolved_sha256": "c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9",
+    },
+    "libero_python": {
+        "public_path": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+        "direct_link_target": "/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+        "resolved_executable": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+        "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62",
+    },
+}
 
 # Every file whose bytes can influence raw production, validation, source-task
 # accounting, or publication is rebound in the pre-release source contract.
@@ -116,6 +133,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "openpi/src/openpi/policies/policy.py",
         "scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh",
         "scripts/hpc/lib/r05a_allocation_tests.sh",
+        "scripts/hpc/lib/r05a_runtime_identity.sh",
         "scripts/hpc/lib/slurm_exact_array_task_status.sh",
         "scripts/hpc/prepare_jsonschema_overlay.sh",
         "scripts/hpc/prepare_transformers_overlay.sh",
@@ -257,6 +275,8 @@ def _validate_execution_release(
         raise ValueError("constrained-flow apparatus config is not released")
     if apparatus_config.get("resource_contract") != APPARATUS_RESOURCE_CONTRACT:
         raise ValueError("constrained-flow apparatus resource contract changed")
+    if apparatus_config.get("runtime_identity_contract") != RUNTIME_IDENTITY_CONTRACT:
+        raise ValueError("constrained-flow runtime identity contract changed")
     release = apparatus_config.get("execution_release")
     if type(release) is not dict or set(release) != EXECUTION_RELEASE_KEYS:
         raise ValueError("constrained-flow execution release keys changed")
@@ -475,6 +495,14 @@ def _expected_frozen_bindings(repository: Path) -> dict[str, str]:
         "transformers_source_bundle_sha256": "430b00a688e12ff457cdd65929bd164fd001ffa1716dc83589d5388806d2bb33",
         "transformers_replacement_bundle_sha256": "2e1b546bdf42e9872c84734b2d5baf52bd411664685922458e734732c8434098",
         "transformers_overlay_bundle_sha256": "24be8ac6749a4cf7e19c261b14b39e951a499ec61b0602d0badcc4354171d261",
+        "openpi_python_public_path": RUNTIME_IDENTITY_CONTRACT["openpi_python"]["public_path"],
+        "openpi_python_direct_link_target": RUNTIME_IDENTITY_CONTRACT["openpi_python"]["direct_link_target"],
+        "openpi_python_resolved_executable": RUNTIME_IDENTITY_CONTRACT["openpi_python"]["resolved_executable"],
+        "openpi_python_resolved_sha256": RUNTIME_IDENTITY_CONTRACT["openpi_python"]["resolved_sha256"],
+        "libero_python_public_path": RUNTIME_IDENTITY_CONTRACT["libero_python"]["public_path"],
+        "libero_python_direct_link_target": RUNTIME_IDENTITY_CONTRACT["libero_python"]["direct_link_target"],
+        "libero_python_resolved_executable": RUNTIME_IDENTITY_CONTRACT["libero_python"]["resolved_executable"],
+        "libero_python_resolved_sha256": RUNTIME_IDENTITY_CONTRACT["libero_python"]["resolved_sha256"],
     }
 
 
@@ -1254,6 +1282,7 @@ __all__ = [
     "LEGACY_RAW_DEFERRED_ERRORS",
     "RELEASE_DECISION_PATH",
     "RELEASE_ONLY_PATHS",
+    "RUNTIME_IDENTITY_CONTRACT",
     "SOURCE_RESOURCE_CONTRACT",
     "build_constrained_flow_envelope",
     "publish_constrained_flow_envelope",

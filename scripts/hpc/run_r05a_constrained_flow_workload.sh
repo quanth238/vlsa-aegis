@@ -32,12 +32,25 @@ require_canonical_runtime_path() {
   printf -v "$variable" '%s' "$expected"
 }
 
-require_canonical_runtime_path OPENPI_PYTHON /mnt/data/quanth/venvs/openpi/bin/python
-require_canonical_runtime_path LIBERO_PYTHON /mnt/data/quanth/venvs/openpi-libero-client/bin/python
+RUNTIME_IDENTITY_HELPER=$REMOTE_REPO/scripts/hpc/lib/r05a_runtime_identity.sh
+test -f "$RUNTIME_IDENTITY_HELPER" && test ! -L "$RUNTIME_IDENTITY_HELPER" || {
+  echo "missing or symlinked CFS-00A runtime-identity helper" >&2
+  exit 2
+}
+. "$RUNTIME_IDENTITY_HELPER"
+
+require_canonical_runtime_path OPENPI_PYTHON "$CRFS_R05A_OPENPI_PYTHON"
+require_canonical_runtime_path LIBERO_PYTHON "$CRFS_R05A_LIBERO_PYTHON"
 require_canonical_runtime_path OPENPI_DATA_HOME /mnt/data/quanth/cache/openpi
 require_canonical_runtime_path TRANSFORMERS_SITE_PACKAGES /mnt/data/quanth/venvs/openpi/lib/python3.11/site-packages
 require_canonical_runtime_path TRANSFORMERS_OVERLAY /mnt/data/quanth/cache/crfs/transformers-openpi-4.53.2-exact-24be8ac6749a
 require_canonical_runtime_path PYTHONDONTWRITEBYTECODE 1
+
+# Validate the exact launcher symlink chains before creating output or invoking
+# either interpreter.  Continue to execute the public venv launchers later;
+# the resolved base binaries are identity evidence, not alternate entrypoints.
+crfs_validate_r05a_openpi_python "$OPENPI_PYTHON"
+crfs_validate_r05a_libero_python "$LIBERO_PYTHON"
 
 EXPECTED_MANIFEST_SHA256=bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633
 EXPECTED_LEGACY_CONFIG_SHA256=c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb
@@ -172,8 +185,6 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 for path in \
-  "$OPENPI_PYTHON" \
-  "$LIBERO_PYTHON" \
   "$MANIFEST" \
   "$CFS_CONFIG" \
   "$LEGACY_CONFIG" \
@@ -181,11 +192,12 @@ for path in \
   "$ALLOCATION_TEST_REGISTRY" \
   "$SOURCE_R02" \
   "$MODEL" \
+  "$RUNTIME_IDENTITY_HELPER" \
   "$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh" \
   "$REMOTE_REPO/scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh" \
   "$REMOTE_REPO/main/run_crfs_r05a_constrained_flow_canary.py" \
   "$REMOTE_REPO/openpi/scripts/serve_cfs_policy.py"; do
-  test -e "$path" && test ! -L "$path" || { echo "missing or symlinked CFS-00A input: $path" >&2; exit 2; }
+  test -f "$path" && test ! -L "$path" || { echo "missing or symlinked CFS-00A input: $path" >&2; exit 2; }
 done
 . "$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh"
 . "$REMOTE_REPO/scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh"
@@ -212,11 +224,34 @@ for relative in \
   openpi/src/openpi/models_pytorch/transformers_replace/models/paligemma/modeling_paligemma.py \
   openpi/src/openpi/models_pytorch/transformers_replace/models/siglip/check.py \
   openpi/src/openpi/models_pytorch/transformers_replace/models/siglip/modeling_siglip.py \
-  openpi/src/openpi/policies/crfs_constrained_flow_adapter.py; do
+  openpi/src/openpi/policies/crfs_constrained_flow_adapter.py \
+  scripts/hpc/lib/r05a_runtime_identity.sh; do
   expected=$(jq -er --arg path "$relative" '.repository_file_sha256[$path]' "$R05A_SOURCE_CONTRACT")
   actual=$(sha256sum "$REMOTE_REPO/$relative" | awk '{print $1}')
   test "$actual" = "$expected" || { echo "source-contract hash mismatch: $relative" >&2; exit 2; }
 done
+
+jq -e \
+  --arg openpi_public "$CRFS_R05A_OPENPI_PYTHON" \
+  --arg openpi_link "$CRFS_R05A_OPENPI_PYTHON_LINK_TARGET" \
+  --arg openpi_resolved "$CRFS_R05A_OPENPI_PYTHON_RESOLVED" \
+  --arg openpi_sha "$CRFS_R05A_OPENPI_PYTHON_SHA256" \
+  --arg libero_public "$CRFS_R05A_LIBERO_PYTHON" \
+  --arg libero_link "$CRFS_R05A_LIBERO_PYTHON_LINK_TARGET" \
+  --arg libero_resolved "$CRFS_R05A_LIBERO_PYTHON_RESOLVED" \
+  --arg libero_sha "$CRFS_R05A_LIBERO_PYTHON_SHA256" \
+  '.frozen_bindings.openpi_python_public_path == $openpi_public
+   and .frozen_bindings.openpi_python_direct_link_target == $openpi_link
+   and .frozen_bindings.openpi_python_resolved_executable == $openpi_resolved
+   and .frozen_bindings.openpi_python_resolved_sha256 == $openpi_sha
+   and .frozen_bindings.libero_python_public_path == $libero_public
+   and .frozen_bindings.libero_python_direct_link_target == $libero_link
+   and .frozen_bindings.libero_python_resolved_executable == $libero_resolved
+   and .frozen_bindings.libero_python_resolved_sha256 == $libero_sha' \
+  "$R05A_SOURCE_CONTRACT" >/dev/null || {
+    echo "source contract runtime identity changed" >&2
+    exit 2
+  }
 
 FAILURE_STAGE=host_telemetry_startup
 crfs_monitor_cgroup_v2_full_lifetime \

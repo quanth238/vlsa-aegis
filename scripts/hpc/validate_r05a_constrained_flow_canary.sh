@@ -30,6 +30,7 @@ require_canonical_runtime_path() {
 
 APPARATUS_CONFIG=$REMOTE_REPO/configs/experiments/r05a_constrained_flow_canary_apparatus.json
 SOURCE_STATUS_HELPER=$REMOTE_REPO/scripts/hpc/lib/slurm_exact_array_task_status.sh
+RUNTIME_IDENTITY_HELPER=$REMOTE_REPO/scripts/hpc/lib/r05a_runtime_identity.sh
 
 mkdir -p "$(dirname "$VALIDATION_RECEIPT")"
 export PUBLISHER_FAILURE_STAGE=wrapper_preflight
@@ -76,11 +77,13 @@ case "$SOURCE_JOB_ID" in *[!0-9]*|'') echo "invalid source array job id" >&2; ex
 case "$EXPECTED_SOURCE_CONTRACT_SHA256" in *[!0-9a-f]*|'') echo "invalid source-contract digest" >&2; exit 2 ;; esac
 test "${#EXPECTED_SOURCE_CONTRACT_SHA256}" = 64 || { echo "invalid source-contract digest length" >&2; exit 2; }
 test "$(sha256sum "$SOURCE_CONTRACT" | awk '{print $1}')" = "$EXPECTED_SOURCE_CONTRACT_SHA256" || { echo "source contract differs from external digest" >&2; exit 2; }
-test -x "$LIBERO_PYTHON" || { echo "missing publisher Python" >&2; exit 2; }
 test "$(git -C "$REMOTE_REPO" rev-parse HEAD)" = "$EXPECTED_GIT_COMMIT" || { echo "publisher source commit differs" >&2; exit 2; }
 test -z "$(git -C "$REMOTE_REPO" status --porcelain)" || { echo "publisher requires a clean remote tree" >&2; exit 2; }
 test -f "$APPARATUS_CONFIG" && test ! -L "$APPARATUS_CONFIG" || { echo "publisher apparatus config missing or symlinked" >&2; exit 2; }
 test -f "$SOURCE_STATUS_HELPER" && test ! -L "$SOURCE_STATUS_HELPER" || { echo "exact source-task helper missing or symlinked" >&2; exit 2; }
+test -f "$RUNTIME_IDENTITY_HELPER" && test ! -L "$RUNTIME_IDENTITY_HELPER" || { echo "runtime-identity helper missing or symlinked" >&2; exit 2; }
+. "$RUNTIME_IDENTITY_HELPER"
+crfs_validate_r05a_libero_python "$LIBERO_PYTHON"
 . "$SOURCE_STATUS_HELPER"
 
 REGISTERED_RUN_ID=$(jq -er '.execution_release.run_id' "$APPARATUS_CONFIG")
@@ -102,9 +105,20 @@ jq -e --arg run "$REGISTERED_RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTAT
 test "$(git -C "$REMOTE_REPO" rev-parse refs/remotes/origin/agent/crfs-oracle-harness)" = "$EXPECTED_GIT_COMMIT" || { echo "publisher origin release ref changed" >&2; exit 2; }
 test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" = "$EXPECTED_GIT_COMMIT $ACCEPTED_IMPLEMENTATION_COMMIT" || { echo "publisher release parent changed" >&2; exit 2; }
 APPARATUS_CONFIG_SHA256=$(sha256sum "$APPARATUS_CONFIG" | awk '{print $1}')
-jq -e --arg run "$REGISTERED_RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg config_sha "$APPARATUS_CONFIG_SHA256" '
+jq -e \
+  --arg run "$REGISTERED_RUN_ID" \
+  --arg commit "$EXPECTED_GIT_COMMIT" \
+  --arg config_sha "$APPARATUS_CONFIG_SHA256" \
+  --arg libero_public "$CRFS_R05A_LIBERO_PYTHON" \
+  --arg libero_link "$CRFS_R05A_LIBERO_PYTHON_LINK_TARGET" \
+  --arg libero_resolved "$CRFS_R05A_LIBERO_PYTHON_RESOLVED" \
+  --arg libero_sha "$CRFS_R05A_LIBERO_PYTHON_SHA256" '
   .run_id == $run and .git_commit == $commit
-  and .repository_file_sha256["configs/experiments/r05a_constrained_flow_canary_apparatus.json"] == $config_sha' "$SOURCE_CONTRACT" >/dev/null || { echo "source contract does not bind execution release" >&2; exit 2; }
+  and .repository_file_sha256["configs/experiments/r05a_constrained_flow_canary_apparatus.json"] == $config_sha
+  and .frozen_bindings.libero_python_public_path == $libero_public
+  and .frozen_bindings.libero_python_direct_link_target == $libero_link
+  and .frozen_bindings.libero_python_resolved_executable == $libero_resolved
+  and .frozen_bindings.libero_python_resolved_sha256 == $libero_sha' "$SOURCE_CONTRACT" >/dev/null || { echo "source contract does not bind execution release and publisher runtime" >&2; exit 2; }
 
 publisher_job_record=$(scontrol show job "$SLURM_JOB_ID" -o)
 for field in "JobState=RUNNING" "Partition=main" "Account=normal" "QOS=normal" "TimeLimit=00:15:00" "Requeue=0"; do

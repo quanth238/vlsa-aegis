@@ -271,6 +271,17 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
                 self.assertEqual(observed, contract)
                 self.assertEqual(observed_run, run_root)
                 self.assertEqual(observed_case, case_dir)
+                contract["frozen_bindings"]["fixture"] = "runtime-identity-changed"
+                _write_json(contract_path, contract)
+                with self.assertRaisesRegex(ValueError, "frozen source bindings changed"):
+                    publication._validate_source_contract(
+                        contract_path,
+                        expected_sha256=_sha(contract_path),
+                        repository=repository,
+                        source_job_id=source_job,
+                        expected_git_commit=commit,
+                    )
+                contract["frozen_bindings"]["fixture"] = "bound"
                 contract["repository_file_sha256"]["bound.txt"] = "0" * 64
                 _write_json(contract_path, contract)
                 with self.assertRaisesRegex(ValueError, "repository binding changed"):

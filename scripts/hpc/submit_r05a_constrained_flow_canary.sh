@@ -63,6 +63,7 @@ BOUND_REPOSITORY_PATHS=(
   openpi/src/openpi/policies/policy.py
   scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh
   scripts/hpc/lib/r05a_allocation_tests.sh
+  scripts/hpc/lib/r05a_runtime_identity.sh
   scripts/hpc/lib/slurm_exact_array_task_status.sh
   scripts/hpc/prepare_jsonschema_overlay.sh
   scripts/hpc/prepare_transformers_overlay.sh
@@ -125,6 +126,24 @@ test "$(jq -er '.semantic_validator.sha256' "$APPARATUS_CONFIG_LOCAL")" = "$(sha
 test "$(jq -er '.allocation_test_contract.registry_sha256' "$APPARATUS_CONFIG_LOCAL")" = "$(shasum -a 256 main/crfs_oracle/r05a_constrained_flow_allocation_tests.json | awk '{print $1}')" || { echo "apparatus allocation registry binding changed" >&2; exit 2; }
 test "$(jq -cS '.allocation_test_contract.expected_counts' "$APPARATUS_CONFIG_LOCAL")" = "$(jq -cS '[.suites[] | {key:.pattern,value:.expected_tests}] | from_entries' main/crfs_oracle/r05a_constrained_flow_allocation_tests.json)" || { echo "apparatus allocation test counts changed" >&2; exit 2; }
 test "$(jq -er '.allocation_test_contract.zero_skips_required' "$APPARATUS_CONFIG_LOCAL")" = true || { echo "apparatus no longer requires zero allocation-test skips" >&2; exit 2; }
+jq -e '
+  .runtime_identity_contract == {
+    validation_helper:"scripts/hpc/lib/r05a_runtime_identity.sh",
+    validation_is_shell_only:true,
+    interpreter_invocation_during_validation_allowed:false,
+    openpi_python:{
+      public_path:"/mnt/data/quanth/venvs/openpi/bin/python",
+      direct_link_target:"/mnt/data/quanth/anaconda3/bin/python",
+      resolved_executable:"/mnt/data/quanth/anaconda3/bin/python3.11",
+      resolved_sha256:"c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9"
+    },
+    libero_python:{
+      public_path:"/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+      direct_link_target:"/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+      resolved_executable:"/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+      resolved_sha256:"c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62"
+    }
+  }' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "apparatus runtime identity changed" >&2; exit 2; }
 
 git ls-files --error-unmatch "${BOUND_REPOSITORY_PATHS[@]}" >/dev/null || { echo "all CFS sources must be committed" >&2; exit 2; }
 test -z "$(git status --porcelain)" || { echo "submission requires clean reviewed worktree" >&2; exit 2; }
@@ -219,7 +238,7 @@ bound_paths=(
   openpi/src/openpi/models_pytorch/transformers_replace/models/gemma/configuration_gemma.py openpi/src/openpi/models_pytorch/transformers_replace/models/gemma/modeling_gemma.py
   openpi/src/openpi/models_pytorch/transformers_replace/models/paligemma/modeling_paligemma.py openpi/src/openpi/models_pytorch/transformers_replace/models/siglip/check.py openpi/src/openpi/models_pytorch/transformers_replace/models/siglip/modeling_siglip.py
   openpi/src/openpi/policies/crfs_constrained_flow_adapter.py openpi/src/openpi/policies/policy.py
-  scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh scripts/hpc/lib/r05a_allocation_tests.sh scripts/hpc/lib/slurm_exact_array_task_status.sh
+  scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh scripts/hpc/lib/r05a_allocation_tests.sh scripts/hpc/lib/r05a_runtime_identity.sh scripts/hpc/lib/slurm_exact_array_task_status.sh
   scripts/hpc/prepare_jsonschema_overlay.sh scripts/hpc/prepare_transformers_overlay.sh
   scripts/hpc/run_r05a_constrained_flow_workload.sh scripts/hpc/run_r05a_constrained_flow_canary.sh scripts/hpc/validate_r05a_constrained_flow_canary.sh scripts/hpc/submit_r05a_constrained_flow_canary.sh
   slurm/r05a_constrained_flow_canary_h100.sbatch slurm/r05a_constrained_flow_canary_validate_cpu.sbatch
@@ -281,7 +300,42 @@ mv "$held_tmp" "$run_root/held-gpu-submission.json"
 
 repository_hashes='{}'
 for relative in "${bound_paths[@]}"; do digest=$(sha256sum "$remote_repo/$relative"|awk '{print $1}'); repository_hashes=$(jq -c --arg key "$relative" --arg value "$digest" '.+{($key):$value}' <<<"$repository_hashes"); done
-frozen_bindings=$(jq -n --arg cfs "$expected_cfs_config_sha" --arg legacy "$expected_legacy_config_sha" --arg manifest "$expected_manifest_sha" --arg r02 "$expected_r02_sha" --arg checkpoint "$expected_checkpoint_sha" --arg schema "$expected_schema_sha" --arg adr0040 "$expected_adr0040_sha" --arg adr0041 "$expected_adr0041_sha" '{constrained_flow_config_sha256:$cfs,legacy_scientific_config_sha256:$legacy,manifest_sha256:$manifest,source_r02_sha256:$r02,checkpoint_sha256:$checkpoint,envelope_schema_sha256:$schema,adr0040_sha256:$adr0040,adr0041_sha256:$adr0041,normalization_asset_sha256:"b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",baseline_revision:"57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",historical_inverse_control_sha256:"965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8",pi05_sampler_sha256:"80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55",policy_boundary_sha256:"d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9",ordinary_policy_server_sha256:"eccc0448b4873fd30a1fff3355c5de7a7c227138e6db04b7dcaa5bb38a6a5809",transformers_source_bundle_sha256:"430b00a688e12ff457cdd65929bd164fd001ffa1716dc83589d5388806d2bb33",transformers_replacement_bundle_sha256:"2e1b546bdf42e9872c84734b2d5baf52bd411664685922458e734732c8434098",transformers_overlay_bundle_sha256:"24be8ac6749a4cf7e19c261b14b39e951a499ec61b0602d0badcc4354171d261"}')
+frozen_bindings=$(jq -n \
+  --arg cfs "$expected_cfs_config_sha" \
+  --arg legacy "$expected_legacy_config_sha" \
+  --arg manifest "$expected_manifest_sha" \
+  --arg r02 "$expected_r02_sha" \
+  --arg checkpoint "$expected_checkpoint_sha" \
+  --arg schema "$expected_schema_sha" \
+  --arg adr0040 "$expected_adr0040_sha" \
+  --arg adr0041 "$expected_adr0041_sha" \
+  '{
+    constrained_flow_config_sha256:$cfs,
+    legacy_scientific_config_sha256:$legacy,
+    manifest_sha256:$manifest,
+    source_r02_sha256:$r02,
+    checkpoint_sha256:$checkpoint,
+    envelope_schema_sha256:$schema,
+    adr0040_sha256:$adr0040,
+    adr0041_sha256:$adr0041,
+    normalization_asset_sha256:"b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    baseline_revision:"57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    historical_inverse_control_sha256:"965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8",
+    pi05_sampler_sha256:"80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55",
+    policy_boundary_sha256:"d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9",
+    ordinary_policy_server_sha256:"eccc0448b4873fd30a1fff3355c5de7a7c227138e6db04b7dcaa5bb38a6a5809",
+    transformers_source_bundle_sha256:"430b00a688e12ff457cdd65929bd164fd001ffa1716dc83589d5388806d2bb33",
+    transformers_replacement_bundle_sha256:"2e1b546bdf42e9872c84734b2d5baf52bd411664685922458e734732c8434098",
+    transformers_overlay_bundle_sha256:"24be8ac6749a4cf7e19c261b14b39e951a499ec61b0602d0badcc4354171d261",
+    openpi_python_public_path:"/mnt/data/quanth/venvs/openpi/bin/python",
+    openpi_python_direct_link_target:"/mnt/data/quanth/anaconda3/bin/python",
+    openpi_python_resolved_executable:"/mnt/data/quanth/anaconda3/bin/python3.11",
+    openpi_python_resolved_sha256:"c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9",
+    libero_python_public_path:"/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+    libero_python_direct_link_target:"/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+    libero_python_resolved_executable:"/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+    libero_python_resolved_sha256:"c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62"
+  }')
 artifact_paths=$(jq -n --arg run "$run_root" --arg case "$case_dir" --arg legacy "$legacy_payload" --arg cfs "$cfs_payload" --arg host "$host_telemetry" --arg gpu "$gpu_samples" --arg tests "$test_log" --arg candidate "$candidate" --arg result "$result" --arg receipt "$validation_receipt" '{run_root:$run,case_dir:$case,legacy_payload:$legacy,constrained_flow_payload:$cfs,host_telemetry:$host,gpu_samples:$gpu,allocation_tests_log:$tests,hidden_candidate:$candidate,result:$result,validation_receipt:$receipt}')
 source_tmp=$(mktemp "$run_root/.source-contract.XXXXXX")
 jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg gpu "$gpu_job_id" --argjson resources "$resources" --argjson paths "$artifact_paths" --argjson frozen "$frozen_bindings" --argjson hashes "$repository_hashes" --arg held "$run_root/held-gpu-submission.json" --arg held_sha "$(sha256sum "$run_root/held-gpu-submission.json"|awk '{print $1}')" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_source_contract",status:"gpu_held_sources_bound_before_cpu_submission",run_id:$run,git_commit:$commit,git_dirty:false,source_node:"worker-1",gpu_slurm_array_job_id:$gpu,gpu_slurm_array_task_id:0,exact_gpu_task_id:($gpu+"_0"),resources:$resources,artifact_paths:$paths,frozen_bindings:$frozen,repository_file_sha256:$hashes,held_gpu_submission_path:$held,held_gpu_submission_sha256:$held_sha,scientific_claim_allowed:false,infeasibility_claim_allowed:false,simulator_efficacy_claim_allowed:false,probe_training_authorized:false,timestamp_utc:$now}' >"$source_tmp"

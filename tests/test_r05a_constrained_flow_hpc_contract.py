@@ -14,6 +14,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKLOAD = ROOT / "scripts/hpc/run_r05a_constrained_flow_workload.sh"
+RUNTIME_IDENTITY_HELPER = ROOT / "scripts/hpc/lib/r05a_runtime_identity.sh"
 GPU_WRAPPER = ROOT / "scripts/hpc/run_r05a_constrained_flow_canary.sh"
 CPU_WRAPPER = ROOT / "scripts/hpc/validate_r05a_constrained_flow_canary.sh"
 SUBMITTER = ROOT / "scripts/hpc/submit_r05a_constrained_flow_canary.sh"
@@ -62,6 +63,7 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
     def test_new_shell_entrypoints_are_executable_and_parse(self) -> None:
         paths = [
             TRANSFORMERS_OVERLAY_HELPER,
+            RUNTIME_IDENTITY_HELPER,
             WORKLOAD,
             GPU_WRAPPER,
             CPU_WRAPPER,
@@ -232,27 +234,51 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
     def test_runtime_environment_cannot_redirect_cfs_allocations(self) -> None:
         workload = _text(WORKLOAD)
         publisher = _text(CPU_WRAPPER)
-        function = re.search(
+        workload_function = re.search(
             r"(?ms)^require_canonical_runtime_path\(\) \{.*?^\}", workload
         )
-        self.assertIsNotNone(function)
-        rejected = subprocess.run(
-            [
-                "bash",
-                "-c",
-                function.group(0)
-                + "; OPENPI_PYTHON=/tmp/unreviewed-python; "
-                + "require_canonical_runtime_path OPENPI_PYTHON /mnt/data/quanth/venvs/openpi/bin/python",
-            ],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        publisher_function = re.search(
+            r"(?ms)^require_canonical_runtime_path\(\) \{.*?^\}", publisher
         )
-        self.assertNotEqual(rejected.returncode, 0)
-        self.assertIn("noncanonical inherited CFS-00A runtime path", rejected.stderr)
+        self.assertIsNotNone(workload_function)
+        self.assertIsNotNone(publisher_function)
+        for function, variable, expected, error in (
+            (
+                workload_function.group(0),
+                "OPENPI_PYTHON",
+                "/mnt/data/quanth/venvs/openpi/bin/python",
+                "noncanonical inherited CFS-00A runtime path",
+            ),
+            (
+                workload_function.group(0),
+                "LIBERO_PYTHON",
+                "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+                "noncanonical inherited CFS-00A runtime path",
+            ),
+            (
+                publisher_function.group(0),
+                "LIBERO_PYTHON",
+                "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+                "noncanonical inherited CFS-00A publisher runtime path",
+            ),
+        ):
+            rejected = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    function
+                    + f"; {variable}=/tmp/unreviewed-python; "
+                    + f"require_canonical_runtime_path {variable} {expected}",
+                ],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn(error, rejected.stderr)
         for variable, expected in (
-            ("OPENPI_PYTHON", "/mnt/data/quanth/venvs/openpi/bin/python"),
-            ("LIBERO_PYTHON", "/mnt/data/quanth/venvs/openpi-libero-client/bin/python"),
+            ("OPENPI_PYTHON", '"$CRFS_R05A_OPENPI_PYTHON"'),
+            ("LIBERO_PYTHON", '"$CRFS_R05A_LIBERO_PYTHON"'),
             ("OPENPI_DATA_HOME", "/mnt/data/quanth/cache/openpi"),
             ("TRANSFORMERS_SITE_PACKAGES", "/mnt/data/quanth/venvs/openpi/lib/python3.11/site-packages"),
             ("TRANSFORMERS_OVERLAY", "/mnt/data/quanth/cache/crfs/transformers-openpi-4.53.2-exact-24be8ac6749a"),
@@ -272,6 +298,195 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             )
         self.assertIn('test "$prepared_transformers_overlay" = "$TRANSFORMERS_OVERLAY"', workload)
         self.assertIn('test "$prepared_jsonschema_overlay" = "$JSONSCHEMA_OVERLAY"', publisher)
+
+    def test_exact_interpreter_identity_accepts_only_reviewed_nonexecuting_chain(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / "interpreter-was-invoked"
+            binary_bytes = (
+                "#!/usr/bin/env bash\n"
+                f": > {shlex.quote(str(marker))}\n"
+            ).encode("utf-8")
+            versioned_a = root / "versioned-a" / "bin" / "python"
+            versioned_b = root / "versioned-b" / "bin" / "python"
+            for binary in (versioned_a, versioned_b):
+                binary.parent.mkdir(parents=True)
+                binary.write_bytes(binary_bytes)
+                binary.chmod(0o755)
+            alias = root / "version-alias"
+            alias.symlink_to(versioned_a.parent.parent, target_is_directory=True)
+            alternate_alias = root / "alternate-alias"
+            alternate_alias.symlink_to(versioned_a.parent.parent, target_is_directory=True)
+            public = root / "launcher"
+            direct = alias / "bin" / "python"
+            public.symlink_to(direct)
+            digest = hashlib.sha256(binary_bytes).hexdigest()
+
+            def validate(
+                *,
+                expected_direct: Path = direct,
+                expected_resolved: Path = versioned_a,
+                expected_digest: str = digest,
+            ) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        '. "$1"; crfs_require_exact_interpreter_identity Fixture "$2" "$2" "$3" "$4" "$5"',
+                        "bash",
+                        str(RUNTIME_IDENTITY_HELPER),
+                        str(public),
+                        str(expected_direct),
+                        str(expected_resolved.resolve()),
+                        expected_digest,
+                    ],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+            accepted = validate()
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            self.assertFalse(marker.exists(), "identity validation invoked the interpreter")
+
+            public.unlink()
+            public.symlink_to(alternate_alias / "bin" / "python")
+            self.assertNotEqual(validate().returncode, 0)
+
+            public.unlink()
+            public.symlink_to(direct)
+            alias.unlink()
+            alias.symlink_to(versioned_b.parent.parent, target_is_directory=True)
+            self.assertNotEqual(validate().returncode, 0)
+
+            alias.unlink()
+            alias.symlink_to(versioned_a.parent.parent, target_is_directory=True)
+            versioned_a.write_bytes(binary_bytes + b"# changed\n")
+            versioned_a.chmod(0o755)
+            self.assertNotEqual(validate().returncode, 0)
+
+            versioned_a.write_bytes(binary_bytes)
+            versioned_a.chmod(0o755)
+            versioned_a.unlink()
+            self.assertNotEqual(validate().returncode, 0)
+
+            versioned_a.write_bytes(binary_bytes)
+            versioned_a.chmod(0o644)
+            self.assertNotEqual(validate().returncode, 0)
+
+            versioned_a.chmod(0o755)
+            public.unlink()
+            public.write_bytes(binary_bytes)
+            public.chmod(0o755)
+            self.assertNotEqual(validate().returncode, 0)
+
+            public.unlink()
+            nonregular = root / "nonregular"
+            nonregular.mkdir()
+            public.symlink_to(nonregular)
+            self.assertNotEqual(
+                validate(expected_direct=nonregular, expected_resolved=nonregular).returncode,
+                0,
+            )
+            self.assertFalse(marker.exists(), "a rejected identity invoked the interpreter")
+
+    def test_runtime_identity_constants_match_terminal_evidence_and_consumers(self) -> None:
+        expected = {
+            "openpi_python": {
+                "public_path": "/mnt/data/quanth/venvs/openpi/bin/python",
+                "direct_link_target": "/mnt/data/quanth/anaconda3/bin/python",
+                "resolved_executable": "/mnt/data/quanth/anaconda3/bin/python3.11",
+                "resolved_sha256": "c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9",
+            },
+            "libero_python": {
+                "public_path": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+                "direct_link_target": "/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+                "resolved_executable": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+                "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62",
+            },
+        }
+        apparatus = json.loads(_text(APPARATUS))
+        self.assertEqual(
+            apparatus["runtime_identity_contract"],
+            {
+                "validation_helper": "scripts/hpc/lib/r05a_runtime_identity.sh",
+                "validation_is_shell_only": True,
+                "interpreter_invocation_during_validation_allowed": False,
+                **expected,
+            },
+        )
+        evidence = json.loads(
+            _text(ROOT / "evidence/r05a/cfs00a-same-budget-launch-a.json")
+        )["failure"]
+        for key, evidence_key in (
+            ("openpi_python", "openpi_python"),
+            ("libero_python", "libero_python"),
+        ):
+            self.assertEqual(evidence[evidence_key]["path"], expected[key]["public_path"])
+            self.assertEqual(
+                evidence[evidence_key]["link_target"], expected[key]["direct_link_target"]
+            )
+            self.assertEqual(
+                evidence[evidence_key]["resolved_target"], expected[key]["resolved_executable"]
+            )
+            self.assertEqual(
+                evidence[evidence_key]["resolved_target_sha256"], expected[key]["resolved_sha256"]
+            )
+        helper = _text(RUNTIME_IDENTITY_HELPER)
+        for identity in expected.values():
+            for value in identity.values():
+                self.assertIn(value, helper)
+        workload = _text(WORKLOAD)
+        publisher = _text(CPU_WRAPPER)
+        self.assertIn('crfs_validate_r05a_openpi_python "$OPENPI_PYTHON"', workload)
+        self.assertIn('crfs_validate_r05a_libero_python "$LIBERO_PYTHON"', workload)
+        self.assertIn('crfs_validate_r05a_libero_python "$LIBERO_PYTHON"', publisher)
+        self.assertLess(
+            workload.index('crfs_validate_r05a_openpi_python "$OPENPI_PYTHON"'),
+            workload.index('mkdir "$CASE_DIR" "$FAILURE_DIR"'),
+        )
+        self.assertLess(
+            publisher.index('crfs_validate_r05a_libero_python "$LIBERO_PYTHON"'),
+            publisher.index('"$LIBERO_PYTHON" "$REMOTE_REPO/main/publish_crfs'),
+        )
+
+    def test_interpreter_symlink_exception_does_not_weaken_immutable_inputs(self) -> None:
+        workload = _text(WORKLOAD)
+        match = re.search(
+            r'(?ms)^for path in \\\n(?P<body>.*?)^done$', workload
+        )
+        self.assertIsNotNone(match)
+        body = match.group("body")
+        self.assertNotIn('"$OPENPI_PYTHON"', body)
+        self.assertNotIn('"$LIBERO_PYTHON"', body)
+        for token in (
+            '"$MANIFEST"',
+            '"$CFS_CONFIG"',
+            '"$LEGACY_CONFIG"',
+            '"$R05A_SOURCE_CONTRACT"',
+            '"$ALLOCATION_TEST_REGISTRY"',
+            '"$SOURCE_R02"',
+            '"$MODEL"',
+            '"$RUNTIME_IDENTITY_HELPER"',
+            '"$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh"',
+            '"$REMOTE_REPO/scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh"',
+            '"$REMOTE_REPO/main/run_crfs_r05a_constrained_flow_canary.py"',
+            '"$REMOTE_REPO/openpi/scripts/serve_cfs_policy.py"',
+        ):
+            self.assertIn(token, body)
+        self.assertIn(
+            'test -f "$path" && test ! -L "$path"',
+            body,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            regular = root / "regular"
+            regular.write_text("bound\n", encoding="utf-8")
+            link = root / "link"
+            link.symlink_to(regular)
+            check = 'test -f "$1" && test ! -L "$1"'
+            self.assertEqual(subprocess.run(["bash", "-c", check, "bash", str(regular)]).returncode, 0)
+            self.assertNotEqual(subprocess.run(["bash", "-c", check, "bash", str(link)]).returncode, 0)
 
     def test_raw_paths_and_cpu_only_publication_are_explicit(self) -> None:
         source = _text(SUBMITTER) + _text(GPU_WRAPPER)
@@ -409,6 +624,7 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             "openpi/scripts/serve_policy.py",
             "scripts/hpc/prepare_jsonschema_overlay.sh",
             "scripts/hpc/prepare_transformers_overlay.sh",
+            "scripts/hpc/lib/r05a_runtime_identity.sh",
             "scripts/hpc/run_r05a_constrained_flow_workload.sh",
             "scripts/hpc/run_r05a_constrained_flow_canary.sh",
             "scripts/hpc/validate_r05a_constrained_flow_canary.sh",
