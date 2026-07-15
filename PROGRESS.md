@@ -115,13 +115,20 @@ first reproduce 9/17.
   then the complete local gate passed 413 tests with 152 declared dependency
   skips. The allocation-dependency R05A suite separately passed 10/10 with
   zero skips. Apparatus commit `71e7457d8a1052b108da696a34eb3a4ad54abe7e`
-  is pushed; remote synchronization and launch remain pending.
+  is pushed.
+- The final tracking tree was pushed and synchronized by fast-forward to a
+  clean local/remote commit `02ca22b4cb40a6d02b3dfb18c998b0308dfa0e33`.
+  Live preflight at `2026-07-15T04:52:46Z` found the exact run ID unused, the
+  user queue empty, no login-node compute process, and worker-1 healthy with
+  `194687 MiB` FreeMem. Its Slurm record reported eight configured and eight
+  allocated H100s, so the launcher was intentionally not invoked. This is a
+  capacity wait, not an apparatus or research outcome.
 - No R05A job has been submitted and no inverse-flow research outcome exists.
 
 ## Exact next action
 
-Synchronize the final clean reviewed tree, repeat live control-plane preflight,
-and invoke exactly once:
+Wait until worker-1 reports at least one genuinely free H100, repeat the complete
+live control-plane preflight, and invoke exactly once:
 
 ```bash
 RUN_ID=r05a-inverse-flow-canary-20260715a scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
