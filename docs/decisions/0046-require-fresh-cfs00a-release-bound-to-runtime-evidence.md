@@ -114,3 +114,20 @@ ran.  This is apparatus-inconclusive and permanently consumes both the run ID
 and job.  A new release may change only the exact held-record inspection from
 the array parent to `${gpu_job_id}_0`; all scientific and resource fields stay
 frozen.
+
+## Exact execution release
+
+Execution authorization: one preregistered CFS-00A canary submission only.
+
+- Accepted implementation commit: `270c24ff575ce30d5545885ffb35267343d2613c`.
+- Immutable run ID: `r05a-constrained-flow-same-budget-canary-20260716b`.
+- Source host: `worker-1`.
+- Resources (canonical JSON): `{"account":"normal","array":"0-0%1","cpus_per_task":8,"gpus":1,"host_memory_mib":65536,"partition":"main","qos":"normal","requeue":false,"time_limit":"02:00:00","validator_account":"normal","validator_cpus":2,"validator_dependency":"afterany","validator_gpus":0,"validator_host_memory_mib":8192,"validator_partition":"main","validator_qos":"normal","validator_time_limit":"00:15:00"}`.
+- Single submission: `true`.
+- Automatic resubmission: `false`.
+- Automatic next experiment: `false`.
+- Simulator efficacy claim authorized: `false`.
+- Infeasibility claim authorized: `false`.
+- Probe or MLP training authorized: `false`.
+
+This appendix authorizes only the frozen one-case same-budget transport mechanism canary. It does not authorize IFT-01, solver or tolerance tuning, simulator execution of generated actions, an efficacy or infeasibility claim, label collection, probe training, or MLP training.
