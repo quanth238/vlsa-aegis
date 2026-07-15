@@ -12,11 +12,11 @@ required source host `worker-1` for 5 minutes 8 seconds and exited `6:0`. Its
 CPU `afterany` validator `27727` then failed closed because `results.json` did
 not exist.
 
-This was not an out-of-memory exit. The exact GPU log says only
+No out-of-memory exit was observed. The exact GPU log says only
 `live Slurm cgroup memory peak is unavailable`. The wrapper reached that check
-after the real pi0.5 client completed and wrote a 7 MB canary payload, but
-before atomic memory finalization. The payload and GPU samples report a peak of
-about 8.5 GiB GPU memory. Host peak use remains unknown.
+after the real pi0.5 client completed and wrote a 7,012,881-byte canary payload,
+but before atomic memory finalization. The payload and GPU samples report a
+peak of 8501 MiB (about 8.30 GiB) GPU memory. Host peak use remains unknown.
 
 The unfinalized payload is useful diagnostic evidence but is not an accepted
 canary artifact. It binds the immutable R02 source action and trace exactly,
@@ -90,6 +90,6 @@ the solver after seeing its miss.
 
 The compact immutable interpretation is
 `evidence/r05a/ift00a-attempt-b.json`, SHA-256
-`83a09684d474dcc3b38004facd3901fe274b7fcad3b9133827f2ba5bf82d37a4`.
+`850e2b9d2e11d92342095c55ffeb0e94f9ec17fbd77de1188f3a65efd84cab0b`.
 No teacher-generated action has been executed in the simulator, and no probe
 or residual-field MLP may be trained.

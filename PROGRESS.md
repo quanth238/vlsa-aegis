@@ -160,18 +160,19 @@ first reproduce 9/17.
 - Retry B still failed IFT-00A. GPU task `27726_0` exited `6:0` after the
   wrapper could not read a live Slurm cgroup host-memory peak, so memory
   finalization and exact GPU validation never wrote `results.json`; validator
-  `27727` correctly failed closed. GPU telemetry peaked near 8.5 GiB, so this
-  was not a 64 GiB host-memory exceedance. The terminal audit also found a
+  `27727` correctly failed closed. GPU telemetry peaked at 8501 MiB (about
+  8.30 GiB). No OOM exit was observed, but host peak use remains unknown. The
+  terminal audit also found a
   stale finalizer count of 10 versus 12 tests and a cross-path byte-equality
   gate inconsistent with ADR-0011. Compiled and eager paths were each exactly
   stable before/after, source eager action/trace pairing was exact, and their
   numerical seam passed all unchanged ADR-0011 physical limits. ADR-0031
   freezes apparatus-only repairs and forbids solver tuning. Compact evidence:
   `evidence/r05a/ift00a-attempt-b.json`, SHA-256
-  `83a09684d474dcc3b38004facd3901fe274b7fcad3b9133827f2ba5bf82d37a4`.
-- After recording retry B, the terminal-interpretation tree passed `./init.sh`: 415 tests,
-  152 declared dependency skips, and all 21 artifact/18 gate audits. This does
-  not repair or pass IFT-00A.
+  `850e2b9d2e11d92342095c55ffeb0e94f9ec17fbd77de1188f3a65efd84cab0b`.
+- After recording retry B, the terminal-interpretation tree passed `./init.sh`:
+  415 tests, 152 declared dependency skips, and all 21 artifact/18 gate audits.
+  This does not repair or pass IFT-00A.
 
 ## Exact next action
 

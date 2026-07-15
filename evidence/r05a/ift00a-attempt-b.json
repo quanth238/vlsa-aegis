@@ -38,6 +38,7 @@
     "failure_sha256": "563754800875698696c86917a2aafd5422dc9f42ecfc2ab3d546b644478a2864",
     "cpu_validation_receipt_sha256": "289a5c312d510cce49d1b900495e9e14ab2ad36b974b7fc6cdcb169cfe82affa",
     "canary_payload_sha256": "d5721d08747cd7c8f335057f2d89f7224d8921ac0bf1cba9bd16475fd3622d2b",
+    "canary_payload_bytes": 7012881,
     "focused_test_log_sha256": "2f6d2742e3c1829de2d7af07beaf1ea2341bf8afada04474e716955290ebb3b4",
     "gpu_memory_samples_sha256": "a361f68ca1c7952509842200c1fec03d18573bd0333b99178c8cb7d70ecd4280",
     "client_log_sha256": "6b3cf44988eb85724a7232e45e536a64709c07cedc9154f22d50b79c2a19469e",
@@ -63,6 +64,7 @@
   "payload": {
     "written": true,
     "final_results_json_written": false,
+    "failure_receipt_stage": "r05a_canary_payload",
     "payload_status": "completed_apparatus_failure",
     "pi05_server_started": true,
     "real_pi05_inference_executed": true,
@@ -139,7 +141,7 @@
     "gpu_nvidia_smi_peak_compute_mib": 8492,
     "gpu_nvidia_smi_peak_device_mib": 8501,
     "gpu_nvidia_smi_samples": 235,
-    "interpretation": "GPU use was approximately 8.5 GiB; exit 6 reports missing host-cgroup telemetry, not a 64 GiB host-memory exceedance."
+    "interpretation": "GPU sampling peaked at 8501 MiB (about 8.30 GiB). No OOM exit was observed; exit 6 reports missing host-cgroup telemetry, and host peak use remains unknown."
   },
   "root_causes": {
     "primary": "The post-payload wrapper could not resolve a readable positive live Slurm cgroup memory peak, so it exited 6 before memory finalization and never wrote results.json.",
