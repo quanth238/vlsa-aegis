@@ -105,3 +105,19 @@ It authorizes no run by itself. It authorizes no IFT-01 rollout, efficacy
 claim, reroute, solver tuning, population, probe, label collection, or MLP
 training. A later release-only commit must name the exact single canary and be
 reviewed before any launch.
+
+## Exact execution release
+
+Execution authorization: one preregistered IFT-00A canary submission only.
+
+- Accepted implementation commit: `6221dedde75b9fd0f038a439d030d052ce223fb7`.
+- Immutable run ID: `r05a-inverse-flow-sampled-current-canary-20260715a`.
+- Source host: `worker-1`.
+- Resources (canonical JSON): `{"account":"normal","array":"0-0%1","cpus_per_task":8,"gpus":1,"host_memory_mib":65536,"partition":"main","qos":"normal","requeue":false,"time_limit":"02:00:00","validator_account":"normal","validator_cpus":2,"validator_dependency":"afterany","validator_gpus":0,"validator_host_memory_mib":8192,"validator_partition":"main","validator_qos":"normal","validator_time_limit":"00:15:00"}`.
+- Single submission: `true`.
+- Automatic resubmission: `false`.
+- Automatic next experiment: `false`.
+- Simulator efficacy claim authorized: `false`.
+- Probe or MLP training authorized: `false`.
+
+This appendix authorizes only the frozen one-case mechanism canary. It does not authorize IFT-01, solver tuning, a simulator efficacy claim, label collection, probe training, or MLP training.
