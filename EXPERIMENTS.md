@@ -2,316 +2,187 @@
 
 Last updated: 2026-07-15 (Asia/Ho_Chi_Minh)
 
-This is the short operational record. Detailed historical evidence before the
-inverse-flow pivot remains in
-`docs/archive/progress/2026-07-15-pre-inverse-flow-pivot.md`.
+This is the sole active experiment protocol. Completed operational history is
+archived in:
+
+- `docs/archive/progress/2026-07-15-pre-inverse-flow-pivot.md`;
+- `docs/archive/progress/2026-07-15-r05a-pre-execution-apparatus.md`.
+
+ADRs and evidence JSON remain authoritative for immutable decisions and
+terminal runs.
 
 ## Fixed research hypothesis
 
-A simulator-verified safe-progress action correction is not generally preserved
-when it is repeated as a constant flow residual. A time-dependent residual
-velocity sequence found through the exact frozen pi0.5 sampler can transport
-the same target under the R03 correction budget, and those controls may later
-serve as labels for a deployable residual-field student.
+A simulator-verified safe-progress action correction is not generally
+preserved when repeated as a constant flow residual. A time-dependent residual
+velocity sequence found through the exact frozen pi0.5 sampler may transport
+the same target under the same correction budget.
 
-The hypothesis has two separate parts. R05A tests teacher transport. Student
-learnability is not tested, and even a passing R05A authorizes only IFT-03 on
-untouched groups. No MLP may be trained unless that separate authorization
-passes; a failed R05A stops this student direction.
+The hypothesis has two separate parts:
+
+1. R05A asks whether a valid teacher control sequence exists and works.
+2. A later student study would ask whether an MLP can predict such controls on
+   untouched state groups.
+
+No current experiment tests the second part. A failed R05A stops this student
+direction; a passing R05A still does not automatically authorize training.
 
 ## Existing baseline evidence
 
 | ID | Question | Evidence | Result | Role |
 |---|---|---|---|---|
-| B00 | Does a safe-progress five-action witness physically exist? | R01, jobs `27306`/`27364` | 17/17 eligible groups | Direct upper bound |
-| B01 | Does the existing constant privileged flow residual transport it? | R03, jobs `27405`/`27450` | 9/17 | Baseline to beat |
-| B02 | Does the stronger analytic smoke solve safety and progress together? | R03A task `27639_0` | 0/1; safe but insufficient progress | Historical diagnostic only |
+| B00 | Does a safe-progress five-action target physically exist? | R01 jobs `27306`/`27364` | 17/17 eligible groups | Direct upper bound |
+| B01 | Does a constant privileged flow residual transport it? | R03 jobs `27405`/`27450` | 9/17 | Baseline to beat |
+| B02 | Does stronger analytic geometry steering preserve safety and progress? | R03A task `27639_0` | 0/1 joint success | Historical diagnostic; safe but insufficient progress |
+
+The eight B01 misses comprise four clearance-only failures and four
+progress-only failures. Therefore every efficacy experiment uses joint
+Safe-Progress Success; clearance alone is not success.
 
 ## R05A experiment sequence
 
 ### IFT-00 — Local inverse-control contract
 
-Status: **passed locally on 2026-07-15**
+Status: **passed as implementation evidence**
 
-Purpose: verify the mathematics and implementation without pi0.5, a simulator,
-or a research claim.
+IFT-00 verifies the ten-step control interface, exact Euler recurrence,
+target-pairing rules, zero/active masks, path and per-step budgets, deterministic
+duplicate search, explicit nonconvergence/nonfinite statuses, and byte-unchanged
+no-control sampling on a synthetic nonlinear field. It makes no pi0.5,
+simulator, safety, or learnability claim.
 
-Required checks:
+Evidence: `evidence/r05a/ift00-synthetic.json` and ADR-0028.
 
-1. A small deterministic nonlinear vector field exposes all ten Euler steps.
-2. The solver receives a terminal target and returns a ten-row schedule with
-   controls active only at steps 5--9.
-3. Controls are exactly zero at steps 0--4 and outside the first-five XYZ mask.
-4. `P <= B` and every step displacement is at most `B/5`.
-5. The audited recurrence exactly reconstructs the reported terminal state.
-6. Reversing control time order is represented as a distinct arm.
-7. Structural target-pairing failure and finite-search nonconvergence are
-   explicit, distinct failures; finite search alone is never called an
-   infeasibility proof.
-8. The no-control sampler path remains byte-for-byte unchanged.
-9. The supplied target is exactly the recomputed frozen terminal action outside
-   first-five XYZ, including padded coordinates and signed zero.
+### IFT-00A — One-case real mechanism canary
 
-The solver is a constrained feasibility search, not an optimizer certificate.
-Energy is recorded and used only to choose among fidelity-feasible iterates;
-neither a local nor global minimum will be claimed.
+Status: **active protocol; any exact pre-execution authorization lives only in
+the apparatus config and ADR-0037. This protocol records no run outcome.**
 
-Pass: every focused test and the complete `./init.sh` gate pass. This is
-implementation evidence only.
+Question: can the exact frozen pi0.5 sampler realize one paired safe-progress
+target using the registered time-dependent residual velocity sequence?
 
-Evidence: `evidence/r05a/ift00-synthetic.json`. Seventeen dependency-backed
-PyTorch tests passed in the isolated local environment; the complete harness
-passed 413 tests with 152 declared dependency skips. No pi0.5 or simulator was
-executed.
+#### Exact paired source
 
-### IFT-00A — One-case allocation integration canary
+- case: `crfs-1069f29a8d76463a`;
+- group: `safelibero_spatial:II:0:46`;
+- source host: `worker-1`;
+- environment seed: `924805038`;
+- policy seed: `1179198633`;
+- exact R02 source SHA-256:
+  `055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593`;
+- checkpoint SHA-256:
+  `988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed`;
+- frozen scientific config SHA-256:
+  `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-Status: **active; attempts A and B retired as incomplete apparatus runs**
+The simulator branch, reset state, observation, instruction, checkpoint,
+normalization, and policy noise must match the paired R02 source. Physical
+displacement uses checkpoint scale only; normalization mean is never subtracted
+from a displacement.
 
-Purpose: connect the passed solver to the real frozen pi0.5 sampler on only
-`crfs-1069f29a8d76463a`, without executing a teacher-generated action in the
-simulator and without receiving efficacy credit.
+#### Target and vector-field control
 
-The canary must run on the immutable source host `worker-1` with one H100,
-eight CPUs, 64 GiB host RAM, `%1`, and no requeue. It must measure actual host
-and GPU peaks rather than assume a 128 GiB requirement. A separately registered
-CPU `afterany` validator must inspect the final artifact.
+1. Recompute the fresh frozen normalized terminal action `x_frozen`.
+2. Form `x_target = x_frozen + DeltaA*_model` only in the first-five XYZ
+   coordinates. Every other coordinate must remain exactly paired.
+3. Cast the immutable R02 correction budget once to float32:
+   `B = 3.6398398876190186`.
+4. Invert through the exact frozen ten-step pi0.5 sampler to obtain `u_k`.
+5. Require `u_0` through `u_4` to be exactly zero. Only steps 5--9 and only
+   first-five XYZ may be active.
+6. Require total path `P <= B` and every active-step displacement `<= B/5`.
+7. Forbid clipping, endpoint overwrite, final-action replacement, and appending
+   `DeltaA*` after sampling.
 
-ADR-0029 permits this exact source-pinned request to wait in Slurm when no H100
-is immediately free. The launcher must record the observed capacity truthfully;
-queue delay is operational state and cannot count as research evidence.
+The teacher runs exactly two deterministic 128-update searches. A converged
+schedule must also pass an independent explicit-schedule canonical replay. Zero
+controls before/after, frozen/eager pairing, recurrence, masks, timing, budgets,
+fidelity, parameter gradients, and returned action bytes are independently
+validated.
 
-Attempt `r05a-inverse-flow-canary-20260715a` used exact GPU task `27714_0` and
-CPU validator `27715`. It stopped before pi0.5 startup because a synthetic
-sampler test required `1e-5` target equality even though all four unchanged
-frozen fidelity gates passed. CPU diagnostic `27722` established the exact
-mismatch, and ADR-0030 freezes the non-tuning repair. A masked wrapper count
-mismatch (10 expected versus 12 reviewed tests) is repaired and structurally
-bound before immutable retry B. Attempt A contains no transport or efficacy
-outcome; see `evidence/r05a/ift00a-attempt-a.json`.
+#### Simulator and resource boundary
 
-Retry B `r05a-inverse-flow-canary-20260715b` used GPU task `27726_0` on the
-required worker-1 source host and CPU validator `27727`. It passed all focused
-allocation suites with exact zero-skip counts 17/8/10/12, started real pi0.5,
-and executed two deterministic 128-update teacher searches. Both searches were
-finite but nonconverged and failed closed to the frozen action; the XYZ target
-maximum/RMS errors were `0.8631912`/`0.3312218`. No teacher action entered the
-simulator. The GPU job then failed before `results.json` because live cgroup
-host-memory peak discovery was unavailable; the CPU validator correctly
-rejected the missing result. The unfinalized payload also exposed a stale
-finalizer test count and an ADR-0011 path-seam semantic mismatch. See ADR-0031
-and `evidence/r05a/ift00a-attempt-b.json`. This diagnostic neither confirms nor
-refutes target transport formally, but it is strong negative evidence for the
-currently frozen solver on the preservation case.
+The environment may perform only its registered reset plus 20 dummy settle
+control steps. Policy-generated and teacher-generated action steps are both
+zero. No collision or progress efficacy rollout occurs.
 
-IFT-00A pass requires exact fresh source pairing; target equality outside
-first-five XYZ; exact compiled-before/after and eager-before/after zero-control
-stability; the unchanged ADR-0011 numerical compiled/eager seam limits;
-duplicate teacher schedules; an independent explicit-schedule replay equal to
-the teacher result; exact recurrence, mask, time, budget and fidelity
-validation; all frozen-model parameter gradients remaining `None`; and
-complete host/GPU memory telemetry. The runtime budget is the immutable source
-R02 float64 norm cast once to float32; the source direction norm, its float32
-norm, and the realized rounded target-difference norm are reported separately.
-No sampled policy action may be passed to `env.step`, and no simulator efficacy
-outcome may be produced.
+The exact allocation is one singleton task `0-0%1` on worker-1: one H100,
+eight CPUs, exactly 64 GiB host RAM, two hours, and no requeue. A separate
+zero-GPU CPU `afterany` validator uses two CPUs and 8 GiB.
 
-#### ADR-0031 CPU apparatus regression
+Host telemetry is ADR-0036's exact-job-scope full-lifetime sampled-current
+trace. Its high-water is an observed lower bound, not a native peak. Acceptance
+also requires an unchanged 64 GiB job hard limit, zero hierarchical
+`max`/`oom`/`oom_kill` deltas, lifecycle coverage, bounded sampling gaps, and a
+separate nullable native-peak record. The H100 task cannot publish
+`results.json`; the CPU validator is the sole publisher.
 
-Status: **terminal apparatus failure; immutable run ID consumed**
+#### IFT-00A outcomes
 
-Exact run ID: `r05a-adr0031-apparatus-cpu-20260715a`.
+| Validated outcome | Research meaning | Decision |
+|---|---|---|
+| `completed_converged` | One-case teacher-transport mechanism pass | Stop; separately decide whether to preregister IFT-01 |
+| finite deterministic `completed_nonconverged` after 128 updates | Negative result for the frozen registered solver | Stop IFT-01 and this solver direction; never claim infeasibility |
+| pairing, determinism, nonfinite, OOM, allocation test, telemetry, schema, publication, source-job, or artifact failure | Apparatus-inconclusive | No transport conclusion; repair only the evidenced defect under a new decision |
 
-This is a worker-1, CPU-only, two-CPU, 8 GiB, `0-0%1` Slurm check of the
-ADR-0031 apparatus repairs plus the ADR-0033/0034 artifact trust-path repairs.
-It runs the authoritative 17/8/10/12 registry through the exact shared suite
-helper with zero skips, independently reparses the log, and resolves the live
-allocation cgroup peak through the actual membership and mount paths. It also
-checks artifact-only `(1,)` scalar decoding while keeping live scalars strict,
-and derives teacher, zero-replay, and canonical-replay status from exact raw
-trace metadata instead of trusting stored pass labels. It loads no checkpoint,
-starts no policy server, runs no real pi0.5 teacher search, produces no
-checkpoint teacher observation, executes no simulator action, and cannot
-support a scientific claim. The unit suites do exercise synthetic inverse
-solvers as implementation tests; those are not real checkpoint teacher
-searches. See ADR-0032 through ADR-0034. A pass is only one prerequisite for a
-separately reviewed retry-C decision.
-The submission receipt also binds a separately callable strict validator. It
-recomputes receipt/source hashes, resource identity, the 17/8/10/12 log, and
-the live cgroup sidecar against a hidden candidate before publication.
-
-Exact task `27797_0` ran on worker-1 from commit
-`00dba0ad27169abd1344a97ae2f02b323e6a52ae` with the registered two CPUs,
-8 GiB, 20-minute, no-GPU contract. All four suites passed 17/8/10/12 with zero
-skips. The job then exited `3:0` at `live_cgroup_memory_peak`: the resolver
-mapped the exact cgroup-v2 membership through mount root `/` to the task leaf
-ending in `job_27797/step_batch/user/task_0`, but that leaf's `memory.peak`
-was unreadable. `sacct` recorded neither MaxRSS nor MaxVMSize, so host peak use
-remains unknown. Worker-1 reports Linux `5.15.0-130-generic`; the upstream 5.15
-cgroup-v2 interface documents `memory.current` and `memory.max` but no
-`memory.peak`, while the current interface documents `memory.peak`. Slurm's
-`JobAcctGatherType` is also null. Therefore no exact peak fallback exists on
-this allocation. No result candidate or `results.json` was written. See
-`evidence/r05a/adr0031-apparatus-cpu-a.json`. This provides no inverse-flow
-scientific outcome, and the run ID must not be reused.
-
-#### CG-00 — Job-owned cgroup telemetry capability
-
-Status: **terminal capability pass; immutable run ID consumed**
-
-Exact run ID: `r05a-cgroup-v2-current-capability-20260715a`.
-
-Question: can worker-1 expose an allocation-owned memory interface that lets a
-future H100 canary report host-memory evidence honestly, without pretending a
-sampled value is an exact peak?
-
-Procedure: one shell-only `0-0%1` task on worker-1, one CPU, 256 MiB, two
-minutes, no GPU and no requeue. It maps only the executing task-to-exact-job
-cgroup chain, samples job-scope `memory.current` 20 times at 100 ms, records a
-positive finite `memory.max`, and checks hierarchical `memory.events` before
-and after. It checks `memory.peak` once at the exact job scope and never searches
-a shared parent. See ADR-0035.
-
-Capability pass: either a positive native `memory.peak` is available, or all 20
-sampled-current observations are valid with a positive high-water, the largest
-gap is at most 500 ms, `memory.max` is positive and finite, and
-`max`/`oom`/`oom_kill` event deltas are zero. The selected mount must not use
-`memory_localevents`, which would make those counters local-only. The sampled
-high-water is always labeled a lower bound, never an exact peak. Any unsafe
-mapping fails closed; a missing or inadequate interface is a completed
-unsupported result.
-
-Scientific role: apparatus evidence only. It cannot validate inverse-flow
-transport, repair retry B, authorize retry C by itself, launch IFT-01, or train
-a probe/MLP. A supported result permits only a separately reviewed full-run
-telemetry change before one frozen H100 canary.
-
-Local acceptance: 11/11 capability tests, 6/6 R05A tracker-contract tests,
-and the complete 447-test harness passed with 152 declared dependency skips.
-Independent HPC, semantic, and adversarial-test reviews found no remaining
-P0/P1 issue for CG-00 only.
-
-Exact task `27820_0` completed `0:0` on worker-1 in three seconds from clean
-commit `63b246c5088217bc6d563265b035c44ef376f1c5`. The immutable result reports
-`sampled_current_contract_supported`: 20 sequential strictly increasing
-samples, 110--120 ms adjacent gaps, a 6,045,696-byte sampled high-water, a
-268,435,456-byte job-scope hard limit, hierarchical events, and zero new
-`max`/`oom`/`oom_kill` events. Native `memory.peak` remains missing. Slurm
-requested one CPU and allocated two CPU TRES because of node granularity; it
-kept one task/one CPU per task, 256 MiB, and no GPU. The run root contains only
-the held receipt, submission receipt, TSV, and result. Three independent
-terminal audits reproduced the raw trace, scope, source hashes, and result.
-Evidence: `evidence/r05a/cgroup-v2-current-capability-a.json`.
-
-Interpretation: worker-1 can support separately reviewed full-lifetime sampled
-telemetry. The 6,045,696-byte value describes only this tiny shell job and is
-not an estimate of pi0.5 host memory. CG-00 does not repair retry B or authorize
-retry C, IFT-01, efficacy claims, or training.
-
-#### IFT-00A full-lifetime sampled-current apparatus
-
-Status: **implemented and independently reviewed; execution unreleased**
-
-No immutable run ID or Slurm job has been selected. ADR-0036 keeps the exact
-retry-B scientific case, target, pi0.5 model, seeds, noise, inverse solver,
-128-update budget, fidelity limits, control mask/times, and zero simulator
-teacher-action steps unchanged. The only change is the allocation telemetry and
-publication path needed because Linux 5.15 cannot provide native
-`memory.peak`.
-
-The exact future source request remains worker-1, one H100, eight CPUs, 64 GiB
-host RAM, two hours, `0-0%1`, and no requeue. A shell monitor becomes ready
-before setup Python, tests, policy serving, checkpoint load, or model inference;
-samples exact-job-scope `memory.current` every requested 100 ms through full
-policy/GPU-monitor cleanup; preserves every integer row; and seals the hard
-limit, hierarchical `max`/`oom`/`oom_kill` counters, lifecycle markers, and any
-separate native-peak capability. Sampled high-water is always a lower bound,
-never relabeled as an exact peak.
-
-The H100 task can write only the unchanged scientific payload and raw logs. A
-zero-GPU CPU `afterany` job must observe source state `COMPLETED 0:0`, rehash and
-reparse every source, validate the unchanged scientific semantics, build the
-hidden candidate, and act as the sole `results.json` publisher. Exact lexical
-and real paths, non-symlink files/directories, source and atomic-submission
-receipts, telemetry chronology, raw hashes, and candidate bytes and file
-identity across the atomic rename all fail closed. The published bytes are
-reloaded, rehashed, and schema-validated before a success receipt can survive.
-
-Local acceptance is 65 focused tests with seven declared dependency skips and
-the complete 491-test harness with 152 declared dependency skips, plus all 21
-artifact/18 gate audits. Independent science, HPC, and adversarial-publication
-reviews found no P0/P1 blocker. This is implementation evidence only. It does
-not repair retry B, show that inverse-flow transport converges, evaluate
-collision avoidance or progress, authorize IFT-01, or authorize an MLP/probe.
-A separate execution-release decision must accept the exact clean commit and
-choose one unused run ID before any control-plane preflight or submission.
+Attempts A/B, the CPU apparatus regression, and CG-00 are preserved in the
+R05A apparatus archive. No consumed run ID may be reused.
 
 ### IFT-01 — Three-case real transport smoke
 
-Status: **blocked on IFT-00A and a reviewed immutable efficacy config**
+Status: **blocked on a validated converged IFT-00A and a separate immutable
+efficacy decision**
 
 Fixed cases:
 
-Immutable manifest SHA-256:
-`bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633`.
-
-| Case | Pre-existing stratum | What must happen |
+| Case | Existing stratum | Required teacher behavior |
 |---|---|---|
-| `crfs-1069f29a8d76463a` | Constant residual succeeded | Teacher preserves Safe-Progress Success |
-| `crfs-7eddaafffb4f9474` | Clearance-only constant miss | Teacher reaches `D_sim >= 5 mm` and keeps progress |
-| `crfs-bd7b0adf95145623` | Progress-only constant miss | Teacher preserves clearance and restores progress |
+| `crfs-1069f29a8d76463a` | Constant residual success | Preserve Safe-Progress Success |
+| `crfs-7eddaafffb4f9474` | Clearance-only miss | Restore clearance while preserving progress |
+| `crfs-bd7b0adf95145623` | Progress-only miss | Preserve clearance while restoring progress |
 
-Fixed paired arms:
+Every arm must share the exact simulator state, observation, instruction,
+policy noise, source host, and executed horizon:
 
-1. Frozen pi0.5.
-2. Fresh direct paired safe-progress target.
-3. Existing constant residual with path budget `B`.
-4. Inverse-flow teacher active at steps 5--9 with `P <= B` and per-step
-   displacement `<= B/5`.
-5. The same teacher controls in reverse flow-step order.
+1. frozen pi0.5;
+2. fresh direct paired safe-progress target;
+3. existing constant residual with path budget `B`;
+4. inverse-flow teacher schedule with the same `B` and `B/5` cap;
+5. the same teacher controls in reverse flow-step order.
 
-All arms use the same branch, observation, instruction, explicit noise, source
-host, and five executed actions. The teacher optimizer receives no simulator
-or geometry feedback. Controls are frozen before any efficacy rollout.
-
-Primary outcome: joint Safe-Progress Success, not clearance alone.
-
-GO: all contracts validate, the fresh direct target reconfirms, and the teacher
-passes 3/3. Any missing or invalid case is a failure. No MLP training follows
-this smoke.
+Primary outcome: joint Safe-Progress Success using simulator substep clearance,
+contact, progress, and no-pushing measurements. GO requires 3/3 valid teacher
+successes. Missing or invalid cases fail the smoke. No MLP training follows a
+smoke pass.
 
 ### IFT-02 — Seventeen-case development population
 
 Status: **blocked on IFT-01**
 
-GO requires all of the following:
-
-- exactly 17 valid fixed-denominator artifacts;
-- the constant arm reproduces the accepted 9/17 result;
-- teacher success is at least 14/17;
-- all nine constant successes are preserved;
-- at least five of the eight constant misses are rescued;
-- every counted result obeys the control budget and per-step cap.
-
-The reverse-order diagnostic distinguishes time-specific transport from a
-control multiset that works in any order. These 17 groups remain development
-only regardless of the result.
+GO requires exactly 17 valid fixed-denominator artifacts, reproduction of the
+constant 9/17 result, teacher success at least 14/17, preservation of all nine
+constant successes, rescue of at least five of eight constant misses, and all
+budget constraints. These 17 groups remain development only and cannot be used
+for student training or final testing.
 
 ### IFT-03 — New-state student authorization
 
 Status: **blocked on IFT-02 and untouched official groups**
 
 This future gate must repeat baseline, direct feasibility, and teacher transfer
-on genuinely new source groups before any label collection or MLP training.
-It must freeze episode/state-group splits and include naturally safe examples
-with zero-control labels. No current case may enter this dataset.
+on genuinely new source groups, freeze group-preserving train/validation/test
+splits, include naturally safe zero-control examples, and separately establish
+support coverage before any label collection or learning.
 
 ## Current stop conditions
 
-- Do not launch the retired R03A population.
+- Do not launch the retired R03A population or reuse any consumed R05A run ID.
+- Do not launch IFT-00A before an exact committed execution-release decision.
+- Do not change source worker, case, target, checkpoint, noise, solver,
+  iterations, optimizer, tolerance, control mask/times, or correction budget.
+- Do not launch IFT-01, an efficacy rollout, or a population from IFT-00A.
 - Do not train a scalar ECG probe or residual-field MLP.
-- Do not accept a final-step overwrite, clipping, or a larger correction budget
-  as inverse-flow success.
-- Do not tune solver settings from simulator outcomes.
-- Do not interpret local or synthetic tests as research evidence.
-- Do not launch IFT-01 or an unchanged IFT-00A retry after retry B.
+- Do not accept clipping, action overwrite, a final-step patch, increased
+  budget, or clearance without progress as success.
+- Do not interpret local/synthetic tests or telemetry capability as research
+  efficacy evidence.

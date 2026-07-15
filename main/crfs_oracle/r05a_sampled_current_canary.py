@@ -30,6 +30,14 @@ EXPERIMENT_ROOT = Path("/mnt/data/quanth/experiments/crfs-oracle")
 APPARATUS_CONFIG_PATH = "configs/experiments/r05a_sampled_current_canary_apparatus.json"
 ENVELOPE_SCHEMA_PATH = "schemas/r05a-sampled-current-canary-envelope.schema.json"
 ADR0036_PATH = "docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md"
+RELEASE_DECISION_PATH = (
+    "docs/decisions/0037-require-exact-single-canary-release-identity.md"
+)
+RELEASE_BRANCH_REF = "refs/remotes/origin/agent/crfs-oracle-harness"
+RELEASE_ONLY_PATHS = (
+    APPARATUS_CONFIG_PATH,
+    RELEASE_DECISION_PATH,
+)
 
 FROZEN_BINDINGS: dict[str, str] = {
     "scientific_config_file_sha256": "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb",
@@ -58,6 +66,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
         "docs/decisions/0028-pivot-to-inverse-flow-transport.md",
         ADR0036_PATH,
+        RELEASE_DECISION_PATH,
         "schemas/r05a-inverse-flow-canary.schema.json",
         ENVELOPE_SCHEMA_PATH,
         "evidence/r03/r03-summary.json",
@@ -153,6 +162,20 @@ SOURCE_RESOURCE_CONTRACT = {
     "validator_gpus": 0,
     "validator_dependency": "afterany",
 }
+EXECUTION_RELEASE_KEYS = {
+    "schema_version",
+    "artifact_role",
+    "decision_artifact",
+    "accepted_implementation_commit",
+    "run_id",
+    "single_submission",
+    "source_host",
+    "resources",
+    "release_only_parent_required",
+    "allowed_release_diff_paths",
+    "automatic_resubmission_allowed",
+    "automatic_next_experiment_allowed",
+}
 SUBMISSION_KEYS = {
     "schema_version",
     "artifact_role",
@@ -211,6 +234,185 @@ def _is_sha256(value: Any) -> bool:
 
 def _is_commit(value: Any) -> bool:
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value) is not None
+
+
+def _validate_execution_release(
+    apparatus_config: Mapping[str, Any], *, run_id: str
+) -> dict[str, Any]:
+    """Validate one exact, preregistered execution identity without imports."""
+
+    if apparatus_config.get("ready_to_run") is not True or apparatus_config.get(
+        "blocked_on"
+    ) != []:
+        raise ValueError("sampled-current apparatus config is not released")
+    release = apparatus_config.get("execution_release")
+    if type(release) is not dict or set(release) != EXECUTION_RELEASE_KEYS:
+        raise ValueError("sampled-current execution release keys changed")
+    expected = {
+        "schema_version": "1.0",
+        "artifact_role": "r05a_single_canary_execution_release",
+        "decision_artifact": RELEASE_DECISION_PATH,
+        "single_submission": True,
+        "source_host": SOURCE_NODE,
+        "resources": SOURCE_RESOURCE_CONTRACT,
+        "release_only_parent_required": True,
+        "allowed_release_diff_paths": list(RELEASE_ONLY_PATHS),
+        "automatic_resubmission_allowed": False,
+        "automatic_next_experiment_allowed": False,
+    }
+    for key, wanted in expected.items():
+        observed = release.get(key)
+        if observed != wanted or type(observed) is not type(wanted):
+            raise ValueError(f"sampled-current execution release {key} changed")
+    accepted_commit = release.get("accepted_implementation_commit")
+    if not _is_commit(accepted_commit):
+        raise ValueError("sampled-current accepted implementation commit is invalid")
+    registered_run_id = release.get("run_id")
+    if (
+        not isinstance(registered_run_id, str)
+        or len(registered_run_id) > 128
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", registered_run_id) is None
+        or registered_run_id != run_id
+    ):
+        raise ValueError("sampled-current run id is not the exact released identity")
+    expected_apparatus_resources = {"source_host": SOURCE_NODE, **SOURCE_RESOURCE_CONTRACT}
+    observed_apparatus_resources = apparatus_config.get("resource_contract")
+    if (
+        observed_apparatus_resources != expected_apparatus_resources
+        or type(observed_apparatus_resources) is not dict
+    ):
+        raise ValueError("sampled-current apparatus resource contract changed")
+    return dict(release)
+
+
+def _git_output(repository: Path, *arguments: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repository), *arguments],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+    ).stdout.strip()
+
+
+def _git_bytes(repository: Path, *arguments: str) -> bytes:
+    return subprocess.run(
+        ["git", "-C", str(repository), *arguments],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+
+
+def _release_decision_appendix(execution_release: Mapping[str, Any]) -> str:
+    resources = json.dumps(
+        execution_release["resources"], sort_keys=True, separators=(",", ":")
+    )
+    return (
+        "\n## Exact execution release\n\n"
+        "Execution authorization: one preregistered IFT-00A canary submission only.\n\n"
+        f"- Accepted implementation commit: `{execution_release['accepted_implementation_commit']}`.\n"
+        f"- Immutable run ID: `{execution_release['run_id']}`.\n"
+        f"- Source host: `{execution_release['source_host']}`.\n"
+        f"- Resources (canonical JSON): `{resources}`.\n"
+        "- Single submission: `true`.\n"
+        "- Automatic resubmission: `false`.\n"
+        "- Automatic next experiment: `false`.\n"
+        "- Simulator efficacy claim authorized: `false`.\n"
+        "- Probe or MLP training authorized: `false`.\n\n"
+        "This appendix authorizes only the frozen one-case mechanism canary. "
+        "It does not authorize IFT-01, solver tuning, a simulator efficacy claim, "
+        "label collection, probe training, or MLP training.\n"
+    )
+
+
+def _validate_release_commit(
+    repository: Path,
+    *,
+    observed_commit: str,
+    execution_release: Mapping[str, Any],
+) -> frozenset[str]:
+    """Require a direct, origin-pinned release-only child commit."""
+
+    accepted_implementation_commit = execution_release.get(
+        "accepted_implementation_commit"
+    )
+    if not _is_commit(observed_commit) or not _is_commit(accepted_implementation_commit):
+        raise ValueError("sampled-current release commit identity is invalid")
+    if _git_output(repository, "rev-parse", "HEAD") != observed_commit:
+        raise ValueError("sampled-current release HEAD changed")
+    if _git_output(repository, "rev-parse", RELEASE_BRANCH_REF) != observed_commit:
+        raise ValueError("sampled-current origin release ref changed")
+    parents = _git_output(
+        repository, "rev-list", "--parents", "-n", "1", observed_commit
+    ).split()
+    if parents != [observed_commit, accepted_implementation_commit]:
+        raise ValueError("sampled-current release is not the direct implementation child")
+    for commit in (accepted_implementation_commit, observed_commit):
+        tree_record = _git_output(
+            repository, "ls-tree", commit, "--", APPARATUS_CONFIG_PATH
+        ).split()
+        if len(tree_record) < 3 or tree_record[:2] != ["100644", "blob"]:
+            raise ValueError("sampled-current apparatus config git mode changed")
+    changed = frozenset(
+        line
+        for line in _git_output(
+            repository,
+            "diff",
+            "--name-only",
+            accepted_implementation_commit,
+            observed_commit,
+        ).splitlines()
+        if line
+    )
+    required = {APPARATUS_CONFIG_PATH, RELEASE_DECISION_PATH}
+    if not changed or not required.issubset(changed) or not changed.issubset(
+        RELEASE_ONLY_PATHS
+    ):
+        raise ValueError("sampled-current release commit changed non-release files")
+    try:
+        parent_config = json.loads(
+            _git_output(
+                repository,
+                "show",
+                f"{accepted_implementation_commit}:{APPARATUS_CONFIG_PATH}",
+            )
+        )
+        release_config = _load_object(
+            repository / APPARATUS_CONFIG_PATH,
+            label="sampled-current release apparatus config",
+        )
+    except json.JSONDecodeError as error:
+        raise ValueError("sampled-current parent apparatus config is invalid") from error
+    if (
+        type(parent_config) is not dict
+        or parent_config.get("ready_to_run") is not False
+        or not isinstance(parent_config.get("blocked_on"), list)
+        or not parent_config["blocked_on"]
+        or "execution_release" in parent_config
+    ):
+        raise ValueError("sampled-current implementation parent was not unreleased")
+    for value in (parent_config, release_config):
+        value.pop("ready_to_run", None)
+        value.pop("blocked_on", None)
+        value.pop("execution_release", None)
+    canonical_parent = json.dumps(parent_config, sort_keys=True, separators=(",", ":"))
+    canonical_release = json.dumps(release_config, sort_keys=True, separators=(",", ":"))
+    if canonical_release != canonical_parent:
+        raise ValueError("sampled-current release changed non-release apparatus content")
+    parent_decision = _git_bytes(
+        repository,
+        "show",
+        f"{accepted_implementation_commit}:{RELEASE_DECISION_PATH}",
+    )
+    try:
+        release_decision = (repository / RELEASE_DECISION_PATH).read_bytes()
+    except OSError as error:
+        raise ValueError("sampled-current release decision cannot be read") from error
+    expected_decision = parent_decision + _release_decision_appendix(
+        execution_release
+    ).encode("utf-8")
+    if release_decision != expected_decision:
+        raise ValueError("sampled-current release decision is not the exact appendix")
+    return changed
 
 
 def _atomic_write_json(path: str | Path, value: Mapping[str, Any]) -> Path:
@@ -795,10 +997,14 @@ def build_sampled_current_envelope(
     apparatus_config, config_sha = _load_hashed_object(
         config_path, label="sampled-current apparatus config"
     )
-    if apparatus_config.get("ready_to_run") is not True or apparatus_config.get(
-        "blocked_on"
-    ) != []:
-        raise ValueError("sampled-current apparatus config is not released")
+    release = _validate_execution_release(
+        apparatus_config, run_id=contract["run_id"]
+    )
+    _validate_release_commit(
+        repository,
+        observed_commit=observed_commit,
+        execution_release=release,
+    )
     schema_sha = file_sha256(schema_path)
     if apparatus_config.get("envelope_schema_sha256") != schema_sha:
         raise ValueError("apparatus config envelope-schema binding changed")
@@ -1142,8 +1348,12 @@ def publish_sampled_current_envelope(
 
 __all__ = [
     "BOUND_REPOSITORY_PATHS",
+    "EXECUTION_RELEASE_KEYS",
     "FROZEN_BINDINGS",
     "LEGACY_MEMORY_ONLY_ERRORS",
+    "RELEASE_DECISION_PATH",
+    "RELEASE_ONLY_PATHS",
+    "SOURCE_RESOURCE_CONTRACT",
     "build_sampled_current_envelope",
     "file_sha256",
     "publish_sampled_current_envelope",

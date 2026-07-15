@@ -11,6 +11,9 @@ rewriting the scientific history.
 - `progress/2026-07-15-pre-inverse-flow-pivot.md` is the complete root progress
   record immediately before the inverse-flow-teacher pivot. It remains the
   detailed history for H00--R03A.
+- `progress/2026-07-15-r05a-pre-execution-apparatus.md` preserves IFT-00A
+  attempts A/B, the CPU apparatus regression, CG-00, and the reviewed ADR-0036
+  implementation. It is provenance, not a launch instruction.
 
 ## Local-only cache
 

@@ -72,16 +72,44 @@ class R05ASampledCurrentScienceFreezeTest(unittest.TestCase):
         cls.config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         cls.schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
-    def test_apparatus_config_has_no_execution_identity_and_is_not_released(self) -> None:
+    def test_apparatus_config_is_either_fail_closed_or_exactly_released(self) -> None:
         self.assertEqual(self.config["schema_version"], "1.0")
         self.assertEqual(
             self.config["scientific_role"],
             "telemetry_only_wrapper_around_byte_frozen_ift00a_science",
         )
-        self.assertIs(self.config["ready_to_run"], False)
-        self.assertGreater(len(self.config["blocked_on"]), 0)
-        for mapping in _walk_dicts(self.config):
-            self.assertNotIn("run_id", mapping)
+        self.assertIs(type(self.config["ready_to_run"]), bool)
+        if self.config["ready_to_run"] is False:
+            self.assertGreater(len(self.config["blocked_on"]), 0)
+            self.assertNotIn("execution_release", self.config)
+            for mapping in _walk_dicts(self.config):
+                self.assertNotIn("run_id", mapping)
+        else:
+            self.assertEqual(self.config["blocked_on"], [])
+            release = self.config["execution_release"]
+            self.assertEqual(
+                set(release),
+                {
+                    "schema_version",
+                    "artifact_role",
+                    "decision_artifact",
+                    "accepted_implementation_commit",
+                    "run_id",
+                    "single_submission",
+                    "source_host",
+                    "resources",
+                    "release_only_parent_required",
+                    "allowed_release_diff_paths",
+                    "automatic_resubmission_allowed",
+                    "automatic_next_experiment_allowed",
+                },
+            )
+            self.assertRegex(release["accepted_implementation_commit"], r"^[0-9a-f]{40}$")
+            self.assertRegex(release["run_id"], r"^[A-Za-z0-9._-]+$")
+            self.assertIs(release["single_submission"], True)
+            self.assertEqual(release["source_host"], "worker-1")
+            self.assertIs(release["automatic_resubmission_allowed"], False)
+            self.assertIs(release["automatic_next_experiment_allowed"], False)
         self.assertEqual(
             self.config["envelope_schema_sha256"], _sha256(SCHEMA_PATH)
         )

@@ -17,6 +17,8 @@ set -euo pipefail
 : "${REMOTE_REPO:=/home/quanth/working_space/vlsa-aegis-crfs}"
 : "${LIBERO_PYTHON:=/mnt/data/quanth/venvs/openpi-libero-client/bin/python}"
 
+APPARATUS_CONFIG=$REMOTE_REPO/configs/experiments/r05a_sampled_current_canary_apparatus.json
+
 test "$SLURM_JOB_PARTITION" = main || { echo "sampled-current publisher is frozen to main" >&2; exit 2; }
 test "${SLURM_CPUS_PER_TASK:-}" = 2 || { echo "sampled-current publisher requires two CPUs" >&2; exit 2; }
 test "${SLURM_MEM_PER_NODE:-0}" = 8192 || { echo "sampled-current publisher requires exactly 8 GiB" >&2; exit 2; }
@@ -42,6 +44,50 @@ test -z "$(git -C "$REMOTE_REPO" status --porcelain)" || {
   echo "publisher requires a clean remote tree" >&2
   exit 2
 }
+test -f "$APPARATUS_CONFIG" || { echo "publisher apparatus config is missing" >&2; exit 2; }
+REGISTERED_RUN_ID=$(jq -er '.execution_release.run_id' "$APPARATUS_CONFIG")
+ACCEPTED_IMPLEMENTATION_COMMIT=$(jq -er '.execution_release.accepted_implementation_commit' "$APPARATUS_CONFIG")
+SOURCE_RUN_ID=$(jq -er '.run_id' "$SOURCE_CONTRACT")
+test "$SOURCE_RUN_ID" = "$REGISTERED_RUN_ID" || {
+  echo "publisher source run ID differs from the exact execution release" >&2
+  exit 2
+}
+jq -e --arg run "$REGISTERED_RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT" \
+  '.ready_to_run == true and .blocked_on == []
+   and ((.execution_release | keys | sort) == (["schema_version","artifact_role","decision_artifact","accepted_implementation_commit","run_id","single_submission","source_host","resources","release_only_parent_required","allowed_release_diff_paths","automatic_resubmission_allowed","automatic_next_experiment_allowed"] | sort))
+   and .execution_release.schema_version == "1.0"
+   and .execution_release.artifact_role == "r05a_single_canary_execution_release"
+   and .execution_release.decision_artifact == "docs/decisions/0037-require-exact-single-canary-release-identity.md"
+   and .execution_release.accepted_implementation_commit == $implementation
+   and .execution_release.run_id == $run
+   and .execution_release.single_submission == true
+   and .execution_release.source_host == "worker-1"
+   and .execution_release.resources == {partition:"main",account:"normal",qos:"normal",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}
+   and .execution_release.release_only_parent_required == true
+   and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_sampled_current_canary_apparatus.json","docs/decisions/0037-require-exact-single-canary-release-identity.md"]
+   and .execution_release.automatic_resubmission_allowed == false
+   and .execution_release.automatic_next_experiment_allowed == false' \
+  "$APPARATUS_CONFIG" >/dev/null || {
+    echo "publisher execution release contract changed" >&2
+    exit 2
+  }
+test "$(git -C "$REMOTE_REPO" rev-parse refs/remotes/origin/agent/crfs-oracle-harness)" = "$EXPECTED_GIT_COMMIT" || {
+  echo "publisher origin release ref changed" >&2
+  exit 2
+}
+test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" = "$EXPECTED_GIT_COMMIT $ACCEPTED_IMPLEMENTATION_COMMIT" || {
+  echo "publisher release parent changed" >&2
+  exit 2
+}
+APPARATUS_CONFIG_SHA256=$(sha256sum "$APPARATUS_CONFIG" | awk '{print $1}')
+jq -e --arg run "$REGISTERED_RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg config_sha "$APPARATUS_CONFIG_SHA256" \
+  '.run_id == $run
+   and .git_commit == $commit
+   and .repository_file_sha256["configs/experiments/r05a_sampled_current_canary_apparatus.json"] == $config_sha' \
+  "$SOURCE_CONTRACT" >/dev/null || {
+    echo "publisher source contract does not bind the execution release" >&2
+    exit 2
+  }
 publisher_job_record=$(scontrol show job "$SLURM_JOB_ID" -o)
 for field in \
   "JobState=RUNNING" \

@@ -93,6 +93,29 @@ def _write_json(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _released_apparatus_config(
+    *, run_id: str, accepted_implementation_commit: str = "a" * 40
+) -> dict:
+    config = json.loads(APPARATUS_CONFIG.read_text(encoding="utf-8"))
+    config["ready_to_run"] = True
+    config["blocked_on"] = []
+    config["execution_release"] = {
+        "schema_version": "1.0",
+        "artifact_role": "r05a_single_canary_execution_release",
+        "decision_artifact": publication.RELEASE_DECISION_PATH,
+        "accepted_implementation_commit": accepted_implementation_commit,
+        "run_id": run_id,
+        "single_submission": True,
+        "source_host": publication.SOURCE_NODE,
+        "resources": dict(publication.SOURCE_RESOURCE_CONTRACT),
+        "release_only_parent_required": True,
+        "allowed_release_diff_paths": list(publication.RELEASE_ONLY_PATHS),
+        "automatic_resubmission_allowed": False,
+        "automatic_next_experiment_allowed": False,
+    }
+    return config
+
+
 def _source_contract_fixture(root: Path, *, source_job_id: str = "123") -> dict:
     experiment_root = (root / "experiments").resolve()
     experiment_root.mkdir()
@@ -414,12 +437,23 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
 
     def test_implementation_commit_is_fail_closed_before_remote_submission(self) -> None:
         config = json.loads(APPARATUS_CONFIG.read_text(encoding="utf-8"))
-        self.assertIs(config["ready_to_run"], False)
-        self.assertGreater(len(config["blocked_on"]), 0)
+        if config["ready_to_run"] is False:
+            self.assertGreater(len(config["blocked_on"]), 0)
+            environment = {**os.environ, "RUN_ID": "must-not-be-consumed"}
+            expected_error = "not released for H100 submission"
+        else:
+            self.assertEqual(config["blocked_on"], [])
+            registered = config["execution_release"]["run_id"]
+            environment = {
+                **os.environ,
+                "RUN_ID": registered + "-alternate-must-not-be-consumed",
+                "EXPECTED_RELEASE_COMMIT": "0" * 40,
+            }
+            expected_error = "not the exact registered canary identity"
         completed = subprocess.run(
             ["bash", str(SUBMITTER)],
             cwd=ROOT,
-            env={**os.environ, "RUN_ID": "must-not-be-consumed"},
+            env=environment,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -427,7 +461,277 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
             check=False,
         )
         self.assertEqual(completed.returncode, 2, completed.stderr)
-        self.assertIn("not released for H100 submission", completed.stderr)
+        self.assertIn(expected_error, completed.stderr)
+
+    def test_exact_execution_release_validator_rejects_identity_and_resource_drift(self) -> None:
+        run_id = "r05a-exact-release-fixture"
+        valid = _released_apparatus_config(run_id=run_id)
+        observed = publication._validate_execution_release(valid, run_id=run_id)
+        self.assertEqual(observed, valid["execution_release"])
+
+        mutations = {
+            "alternate_run_id": lambda value: value["execution_release"].__setitem__(
+                "run_id", run_id + "-alternate"
+            ),
+            "path_segment_run_id": lambda value: value["execution_release"].__setitem__(
+                "run_id", ".."
+            ),
+            "extra_key": lambda value: value["execution_release"].__setitem__(
+                "unexpected", False
+            ),
+            "invalid_commit": lambda value: value["execution_release"].__setitem__(
+                "accepted_implementation_commit", "not-a-commit"
+            ),
+            "worker_change": lambda value: value["execution_release"].__setitem__(
+                "source_host", "worker-2"
+            ),
+            "release_memory_change": lambda value: value["execution_release"][
+                "resources"
+            ].__setitem__("host_memory_mib", 131072),
+            "apparatus_memory_change": lambda value: value["resource_contract"].__setitem__(
+                "host_memory_mib", 131072
+            ),
+            "allowlist_change": lambda value: value["execution_release"][
+                "allowed_release_diff_paths"
+            ].append("main/unsafe.py"),
+            "resubmission_enabled": lambda value: value["execution_release"].__setitem__(
+                "automatic_resubmission_allowed", True
+            ),
+            "next_gate_enabled": lambda value: value["execution_release"].__setitem__(
+                "automatic_next_experiment_allowed", True
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                changed = json.loads(json.dumps(valid))
+                mutate(changed)
+                with self.assertRaises(ValueError):
+                    publication._validate_execution_release(changed, run_id=run_id)
+
+        unreleased = json.loads(APPARATUS_CONFIG.read_text(encoding="utf-8"))
+        with self.assertRaisesRegex(ValueError, "not released"):
+            publication._validate_execution_release(unreleased, run_id=run_id)
+
+    def test_release_commit_requires_single_parent_allowlist_and_config_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory)
+            subprocess.run(["git", "init", "-q", str(repository)], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "config", "user.email", "test@example.com"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(repository), "config", "user.name", "R05A Test"],
+                check=True,
+            )
+            config_path = repository / publication.APPARATUS_CONFIG_PATH
+            decision_path = repository / publication.RELEASE_DECISION_PATH
+            config_path.parent.mkdir(parents=True)
+            decision_path.parent.mkdir(parents=True)
+            parent_config = {
+                "ready_to_run": False,
+                "blocked_on": ["release_identity_not_selected"],
+                "stable_science": {"solver": "frozen", "iterations": 128},
+            }
+            _write_json(config_path, parent_config)
+            decision_path.write_text("execution unreleased\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "commit", "-q", "-m", "implementation"],
+                check=True,
+            )
+            implementation = subprocess.run(
+                ["git", "-C", str(repository), "rev-parse", "HEAD"],
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip()
+
+            released = dict(parent_config)
+            released["ready_to_run"] = True
+            released["blocked_on"] = []
+            execution_release = _released_apparatus_config(
+                run_id="fixture",
+                accepted_implementation_commit=implementation,
+            )["execution_release"]
+            released["execution_release"] = execution_release
+            _write_json(config_path, released)
+            decision_path.write_text(
+                "execution unreleased\n"
+                + publication._release_decision_appendix(execution_release),
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "commit", "-q", "-m", "release"],
+                check=True,
+            )
+            release = subprocess.run(
+                ["git", "-C", str(repository), "rev-parse", "HEAD"],
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip()
+            subprocess.run(
+                ["git", "-C", str(repository), "update-ref", publication.RELEASE_BRANCH_REF, release],
+                check=True,
+            )
+            changed = publication._validate_release_commit(
+                repository,
+                observed_commit=release,
+                execution_release=execution_release,
+            )
+            self.assertEqual(
+                changed,
+                {publication.APPARATUS_CONFIG_PATH, publication.RELEASE_DECISION_PATH},
+            )
+
+            exact_release_decision = decision_path.read_text(encoding="utf-8")
+            decision_mutations = {
+                "trailing_claim": exact_release_decision
+                + "unauthorized trailing claim\n",
+                "parent_rewrite": exact_release_decision.replace(
+                    "execution unreleased", "execution already authorized", 1
+                ),
+                "run_id_mismatch": exact_release_decision.replace(
+                    "Immutable run ID: `fixture`",
+                    "Immutable run ID: `fixture-drift`",
+                    1,
+                ),
+            }
+            for name, tampered_decision in decision_mutations.items():
+                with self.subTest(decision_tamper=name):
+                    decision_path.write_text(tampered_decision, encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "exact appendix"):
+                        publication._validate_release_commit(
+                            repository,
+                            observed_commit=release,
+                            execution_release=execution_release,
+                        )
+            decision_path.write_text(exact_release_decision, encoding="utf-8")
+
+            subprocess.run(
+                ["git", "-C", str(repository), "checkout", "-q", "-b", "bad-content", implementation],
+                check=True,
+            )
+            changed_release = dict(released)
+            changed_release["stable_science"] = {"solver": "changed", "iterations": 128}
+            _write_json(config_path, changed_release)
+            decision_path.write_text("bad content release\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "commit", "-q", "-m", "bad content"],
+                check=True,
+            )
+            bad_content = subprocess.run(
+                ["git", "-C", str(repository), "rev-parse", "HEAD"],
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip()
+            subprocess.run(
+                ["git", "-C", str(repository), "update-ref", publication.RELEASE_BRANCH_REF, bad_content],
+                check=True,
+            )
+            with self.assertRaisesRegex(ValueError, "non-release apparatus content"):
+                publication._validate_release_commit(
+                    repository,
+                    observed_commit=bad_content,
+                    execution_release=execution_release,
+                )
+
+            subprocess.run(
+                ["git", "-C", str(repository), "checkout", "-q", "-b", "bad-path", implementation],
+                check=True,
+            )
+            _write_json(config_path, released)
+            decision_path.write_text("bad path release\n", encoding="utf-8")
+            outside = repository / "main" / "unsafe.py"
+            outside.parent.mkdir(parents=True)
+            outside.write_text("unsafe = True\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(repository), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(repository), "commit", "-q", "-m", "bad path"],
+                check=True,
+            )
+            bad_path = subprocess.run(
+                ["git", "-C", str(repository), "rev-parse", "HEAD"],
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip()
+            subprocess.run(
+                ["git", "-C", str(repository), "update-ref", publication.RELEASE_BRANCH_REF, bad_path],
+                check=True,
+            )
+            with self.assertRaisesRegex(ValueError, "non-release files"):
+                publication._validate_release_commit(
+                    repository,
+                    observed_commit=bad_path,
+                    execution_release=execution_release,
+                )
+
+            with (
+                mock.patch.object(
+                    publication,
+                    "_git_output",
+                    side_effect=(
+                        bad_path,
+                        bad_path,
+                        f"{bad_path} {implementation} {'c' * 40}",
+                    ),
+                ),
+                self.assertRaisesRegex(ValueError, "direct implementation child"),
+            ):
+                publication._validate_release_commit(
+                    repository,
+                    observed_commit=bad_path,
+                    execution_release=execution_release,
+                )
+
+    def test_release_identity_checks_precede_every_side_effect_boundary(self) -> None:
+        source = SUBMITTER.read_text(encoding="utf-8")
+        local_identity_checks = (
+            'test "$RUN_ID" = "$REGISTERED_RUN_ID"',
+            'test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_COMMIT"',
+            'git rev-parse refs/remotes/origin/agent/crfs-oracle-harness',
+            'git rev-list --parents -n 1 "$EXPECTED_RELEASE_COMMIT"',
+            'release commit changed non-release apparatus content',
+            'release decision is not the exact canonical appendix',
+        )
+        preflight = source.index("scripts/hpc/preflight.sh")
+        ssh = source.index('ssh "$HOST" bash -s --')
+        for fragment in local_identity_checks:
+            with self.subTest(local=fragment):
+                position = source.index(fragment)
+                self.assertLess(position, preflight)
+                self.assertLess(position, ssh)
+
+        remote = source[source.index("set -euo pipefail", ssh) :]
+        mkdir = remote.index('mkdir "$run_root"')
+        first_sbatch = remote.index("sbatch --parsable --hold")
+        for fragment in (
+            "remote origin release ref mismatch",
+            "remote release is not the direct implementation child",
+            "remote release changed non-release apparatus content",
+            "remote release decision is not the exact canonical appendix",
+            "remote execution release contract changed",
+            'test ! -e "$run_root"',
+            "sampled-current canary not submitted: user queue is not empty",
+            "worker-1 FreeMem=",
+        ):
+            with self.subTest(remote=fragment):
+                position = remote.index(fragment)
+                self.assertLess(position, mkdir)
+                self.assertLess(position, first_sbatch)
+
+        decision = publication.RELEASE_DECISION_PATH
+        self.assertIn(decision, publication.BOUND_REPOSITORY_PATHS)
+        self.assertIn(decision, source)
+        for wrapper in (H100_WRAPPER, CPU_WRAPPER):
+            wrapper_source = wrapper.read_text(encoding="utf-8")
+            self.assertIn("execution_release.run_id", wrapper_source)
+            self.assertIn("accepted_implementation_commit", wrapper_source)
 
     def test_builder_literal_keys_cover_every_closed_schema_object(self) -> None:
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
@@ -601,9 +905,10 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
 
             def released_config_loader(path, *, label):
                 if Path(path) == APPARATUS_CONFIG:
-                    config = json.loads(APPARATUS_CONFIG.read_text(encoding="utf-8"))
-                    config["ready_to_run"] = True
-                    config["blocked_on"] = []
+                    config = _released_apparatus_config(
+                        run_id=run_id,
+                        accepted_implementation_commit="a" * 40,
+                    )
                     return config, publication.file_sha256(APPARATUS_CONFIG)
                 return original_loader(path, label=label)
 
@@ -641,6 +946,11 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
                         publication, "_load_hashed_object", side_effect=released_config_loader
                     ),
                     mock.patch.object(publication.subprocess, "run", side_effect=git_result),
+                    mock.patch.object(
+                        publication,
+                        "_validate_release_commit",
+                        return_value=frozenset(publication.RELEASE_ONLY_PATHS[:2]),
+                    ),
                     mock.patch.object(publication, "_validate_schema", return_value=[]),
                 ):
                     envelope = publication.build_sampled_current_envelope(

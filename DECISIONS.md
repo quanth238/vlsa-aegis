@@ -36,3 +36,4 @@
 - [0034 — Recompute R05A status from exact artifact traces](docs/decisions/0034-recompute-r05a-status-from-exact-artifact-traces.md)
 - [0035 — Preregister the R05A sampled-current capability gate](docs/decisions/0035-preregister-r05a-sampled-current-capability-gate.md)
 - [0036 — Preregister the R05A full-lifetime sampled-current canary](docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md)
+- [0037 — Require an exact single-canary execution identity](docs/decisions/0037-require-exact-single-canary-release-identity.md)
