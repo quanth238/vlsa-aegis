@@ -1,5 +1,10 @@
 # Oracle experiment protocol
 
+> **Current status (2026-07-15):** The endpoint-preserving pilot and R00--R04
+> sections below are historical protocol records. ADR-0028 makes R05A
+> inverse-flow teacher transport the only active gate. Historical commands and
+> stop rules must not be treated as current launch authorization.
+
 ## Registered pilot
 
 - Baseline: VLSA-Aegis plus π0.5 LIBERO checkpoint.
@@ -194,7 +199,8 @@ and registered 5 mm boundary coverage are required before training.
 
 Allocation-backed task `27514_0` and independent Slurm validator `27516`
 passed this contract; see ADR-0018 and `evidence/r04a/`. The row remains
-apparatus-only, and the R04 feature remains active rather than passing.
+apparatus-only. R04 was active at that historical transition and is now blocked
+and superseded by R05A under ADR-0028.
 
 ### R04B: exact saved-latent resume/edit parity
 
@@ -246,3 +252,44 @@ passes only with zero errors (`UCB_95=0.09503`); one error gives `0.14860`.
 Separate nominal minimum counts do not establish joint power, so simulate the
 probability that all registered conditions pass before fixing the final
 manifest.
+
+### R05A: inverse-flow teacher transport pivot
+
+ADR-0028 supersedes the prospective scalar-clearance experiment without
+changing or reinterpreting R01--R03 evidence. R03A remains a valid one-case
+analytic diagnostic but its registered population is retired unrun.
+
+R05A reuses the 17 R03 groups only as a development transport diagnostic. For
+each case, reconstruct the fresh paired frozen normalized terminal action and
+add the scale-only normalized first-five XYZ displacement to the immutable R01
+safe-progress witness. Directly reconfirm that fresh paired target twice before
+interpreting any teacher control.
+
+The inverse solver operates only through the frozen pi0.5 sampler. It receives
+the observation, instruction, explicit noise, and paired target, but no
+simulator outcome, obstacle geometry, clearance energy, or planner query.
+The ten-row schedule has `u_0` through `u_4` exactly zero; only sampler steps
+5--9 are active, exactly matching the R03 constant-residual interval. Every
+control is exactly zero outside the first-five XYZ coordinates. With
+`c_k = dt*u_k`, bind total path to `sum ||c_k||_2 <= B`, where `B` is the paired
+R03 target-displacement norm, and cap each active step at `B/5`. A terminal
+overwrite, clipping, or a larger budget is a failure.
+
+IFT-00 passed locally with 17 dependency-backed PyTorch tests and the complete
+413-test harness gate; `evidence/r05a/ift00-synthetic.json` is implementation
+evidence only. Before the scientific three-case smoke, IFT-00A runs one
+apparatus-only allocation on source-pinned case `crfs-1069f29a8d76463a`. It
+must validate real sampler integration, deterministic canonical replay, target
+pairing, absent parameter gradients, and measured host/GPU memory without
+executing a teacher-generated action in the simulator.
+
+The fixed three-case smoke and 17-case GO rules are recorded in ADR-0028 and
+`EXPERIMENTS.md`. Every case retains frozen, fresh direct target, constant
+residual, inverse teacher, and reversed-control-time diagnostic arms with exact
+state/observation/noise/horizon pairing. Optimize controls before any efficacy
+rollout and record that the simulator-call count during solving is zero.
+
+R05A cannot train or authorize a student from these cases. Only a passing
+17-case teacher result may authorize a new protocol on untouched official
+state groups. That future protocol must repeat baseline/direct/teacher transfer
+before splitting and must keep all source-state descendants in one split.

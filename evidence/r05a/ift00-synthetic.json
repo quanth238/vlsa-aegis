@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "gate": "IFT-00",
+  "status": "passed",
+  "evidence_class": "synthetic_implementation_only",
+  "scientific_claim_authorized": false,
+  "robot_or_pi05_executed": false,
+  "environment": {
+    "python": "3.11.6",
+    "torch": "2.7.1",
+    "numpy": "1.26.4",
+    "platform": "macOS arm64",
+    "isolated_environment": ".harness/venv-ift00"
+  },
+  "implementation": {
+    "module": "openpi/src/openpi/models_pytorch/crfs_inverse_control.py",
+    "module_sha256": "965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8",
+    "test": "tests/test_inverse_flow_control.py",
+    "test_sha256": "d055fea1dd449a015d790ace0dee5291287a1dd2099128b8b119fb9de777c511"
+  },
+  "focused_test_gate": {
+    "command": ".harness/venv-ift00/bin/python -m unittest tests.test_inverse_flow_control -v",
+    "tests_run": 17,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "nonlinear_transport_sentinel": {
+    "constant_residual_max_abs_target_error": 0.048832000000000014,
+    "teacher_status_code": 0,
+    "teacher_iterations": 128,
+    "teacher_xyz_max_abs_target_error": 4.512671958264991e-06,
+    "teacher_xyz_rms_target_error": 1.1651668894171681e-06,
+    "model_l2_budget": 0.1,
+    "teacher_path_length": 0.06719288370240156,
+    "teacher_schedule_sha256": "d977cf6754ce13146b75200b16d3fbe4aa566aeb4ed3a37a87e476f183318b5e",
+    "duplicate_schedule_sha256": "d977cf6754ce13146b75200b16d3fbe4aa566aeb4ed3a37a87e476f183318b5e",
+    "duplicate_final_bit_equal": true
+  },
+  "coupled_zero_initial_control_sentinel": {
+    "called_under_outer_no_grad": true,
+    "teacher_status_code": 0,
+    "discovered_y_velocity_max_abs": 0.09955282296928707,
+    "frozen_parameter_grad_is_none": true
+  },
+  "time_grid_sentinel": {
+    "float32_step_5_time": 0.49999991059303284,
+    "little_endian_float32_hex": "fdffff3e",
+    "construction": "iterative time += dt, matching PI0Pytorch.sample_actions"
+  },
+  "full_local_gate": {
+    "command": "./init.sh",
+    "tests_run": 413,
+    "failures": 0,
+    "errors": 0,
+    "dependency_skips": 152,
+    "artifact_audit": "passed",
+    "diff_check": "passed"
+  },
+  "interpretation": "The constrained inverse-control implementation and its failure contracts work on deterministic synthetic fields. This is not evidence that pi0.5 transport, robot safety, task progress, or a learned student works."
+}

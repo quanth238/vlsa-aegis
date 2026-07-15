@@ -11,10 +11,16 @@ five-action and all 20 ten-action repairs analytically infeasible. R00/R01 then
 showed endpoint-free safe-progress actions for 17/20 pregrasp reach states.
 R02/R03 passed the preregistered oracle-steerability and analysis gates: the
 distributed oracle residual passed 9/17 eligible cases versus 0/17 for matched
-random and registered analytic controls. R03A is now the only active gate: it
-tests two stronger, recomputed analytic trajectory fields on those same 17
-development groups before any probe training. R04 is blocked until R03A is
-resolved and a transport-valid untouched source population is frozen.
+random and registered analytic controls. A valid R03A smoke showed that two
+stronger analytic fields avoided contact on one case but lost task progress;
+ADR-0028 intentionally retires its unlaunched population because it does not
+test the selected action-to-flow transport hypothesis. R05A is now the only
+active gate: it tests whether the safe-progress action target can be converted
+through the exact frozen sampler into a budgeted time-dependent residual
+velocity sequence. No probe or residual-field MLP has been trained.
+IFT-00 now passes as synthetic implementation evidence; the next gate is a
+one-case, no-efficacy allocation canary that measures real sampler integration
+and memory before any robot rollout.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -51,8 +57,9 @@ No-control sampler calls retain the baseline return type and integration path.
 
 ## Evidence ladder
 
-The completed CRFS sequence is H00–H10; the endpoint-free pivot is R00–R04 in
-`feature_list.json`. R00–R03 are passing, R03A is active, and R04 is blocked.
+The completed CRFS sequence is H00–H10; the endpoint-free sequence and current
+transport pivot are R00–R05A in `feature_list.json`. R00–R03 are passing,
+R03A/R04 are historical blocked gates, and R05A is active.
 
 ```text
 baseline + provenance + replay
@@ -69,8 +76,9 @@ paired oracle intervention -> population analysis -> go / stop
 H05 endpoint contradiction -> R00 progress calibration
                               -> R01 endpoint-free feasibility
                               -> R02/R03 oracle steerability and analysis
-                              -> R03A strong-analytic necessity test
-                              -> R04 learned probe only if prerequisites pass
+                              -> R03A one-case analytic diagnostic (retired)
+                              -> R05A inverse-flow teacher transport
+                              -> student study only after new-state prerequisites
 ```
 
 The dependency-free synthetic fixture checks implementation only. Real artifacts
@@ -93,16 +101,18 @@ make synthetic
 
 Real execution uses the existing two-environment baseline boundary: Python 3.11/PyTorch for the OpenPI server and the LIBERO client environment for simulation. Both processes run inside one Slurm allocation; the transient server is terminated by a shell trap.
 
-The R00–R04A allocation evidence and exact Slurm job IDs are recorded in
-`PROGRESS.md` and `evidence/`. There is intentionally no R04 training command.
+The R00–R04B allocation evidence and exact Slurm job IDs are recorded in the
+archived detailed progress record and `evidence/`. There is intentionally no
+R04 or R05A training command.
 R04A verified real sampler-trace to physical-action to raw-simulator-label
 plumbing on one reused R00 state; it cannot support a learning or efficacy
 claim. R04B is limited to one exact post-edit continuation/parity smoke and
-does not execute a guidance outcome. Claim-bearing R04 still requires genuinely
-new source-episode groups from a defined estimand, a frozen group-preserving
-split, support-matched perturbations, powered boundary and false-safe coverage,
-gradient causality, and matched controls. Run live preflight immediately before
-every submission.
+does not execute a guidance outcome. ADR-0028 keeps that apparatus available
+but blocks the scalar-probe study while R05A tests action-to-flow teacher
+transport. Any later student study still requires genuinely new source-episode
+groups from a defined estimand, a frozen group-preserving split, support-matched
+coverage, and matched controls. Run live preflight immediately before every
+submission.
 
 The detailed procedure is in [the experiment protocol](docs/experiment_protocol.md) and [VinUni runbook](docs/infrastructure/vinuni_h100_runbook.md).
 
@@ -116,7 +126,9 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0020-accept-r04b-focus-direct-probe-test.md`: passed R04B evidence and frozen direct research question;
 - `docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md`: new-state identity, canary, and direct privileged-transfer stop rule;
 - `docs/decisions/0023-run-strong-analytic-kill-test.md`: frozen no-learning R03A necessity test;
-- `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: allocation-backed smoke evidence and exact grouped-population launch contract;
+- `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: historical allocation-backed smoke evidence and the now-retired grouped-population launch contract;
+- `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: current controlled pivot and R05A stop rules;
+- `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;
 - `evidence/r04b/r04b-validation.json`: compact exact-resume allocation/validator record;
 - `references.bib`: bibliography;

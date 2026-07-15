@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from collections.abc import Sequence
+from dataclasses import fields
 import logging
 import pathlib
 import time
@@ -16,10 +17,28 @@ from typing_extensions import override
 
 from openpi import transforms as _transforms
 from openpi.models import model as _model
+from openpi.models_pytorch.crfs_inverse_control import InverseControlConfig
 from openpi.shared import array_typing as at
 from openpi.shared import nnx_utils
 
 BasePolicy: TypeAlias = _base_policy.BasePolicy
+
+_IFT00A_INVERSE_CONFIG_VALUES: dict[str, Any] = {
+    "num_steps": 10,
+    "intervention_step": 5,
+    "dt": -0.1,
+    "max_iterations": 128,
+    "learning_rate": 0.02,
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "adam_epsilon": 1.0e-8,
+    "xyz_max_abs_tolerance": 0.010,
+    "xyz_rms_tolerance": 0.005,
+    "full_max_abs_tolerance": 0.050,
+    "full_rms_tolerance": 0.015,
+    "constraint_slack_ulps": 8,
+    "stop_on_first_feasible": False,
+}
 
 
 class Policy(BasePolicy):
@@ -81,6 +100,8 @@ class Policy(BasePolicy):
         # experiment controls in a reserved envelope and remove it before the
         # normal dataset/model transforms see the observation.
         crfs_controls = inputs.pop("__crfs__", None)
+        if crfs_controls is not None and not isinstance(crfs_controls, Mapping):
+            raise ValueError("Reserved __crfs__ controls must be a mapping")
         if crfs_controls is not None and not self._is_pytorch_model:
             raise ValueError("CRFS oracle controls are currently supported only by the PyTorch sampler")
         inputs = self._input_transform(inputs)
@@ -105,7 +126,23 @@ class Policy(BasePolicy):
             return_normalized_final = bool(crfs_controls.get("return_normalized_final", False))
             correction = crfs_controls.get("correction")
             resume_control_names = ("resume_latent", "resume_time", "latent_edit")
-            if intervention_mode == "analytic_trajectory_field":
+            inverse_control_names = ("target", "target_space", "solver_config", "model_to_physical_scale")
+            schedule_control_names = ("schedule", "schedule_space", "model_l2_path_budget")
+            if intervention_mode == "inverse_flow_teacher":
+                inverse_kwargs, noise = self._inverse_flow_teacher_sample_kwargs(
+                    crfs_controls,
+                    noise,
+                    noise_argument_supplied=noise_argument_supplied,
+                )
+                sample_kwargs.update(inverse_kwargs)
+            elif intervention_mode == "residual_schedule":
+                schedule_kwargs, noise = self._residual_schedule_sample_kwargs(
+                    crfs_controls,
+                    noise,
+                    noise_argument_supplied=noise_argument_supplied,
+                )
+                sample_kwargs.update(schedule_kwargs)
+            elif intervention_mode == "analytic_trajectory_field":
                 analytic_kwargs, noise = self._analytic_field_sample_kwargs(
                     crfs_controls,
                     noise,
@@ -161,6 +198,11 @@ class Policy(BasePolicy):
                     sample_kwargs[sample_name] = value
             elif any(name in crfs_controls for name in (*resume_control_names, "latent_edit_space")):
                 raise ValueError("CRFS resume controls are valid only for latent_resume_edit")
+            elif any(name in crfs_controls for name in (*inverse_control_names, *schedule_control_names)):
+                raise ValueError(
+                    "CRFS inverse target and schedule controls require "
+                    "intervention_mode='inverse_flow_teacher' or 'residual_schedule'"
+                )
 
             if correction is not None:
                 correction = np.array(correction, dtype=np.float32, copy=True)
@@ -210,6 +252,12 @@ class Policy(BasePolicy):
         trace = None
         if isinstance(sampled, tuple):
             sampled, trace = sampled
+        is_inverse_flow_mode = sample_kwargs.get("crfs_intervention_mode") in {
+            "inverse_flow_teacher",
+            "residual_schedule",
+        }
+        if is_inverse_flow_mode and trace is None:
+            raise RuntimeError("CRFS inverse-flow sampler did not return its required audit trace")
         outputs = {
             "state": inputs["state"],
             "actions": sampled,
@@ -222,6 +270,8 @@ class Policy(BasePolicy):
 
         if trace is not None:
             trace = jax.tree.map(lambda x: np.asarray(x[0, ...].detach().cpu()), trace)
+            if is_inverse_flow_mode and "final_normalized" not in trace:
+                raise RuntimeError("CRFS inverse-flow audit trace is missing final_normalized")
             # ``predicted_clean`` is an absolute model action, so its physical
             # representation must use the complete existing inverse output
             # transform, including the normalization offset.  This is distinct
@@ -248,7 +298,8 @@ class Policy(BasePolicy):
             # this opt-in trace leaf to prove that the audited Euler trajectory
             # is the trajectory that the simulator actually executes.
             if (
-                sample_kwargs.get("crfs_intervention_mode") == "analytic_trajectory_field"
+                sample_kwargs.get("crfs_intervention_mode")
+                in {"analytic_trajectory_field", "inverse_flow_teacher", "residual_schedule"}
                 and "final_normalized" in trace
             ):
                 final_physical = self._output_transform(
@@ -259,12 +310,310 @@ class Policy(BasePolicy):
                 )
                 trace["final_normalized_physical"] = np.asarray(final_physical["actions"])
         outputs = self._output_transform(outputs)
+        if is_inverse_flow_mode:
+            audited_actions = np.ascontiguousarray(
+                np.asarray(trace["final_normalized_physical"])
+            )
+            returned_actions = np.ascontiguousarray(np.asarray(outputs["actions"]))
+            if not (
+                audited_actions.shape == returned_actions.shape
+                and audited_actions.dtype == returned_actions.dtype
+                and audited_actions.tobytes() == returned_actions.tobytes()
+            ):
+                raise RuntimeError(
+                    "CRFS inverse-flow audited final state is not byte-exact to returned physical actions"
+                )
         if trace is not None:
             outputs["crfs_trace"] = trace
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,
         }
         return outputs
+
+    def _strict_crfs_noise(
+        self,
+        controls: Mapping[str, Any],
+        noise: np.ndarray | None,
+        *,
+        noise_argument_supplied: bool,
+        mode: str,
+    ) -> np.ndarray:
+        """Validate the single explicit float32 noise source for an R05A arm."""
+
+        if noise_argument_supplied and "noise" in controls:
+            raise ValueError(f"CRFS {mode} accepts paired noise from exactly one source")
+        if noise is None:
+            raise ValueError(f"CRFS {mode} requires explicit paired noise")
+        action_shape = (int(self._model.config.action_horizon), int(self._model.config.action_dim))
+        noise_array = np.asarray(noise)
+        if noise_array.dtype != np.dtype(np.float32):
+            raise ValueError(f"CRFS {mode} paired noise must preserve float32 dtype, got {noise_array.dtype}")
+        if noise_array.shape != action_shape:
+            raise ValueError(
+                f"CRFS {mode} paired noise must have unbatched shape {action_shape}, got {noise_array.shape}"
+            )
+        if not bool(np.isfinite(noise_array).all()):
+            raise ValueError(f"CRFS {mode} paired noise contains a nonfinite value")
+        return np.array(noise_array, copy=True)
+
+    def _inverse_flow_config(self, raw_config: Any) -> InverseControlConfig:
+        """Parse the complete, immutable IFT-00A solver configuration."""
+
+        if not isinstance(raw_config, Mapping):
+            raise ValueError("CRFS inverse_flow_teacher solver_config must be a mapping")
+        expected_keys = {field.name for field in fields(InverseControlConfig)}
+        supplied_keys = set(raw_config)
+        unknown = supplied_keys - expected_keys
+        missing = expected_keys - supplied_keys
+        if unknown:
+            raise ValueError(
+                f"CRFS inverse_flow_teacher solver_config has unsupported keys: {sorted(unknown)}"
+            )
+        if missing:
+            raise ValueError(
+                f"CRFS inverse_flow_teacher solver_config is missing required keys: {sorted(missing)}"
+            )
+        if expected_keys != set(_IFT00A_INVERSE_CONFIG_VALUES):
+            raise RuntimeError("Policy IFT-00A config is out of sync with InverseControlConfig")
+
+        values: dict[str, Any] = {}
+        for field in fields(InverseControlConfig):
+            value = raw_config[field.name]
+            expected = _IFT00A_INVERSE_CONFIG_VALUES[field.name]
+            if isinstance(expected, bool):
+                if not isinstance(value, (bool, np.bool_)):
+                    raise ValueError(
+                        f"CRFS inverse_flow_teacher solver_config {field.name} must be boolean"
+                    )
+                value = bool(value)
+            elif isinstance(expected, int):
+                if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
+                    raise ValueError(
+                        f"CRFS inverse_flow_teacher solver_config {field.name} must be an integer"
+                    )
+                value = int(value)
+            else:
+                if isinstance(value, (bool, np.bool_)) or not isinstance(
+                    value, (int, float, np.integer, np.floating)
+                ):
+                    raise ValueError(
+                        f"CRFS inverse_flow_teacher solver_config {field.name} must be numeric"
+                    )
+                value = float(value)
+            if value != expected:
+                raise ValueError(
+                    f"CRFS inverse_flow_teacher solver_config {field.name} must equal {expected!r}, "
+                    f"got {value!r}"
+                )
+            values[field.name] = value
+
+        config = InverseControlConfig(**values)
+        config.validate()
+        return config
+
+    def _model_to_physical_action_scale(self) -> np.ndarray:
+        """Return the policy-owned full HxD displacement scale, padding with ones."""
+
+        if self._action_norm_stats is None:
+            raise ValueError("Checkpoint action normalization statistics are unavailable")
+        action_horizon = int(self._model.config.action_horizon)
+        action_dim = int(self._model.config.action_dim)
+
+        def one_action_vector(value: Any, *, name: str) -> np.ndarray:
+            array = np.asarray(value, dtype=np.float64)
+            if array.ndim < 1 or int(np.prod(array.shape[:-1])) != 1:
+                raise ValueError(f"Checkpoint {name} must provide exactly one action vector")
+            vector = np.reshape(array, (-1, array.shape[-1]))[0]
+            if vector.size < 1 or vector.size > action_dim:
+                raise ValueError(
+                    f"Checkpoint {name} has {vector.size} physical channels for model action_dim={action_dim}"
+                )
+            if not bool(np.isfinite(vector).all()):
+                raise ValueError(f"Checkpoint {name} contains a nonfinite value")
+            return vector
+
+        if self._use_quantile_norm:
+            if self._action_norm_stats.q01 is None or self._action_norm_stats.q99 is None:
+                raise ValueError("Quantile normalization requested but q01/q99 action statistics are unavailable")
+            q01 = one_action_vector(self._action_norm_stats.q01, name="action q01")
+            q99 = one_action_vector(self._action_norm_stats.q99, name="action q99")
+            if q01.shape != q99.shape:
+                raise ValueError("Checkpoint action q01/q99 vectors must have the same physical dimension")
+            physical_scale = (q99 - q01 + 1.0e-6) / 2.0
+        else:
+            physical_scale = one_action_vector(self._action_norm_stats.std, name="action std") + 1.0e-6
+        if not bool(np.isfinite(physical_scale).all()) or not bool((physical_scale > 0.0).all()):
+            raise ValueError("Checkpoint model-to-physical action scale must be finite and strictly positive")
+
+        full_scale = np.ones((action_horizon, action_dim), dtype=np.float32)
+        full_scale[:, : physical_scale.size] = np.asarray(physical_scale, dtype=np.float32)
+        return full_scale
+
+    def _inverse_flow_teacher_sample_kwargs(
+        self,
+        controls: Mapping[str, Any],
+        noise: np.ndarray | None,
+        *,
+        noise_argument_supplied: bool,
+    ) -> tuple[dict[str, Any], np.ndarray]:
+        """Validate and tensorize the strict privileged inverse-flow request."""
+
+        mode = "inverse_flow_teacher"
+        required = {
+            "intervention_mode",
+            "intervention_step",
+            "return_trace",
+            "return_normalized_final",
+            "target",
+            "target_space",
+            "solver_config",
+            "model_l2_path_budget",
+        }
+        optional = {"noise"}
+        unknown = set(controls) - required - optional
+        missing = required - set(controls)
+        if unknown:
+            raise ValueError(f"CRFS {mode} has unsupported controls: {sorted(unknown)}")
+        if missing:
+            raise ValueError(f"CRFS {mode} is missing required controls: {sorted(missing)}")
+        if controls.get("intervention_mode") != mode:
+            raise ValueError(f"CRFS inverse teacher controls require intervention_mode={mode!r}")
+        step = controls.get("intervention_step")
+        if isinstance(step, (bool, np.bool_)) or not isinstance(step, (int, np.integer)) or int(step) != 5:
+            raise ValueError("CRFS inverse_flow_teacher requires intervention_step=5")
+        if controls.get("return_trace") is not True:
+            raise ValueError("CRFS inverse_flow_teacher requires return_trace=true")
+        if controls.get("return_normalized_final") is not True:
+            raise ValueError("CRFS inverse_flow_teacher requires return_normalized_final=true")
+        if controls.get("target_space") != "model":
+            raise ValueError("CRFS inverse_flow_teacher requires target_space='model'")
+
+        action_shape = (int(self._model.config.action_horizon), int(self._model.config.action_dim))
+        target = np.asarray(controls["target"])
+        if target.dtype != np.dtype(np.float32):
+            raise ValueError(f"CRFS inverse_flow_teacher target must preserve float32 dtype, got {target.dtype}")
+        if target.shape != action_shape:
+            raise ValueError(
+                f"CRFS inverse_flow_teacher target must have unbatched shape {action_shape}, got {target.shape}"
+            )
+        if not bool(np.isfinite(target).all()):
+            raise ValueError("CRFS inverse_flow_teacher target contains a nonfinite value")
+
+        raw_budget = np.asarray(controls["model_l2_path_budget"])
+        if raw_budget.dtype != np.dtype(np.float32):
+            raise ValueError(
+                "CRFS inverse_flow_teacher model_l2_path_budget must preserve float32 dtype, "
+                f"got {raw_budget.dtype}"
+            )
+        if raw_budget.shape != ():
+            raise ValueError("CRFS inverse_flow_teacher model_l2_path_budget must be scalar")
+        budget = float(raw_budget)
+        if not np.isfinite(budget) or budget <= 0.0:
+            raise ValueError("CRFS inverse_flow_teacher model_l2_path_budget must be finite and positive")
+
+        paired_noise = self._strict_crfs_noise(
+            controls,
+            noise,
+            noise_argument_supplied=noise_argument_supplied,
+            mode=mode,
+        )
+        config = self._inverse_flow_config(controls["solver_config"])
+        scale = self._model_to_physical_action_scale()
+
+        def batched_tensor(value: np.ndarray) -> torch.Tensor:
+            return torch.from_numpy(np.array(value, dtype=np.float32, copy=True))[None, ...].to(
+                self._pytorch_device
+            )
+
+        return (
+            {
+                "crfs_inverse_target": batched_tensor(target),
+                "crfs_inverse_budget": torch.tensor(
+                    budget, dtype=torch.float32, device=self._pytorch_device
+                ),
+                "crfs_model_to_physical_scale": batched_tensor(scale),
+                "crfs_inverse_config": config,
+            },
+            paired_noise,
+        )
+
+    def _residual_schedule_sample_kwargs(
+        self,
+        controls: Mapping[str, Any],
+        noise: np.ndarray | None,
+        *,
+        noise_argument_supplied: bool,
+    ) -> tuple[dict[str, Any], np.ndarray]:
+        """Validate and tensorize an immutable model-space teacher replay."""
+
+        mode = "residual_schedule"
+        required = {
+            "intervention_mode",
+            "intervention_step",
+            "return_trace",
+            "return_normalized_final",
+            "schedule",
+            "schedule_space",
+            "model_l2_path_budget",
+        }
+        optional = {"noise"}
+        unknown = set(controls) - required - optional
+        missing = required - set(controls)
+        if unknown:
+            raise ValueError(f"CRFS {mode} has unsupported controls: {sorted(unknown)}")
+        if missing:
+            raise ValueError(f"CRFS {mode} is missing required controls: {sorted(missing)}")
+        if controls.get("intervention_mode") != mode:
+            raise ValueError(f"CRFS residual schedule controls require intervention_mode={mode!r}")
+        step = controls.get("intervention_step")
+        if isinstance(step, (bool, np.bool_)) or not isinstance(step, (int, np.integer)) or int(step) != 5:
+            raise ValueError("CRFS residual_schedule requires intervention_step=5")
+        if controls.get("return_trace") is not True:
+            raise ValueError("CRFS residual_schedule requires return_trace=true")
+        if controls.get("return_normalized_final") is not True:
+            raise ValueError("CRFS residual_schedule requires return_normalized_final=true")
+        if controls.get("schedule_space") != "model":
+            raise ValueError("CRFS residual_schedule requires schedule_space='model'")
+
+        action_shape = (int(self._model.config.action_horizon), int(self._model.config.action_dim))
+        schedule_shape = (10, *action_shape)
+        schedule = np.asarray(controls["schedule"])
+        if schedule.dtype != np.dtype(np.float32):
+            raise ValueError(f"CRFS residual_schedule schedule must preserve float32 dtype, got {schedule.dtype}")
+        if schedule.shape != schedule_shape:
+            raise ValueError(
+                f"CRFS residual_schedule schedule must have unbatched shape {schedule_shape}, got {schedule.shape}"
+            )
+        if not bool(np.isfinite(schedule).all()):
+            raise ValueError("CRFS residual_schedule schedule contains a nonfinite value")
+
+        raw_budget = np.asarray(controls["model_l2_path_budget"])
+        if raw_budget.dtype != np.dtype(np.float32):
+            raise ValueError(
+                "CRFS residual_schedule model_l2_path_budget must preserve float32 dtype, "
+                f"got {raw_budget.dtype}"
+            )
+        if raw_budget.shape != ():
+            raise ValueError("CRFS residual_schedule model_l2_path_budget must be scalar")
+        budget = float(raw_budget)
+        if not np.isfinite(budget) or budget < 0.0:
+            raise ValueError("CRFS residual_schedule model_l2_path_budget must be finite and nonnegative")
+
+        paired_noise = self._strict_crfs_noise(
+            controls,
+            noise,
+            noise_argument_supplied=noise_argument_supplied,
+            mode=mode,
+        )
+        schedule_tensor = torch.from_numpy(np.array(schedule, copy=True))[None, ...].to(self._pytorch_device)
+        budget_tensor = torch.tensor(budget, dtype=torch.float32, device=self._pytorch_device)
+        return (
+            {
+                "crfs_residual_schedule": schedule_tensor,
+                "crfs_schedule_budget": budget_tensor,
+            },
+            paired_noise,
+        )
 
     def _analytic_field_sample_kwargs(
         self,

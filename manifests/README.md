@@ -21,3 +21,9 @@ as the full calibration. `reach_progress_smoke.jsonl` is retained as an
 apparatus-era one-row reference but is not used by the strict R00 runner.
 Repeated noise samples do not create independent episode groups; all later
 inference retains the `group_id` clustering.
+
+`r05a_inverse_flow_teacher_smoke.jsonl` is the immutable three-case R05A
+development smoke registered by ADR-0028. Its order is intentional: one
+historical constant-residual success, one clearance-only miss, and one
+progress-only miss. These groups are development-only and may never enter
+student training, calibration, validation, or final testing.

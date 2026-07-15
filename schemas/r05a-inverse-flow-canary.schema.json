@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crfs.local/schemas/r05a-inverse-flow-canary.schema.json",
+  "title": "R05A inverse-flow teacher allocation canary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "config_hash",
+    "scientific_claim_allowed",
+    "probe_training_authorized",
+    "source_evidence",
+    "provenance",
+    "simulator_use",
+    "pairing",
+    "target",
+    "solver",
+    "determinism",
+    "canonical_replay",
+    "memory",
+    "apparatus",
+    "outcome",
+    "policy_calls"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r05a_inverse_flow_allocation_canary"},
+    "gate": {"const": "R05A"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": [
+        "completed_converged",
+        "completed_nonconverged",
+        "completed_apparatus_failure"
+      ]
+    },
+    "config_hash": {"$ref": "#/$defs/sha256"},
+    "scientific_claim_allowed": {"const": false},
+    "probe_training_authorized": {"const": false},
+    "source_evidence": {"type": "object"},
+    "provenance": {"type": "object"},
+    "simulator_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "setup",
+        "policy_generated_action_steps_executed",
+        "teacher_generated_action_steps_executed",
+        "efficacy_rollouts_executed",
+        "simulator_efficacy_evaluated"
+      ],
+      "properties": {
+        "setup": {"const": "one_reset_plus_20_dummy_settle_control_steps"},
+        "policy_generated_action_steps_executed": {"const": 0},
+        "teacher_generated_action_steps_executed": {"const": 0},
+        "efficacy_rollouts_executed": {"const": 0},
+        "simulator_efficacy_evaluated": {"const": false}
+      }
+    },
+    "pairing": {"type": "object"},
+    "target": {"type": "object"},
+    "solver": {"type": "object"},
+    "determinism": {"type": "object"},
+    "canonical_replay": {"type": "object"},
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_host_memory_mib",
+        "host_cgroup_peak_bytes",
+        "allocation_gpu_uuid",
+        "gpu_process_peak_allocated_bytes",
+        "gpu_process_peak_reserved_bytes",
+        "gpu_nvidia_smi_peak_compute_mib",
+        "gpu_nvidia_smi_peak_device_mib",
+        "gpu_nvidia_smi_samples",
+        "gpu_nvidia_smi_samples_sha256",
+        "measurement_scope"
+      ],
+      "properties": {
+        "requested_host_memory_mib": {"const": 65536},
+        "host_cgroup_peak_bytes": {"type": "integer", "minimum": 1},
+        "allocation_gpu_uuid": {"type": "string", "pattern": "^GPU-[A-Za-z0-9-]+$"},
+        "gpu_process_peak_allocated_bytes": {"type": "integer", "minimum": 0},
+        "gpu_process_peak_reserved_bytes": {"type": "integer", "minimum": 0},
+        "gpu_nvidia_smi_peak_compute_mib": {"type": "number", "minimum": 0},
+        "gpu_nvidia_smi_peak_device_mib": {"type": "number", "minimum": 0},
+        "gpu_nvidia_smi_samples": {"type": "integer", "minimum": 1},
+        "gpu_nvidia_smi_samples_sha256": {"$ref": "#/$defs/sha256"},
+        "measurement_scope": {"type": "string", "minLength": 1}
+      }
+    },
+    "apparatus": {"type": "object"},
+    "outcome": {"type": "object"},
+    "policy_calls": {"type": "object"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

@@ -6,6 +6,7 @@ import torch
 from torch import Tensor
 from torch import nn
 import torch.nn.functional as F  # noqa: N812
+from torch.utils.checkpoint import checkpoint as _torch_checkpoint
 
 import openpi.models.gemma as _gemma
 from openpi.models_pytorch.crfs_analytic import SAFETY_MARGIN_M as _CRFS_ANALYTIC_MARGIN_M
@@ -14,6 +15,7 @@ from openpi.models_pytorch.crfs_analytic import SOFTPLUS_TAU_M as _CRFS_ANALYTIC
 from openpi.models_pytorch.crfs_analytic import analytic_trajectory_field as _analytic_trajectory_field
 from openpi.models_pytorch.crfs_analytic import scale_field_to_velocity as _scale_field_to_velocity
 from openpi.models_pytorch.crfs_analytic import validate_analytic_controls as _validate_analytic_controls
+import openpi.models_pytorch.crfs_inverse_control as _inverse_control
 from openpi.models_pytorch.gemma_pytorch import PaliGemmaWithExpertModel
 import openpi.models_pytorch.preprocessing_pytorch as _preprocessing
 
@@ -407,6 +409,12 @@ class PI0Pytorch(nn.Module):
         crfs_obstacle_half_sizes_m=None,
         crfs_eef_radius_m=None,
         crfs_model_l2_path_budget=None,
+        crfs_inverse_target=None,
+        crfs_model_to_physical_scale=None,
+        crfs_inverse_config=None,
+        crfs_inverse_budget=None,
+        crfs_residual_schedule=None,
+        crfs_schedule_budget=None,
     ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
         """Sample an action, optionally applying a CRFS oracle intervention.
 
@@ -438,12 +446,18 @@ class PI0Pytorch(nn.Module):
             "bridge_edit",
             "latent_resume_edit",
             "analytic_trajectory_field",
+            "inverse_flow_teacher",
+            "residual_schedule",
         }
         if crfs_intervention_mode not in supported_modes:
             raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
         is_latent_resume = crfs_intervention_mode == "latent_resume_edit"
         is_analytic_field = crfs_intervention_mode == "analytic_trajectory_field"
+        is_inverse_teacher = crfs_intervention_mode == "inverse_flow_teacher"
+        is_residual_schedule = crfs_intervention_mode == "residual_schedule"
+        is_flow_schedule = is_inverse_teacher or is_residual_schedule
 
+        noise_argument_supplied = noise is not None
         if noise is None:
             if is_latent_resume:
                 raise ValueError("CRFS latent_resume_edit requires explicit paired noise")
@@ -467,6 +481,133 @@ class PI0Pytorch(nn.Module):
             raise ValueError(
                 f"crfs_correction shape {tuple(crfs_correction.shape)} does not match model shape {actions_shape}"
             )
+
+        inverse_values = (
+            crfs_inverse_target,
+            crfs_model_to_physical_scale,
+            crfs_inverse_config,
+            crfs_inverse_budget,
+        )
+        schedule_values = (crfs_residual_schedule, crfs_schedule_budget)
+        validated_schedule = None
+        validated_schedule_increments = None
+        validated_schedule_per_step = None
+        validated_schedule_path = None
+        if is_flow_schedule:
+            if not noise_argument_supplied:
+                raise ValueError(f"CRFS {crfs_intervention_mode} requires explicit paired noise")
+            if num_steps != 10 or crfs_intervention_step != 5:
+                raise ValueError(
+                    f"CRFS {crfs_intervention_mode} requires num_steps=10 and intervention_step=5"
+                )
+            if bsize != 1:
+                raise ValueError(f"CRFS {crfs_intervention_mode} requires batch size one")
+            if crfs_return_trace is not True or crfs_return_normalized_final is not True:
+                raise ValueError(
+                    f"CRFS {crfs_intervention_mode} requires crfs_return_trace=True and "
+                    "crfs_return_normalized_final=True"
+                )
+            if crfs_correction is not None:
+                raise ValueError(f"CRFS {crfs_intervention_mode} forbids crfs_correction")
+            if not isinstance(noise, Tensor) or noise.dtype != torch.float32:
+                dtype = None if not isinstance(noise, Tensor) else noise.dtype
+                raise ValueError(f"CRFS paired noise must be a float32 Tensor, got {dtype}")
+            expected_device = torch.device(device)
+            if noise.device.type != expected_device.type or (
+                expected_device.index is not None and noise.device.index != expected_device.index
+            ):
+                raise ValueError(f"CRFS paired noise device {noise.device} does not match sampler device {device}")
+            if not bool(torch.isfinite(noise).all().item()):
+                raise ValueError("CRFS paired noise contains a nonfinite value")
+
+        if is_inverse_teacher:
+            if any(value is None for value in inverse_values):
+                raise ValueError(
+                    "CRFS inverse_flow_teacher requires crfs_inverse_target, "
+                    "crfs_model_to_physical_scale, crfs_inverse_config, and crfs_inverse_budget"
+                )
+            if any(value is not None for value in schedule_values):
+                raise ValueError("CRFS inverse_flow_teacher forbids an explicit residual schedule")
+            if not isinstance(crfs_inverse_config, _inverse_control.InverseControlConfig):
+                raise ValueError("crfs_inverse_config must be an InverseControlConfig")
+            crfs_inverse_config.validate()
+            registered_inverse_config = _inverse_control.InverseControlConfig(
+                num_steps=10,
+                intervention_step=5,
+                dt=-0.1,
+                max_iterations=128,
+                learning_rate=0.02,
+                adam_beta1=0.9,
+                adam_beta2=0.999,
+                adam_epsilon=1.0e-8,
+                xyz_max_abs_tolerance=0.010,
+                xyz_rms_tolerance=0.005,
+                full_max_abs_tolerance=0.050,
+                full_rms_tolerance=0.015,
+                constraint_slack_ulps=8,
+                stop_on_first_feasible=False,
+            )
+            if crfs_inverse_config != registered_inverse_config:
+                raise ValueError("crfs_inverse_config does not match the frozen IFT-00A solver config")
+            if crfs_inverse_config.num_steps != num_steps:
+                raise ValueError("crfs_inverse_config num_steps must match the sampler")
+            for name, value in (
+                ("crfs_inverse_target", crfs_inverse_target),
+                ("crfs_model_to_physical_scale", crfs_model_to_physical_scale),
+            ):
+                if not isinstance(value, Tensor):
+                    raise ValueError(f"{name} must be a Tensor")
+                if value.shape != actions_shape:
+                    raise ValueError(f"{name} shape {tuple(value.shape)} does not match {actions_shape}")
+                if value.dtype != torch.float32 or value.device != noise.device:
+                    raise ValueError(f"{name} must match paired noise float32 dtype and device")
+                if not bool(torch.isfinite(value).all().item()):
+                    raise ValueError(f"{name} contains a nonfinite value")
+            if not bool((crfs_model_to_physical_scale > 0).all().item()):
+                raise ValueError("crfs_model_to_physical_scale must be strictly positive")
+            if not isinstance(crfs_inverse_budget, Tensor) or tuple(crfs_inverse_budget.shape) != ():
+                raise ValueError("crfs_inverse_budget must be a scalar Tensor")
+            if crfs_inverse_budget.dtype != torch.float32 or crfs_inverse_budget.device != noise.device:
+                raise ValueError("crfs_inverse_budget must match paired noise float32 dtype and device")
+            if not bool(torch.isfinite(crfs_inverse_budget).item()) or float(crfs_inverse_budget.item()) < 0.0:
+                raise ValueError("crfs_inverse_budget must be finite and nonnegative")
+        elif any(value is not None for value in inverse_values):
+            raise ValueError("CRFS inverse target, scale, and config are valid only for inverse_flow_teacher")
+
+        if is_residual_schedule:
+            if any(value is None for value in schedule_values):
+                raise ValueError(
+                    "CRFS residual_schedule requires crfs_residual_schedule and crfs_schedule_budget"
+                )
+            if not isinstance(crfs_residual_schedule, Tensor):
+                raise ValueError("crfs_residual_schedule must be a Tensor")
+            expected_schedule_shape = (bsize, num_steps, *actions_shape[1:])
+            if crfs_residual_schedule.shape != expected_schedule_shape:
+                raise ValueError(
+                    f"crfs_residual_schedule shape {tuple(crfs_residual_schedule.shape)} "
+                    f"does not match {expected_schedule_shape}"
+                )
+            if crfs_residual_schedule.dtype != torch.float32 or crfs_residual_schedule.device != noise.device:
+                raise ValueError("crfs_residual_schedule must match paired noise float32 dtype and device")
+            if not isinstance(crfs_schedule_budget, Tensor) or tuple(crfs_schedule_budget.shape) != ():
+                raise ValueError("crfs_schedule_budget must be a scalar Tensor")
+            if crfs_schedule_budget.dtype != torch.float32 or crfs_schedule_budget.device != noise.device:
+                raise ValueError("crfs_schedule_budget must match paired noise float32 dtype and device")
+            if not bool(torch.isfinite(crfs_schedule_budget).item()):
+                raise ValueError("crfs_schedule_budget must be finite")
+            validated_schedule = crfs_residual_schedule.permute(1, 0, 2, 3).contiguous()
+            control_mask = _inverse_control.first_five_xyz_mask_like(noise)
+            (
+                validated_schedule_increments,
+                validated_schedule_per_step,
+                validated_schedule_path,
+            ) = _inverse_control.validate_schedule_constraints(
+                validated_schedule,
+                control_mask,
+                crfs_schedule_budget,
+            )
+        elif any(value is not None for value in schedule_values):
+            raise ValueError("CRFS residual schedule and budget are valid only for residual_schedule")
         resume_values = (crfs_resume_latent, crfs_resume_time, crfs_latent_edit)
         if is_latent_resume:
             if crfs_return_trace is not True or crfs_return_normalized_final is not True:
@@ -592,6 +733,130 @@ class PI0Pytorch(nn.Module):
             use_cache=True,
         )
 
+        inverse_result = None
+        applied_flow_schedule = validated_schedule
+        flow_schedule_applied = is_residual_schedule
+        parameter_grad_flags_restored = True
+        parameter_grads_none_before = True
+        parameter_grads_none_after = True
+        teacher_cuda_memory = None
+        if is_inverse_teacher:
+
+            def inverse_velocity_fn(x_value: Tensor, scalar_time: Tensor, _step: int) -> Tensor:
+                expanded_inverse_time = scalar_time.expand(bsize)
+
+                def differentiable_denoise(x_input: Tensor) -> Tensor:
+                    return self.denoise_step(
+                        state,
+                        prefix_pad_masks,
+                        past_key_values,
+                        x_input,
+                        expanded_inverse_time,
+                    )
+
+                if torch.is_grad_enabled() and x_value.requires_grad:
+                    return _torch_checkpoint(
+                        differentiable_denoise,
+                        x_value,
+                        use_reentrant=False,
+                        preserve_rng_state=False,
+                    )
+                return differentiable_denoise(x_value)
+
+            parameter_grad_flags = tuple(
+                (parameter, parameter.requires_grad) for parameter in self.parameters()
+            )
+            parameter_grads_none_before = all(
+                parameter.grad is None for parameter, _requires_grad in parameter_grad_flags
+            )
+            if noise.is_cuda:
+                teacher_cuda_memory = dict(
+                    allocated_before=torch.cuda.memory_allocated(noise.device),
+                    reserved_before=torch.cuda.memory_reserved(noise.device),
+                )
+            try:
+                for parameter, _requires_grad in parameter_grad_flags:
+                    parameter.requires_grad_(requires_grad=False)
+                control_mask = _inverse_control.first_five_xyz_mask_like(noise)
+                target_mask = _inverse_control.first_five_channels_mask_like(noise, channels=7)
+                inverse_result = _inverse_control.solve_inverse_control(
+                    noise,
+                    crfs_inverse_target,
+                    inverse_velocity_fn,
+                    control_mask=control_mask,
+                    target_mask=target_mask,
+                    model_to_physical_scale=crfs_model_to_physical_scale,
+                    control_budget=crfs_inverse_budget,
+                    config=crfs_inverse_config,
+                )
+            finally:
+                for parameter, requires_grad in parameter_grad_flags:
+                    parameter.requires_grad_(requires_grad=requires_grad)
+                parameter_grad_flags_restored = all(
+                    parameter.requires_grad == requires_grad
+                    for parameter, requires_grad in parameter_grad_flags
+                )
+                parameter_grads_none_after = all(
+                    parameter.grad is None for parameter, _requires_grad in parameter_grad_flags
+                )
+                if noise.is_cuda and teacher_cuda_memory is not None:
+                    # These peaks are process-lifetime counters.  Deliberately
+                    # do not reset them because the policy server is shared by
+                    # all calls within its allocation.
+                    teacher_cuda_memory.update(
+                        allocated_after_solve=torch.cuda.memory_allocated(noise.device),
+                        reserved_after_solve=torch.cuda.memory_reserved(noise.device),
+                        process_peak_allocated_after_solve=torch.cuda.max_memory_allocated(noise.device),
+                        process_peak_reserved_after_solve=torch.cuda.max_memory_reserved(noise.device),
+                    )
+
+            if inverse_result.schedule is not None:
+                if inverse_result.budget is None:
+                    raise RuntimeError("inverse-flow solver returned a schedule without its budget")
+                (
+                    validated_schedule_increments,
+                    validated_schedule_per_step,
+                    validated_schedule_path,
+                ) = _inverse_control.validate_schedule_constraints(
+                    inverse_result.schedule,
+                    control_mask,
+                    inverse_result.budget,
+                    config=crfs_inverse_config,
+                )
+                teacher_candidate_valid = bool(
+                    inverse_result.converged
+                    and inverse_result.schedule_valid
+                    and inverse_result.baseline_valid
+                    and inverse_result.target_pairing_checked
+                    and inverse_result.target_pairing_exact
+                    and parameter_grad_flags_restored
+                    and parameter_grads_none_before
+                    and parameter_grads_none_after
+                )
+                if teacher_candidate_valid:
+                    applied_flow_schedule = inverse_result.schedule.detach().clone()
+                    flow_schedule_applied = True
+                else:
+                    # Keep the failed candidate only in explicitly invalid
+                    # diagnostic leaves.  Executed actions remain the exact
+                    # paired frozen sampler output.
+                    applied_flow_schedule = torch.zeros(
+                        (num_steps, *actions_shape),
+                        dtype=noise.dtype,
+                        device=noise.device,
+                    )
+                    flow_schedule_applied = False
+            else:
+                # A failed solve has no schedule to replay.  The ordinary loop
+                # still returns the paired frozen recurrence, explicitly marked
+                # invalid below; no solver schedule or metrics are fabricated.
+                applied_flow_schedule = torch.zeros(
+                    (num_steps, *actions_shape),
+                    dtype=noise.dtype,
+                    device=noise.device,
+                )
+                flow_schedule_applied = False
+
         dt = -1.0 / num_steps
         dt = torch.tensor(dt, dtype=torch.float32, device=device)
 
@@ -610,6 +875,7 @@ class PI0Pytorch(nn.Module):
             torch.zeros((bsize,), dtype=torch.float32, device=device) if is_analytic_field else None
         )
         analytic_step_records = [] if is_analytic_field else None
+        flow_step_records = [] if is_flow_schedule else None
         latent_resume_pending = is_latent_resume
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
@@ -651,7 +917,7 @@ class PI0Pytorch(nn.Module):
                     expanded_time,
                 )
 
-                if step_index == crfs_intervention_step and not is_analytic_field:
+                if step_index == crfs_intervention_step and not is_analytic_field and not is_flow_schedule:
                     crfs_trace = {
                         "step_index": torch.full((bsize,), step_index, dtype=torch.int64, device=device),
                         "time": expanded_time.detach().clone(),
@@ -674,6 +940,14 @@ class PI0Pytorch(nn.Module):
                 if crfs_residual_horizon <= 0:
                     raise RuntimeError("CRFS residual intervention has no remaining integration time")
                 v_t = v_t - crfs_correction / crfs_residual_horizon
+            flow_control = None
+            if is_flow_schedule:
+                if applied_flow_schedule is None:
+                    raise RuntimeError("CRFS flow schedule was not initialized")
+                flow_control = applied_flow_schedule[step_index]
+                # The zero branch preserves the exact ordinary velocity bytes;
+                # nonzero controls use the registered additive velocity field.
+                v_t = torch.where(flow_control == 0, v_t, v_t + flow_control)
 
             if is_analytic_field:
                 predicted_clean = (x_t - time * v_base).detach()
@@ -766,10 +1040,246 @@ class PI0Pytorch(nn.Module):
                     }
                 )
 
-            # Euler step - use new tensor assignment instead of in-place operation
+            # Keep the ordinary/default Euler statement byte-for-byte.  The
+            # opt-in flow modes retain the pre-state only for recurrence audit.
+            x_before_step = x_t
             x_t = x_t + dt * v_t
+            if flow_step_records is not None:
+                if flow_control is None:
+                    raise RuntimeError("CRFS flow trace lost its applied control")
+                flow_step_records.append(
+                    dict(
+                        step_index=torch.full((bsize,), step_index, dtype=torch.int64, device=device),
+                        time=expanded_time.detach().clone(),
+                        active=torch.full(
+                            (bsize,), step_index >= crfs_intervention_step, dtype=torch.bool, device=device
+                        ),
+                        x_t=x_before_step.detach().clone(),
+                        v_base=v_base.detach().clone(),
+                        control_velocity=flow_control.detach().clone(),
+                        total_velocity=v_t.detach().clone(),
+                        increment=(dt * flow_control).detach().clone(),
+                        x_next=x_t.detach().clone(),
+                    )
+                )
             time += dt
             step_index += 1
+        if flow_step_records is not None:
+            if len(flow_step_records) != num_steps:
+                raise RuntimeError("CRFS flow trace did not cover every Euler step")
+            if is_inverse_teacher and noise.is_cuda and teacher_cuda_memory is not None:
+                teacher_cuda_memory.update(
+                    allocated_after_replay=torch.cuda.memory_allocated(noise.device),
+                    reserved_after_replay=torch.cuda.memory_reserved(noise.device),
+                    process_peak_allocated_after_replay=torch.cuda.max_memory_allocated(noise.device),
+                    process_peak_reserved_after_replay=torch.cuda.max_memory_reserved(noise.device),
+                )
+            flow_trace = dict(
+                control_source=torch.full(
+                    (bsize,), 0 if is_inverse_teacher else 1, dtype=torch.int64, device=device
+                ),
+                control_valid=torch.full(
+                    (bsize,),
+                    bool(
+                        flow_schedule_applied
+                        and (
+                            not is_inverse_teacher
+                            or (
+                                inverse_result is not None
+                                and inverse_result.converged
+                                and inverse_result.schedule_valid
+                            )
+                        )
+                    ),
+                    dtype=torch.bool,
+                    device=device,
+                ),
+                schedule_applied=torch.full(
+                    (bsize,), flow_schedule_applied, dtype=torch.bool, device=device
+                ),
+                step_index_steps=torch.stack(
+                    [record["step_index"] for record in flow_step_records], dim=1
+                ),
+                time_steps=torch.stack([record["time"] for record in flow_step_records], dim=1),
+                active_steps=torch.stack([record["active"] for record in flow_step_records], dim=1),
+                x_t_steps=torch.stack([record["x_t"] for record in flow_step_records], dim=1),
+                v_base_steps=torch.stack([record["v_base"] for record in flow_step_records], dim=1),
+                control_velocity_steps=torch.stack(
+                    [record["control_velocity"] for record in flow_step_records], dim=1
+                ),
+                total_velocity_steps=torch.stack(
+                    [record["total_velocity"] for record in flow_step_records], dim=1
+                ),
+                control_increment_steps=torch.stack(
+                    [record["increment"] for record in flow_step_records], dim=1
+                ),
+                x_next_steps=torch.stack([record["x_next"] for record in flow_step_records], dim=1),
+                initial_noise=noise.detach().clone(),
+                canonical_replay_final=x_t.detach().clone(),
+                dt=dt.expand(bsize).detach().clone(),
+                intervention_step=torch.full(
+                    (bsize,), crfs_intervention_step, dtype=torch.int64, device=device
+                ),
+                num_steps=torch.full((bsize,), num_steps, dtype=torch.int64, device=device),
+                parameter_requires_grad_restored=torch.full(
+                    (bsize,), parameter_grad_flags_restored, dtype=torch.bool, device=device
+                ),
+                parameter_grads_none_before=torch.full(
+                    (bsize,), parameter_grads_none_before, dtype=torch.bool, device=device
+                ),
+                parameter_grads_none_after=torch.full(
+                    (bsize,), parameter_grads_none_after, dtype=torch.bool, device=device
+                ),
+                parameter_grad_check_performed=torch.full(
+                    (bsize,), is_inverse_teacher, dtype=torch.bool, device=device
+                ),
+            )
+            if is_residual_schedule:
+                if (
+                    validated_schedule_increments is None
+                    or validated_schedule_per_step is None
+                    or validated_schedule_path is None
+                ):
+                    raise RuntimeError("validated residual schedule metadata is unavailable")
+                flow_trace.update(
+                    schedule_budget=crfs_schedule_budget.expand(bsize).detach().clone(),
+                    schedule_path_length=validated_schedule_path.expand(bsize).detach().clone(),
+                    schedule_per_step_increment_l2=validated_schedule_per_step.unsqueeze(0).detach().clone(),
+                    schedule_energy=torch.sum(torch.square(validated_schedule_increments))
+                    .expand(bsize)
+                    .detach()
+                    .clone(),
+                    solver_status=torch.full((bsize,), -1, dtype=torch.int64, device=device),
+                    solver_iterations=torch.zeros((bsize,), dtype=torch.int64, device=device),
+                    solver_fields_available=torch.zeros((bsize,), dtype=torch.bool, device=device),
+                    solver_nonfinite=torch.zeros((bsize,), dtype=torch.bool, device=device),
+                )
+            else:
+                if inverse_result is None:
+                    raise RuntimeError("inverse-flow teacher result is unavailable")
+                flow_trace.update(
+                    solver_status=torch.full(
+                        (bsize,), int(inverse_result.status), dtype=torch.int64, device=device
+                    ),
+                    solver_converged=torch.full(
+                        (bsize,), inverse_result.converged, dtype=torch.bool, device=device
+                    ),
+                    solver_iterations=torch.full(
+                        (bsize,), inverse_result.iterations, dtype=torch.int64, device=device
+                    ),
+                    solver_fields_available=torch.full(
+                        (bsize,), inverse_result.schedule is not None, dtype=torch.bool, device=device
+                    ),
+                    solver_nonfinite=torch.full(
+                        (bsize,), inverse_result.nonfinite_detected, dtype=torch.bool, device=device
+                    ),
+                    solver_baseline_valid=torch.full(
+                        (bsize,), inverse_result.baseline_valid, dtype=torch.bool, device=device
+                    ),
+                    solver_schedule_valid=torch.full(
+                        (bsize,), inverse_result.schedule_valid, dtype=torch.bool, device=device
+                    ),
+                    target_pairing_checked=torch.full(
+                        (bsize,), inverse_result.target_pairing_checked, dtype=torch.bool, device=device
+                    ),
+                    target_pairing_exact=torch.full(
+                        (bsize,), inverse_result.target_pairing_exact, dtype=torch.bool, device=device
+                    ),
+                    inverse_target=crfs_inverse_target.detach().clone(),
+                    model_to_physical_scale=crfs_model_to_physical_scale.detach().clone(),
+                    source_control_budget=crfs_inverse_budget.expand(bsize).detach().clone(),
+                    solver_config_max_iterations=torch.full(
+                        (bsize,), crfs_inverse_config.max_iterations, dtype=torch.int64, device=device
+                    ),
+                    solver_config_learning_rate=torch.full(
+                        (bsize,), crfs_inverse_config.learning_rate, dtype=torch.float32, device=device
+                    ),
+                    solver_config_adam_beta1=torch.full(
+                        (bsize,), crfs_inverse_config.adam_beta1, dtype=torch.float32, device=device
+                    ),
+                    solver_config_adam_beta2=torch.full(
+                        (bsize,), crfs_inverse_config.adam_beta2, dtype=torch.float32, device=device
+                    ),
+                    solver_config_adam_epsilon=torch.full(
+                        (bsize,), crfs_inverse_config.adam_epsilon, dtype=torch.float32, device=device
+                    ),
+                    solver_config_xyz_max_abs_tolerance=torch.full(
+                        (bsize,), crfs_inverse_config.xyz_max_abs_tolerance, dtype=torch.float32, device=device
+                    ),
+                    solver_config_xyz_rms_tolerance=torch.full(
+                        (bsize,), crfs_inverse_config.xyz_rms_tolerance, dtype=torch.float32, device=device
+                    ),
+                    solver_config_full_max_abs_tolerance=torch.full(
+                        (bsize,), crfs_inverse_config.full_max_abs_tolerance, dtype=torch.float32, device=device
+                    ),
+                    solver_config_full_rms_tolerance=torch.full(
+                        (bsize,), crfs_inverse_config.full_rms_tolerance, dtype=torch.float32, device=device
+                    ),
+                    solver_config_constraint_slack_ulps=torch.full(
+                        (bsize,), crfs_inverse_config.constraint_slack_ulps, dtype=torch.int64, device=device
+                    ),
+                    solver_config_stop_on_first_feasible=torch.full(
+                        (bsize,), crfs_inverse_config.stop_on_first_feasible, dtype=torch.bool, device=device
+                    ),
+                    cuda_memory_available=torch.full(
+                        (bsize,), teacher_cuda_memory is not None, dtype=torch.bool, device=device
+                    ),
+                )
+                if teacher_cuda_memory is not None:
+                    for trace_name, memory_name in (
+                        ("cuda_memory_allocated_before_bytes", "allocated_before"),
+                        ("cuda_memory_reserved_before_bytes", "reserved_before"),
+                        ("cuda_memory_allocated_after_solve_bytes", "allocated_after_solve"),
+                        ("cuda_memory_reserved_after_solve_bytes", "reserved_after_solve"),
+                        ("cuda_process_peak_allocated_after_solve_bytes", "process_peak_allocated_after_solve"),
+                        ("cuda_process_peak_reserved_after_solve_bytes", "process_peak_reserved_after_solve"),
+                        ("cuda_memory_allocated_after_bytes", "allocated_after_replay"),
+                        ("cuda_memory_reserved_after_bytes", "reserved_after_replay"),
+                        ("cuda_process_peak_allocated_bytes", "process_peak_allocated_after_replay"),
+                        ("cuda_process_peak_reserved_bytes", "process_peak_reserved_after_replay"),
+                    ):
+                        flow_trace[trace_name] = torch.full(
+                            (bsize,), teacher_cuda_memory[memory_name], dtype=torch.int64, device=device
+                        )
+                optional_solver_scalars = (
+                    ("schedule_budget", inverse_result.budget),
+                    ("schedule_path_length", inverse_result.path_length),
+                    ("schedule_energy", inverse_result.energy),
+                    ("solver_objective", inverse_result.objective),
+                    ("target_pairing_max_abs", inverse_result.target_pairing_max_abs),
+                    ("realized_target_delta_norm", inverse_result.realized_target_delta_norm),
+                )
+                for trace_name, value in optional_solver_scalars:
+                    if value is not None:
+                        flow_trace[trace_name] = value.expand(bsize).detach().clone()
+                optional_solver_actions = (
+                    ("solver_schedule", inverse_result.schedule),
+                    ("solver_baseline_final", inverse_result.baseline_final),
+                    (
+                        "solver_internal_replay_final",
+                        None if inverse_result.rollout is None else inverse_result.rollout.final,
+                    ),
+                    ("solver_model_error", inverse_result.model_error),
+                    ("solver_fidelity_error", inverse_result.fidelity_error),
+                )
+                for trace_name, value in optional_solver_actions:
+                    if value is None:
+                        continue
+                    if trace_name == "solver_schedule":
+                        value = value.permute(1, 0, 2, 3).contiguous()
+                    flow_trace[trace_name] = value.detach().clone()
+                if inverse_result.per_step_norms is not None:
+                    flow_trace["schedule_per_step_increment_l2"] = (
+                        inverse_result.per_step_norms.unsqueeze(0).detach().clone()
+                    )
+                if inverse_result.metrics is not None:
+                    flow_trace.update(
+                        fidelity_xyz_max_abs=inverse_result.metrics.xyz_max_abs.expand(bsize).detach().clone(),
+                        fidelity_xyz_rms=inverse_result.metrics.xyz_rms.expand(bsize).detach().clone(),
+                        fidelity_full_max_abs=inverse_result.metrics.full_max_abs.expand(bsize).detach().clone(),
+                        fidelity_full_rms=inverse_result.metrics.full_rms.expand(bsize).detach().clone(),
+                    )
+            crfs_trace = flow_trace
         if is_analytic_field:
             if analytic_step_records is None or len(analytic_step_records) != num_steps:
                 raise RuntimeError("CRFS analytic trajectory trace did not cover every Euler step")
