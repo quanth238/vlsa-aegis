@@ -10,3 +10,8 @@ was launched. Current authorization lives only in the root `PROGRESS.md`,
 R05A apparatus attempts through ADR-0036. It preserves exact run/job identities
 and diagnostic meaning without acting as authorization for another retry,
 IFT-01, or training.
+
+`2026-07-15-r05a-sampled-current-launch-a.md` preserves the first exact
+ADR-0037 release and its fail-closed control-plane parser failure. Job
+`27928_0` had zero runtime and was cancelled; the record is not authorization
+to resume or reuse its consumed run ID.

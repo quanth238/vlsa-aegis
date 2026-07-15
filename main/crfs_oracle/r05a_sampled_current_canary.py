@@ -67,6 +67,8 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "docs/decisions/0028-pivot-to-inverse-flow-transport.md",
         ADR0036_PATH,
         RELEASE_DECISION_PATH,
+        "docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md",
+        "evidence/r05a/ift00a-sampled-current-launch-a.json",
         "schemas/r05a-inverse-flow-canary.schema.json",
         ENVELOPE_SCHEMA_PATH,
         "evidence/r03/r03-summary.json",

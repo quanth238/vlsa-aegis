@@ -10,13 +10,18 @@ Baseline: THU-RCSCT/VLSA-Aegis commit
 Reviewed R05A sampled-current apparatus implementation:
 `d3d51d3d5fe4d318760c89a87113ee4c3c0500d7`.
 
+Terminal sampled-current launch-A release:
+`223667c91b05be9ab403e4d92d0cd1a96b45246f`.
+
 Historical detail is preserved, not deleted:
 
 - pre-inverse-flow chronology:
   `docs/archive/progress/2026-07-15-pre-inverse-flow-pivot.md`;
 - R05A attempts A/B, CPU apparatus, and CG-00:
   `docs/archive/progress/2026-07-15-r05a-pre-execution-apparatus.md`;
-- immutable decisions: ADR-0028 through ADR-0037;
+- sampled-current launch A and exact cancellation:
+  `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
+- immutable decisions: ADR-0028 through ADR-0038;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -54,6 +59,10 @@ real IFT-00A result:
 - ADR-0036's corrected apparatus passed 65 focused tests, the complete
   491-test gate, all 21 artifact/18 gate audits, and independent scientific,
   HPC, and publication-security reviews.
+- sampled-current launch A created held task `27928_0`, but a shell token
+  parser rejected its valid adjacent `JobState=PENDING Reason=JobHeldUser`
+  record before any receipt or release. The exact task was cancelled with zero
+  runtime and no node. This is apparatus-inconclusive, not a transport result.
 
 The active experiment is exactly one case, `crfs-1069f29a8d76463a`, on its
 source host `worker-1`: one H100, eight CPUs, exactly 64 GiB host RAM, two
@@ -73,32 +82,36 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Current verification state
 
-- The last synchronized reviewed apparatus ancestor is `d3d51d3`.
-- ADR-0037's generic exact-release enforcement is being committed while the
-  apparatus remains deliberately unreleased. It changes authorization only;
-  the frozen science is unchanged.
-- The enforcement candidate passes 39 focused release/science/HPC tests and the
-  complete 500-test gate with 152 declared dependency skips, including a fake
-  held-H100 to CPU-`afterany` transaction and single-use failure cases.
-- This generic enforcement commit keeps `ready_to_run: false` and selects no
-  identity. If its direct release child exists, the only authoritative
-  pre-execution identity is in the apparatus config and ADR-0037; root trackers
-  intentionally remain claim-free until terminal evidence exists.
-- No H100 job, IFT-01 rollout, label collection, probe, or MLP was launched by
-  the apparatus implementation task.
+- ADR-0037 release commit `223667c` selected launch-A run ID
+  `r05a-inverse-flow-sampled-current-canary-20260715a` exactly once.
+- Task `27928_0` is terminal `CANCELLED by 1073`, elapsed `00:00:00`, start
+  `None`, node `None assigned`, and no allocated TRES. Its immutable run root
+  contains only `launch-reservation.json`, SHA-256 `bec4583c5c046c7ca9f1155debc1f389d058daede42d3c485a39398f19c36ed4`.
+- ADR-0038 freezes the apparatus-inconclusive interpretation and permits only
+  independent exact-token Slurm parsing. The GPU/CPU adjacent-field success
+  regression and wrong-state/reason/node fail-closed regressions pass locally.
+  The focused sampled-current suite passes 38/38; the complete gate passes 505
+  tests with 152 declared dependency skips and all 21 artifact/18 gate audits.
+  Independent science, HPC, and publication-security reviews report no P0/P1
+  finding.
+- The apparatus is again unreleased: `ready_to_run: false`, no
+  `execution_release`, and no replacement run ID. Frozen scientific content is
+  unchanged.
+- No checkpoint, pi0.5 search, IFT-01 rollout, label collection, probe, or MLP
+  ran in launch A.
 
 ## Exact next action
 
-Commit, review, push, and synchronize the generic ADR-0037 enforcement while
-`ready_to_run` remains false. That exact enforcement commit becomes the
-accepted implementation. Then create one direct-child release-only commit that
-selects one unused immutable run ID and changes only the apparatus release
-fields and ADR-0037. Only after the child is independently verified, pushed,
-synchronized, and externally supplied as `EXPECTED_RELEASE_COMMIT` may the
-single worker-1 64 GiB canary be submitted and monitored to a validated
-terminal interpretation.
+Run focused and complete gates plus independent review on the ADR-0038 parser
+repair while the apparatus remains unreleased. Commit, push, and synchronize
+that exact implementation. Then create one separately reviewed direct-child
+release-only commit selecting a new unused immutable run ID and changing only
+the apparatus release fields and ADR-0037. Submit the worker-1 64-GiB canary
+once only after all release identities match.
 
-Do not resubmit retry B, CG-00, or the consumed CPU apparatus run. Also, do not launch IFT-01 from this gate.
+Do not resume job `27928` or reuse launch A's run ID. Do not resubmit retry B,
+CG-00, or the consumed CPU apparatus run. Also, do not launch IFT-01 from this
+gate.
 
 ## Non-negotiable stops
 

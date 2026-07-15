@@ -39,6 +39,15 @@ events. The sampled high-water is a lower bound, never an exact peak. This
 passes only the telemetry-capability gate and cannot authorize retry C by
 itself, IFT-01, efficacy claims, or training.
 
+`ift00a-sampled-current-launch-a.json` records the first exact ADR-0037 release:
+run `r05a-inverse-flow-sampled-current-canary-20260715a`, task `27928_0`, and
+release commit `223667c91b05be9ab403e4d92d0cd1a96b45246f`. A shell token parser
+falsely rejected the valid held Slurm record before any receipt, CPU validator,
+GPU release, allocation, checkpoint load, pi0.5 call, teacher search, or
+simulator action. The exact task was cancelled with zero runtime. This is
+apparatus-inconclusive; the run ID is consumed and cannot support a transport
+or efficacy claim.
+
 `ift00a-attempt-a.json` records the first allocation attempt and its CPU Slurm
 diagnostic. Attempt `20260715a` stopped in synthetic focused tests before pi0.5
 startup: 17/17 inverse-control tests passed, while one sampler test imposed an

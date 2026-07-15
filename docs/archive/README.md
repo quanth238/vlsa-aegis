@@ -14,6 +14,9 @@ rewriting the scientific history.
 - `progress/2026-07-15-r05a-pre-execution-apparatus.md` preserves IFT-00A
   attempts A/B, the CPU apparatus regression, CG-00, and the reviewed ADR-0036
   implementation. It is provenance, not a launch instruction.
+- `progress/2026-07-15-r05a-sampled-current-launch-a.md` preserves exact
+  release `223667c`, held task `27928_0`, the zero-runtime parser failure, and
+  its exact cancellation. Its run identity is permanently consumed.
 
 ## Local-only cache
 

@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_ift00a_sampled_current_launch_a_interpretation",
+  "evidence_tier": "allocation_control_plane_apparatus_failure_no_execution",
+  "run_id": "r05a-inverse-flow-sampled-current-canary-20260715a",
+  "case_id": "crfs-1069f29a8d76463a",
+  "release_commit": "223667c91b05be9ab403e4d92d0cd1a96b45246f",
+  "accepted_implementation_commit": "6221dedde75b9fd0f038a439d030d052ce223fb7",
+  "source_host": "worker-1",
+  "submission": {
+    "submitted_at": "2026-07-15T11:46:51Z",
+    "gpu_array_job_id": "27928",
+    "gpu_array_task_id": 0,
+    "exact_gpu_task_id": "27928_0",
+    "cpu_afterany_job_id": null,
+    "requested_resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "02:00:00",
+      "array": "0-0%1",
+      "requeue": false,
+      "requested_node": "worker-1"
+    },
+    "observed_preflight_free_mem_mib": 153695
+  },
+  "terminal_slurm_record": {
+    "state": "CANCELLED by 1073",
+    "submit_time": "2026-07-15T11:46:51",
+    "eligible_time": "Unknown",
+    "start_time": "None",
+    "end_time": "2026-07-15T13:00:01",
+    "elapsed": "00:00:00",
+    "exit_code": "0:0",
+    "node_list": "None assigned",
+    "allocated_tres": null,
+    "cancellation_scope": "exact_task_27928_0_only",
+    "cancellation_authorization": "explicit_user_authorization"
+  },
+  "immutable_run_root": {
+    "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-inverse-flow-sampled-current-canary-20260715a",
+    "files": [
+      "launch-reservation.json"
+    ],
+    "launch_reservation_sha256": "bec4583c5c046c7ca9f1155debc1f389d058daede42d3c485a39398f19c36ed4",
+    "identity_consumed": true,
+    "resume_or_reuse_allowed": false
+  },
+  "transaction_boundary": {
+    "launch_reservation_written": true,
+    "held_gpu_sbatch_returned": true,
+    "held_gpu_submission_receipt_written": false,
+    "source_contract_written": false,
+    "cpu_afterany_submitted": false,
+    "atomic_submission_receipt_written": false,
+    "gpu_job_released": false,
+    "allocation_started": false,
+    "gpu_allocated": false,
+    "checkpoint_loaded": false,
+    "policy_server_started": false,
+    "pi05_sampler_called": false,
+    "teacher_search_called": false,
+    "simulator_policy_steps": 0,
+    "simulator_teacher_steps": 0
+  },
+  "failure": {
+    "stage": "post_gpu_sbatch_held_job_contract_parse",
+    "observed_message": "held GPU contract changed",
+    "classification": "fail_closed_shell_parser_defect",
+    "root_cause": "A compound shell case pattern required two separators between adjacent JobState=PENDING and Reason=JobHeldUser fields. Real Slurm emitted one separator, so a valid held record was rejected.",
+    "not_caused_by": [
+      "gpu_capacity",
+      "host_memory_capacity",
+      "pi05_model",
+      "inverse_flow_solver",
+      "target_definition",
+      "vector_field_method"
+    ]
+  },
+  "interpretation": {
+    "status": "apparatus_inconclusive",
+    "teacher_transport_evaluated": false,
+    "simulator_efficacy_evaluated": false,
+    "scientific_conclusion": "none",
+    "next_step": "Repair only the demonstrated Slurm token parser, keep the apparatus unreleased, pass exact adjacent-field and fail-closed regression tests, then require a separately reviewed release-only child with a new immutable run ID.",
+    "forbidden": [
+      "resume_job_27928",
+      "reuse_run_id_r05a-inverse-flow-sampled-current-canary-20260715a",
+      "synthesize_missing_receipts",
+      "change_frozen_science",
+      "launch_ift01",
+      "train_probe_or_mlp"
+    ]
+  }
+}

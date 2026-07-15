@@ -33,6 +33,8 @@ BOUND_REPOSITORY_PATHS=(
   docs/decisions/0028-pivot-to-inverse-flow-transport.md
   docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md
   docs/decisions/0037-require-exact-single-canary-release-identity.md
+  docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md
+  evidence/r05a/ift00a-sampled-current-launch-a.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json
@@ -240,6 +242,8 @@ bound_paths=(
   docs/decisions/0028-pivot-to-inverse-flow-transport.md
   docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md
   docs/decisions/0037-require-exact-single-canary-release-identity.md
+  docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md
+  evidence/r05a/ift00a-sampled-current-launch-a.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json
@@ -362,7 +366,9 @@ gpu_submission=$(RUN_ID="$run_id" MANIFEST="$manifest" EXPERIMENT_CONFIG="$scien
 gpu_job_id=${gpu_submission%%;*}
 case "$gpu_job_id" in *[!0-9]*|'') echo "invalid GPU job id" >&2; exit 2 ;; esac
 gpu_record=$(scontrol show job "$gpu_job_id" -o)
-case " $gpu_record " in *" JobState=PENDING "*" Reason=JobHeldUser "*" ReqNodeList=worker-1 "*) ;; *) echo "held GPU contract changed" >&2; exit 2 ;; esac
+for field in "JobState=PENDING" "Reason=JobHeldUser" "ReqNodeList=worker-1"; do
+  case " $gpu_record " in *" $field "*) ;; *) echo "held GPU job field changed: $field" >&2; exit 2 ;; esac
+done
 for field in "Partition=main" "Account=normal" "QOS=normal" "TimeLimit=02:00:00" "Requeue=0"; do
   case " $gpu_record " in *" $field "*) ;; *) echo "held GPU job field changed: $field" >&2; exit 2 ;; esac
 done
@@ -397,7 +403,9 @@ cpu_submission=$(SOURCE_JOB_ID="$gpu_job_id" SOURCE_CONTRACT="$run_root/source-c
 cpu_job_id=${cpu_submission%%;*}
 case "$cpu_job_id" in *[!0-9]*|'') echo "invalid CPU publisher job id" >&2; exit 2 ;; esac
 cpu_record=$(scontrol show job "$cpu_job_id" -o)
-case " $cpu_record " in *" JobState=PENDING "*" Partition=main "*) ;; *) echo "CPU publisher contract changed" >&2; exit 2 ;; esac
+for field in "JobState=PENDING" "Partition=main"; do
+  case " $cpu_record " in *" $field "*) ;; *) echo "CPU publisher job field changed: $field" >&2; exit 2 ;; esac
+done
 case " $cpu_record " in *gres/gpu*) echo "CPU publisher unexpectedly requests GPU" >&2; exit 2 ;; esac
 for field in "Account=normal" "QOS=normal" "TimeLimit=00:15:00" "Requeue=0"; do
   case " $cpu_record " in *" $field "*) ;; *) echo "CPU publisher job field changed: $field" >&2; exit 2 ;; esac

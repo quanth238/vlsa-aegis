@@ -58,6 +58,15 @@ Evidence: `evidence/r05a/ift00-synthetic.json` and ADR-0028.
 Status: **active protocol; any exact pre-execution authorization lives only in
 the apparatus config and ADR-0037. This protocol records no run outcome.**
 
+Launch A used exact release commit `223667c91b05be9ab403e4d92d0cd1a96b45246f`,
+run `r05a-inverse-flow-sampled-current-canary-20260715a`, and held task
+`27928_0`. A shell token parser rejected the valid adjacent pending/held fields
+before any receipt, CPU validator, GPU release, allocation, or scientific
+computation. The task was cancelled with zero runtime and no node. ADR-0038 and
+`evidence/r05a/ift00a-sampled-current-launch-a.json` classify it as
+apparatus-inconclusive; its identity is consumed and supplies no transport
+outcome.
+
 Question: can the exact frozen pi0.5 sampler realize one paired safe-progress
 target using the registered time-dependent residual velocity sequence?
 
@@ -126,7 +135,9 @@ separate nullable native-peak record. The H100 task cannot publish
 | pairing, determinism, nonfinite, OOM, allocation test, telemetry, schema, publication, source-job, or artifact failure | Apparatus-inconclusive | No transport conclusion; repair only the evidenced defect under a new decision |
 
 Attempts A/B, the CPU apparatus regression, and CG-00 are preserved in the
-R05A apparatus archive. No consumed run ID may be reused.
+R05A apparatus archive. Sampled-current launch A is preserved separately in
+`docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`. No consumed
+run ID may be reused.
 
 ### IFT-01 — Three-case real transport smoke
 

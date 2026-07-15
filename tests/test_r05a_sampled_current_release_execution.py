@@ -313,16 +313,19 @@ class SampledCurrentReleaseFixture:
                         raise SystemExit(0)
                     if len(args) >= 3 and args[:2] == ["show", "job"]:
                         job_id = args[2]
+                        gpu_state = "RUNNING" if scenario == "wrong_gpu_state" else "PENDING"
+                        gpu_reason = "Resources" if scenario == "wrong_gpu_reason" else "JobHeldUser"
+                        gpu_node = "worker-2" if scenario == "wrong_gpu_node" else "worker-1"
                         records = {
                             "9201": (
-                                "JobId=9201 JobState=PENDING Priority=0 "
-                                "Reason=JobHeldUser Dependency=(null) "
-                                "ReqNodeList=worker-1 Partition=main Account=normal "
+                                f"JobId=9201 JobState={gpu_state} "
+                                f"Reason={gpu_reason} Dependency=(null) "
+                                f"ReqNodeList={gpu_node} Partition=main Account=normal "
                                 "QOS=normal TimeLimit=02:00:00 Requeue=0 "
                                 "ReqTRES=cpu=8,mem=64G,node=1,gres/gpu=1"
                             ),
                             "9202": (
-                                "JobId=9202 JobState=PENDING Priority=0 "
+                                "JobId=9202 JobState=PENDING "
                                 "Partition=main Account=normal QOS=normal "
                                 "TimeLimit=00:15:00 "
                                 "Requeue=0 ReqTRES=cpu=2,mem=8G,node=1 "
@@ -561,6 +564,39 @@ class R05ASampledCurrentReleaseExecutionTest(unittest.TestCase):
         self.assertIn("immutable sampled-current run id is already used", completed.stderr)
         self.assert_no_mutating_boundary()
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "do not overwrite\n")
+
+    def test_wrong_held_gpu_state_reason_or_node_fails_before_receipts(self) -> None:
+        cases = {
+            "wrong_gpu_state": "JobState=PENDING",
+            "wrong_gpu_reason": "Reason=JobHeldUser",
+            "wrong_gpu_node": "ReqNodeList=worker-1",
+        }
+        for scenario, rejected_field in cases.items():
+            with self.subTest(scenario=scenario):
+                completed = self.fixture.run(scenario=scenario)
+                self.assertEqual(completed.returncode, 2)
+                self.assertIn(
+                    f"held GPU job field changed: {rejected_field}",
+                    completed.stderr,
+                )
+                events = self.fixture.events()
+                submissions = [item for item in events if item["kind"] == "sbatch"]
+                self.assertEqual(len(submissions), 1)
+                self.assertIn("--hold", submissions[0]["args"])
+                self.assertFalse(any(item["kind"] == "release" for item in events))
+                self.assertTrue(
+                    (self.fixture.run_root / "launch-reservation.json").is_file()
+                )
+                self.assertFalse(
+                    (self.fixture.run_root / "held-gpu-submission.json").exists()
+                )
+                self.assertFalse(
+                    (self.fixture.run_root / "source-contract.json").exists()
+                )
+                self.assertFalse((self.fixture.run_root / "submission.json").exists())
+
+                self.fixture.cleanup()
+                self.fixture = SampledCurrentReleaseFixture()
 
     def test_low_memory_rejects_before_mkdir_or_sbatch(self) -> None:
         completed = self.fixture.run(scenario="low_memory")
