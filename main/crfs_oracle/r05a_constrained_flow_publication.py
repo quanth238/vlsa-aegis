@@ -49,7 +49,19 @@ ALLOCATION_TEST_REGISTRY_PATH = (
     "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json"
 )
 RELEASE_DECISION_PATH = (
+    "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
+)
+HISTORICAL_RELEASE_DECISION_PATH = (
     "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"
+)
+RUNTIME_IDENTITY_DECISION_PATH = (
+    "docs/decisions/0045-accept-runtime-identity-regression.md"
+)
+RUNTIME_IDENTITY_EVIDENCE_PATH = (
+    "evidence/r05a/runtime-identity-regression-20260716a.json"
+)
+RUNTIME_IDENTITY_PREFLIGHT_PATH = (
+    "evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"
 )
 RELEASE_BRANCH_REF = "refs/remotes/origin/agent/crfs-oracle-harness"
 RELEASE_ONLY_PATHS = (
@@ -95,6 +107,36 @@ RUNTIME_IDENTITY_CONTRACT = {
         "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62",
     },
 }
+RUNTIME_IDENTITY_EVIDENCE_BINDING = {
+    "decision_path": RUNTIME_IDENTITY_DECISION_PATH,
+    "decision_sha256": "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e",
+    "evidence_path": RUNTIME_IDENTITY_EVIDENCE_PATH,
+    "evidence_sha256": "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237",
+    "preflight_path": RUNTIME_IDENTITY_PREFLIGHT_PATH,
+    "preflight_sha256": "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221",
+    "release_commit": "8415b659a46699757de1e99558713e56b95255b5",
+    "job_id": "28043",
+    "job_state": "COMPLETED",
+    "job_exit_code": "0:0",
+    "source_host": SOURCE_NODE,
+    "result_sha256": "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",
+    "shell_only": True,
+    "gpus_allocated": 0,
+    "cfs_runtime_integration_evaluated": False,
+    "h100_submission_authorized_by_evidence": False,
+}
+VINUNI_H100_GUIDE_CONTRACT = {
+    "title": "2026-05-03 - VinUni H100 Server Guide.md",
+    "local_reference_path": "/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
+    "sha256": "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
+    "line_count": 1298,
+    "login_node_role": "control_plane_only",
+    "allocation_compute_only": True,
+    "live_preflight_overrides_examples": True,
+    "free_h100_required_before_submission": True,
+    "reroute_when_worker_1_busy": False,
+    "shared_storage_stop_percent": 90,
+}
 
 # Every file whose bytes can influence raw production, validation, source-task
 # accounting, or publication is rebound in the pre-release source contract.
@@ -108,6 +150,10 @@ BOUND_REPOSITORY_PATHS = frozenset(
         ALLOCATION_TEST_REGISTRY_PATH,
         "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
         "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
+        HISTORICAL_RELEASE_DECISION_PATH,
+        RUNTIME_IDENTITY_DECISION_PATH,
+        RUNTIME_IDENTITY_EVIDENCE_PATH,
+        RUNTIME_IDENTITY_PREFLIGHT_PATH,
         RELEASE_DECISION_PATH,
         "schemas/r05a-inverse-flow-canary.schema.json",
         "main/crfs_oracle/r05a_canary.py",
@@ -135,6 +181,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "scripts/hpc/lib/r05a_allocation_tests.sh",
         "scripts/hpc/lib/r05a_runtime_identity.sh",
         "scripts/hpc/lib/slurm_exact_array_task_status.sh",
+        "scripts/hpc/preflight.sh",
         "scripts/hpc/prepare_jsonschema_overlay.sh",
         "scripts/hpc/prepare_transformers_overlay.sh",
         "scripts/hpc/run_r05a_constrained_flow_workload.sh",
@@ -153,6 +200,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "tests/test_r05a_constrained_flow_validation.py",
         "tests/test_r05a_constrained_flow_hpc_contract.py",
         "tests/test_r05a_constrained_flow_publication.py",
+        "tests/test_r05a_runtime_identity_regression_evidence.py",
     }
 )
 
@@ -173,6 +221,8 @@ SOURCE_CONTRACT_KEYS = {
     "repository_file_sha256",
     "held_gpu_submission_path",
     "held_gpu_submission_sha256",
+    "live_preflight_path",
+    "live_preflight_sha256",
     "scientific_claim_allowed",
     "infeasibility_claim_allowed",
     "simulator_efficacy_claim_allowed",
@@ -277,6 +327,13 @@ def _validate_execution_release(
         raise ValueError("constrained-flow apparatus resource contract changed")
     if apparatus_config.get("runtime_identity_contract") != RUNTIME_IDENTITY_CONTRACT:
         raise ValueError("constrained-flow runtime identity contract changed")
+    if (
+        apparatus_config.get("runtime_identity_evidence_binding")
+        != RUNTIME_IDENTITY_EVIDENCE_BINDING
+    ):
+        raise ValueError("constrained-flow runtime identity evidence binding changed")
+    if apparatus_config.get("vinuni_h100_guide_contract") != VINUNI_H100_GUIDE_CONTRACT:
+        raise ValueError("constrained-flow VinUni H100 guide contract changed")
     release = apparatus_config.get("execution_release")
     if type(release) is not dict or set(release) != EXECUTION_RELEASE_KEYS:
         raise ValueError("constrained-flow execution release keys changed")
@@ -360,6 +417,46 @@ def _validate_apparatus_bindings(
             "sha256": file_sha256(repository / relative),
         }:
             raise ValueError(f"constrained-flow apparatus {field} binding changed")
+    evidence_binding = apparatus.get("runtime_identity_evidence_binding")
+    if evidence_binding != RUNTIME_IDENTITY_EVIDENCE_BINDING:
+        raise ValueError("constrained-flow runtime identity evidence binding changed")
+    for field in ("decision", "evidence", "preflight"):
+        relative = evidence_binding[f"{field}_path"]
+        if file_sha256(repository / relative) != evidence_binding[f"{field}_sha256"]:
+            raise ValueError(f"constrained-flow runtime identity {field} bytes changed")
+    runtime_evidence = _load_object(
+        repository / RUNTIME_IDENTITY_EVIDENCE_PATH,
+        label="runtime identity terminal evidence",
+    )
+    if any(
+        (
+            runtime_evidence.get("release_commit")
+            != RUNTIME_IDENTITY_EVIDENCE_BINDING["release_commit"],
+            runtime_evidence.get("source_host") != SOURCE_NODE,
+            runtime_evidence.get("job", {}).get("job_id") != "28043",
+            runtime_evidence.get("job", {}).get("state") != "COMPLETED",
+            runtime_evidence.get("job", {}).get("exit_code") != "0:0",
+            runtime_evidence.get("job", {}).get("allocated_gpus") != 0,
+            runtime_evidence.get("execution", {}).get("shell_only") is not True,
+            runtime_evidence.get("execution", {}).get("openpi_python_executed")
+            is not False,
+            runtime_evidence.get("execution", {}).get("libero_python_executed")
+            is not False,
+            runtime_evidence.get("interpretation", {}).get(
+                "cfs_runtime_integration_evaluated"
+            )
+            is not False,
+            runtime_evidence.get("interpretation", {}).get(
+                "h100_submission_authorized_by_this_result"
+            )
+            is not False,
+            runtime_evidence.get("immutable_artifacts", {})
+            .get("result", {})
+            .get("sha256")
+            != RUNTIME_IDENTITY_EVIDENCE_BINDING["result_sha256"],
+        )
+    ):
+        raise ValueError("constrained-flow runtime identity terminal evidence changed")
     scientific = _load_object(
         repository / SCIENTIFIC_CONFIG_PATH,
         label="constrained-flow scientific config",
@@ -477,7 +574,25 @@ def _expected_frozen_bindings(repository: Path) -> dict[str, str]:
             repository
             / "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md"
         ),
-        "adr0041_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
+        "historical_adr0041_sha256": file_sha256(
+            repository / HISTORICAL_RELEASE_DECISION_PATH
+        ),
+        "adr0045_sha256": file_sha256(repository / RUNTIME_IDENTITY_DECISION_PATH),
+        "adr0046_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
+        "runtime_identity_evidence_sha256": file_sha256(
+            repository / RUNTIME_IDENTITY_EVIDENCE_PATH
+        ),
+        "runtime_identity_preflight_sha256": file_sha256(
+            repository / RUNTIME_IDENTITY_PREFLIGHT_PATH
+        ),
+        "runtime_identity_release_commit": RUNTIME_IDENTITY_EVIDENCE_BINDING[
+            "release_commit"
+        ],
+        "runtime_identity_job_id": RUNTIME_IDENTITY_EVIDENCE_BINDING["job_id"],
+        "runtime_identity_result_sha256": RUNTIME_IDENTITY_EVIDENCE_BINDING[
+            "result_sha256"
+        ],
+        "vinuni_h100_guide_sha256": VINUNI_H100_GUIDE_CONTRACT["sha256"],
         "normalization_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
         "baseline_revision": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
         "historical_inverse_control_sha256": file_sha256(
@@ -571,6 +686,14 @@ def _validate_source_contract(
     }
     if contract.get("artifact_paths") != expected_paths:
         raise ValueError("constrained-flow source artifact paths changed")
+    live_preflight = run_root / "vinuni-preflight.txt"
+    _resolve_exact(
+        contract.get("live_preflight_path", ""),
+        live_preflight,
+        label="fresh VinUni preflight",
+    )
+    if file_sha256(live_preflight) != contract.get("live_preflight_sha256"):
+        raise ValueError("fresh VinUni preflight binding changed")
     frozen_bindings = _expected_frozen_bindings(repository)
     if contract.get("frozen_bindings") != frozen_bindings:
         raise ValueError("constrained-flow frozen source bindings changed")

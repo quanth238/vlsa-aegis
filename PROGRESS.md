@@ -168,6 +168,18 @@ is executed. They begin only in a separately authorized IFT-01.
   does not yet validate full CFS integration, gives no CFS or safety evidence,
   and gives no H100 authority.  The identity config and both CFS configs are
   fail closed pending a separately reviewed new release.
+- ADR-0046 now binds that terminal evidence into the fresh CFS apparatus while
+  preserving the exact scientific projection
+  `7dc2c8f6...dc915`.  It also binds the complete 1,298-line VinUni guide at
+  SHA-256 `acee44c...b108`, requires a fresh live preflight, keeps all compute
+  inside Slurm, pins the single H100 task to worker-1, and preserves the
+  zero-simulator-action boundary.
+- The ADR-0046 implementation passes the complete `./init.sh` gate: 611 tests
+  pass with 198 declared dependency skips, plus all 21 artifact and 18 gate
+  audits.  Shell syntax, JSON parsing, Python compilation, source hashes, and
+  whitespace checks pass.  Two independent reviews report GO with no material
+  scientific, source-binding, publication, or HPC defect.  This is apparatus
+  evidence only, not a CFS result.
 - The accepted runtime-identity repair passes 72/72 dependency-backed focused
   CFS tests across the linearized
   core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
@@ -229,14 +241,13 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Bind ADR-0045's passed identity evidence into the unchanged CFS-00A apparatus,
-run the focused CFS suite and `./init.sh`, and obtain independent scientific,
-HPC, and publication review.  Only then may a separate direct-child decision
-select one new unused CFS run ID and authorize the exact worker-1 singleton
-H100 plus CPU-afterany transaction.  Re-run the complete VinUni guide preflight
-immediately before submission.  Do not change the method, worker, resources,
-solver, budget, tolerance, case, target, checkpoint, noise, or zero-simulator-
-action boundary.  Do not launch IFT-01 automatically.
+Commit, push, and synchronize the reviewed fail-closed ADR-0046 implementation.
+Create the strictly limited three-file direct-child release with one unused run
+ID, then invoke the exact worker-1 singleton-H100 plus CPU-afterany transaction
+once after fresh live preflight.  Monitor and interpret CFS-00A; do not change
+the method, worker, resources, solver, budget, tolerance, case, target,
+checkpoint, noise, or zero-simulator-action boundary, and do not launch IFT-01
+automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed

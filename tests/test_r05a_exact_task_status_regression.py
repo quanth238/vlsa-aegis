@@ -87,6 +87,9 @@ def _fake_submitter_bin(root: Path) -> Path:
             'if [ "$#" -eq 2 ]; then\n'
             "  cat >/dev/null\n"
             "  echo host=login-restricted-1\n"
+            "  echo '[storage]'\n"
+            "  echo 'Filesystem Size Used Avail Use% Mounted on'\n"
+            "  echo '/dev/fake 1T 100G 900G 10% /mnt/data'\n"
             "  echo '[paths]'\n"
             "  echo present /mnt/data/quanth/experiments\n"
             "  echo '[login-process-audit]'\n"

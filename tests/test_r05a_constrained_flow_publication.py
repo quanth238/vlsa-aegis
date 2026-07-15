@@ -68,6 +68,12 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
         }
         observed = publication._validate_execution_release(apparatus, run_id="fixture")
         self.assertEqual(observed, apparatus["execution_release"])
+        apparatus["vinuni_h100_guide_contract"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "VinUni H100 guide contract changed"):
+            publication._validate_execution_release(apparatus, run_id="fixture")
+        apparatus["vinuni_h100_guide_contract"] = dict(
+            publication.VINUNI_H100_GUIDE_CONTRACT
+        )
         apparatus["execution_release"]["resources"]["host_memory_mib"] = 32768
         with self.assertRaisesRegex(ValueError, "resources changed"):
             publication._validate_execution_release(apparatus, run_id="fixture")
@@ -213,6 +219,8 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
             }
             held_path = run_root / "held-gpu-submission.json"
             _write_json(held_path, held)
+            live_preflight = run_root / "vinuni-preflight.txt"
+            live_preflight.write_text("fresh VinUni preflight\n", encoding="utf-8")
             paths = {
                 "run_root": str(run_root),
                 "case_dir": str(case_dir),
@@ -242,6 +250,8 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
                 "repository_file_sha256": {"bound.txt": _sha(bound)},
                 "held_gpu_submission_path": str(held_path),
                 "held_gpu_submission_sha256": _sha(held_path),
+                "live_preflight_path": str(live_preflight),
+                "live_preflight_sha256": _sha(live_preflight),
                 "scientific_claim_allowed": False,
                 "infeasibility_claim_allowed": False,
                 "simulator_efficacy_claim_allowed": False,
@@ -271,6 +281,18 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
                 self.assertEqual(observed, contract)
                 self.assertEqual(observed_run, run_root)
                 self.assertEqual(observed_case, case_dir)
+                live_preflight.write_text("mutated preflight\n", encoding="utf-8")
+                with self.assertRaisesRegex(
+                    ValueError, "fresh VinUni preflight binding changed"
+                ):
+                    publication._validate_source_contract(
+                        contract_path,
+                        expected_sha256=_sha(contract_path),
+                        repository=repository,
+                        source_job_id=source_job,
+                        expected_git_commit=commit,
+                    )
+                live_preflight.write_text("fresh VinUni preflight\n", encoding="utf-8")
                 contract["frozen_bindings"]["fixture"] = "runtime-identity-changed"
                 _write_json(contract_path, contract)
                 with self.assertRaisesRegex(ValueError, "frozen source bindings changed"):

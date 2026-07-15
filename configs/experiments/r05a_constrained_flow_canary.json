@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "config_status": "terminal_apparatus_inconclusive_consumed",
+  "config_status": "draft_preregistered_not_released",
   "name": "r05a_constrained_flow_canary",
   "experiment_identity": "IFT-00B/CFS-00A",
   "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
   "scientific_role": "same_budget_initialization_diagnostic_no_simulator_efficacy",
   "ready_to_run": false,
   "blocked_on": [
-    "terminal_cfs00a_launch_a_apparatus_inconclusive",
-    "runtime_identity_repair_passed_but_not_bound_to_new_cfs_release",
-    "new_clean_pushed_release_and_unused_run_id_not_authorized"
+    "fresh_cfs_release_implementation_not_independently_reviewed",
+    "new_clean_pushed_direct_child_release_and_unused_run_id_not_authorized",
+    "fresh_vinuni_preflight_not_passed"
   ],
   "new_experiment_not_retry": true,
   "historical_run_id_reuse_forbidden": true,

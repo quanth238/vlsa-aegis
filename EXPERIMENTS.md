@@ -230,6 +230,14 @@ itself authorize an H100 submission. Both CFS configs remain fail closed until
 this evidence is bound into a separately tested and reviewed release with a
 new unused run ID and fresh VinUni-guide preflight.
 
+ADR-0046 implements that binding without changing the CFS scientific
+projection. The full local gate passes 611 tests with 198 declared dependency
+skips, and two independent reviews found no material scientific, source-
+contract, publication, or HPC defect. The implementation remains fail closed;
+only a separate three-file direct-child commit may select the next immutable
+run ID and authorize one worker-1 submission. These checks are apparatus
+evidence and do not yet say whether Arms B or C can transport the target.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

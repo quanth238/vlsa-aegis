@@ -45,3 +45,4 @@
 - [0043 — Preregister the R05A runtime-identity regression](docs/decisions/0043-preregister-runtime-identity-regression.md)
 - [0044 — Release the R05A runtime-identity regression](docs/decisions/0044-release-runtime-identity-regression.md)
 - [0045 — Accept the runtime-identity regression and require a fresh CFS release](docs/decisions/0045-accept-runtime-identity-regression.md)
+- [0046 — Require a fresh CFS-00A release bound to runtime evidence](docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md)

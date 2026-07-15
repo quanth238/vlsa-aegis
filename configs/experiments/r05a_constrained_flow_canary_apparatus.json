@@ -6,15 +6,15 @@
   "scientific_role": "full_lifetime_telemetry_and_cpu_only_publication_around_separate_legacy_and_cfs_raw_payloads",
   "ready_to_run": false,
   "blocked_on": [
-    "terminal_cfs00a_launch_a_apparatus_inconclusive",
-    "runtime_identity_repair_passed_but_not_bound_to_new_cfs_release",
-    "new_clean_pushed_release_and_unused_run_id_not_authorized"
+    "fresh_cfs_release_implementation_not_independently_reviewed",
+    "new_clean_pushed_direct_child_release_and_unused_run_id_not_authorized",
+    "fresh_vinuni_preflight_not_passed"
   ],
   "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
-  "release_decision_artifact": "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md",
+  "release_decision_artifact": "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
   "scientific_config": {
     "path": "configs/experiments/r05a_constrained_flow_canary.json",
-    "sha256": "45c4472dd73c72b0173e9d47d38f265077735b01d122d3fdf4245f1f76fdf4f6"
+    "sha256": "77315999fbdf18d62a122c4f147922767714bedfb4f4df50f1195d490fc56246"
   },
   "legacy_scientific_config": {
     "path": "configs/experiments/r05a_inverse_flow_canary.json",
@@ -93,6 +93,36 @@
       "resolved_executable": "/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
       "resolved_sha256": "c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62"
     }
+  },
+  "runtime_identity_evidence_binding": {
+    "decision_path": "docs/decisions/0045-accept-runtime-identity-regression.md",
+    "decision_sha256": "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e",
+    "evidence_path": "evidence/r05a/runtime-identity-regression-20260716a.json",
+    "evidence_sha256": "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237",
+    "preflight_path": "evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt",
+    "preflight_sha256": "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221",
+    "release_commit": "8415b659a46699757de1e99558713e56b95255b5",
+    "job_id": "28043",
+    "job_state": "COMPLETED",
+    "job_exit_code": "0:0",
+    "source_host": "worker-1",
+    "result_sha256": "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",
+    "shell_only": true,
+    "gpus_allocated": 0,
+    "cfs_runtime_integration_evaluated": false,
+    "h100_submission_authorized_by_evidence": false
+  },
+  "vinuni_h100_guide_contract": {
+    "title": "2026-05-03 - VinUni H100 Server Guide.md",
+    "local_reference_path": "/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
+    "sha256": "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
+    "line_count": 1298,
+    "login_node_role": "control_plane_only",
+    "allocation_compute_only": true,
+    "live_preflight_overrides_examples": true,
+    "free_h100_required_before_submission": true,
+    "reroute_when_worker_1_busy": false,
+    "shared_storage_stop_percent": 90
   },
   "host_telemetry_contract": {
     "parser": "crfs_oracle.r05a_full_lifetime_telemetry.parse_full_lifetime_telemetry",

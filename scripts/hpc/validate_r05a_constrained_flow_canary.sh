@@ -31,6 +31,11 @@ require_canonical_runtime_path() {
 APPARATUS_CONFIG=$REMOTE_REPO/configs/experiments/r05a_constrained_flow_canary_apparatus.json
 SOURCE_STATUS_HELPER=$REMOTE_REPO/scripts/hpc/lib/slurm_exact_array_task_status.sh
 RUNTIME_IDENTITY_HELPER=$REMOTE_REPO/scripts/hpc/lib/r05a_runtime_identity.sh
+HISTORICAL_ADR0041=$REMOTE_REPO/docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
+ADR0045=$REMOTE_REPO/docs/decisions/0045-accept-runtime-identity-regression.md
+ADR0046=$REMOTE_REPO/docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
+RUNTIME_IDENTITY_EVIDENCE=$REMOTE_REPO/evidence/r05a/runtime-identity-regression-20260716a.json
+RUNTIME_IDENTITY_PREFLIGHT=$REMOTE_REPO/evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
 
 mkdir -p "$(dirname "$VALIDATION_RECEIPT")"
 export PUBLISHER_FAILURE_STAGE=wrapper_preflight
@@ -76,12 +81,13 @@ test "${CUDA_VISIBLE_DEVICES:-NoDevFiles}" = NoDevFiles || { echo "CFS-00A publi
 case "$SOURCE_JOB_ID" in *[!0-9]*|'') echo "invalid source array job id" >&2; exit 2 ;; esac
 case "$EXPECTED_SOURCE_CONTRACT_SHA256" in *[!0-9a-f]*|'') echo "invalid source-contract digest" >&2; exit 2 ;; esac
 test "${#EXPECTED_SOURCE_CONTRACT_SHA256}" = 64 || { echo "invalid source-contract digest length" >&2; exit 2; }
+test -f "$SOURCE_CONTRACT" && test ! -L "$SOURCE_CONTRACT" || { echo "source contract missing or symlinked" >&2; exit 2; }
 test "$(sha256sum "$SOURCE_CONTRACT" | awk '{print $1}')" = "$EXPECTED_SOURCE_CONTRACT_SHA256" || { echo "source contract differs from external digest" >&2; exit 2; }
 test "$(git -C "$REMOTE_REPO" rev-parse HEAD)" = "$EXPECTED_GIT_COMMIT" || { echo "publisher source commit differs" >&2; exit 2; }
 test -z "$(git -C "$REMOTE_REPO" status --porcelain)" || { echo "publisher requires a clean remote tree" >&2; exit 2; }
-test -f "$APPARATUS_CONFIG" && test ! -L "$APPARATUS_CONFIG" || { echo "publisher apparatus config missing or symlinked" >&2; exit 2; }
-test -f "$SOURCE_STATUS_HELPER" && test ! -L "$SOURCE_STATUS_HELPER" || { echo "exact source-task helper missing or symlinked" >&2; exit 2; }
-test -f "$RUNTIME_IDENTITY_HELPER" && test ! -L "$RUNTIME_IDENTITY_HELPER" || { echo "runtime-identity helper missing or symlinked" >&2; exit 2; }
+for path in "$APPARATUS_CONFIG" "$SOURCE_STATUS_HELPER" "$RUNTIME_IDENTITY_HELPER" "$HISTORICAL_ADR0041" "$ADR0045" "$ADR0046" "$RUNTIME_IDENTITY_EVIDENCE" "$RUNTIME_IDENTITY_PREFLIGHT"; do
+  test -f "$path" && test ! -L "$path" || { echo "publisher bound source missing or symlinked: $path" >&2; exit 2; }
+done
 . "$RUNTIME_IDENTITY_HELPER"
 crfs_validate_r05a_libero_python "$LIBERO_PYTHON"
 . "$SOURCE_STATUS_HELPER"
@@ -92,29 +98,122 @@ SOURCE_RUN_ID=$(jq -er '.run_id' "$SOURCE_CONTRACT")
 test "$SOURCE_RUN_ID" = "$REGISTERED_RUN_ID" || { echo "source run ID differs from execution release" >&2; exit 2; }
 jq -e --arg run "$REGISTERED_RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT" '
   .ready_to_run == true and .blocked_on == []
+  and ((.execution_release | keys | sort) == (["schema_version","artifact_role","decision_artifact","accepted_implementation_commit","run_id","single_submission","source_host","resources","release_only_parent_required","allowed_release_diff_paths","automatic_resubmission_allowed","automatic_next_experiment_allowed"] | sort))
   and .execution_release.schema_version == "1.0"
   and .execution_release.artifact_role == "r05a_constrained_flow_canary_execution_release"
-  and .execution_release.decision_artifact == "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"
+  and .execution_release.decision_artifact == "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
   and .execution_release.accepted_implementation_commit == $implementation
   and .execution_release.run_id == $run and .execution_release.single_submission == true
   and .execution_release.source_host == "worker-1"
   and .execution_release.resources == {partition:"main",account:"normal",qos:"normal",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}
-  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"]
+  and .execution_release.release_only_parent_required == true
+  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false' "$APPARATUS_CONFIG" >/dev/null || { echo "publisher execution release changed" >&2; exit 2; }
 test "$(git -C "$REMOTE_REPO" rev-parse refs/remotes/origin/agent/crfs-oracle-harness)" = "$EXPECTED_GIT_COMMIT" || { echo "publisher origin release ref changed" >&2; exit 2; }
 test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" = "$EXPECTED_GIT_COMMIT $ACCEPTED_IMPLEMENTATION_COMMIT" || { echo "publisher release parent changed" >&2; exit 2; }
+HISTORICAL_ADR0041_SHA256=$(sha256sum "$HISTORICAL_ADR0041" | awk '{print $1}')
+ADR0045_SHA256=$(sha256sum "$ADR0045" | awk '{print $1}')
+ADR0046_SHA256=$(sha256sum "$ADR0046" | awk '{print $1}')
+RUNTIME_IDENTITY_EVIDENCE_SHA256=$(sha256sum "$RUNTIME_IDENTITY_EVIDENCE" | awk '{print $1}')
+RUNTIME_IDENTITY_PREFLIGHT_SHA256=$(sha256sum "$RUNTIME_IDENTITY_PREFLIGHT" | awk '{print $1}')
+test "$HISTORICAL_ADR0041_SHA256" = f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17 || { echo "historical ADR-0041 changed" >&2; exit 2; }
+test "$ADR0045_SHA256" = 3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e || { echo "ADR-0045 changed" >&2; exit 2; }
+test "$RUNTIME_IDENTITY_EVIDENCE_SHA256" = ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237 || { echo "runtime identity evidence changed" >&2; exit 2; }
+test "$RUNTIME_IDENTITY_PREFLIGHT_SHA256" = c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221 || { echo "runtime identity historical preflight changed" >&2; exit 2; }
+jq -e '
+  .release_decision_artifact == "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
+  and .runtime_identity_contract == {
+    validation_helper:"scripts/hpc/lib/r05a_runtime_identity.sh",
+    validation_is_shell_only:true,
+    interpreter_invocation_during_validation_allowed:false,
+    openpi_python:{
+      public_path:"/mnt/data/quanth/venvs/openpi/bin/python",
+      direct_link_target:"/mnt/data/quanth/anaconda3/bin/python",
+      resolved_executable:"/mnt/data/quanth/anaconda3/bin/python3.11",
+      resolved_sha256:"c71718900fe84a9124d39abdd9d68d029930e0dcff1764686d8d6aad97216bc9"
+    },
+    libero_python:{
+      public_path:"/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+      direct_link_target:"/home/quanth/.local/share/uv/python/cpython-3.8-linux-x86_64-gnu/bin/python3.8",
+      resolved_executable:"/home/quanth/.local/share/uv/python/cpython-3.8.20-linux-x86_64-gnu/bin/python3.8",
+      resolved_sha256:"c70efda0ee43d9a0014ee570cad3abb4f46b0c11f6ea88f7c467a91faafd4f62"
+    }
+  }
+  and .runtime_identity_evidence_binding == {
+    decision_path:"docs/decisions/0045-accept-runtime-identity-regression.md",
+    decision_sha256:"3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e",
+    evidence_path:"evidence/r05a/runtime-identity-regression-20260716a.json",
+    evidence_sha256:"ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237",
+    preflight_path:"evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt",
+    preflight_sha256:"c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221",
+    release_commit:"8415b659a46699757de1e99558713e56b95255b5",
+    job_id:"28043",
+    job_state:"COMPLETED",
+    job_exit_code:"0:0",
+    source_host:"worker-1",
+    result_sha256:"3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",
+    shell_only:true,
+    gpus_allocated:0,
+    cfs_runtime_integration_evaluated:false,
+    h100_submission_authorized_by_evidence:false
+  }
+  and .vinuni_h100_guide_contract == {
+    title:"2026-05-03 - VinUni H100 Server Guide.md",
+    local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
+    sha256:"acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108",
+    line_count:1298,login_node_role:"control_plane_only",allocation_compute_only:true,
+    live_preflight_overrides_examples:true,free_h100_required_before_submission:true,
+    reroute_when_worker_1_busy:false,shared_storage_stop_percent:90
+  }' "$APPARATUS_CONFIG" >/dev/null || { echo "publisher runtime identity binding changed" >&2; exit 2; }
+jq -e '
+  .release_commit == "8415b659a46699757de1e99558713e56b95255b5"
+  and .source_host == "worker-1"
+  and .job.job_id == "28043" and .job.state == "COMPLETED" and .job.exit_code == "0:0"
+  and .job.allocated_gpus == 0 and .execution.shell_only == true
+  and .execution.openpi_python_executed == false and .execution.libero_python_executed == false
+  and .interpretation.cfs_runtime_integration_evaluated == false
+  and .interpretation.h100_submission_authorized_by_this_result == false
+  and .immutable_artifacts.result.sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"' "$RUNTIME_IDENTITY_EVIDENCE" >/dev/null || { echo "runtime identity terminal evidence changed" >&2; exit 2; }
+EXPECTED_RUN_ROOT=/mnt/data/quanth/experiments/crfs-oracle/$SOURCE_RUN_ID
+LIVE_PREFLIGHT=$EXPECTED_RUN_ROOT/vinuni-preflight.txt
+test "$SOURCE_CONTRACT" = "$EXPECTED_RUN_ROOT/source-contract.json" || { echo "source contract path differs from exact run root" >&2; exit 2; }
+test -f "$LIVE_PREFLIGHT" && test ! -L "$LIVE_PREFLIGHT" || { echo "fresh VinUni preflight missing or symlinked" >&2; exit 2; }
+LIVE_PREFLIGHT_SHA256=$(sha256sum "$LIVE_PREFLIGHT" | awk '{print $1}')
 APPARATUS_CONFIG_SHA256=$(sha256sum "$APPARATUS_CONFIG" | awk '{print $1}')
 jq -e \
   --arg run "$REGISTERED_RUN_ID" \
   --arg commit "$EXPECTED_GIT_COMMIT" \
   --arg config_sha "$APPARATUS_CONFIG_SHA256" \
+  --arg historical_adr0041_sha "$HISTORICAL_ADR0041_SHA256" \
+  --arg adr0045_sha "$ADR0045_SHA256" \
+  --arg adr0046_sha "$ADR0046_SHA256" \
+  --arg runtime_evidence_sha "$RUNTIME_IDENTITY_EVIDENCE_SHA256" \
+  --arg runtime_preflight_sha "$RUNTIME_IDENTITY_PREFLIGHT_SHA256" \
+  --arg live_preflight "$LIVE_PREFLIGHT" \
+  --arg live_preflight_sha "$LIVE_PREFLIGHT_SHA256" \
   --arg libero_public "$CRFS_R05A_LIBERO_PYTHON" \
   --arg libero_link "$CRFS_R05A_LIBERO_PYTHON_LINK_TARGET" \
   --arg libero_resolved "$CRFS_R05A_LIBERO_PYTHON_RESOLVED" \
   --arg libero_sha "$CRFS_R05A_LIBERO_PYTHON_SHA256" '
   .run_id == $run and .git_commit == $commit
   and .repository_file_sha256["configs/experiments/r05a_constrained_flow_canary_apparatus.json"] == $config_sha
+  and .repository_file_sha256["docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"] == $historical_adr0041_sha
+  and .repository_file_sha256["docs/decisions/0045-accept-runtime-identity-regression.md"] == $adr0045_sha
+  and .repository_file_sha256["docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"] == $adr0046_sha
+  and .repository_file_sha256["evidence/r05a/runtime-identity-regression-20260716a.json"] == $runtime_evidence_sha
+  and .repository_file_sha256["evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"] == $runtime_preflight_sha
+  and .frozen_bindings.historical_adr0041_sha256 == $historical_adr0041_sha
+  and .frozen_bindings.adr0045_sha256 == $adr0045_sha
+  and .frozen_bindings.adr0046_sha256 == $adr0046_sha
+  and .frozen_bindings.runtime_identity_evidence_sha256 == $runtime_evidence_sha
+  and .frozen_bindings.runtime_identity_preflight_sha256 == $runtime_preflight_sha
+  and .frozen_bindings.runtime_identity_release_commit == "8415b659a46699757de1e99558713e56b95255b5"
+  and .frozen_bindings.runtime_identity_job_id == "28043"
+  and .frozen_bindings.runtime_identity_result_sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"
+  and .frozen_bindings.vinuni_h100_guide_sha256 == "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108"
+  and .live_preflight_path == $live_preflight
+  and .live_preflight_sha256 == $live_preflight_sha
   and .frozen_bindings.libero_python_public_path == $libero_public
   and .frozen_bindings.libero_python_direct_link_target == $libero_link
   and .frozen_bindings.libero_python_resolved_executable == $libero_resolved
