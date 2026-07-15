@@ -247,6 +247,13 @@ arm, telemetry payload, or simulator action ran. This release is consumed and
 apparatus-inconclusive; the only permitted repair is exact-task inspection for
 a new immutable run ID.
 
+Corrected release `12a7da6` submitted run ID ending `20260716b` once as GPU
+task `28048_0`, pinned to worker-1, with CPU `afterany` validator `28049`.
+The GPU task is currently pending for resources; this is an expected queue
+state, not a method outcome. Its 58-path source contract and atomic submission
+receipt are immutable at SHA-256 `5cbc304f...f2716` and
+`ad7d9764...8e98e`. No arm or scientific computation has run yet.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

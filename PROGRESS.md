@@ -31,6 +31,11 @@ Validated zero-GPU identity apparatus implementation:
 Terminal zero-GPU identity release:
 `8415b659a46699757de1e99558713e56b95255b5`.
 
+Active CFS-00A run-B release:
+`12a7da69d3d34050709d08b9ca903a99f9d30862`.
+
+Active jobs: worker-1 GPU task `28048_0`; CPU `afterany` validator `28049`.
+
 Historical detail is preserved, not deleted:
 
 - pre-inverse-flow chronology:
@@ -188,6 +193,14 @@ is executed. They begin only in a separately authorized IFT-01.
   was inspected and cancelled with zero runtime, no node, and no allocated
   TRES.  No Python, model, arm, or simulator action ran; this identity is
   apparatus-inconclusive and consumed.
+- Corrected release `12a7da6` submitted immutable run ID
+  `r05a-constrained-flow-same-budget-canary-20260716b` exactly once.  GPU task
+  `28048_0` is pinned to worker-1 and pending for `Resources`; CPU validator
+  `28049` is pending on `afterany:28048`.  The immutable source-contract and
+  submission-receipt SHA-256 values are `5cbc304f...f2716` and
+  `ad7d9764...8e98e`.  The source contract binds 58 repository files, exact
+  release commit `12a7da6`, exact task identity, worker-1, one H100, eight
+  CPUs, 64 GiB, and the zero-claim boundary.  All receipt cross-hashes pass.
 - The accepted runtime-identity repair passes 72/72 dependency-backed focused
   CFS tests across the linearized
   core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
@@ -249,14 +262,12 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Validate the one-line exact-task held-record repair, then commit, push, and
-synchronize the fail-closed implementation.  Create a new strictly limited
-three-file direct-child release with unused run ID
-`r05a-constrained-flow-same-budget-canary-20260716b`, submit the worker-1
-singleton-H100 plus CPU-afterany transaction once, and monitor it.  Do not
-change the method, worker, resources, solver, budget, tolerance, case, target,
-checkpoint, noise, or zero-simulator-action boundary, and do not launch IFT-01
-automatically.
+Monitor exact jobs `28048_0` and `28049`.  When both are terminal, inspect only
+their exact logs and immutable run root, validate Arm-A reproduction and the
+full Arm-B/C numerical, determinism, budget, replay, telemetry, schema, and
+publication contracts, then classify the one-case result.  Do not cancel,
+resubmit, reroute, change the method or resources, execute generated actions
+in the simulator, train a probe/MLP, or launch IFT-01 automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed
