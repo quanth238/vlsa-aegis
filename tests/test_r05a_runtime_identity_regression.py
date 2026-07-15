@@ -244,55 +244,73 @@ class R05ARuntimeIdentityRegressionTest(unittest.TestCase):
 
     def test_config_is_fail_closed_or_exactly_released(self) -> None:
         value = json.loads(CONFIG.read_text(encoding="utf-8"))
-        self.assertEqual(value["resource_contract"]["gpus"], 0)
-        self.assertEqual(value["resource_contract"]["host_memory_mib"], 256)
-        self.assertFalse(value["claim_boundary"]["h100_submission_authorized"])
+        expected_resources = {
+            "partition": "main",
+            "account": "normal",
+            "qos": "normal",
+            "source_host": "worker-1",
+            "cpus_per_task": 1,
+            "host_memory_mib": 256,
+            "time_limit": "00:02:00",
+            "gpus": 0,
+            "requeue": False,
+        }
+        self.assertEqual(
+            json.dumps(value["resource_contract"], sort_keys=True),
+            json.dumps(expected_resources, sort_keys=True),
+        )
+        self.assertEqual(
+            json.dumps(value["claim_boundary"], sort_keys=True),
+            json.dumps(
+                {
+                    "shell_only": True,
+                    "python_executed": False,
+                    "model_or_checkpoint_loaded": False,
+                    "simulator_executed": False,
+                    "scientific_claim_allowed": False,
+                    "transport_hypothesis_conclusion_allowed": False,
+                    "h100_submission_authorized": False,
+                    "automatic_resubmission_allowed": False,
+                    "automatic_cancellation_allowed": False,
+                    "automatic_next_gate_allowed": False,
+                },
+                sort_keys=True,
+            ),
+        )
         if not value["ready_to_run"]:
+            self.assertIs(value["ready_to_run"], False)
             self.assertTrue(value["blocked_on"])
             self.assertIsNone(value["execution_release"])
             return
+        self.assertIs(value["ready_to_run"], True)
         self.assertEqual(value["blocked_on"], [])
         release = value["execution_release"]
-        self.assertEqual(
-            set(release),
-            {
-                "schema_version",
-                "artifact_role",
-                "decision_artifact",
-                "accepted_implementation_commit",
-                "run_id",
-                "single_submission",
-                "release_only_parent_required",
-                "resources",
-                "allowed_release_diff_paths",
-                "automatic_cancellation_allowed",
-                "automatic_resubmission_allowed",
-                "h100_submission_authorized",
-                "automatic_next_gate_allowed",
-            },
-        )
-        self.assertEqual(release["schema_version"], "1.0")
-        self.assertEqual(
-            release["artifact_role"],
-            "r05a_runtime_identity_regression_execution_release",
-        )
-        self.assertEqual(len(release["accepted_implementation_commit"]), 40)
-        int(release["accepted_implementation_commit"], 16)
-        self.assertTrue(release["run_id"])
-        self.assertTrue(release["single_submission"])
-        self.assertTrue(release["release_only_parent_required"])
-        self.assertEqual(release["resources"], value["resource_contract"])
-        self.assertEqual(
-            release["allowed_release_diff_paths"],
-            [
+        implementation = release.get("accepted_implementation_commit")
+        run_id = release.get("run_id")
+        self.assertRegex(implementation, r"^[0-9a-f]{40}$")
+        self.assertRegex(run_id, r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+        expected_release = {
+            "schema_version": "1.0",
+            "artifact_role": "r05a_runtime_identity_regression_execution_release",
+            "decision_artifact": "docs/decisions/0044-release-runtime-identity-regression.md",
+            "accepted_implementation_commit": implementation,
+            "run_id": run_id,
+            "single_submission": True,
+            "release_only_parent_required": True,
+            "resources": expected_resources,
+            "allowed_release_diff_paths": [
                 "configs/experiments/r05a_runtime_identity_regression.json",
                 "docs/decisions/0044-release-runtime-identity-regression.md",
             ],
+            "automatic_cancellation_allowed": False,
+            "automatic_resubmission_allowed": False,
+            "h100_submission_authorized": False,
+            "automatic_next_gate_allowed": False,
+        }
+        self.assertEqual(
+            json.dumps(release, sort_keys=True),
+            json.dumps(expected_release, sort_keys=True),
         )
-        self.assertFalse(release["automatic_cancellation_allowed"])
-        self.assertFalse(release["automatic_resubmission_allowed"])
-        self.assertFalse(release["h100_submission_authorized"])
-        self.assertFalse(release["automatic_next_gate_allowed"])
 
     def test_transaction_order_bound_set_and_no_automatic_gpu_path(self) -> None:
         submitter = SUBMITTER.read_text(encoding="utf-8")
