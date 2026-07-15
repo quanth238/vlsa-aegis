@@ -7,8 +7,8 @@ Active branch: `agent/crfs-oracle-harness`
 Baseline: THU-RCSCT/VLSA-Aegis commit
 `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`
 
-Current reviewed repository commit before this working change:
-`12f8762d1a74dbfd39105a0aac93b45399a5ef46`
+Inverse-flow apparatus implementation commit:
+`71e7457d8a1052b108da696a34eb3a4ad54abe7e`
 
 The complete pre-pivot H00--R03A chronology is preserved verbatim in
 `docs/archive/progress/2026-07-15-pre-inverse-flow-pivot.md`.
@@ -111,13 +111,17 @@ first reproduce 9/17.
   `d2a00b1b049e92bb1ec8f11d60fa447e5e8bd5109cb8cf3f3fbb08f89498656f`,
   `e1681f865f81f2986945d10fb14073fe4cd9e78cbc5026f6749ab321b9cfb7a7`,
   and `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
-  The working changes are not yet committed, pushed, or synchronized.
+  The apparatus passed an independent launch audit with no P0/P1 findings,
+  then the complete local gate passed 413 tests with 152 declared dependency
+  skips. The allocation-dependency R05A suite separately passed 10/10 with
+  zero skips. Apparatus commit `71e7457d8a1052b108da696a34eb3a4ad54abe7e`
+  is pushed; remote synchronization and launch remain pending.
 - No R05A job has been submitted and no inverse-flow research outcome exists.
 
 ## Exact next action
 
-Pass the complete local gate, commit/push/synchronize the reviewed tree, repeat
-live control-plane preflight, and invoke exactly once:
+Synchronize the final clean reviewed tree, repeat live control-plane preflight,
+and invoke exactly once:
 
 ```bash
 RUN_ID=r05a-inverse-flow-canary-20260715a scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
