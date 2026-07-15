@@ -114,15 +114,34 @@ class R05ARuntimeIdentityRegressionEvidenceTest(unittest.TestCase):
         self.assertIs(compliance["broad_storage_scan_performed"], False)
         self.assertIs(compliance["cancellation_performed"], False)
 
-    def test_all_trackers_and_configs_preserve_the_fail_closed_boundary(self) -> None:
-        for path in (IDENTITY_CONFIG, CFS_CONFIG, CFS_APPARATUS):
-            with self.subTest(path=path.name):
-                config = json.loads(path.read_text(encoding="utf-8"))
-                self.assertIs(config["ready_to_run"], False)
+    def test_identity_stays_closed_and_cfs_is_closed_or_exactly_released(self) -> None:
+        identity = json.loads(IDENTITY_CONFIG.read_text(encoding="utf-8"))
+        self.assertIs(identity["ready_to_run"], False)
+        self.assertGreater(len(identity["blocked_on"]), 0)
+        self.assertIsNone(identity["execution_release"])
+
+        cfs = json.loads(CFS_CONFIG.read_text(encoding="utf-8"))
+        apparatus = json.loads(CFS_APPARATUS.read_text(encoding="utf-8"))
+        self.assertEqual(cfs["ready_to_run"], apparatus["ready_to_run"])
+        if cfs["ready_to_run"]:
+            self.assertEqual(cfs["blocked_on"], [])
+            self.assertEqual(apparatus["blocked_on"], [])
+            self.assertIs(cfs["preregistration"]["h100_submission_authorized"], True)
+            self.assertEqual(cfs["execution_release"], apparatus["execution_release"])
+            release = cfs["execution_release"]
+            self.assertEqual(
+                release["decision_artifact"],
+                "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
+            )
+            self.assertIs(release["single_submission"], True)
+            self.assertEqual(release["source_host"], "worker-1")
+            self.assertIs(release["automatic_resubmission_allowed"], False)
+            self.assertIs(release["automatic_next_experiment_allowed"], False)
+        else:
+            for config in (cfs, apparatus):
                 self.assertGreater(len(config["blocked_on"]), 0)
                 self.assertIsNone(config["execution_release"])
-        cfs = json.loads(CFS_CONFIG.read_text(encoding="utf-8"))
-        self.assertIs(cfs["preregistration"]["h100_submission_authorized"], False)
+            self.assertIs(cfs["preregistration"]["h100_submission_authorized"], False)
         r05a = next(
             feature
             for feature in json.loads(FEATURES.read_text(encoding="utf-8"))["features"]
