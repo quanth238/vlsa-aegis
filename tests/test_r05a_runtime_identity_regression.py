@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import tempfile
@@ -287,8 +288,12 @@ class R05ARuntimeIdentityRegressionTest(unittest.TestCase):
         release = value["execution_release"]
         implementation = release.get("accepted_implementation_commit")
         run_id = release.get("run_id")
-        self.assertRegex(implementation, r"^[0-9a-f]{40}$")
-        self.assertRegex(run_id, r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+        self.assertIsInstance(implementation, str)
+        self.assertIsInstance(run_id, str)
+        self.assertIsNotNone(re.fullmatch(r"[0-9a-f]{40}", implementation))
+        self.assertIsNotNone(
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", run_id)
+        )
         expected_release = {
             "schema_version": "1.0",
             "artifact_role": "r05a_runtime_identity_regression_execution_release",
