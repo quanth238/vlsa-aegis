@@ -180,6 +180,14 @@ is executed. They begin only in a separately authorized IFT-01.
   whitespace checks pass.  Two independent reviews report GO with no material
   scientific, source-binding, publication, or HPC defect.  This is apparatus
   evidence only, not a CFS result.
+- Release `118ff0a` selected run ID
+  `r05a-constrained-flow-same-budget-canary-20260716a` and created held array
+  job `28047`, but the submitter rejected the parent display token
+  `ArrayTaskId=0%1` before registering the CPU publisher or releasing the GPU
+  task.  Exact task `28047_0` had the required `ArrayTaskId=0`.  The held job
+  was inspected and cancelled with zero runtime, no node, and no allocated
+  TRES.  No Python, model, arm, or simulator action ran; this identity is
+  apparatus-inconclusive and consumed.
 - The accepted runtime-identity repair passes 72/72 dependency-backed focused
   CFS tests across the linearized
   core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
@@ -241,11 +249,12 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Commit, push, and synchronize the reviewed fail-closed ADR-0046 implementation.
-Create the strictly limited three-file direct-child release with one unused run
-ID, then invoke the exact worker-1 singleton-H100 plus CPU-afterany transaction
-once after fresh live preflight.  Monitor and interpret CFS-00A; do not change
-the method, worker, resources, solver, budget, tolerance, case, target,
+Validate the one-line exact-task held-record repair, then commit, push, and
+synchronize the fail-closed implementation.  Create a new strictly limited
+three-file direct-child release with unused run ID
+`r05a-constrained-flow-same-budget-canary-20260716b`, submit the worker-1
+singleton-H100 plus CPU-afterany transaction once, and monitor it.  Do not
+change the method, worker, resources, solver, budget, tolerance, case, target,
 checkpoint, noise, or zero-simulator-action boundary, and do not launch IFT-01
 automatically.
 

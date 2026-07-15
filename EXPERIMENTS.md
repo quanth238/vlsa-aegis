@@ -238,6 +238,15 @@ only a separate three-file direct-child commit may select the next immutable
 run ID and authorize one worker-1 submission. These checks are apparatus
 evidence and do not yet say whether Arms B or C can transport the target.
 
+The first ADR-0046 release (`118ff0a`, run ID ending `20260716a`) created held
+array job `28047` but stopped before release because the receipt checker read
+the parent token `ArrayTaskId=0%1` instead of exact task `28047_0`'s
+`ArrayTaskId=0`. The inspected held job was cancelled with zero runtime, no
+node, and no allocated TRES. No CPU publisher, allocation test, Python, model,
+arm, telemetry payload, or simulator action ran. This release is consumed and
+apparatus-inconclusive; the only permitted repair is exact-task inspection for
+a new immutable run ID.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

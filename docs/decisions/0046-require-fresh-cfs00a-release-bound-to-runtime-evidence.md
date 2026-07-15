@@ -94,19 +94,23 @@ release appends exactly:
 
 Until that canonical appendix exists, no H100 submission is authorized.
 
-## Exact execution release
+## Consumed release history
 
-Execution authorization: one preregistered CFS-00A canary submission only.
+Release commit `118ff0a3749ab7b00d23185545459c54ffef7615`
+selected immutable run ID
+`r05a-constrained-flow-same-budget-canary-20260716a` once.  The submitter
+created held array job `28047`, then failed before registering the CPU
+publisher or releasing the GPU task because it compared the parent display
+token `ArrayTaskId=0%1` with the exact task token `ArrayTaskId=0`.  Exact task
+`28047_0` itself exposed the required token.  The held job was inspected and
+cancelled explicitly; Slurm records `CANCELLED by 1073|0:0`, zero elapsed,
+no start, no node, and no allocated TRES.
 
-- Accepted implementation commit: `552632962836560921e5dafd52bbe51c23ab6d84`.
-- Immutable run ID: `r05a-constrained-flow-same-budget-canary-20260716a`.
-- Source host: `worker-1`.
-- Resources (canonical JSON): `{"account":"normal","array":"0-0%1","cpus_per_task":8,"gpus":1,"host_memory_mib":65536,"partition":"main","qos":"normal","requeue":false,"time_limit":"02:00:00","validator_account":"normal","validator_cpus":2,"validator_dependency":"afterany","validator_gpus":0,"validator_host_memory_mib":8192,"validator_partition":"main","validator_qos":"normal","validator_time_limit":"00:15:00"}`.
-- Single submission: `true`.
-- Automatic resubmission: `false`.
-- Automatic next experiment: `false`.
-- Simulator efficacy claim authorized: `false`.
-- Infeasibility claim authorized: `false`.
-- Probe or MLP training authorized: `false`.
-
-This appendix authorizes only the frozen one-case same-budget transport mechanism canary. It does not authorize IFT-01, solver or tolerance tuning, simulator execution of generated actions, an efficacy or infeasibility claim, label collection, probe training, or MLP training.
+The consumed run root contains only the fresh preflight, launch reservation,
+and provisional GPU receipt, with SHA-256 values `a9447c40...2880`,
+`204977e4...4fa`, and `03a84df6...034f`.  No CPU job, allocation test, Python,
+model, Arm A/B/C, telemetry payload, simulator action, or scientific result
+ran.  This is apparatus-inconclusive and permanently consumes both the run ID
+and job.  A new release may change only the exact held-record inspection from
+the array parent to `${gpu_job_id}_0`; all scientific and resource fields stay
+frozen.

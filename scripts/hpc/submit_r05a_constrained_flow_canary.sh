@@ -522,7 +522,7 @@ printf 'provisional_gpu_job_id=%s\n' "$gpu_job_id" >&2
 provisional_gpu_tmp=$(mktemp "$run_root/.provisional-gpu-job-id.XXXXXX")
 jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg gpu "$gpu_job_id" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_provisional_gpu_job_id",status:"sbatch_returned_numeric_id_before_field_validation",run_id:$run,git_commit:$commit,gpu_slurm_array_job_id:$gpu,gpu_slurm_array_task_id:0,exact_gpu_task_id:($gpu+"_0"),held:true,source_node:"worker-1",automatic_cancellation_allowed:false,scientific_claim_allowed:false,timestamp_utc:$now}' >"$provisional_gpu_tmp"
 mv "$provisional_gpu_tmp" "$provisional_gpu_receipt"
-gpu_record=$(scontrol show job "$gpu_job_id" -o)
+gpu_record=$(scontrol show job "${gpu_job_id}_0" -o)
 for field in "JobState=PENDING" "Reason=JobHeldUser" "ReqNodeList=worker-1" "Partition=main" "Account=normal" "QOS=normal" "TimeLimit=02:00:00" "Requeue=0"; do case " $gpu_record " in *" $field "*) ;; *) echo "held GPU field changed: $field" >&2; exit 2 ;; esac; done
 for field in "ArrayTaskId=0" "ArrayTaskThrottle=1"; do case " $gpu_record " in *" $field "*) ;; *) echo "held GPU array field changed: $field" >&2; exit 2 ;; esac; done
 gpu_req_tres=$(printf '%s\n' "$gpu_record" | sed -n 's/.* ReqTRES=\([^ ]*\).*/\1/p')

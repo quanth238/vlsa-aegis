@@ -723,7 +723,7 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertGreaterEqual(value.count("infeasibility_claim_allowed:false"), 4)
         self.assertLess(
             value.index('mv "$provisional_gpu_tmp" "$provisional_gpu_receipt"'),
-            value.index('gpu_record=$(scontrol show job "$gpu_job_id" -o)'),
+            value.index('gpu_record=$(scontrol show job "${gpu_job_id}_0" -o)'),
         )
         self.assertLess(
             value.index('mv "$provisional_cpu_tmp" "$provisional_cpu_receipt"'),
