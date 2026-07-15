@@ -5,9 +5,8 @@
   "scientific_role": "telemetry_only_wrapper_around_byte_frozen_ift00a_science",
   "ready_to_run": false,
   "blocked_on": [
-    "sampled_current_run_b_cpu_publisher_failed_exact_array_task_accounting_identity",
-    "zero_gpu_exact_array_task_afterany_regression_not_yet_passed",
-    "new_exact_h100_execution_identity_not_selected"
+    "new_exact_h100_execution_identity_not_selected",
+    "separate_h100_release_review_not_completed"
   ],
   "decision_artifact": "docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md",
   "envelope_schema": "schemas/r05a-sampled-current-canary-envelope.schema.json",

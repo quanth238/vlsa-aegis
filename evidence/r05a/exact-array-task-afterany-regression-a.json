@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_exact_array_task_afterany_regression_interpretation",
+  "evidence_tier": "allocation_backed_shell_only_apparatus_regression",
+  "run_id": "r05a-exact-array-task-afterany-regression-20260715a",
+  "git_commit": "5e595a366cb95d50ee86776f5de701627bf09669",
+  "source_node": "worker-1",
+  "jobs": {
+    "source_array_task": {
+      "job_id": "27975_0",
+      "job_id_raw": "27975",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "node": "worker-1",
+      "submitted_utc": "2026-07-15T14:47:19Z",
+      "started_utc": "2026-07-15T14:47:20Z",
+      "ended_utc": "2026-07-15T14:47:20Z",
+      "elapsed": "00:00:00",
+      "requested_tres": "billing=1,cpu=1,mem=256M,node=1",
+      "allocated_tres": "billing=2,cpu=2,mem=256M,node=1"
+    },
+    "afterany_validator": {
+      "job_id": "27976",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "node": "worker-1",
+      "dependency": "afterany:27975",
+      "submitted_utc": "2026-07-15T14:47:20Z",
+      "started_utc": "2026-07-15T14:47:20Z",
+      "ended_utc": "2026-07-15T14:47:23Z",
+      "elapsed": "00:00:03",
+      "requested_tres": "billing=1,cpu=1,mem=256M,node=1",
+      "allocated_tres": "billing=2,cpu=2,mem=256M,node=1"
+    }
+  },
+  "artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-exact-array-task-afterany-regression-20260715a",
+    "held_source_submission_sha256": "a8a794d3c39a2d1722c4b1e04190ebd34ba235f719b6b4388c3ebb046db1939f",
+    "source_contract_sha256": "b3ddcb274a1469d1d7b53e0afa48444a76ac3f13e25b796268dbacb1847527b6",
+    "submission_sha256": "6968e845b5712cb3b6b532f7a47b4379fb6b94a45fd5437a5223bb812768344f",
+    "source_marker_sha256": "9e2be51a285a7efe84e1e2b3e4cc8c7d0290fb2b3723e33fbfa6498c54b8f939",
+    "result_sha256": "0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74",
+    "validation_receipt_sha256": "35c7e2cd0388b148e69ff1e780bee08c34e6725bc9f715da12345843fbc44a4f",
+    "source_slurm_log_sha256": "b64b54bb2f16fff3fb7f0cb68ee8849613ea55984ac9fe673c05001d00e5b2aa",
+    "validator_slurm_log_sha256": "d28791e7ede51e55d457c88680a222f691531ba57c6ea52017e48a80ce558ace"
+  },
+  "source_binding": {
+    "bound_file_count": 9,
+    "all_bound_files_match_commit": true,
+    "production_helper_sha256": "a0ed6a55ac86219302338c359b118e511fa5739c2cad0a3eb210785b681b17b4",
+    "production_sampled_current_validator_sha256": "30071d73c7250f15190e505b20a8f159d1accd20243cfc0e1238a55b3701cc14"
+  },
+  "validation": {
+    "exact_source_task_id": "27975_0",
+    "observed_source_state": "COMPLETED",
+    "observed_source_exit_code": "0:0",
+    "source_query_status": 0,
+    "result_passed": true,
+    "receipt_passed": true,
+    "receipt_published": true,
+    "receipt_result_sha256_matches": true,
+    "shell_only": true,
+    "gpu_allocated": false,
+    "python_executed": false,
+    "checkpoint_loaded": false,
+    "model_inference_executed": false,
+    "simulator_steps_executed": 0,
+    "teacher_searches_executed": 0,
+    "training_executed": false
+  },
+  "interpretation": {
+    "status": "passed_apparatus_regression",
+    "exact_task_accounting_repair_validated": true,
+    "scientific_claim_allowed": false,
+    "teacher_transport_evaluated": false,
+    "simulator_efficacy_evaluated": false,
+    "h100_retry_authorized_by_this_artifact_alone": false,
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "next_step": "Stop. Preserve this accounting evidence. Any H100 retry requires a separate reviewed release decision and a new immutable identity; do not launch it automatically."
+  }
+}

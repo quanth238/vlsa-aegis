@@ -13,6 +13,9 @@ Reviewed R05A sampled-current launch-B implementation:
 Terminal sampled-current launch-B release:
 `06b365b5899c2cb31db12187350cce48a3a0ea20`.
 
+Validated exact-task accounting repair:
+`5e595a366cb95d50ee86776f5de701627bf09669`.
+
 Historical detail is preserved, not deleted:
 
 - pre-inverse-flow chronology:
@@ -122,22 +125,26 @@ is executed. They begin only in a separately authorized IFT-01.
   ID permanently.
 - ADR-0039's exact-task repair and preregistered zero-GPU regression apparatus
   pass all five dedicated tests, including the complete fake SSH/Slurm
-  transaction. The full local gate passes 517 tests with 152 declared
+  transaction. The final full local gate passes 521 tests with 152 declared
   dependency skips plus all 21 artifact and 18 gate audits. Independent
   science, HPC, and publication-security reviews report GO for the repair and
   CPU-only regression with no P0/P1 finding; they explicitly remain NO-GO for
   an H100 retry.
+- The live shell-only regression passed at source task `27975_0` and CPU
+  `afterany` validator `27976`; both completed `0:0` on worker-1. The production
+  helper observed exact display identity `27975_0|COMPLETED|0:0`, all nine
+  bound files matched commit `5e595a3`, and result SHA-256 is
+  `0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74`.
+  Each job requested one CPU, 256 MiB, and zero GPUs. No Python, model,
+  simulator, search, or training ran. This validates only the accounting path.
 
 ## Exact next action
 
-Finish the ADR-0039 exact-task accounting and negative-receipt provenance
-repair while the H100 apparatus remains unreleased. Run focused and complete
-local gates plus independent review, then commit, push, and synchronize that
-exact repair. Before selecting any new H100 identity, run one immutable
-shell-only zero-GPU singleton CPU array plus zero-GPU CPU `afterany` validator
-through the production exact-task helper. A terminal passing regression is
-necessary but not sufficient for a separately reviewed direct-child H100
-release.
+Stop after the validated accounting repair and preserve the terminal evidence.
+The H100 apparatus remains unreleased with no replacement identity. A future
+H100 retry is not automatic: it requires a separate scientific decision,
+independent review, a new immutable identity, and an exact release-only commit.
+IFT-01 remains blocked regardless of this apparatus pass.
 
 Do not resume job `27928` or jobs `27962`/`27963`; do not reuse launch A or B
 run IDs; and do not republish launch B's observed payload. Do not resubmit retry B,

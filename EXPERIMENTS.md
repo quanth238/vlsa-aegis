@@ -81,6 +81,13 @@ apparatus-inconclusive, permanently consumes its identity, freezes the raw
 outcome as diagnostic only, and requires a zero-GPU source-plus-`afterany`
 regression before any separately reviewed H100 release.
 
+That regression passed from clean commit `5e595a3`: source task `27975_0` and
+validator `27976` both completed `0:0` on worker-1, the production helper
+observed exact display task `27975_0`, and all nine source bindings matched.
+Both jobs were shell-only, requested one CPU and 256 MiB each, and received no
+GPU. This validates the accounting repair only; it does not accept launch B's
+raw payload, evaluate teacher transport, or authorize another H100 canary.
+
 Question: can the exact frozen pi0.5 sampler realize one paired safe-progress
 target using the registered time-dependent residual velocity sequence?
 

@@ -105,3 +105,19 @@ must still repeat those checks and bind the clean pushed/synchronized source
 commit before creating the run root. A pass proves only that the production
 helper can observe one real completed exact singleton task from an `afterany`
 allocation.
+
+## Terminal verification
+
+The registered regression ran once at commit
+`5e595a366cb95d50ee86776f5de701627bf09669`. Source task `27975_0` and
+validator `27976` both completed `0:0` on worker-1. The validator observed the
+exact display identity `27975_0|COMPLETED|0:0`, matched all nine source-bound
+files, and published result SHA-256
+`0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74`.
+Both jobs requested one CPU, 256 MiB, and zero GPUs. The artifacts record zero
+Python, checkpoint, model, simulator, teacher-search, and training execution.
+
+Compact evidence is
+`evidence/r05a/exact-array-task-afterany-regression-a.json`. This passes only
+the accounting apparatus gate. It does not authorize an H100 retry, IFT-01, a
+scientific claim, or training.

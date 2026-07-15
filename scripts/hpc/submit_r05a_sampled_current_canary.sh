@@ -37,6 +37,7 @@ BOUND_REPOSITORY_PATHS=(
   docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md
   evidence/r05a/ift00a-sampled-current-launch-a.json
   evidence/r05a/ift00a-sampled-current-launch-b.json
+  evidence/r05a/exact-array-task-afterany-regression-a.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json
@@ -249,6 +250,7 @@ bound_paths=(
   docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md
   evidence/r05a/ift00a-sampled-current-launch-a.json
   evidence/r05a/ift00a-sampled-current-launch-b.json
+  evidence/r05a/exact-array-task-afterany-regression-a.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json

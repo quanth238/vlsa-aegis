@@ -71,3 +71,11 @@ publication. The CPU wrapper compared parent `JobIDRaw=27962` to exact task
 `27962_0`, so Python publication never ran. ADR-0039 consumes the identity and
 permits only the exact-task accounting/provenance repair plus a zero-GPU live
 regression before any separately reviewed H100 release.
+
+`exact-array-task-afterany-regression-a.json` records the terminal shell-only
+repair check at source task `27975_0` and validator `27976`. Both completed
+`0:0` on worker-1; exact display `JobID=27975_0` was observed, all nine bound
+files matched commit `5e595a3`, and the published result SHA-256 is
+`0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74`.
+Each job requested one CPU, 256 MiB, and zero GPUs. This is apparatus evidence
+only and cannot authorize an H100 retry, IFT-01, a method claim, or training.

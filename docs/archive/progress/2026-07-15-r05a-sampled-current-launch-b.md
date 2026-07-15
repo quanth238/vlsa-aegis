@@ -76,3 +76,16 @@ IFT-00A transport conclusion exists. ADR-0039 permits only the exact-task
 accounting/provenance repair and a zero-GPU source-plus-`afterany` regression
 before any separately reviewed H100 release. IFT-01 and training remain
 blocked.
+
+## Accounting repair validation
+
+The preregistered shell-only regression later ran from clean commit
+`5e595a366cb95d50ee86776f5de701627bf09669`. Singleton source `27975_0` and
+CPU `afterany` validator `27976` both completed `0:0` on worker-1. The
+production helper observed exact display task `27975_0`, not parent
+`JobIDRaw=27975`, and the validator published result SHA-256
+`0de4b8b736bd750a82e7439cf737b9d16e248d67ee0d2f741d82f09d9bcd6b74`.
+All nine bound files matched; each job requested one CPU, 256 MiB, and zero
+GPUs. No Python, model, simulator, search, or training ran. This closes the
+publication-path apparatus defect only and grants no H100 or scientific
+authority.

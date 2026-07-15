@@ -20,4 +20,6 @@ to resume or reuse its consumed run ID.
 `27962_0`, failed CPU publisher `27963`, the diagnostic finite-nonconvergence
 payload, and the exact publication boundary. It is not authorization to
 republish the payload, reuse the consumed run ID, retry the H100 canary, launch
-IFT-01, or train.
+IFT-01, or train. The same archive records the later passed shell-only
+accounting regression at `27975_0`/`27976`; that apparatus pass grants no H100
+or scientific authority.
