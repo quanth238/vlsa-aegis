@@ -20,9 +20,13 @@ through the exact frozen sampler into a budgeted time-dependent residual
 velocity sequence. No probe or residual-field MLP has been trained.
 IFT-00 now passes as synthetic implementation evidence; the next gate is a
 one-case, no-efficacy allocation canary that measures real sampler integration
-and memory before any robot rollout. Two immutable attempts remain incomplete:
-retry B reached real pi0.5 and produced a deterministic finite-search miss, but
-host-memory finalization failed, so no accepted canary result exists.
+and memory before any robot rollout. Earlier retry B reached real pi0.5 and
+produced a deterministic finite-search miss, but host-memory finalization
+failed. Sampled-current launch B later completed both frozen searches and
+diagnostically reproduced the same finite nonconvergence; its CPU sole
+publisher failed on exact Slurm task identity before publication. Therefore no
+accepted canary result exists, the solver has not been declared infeasible,
+and no simulator efficacy or training claim is authorized.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

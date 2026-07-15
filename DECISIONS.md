@@ -38,3 +38,4 @@
 - [0036 — Preregister the R05A full-lifetime sampled-current canary](docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md)
 - [0037 — Require an exact single-canary execution identity](docs/decisions/0037-require-exact-single-canary-release-identity.md)
 - [0038 — Preserve sampled-current launch A and repair token parsing](docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md)
+- [0039 — Preserve sampled-current launch B and repair exact-task accounting](docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md)

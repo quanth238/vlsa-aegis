@@ -34,7 +34,9 @@ BOUND_REPOSITORY_PATHS=(
   docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md
   docs/decisions/0037-require-exact-single-canary-release-identity.md
   docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md
+  docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md
   evidence/r05a/ift00a-sampled-current-launch-a.json
+  evidence/r05a/ift00a-sampled-current-launch-b.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json
@@ -49,6 +51,7 @@ BOUND_REPOSITORY_PATHS=(
   openpi/src/openpi/policies/policy.py
   scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh
   scripts/hpc/lib/r05a_allocation_tests.sh
+  scripts/hpc/lib/slurm_exact_array_task_status.sh
   scripts/hpc/run_r05a_canary.sh
   scripts/hpc/run_r05a_sampled_current_canary.sh
   scripts/hpc/validate_r05a_sampled_current_canary.sh
@@ -243,7 +246,9 @@ bound_paths=(
   docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md
   docs/decisions/0037-require-exact-single-canary-release-identity.md
   docs/decisions/0038-preserve-sampled-current-launch-a-and-repair-token-parsing.md
+  docs/decisions/0039-preserve-sampled-current-launch-b-and-repair-exact-task-accounting.md
   evidence/r05a/ift00a-sampled-current-launch-a.json
+  evidence/r05a/ift00a-sampled-current-launch-b.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-sampled-current-canary-envelope.schema.json
   evidence/r03/r03-summary.json
@@ -258,6 +263,7 @@ bound_paths=(
   openpi/src/openpi/policies/policy.py
   scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh
   scripts/hpc/lib/r05a_allocation_tests.sh
+  scripts/hpc/lib/slurm_exact_array_task_status.sh
   scripts/hpc/run_r05a_canary.sh
   scripts/hpc/run_r05a_sampled_current_canary.sh
   scripts/hpc/validate_r05a_sampled_current_canary.sh

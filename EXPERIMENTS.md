@@ -6,7 +6,9 @@ This is the sole active experiment protocol. Completed operational history is
 archived in:
 
 - `docs/archive/progress/2026-07-15-pre-inverse-flow-pivot.md`;
-- `docs/archive/progress/2026-07-15-r05a-pre-execution-apparatus.md`.
+- `docs/archive/progress/2026-07-15-r05a-pre-execution-apparatus.md`;
+- `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
+- `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`.
 
 ADRs and evidence JSON remain authoritative for immutable decisions and
 terminal runs.
@@ -55,8 +57,9 @@ Evidence: `evidence/r05a/ift00-synthetic.json` and ADR-0028.
 
 ### IFT-00A — One-case real mechanism canary
 
-Status: **active protocol; any exact pre-execution authorization lives only in
-the apparatus config and ADR-0037. This protocol records no run outcome.**
+Status: **active gate; this ledger records terminal history but grants no
+execution authority. The current apparatus is unreleased; any future H100
+canary requires a new separately reviewed release decision and identity.**
 
 Launch A used exact release commit `223667c91b05be9ab403e4d92d0cd1a96b45246f`,
 run `r05a-inverse-flow-sampled-current-canary-20260715a`, and held task
@@ -66,6 +69,17 @@ computation. The task was cancelled with zero runtime and no node. ADR-0038 and
 `evidence/r05a/ift00a-sampled-current-launch-a.json` classify it as
 apparatus-inconclusive; its identity is consumed and supplies no transport
 outcome.
+
+Launch B used exact release commit `06b365b5899c2cb31db12187350cce48a3a0ea20`,
+run `r05a-inverse-flow-sampled-current-canary-20260715b`, GPU task `27962_0`,
+and CPU `afterany` job `27963`. The GPU task completed and the raw payload
+diagnostically reproduced two deterministic finite 128-update misses. The CPU
+wrapper then failed before Python publication because it used parent
+`JobIDRaw=27962` as though it were exact task `27962_0`. No candidate or
+`results.json` exists. ADR-0039 classifies the launch as
+apparatus-inconclusive, permanently consumes its identity, freezes the raw
+outcome as diagnostic only, and requires a zero-GPU source-plus-`afterany`
+regression before any separately reviewed H100 release.
 
 Question: can the exact frozen pi0.5 sampler realize one paired safe-progress
 target using the registered time-dependent residual velocity sequence?
@@ -135,9 +149,9 @@ separate nullable native-peak record. The H100 task cannot publish
 | pairing, determinism, nonfinite, OOM, allocation test, telemetry, schema, publication, source-job, or artifact failure | Apparatus-inconclusive | No transport conclusion; repair only the evidenced defect under a new decision |
 
 Attempts A/B, the CPU apparatus regression, and CG-00 are preserved in the
-R05A apparatus archive. Sampled-current launch A is preserved separately in
-`docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`. No consumed
-run ID may be reused.
+R05A apparatus archive. Sampled-current launches A/B are preserved separately
+in the launch archives. No consumed run ID may be reused, and launch B's raw
+payload may not be retrofitted into an accepted result.
 
 ### IFT-01 — Three-case real transport smoke
 

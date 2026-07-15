@@ -21,8 +21,9 @@ and absence of parameter-gradient contamination.
 
 The next scientific evidence must come from a valid one-case allocation
 integration canary. ADR-0035 permits one intervening shell-only cgroup
-capability artifact, but that is apparatus evidence only. Until the canary
-passes, no real inverse-flow action or research result exists.
+capability artifact, but that is apparatus evidence only. Until a canary is
+accepted, no accepted real inverse-flow transport result or simulator-efficacy
+result exists.
 
 `adr0031-apparatus-cpu-a.json` records terminal CPU-only apparatus job
 `27797_0`. All registered suites passed 17/8/10/12 with zero skips, then the
@@ -55,3 +56,18 @@ extra platform-sensitive `1e-5` equality assertion despite all four frozen
 fidelity gates passing. Its SHA-256 is
 `bc1707688a16c54a8facfedfae874d17c9c123b4c57f5f18260d493cbd2cc998`.
 No real-sampler transport or simulator outcome exists.
+
+`ift00a-attempt-b.json` records the earlier real-pi0.5 retry B at jobs
+`27726_0`/`27727`. Two finite deterministic 128-update searches ran, but host
+memory finalization failed and no accepted result was published. The payload is
+apparatus diagnostic only; it neither proves infeasibility nor authorizes a
+solver change, IFT-01, or training.
+
+`ift00a-sampled-current-launch-b.json` records exact release commit
+`06b365b5899c2cb31db12187350cce48a3a0ea20`, completed GPU task `27962_0`,
+failed CPU publisher `27963`, every immutable receipt/log/raw-output digest,
+the diagnostic deterministic finite-nonconvergence values, and the absent
+publication. The CPU wrapper compared parent `JobIDRaw=27962` to exact task
+`27962_0`, so Python publication never ran. ADR-0039 consumes the identity and
+permits only the exact-task accounting/provenance repair plus a zero-GPU live
+regression before any separately reviewed H100 release.

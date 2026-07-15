@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import stat
 import subprocess
 import sys
@@ -20,6 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts" / "hpc" / "run_r05a_canary.sh"
 H100_WRAPPER = ROOT / "scripts" / "hpc" / "run_r05a_sampled_current_canary.sh"
 CPU_WRAPPER = ROOT / "scripts" / "hpc" / "validate_r05a_sampled_current_canary.sh"
+CPU_PUBLISHER = ROOT / "main" / "publish_crfs_r05a_sampled_current_canary.py"
+SLURM_STATUS_HELPER = (
+    ROOT / "scripts" / "hpc" / "lib" / "slurm_exact_array_task_status.sh"
+)
 SUBMITTER = ROOT / "scripts" / "hpc" / "submit_r05a_sampled_current_canary.sh"
 H100_SLURM = ROOT / "slurm" / "r05a_sampled_current_canary_h100.sbatch"
 CPU_SLURM = ROOT / "slurm" / "r05a_sampled_current_canary_validate_cpu.sbatch"
@@ -304,6 +309,7 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
             RUNNER,
             H100_WRAPPER,
             CPU_WRAPPER,
+            SLURM_STATUS_HELPER,
             SUBMITTER,
             H100_SLURM,
             CPU_SLURM,
@@ -405,13 +411,175 @@ class R05ASampledCurrentHPCContractTest(unittest.TestCase):
         for fragment in (
             'test "${SLURM_MEM_PER_NODE:-0}" = 8192',
             'CUDA_VISIBLE_DEVICES:-NoDevFiles',
-            '"$job_raw" = "${SOURCE_JOB_ID}_0"',
-            'test "$source_state" = COMPLETED',
+            '. "$SOURCE_STATUS_HELPER"',
+            'crfs_wait_for_exact_completed_array_task "$SOURCE_JOB_ID" 30 1',
+            '[ "$source_state" != COMPLETED ]',
             'test "$source_exit" = 0:0',
+            'publisher_job_id: $publisher_job_id',
+            'source_task_id: $source_task_id',
+            'source_query_status:',
+            'failure_stage: $failure_stage',
             'publish_crfs_r05a_sampled_current_canary.py',
             '--expected-source-contract-sha256',
         ):
             self.assertIn(fragment, wrapper)
+        helper = SLURM_STATUS_HELPER.read_text(encoding="utf-8")
+        self.assertIn('-j "$exact_task_id"', helper)
+        self.assertIn('--format=JobID,State,ExitCode', helper)
+        self.assertNotIn("JobIDRaw", helper.split("crfs_wait_for_exact_completed_array_task", 1)[1])
+
+    def test_exact_array_task_accounting_uses_display_id_and_fails_closed(self) -> None:
+        scenarios = {
+            "success": ("27962_0|COMPLETED|0:0", 0, "COMPLETED|0:0", 1, 0),
+            "delayed": ("27962_0|COMPLETED|0:0", 0, "COMPLETED|0:0", 2, 0),
+            "parent_only": ("27962|COMPLETED|0:0", 1, "missing|missing", 2, 0),
+            "wrong_task": ("27962_1|COMPLETED|0:0", 1, "missing|missing", 2, 0),
+            "missing": ("", 1, "missing|missing", 2, 0),
+            "running": ("27962_0|RUNNING|0:0", 1, "RUNNING|0:0", 2, 0),
+            "failed": ("27962_0|FAILED|1:0", 3, "FAILED|1:0", 1, 0),
+            "nonzero": ("27962_0|COMPLETED|3:0", 3, "COMPLETED|3:0", 1, 0),
+            "sacct_nonzero_with_valid_row": (
+                "27962_0|COMPLETED|0:0",
+                1,
+                "missing|missing",
+                2,
+                1,
+            ),
+            "duplicate": (
+                "27962_0|COMPLETED|0:0\\n27962_0|COMPLETED|0:0",
+                2,
+                "",
+                1,
+                0,
+            ),
+        }
+        for scenario, (
+            row,
+            expected_code,
+            expected_stdout,
+            expected_calls,
+            fake_exit_code,
+        ) in scenarios.items():
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                fake_bin = root / "bin"
+                fake_bin.mkdir()
+                calls = root / "calls"
+                counter = root / "counter"
+                fake = fake_bin / "sacct"
+                fake.write_text(
+                    "#!/usr/bin/env bash\n"
+                    "set -eu\n"
+                    'printf "%s\\n" "$*" >>"$FAKE_CALLS"\n'
+                    'count=0; test ! -f "$FAKE_COUNTER" || read -r count <"$FAKE_COUNTER"\n'
+                    'count=$((count + 1)); printf "%s\\n" "$count" >"$FAKE_COUNTER"\n'
+                    'if [ "$FAKE_SCENARIO" = delayed ] && [ "$count" -eq 1 ]; then exit 0; fi\n'
+                    'printf "%b\\n" "$FAKE_ROW"\n'
+                    'exit "$FAKE_EXIT_CODE"\n',
+                    encoding="utf-8",
+                )
+                fake.chmod(0o755)
+                completed = subprocess.run(
+                    [
+                        "bash",
+                        "-c",
+                        ". "
+                        + shlex.quote(str(SLURM_STATUS_HELPER))
+                        + "; crfs_wait_for_exact_completed_array_task 27962 2 0",
+                    ],
+                    cwd=ROOT,
+                    env={
+                        **os.environ,
+                        "PATH": str(fake_bin) + os.pathsep + os.environ.get("PATH", ""),
+                        "FAKE_CALLS": str(calls),
+                        "FAKE_COUNTER": str(counter),
+                        "FAKE_SCENARIO": scenario,
+                        "FAKE_ROW": row,
+                        "FAKE_EXIT_CODE": str(fake_exit_code),
+                    },
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+                self.assertEqual(completed.returncode, expected_code, completed.stderr)
+                self.assertEqual(completed.stdout.strip(), expected_stdout)
+                observed_calls = calls.read_text(encoding="utf-8").splitlines()
+                self.assertEqual(len(observed_calls), expected_calls)
+                for call in observed_calls:
+                    self.assertIn("-j 27962_0", call)
+                    self.assertIn("--format=JobID,State,ExitCode", call)
+                    self.assertNotIn("JobIDRaw", call)
+
+    def test_python_publication_failure_receipt_preserves_exact_job_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            receipt = root / "cpu-afterany-validation.json"
+            result = root / "results.json"
+            fake_package = types.ModuleType("crfs_oracle")
+            fake_package.__path__ = []
+            fake_publication = types.ModuleType(
+                "crfs_oracle.r05a_sampled_current_canary"
+            )
+
+            def fail_publication(**_keyword):
+                raise RuntimeError("simulated publication failure")
+
+            fake_publication.publish_sampled_current_envelope = fail_publication
+            spec = importlib.util.spec_from_file_location(
+                "r05a_sampled_current_cli_failure_test", CPU_PUBLISHER
+            )
+            assert spec is not None and spec.loader is not None
+            cli = importlib.util.module_from_spec(spec)
+            arguments = [
+                    str(CPU_PUBLISHER),
+                    "--payload",
+                    str(root / "missing-payload.json"),
+                    "--host-telemetry",
+                    str(root / "missing-host.tsv"),
+                    "--gpu-samples",
+                    str(root / "missing-gpu.csv"),
+                    "--allocation-tests-log",
+                    str(root / "missing-tests.log"),
+                    "--source-contract",
+                    str(root / "missing-source-contract.json"),
+                    "--expected-source-contract-sha256",
+                    "a" * 64,
+                    "--submission",
+                    str(root / "missing-submission.json"),
+                    "--source-job-id",
+                    "27962",
+                    "--source-job-state",
+                    "COMPLETED",
+                    "--source-exit-code",
+                    "0:0",
+                    "--publisher-job-id",
+                    "27963",
+                    "--result",
+                    str(result),
+                    "--receipt",
+                    str(receipt),
+                ]
+            with mock.patch.dict(
+                sys.modules,
+                {
+                    "crfs_oracle": fake_package,
+                    "crfs_oracle.r05a_sampled_current_canary": fake_publication,
+                },
+            ), mock.patch.object(sys, "argv", arguments):
+                spec.loader.exec_module(cli)
+                self.assertEqual(cli.main(), 1)
+            value = json.loads(receipt.read_text(encoding="utf-8"))
+            self.assertEqual(value["publisher_job_id"], "27963")
+            self.assertEqual(value["source_job_id"], "27962")
+            self.assertEqual(value["source_task_id"], "27962_0")
+            self.assertEqual(value["source_job_state"], "COMPLETED")
+            self.assertEqual(value["source_exit_code"], "0:0")
+            self.assertEqual(value["source_query_status"], 0)
+            self.assertEqual(value["failure_stage"], "python_publication")
+            self.assertFalse(value["passed"])
+            self.assertFalse(value["published"])
+            self.assertFalse(result.exists())
 
     def test_submission_is_held_bound_cpu_registered_receipted_then_released(self) -> None:
         source = SUBMITTER.read_text(encoding="utf-8")

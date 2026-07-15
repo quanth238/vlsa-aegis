@@ -18,6 +18,57 @@ set -euo pipefail
 : "${LIBERO_PYTHON:=/mnt/data/quanth/venvs/openpi-libero-client/bin/python}"
 
 APPARATUS_CONFIG=$REMOTE_REPO/configs/experiments/r05a_sampled_current_canary_apparatus.json
+SOURCE_STATUS_HELPER=$REMOTE_REPO/scripts/hpc/lib/slurm_exact_array_task_status.sh
+
+mkdir -p "$(dirname "$VALIDATION_RECEIPT")"
+export PUBLISHER_FAILURE_STAGE=wrapper_preflight
+export SOURCE_TASK_ID=${SOURCE_JOB_ID}_0
+export SOURCE_TASK_STATE=
+export SOURCE_TASK_EXIT_CODE=
+export SOURCE_QUERY_STATUS=
+fallback_receipt() {
+  status=$?
+  trap - EXIT INT TERM
+  if [ "$status" -ne 0 ] && [ ! -f "$VALIDATION_RECEIPT" ]; then
+    temporary=$(mktemp "$(dirname "$VALIDATION_RECEIPT")/.cpu-afterany-validation.XXXXXX") || return "$status"
+    jq -n \
+      --arg publisher_job_id "$SLURM_JOB_ID" \
+      --arg source_job_id "$SOURCE_JOB_ID" \
+      --arg source_task_id "$SOURCE_TASK_ID" \
+      --arg source_state "$SOURCE_TASK_STATE" \
+      --arg source_exit "$SOURCE_TASK_EXIT_CODE" \
+      --arg query_status "$SOURCE_QUERY_STATUS" \
+      --arg failure_stage "$PUBLISHER_FAILURE_STAGE" \
+      --arg source_contract "$SOURCE_CONTRACT" \
+      --arg source_contract_sha "$EXPECTED_SOURCE_CONTRACT_SHA256" \
+      --arg result "$RESULT" \
+      --arg wrapper_status "$status" \
+      '{
+        schema_version: "2.0",
+        artifact_role: "r05a_sampled_current_canary_cpu_publication",
+        publisher_job_id: $publisher_job_id,
+        source_job_id: $source_job_id,
+        source_task_id: $source_task_id,
+        source_job_state: (if $source_state == "" then null else $source_state end),
+        source_exit_code: (if $source_exit == "" then null else $source_exit end),
+        source_query_status: (if $query_status == "" then null else ($query_status | tonumber) end),
+        failure_stage: $failure_stage,
+        source_contract_path: $source_contract,
+        source_contract_sha256_external: $source_contract_sha,
+        result_path: $result,
+        result_sha256: null,
+        passed: false,
+        published: false,
+        errors: ["publisher wrapper failed with exit code " + $wrapper_status],
+        scientific_claim_allowed: false,
+        probe_training_authorized: false
+      }' >"$temporary" && mv "$temporary" "$VALIDATION_RECEIPT"
+  fi
+  return "$status"
+}
+trap fallback_receipt EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 test "$SLURM_JOB_PARTITION" = main || { echo "sampled-current publisher is frozen to main" >&2; exit 2; }
 test "${SLURM_CPUS_PER_TASK:-}" = 2 || { echo "sampled-current publisher requires two CPUs" >&2; exit 2; }
@@ -45,6 +96,11 @@ test -z "$(git -C "$REMOTE_REPO" status --porcelain)" || {
   exit 2
 }
 test -f "$APPARATUS_CONFIG" || { echo "publisher apparatus config is missing" >&2; exit 2; }
+test -f "$SOURCE_STATUS_HELPER" && test ! -L "$SOURCE_STATUS_HELPER" || {
+  echo "exact source-task status helper is missing or symlinked" >&2
+  exit 2
+}
+. "$SOURCE_STATUS_HELPER"
 REGISTERED_RUN_ID=$(jq -er '.execution_release.run_id' "$APPARATUS_CONFIG")
 ACCEPTED_IMPLEMENTATION_COMMIT=$(jq -er '.execution_release.accepted_implementation_commit' "$APPARATUS_CONFIG")
 SOURCE_RUN_ID=$(jq -er '.run_id' "$SOURCE_CONTRACT")
@@ -109,74 +165,35 @@ publisher_req_mem=$(printf '%s\n' "$publisher_req_tres" | tr ',' '\n' | sed -n '
 test "$publisher_req_cpus" = 2 || { echo "running CPU publisher CPU request changed" >&2; exit 2; }
 case "$publisher_req_mem" in 8G|8192M) ;; *) echo "running CPU publisher memory request changed" >&2; exit 2 ;; esac
 
-mkdir -p "$(dirname "$VALIDATION_RECEIPT")"
-fallback_receipt() {
-  status=$?
-  trap - EXIT INT TERM
-  if [ "$status" -ne 0 ] && [ ! -f "$VALIDATION_RECEIPT" ]; then
-    "$LIBERO_PYTHON" - "$VALIDATION_RECEIPT" "$status" <<'PY'
-import json
-import os
-import pathlib
-import tempfile
-import sys
-
-path = pathlib.Path(sys.argv[1])
-value = {
-    "schema_version": "2.0",
-    "artifact_role": "r05a_sampled_current_canary_cpu_publication",
-    "source_job_id": os.environ.get("SOURCE_JOB_ID"),
-    "source_contract_path": os.environ.get("SOURCE_CONTRACT"),
-    "source_contract_sha256_external": os.environ.get("EXPECTED_SOURCE_CONTRACT_SHA256"),
-    "result_path": os.environ.get("RESULT"),
-    "result_sha256": None,
-    "passed": False,
-    "published": False,
-    "errors": [f"publisher wrapper failed with exit code {sys.argv[2]}"],
-    "scientific_claim_allowed": False,
-    "probe_training_authorized": False,
-}
-path.parent.mkdir(parents=True, exist_ok=True)
-with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as handle:
-    json.dump(value, handle, sort_keys=True)
-    handle.write("\n")
-    temporary = handle.name
-os.replace(temporary, path)
-PY
-  fi
-  return "$status"
-}
-trap fallback_receipt EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-
 # The afterany job must distinguish a successful source from an apparatus
-# failure.  Query only the exact array task and give accounting a bounded window
-# to become visible.
-source_state=
-source_exit=
-for _ in $(seq 1 30); do
-  while IFS='|' read -r job_raw state exit_code rest; do
-    if [ "$job_raw" = "${SOURCE_JOB_ID}_0" ]; then
-      source_state=$state
-      source_exit=$exit_code
-      break
-    fi
-  done < <(sacct -X -n -P -j "$SOURCE_JOB_ID" --format=JobIDRaw,State,ExitCode 2>/dev/null || true)
-  [ -n "$source_state" ] && break
-  sleep 1
-done
-test "$source_state" = COMPLETED || {
+# failure. Query the exact display task ID; JobIDRaw is only the parent numeric
+# allocation on VinUni and therefore cannot identify singleton task 0.
+export PUBLISHER_FAILURE_STAGE=exact_source_task_accounting
+source_record=
+if source_record=$(crfs_wait_for_exact_completed_array_task "$SOURCE_JOB_ID" 30 1); then
+  source_query_status=0
+else
+  source_query_status=$?
+fi
+export SOURCE_QUERY_STATUS=$source_query_status
+IFS='|' read -r source_state source_exit <<EOF
+$source_record
+EOF
+export SOURCE_TASK_STATE=$source_state
+export SOURCE_TASK_EXIT_CODE=$source_exit
+if [ "$source_query_status" -ne 0 ] || [ "$source_state" != COMPLETED ]; then
   echo "source H100 task did not complete successfully: state=${source_state:-missing}" >&2
   exit 3
-}
+fi
 test "$source_exit" = 0:0 || {
   echo "source H100 task exit code is not 0:0: ${source_exit:-missing}" >&2
   exit 3
 }
 
+export PUBLISHER_FAILURE_STAGE=publication_runtime_preflight
 JSONSCHEMA_OVERLAY=$($REMOTE_REPO/scripts/hpc/prepare_jsonschema_overlay.sh)
 export PYTHONPATH=$JSONSCHEMA_OVERLAY:$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero
+export PUBLISHER_FAILURE_STAGE=python_publication
 "$LIBERO_PYTHON" "$REMOTE_REPO/main/publish_crfs_r05a_sampled_current_canary.py" \
   --payload "$PAYLOAD" \
   --host-telemetry "$HOST_TELEMETRY" \

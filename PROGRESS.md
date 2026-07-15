@@ -7,11 +7,11 @@ Active branch: `agent/crfs-oracle-harness`
 Baseline: THU-RCSCT/VLSA-Aegis commit
 `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`.
 
-Reviewed R05A sampled-current apparatus implementation:
-`d3d51d3d5fe4d318760c89a87113ee4c3c0500d7`.
+Reviewed R05A sampled-current launch-B implementation:
+`7d15c2c7921d9d1201638cb68ee48cc06a94ded1`.
 
-Terminal sampled-current launch-A release:
-`223667c91b05be9ab403e4d92d0cd1a96b45246f`.
+Terminal sampled-current launch-B release:
+`06b365b5899c2cb31db12187350cce48a3a0ea20`.
 
 Historical detail is preserved, not deleted:
 
@@ -21,7 +21,9 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-pre-execution-apparatus.md`;
 - sampled-current launch A and exact cancellation:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
-- immutable decisions: ADR-0028 through ADR-0038;
+- sampled-current launch B, GPU diagnostic, and CPU publication failure:
+  `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
+- immutable decisions: ADR-0028 through ADR-0039;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -63,6 +65,11 @@ real IFT-00A result:
   parser rejected its valid adjacent `JobState=PENDING Reason=JobHeldUser`
   record before any receipt or release. The exact task was cancelled with zero
   runtime and no node. This is apparatus-inconclusive, not a transport result.
+- sampled-current launch B ran GPU task `27962_0` to completion. Its two frozen
+  128-update searches were finite and deterministically nonconvergent, but CPU
+  publisher `27963` failed before Python publication because it compared
+  Slurm's parent `JobIDRaw=27962` to exact task `27962_0`. No accepted result
+  exists; the raw outcome is diagnostic only.
 
 The active experiment is exactly one case, `crfs-1069f29a8d76463a`, on its
 source host `worker-1`: one H100, eight CPUs, exactly 64 GiB host RAM, two
@@ -99,17 +106,41 @@ is executed. They begin only in a separately authorized IFT-01.
   unchanged.
 - No checkpoint, pi0.5 search, IFT-01 rollout, label collection, probe, or MLP
   ran in launch A.
+- Launch B source contract
+  `b9a9e253c9a5e27815018c13c839805c97752545189085caac016db4ee81e1e6`
+  bound 28/28 files to clean release commit `06b365b`. GPU task `27962_0`
+  completed `0:0` on worker-1 in `00:03:09`; CPU `afterany` job `27963` failed
+  `3:0` after `00:00:31` with `state=missing`.
+- The raw payload SHA-256 is
+  `4c85603c62446d74259820dc7f86451ffe53723b79e0c866d2e38d7a026622cd`.
+  Both searches ran 128 updates, produced the same registered schedule/action
+  hashes, stayed finite, and missed XYZ fidelity by maximum `0.8631912` and RMS
+  `0.3312218`. This is not infeasibility. Failed controls were not applied.
+- The CPU publisher never invoked Python; no hidden candidate or
+  `results.json` exists. Policy steps, teacher steps, and efficacy rollouts are
+  all zero. ADR-0039 preserves the exact no-claim boundary and consumes the run
+  ID permanently.
+- ADR-0039's exact-task repair and preregistered zero-GPU regression apparatus
+  pass all five dedicated tests, including the complete fake SSH/Slurm
+  transaction. The full local gate passes 517 tests with 152 declared
+  dependency skips plus all 21 artifact and 18 gate audits. Independent
+  science, HPC, and publication-security reviews report GO for the repair and
+  CPU-only regression with no P0/P1 finding; they explicitly remain NO-GO for
+  an H100 retry.
 
 ## Exact next action
 
-Run focused and complete gates plus independent review on the ADR-0038 parser
-repair while the apparatus remains unreleased. Commit, push, and synchronize
-that exact implementation. Then create one separately reviewed direct-child
-release-only commit selecting a new unused immutable run ID and changing only
-the apparatus release fields and ADR-0037. Submit the worker-1 64-GiB canary
-once only after all release identities match.
+Finish the ADR-0039 exact-task accounting and negative-receipt provenance
+repair while the H100 apparatus remains unreleased. Run focused and complete
+local gates plus independent review, then commit, push, and synchronize that
+exact repair. Before selecting any new H100 identity, run one immutable
+shell-only zero-GPU singleton CPU array plus zero-GPU CPU `afterany` validator
+through the production exact-task helper. A terminal passing regression is
+necessary but not sufficient for a separately reviewed direct-child H100
+release.
 
-Do not resume job `27928` or reuse launch A's run ID. Do not resubmit retry B,
+Do not resume job `27928` or jobs `27962`/`27963`; do not reuse launch A or B
+run IDs; and do not republish launch B's observed payload. Do not resubmit retry B,
 CG-00, or the consumed CPU apparatus run. Also, do not launch IFT-01 from this
 gate.
 
