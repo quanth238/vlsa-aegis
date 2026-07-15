@@ -92,7 +92,7 @@ class R05AContractTest(unittest.TestCase):
         self.assertNotIn("submit_r03a_grouped_array.sh", current)
         self.assertIn("Do not launch `r03a-analytic-kill-population-20260715a`", current)
         self.assertIn(
-            "RUN_ID=r05a-inverse-flow-canary-20260715a "
+            "RUN_ID=r05a-inverse-flow-canary-20260715b "
             "scripts/hpc/submit_r05a_canary.sh",
             current,
         )

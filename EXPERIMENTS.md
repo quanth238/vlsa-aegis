@@ -66,7 +66,7 @@ executed.
 
 ### IFT-00A — One-case allocation integration canary
 
-Status: **active; immutable apparatus frozen, not yet submitted**
+Status: **active; attempt A retired as apparatus-only failure, retry B pending**
 
 Purpose: connect the passed solver to the real frozen pi0.5 sampler on only
 `crfs-1069f29a8d76463a`, without executing a teacher-generated action in the
@@ -80,6 +80,15 @@ CPU `afterany` validator must inspect the final artifact.
 ADR-0029 permits this exact source-pinned request to wait in Slurm when no H100
 is immediately free. The launcher must record the observed capacity truthfully;
 queue delay is operational state and cannot count as research evidence.
+
+Attempt `r05a-inverse-flow-canary-20260715a` used exact GPU task `27714_0` and
+CPU validator `27715`. It stopped before pi0.5 startup because a synthetic
+sampler test required `1e-5` target equality even though all four unchanged
+frozen fidelity gates passed. CPU diagnostic `27722` established the exact
+mismatch, and ADR-0030 freezes the non-tuning repair. A masked wrapper count
+mismatch (10 expected versus 12 reviewed tests) is repaired and structurally
+bound before immutable retry B. Attempt A contains no transport or efficacy
+outcome; see `evidence/r05a/ift00a-attempt-a.json`.
 
 Pass requires exact fresh source pairing; target equality outside first-five
 XYZ; compiled/eager zero-control parity before and after the solve; duplicate

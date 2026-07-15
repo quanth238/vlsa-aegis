@@ -29,3 +29,4 @@
 - [0027 — Register the source-node-grouped R03A population](docs/decisions/0027-register-source-node-grouped-r03a-population.md)
 - [0028 — Retire the pending R03A population and test inverse-flow transport](docs/decisions/0028-pivot-to-inverse-flow-transport.md)
 - [0029 — Allow the source-pinned R05A canary to wait in Slurm](docs/decisions/0029-allow-r05a-source-pinned-pending-submission.md)
+- [0030 — Bind the R05A sampler test to the frozen fidelity contract](docs/decisions/0030-bind-r05a-sampler-test-to-frozen-fidelity.md)

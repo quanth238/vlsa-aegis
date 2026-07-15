@@ -211,7 +211,7 @@ for suite in \
   test_inverse_flow_control.py:17 \
   test_inverse_flow_sampler.py:8 \
   test_inverse_flow_policy.py:10 \
-  test_r05a_canary.py:10; do
+  test_r05a_canary.py:12; do
   pattern=${suite%%:*}
   expected=${suite##*:}
   suite_log=$CASE_DIR/allocation-$pattern.log

@@ -132,15 +132,31 @@ first reproduce 9/17.
   submit once and let Slurm hold it `PENDING`; all scientific hashes, resources,
   source pinning, held-job receipts, and the CPU `afterany` validator remain
   unchanged.
-- No R05A job has been submitted and no inverse-flow research outcome exists.
+- IFT-00A attempt `r05a-inverse-flow-canary-20260715a` submitted exact GPU task
+  `27714_0` and CPU `afterany` validator `27715`. Task `27714_0` ran on worker-1
+  for 31 seconds and failed at `dependency_backed_focused_tests`; the validator
+  then failed closed because no `results.json` existed. The control suite passed
+  17/17, but one of eight sampler tests rejected a converged toy output only at
+  an extra `1e-5` assertion. No pi0.5 server, inference, or simulator efficacy
+  ran. Failure and validator artifact hashes are recorded in
+  `evidence/r05a/ift00a-attempt-a.json`, SHA-256
+  `bc1707688a16c54a8facfedfae874d17c9c123b4c57f5f18260d493cbd2cc998`.
+- CPU Slurm diagnostic `27722` reproduced the fixture on worker-1 at the exact
+  source commit. Error `0.0074953213` passed all unchanged frozen fidelity gates
+  (`0.010`, `0.005`, `0.050`, `0.015`). ADR-0030 therefore binds the test to
+  independent recomputation of those gates without changing a tolerance. The
+  attempt also exposed a masked allocation-wrapper count mismatch: 10 expected
+  versus 12 reviewed R05A tests. Attempt A is retired as apparatus failure and
+  provides no inverse-flow research outcome.
 
 ## Exact next action
 
-Pass the pending-submission regression, synchronize the final clean reviewed
-tree, repeat the complete live control-plane preflight, and invoke exactly once:
+Pass the corrected sampler and wrapper-count regressions locally and in a CPU
+Slurm allocation, pass the complete harness, commit/push/synchronize the clean
+reviewed tree, then invoke exactly once with the new immutable run ID:
 
 ```bash
-RUN_ID=r05a-inverse-flow-canary-20260715a scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
+RUN_ID=r05a-inverse-flow-canary-20260715b scripts/hpc/submit_r05a_canary.sh manifests/r05a_inverse_flow_teacher_smoke.jsonl configs/experiments/r05a_inverse_flow_canary.json
 ```
 
 This command registers the worker-1-pinned 64 GiB H100 canary on hold, registers

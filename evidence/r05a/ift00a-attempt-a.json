@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_ift00a_attempt_interpretation",
+  "evidence_tier": "allocation_backed_apparatus_failure_with_cpu_diagnostic",
+  "run_id": "r05a-inverse-flow-canary-20260715a",
+  "source_commit": "945cc119b0479cb53ce7f33114c4e923607d8491",
+  "case_id": "crfs-1069f29a8d76463a",
+  "jobs": {
+    "gpu_array_task": {
+      "job_id": "27714_0",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "node": "worker-1",
+      "elapsed": "00:00:31",
+      "started_utc": "2026-07-15T05:46:56Z",
+      "ended_utc": "2026-07-15T05:47:27Z"
+    },
+    "cpu_afterany_validator": {
+      "job_id": "27715",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "node": "worker-0",
+      "elapsed": "00:00:01",
+      "started_utc": "2026-07-15T05:47:27Z",
+      "ended_utc": "2026-07-15T05:47:28Z"
+    },
+    "cpu_fixture_diagnostic": {
+      "job_id": "27722",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "node": "worker-1",
+      "elapsed": "00:00:07",
+      "started_utc": "2026-07-15T05:53:40Z",
+      "ended_utc": "2026-07-15T05:53:47Z"
+    }
+  },
+  "remote_artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-inverse-flow-canary-20260715a",
+    "submission_receipt_sha256": "e8b0123c01f5c0dc81900852c4fcd637518b7dceaf9ebccacf8991a582328a9a",
+    "failure_sha256": "93f3d775e7bf50680c6d6289f9d2824eafee7da83e3eaad736fb68268ebde7db",
+    "cpu_validation_receipt_sha256": "e801b6a8d86a1801c3440c24ac44c92991d2eb3e0e6b590a8f6ae9ecb46eaab6",
+    "focused_test_log_sha256": "3b13c8bb406b183632228445ae8070b7d93979938f67e55e7ba45e783153d595",
+    "control_test_log_sha256": "1b44c0ec7acb6fc0e05c40a715f8f42dd3a14055703cc0027d6948ae67b015cb",
+    "sampler_test_log_sha256": "de508fef6b463128cb39c95b56483d05f9df516629dd86de51758757c460e5be",
+    "diagnostic_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-sampler-fixture-diagnostic-20260715a",
+    "diagnostic_log_sha256": "9dd24bc24061df76d1fe0538ed9f8bb9e8d01ee6fae5967ff0c1363209b11b1d"
+  },
+  "failure": {
+    "stage": "dependency_backed_focused_tests",
+    "result_json_written": false,
+    "pi05_server_started": false,
+    "pi05_inference_executed": false,
+    "teacher_generated_action_steps_executed": 0,
+    "simulator_efficacy_evaluated": false,
+    "control_suite": "17/17 passed with zero skips",
+    "sampler_suite": "7/8 passed with zero skips",
+    "failed_test": "test_teacher_converges_restores_parameters_and_records_contract",
+    "cpu_validator_error": "results.json absent because the GPU job stopped before model startup"
+  },
+  "diagnostic": {
+    "torch_version": "2.7.1+cu126",
+    "torch_num_threads": 8,
+    "target_controlled_coordinate": 0.10000000149011612,
+    "final_controlled_coordinate": 0.09250468015670776,
+    "controlled_coordinate_error": -0.007495321333408356,
+    "fidelity_xyz_max_abs": 0.007495321333408356,
+    "fidelity_xyz_rms": 0.0019352836534380913,
+    "fidelity_full_max_abs": 0.007495321333408356,
+    "fidelity_full_rms": 0.0012669404968619347,
+    "frozen_xyz_max_abs_limit": 0.01,
+    "frozen_xyz_rms_limit": 0.005,
+    "frozen_full_max_abs_limit": 0.05,
+    "frozen_full_rms_limit": 0.015,
+    "all_four_frozen_fidelity_gates_passed": true,
+    "extra_test_allclose_at_1e_5_passed": false,
+    "solver_status": "CONVERGED",
+    "solver_iterations": 128,
+    "schedule_path_length": 0.09250468015670776,
+    "source_control_budget": 0.10999999940395355
+  },
+  "root_cause": {
+    "classification": "apparatus_test_contract_mismatch",
+    "primary": "A synthetic sampler test required 1e-5 target equality even though the frozen solver contract defines convergence by four physical fidelity gates; the supported allocation PyTorch build selected a fidelity-feasible iterate that failed only the extra assertion.",
+    "secondary": "The allocation wrapper expected 10 R05A tests after the reviewed suite grew to 12; the earlier sampler failure masked this later fail-closed count mismatch.",
+    "scientific_tolerance_changed": false,
+    "solver_setting_changed": false
+  },
+  "interpretation": {
+    "apparatus_passed": false,
+    "inverse_flow_transport_evaluated": false,
+    "scientific_claim_allowed": false,
+    "probe_training_authorized": false,
+    "retry_authorized_only_after_regression_and_review": true,
+    "next_run_id": "r05a-inverse-flow-canary-20260715b"
+  }
+}

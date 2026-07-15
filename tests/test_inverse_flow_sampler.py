@@ -277,7 +277,27 @@ class InverseFlowSamplerRuntimeTest(unittest.TestCase):
         self.assertTrue(trace["parameter_grads_none_after"].item())
         self.assertTrue(sampler.contract_parameter.requires_grad)
         self.assertIsNone(sampler.contract_parameter.grad)
-        self.assertTrue(torch.allclose(final, target, atol=1.0e-5, rtol=0.0))
+        # CONVERGED means the independently recomputed, registered physical
+        # fidelity gates pass. It does not promise exact target equality: Adam
+        # can select different fidelity-feasible iterates across supported
+        # PyTorch builds. Never replace these four frozen gates with an
+        # implementation-specific allclose sentinel.
+        config = kwargs["crfs_inverse_config"]
+        physical_error = (final - target) * trace["model_to_physical_scale"]
+        xyz_error = physical_error[:, :5, :3]
+        full_error = physical_error[:, :5, :7]
+        xyz_max = torch.max(torch.abs(xyz_error))
+        xyz_rms = torch.sqrt(torch.mean(torch.square(xyz_error)))
+        full_max = torch.max(torch.abs(full_error))
+        full_rms = torch.sqrt(torch.mean(torch.square(full_error)))
+        self.assertLessEqual(xyz_max.item(), config.xyz_max_abs_tolerance)
+        self.assertLessEqual(xyz_rms.item(), config.xyz_rms_tolerance)
+        self.assertLessEqual(full_max.item(), config.full_max_abs_tolerance)
+        self.assertLessEqual(full_rms.item(), config.full_rms_tolerance)
+        self.assertEqual(trace["fidelity_xyz_max_abs"].item(), xyz_max.item())
+        self.assertEqual(trace["fidelity_xyz_rms"].item(), xyz_rms.item())
+        self.assertEqual(trace["fidelity_full_max_abs"].item(), full_max.item())
+        self.assertEqual(trace["fidelity_full_rms"].item(), full_rms.item())
         self.assertTrue(torch.equal(trace["canonical_replay_final"], final))
         self.assertEqual(tuple(trace["solver_schedule"].shape), (1, 10, 5, 7))
         self.assertEqual(tuple(trace["model_to_physical_scale"].shape), (1, 5, 7))

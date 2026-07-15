@@ -47,6 +47,27 @@ class R05ACanaryStructuralTest(unittest.TestCase):
         self.assertIn("--nodelist=worker-1", source)
         self.assertIn("test ! -e \"$run_root\"", source)
 
+        # The allocation wrapper deliberately freezes zero-skip suite counts.
+        # Bind those counts to the checked-in test declarations so adding a
+        # test cannot silently make every real allocation fail before pi0.5.
+        runner = RUNNER_PATH.read_text(encoding="utf-8")
+        for filename in (
+            "test_inverse_flow_control.py",
+            "test_inverse_flow_sampler.py",
+            "test_inverse_flow_policy.py",
+            "test_r05a_canary.py",
+        ):
+            tree = ast.parse((ROOT / "tests" / filename).read_text(encoding="utf-8"))
+            declared = sum(
+                1
+                for node in tree.body
+                if isinstance(node, ast.ClassDef)
+                for item in node.body
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and item.name.startswith("test_")
+            )
+            self.assertIn(f"{filename}:{declared}", runner)
+
     def test_submission_allows_zero_free_gpu_and_records_truthful_pending_preflight(self) -> None:
         source = SUBMIT_PATH.read_text(encoding="utf-8")
         self.assertIn('test "$allocated_gpus" -le "$configured_gpus"', source)

@@ -21,3 +21,11 @@ and absence of parameter-gradient contamination.
 
 The next evidence must come from the one-case allocation integration canary.
 Until that passes, no real inverse-flow action or research result exists.
+
+`ift00a-attempt-a.json` records the first allocation attempt and its CPU Slurm
+diagnostic. Attempt `20260715a` stopped in synthetic focused tests before pi0.5
+startup: 17/17 inverse-control tests passed, while one sampler test imposed an
+extra platform-sensitive `1e-5` equality assertion despite all four frozen
+fidelity gates passing. Its SHA-256 is
+`bc1707688a16c54a8facfedfae874d17c9c123b4c57f5f18260d493cbd2cc998`.
+No real-sampler transport or simulator outcome exists.
