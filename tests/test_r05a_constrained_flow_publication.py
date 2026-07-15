@@ -40,6 +40,9 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
         apparatus = json.loads(
             (ROOT / publication.APPARATUS_CONFIG_PATH).read_text(encoding="utf-8")
         )
+        apparatus["ready_to_run"] = False
+        apparatus["blocked_on"] = ["fixture_not_released"]
+        apparatus["execution_release"] = None
         with self.assertRaisesRegex(ValueError, "not released"):
             publication._validate_execution_release(apparatus, run_id="fixture")
 
