@@ -3,11 +3,43 @@
   "name": "r05a_full_lifetime_sampled_current_canary_apparatus",
   "evidence_tier": "real_pi05_allocation_apparatus_canary_only",
   "scientific_role": "telemetry_only_wrapper_around_byte_frozen_ift00a_science",
-  "ready_to_run": false,
-  "blocked_on": [
-    "sampled_current_launch_a_consumed_after_fail_closed_slurm_record_parse",
-    "new_exact_h100_execution_identity_not_selected"
-  ],
+  "ready_to_run": true,
+  "blocked_on": [],
+  "execution_release": {
+    "schema_version": "1.0",
+    "artifact_role": "r05a_single_canary_execution_release",
+    "decision_artifact": "docs/decisions/0037-require-exact-single-canary-release-identity.md",
+    "accepted_implementation_commit": "7d15c2c7921d9d1201638cb68ee48cc06a94ded1",
+    "run_id": "r05a-inverse-flow-sampled-current-canary-20260715b",
+    "single_submission": true,
+    "source_host": "worker-1",
+    "resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "02:00:00",
+      "array": "0-0%1",
+      "requeue": false,
+      "validator_partition": "main",
+      "validator_account": "normal",
+      "validator_qos": "normal",
+      "validator_cpus": 2,
+      "validator_host_memory_mib": 8192,
+      "validator_time_limit": "00:15:00",
+      "validator_gpus": 0,
+      "validator_dependency": "afterany"
+    },
+    "release_only_parent_required": true,
+    "allowed_release_diff_paths": [
+      "configs/experiments/r05a_sampled_current_canary_apparatus.json",
+      "docs/decisions/0037-require-exact-single-canary-release-identity.md"
+    ],
+    "automatic_resubmission_allowed": false,
+    "automatic_next_experiment_allowed": false
+  },
   "decision_artifact": "docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md",
   "envelope_schema": "schemas/r05a-sampled-current-canary-envelope.schema.json",
   "envelope_schema_sha256": "a4a78a2991ad4be0a72311def52c09b4be31bd5bed7ae3a01b18803a48b736db",
