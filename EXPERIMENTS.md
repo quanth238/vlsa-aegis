@@ -104,9 +104,21 @@ and `evidence/r05a/ift00a-attempt-b.json`. This diagnostic neither confirms nor
 refutes target transport formally, but it is strong negative evidence for the
 currently frozen solver on the preservation case.
 
+IFT-00A pass requires exact fresh source pairing; target equality outside
+first-five XYZ; exact compiled-before/after and eager-before/after zero-control
+stability; the unchanged ADR-0011 numerical compiled/eager seam limits;
+duplicate teacher schedules; an independent explicit-schedule replay equal to
+the teacher result; exact recurrence, mask, time, budget and fidelity
+validation; all frozen-model parameter gradients remaining `None`; and
+complete host/GPU memory telemetry. The runtime budget is the immutable source
+R02 float64 norm cast once to float32; the source direction norm, its float32
+norm, and the realized rounded target-difference norm are reported separately.
+No sampled policy action may be passed to `env.step`, and no simulator efficacy
+outcome may be produced.
+
 #### ADR-0031 CPU apparatus regression
 
-Status: **preregistered; not yet submitted**
+Status: **terminal apparatus failure; immutable run ID consumed**
 
 Exact run ID: `r05a-adr0031-apparatus-cpu-20260715a`.
 
@@ -128,17 +140,56 @@ The submission receipt also binds a separately callable strict validator. It
 recomputes receipt/source hashes, resource identity, the 17/8/10/12 log, and
 the live cgroup sidecar against a hidden candidate before publication.
 
-Pass requires exact fresh source pairing; target equality outside first-five
-XYZ; exact compiled-before/after and eager-before/after zero-control stability;
-the unchanged ADR-0011 numerical compiled/eager seam limits; duplicate
-teacher schedules; an independent explicit-schedule replay equal to the
-teacher result; exact recurrence, mask, time, budget and fidelity validation;
-all frozen-model parameter gradients remaining `None`; and complete host/GPU
-memory telemetry. The runtime budget is the immutable source R02 float64 norm
-cast once to float32; the source direction norm, its float32 norm, and the
-realized rounded target-difference norm are reported separately. No sampled
-policy action may be passed to `env.step`, and no simulator efficacy outcome
-may be produced.
+Exact task `27797_0` ran on worker-1 from commit
+`00dba0ad27169abd1344a97ae2f02b323e6a52ae` with the registered two CPUs,
+8 GiB, 20-minute, no-GPU contract. All four suites passed 17/8/10/12 with zero
+skips. The job then exited `3:0` at `live_cgroup_memory_peak`: the resolver
+mapped the exact cgroup-v2 membership through mount root `/` to the task leaf
+ending in `job_27797/step_batch/user/task_0`, but that leaf's `memory.peak`
+was unreadable. `sacct` recorded neither MaxRSS nor MaxVMSize, so host peak use
+remains unknown. Worker-1 reports Linux `5.15.0-130-generic`; the upstream 5.15
+cgroup-v2 interface documents `memory.current` and `memory.max` but no
+`memory.peak`, while the current interface documents `memory.peak`. Slurm's
+`JobAcctGatherType` is also null. Therefore no exact peak fallback exists on
+this allocation. No result candidate or `results.json` was written. See
+`evidence/r05a/adr0031-apparatus-cpu-a.json`. This provides no inverse-flow
+scientific outcome, and the run ID must not be reused.
+
+#### CG-00 — Job-owned cgroup telemetry capability
+
+Status: **preregistered and locally verified; not submitted**
+
+Exact run ID: `r05a-cgroup-v2-current-capability-20260715a`.
+
+Question: can worker-1 expose an allocation-owned memory interface that lets a
+future H100 canary report host-memory evidence honestly, without pretending a
+sampled value is an exact peak?
+
+Procedure: one shell-only `0-0%1` task on worker-1, one CPU, 256 MiB, two
+minutes, no GPU and no requeue. It maps only the executing task-to-exact-job
+cgroup chain, samples job-scope `memory.current` 20 times at 100 ms, records a
+positive finite `memory.max`, and checks hierarchical `memory.events` before
+and after. It checks `memory.peak` once at the exact job scope and never searches
+a shared parent. See ADR-0035.
+
+Capability pass: either a positive native `memory.peak` is available, or all 20
+sampled-current observations are valid with a positive high-water, the largest
+gap is at most 500 ms, `memory.max` is positive and finite, and
+`max`/`oom`/`oom_kill` event deltas are zero. The selected mount must not use
+`memory_localevents`, which would make those counters local-only. The sampled
+high-water is always labeled a lower bound, never an exact peak. Any unsafe
+mapping fails closed; a missing or inadequate interface is a completed
+unsupported result.
+
+Scientific role: apparatus evidence only. It cannot validate inverse-flow
+transport, repair retry B, authorize retry C by itself, launch IFT-01, or train
+a probe/MLP. A supported result permits only a separately reviewed full-run
+telemetry change before one frozen H100 canary.
+
+Local acceptance: 11/11 capability tests, 6/6 R05A tracker-contract tests,
+and the complete 447-test harness passed with 152 declared dependency skips.
+Independent HPC, semantic, and adversarial-test reviews found no remaining
+P0/P1 issue for CG-00 only.
 
 ### IFT-01 — Three-case real transport smoke
 

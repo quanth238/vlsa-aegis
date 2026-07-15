@@ -19,8 +19,17 @@ physical fidelity gates, hard timing/mask/path constraints, explicit
 nonconvergence/nonfinite statuses, graph-free results, reverse-order controls,
 and absence of parameter-gradient contamination.
 
-The next evidence must come from the one-case allocation integration canary.
-Until that passes, no real inverse-flow action or research result exists.
+The next scientific evidence must come from a valid one-case allocation
+integration canary. ADR-0035 permits one intervening shell-only cgroup
+capability artifact, but that is apparatus evidence only. Until the canary
+passes, no real inverse-flow action or research result exists.
+
+`adr0031-apparatus-cpu-a.json` records terminal CPU-only apparatus job
+`27797_0`. All registered suites passed 17/8/10/12 with zero skips, then the
+task failed closed because its exact cgroup-v2 task leaf did not expose a
+readable `memory.peak`. Synthetic unit-test solver calls ran, but no checkpoint,
+policy server, real teacher observation, simulator action, or training ran.
+This is apparatus evidence only and does not authorize retry C.
 
 `ift00a-attempt-a.json` records the first allocation attempt and its CPU Slurm
 diagnostic. Attempt `20260715a` stopped in synthetic focused tests before pi0.5

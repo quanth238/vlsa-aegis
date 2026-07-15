@@ -185,14 +185,14 @@ first reproduce 9/17.
   passed 12/12 with zero skips. This includes the independently callable
   CPU-result validator, its eight tamper cases, and the held-job
   failure-transaction fixture. This is local implementation evidence only.
-- ADR-0032 preregisters the exact CPU-only integration run
+- ADR-0032 preregistered the exact CPU-only integration run
   `r05a-adr0031-apparatus-cpu-20260715a`: worker-1, `0-0%1`, two CPUs, 8 GiB,
   20 minutes, no GPU, checkpoint, policy server, real pi0.5 teacher search or
   teacher observation, simulator step, efficacy claim, or training
   authorization. Its required unit suites contain synthetic inverse-solver
   calls only. A separately callable, receipt-hash-bound validator checks the
-  unpublished result candidate and has dependency-free tamper coverage. It has
-  not been submitted.
+  unpublished result candidate and has dependency-free tamper coverage. This
+  was its frozen pre-submission contract; the terminal task is recorded below.
 - Independent replay of the exact retry-B payload, SHA-256
   `d5721d08747cd7c8f335057f2d89f7224d8921ac0bf1cba9bd16475fd3622d2b`,
   exposed persisted scalar leaves with shape `(1,)`. ADR-0033 accepts a
@@ -208,26 +208,55 @@ first reproduce 9/17.
   Independent scientific and HPC reviews found no remaining P0/P1 blocker for
   the preregistered CPU-only apparatus run. They remain explicit NO-GO for
   retry C, IFT-01, simulator efficacy, and probe/MLP training.
+- The exact ADR-0032 CPU apparatus run
+  `r05a-adr0031-apparatus-cpu-20260715a` is terminal and consumed. Job
+  `27797_0` ran on worker-1 from commit
+  `00dba0ad27169abd1344a97ae2f02b323e6a52ae` with two CPUs, 8 GiB, no GPU,
+  and exited `3:0` after 20 seconds. All registered suites passed 17/8/10/12
+  with zero skips. The remaining failure is live cgroup measurement: the
+  mapper reconstructed the exact v2 membership leaf ending in
+  `job_27797/step_batch/user/task_0`, where `memory.peak` was unreadable.
+  Worker-1 is Linux `5.15.0-130-generic`; the upstream 5.15 cgroup-v2
+  interface has no `memory.peak`, and Slurm `JobAcctGatherType` is null with no
+  MaxRSS/MaxVMSize. Thus measured host peak remains unknown and no exact
+  fallback exists on this allocation. No result candidate, checkpoint load,
+  policy server, real teacher observation, simulator step, efficacy claim, or
+  training occurred. Synthetic unit-test solver/model calls did run. Evidence:
+  `evidence/r05a/adr0031-apparatus-cpu-a.json`. This blocks retry C and requires
+  a bounded leaf-versus-allocation-ancestor diagnostic; never reuse the run ID.
+- ADR-0035 preregisters the exact shell-only capability run
+  `r05a-cgroup-v2-current-capability-20260715a`: worker-1, `0-0%1`, one CPU,
+  256 MiB, two minutes, no GPU, no requeue, and no Python, model, simulator, or
+  training. It reads only the task-to-exact-job cgroup chain. A positive native
+  peak or a positive finite job-scope `memory.current`/`memory.max` trace with
+  hierarchical zero limit/OOM event deltas is apparatus support only. The
+  selected mount must not use `memory_localevents`. Sampled high-water remains
+  a lower bound, never an exact peak. The gate has not been submitted and
+  cannot authorize retry C by itself.
+- The reviewed CG-00 tree passes 11/11 focused capability tests, 6/6 R05A
+  tracker-contract tests, and the complete `./init.sh` gate: 447 tests with 152
+  declared dependency skips plus all 21 artifact/18 gate audits. Independent
+  HPC, semantic, and adversarial-test reviews report GO for CG-00 only and
+  retain NO-GO for retry C, IFT-01, efficacy, and training.
 
 ## Exact next action
 
-Do not resubmit retry B and do not launch IFT-01. Complete independent review,
-commit and push the repaired tree, synchronize the clean VinUni checkout to
-that exact commit, verify an empty user queue and healthy worker-1, then invoke
-exactly once:
+Do not resubmit retry B or reuse the consumed CPU run ID; do not launch IFT-01.
+Finish independent review and the complete local gate for ADR-0035, commit and
+push the exact tree, synchronize VinUni to that clean commit, verify the exact
+run ID is unused, the user queue is empty, and worker-1 is healthy with at least
+256 MiB free. Then invoke exactly once:
 
 ```bash
-RUN_ID=r05a-adr0031-apparatus-cpu-20260715a \
-  scripts/hpc/submit_r05a_apparatus_regression.sh
+RUN_ID=r05a-cgroup-v2-current-capability-20260715a \
+  scripts/hpc/submit_r05a_cgroup_v2_current_capability.sh
 ```
 
-Interpret only the exact terminal CPU task, immutable receipts, 17/8/10/12
-zero-skip log, independently parsed live cgroup sidecar, and atomic result.
-A pass is apparatus evidence and one retry-C prerequisite, not transport or
-efficacy evidence. Do not choose a retry-C ID or command until this CPU run is
-terminal and independently reviewed. If a later accepted retry C reports the
-same finite nonconvergence, stop IFT-01 and the currently registered
-inverse-flow teacher direction.
+Interpret only that exact shell-only task, immutable receipt, bounded TSV, and
+atomic result. Do not run Python or experiments on the login node. A supported
+capability permits a separate reviewed telemetry implementation; it does not
+authorize retry C, IFT-01, efficacy claims, or training. An unsupported outcome
+stops this telemetry route. Never relabel sampled high-water as an exact peak.
 
 ## Non-negotiable stops
 

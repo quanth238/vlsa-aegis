@@ -34,3 +34,4 @@
 - [0032 — Preregister the R05A CPU apparatus regression](docs/decisions/0032-preregister-r05a-cpu-apparatus-regression.md)
 - [0033 — Accept artifact-only singleton scalar decoding for R05A](docs/decisions/0033-accept-r05a-artifact-singleton-scalar-decoding.md)
 - [0034 — Recompute R05A status from exact artifact traces](docs/decisions/0034-recompute-r05a-status-from-exact-artifact-traces.md)
+- [0035 — Preregister the R05A sampled-current capability gate](docs/decisions/0035-preregister-r05a-sampled-current-capability-gate.md)
