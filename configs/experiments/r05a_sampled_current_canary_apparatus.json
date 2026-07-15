@@ -1,0 +1,335 @@
+{
+  "schema_version": "1.0",
+  "name": "r05a_full_lifetime_sampled_current_canary_apparatus",
+  "evidence_tier": "real_pi05_allocation_apparatus_canary_only",
+  "scientific_role": "telemetry_only_wrapper_around_byte_frozen_ift00a_science",
+  "ready_to_run": false,
+  "blocked_on": [
+    "separate_h100_execution_release_decision_not_accepted",
+    "immutable_h100_execution_identity_not_selected"
+  ],
+  "decision_artifact": "docs/decisions/0036-preregister-r05a-full-lifetime-sampled-current-canary.md",
+  "envelope_schema": "schemas/r05a-sampled-current-canary-envelope.schema.json",
+  "envelope_schema_sha256": "a4a78a2991ad4be0a72311def52c09b4be31bd5bed7ae3a01b18803a48b736db",
+  "frozen_science_bindings": {
+    "scientific_config": {
+      "path": "configs/experiments/r05a_inverse_flow_canary.json",
+      "sha256": "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb",
+      "normalized_projection_sha256": "9e2ff74cda8ac3b5d4098942a82cc3352cebea3f4b8e1fc1d326c2dc24d2887d"
+    },
+    "manifest": {
+      "path": "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
+      "sha256": "bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633"
+    },
+    "adr0028": {
+      "path": "docs/decisions/0028-pivot-to-inverse-flow-transport.md",
+      "sha256": "d2a00b1b049e92bb1ec8f11d60fa447e5e8bd5109cb8cf3f3fbb08f89498656f"
+    },
+    "historical_scientific_schema": {
+      "path": "schemas/r05a-inverse-flow-canary.schema.json",
+      "sha256": "e1681f865f81f2986945d10fb14073fe4cd9e78cbc5026f6749ab321b9cfb7a7",
+      "must_remain_unmodified": true,
+      "sampled_current_may_populate_historical_peak_field": false
+    },
+    "source_r02": {
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a/crfs-1069f29a8d76463a/r02-paired.json",
+      "sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+    },
+    "source_r02_config": {
+      "path": "configs/experiments/r02_oracle_flow.json",
+      "sha256": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+    },
+    "source_r03_summary": {
+      "path": "evidence/r03/r03-summary.json",
+      "sha256": "dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e",
+      "ordered_result_set_digest": "fa79a132f2fecbedab5917111ef71f022e52c933d8e535aaca118add5f5b7895"
+    },
+    "checkpoint": {
+      "sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
+    },
+    "normalization_asset": {
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "baseline_revision": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    "live_science_files": [
+      {
+        "path": "main/crfs_oracle/r05a_canary.py",
+        "sha256": "9d4402ccb92835bc1af2a3e04fe54c0b94839f41beb2971022216f73ec67fede"
+      },
+      {
+        "path": "main/run_crfs_r05a_canary.py",
+        "sha256": "247bd20e48ffe2228d2633d2f667a2791371163cca1c43ad7d278f4fbfd7439a"
+      },
+      {
+        "path": "openpi/src/openpi/models_pytorch/crfs_inverse_control.py",
+        "sha256": "965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8"
+      },
+      {
+        "path": "openpi/src/openpi/models_pytorch/pi0_pytorch.py",
+        "sha256": "80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55"
+      },
+      {
+        "path": "openpi/src/openpi/policies/policy.py",
+        "sha256": "d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9"
+      }
+    ]
+  },
+  "frozen_case": {
+    "case_index": 0,
+    "case_id": "crfs-1069f29a8d76463a",
+    "group_id": "safelibero_spatial:II:0:46",
+    "environment_seed": 924805038,
+    "policy_seed": 1179198633,
+    "source_host": "worker-1",
+    "task_suite": "safelibero_spatial",
+    "safety_level": "II",
+    "task_index": 0,
+    "episode_index": 46
+  },
+  "frozen_scientific_procedure": {
+    "target_definition": "fresh_frozen_normalized_final_plus_immutable_r02_delta_star_model_first_five_xyz_only",
+    "target_pairing": "all_coordinates_outside_first_five_xyz_bitwise_equal_fresh_frozen_normalized_final",
+    "normalization_rule": "physical_displacement_to_model_uses_checkpoint_scale_only_never_mean",
+    "control_budget_binding": "float32_of_immutable_r02_reported_delta_star_model_l2_scalar",
+    "source_reported_budget_float64": 3.6398398429065115,
+    "source_budget_float32": 3.6398398876190186,
+    "action_horizon": 10,
+    "action_dim": 32,
+    "sampler_steps": 10,
+    "intervention_step": 5,
+    "dt": -0.1,
+    "solver": {
+      "algorithm": "deterministic_constrained_direct_shooting",
+      "max_iterations": 128,
+      "learning_rate": 0.02,
+      "adam_beta1": 0.9,
+      "adam_beta2": 0.999,
+      "adam_epsilon": 1e-08,
+      "xyz_max_abs_tolerance": 0.01,
+      "xyz_rms_tolerance": 0.005,
+      "full_max_abs_tolerance": 0.05,
+      "full_rms_tolerance": 0.015,
+      "constraint_slack_ulps": 8,
+      "stop_on_first_feasible": false
+    },
+    "control_contract": {
+      "active_steps": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "inactive_steps": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "mask": "first_five_xyz_only",
+      "path_budget": "sum_k_norm_c_k_lte_source_budget",
+      "per_step_budget": "norm_c_k_lte_source_budget_div_5",
+      "clipping": "forbidden",
+      "terminal_overwrite": "forbidden",
+      "direct_action_delta_after_sampling": "forbidden"
+    },
+    "policy_call_sequence": [
+      "compiled_frozen_before",
+      "eager_source_pairing_before",
+      "eager_normalized_before",
+      "zero_schedule_before",
+      "inverse_flow_teacher_first",
+      "inverse_flow_teacher_duplicate",
+      "canonical_schedule_replay",
+      "zero_schedule_after",
+      "eager_normalized_after",
+      "eager_source_pairing_after",
+      "compiled_frozen_after"
+    ],
+    "model_weights_frozen": true,
+    "simulator_setup": "one_reset_plus_20_dummy_settle_control_steps",
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false
+  },
+  "resource_contract": {
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "source_host": "worker-1",
+    "gpus": 1,
+    "cpus_per_task": 8,
+    "host_memory_mib": 65536,
+    "time_limit": "02:00:00",
+    "array": "0-0%1",
+    "requeue": false,
+    "validator_partition": "main",
+    "validator_account": "normal",
+    "validator_qos": "normal",
+    "validator_cpus": 2,
+    "validator_host_memory_mib": 8192,
+    "validator_time_limit": "00:15:00",
+    "validator_gpus": 0,
+    "validator_dependency": "afterany"
+  },
+  "host_telemetry_contract": {
+    "cgroup_version": 2,
+    "mapping": "unique_v2_membership_through_unique_longest_prefix_cgroup2_mount",
+    "scope": "exact_job_boundary_only",
+    "shared_ancestor_read": false,
+    "sibling_or_descendant_enumeration": false,
+    "memory_localevents_allowed": false,
+    "start_after": "source_hash_and_allocation_verification",
+    "ready_before": "any_setup_python_focused_tests_policy_server_checkpoint_or_model_inference",
+    "ready_requires": [
+      "positive_first_memory_current_sample",
+      "positive_finite_memory_max_before",
+      "complete_hierarchical_memory_events_before"
+    ],
+    "sample_interval_requested_ms": 100,
+    "maximum_adjacent_gap_ns": 500000000,
+    "timestamps": "canonical_strictly_increasing_monotonic_integer_nanoseconds",
+    "sample_indices": "canonical_contiguous_zero_based_integers",
+    "sample_values": "canonical_positive_integer_bytes",
+    "high_water_field": "host_cgroup_sampled_current_high_water_bytes",
+    "high_water_semantics": "observed_lower_bound_not_peak",
+    "high_water_is_lower_bound_not_peak": true,
+    "memory_max": "positive_finite_job_scope_hard_limit_unchanged_before_after",
+    "hierarchical_event_deltas_required_zero": [
+      "max",
+      "oom",
+      "oom_kill"
+    ],
+    "memory_events_local_role": "diagnostic_only_never_substitute_hierarchical_events",
+    "native_memory_peak": "separate_capability_and_nullable_positive_value_never_fabricated",
+    "required_lifecycle_markers": [
+      "monitor_ready",
+      "policy_server_launch",
+      "policy_server_cleanup_complete",
+      "gpu_monitor_cleanup_complete",
+      "workload_cleanup_complete",
+      "monitor_stop_observed"
+    ],
+    "cleanup_order": [
+      "policy_server_kill_and_wait_real_exec_pid",
+      "gpu_monitor_stop_and_wait",
+      "record_workload_cleanup_complete",
+      "host_monitor_final_sample_and_seal"
+    ],
+    "first_sample_no_later_than_policy_launch": true,
+    "last_sample_no_earlier_than_workload_cleanup": true,
+    "raw_trace_filename": "host-cgroup-sampled-current.tsv",
+    "raw_trace_rehashed_and_reparsed_by_gpu_allocation": true,
+    "raw_trace_rehashed_and_reparsed_by_cpu_validator": true
+  },
+  "gpu_telemetry_contract": {
+    "raw_samples_filename": "gpu-memory-samples.csv",
+    "allocation_gpu_uuid_exact": true,
+    "pytorch_process_lifetime_counters_from_validated_teacher_traces": true,
+    "nvidia_smi_samples_are_periodic_not_continuous_peaks": true,
+    "raw_samples_rehashed_and_reparsed_by_cpu_validator": true,
+    "out_of_memory_allowed": false
+  },
+  "allocation_test_contract": {
+    "registry_path": "main/crfs_oracle/r05a_allocation_tests.json",
+    "registry_sha256": "89bf8a509dafefcce2bd18cd6cf8e0233a8728165b6f033adc7f39a45c7e1432",
+    "expected_counts": {
+      "test_inverse_flow_control.py": 17,
+      "test_inverse_flow_sampler.py": 8,
+      "test_inverse_flow_policy.py": 10,
+      "test_r05a_canary.py": 12
+    },
+    "zero_skips_required": true,
+    "log_filename": "allocation-focused-tests.log",
+    "log_rehashed_and_reparsed_by_cpu_validator": true
+  },
+  "semantic_validation_contract": {
+    "validator": "crfs_oracle.r05a_canary.validate_r05a_canary_result",
+    "validator_module_sha256": "9d4402ccb92835bc1af2a3e04fe54c0b94839f41beb2971022216f73ec67fede",
+    "legacy_validation_view": "immutable_result_without_memory_plus_independently_validated_allocation_test_provenance_and_gpu_samples_path_only",
+    "fabricate_legacy_host_memory": false,
+    "allowed_legacy_errors_exact_order": [
+      "host cgroup path provenance is missing",
+      "memory record is missing"
+    ],
+    "allowlist_match": "exact_list_equality_never_subset",
+    "pre_memory_apparatus_summary_must_match_registered_shape_and_values": true,
+    "transient_legacy_view_apparatus_adaptation": {
+      "memory_pending": false,
+      "memory_passed": true,
+      "passed": "copy_exact_boolean_from_passed_before_memory_finalization"
+    },
+    "transient_adaptation_mutates_persisted_science_payload": false,
+    "nonmemory_error_count": 0,
+    "sampled_host_telemetry_validated_separately": true,
+    "gpu_telemetry_validated_separately": true
+  },
+  "publication_contract": {
+    "gpu_allocation_outputs": [
+      "atomic_scientific_payload",
+      "allocation_focused_test_log",
+      "gpu_memory_samples",
+      "sealed_host_sample_trace",
+      "failure_receipt_when_applicable"
+    ],
+    "gpu_allocation_diagnostics_not_result_inputs": [
+      "policy_server_log",
+      "canary_client_log",
+      "libero_setup_config",
+      "transient_lifecycle_and_stop_markers"
+    ],
+    "gpu_allocation_may_write_result_candidate": false,
+    "gpu_allocation_may_publish_results_json": false,
+    "cpu_afterany_validator_is_sole_candidate_creator_and_results_json_publisher": true,
+    "cpu_validator_gpu_count": 0,
+    "source_job_required_state": "COMPLETED",
+    "source_job_required_exit_code": "0:0",
+    "candidate_requires": [
+      "immutable_science_payload",
+      "allocation_test_log",
+      "gpu_samples",
+      "sealed_host_trace",
+      "pre_cpu_source_contract_receipt",
+      "atomic_submission_receipt"
+    ],
+    "external_receipt_binding": "expected_pre_cpu_source_contract_receipt_sha256_supplied_outside_candidate_and_receipt",
+    "cpu_validator_rehashes_all_raw_files_and_source_bindings": true,
+    "cpu_validator_creates_atomic_hidden_candidate": true,
+    "cpu_validator_validates_candidate_before_publication": true,
+    "cpu_validator_revalidates_candidate_before_publication": true,
+    "candidate_regular_file_identity_and_bytes_bound_across_rename": true,
+    "published_result_reloaded_rehashed_and_schema_validated_before_receipt": true,
+    "published_result_rechecked_before_successful_return": true,
+    "raw_mutation_after_candidate_creation": "reject",
+    "publication_operation": "atomic_rename_hidden_candidate_to_results_json_after_validation",
+    "post_publication_receipt": "cpu-afterany-validation.json_binds_source_contract_atomic_submission_and_published_result_sha256_after_rename",
+    "failure_or_nonzero_source_job_leaves_results_json": false
+  },
+  "interpretation_contract": {
+    "completed_converged": "mechanism_pass_only_separate_decision_required_before_ift01",
+    "completed_nonconverged": "accepted_negative_stop_registered_solver_direction_not_infeasibility",
+    "completed_apparatus_failure": "apparatus_inconclusive_no_transport_conclusion",
+    "simulator_efficacy_claim_allowed": false,
+    "student_learning_claim_allowed": false,
+    "probe_training_authorized": false,
+    "ift01_authorized": false,
+    "automatic_next_gate_allowed": false
+  },
+  "forbidden_changes": [
+    "edit_historical_scientific_config",
+    "edit_historical_scientific_schema",
+    "edit_live_science_or_model_files",
+    "change_source_case_group_seed_host_observation_instruction_or_noise",
+    "change_checkpoint_normalization_target_or_scale_only_conversion",
+    "change_solver_method_initialization_iterations_optimizer_learning_rate_or_tolerance",
+    "change_active_mask_times_budget_per_step_cap_or_policy_call_sequence",
+    "clipping_or_terminal_overwrite",
+    "direct_action_delta_after_sampling",
+    "sampled_current_relabelled_as_native_peak",
+    "teacher_or_policy_action_execution_in_simulator",
+    "ift01_launch",
+    "probe_or_mlp_training"
+  ]
+}

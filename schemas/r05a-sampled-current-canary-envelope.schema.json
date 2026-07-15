@@ -1,0 +1,1030 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crfs.local/schemas/r05a-sampled-current-canary-envelope.schema.json",
+  "title": "R05A sampled-current IFT-00A publication envelope",
+  "description": "Breaking v2 envelope that preserves the frozen R05A science payload while recording sampled host current as a lower bound, never as a native peak.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "case_id",
+    "run_id",
+    "status",
+    "evidence_tier",
+    "scientific_claim_allowed",
+    "probe_training_authorized",
+    "ift01_authorized",
+    "apparatus_config_sha256",
+    "envelope_schema_sha256",
+    "frozen_bindings",
+    "source_job",
+    "scientific_payload",
+    "allocation_tests",
+    "semantic_validation",
+    "telemetry",
+    "simulator_use",
+    "publication",
+    "interpretation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "artifact_type": {
+      "const": "r05a_sampled_current_canary_envelope"
+    },
+    "gate": {
+      "const": "R05A"
+    },
+    "case_id": {
+      "const": "crfs-1069f29a8d76463a"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "minLength": 1
+    },
+    "status": {
+      "$ref": "#/$defs/scienceStatus"
+    },
+    "evidence_tier": {
+      "const": "real_pi05_allocation_apparatus_canary_only"
+    },
+    "scientific_claim_allowed": {
+      "const": false
+    },
+    "probe_training_authorized": {
+      "const": false
+    },
+    "ift01_authorized": {
+      "const": false
+    },
+    "apparatus_config_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "envelope_schema_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "frozen_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scientific_config_file_sha256",
+        "scientific_config_projection_sha256",
+        "manifest_sha256",
+        "adr0028_sha256",
+        "historical_scientific_schema_sha256",
+        "source_r02_sha256",
+        "source_r02_config_sha256",
+        "source_r03_summary_sha256",
+        "source_r03_ordered_result_set_digest",
+        "checkpoint_sha256",
+        "normalization_asset_sha256",
+        "baseline_revision",
+        "r05a_canary_module_sha256",
+        "r05a_live_entrypoint_sha256",
+        "inverse_control_implementation_sha256",
+        "pi05_sampler_sha256",
+        "policy_boundary_sha256"
+      ],
+      "properties": {
+        "scientific_config_file_sha256": {
+          "const": "c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb"
+        },
+        "scientific_config_projection_sha256": {
+          "const": "9e2ff74cda8ac3b5d4098942a82cc3352cebea3f4b8e1fc1d326c2dc24d2887d"
+        },
+        "manifest_sha256": {
+          "const": "bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633"
+        },
+        "adr0028_sha256": {
+          "const": "d2a00b1b049e92bb1ec8f11d60fa447e5e8bd5109cb8cf3f3fbb08f89498656f"
+        },
+        "historical_scientific_schema_sha256": {
+          "const": "e1681f865f81f2986945d10fb14073fe4cd9e78cbc5026f6749ab321b9cfb7a7"
+        },
+        "source_r02_sha256": {
+          "const": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+        },
+        "source_r02_config_sha256": {
+          "const": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+        },
+        "source_r03_summary_sha256": {
+          "const": "dea3e66c854faa0b659777bfed4b651b19d8d4d0710696ff7bfe52c44d4ee76e"
+        },
+        "source_r03_ordered_result_set_digest": {
+          "const": "fa79a132f2fecbedab5917111ef71f022e52c933d8e535aaca118add5f5b7895"
+        },
+        "checkpoint_sha256": {
+          "const": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
+        },
+        "normalization_asset_sha256": {
+          "const": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+        },
+        "baseline_revision": {
+          "const": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
+        },
+        "r05a_canary_module_sha256": {
+          "const": "9d4402ccb92835bc1af2a3e04fe54c0b94839f41beb2971022216f73ec67fede"
+        },
+        "r05a_live_entrypoint_sha256": {
+          "const": "247bd20e48ffe2228d2633d2f667a2791371163cca1c43ad7d278f4fbfd7439a"
+        },
+        "inverse_control_implementation_sha256": {
+          "const": "965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8"
+        },
+        "pi05_sampler_sha256": {
+          "const": "80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55"
+        },
+        "policy_boundary_sha256": {
+          "const": "d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9"
+        }
+      }
+    },
+    "source_job": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_commit",
+        "source_tree_dirty",
+        "array_job_id",
+        "array_task_id",
+        "exact_task_id",
+        "state",
+        "exit_code",
+        "node",
+        "partition",
+        "account",
+        "qos",
+        "requested_gpus",
+        "requested_cpus_per_task",
+        "requested_host_memory_mib",
+        "time_limit",
+        "array",
+        "requeue"
+      ],
+      "properties": {
+        "source_commit": {
+          "$ref": "#/$defs/gitSha"
+        },
+        "source_tree_dirty": {
+          "const": false
+        },
+        "array_job_id": {
+          "$ref": "#/$defs/slurmId"
+        },
+        "array_task_id": {
+          "const": 0
+        },
+        "exact_task_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*_0$"
+        },
+        "state": {
+          "const": "COMPLETED"
+        },
+        "exit_code": {
+          "const": "0:0"
+        },
+        "node": {
+          "const": "worker-1"
+        },
+        "partition": {
+          "const": "main"
+        },
+        "account": {
+          "const": "normal"
+        },
+        "qos": {
+          "const": "normal"
+        },
+        "requested_gpus": {
+          "const": 1
+        },
+        "requested_cpus_per_task": {
+          "const": 8
+        },
+        "requested_host_memory_mib": {
+          "const": 65536
+        },
+        "time_limit": {
+          "const": "02:00:00"
+        },
+        "array": {
+          "const": "0-0%1"
+        },
+        "requeue": {
+          "const": false
+        }
+      }
+    },
+    "allocation_tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "log_path",
+        "log_sha256",
+        "registry_path",
+        "registry_sha256",
+        "expected_counts",
+        "observed_counts",
+        "zero_skips",
+        "exit_code",
+        "rehashed_and_reparsed_by_cpu_validator"
+      ],
+      "properties": {
+        "log_path": {
+          "type": "string",
+          "pattern": "(^|/)allocation-focused-tests\\.log$"
+        },
+        "log_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "registry_path": {
+          "const": "main/crfs_oracle/r05a_allocation_tests.json"
+        },
+        "registry_sha256": {
+          "const": "89bf8a509dafefcce2bd18cd6cf8e0233a8728165b6f033adc7f39a45c7e1432"
+        },
+        "expected_counts": {
+          "$ref": "#/$defs/allocationTestCounts"
+        },
+        "observed_counts": {
+          "$ref": "#/$defs/allocationTestCounts"
+        },
+        "zero_skips": {
+          "const": true
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "rehashed_and_reparsed_by_cpu_validator": {
+          "const": true
+        }
+      }
+    },
+    "scientific_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "payload_type",
+        "embedded_result_member",
+        "status",
+        "scientific_config_hash",
+        "bytes_unmodified_by_apparatus_wrapper",
+        "legacy_memory_record_present",
+        "sampled_current_written_to_legacy_peak_field",
+        "direct_action_delta_applied_after_sampling",
+        "source_pairing_passed",
+        "teacher_generated_action_steps_executed"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "(^|/)canary-payload\\.json$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload_type": {
+          "const": "r05a_inverse_flow_allocation_canary_payload"
+        },
+        "embedded_result_member": {
+          "const": "result_without_memory"
+        },
+        "status": {
+          "$ref": "#/$defs/scienceStatus"
+        },
+        "scientific_config_hash": {
+          "const": "9e2ff74cda8ac3b5d4098942a82cc3352cebea3f4b8e1fc1d326c2dc24d2887d"
+        },
+        "bytes_unmodified_by_apparatus_wrapper": {
+          "const": true
+        },
+        "legacy_memory_record_present": {
+          "const": false
+        },
+        "sampled_current_written_to_legacy_peak_field": {
+          "const": false
+        },
+        "direct_action_delta_applied_after_sampling": {
+          "const": false
+        },
+        "source_pairing_passed": {
+          "const": true
+        },
+        "teacher_generated_action_steps_executed": {
+          "const": 0
+        }
+      }
+    },
+    "semantic_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "validator",
+        "validator_module_sha256",
+        "legacy_view_allocation_tests_injected_after_independent_validation",
+        "legacy_view_gpu_samples_path_injected_after_independent_validation",
+        "legacy_view_host_memory_fabricated",
+        "pre_memory_apparatus_summary_exact",
+        "legacy_view_apparatus_memory_fields_adapted",
+        "legacy_view_apparatus_memory_pending",
+        "legacy_view_apparatus_memory_passed",
+        "legacy_view_apparatus_passed_copied_from_pre_memory_result",
+        "returned_legacy_errors",
+        "returned_legacy_errors_exact_allowlist",
+        "nonmemory_error_count",
+        "recomputed_status"
+      ],
+      "properties": {
+        "validator": {
+          "const": "crfs_oracle.r05a_canary.validate_r05a_canary_result"
+        },
+        "validator_module_sha256": {
+          "const": "9d4402ccb92835bc1af2a3e04fe54c0b94839f41beb2971022216f73ec67fede"
+        },
+        "legacy_view_allocation_tests_injected_after_independent_validation": {
+          "const": true
+        },
+        "legacy_view_gpu_samples_path_injected_after_independent_validation": {
+          "const": true
+        },
+        "legacy_view_host_memory_fabricated": {
+          "const": false
+        },
+        "pre_memory_apparatus_summary_exact": {
+          "const": true
+        },
+        "legacy_view_apparatus_memory_fields_adapted": {
+          "const": true
+        },
+        "legacy_view_apparatus_memory_pending": {
+          "const": false
+        },
+        "legacy_view_apparatus_memory_passed": {
+          "const": true
+        },
+        "legacy_view_apparatus_passed_copied_from_pre_memory_result": {
+          "const": true
+        },
+        "returned_legacy_errors": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "const": "host cgroup path provenance is missing"
+            },
+            {
+              "const": "memory record is missing"
+            }
+          ],
+          "items": false
+        },
+        "returned_legacy_errors_exact_allowlist": {
+          "const": true
+        },
+        "nonmemory_error_count": {
+          "const": 0
+        },
+        "recomputed_status": {
+          "$ref": "#/$defs/scienceStatus"
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "gpu",
+        "all_raw_files_rehashed_by_cpu_validator",
+        "telemetry_contract_passed"
+      ],
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/hostTelemetry"
+        },
+        "gpu": {
+          "$ref": "#/$defs/gpuTelemetry"
+        },
+        "all_raw_files_rehashed_by_cpu_validator": {
+          "const": true
+        },
+        "telemetry_contract_passed": {
+          "const": true
+        }
+      }
+    },
+    "simulator_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "setup",
+        "policy_generated_action_steps_executed",
+        "teacher_generated_action_steps_executed",
+        "efficacy_rollouts_executed",
+        "simulator_efficacy_evaluated"
+      ],
+      "properties": {
+        "setup": {
+          "const": "one_reset_plus_20_dummy_settle_control_steps"
+        },
+        "policy_generated_action_steps_executed": {
+          "const": 0
+        },
+        "teacher_generated_action_steps_executed": {
+          "const": 0
+        },
+        "efficacy_rollouts_executed": {
+          "const": 0
+        },
+        "simulator_efficacy_evaluated": {
+          "const": false
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_contract_receipt_path",
+        "source_contract_receipt_sha256",
+        "externally_supplied_expected_receipt_sha256",
+        "atomic_submission_receipt_path",
+        "atomic_submission_receipt_sha256",
+        "hidden_candidate_path",
+        "published_result_path",
+        "post_publication_validation_receipt_path",
+        "cpu_validator_job_id",
+        "dependency",
+        "cpu_validator_partition",
+        "cpu_validator_account",
+        "cpu_validator_qos",
+        "cpu_validator_cpus_per_task",
+        "cpu_validator_host_memory_mib",
+        "cpu_validator_time_limit",
+        "cpu_validator_gpu_count",
+        "source_job_exit_code",
+        "gpu_job_created_result_candidate",
+        "gpu_job_published_results_json",
+        "candidate_created_by_cpu_validator",
+        "candidate_validated_before_publication",
+        "candidate_revalidated_before_publication",
+        "cpu_validator_is_sole_publisher",
+        "raw_files_unchanged_after_candidate",
+        "atomic_candidate_to_result_rename",
+        "validation_passed"
+      ],
+      "properties": {
+        "source_contract_receipt_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_contract_receipt_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "externally_supplied_expected_receipt_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "atomic_submission_receipt_path": {
+          "type": "string",
+          "pattern": "(^|/)submission\\.json$"
+        },
+        "atomic_submission_receipt_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hidden_candidate_path": {
+          "type": "string",
+          "pattern": "(^|/)\\.[A-Za-z0-9._-]*candidate[A-Za-z0-9._-]*\\.json$"
+        },
+        "published_result_path": {
+          "type": "string",
+          "pattern": "(^|/)results\\.json$"
+        },
+        "post_publication_validation_receipt_path": {
+          "type": "string",
+          "pattern": "(^|/)cpu-afterany-validation\\.json$"
+        },
+        "cpu_validator_job_id": {
+          "$ref": "#/$defs/slurmId"
+        },
+        "dependency": {
+          "type": "string",
+          "pattern": "^afterany:[1-9][0-9]*$"
+        },
+        "cpu_validator_partition": {
+          "const": "main"
+        },
+        "cpu_validator_account": {
+          "const": "normal"
+        },
+        "cpu_validator_qos": {
+          "const": "normal"
+        },
+        "cpu_validator_cpus_per_task": {
+          "const": 2
+        },
+        "cpu_validator_host_memory_mib": {
+          "const": 8192
+        },
+        "cpu_validator_time_limit": {
+          "const": "00:15:00"
+        },
+        "cpu_validator_gpu_count": {
+          "const": 0
+        },
+        "source_job_exit_code": {
+          "const": "0:0"
+        },
+        "gpu_job_created_result_candidate": {
+          "const": false
+        },
+        "gpu_job_published_results_json": {
+          "const": false
+        },
+        "candidate_created_by_cpu_validator": {
+          "const": true
+        },
+        "candidate_validated_before_publication": {
+          "const": true
+        },
+        "candidate_revalidated_before_publication": {
+          "const": true
+        },
+        "cpu_validator_is_sole_publisher": {
+          "const": true
+        },
+        "raw_files_unchanged_after_candidate": {
+          "const": true
+        },
+        "atomic_candidate_to_result_rename": {
+          "const": true
+        },
+        "validation_passed": {
+          "const": true
+        }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classification",
+        "simulator_efficacy_claim_allowed",
+        "inverse_flow_infeasibility_claim_allowed",
+        "student_learning_claim_allowed",
+        "automatic_next_gate_allowed"
+      ],
+      "properties": {
+        "classification": {
+          "enum": [
+            "mechanism_pass_only",
+            "accepted_frozen_teacher_nonconvergence_stop",
+            "apparatus_inconclusive"
+          ]
+        },
+        "simulator_efficacy_claim_allowed": {
+          "const": false
+        },
+        "inverse_flow_infeasibility_claim_allowed": {
+          "const": false
+        },
+        "student_learning_claim_allowed": {
+          "const": false
+        },
+        "automatic_next_gate_allowed": {
+          "const": false
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "slurmId": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "scienceStatus": {
+      "enum": [
+        "completed_converged",
+        "completed_nonconverged",
+        "completed_apparatus_failure"
+      ]
+    },
+    "allocationTestCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test_inverse_flow_control.py",
+        "test_inverse_flow_sampler.py",
+        "test_inverse_flow_policy.py",
+        "test_r05a_canary.py"
+      ],
+      "properties": {
+        "test_inverse_flow_control.py": {
+          "const": 17
+        },
+        "test_inverse_flow_sampler.py": {
+          "const": 8
+        },
+        "test_inverse_flow_policy.py": {
+          "const": 10
+        },
+        "test_r05a_canary.py": {
+          "const": 12
+        }
+      }
+    },
+    "memoryEvents": {
+      "type": "object",
+      "required": [
+        "max",
+        "oom",
+        "oom_kill"
+      ],
+      "properties": {
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "oom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "oom_kill": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "hostTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement_kind",
+        "cgroup_version",
+        "kernel_osrelease",
+        "membership_path",
+        "mount_root",
+        "mount_point",
+        "job_scope_path",
+        "stopped_at_exact_job_boundary",
+        "shared_ancestor_read",
+        "sibling_or_descendant_enumeration",
+        "memory_events_hierarchy_state",
+        "mount_memory_localevents",
+        "raw_trace_path",
+        "raw_trace_sha256",
+        "sample_interval_requested_ms",
+        "sample_count",
+        "first_monotonic_timestamp_ns",
+        "last_monotonic_timestamp_ns",
+        "timestamps_strictly_increasing",
+        "maximum_adjacent_gap_ns",
+        "host_cgroup_sampled_current_high_water_bytes",
+        "host_cgroup_sampled_current_is_lower_bound_not_peak",
+        "memory_max_before_bytes",
+        "memory_max_after_bytes",
+        "memory_max_unchanged",
+        "memory_events_before",
+        "memory_events_after",
+        "memory_events_deltas",
+        "required_event_deltas_zero",
+        "memory_events_local_recorded_as_diagnostic_only",
+        "native_memory_peak_state",
+        "native_memory_peak_bytes",
+        "lifecycle_markers",
+        "first_sample_no_later_than_policy_launch",
+        "last_sample_no_earlier_than_workload_cleanup",
+        "monitor_ready_before_setup_python",
+        "sealed_after_workload_cleanup"
+      ],
+      "properties": {
+        "measurement_kind": {
+          "const": "job_scope_sampled_memory_current_lower_bound_with_hard_limit_and_hierarchical_events"
+        },
+        "cgroup_version": {
+          "const": 2
+        },
+        "kernel_osrelease": {
+          "type": "string",
+          "minLength": 1
+        },
+        "membership_path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "mount_root": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "mount_point": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "job_scope_path": {
+          "$ref": "#/$defs/absolutePath"
+        },
+        "stopped_at_exact_job_boundary": {
+          "const": true
+        },
+        "shared_ancestor_read": {
+          "const": false
+        },
+        "sibling_or_descendant_enumeration": {
+          "const": false
+        },
+        "memory_events_hierarchy_state": {
+          "const": "hierarchical"
+        },
+        "mount_memory_localevents": {
+          "const": false
+        },
+        "raw_trace_path": {
+          "type": "string",
+          "pattern": "(^|/)host-cgroup-sampled-current\\.tsv$"
+        },
+        "raw_trace_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sample_interval_requested_ms": {
+          "const": 100
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "first_monotonic_timestamp_ns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_monotonic_timestamp_ns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timestamps_strictly_increasing": {
+          "const": true
+        },
+        "maximum_adjacent_gap_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500000000
+        },
+        "host_cgroup_sampled_current_high_water_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "host_cgroup_sampled_current_is_lower_bound_not_peak": {
+          "const": true
+        },
+        "memory_max_before_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_max_after_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_max_unchanged": {
+          "const": true
+        },
+        "memory_events_before": {
+          "$ref": "#/$defs/memoryEvents"
+        },
+        "memory_events_after": {
+          "$ref": "#/$defs/memoryEvents"
+        },
+        "memory_events_deltas": {
+          "$ref": "#/$defs/requiredZeroMemoryEventDeltas"
+        },
+        "required_event_deltas_zero": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max",
+            "oom",
+            "oom_kill"
+          ],
+          "properties": {
+            "max": {
+              "const": true
+            },
+            "oom": {
+              "const": true
+            },
+            "oom_kill": {
+              "const": true
+            }
+          }
+        },
+        "memory_events_local_recorded_as_diagnostic_only": {
+          "const": true
+        },
+        "native_memory_peak_state": {
+          "enum": [
+            "missing",
+            "readable_positive_integer"
+          ]
+        },
+        "native_memory_peak_bytes": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1
+            }
+          ]
+        },
+        "lifecycle_markers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "monitor_ready_ns",
+            "policy_server_launch_ns",
+            "policy_server_cleanup_complete_ns",
+            "gpu_monitor_cleanup_complete_ns",
+            "workload_cleanup_complete_ns",
+            "monitor_stop_observed_ns"
+          ],
+          "properties": {
+            "monitor_ready_ns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "policy_server_launch_ns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "policy_server_cleanup_complete_ns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "gpu_monitor_cleanup_complete_ns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "workload_cleanup_complete_ns": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "monitor_stop_observed_ns": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "first_sample_no_later_than_policy_launch": {
+          "const": true
+        },
+        "last_sample_no_earlier_than_workload_cleanup": {
+          "const": true
+        },
+        "monitor_ready_before_setup_python": {
+          "const": true
+        },
+        "sealed_after_workload_cleanup": {
+          "const": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "native_memory_peak_state": {
+                "const": "missing"
+              }
+            },
+            "required": [
+              "native_memory_peak_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "native_memory_peak_bytes": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "native_memory_peak_state": {
+                "const": "readable_positive_integer"
+              }
+            },
+            "required": [
+              "native_memory_peak_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "native_memory_peak_bytes": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "requiredZeroMemoryEventDeltas": {
+      "type": "object",
+      "required": [
+        "max",
+        "oom",
+        "oom_kill"
+      ],
+      "properties": {
+        "max": {
+          "const": 0
+        },
+        "oom": {
+          "const": 0
+        },
+        "oom_kill": {
+          "const": 0
+        }
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "gpuTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allocation_gpu_uuid",
+        "raw_samples_path",
+        "raw_samples_sha256",
+        "sample_count",
+        "process_peak_allocated_bytes",
+        "process_peak_reserved_bytes",
+        "sampled_compute_high_water_mib",
+        "sampled_device_high_water_mib",
+        "sampled_values_are_periodic_not_continuous_peaks",
+        "out_of_memory_observed"
+      ],
+      "properties": {
+        "allocation_gpu_uuid": {
+          "type": "string",
+          "pattern": "^GPU-[A-Za-z0-9-]+$"
+        },
+        "raw_samples_path": {
+          "type": "string",
+          "pattern": "(^|/)gpu-memory-samples\\.csv$"
+        },
+        "raw_samples_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sample_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "process_peak_allocated_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "process_peak_reserved_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sampled_compute_high_water_mib": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sampled_device_high_water_mib": {
+          "type": "number",
+          "minimum": 0
+        },
+        "sampled_values_are_periodic_not_continuous_peaks": {
+          "const": true
+        },
+        "out_of_memory_observed": {
+          "const": false
+        }
+      }
+    },
+    "absolutePath": {
+      "type": "string",
+      "pattern": "^/"
+    }
+  }
+}

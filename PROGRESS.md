@@ -248,20 +248,34 @@ first reproduce 9/17.
   estimate or peak. Evidence:
   `evidence/r05a/cgroup-v2-current-capability-a.json`. This passes only the
   telemetry-capability prerequisite and does not authorize retry C by itself.
+- ADR-0036's separate full-lifetime sampled-current apparatus is now
+  implemented and locally reviewed without choosing a run ID or contacting
+  Slurm. It keeps the IFT-00A science byte-frozen and changes only honest host
+  telemetry and publication: a 100 ms exact-job-scope sampler spans setup
+  through cleanup; sampled current remains an observed lower bound; native
+  peak, the 64 GiB hard limit, and hierarchical limit/OOM events remain
+  separate; the H100 allocation writes raw artifacts only; and the zero-GPU
+  CPU `afterany` validator is the sole candidate/result publisher. Exact
+  source/submission paths, non-symlink containment, every telemetry-row order,
+  raw hashes, candidate identity/bytes across rename, and the final schema are
+  fail-closed. The focused local gate passes 65 tests with seven declared
+  dependency skips. The complete gate passes 491 tests with 152 declared
+  dependency skips plus all 21 artifact/18 gate audits. Independent scientific,
+  HPC, and adversarial publication reviews report no P0/P1 blocker. This is
+  apparatus evidence only: no H100 job, teacher search, new transport result,
+  simulator action, efficacy claim, IFT-01 authorization, or training occurred.
 
 ## Exact next action
 
 Do not resubmit retry B, CG-00, or either consumed CPU run; do not launch IFT-01.
-Do not launch retry C. Preregister a separate full-lifetime sampled-current telemetry
-contract for one otherwise frozen H100 IFT-00A canary. It must start before the
-policy server/model, sample the exact job scope through cleanup, retain all raw
-timestamps/values/gaps, record the job-scope hard limit and hierarchical event
-deltas, and independently recompute them before result publication. It must
-keep native peak and sampled lower-bound semantics distinct, preserve every
-solver/science hash and setting, and add dependency-free success/tamper tests.
-Complete local and independent review, then stop before choosing or submitting
-the immutable H100 run. Retry C, efficacy, IFT-01, and training remain forbidden
-until that separate decision explicitly authorizes only the canary.
+Do not launch retry C. Stop at the clean reviewed ADR-0036 implementation with
+`ready_to_run: false`. A separate H100 execution-release decision must first
+accept the exact implementation commit; only then may it select one unused
+immutable run ID, perform live control-plane preflight, and authorize the single
+worker-1-pinned 64 GiB canary. Do not silently release or submit it from this
+implementation task. Retry C, efficacy, IFT-01, and training remain forbidden;
+even a converged canary would be mechanism evidence only and require a separate
+IFT-01 decision.
 
 ## Non-negotiable stops
 

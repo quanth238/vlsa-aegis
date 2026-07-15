@@ -208,6 +208,44 @@ telemetry. The 6,045,696-byte value describes only this tiny shell job and is
 not an estimate of pi0.5 host memory. CG-00 does not repair retry B or authorize
 retry C, IFT-01, efficacy claims, or training.
 
+#### IFT-00A full-lifetime sampled-current apparatus
+
+Status: **implemented and independently reviewed; execution unreleased**
+
+No immutable run ID or Slurm job has been selected. ADR-0036 keeps the exact
+retry-B scientific case, target, pi0.5 model, seeds, noise, inverse solver,
+128-update budget, fidelity limits, control mask/times, and zero simulator
+teacher-action steps unchanged. The only change is the allocation telemetry and
+publication path needed because Linux 5.15 cannot provide native
+`memory.peak`.
+
+The exact future source request remains worker-1, one H100, eight CPUs, 64 GiB
+host RAM, two hours, `0-0%1`, and no requeue. A shell monitor becomes ready
+before setup Python, tests, policy serving, checkpoint load, or model inference;
+samples exact-job-scope `memory.current` every requested 100 ms through full
+policy/GPU-monitor cleanup; preserves every integer row; and seals the hard
+limit, hierarchical `max`/`oom`/`oom_kill` counters, lifecycle markers, and any
+separate native-peak capability. Sampled high-water is always a lower bound,
+never relabeled as an exact peak.
+
+The H100 task can write only the unchanged scientific payload and raw logs. A
+zero-GPU CPU `afterany` job must observe source state `COMPLETED 0:0`, rehash and
+reparse every source, validate the unchanged scientific semantics, build the
+hidden candidate, and act as the sole `results.json` publisher. Exact lexical
+and real paths, non-symlink files/directories, source and atomic-submission
+receipts, telemetry chronology, raw hashes, and candidate bytes and file
+identity across the atomic rename all fail closed. The published bytes are
+reloaded, rehashed, and schema-validated before a success receipt can survive.
+
+Local acceptance is 65 focused tests with seven declared dependency skips and
+the complete 491-test harness with 152 declared dependency skips, plus all 21
+artifact/18 gate audits. Independent science, HPC, and adversarial-publication
+reviews found no P0/P1 blocker. This is implementation evidence only. It does
+not repair retry B, show that inverse-flow transport converges, evaluate
+collision avoidance or progress, authorize IFT-01, or authorize an MLP/probe.
+A separate execution-release decision must accept the exact clean commit and
+choose one unused run ID before any control-plane preflight or submission.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on IFT-00A and a reviewed immutable efficacy config**

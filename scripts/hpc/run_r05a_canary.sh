@@ -17,6 +17,12 @@ set -euo pipefail
 : "${OPENPI_DATA_HOME:=/mnt/data/quanth/cache/openpi}"
 : "${CHECKPOINT_DIR:=/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch}"
 : "${EXPERIMENT_ROOT:=/mnt/data/quanth/experiments/crfs-oracle}"
+: "${R05A_FULL_LIFETIME_TELEMETRY:=false}"
+
+case "$R05A_FULL_LIFETIME_TELEMETRY" in
+  true|false) ;;
+  *) echo "R05A_FULL_LIFETIME_TELEMETRY must be true or false" >&2; exit 2 ;;
+esac
 
 EXPECTED_MANIFEST_SHA256=bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633
 EXPECTED_CONFIG_SHA256=c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb
@@ -40,7 +46,17 @@ test "$CASE_INDEX" = 0 || { echo "R05A canary is fixed to array row zero" >&2; e
 test "$CUDA_VISIBLE_DEVICES" != NoDevFiles || { echo "R05A canary has no visible GPU" >&2; exit 2; }
 test "$(hostname -s)" = worker-1 || { echo "R05A canary must remain on worker-1" >&2; exit 2; }
 test "${SLURM_CPUS_PER_TASK:-}" = 8 || { echo "R05A canary requires eight CPUs" >&2; exit 2; }
-test "${SLURM_MEM_PER_NODE:-0}" -ge 65536 || { echo "R05A canary requires the registered 64 GiB allocation" >&2; exit 2; }
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  test "${SLURM_MEM_PER_NODE:-0}" = 65536 || {
+    echo "sampled-current R05A canary requires exactly 64 GiB" >&2
+    exit 2
+  }
+else
+  test "${SLURM_MEM_PER_NODE:-0}" -ge 65536 || {
+    echo "R05A canary requires the registered 64 GiB allocation" >&2
+    exit 2
+  }
+fi
 
 if [ -z "${PORT:-}" ]; then
   PORT=$((20000 + SLURM_JOB_ID % 30000))
@@ -67,23 +83,62 @@ SERVER_LOG=$CASE_DIR/policy-server.log
 CLIENT_LOG=$CASE_DIR/canary-client.log
 TEST_LOG=$CASE_DIR/allocation-focused-tests.log
 GPU_SAMPLES=$CASE_DIR/gpu-memory-samples.csv
+GPU_MONITOR_STOP=$CASE_DIR/.gpu-monitor-stop
 HOST_CGROUP_DIAGNOSTIC=$CASE_DIR/host-cgroup-memory.tsv
+HOST_TELEMETRY=$CASE_DIR/host-cgroup-sampled-current.tsv
+HOST_TELEMETRY_READY=$CASE_DIR/.host-telemetry-ready
+HOST_TELEMETRY_STOP=$CASE_DIR/.host-telemetry-stop
+POLICY_SERVER_LAUNCH=$CASE_DIR/.policy-server-launch
+POLICY_SERVER_CLEANUP_COMPLETE=$CASE_DIR/.policy-server-cleanup-complete
+GPU_MONITOR_CLEANUP_COMPLETE=$CASE_DIR/.gpu-monitor-cleanup-complete
+WORKLOAD_CLEANUP_COMPLETE=$CASE_DIR/.workload-cleanup-complete
 PAYLOAD=$CASE_DIR/canary-payload.json
 RESULT=$CASE_DIR/results.json
 SERVER_PID=
-MONITOR_PID=
+GPU_MONITOR_PID=
+HOST_MONITOR_PID=
 FAILURE_STAGE=allocation_contract
 
 cleanup() {
   status=$?
   trap - EXIT INT TERM
-  if [ -n "${MONITOR_PID:-}" ] && kill -0 "$MONITOR_PID" 2>/dev/null; then
-    kill "$MONITOR_PID" 2>/dev/null || true
-    wait "$MONITOR_PID" 2>/dev/null || true
+  if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+    # The opt-in trace requires the real policy process to be fully reaped
+    # before the GPU monitor and host sampler are sealed.
+    if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+      kill "$SERVER_PID" 2>/dev/null || true
+      wait "$SERVER_PID" 2>/dev/null || true
+    fi
+    SERVER_PID=
+    if [ -n "${GPU_MONITOR_PID:-}" ] && kill -0 "$GPU_MONITOR_PID" 2>/dev/null; then
+      : >"$GPU_MONITOR_STOP"
+      wait "$GPU_MONITOR_PID" 2>/dev/null || true
+    fi
+    GPU_MONITOR_PID=
+  else
+    # Preserve the historical failure-cleanup order in the default canary.
+    if [ -n "${GPU_MONITOR_PID:-}" ] && kill -0 "$GPU_MONITOR_PID" 2>/dev/null; then
+      kill "$GPU_MONITOR_PID" 2>/dev/null || true
+      wait "$GPU_MONITOR_PID" 2>/dev/null || true
+    fi
+    GPU_MONITOR_PID=
+    if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+      kill "$SERVER_PID" 2>/dev/null || true
+      wait "$SERVER_PID" 2>/dev/null || true
+    fi
+    SERVER_PID=
   fi
-  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
-    kill "$SERVER_PID" 2>/dev/null || true
-    wait "$SERVER_PID" 2>/dev/null || true
+  if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ] && [ -n "${HOST_MONITOR_PID:-}" ]; then
+    if [ ! -e "$WORKLOAD_CLEANUP_COMPLETE" ] && command -v crfs_write_cgroup_v2_full_lifetime_marker >/dev/null 2>&1; then
+      crfs_write_cgroup_v2_full_lifetime_marker "$WORKLOAD_CLEANUP_COMPLETE" || true
+    fi
+    : >"$HOST_TELEMETRY_STOP"
+    if kill -0 "$HOST_MONITOR_PID" 2>/dev/null; then
+      wait "$HOST_MONITOR_PID" 2>/dev/null || true
+    else
+      wait "$HOST_MONITOR_PID" 2>/dev/null || true
+    fi
+    HOST_MONITOR_PID=
   fi
   if [ "$status" -ne 0 ]; then
     "$LIBERO_PYTHON" - "$FAILURE" "$status" "$FAILURE_STAGE" <<'PY'
@@ -143,6 +198,14 @@ for path in \
 done
 . "$REMOTE_REPO/scripts/hpc/lib/cgroup_memory.sh"
 . "$REMOTE_REPO/scripts/hpc/lib/r05a_allocation_tests.sh"
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  FULL_LIFETIME_HELPER=$REMOTE_REPO/scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh
+  test -f "$FULL_LIFETIME_HELPER" || {
+    echo "missing opt-in full-lifetime cgroup helper" >&2
+    exit 2
+  }
+  . "$FULL_LIFETIME_HELPER"
+fi
 GIT_COMMIT=$(git -C "$REMOTE_REPO" rev-parse HEAD)
 GIT_DIRTY=$(test -n "$(git -C "$REMOTE_REPO" status --porcelain)" && echo true || echo false)
 MANIFEST_SHA256=$(sha256sum "$MANIFEST" | awk '{print $1}')
@@ -159,6 +222,44 @@ test "$SCHEMA_SHA256" = "$EXPECTED_SCHEMA_SHA256" || { echo "schema hash mismatc
 test "$DECISION_SHA256" = "$EXPECTED_DECISION_SHA256" || { echo "decision hash mismatch" >&2; exit 2; }
 test "$R02_SHA256" = "$EXPECTED_R02_SHA256" || { echo "source R02 hash mismatch" >&2; exit 2; }
 test "$CHECKPOINT_SHA256" = "$EXPECTED_CHECKPOINT_SHA256" || { echo "checkpoint hash mismatch" >&2; exit 2; }
+
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  FAILURE_STAGE=host_telemetry_startup
+  test -n "${R05A_SOURCE_CONTRACT:-}" && test -f "$R05A_SOURCE_CONTRACT" || {
+    echo "sampled-current mode requires its source-contract receipt" >&2
+    exit 2
+  }
+  crfs_monitor_cgroup_v2_full_lifetime \
+    /proc/self/cgroup \
+    /proc/self/mountinfo \
+    /proc/sys/kernel/osrelease \
+    "$HOST_TELEMETRY" \
+    "$HOST_TELEMETRY_READY" \
+    "$HOST_TELEMETRY_STOP" \
+    "$POLICY_SERVER_LAUNCH" \
+    "$POLICY_SERVER_CLEANUP_COMPLETE" \
+    "$GPU_MONITOR_CLEANUP_COMPLETE" \
+    "$WORKLOAD_CLEANUP_COMPLETE" \
+    "$SLURM_ARRAY_JOB_ID" \
+    0.1 \
+    500000000 &
+  HOST_MONITOR_PID=$!
+  telemetry_ready=false
+  for _ in $(seq 1 100); do
+    if [ -f "$HOST_TELEMETRY_READY" ]; then
+      telemetry_ready=true
+      break
+    fi
+    kill -0 "$HOST_MONITOR_PID" 2>/dev/null || break
+    sleep 0.1
+  done
+  test "$telemetry_ready" = true || {
+    echo "full-lifetime host telemetry did not signal ready" >&2
+    wait "$HOST_MONITOR_PID" 2>/dev/null || true
+    HOST_MONITOR_PID=
+    exit 6
+  }
+fi
 
 cd "$REMOTE_REPO"
 
@@ -218,7 +319,7 @@ crfs_run_r05a_allocation_tests \
 
 printf 'timestamp_ns,gpu_uuid,compute_mib,device_mib\n' >"$GPU_SAMPLES"
 monitor_gpu() {
-  while :; do
+  while [ ! -e "$GPU_MONITOR_STOP" ]; do
     timestamp=$(date +%s%N)
     compute=$(nvidia-smi --query-compute-apps=gpu_uuid,used_gpu_memory --format=csv,noheader,nounits 2>/dev/null | \
       awk -F',' -v uuid="$ALLOCATED_GPU_UUID" '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($1 == uuid && $2 ~ /^[0-9]+([.][0-9]+)?$/) sum += $2} END {printf "%.0f", sum + 0}')
@@ -229,16 +330,31 @@ monitor_gpu() {
   done
 }
 monitor_gpu &
-MONITOR_PID=$!
+GPU_MONITOR_PID=$!
 
 FAILURE_STAGE=policy_server_startup
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  kill -0 "$HOST_MONITOR_PID" 2>/dev/null || {
+    echo "host telemetry monitor stopped before policy launch" >&2
+    exit 6
+  }
+  crfs_write_cgroup_v2_full_lifetime_marker "$POLICY_SERVER_LAUNCH"
+fi
 (
   cd "$REMOTE_REPO/openpi"
-  "$OPENPI_PYTHON" scripts/serve_policy.py \
-    --port "$PORT" \
-    policy:checkpoint \
-    --policy.config pi05_libero \
-    --policy.dir "$CHECKPOINT_DIR"
+  if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+    exec "$OPENPI_PYTHON" scripts/serve_policy.py \
+      --port "$PORT" \
+      policy:checkpoint \
+      --policy.config pi05_libero \
+      --policy.dir "$CHECKPOINT_DIR"
+  else
+    "$OPENPI_PYTHON" scripts/serve_policy.py \
+      --port "$PORT" \
+      policy:checkpoint \
+      --policy.config pi05_libero \
+      --policy.dir "$CHECKPOINT_DIR"
+  fi
 ) >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 ready=0
@@ -274,9 +390,66 @@ test -f "$PAYLOAD" || { echo "canary payload was not written" >&2; exit 5; }
 kill "$SERVER_PID" 2>/dev/null || true
 wait "$SERVER_PID" 2>/dev/null || true
 SERVER_PID=
-kill "$MONITOR_PID" 2>/dev/null || true
-wait "$MONITOR_PID" 2>/dev/null || true
-MONITOR_PID=
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  crfs_write_cgroup_v2_full_lifetime_marker "$POLICY_SERVER_CLEANUP_COMPLETE"
+fi
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  : >"$GPU_MONITOR_STOP"
+  wait "$GPU_MONITOR_PID" || {
+    GPU_MONITOR_PID=
+    echo "GPU telemetry monitor failed before cleanup" >&2
+    exit 6
+  }
+else
+  kill "$GPU_MONITOR_PID" 2>/dev/null || true
+  wait "$GPU_MONITOR_PID" 2>/dev/null || true
+fi
+GPU_MONITOR_PID=
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  crfs_write_cgroup_v2_full_lifetime_marker "$GPU_MONITOR_CLEANUP_COMPLETE"
+fi
+
+if [ "$R05A_FULL_LIFETIME_TELEMETRY" = true ]; then
+  FAILURE_STAGE=host_telemetry_seal
+  crfs_write_cgroup_v2_full_lifetime_marker "$WORKLOAD_CLEANUP_COMPLETE"
+  : >"$HOST_TELEMETRY_STOP"
+  wait "$HOST_MONITOR_PID" || {
+    HOST_MONITOR_PID=
+    echo "full-lifetime host telemetry monitor failed" >&2
+    exit 6
+  }
+  HOST_MONITOR_PID=
+  test -s "$HOST_TELEMETRY" || {
+    echo "full-lifetime host telemetry was not atomically sealed" >&2
+    exit 6
+  }
+  FAILURE_STAGE=host_telemetry_allocation_revalidation
+  "$LIBERO_PYTHON" - "$HOST_TELEMETRY" "$SLURM_ARRAY_JOB_ID" <<'PY'
+import sys
+
+from crfs_oracle.r05a_full_lifetime_telemetry import (
+    parse_full_lifetime_telemetry,
+)
+
+summary = parse_full_lifetime_telemetry(
+    sys.argv[1], expected_job_id=sys.argv[2]
+)
+if summary.get("contract_passed") is not True:
+    raise SystemExit("allocation-side host telemetry contract did not pass")
+print("allocation_host_telemetry_revalidation=passed")
+print(f"allocation_host_telemetry_sha256={summary['raw_trace_sha256']}")
+PY
+  test ! -e "$RESULT" || {
+    echo "sampled-current GPU source must not publish results.json" >&2
+    exit 7
+  }
+  echo "payload=$PAYLOAD"
+  echo "payload_sha256=$(sha256sum "$PAYLOAD" | awk '{print $1}')"
+  echo "host_telemetry=$HOST_TELEMETRY"
+  echo "host_telemetry_sha256=$(sha256sum "$HOST_TELEMETRY" | awk '{print $1}')"
+  FAILURE_STAGE=complete
+  exit 0
+fi
 
 FAILURE_STAGE=host_cgroup_memory_peak
 if ! host_cgroup_peak_bytes=$(crfs_read_live_cgroup_memory_peak \
