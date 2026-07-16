@@ -162,8 +162,8 @@ payload may not be retrofitted into an accepted result.
 
 ### CFS-00A — Same-budget constrained-flow diagnostic
 
-Status: **launch A is terminal apparatus-inconclusive; the checked-in apparatus
-is fail closed. No real CFS outcome exists yet.**
+Status: **run B is terminal apparatus-inconclusive; the checked-in apparatus
+is fail closed. No real CFS mechanism outcome exists yet.**
 
 ADR-0040 replaces the draft's broad planner-to-student proposal with one
 causal diagnostic of the observed Run-B miss. It preserves the exact case,
@@ -249,10 +249,37 @@ a new immutable run ID.
 
 Corrected release `12a7da6` submitted run ID ending `20260716b` once as GPU
 task `28048_0`, pinned to worker-1, with CPU `afterany` validator `28049`.
-The GPU task is currently pending for resources; this is an expected queue
-state, not a method outcome. Its 58-path source contract and atomic submission
-receipt are immutable at SHA-256 `5cbc304f...f2716` and
-`ad7d9764...8e98e`. No arm or scientific computation has run yet.
+Both jobs completed `0:0`. The CPU publisher independently validated and
+atomically published an `apparatus_inconclusive` result. All 91 registered
+allocation tests passed with zero skips; sampled host use was about 15.0 GiB
+under the unchanged 64-GiB limit, sampled GPU use was 8,513 MiB, and no OOM
+event occurred.
+
+The real model computed the zero-control baseline, autograd Jacobian, and all
+three-direction by two-epsilon finite-difference comparisons. The registered
+Jacobian gate failed before FISTA. Therefore no Arm-B candidate or nonlinear
+replay existed, Arm C did not run, and none of the four fidelity gates was
+evaluated. Although one ordinary Arm-A request returned first, no duplicate,
+legacy payload, canonical replay, or independent metric validation exists, so
+Arm A did not scientifically reproduce. The generic exception discarded the
+numeric comparison arrays; precision, derivative-interface mismatch, and
+local nonsmoothness cannot yet be distinguished.
+
+ADR-0047 preserves this boundary and permits only a strict diagnostic terminal
+payload that records and independently reconstructs those already-computed
+arrays, then stops before FISTA. The result is not `mechanism_pass` or
+`frozen_method_negative`; the transport hypothesis remains untested rather
+than refuted. No tolerance tuning, IFT-01, probe, or MLP is authorized.
+
+The diagnostic implementation now preserves the typed rejection through the
+frozen legacy request wrapper, byte-binds its float32 budget to both the paired
+request and frozen config, and independently reconstructs every recorded
+finite-difference quantity. Core/adapter dependency tests pass 29/29; the
+NumPy-backed canary/validator/publication/HPC suites pass 54/55 with only one
+PyTorch-only local skip; and the full local gate passes 625 tests with 205
+declared dependency skips. An independent semantic audit found no release
+blocker. The checked-in configs remain fail closed until a separate exact
+three-file release selects one unused run ID.
 
 ### IFT-01 — Three-case real transport smoke
 

@@ -394,7 +394,7 @@ case "$payload_variant" in
   complete_comparison)
     test -f "$LEGACY_PAYLOAD" || { echo "complete comparison lacks legacy payload" >&2; exit 5; }
     ;;
-  terminal_apparatus_failure)
+  terminal_apparatus_failure|terminal_finite_difference_rejection)
     # The raw failure records whether the legacy payload was reached.  The CPU
     # validator owns the consistency check and scientific classification.
     terminal_failure=$(jq -er '[.failure.error_type,.failure.message] | join("\n")' "$CFS_PAYLOAD")

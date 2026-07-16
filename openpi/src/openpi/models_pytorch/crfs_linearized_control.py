@@ -70,6 +70,66 @@ class FiniteDifferenceDiagnostics:
     absolute_l2_tolerance: float
 
 
+def _detach_finite_difference_to_cpu(
+    value: FiniteDifferenceDiagnostics,
+) -> FiniteDifferenceDiagnostics:
+    """Copy a failed registered check without retaining its model graph/device."""
+
+    return FiniteDifferenceDiagnostics(
+        directions=value.directions.detach().to(device="cpu").clone(),
+        epsilon_values=value.epsilon_values.detach().to(device="cpu").clone(),
+        plus_target_physical=value.plus_target_physical.detach().to(device="cpu").clone(),
+        minus_target_physical=value.minus_target_physical.detach().to(device="cpu").clone(),
+        autograd_directional_derivatives=(
+            value.autograd_directional_derivatives.detach().to(device="cpu").clone()
+        ),
+        central_directional_derivatives=(
+            value.central_directional_derivatives.detach().to(device="cpu").clone()
+        ),
+        absolute_l2_errors=value.absolute_l2_errors.detach().to(device="cpu").clone(),
+        relative_l2_errors=value.relative_l2_errors.detach().to(device="cpu").clone(),
+        checks_passed=value.checks_passed.detach().to(device="cpu").clone(),
+        directions_passed=value.directions_passed.detach().to(device="cpu").clone(),
+        passed=value.passed,
+        relative_l2_tolerance=value.relative_l2_tolerance,
+        absolute_l2_tolerance=value.absolute_l2_tolerance,
+    )
+
+
+class FiniteDifferenceValidationError(ValueError):
+    """Typed fail-closed record raised before any projected-FISTA computation."""
+
+    reason_code = "AUTOGRAD_JACOBIAN_FD_REJECTED"
+
+    def __init__(
+        self,
+        *,
+        jacobian: Tensor,
+        control_budget: Tensor,
+        finite_difference: FiniteDifferenceDiagnostics,
+    ) -> None:
+        if not isinstance(finite_difference, FiniteDifferenceDiagnostics):
+            raise TypeError("finite_difference must be FiniteDifferenceDiagnostics")
+        if finite_difference.passed:
+            raise ValueError("finite-difference rejection requires failed diagnostics")
+        if jacobian.shape != (35, 75):
+            raise ValueError("finite-difference rejection Jacobian must have shape (35, 75)")
+        if control_budget.ndim != 0:
+            raise ValueError("finite-difference rejection budget must be scalar")
+
+        self.jacobian = jacobian.detach().to(device="cpu").clone()
+        # The registered real CFS boundary is float32.  Keep that exact wire
+        # representation as a scalar tensor rather than converting it to a
+        # Python float and losing dtype identity.
+        self.budget_float32 = (
+            control_budget.detach().to(device="cpu", dtype=torch.float32).clone()
+        )
+        self.finite_difference = _detach_finite_difference_to_cpu(finite_difference)
+        super().__init__(
+            "registered finite-difference validation rejected the autograd Jacobian"
+        )
+
+
 @dataclass(frozen=True)
 class FistaDiagnostics:
     updates: int
@@ -593,8 +653,10 @@ def solve_linearized_control(
         config,
     )
     if not finite_difference.passed:
-        raise ValueError(
-            "registered finite-difference validation rejected the autograd Jacobian"
+        raise FiniteDifferenceValidationError(
+            jacobian=jacobian,
+            control_budget=budget,
+            finite_difference=finite_difference,
         )
     weights = _weighted_rows(control_mask, target_mask, legacy_config)
     selected64, weighted_singular_values64, fista = _fista_product_balls(

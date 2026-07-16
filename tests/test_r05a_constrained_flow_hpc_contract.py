@@ -24,6 +24,11 @@ GPU_SBATCH = ROOT / "slurm/r05a_constrained_flow_canary_h100.sbatch"
 CPU_SBATCH = ROOT / "slurm/r05a_constrained_flow_canary_validate_cpu.sbatch"
 APPARATUS = ROOT / "configs/experiments/r05a_constrained_flow_canary_apparatus.json"
 SCIENTIFIC = ROOT / "configs/experiments/r05a_constrained_flow_canary.json"
+RUN_B_EVIDENCE = ROOT / "evidence/r05a/cfs00a-same-budget-launch-b.json"
+RUN_B_EVIDENCE_TEST = ROOT / "tests/test_r05a_cfs00a_launch_b_evidence.py"
+ALLOCATION_TEST_REGISTRY = (
+    ROOT / "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json"
+)
 
 RESOURCE = {
     "partition": "main",
@@ -48,7 +53,7 @@ RESOURCE = {
 RELEASE_PATHS = [
     "configs/experiments/r05a_constrained_flow_canary.json",
     "configs/experiments/r05a_constrained_flow_canary_apparatus.json",
-    "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
+    "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
 ]
 SCIENTIFIC_PROJECTION_SHA256 = (
     "7dc2c8f63838ae4e22db8a927d87cae89daf0025c931b33e225c946abe8dc915"
@@ -128,11 +133,11 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertEqual(hashlib.sha256(canonical).hexdigest(), SCIENTIFIC_PROJECTION_SHA256)
 
         expected = {
-            "main/crfs_oracle/r05a_constrained_flow_canary.py": "a2365d5d97210779a4fbc6d69c97dd27629981d4f6caceffc71d95c5395f427a",
-            "openpi/src/openpi/models_pytorch/crfs_linearized_control.py": "4c93bc55bfc266f40fb05d21f5610e8988418bcb0e2c1a472afdec9d50d01b59",
-            "openpi/src/openpi/policies/crfs_constrained_flow_adapter.py": "ee7ff8e52757336438823214809b53cc2b9c6c66355f83d5e860666586d9590f",
+            "main/crfs_oracle/r05a_constrained_flow_canary.py": "5f3ff39d7ef429c9fe188a43882292a67d3305d0c099a3418a12016ce7560ea9",
+            "openpi/src/openpi/models_pytorch/crfs_linearized_control.py": "9ca1d2bc9f8d5f8c565f5dbc5ef78ead8d6b6900d124c387bfba298d377f39f9",
+            "openpi/src/openpi/policies/crfs_constrained_flow_adapter.py": "8dc8259b8cb69a630e381c38289cb9c392fa8d5702c249e00b1f9697127f8a9a",
             "openpi/scripts/serve_cfs_policy.py": "8a919e61e49415bec6e5383be251c6a8b26f4299e1372972ccfc6e06d17011c5",
-            "main/run_crfs_r05a_constrained_flow_canary.py": "d11f0b7893bb8fd27a269a772d04df2b71c6e323549117382b602ea4009c162a",
+            "main/run_crfs_r05a_constrained_flow_canary.py": "98621297dde0623df36cfae40fe1935f59bb82fba41e32705fa08c5475f5645f",
         }
         for relative, digest in expected.items():
             self.assertEqual(_sha(ROOT / relative), digest, relative)
@@ -243,7 +248,10 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertIn('--config "$CFS_CONFIG"', value)
         self.assertIn('--legacy-config "$LEGACY_CONFIG"', value)
         self.assertIn("complete_comparison)", value)
-        self.assertIn("terminal_apparatus_failure)", value)
+        self.assertIn(
+            "terminal_apparatus_failure|terminal_finite_difference_rejection)",
+            value,
+        )
         self.assertIn('test ! -e "$HIDDEN_CANDIDATE" && test ! -e "$RESULT"', value)
 
     def test_server_death_and_oom_cannot_be_clean_terminal_evidence(self) -> None:
@@ -617,6 +625,64 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             self.assertIn(evidence_binding["evidence_sha256"], consumer)
             self.assertIn(evidence_binding["preflight_sha256"], consumer)
 
+    def test_run_b_terminal_evidence_is_strictly_bound_by_all_release_consumers(self) -> None:
+        binding = {
+            "evidence_path": "evidence/r05a/cfs00a-same-budget-launch-b.json",
+            "evidence_sha256": "b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba",
+            "run_id": "r05a-constrained-flow-same-budget-canary-20260716b",
+            "release_commit": "12a7da69d3d34050709d08b9ca903a99f9d30862",
+            "gpu_task_id": "28048_0",
+            "cpu_publisher_job_id": "28049",
+            "published_result_sha256": "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f",
+            "classification": "apparatus_inconclusive",
+            "failed_numeric_diagnostics_persisted": False,
+            "h100_submission_authorized_by_evidence": False,
+        }
+        apparatus = json.loads(_text(APPARATUS))
+        evidence = json.loads(_text(RUN_B_EVIDENCE))
+        self.assertEqual(apparatus["run_b_failure_evidence_binding"], binding)
+        self.assertEqual(_sha(RUN_B_EVIDENCE), binding["evidence_sha256"])
+        self.assertEqual(evidence["run_id"], binding["run_id"])
+        self.assertEqual(evidence["release_commit"], binding["release_commit"])
+        self.assertEqual(
+            evidence["jobs"]["gpu_array_task"]["job_id"],
+            binding["gpu_task_id"],
+        )
+        self.assertEqual(
+            evidence["jobs"]["cpu_afterany_validator"]["job_id"],
+            binding["cpu_publisher_job_id"],
+        )
+        self.assertEqual(
+            evidence["immutable_artifacts"]["published_result_sha256"],
+            binding["published_result_sha256"],
+        )
+        self.assertEqual(evidence["interpretation"]["status"], binding["classification"])
+        self.assertFalse(
+            evidence["execution_boundary"]["arm_b_numeric_diagnostics_persisted"]
+        )
+        self.assertFalse(
+            evidence["interpretation"]["automatic_h100_resubmission_authorized"]
+        )
+        self.assertTrue(RUN_B_EVIDENCE_TEST.is_file())
+        for consumer in (
+            _text(SUBMITTER),
+            _text(GPU_WRAPPER),
+            _text(CPU_WRAPPER),
+            _text(ROOT / "main/crfs_oracle/r05a_constrained_flow_publication.py"),
+        ):
+            self.assertIn(binding["evidence_path"], consumer)
+            self.assertIn(binding["evidence_sha256"], consumer)
+            self.assertIn("tests/test_r05a_cfs00a_launch_b_evidence.py", consumer)
+        for shell in (SUBMITTER, GPU_WRAPPER, CPU_WRAPPER):
+            value = _text(shell)
+            self.assertIn("adr0047_sha256", value)
+            self.assertIn("run_b_evidence_sha256", value)
+            self.assertNotIn("adr0046_sha256", value)
+            self.assertNotIn(
+                "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
+                value,
+            )
+
     def test_interpreter_symlink_exception_does_not_weaken_immutable_inputs(self) -> None:
         workload = _text(WORKLOAD)
         match = re.search(
@@ -700,6 +766,18 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertIn("r05a_constrained_flow_allocation_tests.json", value)
         self.assertNotIn("expected_tests=", value)
         self.assertNotRegex(value, r"(?:TOTAL|COUNT|TESTS)[A-Z_]*=(?:85|89|90)\b")
+        registry = json.loads(_text(ALLOCATION_TEST_REGISTRY))
+        expected_counts = {
+            suite["pattern"]: suite["expected_tests"] for suite in registry["suites"]
+        }
+        self.assertEqual(expected_counts["test_r05a_constrained_flow_canary.py"], 18)
+        self.assertEqual(sum(expected_counts.values()), 99)
+        apparatus_contract = json.loads(_text(APPARATUS))["allocation_test_contract"]
+        self.assertEqual(
+            apparatus_contract["registry_sha256"],
+            "225c8c0d39d7ebb8314e35f6c386a576b1d63e58d8f40208e01dafeddb4a247e",
+        )
+        self.assertEqual(apparatus_contract["expected_counts"], expected_counts)
 
     def test_transaction_is_held_receipted_cpu_registered_then_released_once(self) -> None:
         value = _text(SUBMITTER)
@@ -798,8 +876,11 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             "scripts/hpc/submit_r05a_constrained_flow_canary.sh",
             "slurm/r05a_constrained_flow_canary_h100.sbatch",
             "slurm/r05a_constrained_flow_canary_validate_cpu.sbatch",
+            "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
+            "evidence/r05a/cfs00a-same-budget-launch-b.json",
             "tests/test_r05a_constrained_flow_hpc_contract.py",
             "tests/test_r05a_constrained_flow_publication.py",
+            "tests/test_r05a_cfs00a_launch_b_evidence.py",
             "openpi/src/openpi/models_pytorch/transformers_replace/models/gemma/configuration_gemma.py",
             "openpi/src/openpi/models_pytorch/transformers_replace/models/gemma/modeling_gemma.py",
             "openpi/src/openpi/models_pytorch/transformers_replace/models/paligemma/modeling_paligemma.py",

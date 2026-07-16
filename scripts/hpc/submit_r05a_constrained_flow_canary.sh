@@ -25,9 +25,11 @@ ENVELOPE_SCHEMA_LOCAL=schemas/r05a-constrained-flow-canary-envelope.schema.json
 ADR0040_LOCAL=docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md
 HISTORICAL_ADR0041_LOCAL=docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
 ADR0045_LOCAL=docs/decisions/0045-accept-runtime-identity-regression.md
-ADR0046_LOCAL=docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
+ADR0047_LOCAL=docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
 RUNTIME_IDENTITY_EVIDENCE_LOCAL=evidence/r05a/runtime-identity-regression-20260716a.json
 RUNTIME_IDENTITY_PREFLIGHT_LOCAL=evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
+RUN_B_EVIDENCE_LOCAL=evidence/r05a/cfs00a-same-budget-launch-b.json
+RUN_B_EVIDENCE_TEST_LOCAL=tests/test_r05a_cfs00a_launch_b_evidence.py
 VINUNI_GUIDE_LOCAL='/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md'
 
 EXPECTED_MANIFEST_SHA256=bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633
@@ -43,9 +45,10 @@ BOUND_REPOSITORY_PATHS=(
   docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md
   docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
   docs/decisions/0045-accept-runtime-identity-regression.md
-  docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
+  docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
   evidence/r05a/runtime-identity-regression-20260716a.json
   evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
+  evidence/r05a/cfs00a-same-budget-launch-b.json
   schemas/r05a-inverse-flow-canary.schema.json
   schemas/r05a-constrained-flow-canary-envelope.schema.json
   main/crfs_oracle/r05a_canary.py
@@ -94,6 +97,7 @@ BOUND_REPOSITORY_PATHS=(
   tests/test_r05a_constrained_flow_publication.py
   tests/test_r05a_constrained_flow_validation.py
   tests/test_r05a_runtime_identity_regression_evidence.py
+  tests/test_r05a_cfs00a_launch_b_evidence.py
 )
 
 for path in "${BOUND_REPOSITORY_PATHS[@]}"; do
@@ -109,6 +113,7 @@ test "$(shasum -a 256 "$HISTORICAL_ADR0041_LOCAL" | awk '{print $1}')" = f1906b2
 test "$(shasum -a 256 "$ADR0045_LOCAL" | awk '{print $1}')" = 3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e || { echo "ADR-0045 changed" >&2; exit 2; }
 test "$(shasum -a 256 "$RUNTIME_IDENTITY_EVIDENCE_LOCAL" | awk '{print $1}')" = ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237 || { echo "runtime identity evidence changed" >&2; exit 2; }
 test "$(shasum -a 256 "$RUNTIME_IDENTITY_PREFLIGHT_LOCAL" | awk '{print $1}')" = c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221 || { echo "runtime identity historical preflight changed" >&2; exit 2; }
+test "$(shasum -a 256 "$RUN_B_EVIDENCE_LOCAL" | awk '{print $1}')" = b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba || { echo "run-B terminal evidence changed" >&2; exit 2; }
 test -f "$VINUNI_GUIDE_LOCAL" && test ! -L "$VINUNI_GUIDE_LOCAL" || { echo "exact VinUni H100 guide is missing or symlinked" >&2; exit 2; }
 test "$(shasum -a 256 "$VINUNI_GUIDE_LOCAL" | awk '{print $1}')" = acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108 || { echo "VinUni H100 guide bytes changed; rereview before release" >&2; exit 2; }
 test "$(wc -l <"$VINUNI_GUIDE_LOCAL" | tr -d ' ')" = 1298 || { echo "VinUni H100 guide line count changed; rereview before release" >&2; exit 2; }
@@ -121,6 +126,15 @@ jq -e '
   and .interpretation.cfs_runtime_integration_evaluated == false
   and .interpretation.h100_submission_authorized_by_this_result == false
   and .immutable_artifacts.result.sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"' "$RUNTIME_IDENTITY_EVIDENCE_LOCAL" >/dev/null || { echo "runtime identity terminal semantics changed" >&2; exit 2; }
+jq -e '
+  .run_id == "r05a-constrained-flow-same-budget-canary-20260716b"
+  and .release_commit == "12a7da69d3d34050709d08b9ca903a99f9d30862"
+  and .jobs.gpu_array_task.job_id == "28048_0"
+  and .jobs.cpu_afterany_validator.job_id == "28049"
+  and .immutable_artifacts.published_result_sha256 == "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f"
+  and .interpretation.status == "apparatus_inconclusive"
+  and .execution_boundary.arm_b_numeric_diagnostics_persisted == false
+  and .interpretation.automatic_h100_resubmission_authorized == false' "$RUN_B_EVIDENCE_LOCAL" >/dev/null || { echo "run-B terminal evidence semantics changed" >&2; exit 2; }
 
 jq -e '.config_status == "released_exact_single_canary" and .ready_to_run == true and .blocked_on == [] and .preregistration.h100_submission_authorized == true and (.execution_release|type=="object")' "$CFS_CONFIG_LOCAL" >/dev/null || { echo "scientific CFS config is not exactly released" >&2; exit 2; }
 jq -e '.ready_to_run == true and .blocked_on == []' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "CFS apparatus is not released" >&2; exit 2; }
@@ -135,13 +149,13 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
   and ((.execution_release | keys | sort) == (["schema_version","artifact_role","decision_artifact","accepted_implementation_commit","run_id","single_submission","source_host","resources","release_only_parent_required","allowed_release_diff_paths","automatic_resubmission_allowed","automatic_next_experiment_allowed"] | sort))
   and .execution_release.schema_version == "1.0"
   and .execution_release.artifact_role == "r05a_constrained_flow_canary_execution_release"
-  and .execution_release.decision_artifact == "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
+  and .execution_release.decision_artifact == "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
   and .execution_release.accepted_implementation_commit == $implementation
   and .execution_release.run_id == $run and .execution_release.single_submission == true
   and .execution_release.source_host == "worker-1"
   and .execution_release.resources == {partition:"main",account:"normal",qos:"normal",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}
   and .execution_release.release_only_parent_required == true
-  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"]
+  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false
   and .resource_contract == {partition:"main",account:"normal",qos:"normal",source_host:"worker-1",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "exact CFS execution release changed" >&2; exit 2; }
@@ -182,6 +196,16 @@ jq -e '.runtime_identity_evidence_binding == {
   result_sha256:"3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",shell_only:true,gpus_allocated:0,
   cfs_runtime_integration_evaluated:false,h100_submission_authorized_by_evidence:false
 }' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "apparatus runtime identity evidence binding changed" >&2; exit 2; }
+jq -e '.run_b_failure_evidence_binding == {
+  evidence_path:"evidence/r05a/cfs00a-same-budget-launch-b.json",
+  evidence_sha256:"b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba",
+  run_id:"r05a-constrained-flow-same-budget-canary-20260716b",
+  release_commit:"12a7da69d3d34050709d08b9ca903a99f9d30862",
+  gpu_task_id:"28048_0",cpu_publisher_job_id:"28049",
+  published_result_sha256:"655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f",
+  classification:"apparatus_inconclusive",failed_numeric_diagnostics_persisted:false,
+  h100_submission_authorized_by_evidence:false
+}' "$APPARATUS_CONFIG_LOCAL" >/dev/null || { echo "apparatus run-B evidence binding changed" >&2; exit 2; }
 jq -e '.vinuni_h100_guide_contract == {
   title:"2026-05-03 - VinUni H100 Server Guide.md",
   local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
@@ -206,12 +230,12 @@ test "$(jq -S -c 'del(.config_status,.ready_to_run,.blocked_on,.preregistration.
 test "$(jq -S -c 'del(.ready_to_run,.blocked_on,.execution_release,.scientific_config.sha256)' <<<"$PARENT_APPARATUS_CONFIG")" = "$(jq -S -c 'del(.ready_to_run,.blocked_on,.execution_release,.scientific_config.sha256)' "$APPARATUS_CONFIG_LOCAL")" || { echo "release changed non-release apparatus content" >&2; exit 2; }
 
 RELEASE_DIFF=$(git diff --name-only "$ACCEPTED_IMPLEMENTATION_COMMIT" "$EXPECTED_RELEASE_COMMIT")
-test "$RELEASE_DIFF" = "$(printf '%s\n' "$CFS_CONFIG_LOCAL" "$APPARATUS_CONFIG_LOCAL" "$ADR0046_LOCAL")" || { echo "release-only path set changed" >&2; exit 2; }
+test "$RELEASE_DIFF" = "$(printf '%s\n' "$CFS_CONFIG_LOCAL" "$APPARATUS_CONFIG_LOCAL" "$ADR0047_LOCAL")" || { echo "release-only path set changed" >&2; exit 2; }
 RELEASE_RESOURCE_JSON=$(jq -cS '.execution_release.resources' "$APPARATUS_CONFIG_LOCAL")
 EXPECTED_RELEASE_DECISION=$(mktemp)
 cleanup_expected_decision() { rm -f "$EXPECTED_RELEASE_DECISION"; }
 trap cleanup_expected_decision EXIT INT TERM
-git show "$ACCEPTED_IMPLEMENTATION_COMMIT:$ADR0046_LOCAL" >"$EXPECTED_RELEASE_DECISION"
+git show "$ACCEPTED_IMPLEMENTATION_COMMIT:$ADR0047_LOCAL" >"$EXPECTED_RELEASE_DECISION"
 {
   printf '\n## Exact execution release\n\n'
   printf 'Execution authorization: one preregistered CFS-00A canary submission only.\n\n'
@@ -225,9 +249,9 @@ git show "$ACCEPTED_IMPLEMENTATION_COMMIT:$ADR0046_LOCAL" >"$EXPECTED_RELEASE_DE
   printf -- '- Simulator efficacy claim authorized: `false`.\n'
   printf -- '- Infeasibility claim authorized: `false`.\n'
   printf -- '- Probe or MLP training authorized: `false`.\n\n'
-  printf '%s\n' 'This appendix authorizes only the frozen one-case same-budget transport mechanism canary. It does not authorize IFT-01, solver or tolerance tuning, simulator execution of generated actions, an efficacy or infeasibility claim, label collection, probe training, or MLP training.'
+  printf '%s\n' 'This appendix authorizes only the frozen one-case failed-Jacobian diagnostic canary, which must stop before FISTA after a registered finite-difference rejection. It does not authorize IFT-01, solver or tolerance tuning, simulator execution of generated actions, an efficacy or infeasibility claim, label collection, probe training, or MLP training.'
 } >>"$EXPECTED_RELEASE_DECISION"
-cmp -s "$EXPECTED_RELEASE_DECISION" "$ADR0046_LOCAL" || { echo "release decision is not canonical appendix" >&2; exit 2; }
+cmp -s "$EXPECTED_RELEASE_DECISION" "$ADR0047_LOCAL" || { echo "release decision is not canonical appendix" >&2; exit 2; }
 cleanup_expected_decision
 trap - EXIT INT TERM
 
@@ -237,9 +261,10 @@ ENVELOPE_SCHEMA_SHA256=$(shasum -a 256 "$ENVELOPE_SCHEMA_LOCAL" | awk '{print $1
 ADR0040_SHA256=$(shasum -a 256 "$ADR0040_LOCAL" | awk '{print $1}')
 HISTORICAL_ADR0041_SHA256=$(shasum -a 256 "$HISTORICAL_ADR0041_LOCAL" | awk '{print $1}')
 ADR0045_SHA256=$(shasum -a 256 "$ADR0045_LOCAL" | awk '{print $1}')
-ADR0046_SHA256=$(shasum -a 256 "$ADR0046_LOCAL" | awk '{print $1}')
+ADR0047_SHA256=$(shasum -a 256 "$ADR0047_LOCAL" | awk '{print $1}')
 RUNTIME_IDENTITY_EVIDENCE_SHA256=$(shasum -a 256 "$RUNTIME_IDENTITY_EVIDENCE_LOCAL" | awk '{print $1}')
 RUNTIME_IDENTITY_PREFLIGHT_SHA256=$(shasum -a 256 "$RUNTIME_IDENTITY_PREFLIGHT_LOCAL" | awk '{print $1}')
+RUN_B_EVIDENCE_SHA256=$(shasum -a 256 "$RUN_B_EVIDENCE_LOCAL" | awk '{print $1}')
 
 # Login node is control plane only.
 mkdir -p .harness/live
@@ -250,8 +275,8 @@ FRESH_PREFLIGHT_BASE64=$(base64 <"$FRESH_PREFLIGHT_LOCAL" | tr -d '\n')
 ssh "$HOST" bash -s -- \
   "$REMOTE_REPO" "$RUN_ID" "$EXPECTED_RELEASE_COMMIT" "$EXPERIMENT_ROOT" "$R02_RAW_ROOT" "$CHECKPOINT_DIR" \
   "$EXPECTED_MANIFEST_SHA256" "$CFS_CONFIG_SHA256" "$EXPECTED_LEGACY_CONFIG_SHA256" "$EXPECTED_R02_SHA256" "$EXPECTED_CHECKPOINT_SHA256" \
-  "$APPARATUS_CONFIG_SHA256" "$ENVELOPE_SCHEMA_SHA256" "$ADR0040_SHA256" "$HISTORICAL_ADR0041_SHA256" "$ADR0045_SHA256" "$ADR0046_SHA256" \
-  "$RUNTIME_IDENTITY_EVIDENCE_SHA256" "$RUNTIME_IDENTITY_PREFLIGHT_SHA256" "$ACCEPTED_IMPLEMENTATION_COMMIT" \
+  "$APPARATUS_CONFIG_SHA256" "$ENVELOPE_SCHEMA_SHA256" "$ADR0040_SHA256" "$HISTORICAL_ADR0041_SHA256" "$ADR0045_SHA256" "$ADR0047_SHA256" \
+  "$RUNTIME_IDENTITY_EVIDENCE_SHA256" "$RUNTIME_IDENTITY_PREFLIGHT_SHA256" "$RUN_B_EVIDENCE_SHA256" "$ACCEPTED_IMPLEMENTATION_COMMIT" \
   "$FRESH_PREFLIGHT_SHA256" "$FRESH_PREFLIGHT_BASE64" <<'REMOTE'
 set -euo pipefail
 
@@ -330,9 +355,9 @@ require_tres_capacity() {
 
 remote_repo=$1; run_id=$2; expected_commit=$3; experiment_root=$4; r02_raw_root=$5; checkpoint_dir=$6
 expected_manifest_sha=$7; expected_cfs_config_sha=$8; expected_legacy_config_sha=$9; expected_r02_sha=${10}; expected_checkpoint_sha=${11}
-expected_apparatus_sha=${12}; expected_schema_sha=${13}; expected_adr0040_sha=${14}; expected_historical_adr0041_sha=${15}; expected_adr0045_sha=${16}; expected_adr0046_sha=${17}
-expected_runtime_identity_evidence_sha=${18}; expected_runtime_identity_preflight_sha=${19}; accepted_implementation_commit=${20}
-fresh_preflight_sha=${21}; fresh_preflight_base64=${22}
+expected_apparatus_sha=${12}; expected_schema_sha=${13}; expected_adr0040_sha=${14}; expected_historical_adr0041_sha=${15}; expected_adr0045_sha=${16}; expected_adr0047_sha=${17}
+expected_runtime_identity_evidence_sha=${18}; expected_runtime_identity_preflight_sha=${19}; expected_run_b_evidence_sha=${20}; accepted_implementation_commit=${21}
+fresh_preflight_sha=${22}; fresh_preflight_base64=${23}
 
 manifest=$remote_repo/manifests/r05a_inverse_flow_teacher_smoke.jsonl
 cfs_config=$remote_repo/configs/experiments/r05a_constrained_flow_canary.json
@@ -342,9 +367,10 @@ envelope_schema=$remote_repo/schemas/r05a-constrained-flow-canary-envelope.schem
 adr0040=$remote_repo/docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md
 historical_adr0041=$remote_repo/docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
 adr0045=$remote_repo/docs/decisions/0045-accept-runtime-identity-regression.md
-adr0046=$remote_repo/docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
+adr0047=$remote_repo/docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
 runtime_identity_evidence=$remote_repo/evidence/r05a/runtime-identity-regression-20260716a.json
 runtime_identity_preflight=$remote_repo/evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
+run_b_evidence=$remote_repo/evidence/r05a/cfs00a-same-budget-launch-b.json
 source_r02=$r02_raw_root/crfs-1069f29a8d76463a/r02-paired.json
 checkpoint=$checkpoint_dir/model.safetensors
 gpu_slurm=$remote_repo/slurm/r05a_constrained_flow_canary_h100.sbatch
@@ -367,8 +393,8 @@ bound_paths=(
   configs/experiments/r05a_constrained_flow_canary.json configs/experiments/r05a_constrained_flow_canary_apparatus.json configs/experiments/r05a_inverse_flow_canary.json
   manifests/r05a_inverse_flow_teacher_smoke.jsonl
   docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
-  docs/decisions/0045-accept-runtime-identity-regression.md docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
-  evidence/r05a/runtime-identity-regression-20260716a.json evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
+  docs/decisions/0045-accept-runtime-identity-regression.md docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
+  evidence/r05a/runtime-identity-regression-20260716a.json evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt evidence/r05a/cfs00a-same-budget-launch-b.json
   schemas/r05a-inverse-flow-canary.schema.json schemas/r05a-constrained-flow-canary-envelope.schema.json
   main/crfs_oracle/r05a_canary.py main/crfs_oracle/r05a_constrained_flow_allocation_tests.json
   main/crfs_oracle/r05a_constrained_flow_canary.py main/crfs_oracle/r05a_constrained_flow_validation.py main/crfs_oracle/r05a_constrained_flow_publication.py main/crfs_oracle/r05a_full_lifetime_telemetry.py main/crfs_oracle/r05a_sampled_current_canary.py
@@ -383,7 +409,7 @@ bound_paths=(
   scripts/hpc/run_r05a_constrained_flow_workload.sh scripts/hpc/run_r05a_constrained_flow_canary.sh scripts/hpc/validate_r05a_constrained_flow_canary.sh scripts/hpc/submit_r05a_constrained_flow_canary.sh
   slurm/r05a_constrained_flow_canary_h100.sbatch slurm/r05a_constrained_flow_canary_validate_cpu.sbatch
   tests/test_inverse_flow_control.py tests/test_inverse_flow_sampler.py tests/test_inverse_flow_policy.py tests/test_r05a_canary.py
-  tests/test_linearized_flow_control.py tests/test_constrained_flow_adapter.py tests/test_r05a_constrained_flow_canary.py tests/test_r05a_constrained_flow_hpc_contract.py tests/test_r05a_constrained_flow_publication.py tests/test_r05a_constrained_flow_validation.py tests/test_r05a_runtime_identity_regression_evidence.py
+  tests/test_linearized_flow_control.py tests/test_constrained_flow_adapter.py tests/test_r05a_constrained_flow_canary.py tests/test_r05a_constrained_flow_hpc_contract.py tests/test_r05a_constrained_flow_publication.py tests/test_r05a_constrained_flow_validation.py tests/test_r05a_runtime_identity_regression_evidence.py tests/test_r05a_cfs00a_launch_b_evidence.py
 )
 for relative in "${bound_paths[@]}"; do test -f "$remote_repo/$relative" && test ! -L "$remote_repo/$relative" || { echo "missing remote bound source: $relative" >&2; exit 2; }; done
 test "$(git -C "$remote_repo" rev-parse HEAD)" = "$expected_commit" || { echo "remote commit mismatch" >&2; exit 2; }
@@ -398,9 +424,10 @@ test "$(sha256sum "$envelope_schema"|awk '{print $1}')" = "$expected_schema_sha"
 test "$(sha256sum "$adr0040"|awk '{print $1}')" = "$expected_adr0040_sha"
 test "$(sha256sum "$historical_adr0041"|awk '{print $1}')" = "$expected_historical_adr0041_sha"
 test "$(sha256sum "$adr0045"|awk '{print $1}')" = "$expected_adr0045_sha"
-test "$(sha256sum "$adr0046"|awk '{print $1}')" = "$expected_adr0046_sha"
+test "$(sha256sum "$adr0047"|awk '{print $1}')" = "$expected_adr0047_sha"
 test "$(sha256sum "$runtime_identity_evidence"|awk '{print $1}')" = "$expected_runtime_identity_evidence_sha"
 test "$(sha256sum "$runtime_identity_preflight"|awk '{print $1}')" = "$expected_runtime_identity_preflight_sha"
+test "$(sha256sum "$run_b_evidence"|awk '{print $1}')" = "$expected_run_b_evidence_sha"
 test "$(sha256sum "$source_r02"|awk '{print $1}')" = "$expected_r02_sha"
 # The multi-GB checkpoint is deliberately not hashed on the login node.  The
 # H100 allocation rehashes its exact bytes before starting the policy server.
@@ -418,6 +445,15 @@ jq -e '
   and .interpretation.cfs_runtime_integration_evaluated == false
   and .interpretation.h100_submission_authorized_by_this_result == false
   and .immutable_artifacts.result.sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"' "$runtime_identity_evidence" >/dev/null || { echo "remote runtime identity evidence changed" >&2; exit 2; }
+jq -e '
+  .run_id == "r05a-constrained-flow-same-budget-canary-20260716b"
+  and .release_commit == "12a7da69d3d34050709d08b9ca903a99f9d30862"
+  and .jobs.gpu_array_task.job_id == "28048_0"
+  and .jobs.cpu_afterany_validator.job_id == "28049"
+  and .immutable_artifacts.published_result_sha256 == "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f"
+  and .interpretation.status == "apparatus_inconclusive"
+  and .execution_boundary.arm_b_numeric_diagnostics_persisted == false
+  and .interpretation.automatic_h100_resubmission_authorized == false' "$run_b_evidence" >/dev/null || { echo "remote run-B terminal evidence changed" >&2; exit 2; }
 inherited_sbatch_options=$(env | sed -n 's/^\(SBATCH_[A-Za-z0-9_]*\)=.*/\1/p')
 test -z "$inherited_sbatch_options" || { echo "inherited SBATCH options could change the exact transaction: $inherited_sbatch_options" >&2; exit 2; }
 test ! -e "$run_root" || { echo "immutable CFS-00A run id already used" >&2; exit 2; }
@@ -512,7 +548,7 @@ printf '%s' "$fresh_preflight_base64" | base64 -d >"$preflight_tmp"
 test "$(sha256sum "$preflight_tmp" | awk '{print $1}')" = "$fresh_preflight_sha" || { echo "fresh preflight transfer changed" >&2; exit 2; }
 mv "$preflight_tmp" "$live_preflight"
 reservation_tmp=$(mktemp "$run_root/.launch-reservation.XXXXXX")
-jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg implementation "$accepted_implementation_commit" --arg free "$free_mem" --arg free_h100 "$free_h100" --arg preflight "$live_preflight" --arg preflight_sha "$fresh_preflight_sha" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_launch_reservation",status:"preflight_verified_before_queueing",run_id:$run,git_commit:$commit,accepted_implementation_commit:$implementation,release_decision_path:"docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",single_submission:true,source_node:"worker-1",observed_free_mem_mib:($free|tonumber),observed_unallocated_h100_count:($free_h100|tonumber),immediate_h100_capacity_available:(($free_h100|tonumber) >= 1),pending_submission_allowed:true,fresh_preflight_path:$preflight,fresh_preflight_sha256:$preflight_sha,requested_gpus:1,requested_cpus:8,requested_host_memory_mib:65536,array:"0-0%1",scientific_claim_allowed:false,infeasibility_claim_allowed:false,probe_training_authorized:false,timestamp_utc:$now}' >"$reservation_tmp"
+jq -n --arg run "$run_id" --arg commit "$expected_commit" --arg implementation "$accepted_implementation_commit" --arg free "$free_mem" --arg free_h100 "$free_h100" --arg preflight "$live_preflight" --arg preflight_sha "$fresh_preflight_sha" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{schema_version:"1.0",artifact_role:"r05a_constrained_flow_canary_launch_reservation",status:"preflight_verified_before_queueing",run_id:$run,git_commit:$commit,accepted_implementation_commit:$implementation,release_decision_path:"docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",single_submission:true,source_node:"worker-1",observed_free_mem_mib:($free|tonumber),observed_unallocated_h100_count:($free_h100|tonumber),immediate_h100_capacity_available:(($free_h100|tonumber) >= 1),pending_submission_allowed:true,fresh_preflight_path:$preflight,fresh_preflight_sha256:$preflight_sha,requested_gpus:1,requested_cpus:8,requested_host_memory_mib:65536,array:"0-0%1",scientific_claim_allowed:false,infeasibility_claim_allowed:false,probe_training_authorized:false,timestamp_utc:$now}' >"$reservation_tmp"
 mv "$reservation_tmp" "$run_root/launch-reservation.json"
 
 gpu_submission=$(RUN_ID="$run_id" MANIFEST="$manifest" CFS_CONFIG="$cfs_config" LEGACY_CONFIG="$legacy_config" R02_RAW_ROOT="$r02_raw_root" CHECKPOINT_DIR="$checkpoint_dir" EXPERIMENT_ROOT="$experiment_root" EXPECTED_GIT_COMMIT="$expected_commit" REMOTE_REPO="$remote_repo" sbatch --parsable --hold --export=ALL --partition=main --account=normal --qos=normal --gres=gpu:1 --cpus-per-task=8 --mem=64G --time=02:00:00 --no-requeue --nodelist=worker-1 --array=0-0%1 --output='/mnt/data/quanth/slurm_logs/crfs-oracle/%x-%A_%a.out' "$gpu_slurm")
@@ -547,9 +583,10 @@ frozen_bindings=$(jq -n \
   --arg adr0040 "$expected_adr0040_sha" \
   --arg historical_adr0041 "$expected_historical_adr0041_sha" \
   --arg adr0045 "$expected_adr0045_sha" \
-  --arg adr0046 "$expected_adr0046_sha" \
+  --arg adr0047 "$expected_adr0047_sha" \
   --arg runtime_identity_evidence "$expected_runtime_identity_evidence_sha" \
   --arg runtime_identity_preflight "$expected_runtime_identity_preflight_sha" \
+  --arg run_b_evidence "$expected_run_b_evidence_sha" \
   '{
     constrained_flow_config_sha256:$cfs,
     legacy_scientific_config_sha256:$legacy,
@@ -560,9 +597,10 @@ frozen_bindings=$(jq -n \
     adr0040_sha256:$adr0040,
     historical_adr0041_sha256:$historical_adr0041,
     adr0045_sha256:$adr0045,
-    adr0046_sha256:$adr0046,
+    adr0047_sha256:$adr0047,
     runtime_identity_evidence_sha256:$runtime_identity_evidence,
     runtime_identity_preflight_sha256:$runtime_identity_preflight,
+    run_b_evidence_sha256:$run_b_evidence,
     runtime_identity_release_commit:"8415b659a46699757de1e99558713e56b95255b5",
     runtime_identity_job_id:"28043",
     runtime_identity_result_sha256:"3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",

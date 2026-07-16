@@ -33,6 +33,9 @@ from openpi.models_pytorch import crfs_linearized_control as _linearized_control
 
 _EXPERIMENT_ARM = "linearized_warm_start"
 _TRACE_KEY = "linearized_warm_start"
+_TERMINAL_KEY = "__crfs_terminal__"
+_FINITE_DIFFERENCE_REJECTION_KIND = "finite_difference_rejection"
+_FINITE_DIFFERENCE_REJECTION_REASON_CODE = "AUTOGRAD_JACOBIAN_FD_REJECTED"
 _MISSING = object()
 
 
@@ -93,6 +96,47 @@ def _linearized_diagnostic(result: Any) -> dict[str, Any]:
     if not isinstance(diagnostic, dict) or not diagnostic:
         raise RuntimeError("CFS linearized solver returned an empty diagnostic")
     return diagnostic
+
+
+def _finite_difference_terminal(
+    error: _linearized_control.FiniteDifferenceValidationError,
+    context: _ComparisonContext,
+) -> dict[str, Any]:
+    """Return the strict opt-in terminal record only at the registered boundary."""
+
+    if error.reason_code != _FINITE_DIFFERENCE_REJECTION_REASON_CODE:
+        raise RuntimeError("CFS finite-difference rejection reason code changed")
+    if (
+        context.phase != "computing_linearized_candidate"
+        or context.solve_calls != 1
+        or context.historical_projection_calls != 0
+        or context.injection_count != 0
+        or context.projection_idempotence_checks != 0
+        or context.projection_idempotence_exact
+        or context.candidate is not None
+        or context.diagnostic is not None
+    ):
+        raise RuntimeError(
+            "CFS finite-difference rejection crossed the registered execution boundary"
+        )
+    context.phase = "finite_difference_rejected"
+    return {
+        _TERMINAL_KEY: {
+            "kind": _FINITE_DIFFERENCE_REJECTION_KIND,
+            "reason_code": _FINITE_DIFFERENCE_REJECTION_REASON_CODE,
+            "jacobian": _wire_value(error.jacobian),
+            "budget_float32": _wire_value(error.budget_float32),
+            "finite_difference": _wire_value(error.finite_difference),
+            "execution_boundary": {
+                "jacobian_completed": True,
+                "finite_difference_completed": True,
+                "fista_started": False,
+                "candidate_created": False,
+                "arm_b_nonlinear_replay_executed": False,
+                "arm_c_refinement_executed": False,
+            },
+        }
+    }
 
 
 def _same_tensor_contract(candidate: torch.Tensor, historical_input: torch.Tensor) -> bool:
@@ -282,7 +326,10 @@ class ConstrainedFlowPolicyAdapter:
         context = _ComparisonContext(arm=_EXPERIMENT_ARM)
         token = _REQUEST_CONTEXT.set(context)
         try:
-            outputs = self._delegate(ordinary_obs, noise)
+            try:
+                outputs = self._delegate(ordinary_obs, noise)
+            except _linearized_control.FiniteDifferenceValidationError as error:
+                return _finite_difference_terminal(error, context)
             if context.solve_calls != 1:
                 raise RuntimeError(
                     "CFS comparison request must invoke the inverse solver exactly once; "

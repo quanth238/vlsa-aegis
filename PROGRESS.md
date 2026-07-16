@@ -31,10 +31,11 @@ Validated zero-GPU identity apparatus implementation:
 Terminal zero-GPU identity release:
 `8415b659a46699757de1e99558713e56b95255b5`.
 
-Active CFS-00A run-B release:
+Terminal CFS-00A run-B release:
 `12a7da69d3d34050709d08b9ca903a99f9d30862`.
 
-Active jobs: worker-1 GPU task `28048_0`; CPU `afterany` validator `28049`.
+Active jobs: none. GPU task `28048_0` and CPU publisher `28049` both completed
+`0:0`; the published result is `apparatus_inconclusive`.
 
 Historical detail is preserved, not deleted:
 
@@ -46,7 +47,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0045;
+- immutable decisions: ADR-0028 through ADR-0047;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -74,8 +75,9 @@ task-progress efficacy, student learnability, or generalization.
 ## Active gate: R05A / CFS-00A same-budget constrained-flow canary
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
-real IFT-00A or CFS-00A result. CFS-00A is a new diagnostic, not a retrofit or
-republication of sampled-current launch B:
+real teacher-transport mechanism result. CFS-00A run B is a valid published
+apparatus result, but it stopped before a candidate and therefore is not a
+method result:
 
 - attempt A stopped before pi0.5 and is apparatus-only;
 - retry B reached real pi0.5 and produced two deterministic finite 128-update
@@ -116,13 +118,21 @@ republication of sampled-current launch B:
   The immutable result SHA-256 is `3bda039c...b0de`; all eight repository
   bindings and the held/source/submission chain matched.  No interpreter,
   model, simulator, metric, training path, or GPU ran.
+- CFS-00A run B completed on real pi0.5. It computed the zero-control baseline,
+  autograd Jacobian, and all registered three-direction by two-epsilon finite-
+  difference comparisons. The Jacobian gate failed before FISTA. The generic
+  exception discarded the six numeric comparisons, so no Arm-B candidate,
+  nonlinear replay, Arm C, or four-gate result exists. Arm A also lacks the
+  duplicate, payload, canonical replay, and independent validation required
+  for scientific reproduction. ADR-0047 therefore preserves the run as
+  apparatus-inconclusive and authorizes only diagnostic persistence.
 
 The frozen scientific experiment remains exactly one case,
 `crfs-1069f29a8d76463a`, on source host `worker-1`: one H100, eight CPUs,
 exactly 64 GiB host RAM, two hours, array `0-0%1`, no requeue, plus one
-zero-GPU CPU `afterany` validator. Launch A did not reach that scientific
-boundary, and no teacher- or policy-generated action was executed in the
-simulator.
+zero-GPU CPU `afterany` validator. Run B reached the derivative gate but not
+FISTA or a candidate. No teacher- or policy-generated action was executed in
+the simulator.
 
 ## What this experiment can conclude
 
@@ -194,26 +204,41 @@ is executed. They begin only in a separately authorized IFT-01.
   TRES.  No Python, model, arm, or simulator action ran; this identity is
   apparatus-inconclusive and consumed.
 - Corrected release `12a7da6` submitted immutable run ID
-  `r05a-constrained-flow-same-budget-canary-20260716b` exactly once.  GPU task
-  `28048_0` is pinned to worker-1 and pending for `Resources`; CPU validator
-  `28049` is pending on `afterany:28048`.  The immutable source-contract and
-  submission-receipt SHA-256 values are `5cbc304f...f2716` and
-  `ad7d9764...8e98e`.  The source contract binds 58 repository files, exact
-  release commit `12a7da6`, exact task identity, worker-1, one H100, eight
-  CPUs, 64 GiB, and the zero-claim boundary.  All receipt cross-hashes pass.
-- The accepted runtime-identity repair passes 72/72 dependency-backed focused
-  CFS tests across the linearized
-  core, opt-in adapter, paired canary, semantic validator, CPU-only publisher,
-  and exact Slurm transaction. The complete dependency-light `./init.sh` gate
-  passes 608 tests with 198 declared dependency skips plus all 21 artifact and
-  18 gate audits. Shell syntax, JSON parsing, source hashes, and whitespace
-  checks pass. These are implementation evidence, not scientific evidence.
-- The hardened source contract binds 51/51 local and remote paths, including
-  the ordinary policy server, both overlay helpers, and all five Transformers
-  replacement files. A content-addressed cache validates the reviewed base,
-  replacement, and full-overlay tree hashes and rejects cached bytecode,
-  symlinks, special files, or runtime-path redirection. Policy-server death,
-  an unexpected shutdown status, or OOM cannot become clean terminal evidence.
+  `r05a-constrained-flow-same-budget-canary-20260716b` exactly once. GPU task
+  `28048_0` completed `0:0` on worker-1 in `00:03:12`; CPU `afterany`
+  publisher `28049` completed `0:0` on worker-0 in `00:00:02`. The immutable
+  source-contract and submission SHA-256 values are `5cbc304f...f2716` and
+  `ad7d9764...8e98e`; all 58 repository bindings matched.
+- The CPU publisher independently validated and atomically published
+  `results.json` SHA-256 `655b48f...315f` with status
+  `apparatus_inconclusive`. All 91 allocation tests passed with zero skips.
+  Sampled host high-water was 16,136,884,224 bytes (about 15.0 GiB) under the
+  unchanged 64-GiB limit; `max`, `oom`, and `oom_kill` deltas were zero. GPU
+  sampled high-water was 8,513 MiB. This excludes resource, OOM, and
+  publication failure as the stopping cause.
+- The exact failure was `registered finite-difference validation rejected the
+  autograd Jacobian`. It occurred after all six derivative comparisons and
+  before FISTA. Those numeric arrays were not persisted, so precision,
+  derivative-interface mismatch, and local nonsmoothness remain unresolved.
+  The transport hypothesis is untested, not refuted. ADR-0047 and
+  `evidence/r05a/cfs00a-same-budget-launch-b.json` preserve the exact boundary;
+  both CFS configs are fail closed and no H100 resubmission is authorized.
+- The ADR-0047 diagnostic-only implementation is now complete and fail closed.
+  Dependency-backed core/adapter tests pass 29/29. The NumPy-backed paired
+  client, independent semantic validator, CPU publisher, and HPC contract pass
+  54/55 tests; the sole local skip is the PyTorch-only canary audit already
+  covered by the allocation contract. Independent review found no remaining
+  release blocker. The complete `./init.sh` gate passes 625 tests with 205
+  declared dependency skips plus all 21 artifact and 18 gate audits.
+- The new terminal path preserves the exact 35-by-75 float32 Jacobian, exact
+  request- and config-bound float32 budget, and all six finite-difference
+  comparisons. It survives the frozen legacy exception wrapper, then stops
+  before paired-call append, duplicate request, FISTA, candidate creation,
+  nonlinear replay, Arm C, or simulator execution. The CPU validator rebuilds
+  the registered directions, epsilons, `Jd`, central differences, errors, and
+  pass map without trusting the server's booleans. The release apparatus
+  freezes identical 60-path local/remote source sets and still rejects
+  policy-server death, OOM, source drift, and publication drift.
 - ADR-0037 release commit `223667c` selected launch-A run ID
   `r05a-inverse-flow-sampled-current-canary-20260715a` exactly once.
 - Task `27928_0` is terminal `CANCELLED by 1073`, elapsed `00:00:00`, start
@@ -262,12 +287,13 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Monitor exact jobs `28048_0` and `28049`.  When both are terminal, inspect only
-their exact logs and immutable run root, validate Arm-A reproduction and the
-full Arm-B/C numerical, determinism, budget, replay, telemetry, schema, and
-publication contracts, then classify the one-case result.  Do not cancel,
-resubmit, reroute, change the method or resources, execute generated actions
-in the simulator, train a probe/MLP, or launch IFT-01 automatically.
+Commit the reviewed ADR-0047 diagnostic implementation, then create one
+direct-child three-file release with an unused immutable run ID and submit the
+single worker-1 H100 canary plus its CPU `afterany` publisher. The allocation
+must run all 99 registered tests with zero skips. Interpret only the preserved
+failed derivative diagnostics and stop; do not tune any tolerance, change the
+method or resources, execute generated actions in the simulator, train a
+probe/MLP, or launch IFT-01 automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed

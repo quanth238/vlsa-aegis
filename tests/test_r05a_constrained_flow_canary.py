@@ -5,6 +5,7 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 CANARY_PATH = ROOT / "main/crfs_oracle/r05a_constrained_flow_canary.py"
@@ -127,6 +128,45 @@ class PairedConstrainedFlowClientTest(unittest.TestCase):
             },
         }
 
+    @staticmethod
+    def _terminal_reply() -> dict:
+        finite_difference = {
+            "directions": np.ones((3, 75), dtype=np.float32),
+            "epsilon_values": np.asarray([0.01, 0.005], dtype=np.float32),
+            "plus_target_physical": np.zeros((3, 2, 35), dtype=np.float32),
+            "minus_target_physical": np.zeros((3, 2, 35), dtype=np.float32),
+            "autograd_directional_derivatives": np.zeros(
+                (3, 35), dtype=np.float32
+            ),
+            "central_directional_derivatives": np.zeros(
+                (3, 2, 35), dtype=np.float32
+            ),
+            "absolute_l2_errors": np.zeros((3, 2), dtype=np.float32),
+            "relative_l2_errors": np.zeros((3, 2), dtype=np.float32),
+            "checks_passed": np.zeros((3, 2), dtype=np.bool_),
+            "directions_passed": np.zeros((3,), dtype=np.bool_),
+            "passed": False,
+            "relative_l2_tolerance": 0.10,
+            "absolute_l2_tolerance": 1.0e-3,
+        }
+        return {
+            cfs.TERMINAL_RESPONSE_KEY: {
+                "kind": cfs.FINITE_DIFFERENCE_REJECTION_KIND,
+                "reason_code": cfs.FINITE_DIFFERENCE_REJECTION_REASON,
+                "jacobian": np.zeros((35, 75), dtype=np.float32),
+                "budget_float32": np.asarray(3.0, dtype=np.float32),
+                "finite_difference": finite_difference,
+                "execution_boundary": {
+                    "jacobian_completed": True,
+                    "finite_difference_completed": True,
+                    "fista_started": False,
+                    "candidate_created": False,
+                    "arm_b_nonlinear_replay_executed": False,
+                    "arm_c_refinement_executed": False,
+                },
+            }
+        }
+
     def test_teacher_returns_exact_ordinary_object_then_issues_paired_request(self) -> None:
         underlying = self._RecordingClient()
         wrapped = cfs.PairedConstrainedFlowClient(underlying)
@@ -151,6 +191,141 @@ class PairedConstrainedFlowClientTest(unittest.TestCase):
         self.assertIs(returned, underlying.replies[0])
         self.assertEqual(underlying.requests, [request])
         self.assertEqual(wrapped.paired_calls, [])
+
+    def test_terminal_fd_response_stops_before_duplicate_or_replay(self) -> None:
+        terminal = self._terminal_reply()
+
+        class TerminalClient(self._RecordingClient):
+            def infer(inner_self, request):
+                controls = request.get("__crfs__", {})
+                if controls.get("experiment_arm") == cfs.EXPERIMENT_ARM:
+                    inner_self.requests.append(copy.deepcopy(dict(request)))
+                    inner_self.replies.append(terminal)
+                    return terminal
+                return super(TerminalClient, inner_self).infer(request)
+
+        underlying = TerminalClient()
+        wrapped = cfs.PairedConstrainedFlowClient(underlying)
+        with self.assertRaises(cfs.ConstrainedFlowFiniteDifferenceRejection) as caught:
+            wrapped.infer(self._teacher_request())
+        self.assertEqual(len(underlying.requests), 2)
+        self.assertEqual(wrapped.paired_calls, [])
+        self.assertEqual(wrapped.canonical_replies, {})
+        self.assertEqual(
+            caught.exception.reason_code,
+            cfs.FINITE_DIFFERENCE_REJECTION_REASON,
+        )
+        self.assertEqual(
+            caught.exception.diagnostic["jacobian"]["dtype"], "float32"
+        )
+        self.assertEqual(
+            caught.exception.diagnostic["budget_float32"]["shape"], []
+        )
+        self.assertFalse(caught.exception.execution_boundary["fista_started"])
+
+    def test_terminal_fd_response_is_strict_about_wire_evidence(self) -> None:
+        mutations = []
+        extra = self._terminal_reply()
+        extra["unexpected"] = True
+        mutations.append(extra)
+        wrong_shape = self._terminal_reply()
+        wrong_shape[cfs.TERMINAL_RESPONSE_KEY]["jacobian"] = np.zeros(
+            (34, 75), dtype=np.float32
+        )
+        mutations.append(wrong_shape)
+        wrong_dtype = self._terminal_reply()
+        wrong_dtype[cfs.TERMINAL_RESPONSE_KEY]["finite_difference"][
+            "directions"
+        ] = np.ones((3, 75), dtype=np.float64)
+        mutations.append(wrong_dtype)
+        nonfinite = self._terminal_reply()
+        nonfinite[cfs.TERMINAL_RESPONSE_KEY]["finite_difference"][
+            "plus_target_physical"
+        ][0, 0, 0] = np.nan
+        mutations.append(nonfinite)
+        promoted = self._terminal_reply()
+        promoted[cfs.TERMINAL_RESPONSE_KEY]["finite_difference"]["passed"] = True
+        mutations.append(promoted)
+        wrong_budget = self._terminal_reply()
+        wrong_budget[cfs.TERMINAL_RESPONSE_KEY]["budget_float32"] = np.asarray(
+            2.0, dtype=np.float32
+        )
+        mutations.append(wrong_budget)
+        boundary = self._terminal_reply()
+        boundary[cfs.TERMINAL_RESPONSE_KEY]["execution_boundary"][
+            "fista_started"
+        ] = True
+        mutations.append(boundary)
+
+        for terminal in mutations:
+            with self.subTest(terminal=terminal):
+                class TerminalClient(self._RecordingClient):
+                    def infer(inner_self, request):
+                        controls = request.get("__crfs__", {})
+                        if controls.get("experiment_arm") == cfs.EXPERIMENT_ARM:
+                            inner_self.requests.append(copy.deepcopy(dict(request)))
+                            return terminal
+                        return super(TerminalClient, inner_self).infer(request)
+
+                underlying = TerminalClient()
+                wrapped = cfs.PairedConstrainedFlowClient(underlying)
+                with self.assertRaises(cfs.ConstrainedFlowCanaryError):
+                    wrapped.infer(self._teacher_request())
+                self.assertEqual(len(underlying.requests), 2)
+                self.assertEqual(wrapped.paired_calls, [])
+                self.assertEqual(wrapped.canonical_replies, {})
+
+    def test_frozen_legacy_request_wrapper_preserves_typed_fd_diagnostic(self) -> None:
+        from crfs_oracle import r05a_canary as legacy
+
+        rejection = cfs._finite_difference_rejection_from_reply(
+            self._terminal_reply(),
+            expected_budget_float32=np.float32(3.0),
+        )
+
+        class RejectingClient:
+            def infer(self, _request):
+                raise rejection
+
+        def wrapped_legacy_run(*_args, **_kwargs):
+            # Exercise the actual frozen catch-all request boundary rather
+            # than constructing its wrapper exception by hand.
+            legacy._request(
+                RejectingClient(),
+                {"observation": np.zeros((1,), dtype=np.float32)},
+                {"return_trace": True},
+                require_trace=False,
+            )
+            raise AssertionError("legacy request unexpectedly returned")
+
+        config = __import__("json").loads(
+            (ROOT / "configs/experiments/r05a_constrained_flow_canary.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        with mock.patch.object(
+            cfs, "run_r05a_canary", side_effect=wrapped_legacy_run
+        ):
+            with self.assertRaises(
+                cfs.ConstrainedFlowFiniteDifferenceRejection
+            ) as caught:
+                cfs.run_r05a_constrained_flow_canary(
+                    {"case_id": cfs.CASE_ID},
+                    config,
+                    object(),
+                    repo_root=ROOT,
+                    input_manifest_sha256="0" * 64,
+                    constrained_config_path=(
+                        ROOT / "configs/experiments/r05a_constrained_flow_canary.json"
+                    ),
+                    legacy_config_path=(
+                        ROOT / "configs/experiments/r05a_inverse_flow_canary.json"
+                    ),
+                    client=object(),
+                )
+        self.assertIs(caught.exception, rejection)
+        self.assertIsNone(caught.exception.__cause__)
+        self.assertIsNone(caught.exception.__context__)
 
     def test_more_than_two_legacy_teacher_calls_fail_closed(self) -> None:
         underlying = self._RecordingClient()

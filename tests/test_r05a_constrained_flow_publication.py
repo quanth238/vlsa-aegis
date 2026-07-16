@@ -82,7 +82,7 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
         counts = publication._load_allocation_test_counts(
             ROOT / publication.ALLOCATION_TEST_REGISTRY_PATH
         )
-        self.assertEqual(sum(counts.values()), 91)
+        self.assertEqual(sum(counts.values()), 99)
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / "allocation-focused-tests.log"
             lines: list[str] = []
@@ -108,30 +108,36 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unregistered suite"):
                 publication._parse_allocation_test_log(log, expected_counts=counts)
 
-    def test_terminal_failure_may_omit_legacy_only_when_record_and_filesystem_agree(self) -> None:
+    def test_terminal_variants_may_omit_legacy_only_when_record_and_filesystem_agree(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             case_dir = (Path(directory) / publication.CASE_ID).resolve()
             case_dir.mkdir()
             cfs = case_dir / "constrained-flow-payload.json"
             legacy = case_dir / "canary-payload.json"
-            value = {
-                "payload_variant": "terminal_apparatus_failure",
-                "legacy_payload": {
-                    "path": str(legacy),
-                    "exists": False,
-                    "sha256": None,
-                },
-            }
-            _write_json(cfs, value)
-            loaded, digest, legacy_loaded, legacy_digest = (
-                publication._load_raw_payload_pair(
-                    constrained_path=cfs, legacy_path=legacy, case_dir=case_dir
+            for variant in (
+                "terminal_apparatus_failure",
+                "terminal_finite_difference_rejection",
+            ):
+                value = {
+                    "payload_variant": variant,
+                    "legacy_payload": {
+                        "path": str(legacy),
+                        "exists": False,
+                        "sha256": None,
+                    },
+                }
+                _write_json(cfs, value)
+                loaded, digest, legacy_loaded, legacy_digest = (
+                    publication._load_raw_payload_pair(
+                        constrained_path=cfs,
+                        legacy_path=legacy,
+                        case_dir=case_dir,
+                    )
                 )
-            )
-            self.assertEqual(loaded, value)
-            self.assertEqual(digest, _sha(cfs))
-            self.assertIsNone(legacy_loaded)
-            self.assertIsNone(legacy_digest)
+                self.assertEqual(loaded, value)
+                self.assertEqual(digest, _sha(cfs))
+                self.assertIsNone(legacy_loaded)
+                self.assertIsNone(legacy_digest)
 
             oom_value = dict(value)
             oom_value["failure"] = {
@@ -504,7 +510,7 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
                     "one_case_transport_mechanism_claim_allowed"
                 ]
             )
-            self.assertEqual(sum(envelope["allocation_tests"]["expected_counts"].values()), 91)
+            self.assertEqual(sum(envelope["allocation_tests"]["expected_counts"].values()), 99)
 
     def _publication_fixture(self, base: Path) -> tuple[dict, dict]:
         run_root = base / "run"

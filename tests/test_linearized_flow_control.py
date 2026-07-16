@@ -3,7 +3,6 @@ from pathlib import Path
 import sys
 import unittest
 from unittest import mock
-from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +47,12 @@ class LinearizedFlowControlStructuralTest(unittest.TestCase):
         self.assertIn("_legacy.validate_schedule_constraints", source)
         self.assertIn("_finite_difference_diagnostics", source)
         self.assertIn("finite_difference_relative_l2_tolerance: float = 0.10", source)
+        self.assertIn("class FiniteDifferenceValidationError(ValueError)", source)
+        self.assertIn('reason_code = "AUTOGRAD_JACOBIAN_FD_REJECTED"', source)
+        self.assertLess(
+            source.index("raise FiniteDifferenceValidationError("),
+            source.index("_fista_product_balls(\n        jacobian,"),
+        )
 
 
 @unittest.skipUnless(torch is not None, "PyTorch is unavailable")
@@ -65,6 +70,24 @@ class LinearizedFlowControlRuntimeTest(unittest.TestCase):
         self.target_mask = self.legacy.first_five_channels_mask_like(self.initial)
         self.scale = torch.ones_like(self.initial)
         self.config = self.legacy.InverseControlConfig()
+
+    def failed_finite_difference(self):
+        dtype = self.initial.dtype
+        return self.module.FiniteDifferenceDiagnostics(
+            directions=torch.zeros((3, 75), dtype=dtype),
+            epsilon_values=torch.zeros((2,), dtype=dtype),
+            plus_target_physical=torch.zeros((3, 2, 35), dtype=dtype),
+            minus_target_physical=torch.zeros((3, 2, 35), dtype=dtype),
+            autograd_directional_derivatives=torch.zeros((3, 35), dtype=dtype),
+            central_directional_derivatives=torch.zeros((3, 2, 35), dtype=dtype),
+            absolute_l2_errors=torch.ones((3, 2), dtype=dtype),
+            relative_l2_errors=torch.ones((3, 2), dtype=dtype),
+            checks_passed=torch.zeros((3, 2), dtype=torch.bool),
+            directions_passed=torch.zeros((3,), dtype=torch.bool),
+            passed=False,
+            relative_l2_tolerance=0.10,
+            absolute_l2_tolerance=1.0e-3,
+        )
 
     @staticmethod
     def zero_field(x_t, _time, _step):
@@ -333,14 +356,57 @@ class LinearizedFlowControlRuntimeTest(unittest.TestCase):
     def test_failed_registered_finite_difference_check_fails_before_candidate(self):
         target = self.initial.clone()
         target[0, 0, 0] = 0.01
-        invalid = SimpleNamespace(passed=False)
-        with mock.patch.object(
-            self.module,
-            "_finite_difference_diagnostics",
-            return_value=invalid,
+        budget = torch.tensor(0.025, dtype=self.initial.dtype)
+        invalid = self.failed_finite_difference()
+        with (
+            mock.patch.object(
+                self.module,
+                "_finite_difference_diagnostics",
+                return_value=invalid,
+            ),
+            mock.patch.object(self.module, "_fista_product_balls") as fista,
         ):
-            with self.assertRaisesRegex(ValueError, "finite-difference validation"):
-                self.solve(target)
+            with self.assertRaisesRegex(
+                self.module.FiniteDifferenceValidationError,
+                "finite-difference validation",
+            ) as caught:
+                self.solve(target, budget=budget)
+
+        fista.assert_not_called()
+        error = caught.exception
+        self.assertEqual(error.reason_code, "AUTOGRAD_JACOBIAN_FD_REJECTED")
+        self.assertEqual(error.jacobian.shape, (35, 75))
+        self.assertEqual(error.jacobian.device.type, "cpu")
+        self.assertFalse(error.jacobian.requires_grad)
+        self.assertEqual(error.budget_float32.dtype, torch.float32)
+        self.assertEqual(error.budget_float32.device.type, "cpu")
+        self.assertTrue(torch.equal(error.budget_float32, budget.to(torch.float32)))
+        self.assertIsNot(error.finite_difference, invalid)
+        self.assertNotEqual(
+            error.finite_difference.directions.data_ptr(),
+            invalid.directions.data_ptr(),
+        )
+        for field_name in (
+            "directions",
+            "epsilon_values",
+            "plus_target_physical",
+            "minus_target_physical",
+            "autograd_directional_derivatives",
+            "central_directional_derivatives",
+            "absolute_l2_errors",
+            "relative_l2_errors",
+            "checks_passed",
+            "directions_passed",
+        ):
+            value = getattr(error.finite_difference, field_name)
+            self.assertEqual(value.device.type, "cpu")
+            self.assertFalse(value.requires_grad)
+        invalid.directions.fill_(9.0)
+        budget.fill_(9.0)
+        self.assertEqual(torch.count_nonzero(error.finite_difference.directions).item(), 0)
+        self.assertTrue(
+            torch.equal(error.budget_float32, torch.tensor(0.025, dtype=torch.float32))
+        )
 
     def test_invalid_masks_and_nonfinite_field_fail_closed(self):
         target = self.initial.clone()

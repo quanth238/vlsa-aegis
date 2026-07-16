@@ -98,3 +98,18 @@ requested one CPU and 256 MiB; Slurm reported two allocated logical CPUs and
 256 MiB, with no GPU TRES. This validates only the standalone identity
 validator. The full CFS integration, transport hypothesis, simulator efficacy,
 IFT-01, and probe/MLP training remain untested or unauthorized.
+
+`cfs00a-same-budget-launch-b.json` records exact release `12a7da6`, completed
+GPU task `28048_0`, completed CPU publisher `28049`, every immutable receipt,
+log, telemetry, raw-payload, and published-result digest, and the precise
+partial scientific boundary. Real pi0.5 computed the zero-control baseline,
+35-by-75 autograd Jacobian, and all three directions by two epsilons, but the
+registered finite-difference gate failed before FISTA. No Arm-B candidate,
+nonlinear replay, Arm C, or four-gate result exists; Arm A was not duplicated
+or independently validated. The allocation used about 15.0 GiB sampled host
+RAM and 8.5 GiB sampled device memory with zero OOM events, and publication
+passed. The run is therefore apparatus-inconclusive because its generic
+exception discarded the failed numeric comparisons. ADR-0047 permits only a
+new immutable diagnostic that records those values and still stops before
+FISTA; it does not authorize a method, efficacy, infeasibility, or training
+claim.

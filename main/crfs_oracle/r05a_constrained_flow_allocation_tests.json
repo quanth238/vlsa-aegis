@@ -23,15 +23,15 @@
     },
     {
       "pattern": "test_constrained_flow_adapter.py",
-      "expected_tests": 13
+      "expected_tests": 17
     },
     {
       "pattern": "test_r05a_constrained_flow_canary.py",
-      "expected_tests": 15
+      "expected_tests": 18
     },
     {
       "pattern": "test_r05a_constrained_flow_validation.py",
-      "expected_tests": 4
+      "expected_tests": 5
     }
   ]
 }

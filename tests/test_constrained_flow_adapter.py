@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from dataclasses import fields
 import hashlib
 from pathlib import Path
 import sys
@@ -47,6 +48,22 @@ class ConstrainedFlowAdapterStructuralTest(unittest.TestCase):
             "projection is not bitwise idempotent",
             "infeasibility_certificate=False",
             "nonlinear_feasibility_certificate=False",
+        ):
+            self.assertIn(fragment, source)
+
+    def test_finite_difference_terminal_wire_contract_is_exact_and_opt_in(self) -> None:
+        source = ADAPTER_PATH.read_text(encoding="utf-8")
+        for fragment in (
+            '_TERMINAL_KEY = "__crfs_terminal__"',
+            '_FINITE_DIFFERENCE_REJECTION_KIND = "finite_difference_rejection"',
+            '"AUTOGRAD_JACOBIAN_FD_REJECTED"',
+            '"jacobian_completed": True',
+            '"finite_difference_completed": True',
+            '"fista_started": False',
+            '"candidate_created": False',
+            '"arm_b_nonlinear_replay_executed": False',
+            '"arm_c_refinement_executed": False',
+            "except _linearized_control.FiniteDifferenceValidationError as error:",
         ):
             self.assertIn(fragment, source)
 
@@ -184,6 +201,29 @@ class ConstrainedFlowAdapterRuntimeTest(unittest.TestCase):
             mock.patch.object(adapter, "_ORIGINAL_SOLVE_INVERSE_CONTROL", side_effect=historical),
         )
 
+    @staticmethod
+    def _finite_difference_rejection():
+        diagnostics = adapter._linearized_control.FiniteDifferenceDiagnostics(
+            directions=torch.zeros((3, 75), dtype=torch.float32),
+            epsilon_values=torch.tensor([1.0e-4, 5.0e-5], dtype=torch.float32),
+            plus_target_physical=torch.zeros((3, 2, 35), dtype=torch.float32),
+            minus_target_physical=torch.zeros((3, 2, 35), dtype=torch.float32),
+            autograd_directional_derivatives=torch.zeros((3, 35), dtype=torch.float32),
+            central_directional_derivatives=torch.zeros((3, 2, 35), dtype=torch.float32),
+            absolute_l2_errors=torch.ones((3, 2), dtype=torch.float32),
+            relative_l2_errors=torch.ones((3, 2), dtype=torch.float32),
+            checks_passed=torch.zeros((3, 2), dtype=torch.bool),
+            directions_passed=torch.zeros((3,), dtype=torch.bool),
+            passed=False,
+            relative_l2_tolerance=0.10,
+            absolute_l2_tolerance=1.0e-3,
+        )
+        return adapter._linearized_control.FiniteDifferenceValidationError(
+            jacobian=torch.zeros((35, 75), dtype=torch.float32),
+            control_budget=torch.tensor(0.025, dtype=torch.float32),
+            finite_difference=diagnostics,
+        )
+
     def test_default_request_delegates_exact_objects_and_actions(self) -> None:
         output = {"actions": object()}
         ordinary = self._PassthroughPolicy(output)
@@ -195,6 +235,21 @@ class ConstrainedFlowAdapterRuntimeTest(unittest.TestCase):
         self.assertIs(ordinary.seen, obs)
         self.assertIs(ordinary.seen_noise, noise)
         self.assertIs(returned["actions"], output["actions"])
+        self.assertIsNone(adapter._REQUEST_CONTEXT.get())
+
+    def test_default_request_does_not_convert_typed_failure_to_terminal_data(self) -> None:
+        rejection = self._finite_difference_rejection()
+
+        class RaisingPolicy:
+            metadata = {"name": "fake"}
+
+            def infer(self, _obs):
+                raise rejection
+
+        wrapped = adapter.ConstrainedFlowPolicyAdapter(RaisingPolicy())
+        with self.assertRaises(adapter._linearized_control.FiniteDifferenceValidationError) as caught:
+            wrapped.infer({"__crfs__": {"intervention_mode": "none"}})
+        self.assertIs(caught.exception, rejection)
         self.assertIsNone(adapter._REQUEST_CONTEXT.get())
 
     def test_hooks_delegate_no_context_calls_to_saved_historical_functions(self) -> None:
@@ -316,6 +371,83 @@ class ConstrainedFlowAdapterRuntimeTest(unittest.TestCase):
                 adapter.ConstrainedFlowPolicyAdapter(self._SolverPolicy()).infer(
                     self._request()
                 )
+        self.assertIsNone(adapter._REQUEST_CONTEXT.get())
+
+    def test_typed_finite_difference_rejection_returns_strict_terminal_only(self) -> None:
+        rejection = self._finite_difference_rejection()
+        with (
+            mock.patch.object(
+                adapter._linearized_control,
+                "solve_linearized_control",
+                side_effect=rejection,
+            ) as linearized,
+            mock.patch.object(adapter, "_ORIGINAL_PROJECT_INCREMENTS") as projector,
+            mock.patch.object(adapter, "_ORIGINAL_SOLVE_INVERSE_CONTROL") as refinement,
+        ):
+            result = adapter.ConstrainedFlowPolicyAdapter(self._SolverPolicy()).infer(
+                self._request()
+            )
+
+        linearized.assert_called_once()
+        projector.assert_not_called()
+        refinement.assert_not_called()
+        self.assertEqual(set(result), {"__crfs_terminal__"})
+        terminal = result["__crfs_terminal__"]
+        self.assertEqual(
+            set(terminal),
+            {
+                "kind",
+                "reason_code",
+                "jacobian",
+                "budget_float32",
+                "finite_difference",
+                "execution_boundary",
+            },
+        )
+        self.assertEqual(terminal["kind"], "finite_difference_rejection")
+        self.assertEqual(
+            terminal["reason_code"],
+            "AUTOGRAD_JACOBIAN_FD_REJECTED",
+        )
+        self.assertEqual(terminal["jacobian"].shape, (35, 75))
+        self.assertEqual(terminal["jacobian"].dtype, np.float32)
+        self.assertEqual(terminal["budget_float32"].shape, ())
+        self.assertEqual(terminal["budget_float32"].dtype, np.float32)
+        self.assertEqual(
+            set(terminal["finite_difference"]),
+            {field.name for field in fields(adapter._linearized_control.FiniteDifferenceDiagnostics)},
+        )
+        self.assertEqual(
+            terminal["execution_boundary"],
+            {
+                "jacobian_completed": True,
+                "finite_difference_completed": True,
+                "fista_started": False,
+                "candidate_created": False,
+                "arm_b_nonlinear_replay_executed": False,
+                "arm_c_refinement_executed": False,
+            },
+        )
+        self.assertIsNone(adapter._REQUEST_CONTEXT.get())
+
+    def test_unexpected_linearized_exception_propagates_without_terminal_data(self) -> None:
+        unexpected = RuntimeError("unexpected linearized failure")
+        with (
+            mock.patch.object(
+                adapter._linearized_control,
+                "solve_linearized_control",
+                side_effect=unexpected,
+            ),
+            mock.patch.object(adapter, "_ORIGINAL_PROJECT_INCREMENTS") as projector,
+            mock.patch.object(adapter, "_ORIGINAL_SOLVE_INVERSE_CONTROL") as refinement,
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                adapter.ConstrainedFlowPolicyAdapter(self._SolverPolicy()).infer(
+                    self._request()
+                )
+        self.assertIs(caught.exception, unexpected)
+        projector.assert_not_called()
+        refinement.assert_not_called()
         self.assertIsNone(adapter._REQUEST_CONTEXT.get())
 
     def test_comparison_requires_explicit_historical_config_and_budget(self) -> None:

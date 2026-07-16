@@ -33,10 +33,12 @@ import numpy as np
 from crfs_harness.artifacts import atomic_write_json, content_hash, file_sha256, load_json
 
 from .r02_runner import _array_from_record, _array_record, _validate_array_record
+from .runner import _array_hash
 from .r05a_canary import (
     CASE_ID,
     EXPECTED_RESULT_STATUSES,
     PAYLOAD_TYPE as LEGACY_PAYLOAD_TYPE,
+    R05ACanaryPolicyError,
     _array_exact,
     _replay_summary,
     _schedule_diagnostics,
@@ -48,6 +50,12 @@ SCHEMA_VERSION = "1.0"
 PAYLOAD_TYPE = "r05a_constrained_flow_transport_canary_payload"
 EXPERIMENT_ARM = "linearized_warm_start"
 NESTED_TRACE_KEY = "linearized_warm_start"
+TERMINAL_RESPONSE_KEY = "__crfs_terminal__"
+FINITE_DIFFERENCE_REJECTION_KIND = "finite_difference_rejection"
+FINITE_DIFFERENCE_REJECTION_REASON = "AUTOGRAD_JACOBIAN_FD_REJECTED"
+FINITE_DIFFERENCE_REJECTION_MESSAGE = (
+    "registered finite-difference validation rejected the autograd Jacobian"
+)
 EXPECTED_COMPARISON_CALLS = 2
 DT_FLOAT32 = np.float32(-0.1)
 FIDELITY_LIMITS: Mapping[str, float] = {
@@ -82,6 +90,21 @@ def constrained_flow_scientific_config_hash(value: Mapping[str, Any]) -> str:
 
 class ConstrainedFlowCanaryError(RuntimeError):
     """The paired CFS transport apparatus is malformed or incomplete."""
+
+
+class ConstrainedFlowFiniteDifferenceRejection(ConstrainedFlowCanaryError):
+    """A registered Jacobian check stopped the comparison before FISTA."""
+
+    def __init__(
+        self,
+        *,
+        diagnostic: Mapping[str, Any],
+        execution_boundary: Mapping[str, bool],
+    ) -> None:
+        super().__init__(FINITE_DIFFERENCE_REJECTION_MESSAGE)
+        self.reason_code = FINITE_DIFFERENCE_REJECTION_REASON
+        self.diagnostic = copy.deepcopy(dict(diagnostic))
+        self.execution_boundary = dict(execution_boundary)
 
 
 @dataclass(frozen=True)
@@ -124,6 +147,17 @@ class PairedConstrainedFlowClient:
         elapsed = (time.perf_counter_ns() - started) / 1_000_000_000.0
         if not isinstance(comparison_reply, Mapping):
             raise ConstrainedFlowCanaryError("comparison policy reply is not a mapping")
+        if TERMINAL_RESPONSE_KEY in comparison_reply:
+            rejection = _finite_difference_rejection_from_reply(
+                comparison_reply,
+                expected_budget_float32=comparison_controls.get(
+                    "model_l2_path_budget"
+                ),
+            )
+            # A failed registered derivative gate is terminal.  In particular,
+            # do not append a paired-call record, issue the duplicate request,
+            # or replay any candidate after this response.
+            raise rejection
         self.paired_calls.append(
             _PairedTeacherCall(
                 ordinary_request=copy.deepcopy(dict(request)),
@@ -352,6 +386,198 @@ def _tree_record(value: Any) -> Any:
         return _array_record(array)
     raise ConstrainedFlowCanaryError(
         f"unsupported diagnostic value type {type(value).__name__}"
+    )
+
+
+def _scalar_array_record(value: Any, *, dtype: Any) -> dict[str, Any]:
+    """Preserve a true zero-dimensional scalar in the JSON array contract."""
+
+    scalar = np.asarray(value, dtype=dtype)
+    if scalar.shape != () or not bool(np.isfinite(scalar).item()):
+        raise ConstrainedFlowCanaryError(
+            "diagnostic scalar record requires one finite zero-dimensional value"
+        )
+    return {
+        "dtype": str(scalar.dtype),
+        "shape": [],
+        "sha256": _array_hash(scalar),
+        "values": scalar.item(),
+    }
+
+
+def _finite_difference_rejection_from_reply(
+    reply: Mapping[str, Any],
+    *,
+    expected_budget_float32: Any,
+) -> ConstrainedFlowFiniteDifferenceRejection:
+    """Validate and detach the strict diagnostic-only terminal response."""
+
+    if set(reply) != {TERMINAL_RESPONSE_KEY}:
+        raise ConstrainedFlowCanaryError(
+            "terminal constrained-flow response must contain only its reserved key"
+        )
+    terminal = reply.get(TERMINAL_RESPONSE_KEY)
+    expected_terminal_keys = {
+        "kind",
+        "reason_code",
+        "jacobian",
+        "budget_float32",
+        "finite_difference",
+        "execution_boundary",
+    }
+    if not isinstance(terminal, Mapping) or set(terminal) != expected_terminal_keys:
+        raise ConstrainedFlowCanaryError(
+            "finite-difference terminal response keys changed"
+        )
+    if terminal.get("kind") != FINITE_DIFFERENCE_REJECTION_KIND or terminal.get(
+        "reason_code"
+    ) != FINITE_DIFFERENCE_REJECTION_REASON:
+        raise ConstrainedFlowCanaryError(
+            "finite-difference terminal response identity changed"
+        )
+
+    jacobian = _finite_array(
+        terminal.get("jacobian"),
+        name="terminal finite-difference Jacobian",
+        shape=(35, 75),
+        dtype=np.float32,
+    )
+    budget = np.asarray(terminal.get("budget_float32"))
+    if (
+        budget.shape != ()
+        or budget.dtype != np.dtype(np.float32)
+        or not bool(np.isfinite(budget).item())
+        or not bool(budget > np.float32(0.0))
+    ):
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference budget must preserve one positive float32 scalar"
+        )
+    expected_budget = np.asarray(expected_budget_float32)
+    if (
+        expected_budget.shape != ()
+        or expected_budget.dtype != np.dtype(np.float32)
+        or not bool(np.isfinite(expected_budget).item())
+        or budget.tobytes(order="C") != expected_budget.tobytes(order="C")
+    ):
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference budget differs from the paired request bytes"
+        )
+
+    finite_difference = terminal.get("finite_difference")
+    expected_fd_keys = {
+        "directions",
+        "epsilon_values",
+        "plus_target_physical",
+        "minus_target_physical",
+        "autograd_directional_derivatives",
+        "central_directional_derivatives",
+        "absolute_l2_errors",
+        "relative_l2_errors",
+        "checks_passed",
+        "directions_passed",
+        "passed",
+        "relative_l2_tolerance",
+        "absolute_l2_tolerance",
+    }
+    if not isinstance(finite_difference, Mapping) or set(
+        finite_difference
+    ) != expected_fd_keys:
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference diagnostic keys changed"
+        )
+    normalized_fd: dict[str, Any] = {
+        "directions": _finite_array(
+            finite_difference.get("directions"),
+            name="terminal finite-difference directions",
+            shape=(3, 75),
+            dtype=np.float32,
+        ),
+        "epsilon_values": _finite_array(
+            finite_difference.get("epsilon_values"),
+            name="terminal finite-difference epsilon values",
+            shape=(2,),
+            dtype=np.float32,
+        ),
+        "plus_target_physical": _finite_array(
+            finite_difference.get("plus_target_physical"),
+            name="terminal finite-difference plus targets",
+            shape=(3, 2, 35),
+            dtype=np.float32,
+        ),
+        "minus_target_physical": _finite_array(
+            finite_difference.get("minus_target_physical"),
+            name="terminal finite-difference minus targets",
+            shape=(3, 2, 35),
+            dtype=np.float32,
+        ),
+        "autograd_directional_derivatives": _finite_array(
+            finite_difference.get("autograd_directional_derivatives"),
+            name="terminal finite-difference autograd products",
+            shape=(3, 35),
+            dtype=np.float32,
+        ),
+        "central_directional_derivatives": _finite_array(
+            finite_difference.get("central_directional_derivatives"),
+            name="terminal finite-difference central products",
+            shape=(3, 2, 35),
+            dtype=np.float32,
+        ),
+        "absolute_l2_errors": _finite_array(
+            finite_difference.get("absolute_l2_errors"),
+            name="terminal finite-difference absolute errors",
+            shape=(3, 2),
+            dtype=np.float32,
+        ),
+        "relative_l2_errors": _finite_array(
+            finite_difference.get("relative_l2_errors"),
+            name="terminal finite-difference relative errors",
+            shape=(3, 2),
+            dtype=np.float32,
+        ),
+    }
+    for key, shape in (("checks_passed", (3, 2)), ("directions_passed", (3,))):
+        value = np.asarray(finite_difference.get(key))
+        if value.shape != shape or value.dtype != np.dtype(np.bool_):
+            raise ConstrainedFlowCanaryError(
+                f"terminal finite-difference {key} must preserve bool{list(shape)}"
+            )
+        normalized_fd[key] = np.ascontiguousarray(value)
+    if finite_difference.get("passed") is not False:
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference response must preserve a failed global check"
+        )
+    if finite_difference.get("relative_l2_tolerance") != 0.10 or finite_difference.get(
+        "absolute_l2_tolerance"
+    ) != 1.0e-3:
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference tolerances changed"
+        )
+    normalized_fd.update(
+        passed=False,
+        relative_l2_tolerance=0.10,
+        absolute_l2_tolerance=1.0e-3,
+    )
+
+    expected_boundary = {
+        "jacobian_completed": True,
+        "finite_difference_completed": True,
+        "fista_started": False,
+        "candidate_created": False,
+        "arm_b_nonlinear_replay_executed": False,
+        "arm_c_refinement_executed": False,
+    }
+    if terminal.get("execution_boundary") != expected_boundary:
+        raise ConstrainedFlowCanaryError(
+            "terminal finite-difference execution boundary changed"
+        )
+    diagnostic = {
+        "budget_float32": _scalar_array_record(budget, dtype=np.float32),
+        "jacobian": _array_record(jacobian),
+        "finite_difference": _tree_record(normalized_fd),
+    }
+    return ConstrainedFlowFiniteDifferenceRejection(
+        diagnostic=diagnostic,
+        execution_boundary=expected_boundary,
     )
 
 
@@ -1993,14 +2219,32 @@ def run_r05a_constrained_flow_canary(
     if dict(case).get("case_id") != CASE_ID:
         raise ConstrainedFlowCanaryError("constrained-flow canary case changed")
     paired = PairedConstrainedFlowClient(client)
-    legacy_path, legacy_status = run_r05a_canary(
-        case,
-        legacy_config,
-        repo_root=repo_root,
-        input_manifest_sha256=input_manifest_sha256,
-        client=paired,
-        environment=environment,
-    )
+    finite_difference_rejection: ConstrainedFlowFiniteDifferenceRejection | None = None
+    try:
+        legacy_path, legacy_status = run_r05a_canary(
+            case,
+            legacy_config,
+            repo_root=repo_root,
+            input_manifest_sha256=input_manifest_sha256,
+            client=paired,
+            environment=environment,
+        )
+    except R05ACanaryPolicyError as error:
+        # The frozen legacy request boundary intentionally wraps every client
+        # exception.  Unwrap only our exact typed, opt-in diagnostic so its
+        # already-computed arrays can reach the separate CFS terminal writer.
+        # Every other legacy error preserves its historical type and message.
+        if not isinstance(
+            error.__cause__, ConstrainedFlowFiniteDifferenceRejection
+        ):
+            raise
+        finite_difference_rejection = error.__cause__
+        # Break the legacy wrapper's reference before leaving its except block;
+        # the typed diagnostic is re-raised outside exception handling so no
+        # cause/context cycle is introduced.
+        error.__cause__ = None
+    if finite_difference_rejection is not None:
+        raise finite_difference_rejection from None
     if legacy_status not in EXPECTED_RESULT_STATUSES:
         raise ConstrainedFlowCanaryError(f"unexpected legacy status {legacy_status!r}")
     if len(paired.paired_calls) != EXPECTED_COMPARISON_CALLS:

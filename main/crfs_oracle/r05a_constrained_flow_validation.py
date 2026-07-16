@@ -175,7 +175,7 @@ def _validate_config_binding(
             raise ConstrainedFlowValidationError("legacy config bytes changed")
 
 
-def _validate_failure_payload(
+def _validate_terminal_common(
     value: Mapping[str, Any],
     constrained_config: Mapping[str, Any],
     *,
@@ -193,26 +193,6 @@ def _validate_failure_payload(
         constrained_config_path=constrained_config_path,
         legacy_config_path=legacy_config_path,
     )
-    failure = value.get("failure")
-    if not isinstance(failure, Mapping) or not isinstance(failure.get("message"), str):
-        raise ConstrainedFlowValidationError("terminal failure record is incomplete")
-    if set(failure) != {
-        "stage",
-        "error_type",
-        "message",
-        "finite_failure_is_infeasibility",
-        "numeric_failure_is_method_negative",
-    }:
-        raise ConstrainedFlowValidationError("terminal failure record keys changed")
-    if failure.get("stage") != "paired_transport_execution" or not all(
-        isinstance(failure.get(key), str) and bool(failure.get(key))
-        for key in ("error_type", "message")
-    ):
-        raise ConstrainedFlowValidationError("terminal failure identity is incomplete")
-    if failure.get("finite_failure_is_infeasibility") is not False or failure.get(
-        "numeric_failure_is_method_negative"
-    ) is not False:
-        raise ConstrainedFlowValidationError("terminal failure inflated a method claim")
     outcome = value.get("outcome")
     expected_outcome = {
         "status": "apparatus_inconclusive",
@@ -259,6 +239,325 @@ def _validate_failure_payload(
     for key in ("git_commit", "slurm_job_id", "slurm_array_job_id", "timestamp_utc"):
         if not isinstance(provenance.get(key), str) or not provenance[key]:
             raise ConstrainedFlowValidationError(f"terminal provenance {key} is missing")
+    return "apparatus_inconclusive"
+
+
+def _validate_failure_payload(
+    value: Mapping[str, Any],
+    constrained_config: Mapping[str, Any],
+    *,
+    expected_run_id: str | None,
+    constrained_config_path: str | Path | None,
+    legacy_config_path: str | Path | None,
+) -> str:
+    _validate_terminal_common(
+        value,
+        constrained_config,
+        expected_run_id=expected_run_id,
+        constrained_config_path=constrained_config_path,
+        legacy_config_path=legacy_config_path,
+    )
+    failure = value.get("failure")
+    if not isinstance(failure, Mapping) or not isinstance(failure.get("message"), str):
+        raise ConstrainedFlowValidationError("terminal failure record is incomplete")
+    if set(failure) != {
+        "stage",
+        "error_type",
+        "message",
+        "finite_failure_is_infeasibility",
+        "numeric_failure_is_method_negative",
+    }:
+        raise ConstrainedFlowValidationError("terminal failure record keys changed")
+    if failure.get("stage") != "paired_transport_execution" or not all(
+        isinstance(failure.get(key), str) and bool(failure.get(key))
+        for key in ("error_type", "message")
+    ):
+        raise ConstrainedFlowValidationError("terminal failure identity is incomplete")
+    if failure.get("finite_failure_is_infeasibility") is not False or failure.get(
+        "numeric_failure_is_method_negative"
+    ) is not False:
+        raise ConstrainedFlowValidationError("terminal failure inflated a method claim")
+    return "apparatus_inconclusive"
+
+
+def _validate_finite_difference_rejection_payload(
+    value: Mapping[str, Any],
+    constrained_config: Mapping[str, Any],
+    *,
+    expected_run_id: str | None,
+    constrained_config_path: str | Path | None,
+    legacy_config_path: str | Path | None,
+) -> str:
+    """Independently reconstruct a terminal failed Jacobian diagnostic."""
+
+    _validate_terminal_common(
+        value,
+        constrained_config,
+        expected_run_id=expected_run_id,
+        constrained_config_path=constrained_config_path,
+        legacy_config_path=legacy_config_path,
+    )
+    failure = value.get("failure")
+    expected_failure_keys = {
+        "stage",
+        "reason_code",
+        "error_type",
+        "message",
+        "execution_boundary",
+        "diagnostic",
+        "finite_failure_is_infeasibility",
+        "numeric_failure_is_method_negative",
+    }
+    if not isinstance(failure, Mapping) or set(failure) != expected_failure_keys:
+        raise ConstrainedFlowValidationError(
+            "finite-difference rejection record keys changed"
+        )
+    if (
+        failure.get("stage") != "paired_transport_execution"
+        or failure.get("reason_code") != cfs.FINITE_DIFFERENCE_REJECTION_REASON
+        or failure.get("error_type") != "ConstrainedFlowFiniteDifferenceRejection"
+        or failure.get("message") != cfs.FINITE_DIFFERENCE_REJECTION_MESSAGE
+    ):
+        raise ConstrainedFlowValidationError(
+            "finite-difference rejection identity changed"
+        )
+    if failure.get("finite_failure_is_infeasibility") is not False or failure.get(
+        "numeric_failure_is_method_negative"
+    ) is not False:
+        raise ConstrainedFlowValidationError(
+            "finite-difference rejection inflated a method claim"
+        )
+    expected_boundary = {
+        "jacobian_completed": True,
+        "finite_difference_completed": True,
+        "fista_started": False,
+        "candidate_created": False,
+        "arm_b_nonlinear_replay_executed": False,
+        "arm_c_refinement_executed": False,
+    }
+    if failure.get("execution_boundary") != expected_boundary:
+        raise ConstrainedFlowValidationError(
+            "finite-difference rejection execution boundary changed"
+        )
+
+    diagnostic = failure.get("diagnostic")
+    if not isinstance(diagnostic, Mapping) or set(diagnostic) != {
+        "budget_float32",
+        "jacobian",
+        "finite_difference",
+    }:
+        raise ConstrainedFlowValidationError(
+            "finite-difference rejection diagnostic keys changed"
+        )
+    budget = _array(
+        diagnostic.get("budget_float32"),
+        name="terminal finite-difference budget",
+        shape=(),
+        dtype=np.float32,
+    )
+    if not bool(budget > np.float32(0.0)):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference budget must be positive"
+        )
+    expected_budget = np.asarray(
+        np.float32(constrained_config["target_contract"]["source_budget_float32"])
+    )
+    if not _array_exact(budget, expected_budget):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference budget differs from the frozen source budget"
+        )
+    jacobian = _array(
+        diagnostic.get("jacobian"),
+        name="terminal finite-difference Jacobian",
+        shape=(35, 75),
+        dtype=np.float32,
+    )
+    finite_difference = diagnostic.get("finite_difference")
+    expected_fd_keys = {
+        "directions",
+        "epsilon_values",
+        "plus_target_physical",
+        "minus_target_physical",
+        "autograd_directional_derivatives",
+        "central_directional_derivatives",
+        "absolute_l2_errors",
+        "relative_l2_errors",
+        "checks_passed",
+        "directions_passed",
+        "passed",
+        "relative_l2_tolerance",
+        "absolute_l2_tolerance",
+    }
+    if not isinstance(finite_difference, Mapping) or set(
+        finite_difference
+    ) != expected_fd_keys:
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference diagnostic shape changed"
+        )
+    directions = _array(
+        finite_difference.get("directions"),
+        name="terminal finite-difference directions",
+        shape=(3, 75),
+        dtype=np.float32,
+    )
+    epsilon = _array(
+        finite_difference.get("epsilon_values"),
+        name="terminal finite-difference epsilon values",
+        shape=(2,),
+        dtype=np.float32,
+    )
+    plus = _array(
+        finite_difference.get("plus_target_physical"),
+        name="terminal finite-difference plus targets",
+        shape=(3, 2, 35),
+        dtype=np.float32,
+    )
+    minus = _array(
+        finite_difference.get("minus_target_physical"),
+        name="terminal finite-difference minus targets",
+        shape=(3, 2, 35),
+        dtype=np.float32,
+    )
+    autograd = _array(
+        finite_difference.get("autograd_directional_derivatives"),
+        name="terminal finite-difference autograd products",
+        shape=(3, 35),
+        dtype=np.float32,
+    )
+    central = _array(
+        finite_difference.get("central_directional_derivatives"),
+        name="terminal finite-difference central products",
+        shape=(3, 2, 35),
+        dtype=np.float32,
+    )
+    absolute = _array(
+        finite_difference.get("absolute_l2_errors"),
+        name="terminal finite-difference absolute errors",
+        shape=(3, 2),
+        dtype=np.float32,
+    )
+    relative = _array(
+        finite_difference.get("relative_l2_errors"),
+        name="terminal finite-difference relative errors",
+        shape=(3, 2),
+        dtype=np.float32,
+    )
+    checks = _array(
+        finite_difference.get("checks_passed"),
+        name="terminal finite-difference checks",
+        shape=(3, 2),
+        dtype=np.bool_,
+    )
+    directions_passed = _array(
+        finite_difference.get("directions_passed"),
+        name="terminal finite-difference direction checks",
+        shape=(3,),
+        dtype=np.bool_,
+    )
+    if finite_difference.get("passed") is not False:
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference diagnostic was promoted to passing"
+        )
+    if finite_difference.get("relative_l2_tolerance") != 0.10 or finite_difference.get(
+        "absolute_l2_tolerance"
+    ) != 1.0e-3:
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference tolerances changed"
+        )
+
+    indices = np.arange(75, dtype=np.int64)
+    registered64 = np.stack(
+        (
+            np.ones(75, dtype=np.float64),
+            np.where(indices % 2 == 0, 1.0, -1.0),
+            np.where(((indices * 17 + 3) % 31) < 15, 1.0, -1.0),
+        )
+    )
+    registered64 /= np.linalg.norm(registered64, axis=1, keepdims=True)
+    expected_directions = registered64.astype(np.float32)
+    expected_epsilon = (
+        np.asarray(budget, dtype=np.float32)
+        / np.asarray(5.0, dtype=np.float32)
+        * np.asarray((1.0 / 256.0, 1.0 / 512.0), dtype=np.float32)
+    ).astype(np.float32)
+    if not _array_exact(directions, expected_directions) or not _array_exact(
+        epsilon, expected_epsilon
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference directions or epsilons changed"
+        )
+
+    direction64 = np.asarray(directions, dtype=np.float64)
+    jacobian64 = np.asarray(jacobian, dtype=np.float64)
+    autograd64 = np.asarray(autograd, dtype=np.float64)
+    central64 = np.asarray(central, dtype=np.float64)
+    expected_autograd64 = direction64 @ jacobian64.T
+    expected_central64 = (
+        np.asarray(plus, dtype=np.float64) - np.asarray(minus, dtype=np.float64)
+    ) / (2.0 * np.asarray(epsilon, dtype=np.float64)[None, :, None])
+    reduction_slack = 128.0 * np.finfo(np.float32).eps
+    autograd_bound = reduction_slack * np.maximum(
+        1.0, np.abs(direction64) @ np.abs(jacobian64).T
+    )
+    central_bound = reduction_slack * np.maximum(1.0, np.abs(expected_central64))
+    if not bool(
+        np.all(np.abs(autograd64 - expected_autograd64) <= autograd_bound)
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal autograd directional products do not reconstruct"
+        )
+    if not bool(np.all(np.abs(central64 - expected_central64) <= central_bound)):
+        raise ConstrainedFlowValidationError(
+            "terminal central directional products do not reconstruct"
+        )
+
+    expected_absolute64 = np.linalg.norm(
+        central64 - autograd64[:, None, :], axis=2
+    )
+    expected_denominator64 = np.maximum(
+        np.maximum(
+            np.linalg.norm(central64, axis=2),
+            np.linalg.norm(autograd64, axis=1)[:, None],
+        ),
+        1.0e-6,
+    )
+    expected_relative64 = expected_absolute64 / expected_denominator64
+    absolute_bound = reduction_slack * np.maximum(1.0, expected_absolute64)
+    relative_bound = reduction_slack * np.maximum(1.0, expected_relative64)
+    if not bool(
+        np.all(
+            np.abs(np.asarray(absolute, dtype=np.float64) - expected_absolute64)
+            <= absolute_bound
+        )
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference absolute errors do not reconstruct"
+        )
+    if not bool(
+        np.all(
+            np.abs(np.asarray(relative, dtype=np.float64) - expected_relative64)
+            <= relative_bound
+        )
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference relative errors do not reconstruct"
+        )
+    expected_checks = (expected_relative64 <= 0.10) | (
+        expected_absolute64 <= 1.0e-3
+    )
+    expected_directions_passed = np.any(expected_checks, axis=1)
+    if not _array_exact(checks, expected_checks) or not _array_exact(
+        directions_passed, expected_directions_passed
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference pass maps do not reconstruct"
+        )
+    if bool(np.all(expected_directions_passed)) or not bool(
+        np.any(~expected_directions_passed)
+    ):
+        raise ConstrainedFlowValidationError(
+            "terminal finite-difference global rejection does not reconstruct"
+        )
     return "apparatus_inconclusive"
 
 
@@ -1097,6 +1396,14 @@ def validate_constrained_flow_payload_or_raise(
     variant = value.get("payload_variant")
     if variant == "terminal_apparatus_failure":
         return _validate_failure_payload(
+            value,
+            constrained_config,
+            expected_run_id=expected_run_id,
+            constrained_config_path=constrained_config_path,
+            legacy_config_path=legacy_config_path,
+        )
+    if variant == "terminal_finite_difference_rejection":
+        return _validate_finite_difference_rejection_payload(
             value,
             constrained_config,
             expected_run_id=expected_run_id,

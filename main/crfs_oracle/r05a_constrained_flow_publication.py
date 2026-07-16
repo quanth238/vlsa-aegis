@@ -49,7 +49,7 @@ ALLOCATION_TEST_REGISTRY_PATH = (
     "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json"
 )
 RELEASE_DECISION_PATH = (
-    "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
+    "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
 )
 HISTORICAL_RELEASE_DECISION_PATH = (
     "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"
@@ -63,6 +63,7 @@ RUNTIME_IDENTITY_EVIDENCE_PATH = (
 RUNTIME_IDENTITY_PREFLIGHT_PATH = (
     "evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"
 )
+RUN_B_EVIDENCE_PATH = "evidence/r05a/cfs00a-same-budget-launch-b.json"
 RELEASE_BRANCH_REF = "refs/remotes/origin/agent/crfs-oracle-harness"
 RELEASE_ONLY_PATHS = (
     SCIENTIFIC_CONFIG_PATH,
@@ -125,6 +126,18 @@ RUNTIME_IDENTITY_EVIDENCE_BINDING = {
     "cfs_runtime_integration_evaluated": False,
     "h100_submission_authorized_by_evidence": False,
 }
+RUN_B_EVIDENCE_BINDING = {
+    "evidence_path": RUN_B_EVIDENCE_PATH,
+    "evidence_sha256": "b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba",
+    "run_id": "r05a-constrained-flow-same-budget-canary-20260716b",
+    "release_commit": "12a7da69d3d34050709d08b9ca903a99f9d30862",
+    "gpu_task_id": "28048_0",
+    "cpu_publisher_job_id": "28049",
+    "published_result_sha256": "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f",
+    "classification": "apparatus_inconclusive",
+    "failed_numeric_diagnostics_persisted": False,
+    "h100_submission_authorized_by_evidence": False,
+}
 VINUNI_H100_GUIDE_CONTRACT = {
     "title": "2026-05-03 - VinUni H100 Server Guide.md",
     "local_reference_path": "/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
@@ -155,6 +168,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         RUNTIME_IDENTITY_DECISION_PATH,
         RUNTIME_IDENTITY_EVIDENCE_PATH,
         RUNTIME_IDENTITY_PREFLIGHT_PATH,
+        RUN_B_EVIDENCE_PATH,
         RELEASE_DECISION_PATH,
         "schemas/r05a-inverse-flow-canary.schema.json",
         "main/crfs_oracle/r05a_canary.py",
@@ -202,6 +216,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "tests/test_r05a_constrained_flow_hpc_contract.py",
         "tests/test_r05a_constrained_flow_publication.py",
         "tests/test_r05a_runtime_identity_regression_evidence.py",
+        "tests/test_r05a_cfs00a_launch_b_evidence.py",
     }
 )
 
@@ -333,6 +348,8 @@ def _validate_execution_release(
         != RUNTIME_IDENTITY_EVIDENCE_BINDING
     ):
         raise ValueError("constrained-flow runtime identity evidence binding changed")
+    if apparatus_config.get("run_b_failure_evidence_binding") != RUN_B_EVIDENCE_BINDING:
+        raise ValueError("constrained-flow run-B failure evidence binding changed")
     if apparatus_config.get("vinuni_h100_guide_contract") != VINUNI_H100_GUIDE_CONTRACT:
         raise ValueError("constrained-flow VinUni H100 guide contract changed")
     release = apparatus_config.get("execution_release")
@@ -425,6 +442,45 @@ def _validate_apparatus_bindings(
         relative = evidence_binding[f"{field}_path"]
         if file_sha256(repository / relative) != evidence_binding[f"{field}_sha256"]:
             raise ValueError(f"constrained-flow runtime identity {field} bytes changed")
+    run_b_binding = apparatus.get("run_b_failure_evidence_binding")
+    if run_b_binding != RUN_B_EVIDENCE_BINDING:
+        raise ValueError("constrained-flow run-B failure evidence binding changed")
+    if file_sha256(repository / RUN_B_EVIDENCE_PATH) != RUN_B_EVIDENCE_BINDING[
+        "evidence_sha256"
+    ]:
+        raise ValueError("constrained-flow run-B terminal evidence bytes changed")
+    run_b_evidence = _load_object(
+        repository / RUN_B_EVIDENCE_PATH,
+        label="constrained-flow run-B terminal evidence",
+    )
+    if any(
+        (
+            run_b_evidence.get("run_id") != RUN_B_EVIDENCE_BINDING["run_id"],
+            run_b_evidence.get("release_commit")
+            != RUN_B_EVIDENCE_BINDING["release_commit"],
+            run_b_evidence.get("jobs", {}).get("gpu_array_task", {}).get("job_id")
+            != RUN_B_EVIDENCE_BINDING["gpu_task_id"],
+            run_b_evidence.get("jobs", {})
+            .get("cpu_afterany_validator", {})
+            .get("job_id")
+            != RUN_B_EVIDENCE_BINDING["cpu_publisher_job_id"],
+            run_b_evidence.get("immutable_artifacts", {}).get(
+                "published_result_sha256"
+            )
+            != RUN_B_EVIDENCE_BINDING["published_result_sha256"],
+            run_b_evidence.get("interpretation", {}).get("status")
+            != "apparatus_inconclusive",
+            run_b_evidence.get("execution_boundary", {}).get(
+                "arm_b_numeric_diagnostics_persisted"
+            )
+            is not False,
+            run_b_evidence.get("interpretation", {}).get(
+                "automatic_h100_resubmission_authorized"
+            )
+            is not False,
+        )
+    ):
+        raise ValueError("constrained-flow run-B terminal evidence semantics changed")
     runtime_evidence = _load_object(
         repository / RUNTIME_IDENTITY_EVIDENCE_PATH,
         label="runtime identity terminal evidence",
@@ -579,7 +635,8 @@ def _expected_frozen_bindings(repository: Path) -> dict[str, str]:
             repository / HISTORICAL_RELEASE_DECISION_PATH
         ),
         "adr0045_sha256": file_sha256(repository / RUNTIME_IDENTITY_DECISION_PATH),
-        "adr0046_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
+        "adr0047_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
+        "run_b_evidence_sha256": file_sha256(repository / RUN_B_EVIDENCE_PATH),
         "runtime_identity_evidence_sha256": file_sha256(
             repository / RUNTIME_IDENTITY_EVIDENCE_PATH
         ),
@@ -879,9 +936,13 @@ def _load_raw_payload_pair(
         constrained_path, label="constrained-flow raw payload"
     )
     variant = cfs_payload.get("payload_variant")
-    if variant not in {"complete_comparison", "terminal_apparatus_failure"}:
+    terminal_variants = {
+        "terminal_apparatus_failure",
+        "terminal_finite_difference_rejection",
+    }
+    if variant not in {"complete_comparison", *terminal_variants}:
         raise ValueError("constrained-flow raw payload variant changed")
-    if variant == "terminal_apparatus_failure":
+    if variant in terminal_variants:
         failure = cfs_payload.get("failure")
         if isinstance(failure, Mapping) and OOM_SIGNAL.search(
             "\n".join(
@@ -1080,7 +1141,10 @@ def build_constrained_flow_envelope(
     )
     if cfs_payload.get("status") != recomputed_status:
         raise ValueError("CFS raw status differs from independent reconstruction")
-    if variant == "terminal_apparatus_failure":
+    if variant in {
+        "terminal_apparatus_failure",
+        "terminal_finite_difference_rejection",
+    }:
         provenance = cfs_payload.get("provenance")
         if not isinstance(provenance, Mapping) or not all(
             (

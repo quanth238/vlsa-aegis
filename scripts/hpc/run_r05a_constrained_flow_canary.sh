@@ -25,11 +25,13 @@ RUNTIME_IDENTITY_EVIDENCE=$REMOTE_REPO/evidence/r05a/runtime-identity-regression
 RUNTIME_IDENTITY_PREFLIGHT=$REMOTE_REPO/evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
 HISTORICAL_ADR0041=$REMOTE_REPO/docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
 ADR0045=$REMOTE_REPO/docs/decisions/0045-accept-runtime-identity-regression.md
-ADR0046=$REMOTE_REPO/docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md
+ADR0047=$REMOTE_REPO/docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
 PREFLIGHT_SCRIPT=$REMOTE_REPO/scripts/hpc/preflight.sh
 RUNTIME_IDENTITY_EVIDENCE_TEST=$REMOTE_REPO/tests/test_r05a_runtime_identity_regression_evidence.py
+RUN_B_EVIDENCE=$REMOTE_REPO/evidence/r05a/cfs00a-same-budget-launch-b.json
+RUN_B_EVIDENCE_TEST=$REMOTE_REPO/tests/test_r05a_cfs00a_launch_b_evidence.py
 
-for path in "$WORKLOAD" "$SOURCE_CONTRACT" "$SUBMISSION" "$HELD_GPU_SUBMISSION" "$LIVE_PREFLIGHT" "$SCIENTIFIC_CONFIG" "$APPARATUS_CONFIG" "$RUNTIME_IDENTITY_EVIDENCE" "$RUNTIME_IDENTITY_PREFLIGHT" "$HISTORICAL_ADR0041" "$ADR0045" "$ADR0046" "$PREFLIGHT_SCRIPT" "$RUNTIME_IDENTITY_EVIDENCE_TEST"; do
+for path in "$WORKLOAD" "$SOURCE_CONTRACT" "$SUBMISSION" "$HELD_GPU_SUBMISSION" "$LIVE_PREFLIGHT" "$SCIENTIFIC_CONFIG" "$APPARATUS_CONFIG" "$RUNTIME_IDENTITY_EVIDENCE" "$RUNTIME_IDENTITY_PREFLIGHT" "$RUN_B_EVIDENCE" "$HISTORICAL_ADR0041" "$ADR0045" "$ADR0047" "$PREFLIGHT_SCRIPT" "$RUNTIME_IDENTITY_EVIDENCE_TEST" "$RUN_B_EVIDENCE_TEST"; do
   test -f "$path" && test ! -L "$path" || { echo "missing or symlinked CFS-00A release input: $path" >&2; exit 2; }
 done
 test -x "$WORKLOAD" || { echo "CFS-00A workload is not executable" >&2; exit 2; }
@@ -44,14 +46,14 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
   and ((.execution_release | keys | sort) == (["schema_version","artifact_role","decision_artifact","accepted_implementation_commit","run_id","single_submission","source_host","resources","release_only_parent_required","allowed_release_diff_paths","automatic_resubmission_allowed","automatic_next_experiment_allowed"] | sort))
   and .execution_release.schema_version == "1.0"
   and .execution_release.artifact_role == "r05a_constrained_flow_canary_execution_release"
-  and .execution_release.decision_artifact == "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
+  and .execution_release.decision_artifact == "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
   and .execution_release.accepted_implementation_commit == $implementation
   and .execution_release.run_id == $run
   and .execution_release.single_submission == true
   and .execution_release.source_host == "worker-1"
   and .execution_release.resources == {partition:"main",account:"normal",qos:"normal",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}
   and .execution_release.release_only_parent_required == true
-  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"]
+  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false' "$APPARATUS_CONFIG" >/dev/null || {
     echo "CFS-00A execution release contract changed" >&2
@@ -88,6 +90,25 @@ jq -e '.runtime_identity_evidence_binding == {
   result_sha256:"3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de",shell_only:true,gpus_allocated:0,
   cfs_runtime_integration_evaluated:false,h100_submission_authorized_by_evidence:false
 }' "$APPARATUS_CONFIG" >/dev/null || { echo "apparatus runtime identity evidence binding changed" >&2; exit 2; }
+jq -e '.run_b_failure_evidence_binding == {
+  evidence_path:"evidence/r05a/cfs00a-same-budget-launch-b.json",
+  evidence_sha256:"b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba",
+  run_id:"r05a-constrained-flow-same-budget-canary-20260716b",
+  release_commit:"12a7da69d3d34050709d08b9ca903a99f9d30862",
+  gpu_task_id:"28048_0",cpu_publisher_job_id:"28049",
+  published_result_sha256:"655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f",
+  classification:"apparatus_inconclusive",failed_numeric_diagnostics_persisted:false,
+  h100_submission_authorized_by_evidence:false
+}' "$APPARATUS_CONFIG" >/dev/null || { echo "apparatus run-B evidence binding changed" >&2; exit 2; }
+jq -e '
+  .run_id == "r05a-constrained-flow-same-budget-canary-20260716b"
+  and .release_commit == "12a7da69d3d34050709d08b9ca903a99f9d30862"
+  and .jobs.gpu_array_task.job_id == "28048_0"
+  and .jobs.cpu_afterany_validator.job_id == "28049"
+  and .immutable_artifacts.published_result_sha256 == "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f"
+  and .interpretation.status == "apparatus_inconclusive"
+  and .execution_boundary.arm_b_numeric_diagnostics_persisted == false
+  and .interpretation.automatic_h100_resubmission_authorized == false' "$RUN_B_EVIDENCE" >/dev/null || { echo "run-B terminal evidence semantics changed" >&2; exit 2; }
 jq -e '.vinuni_h100_guide_contract == {
   title:"2026-05-03 - VinUni H100 Server Guide.md",
   local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
@@ -114,10 +135,13 @@ test "$req_gpus" = 1 || { echo "running H100 GPU request changed" >&2; exit 2; }
 SOURCE_CONTRACT_SHA256=$(sha256sum "$SOURCE_CONTRACT" | awk '{print $1}')
 HELD_GPU_SUBMISSION_SHA256=$(sha256sum "$HELD_GPU_SUBMISSION" | awk '{print $1}')
 LIVE_PREFLIGHT_SHA256=$(sha256sum "$LIVE_PREFLIGHT" | awk '{print $1}')
-ADR0046_SHA256=$(sha256sum "$ADR0046" | awk '{print $1}')
+ADR0047_SHA256=$(sha256sum "$ADR0047" | awk '{print $1}')
 PREFLIGHT_SCRIPT_SHA256=$(sha256sum "$PREFLIGHT_SCRIPT" | awk '{print $1}')
 RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256=$(sha256sum "$RUNTIME_IDENTITY_EVIDENCE_TEST" | awk '{print $1}')
-jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_ARRAY_JOB_ID" --arg held "$HELD_GPU_SUBMISSION" --arg held_sha "$HELD_GPU_SUBMISSION_SHA256" --arg preflight "$LIVE_PREFLIGHT" --arg preflight_sha "$LIVE_PREFLIGHT_SHA256" --arg run_root "$RUN_ROOT" --arg case_dir "$CASE_DIR" --arg adr0046_sha "$ADR0046_SHA256" --arg preflight_script_sha "$PREFLIGHT_SCRIPT_SHA256" --arg evidence_test_sha "$RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256" '
+RUN_B_EVIDENCE_SHA256=$(sha256sum "$RUN_B_EVIDENCE" | awk '{print $1}')
+RUN_B_EVIDENCE_TEST_SHA256=$(sha256sum "$RUN_B_EVIDENCE_TEST" | awk '{print $1}')
+test "$RUN_B_EVIDENCE_SHA256" = b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba || { echo "run-B terminal evidence changed" >&2; exit 2; }
+jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_ARRAY_JOB_ID" --arg held "$HELD_GPU_SUBMISSION" --arg held_sha "$HELD_GPU_SUBMISSION_SHA256" --arg preflight "$LIVE_PREFLIGHT" --arg preflight_sha "$LIVE_PREFLIGHT_SHA256" --arg run_root "$RUN_ROOT" --arg case_dir "$CASE_DIR" --arg adr0047_sha "$ADR0047_SHA256" --arg preflight_script_sha "$PREFLIGHT_SCRIPT_SHA256" --arg evidence_test_sha "$RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256" --arg run_b_evidence_sha "$RUN_B_EVIDENCE_SHA256" --arg run_b_evidence_test_sha "$RUN_B_EVIDENCE_TEST_SHA256" '
   .schema_version == "1.0"
   and .artifact_role == "r05a_constrained_flow_canary_source_contract"
   and .status == "gpu_held_sources_bound_before_cpu_submission"
@@ -131,20 +155,23 @@ jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_
   and .live_preflight_path == $preflight and .live_preflight_sha256 == $preflight_sha
   and .frozen_bindings.historical_adr0041_sha256 == "f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17"
   and .frozen_bindings.adr0045_sha256 == "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e"
-  and .frozen_bindings.adr0046_sha256 == $adr0046_sha
+  and .frozen_bindings.adr0047_sha256 == $adr0047_sha
   and .frozen_bindings.runtime_identity_evidence_sha256 == "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237"
   and .frozen_bindings.runtime_identity_preflight_sha256 == "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221"
   and .frozen_bindings.runtime_identity_release_commit == "8415b659a46699757de1e99558713e56b95255b5"
   and .frozen_bindings.runtime_identity_job_id == "28043"
   and .frozen_bindings.runtime_identity_result_sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"
+  and .frozen_bindings.run_b_evidence_sha256 == $run_b_evidence_sha
   and .frozen_bindings.vinuni_h100_guide_sha256 == "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108"
   and .repository_file_sha256["docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"] == "f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17"
   and .repository_file_sha256["docs/decisions/0045-accept-runtime-identity-regression.md"] == "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e"
-  and .repository_file_sha256["docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"] == $adr0046_sha
+  and .repository_file_sha256["docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"] == $adr0047_sha
   and .repository_file_sha256["evidence/r05a/runtime-identity-regression-20260716a.json"] == "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237"
   and .repository_file_sha256["evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"] == "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221"
   and .repository_file_sha256["scripts/hpc/preflight.sh"] == $preflight_script_sha
   and .repository_file_sha256["tests/test_r05a_runtime_identity_regression_evidence.py"] == $evidence_test_sha
+  and .repository_file_sha256["evidence/r05a/cfs00a-same-budget-launch-b.json"] == $run_b_evidence_sha
+  and .repository_file_sha256["tests/test_r05a_cfs00a_launch_b_evidence.py"] == $run_b_evidence_test_sha
   and .scientific_claim_allowed == false and .infeasibility_claim_allowed == false
   and .simulator_efficacy_claim_allowed == false and .probe_training_authorized == false' "$SOURCE_CONTRACT" >/dev/null || {
     echo "source contract differs from exact held task" >&2

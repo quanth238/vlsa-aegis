@@ -21,6 +21,8 @@ from crfs_oracle.r05a_canary import (
     r05a_canary_config_from_mapping,
 )
 from crfs_oracle.r05a_constrained_flow_canary import (
+    ConstrainedFlowFiniteDifferenceRejection,
+    FINITE_DIFFERENCE_REJECTION_MESSAGE,
     PAYLOAD_TYPE,
     constrained_flow_scientific_config_hash,
     run_r05a_constrained_flow_canary,
@@ -50,6 +52,69 @@ def _object(path: str | Path, *, name: str) -> dict:
     if not isinstance(value, dict):
         raise SystemExit(f"{name} must be a JSON object")
     return value
+
+
+def _write_terminal_payload(
+    args: argparse.Namespace,
+    constrained_value: dict,
+    *,
+    payload_variant: str,
+    failure_record: dict,
+) -> Path:
+    """Atomically preserve one fail-closed terminal comparison record."""
+
+    case_dir = Path(args.output_root) / args.run_id / CASE_ID
+    output = case_dir / "constrained-flow-payload.json"
+    legacy_payload = case_dir / "canary-payload.json"
+    failure = {
+        "schema_version": "1.0",
+        "payload_type": PAYLOAD_TYPE,
+        "payload_variant": payload_variant,
+        "status": "apparatus_inconclusive",
+        "case_id": CASE_ID,
+        "run_id": args.run_id,
+        "config": {
+            "constrained_flow_path": str(Path(args.config)),
+            "constrained_flow_sha256": file_sha256(args.config),
+            "constrained_flow_scientific_hash": constrained_flow_scientific_config_hash(
+                constrained_value
+            ),
+            "legacy_path": str(Path(args.legacy_config)),
+            "legacy_sha256": file_sha256(args.legacy_config),
+        },
+        "failure": failure_record,
+        "legacy_payload": {
+            "path": str(legacy_payload),
+            "exists": legacy_payload.is_file(),
+            "sha256": (
+                file_sha256(legacy_payload) if legacy_payload.is_file() else None
+            ),
+        },
+        "provenance": {
+            "git_commit": os.environ.get("EXPECTED_GIT_COMMIT"),
+            "source_node": os.uname().nodename.split(".", 1)[0],
+            "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+            "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
+            "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        },
+        "outcome": {
+            "status": "apparatus_inconclusive",
+            "scientific_claim_allowed": False,
+            "infeasibility_claim_allowed": False,
+            "collision_or_progress_claim_allowed": False,
+            "probe_training_authorized": False,
+            "automatic_next_gate_authorized": False,
+        },
+        "simulator_use": {
+            "policy_generated_action_steps_executed": 0,
+            "teacher_generated_action_steps_executed": 0,
+            "efficacy_rollouts_executed": 0,
+            "simulator_efficacy_evaluated": False,
+        },
+    }
+    atomic_write_json(output, failure)
+    return output
 
 
 def main() -> int:
@@ -110,71 +175,41 @@ def main() -> int:
             legacy_config_path=args.legacy_config,
             client=client,
         )
+    except ConstrainedFlowFiniteDifferenceRejection as error:
+        output = _write_terminal_payload(
+            args,
+            constrained_value,
+            payload_variant="terminal_finite_difference_rejection",
+            failure_record={
+                "stage": "paired_transport_execution",
+                "reason_code": error.reason_code,
+                "error_type": type(error).__name__,
+                "message": FINITE_DIFFERENCE_REJECTION_MESSAGE,
+                "execution_boundary": error.execution_boundary,
+                "diagnostic": error.diagnostic,
+                "finite_failure_is_infeasibility": False,
+                "numeric_failure_is_method_negative": False,
+            },
+        )
+        status = "apparatus_inconclusive"
     except Exception as error:
         # Registered Jacobian/numeric/determinism failures are scientific
         # apparatus outcomes, not missing evidence.  Preserve one small raw
         # terminal payload so the independent afterany publisher can classify
         # it without inventing arm values.  Preflight/config errors above still
         # fail the allocation normally.
-        case_dir = Path(args.output_root) / args.run_id / CASE_ID
-        output = case_dir / "constrained-flow-payload.json"
-        legacy_payload = case_dir / "canary-payload.json"
-        failure = {
-            "schema_version": "1.0",
-            "payload_type": PAYLOAD_TYPE,
-            "payload_variant": "terminal_apparatus_failure",
-            "status": "apparatus_inconclusive",
-            "case_id": CASE_ID,
-            "run_id": args.run_id,
-            "config": {
-                "constrained_flow_path": str(Path(args.config)),
-                "constrained_flow_sha256": file_sha256(args.config),
-                "constrained_flow_scientific_hash": constrained_flow_scientific_config_hash(
-                    constrained_value
-                ),
-                "legacy_path": str(Path(args.legacy_config)),
-                "legacy_sha256": file_sha256(args.legacy_config),
-            },
-            "failure": {
+        output = _write_terminal_payload(
+            args,
+            constrained_value,
+            payload_variant="terminal_apparatus_failure",
+            failure_record={
                 "stage": "paired_transport_execution",
                 "error_type": type(error).__name__,
                 "message": str(error),
                 "finite_failure_is_infeasibility": False,
                 "numeric_failure_is_method_negative": False,
             },
-            "legacy_payload": {
-                "path": str(legacy_payload),
-                "exists": legacy_payload.is_file(),
-                "sha256": (
-                    file_sha256(legacy_payload)
-                    if legacy_payload.is_file()
-                    else None
-                ),
-            },
-            "provenance": {
-                "git_commit": os.environ.get("EXPECTED_GIT_COMMIT"),
-                "source_node": os.uname().nodename.split(".", 1)[0],
-                "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-                "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
-                "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
-                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            },
-            "outcome": {
-                "status": "apparatus_inconclusive",
-                "scientific_claim_allowed": False,
-                "infeasibility_claim_allowed": False,
-                "collision_or_progress_claim_allowed": False,
-                "probe_training_authorized": False,
-                "automatic_next_gate_authorized": False,
-            },
-            "simulator_use": {
-                "policy_generated_action_steps_executed": 0,
-                "teacher_generated_action_steps_executed": 0,
-                "efficacy_rollouts_executed": 0,
-                "simulator_efficacy_evaluated": False,
-            },
-        }
-        atomic_write_json(output, failure)
+        )
         status = "apparatus_inconclusive"
     print(f"{status} {output}")
     return 0

@@ -91,6 +91,92 @@ class ConstrainedFlowSemanticValidatorTest(unittest.TestCase):
             "simulator_use": dict(validation.SIMULATOR_USE),
         }
 
+    def _fd_rejection_payload(
+        self, root: Path, config: dict, config_path: Path, legacy_config_path: Path
+    ) -> dict:
+        payload = self._failure_payload(
+            root, config, config_path, legacy_config_path
+        )
+        budget = np.asarray(
+            config["target_contract"]["source_budget_float32"], dtype=np.float32
+        )
+        indices = np.arange(75, dtype=np.int64)
+        directions64 = np.stack(
+            (
+                np.ones(75, dtype=np.float64),
+                np.where(indices % 2 == 0, 1.0, -1.0),
+                np.where(((indices * 17 + 3) % 31) < 15, 1.0, -1.0),
+            )
+        )
+        directions64 /= np.linalg.norm(directions64, axis=1, keepdims=True)
+        directions = directions64.astype(np.float32)
+        epsilon = (
+            budget
+            / np.asarray(5.0, dtype=np.float32)
+            * np.asarray((1.0 / 256.0, 1.0 / 512.0), dtype=np.float32)
+        ).astype(np.float32)
+        jacobian = np.zeros((35, 75), dtype=np.float32)
+        autograd = np.zeros((3, 35), dtype=np.float32)
+        central = np.zeros((3, 2, 35), dtype=np.float32)
+        central[0] = np.float32(1.0)
+        plus = central * epsilon[None, :, None]
+        minus = -plus
+        absolute = np.linalg.norm(
+            central - autograd[:, None, :], axis=2
+        ).astype(np.float32)
+        denominator = np.maximum(
+            np.maximum(
+                np.linalg.norm(central, axis=2),
+                np.linalg.norm(autograd, axis=1)[:, None],
+            ),
+            np.float32(1.0e-6),
+        )
+        relative = np.asarray(absolute / denominator, dtype=np.float32)
+        checks = (relative <= np.float32(0.10)) | (
+            absolute <= np.float32(1.0e-3)
+        )
+        directions_passed = np.any(checks, axis=1)
+        finite_difference = {
+            "directions": directions,
+            "epsilon_values": epsilon,
+            "plus_target_physical": plus,
+            "minus_target_physical": minus,
+            "autograd_directional_derivatives": autograd,
+            "central_directional_derivatives": central,
+            "absolute_l2_errors": absolute,
+            "relative_l2_errors": relative,
+            "checks_passed": checks,
+            "directions_passed": directions_passed,
+            "passed": False,
+            "relative_l2_tolerance": 0.10,
+            "absolute_l2_tolerance": 1.0e-3,
+        }
+        payload["payload_variant"] = "terminal_finite_difference_rejection"
+        payload["failure"] = {
+            "stage": "paired_transport_execution",
+            "reason_code": cfs.FINITE_DIFFERENCE_REJECTION_REASON,
+            "error_type": "ConstrainedFlowFiniteDifferenceRejection",
+            "message": cfs.FINITE_DIFFERENCE_REJECTION_MESSAGE,
+            "execution_boundary": {
+                "jacobian_completed": True,
+                "finite_difference_completed": True,
+                "fista_started": False,
+                "candidate_created": False,
+                "arm_b_nonlinear_replay_executed": False,
+                "arm_c_refinement_executed": False,
+            },
+            "diagnostic": {
+                "budget_float32": cfs._scalar_array_record(
+                    budget, dtype=np.float32
+                ),
+                "jacobian": _array_record(jacobian),
+                "finite_difference": cfs._tree_record(finite_difference),
+            },
+            "finite_failure_is_infeasibility": False,
+            "numeric_failure_is_method_negative": False,
+        }
+        return payload
+
     def test_terminal_failure_is_valid_but_cannot_be_promoted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -132,6 +218,89 @@ class ConstrainedFlowSemanticValidatorTest(unittest.TestCase):
                         legacy_config_path=legacy_path,
                     )
                 )
+
+    def test_terminal_fd_rejection_is_recomputed_and_cannot_reach_fista(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config, config_path, legacy_path = self._config_fixture(root)
+            payload = self._fd_rejection_payload(
+                root, config, config_path, legacy_path
+            )
+            kwargs = {
+                "expected_run_id": payload["run_id"],
+                "constrained_config_path": config_path,
+                "legacy_config_path": legacy_path,
+            }
+            self.assertEqual(
+                validation.validate_constrained_flow_payload_or_raise(
+                    payload, config, **kwargs
+                ),
+                "apparatus_inconclusive",
+            )
+
+            mutations = []
+            changed = copy.deepcopy(payload)
+            jacobian = np.zeros((35, 75), dtype=np.float32)
+            jacobian[0, 0] = np.float32(1.0)
+            changed["failure"]["diagnostic"]["jacobian"] = _array_record(jacobian)
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            epsilon = np.asarray([0.02, 0.01], dtype=np.float32)
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "epsilon_values"
+            ] = _array_record(epsilon)
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "relative_l2_tolerance"
+            ] = 0.11
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "checks_passed"
+            ] = _array_record(np.ones((3, 2), dtype=np.bool_))
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            wrong_budget = np.asarray(2.0, dtype=np.float32)
+            wrong_epsilon = (
+                wrong_budget
+                / np.asarray(5.0, dtype=np.float32)
+                * np.asarray((1.0 / 256.0, 1.0 / 512.0), dtype=np.float32)
+            ).astype(np.float32)
+            central = np.zeros((3, 2, 35), dtype=np.float32)
+            central[0] = np.float32(1.0)
+            changed["failure"]["diagnostic"]["budget_float32"] = (
+                cfs._scalar_array_record(wrong_budget, dtype=np.float32)
+            )
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "epsilon_values"
+            ] = _array_record(wrong_epsilon)
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "plus_target_physical"
+            ] = _array_record(central * wrong_epsilon[None, :, None])
+            changed["failure"]["diagnostic"]["finite_difference"][
+                "minus_target_physical"
+            ] = _array_record(-central * wrong_epsilon[None, :, None])
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            changed["failure"]["execution_boundary"]["fista_started"] = True
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            changed["failure"]["numeric_failure_is_method_negative"] = True
+            mutations.append(changed)
+            changed = copy.deepcopy(payload)
+            changed["failure"]["diagnostic"]["candidate"] = {
+                "forbidden": True
+            }
+            mutations.append(changed)
+
+            for changed in mutations:
+                with self.subTest(changed=changed):
+                    self.assertTrue(
+                        validation.validate_constrained_flow_payload(
+                            changed, config, **kwargs
+                        )
+                    )
 
     def test_complete_path_recomputes_status_and_rejects_claim_tamper(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

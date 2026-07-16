@@ -18,22 +18,23 @@ test the selected action-to-flow transport hypothesis. R05A is now the only
 active gate: it tests whether the safe-progress action target can be converted
 through the exact frozen sampler into a budgeted time-dependent residual
 velocity sequence. No probe or residual-field MLP has been trained.
-IFT-00 now passes as synthetic implementation evidence; the next gate is a
-one-case, no-efficacy allocation canary that measures real sampler integration
-and memory before any robot rollout. Earlier retry B reached real pi0.5 and
-produced a deterministic finite-search miss, but host-memory finalization
-failed. Sampled-current launch B later completed both frozen searches and
-diagnostically reproduced the same finite nonconvergence; its CPU sole
-publisher failed on exact Slurm task identity before publication. Therefore no
-accepted canary result exists. CFS-00A launch A then stopped at allocation
-startup because the runner rejected the canonical virtual-environment Python
-symlink before any model, arm, allocation test, or telemetry ran. ADR-0042
-classifies that run as apparatus-inconclusive. A separate shell-only,
-zero-GPU worker-1 regression (job `28043`) has now validated the repaired
-symlink-aware interpreter identity check, but it did not invoke either
-interpreter or run CFS. The transport hypothesis therefore remains untested,
-the solver has not been declared infeasible, and no simulator efficacy,
-H100-retry, or training claim is authorized until a fresh reviewed release.
+IFT-00 passes as synthetic implementation evidence. CFS-00A run B then reached
+real pi0.5 in worker-1 task `28048_0`; CPU publisher `28049` independently
+validated and published an `apparatus_inconclusive` result. The model computed
+the zero-control baseline, 35-by-75 autograd Jacobian, and all registered
+three-direction by two-epsilon finite-difference comparisons, but the Jacobian
+gate failed before FISTA. No Arm-B candidate, nonlinear replay, Arm C, or
+four-gate transport result exists. The run was not resource-limited: sampled
+host use was about 15.0 GiB, sampled device use was about 8.5 GiB, and OOM
+counters remained zero. Because the generic exception discarded the six
+numeric comparisons, the cause—precision, derivative-interface mismatch, or
+local nonsmoothness—cannot yet be identified. ADR-0047 authorizes only a new
+immutable diagnostic that preserves and independently reconstructs those
+values while still stopping before FISTA. The transport hypothesis remains
+untested, the solver has not been declared infeasible, and no simulator
+efficacy or training claim is authorized. The diagnostic implementation has
+passed local gates and independent review, but H100 execution remains blocked
+until a fresh exact release selects one unused run ID.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

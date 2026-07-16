@@ -4,13 +4,15 @@
   "experiment_identity": "IFT-00B/CFS-00A",
   "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
   "scientific_role": "full_lifetime_telemetry_and_cpu_only_publication_around_separate_legacy_and_cfs_raw_payloads",
-  "ready_to_run": true,
-  "blocked_on": [],
+  "ready_to_run": false,
+  "blocked_on": [
+    "structured_failed_finite_difference_diagnostic_requires_reviewed_implementation_and_new_release"
+  ],
   "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
-  "release_decision_artifact": "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
+  "release_decision_artifact": "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
   "scientific_config": {
     "path": "configs/experiments/r05a_constrained_flow_canary.json",
-    "sha256": "452f65c4546c42f57f5a90ac1d5abbf3fb713047e3fe04d03bdf7e7d94ea6933"
+    "sha256": "743f82eeea546bdf2a4cdce26873087f8859165708d2413c026852e8e654563c"
   },
   "legacy_scientific_config": {
     "path": "configs/experiments/r05a_inverse_flow_canary.json",
@@ -22,20 +24,20 @@
   },
   "semantic_validator": {
     "path": "main/crfs_oracle/r05a_constrained_flow_validation.py",
-    "sha256": "a8f3672498640490d7132d8dc4687e271be1a024dbce0d51de945fb4f5282ef5"
+    "sha256": "1c240d9e0eb9fe69cc39d99f9ef2c50406588794785ac7d2e494ce926b6f7e35"
   },
   "allocation_test_contract": {
     "registry_path": "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json",
-    "registry_sha256": "72db95293f1db72fc18bd659fce27ee13a542e632ab22cb4a9cd69dfa0647a40",
+    "registry_sha256": "225c8c0d39d7ebb8314e35f6c386a576b1d63e58d8f40208e01dafeddb4a247e",
     "expected_counts": {
       "test_inverse_flow_control.py": 17,
       "test_inverse_flow_sampler.py": 8,
       "test_inverse_flow_policy.py": 10,
       "test_r05a_canary.py": 12,
       "test_linearized_flow_control.py": 12,
-      "test_constrained_flow_adapter.py": 13,
-      "test_r05a_constrained_flow_canary.py": 15,
-      "test_r05a_constrained_flow_validation.py": 4
+      "test_constrained_flow_adapter.py": 17,
+      "test_r05a_constrained_flow_canary.py": 18,
+      "test_r05a_constrained_flow_validation.py": 5
     },
     "zero_skips_required": true,
     "log_filename": "allocation-focused-tests.log",
@@ -48,7 +50,11 @@
     "gpu_samples_filename": "gpu-memory-samples.csv",
     "constrained_flow_payload_always_required": true,
     "legacy_payload_required_for_complete_comparison": true,
-    "legacy_payload_may_be_absent_only_for_consistent_terminal_apparatus_failure": true,
+    "legacy_payload_may_be_absent_only_for_consistent_terminal_variant": true,
+    "terminal_variants": [
+      "terminal_apparatus_failure",
+      "terminal_finite_difference_rejection"
+    ],
     "every_present_payload_independently_semantically_validated": true,
     "gpu_allocation_may_publish_results_json": false,
     "gpu_allocation_may_create_result_candidate": false
@@ -106,6 +112,18 @@
     "shell_only": true,
     "gpus_allocated": 0,
     "cfs_runtime_integration_evaluated": false,
+    "h100_submission_authorized_by_evidence": false
+  },
+  "run_b_failure_evidence_binding": {
+    "evidence_path": "evidence/r05a/cfs00a-same-budget-launch-b.json",
+    "evidence_sha256": "b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba",
+    "run_id": "r05a-constrained-flow-same-budget-canary-20260716b",
+    "release_commit": "12a7da69d3d34050709d08b9ca903a99f9d30862",
+    "gpu_task_id": "28048_0",
+    "cpu_publisher_job_id": "28049",
+    "published_result_sha256": "655b48f421af3e639a472d6bef8f20c41e2b2ed60dbb33a0a643bb4aa3e2315f",
+    "classification": "apparatus_inconclusive",
+    "failed_numeric_diagnostics_persisted": false,
     "h100_submission_authorized_by_evidence": false
   },
   "vinuni_h100_guide_contract": {
@@ -177,40 +195,5 @@
     "probe_training_authorized": false,
     "automatic_next_gate_allowed": false
   },
-  "execution_release": {
-    "schema_version": "1.0",
-    "artifact_role": "r05a_constrained_flow_canary_execution_release",
-    "decision_artifact": "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
-    "accepted_implementation_commit": "270c24ff575ce30d5545885ffb35267343d2613c",
-    "run_id": "r05a-constrained-flow-same-budget-canary-20260716b",
-    "single_submission": true,
-    "source_host": "worker-1",
-    "resources": {
-      "partition": "main",
-      "account": "normal",
-      "qos": "normal",
-      "gpus": 1,
-      "cpus_per_task": 8,
-      "host_memory_mib": 65536,
-      "time_limit": "02:00:00",
-      "array": "0-0%1",
-      "requeue": false,
-      "validator_partition": "main",
-      "validator_account": "normal",
-      "validator_qos": "normal",
-      "validator_cpus": 2,
-      "validator_host_memory_mib": 8192,
-      "validator_time_limit": "00:15:00",
-      "validator_gpus": 0,
-      "validator_dependency": "afterany"
-    },
-    "release_only_parent_required": true,
-    "allowed_release_diff_paths": [
-      "configs/experiments/r05a_constrained_flow_canary.json",
-      "configs/experiments/r05a_constrained_flow_canary_apparatus.json",
-      "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md"
-    ],
-    "automatic_resubmission_allowed": false,
-    "automatic_next_experiment_allowed": false
-  }
+  "execution_release": null
 }

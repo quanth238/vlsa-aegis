@@ -131,7 +131,7 @@ class R05ARuntimeIdentityRegressionEvidenceTest(unittest.TestCase):
             release = cfs["execution_release"]
             self.assertEqual(
                 release["decision_artifact"],
-                "docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md",
+                "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
             )
             self.assertIs(release["single_submission"], True)
             self.assertEqual(release["source_host"], "worker-1")
