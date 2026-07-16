@@ -31,17 +31,22 @@ the present autograd Jacobian is not a validated local model of the actual
 mixed-precision sampler at the registered scales. ADR-0049 retires that
 autograd-linearized CFS-00A submethod rather than weakening the check. It does
 not reject the broader actual-forward, time-dependent flow-steering idea.
-ADR-0050 now preregisters AF-00A: a fixed 520-query derivative-free CEM that
+ADR-0050 preregistered AF-00A: a fixed 520-query derivative-free CEM that
 evaluates only the ordinary frozen sampler forward path against the same
 equal-split baseline, target, noise, and correction budget. Its implementation
-and independent reviews are complete, but the config remains fail closed until
-a separate direct-child execution release. Launch A reserved held task
+and independent reviews completed before release. Launch A reserved held task
 `28275_0` but stopped before allocation because VinUni displayed the exact
 array task with parent-form `JobId=28275`; ADR-0052 records the zero-runtime
 apparatus failure and narrow identity-display repair. Launch B also stopped
 held at zero runtime because the inline extractor missed a first-token
-`JobId=`; ADR-0054 replaces it with a behavior-tested shared parser. No AF-00A model result,
-simulator efficacy result, probe, or residual-field MLP exists.
+`JobId=`; ADR-0054 replaced it with a behavior-tested shared parser. Run C GPU
+task `28281_0` then completed all 534 requests. Its CPU publisher failed on a
+one-ULP binary64 reported-versus-recomputed norm comparison even though both
+values cast to the exact registered float32 budget used by the experiment.
+Independent validation reconstructs `frozen_cem_negative`: the changed CEM
+schedule improved the objective slightly but remained far outside all target
+fidelity gates. ADR-0056 permits only a CPU publication recovery; no GPU rerun,
+simulator efficacy result, probe, or residual-field MLP is authorized.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -152,6 +157,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md`: fixed actual-forward derivative-free teacher test;
 - `docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md`: zero-runtime launch-A evidence and exact Slurm identity-display repair;
 - `docs/decisions/0054-preserve-af00a-launch-b-and-test-record-parser.md`: zero-runtime launch-B evidence and behavior-tested exact Slurm field parser;
+- `docs/decisions/0056-preserve-af00a-run-c-and-recover-publication.md`: terminal run-C evidence, one-ULP publisher diagnosis, and CPU-only recovery contract;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

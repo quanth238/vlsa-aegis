@@ -85,7 +85,7 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / AF-00A behavior-tested Slurm parser review
+## Active gate: R05A / AF-00A run-C CPU publication recovery
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
 real teacher-transport mechanism result. CFS-00A run B is a valid published
@@ -191,6 +191,28 @@ was cancelled with start `None`, elapsed `00:00:00`, no node, and no allocated
 TRES. ADR-0054 replaces both inline extractors with one shared parser and adds
 executed positive/negative tests using the real VinUni record shape. No
 scientific execution or result exists, and the config remains fail closed.
+
+Run C used behavior-tested release `bd14f97` and completed the scientific GPU
+work. Exact task `28281_0` completed `0:0` on worker-1 in `00:03:18`; all 36
+allocation-focused tests passed with zero skips, and the sealed payload,
+tensors, 534-request ledger, host telemetry, and GPU telemetry are present.
+CPU publisher `28282` failed `1:0` in `00:00:12` before creating
+`results.json` because it compared the producer's recomputed binary64 norm
+`3.639839842906512` with R02's reported binary64 norm
+`3.6398398429065115` by exact equality. The values differ by one binary64 ULP
+but both cast to the exact registered float32 budget
+`3.6398398876190186` that the GPU used for every control.
+
+Independent validation of the exact run-C payload, tensor archive, ledger,
+and R02 source passes and reconstructs `frozen_cem_negative`. Arm A objective
+was `2218.1335502517986`; changed Arm B improved it only to
+`2121.5404274315442`; reversed Arm C was worse at
+`2968.7447114541746`. Arm-B XYZ max/RMS error was
+`0.7899218065691934` / `0.35177249996585547`, versus registered limits
+`0.010` / `0.005`. No generated action entered the simulator. ADR-0056
+preserves every original byte and permits only one separately receipted,
+CPU-only publication recovery. Until it succeeds, the official run remains
+unpublished/apparatus-inconclusive.
 
 ## What this experiment can conclude
 
@@ -384,13 +406,15 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Validate and independently review only ADR-0054's behavior-tested Slurm field
-parser. Then commit and synchronize the fail-closed repair. A separate direct-child
-release may change only the AF-00A config and
-`docs/decisions/0055-release-behavior-tested-actual-forward-canary.md`, select a
-fresh unused immutable run ID, and submit one held worker-1 H100 task plus its
-CPU `afterany` publisher. Do not change the 520-query budget, objective, seed,
-target, constraints, resources, or outcome rules.
+Finish and independently review only ADR-0056's publication repair. Commit and
+synchronize the fail-closed implementation. A separate direct-child release
+may change only the recovery config and its release ADR, then submit exactly
+one held CPU job with two CPUs, 8 GiB RAM, no GPU, and dependency
+`afterany:28282`. It must preserve the failed original receipt, bind all run-C
+hashes and source/recovery commits separately, and be the sole creator of
+`results.json` and `cpu-republication-validation.json`. Do not rerun the GPU,
+model, CEM, simulator, or training, and do not change any budget, tolerance,
+objective, seed, target, constraint, or outcome rule.
 
 The scientific purpose is no longer another Jacobian repair. It is the user's
 central hypothesis: can a privileged final-action correction be represented

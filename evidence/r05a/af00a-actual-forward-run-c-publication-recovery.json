@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_af00a_actual_forward_run_c_publication_recovery",
+  "evidence_tier": "allocation_backed_raw_method_evidence_pending_cpu_republication",
+  "run_id": "r05a-actual-forward-cem-canary-20260716c",
+  "case_id": "crfs-1069f29a8d76463a",
+  "source_commit": "bd14f97eeffafd20525454db4d7a52614e1146c4",
+  "source_host": "worker-1",
+  "jobs": {
+    "gpu_task": {
+      "job_id": "28281_0",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed": "00:03:18",
+      "node": "worker-1",
+      "requested_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+      "allocated_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+      "log_sha256": "5e3e9594a154b12bd4f64d9e8d12d6023aae032bd51911ed8a8b3edbb393b461"
+    },
+    "original_cpu_publisher": {
+      "job_id": "28282",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "elapsed": "00:00:12",
+      "node": "worker-0",
+      "requested_tres": "billing=2,cpu=2,mem=8G,node=1",
+      "allocated_tres": "billing=2,cpu=2,mem=8G,node=1",
+      "log_sha256": "3e4ee7f89d0a23a114ea7ebbc8b1b243f6ed0f4f04429e9a4549d293cc54cf83"
+    }
+  },
+  "immutable_artifacts": {
+    "source_contract_sha256": "dcd725f0de3797ad24f2445bd347f5a1bcc9d6044f121dc9eeb2370bcdddb0f0",
+    "held_gpu_submission_sha256": "ddcebd30f77a95d617b7461af0c34b652fc18bfea51d6c2e00afd6f4d290463d",
+    "submission_sha256": "0008bc0e4b55604cf6e708e4300de342aa7b927e765d64f4e90432eb2703a4b0",
+    "release_fingerprint_sha256": "32c9cd064ba59abc90cc279be3989894dc2e69e80de94f0beef3d9bc794e6221",
+    "raw_payload_sha256": "00433437470ca7678a236c4778d5cf68160c8d3299f128b64985b1aeb142d5d1",
+    "tensor_archive_sha256": "ada53973653ba7c21dab33cdbc4b4498c7b2b1840f2fc284bd3d3c76baf1d383",
+    "query_ledger_sha256": "619f15ad46390d6e55e74365dc2530e58b383592ec998842d4bbd898c7266b92",
+    "allocation_tests_log_sha256": "60a3eb4ae4b62f8895ade6dbd203ff49e2f30bed4c543dbbe3e975c078eb9566",
+    "host_telemetry_sha256": "277d80ac479f6db3115fe7eb110a7b324708831a82efc846b72fed5a1fd36804",
+    "gpu_telemetry_sha256": "2f75d0a1299104e6c2d93cf98a6c3bac13d4872ad8f3574a680cac633bbde3b1",
+    "live_preflight_sha256": "57d64964aec997c97bfe8f2598e7f028f605c6b1b5b1b41ef22d1ce629e6f789",
+    "original_failed_receipt_sha256": "f8e9ef108630cad9a9691dba0827a8be68d3b15e41ee3de2e4e6cfaf03736d27",
+    "results_json_exists": false
+  },
+  "publisher_failure": {
+    "message": "AF-00A raw payload source budget changed",
+    "classification": "binary64_reported_vs_recomputed_field_semantics_bug",
+    "r02_reported_budget_float64": 3.6398398429065115,
+    "payload_recomputed_budget_float64": 3.639839842906512,
+    "difference_binary64_ulps": 1,
+    "registered_budget_float32": 3.6398398876190186,
+    "registered_budget_float32_hex": "0x4068f323",
+    "gpu_control_budget_was_registered_float32": true,
+    "tolerance_changed": false,
+    "method_or_budget_drift": false
+  },
+  "independent_raw_validation": {
+    "passed": true,
+    "exact_policy_requests": 534,
+    "cem_policy_requests": 520,
+    "selected_pool_index": 465,
+    "selected_cem_query_index": 464,
+    "outcome": "frozen_cem_negative",
+    "arm_a": {
+      "objective": 2218.1335502517986,
+      "energy": 2.649686839308922,
+      "xyz_max_abs": 0.7806643492412315,
+      "xyz_rms": 0.35969860072305654,
+      "full_max_abs": 0.7806643492412315,
+      "full_rms": 0.23554385122689606,
+      "passed": false
+    },
+    "arm_b": {
+      "changed": true,
+      "objective": 2121.5404274315442,
+      "energy": 2.5488477410268158,
+      "xyz_max_abs": 0.7899218065691934,
+      "xyz_rms": 0.35177249996585547,
+      "full_max_abs": 0.7899218065691934,
+      "full_rms": 0.23039493162555724,
+      "passed": false
+    },
+    "arm_c": {
+      "objective": 2968.7447114541746,
+      "energy": 2.5488477410268153,
+      "xyz_max_abs": 0.9606940421772645,
+      "xyz_rms": 0.416131221925226,
+      "full_max_abs": 0.9606940421772645,
+      "full_rms": 0.2725038054457127,
+      "passed": false
+    },
+    "fidelity_limits": {
+      "xyz_max_abs": 0.01,
+      "xyz_rms": 0.005,
+      "full_max_abs": 0.05,
+      "full_rms": 0.015
+    }
+  },
+  "execution_boundary": {
+    "allocation_focused_tests_passed": 36,
+    "allocation_focused_tests_skipped": 0,
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false,
+    "training": false
+  },
+  "interpretation_before_recovery": {
+    "official_status": "apparatus_inconclusive_unpublished",
+    "raw_diagnostic_status": "frozen_cem_negative",
+    "gpu_rerun_authorized": false,
+    "cpu_only_republication_authorized_by": "ADR-0056",
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "simulator_efficacy_claim_allowed": false,
+    "infeasibility_claim_allowed": false
+  }
+}

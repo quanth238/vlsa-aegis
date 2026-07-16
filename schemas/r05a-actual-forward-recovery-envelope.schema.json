@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crfs.local/schemas/r05a-actual-forward-recovery-envelope.schema.json",
+  "title": "AF-00A run-C result published by a separately bound recovery CPU",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "experiment_identity",
+    "run_id",
+    "case_id",
+    "status",
+    "source_job_id",
+    "publisher_job_id",
+    "execution_identity",
+    "recovery_identity",
+    "raw_evidence",
+    "measured_telemetry",
+    "validation",
+    "execution_boundary",
+    "claims"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r05a_actual_forward_canary_result"},
+    "gate": {"const": "R05A"},
+    "experiment_identity": {"const": "AF-00A"},
+    "run_id": {"const": "r05a-actual-forward-cem-canary-20260716c"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "status": {"const": "frozen_cem_negative"},
+    "source_job_id": {"const": "28281_0"},
+    "publisher_job_id": {"type": "string", "pattern": "^[1-9][0-9]*$", "not": {"const": "28282"}},
+    "execution_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_commit", "source_node", "gpu_slurm_array_job_id", "gpu_slurm_array_task_id", "exact_gpu_task_id", "cpu_afterany_job_id", "dependency"],
+      "properties": {
+        "git_commit": {"const": "bd14f97eeffafd20525454db4d7a52614e1146c4"},
+        "source_node": {"const": "worker-1"},
+        "gpu_slurm_array_job_id": {"const": "28281"},
+        "gpu_slurm_array_task_id": {"const": 0},
+        "exact_gpu_task_id": {"const": "28281_0"},
+        "cpu_afterany_job_id": {"type": "string", "pattern": "^[1-9][0-9]*$", "not": {"const": "28282"}},
+        "dependency": {"const": "afterany:28282"}
+      }
+    },
+    "recovery_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_git_commit", "recovery_git_commit", "original_publisher_job_id", "original_publisher_state", "original_publisher_exit_code", "recovery_publisher_job_id", "dependency", "original_receipt_path", "original_receipt_sha256", "recovery_source_contract_path", "recovery_source_contract_sha256", "recovery_submission_path", "recovery_submission_sha256", "recovery_release_fingerprint_path", "recovery_release_fingerprint_sha256"],
+      "properties": {
+        "source_git_commit": {"const": "bd14f97eeffafd20525454db4d7a52614e1146c4"},
+        "recovery_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "original_publisher_job_id": {"const": "28282"},
+        "original_publisher_state": {"const": "FAILED"},
+        "original_publisher_exit_code": {"const": "1:0"},
+        "recovery_publisher_job_id": {"type": "string", "pattern": "^[1-9][0-9]*$", "not": {"const": "28282"}},
+        "dependency": {"const": "afterany:28282"},
+        "original_receipt_path": {"type": "string", "pattern": "/cpu-afterany-validation\\.json$"},
+        "original_receipt_sha256": {"const": "f8e9ef108630cad9a9691dba0827a8be68d3b15e41ee3de2e4e6cfaf03736d27"},
+        "recovery_source_contract_path": {"type": "string", "pattern": "/republication-source-contract\\.json$"},
+        "recovery_source_contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "recovery_submission_path": {"type": "string", "pattern": "/republication-submission\\.json$"},
+        "recovery_submission_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "recovery_release_fingerprint_path": {"type": "string", "pattern": "/republication-final-pre-release-fingerprint\\.json$"},
+        "recovery_release_fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "raw_evidence": {"type": "object"},
+    "measured_telemetry": {"type": "object"},
+    "validation": {
+      "type": "object",
+      "required": ["request_count", "selected_pool_index", "selected_cem_query_index", "arm_a", "arm_b", "arm_c", "outcome"],
+      "properties": {
+        "request_count": {"const": 534},
+        "selected_pool_index": {"const": 465},
+        "selected_cem_query_index": {"const": 464},
+        "arm_a": {"type": "object"},
+        "arm_b": {"type": "object"},
+        "arm_c": {"type": "object"},
+        "outcome": {"const": "frozen_cem_negative"}
+      }
+    },
+    "execution_boundary": {
+      "const": {
+        "policy_generated_action_steps_executed": 0,
+        "teacher_generated_action_steps_executed": 0,
+        "efficacy_rollouts_executed": 0,
+        "simulator_efficacy_evaluated": false
+      }
+    },
+    "claims": {
+      "const": {
+        "scientific_claim_allowed": false,
+        "simulator_efficacy_claim_allowed": false,
+        "collision_or_progress_claim_allowed": false,
+        "infeasibility_claim_allowed": false,
+        "probe_training_authorized": false,
+        "automatic_next_gate_authorized": false
+      }
+    }
+  }
+}

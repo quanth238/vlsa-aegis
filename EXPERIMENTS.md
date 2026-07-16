@@ -345,8 +345,8 @@ IFT-01, probe, or MLP is currently authorized.
 
 ### AF-00A — Actual-forward derivative-free teacher canary
 
-Status: **launches A/B apparatus-inconclusive; behavior-tested Slurm parser is
-fail closed and under review**
+Status: **run C completed the GPU method; official publication is pending one
+fail-closed CPU-only recovery**
 
 AF-00A keeps the exact row-zero case, observation, instruction, policy noise,
 R02 target, float32 budget `3.6398398876190186`, five active flow steps, and
@@ -385,6 +385,21 @@ no allocation. No model or arm ran. ADR-0054 replaces both inline extractors
 with one shared exact-field parser and executes it against the real parent
 form, the allowed child form, and five invalid records. This second consumed
 run is also apparatus-only; the scientific method remains unchanged.
+
+Behavior-tested release `bd14f97` then launched run C. GPU task `28281_0`
+completed `0:0` on worker-1 in `00:03:18`, wrote the complete 534-request
+artifact set, and passed all 36 allocation-focused tests with zero skips. CPU
+publisher `28282` failed before publication because the producer's recomputed
+binary64 norm and R02's reported norm differ by one ULP. Both cast to the exact
+registered float32 budget used by the model, so this is a publisher semantic
+bug rather than budget drift.
+
+Independent validation of the exact immutable bytes reconstructs
+`frozen_cem_negative`: equal-split A failed; changed CEM B reduced objective
+from `2218.13355` to `2121.54043` but still missed every fidelity gate by a
+large margin; reverse C was worse. ADR-0056 forbids a GPU rerun and authorizes
+only a separately bound CPU publication recovery. No generated action entered
+the simulator, and no IFT-01, probe, or MLP is authorized.
 
 ### IFT-01 — Three-case real transport smoke
 

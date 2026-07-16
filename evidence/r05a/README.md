@@ -162,3 +162,13 @@ token and returned empty. The task remained held and was cancelled with
 only three control-plane files. ADR-0054 replaces both fragile extractors with
 one behavior-tested exact-field parser; launch B itself contains no model,
 arm, simulator, transport, efficacy, or infeasibility result.
+
+Run `r05a-actual-forward-cem-canary-20260716c` used release `bd14f97`. GPU
+task `28281_0` completed the exact 534-request AF-00A protocol, while CPU
+publisher `28282` failed before `results.json` on a one-ULP binary64
+reported-versus-recomputed budget comparison. The raw float32 budget is exact,
+and independent validation reconstructs `frozen_cem_negative`; however the
+official state remains unpublished until ADR-0056's separately receipted
+CPU-only recovery passes. Every original run-C artifact and the failed receipt
+remain immutable. No simulator efficacy, infeasibility, probe, or MLP claim is
+allowed.
