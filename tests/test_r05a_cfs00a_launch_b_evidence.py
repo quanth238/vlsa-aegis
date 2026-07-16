@@ -112,16 +112,34 @@ class R05ACFS00ALaunchBEvidenceTest(unittest.TestCase):
         self.assertTrue(operational["cpu_publisher_validation_passed"])
         self.assertTrue(operational["result_published_atomically"])
 
-    def test_configs_are_closed_and_scientific_projection_is_unchanged(self) -> None:
+    def test_configs_are_closed_or_exactly_released_and_projection_unchanged(self) -> None:
         scientific = _object(SCIENTIFIC)
         apparatus = _object(APPARATUS)
-        for value in (scientific, apparatus):
-            self.assertFalse(value["ready_to_run"])
-            self.assertTrue(value["blocked_on"])
-            self.assertIsNone(value["execution_release"])
-        self.assertFalse(
-            scientific["preregistration"]["h100_submission_authorized"]
-        )
+        self.assertEqual(scientific["ready_to_run"], apparatus["ready_to_run"])
+        if scientific["ready_to_run"]:
+            for value in (scientific, apparatus):
+                self.assertEqual(value["blocked_on"], [])
+                self.assertIsInstance(value["execution_release"], dict)
+            self.assertTrue(
+                scientific["preregistration"]["h100_submission_authorized"]
+            )
+            release = scientific["execution_release"]
+            self.assertEqual(release, apparatus["execution_release"])
+            self.assertEqual(
+                release["decision_artifact"],
+                "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
+            )
+            self.assertTrue(release["single_submission"])
+            self.assertEqual(release["source_host"], "worker-1")
+            self.assertFalse(release["automatic_resubmission_allowed"])
+            self.assertFalse(release["automatic_next_experiment_allowed"])
+        else:
+            for value in (scientific, apparatus):
+                self.assertTrue(value["blocked_on"])
+                self.assertIsNone(value["execution_release"])
+            self.assertFalse(
+                scientific["preregistration"]["h100_submission_authorized"]
+            )
         projection = copy.deepcopy(scientific)
         for key in ("config_status", "ready_to_run", "blocked_on", "execution_release"):
             projection.pop(key, None)
