@@ -160,7 +160,11 @@ def _source_contract_fixture(root: Path, *, source_job_id: str = "123") -> dict:
         "validation_receipt": str(run_root / "cpu-afterany-validation.json"),
     }
     repository_hashes = {
-        relative: publication.file_sha256(ROOT / relative)
+        relative: (
+            publication.historical_shared_file_sha256(ROOT, relative)
+            if relative in publication.HISTORICAL_SHARED_SOURCE_PATHS
+            else publication.file_sha256(ROOT / relative)
+        )
         for relative in publication.BOUND_REPOSITORY_PATHS
     }
     contract = {
@@ -302,6 +306,31 @@ def _schema_subset_errors(value, schema: dict | bool, root: dict, path: str = "$
 
 
 class R05ASampledCurrentHPCContractTest(unittest.TestCase):
+    def test_historical_shared_source_binding_is_exact_and_fails_closed(self) -> None:
+        expected = {
+            "openpi/src/openpi/models_pytorch/pi0_pytorch.py": (
+                "80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55"
+            ),
+            "openpi/src/openpi/policies/policy.py": (
+                "d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9"
+            ),
+        }
+        self.assertEqual(publication.HISTORICAL_SHARED_SOURCE_PATHS, set(expected))
+        for relative, digest in expected.items():
+            with self.subTest(path=relative):
+                self.assertEqual(
+                    publication.historical_shared_file_sha256(ROOT, relative), digest
+                )
+        with self.assertRaisesRegex(ValueError, "not a versioned shared source"):
+            publication.historical_shared_file_sha256(ROOT, "README.md")
+        with mock.patch.object(
+            publication, "HISTORICAL_SHARED_SOURCE_COMMIT", "0" * 40
+        ):
+            with self.assertRaisesRegex(ValueError, "Git blob is unavailable"):
+                publication.historical_shared_file_sha256(
+                    ROOT, "openpi/src/openpi/policies/policy.py"
+                )
+
     maxDiff = None
 
     def test_shell_entrypoints_parse_and_required_launchers_are_executable(self) -> None:

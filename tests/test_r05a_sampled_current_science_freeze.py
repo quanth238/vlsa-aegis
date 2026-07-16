@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import unittest
 
 
@@ -46,6 +47,12 @@ EXPECTED_FROZEN_FILES = {
     ),
 }
 
+HISTORICAL_SHARED_SOURCE_COMMIT = "06b365b5899c2cb31db12187350cce48a3a0ea20"
+HISTORICAL_SHARED_SOURCE_PATHS = {
+    "openpi/src/openpi/models_pytorch/pi0_pytorch.py",
+    "openpi/src/openpi/policies/policy.py",
+}
+
 LEGACY_MEMORY_ONLY_ERRORS = [
     "host cgroup path provenance is missing",
     "memory record is missing",
@@ -54,6 +61,19 @@ LEGACY_MEMORY_ONLY_ERRORS = [
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _historical_sha256(relative: str) -> str:
+    completed = subprocess.run(
+        ["git", "show", f"{HISTORICAL_SHARED_SOURCE_COMMIT}:{relative}"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise AssertionError(completed.stderr.decode("utf-8", errors="replace"))
+    return hashlib.sha256(completed.stdout).hexdigest()
 
 
 def _walk_dicts(value):
@@ -119,7 +139,12 @@ class R05ASampledCurrentScienceFreezeTest(unittest.TestCase):
             with self.subTest(path=relative):
                 path = ROOT / relative
                 self.assertTrue(path.is_file(), relative)
-                self.assertEqual(_sha256(path), expected)
+                observed = (
+                    _historical_sha256(relative)
+                    if relative in HISTORICAL_SHARED_SOURCE_PATHS
+                    else _sha256(path)
+                )
+                self.assertEqual(observed, expected)
 
         frozen = self.config["frozen_science_bindings"]
         self.assertEqual(
@@ -152,6 +177,14 @@ class R05ASampledCurrentScienceFreezeTest(unittest.TestCase):
         for relative, expected in EXPECTED_FROZEN_FILES.items():
             if relative in registered_live:
                 self.assertEqual(registered_live[relative], expected)
+
+    def test_shared_integration_files_are_bound_to_the_terminal_git_tree(self) -> None:
+        for relative in HISTORICAL_SHARED_SOURCE_PATHS:
+            with self.subTest(path=relative):
+                self.assertEqual(
+                    _historical_sha256(relative), EXPECTED_FROZEN_FILES[relative]
+                )
+                self.assertNotEqual(_sha256(ROOT / relative), EXPECTED_FROZEN_FILES[relative])
 
     def test_case_solver_target_budget_and_resources_are_unchanged(self) -> None:
         case = self.config["frozen_case"]

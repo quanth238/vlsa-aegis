@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.crfs/schemas/r05a-reference-trajectory-lift-canary-envelope.schema.json",
+  "title": "TRL-00A finite canary result envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "gate",
+    "experiment_identity",
+    "run_id",
+    "case_id",
+    "group_id",
+    "status",
+    "branch",
+    "source_job_id",
+    "publisher_job_id",
+    "execution_identity",
+    "raw_evidence",
+    "measured_telemetry",
+    "validation",
+    "execution_boundary",
+    "claims"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_type": {"const": "r05a_reference_trajectory_lift_canary_result"},
+    "gate": {"const": "R05A"},
+    "experiment_identity": {"const": "TRL-00A"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "group_id": {"const": "safelibero_spatial:II:0:46"},
+    "status": {"$ref": "#/$defs/scientific_outcome"},
+    "branch": {"const": "finite"},
+    "source_job_id": {"type": "string", "pattern": "^[0-9]+_0$"},
+    "publisher_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+    "execution_identity": {"$ref": "#/$defs/execution_identity"},
+    "raw_evidence": {"$ref": "#/$defs/raw_evidence"},
+    "measured_telemetry": {"$ref": "#/$defs/measured_telemetry"},
+    "validation": {"$ref": "#/$defs/validation"},
+    "execution_boundary": {"$ref": "#/$defs/execution_boundary"},
+    "claims": {"$ref": "#/$defs/claims"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scientific_outcome": {
+      "enum": [
+        "same_budget_lift_pass",
+        "canonical_budget_bottleneck",
+        "canonical_mask_coupling",
+        "canonical_lift_negative"
+      ]
+    },
+    "metric_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["xyz_max_abs", "xyz_rms", "full_max_abs", "full_rms"],
+      "properties": {
+        "xyz_max_abs": {"type": "number"},
+        "xyz_rms": {"type": "number"},
+        "full_max_abs": {"type": "number"},
+        "full_rms": {"type": "number"}
+      }
+    },
+    "gate_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["xyz_max_abs", "xyz_rms", "full_max_abs", "full_rms"],
+      "properties": {
+        "xyz_max_abs": {"type": "boolean"},
+        "xyz_rms": {"type": "boolean"},
+        "full_max_abs": {"type": "boolean"},
+        "full_rms": {"type": "boolean"}
+      }
+    },
+    "arm_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective", "metrics", "gates", "xyz_pass", "full_pass"],
+      "properties": {
+        "objective": {"type": "number"},
+        "metrics": {"$ref": "#/$defs/metric_values"},
+        "gates": {"$ref": "#/$defs/gate_values"},
+        "xyz_pass": {"type": "boolean"},
+        "full_pass": {"type": "boolean"}
+      }
+    },
+    "changed_arm_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objective",
+        "metrics",
+        "gates",
+        "xyz_pass",
+        "full_pass",
+        "changed_from_arm_a"
+      ],
+      "properties": {
+        "objective": {"type": "number"},
+        "metrics": {"$ref": "#/$defs/metric_values"},
+        "gates": {"$ref": "#/$defs/gate_values"},
+        "xyz_pass": {"type": "boolean"},
+        "full_pass": {"type": "boolean"},
+        "changed_from_arm_a": {"type": "boolean"}
+      }
+    },
+    "execution_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "git_commit",
+        "accepted_implementation_commit",
+        "source_node",
+        "gpu_slurm_array_job_id",
+        "gpu_slurm_array_task_id",
+        "exact_gpu_task_id",
+        "cpu_afterany_job_id",
+        "dependency"
+      ],
+      "properties": {
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "accepted_implementation_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_node": {"const": "worker-1"},
+        "gpu_slurm_array_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+        "gpu_slurm_array_task_id": {"const": 0},
+        "exact_gpu_task_id": {"type": "string", "pattern": "^[0-9]+_0$"},
+        "cpu_afterany_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+        "dependency": {"type": "string", "pattern": "^afterany:[0-9]+$"}
+      }
+    },
+    "raw_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_path",
+        "payload_sha256",
+        "tensor_path",
+        "tensor_sha256",
+        "request_ledger_path",
+        "request_ledger_sha256",
+        "request_count",
+        "source_contract_path",
+        "source_contract_sha256",
+        "held_gpu_submission_path",
+        "held_gpu_submission_sha256",
+        "submission_path",
+        "submission_sha256",
+        "release_fingerprint_path",
+        "release_fingerprint_sha256"
+      ],
+      "properties": {
+        "payload_path": {"type": "string"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "tensor_path": {"type": "string"},
+        "tensor_sha256": {"$ref": "#/$defs/sha256"},
+        "request_ledger_path": {"type": "string"},
+        "request_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "request_count": {"const": 18},
+        "source_contract_path": {"type": "string"},
+        "source_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "held_gpu_submission_path": {"type": "string"},
+        "held_gpu_submission_sha256": {"$ref": "#/$defs/sha256"},
+        "submission_path": {"type": "string"},
+        "submission_sha256": {"$ref": "#/$defs/sha256"},
+        "release_fingerprint_path": {"type": "string"},
+        "release_fingerprint_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "measured_telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocation_tests", "host", "gpu"],
+      "properties": {
+        "allocation_tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "tests_run", "skipped", "passed"],
+          "properties": {
+            "path": {"type": "string"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "tests_run": {"type": "integer", "minimum": 1},
+            "skipped": {"const": 0},
+            "passed": {"const": true}
+          }
+        },
+        "host": {
+          "type": "object",
+          "required": [
+            "raw_trace_sha256",
+            "slurm_array_job_id",
+            "slurm_array_task_id",
+            "host_cgroup_sampled_current_high_water_bytes",
+            "memory_max_job_scope_hard_limit_bytes",
+            "full_lifetime_window_passed",
+            "contract_passed"
+          ],
+          "properties": {
+            "raw_trace_sha256": {"$ref": "#/$defs/sha256"},
+            "slurm_array_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+            "slurm_array_task_id": {"const": 0},
+            "host_cgroup_sampled_current_high_water_bytes": {"type": "integer", "minimum": 1},
+            "memory_max_job_scope_hard_limit_bytes": {"type": "integer", "minimum": 1},
+            "full_lifetime_window_passed": {"const": true},
+            "contract_passed": {"const": true}
+          }
+        },
+        "gpu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "sample_count",
+            "gpu_uuid",
+            "compute_high_water_mib",
+            "device_high_water_mib"
+          ],
+          "properties": {
+            "path": {"type": "string"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "sample_count": {"type": "integer", "minimum": 2},
+            "gpu_uuid": {"type": "string", "pattern": "^GPU-"},
+            "compute_high_water_mib": {"type": "integer", "minimum": 0},
+            "device_high_water_mib": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "validation_claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "simulator_efficacy_evaluated",
+        "collision_or_progress_claim_allowed",
+        "global_infeasibility_claim_allowed",
+        "raw_authority_is_minimum_required_claim_allowed",
+        "probe_or_mlp_training_authorized",
+        "automatic_next_gate_authorized"
+      ],
+      "properties": {
+        "simulator_efficacy_evaluated": {"const": false},
+        "collision_or_progress_claim_allowed": {"const": false},
+        "global_infeasibility_claim_allowed": {"const": false},
+        "raw_authority_is_minimum_required_claim_allowed": {"const": false},
+        "probe_or_mlp_training_authorized": {"const": false},
+        "automatic_next_gate_authorized": {"const": false}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "branch",
+        "request_count",
+        "arm_a",
+        "budgeted",
+        "raw",
+        "raw_authority",
+        "budgeted_raw_projection_noop",
+        "outcome",
+        "claims"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "branch": {"const": "finite"},
+        "request_count": {"const": 18},
+        "arm_a": {"$ref": "#/$defs/arm_summary"},
+        "budgeted": {"$ref": "#/$defs/changed_arm_summary"},
+        "raw": {"$ref": "#/$defs/changed_arm_summary"},
+        "raw_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exact_budget_accepted",
+            "path",
+            "max_step_norm",
+            "path_over_source_budget",
+            "max_step_over_source_radius",
+            "replay_budget"
+          ],
+          "properties": {
+            "exact_budget_accepted": {"type": "boolean"},
+            "path": {"type": "number"},
+            "max_step_norm": {"type": "number"},
+            "path_over_source_budget": {"type": "number"},
+            "max_step_over_source_radius": {"type": "number"},
+            "replay_budget": {"type": "number"}
+          }
+        },
+        "budgeted_raw_projection_noop": {"type": "boolean"},
+        "outcome": {"$ref": "#/$defs/scientific_outcome"},
+        "claims": {"$ref": "#/$defs/validation_claims"}
+      }
+    },
+    "execution_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_requests",
+        "policy_generated_action_steps_executed",
+        "teacher_generated_action_steps_executed",
+        "efficacy_rollouts_executed",
+        "simulator_efficacy_evaluated",
+        "geometry_or_planner_queries",
+        "training"
+      ],
+      "properties": {
+        "policy_requests": {"const": 18},
+        "policy_generated_action_steps_executed": {"const": 0},
+        "teacher_generated_action_steps_executed": {"const": 0},
+        "efficacy_rollouts_executed": {"const": 0},
+        "simulator_efficacy_evaluated": {"const": false},
+        "geometry_or_planner_queries": {"const": 0},
+        "training": {"const": false}
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scientific_claim_allowed",
+        "simulator_efficacy_claim_allowed",
+        "collision_or_progress_claim_allowed",
+        "infeasibility_claim_allowed",
+        "raw_authority_is_minimum_required_claim_allowed",
+        "probe_training_authorized",
+        "automatic_next_gate_authorized"
+      ],
+      "properties": {
+        "scientific_claim_allowed": {"const": false},
+        "simulator_efficacy_claim_allowed": {"const": false},
+        "collision_or_progress_claim_allowed": {"const": false},
+        "infeasibility_claim_allowed": {"const": false},
+        "raw_authority_is_minimum_required_claim_allowed": {"const": false},
+        "probe_training_authorized": {"const": false},
+        "automatic_next_gate_authorized": {"const": false}
+      }
+    }
+  }
+}

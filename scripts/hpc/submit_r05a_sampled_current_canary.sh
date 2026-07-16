@@ -67,6 +67,10 @@ for path in "${BOUND_REPOSITORY_PATHS[@]}"; do
     exit 2
   }
 done
+jq -e '.ready_to_run == true and .blocked_on == []' "$APPARATUS_CONFIG_LOCAL" >/dev/null || {
+  echo "sampled-current apparatus is implemented but not released for H100 submission" >&2
+  exit 2
+}
 test "$(shasum -a 256 "$MANIFEST_LOCAL" | awk '{print $1}')" = "$EXPECTED_MANIFEST_SHA256" || {
   echo "frozen manifest changed" >&2; exit 2
 }
@@ -78,11 +82,6 @@ test "$(shasum -a 256 main/run_crfs_r05a_canary.py | awk '{print $1}')" = 247bd2
 test "$(shasum -a 256 openpi/src/openpi/models_pytorch/crfs_inverse_control.py | awk '{print $1}')" = 965082822466774e0a86eeb6f2d178c9e5f3d6d02bca5090c4e1fcc77bc52aa8
 test "$(shasum -a 256 openpi/src/openpi/models_pytorch/pi0_pytorch.py | awk '{print $1}')" = 80366dcc7b2ddc598717d4c71c0e68e46312a1e5ffd3fc04479d5599433f4c55
 test "$(shasum -a 256 openpi/src/openpi/policies/policy.py | awk '{print $1}')" = d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9
-
-jq -e '.ready_to_run == true and .blocked_on == []' "$APPARATUS_CONFIG_LOCAL" >/dev/null || {
-  echo "sampled-current apparatus is implemented but not released for H100 submission" >&2
-  exit 2
-}
 : "${EXPECTED_RELEASE_COMMIT:?exact reviewed release commit is required}"
 case "$EXPECTED_RELEASE_COMMIT" in *[!0-9a-f]*|'') echo "invalid expected release commit" >&2; exit 2 ;; esac
 test "${#EXPECTED_RELEASE_COMMIT}" = 40 || { echo "invalid expected release commit length" >&2; exit 2; }

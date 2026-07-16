@@ -55,7 +55,8 @@ Reviewed AF-00A publication-recovery implementation:
 Terminal AF-00A CPU-republication release:
 `eb3be3a86c1336a9090413cf7d6c83f28a0f365c`.
 
-Active jobs: none. AF-00A GPU task `28281_0` completed `0:0`; original CPU
+Active jobs: none. TRL-00A has not yet been submitted. AF-00A GPU task
+`28281_0` completed `0:0`; original CPU
 publisher `28282` failed `1:0`; recovery publisher `28291` completed `0:0`
 and published the official `frozen_cem_negative` result. The earlier failed
 Jacobian diagnostic from tasks `28222_0`/`28223` remains preserved.
@@ -70,7 +71,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0058;
+- immutable decisions: ADR-0028 through ADR-0061;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -95,7 +96,47 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / terminal AF-00A transport result
+## Active gate: R05A / TRL-00A reference-trajectory lift
+
+The sealed AF-00A population diagnostic in ADR-0059 localizes the constant-
+field failure. Equal-split Arm A directly supplied essentially the full target
+direction (`alpha=1.0000000088`), but the changed Pi0.5 base field opposed it
+(`alpha=-0.4001357184`), leaving terminal completion `0.5998642904`, far below
+the necessary XYZ-RMS bound `0.9938440103`. All 520 CEM evaluations had
+negative target-direction field feedback. The same evidence also shows the
+fixed CEM was inefficient: only 3/520 samples beat Arm A and the first appeared
+in generation 7. This rejects `Delta/t` on the canary, not state/time-dependent
+flow steering or global reachability.
+
+ADR-0060 therefore preregisters TRL-00A, the direct optimizer-free test of the
+user's proposed conversion. From the exact paired zero trace it constructs six
+fully specified reference states `ref_5..ref_10 = xbar + alpha*Delta`. At every
+active Euler step the ordinary Pi0.5 model reevaluates its base field at the
+arm's current state, and the opt-in sampler computes the residual velocity
+needed to reach the next masked reference. Arm B projects each newly computed
+increment to the unchanged `B/5` cap; raw Arm R measures the authority required
+by the same construction. Every finite generated schedule is duplicated and
+then replayed twice through the ordinary `residual_schedule` path.
+
+The implementation is fail closed and finite-only: one scientific artifact
+requires the exact 18-request ledger. A raw nonfinite value or any partial
+terminal is apparatus-inconclusive and publishes no scientific result. The GPU
+writes only raw evidence; a zero-GPU CPU `afterany` publisher independently
+rehashes R02, AF-00A, checkpoint, normalization, source, transaction, telemetry,
+and schemas, then reconstructs reference arithmetic, projection, float32
+`c -> u -> dt*u`, recurrences, budgets, replays, objectives, gates, and outcome.
+
+Local verification on 2026-07-16 passes the complete `./init.sh` gate: 753
+tests with 259 declared dependency skips, plus 26 dependency-backed
+producer/validator/preregistration tests and 14 HPC/publication contract tests.
+The torch helper/structural subset passes 9/9 locally. Exact OpenPI policy and
+sampler runtime tests are registered as a zero-skip allocation preflight under
+the OpenPI interpreter; client/NumPy/HPC tests run separately under the LIBERO
+interpreter. Independent scientific review reports GO with no open P0/P1. No
+generated action has entered the simulator, and no probe or MLP has been
+trained.
+
+Historical AF-00A terminal context remains below for auditability.
 
 IFT-00 passed as synthetic implementation evidence. There is now one accepted
 real one-case teacher-search result, but it is `frozen_cem_negative` and no
@@ -421,20 +462,22 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Stop AF-00A. Do not resubmit job `28291`, rerun the GPU/model/CEM, or tune the
-solver, tolerance, budget, target, seed, objective, constraint, or outcome
-rule. The fixed one-case 520-query CEM is unsupported because its changed Arm
-B still failed all four action-target fidelity gates. This is not a transport
-infeasibility result: the evidence does not distinguish an unreachable target
-under the registered residual family from an inadequate optimizer.
+Seal the reviewed TRL-00A implementation in one clean commit. Then create one
+direct-child execution release that changes only
+`configs/experiments/r05a_reference_trajectory_lift_canary.json` and its new
+release ADR, binds one unused immutable run ID, and authorizes exactly one held
+worker-1 H100 task plus its CPU `afterany` publisher. Run
+`scripts/hpc/submit_r05a_reference_trajectory_lift_canary.sh` exactly once from
+that release. If Slurm leaves it pending, wait; do not reroute, resubmit, or
+change resources.
 
-The next research action is analysis and preregistration, not another launch.
-Use the sealed 520-query schedule/action population only to diagnose evidence
-bearing on weak controllability versus weak optimization; those samples cannot
-prove the distinction by themselves. Any materially different teacher must
-receive a new immutable one-case fidelity contract and release. Until a teacher
-passes, do not launch IFT-01, execute its generated action in the simulator,
-train the MLP or probe, or make safety/progress claims.
+Interpret only the independently published finite result. A same-budget pass
+is one-case action-fidelity support and permits only a separate simulator-
+efficacy decision. A raw-only pass diagnoses a canonical authority bottleneck;
+an XYZ-only pass diagnoses mask coupling; a finite miss rejects only this fixed
+linear reference lift. None authorizes IFT-01, simulator execution of generated
+actions, label collection, probe/MLP training, or safety/progress/generalization
+claims automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed

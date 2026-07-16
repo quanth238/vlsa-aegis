@@ -173,3 +173,15 @@ result SHA-256 `507f25bc...dae914` plus recovery receipt SHA-256
 `5462f875...cb632`; the original failed receipt remains immutable. The official
 one-case result is now negative for this fixed 520-query CEM. It is not an
 infeasibility, simulator-efficacy, generalization, probe, or MLP result.
+
+`af00a-sealed-population-diagnostic.json` binds a deterministic read-only
+reconstruction of all 520 sealed CEM queries to the exact run-C artifacts and
+the existing semantic validator. The exact trace decomposition shows that
+Arm A directly supplies the requested target component, while the changed
+base field cancels about 40 percent of it; all 520 observed field responses
+oppose the target direction. It also records that the fixed CEM did not beat
+Arm A until generation seven and only 3/520 queries beat it. The included
+linear response fit is explicitly exploratory and unevaluated. This evidence
+supports the optimizer-free TRL-00A state/time-dependent reference-lift test;
+it proves neither global infeasibility nor simulator efficacy and authorizes
+no training.

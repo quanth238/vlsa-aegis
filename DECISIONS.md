@@ -58,3 +58,6 @@
 - [0056 — Preserve AF-00A run C and recover publication on CPU](docs/decisions/0056-preserve-af00a-run-c-and-recover-publication.md)
 - [0057 — Release AF-00A run-C CPU republication](docs/decisions/0057-release-af00a-run-c-cpu-republication.md)
 - [0058 — Accept the AF-00A frozen-CEM negative result](docs/decisions/0058-accept-af00a-frozen-cem-negative.md)
+- [0059 — Interpret the sealed AF-00A population and test a reference lift](docs/decisions/0059-interpret-af00a-population-and-test-reference-lift.md)
+- [0060 — Preregister the optimizer-free reference-trajectory lift canary](docs/decisions/0060-preregister-reference-trajectory-lift-canary.md)
+- [0061 — Version terminal shared-source bindings by their release commit](docs/decisions/0061-version-terminal-shared-source-bindings.md)

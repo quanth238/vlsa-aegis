@@ -16,6 +16,7 @@ from openpi.models_pytorch.crfs_analytic import analytic_trajectory_field as _an
 from openpi.models_pytorch.crfs_analytic import scale_field_to_velocity as _scale_field_to_velocity
 from openpi.models_pytorch.crfs_analytic import validate_analytic_controls as _validate_analytic_controls
 import openpi.models_pytorch.crfs_inverse_control as _inverse_control
+import openpi.models_pytorch.crfs_reference_trajectory as _reference_trajectory
 from openpi.models_pytorch.gemma_pytorch import PaliGemmaWithExpertModel
 import openpi.models_pytorch.preprocessing_pytorch as _preprocessing
 
@@ -415,6 +416,10 @@ class PI0Pytorch(nn.Module):
         crfs_inverse_budget=None,
         crfs_residual_schedule=None,
         crfs_schedule_budget=None,
+        crfs_reference_states=None,
+        crfs_reference_delta=None,
+        crfs_reference_projection_mode=None,
+        crfs_reference_budget=None,
     ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
         """Sample an action, optionally applying a CRFS oracle intervention.
 
@@ -448,6 +453,7 @@ class PI0Pytorch(nn.Module):
             "analytic_trajectory_field",
             "inverse_flow_teacher",
             "residual_schedule",
+            "reference_trajectory_lift",
         }
         if crfs_intervention_mode not in supported_modes:
             raise ValueError(f"Unsupported CRFS intervention mode: {crfs_intervention_mode!r}")
@@ -455,7 +461,8 @@ class PI0Pytorch(nn.Module):
         is_analytic_field = crfs_intervention_mode == "analytic_trajectory_field"
         is_inverse_teacher = crfs_intervention_mode == "inverse_flow_teacher"
         is_residual_schedule = crfs_intervention_mode == "residual_schedule"
-        is_flow_schedule = is_inverse_teacher or is_residual_schedule
+        is_reference_lift = crfs_intervention_mode == "reference_trajectory_lift"
+        is_flow_schedule = is_inverse_teacher or is_residual_schedule or is_reference_lift
 
         noise_argument_supplied = noise is not None
         if noise is None:
@@ -489,6 +496,12 @@ class PI0Pytorch(nn.Module):
             crfs_inverse_budget,
         )
         schedule_values = (crfs_residual_schedule, crfs_schedule_budget)
+        reference_values = (
+            crfs_reference_states,
+            crfs_reference_delta,
+            crfs_reference_projection_mode,
+            crfs_reference_budget,
+        )
         validated_schedule = None
         validated_schedule_increments = None
         validated_schedule_per_step = None
@@ -608,6 +621,37 @@ class PI0Pytorch(nn.Module):
             )
         elif any(value is not None for value in schedule_values):
             raise ValueError("CRFS residual schedule and budget are valid only for residual_schedule")
+
+        if is_reference_lift:
+            if any(value is None for value in reference_values):
+                raise ValueError(
+                    "CRFS reference_trajectory_lift requires reference states, delta, "
+                    "projection mode, and budget"
+                )
+            if any(value is not None for value in (*inverse_values, *schedule_values)):
+                raise ValueError(
+                    "CRFS reference_trajectory_lift forbids inverse-flow and residual-schedule controls"
+                )
+            if not isinstance(crfs_reference_states, Tensor) or not isinstance(
+                crfs_reference_delta, Tensor
+            ):
+                raise ValueError("CRFS reference states and delta must be Tensors")
+            if not isinstance(crfs_reference_projection_mode, str):
+                raise ValueError("CRFS reference projection mode must be a string")
+            if not isinstance(crfs_reference_budget, Tensor):
+                raise ValueError("CRFS reference budget must be a Tensor")
+            _reference_trajectory.validate_reference_inputs(
+                noise,
+                crfs_reference_states,
+                crfs_reference_delta,
+                crfs_reference_budget,
+                crfs_reference_projection_mode,
+            )
+        elif any(value is not None for value in reference_values):
+            raise ValueError(
+                "CRFS reference states, delta, projection mode, and budget are valid only for "
+                "reference_trajectory_lift"
+            )
         resume_values = (crfs_resume_latent, crfs_resume_time, crfs_latent_edit)
         if is_latent_resume:
             if crfs_return_trace is not True or crfs_return_normalized_final is not True:
@@ -735,7 +779,7 @@ class PI0Pytorch(nn.Module):
 
         inverse_result = None
         applied_flow_schedule = validated_schedule
-        flow_schedule_applied = is_residual_schedule
+        flow_schedule_applied = is_residual_schedule or is_reference_lift
         parameter_grad_flags_restored = True
         parameter_grads_none_before = True
         parameter_grads_none_after = True
@@ -876,8 +920,20 @@ class PI0Pytorch(nn.Module):
         )
         analytic_step_records = [] if is_analytic_field else None
         flow_step_records = [] if is_flow_schedule else None
+        reference_step_records = [] if is_reference_lift else None
+        reference_alpha = (
+            _reference_trajectory.reference_alpha_like(noise) if is_reference_lift else None
+        )
+        reference_anchor_exact = False
         latent_resume_pending = is_latent_resume
         while time >= -dt / 2:
+            if is_reference_lift:
+                _reference_trajectory.require_finite_reference_leaf(
+                    x_t,
+                    projection_mode=crfs_reference_projection_mode,
+                    step=step_index,
+                    leaf="state",
+                )
             expanded_time = time.expand(bsize)
             if latent_resume_pending:
                 x_t_pre_edit = x_t
@@ -935,6 +991,13 @@ class PI0Pytorch(nn.Module):
                             expanded_time,
                         )
 
+            if is_reference_lift:
+                _reference_trajectory.require_finite_reference_leaf(
+                    v_base,
+                    projection_mode=crfs_reference_projection_mode,
+                    step=step_index,
+                    leaf="base_velocity",
+                )
             v_t = v_base
             if crfs_intervention_mode == "residual" and step_index >= crfs_intervention_step:
                 if crfs_residual_horizon <= 0:
@@ -942,9 +1005,74 @@ class PI0Pytorch(nn.Module):
                 v_t = v_t - crfs_correction / crfs_residual_horizon
             flow_control = None
             if is_flow_schedule:
-                if applied_flow_schedule is None:
-                    raise RuntimeError("CRFS flow schedule was not initialized")
-                flow_control = applied_flow_schedule[step_index]
+                if is_reference_lift:
+                    if reference_step_records is None or reference_alpha is None:
+                        raise RuntimeError("CRFS reference-trajectory trace was not initialized")
+                    zero_action = torch.zeros_like(x_t)
+                    zero_norm_f64 = torch.zeros(
+                        (bsize,), dtype=torch.float64, device=noise.device
+                    )
+                    inactive_uncontrolled_next = x_t + dt * v_base
+                    _reference_trajectory.require_finite_reference_leaf(
+                        inactive_uncontrolled_next,
+                        projection_mode=crfs_reference_projection_mode,
+                        step=step_index,
+                        leaf="uncontrolled_next",
+                    )
+                    reference_step_record = {
+                        "desired_next": zero_action,
+                        "uncontrolled_next": inactive_uncontrolled_next,
+                        "raw_increment": zero_action,
+                        "requested_increment": zero_action,
+                        "requested_velocity": zero_action,
+                        "executed_increment": zero_action,
+                        "raw_norm_f64": zero_norm_f64,
+                        "requested_norm_f64": zero_norm_f64,
+                        "executed_norm_f64": zero_norm_f64,
+                        "projection_scale_f64": torch.ones_like(zero_norm_f64),
+                        "projected": torch.zeros(
+                            (bsize,), dtype=torch.bool, device=noise.device
+                        ),
+                    }
+                    if step_index >= crfs_intervention_step:
+                        if step_index == crfs_intervention_step:
+                            reference_anchor_exact = _reference_trajectory.finite_bitwise_equal(
+                                x_t, crfs_reference_states[:, 0]
+                            )
+                            if not reference_anchor_exact:
+                                raise RuntimeError(
+                                    "CRFS reference trajectory does not match the live step-5 prefix state"
+                                )
+                        active_index = step_index - crfs_intervention_step
+                        reference_result = _reference_trajectory.reference_step(
+                            x_t,
+                            v_base,
+                            crfs_reference_states[:, active_index + 1],
+                            crfs_reference_budget,
+                            dt,
+                            crfs_reference_projection_mode,
+                            step_index=step_index,
+                        )
+                        flow_control = reference_result.requested_velocity
+                        reference_step_record = {
+                            "desired_next": reference_result.desired_next,
+                            "uncontrolled_next": reference_result.uncontrolled_next,
+                            "raw_increment": reference_result.raw_increment,
+                            "requested_increment": reference_result.requested_increment,
+                            "requested_velocity": reference_result.requested_velocity,
+                            "executed_increment": reference_result.executed_increment,
+                            "raw_norm_f64": reference_result.raw_norm_f64,
+                            "requested_norm_f64": reference_result.requested_norm_f64,
+                            "executed_norm_f64": reference_result.executed_norm_f64,
+                            "projection_scale_f64": reference_result.projection_scale_f64,
+                            "projected": reference_result.projected,
+                        }
+                    else:
+                        flow_control = zero_action
+                else:
+                    if applied_flow_schedule is None:
+                        raise RuntimeError("CRFS flow schedule was not initialized")
+                    flow_control = applied_flow_schedule[step_index]
                 # The zero branch preserves the exact ordinary velocity bytes;
                 # nonzero controls use the registered additive velocity field.
                 v_t = torch.where(flow_control == 0, v_t, v_t + flow_control)
@@ -1040,10 +1168,63 @@ class PI0Pytorch(nn.Module):
                     }
                 )
 
+            if is_reference_lift:
+                _reference_trajectory.require_finite_reference_leaf(
+                    v_t,
+                    projection_mode=crfs_reference_projection_mode,
+                    step=step_index,
+                    leaf="total_velocity",
+                )
+                prospective_next = x_t + dt * v_t
+                _reference_trajectory.require_finite_reference_leaf(
+                    prospective_next,
+                    projection_mode=crfs_reference_projection_mode,
+                    step=step_index,
+                    leaf="next_state",
+                )
+
             # Keep the ordinary/default Euler statement byte-for-byte.  The
             # opt-in flow modes retain the pre-state only for recurrence audit.
             x_before_step = x_t
             x_t = x_t + dt * v_t
+            if is_reference_lift:
+                if reference_step_records is None:
+                    raise RuntimeError("CRFS reference-trajectory trace was lost")
+                if not _reference_trajectory.finite_bitwise_equal(x_t, prospective_next):
+                    raise RuntimeError(
+                        "reference prospective next state differs from the ordinary Euler result"
+                    )
+                if step_index >= crfs_intervention_step:
+                    reference_step_record["tracking_error"] = torch.where(
+                        _reference_trajectory.first_five_xyz_mask_like(x_t),
+                        x_t - reference_step_record["desired_next"],
+                        torch.zeros_like(x_t),
+                    )
+                else:
+                    reference_step_record["tracking_error"] = torch.zeros_like(x_t)
+                authoritative_control_mask = (
+                    _reference_trajectory.first_five_xyz_mask_like(flow_control)
+                    if step_index >= crfs_intervention_step
+                    else torch.zeros_like(flow_control, dtype=torch.bool)
+                )
+                authoritative_flow_increment = torch.where(
+                    authoritative_control_mask,
+                    dt * flow_control,
+                    torch.zeros_like(flow_control),
+                )
+                if not _reference_trajectory.finite_bitwise_equal(
+                    authoritative_flow_increment,
+                    reference_step_record["executed_increment"],
+                ):
+                    raise RuntimeError(
+                        "reference authoritative executed increment differs from float32 dt*u"
+                    )
+                reference_step_records.append(
+                    {
+                        key: value.detach().clone()
+                        for key, value in reference_step_record.items()
+                    }
+                )
             if flow_step_records is not None:
                 if flow_control is None:
                     raise RuntimeError("CRFS flow trace lost its applied control")
@@ -1076,7 +1257,10 @@ class PI0Pytorch(nn.Module):
                 )
             flow_trace = dict(
                 control_source=torch.full(
-                    (bsize,), 0 if is_inverse_teacher else 1, dtype=torch.int64, device=device
+                    (bsize,),
+                    0 if is_inverse_teacher else (1 if is_residual_schedule else 2),
+                    dtype=torch.int64,
+                    device=device,
                 ),
                 control_valid=torch.full(
                     (bsize,),
@@ -1154,6 +1338,166 @@ class PI0Pytorch(nn.Module):
                     solver_fields_available=torch.zeros((bsize,), dtype=torch.bool, device=device),
                     solver_nonfinite=torch.zeros((bsize,), dtype=torch.bool, device=device),
                 )
+            elif is_reference_lift:
+                if reference_step_records is None or reference_alpha is None:
+                    raise RuntimeError("reference-trajectory audit records are unavailable")
+                if len(reference_step_records) != num_steps or not reference_anchor_exact:
+                    raise RuntimeError("reference-trajectory audit did not preserve its exact anchor")
+
+                reference_raw_norms = torch.stack(
+                    [record["raw_norm_f64"] for record in reference_step_records], dim=1
+                )
+                reference_requested_norms = torch.stack(
+                    [record["requested_norm_f64"] for record in reference_step_records], dim=1
+                )
+                reference_executed_norms = torch.stack(
+                    [record["executed_norm_f64"] for record in reference_step_records], dim=1
+                )
+                reference_raw_path = torch.zeros(
+                    (bsize,), dtype=torch.float64, device=device
+                )
+                reference_requested_path = torch.zeros_like(reference_raw_path)
+                reference_executed_path = torch.zeros_like(reference_raw_path)
+                for active_index in range(crfs_intervention_step, num_steps):
+                    reference_raw_path = (
+                        reference_raw_path + reference_raw_norms[:, active_index]
+                    )
+                    reference_requested_path = (
+                        reference_requested_path
+                        + reference_requested_norms[:, active_index]
+                    )
+                    reference_executed_path = (
+                        reference_executed_path
+                        + reference_executed_norms[:, active_index]
+                    )
+
+                reference_executed_steps = torch.stack(
+                    [record["executed_increment"] for record in reference_step_records], dim=1
+                )
+
+                product_ball_applied = (
+                    crfs_reference_projection_mode
+                    == _reference_trajectory.PRODUCT_BALL_PROJECTION
+                )
+                product_ball_valid = False
+                schedule_per_step = None
+                schedule_path = None
+                schedule_increments = None
+                if product_ball_applied:
+                    schedule_time_first = torch.stack(
+                        [record["control_velocity"] for record in flow_step_records], dim=0
+                    )
+                    (
+                        schedule_increments,
+                        schedule_per_step,
+                        schedule_path,
+                    ) = _inverse_control.validate_schedule_constraints(
+                        schedule_time_first,
+                        _inverse_control.first_five_xyz_mask_like(noise),
+                        crfs_reference_budget,
+                    )
+                    authoritative_schedule_mask = (
+                        _reference_trajectory.first_five_xyz_mask_like(
+                            reference_executed_steps
+                        )
+                    )
+                    authoritative_schedule_mask[:, :crfs_intervention_step] = False
+                    canonical_schedule_increments = torch.where(
+                        authoritative_schedule_mask,
+                        schedule_increments.permute(1, 0, 2, 3).contiguous(),
+                        torch.zeros_like(reference_executed_steps),
+                    )
+                    if not _reference_trajectory.finite_bitwise_equal(
+                        canonical_schedule_increments, reference_executed_steps
+                    ):
+                        raise RuntimeError(
+                            "reference budget validator did not use authoritative float32 dt*u"
+                        )
+                    product_ball_valid = True
+
+                projection_code = (
+                    0
+                    if crfs_reference_projection_mode
+                    == _reference_trajectory.RAW_PROJECTION
+                    else 1
+                )
+                reference_trace = dict(
+                    reference_active_states=crfs_reference_states.detach().clone(),
+                    reference_delta=crfs_reference_delta.detach().clone(),
+                    reference_alpha=reference_alpha.unsqueeze(0).expand(bsize, -1).detach().clone(),
+                    reference_anchor_exact=torch.full(
+                        (bsize,), reference_anchor_exact, dtype=torch.bool, device=device
+                    ),
+                    reference_projection_mode=torch.full(
+                        (bsize,), projection_code, dtype=torch.int64, device=device
+                    ),
+                    reference_source_budget=crfs_reference_budget.expand(bsize).detach().clone(),
+                    reference_per_step_cap=(
+                        crfs_reference_budget
+                        / torch.tensor(5.0, dtype=torch.float32, device=device)
+                    )
+                    .expand(bsize)
+                    .detach()
+                    .clone(),
+                    reference_desired_next_steps=torch.stack(
+                        [record["desired_next"] for record in reference_step_records], dim=1
+                    ),
+                    reference_uncontrolled_next_steps=torch.stack(
+                        [record["uncontrolled_next"] for record in reference_step_records],
+                        dim=1,
+                    ),
+                    reference_raw_increment_steps=torch.stack(
+                        [record["raw_increment"] for record in reference_step_records], dim=1
+                    ),
+                    reference_requested_increment_steps=torch.stack(
+                        [record["requested_increment"] for record in reference_step_records],
+                        dim=1,
+                    ),
+                    reference_requested_velocity_steps=torch.stack(
+                        [record["requested_velocity"] for record in reference_step_records],
+                        dim=1,
+                    ),
+                    reference_executed_increment_steps=reference_executed_steps,
+                    reference_raw_norm_f64_steps=reference_raw_norms,
+                    reference_requested_norm_f64_steps=reference_requested_norms,
+                    reference_executed_norm_f64_steps=reference_executed_norms,
+                    reference_projection_scale_f64_steps=torch.stack(
+                        [record["projection_scale_f64"] for record in reference_step_records],
+                        dim=1,
+                    ),
+                    reference_projected_steps=torch.stack(
+                        [record["projected"] for record in reference_step_records], dim=1
+                    ),
+                    reference_tracking_error_steps=torch.stack(
+                        [record["tracking_error"] for record in reference_step_records], dim=1
+                    ),
+                    reference_raw_path_length_f64=reference_raw_path,
+                    reference_requested_path_length_f64=reference_requested_path,
+                    reference_executed_path_length_f64=reference_executed_path,
+                    reference_product_ball_constraint_applied=torch.full(
+                        (bsize,), product_ball_applied, dtype=torch.bool, device=device
+                    ),
+                    reference_product_ball_valid=torch.full(
+                        (bsize,), product_ball_valid, dtype=torch.bool, device=device
+                    ),
+                    solver_status=torch.full((bsize,), -2, dtype=torch.int64, device=device),
+                    solver_iterations=torch.zeros((bsize,), dtype=torch.int64, device=device),
+                    solver_fields_available=torch.zeros((bsize,), dtype=torch.bool, device=device),
+                    solver_nonfinite=torch.zeros((bsize,), dtype=torch.bool, device=device),
+                )
+                if product_ball_applied:
+                    reference_trace.update(
+                        schedule_budget=crfs_reference_budget.expand(bsize).detach().clone(),
+                        schedule_path_length=schedule_path.expand(bsize).detach().clone(),
+                        schedule_per_step_increment_l2=schedule_per_step.unsqueeze(0)
+                        .detach()
+                        .clone(),
+                        schedule_energy=torch.sum(torch.square(schedule_increments))
+                        .expand(bsize)
+                        .detach()
+                        .clone(),
+                    )
+                flow_trace.update(reference_trace)
             else:
                 if inverse_result is None:
                     raise RuntimeError("inverse-flow teacher result is unavailable")

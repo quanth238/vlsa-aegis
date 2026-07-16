@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.crfs/schemas/r05a-reference-trajectory-lift-canary-publication-receipt.schema.json",
+  "title": "TRL-00A CPU publication receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_role",
+    "status",
+    "outcome",
+    "run_id",
+    "case_id",
+    "git_commit",
+    "source_node",
+    "source_job_id",
+    "source_task_id",
+    "source_job_state",
+    "source_exit_code",
+    "publisher_job_id",
+    "dependency",
+    "result_path",
+    "result_sha256",
+    "published",
+    "passed",
+    "errors",
+    "scientific_claim_allowed",
+    "simulator_efficacy_claim_allowed",
+    "collision_or_progress_claim_allowed",
+    "infeasibility_claim_allowed",
+    "raw_authority_is_minimum_required_claim_allowed",
+    "probe_training_authorized",
+    "automatic_next_gate_authorized"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_role": {"const": "r05a_reference_trajectory_lift_canary_cpu_publication"},
+    "status": {"enum": ["published", "apparatus_inconclusive"]},
+    "outcome": {
+      "enum": [
+        "same_budget_lift_pass",
+        "canonical_budget_bottleneck",
+        "canonical_mask_coupling",
+        "canonical_lift_negative",
+        "apparatus_inconclusive"
+      ]
+    },
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "git_commit": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        {"type": "null"}
+      ]
+    },
+    "source_node": {"const": "worker-1"},
+    "source_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+    "source_task_id": {"type": "string", "pattern": "^[0-9]+_0$"},
+    "source_job_state": {"type": ["string", "null"]},
+    "source_exit_code": {"type": ["string", "null"]},
+    "publisher_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+    "dependency": {"type": "string", "pattern": "^afterany:[0-9]+$"},
+    "failure_stage": {"type": "string"},
+    "result_path": {"type": "string"},
+    "result_sha256": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
+    "published": {"type": "boolean"},
+    "passed": {"type": "boolean"},
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload_path",
+        "payload_sha256",
+        "tensor_path",
+        "tensor_sha256",
+        "request_ledger_path",
+        "request_ledger_sha256",
+        "request_count",
+        "source_contract_path",
+        "source_contract_sha256",
+        "held_gpu_submission_path",
+        "held_gpu_submission_sha256",
+        "submission_path",
+        "submission_sha256",
+        "release_fingerprint_path",
+        "release_fingerprint_sha256"
+      ],
+      "properties": {
+        "payload_path": {"type": "string"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "tensor_path": {"type": "string"},
+        "tensor_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "request_ledger_path": {"type": "string"},
+        "request_ledger_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "request_count": {"const": 18},
+        "source_contract_path": {"type": "string"},
+        "source_contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "held_gpu_submission_path": {"type": "string"},
+        "held_gpu_submission_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "submission_path": {"type": "string"},
+        "submission_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "release_fingerprint_path": {"type": "string"},
+        "release_fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "measured_telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocation_tests", "host", "gpu"],
+      "properties": {
+        "allocation_tests": {"type": "object"},
+        "host": {"type": "object"},
+        "gpu": {"type": "object"}
+      }
+    },
+    "scientific_claim_allowed": {"const": false},
+    "simulator_efficacy_claim_allowed": {"const": false},
+    "collision_or_progress_claim_allowed": {"const": false},
+    "infeasibility_claim_allowed": {"const": false},
+    "raw_authority_is_minimum_required_claim_allowed": {"const": false},
+    "probe_training_authorized": {"const": false},
+    "automatic_next_gate_authorized": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"published": {"const": true}}, "required": ["published"]},
+      "then": {
+        "properties": {
+          "status": {"const": "published"},
+          "result_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "passed": {"const": true},
+          "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "source_job_state": {"const": "COMPLETED"},
+          "source_exit_code": {"const": "0:0"},
+          "errors": {"maxItems": 0}
+        },
+        "required": ["evidence", "measured_telemetry"],
+        "not": {"required": ["failure_stage"]}
+      },
+      "else": {
+        "properties": {
+          "status": {"const": "apparatus_inconclusive"},
+          "outcome": {"const": "apparatus_inconclusive"},
+          "result_sha256": {"type": "null"},
+          "passed": {"const": false},
+          "errors": {"minItems": 1}
+        },
+        "required": ["failure_stage"],
+        "not": {
+          "anyOf": [
+            {"required": ["evidence"]},
+            {"required": ["measured_telemetry"]}
+          ]
+        }
+      }
+    }
+  ]
+}

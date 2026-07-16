@@ -128,6 +128,13 @@ class Policy(BasePolicy):
             resume_control_names = ("resume_latent", "resume_time", "latent_edit")
             inverse_control_names = ("target", "target_space", "solver_config", "model_to_physical_scale")
             schedule_control_names = ("schedule", "schedule_space", "model_l2_path_budget")
+            reference_control_names = (
+                "reference_states",
+                "reference_space",
+                "delta",
+                "delta_space",
+                "projection_mode",
+            )
             if intervention_mode == "inverse_flow_teacher":
                 inverse_kwargs, noise = self._inverse_flow_teacher_sample_kwargs(
                     crfs_controls,
@@ -142,6 +149,13 @@ class Policy(BasePolicy):
                     noise_argument_supplied=noise_argument_supplied,
                 )
                 sample_kwargs.update(schedule_kwargs)
+            elif intervention_mode == "reference_trajectory_lift":
+                reference_kwargs, noise = self._reference_trajectory_lift_sample_kwargs(
+                    crfs_controls,
+                    noise,
+                    noise_argument_supplied=noise_argument_supplied,
+                )
+                sample_kwargs.update(reference_kwargs)
             elif intervention_mode == "analytic_trajectory_field":
                 analytic_kwargs, noise = self._analytic_field_sample_kwargs(
                     crfs_controls,
@@ -198,10 +212,17 @@ class Policy(BasePolicy):
                     sample_kwargs[sample_name] = value
             elif any(name in crfs_controls for name in (*resume_control_names, "latent_edit_space")):
                 raise ValueError("CRFS resume controls are valid only for latent_resume_edit")
-            elif any(name in crfs_controls for name in (*inverse_control_names, *schedule_control_names)):
+            elif any(
+                name in crfs_controls
+                for name in (
+                    *inverse_control_names,
+                    *schedule_control_names,
+                    *reference_control_names,
+                )
+            ):
                 raise ValueError(
-                    "CRFS inverse target and schedule controls require "
-                    "intervention_mode='inverse_flow_teacher' or 'residual_schedule'"
+                    "CRFS inverse, schedule, and reference controls require their exact "
+                    "registered intervention mode"
                 )
 
             if correction is not None:
@@ -255,6 +276,7 @@ class Policy(BasePolicy):
         is_inverse_flow_mode = sample_kwargs.get("crfs_intervention_mode") in {
             "inverse_flow_teacher",
             "residual_schedule",
+            "reference_trajectory_lift",
         }
         if is_inverse_flow_mode and trace is None:
             raise RuntimeError("CRFS inverse-flow sampler did not return its required audit trace")
@@ -298,8 +320,12 @@ class Policy(BasePolicy):
             # this opt-in trace leaf to prove that the audited Euler trajectory
             # is the trajectory that the simulator actually executes.
             if (
-                sample_kwargs.get("crfs_intervention_mode")
-                in {"analytic_trajectory_field", "inverse_flow_teacher", "residual_schedule"}
+                (
+                    sample_kwargs.get("crfs_intervention_mode")
+                    in {"analytic_trajectory_field", "inverse_flow_teacher", "residual_schedule"}
+                    or sample_kwargs.get("crfs_intervention_mode")
+                    == "reference_trajectory_lift"
+                )
                 and "final_normalized" in trace
             ):
                 final_physical = self._output_transform(
@@ -611,6 +637,128 @@ class Policy(BasePolicy):
             {
                 "crfs_residual_schedule": schedule_tensor,
                 "crfs_schedule_budget": budget_tensor,
+            },
+            paired_noise,
+        )
+
+    def _reference_trajectory_lift_sample_kwargs(
+        self,
+        controls: Mapping[str, Any],
+        noise: np.ndarray | None,
+        *,
+        noise_argument_supplied: bool,
+    ) -> tuple[dict[str, Any], np.ndarray]:
+        """Validate and tensorize the optimizer-free online reference lift."""
+
+        mode = "reference_trajectory_lift"
+        required = {
+            "intervention_mode",
+            "intervention_step",
+            "return_trace",
+            "return_normalized_final",
+            "reference_states",
+            "reference_space",
+            "delta",
+            "delta_space",
+            "projection_mode",
+            "model_l2_path_budget",
+        }
+        optional = {"noise"}
+        unknown = set(controls) - required - optional
+        missing = required - set(controls)
+        if unknown:
+            raise ValueError(f"CRFS {mode} has unsupported controls: {sorted(unknown)}")
+        if missing:
+            raise ValueError(f"CRFS {mode} is missing required controls: {sorted(missing)}")
+        if controls.get("intervention_mode") != mode:
+            raise ValueError(f"CRFS reference controls require intervention_mode={mode!r}")
+        step = controls.get("intervention_step")
+        if isinstance(step, (bool, np.bool_)) or not isinstance(step, (int, np.integer)) or int(step) != 5:
+            raise ValueError("CRFS reference_trajectory_lift requires intervention_step=5")
+        if controls.get("return_trace") is not True:
+            raise ValueError("CRFS reference_trajectory_lift requires return_trace=true")
+        if controls.get("return_normalized_final") is not True:
+            raise ValueError("CRFS reference_trajectory_lift requires return_normalized_final=true")
+        if controls.get("reference_space") != "model":
+            raise ValueError("CRFS reference_trajectory_lift requires reference_space='model'")
+        if controls.get("delta_space") != "model":
+            raise ValueError("CRFS reference_trajectory_lift requires delta_space='model'")
+        projection_mode = controls.get("projection_mode")
+        if projection_mode not in {"raw", "product_ball"}:
+            raise ValueError(
+                "CRFS reference_trajectory_lift projection_mode must be 'raw' or 'product_ball'"
+            )
+
+        action_shape = (int(self._model.config.action_horizon), int(self._model.config.action_dim))
+        reference_states = np.asarray(controls["reference_states"])
+        expected_reference_shape = (6, *action_shape)
+        if reference_states.dtype != np.dtype(np.float32):
+            raise ValueError(
+                "CRFS reference_trajectory_lift reference_states must preserve float32 dtype, "
+                f"got {reference_states.dtype}"
+            )
+        if reference_states.shape != expected_reference_shape:
+            raise ValueError(
+                "CRFS reference_trajectory_lift reference_states must have unbatched shape "
+                f"{expected_reference_shape}, got {reference_states.shape}"
+            )
+        if not bool(np.isfinite(reference_states).all()):
+            raise ValueError("CRFS reference_trajectory_lift reference_states contain a nonfinite value")
+
+        delta = np.asarray(controls["delta"])
+        if delta.dtype != np.dtype(np.float32):
+            raise ValueError(
+                f"CRFS reference_trajectory_lift delta must preserve float32 dtype, got {delta.dtype}"
+            )
+        if delta.shape != action_shape:
+            raise ValueError(
+                "CRFS reference_trajectory_lift delta must have unbatched shape "
+                f"{action_shape}, got {delta.shape}"
+            )
+        if not bool(np.isfinite(delta).all()):
+            raise ValueError("CRFS reference_trajectory_lift delta contains a nonfinite value")
+        mask = np.zeros(action_shape, dtype=np.bool_)
+        mask[:5, :3] = True
+        outside = delta[~mask]
+        if bool(np.count_nonzero(outside)) or bool(np.signbit(outside).any()):
+            raise ValueError(
+                "CRFS reference_trajectory_lift delta must be exact positive zero outside first-five XYZ"
+            )
+
+        raw_budget = np.asarray(controls["model_l2_path_budget"])
+        if raw_budget.dtype != np.dtype(np.float32):
+            raise ValueError(
+                "CRFS reference_trajectory_lift model_l2_path_budget must preserve float32 dtype, "
+                f"got {raw_budget.dtype}"
+            )
+        if raw_budget.shape != ():
+            raise ValueError("CRFS reference_trajectory_lift model_l2_path_budget must be scalar")
+        budget = float(raw_budget)
+        if not np.isfinite(budget) or budget <= 0.0:
+            raise ValueError(
+                "CRFS reference_trajectory_lift model_l2_path_budget must be finite and positive"
+            )
+
+        paired_noise = self._strict_crfs_noise(
+            controls,
+            noise,
+            noise_argument_supplied=noise_argument_supplied,
+            mode=mode,
+        )
+
+        def batched_tensor(value: np.ndarray) -> torch.Tensor:
+            return torch.from_numpy(np.array(value, copy=True))[None, ...].to(
+                self._pytorch_device
+            )
+
+        return (
+            {
+                "crfs_reference_states": batched_tensor(reference_states),
+                "crfs_reference_delta": batched_tensor(delta),
+                "crfs_reference_projection_mode": str(projection_mode),
+                "crfs_reference_budget": torch.tensor(
+                    budget, dtype=torch.float32, device=self._pytorch_device
+                ),
             },
             paired_noise,
         )

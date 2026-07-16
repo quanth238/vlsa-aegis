@@ -407,6 +407,53 @@ search and requires a new diagnosis and preregistration before any different
 teacher. No generated action entered the simulator, and no IFT-01, probe, or
 MLP is authorized.
 
+### TRL-00A — Optimizer-free reference-trajectory lift canary
+
+Status: **preregistered and implementation-validated; exact H100 canary not yet
+submitted**
+
+TRL-00A directly tests the refined action-delta-to-vector-field hypothesis on
+the same frozen row-zero case, observation, instruction, Pi0.5 noise,
+checkpoint, target, active steps, first-five-XYZ mask, objective, four fidelity
+gates, and float32 authority `B=3.6398398876190186` used by AF-00A.
+
+From a fresh paired zero recurrence `xbar`, construct six full desired latent
+states at sampler steps 5 through 10 with fixed fractions
+`(0, 1/5, 2/5, 3/5, 4/5, 1)`. The fully constructed references are passed to
+the sampler; the sampler never adds `Delta` again. At each active step it
+reevaluates the ordinary Pi0.5 base velocity at that arm's current latent and
+computes
+
+```
+base_next = float32(x + float32(dt * v_base))
+raw_c = reference_next - base_next                 # first-five XYZ only
+u = float32(c / dt)                                # active mask only
+executed_c = float32(dt * u)                       # authoritative budget value
+```
+
+Arm A is the historical equal-split fixed schedule. Arm B recomputes `raw_c`
+online and projects each five-by-three increment block onto the unchanged
+radius `B/5`. Arm R performs the same online construction without projection
+to measure its required authority. Both generated arms are duplicated, frozen
+as velocity schedules, and replayed twice through the ordinary
+`residual_schedule` route. Raw may support a same-budget witness only if the
+unchanged exact-`B` validator accepts it; otherwise its upward replay envelope
+is diagnostic metadata only.
+
+A valid run has exactly 18 policy requests and finite fixed-shape raw tensors.
+Any nonfinite raw leaf, partial terminal, source mismatch, replay mismatch,
+test skip, telemetry failure, or publication failure is apparatus-inconclusive
+and produces no scientific result. The H100 task never publishes
+`results.json`; a separate CPU `afterany` publisher independently reconstructs
+the complete result.
+
+Possible finite outcomes are, in order: `same_budget_lift_pass`,
+`canonical_budget_bottleneck`, `canonical_mask_coupling`, and
+`canonical_lift_negative`. They distinguish a same-budget mechanism witness,
+authority shortage for this construction, uncontrolled-channel coupling, and
+a miss of this fixed reference shape. None is a simulator safety/progress test
+or a global feasibility certificate. No MLP/probe training is authorized.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

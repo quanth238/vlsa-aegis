@@ -1,0 +1,245 @@
+{
+  "schema_version": "1.0",
+  "config_status": "draft_preregistered_not_released",
+  "name": "r05a_reference_trajectory_lift_canary",
+  "experiment_identity": "TRL-00A",
+  "evidence_tier": "real_pi05_optimizer_free_reference_lift_canary_only",
+  "scientific_role": "one_case_action_delta_to_state_time_vector_field_mechanism_no_simulator_efficacy",
+  "ready_to_run": false,
+  "blocked_on": [
+    "reference_lift_implementation_not_complete",
+    "independent_scientific_code_hpc_review_not_complete",
+    "exact_execution_release_not_authorized"
+  ],
+  "new_experiment_not_retry": true,
+  "historical_run_id_reuse_forbidden": true,
+  "preregistration": {
+    "population_diagnostic_decision": "docs/decisions/0059-interpret-af00a-population-and-test-reference-lift.md",
+    "decision_artifact": "docs/decisions/0060-preregister-reference-trajectory-lift-canary.md",
+    "implementation_authorized": true,
+    "h100_submission_authorized": false,
+    "automatic_next_gate_authorized": false
+  },
+  "frozen_source_bindings": {
+    "manifest": {
+      "path": "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
+      "sha256": "bdb8ccbba01ebf500e0f1bd0fe4a4043054f922a273f9e90eb3860cfe753a633",
+      "row_index_zero_based": 0
+    },
+    "source_r02": {
+      "run_id": "r02-oracle-flow-population-20260714a",
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a/crfs-1069f29a8d76463a/r02-paired.json",
+      "sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+    },
+    "source_r02_config": {
+      "path": "configs/experiments/r02_oracle_flow.json",
+      "sha256": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+    },
+    "checkpoint_model": {
+      "path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/model.safetensors",
+      "sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
+    },
+    "checkpoint_config": {
+      "path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/config.json",
+      "sha256": "5c2728c53f4b33ee16380140f303713fdb5df78a8d26ee1489ace374fc54327a"
+    },
+    "normalization_asset": {
+      "path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/assets/physical-intelligence/libero/norm_stats.json",
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "baseline_revision": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    "af00a_source_run": {
+      "run_id": "r05a-actual-forward-cem-canary-20260716c",
+      "tensor_archive_path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-actual-forward-cem-canary-20260716c/crfs-1069f29a8d76463a/af00a-tensors.npz",
+      "tensor_archive_sha256": "ada53973653ba7c21dab33cdbc4b4498c7b2b1840f2fc284bd3d3c76baf1d383",
+      "results_json_path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-actual-forward-cem-canary-20260716c/results.json",
+      "results_json_sha256": "507f25bc381b7bfeaa30abe3a7df970681f3b175f39221034c6e768e72dae914",
+      "use_as_control_input": false,
+      "historical_arm_a_reproduction_only": true
+    }
+  },
+  "frozen_case": {
+    "case_index": 0,
+    "case_id": "crfs-1069f29a8d76463a",
+    "group_id": "safelibero_spatial:II:0:46",
+    "environment_seed": 924805038,
+    "policy_seed": 1179198633,
+    "source_host": "worker-1",
+    "task_suite": "safelibero_spatial",
+    "safety_level": "II",
+    "task_index": 0,
+    "episode_index": 46
+  },
+  "target_contract": {
+    "definition": "fresh_frozen_normalized_final_plus_immutable_r02_delta_star_model_first_five_xyz_only",
+    "outside_mask": "bitwise_equal_to_fresh_paired_frozen_final",
+    "normalization": "physical_displacement_uses_checkpoint_scale_only_never_subtracts_normalization_mean",
+    "source_reported_budget_float64": 3.6398398429065115,
+    "source_budget_float32": 3.6398398876190186,
+    "delta_definition": "elementwise_float32_cast_of_immutable_r02_delta",
+    "af00a_population_fit_may_construct_arm": false,
+    "new_planner_or_geometry_query": false
+  },
+  "flow_contract": {
+    "sampler_steps": 10,
+    "dt_float32": -0.1,
+    "intervention_step": 5,
+    "active_flow_steps": [5, 6, 7, 8, 9],
+    "control_mask": "first_five_xyz_only",
+    "reference_active_state_shape": [6, 10, 32],
+    "delta_shape": [10, 32],
+    "alpha_float32_definition": "alpha_5=float32(+0.0); alpha_j=float32(float32(j-5)/float32(5)) for j=6..10",
+    "scientific_variable": "integrated_increment_c_equals_dt_times_velocity_u",
+    "transport_order": "c32_then_u32=float32(c32/dt32)_then_authoritative_executed_c32=float32(dt32*u32)",
+    "base_proposal_order": "base_next32=float32(x32+float32(dt32*v_base32))",
+    "ordinary_euler_statement_unchanged": true,
+    "terminal_action_overwrite_allowed": false,
+    "action_clipping_allowed": false,
+    "autograd_allowed": false,
+    "inverse_flow_teacher_allowed": false,
+    "cem_or_empirical_population_fit_allowed": false
+  },
+  "reference_lift_contract": {
+    "mode": "reference_trajectory_lift",
+    "reference_construction": "copy_xbar_then_update_only_masked_coordinates_whose_float32_weighted_delta_is_nonzero",
+    "reference_states_input_semantics": "six_fully_constructed_desired_ref_5_through_ref_10_states_not_unshifted_xbar",
+    "sampler_adds_delta_to_supplied_reference": false,
+    "runner_and_cpu_validator_reconstruct_reference_from_fresh_zero_trace": true,
+    "outside_mask_and_unchanged_signed_zero_bytes_preserved": true,
+    "raw_increment": "positive_zero_outside_mask_and_float32(reference_next32-base_next32)_inside_mask",
+    "recomputed_from_each_arms_current_state": true,
+    "raw_mode": "requested_c32_equals_raw_c32",
+    "budgeted_mode": "project_each_current_raw_block_independently_before_c32_to_u32_transport",
+    "projection_norm_dtype": "float64",
+    "projection_reduction_order": "cast_each_of_15_c_order_coordinates_to_float64_then_sequential_sum64=float64(sum64+float64(x64*x64))_then_one_float64_sqrt",
+    "projection_radius_float64": 0.7279679775238037,
+    "projection_zero_rule": "preserve_raw_float64_block_including_signed_zero_if_norm_is_zero",
+    "projection_scale_rule": "min(1,float64_radius_div_float64_norm)",
+    "budget_validation": {
+      "budget_float32": 3.6398398876190186,
+      "radius_float32": 0.7279679775238037,
+      "norm_dtype": "float32_on_authoritative_executed_increments",
+      "path_sum_dtype": "float32",
+      "slack_float32_ulps": 8
+    },
+    "raw_finiteness_guard": "every_prospective_float32_leaf_must_be_finite_before_application",
+    "raw_nonfinite_result": "apparatus_inconclusive_no_scientific_results_json",
+    "raw_magnitude_threshold": null,
+    "iterative_rounding_correction_allowed": false,
+    "remaining_budget_redistribution_allowed": false
+  },
+  "arms": {
+    "Z_paired_zero": "exact_zero_schedule_reference_before_and_after",
+    "A_equal_split": "exact_af00a_equal_split_ordinary_residual_schedule_duplicate",
+    "B_budgeted_lift": "online_reference_lift_with_per_step_product_ball_projection_duplicate_then_two_ordinary_replays",
+    "R_raw_lift": "online_unprojected_reference_lift_duplicate_then_two_ordinary_replays"
+  },
+  "raw_replay_contract": {
+    "first_test_exact_source_budget": true,
+    "same_budget_witness_allowed_only_if_exact_source_budget_validator_accepts": true,
+    "diagnostic_envelope_formula": "upward_float32(max(float64(path32),5*float64(max_step_norm32),float64(B32)))",
+    "diagnostic_envelope_may_change_schedule": false,
+    "diagnostic_envelope_may_support_same_budget_claim": false,
+    "unchanged_eight_ulp_validator_required": true
+  },
+  "objective_and_gates": {
+    "target_coordinates": "first_five_seven_channels",
+    "xyz_weight_scale_m": 0.005,
+    "remaining_channel_weight_scale": 0.015,
+    "objective": "float64_mean_of_15_xyz_errors_over_0.005_and_20_other_errors_over_0.015_squared",
+    "fidelity_limits": {
+      "xyz_max_abs": 0.01,
+      "xyz_rms": 0.005,
+      "full_max_abs": 0.05,
+      "full_rms": 0.015
+    },
+    "xyz_pass": "first_two_gates",
+    "full_pass": "all_four_gates"
+  },
+  "request_ledger": {
+    "complete_finite_exact_policy_request_count": 18,
+    "global_policy_request_indices_zero_based": true,
+    "complete_ordered_phases": [
+      {"name": "compiled_frozen_pre", "start": 0, "stop_inclusive": 0},
+      {"name": "eager_source_trace_pre", "start": 1, "stop_inclusive": 1},
+      {"name": "eager_normalized_final_pre", "start": 2, "stop_inclusive": 2},
+      {"name": "zero_schedule_pre", "start": 3, "stop_inclusive": 3},
+      {"name": "arm_a_equal_split", "start": 4, "stop_inclusive": 5},
+      {"name": "budgeted_lift_generation", "start": 6, "stop_inclusive": 7},
+      {"name": "budgeted_lift_replay", "start": 8, "stop_inclusive": 9},
+      {"name": "raw_lift_generation", "start": 10, "stop_inclusive": 11},
+      {"name": "raw_lift_replay", "start": 12, "stop_inclusive": 13},
+      {"name": "zero_schedule_post", "start": 14, "stop_inclusive": 14},
+      {"name": "eager_normalized_final_post", "start": 15, "stop_inclusive": 15},
+      {"name": "eager_source_trace_post", "start": 16, "stop_inclusive": 16},
+      {"name": "compiled_frozen_post", "start": 17, "stop_inclusive": 17}
+    ],
+    "duplicate_generation_requires_exact_non_timing_scientific_output": true,
+    "ordinary_replay_requires_exact_shared_recurrence_final_and_actions": true,
+    "missing_extra_reordered_or_deduplicated_request_invalid": true
+  },
+  "outcome_contract": {
+    "precedence": [
+      "apparatus_inconclusive",
+      "same_budget_lift_pass",
+      "canonical_budget_bottleneck",
+      "canonical_mask_coupling",
+      "canonical_lift_negative"
+    ],
+    "apparatus_inconclusive": "any_source_pairing_arm_a_reference_dtype_equation_determinism_replay_constraint_test_telemetry_schema_or_publication_failure",
+    "same_budget_lift_pass": "changed_budgeted_or_exact_B32_valid_raw_ordinary_witness_passes_all_four_gates",
+    "canonical_budget_bottleneck": "budgeted_misses_raw_full_passes_and_exact_B32_validator_rejects_raw",
+    "canonical_mask_coupling": "no_prior_full_pass_outcome_and_at_least_one_valid_finite_budgeted_or_raw_arm_passes_xyz_but_fails_full",
+    "canonical_lift_negative": "valid_budgeted_and_valid_finite_raw_both_miss_xyz_and_no_prior_outcome_applies",
+    "infeasibility_claim_allowed": false,
+    "raw_authority_is_minimum_required_claim_allowed": false,
+    "automatic_next_experiment_allowed": false
+  },
+  "execution_boundary": {
+    "simulator_reset_and_dummy_settle_only": true,
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false,
+    "geometry_or_planner_queries": 0,
+    "parameter_gradients": false,
+    "training": false,
+    "collision_or_progress_claim_allowed": false,
+    "probe_or_mlp_training_authorized": false,
+    "automatic_next_gate_authorized": false
+  },
+  "artifact_contract": {
+    "raw_payload_name": "trl00a-raw-payload.json",
+    "tensor_archive_name": "trl00a-tensors.npz",
+    "request_ledger_name": "request-ledger.json",
+    "published_result_name": "results.json",
+    "publication_receipt_name": "cpu-afterany-validation.json",
+    "gpu_may_publish_results_json": false,
+    "cpu_afterany_is_sole_publisher": true,
+    "npz_allow_pickle": false,
+    "envelope_schema_path": "schemas/r05a-reference-trajectory-lift-canary-envelope.schema.json",
+    "envelope_schema_sha256": "44e7fae723fd3e20585f2d618c2a8839a2b7fd940fdcb9d541bc793335bc162e",
+    "publication_receipt_schema_path": "schemas/r05a-reference-trajectory-lift-canary-publication-receipt.schema.json",
+    "publication_receipt_schema_sha256": "90d9dfe9fd75dc67e8ba23a2bad5f0049c6d64ccdf6b0ab524729f6bb36a6673"
+  },
+  "provisional_resource_contract": {
+    "partition": "main",
+    "account": "normal",
+    "qos": "normal",
+    "source_host": "worker-1",
+    "gpus": 1,
+    "cpus_per_task": 8,
+    "host_memory_mib": 65536,
+    "time_limit": "00:30:00",
+    "array": "0-0%1",
+    "requeue": false,
+    "validator_cpus": 2,
+    "validator_host_memory_mib": 8192,
+    "validator_time_limit": "00:15:00",
+    "validator_gpus": 0,
+    "validator_dependency": "afterany"
+  },
+  "execution_release": null,
+  "allow_test_tuning": false,
+  "training": false
+}

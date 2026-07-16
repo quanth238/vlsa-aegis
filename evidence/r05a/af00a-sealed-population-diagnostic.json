@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_af00a_sealed_population_retrospective_diagnostic",
+  "evidence_tier": "offline_reconstruction_bound_to_allocation_backed_immutable_artifacts",
+  "identity": {
+    "run_id": "r05a-actual-forward-cem-canary-20260716c",
+    "case_id": "crfs-1069f29a8d76463a",
+    "source_commit": "bd14f97eeffafd20525454db4d7a52614e1146c4",
+    "source_job_id": "28281_0",
+    "source_host": "worker-1"
+  },
+  "sealed_input_sha256": {
+    "af00a-raw-payload.json": "00433437470ca7678a236c4778d5cf68160c8d3299f128b64985b1aeb142d5d1",
+    "af00a-tensors.npz": "ada53973653ba7c21dab33cdbc4b4498c7b2b1840f2fc284bd3d3c76baf1d383",
+    "query-ledger.json": "619f15ad46390d6e55e74365dc2530e58b383592ec998842d4bbd898c7266b92",
+    "results.json": "507f25bc381b7bfeaa30abe3a7df970681f3b175f39221034c6e768e72dae914",
+    "cpu-republication-validation.json": "5462f875ffb41a84a06c4df715366776af3811f3229385d05be8f5b0dafcb632"
+  },
+  "reproducible_analysis": {
+    "module": "main/crfs_oracle/r05a_actual_forward_population_diagnostic.py",
+    "module_sha256": "a50161a98855f931169accdd99b9753ef4a79562ebeddf30a3b54cf3e881a868",
+    "cli": "main/diagnose_crfs_r05a_actual_forward_population.py",
+    "cli_sha256": "fc8802d044f6721d47bcb14a9f0b64b49d4c6875fc6513024c1e7d50e13fb367",
+    "focused_test": "tests/test_r05a_actual_forward_population_diagnostic.py",
+    "focused_test_sha256": "95a996967c828c94f27509e3be99f6dd314a46a6a3e6c9f52a1f71b4f8dc2efc",
+    "deterministic_full_report_sha256": "b1c6265441aa4c9ea0b364e1bf792a11cfdaf57744a07be532174c7414aedc19",
+    "focused_tests_passed": 4,
+    "af_pattern_tests_passed": 53,
+    "tests_skipped": 0
+  },
+  "integrity_validation": {
+    "all_registered_hashes_match": true,
+    "existing_af_semantic_validator_passed": true,
+    "request_count": 534,
+    "search_query_count": 520,
+    "selected_cem_query_index": 464,
+    "published_outcome": "frozen_cem_negative",
+    "independently_recomputed_outcome": "frozen_cem_negative"
+  },
+  "exact_transport_decomposition": {
+    "target_physical_xyz_l2": 3.1457032629272663,
+    "necessary_xyz_rms_pass_alpha_lower_bound": 0.9938440103492099,
+    "arm_a": {
+      "direct_target_alpha": 1.0000000087928391,
+      "field_feedback_target_alpha": -0.4001357184428276,
+      "terminal_target_alpha": 0.5998642903500115,
+      "field_feedback_direct_cosine_physical_xyz": -0.9035260657943069,
+      "path_over_budget": 0.999999992038387
+    },
+    "selected_b": {
+      "query_index": 464,
+      "direct_target_alpha": 0.8795699854255667,
+      "field_feedback_target_alpha": -0.28116321931770044,
+      "terminal_target_alpha": 0.5984067661078663
+    },
+    "population": {
+      "field_feedback_target_alpha_min": -0.4093303604754565,
+      "field_feedback_target_alpha_max": -0.24993643490803535,
+      "strictly_negative_field_feedback_count": 520,
+      "terminal_target_alpha_min": 0.2647293020583786,
+      "terminal_target_alpha_max": 0.6013971631126284,
+      "terminal_alpha_meets_necessary_xyz_rms_bound_count": 0,
+      "trace_reconstruction_max_l2_physical_xyz": 3.1851204486062736e-7
+    }
+  },
+  "exact_frozen_search_diagnostic": {
+    "arm_a_objective": 2218.1335502517986,
+    "selected_objective": 2121.5404274315442,
+    "first_generation_better_than_arm_a": 7,
+    "first_query_better_than_arm_a": 464,
+    "queries_better_than_arm_a": 3,
+    "search_queries": 520,
+    "final_median_sigma_over_initial": 0.16145142515519492,
+    "interpretation": "the fixed diagonal non-elitist CEM was inefficient and its miss is not a family infeasibility certificate"
+  },
+  "exploratory_surrogate": {
+    "evidence_class": "retrospective_exploratory_prediction_not_sampler_evidence",
+    "fit": "zero_anchored_ordinary_least_squares_without_intercept",
+    "generation_held_out_pooled_centered_r2": 0.9545156041596754,
+    "same_budget_constrained_prediction": {
+      "all_five_blocks_saturate": true,
+      "objective": 1291.5807101771848,
+      "xyz_max_abs": 0.6430489611327311,
+      "xyz_rms": 0.2744507925665257,
+      "actual_sampler_evaluation": false
+    }
+  },
+  "interpretation": {
+    "classification": "same_budget_control_authority_is_the_primary_observed_barrier_with_secondary_fixed_cem_inefficiency",
+    "constant_delta_over_time_conversion_supported": false,
+    "state_and_time_dependent_reference_lift_test_required": true,
+    "global_reachability_resolved": false,
+    "supported_next_test": "TRL-00A optimizer-free reference-trajectory lift on the same paired canary"
+  },
+  "claim_boundaries": {
+    "global_infeasibility_proven": false,
+    "surrogate_candidate_evaluated_by_sampler": false,
+    "simulator_safety_or_progress_evaluated": false,
+    "generalization_supported": false,
+    "novelty_supported": false,
+    "ift01_authorized": false,
+    "probe_or_residual_mlp_training_authorized": false,
+    "solver_budget_or_tolerance_tuning_authorized": false
+  }
+}

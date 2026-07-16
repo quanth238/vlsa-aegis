@@ -1037,6 +1037,7 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
         self.assertNotIn("JobIDRaw", value)
 
     def test_historical_r05a_shell_apparatus_is_byte_preserved(self) -> None:
+        historical_commit = "65bc57772c2648baa0e75a05d42161f01d9e3634"
         expected = {
             "scripts/hpc/run_r05a_sampled_current_canary.sh": "5dfe1c52d4af27ce1eb4945c845bc60e067a45ab3b6ac882a7281edafa23646b",
             "scripts/hpc/validate_r05a_sampled_current_canary.sh": "30071d73c7250f15190e505b20a8f159d1accd20243cfc0e1238a55b3701cc14",
@@ -1047,7 +1048,15 @@ class ConstrainedFlowHPCContractTest(unittest.TestCase):
             "openpi/scripts/serve_policy.py": "eccc0448b4873fd30a1fff3355c5de7a7c227138e6db04b7dcaa5bb38a6a5809",
         }
         for relative, digest in expected.items():
-            self.assertEqual(_sha(ROOT / relative), digest, relative)
+            completed = subprocess.run(
+                ["git", "show", f"{historical_commit}:{relative}"],
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(hashlib.sha256(completed.stdout).hexdigest(), digest, relative)
         self.assertEqual(
             _sha(
                 ROOT

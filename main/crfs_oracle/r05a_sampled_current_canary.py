@@ -59,6 +59,14 @@ FROZEN_BINDINGS: dict[str, str] = {
     "policy_boundary_sha256": "d16767ff2073d5c177cdfcc06dc05dcbf7cdb9ef2a2a0150023f7953b03508b9",
 }
 
+HISTORICAL_SHARED_SOURCE_COMMIT = "06b365b5899c2cb31db12187350cce48a3a0ea20"
+HISTORICAL_SHARED_SOURCE_PATHS = frozenset(
+    {
+        "openpi/src/openpi/models_pytorch/pi0_pytorch.py",
+        "openpi/src/openpi/policies/policy.py",
+    }
+)
+
 BOUND_REPOSITORY_PATHS = frozenset(
     {
         "configs/experiments/r05a_inverse_flow_canary.json",
@@ -209,6 +217,28 @@ def file_sha256(path: str | Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def historical_shared_file_sha256(repo_root: Path, relative: str) -> str:
+    """Hash one shared integration file from the terminal release Git tree."""
+
+    if relative not in HISTORICAL_SHARED_SOURCE_PATHS:
+        raise ValueError(f"path is not a versioned shared source: {relative}")
+    repository = repo_root.resolve(strict=True)
+    completed = subprocess.run(
+        ["git", "show", f"{HISTORICAL_SHARED_SOURCE_COMMIT}:{relative}"],
+        cwd=repository,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise ValueError(
+            "terminal shared-source Git blob is unavailable: "
+            f"{HISTORICAL_SHARED_SOURCE_COMMIT}:{relative}: {detail}"
+        )
+    return hashlib.sha256(completed.stdout).hexdigest()
 
 
 def _load_object(path: str | Path, *, label: str) -> dict[str, Any]:
@@ -613,7 +643,12 @@ def _validate_source_contract(
         candidate = (repository / relative).resolve(strict=True)
         if candidate != repository / relative:
             raise ValueError(f"source contract repository path escaped: {relative}")
-        if file_sha256(candidate) != recorded:
+        observed = (
+            historical_shared_file_sha256(repository, relative)
+            if relative in HISTORICAL_SHARED_SOURCE_PATHS
+            else file_sha256(candidate)
+        )
+        if observed != recorded:
             raise ValueError(f"source contract repository hash changed: {relative}")
     frozen_repo_hashes = {
         "configs/experiments/r05a_inverse_flow_canary.json": FROZEN_BINDINGS[
