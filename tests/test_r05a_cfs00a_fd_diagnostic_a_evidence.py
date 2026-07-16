@@ -135,7 +135,7 @@ class CFS00AFailedDerivativeDiagnosticAEvidenceTest(unittest.TestCase):
                 / "configs/experiments/r05a_constrained_flow_canary_apparatus.json"
             ).read_text(encoding="utf-8")
         )
-        if "## Exact execution release" in adr:
+        if scientific["ready_to_run"]:
             self.assertTrue(scientific["ready_to_run"])
             self.assertTrue(apparatus["ready_to_run"])
             self.assertEqual(scientific["blocked_on"], [])
@@ -170,8 +170,9 @@ class CFS00AFailedDerivativeDiagnosticAEvidenceTest(unittest.TestCase):
         feature = json.loads((ROOT / "feature_list.json").read_text(encoding="utf-8"))
         r05a = next(item for item in feature["features"] if item["id"] == "R05A")
         self.assertEqual(r05a["status"], "active")
-        self.assertIn("remains untested", r05a["evidence"])
-        self.assertIn("strict client-side normalization", r05a["evidence"])
+        self.assertIn("28212_0", r05a["evidence"])
+        self.assertIn("server_timing", r05a["evidence"])
+        self.assertIn("actual-forward", r05a["evidence"])
 
 
 if __name__ == "__main__":

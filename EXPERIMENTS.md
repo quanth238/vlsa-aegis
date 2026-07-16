@@ -57,9 +57,9 @@ Evidence: `evidence/r05a/ift00-synthetic.json` and ADR-0028.
 
 ### IFT-00A — One-case real mechanism canary
 
-Status: **active gate; this ledger records terminal history but grants no
-execution authority. The current apparatus is unreleased; any future H100
-canary requires a new separately reviewed release decision and identity.**
+Status: **historical terminal protocol; this ledger grants no execution
+authority. Any future actual-forward H100 canary requires a new preregistered
+method, separately reviewed release decision, and new identity.**
 
 Launch A used exact release commit `223667c91b05be9ab403e4d92d0cd1a96b45246f`,
 run `r05a-inverse-flow-sampled-current-canary-20260715a`, and held task
@@ -162,9 +162,10 @@ payload may not be retrofitted into an accepted result.
 
 ### CFS-00A — Same-budget constrained-flow diagnostic
 
-Status: **the failed-derivative diagnostic retry is terminal
-apparatus-inconclusive; the checked-in apparatus is fail closed. No real CFS
-mechanism outcome exists yet.**
+Status: **the corrected numeric diagnostic is terminal
+apparatus-inconclusive; the checked-in apparatus is fail closed. The
+autograd-linearized submethod is retired, while actual-forward flow transport
+remains untested.**
 
 ADR-0040 replaces the draft's broad planner-to-student proposal with one
 causal diagnostic of the observed Run-B miss. It preserves the exact case,
@@ -307,6 +308,41 @@ configuration, and terminal parser unchanged. A new diagnostic identity and
 execution release may be chosen only after that repair passes review; no
 tolerance tuning, IFT-01, probe, or MLP is authorized.
 
+That strict normalization passed its real integration test in corrected run
+`r05a-constrained-flow-fd-diagnostic-20260716b`. Exact release `1e2d36d`
+submitted GPU task `28222_0` on worker-1 and CPU `afterany` publisher `28223`;
+both completed `0:0` in `00:02:56` and `00:00:06`. Source contract
+`956b4f8b...b78`, submission `7f36201e...e16c`, raw payload
+`37edb7bc...6f41`, result `955d7b88...59aa`, and receipt
+`29e926ad...1200` all passed exact validation. All 99 allocation tests passed
+with zero skips. Sampled host/device high-waters were 16,072,122,368 bytes and
+8,513 MiB, with no OOM event. Zero generated action entered the simulator.
+
+The repaired client preserved the full float32 `35 x 75` Jacobian and all six
+fixed comparisons. At epsilons `0.0028436249` and `0.0014218125`, relative
+autograd-versus-central errors were
+`[[0.716, 0.626], [0.676, 0.868], [0.703, 0.993]]`; every check failed the
+unchanged `0.10` relative or `0.001` absolute rule. The two central derivatives
+also disagreed with one another by `0.819`, `0.937`, and `1.187` relative L2
+across the three directions. This remains true in XYZ-only diagnostics, so it
+is not only a gripper/rotation artifact.
+
+The frozen model ran in `bfloat16`, and its bound Gemma path explicitly casts
+the float32 action embedding into `bfloat16`. Autograd follows a formal
+derivative through that cast while the actual forward path contains rounding,
+which is a plausible explanation. The run did not repeat identical forward
+calls or execute a float32 control, so quantization is not isolated as the sole
+cause. The defensible conclusion is narrower: the current autograd Jacobian is
+not a trustworthy actual-forward local model at the registered scales.
+
+ADR-0049 therefore retires CFS-00A's autograd-Jacobian/FISTA warm-start route
+without declaring flow transport impossible. The next minimal direct test is
+one preregistered derivative-free actual-forward teacher canary under the same
+paired target, path budget, per-step cap, and equal-split residual baseline.
+Only if such a teacher produces a validated schedule should a separate MLP be
+trained to predict the time-dependent residual field. No H100 submission,
+IFT-01, probe, or MLP is currently authorized.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable
@@ -356,9 +392,12 @@ support coverage before any label collection or learning.
 ## Current stop conditions
 
 - Do not launch the retired R03A population or reuse any consumed R05A run ID.
-- Do not launch IFT-00A before an exact committed execution-release decision.
-- Do not change source worker, case, target, checkpoint, noise, solver,
-  iterations, optimizer, tolerance, control mask/times, or correction budget.
+- Do not relaunch the consumed IFT-00A or CFS-00A protocols. A new
+  actual-forward teacher requires a separate preregistration and release.
+- Do not modify the consumed protocols' source worker, case, target,
+  checkpoint, noise, solver, iterations, optimizer, tolerance, control
+  mask/times, or correction budget. A new derivative-free optimizer may be
+  defined only inside that separate actual-forward preregistration.
 - Do not launch IFT-01, an efficacy rollout, or a population from IFT-00A.
 - Do not train a scalar ECG probe or residual-field MLP.
 - Do not accept clipping, action overwrite, a final-step patch, increased

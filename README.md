@@ -21,18 +21,19 @@ velocity sequence. No probe or residual-field MLP has been trained.
 IFT-00 passes as synthetic implementation evidence. CFS-00A run B reached real
 pi0.5 and rejected its 35-by-75 Jacobian at the registered finite-difference
 gate before FISTA, but its generic exception discarded the numeric evidence.
-The ADR-0047 diagnostic retry then ran as worker-1 task `28212_0` with CPU
-publisher `28213`; both completed `0:0`, all 99 allocation tests passed, no OOM
-occurred, and zero generated actions entered the simulator. The adapter formed
-its typed one-key terminal reply, but the unchanged WebSocket server appended
-standard `server_timing`. The paired client rejected that two-key transported
-mapping before serializing any Jacobian values. ADR-0048 classifies the retry
-as `apparatus_inconclusive` and permits only strict client-side normalization
-of this exact standard timing metadata, followed by review and a separately
-released immutable retry. No FISTA, candidate, replay, Arm C, or four-gate
-result exists. The transport hypothesis remains untested, the solver has not
-been declared infeasible, and no simulator efficacy or training claim is
-authorized.
+The first diagnostic exposed a strict WebSocket timing-envelope defect;
+ADR-0048 repaired only that transport boundary. The corrected immutable run
+then completed as worker-1 task `28222_0` with CPU publisher `28223`. It
+preserved the complete Jacobian and all six fixed numerical comparisons. All
+six failed, with relative errors `0.626`–`0.993`, and the central derivatives
+changed by `0.819`–`1.187` relative L2 when the perturbation was halved. Thus
+the present autograd Jacobian is not a validated local model of the actual
+mixed-precision sampler at the registered scales. ADR-0049 retires that
+autograd-linearized CFS-00A submethod rather than weakening the check. It does
+not reject the broader actual-forward, time-dependent flow-steering idea. The
+next direct test must optimize against frozen sampler forward evaluations
+instead of this Jacobian. No FISTA, candidate, replay, Arm C, four-gate result,
+simulator efficacy result, probe, or residual-field MLP exists.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

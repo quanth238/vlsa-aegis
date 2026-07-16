@@ -127,3 +127,19 @@ result exists. ADR-0048 classifies the run as apparatus-inconclusive and
 permits only strict client-side timing normalization followed by review and a
 separately released immutable diagnostic retry. It provides no teacher-
 transport, efficacy, infeasibility, or training evidence.
+
+`cfs00a-fd-diagnostic-20260716b.json` records the corrected transport run at
+exact release `1e2d36d`, completed GPU task `28222_0`, and completed CPU
+publisher `28223`. The client normalization succeeded, so the immutable
+payload preserves the full float32 `35 x 75` autograd Jacobian and all six
+registered finite-difference comparisons. Every comparison failed: relative
+errors were `0.626`–`0.993` against the frozen `0.10` limit. More importantly,
+halving the fixed perturbation changed the three central-derivative vectors by
+`0.819`, `0.937`, and `1.187` relative L2, so the actual forward response did
+not supply a stable local derivative at those scales. The mixed-precision
+`bfloat16` cast is a plausible source mechanism, but this run does not isolate
+it from other numerical effects. All 99 allocation tests passed, host/GPU use
+was about 15.0 GiB/8.5 GiB with no OOM, and zero generated actions entered the
+simulator. ADR-0049 retires only the autograd-linearized CFS-00A submethod and
+keeps the broader actual-forward flow-transport hypothesis open. No FISTA,
+candidate, replay, Arm C, efficacy result, probe, or MLP exists.

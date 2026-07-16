@@ -40,8 +40,15 @@ Reviewed failed-derivative diagnostic implementation:
 Terminal failed-derivative diagnostic release:
 `3d44b2c5a4779725101d672ed29658a841c85541`.
 
-Active jobs: none. GPU task `28212_0` and CPU publisher `28213` both completed
-`0:0`; the published result is `apparatus_inconclusive`.
+Accepted terminal-transport normalization implementation:
+`ec5d7419d6406d56291bf59ebc585cadd5686ab4`.
+
+Terminal corrected numeric-diagnostic release:
+`1e2d36de9cb009a07e75d3535ab6f7070c5ea34c`.
+
+Active jobs: none. GPU task `28222_0` and CPU publisher `28223` both completed
+`0:0`; the published result is `apparatus_inconclusive` and its full failed
+Jacobian diagnostic is preserved.
 
 Historical detail is preserved, not deleted:
 
@@ -53,7 +60,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0048;
+- immutable decisions: ADR-0028 through ADR-0049;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -78,7 +85,7 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / CFS-00A same-budget constrained-flow canary
+## Active gate: R05A / actual-forward teacher method not yet preregistered
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
 real teacher-transport mechanism result. CFS-00A run B is a valid published
@@ -138,15 +145,24 @@ method result:
   reserved key and rejected it before extracting or serializing the numeric
   diagnostic. ADR-0048 classifies this as a client transport-normalization
   apparatus defect. No numeric Jacobian or finite-difference values were
-  preserved, so the scientific question is still untested.
+  preserved in that consumed run.
+- ADR-0048's strict client normalization then passed in exact corrected run
+  `r05a-constrained-flow-fd-diagnostic-20260716b`. The full float32 `35 x 75`
+  Jacobian and all six fixed comparisons were independently preserved and
+  reconstructed. Every comparison failed, with relative errors `0.626` to
+  `0.993`; the central derivatives themselves changed by `0.819`, `0.937`,
+  and `1.187` relative L2 when epsilon was halved. The current autograd
+  Jacobian is therefore not validated as an actual-forward local model at the
+  registered scales. This retires the autograd-linearized submethod, not the
+  broader time-dependent actual-forward transport hypothesis.
 
-The frozen scientific experiment remains exactly one case,
+The terminal frozen scientific experiment remained exactly one case,
 `crfs-1069f29a8d76463a`, on source host `worker-1`: one H100, eight CPUs,
 exactly 64 GiB host RAM, two hours, array `0-0%1`, no requeue, plus one
-zero-GPU CPU `afterany` validator. The latest diagnostic reached the terminal
-transport boundary but did not preserve its numeric values and did not enter
-FISTA or create a candidate. No teacher- or policy-generated action was
-executed in the simulator.
+zero-GPU CPU `afterany` validator. The corrected diagnostic preserved its
+numeric values but stopped at the failed finite-difference gate. It did not
+enter FISTA or create a candidate. No teacher- or policy-generated action was
+executed in the simulator, and both checked-in configs are now fail closed.
 
 ## What this experiment can conclude
 
@@ -154,7 +170,7 @@ executed in the simulator.
 |---|---|---|
 | `mechanism_pass` | Exact Arm-A reproduction plus Arm-B nonlinear replay or Arm-C replay passes all four physical fidelity gates | One-case transport-mechanism support only; stop and separately decide whether any efficacy gate is justified |
 | `frozen_method_negative` | Exact Arm-A reproduction plus valid deterministic finite B/C, but neither passes | Stop automatic expansion; this fixed method is unsupported on the canary, not infeasible |
-| `apparatus_inconclusive` | Pairing, Arm-A reproduction, numerical, determinism, constraint, replay, OOM, test, telemetry, schema, publication, or source-job failure | Repair only the demonstrated apparatus defect under a new decision; no scientific conclusion |
+| `apparatus_inconclusive` | Pairing, Arm-A reproduction, numerical, determinism, constraint, replay, OOM, test, telemetry, schema, publication, or source-job failure | Preserve any valid component-level diagnostic, but make no teacher-transport or efficacy conclusion; repair or retire only the demonstrated component under a new decision |
 
 Clearance and progress are not measured in IFT-00A because no generated action
 is executed. They begin only in a separately authorized IFT-01.
@@ -267,6 +283,30 @@ is executed. They begin only in a separately authorized IFT-01.
   four-gate evaluation, or generated simulator action ran. ADR-0048 and
   `evidence/r05a/cfs00a-fd-diagnostic-20260716a.json` consume the identity and
   authorize only strict client-side timing normalization after review.
+- Exact corrected release `1e2d36d` submitted immutable run
+  `r05a-constrained-flow-fd-diagnostic-20260716b`. GPU task `28222_0`
+  completed `0:0` on worker-1 in `00:02:56`; CPU `afterany` publisher `28223`
+  completed `0:0` on worker-0 in `00:00:06`. Source contract
+  `956b4f8b...b78` bound 66 clean repository paths, and submission
+  `7f36201e...e16c` passed.
+- The strict client normalization worked. CPU publication atomically preserved
+  raw payload `37edb7bc...6f41`, result `955d7b88...59aa`, and receipt
+  `29e926ad...1200`. The independent validator reconstructed the exact
+  float32 `35 x 75` Jacobian, budget, both epsilons, all directional products,
+  all error matrices, and all six failed checks.
+- Relative Jacobian errors were
+  `[[0.716, 0.626], [0.676, 0.868], [0.703, 0.993]]`. Halving the perturbation
+  changed the central derivative by `0.819`, `0.937`, and `1.187` relative L2
+  in the three fixed directions. The mixed-precision `bfloat16` cast is a
+  credible mechanism, but it was not isolated from all other forward
+  numerical effects. No tolerance was changed.
+- All 99 allocation tests passed with zero skips. Sampled host high-water was
+  16,072,122,368 bytes under the unchanged 64-GiB limit; sampled device
+  high-water was 8,513 MiB; and required OOM deltas were zero. No FISTA,
+  candidate, nonlinear replay, Arm C, simulator efficacy, or generated action
+  ran. ADR-0049 and
+  `evidence/r05a/cfs00a-fd-diagnostic-20260716b.json` consume the identity,
+  retire only the autograd-linearized CFS-00A route, and close both configs.
 - ADR-0037 release commit `223667c` selected launch-A run ID
   `r05a-inverse-flow-sampled-current-canary-20260715a` exactly once.
 - Task `27928_0` is terminal `CANCELLED by 1073`, elapsed `00:00:00`, start
@@ -315,28 +355,38 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Implement and review only ADR-0048's strict client transport normalization:
-accept the exact reserved terminal key with the unchanged WebSocket
-`server_timing`, validate that timing exhaustively, remove only that metadata,
-and pass a new one-key mapping to the unchanged terminal parser. Prove normal
-baseline replies remain unchanged and all extra or malformed metadata fails
-closed. Keep the apparatus unreleased until focused tests, the complete local
-gate, dependency-backed tests, and an independent review pass. Only then may a
-separate direct-child release select one new immutable diagnostic run ID. Do
-not tune any tolerance, change the method or resources, execute generated
-actions in the simulator, train a probe/MLP, or launch IFT-01 automatically.
+Preregister one direct actual-forward derivative-free transport canary. It
+must optimize a bounded time-dependent residual schedule using only the frozen
+sampler's returned target error, compare against the existing equal-split
+residual baseline on the same paired case, and preserve the same target,
+observation, noise, physical scale, path budget, per-step cap, and no-overwrite
+rule. Include one small identical-forward repeatability check, then proceed
+directly to candidate search and exact nonlinear replay if repeatability holds.
+Freeze the query budget, seeds, projection, candidate selection, and stopping
+rule before observing a new result. Keep the apparatus unreleased until that
+new method is reviewed; do not launch it under ADR-0049.
+
+The scientific purpose is no longer another Jacobian repair. It is the user's
+central hypothesis: can a privileged final-action correction be represented
+as a time-dependent correction to the frozen model's actual vector field? A
+successful offline teacher would justify a later, separately authorized MLP
+that predicts that residual field cheaply at inference. Until the teacher
+passes, do not train the MLP or probe and do not launch IFT-01.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed
 payload. Do not resubmit retry B, CG-00, or the consumed CPU apparatus run.
 Do not resume or reuse jobs `28212_0`/`28213` or their run ID.
+Do not resume or reuse jobs `28222_0`/`28223` or their run ID.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops
 
 - Do not launch `r03a-analytic-kill-population-20260715a`.
-- Do not change worker, case, target, checkpoint, noise, solver, iterations,
-  learning rate, tolerances, mask, active times, path budget, or per-step cap.
+- Do not modify or rerun the consumed IFT-00A/CFS-00A worker, case, target,
+  checkpoint, noise, solver, iterations, learning rate, tolerances, mask,
+  active times, path budget, or per-step cap. A derivative-free optimizer may
+  be defined only in a separate preregistered actual-forward experiment.
 - Do not append the final action delta, clip the returned action, overwrite an
   endpoint, or increase the correction budget.
 - Do not interpret clearance without progress as success.

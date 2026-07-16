@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_cfs00a_failed_derivative_numeric_diagnostic_terminal_interpretation",
+  "evidence_tier": "allocation_backed_real_pi05_numeric_diagnostic_apparatus_inconclusive",
+  "run_id": "r05a-constrained-flow-fd-diagnostic-20260716b",
+  "case_id": "crfs-1069f29a8d76463a",
+  "source_host": "worker-1",
+  "accepted_implementation_commit": "ec5d7419d6406d56291bf59ebc585cadd5686ab4",
+  "release_commit": "1e2d36de9cb009a07e75d3535ab6f7070c5ea34c",
+  "scientific_projection_sha256": "7dc2c8f63838ae4e22db8a927d87cae89daf0025c931b33e225c946abe8dc915",
+  "jobs": {
+    "gpu_array_task": {
+      "job_id": "28222_0",
+      "job_id_raw": "28222",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "node": "worker-1",
+      "started_utc": "2026-07-16T10:16:27Z",
+      "ended_utc": "2026-07-16T10:19:23Z",
+      "elapsed": "00:02:56",
+      "requested_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1"
+    },
+    "cpu_afterany_validator": {
+      "job_id": "28223",
+      "dependency": "afterany:28222",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "node": "worker-0",
+      "started_utc": "2026-07-16T10:19:23Z",
+      "ended_utc": "2026-07-16T10:19:29Z",
+      "elapsed": "00:00:06",
+      "requested_tres": "billing=2,cpu=2,mem=8G,node=1"
+    }
+  },
+  "immutable_artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-constrained-flow-fd-diagnostic-20260716b",
+    "launch_reservation_sha256": "a20a63f68ca490e2a3abff3cceab9cb2697a61fd38cfe724d16063b97f25934a",
+    "held_gpu_submission_sha256": "d386cb6fc28f41e3b7d4552fe580cdab993753079c7d7de452106e9826ed0323",
+    "provisional_gpu_job_id_sha256": "813e905507694cc0be253285654b808884c9a3e7820d1004c194f5d44d43d7bb",
+    "provisional_cpu_job_id_sha256": "26c513785f9c6c9327502d98eae5a471674342f3169b4ecc1a676aa4aed14486",
+    "source_contract_sha256": "956b4f8b109e4a7f2498ad0fe6871db1249078152bed03aecc43d98494658b78",
+    "submission_sha256": "7f36201e847672c7c67887ff6176cbc899c934b1b594c1420b9d5e985b55e16c",
+    "preflight_sha256": "cc306f3c2c0f7db6ccb4e2870a54b3311e3df293e65b7274e14eaa25f1cc9959",
+    "constrained_flow_payload_sha256": "37edb7bc6f0961563cbcbfbf938e156211efc9397f6e7431ec97bde3ee846f41",
+    "published_result_sha256": "955d7b88f1b9c55dff77dfeb2ee19a3e055670f59e1ddab5acb41d67b13659aa",
+    "cpu_publication_receipt_sha256": "29e926ad9edba1e94d448d2938ca7965b73117647e0b78900d77d04bb8011200",
+    "allocation_test_log_sha256": "95782ad76a1f808fea421108304a9d416eb5b8a5a36de6e53842140eca6d5bd7",
+    "host_telemetry_sha256": "d66714a1c342450752bc92f49b543dd18b7d3985ed7e56eef409c1e60a146519",
+    "gpu_samples_sha256": "d84780cc00221edf71ae76d11a337e02ae7fbb0ba29d6a712597c91196b54180",
+    "policy_server_log_sha256": "290f088993a4a0ff110f22c009954c67b6b0c7602515c3d37bc52f530a525b3a",
+    "client_log_sha256": "5b37c7ef3773c642efdb8fde58a6851a9c33648346190715fdba739dd44797af",
+    "gpu_slurm_log_sha256": "d0fbae88159471132e1419f37be1fb5a2f596ac209063db3df68f286d87512b4",
+    "cpu_slurm_log_sha256": "556e8b20d256aef89a0826829c5dff65a1731e50992667421c76b320752461e6",
+    "repository_binding_count": 66,
+    "source_tree_dirty": false,
+    "identity_consumed": true,
+    "resume_or_reuse_allowed": false
+  },
+  "numeric_payload": {
+    "reason_code": "AUTOGRAD_JACOBIAN_FD_REJECTED",
+    "payload_variant": "terminal_finite_difference_rejection",
+    "jacobian": {
+      "dtype": "float32",
+      "shape": [35, 75],
+      "sha256": "fc2cf7e1058929092cc6cd9e0515efcc37ecca7ca907c6c43d841ad517adc80c"
+    },
+    "budget": {
+      "dtype": "float32",
+      "shape": [],
+      "value": 3.6398398876190186,
+      "sha256": "1f0fae2892d38fb77a6af1005931218f9b9a59e8f6b2b138a493132b270ac9bd"
+    },
+    "epsilon_values": [0.0028436249122023582, 0.0014218124561011791],
+    "per_coordinate_perturbation_magnitudes": [0.000328353519, 0.000164176759],
+    "absolute_l2_tolerance": 0.001,
+    "relative_l2_tolerance": 0.1,
+    "absolute_l2_errors": [
+      [0.6005635857582092, 0.5369793772697449],
+      [0.4438326358795166, 0.5591689348220825],
+      [0.4194806218147278, 0.7213922142982483]
+    ],
+    "relative_l2_errors": [
+      [0.7161654829978943, 0.6256747841835022],
+      [0.6758098006248474, 0.8677499890327454],
+      [0.7029207944869995, 0.9932213425636292]
+    ],
+    "checks_passed": [
+      [false, false],
+      [false, false],
+      [false, false]
+    ],
+    "directions_passed": [false, false, false],
+    "global_passed": false,
+    "array_hashes": {
+      "directions": "63ae94b7083313d10260c09845f16b5f5e77e20d4e8e4f98cde7801516a2164f",
+      "epsilon_values": "7bc464d743210f64e814717619a288c739c066c3d08a3265f106b029279912ed",
+      "autograd_directional_derivatives": "2ae8b1309bcb9fc248505535be81f4811326cdca68f3f369a89e9ed1a8cb8650",
+      "central_directional_derivatives": "2598e14c76a4f4e70ebe064bf43de387cbfa2a0f3a2b7c353b68376fd4439f7d",
+      "absolute_l2_errors": "95b813f26a329776c8a794b52f089a2e0d64591c188b9206a8c4c75081344abf",
+      "relative_l2_errors": "66c344067507b35a341153a60046a16ae31f820834bf0bfe5aad9d6ff92a9ac7",
+      "checks_passed": "16dcb008c0dec42d22a9c6ff80c8ef0694fdad6260e15f4ae8680228f3538907",
+      "directions_passed": "ca91a36e41a52a765575894319117724b00b000e2e9aa176b7be240a12b116c8"
+    }
+  },
+  "descriptive_numeric_analysis": {
+    "role": "posthoc_reconstruction_for_interpretation_only_not_parameter_selection",
+    "direction_names": ["all_ones", "alternating", "mod31"],
+    "autograd_product_l2_norms": [0.651179596, 0.388031103, 0.384850945],
+    "central_derivative_l2_norms": [
+      [0.838582175, 0.858240426],
+      [0.656741871, 0.644389430],
+      [0.596767936, 0.726315662]
+    ],
+    "autograd_to_central_cosines": [
+      [0.701907903, 0.780384337],
+      [0.755172308, 0.506184674],
+      [0.714684018, 0.277683370]
+    ],
+    "cross_epsilon_central_absolute_l2": [0.702778329, 0.615396618, 0.861873155],
+    "cross_epsilon_central_relative_l2": [0.818859503, 0.937044896, 1.186637160],
+    "cross_epsilon_central_cosine": [0.657143657, 0.552737909, 0.162468229],
+    "xyz_only_cross_epsilon_relative_l2": [0.712, 0.976, 1.152],
+    "stored_vs_local_reconstruction_max_abs": {
+      "autograd_products": 1.61e-08,
+      "central_products": 1.48e-08
+    },
+    "observation": "The two fixed central-difference estimates are mutually unstable and neither validates the autograd product. The current Jacobian cannot be used as an actual-forward local model at these registered scales."
+  },
+  "mixed_precision_source_audit": {
+    "runtime_model_dtype": "bfloat16",
+    "gemma_source_path": "openpi/src/openpi/models_pytorch/transformers_replace/models/gemma/modeling_gemma.py",
+    "gemma_source_sha256": "17eeb54e277939e58cd6f8a92719a275e36baf0c9f463b2754227d42f87aedde",
+    "observed_cast": "hidden_states = hidden_states.to(torch.bfloat16) when the first q_proj weight is bfloat16",
+    "plausible_mechanism": "Autograd propagates a formal gradient through the dtype cast while actual forward evaluations contain bfloat16 rounding bins.",
+    "mechanism_isolated_by_this_run": false,
+    "remaining_confounds": [
+      "no repeated identical forward evaluations",
+      "no float32 diagnostic control",
+      "only two registered epsilon values",
+      "other mixed-precision or GPU numerical effects"
+    ]
+  },
+  "execution_boundary": {
+    "real_pi05_model_loaded": true,
+    "client_terminal_normalization_completed": true,
+    "numeric_jacobian_persisted": true,
+    "finite_difference_numeric_comparisons_persisted": true,
+    "cpu_independent_reconstruction_passed": true,
+    "arm_a_scientific_reproduction_validated": false,
+    "arm_b_fista_started": false,
+    "arm_b_candidate_exists": false,
+    "arm_b_nonlinear_replay_executed": false,
+    "arm_c_executed": false,
+    "four_fidelity_gates_evaluated": false,
+    "policy_generated_action_steps_executed": 0,
+    "teacher_generated_action_steps_executed": 0,
+    "efficacy_rollouts_executed": 0,
+    "simulator_efficacy_evaluated": false
+  },
+  "operational_validation": {
+    "allocation_tests_expected": 99,
+    "allocation_tests_observed": 99,
+    "allocation_test_suites": 8,
+    "allocation_test_skips": 0,
+    "host_sample_count": 1409,
+    "host_sampled_current_high_water_bytes": 16072122368,
+    "host_sampled_current_is_lower_bound_not_peak": true,
+    "host_memory_max_before_bytes": 68719476736,
+    "host_memory_max_after_bytes": 68719476736,
+    "memory_event_deltas": {"max": 0, "oom": 0, "oom_kill": 0},
+    "gpu_sample_count": 105,
+    "gpu_sampled_compute_high_water_mib": 8504,
+    "gpu_sampled_device_high_water_mib": 8513,
+    "gpu_sampled_values_are_periodic_not_continuous_peaks": true,
+    "cpu_publisher_validation_passed": true,
+    "cpu_publisher_is_sole_result_publisher": true,
+    "result_published_atomically": true,
+    "published_status": "apparatus_inconclusive"
+  },
+  "interpretation": {
+    "status": "apparatus_inconclusive",
+    "mechanism_pass": false,
+    "frozen_method_negative": false,
+    "teacher_transport_conclusion": "none_candidate_never_created",
+    "autograd_linearized_submethod_supported": false,
+    "broader_actual_forward_flow_transport_confirmed": false,
+    "broader_actual_forward_flow_transport_refuted": false,
+    "infeasibility_conclusion": "none",
+    "collision_or_progress_conclusion": "none",
+    "safety_conclusion": "none",
+    "generalization_or_learnability_conclusion": "none",
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "automatic_h100_resubmission_authorized": false,
+    "next_step": "Preregister one direct actual-forward derivative-free transport canary that compares a frozen zeroth-order schedule search with the equal-split residual under the same paired target and budget."
+  }
+}
