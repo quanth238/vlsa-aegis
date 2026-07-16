@@ -56,3 +56,5 @@
 - [0054 — Preserve AF-00A launch B and behavior-test Slurm record parsing](docs/decisions/0054-preserve-af00a-launch-b-and-test-record-parser.md)
 - [0055 — Release the behavior-tested actual-forward canary](docs/decisions/0055-release-behavior-tested-actual-forward-canary.md)
 - [0056 — Preserve AF-00A run C and recover publication on CPU](docs/decisions/0056-preserve-af00a-run-c-and-recover-publication.md)
+- [0057 — Release AF-00A run-C CPU republication](docs/decisions/0057-release-af00a-run-c-cpu-republication.md)
+- [0058 — Accept the AF-00A frozen-CEM negative result](docs/decisions/0058-accept-af00a-frozen-cem-negative.md)

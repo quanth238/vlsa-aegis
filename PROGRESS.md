@@ -46,9 +46,19 @@ Accepted terminal-transport normalization implementation:
 Terminal corrected numeric-diagnostic release:
 `1e2d36de9cb009a07e75d3535ab6f7070c5ea34c`.
 
-Active jobs: none. GPU task `28222_0` and CPU publisher `28223` both completed
-`0:0`; the published result is `apparatus_inconclusive` and its full failed
-Jacobian diagnostic is preserved.
+Terminal AF-00A source release:
+`bd14f97eeffafd20525454db4d7a52614e1146c4`.
+
+Reviewed AF-00A publication-recovery implementation:
+`167dc022cb718eb68121dcf0aa61f7fd1f90a4b7`.
+
+Terminal AF-00A CPU-republication release:
+`eb3be3a86c1336a9090413cf7d6c83f28a0f365c`.
+
+Active jobs: none. AF-00A GPU task `28281_0` completed `0:0`; original CPU
+publisher `28282` failed `1:0`; recovery publisher `28291` completed `0:0`
+and published the official `frozen_cem_negative` result. The earlier failed
+Jacobian diagnostic from tasks `28222_0`/`28223` remains preserved.
 
 Historical detail is preserved, not deleted:
 
@@ -60,7 +70,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0049;
+- immutable decisions: ADR-0028 through ADR-0058;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -85,12 +95,13 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / AF-00A run-C CPU publication recovery
+## Active gate: R05A / terminal AF-00A transport result
 
-IFT-00 passed as synthetic implementation evidence. There is still no accepted
-real teacher-transport mechanism result. CFS-00A run B is a valid published
-apparatus result, but it stopped before a candidate and therefore is not a
-method result:
+IFT-00 passed as synthetic implementation evidence. There is now one accepted
+real one-case teacher-search result, but it is `frozen_cem_negative` and no
+successful transport mechanism has been validated. CFS-00A run B is a valid
+published apparatus result, but it stopped before a candidate and therefore
+is not a method result:
 
 - attempt A stopped before pi0.5 and is apparatus-only;
 - retry B reached real pi0.5 and produced two deterministic finite 128-update
@@ -210,9 +221,13 @@ was `2218.1335502517986`; changed Arm B improved it only to
 `2968.7447114541746`. Arm-B XYZ max/RMS error was
 `0.7899218065691934` / `0.35177249996585547`, versus registered limits
 `0.010` / `0.005`. No generated action entered the simulator. ADR-0056
-preserves every original byte and permits only one separately receipted,
-CPU-only publication recovery. Until it succeeds, the official run remains
-unpublished/apparatus-inconclusive.
+preserved every original byte and ADR-0057 released one separately receipted,
+CPU-only publication recovery. Job `28291` completed `0:0` on worker-0 in
+`00:00:08` with two CPUs and 8 GiB requested/allocated, and no GPU. It
+published schema-valid `results.json` SHA-256 `507f25bc...dae914` and recovery receipt SHA-256
+`5462f875...cb632`; the failed original receipt remains unchanged at
+`f8e9ef10...36d27`. The official outcome is now `frozen_cem_negative`.
+ADR-0058 closes the fixed AF-00A search and both consumed release paths.
 
 ## What this experiment can conclude
 
@@ -406,28 +421,27 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Finish and independently review only ADR-0056's publication repair. Commit and
-synchronize the fail-closed implementation. A separate direct-child release
-may change only the recovery config and its release ADR, then submit exactly
-one held CPU job with two CPUs, 8 GiB RAM, no GPU, and dependency
-`afterany:28282`. It must preserve the failed original receipt, bind all run-C
-hashes and source/recovery commits separately, and be the sole creator of
-`results.json` and `cpu-republication-validation.json`. Do not rerun the GPU,
-model, CEM, simulator, or training, and do not change any budget, tolerance,
-objective, seed, target, constraint, or outcome rule.
+Stop AF-00A. Do not resubmit job `28291`, rerun the GPU/model/CEM, or tune the
+solver, tolerance, budget, target, seed, objective, constraint, or outcome
+rule. The fixed one-case 520-query CEM is unsupported because its changed Arm
+B still failed all four action-target fidelity gates. This is not a transport
+infeasibility result: the evidence does not distinguish an unreachable target
+under the registered residual family from an inadequate optimizer.
 
-The scientific purpose is no longer another Jacobian repair. It is the user's
-central hypothesis: can a privileged final-action correction be represented
-as a time-dependent correction to the frozen model's actual vector field? A
-successful offline teacher would justify a later, separately authorized MLP
-that predicts that residual field cheaply at inference. Until the teacher
-passes, do not train the MLP or probe and do not launch IFT-01.
+The next research action is analysis and preregistration, not another launch.
+Use the sealed 520-query schedule/action population only to diagnose evidence
+bearing on weak controllability versus weak optimization; those samples cannot
+prove the distinction by themselves. Any materially different teacher must
+receive a new immutable one-case fidelity contract and release. Until a teacher
+passes, do not launch IFT-01, execute its generated action in the simulator,
+train the MLP or probe, or make safety/progress claims.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed
 payload. Do not resubmit retry B, CG-00, or the consumed CPU apparatus run.
 Do not resume or reuse jobs `28212_0`/`28213` or their run ID.
 Do not resume or reuse jobs `28222_0`/`28223` or their run ID.
+Do not resume or reuse jobs `28281_0`, `28282`, or `28291`, or the run-C ID.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops

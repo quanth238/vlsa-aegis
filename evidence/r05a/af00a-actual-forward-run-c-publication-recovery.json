@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "artifact_role": "r05a_af00a_actual_forward_run_c_publication_recovery",
-  "evidence_tier": "allocation_backed_raw_method_evidence_pending_cpu_republication",
+  "evidence_tier": "allocation_backed_published_one_case_actual_forward_cem_result",
   "run_id": "r05a-actual-forward-cem-canary-20260716c",
   "case_id": "crfs-1069f29a8d76463a",
   "source_commit": "bd14f97eeffafd20525454db4d7a52614e1146c4",
@@ -26,6 +26,18 @@
       "requested_tres": "billing=2,cpu=2,mem=8G,node=1",
       "allocated_tres": "billing=2,cpu=2,mem=8G,node=1",
       "log_sha256": "3e4ee7f89d0a23a114ea7ebbc8b1b243f6ed0f4f04429e9a4549d293cc54cf83"
+    },
+    "recovery_cpu_publisher": {
+      "job_id": "28291",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "elapsed": "00:00:08",
+      "node": "worker-0",
+      "requested_tres": "billing=2,cpu=2,mem=8G,node=1",
+      "allocated_tres": "billing=2,cpu=2,mem=8G,node=1",
+      "gpus": 0,
+      "dependency": "afterany:28282",
+      "log_sha256": "47b768bda62f801a16ca3fc5a224c9ae18396411238dd67a1d3e1d9f15204131"
     }
   },
   "immutable_artifacts": {
@@ -41,7 +53,12 @@
     "gpu_telemetry_sha256": "2f75d0a1299104e6c2d93cf98a6c3bac13d4872ad8f3574a680cac633bbde3b1",
     "live_preflight_sha256": "57d64964aec997c97bfe8f2598e7f028f605c6b1b5b1b41ef22d1ce629e6f789",
     "original_failed_receipt_sha256": "f8e9ef108630cad9a9691dba0827a8be68d3b15e41ee3de2e4e6cfaf03736d27",
-    "results_json_exists": false
+    "recovery_source_contract_sha256": "249087a42023d73e65589158bc8be5407605b57773b81a2c1d6138c13a820eab",
+    "recovery_submission_sha256": "68a6cd3a08c4d502fb97f0a0db18afcd88fe23935e6c2bf5c2d4d807204e4c7c",
+    "recovery_release_fingerprint_sha256": "1fa71d24d37b1ee6d7d19e130f29c9d3de55f82967b8e648fd3981a932eaa921",
+    "results_json_sha256": "507f25bc381b7bfeaa30abe3a7df970681f3b175f39221034c6e768e72dae914",
+    "recovery_receipt_sha256": "5462f875ffb41a84a06c4df715366776af3811f3229385d05be8f5b0dafcb632",
+    "results_json_exists": true
   },
   "publisher_failure": {
     "message": "AF-00A raw payload source budget changed",
@@ -115,5 +132,30 @@
     "probe_or_mlp_training_authorized": false,
     "simulator_efficacy_claim_allowed": false,
     "infeasibility_claim_allowed": false
+  },
+  "publication_recovery": {
+    "release_commit": "eb3be3a86c1336a9090413cf7d6c83f28a0f365c",
+    "recovery_job_id": "28291",
+    "published": true,
+    "passed": true,
+    "outcome": "frozen_cem_negative",
+    "original_receipt_preserved": true,
+    "recovery_cpu_is_sole_results_json_publisher": true,
+    "schema_validation_passed": true,
+    "terminal_semantic_validation_passed": true
+  },
+  "interpretation_after_recovery": {
+    "official_status": "published_frozen_cem_negative",
+    "supported_conclusion": "fixed_one_case_520_query_actual_forward_cem_missed_action_target_fidelity_gates",
+    "fixed_cem_supported_on_canary": false,
+    "flow_transport_feasibility_status": "undetermined_reachability_vs_optimizer",
+    "gpu_rerun_authorized": false,
+    "automatic_resubmission_authorized": false,
+    "solver_or_tolerance_tuning_authorized": false,
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "simulator_efficacy_claim_allowed": false,
+    "infeasibility_claim_allowed": false,
+    "generalization_or_novelty_claim_allowed": false
   }
 }

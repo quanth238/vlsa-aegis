@@ -19,11 +19,11 @@ physical fidelity gates, hard timing/mask/path constraints, explicit
 nonconvergence/nonfinite statuses, graph-free results, reverse-order controls,
 and absence of parameter-gradient contamination.
 
-The next scientific evidence must come from a valid one-case allocation
-integration canary. ADR-0035 permits one intervening shell-only cgroup
-capability artifact, but that is apparatus evidence only. Until a canary is
-accepted, no accepted real inverse-flow transport result or simulator-efficacy
-result exists.
+AF-00A is now an accepted real one-case teacher-search result, but its outcome
+is `frozen_cem_negative`; no successful inverse-flow transport mechanism has
+been validated, and no simulator-efficacy result exists. ADR-0035's earlier
+shell-only cgroup
+capability artifact remains apparatus evidence only.
 
 `adr0031-apparatus-cpu-a.json` records terminal CPU-only apparatus job
 `27797_0`. All registered suites passed 17/8/10/12 with zero skips, then the
@@ -167,8 +167,9 @@ Run `r05a-actual-forward-cem-canary-20260716c` used release `bd14f97`. GPU
 task `28281_0` completed the exact 534-request AF-00A protocol, while CPU
 publisher `28282` failed before `results.json` on a one-ULP binary64
 reported-versus-recomputed budget comparison. The raw float32 budget is exact,
-and independent validation reconstructs `frozen_cem_negative`; however the
-official state remains unpublished until ADR-0056's separately receipted
-CPU-only recovery passes. Every original run-C artifact and the failed receipt
-remain immutable. No simulator efficacy, infeasibility, probe, or MLP claim is
-allowed.
+and independent validation reconstructed `frozen_cem_negative`. ADR-0057's
+separate CPU-only recovery job `28291` completed `0:0` and published exact
+result SHA-256 `507f25bc...dae914` plus recovery receipt SHA-256
+`5462f875...cb632`; the original failed receipt remains immutable. The official
+one-case result is now negative for this fixed 520-query CEM. It is not an
+infeasibility, simulator-efficacy, generalization, probe, or MLP result.

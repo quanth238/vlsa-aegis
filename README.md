@@ -40,13 +40,15 @@ array task with parent-form `JobId=28275`; ADR-0052 records the zero-runtime
 apparatus failure and narrow identity-display repair. Launch B also stopped
 held at zero runtime because the inline extractor missed a first-token
 `JobId=`; ADR-0054 replaced it with a behavior-tested shared parser. Run C GPU
-task `28281_0` then completed all 534 requests. Its CPU publisher failed on a
-one-ULP binary64 reported-versus-recomputed norm comparison even though both
-values cast to the exact registered float32 budget used by the experiment.
-Independent validation reconstructs `frozen_cem_negative`: the changed CEM
-schedule improved the objective slightly but remained far outside all target
-fidelity gates. ADR-0056 permits only a CPU publication recovery; no GPU rerun,
-simulator efficacy result, probe, or residual-field MLP is authorized.
+task `28281_0` then completed all 534 requests. Its first CPU publisher failed
+on a one-ULP binary64 reported-versus-recomputed norm comparison even though
+both values cast to the exact registered float32 budget. ADR-0056/0057 repaired
+only publication semantics; CPU job `28291` published the official
+`frozen_cem_negative` result. The changed CEM schedule improved the objective
+slightly but remained far outside all four target-fidelity gates. ADR-0058
+therefore closes this exact 520-query teacher. It does not establish
+infeasibility or simulator efficacy, and no IFT-01, probe, or residual-field
+MLP is authorized.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -158,6 +160,8 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md`: zero-runtime launch-A evidence and exact Slurm identity-display repair;
 - `docs/decisions/0054-preserve-af00a-launch-b-and-test-record-parser.md`: zero-runtime launch-B evidence and behavior-tested exact Slurm field parser;
 - `docs/decisions/0056-preserve-af00a-run-c-and-recover-publication.md`: terminal run-C evidence, one-ULP publisher diagnosis, and CPU-only recovery contract;
+- `docs/decisions/0057-release-af00a-run-c-cpu-republication.md`: exact one-job CPU republication release;
+- `docs/decisions/0058-accept-af00a-frozen-cem-negative.md`: published one-case negative result and next research boundary;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

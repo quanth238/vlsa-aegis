@@ -345,8 +345,7 @@ IFT-01, probe, or MLP is currently authorized.
 
 ### AF-00A — Actual-forward derivative-free teacher canary
 
-Status: **run C completed the GPU method; official publication is pending one
-fail-closed CPU-only recovery**
+Status: **terminal published `frozen_cem_negative` on the one frozen canary**
 
 AF-00A keeps the exact row-zero case, observation, instruction, policy noise,
 R02 target, float32 budget `3.6398398876190186`, five active flow steps, and
@@ -398,8 +397,15 @@ Independent validation of the exact immutable bytes reconstructs
 `frozen_cem_negative`: equal-split A failed; changed CEM B reduced objective
 from `2218.13355` to `2121.54043` but still missed every fidelity gate by a
 large margin; reverse C was worse. ADR-0056 forbids a GPU rerun and authorizes
-only a separately bound CPU publication recovery. No generated action entered
-the simulator, and no IFT-01, probe, or MLP is authorized.
+only a separately bound CPU publication recovery. Recovery release `eb3be3a`
+created CPU-only job `28291`, which completed `0:0` on worker-0 in eight
+seconds with two CPUs and 8 GiB requested/allocated, and no GPU. It published
+result SHA-256 `507f25bc...dae914` and receipt SHA-256 `5462f875...cb632`; the original failed
+receipt remains byte-preserved. The official outcome is therefore
+`frozen_cem_negative`, not apparatus-inconclusive. ADR-0058 closes this exact
+search and requires a new diagnosis and preregistration before any different
+teacher. No generated action entered the simulator, and no IFT-01, probe, or
+MLP is authorized.
 
 ### IFT-01 — Three-case real transport smoke
 

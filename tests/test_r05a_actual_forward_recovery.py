@@ -11,6 +11,10 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "experiments" / "r05a_actual_forward_recovery_20260716c.json"
+SOURCE_CONFIG = ROOT / "configs" / "experiments" / "r05a_actual_forward_canary.json"
+EVIDENCE = ROOT / "evidence" / "r05a" / "af00a-actual-forward-run-c-publication-recovery.json"
+TERMINAL_ADR = ROOT / "docs" / "decisions" / "0058-accept-af00a-frozen-cem-negative.md"
+FEATURES = ROOT / "feature_list.json"
 PUBLISHER = ROOT / "main" / "publish_crfs_r05a_actual_forward_canary.py"
 WRAPPER = ROOT / "scripts" / "hpc" / "validate_r05a_actual_forward_recovery.sh"
 SUBMITTER = ROOT / "scripts" / "hpc" / "submit_r05a_actual_forward_recovery.sh"
@@ -37,9 +41,23 @@ class ActualForwardRecoveryContractTest(unittest.TestCase):
         if config["ready_to_run"] is False:
             self.assertTrue(config["blocked_on"])
             self.assertIsNone(config["execution_release"])
-            self.assertEqual(
-                config["config_status"], "implemented_fail_closed_pending_review"
+            self.assertIn(
+                config["config_status"],
+                {
+                    "implemented_fail_closed_pending_review",
+                    "terminal_cpu_republication_completed_consumed",
+                },
             )
+            if (
+                config["config_status"]
+                == "terminal_cpu_republication_completed_consumed"
+            ):
+                self.assertEqual(
+                    config["blocked_on"],
+                    [
+                        "single_authorized_cpu_republication_consumed_by_terminal_job_28291"
+                    ],
+                )
         else:
             self.assertTrue(config["ready_to_run"])
             self.assertEqual(config["blocked_on"], [])
@@ -80,6 +98,157 @@ class ActualForwardRecoveryContractTest(unittest.TestCase):
         self.assertEqual(config["resources"]["dependency"], "afterany:28282")
         self.assertEqual(config["resources"]["gpus"], 0)
         self.assertTrue(all(value is False for value in config["claims"].values()))
+
+    def test_terminal_publication_evidence_is_exact_and_both_launches_are_closed(self) -> None:
+        recovery = json.loads(CONFIG.read_text(encoding="utf-8"))
+        source = json.loads(SOURCE_CONFIG.read_text(encoding="utf-8"))
+        evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+
+        self.assertFalse(source["ready_to_run"])
+        self.assertEqual(source["config_status"], "draft_preregistered_not_released")
+        self.assertFalse(source["preregistration"]["h100_submission_authorized"])
+        self.assertIsNone(source["execution_release"])
+        self.assertFalse(recovery["ready_to_run"])
+        self.assertEqual(
+            recovery["config_status"],
+            "terminal_cpu_republication_completed_consumed",
+        )
+        self.assertIsNone(recovery["execution_release"])
+
+        job = evidence["jobs"]["recovery_cpu_publisher"]
+        self.assertEqual(
+            job,
+            {
+                "job_id": "28291",
+                "state": "COMPLETED",
+                "exit_code": "0:0",
+                "elapsed": "00:00:08",
+                "node": "worker-0",
+                "requested_tres": "billing=2,cpu=2,mem=8G,node=1",
+                "allocated_tres": "billing=2,cpu=2,mem=8G,node=1",
+                "gpus": 0,
+                "dependency": "afterany:28282",
+                "log_sha256": "47b768bda62f801a16ca3fc5a224c9ae18396411238dd67a1d3e1d9f15204131",
+            },
+        )
+        artifacts = evidence["immutable_artifacts"]
+        self.assertEqual(
+            artifacts["results_json_sha256"],
+            "507f25bc381b7bfeaa30abe3a7df970681f3b175f39221034c6e768e72dae914",
+        )
+        self.assertEqual(
+            artifacts["recovery_receipt_sha256"],
+            "5462f875ffb41a84a06c4df715366776af3811f3229385d05be8f5b0dafcb632",
+        )
+        self.assertEqual(
+            artifacts["original_failed_receipt_sha256"],
+            "f8e9ef108630cad9a9691dba0827a8be68d3b15e41ee3de2e4e6cfaf03736d27",
+        )
+        self.assertEqual(
+            artifacts["recovery_source_contract_sha256"],
+            "249087a42023d73e65589158bc8be5407605b57773b81a2c1d6138c13a820eab",
+        )
+        self.assertEqual(
+            artifacts["recovery_submission_sha256"],
+            "68a6cd3a08c4d502fb97f0a0db18afcd88fe23935e6c2bf5c2d4d807204e4c7c",
+        )
+        self.assertEqual(
+            artifacts["recovery_release_fingerprint_sha256"],
+            "1fa71d24d37b1ee6d7d19e130f29c9d3de55f82967b8e648fd3981a932eaa921",
+        )
+        self.assertTrue(artifacts["results_json_exists"])
+        publication = evidence["publication_recovery"]
+        self.assertEqual(
+            publication,
+            {
+                "release_commit": "eb3be3a86c1336a9090413cf7d6c83f28a0f365c",
+                "recovery_job_id": "28291",
+                "published": True,
+                "passed": True,
+                "outcome": "frozen_cem_negative",
+                "original_receipt_preserved": True,
+                "recovery_cpu_is_sole_results_json_publisher": True,
+                "schema_validation_passed": True,
+                "terminal_semantic_validation_passed": True,
+            },
+        )
+        self.assertEqual(
+            evidence["independent_raw_validation"],
+            {
+                "passed": True,
+                "exact_policy_requests": 534,
+                "cem_policy_requests": 520,
+                "selected_pool_index": 465,
+                "selected_cem_query_index": 464,
+                "outcome": "frozen_cem_negative",
+                "arm_a": {
+                    "objective": 2218.1335502517986,
+                    "energy": 2.649686839308922,
+                    "xyz_max_abs": 0.7806643492412315,
+                    "xyz_rms": 0.35969860072305654,
+                    "full_max_abs": 0.7806643492412315,
+                    "full_rms": 0.23554385122689606,
+                    "passed": False,
+                },
+                "arm_b": {
+                    "changed": True,
+                    "objective": 2121.5404274315442,
+                    "energy": 2.5488477410268158,
+                    "xyz_max_abs": 0.7899218065691934,
+                    "xyz_rms": 0.35177249996585547,
+                    "full_max_abs": 0.7899218065691934,
+                    "full_rms": 0.23039493162555724,
+                    "passed": False,
+                },
+                "arm_c": {
+                    "objective": 2968.7447114541746,
+                    "energy": 2.5488477410268153,
+                    "xyz_max_abs": 0.9606940421772645,
+                    "xyz_rms": 0.416131221925226,
+                    "full_max_abs": 0.9606940421772645,
+                    "full_rms": 0.2725038054457127,
+                    "passed": False,
+                },
+                "fidelity_limits": {
+                    "xyz_max_abs": 0.01,
+                    "xyz_rms": 0.005,
+                    "full_max_abs": 0.05,
+                    "full_rms": 0.015,
+                },
+            },
+        )
+        self.assertEqual(
+            evidence["execution_boundary"],
+            {
+                "allocation_focused_tests_passed": 36,
+                "allocation_focused_tests_skipped": 0,
+                "policy_generated_action_steps_executed": 0,
+                "teacher_generated_action_steps_executed": 0,
+                "efficacy_rollouts_executed": 0,
+                "simulator_efficacy_evaluated": False,
+                "training": False,
+            },
+        )
+        interpretation = evidence["interpretation_after_recovery"]
+        self.assertEqual(
+            interpretation["official_status"], "published_frozen_cem_negative"
+        )
+        self.assertEqual(
+            interpretation["flow_transport_feasibility_status"],
+            "undetermined_reachability_vs_optimizer",
+        )
+        self.assertFalse(interpretation["ift01_authorized"])
+        self.assertFalse(interpretation["probe_or_mlp_training_authorized"])
+
+        adr = TERMINAL_ADR.read_text(encoding="utf-8")
+        normalized_adr = " ".join(adr.split())
+        self.assertIn("rejects only this exact one-case CEM teacher", normalized_adr)
+        self.assertIn("not an infeasibility certificate", normalized_adr)
+        features = json.loads(FEATURES.read_text(encoding="utf-8"))
+        r05a = next(item for item in features["features"] if item["id"] == "R05A")
+        self.assertEqual(r05a["status"], "active")
+        self.assertIn("No teacher-generated action has been executed", r05a["evidence"])
+        self.assertIn("forbid solver tuning or IFT-01", r05a["evidence"])
 
     def test_budget_contract_is_exact_and_tolerance_is_not_tuned(self) -> None:
         budget = json.loads(CONFIG.read_text(encoding="utf-8"))["budget_contract"]
