@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_af00a_actual_forward_launch_b_interpretation",
+  "evidence_tier": "allocation_control_plane_apparatus_failure_no_execution",
+  "run_id": "r05a-actual-forward-cem-canary-20260716b",
+  "case_id": "crfs-1069f29a8d76463a",
+  "accepted_implementation_commit": "2733b74ae3a794b15408368f34acc0113a9ffd50",
+  "release_commit": "778bfb1a9b3d0c6b8351946885b5e3fa9b8cc5c6",
+  "source_host": "worker-1",
+  "submission": {
+    "submitted_at": "2026-07-16T12:46:08Z",
+    "gpu_array_job_id": "28279",
+    "gpu_array_task_id": 0,
+    "exact_gpu_task_id": "28279_0",
+    "cpu_afterany_job_id": null,
+    "requested_resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "02:00:00",
+      "array": "0-0%1",
+      "requeue": false,
+      "requested_node": "worker-1"
+    }
+  },
+  "observed_exact_task_record_before_cancellation": {
+    "query": "scontrol show job 28279_0 -o",
+    "job_id_display": "28279",
+    "array_job_id": "28279",
+    "array_task_id": "0",
+    "array_task_throttle": 1,
+    "state": "PENDING",
+    "reason": "JobHeldUser",
+    "requested_node": "worker-1",
+    "requested_tres": "cpu=8,mem=64G,node=1,billing=8,gres/gpu=1"
+  },
+  "terminal_slurm_record": {
+    "job_id_raw": "28279",
+    "state": "CANCELLED by 1073",
+    "exit_code": "0:0",
+    "submit_time": "2026-07-16T12:46:08",
+    "eligible_time": "Unknown",
+    "start_time": "None",
+    "end_time": "2026-07-16T12:46:34",
+    "elapsed": "00:00:00",
+    "node_list": "None assigned",
+    "requested_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+    "allocated_tres": null,
+    "cancellation_scope": "exact_task_28279_0_only",
+    "cancellation_authorization": "explicit_user_authorization"
+  },
+  "immutable_run_root": {
+    "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-actual-forward-cem-canary-20260716b",
+    "files": [
+      "launch-reservation.json",
+      "provisional-gpu-job-id.json",
+      "vinuni-preflight.txt"
+    ],
+    "launch_reservation_sha256": "6f226b2e008105ea80d7941d1e19eda2255f11f23ee7562020082c861a0c3e1b",
+    "provisional_gpu_job_id_sha256": "d5511ae13a0ffffc0ebaf3cae926e4c94251de3f1b6313e6c50b37c5f514e4e3",
+    "vinuni_preflight_sha256": "deeaaa8fe18e354c3a3febc30e39629d6fdbba546675fd07364715868dc78bb9",
+    "identity_consumed": true,
+    "resume_or_reuse_allowed": false
+  },
+  "transaction_boundary": {
+    "launch_reservation_written": true,
+    "held_gpu_sbatch_returned": true,
+    "provisional_gpu_id_receipt_written": true,
+    "held_gpu_submission_receipt_written": false,
+    "source_contract_written": false,
+    "cpu_afterany_submitted": false,
+    "atomic_submission_receipt_written": false,
+    "release_fingerprint_written": false,
+    "gpu_job_released": false,
+    "allocation_started": false,
+    "gpu_allocated": false,
+    "python_executed": false,
+    "checkpoint_loaded": false,
+    "policy_server_started": false,
+    "pi05_sampler_called": false,
+    "arm_a_called": false,
+    "cem_called": false,
+    "arm_b_called": false,
+    "arm_c_called": false,
+    "simulator_policy_steps": 0,
+    "simulator_teacher_steps": 0
+  },
+  "failure": {
+    "stage": "post_gpu_sbatch_exact_held_task_validation",
+    "observed_message": "held AF-00A GPU task JobId changed: ",
+    "classification": "fail_closed_shell_field_extraction_defect",
+    "root_cause": "The inline sed expression required a leading space before JobId= even though the one-line scontrol record begins with JobId=, so it extracted an empty value from a valid exact task record.",
+    "not_caused_by": [
+      "gpu_capacity",
+      "host_memory_capacity",
+      "pi05_model",
+      "actual_forward_cem",
+      "target_definition",
+      "flow_transport",
+      "simulator_execution"
+    ]
+  },
+  "interpretation": {
+    "status": "apparatus_inconclusive",
+    "teacher_transport_evaluated": false,
+    "research_hypothesis_confirmed": false,
+    "research_hypothesis_refuted": false,
+    "simulator_efficacy_evaluated": false,
+    "scientific_conclusion": "none",
+    "infeasibility_conclusion": "none",
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "automatic_h100_resubmission_authorized": false,
+    "next_step": "Replace inline extraction with one behavior-tested exact-field parser, then require a fresh direct-child release and immutable run identity before one new submission."
+  }
+}

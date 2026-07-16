@@ -345,7 +345,7 @@ IFT-01, probe, or MLP is currently authorized.
 
 ### AF-00A — Actual-forward derivative-free teacher canary
 
-Status: **launch A apparatus-inconclusive; narrow Slurm identity repair is
+Status: **launches A/B apparatus-inconclusive; behavior-tested Slurm parser is
 fail closed and under review**
 
 AF-00A keeps the exact row-zero case, observation, instruction, policy noise,
@@ -377,6 +377,14 @@ elapsed time with no node; no Python, model, arm, or simulator action ran.
 ADR-0052 permits only accepting both Slurm display forms while retaining the
 exact array tuple and every resource/receipt check. The consumed run has no
 scientific result and the config is fail closed pending a new review/release.
+
+Release `778bfb1` launch B reached the same valid held-record boundary, but
+the inline extractor returned empty because `JobId=` is the record's first
+token. Exact task `28279_0` was cancelled with zero elapsed time, no node, and
+no allocation. No model or arm ran. ADR-0054 replaces both inline extractors
+with one shared exact-field parser and executes it against the real parent
+form, the allowed child form, and five invalid records. This second consumed
+run is also apparatus-only; the scientific method remains unchanged.
 
 ### IFT-01 — Three-case real transport smoke
 

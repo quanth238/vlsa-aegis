@@ -13,6 +13,9 @@ GPU_WRAPPER = ROOT / "scripts/hpc/run_r05a_actual_forward_canary.sh"
 CPU_WRAPPER = ROOT / "scripts/hpc/validate_r05a_actual_forward_canary.sh"
 GPU_SBATCH = ROOT / "slurm/r05a_actual_forward_canary_h100.sbatch"
 CPU_SBATCH = ROOT / "slurm/r05a_actual_forward_canary_validate_cpu.sbatch"
+ARRAY_IDENTITY_HELPER = (
+    ROOT / "scripts/hpc/lib/slurm_array_task_record_identity.sh"
+)
 
 
 def _text(path: Path) -> str:
@@ -21,7 +24,14 @@ def _text(path: Path) -> str:
 
 class ActualForwardHpcContractTests(unittest.TestCase):
     def test_shell_entrypoints_parse(self) -> None:
-        for path in (SUBMITTER, GPU_WRAPPER, CPU_WRAPPER, GPU_SBATCH, CPU_SBATCH):
+        for path in (
+            SUBMITTER,
+            GPU_WRAPPER,
+            CPU_WRAPPER,
+            GPU_SBATCH,
+            CPU_SBATCH,
+            ARRAY_IDENTITY_HELPER,
+        ):
             result = subprocess.run(
                 ["bash", "-n", str(path)],
                 check=False,
@@ -32,12 +42,12 @@ class ActualForwardHpcContractTests(unittest.TestCase):
 
     def test_release_only_commit_is_exactly_two_paths(self) -> None:
         value = _text(SUBMITTER)
-        expected_adr = "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
+        expected_adr = "docs/decisions/0055-release-behavior-tested-actual-forward-canary.md"
         self.assertIn(f"RELEASE_ADR={expected_adr}", value)
         self.assertIn('EXPECTED_RELEASE_DIFF=$(printf \'%s\\n\' "$CONFIG" "$RELEASE_ADR"', value)
         self.assertIn("remote_release_diff=", value)
         self.assertIn(expected_adr, value)
-        self.assertNotIn("0051-release-actual-forward-cem-canary.md", value)
+        self.assertNotIn("0053-release-corrected-actual-forward-cem-canary.md", value)
         release_contract = value.split(".execution_release.allowed_release_diff_paths == [", 1)[1].split("]", 1)[0]
         self.assertIn("configs/experiments/r05a_actual_forward_canary.json", release_contract)
         self.assertIn(expected_adr, release_contract)
@@ -96,19 +106,41 @@ class ActualForwardHpcContractTests(unittest.TestCase):
         ):
             self.assertIn(token, value)
 
-    def test_vinuni_normalized_array_task_job_id_is_bound_to_exact_tuple(self) -> None:
-        for path, gpu_variable in (
-            (SUBMITTER, "gpu_id"),
-            (GPU_WRAPPER, "SLURM_ARRAY_JOB_ID"),
-        ):
-            value = _text(path)
-            self.assertIn('task_job_id=$(printf', value)
-            self.assertIn(
-                f'"${gpu_variable}"|"${{{gpu_variable}}}_0")',
-                value,
+    def test_vinuni_normalized_array_task_job_id_is_behaviorally_validated(self) -> None:
+        real_parent_form = (
+            "JobId=28279 ArrayJobId=28279 ArrayTaskId=0 ArrayTaskThrottle=1 "
+            "JobState=PENDING Reason=JobHeldUser ReqNodeList=worker-1 "
+            "ReqTRES=cpu=8,mem=64G,node=1,billing=8,gres/gpu=1"
+        )
+        command = (
+            f'. "{ARRAY_IDENTITY_HELPER}"; '
+            'crfs_validate_exact_array_task_identity "$1" 28279 0'
+        )
+        accepted = (
+            real_parent_form,
+            real_parent_form.replace("JobId=28279 ", "JobId=28279_0 ", 1),
+        )
+        rejected = (
+            real_parent_form.replace("JobId=28279 ", "JobId=99999 ", 1),
+            real_parent_form.replace("ArrayJobId=28279 ", "ArrayJobId=99999 ", 1),
+            real_parent_form.replace("ArrayTaskId=0 ", "ArrayTaskId=1 ", 1),
+            real_parent_form.replace("JobId=28279 ", "", 1),
+            real_parent_form + " JobId=28279",
+        )
+        for record in accepted:
+            self.assertEqual(
+                subprocess.run(["bash", "-c", command, "_", record]).returncode,
+                0,
             )
-            self.assertIn(f'"ArrayJobId=${gpu_variable}"', value)
-            self.assertIn('"ArrayTaskId=0"', value)
+        for record in rejected:
+            self.assertNotEqual(
+                subprocess.run(["bash", "-c", command, "_", record]).returncode,
+                0,
+            )
+        for path in (SUBMITTER, GPU_WRAPPER):
+            value = _text(path)
+            self.assertIn("slurm_array_task_record_identity.sh", value)
+            self.assertIn("crfs_validate_exact_array_task_identity", value)
 
     def test_transaction_is_fingerprinted_then_released_exactly_once(self) -> None:
         value = _text(SUBMITTER)

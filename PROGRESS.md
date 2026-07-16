@@ -85,7 +85,7 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / AF-00A Slurm identity repair review
+## Active gate: R05A / AF-00A behavior-tested Slurm parser review
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
 real teacher-transport mechanism result. CFS-00A run B is a valid published
@@ -182,6 +182,15 @@ CPU publisher or releasing the task. Exact task `28275_0` was cancelled with
 elapsed `00:00:00`, no node, and no model or simulator execution. ADR-0052
 classifies this as apparatus-inconclusive and permits only a narrow display-ID
 normalization. The AF-00A config is again fail closed.
+
+Launch B used release `778bfb1` and held task `28279_0`. The semantic
+normalization was correct, but its inline `sed` required a space before the
+record's first `JobId=` token and returned empty. The transaction again
+stopped before CPU publisher creation or GPU release. Exact task `28279_0`
+was cancelled with start `None`, elapsed `00:00:00`, no node, and no allocated
+TRES. ADR-0054 replaces both inline extractors with one shared parser and adds
+executed positive/negative tests using the real VinUni record shape. No
+scientific execution or result exists, and the config remains fail closed.
 
 ## What this experiment can conclude
 
@@ -375,10 +384,10 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Validate and independently review only ADR-0052's Slurm display-ID repair.
-Then commit and synchronize the fail-closed repair. A separate direct-child
+Validate and independently review only ADR-0054's behavior-tested Slurm field
+parser. Then commit and synchronize the fail-closed repair. A separate direct-child
 release may change only the AF-00A config and
-`docs/decisions/0053-release-corrected-actual-forward-cem-canary.md`, select a
+`docs/decisions/0055-release-behavior-tested-actual-forward-canary.md`, select a
 fresh unused immutable run ID, and submit one held worker-1 H100 task plus its
 CPU `afterany` publisher. Do not change the 520-query budget, objective, seed,
 target, constraints, resources, or outcome rules.

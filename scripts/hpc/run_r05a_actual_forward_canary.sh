@@ -13,6 +13,7 @@ set -euo pipefail
 
 CONFIG=$REMOTE_REPO/configs/experiments/r05a_actual_forward_canary.json
 WORKLOAD=$REMOTE_REPO/scripts/hpc/run_r05a_actual_forward_workload.sh
+ARRAY_IDENTITY_HELPER=$REMOTE_REPO/scripts/hpc/lib/slurm_array_task_record_identity.sh
 RUN_ROOT=/mnt/data/quanth/experiments/crfs-oracle/$RUN_ID
 SOURCE_CONTRACT=${SOURCE_CONTRACT:-$RUN_ROOT/source-contract.json}
 HELD_GPU_SUBMISSION=$RUN_ROOT/held-gpu-submission.json
@@ -25,6 +26,8 @@ test "$SLURM_ARRAY_TASK_ID" = 0 || { echo "AF-00A is fixed to task zero" >&2; ex
 test "$(hostname -s)" = worker-1 || { echo "AF-00A is source-pinned to worker-1" >&2; exit 2; }
 test -f "$CONFIG" && test ! -L "$CONFIG" || { echo "missing released AF-00A config" >&2; exit 2; }
 test -x "$WORKLOAD" || { echo "missing AF-00A workload" >&2; exit 2; }
+test -f "$ARRAY_IDENTITY_HELPER" && test ! -L "$ARRAY_IDENTITY_HELPER" || { echo "missing AF-00A array identity helper" >&2; exit 2; }
+. "$ARRAY_IDENTITY_HELPER"
 test "$SOURCE_CONTRACT" = "$RUN_ROOT/source-contract.json" || { echo "AF-00A source-contract path changed" >&2; exit 2; }
 test "$SUBMISSION" = "$RUN_ROOT/submission.json" || { echo "AF-00A submission path changed" >&2; exit 2; }
 test "$RELEASE_FINGERPRINT" = "$RUN_ROOT/final-pre-release-fingerprint.json" || { echo "AF-00A release-fingerprint path changed" >&2; exit 2; }
@@ -123,10 +126,10 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
     validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"
   }
   and .execution_release.release_only_parent_required == true
-  and .execution_release.decision_artifact == "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
+  and .execution_release.decision_artifact == "docs/decisions/0055-release-behavior-tested-actual-forward-canary.md"
   and .execution_release.allowed_release_diff_paths == [
     "configs/experiments/r05a_actual_forward_canary.json",
-    "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
+    "docs/decisions/0055-release-behavior-tested-actual-forward-canary.md"
   ]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false
@@ -141,11 +144,9 @@ test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" =
 }
 
 job_record=$(scontrol show job "${SLURM_ARRAY_JOB_ID}_0" -o)
-task_job_id=$(printf '%s\n' "$job_record" | sed -n 's/.* JobId=\([^ ]*\).*/\1/p')
-case "$task_job_id" in
-  "$SLURM_ARRAY_JOB_ID"|"${SLURM_ARRAY_JOB_ID}_0") ;;
-  *) echo "AF-00A job field changed: JobId=$task_job_id" >&2; exit 2 ;;
-esac
+crfs_validate_exact_array_task_identity "$job_record" "$SLURM_ARRAY_JOB_ID" 0 || {
+  echo "AF-00A exact array task identity changed" >&2; exit 2
+}
 for field in "ArrayJobId=$SLURM_ARRAY_JOB_ID" "ArrayTaskId=0" JobState=RUNNING Partition=main Account=normal QOS=normal TimeLimit=02:00:00 Requeue=0 ReqNodeList=worker-1 NumNodes=1 NumCPUs=8 CPUs/Task=8; do
   case " $job_record " in *" $field "*) ;; *) echo "AF-00A job field changed: $field" >&2; exit 2 ;; esac
 done
@@ -183,6 +184,7 @@ for relative in \
   openpi/src/openpi/policies/policy.py \
   openpi/src/openpi/models_pytorch/pi0_pytorch.py \
   scripts/hpc/lib/r05a_runtime_identity.sh \
+  scripts/hpc/lib/slurm_array_task_record_identity.sh \
   scripts/hpc/run_r05a_actual_forward_workload.sh; do
   expected=$(jq -er --arg path "$relative" '.repository_file_sha256[$path]' "$SOURCE_CONTRACT")
   actual=$(sha256sum "$REMOTE_REPO/$relative" | awk '{print $1}')

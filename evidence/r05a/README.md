@@ -153,3 +153,12 @@ no allocated TRES; only three small control-plane files exist. ADR-0052
 therefore classifies launch A as apparatus-inconclusive and permits only the
 exact Slurm display-ID normalization. No Python, pi0.5 request, arm, simulator
 action, transport result, efficacy result, or infeasibility result exists.
+
+`af00a-actual-forward-launch-b.json` records release `778bfb1` and exact held
+task `28279_0`. The accepted parent/child display rule was correct, but the
+inline shell extractor required a leading space before the first `JobId=`
+token and returned empty. The task remained held and was cancelled with
+`00:00:00` elapsed, no node, and no allocated TRES. The root again contains
+only three control-plane files. ADR-0054 replaces both fragile extractors with
+one behavior-tested exact-field parser; launch B itself contains no model,
+arm, simulator, transport, efficacy, or infeasibility result.

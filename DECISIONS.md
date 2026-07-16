@@ -52,3 +52,5 @@
 - [0050 — Preregister the actual-forward CEM teacher canary](docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md)
 - [0051 — Release the actual-forward CEM canary](docs/decisions/0051-release-actual-forward-cem-canary.md)
 - [0052 — Preserve AF-00A launch A and normalize VinUni array task identity](docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md)
+- [0053 — Release the corrected actual-forward CEM canary](docs/decisions/0053-release-corrected-actual-forward-cem-canary.md)
+- [0054 — Preserve AF-00A launch B and behavior-test Slurm record parsing](docs/decisions/0054-preserve-af00a-launch-b-and-test-record-parser.md)
