@@ -18,23 +18,21 @@ test the selected action-to-flow transport hypothesis. R05A is now the only
 active gate: it tests whether the safe-progress action target can be converted
 through the exact frozen sampler into a budgeted time-dependent residual
 velocity sequence. No probe or residual-field MLP has been trained.
-IFT-00 passes as synthetic implementation evidence. CFS-00A run B then reached
-real pi0.5 in worker-1 task `28048_0`; CPU publisher `28049` independently
-validated and published an `apparatus_inconclusive` result. The model computed
-the zero-control baseline, 35-by-75 autograd Jacobian, and all registered
-three-direction by two-epsilon finite-difference comparisons, but the Jacobian
-gate failed before FISTA. No Arm-B candidate, nonlinear replay, Arm C, or
-four-gate transport result exists. The run was not resource-limited: sampled
-host use was about 15.0 GiB, sampled device use was about 8.5 GiB, and OOM
-counters remained zero. Because the generic exception discarded the six
-numeric comparisons, the cause—precision, derivative-interface mismatch, or
-local nonsmoothness—cannot yet be identified. ADR-0047 authorizes only a new
-immutable diagnostic that preserves and independently reconstructs those
-values while still stopping before FISTA. The transport hypothesis remains
-untested, the solver has not been declared infeasible, and no simulator
-efficacy or training claim is authorized. The diagnostic implementation has
-passed local gates and independent review, but H100 execution remains blocked
-until a fresh exact release selects one unused run ID.
+IFT-00 passes as synthetic implementation evidence. CFS-00A run B reached real
+pi0.5 and rejected its 35-by-75 Jacobian at the registered finite-difference
+gate before FISTA, but its generic exception discarded the numeric evidence.
+The ADR-0047 diagnostic retry then ran as worker-1 task `28212_0` with CPU
+publisher `28213`; both completed `0:0`, all 99 allocation tests passed, no OOM
+occurred, and zero generated actions entered the simulator. The adapter formed
+its typed one-key terminal reply, but the unchanged WebSocket server appended
+standard `server_timing`. The paired client rejected that two-key transported
+mapping before serializing any Jacobian values. ADR-0048 classifies the retry
+as `apparatus_inconclusive` and permits only strict client-side normalization
+of this exact standard timing metadata, followed by review and a separately
+released immutable retry. No FISTA, candidate, replay, Arm C, or four-gate
+result exists. The transport hypothesis remains untested, the solver has not
+been declared infeasible, and no simulator efficacy or training claim is
+authorized.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final

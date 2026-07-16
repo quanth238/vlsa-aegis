@@ -47,3 +47,4 @@
 - [0045 — Accept the runtime-identity regression and require a fresh CFS release](docs/decisions/0045-accept-runtime-identity-regression.md)
 - [0046 — Require a fresh CFS-00A release bound to runtime evidence](docs/decisions/0046-require-fresh-cfs00a-release-bound-to-runtime-evidence.md)
 - [0047 — Preserve CFS-00A run B and record failed Jacobian diagnostics](docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md)
+- [0048 — Preserve the failed-derivative diagnostic and normalize terminal transport](docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md)

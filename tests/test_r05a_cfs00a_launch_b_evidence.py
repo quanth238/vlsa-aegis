@@ -127,7 +127,7 @@ class R05ACFS00ALaunchBEvidenceTest(unittest.TestCase):
             self.assertEqual(release, apparatus["execution_release"])
             self.assertEqual(
                 release["decision_artifact"],
-                "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
+                "docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md",
             )
             self.assertTrue(release["single_submission"])
             self.assertEqual(release["source_host"], "worker-1")

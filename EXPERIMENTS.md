@@ -162,8 +162,9 @@ payload may not be retrofitted into an accepted result.
 
 ### CFS-00A — Same-budget constrained-flow diagnostic
 
-Status: **run B is terminal apparatus-inconclusive; the checked-in apparatus
-is fail closed. No real CFS mechanism outcome exists yet.**
+Status: **the failed-derivative diagnostic retry is terminal
+apparatus-inconclusive; the checked-in apparatus is fail closed. No real CFS
+mechanism outcome exists yet.**
 
 ADR-0040 replaces the draft's broad planner-to-student proposal with one
 causal diagnostic of the observed Run-B miss. It preserves the exact case,
@@ -280,6 +281,31 @@ PyTorch-only local skip; and the full local gate passes 625 tests with 205
 declared dependency skips. An independent semantic audit found no release
 blocker. The checked-in configs remain fail closed until a separate exact
 three-file release selects one unused run ID.
+
+Exact release `3d44b2c` then submitted immutable diagnostic run
+`r05a-constrained-flow-fd-diagnostic-20260716a` once. GPU task `28212_0`
+completed `0:0` on worker-1 in `00:03:06`; CPU `afterany` publisher `28213`
+completed `0:0` on worker-0 in `00:00:10`. The source contract and submission
+hashes are `7c8eee72...bed3b99` and `73eb2320...f283cd`. All 99 allocation
+tests passed with zero skips, sampled host and device high-waters were
+16,074,977,280 bytes and 8,513 MiB, and no required OOM event occurred.
+
+The adapter reached its typed finite-difference terminal and returned only
+`__crfs_terminal__`. The unchanged baseline WebSocket server then appended
+its standard `server_timing`. The paired client required the transported
+mapping itself to contain only the reserved key and rejected the two-key reply
+before extracting or serializing its diagnostic. Raw payload
+`d423da9f...5cbb2d`, published result `5c843ce5...1062e0`, and receipt
+`be91ec15...d32d0` therefore preserve an `apparatus_inconclusive` result with
+no numeric Jacobian or finite-difference values.
+
+No FISTA solve, Arm-B candidate, nonlinear replay, Arm C, four-gate result, or
+generated simulator action exists. The method remains untested. ADR-0048
+authorizes only strict client-side normalization of the exact standard timing
+field while leaving the adapter, baseline WebSocket server, scientific
+configuration, and terminal parser unchanged. A new diagnostic identity and
+execution release may be chosen only after that repair passes review; no
+tolerance tuning, IFT-01, probe, or MLP is authorized.
 
 ### IFT-01 — Three-case real transport smoke
 

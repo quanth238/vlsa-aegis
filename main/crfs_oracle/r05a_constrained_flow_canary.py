@@ -148,8 +148,11 @@ class PairedConstrainedFlowClient:
         if not isinstance(comparison_reply, Mapping):
             raise ConstrainedFlowCanaryError("comparison policy reply is not a mapping")
         if TERMINAL_RESPONSE_KEY in comparison_reply:
+            terminal_reply = _terminal_policy_reply_from_transport(
+                comparison_reply
+            )
             rejection = _finite_difference_rejection_from_reply(
-                comparison_reply,
+                terminal_reply,
                 expected_budget_float32=comparison_controls.get(
                     "model_l2_path_budget"
                 ),
@@ -403,6 +406,40 @@ def _scalar_array_record(value: Any, *, dtype: Any) -> dict[str, Any]:
         "sha256": _array_hash(scalar),
         "values": scalar.item(),
     }
+
+
+def _terminal_policy_reply_from_transport(
+    reply: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Remove only standard WebSocket timing from a terminal policy reply.
+
+    The opt-in adapter returns exactly ``__crfs_terminal__``.  The unchanged
+    baseline WebSocket server appends ``server_timing`` to every policy reply.
+    Validate that metadata exactly, then create a one-key mapping for the
+    strict policy-layer parser.  The received mapping is never mutated.
+    """
+
+    outer_keys = set(reply)
+    if outer_keys == {TERMINAL_RESPONSE_KEY}:
+        return reply
+    if outer_keys != {TERMINAL_RESPONSE_KEY, "server_timing"}:
+        raise ConstrainedFlowCanaryError(
+            "terminal constrained-flow transport contains an unsupported outer key"
+        )
+    timing = reply.get("server_timing")
+    if not isinstance(timing, Mapping) or set(timing) not in (
+        {"infer_ms"},
+        {"infer_ms", "prev_total_ms"},
+    ):
+        raise ConstrainedFlowCanaryError(
+            "terminal constrained-flow server_timing keys changed"
+        )
+    for name, value in timing.items():
+        if type(value) is not float or not math.isfinite(value) or value < 0.0:
+            raise ConstrainedFlowCanaryError(
+                f"terminal constrained-flow server_timing {name} must be one finite nonnegative float"
+            )
+    return {TERMINAL_RESPONSE_KEY: reply[TERMINAL_RESPONSE_KEY]}
 
 
 def _finite_difference_rejection_from_reply(

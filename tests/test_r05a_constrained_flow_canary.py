@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import ast
+import contextlib
 import copy
 from pathlib import Path
 import sys
@@ -193,7 +195,93 @@ class PairedConstrainedFlowClientTest(unittest.TestCase):
         self.assertEqual(wrapped.paired_calls, [])
 
     def test_terminal_fd_response_stops_before_duplicate_or_replay(self) -> None:
-        terminal = self._terminal_reply()
+        sys.path.insert(0, str(ROOT / "openpi/src"))
+        from openpi.serving import websocket_policy_server
+        from openpi_client import msgpack_numpy
+
+        self.assertEqual(
+            Path(websocket_policy_server.__file__).resolve(),
+            ROOT / "openpi/src/openpi/serving/websocket_policy_server.py",
+        )
+        self.assertEqual(
+            Path(msgpack_numpy.__file__).resolve(),
+            ROOT
+            / "openpi/packages/openpi-client/src/openpi_client/msgpack_numpy.py",
+        )
+        policy_terminal = self._terminal_reply()
+
+        class TransportPolicy:
+            def infer(inner_self, request):
+                if request["kind"] == "ordinary":
+                    return {"actions": np.zeros((1,), dtype=np.float32)}
+                return policy_terminal
+
+        class FakeWebsocket:
+            remote_address = ("127.0.0.1", 12345)
+
+            def __init__(inner_self):
+                packer = msgpack_numpy.Packer()
+                inner_self.requests = [
+                    packer.pack({"kind": "ordinary"}),
+                    packer.pack({"kind": "terminal"}),
+                ]
+                inner_self.sent = []
+
+            async def recv(inner_self):
+                if inner_self.requests:
+                    return inner_self.requests.pop(0)
+                await asyncio.Future()
+
+            async def send(inner_self, value):
+                inner_self.sent.append(value)
+
+        async def baseline_transport_roundtrip():
+            server = websocket_policy_server.WebsocketPolicyServer(
+                policy=TransportPolicy(), metadata={}
+            )
+            websocket = FakeWebsocket()
+            task = asyncio.create_task(server._handler(websocket))
+            async def wait_for_replies():
+                while len(websocket.sent) < 3:
+                    if task.done():
+                        await task
+                    await asyncio.sleep(0)
+
+            try:
+                await asyncio.wait_for(wait_for_replies(), timeout=5.0)
+            finally:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+            return (
+                msgpack_numpy.unpackb(websocket.sent[1]),
+                msgpack_numpy.unpackb(websocket.sent[2]),
+            )
+
+        ordinary, terminal = asyncio.run(baseline_transport_roundtrip())
+        self.assertEqual(set(ordinary), {"actions", "server_timing"})
+        self.assertEqual(set(ordinary["server_timing"]), {"infer_ms"})
+        self.assertEqual(ordinary["actions"].dtype, np.dtype(np.float32))
+        self.assertEqual(ordinary["actions"].shape, (1,))
+        self.assertEqual(
+            ordinary["actions"].tobytes(),
+            np.zeros((1,), dtype=np.float32).tobytes(),
+        )
+        self.assertEqual(
+            set(terminal),
+            {cfs.TERMINAL_RESPONSE_KEY, "server_timing"},
+        )
+        self.assertEqual(
+            set(terminal["server_timing"]),
+            {"infer_ms", "prev_total_ms"},
+        )
+        first_reply = self._terminal_reply()
+        first_reply["server_timing"] = {"infer_ms": 0.0}
+        normalized_first_reply = cfs._terminal_policy_reply_from_transport(
+            first_reply
+        )
+        self.assertEqual(set(normalized_first_reply), {cfs.TERMINAL_RESPONSE_KEY})
+        self.assertIn("server_timing", first_reply)
 
         class TerminalClient(self._RecordingClient):
             def infer(inner_self, request):
@@ -222,12 +310,48 @@ class PairedConstrainedFlowClientTest(unittest.TestCase):
             caught.exception.diagnostic["budget_float32"]["shape"], []
         )
         self.assertFalse(caught.exception.execution_boundary["fista_started"])
+        self.assertIn("server_timing", terminal)
+
+        direct_terminal = self._terminal_reply()
+
+        class DirectTerminalClient(self._RecordingClient):
+            def infer(inner_self, request):
+                controls = request.get("__crfs__", {})
+                if controls.get("experiment_arm") == cfs.EXPERIMENT_ARM:
+                    inner_self.requests.append(copy.deepcopy(dict(request)))
+                    inner_self.replies.append(direct_terminal)
+                    return direct_terminal
+                return super(DirectTerminalClient, inner_self).infer(request)
+
+        direct_underlying = DirectTerminalClient()
+        direct_wrapped = cfs.PairedConstrainedFlowClient(direct_underlying)
+        with self.assertRaises(cfs.ConstrainedFlowFiniteDifferenceRejection):
+            direct_wrapped.infer(self._teacher_request())
+        self.assertEqual(len(direct_underlying.requests), 2)
+        self.assertEqual(direct_wrapped.paired_calls, [])
+        self.assertEqual(direct_wrapped.canonical_replies, {})
+        self.assertNotIn("server_timing", direct_terminal)
 
     def test_terminal_fd_response_is_strict_about_wire_evidence(self) -> None:
         mutations = []
         extra = self._terminal_reply()
         extra["unexpected"] = True
         mutations.append(extra)
+        for timing in (
+            None,
+            {},
+            {"prev_total_ms": 1.0},
+            {"infer_ms": 1.0, "unexpected": 2.0},
+            {"infer_ms": float("nan")},
+            {"infer_ms": float("inf")},
+            {"infer_ms": -1.0},
+            {"infer_ms": True},
+            {"infer_ms": 1},
+            {"infer_ms": np.float64(1.0)},
+        ):
+            malformed_timing = self._terminal_reply()
+            malformed_timing["server_timing"] = timing
+            mutations.append(malformed_timing)
         wrong_shape = self._terminal_reply()
         wrong_shape[cfs.TERMINAL_RESPONSE_KEY]["jacobian"] = np.zeros(
             (34, 75), dtype=np.float32

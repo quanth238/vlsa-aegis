@@ -25,13 +25,19 @@ RUNTIME_IDENTITY_EVIDENCE=$REMOTE_REPO/evidence/r05a/runtime-identity-regression
 RUNTIME_IDENTITY_PREFLIGHT=$REMOTE_REPO/evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt
 HISTORICAL_ADR0041=$REMOTE_REPO/docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md
 ADR0045=$REMOTE_REPO/docs/decisions/0045-accept-runtime-identity-regression.md
-ADR0047=$REMOTE_REPO/docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
+HISTORICAL_ADR0047=$REMOTE_REPO/docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md
+ADR0048=$REMOTE_REPO/docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md
 PREFLIGHT_SCRIPT=$REMOTE_REPO/scripts/hpc/preflight.sh
 RUNTIME_IDENTITY_EVIDENCE_TEST=$REMOTE_REPO/tests/test_r05a_runtime_identity_regression_evidence.py
 RUN_B_EVIDENCE=$REMOTE_REPO/evidence/r05a/cfs00a-same-budget-launch-b.json
 RUN_B_EVIDENCE_TEST=$REMOTE_REPO/tests/test_r05a_cfs00a_launch_b_evidence.py
+FD_DIAGNOSTIC_A_EVIDENCE=$REMOTE_REPO/evidence/r05a/cfs00a-fd-diagnostic-20260716a.json
+FD_DIAGNOSTIC_A_EVIDENCE_TEST=$REMOTE_REPO/tests/test_r05a_cfs00a_fd_diagnostic_a_evidence.py
+WEBSOCKET_POLICY_SERVER=$REMOTE_REPO/openpi/src/openpi/serving/websocket_policy_server.py
+MSGPACK_NUMPY=$REMOTE_REPO/openpi/packages/openpi-client/src/openpi_client/msgpack_numpy.py
+WEBSOCKET_CLIENT_POLICY=$REMOTE_REPO/openpi/packages/openpi-client/src/openpi_client/websocket_client_policy.py
 
-for path in "$WORKLOAD" "$SOURCE_CONTRACT" "$SUBMISSION" "$HELD_GPU_SUBMISSION" "$LIVE_PREFLIGHT" "$SCIENTIFIC_CONFIG" "$APPARATUS_CONFIG" "$RUNTIME_IDENTITY_EVIDENCE" "$RUNTIME_IDENTITY_PREFLIGHT" "$RUN_B_EVIDENCE" "$HISTORICAL_ADR0041" "$ADR0045" "$ADR0047" "$PREFLIGHT_SCRIPT" "$RUNTIME_IDENTITY_EVIDENCE_TEST" "$RUN_B_EVIDENCE_TEST"; do
+for path in "$WORKLOAD" "$SOURCE_CONTRACT" "$SUBMISSION" "$HELD_GPU_SUBMISSION" "$LIVE_PREFLIGHT" "$SCIENTIFIC_CONFIG" "$APPARATUS_CONFIG" "$RUNTIME_IDENTITY_EVIDENCE" "$RUNTIME_IDENTITY_PREFLIGHT" "$RUN_B_EVIDENCE" "$FD_DIAGNOSTIC_A_EVIDENCE" "$HISTORICAL_ADR0041" "$ADR0045" "$HISTORICAL_ADR0047" "$ADR0048" "$PREFLIGHT_SCRIPT" "$RUNTIME_IDENTITY_EVIDENCE_TEST" "$RUN_B_EVIDENCE_TEST" "$FD_DIAGNOSTIC_A_EVIDENCE_TEST" "$WEBSOCKET_POLICY_SERVER" "$MSGPACK_NUMPY" "$WEBSOCKET_CLIENT_POLICY"; do
   test -f "$path" && test ! -L "$path" || { echo "missing or symlinked CFS-00A release input: $path" >&2; exit 2; }
 done
 test -x "$WORKLOAD" || { echo "CFS-00A workload is not executable" >&2; exit 2; }
@@ -46,14 +52,14 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
   and ((.execution_release | keys | sort) == (["schema_version","artifact_role","decision_artifact","accepted_implementation_commit","run_id","single_submission","source_host","resources","release_only_parent_required","allowed_release_diff_paths","automatic_resubmission_allowed","automatic_next_experiment_allowed"] | sort))
   and .execution_release.schema_version == "1.0"
   and .execution_release.artifact_role == "r05a_constrained_flow_canary_execution_release"
-  and .execution_release.decision_artifact == "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
+  and .execution_release.decision_artifact == "docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md"
   and .execution_release.accepted_implementation_commit == $implementation
   and .execution_release.run_id == $run
   and .execution_release.single_submission == true
   and .execution_release.source_host == "worker-1"
   and .execution_release.resources == {partition:"main",account:"normal",qos:"normal",gpus:1,cpus_per_task:8,host_memory_mib:65536,time_limit:"02:00:00",array:"0-0%1",requeue:false,validator_partition:"main",validator_account:"normal",validator_qos:"normal",validator_cpus:2,validator_host_memory_mib:8192,validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"}
   and .execution_release.release_only_parent_required == true
-  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"]
+  and .execution_release.allowed_release_diff_paths == ["configs/experiments/r05a_constrained_flow_canary.json","configs/experiments/r05a_constrained_flow_canary_apparatus.json","docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md"]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false' "$APPARATUS_CONFIG" >/dev/null || {
     echo "CFS-00A execution release contract changed" >&2
@@ -69,6 +75,7 @@ test "$(git -C "$REMOTE_REPO" rev-parse refs/remotes/origin/agent/crfs-oracle-ha
 test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" = "$EXPECTED_GIT_COMMIT $ACCEPTED_IMPLEMENTATION_COMMIT" || { echo "release parent changed" >&2; exit 2; }
 test "$(sha256sum "$HISTORICAL_ADR0041" | awk '{print $1}')" = f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17 || { echo "historical ADR-0041 changed" >&2; exit 2; }
 test "$(sha256sum "$ADR0045" | awk '{print $1}')" = 3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e || { echo "ADR-0045 changed" >&2; exit 2; }
+test "$(sha256sum "$HISTORICAL_ADR0047" | awk '{print $1}')" = b4b62725b78156a095f7e6c83bbbfed7ac536ce820a381dad1931f4d7eb8510b || { echo "historical ADR-0047 changed" >&2; exit 2; }
 test "$(sha256sum "$RUNTIME_IDENTITY_EVIDENCE" | awk '{print $1}')" = ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237 || { echo "runtime identity evidence changed" >&2; exit 2; }
 test "$(sha256sum "$RUNTIME_IDENTITY_PREFLIGHT" | awk '{print $1}')" = c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221 || { echo "runtime identity historical preflight changed" >&2; exit 2; }
 jq -e '
@@ -100,6 +107,17 @@ jq -e '.run_b_failure_evidence_binding == {
   classification:"apparatus_inconclusive",failed_numeric_diagnostics_persisted:false,
   h100_submission_authorized_by_evidence:false
 }' "$APPARATUS_CONFIG" >/dev/null || { echo "apparatus run-B evidence binding changed" >&2; exit 2; }
+jq -e '.release_decision_artifact == "docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md"
+  and .fd_diagnostic_a_evidence_binding == {
+    evidence_path:"evidence/r05a/cfs00a-fd-diagnostic-20260716a.json",
+    evidence_sha256:"12cea62c3eca6ce1bc44d4af936a09ddccae77f1adb32f4b3776d999778adf69",
+    run_id:"r05a-constrained-flow-fd-diagnostic-20260716a",
+    release_commit:"3d44b2c5a4779725101d672ed29658a841c85541",
+    gpu_task_id:"28212_0",cpu_publisher_job_id:"28213",
+    published_result_sha256:"5c843ce5ed4f0e836b43dd6e0b42fec3ae120fa61cb1c56350eac046001062e0",
+    classification:"apparatus_inconclusive",client_terminal_validation_completed:false,
+    numeric_diagnostics_persisted:false,h100_submission_authorized_by_evidence:false
+  }' "$APPARATUS_CONFIG" >/dev/null || { echo "apparatus diagnostic-A evidence binding changed" >&2; exit 2; }
 jq -e '
   .run_id == "r05a-constrained-flow-same-budget-canary-20260716b"
   and .release_commit == "12a7da69d3d34050709d08b9ca903a99f9d30862"
@@ -109,6 +127,36 @@ jq -e '
   and .interpretation.status == "apparatus_inconclusive"
   and .execution_boundary.arm_b_numeric_diagnostics_persisted == false
   and .interpretation.automatic_h100_resubmission_authorized == false' "$RUN_B_EVIDENCE" >/dev/null || { echo "run-B terminal evidence semantics changed" >&2; exit 2; }
+jq -e '
+  .run_id == "r05a-constrained-flow-fd-diagnostic-20260716a"
+  and .release_commit == "3d44b2c5a4779725101d672ed29658a841c85541"
+  and .source_host == "worker-1"
+  and .jobs.gpu_array_task.job_id == "28212_0"
+  and .jobs.cpu_afterany_validator.job_id == "28213"
+  and .immutable_artifacts.published_result_sha256 == "5c843ce5ed4f0e836b43dd6e0b42fec3ae120fa61cb1c56350eac046001062e0"
+  and .immutable_artifacts.repository_binding_count == 60
+  and .execution_boundary.adapter_terminal_outer_keys == ["__crfs_terminal__"]
+  and .execution_boundary.transport_outer_keys_received_by_client == ["__crfs_terminal__","server_timing"]
+  and .execution_boundary.client_terminal_validation_completed == false
+  and .execution_boundary.numeric_jacobian_persisted == false
+  and .execution_boundary.finite_difference_numeric_comparisons_persisted == false
+  and .execution_boundary.arm_b_fista_started == false
+  and .execution_boundary.arm_b_candidate_exists == false
+  and .execution_boundary.arm_c_executed == false
+  and .execution_boundary.policy_generated_action_steps_executed == 0
+  and .execution_boundary.teacher_generated_action_steps_executed == 0
+  and .failure.root_message == "terminal constrained-flow response must contain only its reserved key"
+  and .operational_validation.allocation_tests_expected == 99
+  and .operational_validation.allocation_tests_observed == 99
+  and .operational_validation.allocation_test_skips == 0
+  and .operational_validation.memory_event_deltas == {max:0,oom:0,oom_kill:0}
+  and .interpretation.status == "apparatus_inconclusive"
+  and .interpretation.automatic_h100_resubmission_authorized == false
+  and .interpretation.probe_or_mlp_training_authorized == false' "$FD_DIAGNOSTIC_A_EVIDENCE" >/dev/null || { echo "diagnostic-A evidence semantics changed" >&2; exit 2; }
+test "$(sha256sum "$FD_DIAGNOSTIC_A_EVIDENCE" | awk '{print $1}')" = 12cea62c3eca6ce1bc44d4af936a09ddccae77f1adb32f4b3776d999778adf69 || { echo "diagnostic-A evidence changed" >&2; exit 2; }
+test "$(sha256sum "$WEBSOCKET_POLICY_SERVER" | awk '{print $1}')" = 1370d345e6c3c5b8f15573050e485e60a5b423d1df33e24b237805e6b442b026 || { echo "WebSocket policy server changed" >&2; exit 2; }
+test "$(sha256sum "$MSGPACK_NUMPY" | awk '{print $1}')" = c04568948fcee52b691e3be4b6cffb759f7e79ad67530fcd5d23095a0d13c057 || { echo "msgpack transport changed" >&2; exit 2; }
+test "$(sha256sum "$WEBSOCKET_CLIENT_POLICY" | awk '{print $1}')" = f96009f787d6ccdebde077cc4f11829b89fcce677532af44b3d206a93d53d5b4 || { echo "WebSocket client changed" >&2; exit 2; }
 jq -e '.vinuni_h100_guide_contract == {
   title:"2026-05-03 - VinUni H100 Server Guide.md",
   local_reference_path:"/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
@@ -135,13 +183,19 @@ test "$req_gpus" = 1 || { echo "running H100 GPU request changed" >&2; exit 2; }
 SOURCE_CONTRACT_SHA256=$(sha256sum "$SOURCE_CONTRACT" | awk '{print $1}')
 HELD_GPU_SUBMISSION_SHA256=$(sha256sum "$HELD_GPU_SUBMISSION" | awk '{print $1}')
 LIVE_PREFLIGHT_SHA256=$(sha256sum "$LIVE_PREFLIGHT" | awk '{print $1}')
-ADR0047_SHA256=$(sha256sum "$ADR0047" | awk '{print $1}')
+HISTORICAL_ADR0047_SHA256=$(sha256sum "$HISTORICAL_ADR0047" | awk '{print $1}')
+ADR0048_SHA256=$(sha256sum "$ADR0048" | awk '{print $1}')
 PREFLIGHT_SCRIPT_SHA256=$(sha256sum "$PREFLIGHT_SCRIPT" | awk '{print $1}')
 RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256=$(sha256sum "$RUNTIME_IDENTITY_EVIDENCE_TEST" | awk '{print $1}')
 RUN_B_EVIDENCE_SHA256=$(sha256sum "$RUN_B_EVIDENCE" | awk '{print $1}')
 RUN_B_EVIDENCE_TEST_SHA256=$(sha256sum "$RUN_B_EVIDENCE_TEST" | awk '{print $1}')
+FD_DIAGNOSTIC_A_EVIDENCE_SHA256=$(sha256sum "$FD_DIAGNOSTIC_A_EVIDENCE" | awk '{print $1}')
+FD_DIAGNOSTIC_A_EVIDENCE_TEST_SHA256=$(sha256sum "$FD_DIAGNOSTIC_A_EVIDENCE_TEST" | awk '{print $1}')
+WEBSOCKET_POLICY_SERVER_SHA256=$(sha256sum "$WEBSOCKET_POLICY_SERVER" | awk '{print $1}')
+MSGPACK_NUMPY_SHA256=$(sha256sum "$MSGPACK_NUMPY" | awk '{print $1}')
+WEBSOCKET_CLIENT_POLICY_SHA256=$(sha256sum "$WEBSOCKET_CLIENT_POLICY" | awk '{print $1}')
 test "$RUN_B_EVIDENCE_SHA256" = b832e2bf810a496781dbd9f5eedc3ca4b08a0bb365f31dcdb29db098db8111ba || { echo "run-B terminal evidence changed" >&2; exit 2; }
-jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_ARRAY_JOB_ID" --arg held "$HELD_GPU_SUBMISSION" --arg held_sha "$HELD_GPU_SUBMISSION_SHA256" --arg preflight "$LIVE_PREFLIGHT" --arg preflight_sha "$LIVE_PREFLIGHT_SHA256" --arg run_root "$RUN_ROOT" --arg case_dir "$CASE_DIR" --arg adr0047_sha "$ADR0047_SHA256" --arg preflight_script_sha "$PREFLIGHT_SCRIPT_SHA256" --arg evidence_test_sha "$RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256" --arg run_b_evidence_sha "$RUN_B_EVIDENCE_SHA256" --arg run_b_evidence_test_sha "$RUN_B_EVIDENCE_TEST_SHA256" '
+jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_ARRAY_JOB_ID" --arg held "$HELD_GPU_SUBMISSION" --arg held_sha "$HELD_GPU_SUBMISSION_SHA256" --arg preflight "$LIVE_PREFLIGHT" --arg preflight_sha "$LIVE_PREFLIGHT_SHA256" --arg run_root "$RUN_ROOT" --arg case_dir "$CASE_DIR" --arg historical_adr0047_sha "$HISTORICAL_ADR0047_SHA256" --arg adr0048_sha "$ADR0048_SHA256" --arg preflight_script_sha "$PREFLIGHT_SCRIPT_SHA256" --arg evidence_test_sha "$RUNTIME_IDENTITY_EVIDENCE_TEST_SHA256" --arg run_b_evidence_sha "$RUN_B_EVIDENCE_SHA256" --arg run_b_evidence_test_sha "$RUN_B_EVIDENCE_TEST_SHA256" --arg fd_diagnostic_a_evidence_sha "$FD_DIAGNOSTIC_A_EVIDENCE_SHA256" --arg fd_diagnostic_a_evidence_test_sha "$FD_DIAGNOSTIC_A_EVIDENCE_TEST_SHA256" --arg websocket_policy_server_sha "$WEBSOCKET_POLICY_SERVER_SHA256" --arg msgpack_numpy_sha "$MSGPACK_NUMPY_SHA256" --arg websocket_client_policy_sha "$WEBSOCKET_CLIENT_POLICY_SHA256" '
   .schema_version == "1.0"
   and .artifact_role == "r05a_constrained_flow_canary_source_contract"
   and .status == "gpu_held_sources_bound_before_cpu_submission"
@@ -155,23 +209,34 @@ jq -e --arg run "$RUN_ID" --arg commit "$EXPECTED_GIT_COMMIT" --arg gpu "$SLURM_
   and .live_preflight_path == $preflight and .live_preflight_sha256 == $preflight_sha
   and .frozen_bindings.historical_adr0041_sha256 == "f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17"
   and .frozen_bindings.adr0045_sha256 == "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e"
-  and .frozen_bindings.adr0047_sha256 == $adr0047_sha
+  and .frozen_bindings.historical_adr0047_sha256 == $historical_adr0047_sha
+  and .frozen_bindings.adr0048_sha256 == $adr0048_sha
   and .frozen_bindings.runtime_identity_evidence_sha256 == "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237"
   and .frozen_bindings.runtime_identity_preflight_sha256 == "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221"
   and .frozen_bindings.runtime_identity_release_commit == "8415b659a46699757de1e99558713e56b95255b5"
   and .frozen_bindings.runtime_identity_job_id == "28043"
   and .frozen_bindings.runtime_identity_result_sha256 == "3bda039cd94bf283ebd2b2d9ff1839ce411037a729e6664efaabff20ce38b0de"
   and .frozen_bindings.run_b_evidence_sha256 == $run_b_evidence_sha
+  and .frozen_bindings.fd_diagnostic_a_evidence_sha256 == $fd_diagnostic_a_evidence_sha
+  and .frozen_bindings.websocket_policy_server_sha256 == $websocket_policy_server_sha
+  and .frozen_bindings.msgpack_numpy_sha256 == $msgpack_numpy_sha
+  and .frozen_bindings.websocket_client_policy_sha256 == $websocket_client_policy_sha
   and .frozen_bindings.vinuni_h100_guide_sha256 == "acee44c535e2fc25f8986e41efe233f21683a71c7fb5fa0ae726f0dae573b108"
   and .repository_file_sha256["docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"] == "f1906b21d0fc79b44b01d7e7a4bd693835a6489f014a1cb4ea07379d31013f17"
   and .repository_file_sha256["docs/decisions/0045-accept-runtime-identity-regression.md"] == "3672cfac46d8ffbd5a224e837e871bdc7010884907f367b6e418471a68c1d98e"
-  and .repository_file_sha256["docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"] == $adr0047_sha
+  and .repository_file_sha256["docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"] == $historical_adr0047_sha
+  and .repository_file_sha256["docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md"] == $adr0048_sha
   and .repository_file_sha256["evidence/r05a/runtime-identity-regression-20260716a.json"] == "ba83d7d696310456b696ddd0a846e5a6b0554b994204ecf7c568e2b565508237"
   and .repository_file_sha256["evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"] == "c351ec194cf838829e82105f1343de242199e93a855b9ce45862b64a6b955221"
   and .repository_file_sha256["scripts/hpc/preflight.sh"] == $preflight_script_sha
   and .repository_file_sha256["tests/test_r05a_runtime_identity_regression_evidence.py"] == $evidence_test_sha
   and .repository_file_sha256["evidence/r05a/cfs00a-same-budget-launch-b.json"] == $run_b_evidence_sha
   and .repository_file_sha256["tests/test_r05a_cfs00a_launch_b_evidence.py"] == $run_b_evidence_test_sha
+  and .repository_file_sha256["evidence/r05a/cfs00a-fd-diagnostic-20260716a.json"] == $fd_diagnostic_a_evidence_sha
+  and .repository_file_sha256["tests/test_r05a_cfs00a_fd_diagnostic_a_evidence.py"] == $fd_diagnostic_a_evidence_test_sha
+  and .repository_file_sha256["openpi/src/openpi/serving/websocket_policy_server.py"] == $websocket_policy_server_sha
+  and .repository_file_sha256["openpi/packages/openpi-client/src/openpi_client/msgpack_numpy.py"] == $msgpack_numpy_sha
+  and .repository_file_sha256["openpi/packages/openpi-client/src/openpi_client/websocket_client_policy.py"] == $websocket_client_policy_sha
   and .scientific_claim_allowed == false and .infeasibility_claim_allowed == false
   and .simulator_efficacy_claim_allowed == false and .probe_training_authorized == false' "$SOURCE_CONTRACT" >/dev/null || {
     echo "source contract differs from exact held task" >&2

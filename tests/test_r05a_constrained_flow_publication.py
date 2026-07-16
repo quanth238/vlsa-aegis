@@ -68,6 +68,25 @@ class ConstrainedFlowPublicationTest(unittest.TestCase):
         }
         observed = publication._validate_execution_release(apparatus, run_id="fixture")
         self.assertEqual(observed, apparatus["execution_release"])
+        self.assertEqual(
+            publication.RELEASE_DECISION_PATH,
+            "docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md",
+        )
+        self.assertEqual(len(publication.BOUND_REPOSITORY_PATHS), 66)
+        for relative in (
+            publication.FD_DIAGNOSTIC_A_EVIDENCE_PATH,
+            publication.FD_DIAGNOSTIC_A_EVIDENCE_TEST_PATH,
+            publication.WEBSOCKET_POLICY_SERVER_PATH,
+            publication.MSGPACK_NUMPY_PATH,
+            publication.WEBSOCKET_CLIENT_POLICY_PATH,
+        ):
+            self.assertIn(relative, publication.BOUND_REPOSITORY_PATHS)
+        apparatus["fd_diagnostic_a_evidence_binding"]["evidence_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "diagnostic-A evidence binding changed"):
+            publication._validate_execution_release(apparatus, run_id="fixture")
+        apparatus["fd_diagnostic_a_evidence_binding"] = dict(
+            publication.FD_DIAGNOSTIC_A_EVIDENCE_BINDING
+        )
         apparatus["vinuni_h100_guide_contract"]["sha256"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "VinUni H100 guide contract changed"):
             publication._validate_execution_release(apparatus, run_id="fixture")

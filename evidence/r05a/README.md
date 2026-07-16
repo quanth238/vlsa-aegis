@@ -113,3 +113,17 @@ exception discarded the failed numeric comparisons. ADR-0047 permits only a
 new immutable diagnostic that records those values and still stops before
 FISTA; it does not authorize a method, efficacy, infeasibility, or training
 claim.
+
+`cfs00a-fd-diagnostic-20260716a.json` records exact release `3d44b2c`,
+completed GPU task `28212_0`, completed CPU publisher `28213`, all immutable
+artifact and log hashes, 99 allocation tests with zero skips, sampled host and
+device high-waters, zero OOM events, and zero simulator-generated actions. The
+adapter reached its typed one-key `__crfs_terminal__` response, after which the
+unchanged WebSocket server appended standard `server_timing`. The paired
+client rejected that two-key transport mapping before extracting or
+serializing the terminal diagnostic. No numeric Jacobian or finite-difference
+values were preserved, and no FISTA, candidate, replay, Arm C, or four-gate
+result exists. ADR-0048 classifies the run as apparatus-inconclusive and
+permits only strict client-side timing normalization followed by review and a
+separately released immutable diagnostic retry. It provides no teacher-
+transport, efficacy, infeasibility, or training evidence.

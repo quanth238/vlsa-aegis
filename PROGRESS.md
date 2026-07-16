@@ -34,7 +34,13 @@ Terminal zero-GPU identity release:
 Terminal CFS-00A run-B release:
 `12a7da69d3d34050709d08b9ca903a99f9d30862`.
 
-Active jobs: none. GPU task `28048_0` and CPU publisher `28049` both completed
+Reviewed failed-derivative diagnostic implementation:
+`768ab1c93824c1c8d089c65793fa55ee57257ecc`.
+
+Terminal failed-derivative diagnostic release:
+`3d44b2c5a4779725101d672ed29658a841c85541`.
+
+Active jobs: none. GPU task `28212_0` and CPU publisher `28213` both completed
 `0:0`; the published result is `apparatus_inconclusive`.
 
 Historical detail is preserved, not deleted:
@@ -47,7 +53,7 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0047;
+- immutable decisions: ADR-0028 through ADR-0048;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
@@ -126,13 +132,21 @@ method result:
   duplicate, payload, canonical replay, and independent validation required
   for scientific reproduction. ADR-0047 therefore preserves the run as
   apparatus-inconclusive and authorizes only diagnostic persistence.
+- The ADR-0047 diagnostic allocation reached the typed adapter terminal, but
+  the unchanged WebSocket server appended its standard `server_timing` field.
+  The paired client required the transported mapping itself to have only the
+  reserved key and rejected it before extracting or serializing the numeric
+  diagnostic. ADR-0048 classifies this as a client transport-normalization
+  apparatus defect. No numeric Jacobian or finite-difference values were
+  preserved, so the scientific question is still untested.
 
 The frozen scientific experiment remains exactly one case,
 `crfs-1069f29a8d76463a`, on source host `worker-1`: one H100, eight CPUs,
 exactly 64 GiB host RAM, two hours, array `0-0%1`, no requeue, plus one
-zero-GPU CPU `afterany` validator. Run B reached the derivative gate but not
-FISTA or a candidate. No teacher- or policy-generated action was executed in
-the simulator.
+zero-GPU CPU `afterany` validator. The latest diagnostic reached the terminal
+transport boundary but did not preserve its numeric values and did not enter
+FISTA or create a candidate. No teacher- or policy-generated action was
+executed in the simulator.
 
 ## What this experiment can conclude
 
@@ -223,22 +237,36 @@ is executed. They begin only in a separately authorized IFT-01.
   The transport hypothesis is untested, not refuted. ADR-0047 and
   `evidence/r05a/cfs00a-same-budget-launch-b.json` preserve the exact boundary;
   both CFS configs are fail closed and no H100 resubmission is authorized.
-- The ADR-0047 diagnostic-only implementation is now complete and fail closed.
-  Dependency-backed core/adapter tests pass 29/29. The NumPy-backed paired
-  client, independent semantic validator, CPU publisher, and HPC contract pass
-  54/55 tests; the sole local skip is the PyTorch-only canary audit already
-  covered by the allocation contract. Independent review found no remaining
-  release blocker. The complete `./init.sh` gate passes 625 tests with 205
-  declared dependency skips plus all 21 artifact and 18 gate audits.
-- The new terminal path preserves the exact 35-by-75 float32 Jacobian, exact
-  request- and config-bound float32 budget, and all six finite-difference
-  comparisons. It survives the frozen legacy exception wrapper, then stops
-  before paired-call append, duplicate request, FISTA, candidate creation,
-  nonlinear replay, Arm C, or simulator execution. The CPU validator rebuilds
-  the registered directions, epsilons, `Jd`, central differences, errors, and
-  pass map without trusting the server's booleans. The release apparatus
-  freezes identical 60-path local/remote source sets and still rejects
-  policy-server death, OOM, source drift, and publication drift.
+- The ADR-0047 diagnostic-only implementation passed its pre-release gates.
+  Dependency-backed core/adapter tests passed 29/29. The NumPy-backed paired
+  client, independent semantic validator, CPU publisher, and HPC contract
+  passed 54/55 tests; the sole local skip was the PyTorch-only canary audit.
+  Independent review found no release blocker. The complete `./init.sh` gate
+  passed 625 tests with 205 declared dependency skips plus all 21 artifact and
+  18 gate audits. These were implementation checks, not allocation evidence.
+- Those checks proved the typed path can preserve the exact 35-by-75 float32
+  Jacobian, request- and config-bound float32 budget, and all six comparisons,
+  and that the CPU validator can independently rebuild them. The allocation
+  exposed one uncovered integration seam: the unchanged WebSocket server adds
+  `server_timing` after the adapter returns its one-key terminal mapping.
+- Exact release `3d44b2c` submitted run
+  `r05a-constrained-flow-fd-diagnostic-20260716a`. GPU task `28212_0`
+  completed `0:0` on worker-1 in `00:03:06`; CPU publisher `28213` completed
+  `0:0` on worker-0 in `00:00:10`. Source contract
+  `7c8eee72...bed3b99` bound 60 repository paths, and submission
+  `73eb2320...f283cd` passed.
+- The CPU job atomically published result `5c843ce5...1062e0` and receipt
+  `be91ec15...d32d0`, both `apparatus_inconclusive`. Raw payload
+  `d423da9f...5cbb2d` records the exact client error: `terminal constrained-flow
+  response must contain only its reserved key`. The adapter terminal existed,
+  but its numeric Jacobian and comparisons were rejected before local
+  extraction and therefore are absent from the immutable artifacts.
+- All 99 allocation tests passed with zero skips. Sampled host high-water was
+  16,074,977,280 bytes; sampled device high-water was 8,513 MiB; required OOM
+  event deltas were zero. No FISTA, candidate, nonlinear replay, Arm C,
+  four-gate evaluation, or generated simulator action ran. ADR-0048 and
+  `evidence/r05a/cfs00a-fd-diagnostic-20260716a.json` consume the identity and
+  authorize only strict client-side timing normalization after review.
 - ADR-0037 release commit `223667c` selected launch-A run ID
   `r05a-inverse-flow-sampled-current-canary-20260715a` exactly once.
 - Task `27928_0` is terminal `CANCELLED by 1073`, elapsed `00:00:00`, start
@@ -287,17 +315,21 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Commit the reviewed ADR-0047 diagnostic implementation, then create one
-direct-child three-file release with an unused immutable run ID and submit the
-single worker-1 H100 canary plus its CPU `afterany` publisher. The allocation
-must run all 99 registered tests with zero skips. Interpret only the preserved
-failed derivative diagnostics and stop; do not tune any tolerance, change the
-method or resources, execute generated actions in the simulator, train a
-probe/MLP, or launch IFT-01 automatically.
+Implement and review only ADR-0048's strict client transport normalization:
+accept the exact reserved terminal key with the unchanged WebSocket
+`server_timing`, validate that timing exhaustively, remove only that metadata,
+and pass a new one-key mapping to the unchanged terminal parser. Prove normal
+baseline replies remain unchanged and all extra or malformed metadata fails
+closed. Keep the apparatus unreleased until focused tests, the complete local
+gate, dependency-backed tests, and an independent review pass. Only then may a
+separate direct-child release select one new immutable diagnostic run ID. Do
+not tune any tolerance, change the method or resources, execute generated
+actions in the simulator, train a probe/MLP, or launch IFT-01 automatically.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed
 payload. Do not resubmit retry B, CG-00, or the consumed CPU apparatus run.
+Do not resume or reuse jobs `28212_0`/`28213` or their run ID.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops

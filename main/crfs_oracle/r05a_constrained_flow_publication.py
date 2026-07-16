@@ -49,10 +49,13 @@ ALLOCATION_TEST_REGISTRY_PATH = (
     "main/crfs_oracle/r05a_constrained_flow_allocation_tests.json"
 )
 RELEASE_DECISION_PATH = (
-    "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
+    "docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md"
 )
 HISTORICAL_RELEASE_DECISION_PATH = (
     "docs/decisions/0041-require-exact-constrained-flow-canary-release-identity.md"
+)
+HISTORICAL_DIAGNOSTIC_RELEASE_DECISION_PATH = (
+    "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
 )
 RUNTIME_IDENTITY_DECISION_PATH = (
     "docs/decisions/0045-accept-runtime-identity-regression.md"
@@ -64,6 +67,21 @@ RUNTIME_IDENTITY_PREFLIGHT_PATH = (
     "evidence/r05a/runtime-identity-preflight-20260715T221453Z.txt"
 )
 RUN_B_EVIDENCE_PATH = "evidence/r05a/cfs00a-same-budget-launch-b.json"
+FD_DIAGNOSTIC_A_EVIDENCE_PATH = (
+    "evidence/r05a/cfs00a-fd-diagnostic-20260716a.json"
+)
+FD_DIAGNOSTIC_A_EVIDENCE_TEST_PATH = (
+    "tests/test_r05a_cfs00a_fd_diagnostic_a_evidence.py"
+)
+WEBSOCKET_POLICY_SERVER_PATH = (
+    "openpi/src/openpi/serving/websocket_policy_server.py"
+)
+MSGPACK_NUMPY_PATH = (
+    "openpi/packages/openpi-client/src/openpi_client/msgpack_numpy.py"
+)
+WEBSOCKET_CLIENT_POLICY_PATH = (
+    "openpi/packages/openpi-client/src/openpi_client/websocket_client_policy.py"
+)
 RELEASE_BRANCH_REF = "refs/remotes/origin/agent/crfs-oracle-harness"
 RELEASE_ONLY_PATHS = (
     SCIENTIFIC_CONFIG_PATH,
@@ -138,6 +156,19 @@ RUN_B_EVIDENCE_BINDING = {
     "failed_numeric_diagnostics_persisted": False,
     "h100_submission_authorized_by_evidence": False,
 }
+FD_DIAGNOSTIC_A_EVIDENCE_BINDING = {
+    "evidence_path": FD_DIAGNOSTIC_A_EVIDENCE_PATH,
+    "evidence_sha256": "12cea62c3eca6ce1bc44d4af936a09ddccae77f1adb32f4b3776d999778adf69",
+    "run_id": "r05a-constrained-flow-fd-diagnostic-20260716a",
+    "release_commit": "3d44b2c5a4779725101d672ed29658a841c85541",
+    "gpu_task_id": "28212_0",
+    "cpu_publisher_job_id": "28213",
+    "published_result_sha256": "5c843ce5ed4f0e836b43dd6e0b42fec3ae120fa61cb1c56350eac046001062e0",
+    "classification": "apparatus_inconclusive",
+    "client_terminal_validation_completed": False,
+    "numeric_diagnostics_persisted": False,
+    "h100_submission_authorized_by_evidence": False,
+}
 VINUNI_H100_GUIDE_CONTRACT = {
     "title": "2026-05-03 - VinUni H100 Server Guide.md",
     "local_reference_path": "/Users/quanth238/Library/Mobile Documents/iCloud~md~obsidian/Documents/LLM Knowledge Base/10 Raw/articles/research-infrastructure/2026-05-03 - VinUni H100 Server Guide.md",
@@ -165,10 +196,12 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "manifests/r05a_inverse_flow_teacher_smoke.jsonl",
         "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
         HISTORICAL_RELEASE_DECISION_PATH,
+        HISTORICAL_DIAGNOSTIC_RELEASE_DECISION_PATH,
         RUNTIME_IDENTITY_DECISION_PATH,
         RUNTIME_IDENTITY_EVIDENCE_PATH,
         RUNTIME_IDENTITY_PREFLIGHT_PATH,
         RUN_B_EVIDENCE_PATH,
+        FD_DIAGNOSTIC_A_EVIDENCE_PATH,
         RELEASE_DECISION_PATH,
         "schemas/r05a-inverse-flow-canary.schema.json",
         "main/crfs_oracle/r05a_canary.py",
@@ -182,6 +215,8 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "main/publish_crfs_r05a_constrained_flow_canary.py",
         "openpi/scripts/serve_cfs_policy.py",
         "openpi/scripts/serve_policy.py",
+        MSGPACK_NUMPY_PATH,
+        WEBSOCKET_CLIENT_POLICY_PATH,
         "openpi/src/openpi/models_pytorch/crfs_inverse_control.py",
         "openpi/src/openpi/models_pytorch/crfs_linearized_control.py",
         "openpi/src/openpi/models_pytorch/pi0_pytorch.py",
@@ -192,6 +227,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "openpi/src/openpi/models_pytorch/transformers_replace/models/siglip/modeling_siglip.py",
         "openpi/src/openpi/policies/crfs_constrained_flow_adapter.py",
         "openpi/src/openpi/policies/policy.py",
+        WEBSOCKET_POLICY_SERVER_PATH,
         "scripts/hpc/lib/cgroup_v2_full_lifetime_monitor.sh",
         "scripts/hpc/lib/r05a_allocation_tests.sh",
         "scripts/hpc/lib/r05a_runtime_identity.sh",
@@ -217,6 +253,7 @@ BOUND_REPOSITORY_PATHS = frozenset(
         "tests/test_r05a_constrained_flow_publication.py",
         "tests/test_r05a_runtime_identity_regression_evidence.py",
         "tests/test_r05a_cfs00a_launch_b_evidence.py",
+        FD_DIAGNOSTIC_A_EVIDENCE_TEST_PATH,
     }
 )
 
@@ -350,6 +387,11 @@ def _validate_execution_release(
         raise ValueError("constrained-flow runtime identity evidence binding changed")
     if apparatus_config.get("run_b_failure_evidence_binding") != RUN_B_EVIDENCE_BINDING:
         raise ValueError("constrained-flow run-B failure evidence binding changed")
+    if (
+        apparatus_config.get("fd_diagnostic_a_evidence_binding")
+        != FD_DIAGNOSTIC_A_EVIDENCE_BINDING
+    ):
+        raise ValueError("constrained-flow diagnostic-A evidence binding changed")
     if apparatus_config.get("vinuni_h100_guide_contract") != VINUNI_H100_GUIDE_CONTRACT:
         raise ValueError("constrained-flow VinUni H100 guide contract changed")
     release = apparatus_config.get("execution_release")
@@ -418,6 +460,8 @@ def _validate_apparatus_bindings(
         "experiment_identity"
     ) != "IFT-00B/CFS-00A":
         raise ValueError("constrained-flow apparatus identity changed")
+    if apparatus.get("release_decision_artifact") != RELEASE_DECISION_PATH:
+        raise ValueError("constrained-flow release decision binding changed")
     schema_path = repository / ENVELOPE_SCHEMA_PATH
     schema_sha = file_sha256(schema_path)
     if apparatus.get("envelope_schema") != {
@@ -481,6 +525,75 @@ def _validate_apparatus_bindings(
         )
     ):
         raise ValueError("constrained-flow run-B terminal evidence semantics changed")
+    diagnostic_binding = apparatus.get("fd_diagnostic_a_evidence_binding")
+    if diagnostic_binding != FD_DIAGNOSTIC_A_EVIDENCE_BINDING:
+        raise ValueError("constrained-flow diagnostic-A evidence binding changed")
+    if file_sha256(
+        repository / FD_DIAGNOSTIC_A_EVIDENCE_PATH
+    ) != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["evidence_sha256"]:
+        raise ValueError("constrained-flow diagnostic-A evidence bytes changed")
+    diagnostic_evidence = _load_object(
+        repository / FD_DIAGNOSTIC_A_EVIDENCE_PATH,
+        label="constrained-flow diagnostic-A terminal evidence",
+    )
+    diagnostic_boundary = diagnostic_evidence.get("execution_boundary", {})
+    diagnostic_operational = diagnostic_evidence.get("operational_validation", {})
+    diagnostic_interpretation = diagnostic_evidence.get("interpretation", {})
+    if any(
+        (
+            diagnostic_evidence.get("run_id")
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["run_id"],
+            diagnostic_evidence.get("release_commit")
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["release_commit"],
+            diagnostic_evidence.get("source_host") != SOURCE_NODE,
+            diagnostic_evidence.get("jobs", {})
+            .get("gpu_array_task", {})
+            .get("job_id")
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["gpu_task_id"],
+            diagnostic_evidence.get("jobs", {})
+            .get("cpu_afterany_validator", {})
+            .get("job_id")
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["cpu_publisher_job_id"],
+            diagnostic_evidence.get("immutable_artifacts", {}).get(
+                "published_result_sha256"
+            )
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["published_result_sha256"],
+            diagnostic_evidence.get("immutable_artifacts", {}).get(
+                "repository_binding_count"
+            )
+            != 60,
+            diagnostic_boundary.get("adapter_terminal_outer_keys")
+            != ["__crfs_terminal__"],
+            diagnostic_boundary.get("transport_outer_keys_received_by_client")
+            != ["__crfs_terminal__", "server_timing"],
+            diagnostic_boundary.get("client_terminal_validation_completed")
+            is not False,
+            diagnostic_boundary.get("numeric_jacobian_persisted") is not False,
+            diagnostic_boundary.get(
+                "finite_difference_numeric_comparisons_persisted"
+            )
+            is not False,
+            diagnostic_boundary.get("arm_b_fista_started") is not False,
+            diagnostic_boundary.get("arm_b_candidate_exists") is not False,
+            diagnostic_boundary.get("arm_c_executed") is not False,
+            diagnostic_boundary.get("policy_generated_action_steps_executed") != 0,
+            diagnostic_boundary.get("teacher_generated_action_steps_executed") != 0,
+            diagnostic_evidence.get("failure", {}).get("root_message")
+            != "terminal constrained-flow response must contain only its reserved key",
+            diagnostic_operational.get("allocation_tests_expected") != 99,
+            diagnostic_operational.get("allocation_tests_observed") != 99,
+            diagnostic_operational.get("allocation_test_skips") != 0,
+            diagnostic_operational.get("memory_event_deltas")
+            != {"max": 0, "oom": 0, "oom_kill": 0},
+            diagnostic_interpretation.get("status")
+            != FD_DIAGNOSTIC_A_EVIDENCE_BINDING["classification"],
+            diagnostic_interpretation.get("automatic_h100_resubmission_authorized")
+            is not False,
+            diagnostic_interpretation.get("probe_or_mlp_training_authorized")
+            is not False,
+        )
+    ):
+        raise ValueError("constrained-flow diagnostic-A evidence semantics changed")
     runtime_evidence = _load_object(
         repository / RUNTIME_IDENTITY_EVIDENCE_PATH,
         label="runtime identity terminal evidence",
@@ -635,8 +748,14 @@ def _expected_frozen_bindings(repository: Path) -> dict[str, str]:
             repository / HISTORICAL_RELEASE_DECISION_PATH
         ),
         "adr0045_sha256": file_sha256(repository / RUNTIME_IDENTITY_DECISION_PATH),
-        "adr0047_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
+        "historical_adr0047_sha256": file_sha256(
+            repository / HISTORICAL_DIAGNOSTIC_RELEASE_DECISION_PATH
+        ),
+        "adr0048_sha256": file_sha256(repository / RELEASE_DECISION_PATH),
         "run_b_evidence_sha256": file_sha256(repository / RUN_B_EVIDENCE_PATH),
+        "fd_diagnostic_a_evidence_sha256": file_sha256(
+            repository / FD_DIAGNOSTIC_A_EVIDENCE_PATH
+        ),
         "runtime_identity_evidence_sha256": file_sha256(
             repository / RUNTIME_IDENTITY_EVIDENCE_PATH
         ),
@@ -664,6 +783,13 @@ def _expected_frozen_bindings(repository: Path) -> dict[str, str]:
         ),
         "ordinary_policy_server_sha256": file_sha256(
             repository / "openpi/scripts/serve_policy.py"
+        ),
+        "websocket_policy_server_sha256": file_sha256(
+            repository / WEBSOCKET_POLICY_SERVER_PATH
+        ),
+        "msgpack_numpy_sha256": file_sha256(repository / MSGPACK_NUMPY_PATH),
+        "websocket_client_policy_sha256": file_sha256(
+            repository / WEBSOCKET_CLIENT_POLICY_PATH
         ),
         "transformers_source_bundle_sha256": "430b00a688e12ff457cdd65929bd164fd001ffa1716dc83589d5388806d2bb33",
         "transformers_replacement_bundle_sha256": "2e1b546bdf42e9872c84734b2d5baf52bd411664685922458e734732c8434098",
@@ -1467,11 +1593,17 @@ __all__ = [
     "CASE_ID",
     "ENVELOPE_SCHEMA_PATH",
     "EXECUTION_RELEASE_KEYS",
+    "FD_DIAGNOSTIC_A_EVIDENCE_BINDING",
+    "FD_DIAGNOSTIC_A_EVIDENCE_PATH",
+    "HISTORICAL_DIAGNOSTIC_RELEASE_DECISION_PATH",
     "LEGACY_RAW_DEFERRED_ERRORS",
+    "MSGPACK_NUMPY_PATH",
     "RELEASE_DECISION_PATH",
     "RELEASE_ONLY_PATHS",
     "RUNTIME_IDENTITY_CONTRACT",
     "SOURCE_RESOURCE_CONTRACT",
+    "WEBSOCKET_CLIENT_POLICY_PATH",
+    "WEBSOCKET_POLICY_SERVER_PATH",
     "build_constrained_flow_envelope",
     "publish_constrained_flow_envelope",
 ]
