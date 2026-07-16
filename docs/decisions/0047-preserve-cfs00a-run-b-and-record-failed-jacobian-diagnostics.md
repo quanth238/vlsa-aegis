@@ -108,3 +108,20 @@ Implement and validate only the structured failed-diagnostic path above,
 preserve all frozen scientific choices, obtain independent review, then create
 a new direct-child single-run release.  Do not launch FISTA, IFT-01, or
 training automatically.
+
+## Exact execution release
+
+Execution authorization: one preregistered CFS-00A canary submission only.
+
+- Accepted implementation commit: `768ab1c93824c1c8d089c65793fa55ee57257ecc`.
+- Immutable run ID: `r05a-constrained-flow-fd-diagnostic-20260716a`.
+- Source host: `worker-1`.
+- Resources (canonical JSON): `{"account":"normal","array":"0-0%1","cpus_per_task":8,"gpus":1,"host_memory_mib":65536,"partition":"main","qos":"normal","requeue":false,"time_limit":"02:00:00","validator_account":"normal","validator_cpus":2,"validator_dependency":"afterany","validator_gpus":0,"validator_host_memory_mib":8192,"validator_partition":"main","validator_qos":"normal","validator_time_limit":"00:15:00"}`.
+- Single submission: `true`.
+- Automatic resubmission: `false`.
+- Automatic next experiment: `false`.
+- Simulator efficacy claim authorized: `false`.
+- Infeasibility claim authorized: `false`.
+- Probe or MLP training authorized: `false`.
+
+This appendix authorizes only the frozen one-case failed-Jacobian diagnostic canary, which must stop before FISTA after a registered finite-difference rejection. It does not authorize IFT-01, solver or tolerance tuning, simulator execution of generated actions, an efficacy or infeasibility claim, label collection, probe training, or MLP training.

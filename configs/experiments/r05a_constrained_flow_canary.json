@@ -1,20 +1,18 @@
 {
   "schema_version": "1.0",
-  "config_status": "draft_preregistered_not_released",
+  "config_status": "released_exact_single_canary",
   "name": "r05a_constrained_flow_canary",
   "experiment_identity": "IFT-00B/CFS-00A",
   "evidence_tier": "real_pi05_allocation_transport_mechanism_canary_only",
   "scientific_role": "same_budget_initialization_diagnostic_no_simulator_efficacy",
-  "ready_to_run": false,
-  "blocked_on": [
-    "structured_failed_finite_difference_diagnostic_requires_reviewed_implementation_and_new_release"
-  ],
+  "ready_to_run": true,
+  "blocked_on": [],
   "new_experiment_not_retry": true,
   "historical_run_id_reuse_forbidden": true,
   "preregistration": {
     "decision_artifact": "docs/decisions/0040-preregister-same-budget-constrained-flow-diagnostic.md",
     "implementation_authorized": true,
-    "h100_submission_authorized": false,
+    "h100_submission_authorized": true,
     "automatic_next_gate_authorized": false
   },
   "historical_run_b_binding": {
@@ -295,7 +293,42 @@
     "validator_gpus": 0,
     "requires_separate_release_review": true
   },
-  "execution_release": null,
+  "execution_release": {
+    "schema_version": "1.0",
+    "artifact_role": "r05a_constrained_flow_canary_execution_release",
+    "decision_artifact": "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md",
+    "accepted_implementation_commit": "768ab1c93824c1c8d089c65793fa55ee57257ecc",
+    "run_id": "r05a-constrained-flow-fd-diagnostic-20260716a",
+    "single_submission": true,
+    "source_host": "worker-1",
+    "resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "02:00:00",
+      "array": "0-0%1",
+      "requeue": false,
+      "validator_partition": "main",
+      "validator_account": "normal",
+      "validator_qos": "normal",
+      "validator_cpus": 2,
+      "validator_host_memory_mib": 8192,
+      "validator_time_limit": "00:15:00",
+      "validator_gpus": 0,
+      "validator_dependency": "afterany"
+    },
+    "release_only_parent_required": true,
+    "allowed_release_diff_paths": [
+      "configs/experiments/r05a_constrained_flow_canary.json",
+      "configs/experiments/r05a_constrained_flow_canary_apparatus.json",
+      "docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md"
+    ],
+    "automatic_resubmission_allowed": false,
+    "automatic_next_experiment_allowed": false
+  },
   "allow_test_tuning": false,
   "training": false
 }
