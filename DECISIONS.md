@@ -49,3 +49,4 @@
 - [0047 — Preserve CFS-00A run B and record failed Jacobian diagnostics](docs/decisions/0047-preserve-cfs00a-run-b-and-record-failed-jacobian-diagnostics.md)
 - [0048 — Preserve the failed-derivative diagnostic and normalize terminal transport](docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md)
 - [0049 — Accept the numeric diagnostic and retire autograd linearization](docs/decisions/0049-accept-numeric-diagnostic-and-retire-autograd-linearization.md)
+- [0050 — Preregister the actual-forward CEM teacher canary](docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md)

@@ -343,6 +343,32 @@ Only if such a teacher produces a validated schedule should a separate MLP be
 trained to predict the time-dependent residual field. No H100 submission,
 IFT-01, probe, or MLP is currently authorized.
 
+### AF-00A — Actual-forward derivative-free teacher canary
+
+Status: **implemented and independently reviewed; fail closed and not yet
+execution-released**
+
+AF-00A keeps the exact row-zero case, observation, instruction, policy noise,
+R02 target, float32 budget `3.6398398876190186`, five active flow steps, and
+first-five XYZ mask. It calls only the ordinary frozen Pi0.5
+`residual_schedule` path. Arm A repeats the equal-split residual; Arm B is
+selected from a fixed eight-generation, 65-candidate (520-request)
+actual-forward CEM; Arm C reverses B's exact requested velocity rows as a
+timing diagnostic. The complete ledger is 534 requests with exact pre/post and
+replay controls.
+
+The canary answers only whether this fixed actual-forward teacher can transport
+the paired target under the unchanged budget. It executes no generated action
+in the simulator and cannot establish safety, task progress, learning,
+generalization, novelty, or infeasibility. A mechanism pass permits only a
+separate review of IFT-01; it never automatically launches an efficacy run or
+trains an MLP.
+
+The fail-closed implementation passed all 35 dependency-backed AF-focused
+tests and the complete 673-test repository gate on 2026-07-16. Independent
+scientific and Slurm/publication reviews found no P0/P1 blocker. No AF-00A job
+or immutable run root existed at this review boundary.
+
 ### IFT-01 — Three-case real transport smoke
 
 Status: **blocked on a validated converged IFT-00A and a separate immutable

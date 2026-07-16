@@ -30,10 +30,14 @@ changed by `0.819`–`1.187` relative L2 when the perturbation was halved. Thus
 the present autograd Jacobian is not a validated local model of the actual
 mixed-precision sampler at the registered scales. ADR-0049 retires that
 autograd-linearized CFS-00A submethod rather than weakening the check. It does
-not reject the broader actual-forward, time-dependent flow-steering idea. The
-next direct test must optimize against frozen sampler forward evaluations
-instead of this Jacobian. No FISTA, candidate, replay, Arm C, four-gate result,
-simulator efficacy result, probe, or residual-field MLP exists.
+not reject the broader actual-forward, time-dependent flow-steering idea.
+ADR-0050 now preregisters AF-00A: a fixed 520-query derivative-free CEM that
+evaluates only the ordinary frozen sampler forward path against the same
+equal-split baseline, target, noise, and correction budget. Its implementation
+and independent reviews are complete, but the config remains fail closed until
+a separate direct-child execution release. No
+AF-00A H100 result, simulator efficacy result, probe, or residual-field MLP
+exists.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -141,6 +145,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0023-run-strong-analytic-kill-test.md`: frozen no-learning R03A necessity test;
 - `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: historical allocation-backed smoke evidence and the now-retired grouped-population launch contract;
 - `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: current controlled pivot and R05A stop rules;
+- `docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md`: fixed actual-forward derivative-free teacher test;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

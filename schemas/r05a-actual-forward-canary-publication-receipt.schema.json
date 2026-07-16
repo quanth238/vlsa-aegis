@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crfs.local/schemas/r05a-actual-forward-canary-publication-receipt.schema.json",
+  "title": "AF-00A successful CPU publication receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_role",
+    "run_id",
+    "case_id",
+    "git_commit",
+    "source_node",
+    "source_job_id",
+    "source_task_id",
+    "publisher_job_id",
+    "dependency",
+    "result_path",
+    "result_sha256",
+    "published",
+    "passed",
+    "outcome",
+    "evidence",
+    "measured_telemetry",
+    "scientific_claim_allowed",
+    "simulator_efficacy_claim_allowed",
+    "infeasibility_claim_allowed",
+    "probe_training_authorized",
+    "automatic_next_gate_authorized"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "artifact_role": {"const": "r05a_actual_forward_canary_cpu_publication"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "case_id": {"const": "crfs-1069f29a8d76463a"},
+    "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "source_node": {"const": "worker-1"},
+    "source_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+    "source_task_id": {"type": "string", "pattern": "^[0-9]+_0$"},
+    "publisher_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+    "dependency": {"type": "string", "pattern": "^afterany:[0-9]+$"},
+    "result_path": {"type": "string"},
+    "result_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "published": {"const": true},
+    "passed": {"const": true},
+    "outcome": {
+      "enum": [
+        "mechanism_pass",
+        "baseline_sufficient_no_incremental_support",
+        "frozen_cem_negative"
+      ]
+    },
+    "evidence": {"$ref": "#/$defs/evidence"},
+    "measured_telemetry": {"$ref": "#/$defs/measuredTelemetry"},
+    "scientific_claim_allowed": {"const": false},
+    "simulator_efficacy_claim_allowed": {"const": false},
+    "infeasibility_claim_allowed": {"const": false},
+    "probe_training_authorized": {"const": false},
+    "automatic_next_gate_authorized": {"const": false}
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_contract_path",
+        "source_contract_sha256",
+        "held_gpu_submission_path",
+        "held_gpu_submission_sha256",
+        "submission_path",
+        "submission_sha256",
+        "release_fingerprint_path",
+        "release_fingerprint_sha256",
+        "payload_path",
+        "payload_sha256",
+        "tensor_path",
+        "tensor_sha256",
+        "query_ledger_path",
+        "query_ledger_sha256",
+        "allocation_tests_log_path",
+        "allocation_tests_log_sha256",
+        "host_telemetry_path",
+        "host_telemetry_sha256",
+        "gpu_telemetry_path",
+        "gpu_telemetry_sha256",
+        "live_preflight_path",
+        "live_preflight_sha256",
+        "actual_config_path",
+        "actual_config_sha256",
+        "legacy_config_path",
+        "legacy_config_sha256",
+        "manifest_path",
+        "manifest_sha256",
+        "source_r02_path",
+        "source_r02_sha256",
+        "source_r02_config_path",
+        "source_r02_config_sha256",
+        "checkpoint_model_path",
+        "checkpoint_model_sha256",
+        "checkpoint_config_path",
+        "checkpoint_config_sha256",
+        "normalization_asset_path",
+        "normalization_asset_sha256"
+      ],
+      "properties": {
+        "source_contract_path": {"type": "string"},
+        "source_contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "held_gpu_submission_path": {"type": "string"},
+        "held_gpu_submission_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "submission_path": {"type": "string"},
+        "submission_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "release_fingerprint_path": {"type": "string"},
+        "release_fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "payload_path": {"type": "string"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "tensor_path": {"type": "string"},
+        "tensor_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "query_ledger_path": {"type": "string"},
+        "query_ledger_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "allocation_tests_log_path": {"type": "string"},
+        "allocation_tests_log_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "host_telemetry_path": {"type": "string"},
+        "host_telemetry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "gpu_telemetry_path": {"type": "string"},
+        "gpu_telemetry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "live_preflight_path": {"type": "string"},
+        "live_preflight_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "actual_config_path": {"type": "string"},
+        "actual_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "legacy_config_path": {"type": "string"},
+        "legacy_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "manifest_path": {"type": "string"},
+        "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_r02_path": {"type": "string"},
+        "source_r02_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_r02_config_path": {"type": "string"},
+        "source_r02_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "checkpoint_model_path": {"type": "string"},
+        "checkpoint_model_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "checkpoint_config_path": {"type": "string"},
+        "checkpoint_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "normalization_asset_path": {"type": "string"},
+        "normalization_asset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "measuredTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allocation_tests", "host", "gpu"],
+      "properties": {
+        "allocation_tests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["passed", "test_count", "skipped_test_count"],
+          "properties": {
+            "passed": {"const": true},
+            "test_count": {"type": "integer", "minimum": 1},
+            "skipped_test_count": {"const": 0}
+          }
+        },
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract_passed",
+            "raw_trace_sha256",
+            "sample_count",
+            "first_sample_monotonic_ns",
+            "last_sample_monotonic_ns",
+            "maximum_adjacent_gap_ns",
+            "host_cgroup_sampled_current_high_water_bytes",
+            "host_cgroup_sampled_current_is_lower_bound_not_peak",
+            "memory_max_job_scope_hard_limit_bytes",
+            "memory_events_deltas",
+            "native_memory_peak_state",
+            "native_memory_peak_value_bytes",
+            "full_lifetime_window_passed"
+          ],
+          "properties": {
+            "contract_passed": {"const": true},
+            "raw_trace_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "sample_count": {"type": "integer", "minimum": 1},
+            "first_sample_monotonic_ns": {"type": "integer", "minimum": 1},
+            "last_sample_monotonic_ns": {"type": "integer", "minimum": 1},
+            "maximum_adjacent_gap_ns": {"type": "integer", "minimum": 0},
+            "host_cgroup_sampled_current_high_water_bytes": {"type": "integer", "minimum": 1},
+            "host_cgroup_sampled_current_is_lower_bound_not_peak": {"const": true},
+            "memory_max_job_scope_hard_limit_bytes": {"type": "integer", "minimum": 1},
+            "memory_events_deltas": {
+              "type": "object",
+              "required": ["max", "oom", "oom_kill"],
+              "additionalProperties": {"type": "integer", "minimum": 0},
+              "properties": {
+                "max": {"const": 0},
+                "oom": {"const": 0},
+                "oom_kill": {"const": 0}
+              }
+            },
+            "native_memory_peak_state": {"type": "string", "minLength": 1},
+            "native_memory_peak_value_bytes": {
+              "type": ["integer", "null"],
+              "minimum": 1
+            },
+            "full_lifetime_window_passed": {"const": true}
+          }
+        },
+        "gpu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gpu_uuid",
+            "sample_count",
+            "first_timestamp_ns",
+            "last_timestamp_ns",
+            "maximum_compute_mib",
+            "maximum_device_mib"
+          ],
+          "properties": {
+            "gpu_uuid": {"type": "string", "pattern": "^GPU-"},
+            "sample_count": {"type": "integer", "minimum": 1},
+            "first_timestamp_ns": {"type": "integer", "minimum": 1},
+            "last_timestamp_ns": {"type": "integer", "minimum": 1},
+            "maximum_compute_mib": {"type": "integer", "minimum": 1},
+            "maximum_device_mib": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    }
+  }
+}

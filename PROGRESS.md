@@ -85,7 +85,7 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / actual-forward teacher method not yet preregistered
+## Active gate: R05A / AF-00A actual-forward CEM release preparation
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
 real teacher-transport mechanism result. CFS-00A run B is a valid published
@@ -164,12 +164,24 @@ numeric values but stopped at the failed finite-difference gate. It did not
 enter FISTA or create a candidate. No teacher- or policy-generated action was
 executed in the simulator, and both checked-in configs are now fail closed.
 
+ADR-0050 now freezes the direct replacement test. AF-00A uses only the
+ordinary `residual_schedule` path: two exact equal-split repeats, 520
+actual-forward CEM evaluations, selected/reversed replay controls, and 534
+total policy requests on the same paired case. The objective, float32
+`c -> u -> dt*u` transport, eight-ULP budget rule, final selection, and outcome
+precedence are fixed before execution. Implementation and independent
+publication-path review are complete. All 35 dependency-backed AF-focused tests and the
+complete 673-test repository gate passed on 2026-07-16. Independent scientific
+and Slurm/publication reviews found no P0/P1 blocker. The AF-00A config remains
+fail closed and no AF-00A job has been submitted.
+
 ## What this experiment can conclude
 
 | Validated terminal result | Interpretation | Required next action |
 |---|---|---|
-| `mechanism_pass` | Exact Arm-A reproduction plus Arm-B nonlinear replay or Arm-C replay passes all four physical fidelity gates | One-case transport-mechanism support only; stop and separately decide whether any efficacy gate is justified |
-| `frozen_method_negative` | Exact Arm-A reproduction plus valid deterministic finite B/C, but neither passes | Stop automatic expansion; this fixed method is unsupported on the canary, not infeasible |
+| `mechanism_pass` | Equal-split Arm A fails, but the changed selected actual-forward CEM schedule passes all four physical fidelity gates | One-case teacher-transport support only; stop and separately decide whether any efficacy gate is justified |
+| `baseline_sufficient_no_incremental_support` | Equal-split Arm A already passes all four gates | The target is transportable, but AF-00A gives no evidence that CEM is needed |
+| `frozen_cem_negative` | All 520 fixed evaluations and replays are valid, but selected B still misses a gate | Stop automatic expansion; this exact search is unsupported on the canary, not infeasible |
 | `apparatus_inconclusive` | Pairing, Arm-A reproduction, numerical, determinism, constraint, replay, OOM, test, telemetry, schema, publication, or source-job failure | Preserve any valid component-level diagnostic, but make no teacher-transport or efficacy conclusion; repair or retire only the demonstrated component under a new decision |
 
 Clearance and progress are not measured in IFT-00A because no generated action
@@ -355,16 +367,12 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Preregister one direct actual-forward derivative-free transport canary. It
-must optimize a bounded time-dependent residual schedule using only the frozen
-sampler's returned target error, compare against the existing equal-split
-residual baseline on the same paired case, and preserve the same target,
-observation, noise, physical scale, path budget, per-step cap, and no-overwrite
-rule. Include one small identical-forward repeatability check, then proceed
-directly to candidate search and exact nonlinear replay if repeatability holds.
-Freeze the query budget, seeds, projection, candidate selection, and stopping
-rule before observing a new result. Keep the apparatus unreleased until that
-new method is reviewed; do not launch it under ADR-0049.
+Commit and synchronize the reviewed fail-closed ADR-0050 implementation. Then
+make one separate direct-child release changing only the AF-00A config and
+`docs/decisions/0051-release-actual-forward-cem-canary.md`, select one unused
+immutable AF-00A run ID, and submit exactly one held worker-1 H100 task plus
+its CPU `afterany` publisher. Do not change the 520-query budget, objective,
+seed, target, constraints, resources, or outcome rules after seeing the result.
 
 The scientific purpose is no longer another Jacobian repair. It is the user's
 central hypothesis: can a privileged final-action correction be represented
