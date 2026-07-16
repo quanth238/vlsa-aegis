@@ -345,8 +345,8 @@ IFT-01, probe, or MLP is currently authorized.
 
 ### AF-00A — Actual-forward derivative-free teacher canary
 
-Status: **implemented and independently reviewed; fail closed and not yet
-execution-released**
+Status: **launch A apparatus-inconclusive; narrow Slurm identity repair is
+fail closed and under review**
 
 AF-00A keeps the exact row-zero case, observation, instruction, policy noise,
 R02 target, float32 budget `3.6398398876190186`, five active flow steps, and
@@ -368,6 +368,15 @@ The fail-closed implementation passed all 35 dependency-backed AF-focused
 tests and the complete 673-test repository gate on 2026-07-16. Independent
 scientific and Slurm/publication reviews found no P0/P1 blocker. No AF-00A job
 or immutable run root existed at this review boundary.
+
+Release `6ff5d5c` then created exact held task `28275_0`, but VinUni displayed
+the exact task's `JobId` as parent `28275` while retaining the exact
+`ArrayJobId=28275 ArrayTaskId=0` tuple. The transaction stopped before CPU
+publisher creation or GPU release. The exact task was cancelled at zero
+elapsed time with no node; no Python, model, arm, or simulator action ran.
+ADR-0052 permits only accepting both Slurm display forms while retaining the
+exact array tuple and every resource/receipt check. The consumed run has no
+scientific result and the config is fail closed pending a new review/release.
 
 ### IFT-01 — Three-case real transport smoke
 

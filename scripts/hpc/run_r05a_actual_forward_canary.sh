@@ -123,10 +123,10 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
     validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"
   }
   and .execution_release.release_only_parent_required == true
-  and .execution_release.decision_artifact == "docs/decisions/0051-release-actual-forward-cem-canary.md"
+  and .execution_release.decision_artifact == "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   and .execution_release.allowed_release_diff_paths == [
     "configs/experiments/r05a_actual_forward_canary.json",
-    "docs/decisions/0051-release-actual-forward-cem-canary.md"
+    "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   ]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false
@@ -141,7 +141,12 @@ test "$(git -C "$REMOTE_REPO" rev-list --parents -n 1 "$EXPECTED_GIT_COMMIT")" =
 }
 
 job_record=$(scontrol show job "${SLURM_ARRAY_JOB_ID}_0" -o)
-for field in "JobId=${SLURM_ARRAY_JOB_ID}_0" "ArrayJobId=$SLURM_ARRAY_JOB_ID" "ArrayTaskId=0" JobState=RUNNING Partition=main Account=normal QOS=normal TimeLimit=02:00:00 Requeue=0 ReqNodeList=worker-1 NumNodes=1 NumCPUs=8 CPUs/Task=8; do
+task_job_id=$(printf '%s\n' "$job_record" | sed -n 's/.* JobId=\([^ ]*\).*/\1/p')
+case "$task_job_id" in
+  "$SLURM_ARRAY_JOB_ID"|"${SLURM_ARRAY_JOB_ID}_0") ;;
+  *) echo "AF-00A job field changed: JobId=$task_job_id" >&2; exit 2 ;;
+esac
+for field in "ArrayJobId=$SLURM_ARRAY_JOB_ID" "ArrayTaskId=0" JobState=RUNNING Partition=main Account=normal QOS=normal TimeLimit=02:00:00 Requeue=0 ReqNodeList=worker-1 NumNodes=1 NumCPUs=8 CPUs/Task=8; do
   case " $job_record " in *" $field "*) ;; *) echo "AF-00A job field changed: $field" >&2; exit 2 ;; esac
 done
 req_tres=$(printf '%s\n' "$job_record" | sed -n 's/.* ReqTRES=\([^ ]*\).*/\1/p')

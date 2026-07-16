@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r05a_af00a_actual_forward_launch_a_interpretation",
+  "evidence_tier": "allocation_control_plane_apparatus_failure_no_execution",
+  "run_id": "r05a-actual-forward-cem-canary-20260716a",
+  "case_id": "crfs-1069f29a8d76463a",
+  "accepted_implementation_commit": "257b31ffdd50759e7d05472675363d38ae386a71",
+  "release_commit": "6ff5d5cb851bc983b7873be0b120df173525266e",
+  "source_host": "worker-1",
+  "submission": {
+    "submitted_at": "2026-07-16T12:31:46Z",
+    "gpu_array_job_id": "28275",
+    "gpu_array_task_id": 0,
+    "exact_gpu_task_id": "28275_0",
+    "cpu_afterany_job_id": null,
+    "requested_resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "02:00:00",
+      "array": "0-0%1",
+      "requeue": false,
+      "requested_node": "worker-1"
+    },
+    "observed_preflight_free_mem_mib": 152483
+  },
+  "observed_exact_task_record_before_cancellation": {
+    "query": "scontrol show job 28275_0 -o",
+    "job_id_display": "28275",
+    "array_job_id": "28275",
+    "array_task_id": "0",
+    "array_task_throttle": 1,
+    "state": "PENDING",
+    "reason": "JobHeldUser",
+    "requested_node": "worker-1",
+    "requested_tres": "cpu=8,mem=64G,node=1,billing=8,gres/gpu=1"
+  },
+  "terminal_slurm_record": {
+    "job_id_raw": "28275",
+    "state": "CANCELLED by 1073",
+    "exit_code": "0:0",
+    "submit_time": "2026-07-16T12:31:46",
+    "eligible_time": "Unknown",
+    "start_time": "None",
+    "end_time": "2026-07-16T12:33:09",
+    "elapsed": "00:00:00",
+    "node_list": "None assigned",
+    "allocated_tres": null,
+    "cancellation_scope": "exact_task_28275_0_only",
+    "cancellation_authorization": "explicit_user_authorization"
+  },
+  "immutable_run_root": {
+    "path": "/mnt/data/quanth/experiments/crfs-oracle/r05a-actual-forward-cem-canary-20260716a",
+    "files": [
+      "launch-reservation.json",
+      "provisional-gpu-job-id.json",
+      "vinuni-preflight.txt"
+    ],
+    "launch_reservation_sha256": "c6e8d207792afb766a2a6cb1bb37b7478107801743928c88ac545b6d14e37f7a",
+    "provisional_gpu_job_id_sha256": "1cf241ca446cfbc7e1c3b5658051eb2cde42ce11afaf464607d7d8b97ab14cea",
+    "vinuni_preflight_sha256": "6adcbda526c5894bdc688160630a7a8dbbac29212abc689a63b2230828196ef9",
+    "identity_consumed": true,
+    "resume_or_reuse_allowed": false
+  },
+  "transaction_boundary": {
+    "launch_reservation_written": true,
+    "held_gpu_sbatch_returned": true,
+    "provisional_gpu_id_receipt_written": true,
+    "held_gpu_submission_receipt_written": false,
+    "source_contract_written": false,
+    "cpu_afterany_submitted": false,
+    "atomic_submission_receipt_written": false,
+    "release_fingerprint_written": false,
+    "gpu_job_released": false,
+    "allocation_started": false,
+    "gpu_allocated": false,
+    "python_executed": false,
+    "checkpoint_loaded": false,
+    "policy_server_started": false,
+    "pi05_sampler_called": false,
+    "arm_a_called": false,
+    "cem_called": false,
+    "arm_b_called": false,
+    "arm_c_called": false,
+    "simulator_policy_steps": 0,
+    "simulator_teacher_steps": 0
+  },
+  "failure": {
+    "stage": "post_gpu_sbatch_exact_held_task_validation",
+    "observed_message": "held AF-00A GPU task changed: JobId=28275_0",
+    "classification": "fail_closed_slurm_array_task_jobid_display_mismatch",
+    "root_cause": "VinUni Slurm returned parent-form JobId=28275 for the exact child query while preserving ArrayJobId=28275 and ArrayTaskId=0; the submitter required only child-form JobId=28275_0.",
+    "not_caused_by": [
+      "gpu_capacity",
+      "host_memory_capacity",
+      "pi05_model",
+      "actual_forward_cem",
+      "target_definition",
+      "flow_transport",
+      "simulator_execution"
+    ]
+  },
+  "interpretation": {
+    "status": "apparatus_inconclusive",
+    "teacher_transport_evaluated": false,
+    "research_hypothesis_confirmed": false,
+    "research_hypothesis_refuted": false,
+    "simulator_efficacy_evaluated": false,
+    "scientific_conclusion": "none",
+    "infeasibility_conclusion": "none",
+    "ift01_authorized": false,
+    "probe_or_mlp_training_authorized": false,
+    "automatic_h100_resubmission_authorized": false,
+    "next_step": "Review only the exact Slurm JobId display normalization, then require a fresh direct-child release and immutable run identity before one new submission."
+  }
+}

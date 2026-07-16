@@ -85,7 +85,7 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / AF-00A actual-forward CEM release preparation
+## Active gate: R05A / AF-00A Slurm identity repair review
 
 IFT-00 passed as synthetic implementation evidence. There is still no accepted
 real teacher-transport mechanism result. CFS-00A run B is a valid published
@@ -172,8 +172,16 @@ total policy requests on the same paired case. The objective, float32
 precedence are fixed before execution. Implementation and independent
 publication-path review are complete. All 35 dependency-backed AF-focused tests and the
 complete 673-test repository gate passed on 2026-07-16. Independent scientific
-and Slurm/publication reviews found no P0/P1 blocker. The AF-00A config remains
-fail closed and no AF-00A job has been submitted.
+and Slurm/publication reviews found no P0/P1 blocker.
+
+Launch A used release `6ff5d5c` and reserved held GPU task `28275_0`, but
+VinUni normalized the exact task record's displayed `JobId` to the array parent
+`28275` while preserving `ArrayJobId=28275 ArrayTaskId=0`. The submitter
+expected the alternate `JobId=28275_0` spelling and stopped before creating a
+CPU publisher or releasing the task. Exact task `28275_0` was cancelled with
+elapsed `00:00:00`, no node, and no model or simulator execution. ADR-0052
+classifies this as apparatus-inconclusive and permits only a narrow display-ID
+normalization. The AF-00A config is again fail closed.
 
 ## What this experiment can conclude
 
@@ -367,12 +375,13 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Commit and synchronize the reviewed fail-closed ADR-0050 implementation. Then
-make one separate direct-child release changing only the AF-00A config and
-`docs/decisions/0051-release-actual-forward-cem-canary.md`, select one unused
-immutable AF-00A run ID, and submit exactly one held worker-1 H100 task plus
-its CPU `afterany` publisher. Do not change the 520-query budget, objective,
-seed, target, constraints, resources, or outcome rules after seeing the result.
+Validate and independently review only ADR-0052's Slurm display-ID repair.
+Then commit and synchronize the fail-closed repair. A separate direct-child
+release may change only the AF-00A config and
+`docs/decisions/0053-release-corrected-actual-forward-cem-canary.md`, select a
+fresh unused immutable run ID, and submit one held worker-1 H100 task plus its
+CPU `afterany` publisher. Do not change the 520-query budget, objective, seed,
+target, constraints, resources, or outcome rules.
 
 The scientific purpose is no longer another Jacobian repair. It is the user's
 central hypothesis: can a privileged final-action correction be represented

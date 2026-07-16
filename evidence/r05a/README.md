@@ -143,3 +143,13 @@ was about 15.0 GiB/8.5 GiB with no OOM, and zero generated actions entered the
 simulator. ADR-0049 retires only the autograd-linearized CFS-00A submethod and
 keeps the broader actual-forward flow-transport hypothesis open. No FISTA,
 candidate, replay, Arm C, efficacy result, probe, or MLP exists.
+
+`af00a-actual-forward-launch-a.json` records release `6ff5d5c` and exact held
+task `28275_0`. VinUni returned parent-form `JobId=28275` for the exact child
+query while retaining `ArrayJobId=28275 ArrayTaskId=0`. The fail-closed
+transaction stopped before held receipt completion, CPU publisher submission,
+or GPU release. The task was cancelled with `00:00:00` elapsed, no node, and
+no allocated TRES; only three small control-plane files exist. ADR-0052
+therefore classifies launch A as apparatus-inconclusive and permits only the
+exact Slurm display-ID normalization. No Python, pi0.5 request, arm, simulator
+action, transport result, efficacy result, or infeasibility result exists.

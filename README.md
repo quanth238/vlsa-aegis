@@ -35,9 +35,11 @@ ADR-0050 now preregisters AF-00A: a fixed 520-query derivative-free CEM that
 evaluates only the ordinary frozen sampler forward path against the same
 equal-split baseline, target, noise, and correction budget. Its implementation
 and independent reviews are complete, but the config remains fail closed until
-a separate direct-child execution release. No
-AF-00A H100 result, simulator efficacy result, probe, or residual-field MLP
-exists.
+a separate direct-child execution release. Launch A reserved held task
+`28275_0` but stopped before allocation because VinUni displayed the exact
+array task with parent-form `JobId=28275`; ADR-0052 records the zero-runtime
+apparatus failure and narrow identity-display repair. No AF-00A model result,
+simulator efficacy result, probe, or residual-field MLP exists.
 ADR-0017 froze a one-case R04A label-contract smoke; Slurm job `27514_0` and
 independent validator `27516` passed that plumbing contract. ADR-0018 still
 stops before perturbation labels or training. ADR-0019 froze the final
@@ -146,6 +148,7 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: historical allocation-backed smoke evidence and the now-retired grouped-population launch contract;
 - `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: current controlled pivot and R05A stop rules;
 - `docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md`: fixed actual-forward derivative-free teacher test;
+- `docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md`: zero-runtime launch-A evidence and exact Slurm identity-display repair;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

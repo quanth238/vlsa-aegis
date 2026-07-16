@@ -93,10 +93,10 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
   and .execution_release.resources.validator_time_limit == "00:15:00"
   and .execution_release.resources.validator_gpus == 0
   and .execution_release.resources.validator_dependency == "afterany"
-  and .execution_release.decision_artifact == "docs/decisions/0051-release-actual-forward-cem-canary.md"
+  and .execution_release.decision_artifact == "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   and .execution_release.allowed_release_diff_paths == [
     "configs/experiments/r05a_actual_forward_canary.json",
-    "docs/decisions/0051-release-actual-forward-cem-canary.md"
+    "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   ]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false

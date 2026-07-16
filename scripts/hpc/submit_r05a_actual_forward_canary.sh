@@ -15,7 +15,7 @@ HOST=${VINUNI_HOST:-vinuni}
 REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-crfs}
 CONFIG=configs/experiments/r05a_actual_forward_canary.json
 PREREG_ADR=docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md
-RELEASE_ADR=docs/decisions/0051-release-actual-forward-cem-canary.md
+RELEASE_ADR=docs/decisions/0053-release-corrected-actual-forward-cem-canary.md
 
 for path in "$CONFIG" "$PREREG_ADR" \
   main/run_crfs_r05a_actual_forward_canary.py \
@@ -66,10 +66,10 @@ jq -e --arg run "$RUN_ID" --arg implementation "$ACCEPTED_IMPLEMENTATION_COMMIT"
     validator_time_limit:"00:15:00",validator_gpus:0,validator_dependency:"afterany"
   }
   and .execution_release.release_only_parent_required == true
-  and .execution_release.decision_artifact == "docs/decisions/0051-release-actual-forward-cem-canary.md"
+  and .execution_release.decision_artifact == "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   and .execution_release.allowed_release_diff_paths == [
     "configs/experiments/r05a_actual_forward_canary.json",
-    "docs/decisions/0051-release-actual-forward-cem-canary.md"
+    "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
   ]
   and .execution_release.automatic_resubmission_allowed == false
   and .execution_release.automatic_next_experiment_allowed == false
@@ -90,7 +90,7 @@ test "$(jq -cS 'del(.config_status,.ready_to_run,.blocked_on,.preregistration.h1
 RELEASE_DIFF=$(git diff --name-only "$ACCEPTED_IMPLEMENTATION_COMMIT" "$EXPECTED_RELEASE_COMMIT")
 EXPECTED_RELEASE_DIFF=$(printf '%s\n' "$CONFIG" "$RELEASE_ADR" | LC_ALL=C sort)
 test "$(printf '%s\n' "$RELEASE_DIFF" | LC_ALL=C sort)" = "$EXPECTED_RELEASE_DIFF" || {
-  echo "AF-00A release diff must contain exactly the config and ADR-0051" >&2; exit 2
+  echo "AF-00A release diff must contain exactly the config and ADR-0053" >&2; exit 2
 }
 
 # This local command performs shell-only control-plane inspection.  It does
@@ -116,7 +116,7 @@ checkpoint_config=/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_l
 normalization_asset=/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/assets/physical-intelligence/libero/norm_stats.json
 gpu_slurm=$remote_repo/slurm/r05a_actual_forward_canary_h100.sbatch
 cpu_slurm=$remote_repo/slurm/r05a_actual_forward_canary_validate_cpu.sbatch
-release_adr=$remote_repo/docs/decisions/0051-release-actual-forward-cem-canary.md
+release_adr=$remote_repo/docs/decisions/0053-release-corrected-actual-forward-cem-canary.md
 provisional_gpu_receipt=$run_root/provisional-gpu-job-id.json
 held_gpu_submission=$run_root/held-gpu-submission.json
 source_contract=$run_root/source-contract.json
@@ -171,9 +171,14 @@ require_exact_tres_keys() {
 }
 
 validate_gpu_records() {
-  local gpu_id=$1 task_record=$2 parent_record=$3 array_task_id
+  local gpu_id=$1 task_record=$2 parent_record=$3 array_task_id task_job_id
+  task_job_id=$(printf '%s\n' "$task_record" | sed -n 's/.* JobId=\([^ ]*\).*/\1/p')
+  case "$task_job_id" in
+    "$gpu_id"|"${gpu_id}_0") ;;
+    *) echo "held AF-00A GPU task JobId changed: $task_job_id" >&2; return 1 ;;
+  esac
   for field in \
-    "JobId=${gpu_id}_0" "ArrayJobId=$gpu_id" "ArrayTaskId=0" \
+    "ArrayJobId=$gpu_id" "ArrayTaskId=0" \
     "JobState=PENDING" "Reason=JobHeldUser" "ReqNodeList=worker-1" \
     "Partition=main" "Account=normal" "QOS=normal" "TimeLimit=02:00:00" \
     "Requeue=0" "NumNodes=1" "NumCPUs=8" "CPUs/Task=8"; do
@@ -225,7 +230,7 @@ bound_paths=(
   configs/experiments/r02_oracle_flow.json
   manifests/r05a_inverse_flow_teacher_smoke.jsonl
   docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md
-  docs/decisions/0051-release-actual-forward-cem-canary.md
+  docs/decisions/0053-release-corrected-actual-forward-cem-canary.md
   src/crfs_harness/artifacts.py
   src/crfs_harness/manifest.py
   main/crfs_oracle/r02_runner.py
@@ -273,7 +278,7 @@ test "$(git -C "$remote_repo" rev-list --parents -n 1 "$expected_commit")" = "$e
 remote_release_diff=$(git -C "$remote_repo" diff --name-only "$accepted_implementation" "$expected_commit" | LC_ALL=C sort)
 expected_remote_release_diff=$(printf '%s\n' \
   configs/experiments/r05a_actual_forward_canary.json \
-  docs/decisions/0051-release-actual-forward-cem-canary.md | LC_ALL=C sort)
+  docs/decisions/0053-release-corrected-actual-forward-cem-canary.md | LC_ALL=C sort)
 test "$remote_release_diff" = "$expected_remote_release_diff" || { echo "remote AF-00A release diff is not the exact two-path release" >&2; exit 2; }
 test -f "$release_adr" && test ! -L "$release_adr" || { echo "remote AF-00A release ADR is missing or symlinked" >&2; exit 2; }
 test "$(jq -er '.execution_release.run_id' "$config")" = "$run_id" || { echo "remote AF-00A run id changed" >&2; exit 2; }

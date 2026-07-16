@@ -32,12 +32,12 @@ class ActualForwardHpcContractTests(unittest.TestCase):
 
     def test_release_only_commit_is_exactly_two_paths(self) -> None:
         value = _text(SUBMITTER)
-        expected_adr = "docs/decisions/0051-release-actual-forward-cem-canary.md"
+        expected_adr = "docs/decisions/0053-release-corrected-actual-forward-cem-canary.md"
         self.assertIn(f"RELEASE_ADR={expected_adr}", value)
         self.assertIn('EXPECTED_RELEASE_DIFF=$(printf \'%s\\n\' "$CONFIG" "$RELEASE_ADR"', value)
         self.assertIn("remote_release_diff=", value)
         self.assertIn(expected_adr, value)
-        self.assertNotIn("0051-release-actual-forward-cem-teacher-canary.md", value)
+        self.assertNotIn("0051-release-actual-forward-cem-canary.md", value)
         release_contract = value.split(".execution_release.allowed_release_diff_paths == [", 1)[1].split("]", 1)[0]
         self.assertIn("configs/experiments/r05a_actual_forward_canary.json", release_contract)
         self.assertIn(expected_adr, release_contract)
@@ -95,6 +95,20 @@ class ActualForwardHpcContractTests(unittest.TestCase):
             'test "$observed_dependency" = "afterany:$gpu_id"',
         ):
             self.assertIn(token, value)
+
+    def test_vinuni_normalized_array_task_job_id_is_bound_to_exact_tuple(self) -> None:
+        for path, gpu_variable in (
+            (SUBMITTER, "gpu_id"),
+            (GPU_WRAPPER, "SLURM_ARRAY_JOB_ID"),
+        ):
+            value = _text(path)
+            self.assertIn('task_job_id=$(printf', value)
+            self.assertIn(
+                f'"${gpu_variable}"|"${{{gpu_variable}}}_0")',
+                value,
+            )
+            self.assertIn(f'"ArrayJobId=${gpu_variable}"', value)
+            self.assertIn('"ArrayTaskId=0"', value)
 
     def test_transaction_is_fingerprinted_then_released_exactly_once(self) -> None:
         value = _text(SUBMITTER)

@@ -50,3 +50,5 @@
 - [0048 — Preserve the failed-derivative diagnostic and normalize terminal transport](docs/decisions/0048-preserve-fd-diagnostic-and-normalize-terminal-transport.md)
 - [0049 — Accept the numeric diagnostic and retire autograd linearization](docs/decisions/0049-accept-numeric-diagnostic-and-retire-autograd-linearization.md)
 - [0050 — Preregister the actual-forward CEM teacher canary](docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md)
+- [0051 — Release the actual-forward CEM canary](docs/decisions/0051-release-actual-forward-cem-canary.md)
+- [0052 — Preserve AF-00A launch A and normalize VinUni array task identity](docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md)
