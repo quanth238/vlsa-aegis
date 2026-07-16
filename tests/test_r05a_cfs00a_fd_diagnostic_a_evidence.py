@@ -124,7 +124,38 @@ class CFS00AFailedDerivativeDiagnosticAEvidenceTest(unittest.TestCase):
             "do not select its run ID or authorize execution in this ADR",
             normalized_adr,
         )
-        self.assertNotIn("## Exact execution release", adr)
+        scientific = json.loads(
+            (ROOT / "configs/experiments/r05a_constrained_flow_canary.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        apparatus = json.loads(
+            (
+                ROOT
+                / "configs/experiments/r05a_constrained_flow_canary_apparatus.json"
+            ).read_text(encoding="utf-8")
+        )
+        if "## Exact execution release" in adr:
+            self.assertTrue(scientific["ready_to_run"])
+            self.assertTrue(apparatus["ready_to_run"])
+            self.assertEqual(scientific["blocked_on"], [])
+            self.assertEqual(apparatus["blocked_on"], [])
+            self.assertEqual(
+                scientific["execution_release"], apparatus["execution_release"]
+            )
+            release = scientific["execution_release"]
+            self.assertTrue(release["single_submission"])
+            self.assertFalse(release["automatic_resubmission_allowed"])
+            self.assertFalse(release["automatic_next_experiment_allowed"])
+            self.assertIn(release["run_id"], adr)
+            self.assertIn(release["accepted_implementation_commit"], adr)
+        else:
+            self.assertFalse(scientific["ready_to_run"])
+            self.assertFalse(apparatus["ready_to_run"])
+            self.assertTrue(scientific["blocked_on"])
+            self.assertTrue(apparatus["blocked_on"])
+            self.assertIsNone(scientific["execution_release"])
+            self.assertIsNone(apparatus["execution_release"])
         decisions = (ROOT / "DECISIONS.md").read_text(encoding="utf-8")
         self.assertIn(ADR_PATH.relative_to(ROOT).as_posix(), decisions)
         for relative in ("PROGRESS.md", "EXPERIMENTS.md", "feature_list.json"):
