@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r06_aegis_label_capture_terminal_evidence",
+  "status": "apparatus_inconclusive",
+  "gate": "R06",
+  "run_id": "r06-aegis-label-capture-canary-20260717a",
+  "case_id": "crfs-1069f29a8d76463a",
+  "release": {
+    "git_commit": "cb57d52cab7fee8e25de74e86b6d76fa876da787",
+    "accepted_implementation_commit": "4bac44e84a208ed4e594ab36492d054d8c3cf05e",
+    "source_contract_sha256": "a833b0102d14a1ab9cfa6be401f004c622fa1fe8c1369ab99cdf6a7b5c5b177e",
+    "submission_receipt_sha256": "7a0e36c9918a82a233b4d136f4c427551f883cc5ecb70d0bc20556710eb8ad96"
+  },
+  "slurm": {
+    "exact_task_id": "28409_0",
+    "array_job_id": "28409",
+    "array_task_id": 0,
+    "state": "FAILED",
+    "reason": "NonZeroExitCode",
+    "exit_code": "1:0",
+    "submit_time": "2026-07-17T04:21:07",
+    "start_time": "2026-07-17T06:04:42",
+    "end_time": "2026-07-17T06:06:25",
+    "elapsed": "00:01:43",
+    "node": "worker-1",
+    "requested_tres": "cpu=8,mem=64G,node=1,billing=8,gres/gpu=1",
+    "allocated_tres": "cpu=8,mem=64G,node=1,billing=8,gres/gpu=1"
+  },
+  "immutable_artifacts": {
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717a",
+    "failure_receipt_sha256": "bb25698e22c7903c0eae9163505a4db8b86f3ea4c4223820f796a771faf05c4b",
+    "slurm_log_sha256": "eab8726cec692157200219d68cd052e66b5e2f69f2932df1588835cebe5fe306",
+    "capture_client_log_sha256": "94397093caa1fde8c91214ec20827e22a83da5b85acb328dfad9604768f3b5a4",
+    "policy_server_log_sha256": "56636dea09266a2df46da25b265d4dc0d029305af70514492f5963e76dd3c5e1",
+    "capture_json_exists": false,
+    "capture_validation_log_exists": false,
+    "scientific_results_json_exists": false
+  },
+  "partial_capture_assets": {
+    "claim_bearing": false,
+    "label_freeze_allowed": false,
+    "agentview_image_npy_sha256": "331ee97b4ee709c38406c6610054a28e839a80f1b29c23ea01e24124bc0f8fb3",
+    "agentview_image_png_sha256": "f43a8c9816858fedd263358ac432f0fe490839441441125de44d028f427074c5",
+    "agentview_depth_npy_sha256": "a66b1113074d76b67e34cecb33bb5896118d6b7aeea2f887b2ec23f132b902a5",
+    "backview_image_npy_sha256": "af13029f0769172a8f365f5b71da77f0ef7d31bd6bb91c4db504de2de6f13f40",
+    "backview_image_png_sha256": "6e320373df7d0cc69ca4697f488142ac044262241e0dfa2ff93d65176279f5b0",
+    "backview_depth_npy_sha256": "43fa81eadc11881ba8d11cd932826dff8e041c367c932deecb6a26adb43e0415"
+  },
+  "terminal_interpretation": {
+    "failure_stage": "capture_runner",
+    "exact_client_error": "capture artifact is invalid: capture policy/source binding is invalid",
+    "internal_validation_error_count": 1,
+    "runner_reached_post_replay_asset_validation": true,
+    "component_checks_preceding_the_single_failed_binding_check": [
+      "manifest row zero and selected boundary 20",
+      "selected integration-state and live branch binding",
+      "duplicate exact policy actions and accepted R02 bytes",
+      "two exact 126-sample baseline collision replays",
+      "same-state 224 camera anchors and 1024 render",
+      "lossless NPY and PNG asset binding"
+    ],
+    "component_checks_are_diagnostic_only_without_capture_json": true,
+    "aegis_executed": false,
+    "groundingdino_executed": false,
+    "mvee_executed": false,
+    "qp_steps": 0,
+    "semantic_label_frozen": false,
+    "probe_or_mlp_trained": false
+  },
+  "root_cause": {
+    "classification": "deterministic_pinned_runtime_source_postmortem",
+    "persisted_live_controller_record_exists": false,
+    "fresh_capture_runtime_confirmation_required": true,
+    "robot_identity": {
+      "pinned_runtime_expected_live_value": "MountedPanda",
+      "rejected_validator_value": "Panda",
+      "reason": "the frozen safelibero_spatial task wraps Panda as MountedPanda before robosuite constructs SingleArm"
+    },
+    "gripper_current_action": {
+      "pinned_runtime_expected_shape_after_boundary_20": [
+        2
+      ],
+      "rejected_validator_shape": [
+        1
+      ],
+      "reason": "PandaGripper accepts one abstract action but format_action stores two actuator commands after the first control"
+    },
+    "allocation_runtime_source_sha256": {
+      "libero_tabletop_manipulation.py": "61bdc77f90f7c106827603ce78aa51e12b5dc50615761ee93db98868411f75a2",
+      "libero_robot_registration___init__.py": "92d2667dcd9fce0d0ba744bcc317bfc07104136e90f066df04d09cbad5bd489e",
+      "robosuite_robot_env.py": "a0b39012c175272a2037a7a66a771d416b905a5a7b847e53c60a0588407398af",
+      "robosuite_robot.py": "7a3a98eb75b4e7cb1b822a918d0c693d441356279a8e796cfc02eb1fd5963f23",
+      "robosuite_single_arm.py": "38237d7b68c876b413f0df811b135ca3b2fb91061c011696baab07db5e87fa14",
+      "robosuite_manipulator.py": "d37ff4c00112cfba9bf4b96bf48ad5664422fd824dd4fbcd1eebda650a451b64",
+      "robosuite_gripper_model.py": "0543b5a9e1d8b41e21880d8445c5d8fbf8535a4ac6fd55c5e70a3b1f323c3735",
+      "robosuite_panda_gripper.py": "a3760a8fc4599fa6f79914304b82466f3c1bda1a945943ca693bb57f00dc59eb"
+    }
+  },
+  "repair_boundary": {
+    "scientific_protocol_changed": false,
+    "case_state_noise_horizon_or_metric_changed": false,
+    "required_robot_name": "MountedPanda",
+    "required_gripper_shape_at_boundary_zero": [
+      1
+    ],
+    "required_gripper_shape_after_any_dummy_control": [
+      2
+    ],
+    "fresh_run_id_required": true,
+    "reuse_run_or_job_forbidden": true
+  },
+  "claims": {
+    "aegis_safety_result_exists": false,
+    "aegis_failure_claim_allowed": false,
+    "aegis_success_claim_allowed": false,
+    "original_end_to_end_glm_aegis_evaluated": false,
+    "population_launch_authorized": false
+  }
+}

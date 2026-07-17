@@ -19,6 +19,14 @@ WRAPPER = ROOT / "scripts/hpc/run_r06_aegis_capture_canary.sh"
 WORKLOAD = ROOT / "scripts/hpc/run_r06_aegis_capture_workload.sh"
 SUBMITTER = ROOT / "scripts/hpc/submit_r06_aegis_capture_canary.sh"
 SBATCH = ROOT / "slurm/r06_aegis_capture_canary_h100.sbatch"
+TERMINAL_EVIDENCE = (
+    ROOT / "evidence/r06/aegis-label-capture-canary-20260717a.json"
+)
+TERMINAL_DECISION = (
+    ROOT
+    / "docs/decisions/0067-preserve-failed-aegis-capture-and-repair-controller-contract.md"
+)
+CONFIG = ROOT / "configs/experiments/r06_aegis_collision_conditioned.json"
 
 
 def _text(path: Path) -> str:
@@ -35,6 +43,46 @@ def _load_cli():
 
 
 class R06AegisCaptureHpcContractTest(unittest.TestCase):
+    def test_terminal_capture_failure_is_preserved_without_aegis_claim(self) -> None:
+        evidence = json.loads(TERMINAL_EVIDENCE.read_text(encoding="utf-8"))
+        decision = _text(TERMINAL_DECISION)
+        config = json.loads(CONFIG.read_text(encoding="utf-8"))
+
+        self.assertEqual(evidence["status"], "apparatus_inconclusive")
+        self.assertEqual(evidence["slurm"]["exact_task_id"], "28409_0")
+        self.assertEqual(evidence["slurm"]["state"], "FAILED")
+        self.assertEqual(evidence["slurm"]["exit_code"], "1:0")
+        self.assertEqual(
+            evidence["root_cause"]["robot_identity"][
+                "pinned_runtime_expected_live_value"
+            ],
+            "MountedPanda",
+        )
+        self.assertEqual(
+            evidence["root_cause"]["gripper_current_action"][
+                "pinned_runtime_expected_shape_after_boundary_20"
+            ],
+            [2],
+        )
+        self.assertFalse(
+            evidence["root_cause"]["persisted_live_controller_record_exists"]
+        )
+        self.assertTrue(
+            evidence["root_cause"]["fresh_capture_runtime_confirmation_required"]
+        )
+        self.assertFalse(evidence["claims"]["aegis_safety_result_exists"])
+        self.assertFalse(
+            evidence["partial_capture_assets"]["label_freeze_allowed"]
+        )
+        self.assertFalse(
+            evidence["terminal_interpretation"]["aegis_executed"]
+        )
+        self.assertEqual(evidence["terminal_interpretation"]["qp_steps"], 0)
+        self.assertIn("Permanently consume", decision)
+        self.assertIn("Do not freeze a Codex label", decision)
+        self.assertIs(config["ready_to_run"], False)
+        self.assertIsNone(config["execution_release"])
+
     def test_shell_files_parse_and_entrypoints_are_executable(self) -> None:
         for path in (WRAPPER, WORKLOAD, SUBMITTER, SBATCH):
             result = subprocess.run(

@@ -61,7 +61,10 @@ Reviewed TRL-00A implementation:
 Consumed TRL-00A release:
 `786afe18bf177b4db1e808f6fedb317beac22be8`.
 
-Active jobs: none. TRL-00A task `28311_0` and CPU publisher `28312` were
+Active jobs: none. R06 capture task `28409_0` is terminal `FAILED|1:0` after
+`00:01:43` on worker-1. It ran no AEGIS, GroundingDINO, MVEE, QP, label
+selection, or training and published no `capture.json`; ADR-0067 classifies
+the failure as apparatus-inconclusive. TRL-00A task `28311_0` and CPU publisher `28312` were
 cancelled under exact user authorization before execution; both had zero
 runtime, no start, and no node, and neither log exists. AF-00A GPU task
 `28281_0` completed `0:0`; its original CPU
@@ -126,6 +129,19 @@ canary capture and baseline reconfirmation, Codex label freeze, one paired
 canary, then a separately released 20-case capture/label/population. This does
 not evaluate the original GLM selector and cannot be called original
 end-to-end VLSA/AEGIS.
+
+The first capture-only release used commit `cb57d52`, immutable run
+`r06-aegis-label-capture-canary-20260717a`, and exact task `28409_0`. It
+reached post-replay asset validation but failed before atomic capture
+publication with the sole error `capture policy/source binding is invalid`.
+The exact pinned runtime sources expose two validator assumptions that were
+wrong: this frozen LIBERO task names its `SingleArm` robot `MountedPanda`, not
+`Panda`, and `PandaGripper.current_action` contains two actuator commands
+after any dummy control although its abstract input DOF is one. The failed run
+did not persist its live controller record, so a fresh capture remains the
+runtime confirmation. No scientific or AEGIS result exists. ADR-0067 consumes
+the run, leaves the config fail closed, and permits only a boundary-conditioned
+controller-state contract repair plus a fresh capture release.
 
 Dependency setup job `28391` completed on `worker-2` with exit `0:0` and
 installed the official GroundingDINO Swin-T checkpoint at the frozen SHA-256
@@ -513,13 +529,16 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Finish and independently review the R06 capture runner, allocation-preflight
-the now content-bound GroundingDINO assets, and release one capture-only canary for
-`crfs-1069f29a8d76463a`. The capture must select boundary 20, reproduce the
-baseline collision twice, and save the same-state 1024 image. Codex then
-freezes one image/instruction-bound semantic label under ADR-0065. Only after
-that label and the full GroundingDINO/AEGIS apparatus validate may a separate
-paired canary run. The 20-case population remains a later release.
+ADR-0067's narrow controller-state generator/validator repair has passed the
+complete local gate (833 tests, 275 declared dependency skips, 21 artifact
+audits, and 19 gate audits) and independent code and HPC reviews with no
+material finding. Freeze that accepted implementation, then create one
+direct-child capture-only release with a fresh immutable run ID for
+`crfs-1069f29a8d76463a`. The new capture must still select boundary 20,
+reproduce the baseline collision twice, and atomically publish the same-state
+1024 image contract. Codex may freeze one image/instruction-bound semantic
+label only from that valid artifact. The paired canary and 20-case population
+each remain separately released later steps.
 
 Do not call the Codex-label arm or a simulator-geometry substitute the exact
 end-to-end AEGIS method. Keep the existing 17 eligible cases and three retained
@@ -533,6 +552,9 @@ Do not resume or reuse jobs `28212_0`/`28213` or their run ID.
 Do not resume or reuse jobs `28222_0`/`28223` or their run ID.
 Do not resume or reuse jobs `28281_0`, `28282`, or `28291`, or the run-C ID.
 Do not resume or reuse jobs `28311_0`/`28312` or the consumed TRL-00A run ID.
+Do not reuse task `28409_0` or run
+`r06-aegis-label-capture-canary-20260717a`, and do not label its partial
+images.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops

@@ -33,6 +33,68 @@ def _load_runner():
 
 class AegisRunnerDependencyLightTest(unittest.TestCase):
     @staticmethod
+    def _array_record(shape, *, dtype="<f8", dtype_name="float64"):
+        item_sizes = {
+            "|u1": 1,
+            "|i1": 1,
+            "|b1": 1,
+            "<u2": 2,
+            "<i2": 2,
+            "<u4": 4,
+            "<i4": 4,
+            "<u8": 8,
+            "<i8": 8,
+            "<f4": 4,
+            "<f8": 8,
+        }
+        count = 1
+        for item in shape:
+            count *= item
+        return {
+            "schema_version": "1.0",
+            "kind": "ndarray",
+            "dtype": dtype,
+            "dtype_name": dtype_name,
+            "shape": list(shape),
+            "order": "C",
+            "nbytes": count * item_sizes[dtype],
+            "sha256": "a" * 64,
+        }
+
+    @classmethod
+    def _controller_state_record(
+        cls,
+        runner,
+        *,
+        robot_name="MountedPanda",
+        gripper_shape=(2,),
+    ):
+        record = {
+            "schema_version": "1.0",
+            "source": "read_only_live_robosuite_controller_snapshot",
+            "robot_class": "SingleArm",
+            "robot_name": robot_name,
+            "controller_class": "OperationalSpaceController",
+            "controller_name": "OSC_POSE",
+            "gripper_class": "PandaGripper",
+            "new_update": True,
+            "arrays": {
+                name: cls._array_record((1,))
+                for name, _ in runner.CONTROLLER_ARRAY_ATTRIBUTES
+            },
+            "optional_action_scaling_arrays": {
+                "action_scale": None,
+                "action_input_transform": None,
+                "action_output_transform": None,
+            },
+            "gripper_current_action": cls._array_record(gripper_shape),
+        }
+        return {
+            **record,
+            "fingerprint_sha256": runner._content_sha256(record),
+        }
+
+    @staticmethod
     def _forged_valid_implementation(runner, *, capture):
         source_paths = {
             "runner": Path(runner.__file__).resolve(),
@@ -214,6 +276,161 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
                 runner._validate_branch_identity(reference, changed),
                 ["canonical controller-state fingerprint differs"],
             )
+
+    def test_controller_state_validator_matches_frozen_mounted_panda_boundaries(self):
+        runner = _load_runner()
+
+        settled = self._controller_state_record(runner, gripper_shape=(2,))
+        self.assertTrue(
+            runner._valid_controller_state_record(settled, boundary_index=20)
+        )
+        self.assertFalse(
+            runner._valid_controller_state_record(settled, boundary_index=0)
+        )
+
+        initial = self._controller_state_record(runner, gripper_shape=(1,))
+        self.assertTrue(
+            runner._valid_controller_state_record(initial, boundary_index=0)
+        )
+        self.assertFalse(
+            runner._valid_controller_state_record(initial, boundary_index=1)
+        )
+
+        wrong_robot = self._controller_state_record(
+            runner,
+            robot_name="Panda",
+            gripper_shape=(2,),
+        )
+        self.assertFalse(
+            runner._valid_controller_state_record(
+                wrong_robot,
+                boundary_index=20,
+            )
+        )
+
+        wrong_arrays = copy.deepcopy(settled)
+        wrong_arrays["arrays"]["unexpected"] = wrong_arrays["arrays"].pop(
+            "goal_position"
+        )
+        core = dict(wrong_arrays)
+        core.pop("fingerprint_sha256")
+        wrong_arrays["fingerprint_sha256"] = runner._content_sha256(core)
+        self.assertFalse(
+            runner._valid_controller_state_record(
+                wrong_arrays,
+                boundary_index=20,
+            )
+        )
+
+    def test_live_controller_snapshot_round_trips_post_settle_representation(self):
+        runner = _load_runner()
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            self.skipTest("live controller snapshot round trip requires NumPy")
+
+        controller_attributes = {
+            attribute_name: np.zeros((1,), dtype=np.float64)
+            for _, attribute_name in runner.CONTROLLER_ARRAY_ATTRIBUTES
+        }
+        controller_attributes.update(
+            {
+                "name": "OSC_POSE",
+                "new_update": True,
+                "action_scale": None,
+                "action_input_transform": None,
+                "action_output_transform": None,
+            }
+        )
+        controller = type(
+            "OperationalSpaceController",
+            (),
+            controller_attributes,
+        )()
+        gripper = type(
+            "PandaGripper",
+            (),
+            {"current_action": np.zeros((2,), dtype=np.float64)},
+        )()
+        robot = type(
+            "SingleArm",
+            (),
+            {
+                "name": "MountedPanda",
+                "controller": controller,
+                "gripper": gripper,
+            },
+        )()
+        inner = type("InnerEnvironment", (), {"robots": [robot]})()
+        environment = type("SafeLiberoEnvironment", (), {"env": inner})()
+
+        record = runner._read_only_controller_state(environment)
+        self.assertEqual(record["gripper_current_action"]["shape"], [2])
+        self.assertTrue(
+            runner._valid_controller_state_record(record, boundary_index=20)
+        )
+
+        observation = {
+            "observation/image": np.zeros((224, 224, 3), dtype=np.uint8),
+            "observation/state": np.zeros((8,), dtype=np.float32),
+            "prompt": "pick up the black bowl",
+        }
+        noise = np.zeros(runner.POLICY_NOISE_SHAPE, dtype=np.float32)
+        full_actions = np.zeros(runner.POLICY_ACTION_SHAPE, dtype=np.float32)
+        nominal = full_actions[: runner.EXECUTED_ACTION_HORIZON]
+        reference = {
+            **runner.build_pairing_record(
+                branch_state=np.zeros((3,), dtype=np.float64),
+                observation=observation,
+                policy_noise=noise,
+                nominal_actions=nominal,
+                executed_action_horizon=runner.EXECUTED_ACTION_HORIZON,
+            ),
+            "controller_state": record,
+        }
+        policy = {
+            "duplicate_eager_actions_exact": True,
+            "instruction": "pick up the black bowl",
+            "checkpoint_sha256": runner.CHECKPOINT_SHA256,
+            "normalization_asset_sha256": runner.NORMALIZATION_ASSET_SHA256,
+            "observation": runner.exact_observation_record(observation),
+            "noise": runner.exact_array_record(noise, label="noise"),
+            "nominal_first_five": runner.exact_array_record(
+                nominal, label="nominal"
+            ),
+            "full_actions": runner.exact_array_record(
+                full_actions, label="full"
+            ),
+            "duplicate_full_actions": runner.exact_array_record(
+                full_actions, label="duplicate"
+            ),
+            "full_actions_values": full_actions.tolist(),
+            "trace_keys": [],
+        }
+        value = {
+            "settle_selection": {"selected_boundary_index": 20},
+            "selected_branch_binding": {
+                "selected_integration_state": reference["branch_state"]
+            },
+            "policy": policy,
+            "pairing": {"reference": reference, "errors": [], "passed": True},
+            "pi05_baseline": {
+                "repeats": [
+                    {"nominal_actions": nominal.tolist()},
+                    {"nominal_actions": nominal.tolist()},
+                ]
+            },
+        }
+        self.assertTrue(runner._valid_policy_and_pairing(value))
+
+        gripper.current_action = np.zeros((1,), dtype=np.float64)
+        initial_record = runner._read_only_controller_state(environment)
+        self.assertTrue(
+            runner._valid_controller_state_record(
+                initial_record,
+                boundary_index=0,
+            )
+        )
 
     def test_forged_canary_boolean_cannot_bypass_independent_evidence(self):
         runner = _load_runner()

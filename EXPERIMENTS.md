@@ -54,9 +54,10 @@ Safe-Progress Success; clearance alone is not success.
 
 ### AEGIS-00A — Codex-label paired canary
 
-Status: **implementation authorized; GroundingDINO files are content-bound;
-full paired execution remains blocked on runner review, allocation runtime
-preflight, canary image capture, and Codex label freeze**
+Status: **first capture-only run is terminal apparatus-inconclusive; the
+controller-state validator repair passed the complete local gate and
+independent review, and the config remains fail closed pending a fresh
+direct-child capture release**
 
 Use one frozen manifest case to validate nominal collision reproduction,
 action-boundary branch selection at the registered 5 mm margin, full paired
@@ -77,6 +78,17 @@ Setup job `28391` completed on `worker-2` and froze the official checkpoint
 SHA-256 `3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799`.
 This proves file availability only; it is not a perception, simulator, or
 collision-avoidance result.
+
+Capture run `r06-aegis-label-capture-canary-20260717a`, exact worker-1 task
+`28409_0`, failed `1:0` after reaching its internal post-replay asset
+validation. No atomic `capture.json` exists. The validator expected robot name
+`Panda` and one gripper value; exact pinned-source inspection instead predicts
+`MountedPanda` and two actuator commands after settling. The failed run did not
+persist that live record, so the fresh capture remains its confirmation.
+ADR-0067 consumes this identity and permits only the exact
+boundary-conditioned validator repair. Its partial PNG/NPY files cannot be
+used to freeze the semantic label. No AEGIS, GroundingDINO, MVEE, QP, or
+training step ran.
 
 ### AEGIS-01 — Complete 20-case population
 

@@ -103,6 +103,32 @@ EEF_RADIUS_M = 0.06
 DISTANCE_LIMIT_M = 1.0
 INTERVENTION_STEP = 5
 LIBERO_DUMMY_ACTION = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0)
+R06_ROBOT_CLASS = "SingleArm"
+R06_ROBOT_NAME = "MountedPanda"
+R06_CONTROLLER_CLASS = "OperationalSpaceController"
+R06_CONTROLLER_NAME = "OSC_POSE"
+R06_GRIPPER_CLASS = "PandaGripper"
+CONTROLLER_ARRAY_ATTRIBUTES = (
+    ("input_min", "input_min"),
+    ("input_max", "input_max"),
+    ("output_min", "output_min"),
+    ("output_max", "output_max"),
+    ("kp", "kp"),
+    ("kd", "kd"),
+    ("ee_position", "ee_pos"),
+    ("ee_orientation_matrix", "ee_ori_mat"),
+    ("ee_linear_velocity", "ee_pos_vel"),
+    ("ee_angular_velocity", "ee_ori_vel"),
+    ("joint_position", "joint_pos"),
+    ("joint_velocity", "joint_vel"),
+    ("jacobian_position", "J_pos"),
+    ("jacobian_orientation", "J_ori"),
+    ("jacobian_full", "J_full"),
+    ("mass_matrix", "mass_matrix"),
+    ("initial_joint", "initial_joint"),
+    ("goal_position", "goal_pos"),
+    ("goal_orientation_matrix", "goal_ori"),
+)
 
 
 class AegisRunnerError(RuntimeError):
@@ -624,29 +650,8 @@ def _read_only_controller_state(environment: Any) -> Mapping[str, Any]:
         raise AegisApparatusError(
             "controller-state fingerprint cannot resolve controller/gripper"
         )
-    array_fields = {
-        "input_min": "input_min",
-        "input_max": "input_max",
-        "output_min": "output_min",
-        "output_max": "output_max",
-        "kp": "kp",
-        "kd": "kd",
-        "ee_position": "ee_pos",
-        "ee_orientation_matrix": "ee_ori_mat",
-        "ee_linear_velocity": "ee_pos_vel",
-        "ee_angular_velocity": "ee_ori_vel",
-        "joint_position": "joint_pos",
-        "joint_velocity": "joint_vel",
-        "jacobian_position": "J_pos",
-        "jacobian_orientation": "J_ori",
-        "jacobian_full": "J_full",
-        "mass_matrix": "mass_matrix",
-        "initial_joint": "initial_joint",
-        "goal_position": "goal_pos",
-        "goal_orientation_matrix": "goal_ori",
-    }
     arrays = {}
-    for record_name, attribute_name in array_fields.items():
+    for record_name, attribute_name in CONTROLLER_ARRAY_ATTRIBUTES:
         raw = getattr(controller, attribute_name, None)
         if raw is None:
             raise AegisApparatusError(
@@ -2637,7 +2642,11 @@ def _valid_observation_record(value: Any) -> bool:
     )
 
 
-def _valid_controller_state_record(value: Any) -> bool:
+def _valid_controller_state_record(
+    value: Any,
+    *,
+    boundary_index: int,
+) -> bool:
     if not isinstance(value, Mapping) or set(value) != {
         "schema_version",
         "source",
@@ -2653,21 +2662,33 @@ def _valid_controller_state_record(value: Any) -> bool:
         "fingerprint_sha256",
     }:
         return False
+    if (
+        not isinstance(boundary_index, int)
+        or isinstance(boundary_index, bool)
+        or boundary_index not in SETTLE_BOUNDARIES
+    ):
+        return False
     core = dict(value)
     fingerprint = core.pop("fingerprint_sha256", None)
     arrays = value.get("arrays")
     optional = value.get("optional_action_scaling_arrays")
+    # Pinned robosuite resets PandaGripper.current_action in the one-dimensional
+    # abstract action space. Its first format_action call expands that value to
+    # the two actuator commands. Boundary zero has no control call; every later
+    # complete settle boundary has at least one.
+    gripper_current_action_shape = [1] if boundary_index == 0 else [2]
     return bool(
         value.get("schema_version") == SCHEMA_VERSION
         and value.get("source") == "read_only_live_robosuite_controller_snapshot"
-        and value.get("robot_class") == "SingleArm"
-        and value.get("robot_name") == "Panda"
-        and value.get("controller_class") == "OperationalSpaceController"
-        and value.get("controller_name") == "OSC_POSE"
-        and value.get("gripper_class") == "PandaGripper"
+        and value.get("robot_class") == R06_ROBOT_CLASS
+        and value.get("robot_name") == R06_ROBOT_NAME
+        and value.get("controller_class") == R06_CONTROLLER_CLASS
+        and value.get("controller_name") == R06_CONTROLLER_NAME
+        and value.get("gripper_class") == R06_GRIPPER_CLASS
         and isinstance(value.get("new_update"), bool)
         and isinstance(arrays, Mapping)
-        and len(arrays) == 19
+        and set(arrays)
+        == {record_name for record_name, _ in CONTROLLER_ARRAY_ATTRIBUTES}
         and all(_valid_array_record(item) for item in arrays.values())
         and isinstance(optional, Mapping)
         and set(optional)
@@ -2680,7 +2701,11 @@ def _valid_controller_state_record(value: Any) -> bool:
             item is None or _valid_array_record(item)
             for item in optional.values()
         )
-        and _valid_array_record(value.get("gripper_current_action"), shape=[1])
+        and _valid_array_record(
+            value.get("gripper_current_action"),
+            shape=gripper_current_action_shape,
+            dtype_name="float64",
+        )
         and _is_lower_hex(fingerprint)
         and fingerprint == _content_sha256(core)
     )
@@ -2779,8 +2804,12 @@ def _valid_policy_and_pairing(value: Mapping[str, Any]) -> bool:
     policy = value.get("policy")
     pairing = value.get("pairing")
     binding = value.get("selected_branch_binding")
+    settle_selection = value.get("settle_selection")
     if not all(isinstance(item, Mapping) for item in (policy, pairing, binding)):
         return False
+    if not isinstance(settle_selection, Mapping):
+        return False
+    selected_boundary_index = settle_selection.get("selected_boundary_index")
     reference = pairing.get("reference")
     full_values = policy.get("full_actions_values")
     nominal_values = (
@@ -2842,7 +2871,10 @@ def _valid_policy_and_pairing(value: Mapping[str, Any]) -> bool:
         and reference.get("observation") == policy.get("observation")
         and reference.get("policy_noise") == policy.get("noise")
         and reference.get("nominal_actions") == policy.get("nominal_first_five")
-        and _valid_controller_state_record(reference.get("controller_state"))
+        and _valid_controller_state_record(
+            reference.get("controller_state"),
+            boundary_index=selected_boundary_index,
+        )
     ):
         return False
     baseline = value.get("pi05_baseline")
