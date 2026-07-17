@@ -144,7 +144,8 @@ class SameStateAegisReproducerTest(unittest.TestCase):
             "#SBATCH --nodelist=worker-1",
             "HF_HUB_OFFLINE=1",
             "TRANSFORMERS_OFFLINE=1",
-            "MUJOCO_GL=egl",
+            "MUJOCO_GL=osmesa",
+            "PYOPENGL_PLATFORM=osmesa",
             'LIBERO_CONFIG_PATH="$SOURCE/configs/libero_runtime"',
             "/mnt/data/quanth/venvs/safety_vla/main/bin/python",
         ):
