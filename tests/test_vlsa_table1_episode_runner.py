@@ -325,6 +325,17 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertNotIn(token, source)
 
+    def test_capture_seeds_numpy_before_environment_construction(self):
+        source = inspect.getsource(self.capture.capture_case)
+        seed_position = source.index(
+            'np.random.seed(int(case["environment_seed"]))'
+        )
+        build_position = source.index(
+            "env, task, observation, selected_initial_state = "
+            "_build_environment("
+        )
+        self.assertLess(seed_position, build_position)
+
     def test_capture_contract_hard_codes_zero_outcome_calls(self):
         source = CAPTURE_PATH.read_text(encoding="utf-8")
         for field in (

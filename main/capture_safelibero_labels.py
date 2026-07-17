@@ -294,6 +294,11 @@ def capture_case(
     try:
         runtime = _capture_runtime()
         np = runtime["np"]
+        # Match the released evaluator's ordering: its process-level NumPy
+        # seed is set before OffScreenRenderEnv construction.  The constructor
+        # performs a temporary randomized placement before the frozen full
+        # simulator state is restored, and can fail if this seed is omitted.
+        np.random.seed(int(case["environment_seed"]))
         env, task, observation, selected_initial_state = _build_environment(
             runtime,
             case,

@@ -77,3 +77,10 @@ to open inaccessible host render devices. VinUni's legacy Robosuite/MuJoCo
 workloads use `MUJOCO_GL=osmesa` and `PYOPENGL_PLATFORM=osmesa`. This changes
 only the headless rendering backend; the H100 remains allocated for pi0.5
 inference in outcome jobs.
+
+## ADR-0011: Restore the released pre-construction NumPy seed
+
+Accepted after exact job `28461_0` reached OSMesa but failed during the
+environment constructor's temporary random placement. The released evaluator
+sets NumPy seed 7 before constructing OffScreenRenderEnv. Capture now restores
+that same ordering before applying the immutable full simulator state.

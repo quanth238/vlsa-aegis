@@ -35,6 +35,15 @@ failure with zero reset, settle, policy, perception, QP, or outcome actions.
 The repair selects the OSMesa headless path already proven by this project's
 VinUni workloads; it does not alter simulator state or policy behavior.
 
+Capture retry `vlsa-table1-capture-canary-20260717b`, Slurm task `28461_0`,
+successfully initialized OSMesa but terminated before reset when the
+OffScreenRenderEnv constructor could not generate its temporary randomized
+object placement. The author evaluator calls `np.random.seed(7)` before that
+constructor; the wrapper had omitted this ordering while still calling
+`env.seed(7)` afterward. The repair restores the author's pre-construction
+NumPy seed. The failed run again executed zero reset, settle, policy,
+perception, QP, or outcome actions.
+
 Evidence established before implementation:
 
 - Source begins at untouched upstream commit
