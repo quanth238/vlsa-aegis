@@ -38,21 +38,79 @@ class AegisCollisionConditionedPreregistrationTest(unittest.TestCase):
         cls.eligible = _jsonl(ELIGIBLE_MANIFEST_PATH)
         cls.decision = DECISION_PATH.read_text(encoding="utf-8")
 
-    def test_implementation_is_authorized_but_execution_fails_closed(self) -> None:
+    def test_implementation_is_authorized_and_execution_is_draft_or_exact_capture_release(self) -> None:
         value = self.config
         self.assertEqual(value["experiment_identity"], "AEGIS-00A")
         self.assertEqual(value["gate"], "R06")
-        self.assertIs(value["ready_to_run"], False)
-        self.assertEqual(value["config_status"], "draft_preregistered_not_released")
-        self.assertIsNone(value["execution_release"])
-        self.assertIn("canary_branch_image_not_captured", value["blocked_on"])
-        self.assertIn("codex_canary_label_not_frozen", value["blocked_on"])
-        self.assertIn(
-            "groundingdino_allocation_runtime_preflight_not_complete",
-            value["blocked_on"],
-        )
         self.assertFalse(value["claims"]["probe_or_mlp_training_authorized"])
-        self.assertIn("no H100 execution release yet", self.decision)
+        if value["ready_to_run"] is False:
+            self.assertEqual(
+                value["config_status"], "draft_preregistered_not_released"
+            )
+            self.assertIsNone(value["execution_release"])
+            self.assertIn("canary_branch_image_not_captured", value["blocked_on"])
+            self.assertIn("codex_canary_label_not_frozen", value["blocked_on"])
+            self.assertIn(
+                "groundingdino_allocation_runtime_preflight_not_complete",
+                value["blocked_on"],
+            )
+            self.assertIn("no H100 execution release yet", self.decision)
+            return
+
+        self.assertIs(value["ready_to_run"], True)
+        self.assertEqual(
+            value["config_status"], "released_exact_codex_label_capture_canary"
+        )
+        self.assertEqual(value["blocked_on"], [])
+        release = value["execution_release"]
+        self.assertIsInstance(release, dict)
+        self.assertEqual(
+            release["artifact_role"],
+            "r06_aegis_codex_label_capture_execution_release",
+        )
+        self.assertEqual(release["stage"], "codex_label_capture")
+        self.assertEqual(release["single_case_index"], 0)
+        self.assertEqual(release["case_id"], "crfs-1069f29a8d76463a")
+        self.assertFalse(release["aegis_execution_allowed"])
+        self.assertFalse(release["semantic_label_required"])
+        self.assertFalse(release["groundingdino_execution_allowed"])
+        self.assertFalse(release["qp_execution_allowed"])
+        self.assertFalse(release["probe_or_mlp_training_authorized"])
+        self.assertFalse(release["automatic_population_launch_authorized"])
+        self.assertTrue(release["release_only_parent_required"])
+        self.assertEqual(release["robosuite_version"], "1.4.1")
+        self.assertEqual(release["robosuite_image_convention"], "opengl")
+        self.assertEqual(
+            release["resources"],
+            {
+                "partition": "main",
+                "account": "normal",
+                "qos": "normal",
+                "gpus": 1,
+                "cpus_per_task": 8,
+                "host_memory_mib": 65536,
+                "time_limit": "00:30:00",
+                "array": "0-0%1",
+                "source_host": "worker-1",
+                "requeue": False,
+            },
+        )
+        self.assertEqual(len(release["accepted_implementation_commit"]), 40)
+        self.assertTrue(
+            all(
+                character in "0123456789abcdef"
+                for character in release["accepted_implementation_commit"]
+            )
+        )
+        decision = release["decision_artifact"]
+        self.assertTrue(
+            decision.startswith("docs/decisions/")
+            and decision.endswith("-release-aegis-label-capture-canary.md")
+        )
+        self.assertEqual(
+            release["allowed_release_diff_paths"],
+            ["configs/experiments/r06_aegis_collision_conditioned.json", decision],
+        )
 
     def test_complete_ordered_twenty_case_denominator_is_immutable(self) -> None:
         source = self.config["manifest"]
