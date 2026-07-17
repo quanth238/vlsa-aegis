@@ -229,8 +229,9 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
 
         self.assertIs(reviewed.ready_to_run, True)
         self.assertIsInstance(reviewed.execution_release, dict)
-        self.assertEqual(
-            reviewed.execution_release["stage"], "codex_label_capture"
+        self.assertIn(
+            reviewed.execution_release["stage"],
+            ("codex_label_capture", "paired_codex_label_canary"),
         )
         released = runner.load_aegis_experiment_config(path, repo_root=ROOT)
         self.assertEqual(released.execution_release, reviewed.execution_release)

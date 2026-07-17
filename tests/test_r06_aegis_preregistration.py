@@ -81,12 +81,53 @@ class AegisCollisionConditionedPreregistrationTest(unittest.TestCase):
             return
 
         self.assertIs(value["ready_to_run"], True)
-        self.assertEqual(
-            value["config_status"], "released_exact_codex_label_capture_canary"
-        )
         self.assertEqual(value["blocked_on"], [])
         release = value["execution_release"]
         self.assertIsInstance(release, dict)
+        if release["stage"] == "paired_codex_label_canary":
+            self.assertEqual(
+                value["config_status"],
+                "released_exact_codex_label_paired_canary",
+            )
+            self.assertEqual(
+                release["artifact_role"],
+                "r06_aegis_paired_codex_label_canary_execution_release",
+            )
+            self.assertEqual(release["single_case_index"], 0)
+            self.assertEqual(release["case_id"], "crfs-1069f29a8d76463a")
+            self.assertTrue(release["aegis_execution_allowed"])
+            self.assertTrue(release["semantic_label_required"])
+            self.assertTrue(release["groundingdino_execution_allowed"])
+            self.assertTrue(release["qp_execution_allowed"])
+            self.assertFalse(release["original_glm_execution_allowed"])
+            self.assertFalse(release["probe_or_mlp_training_authorized"])
+            self.assertFalse(release["automatic_population_launch_authorized"])
+            self.assertEqual(
+                release["codex_label_manifest"]["sha256"],
+                "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f"
+                "442467694d996f",
+            )
+            self.assertEqual(release["resources"]["validator_gpus"], 0)
+            self.assertEqual(
+                release["resources"]["validator_dependency"], "afterany"
+            )
+            decision = release["decision_artifact"]
+            self.assertTrue(
+                decision.startswith("docs/decisions/")
+                and decision.endswith("-release-aegis-paired-canary.md")
+            )
+            self.assertEqual(
+                release["allowed_release_diff_paths"],
+                [
+                    "configs/experiments/r06_aegis_collision_conditioned.json",
+                    decision,
+                ],
+            )
+            return
+
+        self.assertEqual(
+            value["config_status"], "released_exact_codex_label_capture_canary"
+        )
         self.assertEqual(
             release["artifact_role"],
             "r06_aegis_codex_label_capture_execution_release",

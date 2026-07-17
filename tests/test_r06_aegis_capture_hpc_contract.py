@@ -90,6 +90,15 @@ class R06AegisCaptureHpcContractTest(unittest.TestCase):
         self.assertEqual(config["blocked_on"], [])
         release = config["execution_release"]
         self.assertIsInstance(release, dict)
+        if release["stage"] == "paired_codex_label_canary":
+            self.assertNotEqual(
+                release["artifact_role"],
+                "r06_aegis_codex_label_capture_execution_release",
+            )
+            self.assertTrue(release["aegis_execution_allowed"])
+            self.assertFalse(release["original_glm_execution_allowed"])
+            self.assertFalse(release["automatic_population_launch_authorized"])
+            return
         self.assertEqual(
             release["artifact_role"],
             "r06_aegis_codex_label_capture_execution_release",

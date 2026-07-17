@@ -151,10 +151,16 @@ class R06AegisCaptureBEvidenceTest(unittest.TestCase):
             ),
         )
 
-    def test_capture_is_consumed_and_next_execution_is_fail_closed(self) -> None:
+    def test_capture_is_consumed_and_never_reauthorized(self) -> None:
         value = self.config
-        self.assertFalse(value["ready_to_run"])
-        self.assertIsNone(value["execution_release"])
+        if value["ready_to_run"]:
+            release = value["execution_release"]
+            self.assertEqual(release["stage"], "paired_codex_label_canary")
+            self.assertTrue(release["aegis_execution_allowed"])
+            self.assertFalse(release["original_glm_execution_allowed"])
+            self.assertFalse(release["automatic_population_launch_authorized"])
+        else:
+            self.assertIsNone(value["execution_release"])
         self.assertEqual(
             value["codex_label_protocol"]["canary_label_manifest"]["sha256"],
             EXPECTED_LABEL_SHA256,
