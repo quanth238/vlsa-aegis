@@ -130,6 +130,30 @@ CONTROLLER_ARRAY_ATTRIBUTES = (
     ("goal_orientation_matrix", "goal_ori"),
 )
 
+RETAINED_METHOD_FAILURE_CODES = frozenset(
+    {
+        "geometry_failure",
+        "gripper_changed",
+        "perception_failure",
+        "qp_failure",
+        "invalid_groundingdino_prediction",
+        "groundingdino_prediction_count_failure",
+        "incomplete_groundingdino_request_audit",
+        "incomplete_groundingdino_audit",
+        "invalid_groundingdino_box_audit",
+        "invalid_empty_groundingdino_audit",
+        "invalid_groundingdino_selected_box_audit",
+        "invalid_groundingdino_selected_phrase_audit",
+        "invalid_public_point_cloud",
+        "missing_groundingdino_audit",
+        "no_groundingdino_points",
+        "no_filtered_groundingdino_points",
+        "public_mvee_failure",
+        "invalid_public_mvee",
+        "invalid_public_mvee_shape",
+    }
+)
+
 
 class AegisRunnerError(RuntimeError):
     """Base class for fail-closed R06 execution failures."""
@@ -153,8 +177,8 @@ class AegisMethodFailure(AegisRunnerError):
         *,
         evidence: Optional[Mapping[str, Any]] = None,
     ):
-        if not kind or kind == "apparatus_invalid":
-            raise ValueError("method failure kind must be explicit and non-apparatus")
+        if kind not in RETAINED_METHOD_FAILURE_CODES:
+            raise ValueError("method failure kind is not in the frozen allowlist")
         super().__init__(message)
         self.kind = str(kind)
         self.evidence = dict(evidence or {})
@@ -176,20 +200,12 @@ def _translate_core_error(error: Exception, *, stage: str) -> AegisRunnerError:
         "adapter_failure_code": code or type(error).__name__,
         "adapter_details": dict(details) if isinstance(details, Mapping) else {},
     }
-    if code in {
-        "runtime_dependency_failure",
-        "upstream_source_drift",
-        "input_failure",
-        "initialization_failure",
-    }:
-        return AegisApparatusError(str(error), evidence=evidence)
-    if code:
-        return AegisMethodFailure(code, str(error), evidence=evidence)
-    return AegisMethodFailure(
-        f"{stage}_failure",
-        str(error),
-        evidence=evidence,
-    )
+    if isinstance(error, TypeError) or code not in RETAINED_METHOD_FAILURE_CODES:
+        return AegisApparatusError(
+            f"unrecognized or apparatus {stage} failure: {error}",
+            evidence=evidence,
+        )
+    return AegisMethodFailure(code, str(error), evidence=evidence)
 
 
 def _numpy():
@@ -220,6 +236,178 @@ def _canonical_json_bytes(value: Any) -> bytes:
 
 def _content_sha256(value: Any) -> str:
     return hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
+
+
+IMPLEMENTATION_SOURCE_RELATIVE_PATHS = {
+    "runner": Path("main/crfs_oracle/aegis_runner.py"),
+    "pairing": Path("main/crfs_oracle/aegis_pairing.py"),
+    "baseline_adapter": Path("main/crfs_oracle/aegis_baseline.py"),
+    "perception_adapter": Path("main/crfs_oracle/aegis_perception.py"),
+}
+
+
+def _git_blob_sha256(
+    repo_root: str | Path,
+    commit: str,
+    relative_path: str | Path,
+) -> Optional[str]:
+    """Hash one repository blob without checking out or trusting live bytes."""
+
+    if not (
+        isinstance(commit, str)
+        and len(commit) == 40
+        and all(character in "0123456789abcdef" for character in commit)
+    ):
+        return None
+    relative = Path(relative_path)
+    relative_string = relative.as_posix()
+    if (
+        relative.is_absolute()
+        or relative_string in {"", "."}
+        or relative_string.startswith("../")
+        or ":" in relative_string
+        or "\n" in relative_string
+    ):
+        return None
+    try:
+        completed = subprocess.run(
+            ["git", "show", f"{commit}:{relative_string}"],
+            cwd=Path(repo_root).resolve(),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0:
+        return None
+    return hashlib.sha256(completed.stdout).hexdigest()
+
+
+def _git_is_ancestor(
+    repo_root: str | Path,
+    ancestor: str,
+    descendant: str,
+) -> bool:
+    if not (
+        isinstance(ancestor, str)
+        and isinstance(descendant, str)
+        and len(ancestor) == len(descendant) == 40
+        and all(character in "0123456789abcdef" for character in ancestor)
+        and all(character in "0123456789abcdef" for character in descendant)
+    ):
+        return False
+    try:
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=Path(repo_root).resolve(),
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return completed.returncode == 0
+
+
+def _repo_relative_path(repo_root: str | Path, path: str | Path) -> Optional[Path]:
+    root = Path(repo_root).expanduser().resolve()
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        return candidate.resolve().relative_to(root)
+    except (OSError, ValueError):
+        return None
+
+
+def _frozen_label_manifest_git_binding(
+    *,
+    repo_root: str | Path,
+    manifest_path: str | Path,
+    manifest_sha256: str,
+    capture_source_commit: str,
+    freeze_commit: str,
+    accepted_implementation_commit: str,
+    paired_release_commit: str,
+    require_live_file: bool,
+) -> Mapping[str, Any]:
+    """Verify post-capture label bytes and strict release ancestry.
+
+    The authoritative manifest bytes are read from ``freeze_commit``.  Live
+    bytes are additionally required while executing the paired arm, but a
+    later immutable-result validation does not depend on the current checkout.
+    """
+
+    root = Path(repo_root).expanduser().resolve()
+    relative = _repo_relative_path(root, manifest_path)
+    if relative is None or not _is_lower_hex(manifest_sha256):
+        raise AegisApparatusError(
+            "paired release label manifest path/hash is invalid"
+        )
+    commits = {
+        "capture_source_commit": capture_source_commit,
+        "freeze_commit": freeze_commit,
+        "accepted_implementation_commit": accepted_implementation_commit,
+        "paired_release_commit": paired_release_commit,
+    }
+    if any(not _is_lower_hex(value, 40) for value in commits.values()):
+        raise AegisApparatusError(
+            "paired release label ancestry contains an invalid commit",
+            evidence=commits,
+        )
+    frozen_blob_sha256 = _git_blob_sha256(root, freeze_commit, relative)
+    capture_before_freeze = bool(
+        capture_source_commit != freeze_commit
+        and _git_is_ancestor(root, capture_source_commit, freeze_commit)
+    )
+    freeze_before_implementation = bool(
+        freeze_commit != accepted_implementation_commit
+        and _git_is_ancestor(root, freeze_commit, accepted_implementation_commit)
+    )
+    implementation_before_release = bool(
+        accepted_implementation_commit != paired_release_commit
+        and _git_is_ancestor(
+            root, accepted_implementation_commit, paired_release_commit
+        )
+    )
+    if (
+        frozen_blob_sha256 != manifest_sha256
+        or not capture_before_freeze
+        or not freeze_before_implementation
+        or not implementation_before_release
+    ):
+        raise AegisApparatusError(
+            "paired release label Git blob/ancestry binding failed",
+            evidence={
+                **commits,
+                "repo_relative_path": relative.as_posix(),
+                "expected_manifest_sha256": manifest_sha256,
+                "freeze_blob_sha256": frozen_blob_sha256,
+                "capture_before_freeze": capture_before_freeze,
+                "freeze_before_implementation": freeze_before_implementation,
+                "implementation_before_release": implementation_before_release,
+            },
+        )
+    if require_live_file:
+        live_path = root / relative
+        if not live_path.is_file() or _sha256_path(live_path) != manifest_sha256:
+            raise AegisApparatusError(
+                "paired execution label bytes differ from the frozen Git blob",
+                evidence={
+                    "path": str(live_path),
+                    "expected_sha256": manifest_sha256,
+                },
+            )
+    return {
+        "repo_relative_path": relative.as_posix(),
+        "manifest_sha256": manifest_sha256,
+        "freeze_blob_sha256": frozen_blob_sha256,
+        **commits,
+        "capture_before_freeze": True,
+        "freeze_before_implementation": True,
+        "implementation_before_release": True,
+    }
 
 
 def _read_json(path: Path) -> Mapping[str, Any]:
@@ -1495,10 +1683,8 @@ def _implementation_identity(
             },
         )
     source_paths = {
-        "runner": Path(__file__).resolve(),
-        "pairing": Path(__file__).with_name("aegis_pairing.py"),
-        "baseline_adapter": Path(__file__).with_name("aegis_baseline.py"),
-        "perception_adapter": Path(__file__).with_name("aegis_perception.py"),
+        name: root / relative
+        for name, relative in IMPLEMENTATION_SOURCE_RELATIVE_PATHS.items()
     }
     return {
         "source_git_commit": commit,
@@ -1520,7 +1706,67 @@ def _implementation_identity(
     }
 
 
-def _implementation_identity_valid(value: Any, *, capture: bool) -> bool:
+def _frozen_implementation_identity_valid(
+    value: Mapping[str, Any],
+    *,
+    repo_root: str | Path,
+) -> bool:
+    """Validate capture source hashes against its immutable release commit."""
+
+    root = Path(repo_root).resolve()
+    commit = str(value.get("source_git_commit", ""))
+    accepted = str(value.get("accepted_implementation_commit", ""))
+    allowed_paths = value.get("allowed_release_diff_paths")
+    if not (
+        _is_lower_hex(commit, 40)
+        and _is_lower_hex(accepted, 40)
+        and commit != accepted
+        and isinstance(allowed_paths, list)
+        and allowed_paths
+        and allowed_paths == sorted(set(allowed_paths))
+        and all(isinstance(path, str) and bool(path) for path in allowed_paths)
+    ):
+        return False
+    try:
+        parents = subprocess.check_output(
+            ["git", "rev-list", "--parents", "-n", "1", commit],
+            cwd=root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip().split()
+        diff_paths = sorted(
+            line
+            for line in subprocess.check_output(
+                ["git", "diff", "--name-only", accepted, commit],
+                cwd=root,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).splitlines()
+            if line
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    if parents != [commit, accepted] or diff_paths != allowed_paths:
+        return False
+    sources = value.get("source_sha256")
+    if not (
+        isinstance(sources, Mapping)
+        and set(sources) == set(IMPLEMENTATION_SOURCE_RELATIVE_PATHS)
+    ):
+        return False
+    return all(
+        _is_lower_hex(sources.get(name))
+        and sources.get(name) == _git_blob_sha256(root, commit, relative)
+        for name, relative in IMPLEMENTATION_SOURCE_RELATIVE_PATHS.items()
+    )
+
+
+def _implementation_identity_valid(
+    value: Any,
+    *,
+    capture: bool,
+    repo_root: str | Path | None = None,
+) -> bool:
     if not isinstance(value, Mapping) or value.get("git_dirty") is not False:
         return False
     expected_runtime = f"{SafeLiberoAegisRuntime.__module__}.{SafeLiberoAegisRuntime.__qualname__}"
@@ -1546,16 +1792,112 @@ def _implementation_identity_valid(value: Any, *, capture: bool) -> bool:
         != value.get("allowed_release_diff_paths")
     ):
         return False
+    root = (
+        Path(__file__).resolve().parents[2]
+        if repo_root is None
+        else Path(repo_root).resolve()
+    )
+    if capture:
+        return _frozen_implementation_identity_valid(value, repo_root=root)
     sources = value.get("source_sha256")
-    if not isinstance(sources, Mapping):
+    if not (
+        isinstance(sources, Mapping)
+        and set(sources) == set(IMPLEMENTATION_SOURCE_RELATIVE_PATHS)
+    ):
         return False
     expected_paths = {
-        "runner": Path(__file__).resolve(),
-        "pairing": Path(__file__).with_name("aegis_pairing.py"),
-        "baseline_adapter": Path(__file__).with_name("aegis_baseline.py"),
-        "perception_adapter": Path(__file__).with_name("aegis_perception.py"),
+        name: root / relative
+        for name, relative in IMPLEMENTATION_SOURCE_RELATIVE_PATHS.items()
     }
-    return all(sources.get(name) == _sha256_path(path) for name, path in expected_paths.items())
+    return all(
+        path.is_file() and sources.get(name) == _sha256_path(path)
+        for name, path in expected_paths.items()
+    )
+
+
+def _paired_execution_identity(
+    *,
+    release: Mapping[str, Any],
+    implementation_identity: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    parent = os.environ.get("SLURM_ARRAY_JOB_ID", "").strip()
+    task = os.environ.get("SLURM_ARRAY_TASK_ID", "").strip()
+    allocation_job = os.environ.get("SLURM_JOB_ID", "").strip()
+    cuda = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    host = socket.gethostname().split(".", 1)[0]
+    value = {
+        "stage": "paired_codex_label_canary",
+        "run_id": release.get("run_id"),
+        "release_git_commit": implementation_identity.get(
+            "source_git_commit"
+        ),
+        "slurm_job_id": allocation_job,
+        "slurm_array_job_id": parent,
+        "slurm_array_task_id": task,
+        "exact_gpu_task_id": f"{parent}_{task}",
+        "source_host": host,
+        "cuda_visible_devices": cuda,
+    }
+    if not _paired_execution_identity_valid(
+        value, implementation_identity=implementation_identity
+    ):
+        raise AegisApparatusError(
+            "paired execution identity is not the exact worker-1 array task",
+            evidence=value,
+        )
+    return value
+
+
+def _paired_execution_identity_valid(
+    value: Any,
+    *,
+    implementation_identity: Any,
+) -> bool:
+    if not isinstance(value, Mapping) or not isinstance(
+        implementation_identity, Mapping
+    ):
+        return False
+    cuda = value.get("cuda_visible_devices")
+    cuda_tokens = (
+        [token.strip() for token in cuda.split(",")]
+        if isinstance(cuda, str)
+        else []
+    )
+    return bool(
+        set(value)
+        == {
+            "stage",
+            "run_id",
+            "release_git_commit",
+            "slurm_job_id",
+            "slurm_array_job_id",
+            "slurm_array_task_id",
+            "exact_gpu_task_id",
+            "source_host",
+            "cuda_visible_devices",
+        }
+        and value.get("stage") == "paired_codex_label_canary"
+        and isinstance(value.get("run_id"), str)
+        and bool(value["run_id"])
+        and _is_lower_hex(value.get("release_git_commit"), 40)
+        and value.get("release_git_commit")
+        == implementation_identity.get("source_git_commit")
+        and isinstance(value.get("slurm_job_id"), str)
+        and value["slurm_job_id"].isdigit()
+        and isinstance(value.get("slurm_array_job_id"), str)
+        and value["slurm_array_job_id"].isdigit()
+        and value.get("slurm_array_task_id") == "0"
+        and value.get("exact_gpu_task_id")
+        == f"{value.get('slurm_array_job_id')}_0"
+        and value.get("source_host") == "worker-1"
+        and len(cuda_tokens) == 1
+        and bool(cuda_tokens[0])
+        and cuda_tokens[0] != "NoDevFiles"
+        and all(
+            character.isalnum() or character in "._:-"
+            for character in cuda_tokens[0]
+        )
+    )
 
 
 def _validate_selected_ledger_reference(
@@ -1961,7 +2303,6 @@ class CodexFrozenLabelSafetyCoreProvider:
         contract = resolve_perception_mode(
             PERCEPTION_FROZEN_LABEL_CORE,
             obstacle_label=str(perception.get("obstacle_label", "")),
-            repo_root=self._repo_root,
         )
         return AegisSafetyCore(
             pre_settle_p1=literal_pre_settle_geometry["p1"],
@@ -3308,6 +3649,21 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
             and _finite_json_tree(failure)
         ):
             errors.append("failure result is not a finite structured record")
+        elif (
+            status == "method_failure"
+            and failure.get("kind") not in RETAINED_METHOD_FAILURE_CODES
+        ):
+            errors.append("method failure kind is outside the frozen allowlist")
+    execution_identity = value.get("execution")
+    if not _implementation_identity_valid(
+        value.get("implementation_identity"), capture=False
+    ):
+        errors.append("paired execution implementation identity is invalid")
+    if not _paired_execution_identity_valid(
+        execution_identity,
+        implementation_identity=value.get("implementation_identity"),
+    ):
+        errors.append("paired execution identity is invalid")
     if status == "complete":
         case_id_string = str(case_id)
         settle = value.get("settle_selection")
@@ -3357,6 +3713,11 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
             value.get("implementation_identity"), capture=False
         ):
             errors.append("valid canary lacks exact released implementation identity")
+        if not _paired_execution_identity_valid(
+            value.get("execution"),
+            implementation_identity=value.get("implementation_identity"),
+        ):
+            errors.append("valid canary lacks exact paired execution identity")
         render = value.get("aegis_perception_render")
         if not _valid_orientation_render(render):
             errors.append("valid canary lacks exact public camera-orientation evidence")
@@ -3377,6 +3738,8 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
             isinstance(label_release, Mapping)
             and _is_lower_hex(label_release.get("sha256"))
             and _is_lower_hex(label_release.get("freeze_commit"), 40)
+            and isinstance(label_release.get("path"), str)
+            and bool(label_release["path"])
             and _is_lower_hex(label_release.get("capture_artifact_sha256"))
             and isinstance(label_release.get("capture_artifact_path"), str)
             and bool(label_release["capture_artifact_path"])
@@ -3411,6 +3774,34 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
                     if isinstance(perception_value, Mapping)
                     else {}
                 )
+                paired_implementation = value.get("implementation_identity", {})
+                capture_implementation = captured.get(
+                    "implementation_identity", {}
+                )
+                expected_label_git_binding = (
+                    _frozen_label_manifest_git_binding(
+                        repo_root=Path(__file__).resolve().parents[2],
+                        manifest_path=str(label_release.get("path", "")),
+                        manifest_sha256=str(label_release.get("sha256", "")),
+                        capture_source_commit=str(
+                            capture_implementation.get(
+                                "source_git_commit", ""
+                            )
+                        ),
+                        freeze_commit=str(
+                            label_release.get("freeze_commit", "")
+                        ),
+                        accepted_implementation_commit=str(
+                            paired_implementation.get(
+                                "accepted_implementation_commit", ""
+                            )
+                        ),
+                        paired_release_commit=str(
+                            paired_implementation.get("source_git_commit", "")
+                        ),
+                        require_live_file=False,
+                    )
+                )
                 protocol_valid = bool(
                     set(protocol)
                     == {
@@ -3425,6 +3816,7 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
                         "qp_steps",
                         "strict_capture_validation_passed",
                         "label_reviewed_after_capture",
+                        "label_git_binding",
                     }
                     and protocol_path.is_file()
                     and _sha256_path(protocol_path)
@@ -3457,6 +3849,8 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
                     and protocol.get("qp_steps") == 0
                     and protocol.get("strict_capture_validation_passed") is True
                     and protocol.get("label_reviewed_after_capture") is True
+                    and protocol.get("label_git_binding")
+                    == expected_label_git_binding
                     and perception_label.get("reviewed_at")
                     == protocol.get("label_reviewed_at")
                     and datetime.strptime(
@@ -3468,7 +3862,7 @@ def validate_aegis_case_result(value: Mapping[str, Any]) -> Sequence[str]:
                         "%Y-%m-%dT%H:%M:%SZ",
                     )
                 )
-            except (OSError, ValueError, TypeError):
+            except (AegisApparatusError, OSError, ValueError, TypeError):
                 protocol_valid = False
         if not protocol_valid:
             errors.append(
@@ -4069,6 +4463,15 @@ def run_aegis_case(
     label_release = config.execution_release.get("codex_label_manifest")
     if not isinstance(label_release, Mapping):
         raise AegisApparatusError("paired release has no immutable Codex label manifest")
+    repo_root = Path(__file__).resolve().parents[2]
+    label_manifest_relative = _repo_relative_path(
+        repo_root, str(label_release.get("path", ""))
+    )
+    label_manifest_path = (
+        None
+        if label_manifest_relative is None
+        else repo_root / label_manifest_relative
+    )
     freeze_commit = str(label_release.get("freeze_commit", ""))
     capture_hash = str(label_release.get("capture_artifact_sha256", ""))
     capture_path_value = str(label_release.get("capture_artifact_path", ""))
@@ -4076,8 +4479,8 @@ def run_aegis_case(
     if (
         not isinstance(aegis_provider, CodexFrozenLabelSafetyCoreProvider)
         or label_release.get("sha256") != aegis_provider.label_jsonl_sha256
-        or str(Path(label_release.get("path", "")).expanduser().resolve())
-        != aegis_provider.label_jsonl_path
+        or label_manifest_path is None
+        or str(label_manifest_path) != aegis_provider.label_jsonl_path
         or len(freeze_commit) != 40
         or any(character not in "0123456789abcdef" for character in freeze_commit)
         or len(capture_hash) != 64
@@ -4103,6 +4506,27 @@ def run_aegis_case(
             "paired release capture artifact failed strict validation",
             evidence={"errors": list(capture_errors)},
         )
+    capture_implementation_identity = capture_artifact.get(
+        "implementation_identity"
+    )
+    if not isinstance(capture_implementation_identity, Mapping):
+        raise AegisApparatusError(
+            "paired release capture has no immutable implementation identity"
+        )
+    label_git_binding = _frozen_label_manifest_git_binding(
+        repo_root=repo_root,
+        manifest_path=str(label_manifest_path),
+        manifest_sha256=aegis_provider.label_jsonl_sha256,
+        capture_source_commit=str(
+            capture_implementation_identity.get("source_git_commit", "")
+        ),
+        freeze_commit=freeze_commit,
+        accepted_implementation_commit=str(
+            config.execution_release.get("accepted_implementation_commit", "")
+        ),
+        paired_release_commit=os.environ.get("EXPECTED_GIT_COMMIT", "").strip(),
+        require_live_file=True,
+    )
     from .aegis_perception import load_codex_semantic_label_jsonl
 
     label_ledger = load_codex_semantic_label_jsonl(
@@ -4136,6 +4560,10 @@ def run_aegis_case(
         provider=aegis_provider,
         release=config.execution_release,
     )
+    execution_identity = _paired_execution_identity(
+        release=config.execution_release,
+        implementation_identity=implementation_identity,
+    )
     case_id = str(case.get("case_id", ""))
     if case_id not in FROZEN_CASE_IDS:
         raise ValueError("case is outside the immutable R06 population")
@@ -4162,6 +4590,7 @@ def run_aegis_case(
             "silent_fallback_forbidden": True,
         },
         "implementation_identity": implementation_identity,
+        "execution": execution_identity,
         "capture_protocol_binding": {
             "capture_artifact_path": str(capture_path),
             "capture_artifact_sha256": capture_hash,
@@ -4174,6 +4603,7 @@ def run_aegis_case(
             "qp_steps": 0,
             "strict_capture_validation_passed": True,
             "label_reviewed_after_capture": True,
+            "label_git_binding": label_git_binding,
         },
     }
 

@@ -67,6 +67,9 @@ Accepted R06 capture repair:
 Terminal R06 capture retry-B release:
 `ccb8c5225517f21ca1405f7b1470fe47dab160ee`.
 
+Reviewed R06 paired-canary apparatus:
+the accepted implementation commit containing ADR-0070.
+
 Active jobs: none. R06 capture retry-B task `28428_0` completed `0:0` after
 `00:01:52` on worker-1 and atomically published a valid same-state capture.
 It reproduced the registered negative-clearance violation twice with no
@@ -137,10 +140,12 @@ The new gate has no paired canary or population result. The action-boundary
 selection, exact pairing, 17+3 strata, metrics, fixed-denominator failures, and
 canary identity are frozen. Capture retry B completed the first two stages:
 one allocation-backed capture with baseline reconfirmation, followed by an
-outcome-blind Codex label freeze. The remaining staged path is one separately
-reviewed paired canary, then a separately released 20-case
-capture/label/population. This does not evaluate the original GLM selector and
-cannot be called original end-to-end VLSA/AEGIS.
+outcome-blind Codex label freeze. ADR-0070 accepts the paired-canary apparatus
+after the complete local gate passed 854 tests with 276 declared dependency
+skips. A separate direct-child release and allocation-backed result are still
+required. The later 20-case capture/label/population remains separately
+blocked. This does not evaluate the original GLM selector and cannot be called
+original end-to-end VLSA/AEGIS.
 
 The first capture-only release used commit `cb57d52`, immutable run
 `r06-aegis-label-capture-canary-20260717a`, and exact task `28409_0`. It
@@ -177,8 +182,14 @@ safety result, and the configuration is fail closed pending a separate
 paired-canary execution release.
 
 Two independent terminal/label reviews report GO with no P0/P1/P2 finding.
-The complete local gate passes 838 tests with 275 declared dependency skips,
-21 artifact audits, and 19 gate audits.
+The paired apparatus fixes immutable-source validation, frozen-label Git
+ancestry, constructor-error classification, and the real frozen-label safety
+core construction. It also binds every result to the exact run/Slurm
+task/worker/GPU and prevents untyped or unknown exceptions from becoming
+scientific AEGIS failures. Its complete local gate passes 854 tests with 276
+declared dependency skips, 21 artifact audits, and 19 gate audits. No paired
+scientific result exists until the exact released allocation terminates and
+validates.
 
 Dependency setup job `28391` completed on `worker-2` with exit `0:0` and
 installed the official GroundingDINO Swin-T checkpoint at the frozen SHA-256

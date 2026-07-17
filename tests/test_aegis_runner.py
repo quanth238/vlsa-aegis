@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import types
@@ -106,13 +107,50 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
                 "aegis_perception.py"
             ),
         }
+        if capture:
+            root = Path(runner.__file__).resolve().parents[2]
+            source_commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=root, text=True
+            ).strip()
+            accepted_commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD^"], cwd=root, text=True
+            ).strip()
+            allowed_paths = sorted(
+                subprocess.check_output(
+                    [
+                        "git",
+                        "diff",
+                        "--name-only",
+                        accepted_commit,
+                        source_commit,
+                    ],
+                    cwd=root,
+                    text=True,
+                ).splitlines()
+            )
+            source_sha256 = {
+                name: runner._git_blob_sha256(
+                    root,
+                    source_commit,
+                    runner.IMPLEMENTATION_SOURCE_RELATIVE_PATHS[name],
+                )
+                for name in source_paths
+            }
+        else:
+            source_commit = "b" * 40
+            accepted_commit = "a" * 40
+            allowed_paths = ["config.json", "decision.md"]
+            source_sha256 = {
+                name: runner._sha256_path(path)
+                for name, path in source_paths.items()
+            }
         return {
-            "source_git_commit": "b" * 40,
-            "expected_git_commit": "b" * 40,
-            "accepted_implementation_commit": "a" * 40,
+            "source_git_commit": source_commit,
+            "expected_git_commit": source_commit,
+            "accepted_implementation_commit": accepted_commit,
             "release_direct_child_verified": True,
-            "release_diff_paths": ["config.json", "decision.md"],
-            "allowed_release_diff_paths": ["config.json", "decision.md"],
+            "release_diff_paths": allowed_paths,
+            "allowed_release_diff_paths": allowed_paths,
             "git_dirty": False,
             "runtime_type": (
                 f"{runner.SafeLiberoAegisRuntime.__module__}."
@@ -126,10 +164,7 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
                     f"{runner.CodexFrozenLabelSafetyCoreProvider.__qualname__}"
                 )
             ),
-            "source_sha256": {
-                name: runner._sha256_path(path)
-                for name, path in source_paths.items()
-            },
+            "source_sha256": source_sha256,
         }
 
     @staticmethod
@@ -148,6 +183,21 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
                 "sha256": runner.NORMALIZATION_ASSET_SHA256,
             },
         }
+
+    @staticmethod
+    def _git(repo, *args):
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=repo,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+
+    @classmethod
+    def _commit_all(cls, repo, message):
+        cls._git(repo, "add", ".")
+        cls._git(repo, "commit", "-m", message)
+        return cls._git(repo, "rev-parse", "HEAD")
 
     def test_module_import_is_dependency_light_and_execution_is_slurm_guarded(self):
         aegis_runner = _load_runner()
@@ -219,12 +269,40 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
                 "silent_fallback_used": False,
             },
         }
+        base["implementation_identity"] = self._forged_valid_implementation(
+            runner, capture=False
+        )
+        base["execution"] = {
+            "stage": "paired_codex_label_canary",
+            "run_id": "r06-aegis-paired-canary",
+            "release_git_commit": base["implementation_identity"][
+                "source_git_commit"
+            ],
+            "slurm_job_id": "12346",
+            "slurm_array_job_id": "12345",
+            "slurm_array_task_id": "0",
+            "exact_gpu_task_id": "12345_0",
+            "source_host": "worker-1",
+            "cuda_visible_devices": "0",
+        }
         self.assertEqual(runner.validate_aegis_case_result(base), [])
+        missing_execution = copy.deepcopy(base)
+        del missing_execution["execution"]
+        self.assertIn(
+            "paired execution identity is invalid",
+            runner.validate_aegis_case_result(missing_execution),
+        )
         tampered = copy.deepcopy(base)
         tampered["failure"]["silent_fallback_used"] = True
         self.assertIn(
             "failure result must explicitly forbid fallback",
             runner.validate_aegis_case_result(tampered),
+        )
+        unknown = copy.deepcopy(base)
+        unknown["failure"]["kind"] = "future_unknown_failure"
+        self.assertIn(
+            "method failure kind is outside the frozen allowlist",
+            runner.validate_aegis_case_result(unknown),
         )
 
     def test_source_contains_exact_pairing_render_and_measurement_contract(self):
@@ -250,6 +328,341 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
             )
         ]
         self.assertEqual(capture_source.count("_validate_branch_identity("), 2)
+
+    def test_codex_provider_new_core_resolves_real_frozen_contract(self):
+        runner = _load_runner()
+        from crfs_oracle import aegis_baseline
+
+        captured = {}
+
+        class RecordingSafetyCore:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+
+        identity = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            provider = runner.CodexFrozenLabelSafetyCoreProvider(
+                label_jsonl_path=Path(directory) / "labels.jsonl",
+                label_jsonl_sha256="a" * 64,
+                output_dir=Path(directory) / "perception",
+                repo_root=ROOT,
+            )
+            with mock.patch.object(
+                aegis_baseline,
+                "AegisSafetyCore",
+                RecordingSafetyCore,
+            ):
+                core = provider.new_core(
+                    perception={
+                        "backend_kind": (
+                            "codex_frozen_label_groundingdino_diagnostic"
+                        ),
+                        "release_runtime_backend": True,
+                        "test_injection_used": False,
+                        "original_glm_executed": False,
+                        "obstacle_label": "red milk carton",
+                        "ellipsoid": {
+                            "p2": [0.5, 0.0, 0.0],
+                            "q2_diag": [2.0, 2.0, 2.0],
+                            "r2": identity,
+                        },
+                    },
+                    literal_pre_settle_geometry={
+                        "p1": [0.0, 0.0, 0.0],
+                        "R1": identity,
+                    },
+                    branch_robot_geometry={
+                        "p1": [0.1, 0.0, 0.0],
+                        "R1": identity,
+                    },
+                    instruction="pick up the black bowl",
+                )
+
+        self.assertIs(type(core), RecordingSafetyCore)
+        self.assertEqual(
+            captured["perception"].mode,
+            aegis_baseline.PERCEPTION_FROZEN_LABEL_CORE,
+        )
+        self.assertEqual(
+            captured["perception"].obstacle_label, "red milk carton"
+        )
+        self.assertEqual(captured["repo_root"], ROOT)
+
+    def test_codex_provider_new_core_constructs_real_core_with_numpy(self):
+        runner = _load_runner()
+        try:
+            import numpy  # noqa: F401
+        except ModuleNotFoundError:
+            self.skipTest("real AegisSafetyCore construction requires NumPy")
+
+        from crfs_oracle import aegis_baseline
+
+        identity = [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            provider = runner.CodexFrozenLabelSafetyCoreProvider(
+                label_jsonl_path=Path(directory) / "labels.jsonl",
+                label_jsonl_sha256="a" * 64,
+                output_dir=Path(directory) / "perception",
+                repo_root=ROOT,
+            )
+            core = provider.new_core(
+                perception={
+                    "backend_kind": (
+                        "codex_frozen_label_groundingdino_diagnostic"
+                    ),
+                    "release_runtime_backend": True,
+                    "test_injection_used": False,
+                    "original_glm_executed": False,
+                    "obstacle_label": "red milk carton",
+                    "ellipsoid": {
+                        "p2": [0.5, 0.0, 0.0],
+                        "q2_diag": [2.0, 2.0, 2.0],
+                        "r2": identity,
+                    },
+                },
+                literal_pre_settle_geometry={
+                    "p1": [0.0, 0.0, 0.0],
+                    "R1": identity,
+                },
+                branch_robot_geometry={
+                    "p1": [0.1, 0.0, 0.0],
+                    "R1": identity,
+                },
+                instruction="pick up the black bowl",
+            )
+
+        self.assertIs(type(core), aegis_baseline.AegisSafetyCore)
+        self.assertEqual(
+            core._perception.mode,
+            aegis_baseline.PERCEPTION_FROZEN_LABEL_CORE,
+        )
+
+    def test_unexpected_constructor_typeerror_is_apparatus_invalid(self):
+        runner = _load_runner()
+
+        translated = runner._translate_core_error(
+            TypeError("unexpected keyword argument 'repo_root'"),
+            stage="controller_initialization",
+        )
+
+        self.assertIsInstance(translated, runner.AegisApparatusError)
+        self.assertNotIsInstance(translated, runner.AegisMethodFailure)
+        self.assertEqual(
+            translated.evidence["adapter_failure_code"], "TypeError"
+        )
+
+    def test_core_error_translation_requires_explicit_known_method_code(self):
+        runner = _load_runner()
+
+        known = type(
+            "KnownMethodError",
+            (RuntimeError,),
+            {"code": "qp_failure", "details": {"solver": "osqp"}},
+        )("no solution")
+        missing = RuntimeError("untyped failure")
+        unknown = type(
+            "UnknownAdapterError",
+            (RuntimeError,),
+            {"code": "future_unknown_failure", "details": {}},
+        )("unknown")
+
+        self.assertIsInstance(
+            runner._translate_core_error(known, stage="filter_action"),
+            runner.AegisMethodFailure,
+        )
+        self.assertIsInstance(
+            runner._translate_core_error(missing, stage="filter_action"),
+            runner.AegisApparatusError,
+        )
+        self.assertIsInstance(
+            runner._translate_core_error(unknown, stage="filter_action"),
+            runner.AegisApparatusError,
+        )
+        with self.assertRaisesRegex(ValueError, "frozen allowlist"):
+            runner.AegisMethodFailure(
+                "future_unknown_failure", "must fail closed"
+            )
+
+    def test_paired_execution_identity_is_closed_and_crosses_release_commit(self):
+        runner = _load_runner()
+        implementation = {"source_git_commit": "a" * 40}
+        execution = {
+            "stage": "paired_codex_label_canary",
+            "run_id": "r06-paired-canary",
+            "release_git_commit": "a" * 40,
+            "slurm_job_id": "12346",
+            "slurm_array_job_id": "12345",
+            "slurm_array_task_id": "0",
+            "exact_gpu_task_id": "12345_0",
+            "source_host": "worker-1",
+            "cuda_visible_devices": "0",
+        }
+        self.assertTrue(
+            runner._paired_execution_identity_valid(
+                execution,
+                implementation_identity=implementation,
+            )
+        )
+        for key, changed in (
+            ("run_id", ""),
+            ("release_git_commit", "b" * 40),
+            ("slurm_array_job_id", "not-a-job"),
+            ("slurm_array_task_id", "1"),
+            ("exact_gpu_task_id", "12345_1"),
+            ("source_host", "worker-2"),
+            ("cuda_visible_devices", "0,1"),
+        ):
+            tampered = copy.deepcopy(execution)
+            tampered[key] = changed
+            self.assertFalse(
+                runner._paired_execution_identity_valid(
+                    tampered,
+                    implementation_identity=implementation,
+                ),
+                key,
+            )
+
+    def test_capture_source_identity_uses_frozen_git_blobs_not_live_files(self):
+        runner = _load_runner()
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            self._git(repo, "init")
+            self._git(repo, "config", "user.email", "codex@example.com")
+            self._git(repo, "config", "user.name", "Codex")
+            for relative in runner.IMPLEMENTATION_SOURCE_RELATIVE_PATHS.values():
+                path = repo / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(f"accepted:{relative.as_posix()}\n")
+            accepted = self._commit_all(repo, "accepted implementation")
+            (repo / "config.json").write_text("{}\n")
+            (repo / "decision.md").write_text("release\n")
+            released = self._commit_all(repo, "capture release")
+            allowed_paths = ["config.json", "decision.md"]
+            identity = {
+                "source_git_commit": released,
+                "expected_git_commit": released,
+                "accepted_implementation_commit": accepted,
+                "release_direct_child_verified": True,
+                "release_diff_paths": allowed_paths,
+                "allowed_release_diff_paths": allowed_paths,
+                "git_dirty": False,
+                "runtime_type": (
+                    f"{runner.SafeLiberoAegisRuntime.__module__}."
+                    f"{runner.SafeLiberoAegisRuntime.__qualname__}"
+                ),
+                "provider_type": None,
+                "source_sha256": {
+                    name: runner._git_blob_sha256(repo, released, relative)
+                    for name, relative in (
+                        runner.IMPLEMENTATION_SOURCE_RELATIVE_PATHS.items()
+                    )
+                },
+            }
+            live_runner = (
+                repo / runner.IMPLEMENTATION_SOURCE_RELATIVE_PATHS["runner"]
+            )
+            live_runner.write_text("later paired-runner implementation\n")
+
+            self.assertTrue(
+                runner._implementation_identity_valid(
+                    identity,
+                    capture=True,
+                    repo_root=repo,
+                )
+            )
+            tampered = copy.deepcopy(identity)
+            tampered["source_sha256"]["runner"] = "0" * 64
+            self.assertFalse(
+                runner._implementation_identity_valid(
+                    tampered,
+                    capture=True,
+                    repo_root=repo,
+                )
+            )
+
+    def test_label_manifest_is_bound_to_freeze_commit_and_strict_ancestry(self):
+        runner = _load_runner()
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            self._git(repo, "init")
+            self._git(repo, "config", "user.email", "codex@example.com")
+            self._git(repo, "config", "user.name", "Codex")
+            (repo / "capture.txt").write_text("capture\n")
+            capture = self._commit_all(repo, "capture")
+            manifest = repo / "manifests" / "labels.jsonl"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text('{"label":"red milk carton"}\n')
+            manifest_sha256 = runner._sha256_path(manifest)
+            freeze = self._commit_all(repo, "freeze label")
+            (repo / "runner.py").write_text("paired runner\n")
+            accepted = self._commit_all(repo, "accept paired implementation")
+            (repo / "release.json").write_text("{}\n")
+            release = self._commit_all(repo, "paired release")
+
+            binding = runner._frozen_label_manifest_git_binding(
+                repo_root=repo,
+                manifest_path=manifest,
+                manifest_sha256=manifest_sha256,
+                capture_source_commit=capture,
+                freeze_commit=freeze,
+                accepted_implementation_commit=accepted,
+                paired_release_commit=release,
+                require_live_file=True,
+            )
+            self.assertEqual(binding["freeze_blob_sha256"], manifest_sha256)
+            self.assertTrue(binding["capture_before_freeze"])
+            self.assertTrue(binding["freeze_before_implementation"])
+            self.assertTrue(binding["implementation_before_release"])
+
+            manifest.write_text('{"label":"white storage box"}\n')
+            with self.assertRaisesRegex(
+                runner.AegisApparatusError,
+                "execution label bytes",
+            ):
+                runner._frozen_label_manifest_git_binding(
+                    repo_root=repo,
+                    manifest_path=manifest,
+                    manifest_sha256=manifest_sha256,
+                    capture_source_commit=capture,
+                    freeze_commit=freeze,
+                    accepted_implementation_commit=accepted,
+                    paired_release_commit=release,
+                    require_live_file=True,
+                )
+            immutable_binding = runner._frozen_label_manifest_git_binding(
+                repo_root=repo,
+                manifest_path=manifest,
+                manifest_sha256=manifest_sha256,
+                capture_source_commit=capture,
+                freeze_commit=freeze,
+                accepted_implementation_commit=accepted,
+                paired_release_commit=release,
+                require_live_file=False,
+            )
+            self.assertEqual(immutable_binding, binding)
+
+            with self.assertRaisesRegex(
+                runner.AegisApparatusError,
+                "Git blob/ancestry",
+            ):
+                runner._frozen_label_manifest_git_binding(
+                    repo_root=repo,
+                    manifest_path=manifest,
+                    manifest_sha256=manifest_sha256,
+                    capture_source_commit=accepted,
+                    freeze_commit=freeze,
+                    accepted_implementation_commit=accepted,
+                    paired_release_commit=release,
+                    require_live_file=False,
+                )
 
     def test_branch_identity_rejects_controller_fingerprint_drift(self):
         runner = _load_runner()

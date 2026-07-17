@@ -31,9 +31,10 @@ No paired AEGIS canary or population result exists. ADR-0065 explicitly
 authorizes Codex to replace only the unavailable GLM-4.5V name selector.
 Capture retry B is valid, and the canary label `red milk carton` is now frozen
 from its exact image and instruction before any AEGIS outcome; simulator names
-and geometry remained forbidden. GroundingDINO, filtering/MVEE, and the full
-public QP remain unchanged and have not yet run. This arm is not the original
-end-to-end AEGIS comparator.
+and geometry remained forbidden. ADR-0070 accepts the exact paired-canary
+apparatus, but its allocation has not yet run. GroundingDINO, filtering/MVEE,
+and the full public QP remain unchanged and have not yet produced a result.
+This arm is not the original end-to-end AEGIS comparator.
 
 R05A's time-dependent flow-transport question remains scientifically
 unresolved and is paused under ADR-0063. No current experiment authorizes
@@ -55,8 +56,9 @@ Safe-Progress Success; clearance alone is not success.
 
 ### AEGIS-00A — Codex-label paired canary
 
-Status: **capture and outcome-blind canary label are validated; the config
-remains fail closed pending a separate reviewed paired-canary release**
+Status: **capture, outcome-blind label, and paired apparatus are validated;
+the config remains fail closed pending an exact direct-child execution
+release**
 
 Use one frozen manifest case to validate nominal collision reproduction,
 action-boundary branch selection at the registered 5 mm margin, full paired
@@ -105,7 +107,9 @@ lossless agent-view image plus instruction and froze `red milk carton` in the
 one-row canary ledger, SHA-256
 `6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f`.
 ADR-0069 accepts the capture apparatus and label only. Whether AEGIS prevents
-this collision is still untested.
+this collision is still untested. ADR-0070 accepts the exact paired
+implementation after 854 local tests pass; it still supplies no simulator
+outcome and authorizes no automatic population launch.
 
 ### AEGIS-01 — Complete 20-case population
 

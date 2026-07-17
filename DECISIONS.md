@@ -69,3 +69,4 @@
 - [0067 — Preserve the failed AEGIS capture and repair the controller contract](docs/decisions/0067-preserve-failed-aegis-capture-and-repair-controller-contract.md)
 - [0068 — Release the repaired AEGIS Codex-label capture canary](docs/decisions/0068-release-aegis-label-capture-canary.md)
 - [0069 — Accept the valid AEGIS capture and freeze the canary label](docs/decisions/0069-accept-valid-aegis-capture-and-freeze-canary-label.md)
+- [0070 — Accept the exact paired AEGIS canary apparatus](docs/decisions/0070-accept-r06-paired-aegis-canary-apparatus.md)
