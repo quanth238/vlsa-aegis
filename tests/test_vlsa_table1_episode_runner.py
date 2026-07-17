@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,6 +121,95 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
         self.assertEqual(
             self.evaluator.translational_action(nominal),
             [0.1, -0.2, 0.3, 0.0, 0.0, 0.0, -1.0],
+        )
+
+    def test_goal_telemetry_preserves_nominal_and_executed_action_bytes(self):
+        evaluator = self.evaluator
+
+        class ObjectState:
+            object_state_type = "object"
+
+            def get_geom_state(self):
+                return {
+                    "pos": [0.0, 0.0, 0.1],
+                    "quat": [1.0, 0.0, 0.0, 0.0],
+                }
+
+        class SiteState:
+            object_state_type = "site"
+
+            def get_geom_state(self):
+                return {
+                    "pos": [0.1, 0.0, 0.1],
+                    "quat": [0.0, 0.0, 0.0, 1.0],
+                }
+
+        class TaskEnv:
+            parsed_problem = {
+                "goal_state": [
+                    ["in", "target_object_1", "target_region_1"],
+                    ["on", "second_object_1", "second_region_1"],
+                ]
+            }
+            object_states_dict = {
+                "target_object_1": ObjectState(),
+                "target_region_1": SiteState(),
+                "second_object_1": ObjectState(),
+                "second_region_1": SiteState(),
+            }
+
+            @staticmethod
+            def _eval_predicate(atom):
+                return atom[0] == "on"
+
+        class SimState:
+            @staticmethod
+            def flatten():
+                return [0.0]
+
+        class Sim:
+            @staticmethod
+            def get_state():
+                return SimState()
+
+        class Env:
+            env = TaskEnv()
+            sim = Sim()
+
+        nominal_raw = [0.1, -0.2, 0.3, 0.8, -0.7, 0.6, -1.0]
+        executed = evaluator.translational_action(nominal_raw)
+        action_payload = {
+            "nominal_raw": nominal_raw,
+            "executed": executed,
+        }
+        before = evaluator.canonical_json_bytes(action_payload)
+        self.assertEqual(
+            evaluator.sha256_bytes(before),
+            "1b5da7a6771fd886f59ce309d554c950b896a68c63f6cdd63c0ca306b08a1b9a",
+        )
+        with mock.patch.object(
+            evaluator, "array_sha256", return_value="a" * 64
+        ), mock.patch.object(
+            evaluator,
+            "_finite_list",
+            side_effect=lambda value: [float(item) for item in value],
+        ):
+            definition, atoms = evaluator._goal_progress_definition(Env())
+            snapshot = evaluator._goal_progress_snapshot(
+                Env(),
+                atoms,
+                step=-1,
+                previous_values=None,
+            )
+        self.assertEqual(
+            definition["schema_version"],
+            evaluator.GOAL_PROGRESS_SCHEMA,
+        )
+        self.assertTrue(snapshot["inert"])
+        self.assertEqual(snapshot["values"], [False, True])
+        self.assertEqual(
+            evaluator.canonical_json_bytes(action_payload),
+            before,
         )
 
     def test_legacy_ets_is_preserved_and_explicit(self):
@@ -486,6 +576,10 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
         self.assertIn("get_writer", source)
         self.assertIn("append_data", source)
         self.assertNotIn("replay_images", source)
+        self.assertIn(
+            "frames_written == len(executed_actions) + 1",
+            source,
+        )
 
     def test_capture_runtime_cannot_execute_outcome_components(self):
         source = inspect.getsource(
@@ -786,10 +880,91 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                     f"pi05/{manifest['case_id']}/episode.mp4"
                 ),
                 "sha256": "d" * 64,
-                "frames": 1,
+                "frames": 2,
                 "fps": 30,
                 "complete_episode": True,
             },
+        }
+        goal_definition = {
+            "schema_version": evaluator.GOAL_PROGRESS_SCHEMA,
+            "source": "native_bddl_goal_predicates",
+            "logic": "conjunction",
+            "goal_atoms": [
+                {
+                    "index": 0,
+                    "predicate": "in",
+                    "arguments": ["target_object_1", "target_region_1"],
+                }
+            ],
+        }
+        goal_definition["goal_definition_sha256"] = (
+            self.aggregator.canonical_record_sha256(goal_definition)
+        )
+
+        def snapshot(step, satisfied, previous, state_hash):
+            return {
+                "step": step,
+                "values": [satisfied],
+                "satisfied_count": int(satisfied),
+                "fraction": float(satisfied),
+                "all_satisfied": satisfied,
+                "newly_satisfied_indices": (
+                    [0] if satisfied and not previous else []
+                ),
+                "regressed_indices": (
+                    [0] if previous and not satisfied else []
+                ),
+                "argument_poses": [
+                    {
+                        "atom_index": 0,
+                        "arguments": [
+                            {
+                                "name": "target_object_1",
+                                "object_state_type": "object",
+                                "position": [0.0, 0.0, 0.1],
+                                "quaternion": [1.0, 0.0, 0.0, 0.0],
+                            },
+                            {
+                                "name": "target_region_1",
+                                "object_state_type": "site",
+                                "position": [0.1, 0.0, 0.1],
+                                "quaternion": [0.0, 0.0, 0.0, 1.0],
+                            },
+                        ],
+                    }
+                ],
+                "simulator_state_sha256_before": state_hash,
+                "simulator_state_sha256_after": state_hash,
+                "inert": True,
+            }
+
+        initial_goal = snapshot(-1, False, False, "e" * 64)
+        final_goal = snapshot(0, True, False, "f" * 64)
+        result["actions"][0]["goal_progress"] = final_goal
+        result["goal_progress"] = {
+            **goal_definition,
+            "initial": initial_goal,
+            "final": final_goal,
+            "summary": {
+                "initial_values": [False],
+                "final_values": [True],
+                "initial_satisfied_count": 0,
+                "final_satisfied_count": 1,
+                "maximum_satisfied_count": 1,
+                "initial_fraction": 0.0,
+                "final_fraction": 1.0,
+                "maximum_fraction": 1.0,
+                "ever_satisfied": [True],
+                "first_satisfied_step": [0],
+                "first_all_satisfied_step": 0,
+                "regression_count": 0,
+            },
+        }
+        result["terminal_observation"] = {
+            "agentview_array_sha256": "1" * 64,
+            "simulator_state_sha256": "2" * 64,
+            "frame_index": 1,
+            "after_executed_action_count": 1,
         }
         result["result_payload_sha256"] = (
             self.aggregator._result_payload_sha256(result)

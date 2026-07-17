@@ -444,6 +444,42 @@ class VideoGalleryTest(unittest.TestCase):
         self.assertEqual(taxonomy["qp_method_failure"], "present")
         self.assertEqual(taxonomy["apparatus"], "absent")
 
+    def test_precontrol_geometry_reason_uses_actual_result_schema(self) -> None:
+        result = result_fixture(0, ARMS[1])
+        result["status"] = "method_failure"
+        result["perception"] = {
+            "status": "method_failure",
+            "component": "aegis_geometry",
+            "reason": (
+                "released ConvexHull/MVEE fitting failed: "
+                "Qhull precision error"
+            ),
+        }
+        result["method_failure"] = {
+            "status": "method_failure",
+            "component": "aegis_geometry",
+            "phase": "precontrol",
+            "step": 0,
+            "type": "MethodFailure",
+            "message": (
+                "released ConvexHull/MVEE fitting failed: "
+                "Qhull precision error"
+            ),
+            "safety_by_no_execution": True,
+        }
+        result["actions"] = []
+        taxonomy = gallery.classify_failure_taxonomy(
+            result,
+            aegis_arm=True,
+        )
+        self.assertEqual(
+            taxonomy["point_filtering_mvee"], "present"
+        )
+        self.assertEqual(
+            taxonomy["qp_method_failure"], "not_applicable"
+        )
+        self.assertEqual(taxonomy["groundingdino"], "unknown")
+
     def test_apparatus_is_separate_from_method_failure(self) -> None:
         result = result_fixture(0, ARMS[1])
         result["status"] = "apparatus_failure"

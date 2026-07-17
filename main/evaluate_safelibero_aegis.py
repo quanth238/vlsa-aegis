@@ -35,6 +35,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 RESULT_SCHEMA = "vlsa_table1_episode_result.v1"
+GOAL_PROGRESS_SCHEMA = "safelibero_goal_progress.v1"
 LABEL_SCHEMA = "vlsa_table1_codex_label.v1"
 CAPTURE_SCHEMA = "vlsa_table1_label_capture.v1"
 MANIFEST_SCHEMA = "vlsa_table1_population_case.v1"
@@ -137,6 +138,204 @@ def array_sha256(array: Any) -> str:
     digest.update(b"\0")
     digest.update(memoryview(value).cast("B"))
     return digest.hexdigest()
+
+
+def _goal_progress_definition(env: Any) -> tuple[dict[str, Any], list[list[str]]]:
+    """Freeze the native BDDL goal atoms without changing simulator state."""
+
+    task_env = getattr(env, "env", None)
+    parsed_problem = getattr(task_env, "parsed_problem", None)
+    goal_state = (
+        parsed_problem.get("goal_state")
+        if isinstance(parsed_problem, Mapping)
+        else None
+    )
+    if not isinstance(goal_state, (list, tuple)) or not goal_state:
+        raise ApparatusError("native BDDL goal_state is missing")
+    atoms: list[list[str]] = []
+    atom_records: list[dict[str, Any]] = []
+    for index, raw_atom in enumerate(goal_state):
+        if (
+            not isinstance(raw_atom, (list, tuple))
+            or len(raw_atom) != 3
+            or not all(isinstance(value, str) and value for value in raw_atom)
+        ):
+            raise ApparatusError(
+                "Table-1 telemetry requires a binary native BDDL goal atom"
+            )
+        predicate = str(raw_atom[0]).lower()
+        if predicate not in {"in", "on"}:
+            raise ApparatusError(
+                f"unsupported native BDDL goal predicate: {predicate}"
+            )
+        atom = [predicate, str(raw_atom[1]), str(raw_atom[2])]
+        atoms.append(atom)
+        atom_records.append(
+            {
+                "index": index,
+                "predicate": predicate,
+                "arguments": atom[1:],
+            }
+        )
+    definition = {
+        "schema_version": GOAL_PROGRESS_SCHEMA,
+        "source": "native_bddl_goal_predicates",
+        "logic": "conjunction",
+        "goal_atoms": atom_records,
+    }
+    definition["goal_definition_sha256"] = sha256_bytes(
+        canonical_json_bytes(definition)
+    )
+    return definition, atoms
+
+
+def _goal_argument_pose(task_env: Any, name: str) -> dict[str, Any]:
+    states = getattr(task_env, "object_states_dict", None)
+    if not isinstance(states, Mapping) or name not in states:
+        raise ApparatusError(f"native BDDL goal argument is unavailable: {name}")
+    state = states[name]
+    try:
+        geometry = state.get_geom_state()
+    except Exception as error:
+        raise ApparatusError(
+            f"cannot read native BDDL goal argument pose for {name}: {error}"
+        ) from error
+    if not isinstance(geometry, Mapping):
+        raise ApparatusError(f"native BDDL goal argument pose is invalid: {name}")
+    position = _finite_list(geometry.get("pos"))
+    quaternion = _finite_list(geometry.get("quat"))
+    if len(position) != 3 or len(quaternion) != 4:
+        raise ApparatusError(
+            f"native BDDL goal argument pose has invalid shape: {name}"
+        )
+    state_type = str(getattr(state, "object_state_type", "unknown"))
+    if state_type not in {"object", "site"}:
+        raise ApparatusError(
+            f"native BDDL goal argument type is invalid: {name}"
+        )
+    return {
+        "name": name,
+        "object_state_type": state_type,
+        "position": position,
+        "quaternion": quaternion,
+    }
+
+
+def _goal_progress_snapshot(
+    env: Any,
+    goal_atoms: Sequence[Sequence[str]],
+    *,
+    step: int,
+    previous_values: Sequence[bool] | None,
+) -> dict[str, Any]:
+    """Read native goal predicates and poses under a state-hash inertness gate."""
+
+    task_env = getattr(env, "env", None)
+    if task_env is None or not callable(getattr(task_env, "_eval_predicate", None)):
+        raise ApparatusError("native BDDL predicate evaluator is unavailable")
+    before = array_sha256(env.sim.get_state().flatten())
+    values: list[bool] = []
+    argument_poses: list[dict[str, Any]] = []
+    for index, atom in enumerate(goal_atoms):
+        values.append(bool(task_env._eval_predicate(list(atom))))
+        argument_poses.append(
+            {
+                "atom_index": index,
+                "arguments": [
+                    _goal_argument_pose(task_env, str(atom[1])),
+                    _goal_argument_pose(task_env, str(atom[2])),
+                ],
+            }
+        )
+    after = array_sha256(env.sim.get_state().flatten())
+    if before != after:
+        raise ApparatusError(
+            "native BDDL goal telemetry changed the simulator state"
+        )
+    prior = (
+        [False] * len(values)
+        if previous_values is None
+        else [bool(value) for value in previous_values]
+    )
+    if len(prior) != len(values):
+        raise ApparatusError("native BDDL goal vector length changed")
+    satisfied = sum(values)
+    return {
+        "step": int(step),
+        "values": values,
+        "satisfied_count": satisfied,
+        "fraction": satisfied / len(values),
+        "all_satisfied": all(values),
+        "newly_satisfied_indices": [
+            index
+            for index, (old, new) in enumerate(zip(prior, values))
+            if not old and new
+        ],
+        "regressed_indices": [
+            index
+            for index, (old, new) in enumerate(zip(prior, values))
+            if old and not new
+        ],
+        "argument_poses": argument_poses,
+        "simulator_state_sha256_before": before,
+        "simulator_state_sha256_after": after,
+        "inert": True,
+    }
+
+
+def _goal_progress_summary(
+    initial: Mapping[str, Any],
+    actions: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    snapshots = [initial] + [
+        action["goal_progress"] for action in actions
+    ]
+    values = [list(snapshot["values"]) for snapshot in snapshots]
+    atom_count = len(values[0])
+    first_satisfied_step: list[int | None] = []
+    for atom_index in range(atom_count):
+        first_satisfied_step.append(
+            next(
+                (
+                    int(snapshot["step"])
+                    for snapshot in snapshots
+                    if snapshot["values"][atom_index]
+                ),
+                None,
+            )
+        )
+    first_all_satisfied_step = next(
+        (
+            int(snapshot["step"])
+            for snapshot in snapshots
+            if snapshot["all_satisfied"]
+        ),
+        None,
+    )
+    final = snapshots[-1]
+    return {
+        "initial_values": list(initial["values"]),
+        "final_values": list(final["values"]),
+        "initial_satisfied_count": int(initial["satisfied_count"]),
+        "final_satisfied_count": int(final["satisfied_count"]),
+        "maximum_satisfied_count": max(
+            int(snapshot["satisfied_count"]) for snapshot in snapshots
+        ),
+        "initial_fraction": float(initial["fraction"]),
+        "final_fraction": float(final["fraction"]),
+        "maximum_fraction": max(
+            float(snapshot["fraction"]) for snapshot in snapshots
+        ),
+        "ever_satisfied": [
+            any(vector[index] for vector in values)
+            for index in range(atom_count)
+        ],
+        "first_satisfied_step": first_satisfied_step,
+        "first_all_satisfied_step": first_all_satisfied_step,
+        "regression_count": sum(
+            len(snapshot["regressed_indices"]) for snapshot in snapshots[1:]
+        ),
+    }
 
 
 def atomic_write_json(path: Path, value: Mapping[str, Any]) -> str:
@@ -534,10 +733,32 @@ def _scientific_resume_is_valid(
         or not isinstance(video.get("sha256"), str)
         or sha256_path(video_path) != video["sha256"]
         or video.get("complete_episode") is not True
-        or video.get("frames")
-        != executed + int(reason == "method_failure")
+        or video.get("frames") != executed + 1
         or not isinstance(result.get("actions"), list)
         or len(result["actions"]) != executed
+    ):
+        return False
+    terminal = result.get("terminal_observation")
+    if (
+        not isinstance(terminal, Mapping)
+        or terminal.get("frame_index") != executed
+        or terminal.get("after_executed_action_count") != executed
+        or not isinstance(terminal.get("agentview_array_sha256"), str)
+        or len(terminal["agentview_array_sha256"]) != 64
+        or not isinstance(terminal.get("simulator_state_sha256"), str)
+        or len(terminal["simulator_state_sha256"]) != 64
+    ):
+        return False
+    goal_progress = result.get("goal_progress")
+    if (
+        not isinstance(goal_progress, Mapping)
+        or goal_progress.get("schema_version") != GOAL_PROGRESS_SCHEMA
+        or goal_progress.get("source") != "native_bddl_goal_predicates"
+        or goal_progress.get("logic") != "conjunction"
+        or not isinstance(goal_progress.get("goal_atoms"), list)
+        or not isinstance(goal_progress.get("initial"), Mapping)
+        or not isinstance(goal_progress.get("final"), Mapping)
+        or not isinstance(goal_progress.get("summary"), Mapping)
     ):
         return False
     payload_hash = result.get("result_payload_sha256")
@@ -1511,6 +1732,7 @@ def evaluate_case(
     video_partial = case_dir / "episode.partial.mp4"
     video_final = case_dir / "episode.mp4"
     frames_written = 0
+    terminal_frame_hash: str | None = None
     executed_actions: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA,
@@ -1625,6 +1847,15 @@ def evaluate_case(
             ),
             "obstacle_label": label,
         }
+        goal_progress, goal_atoms = _goal_progress_definition(env)
+        initial_goal_progress = _goal_progress_snapshot(
+            env,
+            goal_atoms,
+            step=-1,
+            previous_values=None,
+        )
+        goal_progress["initial"] = initial_goal_progress
+        result["goal_progress"] = goal_progress
 
         selector_matches = label_matches_active_obstacle(
             label, obstacle_name
@@ -1741,6 +1972,7 @@ def evaluate_case(
             frame = _processed_image(observation, "agentview_image")
             video_writer.append_data(frame)
             frames_written += 1
+            terminal_frame_hash = array_sha256(frame)
 
             if precontrol_method_failure is not None:
                 terminal_reason = "method_failure"
@@ -1849,6 +2081,21 @@ def evaluate_case(
             step_started = time.perf_counter()
             observation, reward, done, info = env.step(executed)
             step_elapsed = time.perf_counter() - step_started
+            previous_goal_values = (
+                initial_goal_progress["values"]
+                if not executed_actions
+                else executed_actions[-1]["goal_progress"]["values"]
+            )
+            action_goal_progress = _goal_progress_snapshot(
+                env,
+                goal_atoms,
+                step=step,
+                previous_values=previous_goal_values,
+            )
+            if action_goal_progress["all_satisfied"] is not bool(done):
+                raise ApparatusError(
+                    "native BDDL goal vector disagrees with env.step done"
+                )
             current_obstacle_position = np.asarray(
                 observation[f"{obstacle_name}_pos"], dtype=float
             )
@@ -1891,6 +2138,7 @@ def evaluate_case(
                     "qp": qp_record,
                     "reward": float(reward),
                     "done": bool(done),
+                    "goal_progress": action_goal_progress,
                     "step_elapsed_seconds": float(step_elapsed),
                     "obstacle_l1_displacement_m": displacement,
                     "robot_obstacle_contact": bool(contacts["pairs"]),
@@ -1904,7 +2152,33 @@ def evaluate_case(
                 terminal_reason = "task_success"
                 break
 
+        if terminal_reason != "method_failure":
+            terminal_frame = _processed_image(
+                observation, "agentview_image"
+            )
+            video_writer.append_data(terminal_frame)
+            frames_written += 1
+            terminal_frame_hash = array_sha256(terminal_frame)
+
         executed_action_count = len(executed_actions)
+        final_goal_progress = (
+            executed_actions[-1]["goal_progress"]
+            if executed_actions
+            else initial_goal_progress
+        )
+        goal_progress["final"] = final_goal_progress
+        goal_progress["summary"] = _goal_progress_summary(
+            initial_goal_progress,
+            executed_actions,
+        )
+        result["terminal_observation"] = {
+            "agentview_array_sha256": terminal_frame_hash,
+            "simulator_state_sha256": array_sha256(
+                env.sim.get_state().flatten()
+            ),
+            "frame_index": frames_written - 1,
+            "after_executed_action_count": executed_action_count,
+        }
         paper_collision = (
             maximum_displacement > PAPER_COLLISION_THRESHOLD_M
         )
@@ -2025,12 +2299,7 @@ def evaluate_case(
                     "complete_episode": (
                         result.get("scientific_result") is True
                         and video_close_error is None
-                        and frames_written
-                        == len(executed_actions)
-                        + int(
-                            result.get("terminal_reason")
-                            == "method_failure"
-                        )
+                        and frames_written == len(executed_actions) + 1
                     ),
                 }
             except Exception as error:
@@ -2066,7 +2335,8 @@ def evaluate_case(
                             "type": "VideoArtifactError",
                             "message": (
                                 "streamed episode video did not close and "
-                                "publish with one frame per executed action"
+                                "publish with one initial/action-state frame "
+                                "plus one terminal frame"
                             ),
                             "prior_scientific_status": prior_status,
                             "prior_terminal_reason": prior_reason,

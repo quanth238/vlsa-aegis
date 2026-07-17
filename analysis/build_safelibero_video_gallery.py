@@ -195,8 +195,26 @@ def classify_failure_taxonomy(
 
         method_failure = str(perception.get("method_failure", "")).lower()
         perception_status = str(perception.get("status", "")).lower()
+        retained_failure = _mapping(result.get("method_failure"))
+        retained_component = str(
+            retained_failure.get("component", "")
+        ).lower()
+        retained_phase = str(retained_failure.get("phase", "")).lower()
+        precontrol_geometry_failure = (
+            retained_component == "aegis_geometry"
+            and retained_phase == "precontrol"
+        )
+        method_error_text = " ".join(
+            (
+                method_failure,
+                str(perception.get("error", "")).lower(),
+                str(perception.get("reason", "")).lower(),
+                str(retained_failure.get("message", "")).lower(),
+                error_text,
+            )
+        )
         grounding_error = any(
-            token in error_text
+            token in method_error_text
             for token in ("groundingdino", "grounding dino")
         )
         if grounding_error or method_failure == "no_grounded_points":
@@ -217,12 +235,16 @@ def classify_failure_taxonomy(
         } or (
             perception_status in {"mvee_failure"}
         )
-        method_error_text = (
-            f"{method_failure} {str(perception.get('error', '')).lower()}"
-        )
         if any(
             token in method_error_text
-            for token in ("mvee", "ellipse", "filtering_points")
+            for token in (
+                "mvee",
+                "ellipse",
+                "filtering_points",
+                "convexhull",
+                "convex hull",
+                "qhull",
+            )
         ):
             point_failure = True
         if point_failure:
@@ -249,10 +271,16 @@ def classify_failure_taxonomy(
             not in {"optimal", "optimal_inaccurate"}
             for record in qp_records
         )
-        if method_failure in {
-            "no_grounded_points",
-            "point_filter_removed_all_points",
-        }:
+        if (
+            precontrol_geometry_failure
+            or method_failure
+            in {
+                "no_grounded_points",
+                "point_filter_removed_all_points",
+                "invalid_mvee",
+                "degenerate_initial_direction",
+            }
+        ):
             taxonomy["qp_method_failure"] = "not_applicable"
         elif (
             qp_error

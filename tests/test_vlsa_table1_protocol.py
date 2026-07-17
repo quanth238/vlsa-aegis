@@ -40,6 +40,135 @@ def text_sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def goal_snapshot(
+    case_id: str,
+    *,
+    step: int,
+    satisfied: bool,
+    previously_satisfied: bool,
+) -> dict:
+    state_hash = text_sha256(f"{case_id}:goal-state:{step}")
+    return {
+        "step": step,
+        "values": [satisfied],
+        "satisfied_count": int(satisfied),
+        "fraction": float(satisfied),
+        "all_satisfied": satisfied,
+        "newly_satisfied_indices": (
+            [0] if satisfied and not previously_satisfied else []
+        ),
+        "regressed_indices": (
+            [0] if previously_satisfied and not satisfied else []
+        ),
+        "argument_poses": [
+            {
+                "atom_index": 0,
+                "arguments": [
+                    {
+                        "name": "target_object_1",
+                        "object_state_type": "object",
+                        "position": [0.0, 0.0, 0.1],
+                        "quaternion": [1.0, 0.0, 0.0, 0.0],
+                    },
+                    {
+                        "name": "target_region_1",
+                        "object_state_type": "site",
+                        "position": [0.1, 0.0, 0.1],
+                        "quaternion": [0.0, 0.0, 0.0, 1.0],
+                    },
+                ],
+            }
+        ],
+        "simulator_state_sha256_before": state_hash,
+        "simulator_state_sha256_after": state_hash,
+        "inert": True,
+    }
+
+
+def goal_progress_record(case_id: str, actions: list[dict]) -> dict:
+    definition = {
+        "schema_version": aggregator.GOAL_PROGRESS_SCHEMA,
+        "source": "native_bddl_goal_predicates",
+        "logic": "conjunction",
+        "goal_atoms": [
+            {
+                "index": 0,
+                "predicate": "in",
+                "arguments": ["target_object_1", "target_region_1"],
+            }
+        ],
+    }
+    definition["goal_definition_sha256"] = (
+        aggregator.canonical_record_sha256(definition)
+    )
+    initial = goal_snapshot(
+        case_id,
+        step=-1,
+        satisfied=False,
+        previously_satisfied=False,
+    )
+    previous = False
+    snapshots = [initial]
+    for action in actions:
+        current = bool(action["done"])
+        snapshot = goal_snapshot(
+            case_id,
+            step=int(action["step"]),
+            satisfied=current,
+            previously_satisfied=previous,
+        )
+        action["goal_progress"] = snapshot
+        snapshots.append(snapshot)
+        previous = current
+    final = snapshots[-1]
+    definition.update(
+        {
+            "initial": initial,
+            "final": final,
+            "summary": {
+                "initial_values": [False],
+                "final_values": list(final["values"]),
+                "initial_satisfied_count": 0,
+                "final_satisfied_count": final["satisfied_count"],
+                "maximum_satisfied_count": max(
+                    row["satisfied_count"] for row in snapshots
+                ),
+                "initial_fraction": 0.0,
+                "final_fraction": final["fraction"],
+                "maximum_fraction": max(
+                    row["fraction"] for row in snapshots
+                ),
+                "ever_satisfied": [
+                    any(row["values"][0] for row in snapshots)
+                ],
+                "first_satisfied_step": [
+                    next(
+                        (
+                            row["step"]
+                            for row in snapshots
+                            if row["values"][0]
+                        ),
+                        None,
+                    )
+                ],
+                "first_all_satisfied_step": next(
+                    (
+                        row["step"]
+                        for row in snapshots
+                        if row["all_satisfied"]
+                    ),
+                    None,
+                ),
+                "regression_count": sum(
+                    len(row["regressed_indices"])
+                    for row in snapshots[1:]
+                ),
+            },
+        }
+    )
+    return definition
+
+
 def released_task_map() -> dict[str, list[str]]:
     tree = ast.parse(TASK_MAP_PATH.read_text(encoding="utf-8"))
     for node in tree.body:
@@ -227,6 +356,7 @@ class Table1ProtocolTest(unittest.TestCase):
             }
             for index in range(executed if include_evidence else 0)
         ]
+        goal_progress = goal_progress_record(case_id, action_rows)
         result = {
             "schema_version": self.config["result_contract"][
                 "schema_version"
@@ -302,6 +432,7 @@ class Table1ProtocolTest(unittest.TestCase):
             "timing": {"started_unix": 2_000_000_000.0},
             "policy_queries": policy_queries,
             "actions": action_rows,
+            "goal_progress": goal_progress,
             "metrics": {
                 "public_collision": collision,
                 "paper_collision": collision,
@@ -340,9 +471,19 @@ class Table1ProtocolTest(unittest.TestCase):
                     f"/{case_id}/episode.mp4"
                 ),
                 "sha256": text_sha256(f"{case_id}:{arm}:video"),
-                "frames": executed + int(status == "method_failure"),
+                "frames": executed + 1,
                 "fps": 30,
                 "complete_episode": True,
+            },
+            "terminal_observation": {
+                "agentview_array_sha256": text_sha256(
+                    f"{case_id}:{arm}:terminal-agentview"
+                ),
+                "simulator_state_sha256": text_sha256(
+                    f"{case_id}:{arm}:terminal-state"
+                ),
+                "frame_index": executed,
+                "after_executed_action_count": executed,
             },
         }
         if status == "method_failure":
@@ -805,6 +946,48 @@ class Table1ProtocolTest(unittest.TestCase):
                 },
             )
 
+    def test_pair_validation_binds_native_initial_goal_snapshot(self) -> None:
+        manifest = self.rows[0]
+        mutations = {
+            "definition": lambda result: result["goal_progress"].update(
+                {"goal_definition_sha256": "f" * 64}
+            ),
+            "initial pose": lambda result: result["goal_progress"][
+                "initial"
+            ]["argument_poses"][0]["arguments"][0]["position"].__setitem__(
+                0, 0.25
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                baseline = self.make_result(
+                    manifest,
+                    self.config["arms"][0],
+                )
+                aegis = self.make_result(
+                    manifest,
+                    self.config["arms"][1],
+                )
+                mutate(aegis)
+                with self.assertRaisesRegex(
+                    aggregator.AggregationError,
+                    "not paired for native initial goal progress",
+                ):
+                    aggregator.validate_pairs(
+                        config=self.config,
+                        manifests=[manifest],
+                        results={
+                            (
+                                manifest["case_id"],
+                                self.config["arms"][0],
+                            ): baseline,
+                            (
+                                manifest["case_id"],
+                                self.config["arms"][1],
+                            ): aegis,
+                        },
+                    )
+
     def test_geometry_exception_does_not_unbind_baseline_pair(self) -> None:
         manifest = self.rows[0]
         baseline = self.make_result(
@@ -903,6 +1086,60 @@ class Table1ProtocolTest(unittest.TestCase):
                 config=self.config,
                 manifest=manifest,
             )
+
+    def test_terminal_frame_and_native_goal_evidence_are_strict(self) -> None:
+        manifest = self.rows[0]
+        mutations = {
+            "missing terminal frame": (
+                lambda result: result["video"].update(
+                    {
+                        "frames": result["metrics"][
+                            "executed_action_count"
+                        ]
+                    }
+                ),
+                "video metadata is incomplete",
+            ),
+            "wrong terminal binding": (
+                lambda result: result["terminal_observation"].update(
+                    {"frame_index": -1}
+                ),
+                "terminal observation binding is invalid",
+            ),
+            "predicate disagrees with summary": (
+                lambda result: result["actions"][-1][
+                    "goal_progress"
+                ].update({"all_satisfied": False}),
+                "predicate summary is invalid",
+            ),
+            "predicate read changes simulator state": (
+                lambda result: result["actions"][0][
+                    "goal_progress"
+                ].update(
+                    {"simulator_state_sha256_after": "f" * 64}
+                ),
+                "goal telemetry changed simulator state",
+            ),
+        }
+        for name, (mutate, message) in mutations.items():
+            with self.subTest(name=name):
+                result = self.make_result(
+                    manifest,
+                    self.config["arms"][0],
+                )
+                mutate(result)
+                result["result_payload_sha256"] = (
+                    aggregator._result_payload_sha256(result)
+                )
+                with self.assertRaisesRegex(
+                    aggregator.AggregationError,
+                    message,
+                ):
+                    aggregator.validate_result(
+                        result,
+                        config=self.config,
+                        manifest=manifest,
+                    )
 
     def test_receipt_rejects_manifest_byte_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -17,13 +17,14 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_table1_translational_protocol.v1"
 MANIFEST_SCHEMA = "vlsa_table1_population_case.v1"
 RECEIPT_SCHEMA = "vlsa_table1_population_receipt.v1"
 OUTPUT_SCHEMA = "vlsa_table1_population_summary.v1"
+GOAL_PROGRESS_SCHEMA = "safelibero_goal_progress.v1"
 LABEL_SCHEMAS = {
     "vlsa_table1_codex_label.v1",
     "aegis_codex_semantic_label.v1",
@@ -474,11 +475,263 @@ def _validate_video_metadata(
     if (
         video.get("complete_episode") is not True
         or video.get("fps") != 30
-        or video.get("frames")
-        != executed + int(result.get("status") == "method_failure")
+        or video.get("frames") != executed + 1
     ):
         raise AggregationError(
             f"{case_id}/{arm}: video metadata is incomplete"
+        )
+    terminal = result.get("terminal_observation")
+    if (
+        not isinstance(terminal, Mapping)
+        or terminal.get("frame_index") != executed
+        or terminal.get("after_executed_action_count") != executed
+    ):
+        raise AggregationError(
+            f"{case_id}/{arm}: terminal observation binding is invalid"
+        )
+    _require_sha256(
+        terminal.get("agentview_array_sha256"),
+        label=f"{case_id}/{arm}/terminal-agentview",
+    )
+    _require_sha256(
+        terminal.get("simulator_state_sha256"),
+        label=f"{case_id}/{arm}/terminal-state",
+    )
+
+
+def _validate_goal_progress(
+    result: Mapping[str, Any],
+    *,
+    actions: Sequence[Mapping[str, Any]],
+) -> None:
+    """Validate native BDDL predicate telemetry and its inertness receipts."""
+
+    case_id = str(result.get("case_id"))
+    arm = str(result.get("arm"))
+    record = result.get("goal_progress")
+    if (
+        not isinstance(record, Mapping)
+        or record.get("schema_version") != GOAL_PROGRESS_SCHEMA
+        or record.get("source") != "native_bddl_goal_predicates"
+        or record.get("logic") != "conjunction"
+    ):
+        raise AggregationError(
+            f"{case_id}/{arm}: native goal-progress record is missing"
+        )
+    atoms = record.get("goal_atoms")
+    if not isinstance(atoms, list) or len(atoms) not in {1, 2}:
+        raise AggregationError(
+            f"{case_id}/{arm}: native goal atom vector is invalid"
+        )
+    normalized_atoms: list[dict[str, Any]] = []
+    for index, atom in enumerate(atoms):
+        if (
+            not isinstance(atom, Mapping)
+            or atom.get("index") != index
+            or atom.get("predicate") not in {"in", "on"}
+            or not isinstance(atom.get("arguments"), list)
+            or len(atom["arguments"]) != 2
+            or not all(
+                isinstance(name, str) and name
+                for name in atom["arguments"]
+            )
+        ):
+            raise AggregationError(
+                f"{case_id}/{arm}: native goal atom {index} is invalid"
+            )
+        normalized_atoms.append(dict(atom))
+    definition = {
+        "schema_version": record["schema_version"],
+        "source": record["source"],
+        "logic": record["logic"],
+        "goal_atoms": normalized_atoms,
+    }
+    expected_definition_hash = canonical_record_sha256(definition)
+    if record.get("goal_definition_sha256") != expected_definition_hash:
+        raise AggregationError(
+            f"{case_id}/{arm}: native goal definition hash changed"
+        )
+
+    def validate_snapshot(
+        snapshot: Any,
+        *,
+        expected_step: int,
+        previous_values: list[bool] | None,
+    ) -> list[bool]:
+        label = f"{case_id}/{arm}/goal-step-{expected_step}"
+        if not isinstance(snapshot, Mapping):
+            raise AggregationError(f"{label}: snapshot is missing")
+        values = snapshot.get("values")
+        if (
+            snapshot.get("step") != expected_step
+            or not isinstance(values, list)
+            or len(values) != len(atoms)
+            or not all(_is_bool(value) for value in values)
+        ):
+            raise AggregationError(f"{label}: predicate vector is invalid")
+        satisfied = sum(bool(value) for value in values)
+        fraction = _finite_scalar(
+            snapshot.get("fraction"), label=f"{label}/fraction"
+        )
+        if (
+            snapshot.get("satisfied_count") != satisfied
+            or not math.isclose(
+                fraction,
+                satisfied / len(values),
+                rel_tol=0.0,
+                abs_tol=1e-15,
+            )
+            or snapshot.get("all_satisfied") is not all(values)
+            or snapshot.get("inert") is not True
+        ):
+            raise AggregationError(f"{label}: predicate summary is invalid")
+        before = _require_sha256(
+            snapshot.get("simulator_state_sha256_before"),
+            label=f"{label}/state-before",
+        )
+        after = _require_sha256(
+            snapshot.get("simulator_state_sha256_after"),
+            label=f"{label}/state-after",
+        )
+        if before != after:
+            raise AggregationError(
+                f"{label}: goal telemetry changed simulator state"
+            )
+        prior = [False] * len(values) if previous_values is None else previous_values
+        expected_new = [
+            index
+            for index, (old, new) in enumerate(zip(prior, values))
+            if not old and new
+        ]
+        expected_regressed = [
+            index
+            for index, (old, new) in enumerate(zip(prior, values))
+            if old and not new
+        ]
+        if (
+            snapshot.get("newly_satisfied_indices") != expected_new
+            or snapshot.get("regressed_indices") != expected_regressed
+        ):
+            raise AggregationError(
+                f"{label}: goal transition summary is invalid"
+            )
+        poses = snapshot.get("argument_poses")
+        if not isinstance(poses, list) or len(poses) != len(atoms):
+            raise AggregationError(f"{label}: goal argument poses are missing")
+        for atom_index, pose_record in enumerate(poses):
+            expected_names = atoms[atom_index]["arguments"]
+            arguments = (
+                pose_record.get("arguments")
+                if isinstance(pose_record, Mapping)
+                else None
+            )
+            if (
+                not isinstance(pose_record, Mapping)
+                or pose_record.get("atom_index") != atom_index
+                or not isinstance(arguments, list)
+                or len(arguments) != 2
+            ):
+                raise AggregationError(
+                    f"{label}: goal atom {atom_index} poses are invalid"
+                )
+            for argument_index, argument in enumerate(arguments):
+                if (
+                    not isinstance(argument, Mapping)
+                    or argument.get("name")
+                    != expected_names[argument_index]
+                    or argument.get("object_state_type")
+                    not in {"object", "site"}
+                ):
+                    raise AggregationError(
+                        f"{label}: goal argument identity is invalid"
+                    )
+                _finite_vector(
+                    argument.get("position"),
+                    length=3,
+                    label=(
+                        f"{label}/atom-{atom_index}/"
+                        f"argument-{argument_index}/position"
+                    ),
+                )
+                _finite_vector(
+                    argument.get("quaternion"),
+                    length=4,
+                    label=(
+                        f"{label}/atom-{atom_index}/"
+                        f"argument-{argument_index}/quaternion"
+                    ),
+                )
+        return [bool(value) for value in values]
+
+    initial = record.get("initial")
+    previous = validate_snapshot(
+        initial, expected_step=-1, previous_values=None
+    )
+    snapshots: list[Mapping[str, Any]] = [initial]
+    for index, action in enumerate(actions):
+        snapshot = action.get("goal_progress")
+        previous = validate_snapshot(
+            snapshot,
+            expected_step=index,
+            previous_values=previous,
+        )
+        if snapshot["all_satisfied"] is not action.get("done"):
+            raise AggregationError(
+                f"{case_id}/{arm}: action {index} done disagrees with "
+                "native goal predicates"
+            )
+        snapshots.append(snapshot)
+    if record.get("final") != snapshots[-1]:
+        raise AggregationError(
+            f"{case_id}/{arm}: final native goal snapshot changed"
+        )
+    atom_count = len(atoms)
+    expected_first_satisfied: list[int | None] = []
+    for atom_index in range(atom_count):
+        expected_first_satisfied.append(
+            next(
+                (
+                    int(snapshot["step"])
+                    for snapshot in snapshots
+                    if snapshot["values"][atom_index]
+                ),
+                None,
+            )
+        )
+    expected_summary = {
+        "initial_values": list(snapshots[0]["values"]),
+        "final_values": list(snapshots[-1]["values"]),
+        "initial_satisfied_count": snapshots[0]["satisfied_count"],
+        "final_satisfied_count": snapshots[-1]["satisfied_count"],
+        "maximum_satisfied_count": max(
+            snapshot["satisfied_count"] for snapshot in snapshots
+        ),
+        "initial_fraction": snapshots[0]["fraction"],
+        "final_fraction": snapshots[-1]["fraction"],
+        "maximum_fraction": max(
+            snapshot["fraction"] for snapshot in snapshots
+        ),
+        "ever_satisfied": [
+            any(snapshot["values"][index] for snapshot in snapshots)
+            for index in range(atom_count)
+        ],
+        "first_satisfied_step": expected_first_satisfied,
+        "first_all_satisfied_step": next(
+            (
+                int(snapshot["step"])
+                for snapshot in snapshots
+                if snapshot["all_satisfied"]
+            ),
+            None,
+        ),
+        "regression_count": sum(
+            len(snapshot["regressed_indices"])
+            for snapshot in snapshots[1:]
+        ),
+    }
+    if record.get("summary") != expected_summary:
+        raise AggregationError(
+            f"{case_id}/{arm}: native goal-progress summary changed"
         )
 
 
@@ -1040,6 +1293,10 @@ def validate_result(
 
     validated = dict(result)
     validated["metrics"] = _validate_metrics(result, manifest)
+    _validate_goal_progress(
+        result,
+        actions=result["actions"],
+    )
     _validate_label(result, manifest=manifest, pairing=pairing)
     _validate_noise_and_queries(
         result,
@@ -1171,6 +1428,19 @@ def validate_pairs(
         if changed:
             raise AggregationError(
                 f"{case_id}: arms are not paired for {changed}"
+            )
+        first_goal = first_result.get("goal_progress")
+        second_goal = second_result.get("goal_progress")
+        if (
+            not isinstance(first_goal, Mapping)
+            or not isinstance(second_goal, Mapping)
+            or first_goal.get("goal_definition_sha256")
+            != second_goal.get("goal_definition_sha256")
+            or first_goal.get("initial") != second_goal.get("initial")
+        ):
+            raise AggregationError(
+                f"{case_id}: arms are not paired for native initial "
+                "goal progress"
             )
         baseline_action_hash = _require_sha256(
             first.get("initial_policy_action_chunk_sha256"),
