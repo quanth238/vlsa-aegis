@@ -46,8 +46,6 @@ class R06AegisCaptureHpcContractTest(unittest.TestCase):
     def test_terminal_capture_failure_is_preserved_without_aegis_claim(self) -> None:
         evidence = json.loads(TERMINAL_EVIDENCE.read_text(encoding="utf-8"))
         decision = _text(TERMINAL_DECISION)
-        config = json.loads(CONFIG.read_text(encoding="utf-8"))
-
         self.assertEqual(evidence["status"], "apparatus_inconclusive")
         self.assertEqual(evidence["slurm"]["exact_task_id"], "28409_0")
         self.assertEqual(evidence["slurm"]["state"], "FAILED")
@@ -80,8 +78,29 @@ class R06AegisCaptureHpcContractTest(unittest.TestCase):
         self.assertEqual(evidence["terminal_interpretation"]["qp_steps"], 0)
         self.assertIn("Permanently consume", decision)
         self.assertIn("Do not freeze a Codex label", decision)
-        self.assertIs(config["ready_to_run"], False)
-        self.assertIsNone(config["execution_release"])
+
+    def test_config_is_fail_closed_or_an_exact_capture_only_release(self) -> None:
+        config = json.loads(CONFIG.read_text(encoding="utf-8"))
+        if config["ready_to_run"] is False:
+            self.assertIsNone(config["execution_release"])
+            self.assertTrue(config["blocked_on"])
+            return
+
+        self.assertIs(config["ready_to_run"], True)
+        self.assertEqual(config["blocked_on"], [])
+        release = config["execution_release"]
+        self.assertIsInstance(release, dict)
+        self.assertEqual(
+            release["artifact_role"],
+            "r06_aegis_codex_label_capture_execution_release",
+        )
+        self.assertEqual(release["stage"], "codex_label_capture")
+        self.assertFalse(release["aegis_execution_allowed"])
+        self.assertFalse(release["semantic_label_required"])
+        self.assertFalse(release["groundingdino_execution_allowed"])
+        self.assertFalse(release["qp_execution_allowed"])
+        self.assertFalse(release["probe_or_mlp_training_authorized"])
+        self.assertFalse(release["automatic_population_launch_authorized"])
 
     def test_shell_files_parse_and_entrypoints_are_executable(self) -> None:
         for path in (WRAPPER, WORKLOAD, SUBMITTER, SBATCH):

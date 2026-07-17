@@ -530,7 +530,7 @@ is executed. They begin only in a separately authorized IFT-01.
 ## Exact next action
 
 ADR-0067's narrow controller-state generator/validator repair has passed the
-complete local gate (833 tests, 275 declared dependency skips, 21 artifact
+complete local gate (834 tests, 275 declared dependency skips, 21 artifact
 audits, and 19 gate audits) and independent code and HPC reviews with no
 material finding. Freeze that accepted implementation, then create one
 direct-child capture-only release with a fresh immutable run ID for
