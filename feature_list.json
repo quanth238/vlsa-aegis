@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "features": [
+    {
+      "id": "A01-reproduction-apparatus",
+      "status": "active",
+      "depends_on": [],
+      "evidence": [
+        "2026-07-17 local structural gate: 56 tests passed, 1 optional dependency test skipped",
+        "Independent capture-path reviews permit only a fresh capture-only canary; paired outcomes remain blocked"
+      ]
+    },
+    {
+      "id": "A02-one-case-capture",
+      "status": "pending",
+      "depends_on": ["A01-reproduction-apparatus"],
+      "evidence": []
+    },
+    {
+      "id": "A03-one-case-paired-canary",
+      "status": "pending",
+      "depends_on": ["A02-one-case-capture"],
+      "evidence": []
+    },
+    {
+      "id": "A04-population",
+      "status": "pending",
+      "depends_on": ["A03-one-case-paired-canary"],
+      "evidence": []
+    },
+    {
+      "id": "A05-analysis",
+      "status": "pending",
+      "depends_on": ["A04-population"],
+      "evidence": []
+    },
+    {
+      "id": "A06-openvla",
+      "status": "pending",
+      "depends_on": ["A05-analysis"],
+      "evidence": []
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Mapping
 import http
 import logging
 import time
@@ -56,9 +57,15 @@ class WebsocketPolicyServer:
             try:
                 start_time = time.monotonic()
                 obs = msgpack_numpy.unpackb(await websocket.recv())
+                obs, crfs_control = _extract_crfs_control(obs)
 
                 infer_time = time.monotonic()
-                action = self._policy.infer(obs)
+                if crfs_control is None:
+                    # Preserve the upstream path exactly when no opt-in control
+                    # envelope is present.
+                    action = self._policy.infer(obs)
+                else:
+                    action = self._policy.infer(obs, rng_seed=crfs_control["rng_seed"])
                 infer_time = time.monotonic() - infer_time
 
                 action["server_timing"] = {
@@ -81,6 +88,35 @@ class WebsocketPolicyServer:
                     reason="Internal server error. Traceback included in previous frame.",
                 )
                 raise
+
+
+def _extract_crfs_control(obs):
+    """Remove and validate the reserved CRFS experiment-control envelope.
+
+    Ordinary clients never send ``__crfs__`` and therefore take the exact
+    upstream inference path. Benchmark clients may opt in to a per-request JAX
+    seed so paired policy arms receive the same flow-matching noise without
+    exposing experiment controls to the normal input transforms.
+    """
+
+    if not isinstance(obs, dict):
+        raise TypeError("Policy observation must be a dictionary")
+
+    control = obs.pop("__crfs__", None)
+    if control is None:
+        return obs, None
+    if not isinstance(control, Mapping):
+        raise TypeError("__crfs__ must be a mapping")
+    if set(control) != {"rng_seed"}:
+        raise ValueError("__crfs__ accepts exactly one field: rng_seed")
+
+    rng_seed = control["rng_seed"]
+    if isinstance(rng_seed, bool) or not isinstance(rng_seed, int):
+        raise TypeError("__crfs__.rng_seed must be an integer")
+    if not 0 <= rng_seed <= 0xFFFFFFFF:
+        raise ValueError("__crfs__.rng_seed must be in [0, 2**32 - 1]")
+
+    return obs, {"rng_seed": rng_seed}
 
 
 def _health_check(connection: _server.ServerConnection, request: _server.Request) -> _server.Response | None:

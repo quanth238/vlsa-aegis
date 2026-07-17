@@ -1,0 +1,12 @@
+{
+  "first_case_id": "vlsa-t1-spatial-i-t0-e00",
+  "last_case_id": "vlsa-t1-long-ii-t3-e49",
+  "manifest_rows": 1600,
+  "manifest_schema_version": "vlsa_table1_population_case.v1",
+  "manifest_sha256": "a6cd23c3a54340475887c151b7f4ed0636d772b0680c8247f99e1c174f3cb8dd",
+  "paired_results_required": 3200,
+  "protocol_config_sha256": "b2fb867c39593dd8f5924a34ebe9b0ef0263252e795fb39d79d872681f43e211",
+  "protocol_id": "vlsa-table1-translational-1600-v1",
+  "schema_version": "vlsa_table1_population_receipt.v1",
+  "task_level_groups": 32
+}

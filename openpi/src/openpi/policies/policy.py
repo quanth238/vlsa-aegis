@@ -65,7 +65,13 @@ class Policy(BasePolicy):
             self._rng = rng or jax.random.key(0)
 
     @override
-    def infer(self, obs: dict, *, noise: np.ndarray | None = None) -> dict:  # type: ignore[misc]
+    def infer(
+        self,
+        obs: dict,
+        *,
+        noise: np.ndarray | None = None,
+        rng_seed: int | None = None,
+    ) -> dict:  # type: ignore[misc]
         # Make a copy since transformations may modify the inputs in place.
         inputs = jax.tree.map(lambda x: x, obs)
         inputs = self._input_transform(inputs)
@@ -73,7 +79,11 @@ class Policy(BasePolicy):
             # Make a batch and convert to jax.Array.
             inputs = jax.tree.map(lambda x: jnp.asarray(x)[np.newaxis, ...], inputs)
             self._rng, sample_rng_or_pytorch_device = jax.random.split(self._rng)
+            if rng_seed is not None:
+                sample_rng_or_pytorch_device = jax.random.key(rng_seed)
         else:
+            if rng_seed is not None:
+                raise ValueError("Per-request rng_seed is only supported by the JAX policy")
             # Convert inputs to PyTorch tensors and move to correct device
             inputs = jax.tree.map(lambda x: torch.from_numpy(np.array(x)).to(self._pytorch_device)[None, ...], inputs)
             sample_rng_or_pytorch_device = self._pytorch_device
@@ -122,8 +132,14 @@ class PolicyRecorder(_base_policy.BasePolicy):
         self._record_step = 0
 
     @override
-    def infer(self, obs: dict) -> dict:  # type: ignore[misc]
-        results = self._policy.infer(obs)
+    def infer(
+        self,
+        obs: dict,
+        *,
+        noise: np.ndarray | None = None,
+        rng_seed: int | None = None,
+    ) -> dict:  # type: ignore[misc]
+        results = self._policy.infer(obs, noise=noise, rng_seed=rng_seed)
 
         data = {"inputs": obs, "outputs": results}
         data = flax.traverse_util.flatten_dict(data, sep="/")

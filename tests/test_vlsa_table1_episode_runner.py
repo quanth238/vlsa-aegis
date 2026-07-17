@@ -1,0 +1,488 @@
+import ast
+import importlib.util
+import inspect
+import json
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MAIN = ROOT / "main"
+EVALUATOR_PATH = MAIN / "evaluate_safelibero_aegis.py"
+CAPTURE_PATH = MAIN / "capture_safelibero_labels.py"
+AGGREGATOR_PATH = ROOT / "analysis" / "aggregate_safelibero_aegis.py"
+CONFIG_PATH = ROOT / "configs" / "vlsa_table1_translational.json"
+MANIFEST_PATH = ROOT / "manifests" / "vlsa_table1_population.jsonl"
+
+
+def _load(name, path):
+    sys.path.insert(0, str(MAIN))
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        if spec.loader is None:
+            raise RuntimeError(f"cannot load {path}")
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(MAIN))
+
+
+class Table1EpisodeRunnerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.evaluator = _load("vlsa_table1_evaluator", EVALUATOR_PATH)
+        cls.capture = _load("vlsa_table1_capture", CAPTURE_PATH)
+        cls.aggregator = _load(
+            "vlsa_table1_aggregator", AGGREGATOR_PATH
+        )
+
+    def test_import_is_dependency_light(self):
+        tree = ast.parse(EVALUATOR_PATH.read_text(encoding="utf-8"))
+        imported = set()
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                imported.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                imported.add(node.module or "")
+        self.assertFalse(
+            {
+                "cvxpy",
+                "libero",
+                "openpi_client",
+                "groundingdino",
+                "numpy",
+                "scipy",
+            }.intersection(imported)
+        )
+
+    def test_suite_aliases_and_paper_horizons(self):
+        evaluator = self.evaluator
+        self.assertEqual(
+            evaluator.normalize_suite_name("safelibero_10"),
+            "safelibero_long",
+        )
+        self.assertEqual(
+            evaluator.normalize_suite_name("safelibero_long"),
+            "safelibero_long",
+        )
+        self.assertEqual(
+            evaluator.max_steps_for_case(
+                {"suite": "safelibero_long", "max_steps": 550}
+            ),
+            550,
+        )
+        with self.assertRaises(evaluator.ProtocolError):
+            evaluator.max_steps_for_case(
+                {"suite": "safelibero_long", "max_steps": 300}
+            )
+
+    def test_translational_arm_zeros_rotation_but_preserves_xyz_gripper(self):
+        nominal = [0.1, -0.2, 0.3, 0.8, -0.7, 0.6, -1.0]
+        self.assertEqual(
+            self.evaluator.translational_action(nominal),
+            [0.1, -0.2, 0.3, 0.0, 0.0, 0.0, -1.0],
+        )
+
+    def test_legacy_ets_is_preserved_and_explicit(self):
+        evaluator = self.evaluator
+        cases = (
+            (0, False, 0),
+            (1, True, 0),
+            (17, True, 16),
+            (300, False, 300),
+        )
+        for count, success, expected in cases:
+            with self.subTest(count=count, success=success):
+                self.assertEqual(
+                    evaluator.legacy_ets_steps(count, success), expected
+                )
+
+    def test_case_selection_is_exact_and_ordered(self):
+        evaluator = self.evaluator
+        rows = [
+            {"case_id": "a", "case_ordinal": 0},
+            {"case_id": "b", "case_ordinal": 1},
+        ]
+        selected = evaluator.select_cases(
+            rows, case_ids=["b", "a"], ordinals=[]
+        )
+        self.assertEqual(
+            [row["case_id"] for row in selected], ["b", "a"]
+        )
+        self.assertEqual(
+            evaluator.select_cases(
+                rows, case_ids=[], ordinals=[1]
+            ),
+            [rows[1]],
+        )
+        with self.assertRaises(evaluator.ProtocolError):
+            evaluator.select_cases(
+                rows, case_ids=["missing"], ordinals=[]
+            )
+
+    def test_exact_array_hash_binds_dtype_shape_and_bytes(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is not installed in the local gate")
+        evaluator = self.evaluator
+        array = np.arange(12, dtype=np.uint8).reshape(2, 2, 3)
+        self.assertEqual(
+            evaluator.array_sha256(array),
+            evaluator.array_sha256(array.copy()),
+        )
+        self.assertNotEqual(
+            evaluator.array_sha256(array),
+            evaluator.array_sha256(array.astype(np.int16)),
+        )
+        self.assertNotEqual(
+            evaluator.array_sha256(array),
+            evaluator.array_sha256(array.reshape(3, 2, 2)),
+        )
+
+    def test_frozen_label_must_match_case_image_and_vocabulary(self):
+        evaluator = self.evaluator
+        case = {"case_id": "case-1", "suite": "safelibero_spatial"}
+        record = {
+            "schema_version": evaluator.LABEL_SCHEMA,
+            "case_id": "case-1",
+            "settled_agentview_array_sha256": "abc",
+            "obstacle_label": "Red Milk Carton",
+            "reviewer": "codex",
+            "reviewed_at": "2026-07-17T00:00:00+00:00",
+        }
+        self.assertEqual(
+            evaluator.validate_frozen_label(
+                case=case,
+                label_record=record,
+                settled_agentview_hash="abc",
+                outcome_started_unix=1_800_000_000,
+            ),
+            "red milk carton",
+        )
+        with self.assertRaises(evaluator.ApparatusError):
+            evaluator.validate_frozen_label(
+                case=case,
+                label_record=record,
+                settled_agentview_hash="different",
+            )
+        invalid = dict(record, obstacle_label="the target bowl")
+        with self.assertRaises(evaluator.ApparatusError):
+            evaluator.validate_frozen_label(
+                case=case,
+                label_record=invalid,
+                settled_agentview_hash="abc",
+            )
+        naive_time = dict(
+            record, reviewed_at="2026-07-17T00:00:00"
+        )
+        with self.assertRaises(evaluator.ApparatusError):
+            evaluator.validate_frozen_label(
+                case=case,
+                label_record=naive_time,
+                settled_agentview_hash="abc",
+            )
+        future = dict(
+            record, reviewed_at="2030-01-01T00:00:00+00:00"
+        )
+        with self.assertRaises(evaluator.ApparatusError):
+            evaluator.validate_frozen_label(
+                case=case,
+                label_record=future,
+                settled_agentview_hash="abc",
+                outcome_started_unix=1_800_000_000,
+            )
+
+    def test_baseline_cannot_run_before_label_manifest_is_frozen(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaises(self.evaluator.ProtocolError):
+                self.evaluator.main(
+                    [
+                        "--manifest",
+                        str(MANIFEST_PATH),
+                        "--mode",
+                        "pi05",
+                        "--output-dir",
+                        temporary,
+                        "--case-ordinal",
+                        "0",
+                    ]
+                )
+
+    def test_selector_mismatch_is_recordable(self):
+        evaluator = self.evaluator
+        self.assertTrue(
+            evaluator.label_matches_active_obstacle(
+                "red milk carton", "milk_obstacle_1"
+            )
+        )
+        self.assertFalse(
+            evaluator.label_matches_active_obstacle(
+                "red milk carton", "yellow_book_obstacle_1"
+            )
+        )
+        self.assertIsNone(
+            evaluator.label_matches_active_obstacle(
+                "gray rectangular binder", "some_obstacle_1"
+            )
+        )
+
+    def test_manifest_source_hashes_are_fail_closed(self):
+        evaluator = self.evaluator
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bddl = root / "task.bddl"
+            states = root / "task.pruned_init"
+            bddl.write_text("task", encoding="utf-8")
+            states.write_text("states", encoding="utf-8")
+            case = {
+                "schema_version": evaluator.MANIFEST_SCHEMA,
+                "protocol_id": evaluator.PROTOCOL_ID,
+                "case_id": "case-1",
+                "source_commit": evaluator.UPSTREAM_COMMIT,
+                "action_space": "translational_only",
+                "suite": "safelibero_spatial",
+                "max_steps": 300,
+                "environment_seed": evaluator.TABLE_ENVIRONMENT_SEED,
+                "settle_actions": evaluator.TABLE_SETTLE_ACTIONS,
+                "model_action_horizon": (
+                    evaluator.TABLE_MODEL_ACTION_HORIZON
+                ),
+                "replan_steps": evaluator.TABLE_REPLAN_STEPS,
+                "required_arms": [
+                    "pi05_translational",
+                    "pi05_plus_aegis_translational",
+                ],
+                "semantic_label_requirement": (
+                    "frozen_codex_label_bound_to_agentview_sha256"
+                ),
+                "bddl_path": "task.bddl",
+                "bddl_sha256": evaluator.sha256_path(bddl),
+                "initial_states_path": "task.pruned_init",
+                "initial_states_sha256": evaluator.sha256_path(states),
+            }
+            evaluator.validate_case_row(case, root)
+            bddl.write_text("changed", encoding="utf-8")
+            with self.assertRaises(evaluator.ProtocolError):
+                evaluator.validate_case_row(case, root)
+
+    def test_atomic_json_has_no_temporary_file(self):
+        evaluator = self.evaluator
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "result.json"
+            digest = evaluator.atomic_write_json(
+                output, {"status": "complete"}
+            )
+            self.assertEqual(
+                json.loads(output.read_text()), {"status": "complete"}
+            )
+            self.assertEqual(digest, evaluator.sha256_path(output))
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+
+    def test_policy_noise_schedule_is_query_indexed(self):
+        evaluator = self.evaluator
+        self.assertEqual(
+            evaluator.query_seed(2_026_071_700, 0), 2_026_071_700
+        )
+        self.assertEqual(
+            evaluator.query_seed(2_026_071_700, 9), 2_026_071_709
+        )
+        with self.assertRaises(evaluator.ProtocolError):
+            evaluator.query_seed(2**32 - 1, 1)
+
+    def test_released_six_variable_qp_structure_is_preserved(self):
+        source = inspect.getsource(self.evaluator._aegis_action)
+        self.assertIn("cp.Variable(6)", source)
+        self.assertIn("[1.0 / 25.0] * 3 + [1.0] * 3", source)
+        self.assertIn("10.0 * h >= 0", source)
+        self.assertIn("0.2 * R1 @ u_v", source)
+        self.assertIn("problem.solve(solver=cp.OSQP)", source)
+        self.assertIn("raise ApparatusError", source)
+
+    def test_video_is_streamed_instead_of_accumulated(self):
+        source = inspect.getsource(self.evaluator.evaluate_case)
+        self.assertIn("get_writer", source)
+        self.assertIn("append_data", source)
+        self.assertNotIn("replay_images", source)
+
+    def test_capture_runtime_cannot_execute_outcome_components(self):
+        source = inspect.getsource(
+            self.capture._capture_runtime
+        ).lower()
+        forbidden = (
+            "openpi",
+            "groundingdino",
+            "cvxpy",
+            "obstacle_detection",
+            "fit_ellipse",
+            "osqp",
+        )
+        for token in forbidden:
+            with self.subTest(token=token):
+                self.assertNotIn(token, source)
+
+    def test_capture_contract_hard_codes_zero_outcome_calls(self):
+        source = CAPTURE_PATH.read_text(encoding="utf-8")
+        for field in (
+            '"policy_queries": 0',
+            '"semantic_selector_calls": 0',
+            '"grounding_calls": 0',
+            '"mvee_calls": 0',
+            '"qp_calls": 0',
+            '"outcome_actions": 0',
+        ):
+            with self.subTest(field=field):
+                self.assertIn(field, source)
+
+    def test_capture_resume_requires_every_lossless_asset(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            case_dir = Path(temporary)
+            case = {"case_id": "case-1", "protocol_id": "protocol-1"}
+            specs = {
+                "agentview_rgb": ("agent.npy", "agent.png"),
+                "backview_rgb": ("back.npy", "back.png"),
+                "agentview_depth": ("agent-depth.npy", None),
+                "backview_depth": ("back-depth.npy", None),
+                "simulator_state": ("state.npy", None),
+            }
+            assets = {}
+            for index, (name, paths) in enumerate(specs.items()):
+                npy_name, png_name = paths
+                npy_path = case_dir / npy_name
+                npy_path.write_bytes(f"npy-{index}".encode())
+                asset = {
+                    "array_sha256": f"{index:x}" * 64,
+                    "shape": [1],
+                    "dtype": "|u1",
+                    "npy_path": npy_name,
+                    "npy_sha256": self.evaluator.sha256_path(npy_path),
+                }
+                if png_name:
+                    png_path = case_dir / png_name
+                    png_path.write_bytes(f"png-{index}".encode())
+                    asset.update(
+                        {
+                            "png_path": png_name,
+                            "png_sha256": self.evaluator.sha256_path(
+                                png_path
+                            ),
+                        }
+                    )
+                assets[name] = asset
+            record = {
+                "schema_version": self.evaluator.CAPTURE_SCHEMA,
+                "protocol_id": case["protocol_id"],
+                "case_id": case["case_id"],
+                "status": "complete",
+                "case": case,
+                "execution_counts": {
+                    "reset": 1,
+                    "initial_state_restore": 1,
+                    "settle_actions": 20,
+                    "policy_queries": 0,
+                    "semantic_selector_calls": 0,
+                    "grounding_calls": 0,
+                    "point_cloud_filter_calls": 0,
+                    "mvee_calls": 0,
+                    "qp_calls": 0,
+                    "outcome_actions": 0,
+                },
+                "settled_agentview_array_sha256": assets[
+                    "agentview_rgb"
+                ]["array_sha256"],
+                "assets": assets,
+            }
+            self.assertTrue(
+                self.capture._capture_resume_is_valid(
+                    record, case=case, case_dir=case_dir
+                )
+            )
+            (case_dir / "back.png").unlink()
+            self.assertFalse(
+                self.capture._capture_resume_is_valid(
+                    record, case=case, case_dir=case_dir
+                )
+            )
+
+    def test_evaluator_shaped_result_passes_independent_aggregator(self):
+        evaluator = self.evaluator
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        manifest = json.loads(
+            MANIFEST_PATH.read_text(encoding="utf-8").splitlines()[0]
+        )
+        label_record = {
+            "schema_version": evaluator.LABEL_SCHEMA,
+            "case_id": manifest["case_id"],
+            "settled_agentview_array_sha256": "4" * 64,
+            "obstacle_label": "red milk carton",
+            "reviewer": "codex",
+            "reviewed_at": "2026-07-17T00:00:00+00:00",
+        }
+        label_record_sha256 = evaluator.sha256_bytes(
+            evaluator.canonical_json_bytes(label_record)
+        )
+        result = {
+            "schema_version": evaluator.RESULT_SCHEMA,
+            "protocol_id": manifest["protocol_id"],
+            "case_id": manifest["case_id"],
+            "arm": "pi05_translational",
+            "mode": "pi05",
+            "status": "complete",
+            "scientific_result": True,
+            "suite": manifest["suite"],
+            "safety_level": manifest["safety_level"],
+            "logical_task_index": manifest["logical_task_index"],
+            "resolved_task_index": manifest["resolved_task_index"],
+            "task_name": manifest["task_name"],
+            "episode_index": manifest["episode_index"],
+            "pairing": {
+                "manifest_row_sha256": evaluator.sha256_bytes(
+                    evaluator.canonical_json_bytes(manifest)
+                ),
+                "initial_state_sha256": "0" * 64,
+                "initial_observation_sha256": "1" * 64,
+                "policy_noise_schedule_id": manifest[
+                    "policy_noise_schedule_id"
+                ],
+                "policy_noise_schedule_sha256": "2" * 64,
+                "semantic_label_record_sha256": label_record_sha256,
+                "semantic_label_settled_agentview_sha256": "4" * 64,
+                "semantic_obstacle_label": "red milk carton",
+                "max_steps": manifest["max_steps"],
+                "model_action_horizon": manifest[
+                    "model_action_horizon"
+                ],
+                "replan_steps": manifest["replan_steps"],
+            },
+            "metrics": {
+                "public_collision": False,
+                "task_success": True,
+                "legacy_ets_steps": 0,
+                "executed_action_count": 1,
+                "termination_reason": "task_success",
+            },
+            "settled_observation": {
+                "agentview_array_sha256": "4" * 64,
+                "label_record": label_record,
+                "label_record_sha256": label_record_sha256,
+                "obstacle_label": "red milk carton",
+            },
+        }
+        validated = self.aggregator.validate_result(
+            result, config=config, manifest=manifest
+        )
+        self.assertEqual(validated["case_id"], manifest["case_id"])
+
+        invalid = dict(result, scientific_result=False)
+        with self.assertRaises(self.aggregator.AggregationError):
+            self.aggregator.validate_result(
+                invalid, config=config, manifest=manifest
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
