@@ -4,15 +4,9 @@
   "gate": "R06",
   "name": "aegis_codex_label_collision_conditioned_canary",
   "evidence_tier": "real_safelibero_collision_conditioned_diagnostic",
-  "config_status": "draft_preregistered_not_released",
-  "ready_to_run": false,
-  "blocked_on": [
-    "canary_branch_image_not_captured",
-    "codex_canary_label_not_frozen",
-    "groundingdino_allocation_runtime_preflight_not_complete",
-    "consumed_capture_run_20260717a_requires_fresh_release",
-    "exact_execution_release_not_authorized"
-  ],
+  "config_status": "released_exact_codex_label_capture_canary",
+  "ready_to_run": true,
+  "blocked_on": [],
   "manifest": {
     "path": "manifests/oracle_h05_colliding.jsonl",
     "sha256": "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
@@ -246,6 +240,39 @@
     "probe_or_mlp_training_authorized": false,
     "aegis_solves_cases_before_validated_artifacts": false
   },
-  "execution_release": null,
+  "execution_release": {
+    "artifact_role": "r06_aegis_codex_label_capture_execution_release",
+    "stage": "codex_label_capture",
+    "run_id": "r06-aegis-label-capture-canary-20260717b",
+    "accepted_implementation_commit": "6c428d246ab810e9079181d96e6801ea00f68338",
+    "decision_artifact": "docs/decisions/0068-release-aegis-label-capture-canary.md",
+    "allowed_release_diff_paths": [
+      "configs/experiments/r06_aegis_collision_conditioned.json",
+      "docs/decisions/0068-release-aegis-label-capture-canary.md"
+    ],
+    "single_case_index": 0,
+    "case_id": "crfs-1069f29a8d76463a",
+    "aegis_execution_allowed": false,
+    "semantic_label_required": false,
+    "groundingdino_execution_allowed": false,
+    "qp_execution_allowed": false,
+    "robosuite_image_convention": "opengl",
+    "robosuite_version": "1.4.1",
+    "probe_or_mlp_training_authorized": false,
+    "automatic_population_launch_authorized": false,
+    "release_only_parent_required": true,
+    "resources": {
+      "partition": "main",
+      "account": "normal",
+      "qos": "normal",
+      "gpus": 1,
+      "cpus_per_task": 8,
+      "host_memory_mib": 65536,
+      "time_limit": "00:30:00",
+      "array": "0-0%1",
+      "source_host": "worker-1",
+      "requeue": false
+    }
+  },
   "allow_test_tuning": false
 }
