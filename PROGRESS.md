@@ -68,9 +68,15 @@ Terminal R06 capture retry-B release:
 `ccb8c5225517f21ca1405f7b1470fe47dab160ee`.
 
 Reviewed R06 paired-canary apparatus:
-the accepted implementation commit containing ADR-0070.
+`1fa99f8639117dfcac5dd19cc24821829d8485b9`.
 
-Active jobs: none. R06 capture retry-B task `28428_0` completed `0:0` after
+Consumed R06 paired-canary launch-A release:
+`21a8fb11e45e2a259559fb7cfb690caa83ad88ed`.
+
+Active jobs: none. R06 paired GPU task `28447_0` and CPU validator `28448`
+are terminal `FAILED|1:0` after an allocation dependency-preflight failure;
+they produced no scientific result. R06 capture retry-B task `28428_0`
+completed `0:0` after
 `00:01:52` on worker-1 and atomically published a valid same-state capture.
 It reproduced the registered negative-clearance violation twice with no
 physical contact, confirmed the live
@@ -136,14 +142,17 @@ It retains all 20 cases and separately reports the existing 17-case and
 three-case strata, safety alone, task progress/completion, action modification,
 stopping behavior, and joint safety-plus-progress.
 
-The new gate has no paired canary or population result. The action-boundary
+The new gate has no valid paired canary or population result. The action-boundary
 selection, exact pairing, 17+3 strata, metrics, fixed-denominator failures, and
 canary identity are frozen. Capture retry B completed the first two stages:
 one allocation-backed capture with baseline reconfirmation, followed by an
 outcome-blind Codex label freeze. ADR-0070 accepts the paired-canary apparatus
 after the complete local gate passed 854 tests with 276 declared dependency
-skips. A separate direct-child release and allocation-backed result are still
-required. The later 20-case capture/label/population remains separately
+skips. ADR-0071's first direct-child release reached an allocation but failed
+before scientific execution. ADR-0072 consumes it and accepts only a
+fail-closed runtime repair; a fresh direct-child retry release and valid
+allocation-backed result are still required. The later 20-case
+capture/label/population remains separately
 blocked. This does not evaluate the original GLM selector and cannot be called
 original end-to-end VLSA/AEGIS.
 
@@ -190,6 +199,23 @@ scientific AEGIS failures. Its complete local gate passes 854 tests with 276
 declared dependency skips, 21 artifact audits, and 19 gate audits. No paired
 scientific result exists until the exact released allocation terminates and
 validates.
+
+ADR-0071 released immutable run `r06-aegis-paired-canary-20260717a` from
+commit `21a8fb11e45e2a259559fb7cfb690caa83ad88ed`. Exact worker-1 task
+`28447_0` failed at `allocation_dependency_preflight` because
+`/mnt/data/quanth/venvs/openpi-libero-client/bin/python` had no CVXPY; exact
+CPU `afterany` validator `28448` then also failed. The run started no policy
+server, performed zero baseline simulator replays, and executed zero
+GroundingDINO, MVEE, QP, or AEGIS steps. It has no `results.json` and is
+apparatus-inconclusive, not an AEGIS failure.
+
+ADR-0072 permanently consumes run A and both jobs. The narrow repair switches
+only the paired LIBERO/AEGIS process to the installed
+`/mnt/data/quanth/venvs/safety_vla/main/bin/python`, exports the live
+robosuite OpenGL/version declarations required by the renderer, and adds a
+real allocation CUDA-kernel probe. Case, state, policy bytes, label, AEGIS
+method, resources, metrics, and horizon remain unchanged. The configuration
+is fail closed pending a fresh retry release.
 
 Dependency setup job `28391` completed on `worker-2` with exit `0:0` and
 installed the official GroundingDINO Swin-T checkpoint at the frozen SHA-256
@@ -577,10 +603,9 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Prepare and independently review a separate paired-canary implementation and
-execution release for `crfs-1069f29a8d76463a`; do not launch it
-automatically. That
-paired canary must start from the exact captured branch, reconfirm the frozen
+Complete the ADR-0072 runtime repair gate, then prepare one fresh direct-child
+retry release for `crfs-1069f29a8d76463a` with a new unused immutable run ID.
+The retry must start from the exact captured branch, reconfirm the frozen
 pi0.5 baseline, and execute the public GroundingDINO, filtering/MVEE, and full
 nine-variable AEGIS QP using the frozen phrase `red milk carton`. It must
 report physical contact, minimum `D_sim`, collision avoidance, task progress
@@ -606,6 +631,9 @@ images.
 Do not reuse task `28428_0` or run
 `r06-aegis-label-capture-canary-20260717b`, and do not change its frozen label
 after observing any AEGIS outcome.
+Do not resume or reuse tasks `28447_0`/`28448` or run
+`r06-aegis-paired-canary-20260717a`; they are consumed without a scientific
+result.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops

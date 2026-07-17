@@ -73,7 +73,7 @@ class AegisCollisionConditionedPreregistrationTest(unittest.TestCase):
                 self.assertEqual(
                     value["blocked_on"],
                     [
-                        "paired_canary_execution_release_not_authorized",
+                        "paired_canary_retry_release_not_authorized",
                         "paired_canary_integration_not_terminally_validated",
                         "population_label_manifest_not_authorized",
                     ],

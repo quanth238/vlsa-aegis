@@ -70,3 +70,5 @@
 - [0068 — Release the repaired AEGIS Codex-label capture canary](docs/decisions/0068-release-aegis-label-capture-canary.md)
 - [0069 — Accept the valid AEGIS capture and freeze the canary label](docs/decisions/0069-accept-valid-aegis-capture-and-freeze-canary-label.md)
 - [0070 — Accept the exact paired AEGIS canary apparatus](docs/decisions/0070-accept-r06-paired-aegis-canary-apparatus.md)
+- [0071 — Release the exact paired AEGIS canary](docs/decisions/0071-release-aegis-paired-canary.md)
+- [0072 — Preserve the failed paired AEGIS canary and repair its runtime](docs/decisions/0072-preserve-failed-aegis-paired-canary-and-repair-runtime.md)

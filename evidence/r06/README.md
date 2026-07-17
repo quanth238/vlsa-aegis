@@ -15,6 +15,12 @@
 - `../../manifests/r06_codex_obstacle_labels_canary.jsonl`: immutable one-row
   outcome-blind canary label ledger. Codex froze `red milk carton` only after
   retry-B capture validation and before any AEGIS outcome.
+- `aegis-paired-launch-a.json`: exact terminal evidence for paired GPU task
+  `28447_0` and CPU validator `28448`. The GPU stopped at dependency preflight
+  because its client environment lacked CVXPY. It started no policy server,
+  ran no simulator replay, and executed zero GroundingDINO, MVEE, QP, or AEGIS
+  steps.
 
-No paired AEGIS canary or population result exists yet. The valid capture and
-label do not show that AEGIS prevents the collision.
+No paired AEGIS canary or population result exists yet. The failed first
+launch is apparatus-inconclusive; neither it nor the valid capture/label shows
+whether AEGIS prevents the collision.

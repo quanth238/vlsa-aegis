@@ -28,10 +28,13 @@ negative-clearance violation twice from boundary 20; physical contact remained
 false. It confirmed the live `MountedPanda` two-actuator
 controller record and published the exact paired image/state artifact. Codex
 then froze the preregistered obstacle phrase `red milk carton` from that
-artifact before any AEGIS outcome. No GroundingDINO, MVEE, QP, paired AEGIS
-canary, or population result exists yet, and no probe or residual-field MLP
-has been trained. ADR-0069 accepts only the capture apparatus and label; it
-does not claim that AEGIS prevents this collision.
+artifact before any AEGIS outcome. The first paired launch, exact tasks
+`28447_0`/`28448`, then stopped at allocation dependency preflight because
+the selected client environment lacked CVXPY. It ran zero baseline replay,
+GroundingDINO, MVEE, QP, or AEGIS steps and produced no scientific result.
+ADR-0072 preserves that apparatus failure and accepts only a fail-closed
+runtime repair. No paired AEGIS or population result exists yet, and no probe
+or residual-field MLP has been trained.
 IFT-00 passes as synthetic implementation evidence. CFS-00A run B reached real
 pi0.5 and rejected its 35-by-75 Jacobian at the registered finite-difference
 gate before FISTA, but its generic exception discarded the numeric evidence.
@@ -143,7 +146,9 @@ make synthetic
 
 ## Allocation-backed experiments
 
-Real execution uses the existing two-environment baseline boundary: Python 3.11/PyTorch for the OpenPI server and the LIBERO client environment for simulation. Both processes run inside one Slurm allocation; the transient server is terminated by a shell trap.
+Real execution uses separate OpenPI-server and AEGIS/LIBERO-client
+environments. Both processes run inside one Slurm allocation; the transient
+server is terminated by a shell trap.
 
 The R00–R05A allocation evidence and exact Slurm job IDs are recorded in the
 archived detailed progress record and `evidence/`. There is intentionally no
@@ -185,6 +190,9 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0067-preserve-failed-aegis-capture-and-repair-controller-contract.md`: terminal capture-only failure evidence and narrow controller-state validator repair;
 - `docs/decisions/0068-release-aegis-label-capture-canary.md`: exact repaired capture retry release;
 - `docs/decisions/0069-accept-valid-aegis-capture-and-freeze-canary-label.md`: validated retry-B capture and frozen canary label;
+- `docs/decisions/0070-accept-r06-paired-aegis-canary-apparatus.md`: accepted exact paired apparatus;
+- `docs/decisions/0071-release-aegis-paired-canary.md`: consumed first paired execution release;
+- `docs/decisions/0072-preserve-failed-aegis-paired-canary-and-repair-runtime.md`: terminal preflight failure and narrow runtime repair;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

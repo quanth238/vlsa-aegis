@@ -189,6 +189,26 @@ class R06AegisPairedHpcContractTest(unittest.TestCase):
 
     def test_workload_binds_every_static_input_and_preflights_full_stack(self) -> None:
         value = _text(WORKLOAD)
+        self.assertIn(
+            "AEGIS_PYTHON=/mnt/data/quanth/venvs/safety_vla/main/bin/python",
+            value,
+        )
+        self.assertNotIn(
+            "LIBERO_PYTHON=/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+            value,
+        )
+        for exported_runtime_identity in (
+            "R06_ROBOSUITE_IMAGE_CONVENTION",
+            "R06_ROBOSUITE_VERSION",
+            "export R06_ROBOSUITE_IMAGE_CONVENTION R06_ROBOSUITE_VERSION",
+        ):
+            self.assertIn(exported_runtime_identity, value)
+        self.assertLess(
+            value.index(
+                "export R06_ROBOSUITE_IMAGE_CONVENTION R06_ROBOSUITE_VERSION"
+            ),
+            value.index('"$AEGIS_PYTHON" "$RUNNER"'),
+        )
         for digest in (
             "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
             "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f",
@@ -209,8 +229,17 @@ class R06AegisPairedHpcContractTest(unittest.TestCase):
             "import cvxpy",
             "import osqp",
             "import scipy",
+            "import mujoco",
+            "import websockets.sync.client",
+            "from libero.libero import benchmark",
+            "from openpi_client import image_tools, websocket_client_policy",
         ):
             self.assertIn(package, value)
+        self.assertIn(
+            'torch.ones((1,), dtype=torch.float32, device="cuda") + 1.0',
+            value,
+        )
+        self.assertIn("torch.cuda.synchronize()", value)
         self.assertLess(value.index('cd "$REMOTE_REPO"'), value.index("import torch"))
         self.assertIn("focused_test_skips=0", value)
         self.assertIn("tests.test_aegis_runner", value)

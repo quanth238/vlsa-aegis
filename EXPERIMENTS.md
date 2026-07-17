@@ -27,13 +27,16 @@ retains all failures, and keeps the existing 17-case and three-case strata
 separate. This collision-conditioned set is not an estimate of general
 SafeLIBERO benchmark performance.
 
-No paired AEGIS canary or population result exists. ADR-0065 explicitly
+No valid paired AEGIS canary or population result exists. ADR-0065 explicitly
 authorizes Codex to replace only the unavailable GLM-4.5V name selector.
 Capture retry B is valid, and the canary label `red milk carton` is now frozen
 from its exact image and instruction before any AEGIS outcome; simulator names
 and geometry remained forbidden. ADR-0070 accepts the exact paired-canary
-apparatus, but its allocation has not yet run. GroundingDINO, filtering/MVEE,
-and the full public QP remain unchanged and have not yet produced a result.
+apparatus. ADR-0071's first paired allocation stopped at dependency preflight
+because its selected client environment lacked CVXPY; it performed zero
+simulator replay, GroundingDINO, MVEE, QP, or AEGIS steps. ADR-0072 consumes
+that run and accepts only a runtime repair. GroundingDINO, filtering/MVEE, and
+the full public QP remain unchanged and have not yet produced a result.
 This arm is not the original end-to-end AEGIS comparator.
 
 R05A's time-dependent flow-transport question remains scientifically
@@ -56,9 +59,8 @@ Safe-Progress Success; clearance alone is not success.
 
 ### AEGIS-00A — Codex-label paired canary
 
-Status: **capture, outcome-blind label, and paired apparatus are validated;
-the config remains fail closed pending an exact direct-child execution
-release**
+Status: **launch A is apparatus-inconclusive; the runtime repair is accepted;
+the config is fail closed pending a fresh direct-child retry release**
 
 Use one frozen manifest case to validate nominal collision reproduction,
 action-boundary branch selection at the registered 5 mm margin, full paired
@@ -110,6 +112,15 @@ ADR-0069 accepts the capture apparatus and label only. Whether AEGIS prevents
 this collision is still untested. ADR-0070 accepts the exact paired
 implementation after 854 local tests pass; it still supplies no simulator
 outcome and authorizes no automatic population launch.
+
+Paired launch A used run `r06-aegis-paired-canary-20260717a`, exact worker-1
+task `28447_0`, and exact CPU `afterany` validator `28448`. The GPU stopped at
+`allocation_dependency_preflight` with `ModuleNotFoundError: No module named
+'cvxpy'` before policy-server startup. It ran no baseline simulator replay and
+zero GroundingDINO, MVEE, QP, or AEGIS steps; no `results.json` exists.
+ADR-0072 therefore classifies it as apparatus-inconclusive, consumes the run,
+and permits only the exact environment/runtime-identity repair before a fresh
+retry release.
 
 ### AEGIS-01 — Complete 20-case population
 

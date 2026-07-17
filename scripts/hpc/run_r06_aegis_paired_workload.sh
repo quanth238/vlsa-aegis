@@ -11,7 +11,7 @@ set -euo pipefail
 : "${CHECKPOINT_DIR:=/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch}"
 
 OPENPI_PYTHON=/mnt/data/quanth/venvs/openpi/bin/python
-LIBERO_PYTHON=/mnt/data/quanth/venvs/openpi-libero-client/bin/python
+AEGIS_PYTHON=/mnt/data/quanth/venvs/safety_vla/main/bin/python
 CONFIG=$REMOTE_REPO/configs/experiments/r06_aegis_collision_conditioned.json
 MANIFEST=$REMOTE_REPO/manifests/oracle_h05_colliding.jsonl
 LABEL_MANIFEST=$REMOTE_REPO/manifests/r06_codex_obstacle_labels_canary.jsonl
@@ -73,6 +73,9 @@ trap 'exit 143' TERM
 
 test "$SLURM_ARRAY_TASK_ID" = 0
 test "$(hostname -s)" = worker-1
+for launcher in "$OPENPI_PYTHON" "$AEGIS_PYTHON"; do
+  test -x "$launcher" || { echo "missing canonical R06 interpreter launcher: $launcher" >&2; exit 2; }
+done
 for path in "$CONFIG" "$MANIFEST" "$LABEL_MANIFEST" "$R02_CONFIG" "$SOURCE_R02" \
   "$CAPTURE" "$DINO_CONFIG" "$DINO_CHECKPOINT" "$MODEL" "$CHECKPOINT_CONFIG" \
   "$NORMALIZATION" "$RUNNER"; do
@@ -110,8 +113,37 @@ export AEGIS_GROUNDING_DINO_CHECKPOINT=$DINO_CHECKPOINT
 mkdir "$LIBERO_CONFIG_PATH"
 cd "$REMOTE_REPO"
 
+FAILURE_STAGE=allocation_dependency_preflight
+image_convention_record=$(MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa "$AEGIS_PYTHON" - <<'PY'
+from importlib import metadata
+
+import robosuite.macros as macros
+
+value = getattr(macros, "IMAGE_CONVENTION", None)
+if not isinstance(value, str):
+    raise SystemExit("robosuite IMAGE_CONVENTION is unavailable")
+print(f"R06_IMAGE_CONVENTION={value}")
+print(f"R06_ROBOSUITE_VERSION={metadata.version('robosuite')}")
+PY
+)
+R06_ROBOSUITE_IMAGE_CONVENTION=$(printf '%s\n' "$image_convention_record" | sed -n 's/^R06_IMAGE_CONVENTION=//p')
+R06_ROBOSUITE_VERSION=$(printf '%s\n' "$image_convention_record" | sed -n 's/^R06_ROBOSUITE_VERSION=//p')
+test "$(printf '%s\n' "$R06_ROBOSUITE_IMAGE_CONVENTION" | wc -l | tr -d ' ')" = 1 || {
+  echo "R06 paired workload could not extract one live robosuite image convention" >&2
+  exit 2
+}
+test "$R06_ROBOSUITE_IMAGE_CONVENTION" = opengl || {
+  echo "R06 paired workload requires the frozen robosuite OpenGL image convention, found: $R06_ROBOSUITE_IMAGE_CONVENTION" >&2
+  exit 2
+}
+test "$R06_ROBOSUITE_VERSION" = 1.4.1 || {
+  echo "R06 paired workload requires robosuite 1.4.1, found: $R06_ROBOSUITE_VERSION" >&2
+  exit 2
+}
+export R06_ROBOSUITE_IMAGE_CONVENTION R06_ROBOSUITE_VERSION
+
 SAFELIBERO_ROOT=$REMOTE_REPO/safelibero/libero/libero
-"$LIBERO_PYTHON" - "$LIBERO_CONFIG_PATH/config.yaml" "$SAFELIBERO_ROOT" <<'PY'
+"$AEGIS_PYTHON" - "$LIBERO_CONFIG_PATH/config.yaml" "$SAFELIBERO_ROOT" <<'PY'
 import os
 import pathlib
 import sys
@@ -134,22 +166,28 @@ os.replace(temporary, destination)
 PY
 
 export PYTHONPATH=$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/packages/openpi-client/src
-FAILURE_STAGE=allocation_dependency_preflight
-"$LIBERO_PYTHON" - >"$TEST_LOG" 2>&1 <<'PY'
+"$AEGIS_PYTHON" - >"$TEST_LOG" 2>&1 <<'PY'
 from importlib import metadata
 
 import cv2
 import cvxpy
 import groundingdino
 import matplotlib
+import mujoco
 import numpy
 import open3d
 import osqp
 import robosuite.macros as macros
 import scipy
 import torch
+import websockets.sync.client
+from libero.libero import benchmark
+from openpi_client import image_tools, websocket_client_policy
 
 assert torch.cuda.is_available()
+cuda_probe = torch.ones((1,), dtype=torch.float32, device="cuda") + 1.0
+torch.cuda.synchronize()
+assert float(cuda_probe.cpu().item()) == 2.0
 assert getattr(macros, "IMAGE_CONVENTION", None) == "opengl"
 assert metadata.version("robosuite") == "1.4.1"
 from groundingdino.util.inference import load_model, predict
@@ -172,7 +210,7 @@ print("focused_test_skips=0")
 PY
 
 FAILURE_STAGE=allocation_focused_tests
-"$LIBERO_PYTHON" -m unittest -v \
+"$AEGIS_PYTHON" -m unittest -v \
   tests.test_aegis_baseline tests.test_aegis_pairing tests.test_aegis_perception \
   tests.test_aegis_runner >>"$TEST_LOG" 2>&1
 test "$(grep -Eic 'skipped[= :]|skip=' "$TEST_LOG")" = 0 || {
@@ -199,7 +237,7 @@ test "$ready" = 1 || { tail -n 200 "$SERVER_LOG" >&2; exit 4; }
 
 export PYTHONPATH=$REMOTE_REPO/src:$REMOTE_REPO/main:$REMOTE_REPO/safelibero:$REMOTE_REPO/openpi/packages/openpi-client/src
 FAILURE_STAGE=paired_runner
-"$LIBERO_PYTHON" "$RUNNER" \
+"$AEGIS_PYTHON" "$RUNNER" \
   --manifest "$MANIFEST" --config "$CONFIG" --r02-config "$R02_CONFIG" \
   --source-r02 "$SOURCE_R02" --output "$RESULT" \
   --perception-output-dir "$PERCEPTION_DIR" --run-id "$RUN_ID" --case-index 0 \

@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r06_aegis_paired_launch_a_evidence",
+  "scientific_result": false,
+  "run_id": "r06-aegis-paired-canary-20260717a",
+  "release_commit": "21a8fb11e45e2a259559fb7cfb690caa83ad88ed",
+  "accepted_implementation_commit": "1fa99f8639117dfcac5dd19cc24821829d8485b9",
+  "case_id": "crfs-1069f29a8d76463a",
+  "jobs": {
+    "gpu": {
+      "array_job_id": "28447",
+      "exact_task_id": "28447_0",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "node": "worker-1",
+      "elapsed": "00:00:24",
+      "start": "2026-07-17T10:25:28",
+      "end": "2026-07-17T10:25:52",
+      "requested": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+      "allocated": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1"
+    },
+    "cpu_afterany": {
+      "job_id": "28448",
+      "state": "FAILED",
+      "exit_code": "1:0",
+      "node": "worker-2",
+      "elapsed": "00:00:01",
+      "start": "2026-07-17T10:25:52",
+      "end": "2026-07-17T10:25:53",
+      "requested": "billing=2,cpu=2,mem=8G,node=1",
+      "allocated": "billing=2,cpu=2,mem=8G,node=1"
+    }
+  },
+  "immutable_artifacts": {
+    "source_contract_sha256": "9df11ff337589483ffd4679a35aecbe805e85b1be69dca95f5430f872f2f7a1c",
+    "submission_sha256": "707446bb8e9b8c773b05cd8f0c757cc1a533f625979b55a6214badc92aa6ba18",
+    "gpu_failure_sha256": "c6b62a8d330a9b7a28d407b57a064980e2654caff4d224cfb7ac2fcb40cbd6df",
+    "cpu_validation_sha256": "1afb1b80624f609e09c1d8b4d997f9b6c035c3da85eb13530fbbc7b65ae9db7b",
+    "allocation_test_log_sha256": "ba5cab6a0b8bf0968ce39df308c287898cfde84a6951cc7865cd26e123bf8b3d",
+    "gpu_slurm_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cpu_slurm_log_sha256": "49c1ecfdd70ac7a9ee71461e44cab368520414637815c1aba3fc7a03922659d1",
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-paired-canary-20260717a"
+  },
+  "terminal_interpretation": {
+    "classification": "apparatus_inconclusive",
+    "failure_stage": "allocation_dependency_preflight",
+    "exact_error": "ModuleNotFoundError: No module named 'cvxpy'",
+    "failed_runtime": "/mnt/data/quanth/venvs/openpi-libero-client/bin/python",
+    "results_json_exists": false,
+    "policy_server_started": false,
+    "baseline_simulator_replays": 0,
+    "groundingdino_calls": 0,
+    "mvee_calls": 0,
+    "qp_steps": 0,
+    "aegis_safety_result_exists": false
+  },
+  "repair_scope": {
+    "replacement_runtime": "/mnt/data/quanth/venvs/safety_vla/main/bin/python",
+    "control_plane_package_evidence": [
+      "cvxpy-1.5.2",
+      "groundingdino-py-0.4.0",
+      "open3d-0.19.0",
+      "osqp-1.0.5",
+      "robosuite-1.4.1",
+      "scipy-1.10.1",
+      "torch-1.11.0+cu113"
+    ],
+    "live_runtime_identity_exports_required": [
+      "R06_ROBOSUITE_IMAGE_CONVENTION=opengl",
+      "R06_ROBOSUITE_VERSION=1.4.1"
+    ],
+    "allocation_cuda_kernel_probe_required": true,
+    "allocation_validation_still_required": true,
+    "scientific_config_change_allowed": false
+  },
+  "claims": {
+    "aegis_method_failure": false,
+    "canary_collision_avoidance_result_exists": false,
+    "population_launch_authorized": false,
+    "full_benchmark_launch_authorized": false,
+    "probe_or_mlp_training_authorized": false
+  }
+}
