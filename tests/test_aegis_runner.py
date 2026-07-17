@@ -97,7 +97,7 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
             with self.assertRaisesRegex(aegis_runner.AegisApparatusError, "Slurm"):
                 aegis_runner._assert_allocation()
 
-    def test_draft_config_validates_sources_but_cannot_execute(self):
+    def test_config_validates_sources_and_is_draft_or_exact_capture_release(self):
         runner = _load_runner()
 
         path = ROOT / "configs" / "experiments" / "r06_aegis_collision_conditioned.json"
@@ -106,13 +106,22 @@ class AegisRunnerDependencyLightTest(unittest.TestCase):
         )
         self.assertEqual(reviewed.cases[0]["case_id"], runner.CANARY_CASE_ID)
         self.assertEqual(len(reviewed.cases), 20)
-        self.assertFalse(reviewed.ready_to_run)
-        self.assertIsNone(reviewed.execution_release)
         self.assertIn("base_decision", reviewed.raw["source_evidence"])
         self.assertIn("current_decision", reviewed.raw["source_evidence"])
         self.assertIn("pi05_plus_aegis_codex_label", reviewed.raw["arms"])
-        with self.assertRaisesRegex(runner.AegisApparatusError, "not released"):
-            runner.load_aegis_experiment_config(path, repo_root=ROOT)
+        if reviewed.ready_to_run is False:
+            self.assertIsNone(reviewed.execution_release)
+            with self.assertRaisesRegex(runner.AegisApparatusError, "not released"):
+                runner.load_aegis_experiment_config(path, repo_root=ROOT)
+            return
+
+        self.assertIs(reviewed.ready_to_run, True)
+        self.assertIsInstance(reviewed.execution_release, dict)
+        self.assertEqual(
+            reviewed.execution_release["stage"], "codex_label_capture"
+        )
+        released = runner.load_aegis_experiment_config(path, repo_root=ROOT)
+        self.assertEqual(released.execution_release, reviewed.execution_release)
 
     def test_loader_rejects_stratum_tampering_even_with_valid_json(self):
         runner = _load_runner()
