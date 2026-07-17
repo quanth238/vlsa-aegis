@@ -13,7 +13,7 @@ in dependency order; no population job is authorized yet.
 
 Local implementation evidence on 2026-07-17:
 
-- `./init.sh` passes: 86 tests, three optional dependency tests skipped.
+- `./init.sh` passes: 87 tests, three optional dependency tests skipped.
 - The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
   paired evaluation requires exactly 3,200 terminal episode results.
 - Two independent reviews accepted the translational comparison after strict
@@ -21,8 +21,24 @@ Local implementation evidence on 2026-07-17:
 - A paired canary receipt can pass only if the frozen label matches the active
   obstacle, perception reaches `ready`, and at least one `aegis_qp` action
   executes with finite, valid OSQP diagnostics.
-- The next allocation-backed steps are one immutable pi0.5 checkpoint-tree
-  hash receipt followed by exactly one ordinal-100 paired canary.
+- The next allocation-backed steps are one replacement immutable pi0.5
+  checkpoint-tree receipt using cross-worker-stable identity, followed by one
+  fresh ordinal-100 paired canary.
+
+Checkpoint hash task `28467_0` completed on worker-2 in 16 seconds. Its full
+content-tree SHA-256 is
+`7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15`;
+the small receipt was independently revalidated locally.
+
+Paired-canary attempt `28468_0` terminated during asset preflight on worker-1
+after one second, before policy, simulator, GroundingDINO, or QP execution.
+The checkpoint bytes had not changed. The hash receipt included Linux
+`st_dev=1048662`, while the same shared file is exposed as `st_dev=1048723`
+from another cluster mount namespace with identical path, size, inode, mtime,
+and ctime. The repair removes only mount-local `st_dev` from the cross-worker
+identity and retains the full tree hash plus stable file metadata. Run
+`vlsa-table1-paired-canary-20260717a` is immutable and remains an apparatus
+failure; it is never reused.
 
 The first capture case is frozen as ordinal 100,
 `vlsa-t1-spatial-i-t2-e00`. This is the Level-I version of the qualitative

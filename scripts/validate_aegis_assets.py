@@ -119,6 +119,9 @@ ALLOWED_LABELS = {
     "red milk carton",
 }
 LONG_EXTRA_LABELS = {"gray rectangular binder"}
+PI05_FILESYSTEM_IDENTITY_SCHEMA = (
+    "vlsa_table1_pi05_filesystem_identity.v2"
+)
 
 
 class PreflightError(RuntimeError):
@@ -409,13 +412,18 @@ def pi05_checkpoint_filesystem_identity(
             {
                 "relative_path": relative,
                 "bytes": stat.st_size,
-                "device": stat.st_dev,
                 "inode": stat.st_ino,
                 "mtime_ns": stat.st_mtime_ns,
                 "ctime_ns": stat.st_ctime_ns,
             }
         )
     identity: dict[str, Any] = {
+        "schema_version": PI05_FILESYSTEM_IDENTITY_SCHEMA,
+        "semantics": (
+            "resolved checkpoint path plus per-file relative path, size, "
+            "inode, mtime_ns, and ctime_ns; st_dev excluded because it is "
+            "mount-namespace-local across Slurm workers"
+        ),
         "checkpoint_path": str(checkpoint.resolve()),
         "files": files,
     }
@@ -434,6 +442,17 @@ def validate_pi05_filesystem_identity_record(
         )
     checkpoint_path = value.get("checkpoint_path")
     files = value.get("files")
+    if (
+        value.get("schema_version")
+        != PI05_FILESYSTEM_IDENTITY_SCHEMA
+    ):
+        raise PreflightError(
+            "pi0.5 filesystem identity schema is not cross-worker stable"
+        )
+    if not isinstance(value.get("semantics"), str):
+        raise PreflightError(
+            "pi0.5 filesystem identity semantics are missing"
+        )
     if not isinstance(checkpoint_path, str) or not checkpoint_path.startswith(
         "/"
     ):
@@ -468,7 +487,11 @@ def validate_pi05_filesystem_identity_record(
             raise PreflightError(
                 f"pi0.5 filesystem identity size changed for {relative}"
             )
-        for field in ("device", "inode", "mtime_ns", "ctime_ns"):
+        if "device" in item:
+            raise PreflightError(
+                "pi0.5 filesystem identity contains mount-local st_dev"
+            )
+        for field in ("inode", "mtime_ns", "ctime_ns"):
             number = item.get(field)
             if (
                 not isinstance(number, int)

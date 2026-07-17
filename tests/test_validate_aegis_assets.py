@@ -438,6 +438,36 @@ class ValidateAegisAssetsTest(unittest.TestCase):
         )
         self.assertNotEqual(frozen, current)
 
+    def test_checkpoint_identity_excludes_mount_local_device_number(
+        self,
+    ) -> None:
+        checkpoint = self.root / "portable-pi05"
+        checkpoint.mkdir()
+        (checkpoint / "meta").write_bytes(b"meta")
+        with mock.patch.dict(
+            preflight.PI05_METADATA_FILES,
+            {"meta": (4, _sha256(b"meta"))},
+            clear=True,
+        ), mock.patch.dict(
+            preflight.PI05_DATA_FILES,
+            {},
+            clear=True,
+        ):
+            identity = preflight.pi05_checkpoint_filesystem_identity(
+                checkpoint, ("meta",)
+            )
+            validated = (
+                preflight.validate_pi05_filesystem_identity_record(
+                    identity
+                )
+            )
+        self.assertEqual(
+            validated["schema_version"],
+            preflight.PI05_FILESYSTEM_IDENTITY_SCHEMA,
+        )
+        self.assertNotIn("device", validated["files"][0])
+        self.assertIn("mount-namespace-local", validated["semantics"])
+
 
 if __name__ == "__main__":
     unittest.main()

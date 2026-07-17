@@ -6,7 +6,7 @@
       "status": "passing",
       "depends_on": [],
       "evidence": [
-        "2026-07-17 verifier structural gate: 86 tests passed, 3 optional dependency tests skipped",
+        "2026-07-17 verifier structural gate: 87 tests passed, 3 optional dependency tests skipped",
         "Two independent reviews accepted the released translational comparison after strict action-ledger, pairing, geometry-failure, checkpoint, and canary-QP validation"
       ]
     },

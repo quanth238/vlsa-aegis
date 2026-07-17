@@ -124,3 +124,13 @@ integration-inconclusive and cannot authorize the population.
 Accepted. The first paired canary uses `GROUNDINGDINO_DEVICE=cuda`, matching
 the release default. A CPU perception run would be a separately preregistered
 compatibility variant, not a silent replacement for the released baseline.
+
+## ADR-0016: Exclude mount-local `st_dev` from cross-worker identity
+
+Accepted after paired-canary task `28468_0` stopped before execution. The
+checkpoint hash was computed on worker-2, but Linux reports a different
+`st_dev` for the same shared file through another cluster mount namespace.
+`st_dev` identifies a mounted filesystem view, not file content, and therefore
+cannot be compared across Slurm workers. The stable identity continues to bind
+the resolved checkpoint path and every file's relative path, byte size, inode,
+mtime, and ctime, in addition to the allocation-backed full-content tree hash.
