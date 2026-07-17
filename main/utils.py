@@ -152,14 +152,23 @@ def compute_h_coeffs_3d(p_i, Q_i_diag, R_i,
     return a_v, a_omega, a_uz, h, mu_row   # mu_row is dh/d z_ij
 
 ############## Perception Related Functions ##############
-def get_point_cloud(image, depth, env, view, TEXT_PROMPT, model, save_path):
+def get_point_cloud(
+    image,
+    depth,
+    env,
+    view,
+    TEXT_PROMPT,
+    model,
+    save_path,
+    device="cuda",
+):
     # from robosuite.utils.camera_utils import get_real_depth_map
     from groundingdino.util.inference import load_image, predict, annotate
     depth = get_real_depth_map(env.sim, depth)
     # import cv2
     # CONFIG_PATH = "GroundingDINO/GroundingDINO_SwinT_OGC.py"    # Config file included in source code
     # CHECKPOINT_PATH = "GroundingDINO/groundingdino_swint_ogc.pth"   # Downloaded weights file
-    DEVICE = "cuda"   # Select cpu/cuda
+    DEVICE = device   # Select cpu/cuda
     BOX_TRESHOLD = 0.35     # Bounding box threshold given by source code
     TEXT_TRESHOLD = 0.25    # Text threshold for key attributes given by source code
 

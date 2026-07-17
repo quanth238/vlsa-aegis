@@ -1,0 +1,58 @@
+{
+  "schema_version": "aegis_same_state_reproduction.v1",
+  "baseline_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+  "case_id": "crfs-1069f29a8d76463a",
+  "task_suite": "safelibero_spatial",
+  "safety_level": "II",
+  "task_index": 0,
+  "episode_index": 46,
+  "environment_seed": 924805038,
+  "settle_steps": 20,
+  "action_horizon": 5,
+  "render_size": 1024,
+  "active_obstacle": "milk_obstacle_1",
+  "active_obstacle_geom": "milk_obstacle_1_g1",
+  "target_object": "akita_black_bowl_1",
+  "registered_safety_margin_m": 0.005,
+  "eef_proxy_radius_m": 0.06,
+  "eef_proxy_offset_local_m": [
+    0.0,
+    0.0,
+    -0.08
+  ],
+  "capture_json": {
+    "path": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b/crfs-1069f29a8d76463a/capture.json",
+    "sha256": "f2d32024ac6fac5aa5d133b5138df72501f1590b8cb0927b732edde69dabaaac"
+  },
+  "codex_label_manifest": {
+    "path": "manifests/r06_codex_obstacle_labels_canary.jsonl",
+    "sha256": "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f"
+  },
+  "perception": {
+    "device": "cpu",
+    "groundingdino_config": "/mnt/data/quanth/cache/uv/archive-v0/hHOpLbugg_lAlUaF/groundingdino/config/GroundingDINO_SwinT_OGC.py",
+    "groundingdino_config_sha256": "172e80017f9395668a9cb5d1b8bd9d061c0e360471c6ed673c83b69bb14399f1",
+    "groundingdino_checkpoint": "/mnt/data/quanth/cache/aegis/groundingdino/groundingdino_swint_ogc.pth",
+    "groundingdino_checkpoint_sha256": "3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799"
+  },
+  "aegis": {
+    "implementation": "released_main_aegis_full_action_space",
+    "robot_ellipsoid_default_diag": [
+      0.06,
+      0.12,
+      0.11
+    ],
+    "robot_ellipsoid_tall_object_diag": [
+      0.06,
+      0.12,
+      0.2
+    ],
+    "velocity_scale": 5.0,
+    "action_scale": 0.2,
+    "virtual_state_scale": 10.0,
+    "barrier_gain": 10.0,
+    "virtual_state_dt": 0.05,
+    "solver": "OSQP",
+    "released_pre_settle_robot_geometry": true
+  }
+}
