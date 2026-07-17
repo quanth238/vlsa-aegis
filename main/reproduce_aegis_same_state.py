@@ -607,6 +607,41 @@ def _load_inputs(
     return config, capture, label, actions
 
 
+def _partition_boundary_checks(
+    checks: dict[str, bool],
+) -> tuple[dict[str, bool], dict[str, bool]]:
+    authoritative_keys = (
+        "integration_state",
+        "instruction",
+        "controller_state",
+        "registered_D_sim",
+        "active_obstacle",
+        "active_obstacle_geom",
+    )
+    render_keys = (
+        "agentview_image",
+        "backview_image",
+        "agentview_depth",
+        "backview_depth",
+    )
+    return (
+        {key: checks[key] for key in authoritative_keys},
+        {key: checks[key] for key in render_keys},
+    )
+
+
+def _view_structure_matches(
+    array: np.ndarray, expected: dict[str, Any]
+) -> bool:
+    value = np.asarray(array)
+    return bool(
+        list(value.shape) == expected["shape"]
+        and str(value.dtype) == expected["dtype_name"]
+        and value.flags.c_contiguous
+        and np.isfinite(value).all()
+    )
+
+
 def _verify_boundary(
     *,
     environment: Any,
@@ -629,6 +664,21 @@ def _verify_boundary(
     agent_depth = _public_view(observation, "agentview_depth")
     back_depth = _public_view(observation, "backview_depth")
     expected_views = capture["perception_render"]["views"]
+    live_views = {
+        "agentview_image": agent_image,
+        "backview_image": back_image,
+        "agentview_depth": agent_depth,
+        "backview_depth": back_depth,
+    }
+    render_structure_checks = {
+        key: _view_structure_matches(value, expected_views[key])
+        for key, value in live_views.items()
+    }
+    if not all(render_structure_checks.values()):
+        raise ReproductionError(
+            "live render structure is invalid: "
+            f"{render_structure_checks}"
+        )
     checks = {
         "integration_state": (
             list(state.shape) == expected_state["shape"]
@@ -690,10 +740,28 @@ def _verify_boundary(
         initial_sample["obstacle_box"]["geom"]
         == config["active_obstacle_geom"]
     )
-    if not all(checks.values()):
+    authoritative_checks, render_diagnostics = _partition_boundary_checks(
+        checks
+    )
+    if not all(authoritative_checks.values()):
         raise ReproductionError(f"frozen boundary did not reproduce: {checks}")
     return {
         "checks": checks,
+        "authoritative_checks": authoritative_checks,
+        "authoritative_boundary_passed": all(
+            authoritative_checks.values()
+        ),
+        "live_render_structure_checks": render_structure_checks,
+        "live_render_structure_passed": all(
+            render_structure_checks.values()
+        ),
+        "capture_render_diagnostics": render_diagnostics,
+        "capture_render_bytes_matched": all(render_diagnostics.values()),
+        "capture_render_note": (
+            "Cross-backend pixel hashes are diagnostic only. Scientific "
+            "pairing requires exact simulator/controller state here and "
+            "exact live RGB/depth equality between the two arms."
+        ),
         "integration_state_sha256": exact_array_record(
             state, label="live_integration_state"
         )["sha256"],
@@ -873,6 +941,7 @@ def _run_arm(
         initial_state_sha = boundary["integration_state_sha256"]
         controller: dict[str, Any] | None = None
         perception: dict[str, Any] | None = None
+        perception_state_evidence: dict[str, Any] | None = None
 
         if arm == "aegis":
             from groundingdino.util.inference import load_model
@@ -907,6 +976,57 @@ def _run_arm(
                 perception_directory,
                 device=perception_config["device"],
             )
+            state_after_perception = _native_integration_state(environment)
+            state_after_perception_sha = exact_array_record(
+                state_after_perception,
+                label="post_perception_integration_state",
+            )["sha256"]
+            controller_after_perception = _controller_state(environment)
+            sample_after_perception = _sample(
+                environment, observation, config=config, sample_index=0
+            )
+            perception_state_checks = {
+                "integration_state_unchanged": (
+                    state_after_perception_sha == initial_state_sha
+                ),
+                "controller_state_unchanged": (
+                    controller_after_perception["fingerprint_sha256"]
+                    == boundary["controller_state_fingerprint_sha256"]
+                ),
+                "registered_D_sim_unchanged": bool(
+                    np.isclose(
+                        sample_after_perception["registered_D_sim_m"],
+                        boundary["initial_sample"]["registered_D_sim_m"],
+                        rtol=0.0,
+                        atol=1e-12,
+                    )
+                ),
+            }
+            perception_state_evidence = {
+                "checks": perception_state_checks,
+                "passed": all(perception_state_checks.values()),
+                "integration_state_sha256_before": initial_state_sha,
+                "integration_state_sha256_after": (
+                    state_after_perception_sha
+                ),
+                "controller_state_fingerprint_sha256_before": (
+                    boundary["controller_state_fingerprint_sha256"]
+                ),
+                "controller_state_fingerprint_sha256_after": (
+                    controller_after_perception["fingerprint_sha256"]
+                ),
+                "registered_D_sim_m_before": boundary["initial_sample"][
+                    "registered_D_sim_m"
+                ],
+                "registered_D_sim_m_after": sample_after_perception[
+                    "registered_D_sim_m"
+                ],
+            }
+            if not perception_state_evidence["passed"]:
+                raise ReproductionError(
+                    "AEGIS perception changed the paired simulator boundary: "
+                    f"{perception_state_checks}"
+                )
             agent_array = np.asarray(agent_points, dtype=np.float64)
             back_array = np.asarray(back_points, dtype=np.float64)
             point_sets = [
@@ -942,17 +1062,6 @@ def _run_arm(
                     f"released point filtering failed: {error}",
                     evidence={"combined_point_count": int(len(full_points))},
                 ) from error
-            state_after_perception = _native_integration_state(environment)
-            if (
-                exact_array_record(
-                    state_after_perception,
-                    label="post_perception_integration_state",
-                )["sha256"]
-                != initial_state_sha
-            ):
-                raise ReproductionError(
-                    "AEGIS perception changed the paired simulator state"
-                )
             filtered_shape_valid = (
                 filtered_points.ndim == 2
                 and filtered_points.shape[1:] == (3,)
@@ -1103,7 +1212,7 @@ def _run_arm(
                     else None
                 ),
                 "elapsed_seconds": float(time.perf_counter() - start),
-                "state_unchanged": True,
+                "state_unchanged": perception_state_evidence,
             }
 
         trace = [boundary["initial_sample"]]
@@ -1358,6 +1467,10 @@ def _run_arm(
     except AegisMethodFailure as error:
         if "boundary" in locals():
             error.boundary = boundary
+        if perception_state_evidence is not None:
+            error.evidence.setdefault(
+                "perception_state_unchanged", perception_state_evidence
+            )
         raise
     finally:
         if environment is not None:

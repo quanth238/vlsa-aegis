@@ -29,6 +29,47 @@ SPEC.loader.exec_module(MODULE)
 
 
 class SameStateAegisReproducerTest(unittest.TestCase):
+    def test_cross_renderer_bytes_are_diagnostic_not_authoritative(self) -> None:
+        authoritative, render = MODULE._partition_boundary_checks(
+            {
+                "integration_state": True,
+                "instruction": True,
+                "controller_state": True,
+                "registered_D_sim": True,
+                "active_obstacle": True,
+                "active_obstacle_geom": True,
+                "agentview_image": False,
+                "backview_image": False,
+                "agentview_depth": False,
+                "backview_depth": False,
+            }
+        )
+        self.assertTrue(all(authoritative.values()))
+        self.assertFalse(all(render.values()))
+
+    def test_live_render_structure_is_fatal_quality_gate(self) -> None:
+        expected = {
+            "shape": [4, 4, 1],
+            "dtype_name": "float32",
+        }
+        valid = np.zeros((4, 4, 1), dtype=np.float32)
+        self.assertTrue(MODULE._view_structure_matches(valid, expected))
+        nonfinite = valid.copy()
+        nonfinite[0, 0, 0] = np.nan
+        self.assertFalse(
+            MODULE._view_structure_matches(nonfinite, expected)
+        )
+        self.assertFalse(
+            MODULE._view_structure_matches(
+                np.zeros((4, 4), dtype=np.float32), expected
+            )
+        )
+        self.assertFalse(
+            MODULE._view_structure_matches(
+                np.zeros((4, 4, 1), dtype=np.float64), expected
+            )
+        )
+
     def test_sphere_box_clearance_outside_touching_and_inside(self) -> None:
         rotation = np.eye(3)
         half = np.ones(3)
@@ -105,6 +146,10 @@ class SameStateAegisReproducerTest(unittest.TestCase):
             '"same_agentview_depth"',
             '"same_backview_depth"',
             '"same_controller_state"',
+            '"authoritative_boundary_passed"',
+            '"live_render_structure_passed"',
+            '"capture_render_bytes_matched"',
+            "Cross-backend pixel hashes are diagnostic only",
             '"measurement_samples_126"',
             '"reach_progress_abs_error_le_1e-12"',
             '"realized_path_retention"',
@@ -113,6 +158,9 @@ class SameStateAegisReproducerTest(unittest.TestCase):
             '"population_release_authorized": False',
             "except AegisMethodFailure as method_error",
             "CPU-device-adapted GroundingDINO",
+            '"integration_state_unchanged"',
+            '"controller_state_unchanged"',
+            '"registered_D_sim_unchanged"',
             '"robot_ellipsoid_center_p1_world_m"',
         ):
             self.assertIn(token, text)
