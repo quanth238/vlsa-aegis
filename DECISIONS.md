@@ -61,3 +61,7 @@
 - [0059 — Interpret the sealed AF-00A population and test a reference lift](docs/decisions/0059-interpret-af00a-population-and-test-reference-lift.md)
 - [0060 — Preregister the optimizer-free reference-trajectory lift canary](docs/decisions/0060-preregister-reference-trajectory-lift-canary.md)
 - [0061 — Version terminal shared-source bindings by their release commit](docs/decisions/0061-version-terminal-shared-source-bindings.md)
+- [0062 — Release the reference-trajectory lift canary](docs/decisions/0062-release-reference-trajectory-lift-canary.md)
+- [0063 — Preserve and retire the unexecuted reference-lift release](docs/decisions/0063-preserve-and-retire-unexecuted-reference-lift.md)
+- [0064 — Preregister the AEGIS collision-conditioned baseline diagnostic](docs/decisions/0064-preregister-aegis-collision-conditioned-baseline.md)
+- [0065 — Use Codex-frozen semantic labels for the AEGIS diagnostic](docs/decisions/0065-use-codex-frozen-semantic-labels-for-aegis.md)

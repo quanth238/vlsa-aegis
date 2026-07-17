@@ -245,10 +245,22 @@ class ActualForwardRecoveryContractTest(unittest.TestCase):
         self.assertIn("rejects only this exact one-case CEM teacher", normalized_adr)
         self.assertIn("not an infeasibility certificate", normalized_adr)
         features = json.loads(FEATURES.read_text(encoding="utf-8"))
-        r05a = next(item for item in features["features"] if item["id"] == "R05A")
-        self.assertEqual(r05a["status"], "active")
-        self.assertIn("No teacher-generated action has been executed", r05a["evidence"])
-        self.assertIn("forbid solver tuning or IFT-01", r05a["evidence"])
+        by_id = {item["id"]: item for item in features["features"]}
+        active = [
+            item["id"] for item in features["features"] if item["status"] == "active"
+        ]
+        self.assertEqual(active, ["R06"])
+        self.assertEqual(by_id["R04"]["status"], "blocked")
+        self.assertEqual(by_id["R05A"]["status"], "blocked")
+        self.assertIn("frozen_cem_negative", by_id["R05A"]["evidence"])
+        self.assertIn(
+            "No teacher-generated action entered the simulator",
+            by_id["R05A"]["evidence"],
+        )
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            by_id["R06"]["evidence"],
+        )
 
     def test_budget_contract_is_exact_and_tolerance_is_not_tuned(self) -> None:
         budget = json.loads(CONFIG.read_text(encoding="utf-8"))["budget_contract"]

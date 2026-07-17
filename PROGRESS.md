@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-07-16 (Asia/Ho_Chi_Minh)
+Last updated: 2026-07-17 (Asia/Ho_Chi_Minh)
 
 Active branch: `agent/crfs-oracle-harness`
 
@@ -55,8 +55,16 @@ Reviewed AF-00A publication-recovery implementation:
 Terminal AF-00A CPU-republication release:
 `eb3be3a86c1336a9090413cf7d6c83f28a0f365c`.
 
-Active jobs: none. TRL-00A has not yet been submitted. AF-00A GPU task
-`28281_0` completed `0:0`; original CPU
+Reviewed TRL-00A implementation:
+`0c79d0791cad5331a0cfb67f8a2c3c8d0c0e3e8c`.
+
+Consumed TRL-00A release:
+`786afe18bf177b4db1e808f6fedb317beac22be8`.
+
+Active jobs: none. TRL-00A task `28311_0` and CPU publisher `28312` were
+cancelled under exact user authorization before execution; both had zero
+runtime, no start, and no node, and neither log exists. AF-00A GPU task
+`28281_0` completed `0:0`; its original CPU
 publisher `28282` failed `1:0`; recovery publisher `28291` completed `0:0`
 and published the official `frozen_cem_negative` result. The earlier failed
 Jacobian diagnostic from tasks `28222_0`/`28223` remains preserved.
@@ -71,17 +79,18 @@ Historical detail is preserved, not deleted:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-a.md`;
 - sampled-current launch B, GPU diagnostic, and CPU publication failure:
   `docs/archive/progress/2026-07-15-r05a-sampled-current-launch-b.md`;
-- immutable decisions: ADR-0028 through ADR-0061;
+- immutable decisions: ADR-0028 through ADR-0063;
 - compact terminal evidence: `evidence/r05a/`.
 
 ## Current research question
 
-Can a paired simulator-verified safe-progress action target be transported
-through the exact frozen pi0.5 sampler into a budgeted, time-dependent residual
-velocity sequence?
+Given a Codex-frozen semantic obstacle label, does the public VLSA/AEGIS
+GroundingDINO/geometry/QP safety layer prevent the collisions in the immutable
+20-case frozen pi0.5 diagnostic while preserving task progress?
 
-This first tests teacher transport. It does not test collision avoidance,
-task-progress efficacy, student learnability, or generalization.
+This is a paired collision-conditioned baseline diagnostic, not an estimate of
+general SafeLIBERO benchmark performance. It does not test student
+learnability or authorize probe/MLP training.
 
 ## Baseline facts that the experiment must explain
 
@@ -96,7 +105,37 @@ task-progress efficacy, student learnability, or generalization.
 - Frozen IFT-00A scientific config SHA-256:
   `c31401867f3cdce2b3f443ad021c39dfb812f573b570e1e7434e1f149f79abfb`.
 
-## Active gate: R05A / TRL-00A reference-trajectory lift
+## Active gate: R06 / AEGIS collision-conditioned baseline diagnostic
+
+ADR-0063 pauses R05A and activates R06 after the exact TRL-00A release was
+cancelled before execution. ADR-0064 freezes the paired comparison. Because
+the public GLM-4.5V key is unavailable, the user explicitly authorized
+ADR-0065: capture the exact branch image, let Codex choose and freeze the
+semantic obstacle label before seeing AEGIS outcomes, then run the original
+GroundingDINO/filtering/MVEE/full nine-variable QP. R06 compares frozen pi0.5
+against that Codex-label AEGIS arm from the same simulator state, observation,
+instruction, explicit policy noise, nominal actions, and execution horizon.
+It retains all 20 cases and separately reports the existing 17-case and
+three-case strata, safety alone, task progress/completion, action modification,
+stopping behavior, and joint safety-plus-progress.
+
+The new gate has no paired canary or population result. The action-boundary
+selection, exact pairing, 17+3 strata, metrics, fixed-denominator failures, and
+canary identity are frozen. The current staged path is: one allocation-backed
+canary capture and baseline reconfirmation, Codex label freeze, one paired
+canary, then a separately released 20-case capture/label/population. This does
+not evaluate the original GLM selector and cannot be called original
+end-to-end VLSA/AEGIS.
+
+Dependency setup job `28391` completed on `worker-2` with exit `0:0` and
+installed the official GroundingDINO Swin-T checkpoint at the frozen SHA-256
+`3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799`.
+The matching config SHA-256 is
+`172e80017f9395668a9cb5d1b8bd9d061c0e360471c6ed673c83b69bb14399f1`.
+This is setup evidence only; the allocation runtime and simulator integration
+remain unvalidated.
+
+## Paused historical gate: R05A / TRL-00A reference-trajectory lift
 
 The sealed AF-00A population diagnostic in ADR-0059 localizes the constant-
 field failure. Equal-split Arm A directly supplied essentially the full target
@@ -284,6 +323,18 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Current verification state
 
+- ADR-0062 released TRL-00A from exact commit `786afe1` with source contract
+  `140e7e13...93a9`, submission receipt `9ff2c0b8...6b77e`, and final
+  fingerprint `2ef79dcb...4b16`.
+- Exact task `28311_0` remained pending for resources with zero runtime, no
+  node, and no allocated TRES. CPU publisher `28312` remained unstarted on its
+  dependency. Under explicit user authorization, only those exact jobs were
+  cancelled. Slurm records both terminal with zero runtime, start `None`, and
+  node `None assigned`; both exact logs are absent.
+- The immutable run root contains only twelve hash-recorded control-plane
+  artifacts and no case directory, `results.json`, or publication receipt.
+  ADR-0063 and `evidence/r05a/trl00a-cancelled-before-execution.json` consume
+  the identity and supply no positive or negative TRL scientific result.
 - ADR-0040 and ADR-0041 preregistered the baseline-faithful method and exact
   release transaction. Exact release `77bf9f6` bound source contract
   `8bf3501c...f96de` and submission receipt `0252d40a...bd01`; all 51 repository
@@ -462,22 +513,18 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-Seal the reviewed TRL-00A implementation in one clean commit. Then create one
-direct-child execution release that changes only
-`configs/experiments/r05a_reference_trajectory_lift_canary.json` and its new
-release ADR, binds one unused immutable run ID, and authorizes exactly one held
-worker-1 H100 task plus its CPU `afterany` publisher. Run
-`scripts/hpc/submit_r05a_reference_trajectory_lift_canary.sh` exactly once from
-that release. If Slurm leaves it pending, wait; do not reroute, resubmit, or
-change resources.
+Finish and independently review the R06 capture runner, allocation-preflight
+the now content-bound GroundingDINO assets, and release one capture-only canary for
+`crfs-1069f29a8d76463a`. The capture must select boundary 20, reproduce the
+baseline collision twice, and save the same-state 1024 image. Codex then
+freezes one image/instruction-bound semantic label under ADR-0065. Only after
+that label and the full GroundingDINO/AEGIS apparatus validate may a separate
+paired canary run. The 20-case population remains a later release.
 
-Interpret only the independently published finite result. A same-budget pass
-is one-case action-fidelity support and permits only a separate simulator-
-efficacy decision. A raw-only pass diagnoses a canonical authority bottleneck;
-an XYZ-only pass diagnoses mask coupling; a finite miss rejects only this fixed
-linear reference lift. None authorizes IFT-01, simulator execution of generated
-actions, label collection, probe/MLP training, or safety/progress/generalization
-claims automatically.
+Do not call the Codex-label arm or a simulator-geometry substitute the exact
+end-to-end AEGIS method. Keep the existing 17 eligible cases and three retained
+late/no-witness cases as separate strata, report every failure, and distinguish
+safety alone from joint safety-plus-progress.
 
 Do not resume job `27928`, jobs `27962`/`27963`, or jobs `28021`/`28022`; do
 not reuse any consumed launch ID; and do not republish launch B's observed
@@ -485,11 +532,14 @@ payload. Do not resubmit retry B, CG-00, or the consumed CPU apparatus run.
 Do not resume or reuse jobs `28212_0`/`28213` or their run ID.
 Do not resume or reuse jobs `28222_0`/`28223` or their run ID.
 Do not resume or reuse jobs `28281_0`, `28282`, or `28291`, or the run-C ID.
+Do not resume or reuse jobs `28311_0`/`28312` or the consumed TRL-00A run ID.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops
 
 - Do not launch `r03a-analytic-kill-population-20260715a`.
+- Do not resubmit TRL-00A or synthesize its absent case/result/publication
+  artifacts.
 - Do not modify or rerun the consumed IFT-00A/CFS-00A worker, case, target,
   checkpoint, noise, solver, iterations, learning rate, tolerances, mask,
   active times, path budget, or per-step cap. A derivative-free optimizer may

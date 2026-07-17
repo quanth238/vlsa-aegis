@@ -168,17 +168,25 @@ class CFS00AFailedDerivativeDiagnosticBEvidenceTest(unittest.TestCase):
     def test_trackers_preserve_the_narrow_conclusion_and_next_direct_test(self) -> None:
         decisions = (ROOT / "DECISIONS.md").read_text(encoding="utf-8")
         self.assertIn(ADR_PATH.relative_to(ROOT).as_posix(), decisions)
-        for relative in ("README.md", "PROGRESS.md", "EXPERIMENTS.md", "feature_list.json"):
+        for relative in ("README.md", "PROGRESS.md", "EXPERIMENTS.md"):
             text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertIn("28222_0", text, relative)
             self.assertIn("28223", text, relative)
             self.assertIn("actual-forward", text, relative)
             self.assertIn("probe", text.lower(), relative)
         feature = json.loads((ROOT / "feature_list.json").read_text(encoding="utf-8"))
-        r05a = next(item for item in feature["features"] if item["id"] == "R05A")
-        self.assertEqual(r05a["status"], "active")
-        self.assertIn("autograd-linearized", r05a["evidence"])
-        self.assertIn("broader", r05a["evidence"])
+        by_id = {item["id"]: item for item in feature["features"]}
+        active = [
+            item["id"] for item in feature["features"] if item["status"] == "active"
+        ]
+        self.assertEqual(active, ["R06"])
+        self.assertEqual(by_id["R04"]["status"], "blocked")
+        self.assertEqual(by_id["R05A"]["status"], "blocked")
+        self.assertIn("finite-difference", by_id["R05A"]["evidence"])
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            by_id["R06"]["evidence"],
+        )
 
 
 if __name__ == "__main__":

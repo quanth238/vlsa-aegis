@@ -1,19 +1,21 @@
 {
   "schema_version": "1.0",
-  "config_status": "released_exact_single_canary",
+  "config_status": "retired_cancelled_before_execution",
   "name": "r05a_reference_trajectory_lift_canary",
   "experiment_identity": "TRL-00A",
   "evidence_tier": "real_pi05_optimizer_free_reference_lift_canary_only",
   "scientific_role": "one_case_action_delta_to_state_time_vector_field_mechanism_no_simulator_efficacy",
-  "ready_to_run": true,
-  "blocked_on": [],
+  "ready_to_run": false,
+  "blocked_on": [
+    "trl00a_cancelled_before_execution_and_direction_paused_by_adr_0063"
+  ],
   "new_experiment_not_retry": true,
   "historical_run_id_reuse_forbidden": true,
   "preregistration": {
     "population_diagnostic_decision": "docs/decisions/0059-interpret-af00a-population-and-test-reference-lift.md",
     "decision_artifact": "docs/decisions/0060-preregister-reference-trajectory-lift-canary.md",
     "implementation_authorized": true,
-    "h100_submission_authorized": true,
+    "h100_submission_authorized": false,
     "automatic_next_gate_authorized": false
   },
   "frozen_source_bindings": {
@@ -235,40 +237,7 @@
     "validator_gpus": 0,
     "validator_dependency": "afterany"
   },
-  "execution_release": {
-    "artifact_role": "r05a_reference_trajectory_lift_canary_execution_release",
-    "accepted_implementation_commit": "0c79d0791cad5331a0cfb67f8a2c3c8d0c0e3e8c",
-    "run_id": "r05a-reference-trajectory-lift-canary-20260716a",
-    "single_submission": true,
-    "source_host": "worker-1",
-    "resources": {
-      "partition": "main",
-      "account": "normal",
-      "qos": "normal",
-      "gpus": 1,
-      "cpus_per_task": 8,
-      "host_memory_mib": 65536,
-      "time_limit": "00:30:00",
-      "array": "0-0%1",
-      "requeue": false,
-      "validator_partition": "main",
-      "validator_account": "normal",
-      "validator_qos": "normal",
-      "validator_cpus": 2,
-      "validator_host_memory_mib": 8192,
-      "validator_time_limit": "00:15:00",
-      "validator_gpus": 0,
-      "validator_dependency": "afterany"
-    },
-    "release_only_parent_required": true,
-    "decision_artifact": "docs/decisions/0062-release-reference-trajectory-lift-canary.md",
-    "allowed_release_diff_paths": [
-      "configs/experiments/r05a_reference_trajectory_lift_canary.json",
-      "docs/decisions/0062-release-reference-trajectory-lift-canary.md"
-    ],
-    "automatic_resubmission_allowed": false,
-    "automatic_next_experiment_allowed": false
-  },
+  "execution_release": null,
   "allow_test_tuning": false,
   "training": false
 }

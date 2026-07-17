@@ -142,12 +142,16 @@ class R05ARuntimeIdentityRegressionEvidenceTest(unittest.TestCase):
                 self.assertGreater(len(config["blocked_on"]), 0)
                 self.assertIsNone(config["execution_release"])
             self.assertIs(cfs["preregistration"]["h100_submission_authorized"], False)
-        r05a = next(
-            feature
-            for feature in json.loads(FEATURES.read_text(encoding="utf-8"))["features"]
-            if feature["id"] == "R05A"
+        features = json.loads(FEATURES.read_text(encoding="utf-8"))["features"]
+        by_id = {feature["id"]: feature for feature in features}
+        active = [feature["id"] for feature in features if feature["status"] == "active"]
+        self.assertEqual(active, ["R06"])
+        self.assertEqual(by_id["R04"]["status"], "blocked")
+        self.assertEqual(by_id["R05A"]["status"], "blocked")
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            by_id["R06"]["evidence"],
         )
-        self.assertEqual(r05a["status"], "active")
         combined = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (ADR0045, PROGRESS, EXPERIMENTS)

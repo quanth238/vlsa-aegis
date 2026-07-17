@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r06_groundingdino_dependency_setup",
+  "scientific_result": false,
+  "slurm_job_id": "28391",
+  "job_name": "aegis-dino-setup-c",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "node": "worker-2",
+  "submitted_at": "2026-07-17T02:57:47",
+  "started_at": "2026-07-17T02:57:47",
+  "ended_at": "2026-07-17T02:58:08",
+  "elapsed": "00:00:21",
+  "resources": {
+    "cpus": 2,
+    "host_memory": "4G",
+    "gpus": 0
+  },
+  "download": {
+    "url": "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
+    "script": "scripts/hpc/fetch_groundingdino_checkpoint.sh",
+    "script_sha256": "291fc44b7a3ab10b58ce5cf4f355536c3c5fe0ea52fad8a76b5f6bbe8a876a28"
+  },
+  "groundingdino": {
+    "config_path": "/mnt/data/quanth/cache/uv/archive-v0/hHOpLbugg_lAlUaF/groundingdino/config/GroundingDINO_SwinT_OGC.py",
+    "config_size_bytes": 1006,
+    "config_sha256": "172e80017f9395668a9cb5d1b8bd9d061c0e360471c6ed673c83b69bb14399f1",
+    "checkpoint_path": "/mnt/data/quanth/cache/aegis/groundingdino/groundingdino_swint_ogc.pth",
+    "checkpoint_size_bytes": 693997677,
+    "checkpoint_sha256": "3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799"
+  },
+  "logs": {
+    "stdout_path": "/mnt/data/quanth/slurm_logs/aegis_setup/28391.out",
+    "stdout_sha256": "f148abec33c94b0c0aa1a04b99b29c3a8f533eee0f8dcb981ddc0c96b6991c05",
+    "stderr_path": "/mnt/data/quanth/slurm_logs/aegis_setup/28391.err",
+    "stderr_sha256": "dc66508765f00a1a5b020d37887ed0beeac16e979aefb383ee9739ba05cd54d7"
+  },
+  "interpretation": "The official GroundingDINO Swin-T checkpoint is allocation-visible and content-bound. This is dependency setup only and contains no simulator or AEGIS efficacy result."
+}

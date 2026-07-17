@@ -185,3 +185,14 @@ linear response fit is explicitly exploratory and unevaluated. This evidence
 supports the optimizer-free TRL-00A state/time-dependent reference-lift test;
 it proves neither global infeasibility nor simulator efficacy and authorizes
 no training.
+
+`trl00a-cancelled-before-execution.json` preserves exact release `786afe18`,
+immutable run `r05a-reference-trajectory-lift-canary-20260716a`, GPU task
+`28311_0`, and CPU publisher `28312`. The GPU task remained pending for
+resources and the publisher remained unstarted. Both were cancelled under
+explicit user authorization with zero runtime, no start, no node, and no log.
+The immutable run root contains twelve hash-recorded control-plane artifacts
+but no case directory, `results.json`, or publication receipt. ADR-0063
+therefore consumes the release as apparatus-inconclusive, cancelled before
+execution. It supplies no reference-lift, action-fidelity, simulator-efficacy,
+generalization, probe, or MLP result.

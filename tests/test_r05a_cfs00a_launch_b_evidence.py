@@ -147,21 +147,29 @@ class R05ACFS00ALaunchBEvidenceTest(unittest.TestCase):
         self.assertEqual(_content_hash(projection), SCIENTIFIC_PROJECTION)
         self.assertTrue(DECISION.is_file())
 
-    def test_trackers_keep_only_r05a_active_and_training_blocked(self) -> None:
+    def test_trackers_keep_historical_run_and_current_training_blocked(self) -> None:
         features = _object(ROOT / "feature_list.json")
         active = [item for item in features["features"] if item["status"] == "active"]
-        self.assertEqual([item["id"] for item in active], ["R05A"])
-        evidence = active[0]["evidence"]
-        self.assertIn("28048_0", evidence)
-        self.assertIn("finite-difference", evidence)
-        self.assertIn("apparatus-inconclusive", evidence)
+        self.assertEqual([item["id"] for item in active], ["R06"])
+        by_id = {item["id"]: item for item in features["features"]}
+        self.assertEqual(by_id["R04"]["status"], "blocked")
+        self.assertEqual(by_id["R05A"]["status"], "blocked")
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            by_id["R06"]["evidence"],
+        )
         progress = (ROOT / "PROGRESS.md").read_text(encoding="utf-8")
         experiments = (ROOT / "EXPERIMENTS.md").read_text(encoding="utf-8")
-        for text in (progress, experiments):
-            self.assertIn("28048_0", text)
-            self.assertIn("apparatus-inconclusive", text)
-            self.assertIn("before FISTA", text)
-            self.assertIn("probe", text.lower())
+        decision = DECISION.read_text(encoding="utf-8")
+        for name, text in (
+            ("PROGRESS.md", progress),
+            ("EXPERIMENTS.md", experiments),
+            (DECISION.relative_to(ROOT).as_posix(), decision),
+        ):
+            self.assertIn("28048_0", text, name)
+            self.assertIn("apparatus-inconclusive", text, name)
+            self.assertIn("before FISTA", text, name)
+            self.assertIn("probe", text.lower(), name)
 
 
 if __name__ == "__main__":

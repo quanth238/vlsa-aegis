@@ -1,6 +1,6 @@
 # Controlled experiment ledger
 
-Last updated: 2026-07-16 (Asia/Ho_Chi_Minh)
+Last updated: 2026-07-17 (Asia/Ho_Chi_Minh)
 
 This is the sole active experiment protocol. Completed operational history is
 archived in:
@@ -13,21 +13,30 @@ archived in:
 ADRs and evidence JSON remain authoritative for immutable decisions and
 terminal runs.
 
-## Fixed research hypothesis
+## Active research question
 
-A simulator-verified safe-progress action correction is not generally
-preserved when repeated as a constant flow residual. A time-dependent residual
-velocity sequence found through the exact frozen pi0.5 sampler may transport
-the same target under the same correction budget.
+Given a Codex-frozen obstacle phrase, does the public VLSA/AEGIS
+GroundingDINO/geometry/QP safety layer prevent the collisions in the immutable
+20-case frozen pi0.5 diagnostic without sacrificing task progress?
 
-The hypothesis has two separate parts:
+R06 compares frozen pi0.5 with pi0.5 plus AEGIS using Codex-frozen semantic
+labels under exact paired
+simulator state, observation, instruction, policy noise, nominal actions, and
+execution horizon. It reports safety alone and joint safety-plus-progress,
+retains all failures, and keeps the existing 17-case and three-case strata
+separate. This collision-conditioned set is not an estimate of general
+SafeLIBERO benchmark performance.
 
-1. R05A asks whether a valid teacher control sequence exists and works.
-2. A later student study would ask whether an MLP can predict such controls on
-   untouched state groups.
+No paired AEGIS canary or population result exists. ADR-0065 explicitly
+authorizes Codex to replace only the unavailable GLM-4.5V name selector. The
+label must be frozen from the captured image and instruction before any AEGIS
+outcome; simulator names and geometry remain forbidden. GroundingDINO,
+filtering/MVEE, and the full public QP remain unchanged. This arm is not the
+original end-to-end AEGIS comparator.
 
-No current experiment tests the second part. A failed R05A stops this student
-direction; a passing R05A still does not automatically authorize training.
+R05A's time-dependent flow-transport question remains scientifically
+unresolved and is paused under ADR-0063. No current experiment authorizes
+probe or MLP training.
 
 ## Existing baseline evidence
 
@@ -41,7 +50,49 @@ The eight B01 misses comprise four clearance-only failures and four
 progress-only failures. Therefore every efficacy experiment uses joint
 Safe-Progress Success; clearance alone is not success.
 
-## R05A experiment sequence
+## R06 experiment sequence
+
+### AEGIS-00A — Codex-label paired canary
+
+Status: **implementation authorized; GroundingDINO files are content-bound;
+full paired execution remains blocked on runner review, allocation runtime
+preflight, canary image capture, and Codex label freeze**
+
+Use one frozen manifest case to validate nominal collision reproduction,
+action-boundary branch selection at the registered 5 mm margin, full paired
+state/observation/instruction/noise/action/horizon identity, Codex label
+binding, original GroundingDINO/filter/MVEE and CBF-QP integration, substep clearance/contact measurement,
+action modification and stopping diagnostics, schema-complete artifacts, and
+independent validation. Apparatus validity, not AEGIS scientific success,
+decides whether the population may be separately released.
+
+The staged path first captures the canary image and reconfirms its baseline
+collision. Codex then chooses one phrase from the public obstacle vocabulary;
+the case, instruction, and image hash are frozen before the paired run.
+GroundingDINO config and weights remain content-bound. No simulator label or
+geometry may enter this record, and the result may not be relabeled as original
+end-to-end AEGIS.
+
+Setup job `28391` completed on `worker-2` and froze the official checkpoint
+SHA-256 `3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799`.
+This proves file availability only; it is not a perception, simulator, or
+collision-avoidance result.
+
+### AEGIS-01 — Complete 20-case population
+
+Status: **blocked on a valid AEGIS-00A and a separate exact release**
+
+Preserve `manifests/oracle_h05_colliding.jsonl` byte-for-byte. Every case stays
+in the denominator, including baseline non-reproduction, missing valid
+action-boundary intervention state, perception failure, geometry failure, QP
+failure, bounds failure, contact, clearance failure, or progress failure.
+Report all 20 cases, the existing 17-case stratum, and the retained three-case
+late/no-witness stratum separately. Publish physical contact, minimum simulator
+clearance, collision avoidance, task progress and completion, action
+modification, stopping diagnostics, safety alone, and joint
+safety-plus-progress. No result supports a general benchmark claim.
+
+## Historical paused R05A experiment sequence
 
 ### IFT-00 — Local inverse-control contract
 
@@ -409,8 +460,16 @@ MLP is authorized.
 
 ### TRL-00A — Optimizer-free reference-trajectory lift canary
 
-Status: **preregistered and implementation-validated; exact H100 canary not yet
-submitted**
+Status: **cancelled before execution and retired without a scientific result**
+
+ADR-0062 released exact run
+`r05a-reference-trajectory-lift-canary-20260716a`. Exact GPU task `28311_0`
+remained pending for resources and CPU publisher `28312` remained unstarted.
+Under explicit user authorization both were cancelled with zero runtime, no
+start, no node, and no logs. The immutable root contains only control-plane
+artifacts and no case directory or `results.json`. ADR-0063 and
+`evidence/r05a/trl00a-cancelled-before-execution.json` consume the release and
+support neither a positive nor negative reference-lift conclusion.
 
 TRL-00A directly tests the refined action-delta-to-vector-field hypothesis on
 the same frozen row-zero case, observation, instruction, Pi0.5 noise,
@@ -456,8 +515,7 @@ or a global feasibility certificate. No MLP/probe training is authorized.
 
 ### IFT-01 — Three-case real transport smoke
 
-Status: **blocked on a validated converged IFT-00A and a separate immutable
-efficacy decision**
+Status: **blocked; R05A is paused and TRL-00A has no result**
 
 Fixed cases:
 
@@ -483,7 +541,7 @@ smoke pass.
 
 ### IFT-02 — Seventeen-case development population
 
-Status: **blocked on IFT-01**
+Status: **blocked; R05A is paused**
 
 GO requires exactly 17 valid fixed-denominator artifacts, reproduction of the
 constant 9/17 result, teacher success at least 14/17, preservation of all nine
@@ -493,7 +551,7 @@ for student training or final testing.
 
 ### IFT-03 — New-state student authorization
 
-Status: **blocked on IFT-02 and untouched official groups**
+Status: **blocked; R05A is paused and no learning is authorized**
 
 This future gate must repeat baseline, direct feasibility, and teacher transfer
 on genuinely new source groups, freeze group-preserving train/validation/test
@@ -503,6 +561,13 @@ support coverage before any label collection or learning.
 ## Current stop conditions
 
 - Do not launch the retired R03A population or reuse any consumed R05A run ID.
+- Do not resume or reuse TRL-00A jobs `28311_0`/`28312`, its run ID, or
+  synthesize its absent scientific artifacts.
+- Do not submit the full paired R06 canary before the capture artifact, frozen
+  Codex label, GroundingDINO assets, fail-closed apparatus, and separate release
+  are validated. A capture-only canary requires its own exact release.
+- Do not describe the Codex-label arm, privileged-geometry variants, or other
+  AEGIS-core substitutions as original end-to-end AEGIS.
 - Do not relaunch the consumed IFT-00A or CFS-00A protocols. A new
   actual-forward teacher requires a separate preregistration and release.
 - Do not modify the consumed protocols' source worker, case, target,

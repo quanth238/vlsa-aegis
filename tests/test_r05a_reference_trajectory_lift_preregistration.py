@@ -22,8 +22,17 @@ ADR_0060_PATH = (
     / "decisions"
     / "0060-preregister-reference-trajectory-lift-canary.md"
 )
+ADR_0063_PATH = (
+    ROOT
+    / "docs"
+    / "decisions"
+    / "0063-preserve-and-retire-unexecuted-reference-lift.md"
+)
 DIAGNOSTIC_PATH = (
     ROOT / "evidence" / "r05a" / "af00a-sealed-population-diagnostic.json"
+)
+RETIREMENT_EVIDENCE_PATH = (
+    ROOT / "evidence" / "r05a" / "trl00a-cancelled-before-execution.json"
 )
 
 
@@ -66,7 +75,11 @@ class ReferenceTrajectoryLiftPreregistrationTest(unittest.TestCase):
         cls.config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         cls.adr_0059 = ADR_0059_PATH.read_text(encoding="utf-8")
         cls.adr_0060 = ADR_0060_PATH.read_text(encoding="utf-8")
+        cls.adr_0063 = ADR_0063_PATH.read_text(encoding="utf-8")
         cls.diagnostic = json.loads(DIAGNOSTIC_PATH.read_text(encoding="utf-8"))
+        cls.retirement = json.loads(
+            RETIREMENT_EVIDENCE_PATH.read_text(encoding="utf-8")
+        )
 
     def test_config_is_fail_closed_or_one_exact_release(self) -> None:
         self.assertEqual(self.config["experiment_identity"], "TRL-00A")
@@ -74,19 +87,71 @@ class ReferenceTrajectoryLiftPreregistrationTest(unittest.TestCase):
         preregistration = self.config["preregistration"]
         self.assertTrue(preregistration["implementation_authorized"])
         if self.config["ready_to_run"] is False:
-            self.assertEqual(
-                self.config["config_status"], "draft_preregistered_not_released"
-            )
-            self.assertEqual(
-                self.config["blocked_on"],
-                [
-                    "reference_lift_implementation_not_complete",
-                    "independent_scientific_code_hpc_review_not_complete",
-                    "exact_execution_release_not_authorized",
-                ],
-            )
             self.assertIsNone(release)
             self.assertFalse(preregistration["h100_submission_authorized"])
+            if self.config["config_status"] == "draft_preregistered_not_released":
+                self.assertEqual(
+                    self.config["blocked_on"],
+                    [
+                        "reference_lift_implementation_not_complete",
+                        "independent_scientific_code_hpc_review_not_complete",
+                        "exact_execution_release_not_authorized",
+                    ],
+                )
+            else:
+                self.assertEqual(
+                    self.config["config_status"],
+                    "retired_cancelled_before_execution",
+                )
+                self.assertEqual(
+                    self.config["blocked_on"],
+                    [
+                        "trl00a_cancelled_before_execution_and_direction_paused_by_adr_0063"
+                    ],
+                )
+                self.assertEqual(
+                    self.retirement["classification"],
+                    "apparatus_inconclusive_cancelled_before_execution",
+                )
+                self.assertIsNone(self.retirement["scientific_result"])
+                self.assertEqual(
+                    self.retirement["immutable_identity"],
+                    {
+                        "accepted_implementation_commit": "0c79d0791cad5331a0cfb67f8a2c3c8d0c0e3e8c",
+                        "release_commit": "786afe18bf177b4db1e808f6fedb317beac22be8",
+                        "run_id": "r05a-reference-trajectory-lift-canary-20260716a",
+                        "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-reference-trajectory-lift-canary-20260716a",
+                        "source_contract_sha256": "140e7e133640c12bc4d39816c2ca212a1612497fdea5aa8ebe9284cc865393a9",
+                        "submission_receipt_sha256": "9ff2c0b8a8804ac409ca3c4b6e82f51ca7bb23af42e3ac2ff6f6393ad7e6b77e",
+                        "release_fingerprint_sha256": "2ef79dcb6907673604aa43453950893be3435cd2fb401d73a06b1a6541f84b16",
+                    },
+                )
+                self.assertEqual(
+                    self.retirement["cancellation"]["requested_exact_jobs"],
+                    ["28311_0", "28312"],
+                )
+                self.assertEqual(
+                    self.retirement["cancellation"]["gpu_array"][
+                        "last_exact_task_record_before_cancellation"
+                    ]["runtime"],
+                    "00:00:00",
+                )
+                self.assertFalse(
+                    self.retirement["cancellation"]["gpu_array"][
+                        "slurm_log_exists"
+                    ]
+                )
+                self.assertFalse(
+                    self.retirement["cancellation"]["cpu_afterany_publisher"][
+                        "slurm_log_exists"
+                    ]
+                )
+                self.assertFalse(
+                    self.retirement["execution_boundary"]["results_json_exists"]
+                )
+                retired_decision = _squash_whitespace(self.adr_0063)
+                self.assertIn("Permanently consume run ID", retired_decision)
+                self.assertIn("no active monitor or launch path", retired_decision)
         else:
             self.assertIs(self.config["ready_to_run"], True)
             self.assertEqual(

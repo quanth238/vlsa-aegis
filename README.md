@@ -14,10 +14,17 @@ distributed oracle residual passed 9/17 eligible cases versus 0/17 for matched
 random and registered analytic controls. A valid R03A smoke showed that two
 stronger analytic fields avoided contact on one case but lost task progress;
 ADR-0028 intentionally retires its unlaunched population because it does not
-test the selected action-to-flow transport hypothesis. R05A is now the only
-active gate: it tests whether the safe-progress action target can be converted
-through the exact frozen sampler into a budgeted time-dependent residual
-velocity sequence. No probe or residual-field MLP has been trained.
+test the selected action-to-flow transport hypothesis. R05A subsequently
+tested several action-to-flow transports, but ADR-0063 pauses that direction
+without a TRL-00A result: exact jobs `28311_0` and `28312` were cancelled
+before execution with zero runtime and no node. R06 is now the only active
+gate. This collision-conditioned baseline diagnostic evaluates frozen pi0.5
+against the public AEGIS GroundingDINO/geometry/QP layer using semantic labels
+that Codex freezes from captured images before AEGIS outcomes, on the
+immutable 20-case collision-conditioned diagnostic set. It does not evaluate
+the unavailable original GLM selector. No paired AEGIS
+canary or population result exists yet, and no probe or residual-field MLP has
+been trained.
 IFT-00 passes as synthetic implementation evidence. CFS-00A run B reached real
 pi0.5 and rejected its 35-by-75 Jacobian at the registered finite-difference
 gate before FISTA, but its generic exception discarded the numeric evidence.
@@ -85,9 +92,10 @@ No-control sampler calls retain the baseline return type and integration path.
 
 ## Evidence ladder
 
-The completed CRFS sequence is H00–H10; the endpoint-free sequence and current
-transport pivot are R00–R05A in `feature_list.json`. R00–R03 are passing,
-R03A/R04 are historical blocked gates, and R05A is active.
+The completed CRFS sequence is H00–H10. The endpoint-free and transport
+sequence is R00–R05A in `feature_list.json`; R00–R03 are passing and
+R03A/R04/R05A are historical or paused blocked gates. R06 is the sole active
+gate.
 
 ```text
 baseline + provenance + replay
@@ -105,8 +113,9 @@ H05 endpoint contradiction -> R00 progress calibration
                               -> R01 endpoint-free feasibility
                               -> R02/R03 oracle steerability and analysis
                               -> R03A one-case analytic diagnostic (retired)
-                              -> R05A inverse-flow teacher transport
-                              -> student study only after new-state prerequisites
+                              -> R05A inverse-flow transport (paused without TRL result)
+                              -> R06 paired pi0.5 versus AEGIS baseline evaluation
+                              -> learned study remains unauthorized
 ```
 
 The dependency-free synthetic fixture checks implementation only. Real artifacts
@@ -129,15 +138,15 @@ make synthetic
 
 Real execution uses the existing two-environment baseline boundary: Python 3.11/PyTorch for the OpenPI server and the LIBERO client environment for simulation. Both processes run inside one Slurm allocation; the transient server is terminated by a shell trap.
 
-The R00–R04B allocation evidence and exact Slurm job IDs are recorded in the
+The R00–R05A allocation evidence and exact Slurm job IDs are recorded in the
 archived detailed progress record and `evidence/`. There is intentionally no
-R04 or R05A training command.
+R04, R05A, or R06 training command.
 R04A verified real sampler-trace to physical-action to raw-simulator-label
 plumbing on one reused R00 state; it cannot support a learning or efficacy
 claim. R04B is limited to one exact post-edit continuation/parity smoke and
-does not execute a guidance outcome. ADR-0028 keeps that apparatus available
-but blocks the scalar-probe study while R05A tests action-to-flow teacher
-transport. Any later student study still requires genuinely new source-episode
+does not execute a guidance outcome. ADR-0063 preserves the R05A apparatus but
+pauses action-to-flow transport and activates only the R06 AEGIS baseline
+diagnostic. Any later student study still requires genuinely new source-episode
 groups from a defined estimand, a frozen group-preserving split, support-matched
 coverage, and matched controls. Run live preflight immediately before every
 submission.
@@ -155,13 +164,17 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0021-freeze-generated-source-canary-and-direct-transfer-pilot.md`: new-state identity, canary, and direct privileged-transfer stop rule;
 - `docs/decisions/0023-run-strong-analytic-kill-test.md`: frozen no-learning R03A necessity test;
 - `docs/decisions/0027-register-source-node-grouped-r03a-population.md`: historical allocation-backed smoke evidence and the now-retired grouped-population launch contract;
-- `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: current controlled pivot and R05A stop rules;
+- `docs/decisions/0028-pivot-to-inverse-flow-transport.md`: historical controlled R05A pivot and stop rules;
 - `docs/decisions/0050-preregister-actual-forward-cem-teacher-canary.md`: fixed actual-forward derivative-free teacher test;
 - `docs/decisions/0052-preserve-af00a-launch-a-and-normalize-array-task-id.md`: zero-runtime launch-A evidence and exact Slurm identity-display repair;
 - `docs/decisions/0054-preserve-af00a-launch-b-and-test-record-parser.md`: zero-runtime launch-B evidence and behavior-tested exact Slurm field parser;
 - `docs/decisions/0056-preserve-af00a-run-c-and-recover-publication.md`: terminal run-C evidence, one-ULP publisher diagnosis, and CPU-only recovery contract;
 - `docs/decisions/0057-release-af00a-run-c-cpu-republication.md`: exact one-job CPU republication release;
 - `docs/decisions/0058-accept-af00a-frozen-cem-negative.md`: published one-case negative result and next research boundary;
+- `docs/decisions/0062-release-reference-trajectory-lift-canary.md`: consumed exact TRL-00A release;
+- `docs/decisions/0063-preserve-and-retire-unexecuted-reference-lift.md`: zero-runtime TRL retirement and R06 transition;
+- `docs/decisions/0064-preregister-aegis-collision-conditioned-baseline.md`: exact paired 20-case AEGIS protocol;
+- `docs/decisions/0065-use-codex-frozen-semantic-labels-for-aegis.md`: user-authorized Codex replacement for the unavailable GLM selector;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

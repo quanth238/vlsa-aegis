@@ -26,19 +26,42 @@ SMOKE_CASES = [
 
 
 class R05AContractTest(unittest.TestCase):
-    def test_inverse_flow_is_the_only_active_gate(self):
+    def test_r05a_is_paused_and_r06_is_the_only_active_gate(self):
         value = json.loads(FEATURES.read_text(encoding="utf-8"))
         features = {item["id"]: item for item in value["features"]}
         active = [item["id"] for item in value["features"] if item["status"] == "active"]
-        self.assertEqual(active, ["R05A"])
+        self.assertEqual(active, ["R06"])
         self.assertEqual(features["R03A"]["status"], "blocked")
         self.assertEqual(features["R04"]["status"], "blocked")
+        self.assertEqual(features["R05A"]["status"], "blocked")
         self.assertEqual(features["R05A"]["dependencies"], ["R03"])
         self.assertIn(
-            "No teacher-generated action has been executed in the simulator",
+            "cancelled under explicit user authorization while unstarted",
             features["R05A"]["evidence"],
         )
-        self.assertIn("forbid solver tuning or IFT-01", features["R05A"]["evidence"])
+        self.assertIn(
+            "No teacher-generated action entered the simulator",
+            features["R05A"]["evidence"],
+        )
+        self.assertEqual(
+            features["R06"]["name"],
+            "AEGIS collision-conditioned baseline diagnostic",
+        )
+        self.assertEqual(features["R06"]["dependencies"], ["R02"])
+        self.assertIn("Activated by ADR-0063", features["R06"]["evidence"])
+        self.assertIn(
+            "population execution remains blocked",
+            features["R06"]["evidence"],
+        )
+        self.assertIn("GLM-4.5V key is unavailable", features["R06"]["evidence"])
+        self.assertIn(
+            "not original end-to-end VLSA/AEGIS",
+            features["R06"]["evidence"],
+        )
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            features["R06"]["evidence"],
+        )
 
     def test_smoke_manifest_is_exact_unique_development_subset(self):
         raw = MANIFEST.read_bytes()

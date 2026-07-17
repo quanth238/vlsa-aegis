@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "evidence_role": "trl00a_cancelled_before_execution_terminal_record",
+  "recorded_date": "2026-07-17",
+  "experiment_identity": "TRL-00A",
+  "classification": "apparatus_inconclusive_cancelled_before_execution",
+  "scientific_result": null,
+  "immutable_identity": {
+    "accepted_implementation_commit": "0c79d0791cad5331a0cfb67f8a2c3c8d0c0e3e8c",
+    "release_commit": "786afe18bf177b4db1e808f6fedb317beac22be8",
+    "run_id": "r05a-reference-trajectory-lift-canary-20260716a",
+    "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r05a-reference-trajectory-lift-canary-20260716a",
+    "source_contract_sha256": "140e7e133640c12bc4d39816c2ca212a1612497fdea5aa8ebe9284cc865393a9",
+    "submission_receipt_sha256": "9ff2c0b8a8804ac409ca3c4b6e82f51ca7bb23af42e3ac2ff6f6393ad7e6b77e",
+    "release_fingerprint_sha256": "2ef79dcb6907673604aa43453950893be3435cd2fb401d73a06b1a6541f84b16"
+  },
+  "cancellation": {
+    "authorization": "explicit_user_authorization_for_exact_jobs_only",
+    "requested_exact_jobs": [
+      "28311_0",
+      "28312"
+    ],
+    "terminal_observation_time_zone": "not_recorded_by_sacct_output",
+    "gpu_array": {
+      "array_parent_job_id": "28311",
+      "exact_task_id": "28311_0",
+      "last_exact_task_record_before_cancellation": {
+        "state": "PENDING",
+        "reason": "Resources",
+        "runtime": "00:00:00",
+        "node_list": "",
+        "allocated_tres": null
+      },
+      "terminal_parent_record": {
+        "state": "CANCELLED by 1073",
+        "exit_code": "0:0",
+        "submit": "2026-07-16T15:43:29",
+        "eligible": "2026-07-16T15:43:35",
+        "start": "None",
+        "end": "2026-07-17T02:22:13",
+        "elapsed": "00:00:00",
+        "node_list": "None assigned"
+      },
+      "slurm_log_path": "/mnt/data/quanth/slurm_logs/crfs-oracle/crfs-r05a-trl00a-28311_0.out",
+      "slurm_log_exists": false
+    },
+    "cpu_afterany_publisher": {
+      "job_id": "28312",
+      "terminal_record": {
+        "state": "CANCELLED by 1073",
+        "exit_code": "0:0",
+        "submit": "2026-07-16T15:43:31",
+        "eligible": "Unknown",
+        "start": "None",
+        "end": "2026-07-17T02:22:13",
+        "elapsed": "00:00:00",
+        "node_list": "None assigned"
+      },
+      "slurm_log_path": "/mnt/data/quanth/slurm_logs/crfs-oracle/crfs-r05a-trl00a-val-28312.out",
+      "slurm_log_exists": false
+    }
+  },
+  "immutable_control_plane_artifacts": [
+    {
+      "path": "cpu-afterany-job-record.txt",
+      "sha256": "b2dbdb43cddc3b134492322301d7011d0a3d2896dab1314508216ad5e23091bf"
+    },
+    {
+      "path": "final-pre-release-fingerprint.json",
+      "sha256": "2ef79dcb6907673604aa43453950893be3435cd2fb401d73a06b1a6541f84b16"
+    },
+    {
+      "path": "final-pre-release-fingerprint.sha256",
+      "sha256": "e81fa8265eb61d1a7a6bcf916f42f9c60b8bfee5771489bfbe16adb77821e4db"
+    },
+    {
+      "path": "held-gpu-parent-job-record.txt",
+      "sha256": "fb81333117f041b4691cb687238f0957fef509b7a6f6f5fc1cc1ba99f3b3048f"
+    },
+    {
+      "path": "held-gpu-submission.json",
+      "sha256": "e8fff74848832dff5dc3bbea59e2f3392c3415599740cdbd08da39278b0e0c59"
+    },
+    {
+      "path": "held-gpu-task-job-record.txt",
+      "sha256": "a107dee1916d9b2f7ab7a93ca8ac104ea9b4b70e766302cdcb057b2daa0ac751"
+    },
+    {
+      "path": "launch-reservation.json",
+      "sha256": "fb0733dc8e1abad22661116aacbe42a658cf422b0f05873f5d6b9d1d52da3ca8"
+    },
+    {
+      "path": "provisional-cpu-job-id.json",
+      "sha256": "8f0caa9bf265510339bc648643264d04d814f8578dcf3d3757a099b5cfea233c"
+    },
+    {
+      "path": "provisional-gpu-job-id.json",
+      "sha256": "7cf450cc8d17d1c5f7534485c1b79d49b69dd995f70969a24bd88b288bf36e97"
+    },
+    {
+      "path": "source-contract.json",
+      "sha256": "140e7e133640c12bc4d39816c2ca212a1612497fdea5aa8ebe9284cc865393a9"
+    },
+    {
+      "path": "submission.json",
+      "sha256": "9ff2c0b8a8804ac409ca3c4b6e82f51ca7bb23af42e3ac2ff6f6393ad7e6b77e"
+    },
+    {
+      "path": "vinuni-preflight.txt",
+      "sha256": "cd8961d9d3c0319b5830fedb5e8f439be5b166ab0bd5d124c3ace7817de73eb0"
+    }
+  ],
+  "execution_boundary": {
+    "remote_source_head": "786afe18bf177b4db1e808f6fedb317beac22be8",
+    "remote_source_clean": true,
+    "gpu_allocation_started": false,
+    "cpu_publisher_started": false,
+    "policy_or_model_requests": 0,
+    "generated_simulator_steps": 0,
+    "case_directory_exists": false,
+    "results_json_exists": false,
+    "publication_receipt_exists": false
+  },
+  "claim_boundary": {
+    "teacher_transport_supported": false,
+    "teacher_transport_rejected": false,
+    "simulator_efficacy_measured": false,
+    "population_generalization_measured": false,
+    "probe_or_mlp_training_authorized": false,
+    "interpretation": "The exact release was cancelled while pending with zero runtime and no node. It supplies no positive or negative scientific evidence."
+  }
+}

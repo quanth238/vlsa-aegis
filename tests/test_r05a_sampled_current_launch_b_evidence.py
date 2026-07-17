@@ -94,22 +94,28 @@ class R05ASampledCurrentLaunchBEvidenceTest(unittest.TestCase):
         )
         self.assertIs(failure["accounting_delay_would_fix"], False)
 
-    def test_trackers_leave_r05a_active_and_h100_apparatus_unreleased(self) -> None:
+    def test_trackers_preserve_launch_b_after_r05a_to_r06_transition(self) -> None:
         apparatus = json.loads(APPARATUS.read_text(encoding="utf-8"))
         self.assertIs(apparatus["ready_to_run"], False)
         self.assertGreater(len(apparatus["blocked_on"]), 0)
         self.assertNotIn("execution_release", apparatus)
-        r05a = next(
-            feature
-            for feature in json.loads(FEATURES.read_text(encoding="utf-8"))["features"]
-            if feature["id"] == "R05A"
+        features = json.loads(FEATURES.read_text(encoding="utf-8"))["features"]
+        by_id = {feature["id"]: feature for feature in features}
+        active = [feature["id"] for feature in features if feature["status"] == "active"]
+        self.assertEqual(active, ["R06"])
+        self.assertEqual(by_id["R04"]["status"], "blocked")
+        self.assertEqual(by_id["R05A"]["status"], "blocked")
+        self.assertIn(
+            "probe/MLP training remains forbidden",
+            by_id["R06"]["evidence"],
         )
-        self.assertEqual(r05a["status"], "active")
         combined = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (ADR0039, PROGRESS, EXPERIMENTS)
         )
         for phrase in (
+            "27962_0",
+            "27963",
             "apparatus-inconclusive",
             "no accepted IFT-00A",
             "zero-GPU",

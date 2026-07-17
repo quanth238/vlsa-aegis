@@ -1,0 +1,252 @@
+{
+  "schema_version": "1.0",
+  "experiment_identity": "AEGIS-00A",
+  "gate": "R06",
+  "name": "aegis_codex_label_collision_conditioned_canary",
+  "evidence_tier": "real_safelibero_collision_conditioned_diagnostic",
+  "config_status": "draft_preregistered_not_released",
+  "ready_to_run": false,
+  "blocked_on": [
+    "aegis_pairing_implementation_not_complete",
+    "canary_branch_image_not_captured",
+    "codex_canary_label_not_frozen",
+    "groundingdino_allocation_runtime_preflight_not_complete",
+    "independent_scientific_code_hpc_review_not_complete",
+    "exact_execution_release_not_authorized"
+  ],
+  "manifest": {
+    "path": "manifests/oracle_h05_colliding.jsonl",
+    "sha256": "b12319d3fed151bfee85e1615bd72254474a1480308389d747dce954c6131e41",
+    "ordered_cases": 20,
+    "case_removal_forbidden": true
+  },
+  "canary": {
+    "row_index_zero_based": 0,
+    "case_id": "crfs-1069f29a8d76463a",
+    "automatic_population_launch_authorized": false
+  },
+  "source_evidence": {
+    "baseline_revision": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b",
+    "r01_summary": {
+      "path": "evidence/r01/r01-summary.json",
+      "sha256": "715d9326f02df531e0c6d7aa7b94629569b320800b4283c36fff41335d9b8bc5",
+      "ordered_result_set_digest": "6cc9bcf435dbe06396b90e34a0f4930994039538a6cc6ecad82876a538513140",
+      "nominal_collisions": 20
+    },
+    "r02_config": {
+      "path": "configs/experiments/r02_oracle_flow.json",
+      "sha256": "c5be1b4759487f4d6541e49110b90fcf5de404bdaed5f389358db0abe4388f4e"
+    },
+    "canary_r02_pair": {
+      "run_id": "r02-oracle-flow-population-20260714a",
+      "path": "/mnt/data/quanth/experiments/crfs-oracle/r02-oracle-flow-population-20260714a/crfs-1069f29a8d76463a/r02-paired.json",
+      "sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593"
+    },
+    "checkpoint": {
+      "id": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch",
+      "model_path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/model.safetensors",
+      "sha256": "988055ccfd7032903c073a641f3c5f0f0541df444a315116a16f0bf4716d26ed"
+    },
+    "checkpoint_config": {
+      "path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/config.json",
+      "sha256": "5c2728c53f4b33ee16380140f303713fdb5df78a8d26ee1489ace374fc54327a"
+    },
+    "normalization_asset": {
+      "path": "/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero_pytorch/assets/physical-intelligence/libero/norm_stats.json",
+      "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+    },
+    "normalization_asset_sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+    "base_decision": "docs/decisions/0064-preregister-aegis-collision-conditioned-baseline.md",
+    "base_decision_sha256": "abe06c3ff7e7eb6b0a074f87ed8f2191bfab9291233924c767f8f06753c3c64e",
+    "current_decision": "docs/decisions/0065-use-codex-frozen-semantic-labels-for-aegis.md",
+    "current_decision_sha256": "ec66f637d2d6313a6c7a0775f0c427dd846dd74749c6ab9ad994bea144eea4de"
+  },
+  "strata": {
+    "primary_standard_settled": {
+      "count": 17,
+      "manifest": "manifests/r03a_analytic_kill_test_eligible.jsonl",
+      "manifest_sha256": "241f1b94a5434973dcfb235b43b9386ad15046ff87d35d5b0c34e295c2132916"
+    },
+    "pre_settle_late_intervention": {
+      "count": 3,
+      "case_ids": [
+        "crfs-3bd38b2879b8b0a9",
+        "crfs-b22f5fccb666732f",
+        "crfs-dbbf42a4f4614e0a"
+      ],
+      "pooled_with_primary": false
+    }
+  },
+  "branch_selection": {
+    "candidate_boundaries": "completed_dummy_control_boundaries_0_through_20",
+    "selection": "latest_boundary_with_no_forbidden_contact_and_inclusive_D_sim_gte_0.005m",
+    "hidden_physics_substep_branching": "forbidden_measurement_only",
+    "primary_requires_boundary": 20,
+    "no_admissible_branch_is_retained": true,
+    "selection_must_not_examine_aegis_outcome": true
+  },
+  "pairing": {
+    "policy_render_size": 224,
+    "aegis_perception_render_size": 1024,
+    "aegis_render_semantics": "additional_no_physics_step_render_from_exact_paired_branch",
+    "settle_action": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
+    "policy_noise_shape": [10, 32],
+    "policy_noise_dtype": "float32",
+    "sampler_path": "eager_explicit_noise_trace_only",
+    "duplicate_policy_inference_required": true,
+    "returned_action_byte_equality_required": true,
+    "executed_actions": 5,
+    "executed_action_dimension": 7,
+    "physics_substeps_per_action": 25,
+    "required_arm_branch_reconstructions": 2,
+    "paired_fields": [
+      "full_integration_state",
+      "policy_observation",
+      "instruction",
+      "policy_noise",
+      "nominal_actions",
+      "executed_horizon",
+      "active_obstacle"
+    ]
+  },
+  "arms": {
+    "pi05_baseline": {
+      "action_source": "frozen_branch_eager_explicit_noise_pi05_first_5x7",
+      "modification": "none",
+      "simulator_repeats_in_canary": 2
+    },
+    "pi05_plus_aegis_codex_label": {
+      "authoritative_entrypoint": "main/main_aegis.py",
+      "authoritative_entrypoint_sha256": "8491b9381dd0d6dbd1ba9bd0360db7c93a932d7e5913e517b4f2291abd64042c",
+      "translational_reference_sha256": "2d397b3969ec50fc1811fe6037ecbfc3594202d5511d736a89314e8e9b41f0a7",
+      "authoritative_utils": "main/utils.py",
+      "authoritative_utils_sha256": "d2efc608eb17f47e246cac8f0a8cbef364889e89d2b4ad0f302b1d55b45b2ecf",
+      "controller": "canonical_public_full_9_variable_translation_rotation_cbf_qp",
+      "first_step_robot_geometry_initialization": "literal_public_pre_settle_state",
+      "current_state_initialization_substitution": "forbidden",
+      "perception_mode": "codex_frozen_semantic_label_plus_original_groundingdino",
+      "semantic_selector": "codex_manual_review_before_aegis_outcome",
+      "original_glm_selector_evaluated": false,
+      "reported_as_original_end_to_end_aegis": false,
+      "oracle_label_or_geometry_substitution": "forbidden",
+      "translational_only_substitution": "forbidden",
+      "qp_fallback": "forbidden_record_qp_failure",
+      "controller_repeat_from_frozen_perception_in_canary": 2
+    }
+  },
+  "codex_label_protocol": {
+    "stage_order": [
+      "allocation_capture_and_baseline_reproduction",
+      "codex_image_review",
+      "immutable_label_freeze",
+      "paired_aegis_execution"
+    ],
+    "canary_label_manifest": {
+      "path": "manifests/r06_codex_obstacle_labels_canary.jsonl",
+      "sha256": null,
+      "expected_rows": 1,
+      "status": "not_captured_or_labeled"
+    },
+    "population_label_manifest": {
+      "path": "manifests/r06_codex_obstacle_labels_population.jsonl",
+      "sha256": null,
+      "expected_rows": 20,
+      "status": "not_authorized_before_valid_canary"
+    },
+    "required_record_fields": [
+      "schema_version",
+      "case_id",
+      "instruction",
+      "agentview_image_sha256",
+      "obstacle_label",
+      "allowed_label_vocabulary",
+      "reviewer",
+      "reviewed_at"
+    ],
+    "reviewer": "codex",
+    "allowed_label_vocabulary": [
+      "yellow rectangular book",
+      "blue moka pot",
+      "red mug",
+      "white storage box",
+      "black wine bottle",
+      "red milk carton"
+    ],
+    "simulator_object_name_or_geometry_allowed": false,
+    "relabel_after_aegis_outcome": "forbidden"
+  },
+  "public_aegis_constants": {
+    "unavailable_public_glm_model_not_evaluated": "glm-4.5v",
+    "groundingdino_box_threshold": 0.35,
+    "groundingdino_text_threshold": 0.25,
+    "point_filter_nearest_fraction": 0.8,
+    "point_filter_dbscan_eps": 0.0001,
+    "point_filter_dbscan_min_points": 50,
+    "cbf_alpha_multiplier": 10.0,
+    "reference_velocity_multiplier": 5.0,
+    "returned_action_multiplier": 0.2,
+    "z_nominal_multiplier": 10.0,
+    "z_update_dt": 0.05,
+    "solver": "OSQP",
+    "objective_diagonal": [0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 1.0, 1.0, 1.0]
+  },
+  "groundingdino_assets": {
+    "setup_evidence": "evidence/r06/groundingdino-setup-28391.json",
+    "setup_evidence_sha256": "50e86a374928e277a5ca836eba6dcb269f6893d8d53f0d12d4c264f2e4f83ea0",
+    "config_path": "/mnt/data/quanth/cache/uv/archive-v0/hHOpLbugg_lAlUaF/groundingdino/config/GroundingDINO_SwinT_OGC.py",
+    "config_sha256": "172e80017f9395668a9cb5d1b8bd9d061c0e360471c6ed673c83b69bb14399f1",
+    "checkpoint_path": "/mnt/data/quanth/cache/aegis/groundingdino/groundingdino_swint_ogc.pth",
+    "checkpoint_sha256": "3b3ca2563c77c69f651d7bd133e97139c186df06231157a64c507099c52bc799",
+    "original_release_url": "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
+    "glm_api_key_required": false
+  },
+  "metrics": {
+    "registered_D_sim": "inclusive_branch_plus_125_substep_6cm_eef_sphere_to_active_obstacle_box_clearance",
+    "physical_contact": "forbidden_eef_active_obstacle_mujoco_contact",
+    "physical_contact_free": "no_forbidden_physical_contact",
+    "collision_avoidance_success": "no_forbidden_physical_contact_and_D_sim_gte_0m",
+    "registered_buffer_safety": "no_contact_and_D_sim_gte_0.005m",
+    "minimum_progress_primary_m": 0.029897349105658888,
+    "joint_primary": "registered_buffer_safety_and_reach_progress_gte_minimum_progress_primary_m",
+    "joint_late_descriptive": "registered_buffer_safety_and_reach_progress_gt_0",
+    "task_completion": "during_prefix_and_end_of_prefix_reported_separately",
+    "task_completion_interpretation": "five_action_prefix_diagnostic_not_full_episode_success",
+    "realized_eef_path_sampling": "branch_sample_plus_all_125_physics_substeps",
+    "stop_like": "realized_eef_path_length_lte_0.005m_and_abs_reach_progress_lte_0.001m",
+    "safety_by_stopping": "registered_buffer_safety_and_stop_like",
+    "continuous_motion_retention_required": true,
+    "legacy_public_collision_diagnostic": "active_obstacle_L1_displacement_gt_0.001m"
+  },
+  "failure_accounting": {
+    "retain_every_case": true,
+    "missing_or_mismatched_codex_label": "apparatus_invalid",
+    "missing_groundingdino_dependency": "apparatus_invalid",
+    "dependency_complete_no_or_wrong_perception": "method_failure",
+    "qp_no_value_or_nonfinite": "method_failure_qp_failure",
+    "baseline_collision_not_reproduced": "retained_not_a_rescue",
+    "silent_fallback": "forbidden"
+  },
+  "canary_population_release_gates": [
+    "exact_source_config_dependency_hashes",
+    "exact_branch_reconstruction_and_boundary20",
+    "exact_policy_observation_noise_and_returned_actions",
+    "two_126_sample_baseline_replays_reproduce_collision",
+    "same_state_1024_render_matches_frozen_codex_label_record",
+    "original_groundingdino_filtering_and_mvee_run_without_oracle_substitution",
+    "finite_positive_mvee_and_all_five_qps_execute",
+    "repeated_controller_replay_is_exact",
+    "schema_valid_atomic_paired_result"
+  ],
+  "claims": {
+    "collision_conditioned_only": true,
+    "original_glm_selector_evaluated": false,
+    "original_end_to_end_aegis_claim_forbidden": true,
+    "general_benchmark_rate_forbidden": true,
+    "forward_invariance_claim_forbidden": true,
+    "superiority_claim_forbidden": true,
+    "probe_or_mlp_training_authorized": false,
+    "aegis_solves_cases_before_validated_artifacts": false
+  },
+  "execution_release": null,
+  "allow_test_tuning": false
+}
