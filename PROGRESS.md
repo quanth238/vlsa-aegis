@@ -61,10 +61,21 @@ Reviewed TRL-00A implementation:
 Consumed TRL-00A release:
 `786afe18bf177b4db1e808f6fedb317beac22be8`.
 
-Active jobs: none. R06 capture task `28409_0` is terminal `FAILED|1:0` after
-`00:01:43` on worker-1. It ran no AEGIS, GroundingDINO, MVEE, QP, label
-selection, or training and published no `capture.json`; ADR-0067 classifies
-the failure as apparatus-inconclusive. TRL-00A task `28311_0` and CPU publisher `28312` were
+Accepted R06 capture repair:
+`6c428d246ab810e9079181d96e6801ea00f68338`.
+
+Terminal R06 capture retry-B release:
+`ccb8c5225517f21ca1405f7b1470fe47dab160ee`.
+
+Active jobs: none. R06 capture retry-B task `28428_0` completed `0:0` after
+`00:01:52` on worker-1 and atomically published a valid same-state capture.
+It reproduced the registered negative-clearance violation twice with no
+physical contact, confirmed the live
+`SingleArm`/`MountedPanda` two-actuator controller state, and executed no
+AEGIS, GroundingDINO, MVEE, QP, semantic-label, or training step. Codex later
+froze `red milk carton` from its exact image. The earlier capture task
+`28409_0` remains terminal `FAILED|1:0` and apparatus-inconclusive under
+ADR-0067. TRL-00A task `28311_0` and CPU publisher `28312` were
 cancelled under exact user authorization before execution; both had zero
 runtime, no start, and no node, and neither log exists. AF-00A GPU task
 `28281_0` completed `0:0`; its original CPU
@@ -124,11 +135,12 @@ stopping behavior, and joint safety-plus-progress.
 
 The new gate has no paired canary or population result. The action-boundary
 selection, exact pairing, 17+3 strata, metrics, fixed-denominator failures, and
-canary identity are frozen. The current staged path is: one allocation-backed
-canary capture and baseline reconfirmation, Codex label freeze, one paired
-canary, then a separately released 20-case capture/label/population. This does
-not evaluate the original GLM selector and cannot be called original
-end-to-end VLSA/AEGIS.
+canary identity are frozen. Capture retry B completed the first two stages:
+one allocation-backed capture with baseline reconfirmation, followed by an
+outcome-blind Codex label freeze. The remaining staged path is one separately
+reviewed paired canary, then a separately released 20-case
+capture/label/population. This does not evaluate the original GLM selector and
+cannot be called original end-to-end VLSA/AEGIS.
 
 The first capture-only release used commit `cb57d52`, immutable run
 `r06-aegis-label-capture-canary-20260717a`, and exact task `28409_0`. It
@@ -138,10 +150,35 @@ The exact pinned runtime sources expose two validator assumptions that were
 wrong: this frozen LIBERO task names its `SingleArm` robot `MountedPanda`, not
 `Panda`, and `PandaGripper.current_action` contains two actuator commands
 after any dummy control although its abstract input DOF is one. The failed run
-did not persist its live controller record, so a fresh capture remains the
-runtime confirmation. No scientific or AEGIS result exists. ADR-0067 consumes
-the run, leaves the config fail closed, and permits only a boundary-conditioned
-controller-state contract repair plus a fresh capture release.
+did not persist its live controller record, so a fresh capture was still
+required at that point. No scientific or AEGIS result exists from run A.
+ADR-0067 consumes the run, leaves the config fail closed, and permits only a
+boundary-conditioned controller-state contract repair plus a fresh capture
+release.
+
+The repaired capture-only retry used accepted implementation commit
+`6c428d246ab810e9079181d96e6801ea00f68338`, release commit
+`ccb8c5225517f21ca1405f7b1470fe47dab160ee`, immutable run
+`r06-aegis-label-capture-canary-20260717b`, and exact worker-1 task `28428_0`.
+It completed `0:0`, selected boundary 20, matched the accepted R02 observation
+and action bytes, and reproduced the frozen collision in both exact 126-sample
+baseline replays. The registered conservative minimum `D_sim` was
+`-0.004272075333382801` m in each replay. Its live record confirmed
+`SingleArm` / `MountedPanda` with a float64 two-actuator gripper state. The
+allocation executed zero AEGIS, GroundingDINO, MVEE, QP, semantic-label, or
+training steps.
+
+After terminal validation, Codex inspected the exact lossless agent-view image
+and instruction and froze `red milk carton` in
+`manifests/r06_codex_obstacle_labels_canary.jsonl`, SHA-256
+`6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f`.
+ADR-0069 accepts this capture and label only. It does not establish an AEGIS
+safety result, and the configuration is fail closed pending a separate
+paired-canary execution release.
+
+Two independent terminal/label reviews report GO with no P0/P1/P2 finding.
+The complete local gate passes 838 tests with 275 declared dependency skips,
+21 artifact audits, and 19 gate audits.
 
 Dependency setup job `28391` completed on `worker-2` with exit `0:0` and
 installed the official GroundingDINO Swin-T checkpoint at the frozen SHA-256
@@ -529,16 +566,16 @@ is executed. They begin only in a separately authorized IFT-01.
 
 ## Exact next action
 
-ADR-0067's narrow controller-state generator/validator repair has passed the
-complete local gate (834 tests, 275 declared dependency skips, 21 artifact
-audits, and 19 gate audits) and independent code and HPC reviews with no
-material finding. Freeze that accepted implementation, then create one
-direct-child capture-only release with a fresh immutable run ID for
-`crfs-1069f29a8d76463a`. The new capture must still select boundary 20,
-reproduce the baseline collision twice, and atomically publish the same-state
-1024 image contract. Codex may freeze one image/instruction-bound semantic
-label only from that valid artifact. The paired canary and 20-case population
-each remain separately released later steps.
+Prepare and independently review a separate paired-canary implementation and
+execution release for `crfs-1069f29a8d76463a`; do not launch it
+automatically. That
+paired canary must start from the exact captured branch, reconfirm the frozen
+pi0.5 baseline, and execute the public GroundingDINO, filtering/MVEE, and full
+nine-variable AEGIS QP using the frozen phrase `red milk carton`. It must
+report physical contact, minimum `D_sim`, collision avoidance, task progress
+and completion, action modification, stopping behavior, safety alone, and
+joint safety-plus-progress. The complete 20-case population remains blocked
+until this paired canary is terminally valid.
 
 Do not call the Codex-label arm or a simulator-geometry substitute the exact
 end-to-end AEGIS method. Keep the existing 17 eligible cases and three retained
@@ -555,6 +592,9 @@ Do not resume or reuse jobs `28311_0`/`28312` or the consumed TRL-00A run ID.
 Do not reuse task `28409_0` or run
 `r06-aegis-label-capture-canary-20260717a`, and do not label its partial
 images.
+Do not reuse task `28428_0` or run
+`r06-aegis-label-capture-canary-20260717b`, and do not change its frozen label
+after observing any AEGIS outcome.
 Also, do not launch IFT-01 from this gate.
 
 ## Non-negotiable stops

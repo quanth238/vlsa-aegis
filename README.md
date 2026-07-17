@@ -22,15 +22,16 @@ gate. This collision-conditioned baseline diagnostic evaluates frozen pi0.5
 against the public AEGIS GroundingDINO/geometry/QP layer using semantic labels
 that Codex freezes from captured images before AEGIS outcomes, on the
 immutable 20-case collision-conditioned diagnostic set. It does not evaluate
-the unavailable original GLM selector. No paired AEGIS
-canary or population result exists yet, and no probe or residual-field MLP has
-been trained. Capture-only task `28409_0` reached two baseline replays and
-image writing but failed its internal controller-state validator before
-publishing `capture.json`. Exact pinned-source inspection predicts
-`MountedPanda` and a two-actuator post-control gripper record, whereas the
-validator required `Panda` and one value. ADR-0067 classifies this as an
-apparatus-only contract diagnosis pending fresh capture confirmation; no
-AEGIS, perception, QP, or semantic-label outcome ran.
+the unavailable original GLM selector. Capture retry B, exact task `28428_0`,
+completed on worker-1 and validly reproduced the same registered
+negative-clearance violation twice from boundary 20; physical contact remained
+false. It confirmed the live `MountedPanda` two-actuator
+controller record and published the exact paired image/state artifact. Codex
+then froze the preregistered obstacle phrase `red milk carton` from that
+artifact before any AEGIS outcome. No GroundingDINO, MVEE, QP, paired AEGIS
+canary, or population result exists yet, and no probe or residual-field MLP
+has been trained. ADR-0069 accepts only the capture apparatus and label; it
+does not claim that AEGIS prevents this collision.
 IFT-00 passes as synthetic implementation evidence. CFS-00A run B reached real
 pi0.5 and rejected its 35-by-75 Jacobian at the registered finite-difference
 gate before FISTA, but its generic exception discarded the numeric evidence.
@@ -182,6 +183,8 @@ The detailed procedure is in [the experiment protocol](docs/experiment_protocol.
 - `docs/decisions/0064-preregister-aegis-collision-conditioned-baseline.md`: exact paired 20-case AEGIS protocol;
 - `docs/decisions/0065-use-codex-frozen-semantic-labels-for-aegis.md`: user-authorized Codex replacement for the unavailable GLM selector;
 - `docs/decisions/0067-preserve-failed-aegis-capture-and-repair-controller-contract.md`: terminal capture-only failure evidence and narrow controller-state validator repair;
+- `docs/decisions/0068-release-aegis-label-capture-canary.md`: exact repaired capture retry release;
+- `docs/decisions/0069-accept-valid-aegis-capture-and-freeze-canary-label.md`: validated retry-B capture and frozen canary label;
 - `docs/decisions/0031-preserve-ift00a-retry-b-and-repair-apparatus.md`: retry-B terminal interpretation and apparatus-only repair boundary;
 - `EXPERIMENTS.md`: short active experiment ledger and exact go/no-go sequence;
 - `evidence/r04a/r04a-validation.json`: compact allocation/validator record;

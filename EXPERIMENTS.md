@@ -28,11 +28,12 @@ separate. This collision-conditioned set is not an estimate of general
 SafeLIBERO benchmark performance.
 
 No paired AEGIS canary or population result exists. ADR-0065 explicitly
-authorizes Codex to replace only the unavailable GLM-4.5V name selector. The
-label must be frozen from the captured image and instruction before any AEGIS
-outcome; simulator names and geometry remain forbidden. GroundingDINO,
-filtering/MVEE, and the full public QP remain unchanged. This arm is not the
-original end-to-end AEGIS comparator.
+authorizes Codex to replace only the unavailable GLM-4.5V name selector.
+Capture retry B is valid, and the canary label `red milk carton` is now frozen
+from its exact image and instruction before any AEGIS outcome; simulator names
+and geometry remained forbidden. GroundingDINO, filtering/MVEE, and the full
+public QP remain unchanged and have not yet run. This arm is not the original
+end-to-end AEGIS comparator.
 
 R05A's time-dependent flow-transport question remains scientifically
 unresolved and is paused under ADR-0063. No current experiment authorizes
@@ -54,10 +55,8 @@ Safe-Progress Success; clearance alone is not success.
 
 ### AEGIS-00A — Codex-label paired canary
 
-Status: **first capture-only run is terminal apparatus-inconclusive; the
-controller-state validator repair passed the complete local gate and
-independent review, and the config remains fail closed pending a fresh
-direct-child capture release**
+Status: **capture and outcome-blind canary label are validated; the config
+remains fail closed pending a separate reviewed paired-canary release**
 
 Use one frozen manifest case to validate nominal collision reproduction,
 action-boundary branch selection at the registered 5 mm margin, full paired
@@ -84,11 +83,29 @@ Capture run `r06-aegis-label-capture-canary-20260717a`, exact worker-1 task
 validation. No atomic `capture.json` exists. The validator expected robot name
 `Panda` and one gripper value; exact pinned-source inspection instead predicts
 `MountedPanda` and two actuator commands after settling. The failed run did not
-persist that live record, so the fresh capture remains its confirmation.
-ADR-0067 consumes this identity and permits only the exact
+persist that live record, so a fresh capture was still required at that point.
+ADR-0067 consumes this identity and permitted only the exact
 boundary-conditioned validator repair. Its partial PNG/NPY files cannot be
 used to freeze the semantic label. No AEGIS, GroundingDINO, MVEE, QP, or
 training step ran.
+
+Capture retry B used immutable run
+`r06-aegis-label-capture-canary-20260717b` and exact worker-1 task `28428_0`.
+It completed `0:0`, atomically published `capture.json`, selected boundary 20,
+matched the accepted R02 observation/action bytes, and reproduced the same
+registered clearance violation twice with 126 simulator measurements per
+replay. The registered conservative minimum clearance was
+`-0.004272075333382801` m in both replays; physical contact remained false.
+The live runtime confirmed `SingleArm` / `MountedPanda` and a two-actuator
+gripper record.
+
+No AEGIS, GroundingDINO, MVEE, QP, label selection, or training ran inside
+that allocation. After terminal validation, Codex inspected only its exact
+lossless agent-view image plus instruction and froze `red milk carton` in the
+one-row canary ledger, SHA-256
+`6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f`.
+ADR-0069 accepts the capture apparatus and label only. Whether AEGIS prevents
+this collision is still untested.
 
 ### AEGIS-01 — Complete 20-case population
 

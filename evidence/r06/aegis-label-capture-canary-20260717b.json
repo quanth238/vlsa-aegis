@@ -1,0 +1,158 @@
+{
+  "schema_version": "1.0",
+  "artifact_role": "r06_aegis_label_capture_terminal_evidence",
+  "status": "validated_capture_apparatus",
+  "run_id": "r06-aegis-label-capture-canary-20260717b",
+  "case_id": "crfs-1069f29a8d76463a",
+  "run_root": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b",
+  "paths": {
+    "capture_json": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b/crfs-1069f29a8d76463a/capture.json",
+    "capture_validation_log": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b/crfs-1069f29a8d76463a/capture-validation.log",
+    "capture_client_log": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b/crfs-1069f29a8d76463a/capture-client.log",
+    "policy_server_log": "/mnt/data/quanth/experiments/crfs-oracle/r06-aegis-label-capture-canary-20260717b/crfs-1069f29a8d76463a/policy-server.log"
+  },
+  "release": {
+    "accepted_implementation_commit": "6c428d246ab810e9079181d96e6801ea00f68338",
+    "release_commit": "ccb8c5225517f21ca1405f7b1470fe47dab160ee",
+    "release_decision": "docs/decisions/0068-release-aegis-label-capture-canary.md",
+    "config_sha256": "9a95fd6adb07b3c0765be631162e073b760132bc0f39989410c5033150cebf31",
+    "source_contract_sha256": "cc058fc8f96e45706764fa4faba4031975b72748b9d51b6fd4e3e284c52ba344",
+    "submission_receipt_sha256": "1bff055765fdfb18ef9387937aa7bf075ccda8a8d5aab300327ec3534b9a8eeb"
+  },
+  "slurm": {
+    "array_job_id": "28428",
+    "exact_task_id": "28428_0",
+    "state": "COMPLETED",
+    "exit_code": "0:0",
+    "elapsed": "00:01:52",
+    "start": "2026-07-17T06:54:14",
+    "end": "2026-07-17T06:56:06",
+    "node": "worker-1",
+    "allocated_tres": "billing=8,cpu=8,gres/gpu=1,mem=64G,node=1",
+    "slurm_log_sha256": "a13bd698cd4b5e1ab7d5ef5ffe62148246836ea3949d81f71ede738376c7f594",
+    "max_rss_reported_by_sacct": null
+  },
+  "artifacts": {
+    "capture_json_sha256": "f2d32024ac6fac5aa5d133b5138df72501f1590b8cb0927b732edde69dabaaac",
+    "capture_validation_log_sha256": "59a9e52d049a9d352ced6c787d5fcfb7f76f3df2406421d57fa8212b34dd58a7",
+    "capture_client_log_sha256": "1ef63c42119727994ce4c34cf6f46e542565b4f656b0c83bedfdbbb8389f93bf",
+    "policy_server_log_sha256": "c0ef65e0ca9a15a243d0cfb27080ecdce6f161d0ac9b0b031958dc173a372a72",
+    "agentview_image_npy_sha256": "331ee97b4ee709c38406c6610054a28e839a80f1b29c23ea01e24124bc0f8fb3",
+    "agentview_depth_npy_sha256": "a66b1113074d76b67e34cecb33bb5896118d6b7aeea2f887b2ec23f132b902a5",
+    "agentview_image_png_sha256": "f43a8c9816858fedd263358ac432f0fe490839441441125de44d028f427074c5",
+    "backview_image_npy_sha256": "af13029f0769172a8f365f5b71da77f0ef7d31bd6bb91c4db504de2de6f13f40",
+    "backview_depth_npy_sha256": "43fa81eadc11881ba8d11cd932826dff8e041c367c932deecb6a26adb43e0415",
+    "backview_image_png_sha256": "6e320373df7d0cc69ca4697f488142ac044262241e0dfa2ff93d65176279f5b0"
+  },
+  "scientific_validation": {
+    "independent_validator_errors": [],
+    "capture_completed_at": "2026-07-17T06:55:59Z",
+    "selected_boundary_index": 20,
+    "selected_branch_registered_D_sim_m": 0.03180564538284508,
+    "selected_branch_contact": false,
+    "settle_ledger_boundaries": 21,
+    "selected_branch_binding_passed": true,
+    "live_controller": {
+      "robot_class": "SingleArm",
+      "robot_name": "MountedPanda",
+      "controller_class": "OperationalSpaceController",
+      "controller_name": "OSC_POSE",
+      "gripper_class": "PandaGripper",
+      "gripper_current_action_dtype": "float64",
+      "gripper_current_action_shape": [
+        2
+      ],
+      "fingerprint_sha256": "8d7daad71385b0a569c0f308065edd63f42307beadf6971aa574337481798e5a"
+    },
+    "policy_pairing": {
+      "observation_sha256": "2dda358fa714c09f3c5f46e0eedd99a2eb9bf7048f3e0efda2c8118185529fb2",
+      "noise_sha256": "b2b6a8ce43ad10f9c18fc707e036302d46a0332fb8578f4b7e1a6a14f16b8be4",
+      "nominal_first_five_sha256": "bc6e3687513502e63f47a664b965e5dc7a9c10ba27861fc19d7fc48909153995",
+      "duplicate_eager_actions_exact": true,
+      "accepted_r02_artifact_sha256": "055fcf18781071c6c3575b42a1b44c32a76b474ac1911ad8c5443f78b9c42593",
+      "accepted_r02_eager_actions_sha256": "23c855c3109ffcb78dce3c2671cae52a3fafdd820d2c4ab1d0c248da51fe48c1",
+      "accepted_r02_checks": {
+        "case_id": true,
+        "checkpoint": true,
+        "nominal_actions": true,
+        "normalization": true,
+        "observation": true
+      }
+    },
+    "baseline_replay": {
+      "repeat_count": 2,
+      "repeat_exact": true,
+      "collision_reproduced_both": true,
+      "measurement_samples_per_repeat": [
+        126,
+        126
+      ],
+      "raw_minimum_clearance_m": [
+        -0.0070070243639765994,
+        -0.0070070243639765994
+      ],
+      "registered_conservative_D_sim_m": [
+        -0.004272075333382801,
+        -0.004272075333382801
+      ],
+      "physical_contact": [
+        false,
+        false
+      ],
+      "frozen_collision_definition": [
+        true,
+        true
+      ],
+      "reach_progress_m": [
+        0.03616935849448466,
+        0.03616935849448466
+      ],
+      "task_completed_at_end": [
+        false,
+        false
+      ]
+    },
+    "camera_and_assets": {
+      "render_size": 1024,
+      "render_advanced_physics": false,
+      "image_convention": "opengl",
+      "same_state_224_observable_anchor_passed": true,
+      "same_state_224_policy_agent_anchor_passed": true,
+      "agentview_array_sha256": "5000894309b66b8eec07155949e25a8f03d0363522280836e3e144213c55cfa8",
+      "backview_array_sha256": "75c21ac515028d8cdc00c9f5d3e887195cea8ddc442c07ec994ffa40b96aa747",
+      "lossless_npy_and_png_binding": true
+    },
+    "execution_counts": {
+      "aegis_executed": false,
+      "groundingdino_executed": false,
+      "mvee_executed": false,
+      "qp_steps": 0,
+      "semantic_label_steps_inside_allocation": 0,
+      "training_steps": 0
+    }
+  },
+  "codex_label_freeze": {
+    "authorized_only_after_valid_capture": true,
+    "review_input": "exact lossless agentview PNG and registered task instruction",
+    "simulator_object_name_or_geometry_used": false,
+    "agentview_image_array_sha256": "5000894309b66b8eec07155949e25a8f03d0363522280836e3e144213c55cfa8",
+    "agentview_image_png_sha256": "f43a8c9816858fedd263358ac432f0fe490839441441125de44d028f427074c5",
+    "obstacle_label": "red milk carton",
+    "reviewer": "codex",
+    "reviewed_at": "2026-07-17T07:03:29Z",
+    "review_after_capture": true,
+    "manifest_path": "manifests/r06_codex_obstacle_labels_canary.jsonl",
+    "manifest_sha256": "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f442467694d996f",
+    "allowed_label_vocabulary_sha256": "b21cd3b3c5035e4706cef272d0475b673bd9eb1d31165c9c0833e3ce1da74e0d"
+  },
+  "claims": {
+    "capture_apparatus_valid": true,
+    "aegis_safety_result_exists": false,
+    "paired_canary_result_exists": false,
+    "population_result_exists": false,
+    "original_glm_selector_evaluated": false,
+    "general_benchmark_claim_allowed": false,
+    "probe_or_mlp_training_authorized": false
+  },
+  "next_boundary": "prepare_and_independently_review_separate_paired_canary_release"
+}

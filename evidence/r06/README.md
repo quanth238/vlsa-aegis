@@ -8,5 +8,13 @@
   failed capture-only task `28409_0`. It records the controller-state
   generator/validator mismatch and forbids using the partial assets as a
   label or AEGIS result.
+- `aegis-label-capture-canary-20260717b.json`: validated terminal evidence for
+  repaired capture-only task `28428_0`. It records exact boundary-20 pairing,
+  two reproduced registered clearance violations, the live controller state,
+  lossless image binding, and zero AEGIS/perception/QP/training execution.
+- `../../manifests/r06_codex_obstacle_labels_canary.jsonl`: immutable one-row
+  outcome-blind canary label ledger. Codex froze `red milk carton` only after
+  retry-B capture validation and before any AEGIS outcome.
 
-No paired canary or population result exists yet.
+No paired AEGIS canary or population result exists yet. The valid capture and
+label do not show that AEGIS prevents the collision.

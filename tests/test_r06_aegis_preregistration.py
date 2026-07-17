@@ -48,13 +48,36 @@ class AegisCollisionConditionedPreregistrationTest(unittest.TestCase):
                 value["config_status"], "draft_preregistered_not_released"
             )
             self.assertIsNone(value["execution_release"])
-            self.assertIn("canary_branch_image_not_captured", value["blocked_on"])
-            self.assertIn("codex_canary_label_not_frozen", value["blocked_on"])
-            self.assertIn(
-                "groundingdino_allocation_runtime_preflight_not_complete",
-                value["blocked_on"],
-            )
-            self.assertIn("no H100 execution release yet", self.decision)
+            label = value["codex_label_protocol"]["canary_label_manifest"]
+            if label["sha256"] is None:
+                self.assertIn("canary_branch_image_not_captured", value["blocked_on"])
+                self.assertIn("codex_canary_label_not_frozen", value["blocked_on"])
+                self.assertIn(
+                    "groundingdino_allocation_runtime_preflight_not_complete",
+                    value["blocked_on"],
+                )
+                self.assertIn("no H100 execution release yet", self.decision)
+            else:
+                self.assertEqual(
+                    label,
+                    {
+                        "path": "manifests/r06_codex_obstacle_labels_canary.jsonl",
+                        "sha256": (
+                            "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f"
+                            "442467694d996f"
+                        ),
+                        "expected_rows": 1,
+                        "status": "frozen_from_valid_capture_retry_b",
+                    },
+                )
+                self.assertEqual(
+                    value["blocked_on"],
+                    [
+                        "paired_canary_execution_release_not_authorized",
+                        "paired_canary_integration_not_terminally_validated",
+                        "population_label_manifest_not_authorized",
+                    ],
+                )
             return
 
         self.assertIs(value["ready_to_run"], True)
@@ -321,7 +344,20 @@ class AegisCollisionConditionedPreregistrationTest(unittest.TestCase):
         self.assertFalse(protocol["simulator_object_name_or_geometry_allowed"])
         self.assertEqual(protocol["relabel_after_aegis_outcome"], "forbidden")
         self.assertEqual(protocol["canary_label_manifest"]["expected_rows"], 1)
-        self.assertIsNone(protocol["canary_label_manifest"]["sha256"])
+        canary_label = protocol["canary_label_manifest"]
+        if canary_label["status"] == "not_captured_or_labeled":
+            self.assertIsNone(canary_label["sha256"])
+        else:
+            self.assertEqual(
+                canary_label["status"], "frozen_from_valid_capture_retry_b"
+            )
+            self.assertEqual(
+                canary_label["sha256"],
+                (
+                    "6a22b6d2f3705c008e338be6b217ce947fabfd4f56f70d3a8f"
+                    "442467694d996f"
+                ),
+            )
         self.assertEqual(protocol["population_label_manifest"]["expected_rows"], 20)
 
 
