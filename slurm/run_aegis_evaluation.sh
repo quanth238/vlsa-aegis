@@ -89,4 +89,22 @@ for ARM in pi05_translational pi05_plus_aegis_translational; do
     "${ARM_ARGUMENTS[@]}"
 done
 
+if [[ "$MODE" == canary ]]; then
+  AEGIS_FAILURE_STAGE=paired_canary_validation
+  CANARY_VALIDATOR=$REMOTE_REPO/scripts/validate_aegis_run_artifacts.py
+  [[ -f "$CANARY_VALIDATOR" && ! -L "$CANARY_VALIDATOR" ]] || {
+    aegis_die "paired-canary validator is missing or symlinked"
+  }
+  "$AEGIS_PYTHON" "$CANARY_VALIDATOR" paired-canary \
+    --run-root "$RUN_ROOT" \
+    --expected-commit "$EXPECTED_GIT_COMMIT" \
+    --config "$CONFIG_PATH" \
+    --manifest "$MANIFEST_PATH" \
+    --manifest-receipt "$MANIFEST_RECEIPT_PATH" \
+    --labels "$LABEL_MANIFEST_PATH" \
+    --pi05-hash-receipt "$PI05_HASH_RECEIPT_PATH" \
+    --case-ordinal "$CASE_ORDINAL" \
+    --output "$RUN_ROOT/paired-canary-validation.json"
+fi
+
 AEGIS_FAILURE_STAGE=complete

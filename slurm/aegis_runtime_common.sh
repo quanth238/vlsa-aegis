@@ -33,6 +33,36 @@ aegis_sha256() {
   sha256sum "$1" | awk '{print $1}'
 }
 
+aegis_json_string_value() {
+  local path=$1
+  local key=$2
+  awk -F '"' -v wanted="$key" '
+    $2 == wanted {
+      if (seen++) exit 3
+      value=$4
+    }
+    END {
+      if (seen != 1) exit 4
+      print value
+    }
+  ' "$path"
+}
+
+aegis_json_top_level_string_value() {
+  local path=$1
+  local key=$2
+  awk -F '"' -v wanted="$key" '
+    substr($0, 1, 3) == "  \"" && $2 == wanted {
+      if (seen++) exit 3
+      value=$4
+    }
+    END {
+      if (seen != 1) exit 4
+      print value
+    }
+  ' "$path"
+}
+
 aegis_assert_allocation() {
   local expected_cpus=$1
   local expected_mem_mib=$2
@@ -102,6 +132,8 @@ aegis_validate_identity() {
   MANIFEST_RECEIPT_PATH=${MANIFEST_RECEIPT_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.receipt.json}
   LABEL_MANIFEST_PATH=${LABEL_MANIFEST_PATH:-}
   PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero}
+  PI05_HASH_RECEIPT_PATH=${PI05_HASH_RECEIPT_PATH:-}
+  PAIRED_CANARY_RECEIPT_PATH=${PAIRED_CANARY_RECEIPT_PATH:-}
   DINO_CONFIG=${DINO_CONFIG:-/mnt/data/quanth/cache/uv/archive-v0/hHOpLbugg_lAlUaF/groundingdino/config/GroundingDINO_SwinT_OGC.py}
   DINO_CHECKPOINT=${DINO_CHECKPOINT:-/mnt/data/quanth/cache/aegis/groundingdino/groundingdino_swint_ogc.pth}
   GROUNDINGDINO_DEVICE=${GROUNDINGDINO_DEVICE:-}
@@ -152,15 +184,76 @@ aegis_validate_identity() {
     [[ "$GROUNDINGDINO_DEVICE" == "$(aegis_contract_value groundingdino_device)" ]] || {
       aegis_die "GroundingDINO device differs from the run contract"
     }
+    [[ -n "$PI05_HASH_RECEIPT_PATH" && -f "$PI05_HASH_RECEIPT_PATH" && \
+      ! -L "$PI05_HASH_RECEIPT_PATH" ]] || {
+      aegis_die "allocation-backed pi0.5 hash receipt is missing"
+    }
+    [[ "$(aegis_sha256 "$PI05_HASH_RECEIPT_PATH")" == \
+      "$(aegis_contract_value pi05_hash_receipt_sha256)" ]] || {
+      aegis_die "pi0.5 hash receipt differs from the run contract"
+    }
+    [[ "$(aegis_json_top_level_string_value "$PI05_HASH_RECEIPT_PATH" \
+      schema_version)" == \
+      vlsa_table1_pi05_hash_receipt.v1 ]] || {
+      aegis_die "pi0.5 hash receipt schema changed"
+    }
+    [[ "$(aegis_json_top_level_string_value "$PI05_HASH_RECEIPT_PATH" \
+      status)" == passed ]] || {
+      aegis_die "pi0.5 hash receipt did not pass"
+    }
+    grep -Eq '^[[:space:]]*"full_content_hash_verified":[[:space:]]*true,?[[:space:]]*$' \
+      "$PI05_HASH_RECEIPT_PATH" || {
+      aegis_die "pi0.5 hash receipt lacks full content verification"
+    }
     local contract_pi05_tree
     contract_pi05_tree=$(aegis_contract_value pi05_tree_sha256)
-    if [[ "$contract_pi05_tree" == structural-and-metadata-only ]]; then
-      [[ -z "${EXPECTED_PI05_TREE_SHA256:-}" ]] || {
-        aegis_die "unexpected full pi0.5 hash after structural-only reservation"
+    [[ "$(aegis_json_string_value "$PI05_HASH_RECEIPT_PATH" \
+      full_content_tree_sha256)" == "$contract_pi05_tree" ]] || {
+      aegis_die "pi0.5 tree digest differs from its allocation receipt"
+    }
+    [[ "$(aegis_json_string_value "$PI05_HASH_RECEIPT_PATH" git_commit)" == \
+      "$EXPECTED_GIT_COMMIT" ]] || {
+      aegis_die "pi0.5 hash receipt source commit changed"
+    }
+    EXPECTED_PI05_TREE_SHA256=$contract_pi05_tree
+    export EXPECTED_PI05_TREE_SHA256
+    if [[ "$expected_stage" == population ]]; then
+      [[ -n "$PAIRED_CANARY_RECEIPT_PATH" && \
+        -f "$PAIRED_CANARY_RECEIPT_PATH" && \
+        ! -L "$PAIRED_CANARY_RECEIPT_PATH" ]] || {
+        aegis_die "population requires a validated paired-canary receipt"
+      }
+      [[ "$(aegis_sha256 "$PAIRED_CANARY_RECEIPT_PATH")" == \
+        "$(aegis_contract_value paired_canary_receipt_sha256)" ]] || {
+        aegis_die "paired-canary receipt differs from the population contract"
+      }
+      [[ "$(aegis_json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+        schema_version)" == vlsa_table1_paired_canary_validation.v1 ]] || {
+        aegis_die "paired-canary receipt schema changed"
+      }
+      [[ "$(aegis_json_top_level_string_value \
+        "$PAIRED_CANARY_RECEIPT_PATH" status)" == validated ]] || {
+        aegis_die "paired-canary receipt is not validated"
+      }
+      grep -Eq '^[[:space:]]*"paired_result_valid":[[:space:]]*true,?[[:space:]]*$' \
+        "$PAIRED_CANARY_RECEIPT_PATH" || {
+        aegis_die "paired-canary receipt did not validate the pair"
+      }
+      [[ "$(aegis_json_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+        source_git_commit)" == "$EXPECTED_GIT_COMMIT" ]] || {
+        aegis_die "paired-canary source differs from population"
+      }
+      [[ "$(aegis_json_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+        pi05_tree_sha256)" == "$contract_pi05_tree" ]] || {
+        aegis_die "paired-canary checkpoint differs from population"
+      }
+      [[ "$(aegis_json_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+        groundingdino_device)" == "$GROUNDINGDINO_DEVICE" ]] || {
+        aegis_die "paired-canary GroundingDINO device differs from population"
       }
     else
-      [[ "${EXPECTED_PI05_TREE_SHA256:-}" == "$contract_pi05_tree" ]] || {
-        aegis_die "pi0.5 full tree hash differs from the run contract"
+      [[ "$(aegis_contract_value paired_canary_receipt_sha256)" == none ]] || {
+        aegis_die "paired canary unexpectedly depends on another canary"
       }
     fi
   else
@@ -172,6 +265,12 @@ aegis_validate_identity() {
     }
     [[ "$(aegis_contract_value pi05_tree_sha256)" == none ]] || {
       aegis_die "capture run unexpectedly binds a pi0.5 checkpoint"
+    }
+    [[ "$(aegis_contract_value pi05_hash_receipt_sha256)" == none ]] || {
+      aegis_die "capture run unexpectedly binds a pi0.5 hash receipt"
+    }
+    [[ "$(aegis_contract_value paired_canary_receipt_sha256)" == none ]] || {
+      aegis_die "capture run unexpectedly binds a paired-canary receipt"
     }
   fi
 
@@ -245,14 +344,15 @@ aegis_run_preflight() {
   if [[ "$profile" == evaluation ]]; then
     args+=(
       --pi05-checkpoint "$PI05_CHECKPOINT"
+      --pi05-hash-receipt "$PI05_HASH_RECEIPT_PATH"
+      --expected-pi05-hash-receipt-sha256 \
+      "$(aegis_contract_value pi05_hash_receipt_sha256)"
       --dino-config "$DINO_CONFIG"
       --dino-checkpoint "$DINO_CHECKPOINT"
       --label-manifest "$LABEL_MANIFEST_PATH"
       --expected-label-manifest-sha256 "$(aegis_contract_value label_manifest_sha256)"
     )
-    if [[ -n "${EXPECTED_PI05_TREE_SHA256:-}" ]]; then
-      args+=(--expected-pi05-tree-sha256 "$EXPECTED_PI05_TREE_SHA256")
-    fi
+    args+=(--expected-pi05-tree-sha256 "$EXPECTED_PI05_TREE_SHA256")
     if [[ "${EXPECTED_STAGE:-}" == population ]]; then
       args+=(--require-complete-label-population)
     else

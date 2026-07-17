@@ -3,9 +3,9 @@
   "last_case_id": "vlsa-t1-long-ii-t3-e49",
   "manifest_rows": 1600,
   "manifest_schema_version": "vlsa_table1_population_case.v1",
-  "manifest_sha256": "a6cd23c3a54340475887c151b7f4ed0636d772b0680c8247f99e1c174f3cb8dd",
+  "manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
   "paired_results_required": 3200,
-  "protocol_config_sha256": "b2fb867c39593dd8f5924a34ebe9b0ef0263252e795fb39d79d872681f43e211",
+  "protocol_config_sha256": "7dec2cdd473e6809a755d908711efd457c5fdd36ca9655ab6a15e0c9c4bdbfa6",
   "protocol_id": "vlsa-table1-translational-1600-v1",
   "schema_version": "vlsa_table1_population_receipt.v1",
   "task_level_groups": 32

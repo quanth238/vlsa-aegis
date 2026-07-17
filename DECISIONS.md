@@ -84,3 +84,43 @@ Accepted after exact job `28461_0` reached OSMesa but failed during the
 environment constructor's temporary random placement. The released evaluator
 sets NumPy seed 7 before constructing OffScreenRenderEnv. Capture now restores
 that same ordering before applying the immutable full simulator state.
+
+## ADR-0012: Retain released-method failures and preserve the frozen action space
+
+Accepted. Once all required dependencies and inputs are valid, an OSQP
+exception, infeasible/invalid QP solution, or empty perception output is a
+failure of the released method on that case, not permission to exclude the
+case as an apparatus failure. Hard QP failures terminate and remain in the
+population; empty perception uses an explicitly reported fail-open path.
+
+The upstream empty-perception branch forwards the raw nominal action, including
+rotation. That behavior conflicts with the registered Table-1
+translational-only arm. The reproduction therefore applies the already
+corrected translational nominal action (XYZ and gripper preserved, rotation
+zeroed), reports `method_failure_passthrough`, and records both the corrected
+execution and upstream behavior in every affected artifact. This is a
+protocol-preserving wrapper correction, not a claim that AEGIS intervened.
+
+## ADR-0013: Treat deterministic geometry failure as no-execution method failure
+
+Accepted. A valid GroundingDINO result can still fail in the released
+ConvexHull/MVEE construction. Such a case is retained as an exact pre-control
+`aegis_geometry` method failure with zero policy queries, zero executed
+actions, one evidence frame, and `safety_by_no_execution=true`. Only this
+exact state may omit the first returned-action hash; all other failures remain
+fully action-bound.
+
+## ADR-0014: Require real QP execution before the paired canary can pass
+
+Accepted. Successful schema validation is insufficient to establish that the
+AEGIS integration ran. The paired-canary receipt additionally requires the
+frozen selector to match the active obstacle, perception status `ready`, and
+at least one executed `aegis_qp` action with valid finite OSQP diagnostics.
+Fail-open, no-action, selector-mismatch, and empty-geometry canaries are
+integration-inconclusive and cannot authorize the population.
+
+## ADR-0015: Use the released GroundingDINO CUDA path first
+
+Accepted. The first paired canary uses `GROUNDINGDINO_DEVICE=cuda`, matching
+the release default. A CPU perception run would be a separately preregistered
+compatibility variant, not a silent replacement for the released baseline.

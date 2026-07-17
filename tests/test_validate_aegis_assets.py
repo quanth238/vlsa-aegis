@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import unittest
 from unittest import mock
+import os
 
 from scripts import validate_aegis_assets as preflight
 
@@ -224,7 +225,8 @@ class ValidateAegisAssetsTest(unittest.TestCase):
         checkpoint = self.root / "pi05"
         checkpoint.mkdir()
         (checkpoint / "meta").write_bytes(b"meta")
-        (checkpoint / "data").write_bytes(b"data")
+        data = checkpoint / "data"
+        data.write_bytes(b"data")
         dino_config = self.root / "dino.py"
         dino_checkpoint = self.root / "dino.pth"
         dino_config.write_bytes(b"config")
@@ -269,12 +271,60 @@ class ValidateAegisAssetsTest(unittest.TestCase):
                 clear=True,
             ),
         ):
+            tree_sha256 = preflight._tree_content_sha256(
+                checkpoint, ("meta", "data")
+            )
+            hash_receipt = {
+                "schema_version": preflight.PI05_HASH_RECEIPT_SCHEMA,
+                "status": "passed",
+                "scientific_result": False,
+                "source": {
+                    "git_commit": self.expected_commit,
+                    "git_dirty": False,
+                },
+                "checkpoint": {
+                    "path": str(checkpoint.resolve()),
+                    "full_content_hash_verified": True,
+                    "full_content_tree_sha256": tree_sha256,
+                    "filesystem_identity": (
+                        preflight.pi05_checkpoint_filesystem_identity(
+                            checkpoint, ("meta", "data")
+                        )
+                    ),
+                },
+                "slurm": {
+                    "job_id": "100",
+                    "array_job_id": "100",
+                    "array_task_id": "0",
+                    "host": "worker-1",
+                },
+                "execution": {
+                    "policy_model_executed": False,
+                    "simulator_executed": False,
+                    "groundingdino_executed": False,
+                    "qp_executed": False,
+                    "training_executed": False,
+                },
+            }
+            hash_receipt["receipt_payload_sha256"] = _sha256(
+                preflight.canonical_json_bytes(hash_receipt)
+            )
+            hash_receipt_path = self.root / "pi05-hash.json"
+            hash_receipt_path.write_text(
+                json.dumps(hash_receipt, sort_keys=True, indent=2) + "\n",
+                encoding="utf-8",
+            )
             record = preflight.validate_evaluation_assets(
                 cases=cases,
                 required_case_ordinals=[0],
                 require_complete_label_population=False,
                 pi05_checkpoint=checkpoint,
-                expected_pi05_tree_sha256=None,
+                expected_pi05_tree_sha256=tree_sha256,
+                pi05_hash_receipt=hash_receipt_path,
+                expected_pi05_hash_receipt_sha256=preflight.sha256_path(
+                    hash_receipt_path
+                ),
+                expected_commit=self.expected_commit,
                 dino_config=dino_config,
                 dino_checkpoint=dino_checkpoint,
                 label_manifest=label_manifest,
@@ -290,13 +340,23 @@ class ValidateAegisAssetsTest(unittest.TestCase):
                     "all_population_cases_bound"
                 ]
             )
+            self.assertFalse(
+                record["pi05_checkpoint"][
+                    "full_content_rehashed_in_this_allocation"
+                ]
+            )
             with self.assertRaises(preflight.PreflightError):
                 preflight.validate_evaluation_assets(
                     cases=cases,
                     required_case_ordinals=[],
                     require_complete_label_population=True,
                     pi05_checkpoint=checkpoint,
-                    expected_pi05_tree_sha256=None,
+                    expected_pi05_tree_sha256=tree_sha256,
+                    pi05_hash_receipt=hash_receipt_path,
+                    expected_pi05_hash_receipt_sha256=preflight.sha256_path(
+                        hash_receipt_path
+                    ),
+                    expected_commit=self.expected_commit,
                     dino_config=dino_config,
                     dino_checkpoint=dino_checkpoint,
                     label_manifest=label_manifest,
@@ -304,6 +364,79 @@ class ValidateAegisAssetsTest(unittest.TestCase):
                         label_manifest
                     ),
                 )
+            original_stat = data.stat()
+            os.utime(
+                data,
+                ns=(
+                    original_stat.st_atime_ns,
+                    original_stat.st_mtime_ns + 1_000_000_000,
+                ),
+            )
+            with self.assertRaisesRegex(
+                preflight.PreflightError, "stat identity changed"
+            ):
+                preflight.validate_evaluation_assets(
+                    cases=cases,
+                    required_case_ordinals=[0],
+                    require_complete_label_population=False,
+                    pi05_checkpoint=checkpoint,
+                    expected_pi05_tree_sha256=tree_sha256,
+                    pi05_hash_receipt=hash_receipt_path,
+                    expected_pi05_hash_receipt_sha256=preflight.sha256_path(
+                        hash_receipt_path
+                    ),
+                    expected_commit=self.expected_commit,
+                    dino_config=dino_config,
+                    dino_checkpoint=dino_checkpoint,
+                    label_manifest=label_manifest,
+                    expected_label_manifest_sha256=preflight.sha256_path(
+                        label_manifest
+                    ),
+                )
+
+    def test_same_size_checkpoint_replacement_invalidates_hash_receipt(
+        self,
+    ) -> None:
+        checkpoint = self.root / "replace-pi05"
+        checkpoint.mkdir()
+        metadata = checkpoint / "meta"
+        data = checkpoint / "data"
+        metadata.write_bytes(b"meta")
+        data.write_bytes(b"data")
+        with (
+            mock.patch.dict(
+                preflight.PI05_METADATA_FILES,
+                {"meta": (4, _sha256(b"meta"))},
+                clear=True,
+            ),
+            mock.patch.dict(
+                preflight.PI05_DATA_FILES,
+                {"data": 4},
+                clear=True,
+            ),
+        ):
+            frozen = preflight.pi05_checkpoint_filesystem_identity(
+                checkpoint, ("meta", "data")
+            )
+            replacement = checkpoint / "replacement"
+            replacement.write_bytes(b"DATA")
+            os.replace(replacement, data)
+            current = preflight.pi05_checkpoint_filesystem_identity(
+                checkpoint, ("meta", "data")
+            )
+            with self.assertRaisesRegex(
+                preflight.PreflightError, "stat identity changed"
+            ):
+                preflight.validate_pi05_checkpoint_against_identity(
+                    checkpoint,
+                    expected_tree_sha256="c" * 64,
+                    expected_filesystem_identity=frozen,
+                )
+        self.assertNotEqual(
+            frozen["files"][0]["inode"],
+            current["files"][0]["inode"],
+        )
+        self.assertNotEqual(frozen, current)
 
 
 if __name__ == "__main__":

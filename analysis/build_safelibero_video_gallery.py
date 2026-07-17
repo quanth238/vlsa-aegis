@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+import hashlib
 import html
 import json
 import math
@@ -21,6 +22,8 @@ from urllib.parse import quote
 
 
 SUMMARY_SCHEMA = "vlsa_table1_population_summary.v1"
+GALLERY_SOURCE_KEY = "__gallery_source__"
+EVALUATOR_ARM_DIRECTORIES = {"pi05", "aegis"}
 
 TAXONOMY: tuple[tuple[str, str], ...] = (
     ("semantic_selector", "Semantic selector"),
@@ -353,6 +356,17 @@ def _read_result_file(path: Path) -> list[dict[str, Any]]:
     return [value]
 
 
+def _evaluator_artifact_root(path: Path) -> Path | None:
+    """Return the output root for an evaluator-layout ``result.json``."""
+
+    if (
+        path.name != "result.json"
+        or path.parent.parent.name not in EVALUATOR_ARM_DIRECTORIES
+    ):
+        return None
+    return path.parent.parent.parent.resolve()
+
+
 def load_result_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
     files: list[Path] = []
     seen_files: set[Path] = set()
@@ -373,7 +387,16 @@ def load_result_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
         raise GalleryError("no per-episode result JSONs were found")
     records: list[dict[str, Any]] = []
     for path in files:
-        records.extend(_read_result_file(path))
+        artifact_root = _evaluator_artifact_root(path)
+        for row in _read_result_file(path):
+            record = dict(row)
+            record[GALLERY_SOURCE_KEY] = {
+                "result_path": str(path),
+                "artifact_root": (
+                    None if artifact_root is None else str(artifact_root)
+                ),
+            }
+            records.append(record)
     return records
 
 
@@ -600,16 +623,48 @@ def _video_record(
     relative = Path(raw_path)
     if relative.is_absolute() or ".." in relative.parts:
         raise GalleryError(f"unsafe video path: {raw_path!r}")
-    root = output_root.resolve()
+    source = _mapping(result.get(GALLERY_SOURCE_KEY))
+    registered_root = source.get("artifact_root")
+    if registered_root is None:
+        root = output_root.resolve()
+    elif isinstance(registered_root, str) and registered_root:
+        root = Path(registered_root).resolve()
+    else:
+        raise GalleryError("invalid per-result artifact root")
     target = (root / relative).resolve()
     try:
         target.relative_to(root)
     except ValueError as error:
-        raise GalleryError(f"video escapes output root: {raw_path!r}") from error
+        raise GalleryError(
+            f"video escapes per-result artifact root: {raw_path!r}"
+        ) from error
+    exists = target.is_file()
+    expected_sha256 = video.get("sha256")
+    if expected_sha256 is not None:
+        if (
+            not isinstance(expected_sha256, str)
+            or len(expected_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in expected_sha256
+            )
+        ):
+            raise GalleryError("video.sha256 must be lowercase SHA-256 hex")
+        if exists:
+            digest = hashlib.sha256()
+            with target.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != expected_sha256:
+                raise GalleryError(
+                    f"video SHA-256 mismatch: {raw_path!r}"
+                )
+    gallery_root = output_root.resolve()
+    href_path = Path(os.path.relpath(target, start=gallery_root))
     return {
-        "href": quote(relative.as_posix(), safe="/"),
-        "exists": target.is_file(),
-        "reason": None if target.is_file() else "file not present",
+        "href": quote(href_path.as_posix(), safe="/"),
+        "exists": exists,
+        "reason": None if exists else "file not present",
     }
 
 
@@ -999,7 +1054,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-root",
         type=Path,
         required=True,
-        help="Artifact root containing registered relative video paths",
+        help=(
+            "Gallery destination and explicit video-root fallback for "
+            "non-evaluator JSON/JSONL inputs"
+        ),
     )
     parser.add_argument(
         "--index-name",

@@ -8,18 +8,21 @@ and task failures without silently excluding apparatus failures.
 
 ## Current gate
 
-`A01-reproduction-apparatus` is active.
+`A03-one-case-paired-canary` is active. The apparatus and capture gates passed
+in dependency order; no population job is authorized yet.
 
 Local implementation evidence on 2026-07-17:
 
-- `./init.sh` passes: 56 tests, one optional dependency test skipped.
+- `./init.sh` passes: 86 tests, three optional dependency tests skipped.
 - The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
   paired evaluation requires exactly 3,200 terminal episode results.
-- Two independent read-only reviews permit a fresh capture-only canary from a
-  clean synchronized commit. Capture performs reset, exact state restore,
-  20 dummy settling actions, and lossless asset export only.
-- The paired outcome canary is not yet authorized. Its reviewer requires an
-  exact full pi0.5 checkpoint binding and a cross-arm validation receipt.
+- Two independent reviews accepted the translational comparison after strict
+  action-ledger, pair-binding, method-failure, and infrastructure validation.
+- A paired canary receipt can pass only if the frozen label matches the active
+  obstacle, perception reaches `ready`, and at least one `aegis_qp` action
+  executes with finite, valid OSQP diagnostics.
+- The next allocation-backed steps are one immutable pi0.5 checkpoint-tree
+  hash receipt followed by exactly one ordinal-100 paired canary.
 
 The first capture case is frozen as ordinal 100,
 `vlsa-t1-spatial-i-t2-e00`. This is the Level-I version of the qualitative
@@ -43,6 +46,23 @@ constructor; the wrapper had omitted this ordering while still calling
 `env.seed(7)` afterward. The repair restores the author's pre-construction
 NumPy seed. The failed run again executed zero reset, settle, policy,
 perception, QP, or outcome actions.
+
+Capture retry `vlsa-table1-capture-canary-20260717c`, Slurm task `28462_0`,
+completed on worker-1 in 23 seconds from clean commit
+`bce7737369328da06d62d3840ae577a52b46780f`. It executed exactly one reset,
+one immutable-state restore, and 20 settling actions, with zero policy,
+semantic-selector, GroundingDINO, filtering, MVEE, QP, or outcome calls. The
+capture payload SHA-256 is
+`4fea432ba3ebc62b2c115e0804ade2e28da7243520a04cbb2fe1adbadedc891e`.
+Local revalidation independently reproduced that payload hash, the stored NPY
+hash, and settled agent-view array hash
+`b8bcd1a309fbfc900d18ed472853bbec56a9e8e1fa98c55462a4960782560e7b`.
+Visual review identified the exact active obstacle as `blue moka pot`; the
+one-row Codex label manifest was frozen before any outcome at
+`labels/vlsa_table1_canary_labels.jsonl`, SHA-256
+`2d4d1be5c0a4940c72eb452d00361f6a4935de3f5cbc1058c9671fff96a35a36`.
+This is allocation-backed capture evidence only. No baseline or AEGIS outcome
+has run.
 
 Evidence established before implementation:
 

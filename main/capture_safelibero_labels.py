@@ -121,7 +121,13 @@ def _capture_resume_is_valid(
     case: Mapping[str, Any],
     case_dir: Path,
 ) -> bool:
-    """Recognize only a complete capture whose exact assets still exist."""
+    """Recognize only a complete capture whose exact arrays still agree."""
+
+    try:
+        import numpy as np
+        from PIL import Image
+    except Exception:
+        return False
 
     if (
         record.get("schema_version") != CAPTURE_SCHEMA
@@ -170,29 +176,49 @@ def _capture_resume_is_valid(
             or not isinstance(asset.get("dtype"), str)
         ):
             return False
-        for path_key, hash_key in (("npy_path", "npy_sha256"),):
-            relative = Path(str(asset.get(path_key, "")))
-            if (
-                not relative.name
-                or relative.is_absolute()
-                or ".." in relative.parts
-            ):
-                return False
-            path = case_dir / relative
-            if (
-                not path.is_file()
-                or sha256_path(path) != asset.get(hash_key)
-            ):
-                return False
+        relative = Path(str(asset.get("npy_path", "")))
+        if (
+            not relative.name
+            or relative.is_absolute()
+            or ".." in relative.parts
+        ):
+            return False
+        npy_path = case_dir / relative
+        if (
+            not npy_path.is_file()
+            or sha256_path(npy_path) != asset.get("npy_sha256")
+        ):
+            return False
+        try:
+            stored_array = np.load(npy_path, allow_pickle=False)
+        except Exception:
+            return False
+        if (
+            list(stored_array.shape) != asset["shape"]
+            or stored_array.dtype.str != asset["dtype"]
+            or array_sha256(stored_array) != array_digest
+        ):
+            return False
         if needs_png:
             relative = Path(str(asset.get("png_path", "")))
-            path = case_dir / relative
+            png_path = case_dir / relative
             if (
                 not relative.name
                 or relative.is_absolute()
                 or ".." in relative.parts
-                or not path.is_file()
-                or sha256_path(path) != asset.get("png_sha256")
+                or not png_path.is_file()
+                or sha256_path(png_path) != asset.get("png_sha256")
+            ):
+                return False
+            try:
+                with Image.open(png_path) as image:
+                    png_array = np.asarray(image).copy()
+            except Exception:
+                return False
+            if (
+                png_array.shape != stored_array.shape
+                or png_array.dtype != stored_array.dtype
+                or not np.array_equal(png_array, stored_array)
             ):
                 return False
     return (

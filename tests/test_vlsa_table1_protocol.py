@@ -82,6 +82,8 @@ class Table1ProtocolTest(unittest.TestCase):
         legacy: int | None = None,
         reason: str | None = None,
         scientific_result: bool = True,
+        include_evidence: bool = True,
+        precontrol_geometry_failure: bool = False,
     ) -> dict:
         episode = manifest["episode_index"]
         max_steps = manifest["max_steps"]
@@ -103,6 +105,7 @@ class Table1ProtocolTest(unittest.TestCase):
             )
             if episode == 49:
                 status = "method_failure"
+                default_collision = False
                 default_executed = 0
                 default_legacy = 0
                 default_reason = "method_failure"
@@ -112,8 +115,119 @@ class Table1ProtocolTest(unittest.TestCase):
         executed = default_executed if executed is None else executed
         legacy = default_legacy if legacy is None else legacy
         reason = default_reason if reason is None else reason
+        if precontrol_geometry_failure:
+            if arm != self.config["arms"][1]:
+                raise AssertionError(
+                    "precontrol geometry failure belongs only to AEGIS"
+                )
+            status = "method_failure"
+            collision = False
+            success = False
+            executed = 0
+            legacy = 0
+            reason = "method_failure"
         case_id = manifest["case_id"]
-        return {
+        label_record = {
+            "schema_version": "vlsa_table1_codex_label.v1",
+            "case_id": case_id,
+            "settled_agentview_array_sha256": text_sha256(
+                f"{case_id}:settled-agentview"
+            ),
+            "obstacle_label": "red milk carton",
+            "reviewer": "codex",
+            "reviewed_at": "2026-07-17T00:00:00+00:00",
+        }
+        label_hash = aggregator.canonical_record_sha256(label_record)
+        settled_contract = {
+            "schema_version": aggregator.SETTLED_INPUT_SCHEMA,
+            "agentview_array_sha256": text_sha256(
+                f"{case_id}:settled-agentview"
+            ),
+            "agentview_depth_array_sha256": text_sha256(
+                f"{case_id}:agent-depth"
+            ),
+            "backview_array_sha256": text_sha256(
+                f"{case_id}:back-rgb"
+            ),
+            "backview_depth_array_sha256": text_sha256(
+                f"{case_id}:back-depth"
+            ),
+            "wrist_array_sha256": text_sha256(f"{case_id}:wrist"),
+            "state_array_sha256": text_sha256(f"{case_id}:state-vector"),
+            "active_obstacle_name": "milk_obstacle_1",
+            "active_obstacle_position_array_sha256": text_sha256(
+                f"{case_id}:obstacle-position"
+            ),
+            "settled_simulator_state_array_sha256": text_sha256(
+                f"{case_id}:sim-state"
+            ),
+            "prompt": manifest["task_name"],
+        }
+        schedule = aggregator.expected_policy_noise_schedule(manifest)
+        attempted = executed + int(status == "method_failure")
+        query_count = (
+            attempted + manifest["replan_steps"] - 1
+        ) // manifest["replan_steps"]
+        # Some negative tests deliberately request an impossible terminal
+        # combination (for example, a method failure after the full horizon).
+        # Keep fixture construction bounded by the frozen schedule so the
+        # validator, rather than this helper, rejects the intended contract.
+        query_count = min(query_count, schedule["query_count"])
+        if not include_evidence:
+            query_count = 1
+        if precontrol_geometry_failure:
+            query_count = 0
+        policy_queries = [
+            {
+                "query_index": index,
+                "rng_seed": schedule["query_seeds"][index],
+                "returned_action_shape": [
+                    manifest["model_action_horizon"],
+                    7,
+                ],
+                "returned_actions_sha256": text_sha256(
+                    f"{case_id}:query:{index}"
+                ),
+            }
+            for index in range(query_count)
+        ]
+        action_rows = [
+            {
+                "step": index,
+                "nominal_raw": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, -1.0],
+                "nominal_translational": [
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -1.0,
+                ],
+                "executed": [0.1, 0.2, 0.3, 0.0, 0.0, 0.0, -1.0],
+                "control_path": (
+                    "pi05_translational_nominal"
+                    if arm == self.config["arms"][0]
+                    else "aegis_qp"
+                ),
+                "modified": False,
+                "correction_l2": 0.0,
+                "qp": (
+                    None
+                    if arm == self.config["arms"][0]
+                    else {"solver": "OSQP", "solver_status": "optimal"}
+                ),
+                "reward": 0.0,
+                "done": success and index == executed - 1,
+                "step_elapsed_seconds": 0.01,
+                "obstacle_l1_displacement_m": (
+                    0.002 if collision and index == 0 else 0.0
+                ),
+                "robot_obstacle_contact": False,
+            }
+            for index in range(executed if include_evidence else 0)
+        ]
+        result = {
             "schema_version": self.config["result_contract"][
                 "schema_version"
             ],
@@ -122,6 +236,8 @@ class Table1ProtocolTest(unittest.TestCase):
             "arm": arm,
             "status": status,
             "scientific_result": scientific_result,
+            "terminal_reason": reason,
+            "task_success": success,
             "suite": manifest["suite"],
             "safety_level": manifest["safety_level"],
             "logical_task_index": manifest["logical_task_index"],
@@ -136,17 +252,32 @@ class Table1ProtocolTest(unittest.TestCase):
                     f"{case_id}:state"
                 ),
                 "initial_observation_sha256": text_sha256(
-                    f"{case_id}:observation"
+                    aggregator.canonical_json_bytes(settled_contract).decode(
+                        "utf-8"
+                    )
+                ),
+                "initial_observation_contract": settled_contract,
+                "settled_simulator_state_sha256": settled_contract[
+                    "settled_simulator_state_array_sha256"
+                ],
+                "settled_active_obstacle_position_sha256": (
+                    settled_contract[
+                        "active_obstacle_position_array_sha256"
+                    ]
                 ),
                 "policy_noise_schedule_id": manifest[
                     "policy_noise_schedule_id"
                 ],
-                "policy_noise_schedule_sha256": text_sha256(
-                    f"{case_id}:noise{pairing_suffix}"
+                "policy_noise_schedule_sha256": (
+                    aggregator.canonical_record_sha256(schedule)
                 ),
-                "semantic_label_record_sha256": text_sha256(
-                    f"{case_id}:label"
+                "policy_noise_schedule": schedule,
+                "initial_policy_action_chunk_sha256": (
+                    policy_queries[0]["returned_actions_sha256"]
+                    if policy_queries
+                    else None
                 ),
+                "semantic_label_record_sha256": label_hash,
                 "semantic_label_settled_agentview_sha256": text_sha256(
                     f"{case_id}:settled-agentview"
                 ),
@@ -156,27 +287,101 @@ class Table1ProtocolTest(unittest.TestCase):
                     "model_action_horizon"
                 ],
                 "replan_steps": manifest["replan_steps"],
+                "translational_fail_open": (
+                    aggregator.TRANSLATIONAL_FAIL_OPEN
+                ),
             },
+            "settled_observation": {
+                "agentview_array_sha256": text_sha256(
+                    f"{case_id}:settled-agentview"
+                ),
+                "label_record": label_record,
+                "label_record_sha256": label_hash,
+                "obstacle_label": "red milk carton",
+            },
+            "timing": {"started_unix": 2_000_000_000.0},
+            "policy_queries": policy_queries,
+            "actions": action_rows,
             "metrics": {
                 "public_collision": collision,
+                "paper_collision": collision,
+                "paper_collision_avoidance": not collision,
+                "paper_collision_threshold_m": 0.001,
+                "maximum_active_obstacle_l1_displacement_m": (
+                    0.002 if collision else 0.0
+                ),
+                "collision_first_step": 0 if collision else None,
                 "task_success": success,
                 "legacy_ets_steps": legacy,
                 "executed_action_count": executed,
                 "termination_reason": reason,
+                "safety_by_no_execution": (
+                    status == "method_failure" and executed == 0
+                ),
+            },
+            "intervention": {
+                "eligible_steps": (
+                    0 if arm == self.config["arms"][0] else executed
+                ),
+                "intervention_count": 0,
+                "intervention_rate": 0.0,
+                "correction_l2_sum": 0.0,
+                "correction_l2_max": 0.0,
+            },
+            "contact_telemetry": {
+                "status": "available",
+                "robot_active_obstacle_contact": False,
+                "first_contact_step": None,
+                "unique_contact_pairs": [],
+            },
+            "video": {
+                "path": (
+                    f"{'pi05' if arm == self.config['arms'][0] else 'aegis'}"
+                    f"/{case_id}/episode.mp4"
+                ),
+                "sha256": text_sha256(f"{case_id}:{arm}:video"),
+                "frames": executed + int(status == "method_failure"),
+                "fps": 30,
+                "complete_episode": True,
             },
         }
+        if status == "method_failure":
+            if precontrol_geometry_failure:
+                result["method_failure"] = {
+                    "status": "method_failure",
+                    "component": "aegis_geometry",
+                    "phase": "precontrol",
+                    "step": 0,
+                    "type": "MethodFailure",
+                    "message": "invalid released AEGIS geometry",
+                    "safety_by_no_execution": True,
+                }
+                result["perception"] = {
+                    "status": "method_failure",
+                    "component": "aegis_geometry",
+                    "reason": "invalid released AEGIS geometry",
+                }
+                result["pairing"].pop(
+                    "initial_policy_action_chunk_sha256"
+                )
+            else:
+                result["method_failure"] = {
+                    "status": "method_failure",
+                    "component": "aegis_qp",
+                }
+        result["result_payload_sha256"] = aggregator._result_payload_sha256(
+            result
+        )
+        return result
 
     def complete_results(self) -> dict[tuple[str, str], dict]:
         results = {}
         for manifest in self.rows:
             for arm in self.config["arms"]:
-                result = self.make_result(manifest, arm)
-                results[(manifest["case_id"], arm)] = (
-                    aggregator.validate_result(
-                        result,
-                        config=self.config,
-                        manifest=manifest,
-                    )
+                results[(manifest["case_id"], arm)] = self.make_result(
+                    manifest,
+                    arm,
+                    include_evidence=False,
                 )
         return results
 
@@ -276,7 +481,7 @@ class Table1ProtocolTest(unittest.TestCase):
             ],
             230.75,
         )
-        self.assertEqual(aegis["car_percent"], 78.0)
+        self.assertEqual(aegis["car_percent"], 80.0)
         self.assertEqual(aegis["tsr_percent"], 70.0)
         self.assertEqual(aegis["retained_method_failures"], 32)
         self.assertEqual(
@@ -319,6 +524,7 @@ class Table1ProtocolTest(unittest.TestCase):
                     [results_path],
                     config=config,
                     manifests=manifests,
+                    verify_video_files=False,
                 )
 
     def test_pair_validation_rejects_changed_noise(self) -> None:
@@ -412,6 +618,285 @@ class Table1ProtocolTest(unittest.TestCase):
         with self.assertRaisesRegex(
             aggregator.AggregationError,
             "hard method failure needs method_failure termination",
+        ):
+            aggregator.validate_result(
+                result,
+                config=self.config,
+                manifest=manifest,
+            )
+
+    def test_precontrol_geometry_failure_is_valid_without_policy_query(
+        self,
+    ) -> None:
+        manifest = self.rows[0]
+        baseline = self.make_result(
+            manifest,
+            self.config["arms"][0],
+        )
+        aegis = self.make_result(
+            manifest,
+            self.config["arms"][1],
+            precontrol_geometry_failure=True,
+        )
+        self.assertNotIn(
+            "initial_policy_action_chunk_sha256",
+            aegis["pairing"],
+        )
+        self.assertEqual(aegis["policy_queries"], [])
+        self.assertEqual(aegis["actions"], [])
+        aggregator.validate_result(
+            baseline,
+            config=self.config,
+            manifest=manifest,
+        )
+        aggregator.validate_result(
+            aegis,
+            config=self.config,
+            manifest=manifest,
+        )
+        aggregator.validate_pairs(
+            config=self.config,
+            manifests=[manifest],
+            results={
+                (manifest["case_id"], self.config["arms"][0]): baseline,
+                (manifest["case_id"], self.config["arms"][1]): aegis,
+            },
+        )
+
+    def test_precontrol_geometry_failure_contract_is_exact(self) -> None:
+        manifest = self.rows[0]
+        mutations = {
+            "wrong phase": lambda result: result["method_failure"].update(
+                {"phase": "control"}
+            ),
+            "wrong step": lambda result: result["method_failure"].update(
+                {"step": 1}
+            ),
+            "Boolean step": lambda result: result["method_failure"].update(
+                {"step": False}
+            ),
+            "unsafe flag": lambda result: result["method_failure"].update(
+                {"safety_by_no_execution": False}
+            ),
+            "unsafe metric": lambda result: result["metrics"].update(
+                {"safety_by_no_execution": False}
+            ),
+            "executed metric": lambda result: result["metrics"].update(
+                {"executed_action_count": 1}
+            ),
+            "executed action": lambda result: result["actions"].append(
+                {"step": 0}
+            ),
+            "policy query": lambda result: result["policy_queries"].append(
+                {
+                    "query_index": 0,
+                    "rng_seed": manifest["policy_noise_seed"],
+                    "returned_action_shape": [
+                        manifest["model_action_horizon"],
+                        7,
+                    ],
+                    "returned_actions_sha256": text_sha256(
+                        f"{manifest['case_id']}:query:0"
+                    ),
+                }
+            ),
+            "initial action hash": lambda result: result["pairing"].update(
+                {
+                    "initial_policy_action_chunk_sha256": text_sha256(
+                        f"{manifest['case_id']}:query:0"
+                    )
+                }
+            ),
+            "missing evidence frame": lambda result: result["video"].update(
+                {"frames": 0}
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                result = self.make_result(
+                    manifest,
+                    self.config["arms"][1],
+                    precontrol_geometry_failure=True,
+                )
+                mutate(result)
+                result["result_payload_sha256"] = (
+                    aggregator._result_payload_sha256(result)
+                )
+                with self.assertRaisesRegex(
+                    aggregator.AggregationError,
+                    "precontrol AEGIS geometry failure contract is invalid",
+                ):
+                    aggregator.validate_result(
+                        result,
+                        config=self.config,
+                        manifest=manifest,
+                    )
+
+    def test_non_geometry_failure_cannot_omit_policy_evidence(self) -> None:
+        manifest = self.rows[0]
+        mutations = {
+            "missing hash": (
+                lambda result: result["pairing"].pop(
+                    "initial_policy_action_chunk_sha256"
+                ),
+                "initial_policy_action_chunk_sha256",
+            ),
+            "missing query": (
+                lambda result: result.update({"policy_queries": []}),
+                "policy-query count is invalid",
+            ),
+        }
+        for name, (mutate, message) in mutations.items():
+            with self.subTest(name=name):
+                result = self.make_result(
+                    manifest,
+                    self.config["arms"][1],
+                    status="method_failure",
+                    collision=False,
+                    success=False,
+                    executed=0,
+                    legacy=0,
+                    reason="method_failure",
+                )
+                mutate(result)
+                result["result_payload_sha256"] = (
+                    aggregator._result_payload_sha256(result)
+                )
+                with self.assertRaisesRegex(
+                    aggregator.AggregationError,
+                    message,
+                ):
+                    aggregator.validate_result(
+                        result,
+                        config=self.config,
+                        manifest=manifest,
+                    )
+
+    def test_pair_validation_requires_baseline_query_binding(self) -> None:
+        manifest = self.rows[0]
+        baseline = self.make_result(
+            manifest,
+            self.config["arms"][0],
+        )
+        aegis = self.make_result(
+            manifest,
+            self.config["arms"][1],
+            precontrol_geometry_failure=True,
+        )
+        baseline["pairing"]["initial_policy_action_chunk_sha256"] = (
+            text_sha256("different-baseline-action")
+        )
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "baseline initial policy action is not bound",
+        ):
+            aggregator.validate_pairs(
+                config=self.config,
+                manifests=[manifest],
+                results={
+                    (
+                        manifest["case_id"],
+                        self.config["arms"][0],
+                    ): baseline,
+                    (
+                        manifest["case_id"],
+                        self.config["arms"][1],
+                    ): aegis,
+                },
+            )
+
+    def test_geometry_exception_does_not_unbind_baseline_pair(self) -> None:
+        manifest = self.rows[0]
+        baseline = self.make_result(
+            manifest,
+            self.config["arms"][0],
+        )
+        aegis = self.make_result(
+            manifest,
+            self.config["arms"][1],
+            precontrol_geometry_failure=True,
+        )
+        baseline["pairing"].pop("initial_policy_action_chunk_sha256")
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "initial_policy_action_chunk_sha256",
+        ):
+            aggregator.validate_pairs(
+                config=self.config,
+                manifests=[manifest],
+                results={
+                    (
+                        manifest["case_id"],
+                        self.config["arms"][0],
+                    ): baseline,
+                    (
+                        manifest["case_id"],
+                        self.config["arms"][1],
+                    ): aegis,
+                },
+            )
+
+    def test_maximum_displacement_must_come_from_actions(self) -> None:
+        manifest = self.rows[35]
+        result = self.make_result(
+            manifest,
+            self.config["arms"][0],
+            collision=False,
+            success=False,
+        )
+        result["metrics"][
+            "maximum_active_obstacle_l1_displacement_m"
+        ] = 0.0005
+        result["result_payload_sha256"] = (
+            aggregator._result_payload_sha256(result)
+        )
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "not derived from the action ledger",
+        ):
+            aggregator.validate_result(
+                result,
+                config=self.config,
+                manifest=manifest,
+            )
+
+    def test_intervention_summary_must_match_actions(self) -> None:
+        manifest = self.rows[35]
+        result = self.make_result(
+            manifest,
+            self.config["arms"][1],
+            collision=False,
+            success=False,
+        )
+        result["intervention"]["intervention_count"] = 1
+        result["result_payload_sha256"] = (
+            aggregator._result_payload_sha256(result)
+        )
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "intervention summary does not match actions",
+        ):
+            aggregator.validate_result(
+                result,
+                config=self.config,
+                manifest=manifest,
+            )
+
+    def test_action_correction_norm_is_recomputed(self) -> None:
+        manifest = self.rows[0]
+        result = self.make_result(
+            manifest,
+            self.config["arms"][1],
+            collision=True,
+            success=True,
+        )
+        result["actions"][0]["executed"][0] = 0.2
+        result["result_payload_sha256"] = (
+            aggregator._result_payload_sha256(result)
+        )
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "correction norm changed",
         ):
             aggregator.validate_result(
                 result,

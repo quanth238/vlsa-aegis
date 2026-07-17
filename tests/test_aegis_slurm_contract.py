@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -97,7 +99,9 @@ class AegisSlurmContractTest(unittest.TestCase):
         )
         self.assertIn('"${CASE_ARGUMENTS[@]}"', runtime)
         self.assertIn("--mode", runtime)
-        self.assertEqual(runtime.count('--labels "$LABEL_MANIFEST_PATH"'), 2)
+        self.assertGreaterEqual(
+            runtime.count('--labels "$LABEL_MANIFEST_PATH"'), 2
+        )
         self.assertIn("--profile", common)
         self.assertIn("evaluation", common)
         self.assertIn(
@@ -114,6 +118,109 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("export MUJOCO_GL=osmesa", common)
         self.assertIn("export PYOPENGL_PLATFORM=osmesa", common)
         self.assertNotIn("export MUJOCO_GL=egl", common)
+        self.assertIn("paired-canary-validation.json", runtime)
+        self.assertIn("--expected-pi05-tree-sha256", common)
+        self.assertIn("--pi05-hash-receipt", common)
+
+    def test_checkpoint_hash_and_population_publisher_are_allocation_only(
+        self,
+    ) -> None:
+        hash_batch = (
+            SLURM / "aegis_pi05_hash_receipt.sbatch"
+        ).read_text(encoding="utf-8")
+        hash_runner = (
+            SLURM / "run_pi05_hash_receipt.sh"
+        ).read_text(encoding="utf-8")
+        publisher_batch = (
+            SLURM / "aegis_population_publisher.sbatch"
+        ).read_text(encoding="utf-8")
+        publisher = (
+            SLURM / "run_aegis_population_publisher.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --array=0-0%1", hash_batch)
+        self.assertNotIn("#SBATCH --gres=gpu", hash_batch)
+        self.assertIn("SLURM_JOB_ID", hash_runner)
+        self.assertIn("compute_pi05_tree_receipt.py", hash_runner)
+        self.assertNotIn("#SBATCH --gres=gpu", publisher_batch)
+        self.assertIn("--dependency=afterany:", publisher)
+        self.assertIn(
+            ': "${GROUNDINGDINO_DEVICE:?set the exact paired-canary device',
+            publisher,
+        )
+        self.assertIn("SLURM_JOB_DEPENDENCY", publisher)
+        self.assertIn(
+            'afterany:$POPULATION_ARRAY_JOB_ID',
+            publisher,
+        )
+        self.assertIn("population-prepublish", publisher)
+        self.assertIn("--format=JobID,JobIDRaw,State", publisher)
+        self.assertIn("aggregate_safelibero_aegis.py", publisher)
+        self.assertIn("build_safelibero_video_gallery.py", publisher)
+        self.assertIn("population-finalize", publisher)
+
+    def test_population_contract_requires_a_validated_canary_receipt(
+        self,
+    ) -> None:
+        preparer = (SLURM / "prepare_aegis_run_root.sh").read_text(
+            encoding="utf-8"
+        )
+        common = (SLURM / "aegis_runtime_common.sh").read_text(
+            encoding="utf-8"
+        )
+        for text in (preparer, common):
+            self.assertIn("PI05_HASH_RECEIPT_PATH", text)
+            self.assertIn("vlsa_table1_pi05_hash_receipt.v1", text)
+            self.assertIn("PAIRED_CANARY_RECEIPT_PATH", text)
+            self.assertIn("vlsa_table1_paired_canary_validation.v1", text)
+            self.assertIn("full_content_tree_sha256", text)
+        self.assertIn("EXPECTED_PI05_HASH_RECEIPT_SHA256", preparer)
+        self.assertIn(
+            "EXPECTED_PAIRED_CANARY_RECEIPT_SHA256",
+            preparer,
+        )
+        self.assertNotIn("structural-and-metadata-only", preparer)
+        self.assertNotIn("structural-and-metadata-only", common)
+
+    def test_shell_receipt_parser_ignores_nested_status_fields(self) -> None:
+        common_path = SLURM / "aegis_runtime_common.sh"
+        with tempfile.TemporaryDirectory() as temporary:
+            receipt_path = Path(temporary) / "receipt.json"
+            receipt_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": (
+                            "vlsa_table1_paired_canary_validation.v1"
+                        ),
+                        "status": "validated",
+                        "results": [
+                            {"status": "collision"},
+                            {"status": "success"},
+                        ],
+                    },
+                    sort_keys=True,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            completed = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    (
+                        'source "$1"; '
+                        'aegis_json_top_level_string_value "$2" status'
+                    ),
+                    "_",
+                    str(common_path),
+                    str(receipt_path),
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        self.assertEqual(completed.stdout.strip(), "validated")
 
     def test_outputs_are_confined_to_immutable_experiment_root(self) -> None:
         common = (SLURM / "aegis_runtime_common.sh").read_text(

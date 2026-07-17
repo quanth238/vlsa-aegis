@@ -3,22 +3,26 @@
   "features": [
     {
       "id": "A01-reproduction-apparatus",
-      "status": "active",
+      "status": "passing",
       "depends_on": [],
       "evidence": [
-        "2026-07-17 local structural gate: 56 tests passed, 1 optional dependency test skipped",
-        "Independent capture-path reviews permit only a fresh capture-only canary; paired outcomes remain blocked"
+        "2026-07-17 verifier structural gate: 86 tests passed, 3 optional dependency tests skipped",
+        "Two independent reviews accepted the released translational comparison after strict action-ledger, pairing, geometry-failure, checkpoint, and canary-QP validation"
       ]
     },
     {
       "id": "A02-one-case-capture",
-      "status": "pending",
+      "status": "passing",
       "depends_on": ["A01-reproduction-apparatus"],
-      "evidence": []
+      "evidence": [
+        "Slurm 28462_0 completed the capture-only canary on worker-1 from clean commit bce7737369328da06d62d3840ae577a52b46780f",
+        "Capture payload SHA-256 4fea432ba3ebc62b2c115e0804ade2e28da7243520a04cbb2fe1adbadedc891e and settled agent-view SHA-256 b8bcd1a309fbfc900d18ed472853bbec56a9e8e1fa98c55462a4960782560e7b were independently reproduced locally",
+        "Blue moka pot label was frozen after capture and before outcomes in label manifest SHA-256 2d4d1be5c0a4940c72eb452d00361f6a4935de3f5cbc1058c9671fff96a35a36"
+      ]
     },
     {
       "id": "A03-one-case-paired-canary",
-      "status": "pending",
+      "status": "active",
       "depends_on": ["A02-one-case-capture"],
       "evidence": []
     },

@@ -26,6 +26,7 @@ CONFIG_SCHEMA = "vlsa_table1_translational_protocol.v1"
 MANIFEST_SCHEMA = "vlsa_table1_population_case.v1"
 RECEIPT_SCHEMA = "vlsa_table1_population_receipt.v1"
 PREFLIGHT_SCHEMA = "vlsa_table1_allocation_preflight.v1"
+PI05_HASH_RECEIPT_SCHEMA = "vlsa_table1_pi05_hash_receipt.v1"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -43,8 +44,9 @@ DEFAULT_DINO_CHECKPOINT = Path(
 
 # The large OCDBT objects are identified by the exact object names and sizes
 # frozen on VinUni.  Orbax metadata and manifests are content-hashed below.
-# Passing --expected-pi05-tree-sha256 additionally performs a full 15 GB
-# content hash when a preregistered tree digest is available.
+# A separate CPU allocation performs the full 15 GB content hash once. Every
+# evaluation allocation rehashes the small metadata files and matches exact
+# file stat identities from that immutable hash receipt.
 PI05_METADATA_FILES: dict[str, tuple[int, str]] = {
     "assets/physical-intelligence/libero/norm_stats.json": (
         1914,
@@ -393,6 +395,107 @@ def _tree_content_sha256(root: Path, relative_paths: Iterable[str]) -> str:
     return digest.hexdigest()
 
 
+def pi05_checkpoint_filesystem_identity(
+    checkpoint: Path,
+    relative_paths: Iterable[str],
+) -> dict[str, Any]:
+    files: list[dict[str, Any]] = []
+    for relative in sorted(relative_paths):
+        path = _regular_file(
+            checkpoint / relative, label=f"pi0.5 asset {relative}"
+        )
+        stat = path.stat()
+        files.append(
+            {
+                "relative_path": relative,
+                "bytes": stat.st_size,
+                "device": stat.st_dev,
+                "inode": stat.st_ino,
+                "mtime_ns": stat.st_mtime_ns,
+                "ctime_ns": stat.st_ctime_ns,
+            }
+        )
+    identity: dict[str, Any] = {
+        "checkpoint_path": str(checkpoint.resolve()),
+        "files": files,
+    }
+    identity["identity_sha256"] = sha256_bytes(
+        canonical_json_bytes(identity)
+    )
+    return identity
+
+
+def validate_pi05_filesystem_identity_record(
+    value: Any,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise PreflightError(
+            "pi0.5 hash receipt lacks filesystem identity"
+        )
+    checkpoint_path = value.get("checkpoint_path")
+    files = value.get("files")
+    if not isinstance(checkpoint_path, str) or not checkpoint_path.startswith(
+        "/"
+    ):
+        raise PreflightError(
+            "pi0.5 filesystem identity lacks the resolved checkpoint path"
+        )
+    if not isinstance(files, list):
+        raise PreflightError("pi0.5 filesystem identity file list is missing")
+    expected_paths = set(PI05_METADATA_FILES) | set(PI05_DATA_FILES)
+    expected_sizes = {
+        **{
+            relative: record[0]
+            for relative, record in PI05_METADATA_FILES.items()
+        },
+        **PI05_DATA_FILES,
+    }
+    observed_paths: set[str] = set()
+    for item in files:
+        if not isinstance(item, dict):
+            raise PreflightError("pi0.5 filesystem identity item is invalid")
+        relative = item.get("relative_path")
+        if (
+            not isinstance(relative, str)
+            or relative in observed_paths
+            or relative not in expected_paths
+        ):
+            raise PreflightError(
+                "pi0.5 filesystem identity paths changed"
+            )
+        observed_paths.add(relative)
+        if item.get("bytes") != expected_sizes[relative]:
+            raise PreflightError(
+                f"pi0.5 filesystem identity size changed for {relative}"
+            )
+        for field in ("device", "inode", "mtime_ns", "ctime_ns"):
+            number = item.get(field)
+            if (
+                not isinstance(number, int)
+                or isinstance(number, bool)
+                or number < 0
+            ):
+                raise PreflightError(
+                    f"pi0.5 filesystem identity {field} is invalid"
+                )
+    if observed_paths != expected_paths:
+        raise PreflightError(
+            "pi0.5 filesystem identity does not contain the exact inventory"
+        )
+    identity_sha256 = _require_sha256(
+        value.get("identity_sha256"),
+        label="pi0.5 filesystem identity",
+    )
+    payload = {
+        key: item for key, item in value.items() if key != "identity_sha256"
+    }
+    if sha256_bytes(canonical_json_bytes(payload)) != identity_sha256:
+        raise PreflightError(
+            "pi0.5 filesystem identity payload hash changed"
+        )
+    return value
+
+
 def validate_pi05_checkpoint(
     checkpoint: Path,
     *,
@@ -477,6 +580,144 @@ def validate_pi05_checkpoint(
     return result
 
 
+def validate_pi05_checkpoint_against_identity(
+    checkpoint: Path,
+    *,
+    expected_tree_sha256: str,
+    expected_filesystem_identity: dict[str, Any],
+) -> dict[str, Any]:
+    expected_tree_sha256 = _require_sha256(
+        expected_tree_sha256, label="pi0.5 full tree"
+    )
+    checkpoint_record = validate_pi05_checkpoint(
+        checkpoint,
+        expected_tree_sha256=None,
+    )
+    current_filesystem_identity = pi05_checkpoint_filesystem_identity(
+        checkpoint,
+        set(PI05_METADATA_FILES) | set(PI05_DATA_FILES),
+    )
+    if current_filesystem_identity != expected_filesystem_identity:
+        raise PreflightError(
+            "pi0.5 checkpoint stat identity changed after the full hash "
+            "receipt; compute a new allocation-backed receipt"
+        )
+    checkpoint_record.update(
+        {
+            "full_content_tree_sha256": expected_tree_sha256,
+            "full_content_hash_verified": True,
+            "full_content_hash_verification": (
+                "one_time_allocation_receipt_plus_exact_stat_identity"
+            ),
+            "full_content_rehashed_in_this_allocation": False,
+            "filesystem_identity_sha256": current_filesystem_identity[
+                "identity_sha256"
+            ],
+        }
+    )
+    return checkpoint_record
+
+
+def validate_pi05_hash_receipt(
+    path: Path,
+    *,
+    expected_receipt_sha256: str,
+    expected_tree_sha256: str,
+    expected_commit: str,
+) -> dict[str, Any]:
+    receipt, raw = _load_json(path, label="pi0.5 hash receipt")
+    observed_receipt_sha256 = sha256_bytes(raw)
+    if observed_receipt_sha256 != _require_sha256(
+        expected_receipt_sha256, label="pi0.5 hash receipt"
+    ):
+        raise PreflightError("pi0.5 hash receipt differs from the run contract")
+    if (
+        receipt.get("schema_version") != PI05_HASH_RECEIPT_SCHEMA
+        or receipt.get("status") != "passed"
+        or receipt.get("scientific_result") is not False
+    ):
+        raise PreflightError("pi0.5 hash receipt is not a passed audit artifact")
+    expected_payload_sha256 = _require_sha256(
+        receipt.get("receipt_payload_sha256"),
+        label="pi0.5 hash receipt payload",
+    )
+    observed_payload_sha256 = sha256_bytes(
+        canonical_json_bytes(
+            {
+                key: value
+                for key, value in receipt.items()
+                if key != "receipt_payload_sha256"
+            }
+        )
+    )
+    if observed_payload_sha256 != expected_payload_sha256:
+        raise PreflightError("pi0.5 hash receipt payload hash changed")
+    source = receipt.get("source")
+    checkpoint = receipt.get("checkpoint")
+    if (
+        not isinstance(source, dict)
+        or source.get("git_commit") != expected_commit
+        or source.get("git_dirty") is not False
+    ):
+        raise PreflightError("pi0.5 hash receipt source identity changed")
+    expected_tree_sha256 = _require_sha256(
+        expected_tree_sha256, label="pi0.5 full tree"
+    )
+    if (
+        not isinstance(checkpoint, dict)
+        or checkpoint.get("full_content_hash_verified") is not True
+        or checkpoint.get("full_content_tree_sha256")
+        != expected_tree_sha256
+    ):
+        raise PreflightError("pi0.5 hash receipt does not bind the full tree")
+    filesystem_identity = validate_pi05_filesystem_identity_record(
+        checkpoint.get("filesystem_identity")
+    )
+    if checkpoint.get("path") != filesystem_identity["checkpoint_path"]:
+        raise PreflightError(
+            "pi0.5 hash receipt checkpoint path differs from stat identity"
+        )
+    execution = receipt.get("execution")
+    execution_fields = (
+        "policy_model_executed",
+        "simulator_executed",
+        "groundingdino_executed",
+        "qp_executed",
+        "training_executed",
+    )
+    if (
+        not isinstance(execution, dict)
+        or any(execution.get(field) is not False for field in execution_fields)
+    ):
+        raise PreflightError(
+            "pi0.5 hash receipt contains forbidden experiment execution"
+        )
+    slurm = receipt.get("slurm")
+    if (
+        not isinstance(slurm, dict)
+        or not slurm.get("job_id")
+        or not slurm.get("array_job_id")
+        or str(slurm.get("array_task_id")) != "0"
+        or not slurm.get("host")
+        or str(slurm.get("host")) == "worker-3"
+        or str(slurm.get("host")).startswith(("login", "login-restricted"))
+    ):
+        raise PreflightError("pi0.5 hash receipt lacks compute allocation identity")
+    return {
+        "path": str(path.resolve()),
+        "sha256": observed_receipt_sha256,
+        "receipt_payload_sha256": observed_payload_sha256,
+        "full_content_tree_sha256": expected_tree_sha256,
+        "full_content_hash_verified": True,
+        "filesystem_identity": filesystem_identity,
+        "filesystem_identity_sha256": filesystem_identity[
+            "identity_sha256"
+        ],
+        "source_git_commit": expected_commit,
+        "slurm": slurm,
+    }
+
+
 def validate_evaluation_assets(
     *,
     cases: list[dict[str, Any]],
@@ -484,6 +725,9 @@ def validate_evaluation_assets(
     require_complete_label_population: bool,
     pi05_checkpoint: Path,
     expected_pi05_tree_sha256: str | None,
+    pi05_hash_receipt: Path,
+    expected_pi05_hash_receipt_sha256: str,
+    expected_commit: str,
     dino_config: Path,
     dino_checkpoint: Path,
     label_manifest: Path,
@@ -582,11 +826,24 @@ def validate_evaluation_assets(
         raise PreflightError(
             f"frozen Codex label manifest is missing required cases: {missing[:3]}"
         )
+    if expected_pi05_tree_sha256 is None:
+        raise PreflightError(
+            "evaluation requires a preregistered full pi0.5 tree SHA-256"
+        )
+    hash_receipt = validate_pi05_hash_receipt(
+        pi05_hash_receipt,
+        expected_receipt_sha256=expected_pi05_hash_receipt_sha256,
+        expected_tree_sha256=expected_pi05_tree_sha256,
+        expected_commit=expected_commit,
+    )
+    checkpoint_record = validate_pi05_checkpoint_against_identity(
+        pi05_checkpoint,
+        expected_tree_sha256=expected_pi05_tree_sha256,
+        expected_filesystem_identity=hash_receipt["filesystem_identity"],
+    )
     return {
-        "pi05_checkpoint": validate_pi05_checkpoint(
-            pi05_checkpoint,
-            expected_tree_sha256=expected_pi05_tree_sha256,
-        ),
+        "pi05_checkpoint": checkpoint_record,
+        "pi05_hash_receipt": hash_receipt,
         "groundingdino": {
             "config": validate_file(
                 dino_config,
@@ -683,6 +940,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_PI05_CHECKPOINT,
     )
     parser.add_argument("--expected-pi05-tree-sha256")
+    parser.add_argument("--pi05-hash-receipt", type=Path)
+    parser.add_argument("--expected-pi05-hash-receipt-sha256")
     parser.add_argument(
         "--dino-config", type=Path, default=DEFAULT_DINO_CONFIG
     )
@@ -730,10 +989,14 @@ def main(argv: list[str] | None = None) -> int:
             if (
                 args.label_manifest is None
                 or args.expected_label_manifest_sha256 is None
+                or args.expected_pi05_tree_sha256 is None
+                or args.pi05_hash_receipt is None
+                or args.expected_pi05_hash_receipt_sha256 is None
             ):
                 raise PreflightError(
-                    "evaluation requires a frozen label manifest and its "
-                    "preregistered SHA-256"
+                    "evaluation requires the frozen label manifest, its "
+                    "preregistered SHA-256, the verified full pi0.5 tree "
+                    "SHA-256, and the matching allocation-backed hash receipt"
                 )
             assets.update(
                 validate_evaluation_assets(
@@ -746,6 +1009,11 @@ def main(argv: list[str] | None = None) -> int:
                     expected_pi05_tree_sha256=(
                         args.expected_pi05_tree_sha256
                     ),
+                    pi05_hash_receipt=args.pi05_hash_receipt.resolve(),
+                    expected_pi05_hash_receipt_sha256=(
+                        args.expected_pi05_hash_receipt_sha256
+                    ),
+                    expected_commit=args.expected_commit,
                     dino_config=args.dino_config.resolve(),
                     dino_checkpoint=args.dino_checkpoint.resolve(),
                     label_manifest=args.label_manifest.resolve(),
@@ -765,7 +1033,7 @@ def main(argv: list[str] | None = None) -> int:
             "protocol": protocol,
             "assets": assets,
             "case_count": len(rows),
-        "slurm": {
+            "slurm": {
                 "job_id": os.environ.get("SLURM_JOB_ID"),
                 "array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
                 "array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),

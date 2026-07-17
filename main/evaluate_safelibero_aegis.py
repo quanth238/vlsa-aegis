@@ -49,6 +49,8 @@ TABLE_POLICY_RESIZE = 224
 TABLE_MODEL_ACTION_HORIZON = 10
 TABLE_REPLAN_STEPS = 5
 TABLE_VIDEO_FPS = 30
+TRANSLATIONAL_FAIL_OPEN = "corrected_translational_nominal"
+UPSTREAM_EMPTY_PERCEPTION_FALLBACK = "raw_nominal_including_rotation"
 ALLOWED_LABELS = {
     "yellow rectangular book",
     "blue moka pot",
@@ -77,6 +79,18 @@ class ApparatusError(RuntimeError):
 
 class MethodFailure(RuntimeError):
     """The released method reached a validly observed hard failure."""
+
+
+def _is_precontrol_geometry_failure(result: Mapping[str, Any]) -> bool:
+    failure = result.get("method_failure")
+    return bool(
+        result.get("status") == "method_failure"
+        and isinstance(failure, Mapping)
+        and failure.get("component") == "aegis_geometry"
+        and failure.get("phase") == "precontrol"
+        and failure.get("step") == 0
+        and failure.get("safety_by_no_execution") is True
+    )
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -247,14 +261,27 @@ def policy_noise_schedule(case: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def initial_policy_observation_sha256(
-    observation: Mapping[str, Any], task_description: str
-) -> str:
-    """Bind the exact raw components used to form the first policy query."""
+def settled_input_contract(
+    observation: Mapping[str, Any],
+    task_description: str,
+    *,
+    active_obstacle_name: str,
+    settled_simulator_state: Any,
+) -> dict[str, Any]:
+    """Bind every settled input that can affect either paired arm.
+
+    The nominal arm consumes agent/wrist RGB, proprioception, and the prompt.
+    AEGIS additionally consumes both depth maps, back-view RGB, and the active
+    obstacle position used by the public CAR measurement.  The post-settle
+    simulator state closes the contract over unobserved dynamics.
+    """
 
     import numpy as np
 
     image = _processed_image(observation, "agentview_image")
+    agent_depth = _processed_image(observation, "agentview_depth")
+    back_image = _processed_image(observation, "backview_image")
+    back_depth = _processed_image(observation, "backview_depth")
     wrist = _processed_image(
         observation, "robot0_eye_in_hand_image"
     )
@@ -265,14 +292,28 @@ def initial_policy_observation_sha256(
             observation["robot0_gripper_qpos"],
         )
     )
-    contract = {
-        "schema_version": "pi05_initial_policy_observation.v1",
+    obstacle_key = f"{active_obstacle_name}_pos"
+    if obstacle_key not in observation:
+        raise ApparatusError(
+            f"settled observation has no active-obstacle pose {obstacle_key}"
+        )
+    return {
+        "schema_version": "vlsa_table1_settled_input.v1",
         "agentview_array_sha256": array_sha256(image),
+        "agentview_depth_array_sha256": array_sha256(agent_depth),
+        "backview_array_sha256": array_sha256(back_image),
+        "backview_depth_array_sha256": array_sha256(back_depth),
         "wrist_array_sha256": array_sha256(wrist),
         "state_array_sha256": array_sha256(state),
+        "active_obstacle_name": active_obstacle_name,
+        "active_obstacle_position_array_sha256": array_sha256(
+            observation[obstacle_key]
+        ),
+        "settled_simulator_state_array_sha256": array_sha256(
+            settled_simulator_state
+        ),
         "prompt": str(task_description),
     }
-    return sha256_bytes(canonical_json_bytes(contract))
 
 
 def pairing_record(
@@ -281,17 +322,29 @@ def pairing_record(
     selected_initial_state: Any,
     settled_observation: Mapping[str, Any],
     task_description: str,
+    active_obstacle_name: str,
+    settled_simulator_state: Any,
 ) -> dict[str, Any]:
     schedule = policy_noise_schedule(case)
+    settled_contract = settled_input_contract(
+        settled_observation,
+        task_description,
+        active_obstacle_name=active_obstacle_name,
+        settled_simulator_state=settled_simulator_state,
+    )
     return {
         "manifest_row_sha256": sha256_bytes(canonical_json_bytes(case)),
         "initial_state_sha256": array_sha256(selected_initial_state),
-        "initial_observation_sha256": initial_policy_observation_sha256(
-            settled_observation, task_description
+        "initial_observation_sha256": sha256_bytes(
+            canonical_json_bytes(settled_contract)
         ),
-        "initial_observation_contract": (
-            "post-settle raw agentview+wrist+proprioception+prompt"
-        ),
+        "initial_observation_contract": settled_contract,
+        "settled_simulator_state_sha256": settled_contract[
+            "settled_simulator_state_array_sha256"
+        ],
+        "settled_active_obstacle_position_sha256": settled_contract[
+            "active_obstacle_position_array_sha256"
+        ],
         "policy_noise_schedule_id": case["policy_noise_schedule_id"],
         "policy_noise_schedule_sha256": sha256_bytes(
             canonical_json_bytes(schedule)
@@ -300,6 +353,7 @@ def pairing_record(
         "max_steps": int(case["max_steps"]),
         "model_action_horizon": int(case["model_action_horizon"]),
         "replan_steps": int(case["replan_steps"]),
+        "translational_fail_open": TRANSLATIONAL_FAIL_OPEN,
     }
 
 
@@ -309,6 +363,7 @@ def _scientific_resume_is_valid(
     case: Mapping[str, Any],
     arm: str,
     output_root: Path,
+    expected_label_record: Mapping[str, Any] | None,
 ) -> bool:
     """Conservatively recognize a complete, video-backed terminal result."""
 
@@ -335,13 +390,20 @@ def _scientific_resume_is_valid(
         if result.get(field) != case.get(field):
             return False
     pairing = result.get("pairing")
-    expected_pairing_keys = (
+    if not isinstance(pairing, Mapping):
+        return False
+    precontrol_geometry_failure = _is_precontrol_geometry_failure(result)
+    expected_pairing_keys = [
         "manifest_row_sha256",
         "initial_state_sha256",
         "initial_observation_sha256",
+        "settled_simulator_state_sha256",
+        "settled_active_obstacle_position_sha256",
         "policy_noise_schedule_sha256",
-    )
-    if not isinstance(pairing, Mapping):
+    ]
+    if not precontrol_geometry_failure:
+        expected_pairing_keys.append("initial_policy_action_chunk_sha256")
+    elif "initial_policy_action_chunk_sha256" in pairing:
         return False
     if (
         pairing.get("manifest_row_sha256")
@@ -352,6 +414,16 @@ def _scientific_resume_is_valid(
         or pairing.get("model_action_horizon")
         != case.get("model_action_horizon")
         or pairing.get("replan_steps") != case.get("replan_steps")
+        or pairing.get("translational_fail_open")
+        != TRANSLATIONAL_FAIL_OPEN
+    ):
+        return False
+    schedule = pairing.get("policy_noise_schedule")
+    if (
+        not isinstance(schedule, Mapping)
+        or dict(schedule) != policy_noise_schedule(case)
+        or pairing.get("policy_noise_schedule_sha256")
+        != sha256_bytes(canonical_json_bytes(schedule))
     ):
         return False
     if any(
@@ -369,6 +441,12 @@ def _scientific_resume_is_valid(
         return False
     label_record = settled.get("label_record")
     if not isinstance(label_record, Mapping):
+        return False
+    if (
+        expected_label_record is None
+        or canonical_json_bytes(label_record)
+        != canonical_json_bytes(expected_label_record)
+    ):
         return False
     label_record_hash = sha256_bytes(canonical_json_bytes(label_record))
     settled_hash = settled.get("agentview_array_sha256")
@@ -401,6 +479,13 @@ def _scientific_resume_is_valid(
     status = result.get("status")
     legacy = metrics["legacy_ets_steps"]
     executed = metrics["executed_action_count"]
+    safety_by_no_execution = metrics.get("safety_by_no_execution")
+    if (
+        not isinstance(safety_by_no_execution, bool)
+        or safety_by_no_execution
+        is not (status == "method_failure" and executed == 0)
+    ):
+        return False
     if reason not in {
         "task_success",
         "time_limit",
@@ -425,6 +510,18 @@ def _scientific_resume_is_valid(
         return False
     if status == "method_failure" and reason != "method_failure":
         return False
+    policy_queries = result.get("policy_queries")
+    if not isinstance(policy_queries, list):
+        return False
+    if precontrol_geometry_failure:
+        if policy_queries or executed != 0:
+            return False
+    elif (
+        not policy_queries
+        or policy_queries[0].get("returned_actions_sha256")
+        != pairing.get("initial_policy_action_chunk_sha256")
+    ):
+        return False
     video = result.get("video")
     if not isinstance(video, Mapping) or not video.get("path"):
         return False
@@ -441,6 +538,21 @@ def _scientific_resume_is_valid(
         != executed + int(reason == "method_failure")
         or not isinstance(result.get("actions"), list)
         or len(result["actions"]) != executed
+    ):
+        return False
+    payload_hash = result.get("result_payload_sha256")
+    if (
+        not isinstance(payload_hash, str)
+        or payload_hash
+        != sha256_bytes(
+            canonical_json_bytes(
+                {
+                    key: value
+                    for key, value in result.items()
+                    if key != "result_payload_sha256"
+                }
+            )
+        )
     ):
         return False
     return True
@@ -817,6 +929,11 @@ def _build_environment(
         "camera_widths": render_resolution,
         "camera_depths": True,
     }
+    # Match the released evaluator before constructing OffScreenRenderEnv.
+    # LIBERO performs a temporary randomized placement in the constructor,
+    # before we restore the frozen episode state, so this process-level seed
+    # is part of deterministic environment construction.
+    runtime["np"].random.seed(int(case["environment_seed"]))
     env = runtime["OffScreenRenderEnv"](**env_args)
     env.seed(int(case["environment_seed"]))
     env.reset()
@@ -1111,6 +1228,10 @@ def _prepare_aegis_geometry(
                 "status": "empty",
                 "method_failure": "no_grounded_points",
                 "filtered_point_count": 0,
+                "fail_open_execution": TRANSLATIONAL_FAIL_OPEN,
+                "upstream_released_fallback": (
+                    UPSTREAM_EMPTY_PERCEPTION_FALLBACK
+                ),
             }
         )
         return {"enabled": False, "record": record}
@@ -1131,6 +1252,10 @@ def _prepare_aegis_geometry(
             {
                 "status": "empty",
                 "method_failure": "point_filter_removed_all_points",
+                "fail_open_execution": TRANSLATIONAL_FAIL_OPEN,
+                "upstream_released_fallback": (
+                    UPSTREAM_EMPTY_PERCEPTION_FALLBACK
+                ),
             }
         )
         return {"enabled": False, "record": record}
@@ -1139,7 +1264,9 @@ def _prepare_aegis_geometry(
             filtered, plot=True, save_path=perception_dir
         )
     except Exception as error:
-        raise ApparatusError(f"released MVEE fitting failed: {error}") from error
+        raise MethodFailure(
+            f"released ConvexHull/MVEE fitting failed: {error}"
+        ) from error
     p2 = np.asarray(p2, dtype=float)
     R2 = np.asarray(R2, dtype=float)
     Q2_diag = np.asarray(Q2_diag, dtype=float)
@@ -1151,11 +1278,11 @@ def _prepare_aegis_geometry(
         or not np.all(np.isfinite(R2))
         or not np.all(np.isfinite(Q2_diag))
     ):
-        raise ApparatusError("released MVEE fitting returned invalid geometry")
+        raise MethodFailure("released MVEE fitting returned invalid geometry")
     z_fixed = p2 - stale_proxy["p1"]
     norm = float(np.linalg.norm(z_fixed))
     if not math.isfinite(norm) or norm <= 1e-12:
-        raise ApparatusError("released MVEE produced a degenerate direction")
+        raise MethodFailure("released MVEE produced a degenerate direction")
     z_fixed /= norm
     record.update(
         {
@@ -1212,13 +1339,11 @@ def _aegis_action(
         cp.Minimize(cp.quad_form(variable - reference, weights)),
         [a_u_v @ variable[:3] + a_uz @ variable[3:6] + 10.0 * h >= 0],
     )
-    try:
-        problem.solve(solver=cp.OSQP)
-    except Exception as error:
-        raise ApparatusError(f"OSQP failed: {error}") from error
+    _solve_aegis_qp(problem, cp)
     if variable.value is None:
         # The release referenced an undefined v_ref2 and then an undefined
-        # name.  Do not invent a fallback and count it as a method outcome.
+        # name.  Preserve the resulting episode-level method failure without
+        # inventing a successful fallback.
         raise MethodFailure(
             f"AEGIS QP returned no solution (status={problem.status})"
         )
@@ -1256,6 +1381,21 @@ def _aegis_action(
     ):
         raise MethodFailure("AEGIS QP diagnostics are non-finite")
     return executed, diagnostics
+
+
+def _solve_aegis_qp(problem: Any, cp: Any) -> None:
+    """Retain a solver exception as the released loop's method failure.
+
+    Missing CVXPY/OSQP dependencies are rejected while importing the AEGIS
+    runtime.  Once a valid problem reaches OSQP, a deterministic numerical
+    exception is an observed failure of this method/case, not grounds to drop
+    the episode from the population.
+    """
+
+    try:
+        problem.solve(solver=cp.OSQP)
+    except Exception as error:
+        raise MethodFailure(f"AEGIS OSQP execution failed: {error}") from error
 
 
 def _policy_observation(
@@ -1340,6 +1480,7 @@ def evaluate_case(
         )
     validate_case_row(case, repo_root)
     case_id = str(case["case_id"])
+    current_label_record = labels.get(case_id)
     arm = (
         "pi05_translational"
         if mode == "pi05"
@@ -1358,6 +1499,7 @@ def evaluate_case(
             case=case,
             arm=arm,
             output_root=output_root,
+            expected_label_record=current_label_record,
         ):
             return existing
     prior_attempt_artifacts = _archive_prior_case_artifacts(case_dir)
@@ -1395,6 +1537,19 @@ def evaluate_case(
             "released_utils": "main/utils.py",
         },
         "case": dict(case),
+        "protocol_semantics": {
+            "action_space": "translational_only",
+            "nominal_rotation_indices_3_to_5": "zero",
+            "empty_perception_fail_open": TRANSLATIONAL_FAIL_OPEN,
+            "upstream_released_empty_perception_fallback": (
+                UPSTREAM_EMPTY_PERCEPTION_FALLBACK
+            ),
+            "deviation_reason": (
+                "the registered Table-1 arm is translational-only; retaining "
+                "raw nominal rotation on an empty perception result would "
+                "change the frozen action-space arm"
+            ),
+        },
         "timing": {"started_unix": started_wall},
         "actions": executed_actions,
     }
@@ -1424,22 +1579,33 @@ def evaluate_case(
             observation, "agentview_image"
         )
         settled_hash = array_sha256(settled_agentview)
+
+        obstacle_name, obstacle_candidates = _active_obstacle(
+            env, observation
+        )
+        initial_obstacle_position = np.asarray(
+            observation[f"{obstacle_name}_pos"], dtype=float
+        ).copy()
+        settled_simulator_state = np.asarray(
+            env.sim.get_state().flatten(), dtype=float
+        ).copy()
         result["pairing"] = pairing_record(
             case=case,
             selected_initial_state=selected_initial_state,
             settled_observation=observation,
             task_description=str(task.language),
+            active_obstacle_name=obstacle_name,
+            settled_simulator_state=settled_simulator_state,
         )
 
-        label_record = labels.get(case_id)
         label = validate_frozen_label(
             case=case,
-            label_record=label_record,
+            label_record=current_label_record,
             settled_agentview_hash=settled_hash,
             outcome_started_unix=started_wall,
         )
         label_record_hash = sha256_bytes(
-            canonical_json_bytes(label_record)
+            canonical_json_bytes(current_label_record)
         )
         result["pairing"].update(
             {
@@ -1450,7 +1616,7 @@ def evaluate_case(
         )
         result["settled_observation"] = {
             "agentview_array_sha256": settled_hash,
-            "label_record": dict(label_record),
+            "label_record": dict(current_label_record),
             "label_record_sha256": label_record_hash,
             "label_control_usage": (
                 "groundingdino_prompt"
@@ -1460,12 +1626,6 @@ def evaluate_case(
             "obstacle_label": label,
         }
 
-        obstacle_name, obstacle_candidates = _active_obstacle(
-            env, observation
-        )
-        initial_obstacle_position = np.asarray(
-            observation[f"{obstacle_name}_pos"], dtype=float
-        ).copy()
         selector_matches = label_matches_active_obstacle(
             label, obstacle_name
         )
@@ -1481,26 +1641,56 @@ def evaluate_case(
 
         geometry: dict[str, Any] | None = None
         method_degraded = False
+        degraded_method_failure: dict[str, Any] | None = None
+        precontrol_method_failure: dict[str, Any] | None = None
         if mode == "aegis":
             grounding_model = _load_grounding_model(
                 config_path=groundingdino_config,
                 checkpoint_path=groundingdino_checkpoint,
                 device=groundingdino_device,
             )
-            geometry = _prepare_aegis_geometry(
-                runtime,
-                env=env,
-                observation=observation,
-                task_description=str(task.language),
-                suite_name=normalize_suite_name(str(case["suite"])),
-                label=str(label),
-                grounding_model=grounding_model,
-                grounding_device=groundingdino_device,
-                artifact_dir=case_dir,
-                stale_proxy=proxy,
-            )
-            result["perception"] = geometry["record"]
-            method_degraded = not bool(geometry["enabled"])
+            try:
+                geometry = _prepare_aegis_geometry(
+                    runtime,
+                    env=env,
+                    observation=observation,
+                    task_description=str(task.language),
+                    suite_name=normalize_suite_name(str(case["suite"])),
+                    label=str(label),
+                    grounding_model=grounding_model,
+                    grounding_device=groundingdino_device,
+                    artifact_dir=case_dir,
+                    stale_proxy=proxy,
+                )
+            except MethodFailure as error:
+                geometry = None
+                precontrol_method_failure = {
+                    "status": "method_failure",
+                    "component": "aegis_geometry",
+                    "phase": "precontrol",
+                    "step": 0,
+                    "type": type(error).__name__,
+                    "message": str(error),
+                    "safety_by_no_execution": True,
+                }
+                result["perception"] = {
+                    "status": "method_failure",
+                    "component": "aegis_geometry",
+                    "reason": str(error),
+                }
+            if geometry is not None:
+                result["perception"] = geometry["record"]
+                method_degraded = not bool(geometry["enabled"])
+                if method_degraded:
+                    degraded_method_failure = {
+                        "status": "method_failure_passthrough",
+                        "component": "aegis_perception",
+                        "reason": geometry["record"].get("method_failure"),
+                        "corrected_execution": TRANSLATIONAL_FAIL_OPEN,
+                        "upstream_released_execution": (
+                            UPSTREAM_EMPTY_PERCEPTION_FALLBACK
+                        ),
+                    }
         else:
             result["perception"] = {
                 "status": "not_run",
@@ -1543,12 +1733,18 @@ def evaluate_case(
         intervention_count = 0
         modification_l2_sum = 0.0
         modification_l2_max = 0.0
-        hard_method_failure: dict[str, Any] | None = None
+        hard_method_failure: dict[str, Any] | None = (
+            precontrol_method_failure
+        )
 
         for step in range(max_steps):
             frame = _processed_image(observation, "agentview_image")
             video_writer.append_data(frame)
             frames_written += 1
+
+            if precontrol_method_failure is not None:
+                terminal_reason = "method_failure"
+                break
 
             if not action_plan:
                 query_index = len(policy_queries)
@@ -1584,14 +1780,17 @@ def evaluate_case(
                     action_chunk[index].copy()
                     for index in range(replan_steps)
                 )
+                returned_actions_sha256 = array_sha256(action_chunk)
+                if query_index == 0:
+                    result["pairing"][
+                        "initial_policy_action_chunk_sha256"
+                    ] = returned_actions_sha256
                 policy_queries.append(
                     {
                         "query_index": query_index,
                         "rng_seed": seed,
                         "returned_action_shape": list(action_chunk.shape),
-                        "returned_actions_sha256": array_sha256(
-                            action_chunk
-                        ),
+                        "returned_actions_sha256": returned_actions_sha256,
                         "elapsed_seconds": float(query_elapsed),
                         "server_timing": response.get("server_timing"),
                     }
@@ -1614,13 +1813,28 @@ def evaluate_case(
                     hard_method_failure = {
                         "status": "method_failure",
                         "component": "aegis_qp",
+                        "phase": "control",
                         "step": step,
                         "type": type(error).__name__,
                         "message": str(error),
+                        "safety_by_no_execution": (
+                            len(executed_actions) == 0
+                        ),
                     }
                     break
             else:
                 executed = list(nominal)
+            control_path = (
+                "aegis_qp"
+                if mode == "aegis"
+                and geometry is not None
+                and geometry["enabled"]
+                else (
+                    TRANSLATIONAL_FAIL_OPEN
+                    if mode == "aegis"
+                    else "pi05_translational_nominal"
+                )
+            )
 
             correction = np.asarray(executed) - np.asarray(nominal)
             correction_l2 = float(np.linalg.norm(correction[:6]))
@@ -1671,6 +1885,7 @@ def evaluate_case(
                     "nominal_raw": _finite_list(nominal_raw[:7]),
                     "nominal_translational": list(nominal),
                     "executed": list(executed),
+                    "control_path": control_path,
                     "modified": modified,
                     "correction_l2": correction_l2,
                     "qp": qp_record,
@@ -1720,6 +1935,10 @@ def evaluate_case(
                         maximum_displacement
                     ),
                     "collision_first_step": collision_first_step,
+                    "safety_by_no_execution": bool(
+                        hard_method_failure is not None
+                        and executed_action_count == 0
+                    ),
                     "legacy_ets_steps": legacy_ets_steps(
                         executed_action_count, task_success
                     ),
@@ -1758,6 +1977,11 @@ def evaluate_case(
         )
         if hard_method_failure is not None:
             result["method_failure"] = hard_method_failure
+        elif degraded_method_failure is not None:
+            result["method_failure"] = {
+                **degraded_method_failure,
+                "executed_steps": executed_action_count,
+            }
     except Exception as error:
         result.update(
             {

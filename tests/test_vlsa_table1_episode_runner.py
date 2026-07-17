@@ -15,6 +15,7 @@ CAPTURE_PATH = MAIN / "capture_safelibero_labels.py"
 AGGREGATOR_PATH = ROOT / "analysis" / "aggregate_safelibero_aegis.py"
 CONFIG_PATH = ROOT / "configs" / "vlsa_table1_translational.json"
 MANIFEST_PATH = ROOT / "manifests" / "vlsa_table1_population.jsonl"
+CANARY_LABEL_PATH = ROOT / "labels" / "vlsa_table1_canary_labels.jsonl"
 
 
 def _load(name, path):
@@ -196,6 +197,54 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                 outcome_started_unix=1_800_000_000,
             )
 
+    def test_exact_frozen_canary_label_is_accepted_by_both_gates(self):
+        record = json.loads(
+            CANARY_LABEL_PATH.read_text(encoding="utf-8")
+        )
+        manifest = next(
+            json.loads(line)
+            for line in MANIFEST_PATH.read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if json.loads(line)["case_id"] == record["case_id"]
+        )
+        self.assertEqual(
+            self.evaluator.validate_frozen_label(
+                case=manifest,
+                label_record=record,
+                settled_agentview_hash=record[
+                    "settled_agentview_array_sha256"
+                ],
+                outcome_started_unix=2_000_000_000,
+            ),
+            "blue moka pot",
+        )
+        record_hash = self.aggregator.canonical_record_sha256(
+            record
+        )
+        pairing = {
+            "semantic_label_record_sha256": record_hash,
+            "semantic_label_settled_agentview_sha256": record[
+                "settled_agentview_array_sha256"
+            ],
+            "semantic_obstacle_label": "blue moka pot",
+        }
+        result = {
+            "arm": "pi05_translational",
+            "timing": {"started_unix": 2_000_000_000},
+            "settled_observation": {
+                "agentview_array_sha256": record[
+                    "settled_agentview_array_sha256"
+                ],
+                "label_record": record,
+                "label_record_sha256": record_hash,
+                "obstacle_label": "blue moka pot",
+            },
+        }
+        self.aggregator._validate_label(
+            result, manifest=manifest, pairing=pairing
+        )
+
     def test_baseline_cannot_run_before_label_manifest_is_frozen(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(self.evaluator.ProtocolError):
@@ -296,12 +345,106 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
 
     def test_released_six_variable_qp_structure_is_preserved(self):
         source = inspect.getsource(self.evaluator._aegis_action)
+        solver_source = inspect.getsource(
+            self.evaluator._solve_aegis_qp
+        )
         self.assertIn("cp.Variable(6)", source)
         self.assertIn("[1.0 / 25.0] * 3 + [1.0] * 3", source)
         self.assertIn("10.0 * h >= 0", source)
         self.assertIn("0.2 * R1 @ u_v", source)
-        self.assertIn("problem.solve(solver=cp.OSQP)", source)
-        self.assertIn("raise ApparatusError", source)
+        self.assertIn("problem.solve(solver=cp.OSQP)", solver_source)
+        self.assertIn("raise MethodFailure", solver_source)
+        self.assertNotIn("raise ApparatusError", solver_source)
+
+    def test_osqp_exception_is_a_retained_method_failure(self):
+        class Problem:
+            def solve(self, *, solver):
+                raise RuntimeError(f"solver {solver} failed")
+
+        class CP:
+            OSQP = "OSQP"
+
+        with self.assertRaisesRegex(
+            self.evaluator.MethodFailure,
+            "AEGIS OSQP execution failed",
+        ):
+            self.evaluator._solve_aegis_qp(Problem(), CP)
+
+    def test_precontrol_geometry_failure_contract_is_exact(self):
+        failure = {
+            "status": "method_failure",
+            "method_failure": {
+                "component": "aegis_geometry",
+                "phase": "precontrol",
+                "step": 0,
+                "safety_by_no_execution": True,
+            },
+        }
+        self.assertTrue(
+            self.evaluator._is_precontrol_geometry_failure(failure)
+        )
+        for field, replacement in (
+            ("phase", "control"),
+            ("step", 1),
+            ("safety_by_no_execution", False),
+        ):
+            invalid = json.loads(json.dumps(failure))
+            invalid["method_failure"][field] = replacement
+            self.assertFalse(
+                self.evaluator._is_precontrol_geometry_failure(invalid)
+            )
+
+    def test_geometry_fitting_errors_are_method_failures(self):
+        source = inspect.getsource(
+            self.evaluator._prepare_aegis_geometry
+        )
+        self.assertIn("released ConvexHull/MVEE fitting failed", source)
+        self.assertIn("raise MethodFailure", source)
+
+    def test_settled_pairing_binds_depth_backview_and_simulator_state(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy is unavailable")
+        observation = {
+            "agentview_image": np.zeros((2, 2, 3), dtype=np.uint8),
+            "agentview_depth": np.zeros((2, 2), dtype=np.float32),
+            "backview_image": np.ones((2, 2, 3), dtype=np.uint8),
+            "backview_depth": np.ones((2, 2), dtype=np.float32),
+            "robot0_eye_in_hand_image": np.full(
+                (2, 2, 3), 2, dtype=np.uint8
+            ),
+            "robot0_eef_pos": np.zeros(3, dtype=np.float32),
+            "robot0_eef_quat": np.array(
+                [0, 0, 0, 1], dtype=np.float32
+            ),
+            "robot0_gripper_qpos": np.zeros(2, dtype=np.float32),
+            "milk_obstacle_1_pos": np.ones(3, dtype=np.float32),
+        }
+        first = self.evaluator.settled_input_contract(
+            observation,
+            "pick the bowl",
+            active_obstacle_name="milk_obstacle_1",
+            settled_simulator_state=np.arange(4, dtype=np.float64),
+        )
+        changed = dict(observation)
+        changed["backview_depth"] = np.full(
+            (2, 2), 3, dtype=np.float32
+        )
+        second = self.evaluator.settled_input_contract(
+            changed,
+            "pick the bowl",
+            active_obstacle_name="milk_obstacle_1",
+            settled_simulator_state=np.arange(4, dtype=np.float64),
+        )
+        self.assertNotEqual(
+            self.evaluator.sha256_bytes(
+                self.evaluator.canonical_json_bytes(first)
+            ),
+            self.evaluator.sha256_bytes(
+                self.evaluator.canonical_json_bytes(second)
+            ),
+        )
 
     def test_video_is_streamed_instead_of_accumulated(self):
         source = inspect.getsource(self.evaluator.evaluate_case)
@@ -336,6 +479,16 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
         )
         self.assertLess(seed_position, build_position)
 
+    def test_shared_environment_builder_seeds_numpy_before_construction(self):
+        source = inspect.getsource(self.evaluator._build_environment)
+        seed_position = source.index(
+            'runtime["np"].random.seed(int(case["environment_seed"]))'
+        )
+        construction_position = source.index(
+            'env = runtime["OffScreenRenderEnv"](**env_args)'
+        )
+        self.assertLess(seed_position, construction_position)
+
     def test_capture_contract_hard_codes_zero_outcome_calls(self):
         source = CAPTURE_PATH.read_text(encoding="utf-8")
         for field in (
@@ -350,40 +503,43 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                 self.assertIn(field, source)
 
     def test_capture_resume_requires_every_lossless_asset(self):
+        try:
+            import numpy as np
+            from PIL import Image
+        except ImportError:
+            self.skipTest("NumPy/Pillow are unavailable")
         with tempfile.TemporaryDirectory() as temporary:
             case_dir = Path(temporary)
             case = {"case_id": "case-1", "protocol_id": "protocol-1"}
-            specs = {
-                "agentview_rgb": ("agent.npy", "agent.png"),
-                "backview_rgb": ("back.npy", "back.png"),
-                "agentview_depth": ("agent-depth.npy", None),
-                "backview_depth": ("back-depth.npy", None),
-                "simulator_state": ("state.npy", None),
+            arrays = {
+                "agentview_rgb": np.arange(
+                    12, dtype=np.uint8
+                ).reshape(2, 2, 3),
+                "backview_rgb": np.arange(
+                    12, 24, dtype=np.uint8
+                ).reshape(2, 2, 3),
+                "agentview_depth": np.arange(
+                    4, dtype=np.float32
+                ).reshape(2, 2),
+                "backview_depth": np.arange(
+                    4, 8, dtype=np.float32
+                ).reshape(2, 2),
+                "simulator_state": np.arange(5, dtype=np.float64),
             }
-            assets = {}
-            for index, (name, paths) in enumerate(specs.items()):
-                npy_name, png_name = paths
-                npy_path = case_dir / npy_name
-                npy_path.write_bytes(f"npy-{index}".encode())
-                asset = {
-                    "array_sha256": f"{index:x}" * 64,
-                    "shape": [1],
-                    "dtype": "|u1",
-                    "npy_path": npy_name,
-                    "npy_sha256": self.evaluator.sha256_path(npy_path),
-                }
-                if png_name:
-                    png_path = case_dir / png_name
-                    png_path.write_bytes(f"png-{index}".encode())
-                    asset.update(
-                        {
-                            "png_path": png_name,
-                            "png_sha256": self.evaluator.sha256_path(
-                                png_path
-                            ),
-                        }
-                    )
-                assets[name] = asset
+            assets = {
+                name: self.capture._asset_record(
+                    case_dir=case_dir,
+                    name=name,
+                    array=array,
+                    np=np,
+                    Image=(
+                        Image
+                        if name in {"agentview_rgb", "backview_rgb"}
+                        else None
+                    ),
+                )
+                for name, array in arrays.items()
+            }
             record = {
                 "schema_version": self.evaluator.CAPTURE_SCHEMA,
                 "protocol_id": case["protocol_id"],
@@ -412,7 +568,10 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                     record, case=case, case_dir=case_dir
                 )
             )
-            (case_dir / "back.png").unlink()
+            (
+                case_dir
+                / assets["backview_rgb"]["png_path"]
+            ).unlink()
             self.assertFalse(
                 self.capture._capture_resume_is_valid(
                     record, case=case, case_dir=case_dir
@@ -436,6 +595,23 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
         label_record_sha256 = evaluator.sha256_bytes(
             evaluator.canonical_json_bytes(label_record)
         )
+        settled_contract = {
+            "schema_version": self.aggregator.SETTLED_INPUT_SCHEMA,
+            "agentview_array_sha256": "4" * 64,
+            "agentview_depth_array_sha256": "5" * 64,
+            "backview_array_sha256": "6" * 64,
+            "backview_depth_array_sha256": "7" * 64,
+            "wrist_array_sha256": "8" * 64,
+            "state_array_sha256": "9" * 64,
+            "active_obstacle_name": "milk_obstacle_1",
+            "active_obstacle_position_array_sha256": "a" * 64,
+            "settled_simulator_state_array_sha256": "b" * 64,
+            "prompt": manifest["task_name"],
+        }
+        schedule = self.aggregator.expected_policy_noise_schedule(
+            manifest
+        )
+        first_action_hash = "c" * 64
         result = {
             "schema_version": evaluator.RESULT_SCHEMA,
             "protocol_id": manifest["protocol_id"],
@@ -444,6 +620,8 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
             "mode": "pi05",
             "status": "complete",
             "scientific_result": True,
+            "terminal_reason": "task_success",
+            "task_success": True,
             "suite": manifest["suite"],
             "safety_level": manifest["safety_level"],
             "logical_task_index": manifest["logical_task_index"],
@@ -455,11 +633,22 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                     evaluator.canonical_json_bytes(manifest)
                 ),
                 "initial_state_sha256": "0" * 64,
-                "initial_observation_sha256": "1" * 64,
+                "initial_observation_sha256": (
+                    self.aggregator.canonical_record_sha256(
+                        settled_contract
+                    )
+                ),
+                "initial_observation_contract": settled_contract,
+                "settled_simulator_state_sha256": "b" * 64,
+                "settled_active_obstacle_position_sha256": "a" * 64,
                 "policy_noise_schedule_id": manifest[
                     "policy_noise_schedule_id"
                 ],
-                "policy_noise_schedule_sha256": "2" * 64,
+                "policy_noise_schedule_sha256": (
+                    self.aggregator.canonical_record_sha256(schedule)
+                ),
+                "policy_noise_schedule": schedule,
+                "initial_policy_action_chunk_sha256": first_action_hash,
                 "semantic_label_record_sha256": label_record_sha256,
                 "semantic_label_settled_agentview_sha256": "4" * 64,
                 "semantic_obstacle_label": "red milk carton",
@@ -468,10 +657,19 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                     "model_action_horizon"
                 ],
                 "replan_steps": manifest["replan_steps"],
+                "translational_fail_open": (
+                    evaluator.TRANSLATIONAL_FAIL_OPEN
+                ),
             },
             "metrics": {
                 "public_collision": False,
+                "paper_collision": False,
+                "paper_collision_avoidance": True,
+                "paper_collision_threshold_m": 0.001,
+                "maximum_active_obstacle_l1_displacement_m": 0.0,
+                "collision_first_step": None,
                 "task_success": True,
+                "safety_by_no_execution": False,
                 "legacy_ets_steps": 0,
                 "executed_action_count": 1,
                 "termination_reason": "task_success",
@@ -482,7 +680,85 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                 "label_record_sha256": label_record_sha256,
                 "obstacle_label": "red milk carton",
             },
+            "timing": {"started_unix": 2_000_000_000.0},
+            "policy_queries": [
+                {
+                    "query_index": 0,
+                    "rng_seed": schedule["query_seeds"][0],
+                    "returned_action_shape": [
+                        manifest["model_action_horizon"],
+                        7,
+                    ],
+                    "returned_actions_sha256": first_action_hash,
+                }
+            ],
+            "actions": [
+                {
+                    "step": 0,
+                    "nominal_raw": [
+                        0.1,
+                        0.2,
+                        0.3,
+                        0.4,
+                        0.5,
+                        0.6,
+                        -1.0,
+                    ],
+                    "nominal_translational": [
+                        0.1,
+                        0.2,
+                        0.3,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -1.0,
+                    ],
+                    "executed": [
+                        0.1,
+                        0.2,
+                        0.3,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -1.0,
+                    ],
+                    "control_path": "pi05_translational_nominal",
+                    "modified": False,
+                    "correction_l2": 0.0,
+                    "qp": None,
+                    "reward": 1.0,
+                    "done": True,
+                    "step_elapsed_seconds": 0.01,
+                    "obstacle_l1_displacement_m": 0.0,
+                    "robot_obstacle_contact": False,
+                }
+            ],
+            "intervention": {
+                "eligible_steps": 0,
+                "intervention_count": 0,
+                "intervention_rate": 0.0,
+                "correction_l2_sum": 0.0,
+                "correction_l2_max": 0.0,
+            },
+            "contact_telemetry": {
+                "status": "available",
+                "robot_active_obstacle_contact": False,
+                "first_contact_step": None,
+                "unique_contact_pairs": [],
+            },
+            "video": {
+                "path": (
+                    f"pi05/{manifest['case_id']}/episode.mp4"
+                ),
+                "sha256": "d" * 64,
+                "frames": 1,
+                "fps": 30,
+                "complete_episode": True,
+            },
         }
+        result["result_payload_sha256"] = (
+            self.aggregator._result_payload_sha256(result)
+        )
         validated = self.aggregator.validate_result(
             result, config=config, manifest=manifest
         )

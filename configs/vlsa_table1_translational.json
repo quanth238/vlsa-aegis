@@ -26,6 +26,11 @@
     ],
     "gripper_index": 6,
     "baseline_rotation_policy": "zero",
+    "empty_perception_fail_open": {
+      "protocol_behavior": "corrected_translational_nominal",
+      "released_script_behavior": "raw_nominal_including_rotation",
+      "reason": "The registered Table-1 arm is translational-only, so an empty-perception fallback must preserve zero rotation rather than silently switch action spaces."
+    },
     "aegis_qp_variables": 6
   },
   "population": {
@@ -129,7 +134,8 @@
     "remove_farthest_point_fraction": 0.2,
     "dbscan_eps_m": 0.0001,
     "dbscan_min_points": 50,
-    "obstacle_geometry": "minimum_volume_enclosing_ellipsoid"
+    "obstacle_geometry": "minimum_volume_enclosing_ellipsoid",
+    "empty_result_semantics": "retained method_failure_passthrough using corrected_translational_nominal"
   },
   "metrics": {
     "car": {

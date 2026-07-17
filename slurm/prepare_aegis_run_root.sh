@@ -17,6 +17,40 @@ LABEL_MANIFEST_PATH=${LABEL_MANIFEST_PATH:-}
 GROUNDINGDINO_DEVICE=${GROUNDINGDINO_DEVICE:-}
 CASE_ORDINAL=${CASE_ORDINAL:-0}
 EXPECTED_PI05_TREE_SHA256=${EXPECTED_PI05_TREE_SHA256:-}
+PI05_HASH_RECEIPT_PATH=${PI05_HASH_RECEIPT_PATH:-}
+PAIRED_CANARY_RECEIPT_PATH=${PAIRED_CANARY_RECEIPT_PATH:-}
+EXPECTED_PI05_HASH_RECEIPT_SHA256=${EXPECTED_PI05_HASH_RECEIPT_SHA256:-}
+EXPECTED_PAIRED_CANARY_RECEIPT_SHA256=${EXPECTED_PAIRED_CANARY_RECEIPT_SHA256:-}
+
+json_string_value() {
+  local path=$1
+  local key=$2
+  awk -F '"' -v wanted="$key" '
+    $2 == wanted {
+      if (seen++) exit 3
+      value=$4
+    }
+    END {
+      if (seen != 1) exit 4
+      print value
+    }
+  ' "$path"
+}
+
+json_top_level_string_value() {
+  local path=$1
+  local key=$2
+  awk -F '"' -v wanted="$key" '
+    substr($0, 1, 3) == "  \"" && $2 == wanted {
+      if (seen++) exit 3
+      value=$4
+    }
+    END {
+      if (seen != 1) exit 4
+      print value
+    }
+  ' "$path"
+}
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   echo "run-root reservation belongs on the control plane, before sbatch" >&2
@@ -78,24 +112,123 @@ if [[ "$RUN_STAGE" == paired-canary || "$RUN_STAGE" == population ]]; then
       exit 2
       ;;
   esac
-  if [[ -n "$EXPECTED_PI05_TREE_SHA256" ]]; then
-    case "$EXPECTED_PI05_TREE_SHA256" in
-      *[!0-9a-f]*|"") echo "EXPECTED_PI05_TREE_SHA256 is invalid" >&2; exit 2 ;;
-    esac
-    [[ ${#EXPECTED_PI05_TREE_SHA256} -eq 64 ]] || {
-      echo "EXPECTED_PI05_TREE_SHA256 must contain 64 characters" >&2
+  [[ -n "$PI05_HASH_RECEIPT_PATH" && -f "$PI05_HASH_RECEIPT_PATH" && ! -L "$PI05_HASH_RECEIPT_PATH" ]] || {
+    echo "evaluation requires an allocation-backed PI05_HASH_RECEIPT_PATH" >&2
+    exit 2
+  }
+  case "$EXPECTED_PI05_HASH_RECEIPT_SHA256" in
+    *[!0-9a-f]*|"")
+      echo "evaluation requires a reviewed EXPECTED_PI05_HASH_RECEIPT_SHA256" >&2
       exit 2
-    }
-    pi05_tree_sha256=$EXPECTED_PI05_TREE_SHA256
-  else
-    pi05_tree_sha256=structural-and-metadata-only
+      ;;
+  esac
+  [[ ${#EXPECTED_PI05_HASH_RECEIPT_SHA256} -eq 64 ]] || {
+    echo "EXPECTED_PI05_HASH_RECEIPT_SHA256 must contain 64 characters" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PI05_HASH_RECEIPT_PATH" schema_version)" == \
+    vlsa_table1_pi05_hash_receipt.v1 ]] || {
+    echo "unexpected pi0.5 hash receipt schema" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PI05_HASH_RECEIPT_PATH" status)" == passed ]] || {
+    echo "pi0.5 hash receipt did not pass" >&2
+    exit 2
+  }
+  [[ "$(json_string_value "$PI05_HASH_RECEIPT_PATH" git_commit)" == \
+    "$EXPECTED_GIT_COMMIT" ]] || {
+    echo "pi0.5 hash receipt source commit differs" >&2
+    exit 2
+  }
+  grep -Eq '^[[:space:]]*"full_content_hash_verified":[[:space:]]*true,?[[:space:]]*$' \
+    "$PI05_HASH_RECEIPT_PATH" || {
+    echo "pi0.5 hash receipt lacks full content verification" >&2
+    exit 2
+  }
+  pi05_tree_sha256=$(
+    json_string_value "$PI05_HASH_RECEIPT_PATH" full_content_tree_sha256
+  )
+  case "$pi05_tree_sha256" in
+    *[!0-9a-f]*|"") echo "pi0.5 receipt tree SHA-256 is invalid" >&2; exit 2 ;;
+  esac
+  [[ ${#pi05_tree_sha256} -eq 64 ]] || {
+    echo "pi0.5 receipt tree SHA-256 must contain 64 characters" >&2
+    exit 2
+  }
+  if [[ -n "$EXPECTED_PI05_TREE_SHA256" && \
+    "$EXPECTED_PI05_TREE_SHA256" != "$pi05_tree_sha256" ]]; then
+    echo "EXPECTED_PI05_TREE_SHA256 differs from the hash receipt" >&2
+    exit 2
   fi
+  pi05_hash_receipt_sha256=$(sha256sum "$PI05_HASH_RECEIPT_PATH" | awk '{print $1}')
+  [[ "$pi05_hash_receipt_sha256" == "$EXPECTED_PI05_HASH_RECEIPT_SHA256" ]] || {
+    echo "pi0.5 hash receipt differs from its reviewed SHA-256" >&2
+    exit 2
+  }
 elif [[ -n "$LABEL_MANIFEST_PATH" ]]; then
   echo "capture reservation must not bind an outcome-stage label manifest" >&2
   exit 2
 fi
 if [[ "$RUN_STAGE" == capture-canary || "$RUN_STAGE" == capture-population ]]; then
   pi05_tree_sha256=none
+  pi05_hash_receipt_sha256=none
+fi
+
+if [[ "$RUN_STAGE" == population ]]; then
+  [[ -n "$PAIRED_CANARY_RECEIPT_PATH" && -f "$PAIRED_CANARY_RECEIPT_PATH" && \
+    ! -L "$PAIRED_CANARY_RECEIPT_PATH" ]] || {
+    echo "population requires a validated PAIRED_CANARY_RECEIPT_PATH" >&2
+    exit 2
+  }
+  case "$EXPECTED_PAIRED_CANARY_RECEIPT_SHA256" in
+    *[!0-9a-f]*|"")
+      echo "population requires a reviewed EXPECTED_PAIRED_CANARY_RECEIPT_SHA256" >&2
+      exit 2
+      ;;
+  esac
+  [[ ${#EXPECTED_PAIRED_CANARY_RECEIPT_SHA256} -eq 64 ]] || {
+    echo "EXPECTED_PAIRED_CANARY_RECEIPT_SHA256 must contain 64 characters" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" schema_version)" == \
+    vlsa_table1_paired_canary_validation.v1 ]] || {
+    echo "unexpected paired-canary receipt schema" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" status)" == validated ]] || {
+    echo "paired-canary receipt is not validated" >&2
+    exit 2
+  }
+  grep -Eq '^[[:space:]]*"paired_result_valid":[[:space:]]*true,?[[:space:]]*$' \
+    "$PAIRED_CANARY_RECEIPT_PATH" || {
+    echo "paired-canary receipt did not validate the pair" >&2
+    exit 2
+  }
+  [[ "$(json_string_value "$PAIRED_CANARY_RECEIPT_PATH" source_git_commit)" == \
+    "$EXPECTED_GIT_COMMIT" ]] || {
+    echo "paired-canary source commit differs from the population release" >&2
+    exit 2
+  }
+  [[ "$(json_string_value "$PAIRED_CANARY_RECEIPT_PATH" pi05_tree_sha256)" == \
+    "$pi05_tree_sha256" ]] || {
+    echo "paired-canary pi0.5 checkpoint differs from population" >&2
+    exit 2
+  }
+  [[ "$(json_string_value "$PAIRED_CANARY_RECEIPT_PATH" groundingdino_device)" == \
+    "$GROUNDINGDINO_DEVICE" ]] || {
+    echo "paired-canary GroundingDINO device differs from population" >&2
+    exit 2
+  }
+  paired_canary_receipt_sha256=$(
+    sha256sum "$PAIRED_CANARY_RECEIPT_PATH" | awk '{print $1}'
+  )
+  [[ "$paired_canary_receipt_sha256" == \
+    "$EXPECTED_PAIRED_CANARY_RECEIPT_SHA256" ]] || {
+    echo "paired-canary receipt differs from its reviewed SHA-256" >&2
+    exit 2
+  }
+else
+  paired_canary_receipt_sha256=none
 fi
 
 observed_commit=$(git -C "$REMOTE_REPO" rev-parse HEAD)
@@ -143,6 +276,8 @@ temporary=$(mktemp "$RUN_ROOT/.run-contract.XXXXXX")
   printf 'manifest_receipt_sha256\t%s\n' "$receipt_sha256"
   printf 'label_manifest_sha256\t%s\n' "$label_manifest_sha256"
   printf 'pi05_tree_sha256\t%s\n' "$pi05_tree_sha256"
+  printf 'pi05_hash_receipt_sha256\t%s\n' "$pi05_hash_receipt_sha256"
+  printf 'paired_canary_receipt_sha256\t%s\n' "$paired_canary_receipt_sha256"
   if [[ "$RUN_STAGE" == paired-canary || "$RUN_STAGE" == population ]]; then
     printf 'groundingdino_device\t%s\n' "$GROUNDINGDINO_DEVICE"
   else

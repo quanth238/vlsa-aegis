@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -246,6 +248,110 @@ class VideoGalleryTest(unittest.TestCase):
                     output_root=Path(directory),
                 )
 
+    def test_loaded_results_resolve_videos_from_distinct_task_roots(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_root = root / "task-roots"
+            gallery_root = root / "gallery"
+            expected_links: list[str] = []
+            for case_index in range(2):
+                for arm in ARMS:
+                    mode = "pi05" if arm == ARMS[0] else "aegis"
+                    artifact_root = (
+                        input_root / f"task-{case_index}-{mode}"
+                    )
+                    result = result_fixture(case_index, arm)
+                    result["video"]["path"] = (
+                        f"{mode}/case-{case_index}/episode.mp4"
+                    )
+                    video = artifact_root / result["video"]["path"]
+                    video.parent.mkdir(parents=True, exist_ok=True)
+                    payload = (
+                        f"video-{case_index}-{mode}".encode("utf-8")
+                    )
+                    video.write_bytes(payload)
+                    result["video"]["sha256"] = hashlib.sha256(
+                        payload
+                    ).hexdigest()
+                    result_path = (
+                        artifact_root
+                        / mode
+                        / f"case-{case_index}"
+                        / "result.json"
+                    )
+                    result_path.write_text(
+                        json.dumps(result),
+                        encoding="utf-8",
+                    )
+                    expected_links.append(
+                        Path(
+                            os.path.relpath(
+                                video.resolve(),
+                                start=gallery_root.resolve(),
+                            )
+                        ).as_posix()
+                    )
+
+            loaded = gallery.load_result_records([input_root])
+            document, warnings = gallery.build_gallery(
+                summary=summary_fixture(),
+                records=loaded,
+                output_root=gallery_root,
+            )
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(loaded), 4)
+        for record in loaded:
+            source = record[gallery.GALLERY_SOURCE_KEY]
+            self.assertTrue(source["result_path"].endswith("result.json"))
+            self.assertIsNotNone(source["artifact_root"])
+        for link in expected_links:
+            self.assertIn(f'src="{link}"', document)
+
+    def test_nonstandard_jsonl_uses_explicit_output_root_fallback(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "episodes.jsonl"
+            result = result_fixture(0, ARMS[0])
+            input_path.write_text(
+                json.dumps(result) + "\n",
+                encoding="utf-8",
+            )
+            video = root / result["video"]["path"]
+            video.parent.mkdir(parents=True)
+            video.write_bytes(b"video")
+
+            loaded = gallery.load_result_records([input_path])
+            record = loaded[0]
+            video_record = gallery._video_record(
+                record,
+                output_root=root,
+            )
+
+        self.assertIsNone(
+            record[gallery.GALLERY_SOURCE_KEY]["artifact_root"]
+        )
+        self.assertEqual(video_record["href"], result["video"]["path"])
+        self.assertTrue(video_record["exists"])
+
+    def test_existing_video_hash_is_verified(self) -> None:
+        result = result_fixture(0, ARMS[0])
+        result["video"]["sha256"] = "0" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            video = root / result["video"]["path"]
+            video.parent.mkdir(parents=True)
+            video.write_bytes(b"different-content")
+            with self.assertRaisesRegex(
+                gallery.GalleryError,
+                "video SHA-256 mismatch",
+            ):
+                gallery._video_record(result, output_root=root)
+
     def test_summary_metric_mismatch_is_rejected(self) -> None:
         summary = summary_fixture()
         summary["suites"][ARMS[0]][SUITE]["car_percent"] = 75.0
@@ -356,7 +462,7 @@ class VideoGalleryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             expected = complete_records()[0]
-            result_path = root / "arm" / "case" / "result.json"
+            result_path = root / "pi05" / "case" / "result.json"
             result_path.parent.mkdir(parents=True)
             result_path.write_text(
                 json.dumps(expected),
@@ -367,7 +473,11 @@ class VideoGalleryTest(unittest.TestCase):
                 encoding="utf-8",
             )
             loaded = gallery.load_result_records([root])
+        self.assertEqual(len(loaded), 1)
+        source = loaded[0].pop(gallery.GALLERY_SOURCE_KEY)
         self.assertEqual(loaded, [expected])
+        self.assertEqual(source["result_path"], str(result_path.resolve()))
+        self.assertEqual(source["artifact_root"], str(root.resolve()))
 
 
 if __name__ == "__main__":
