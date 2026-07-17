@@ -27,6 +27,14 @@ task shown by the user: pick up the black bowl on the stove and place it on the
 plate. The capture is apparatus evidence only; it cannot establish either
 baseline failure or AEGIS success.
 
+Capture attempt `vlsa-table1-capture-canary-20260717a`, Slurm task `28460_0`,
+terminated before reset on worker-1. Source/protocol preflight passed, but the
+legacy Robosuite stack could not initialize EGL because the allocation cannot
+open the host `/dev/dri` render devices. The run is preserved as an apparatus
+failure with zero reset, settle, policy, perception, QP, or outcome actions.
+The repair selects the OSMesa headless path already proven by this project's
+VinUni workloads; it does not alter simulator state or policy behavior.
+
 Evidence established before implementation:
 
 - Source begins at untouched upstream commit

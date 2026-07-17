@@ -111,6 +111,9 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("trap - EXIT INT TERM", common)
         self.assertIn("aegis_stop_pi05_server", common)
         self.assertIn("LIBERO_CONFIG_PATH", common)
+        self.assertIn("export MUJOCO_GL=osmesa", common)
+        self.assertIn("export PYOPENGL_PLATFORM=osmesa", common)
+        self.assertNotIn("export MUJOCO_GL=egl", common)
 
     def test_outputs_are_confined_to_immutable_experiment_root(self) -> None:
         common = (SLURM / "aegis_runtime_common.sh").read_text(

@@ -207,8 +207,12 @@ aegis_prepare_environment() {
   export TOKENIZERS_PARALLELISM=false
   export XLA_PYTHON_CLIENT_PREALLOCATE=false
   export XLA_PYTHON_CLIENT_ALLOCATOR=platform
-  export MUJOCO_GL=egl
-  export PYOPENGL_PLATFORM=egl
+  # VinUni H100 allocations expose CUDA through cgroups but do not grant
+  # direct access to every /dev/dri render node. The legacy Robosuite/MuJoCo
+  # stack therefore uses its proven headless OSMesa path; the allocated H100
+  # remains available to the pi0.5 policy server.
+  export MUJOCO_GL=osmesa
+  export PYOPENGL_PLATFORM=osmesa
   export PYTHONPATH=$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src:$REMOTE_REPO/safelibero:$REMOTE_REPO/main
 
   local safelibero_root=$REMOTE_REPO/safelibero/libero/libero

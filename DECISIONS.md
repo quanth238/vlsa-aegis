@@ -69,3 +69,11 @@ Accepted. A fresh capture-only allocation may collect pre-outcome evidence
 while `A01-reproduction-apparatus` remains active. No pi0.5 or AEGIS outcome
 may run until the full checkpoint identity and paired-result validator are
 implemented and independently reviewed.
+
+## ADR-0010: Use the allocation-compatible OSMesa renderer
+
+Accepted after exact job `28460_0` failed before reset because EGL attempted
+to open inaccessible host render devices. VinUni's legacy Robosuite/MuJoCo
+workloads use `MUJOCO_GL=osmesa` and `PYOPENGL_PLATFORM=osmesa`. This changes
+only the headless rendering backend; the H100 remains allocated for pi0.5
+inference in outcome jobs.
