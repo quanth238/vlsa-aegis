@@ -17,6 +17,7 @@ CONFIG = ROOT / "configs" / "aegis_same_state_canary.json"
 LABELS = ROOT / "manifests" / "r06_codex_obstacle_labels_canary.jsonl"
 UTILS = ROOT / "main" / "utils.py"
 SBATCH = ROOT / "slurm" / "reproduce_aegis_same_state.sbatch"
+LIBERO_RUNTIME_CONFIG = ROOT / "configs" / "libero_runtime" / "config.yaml"
 WRAPPER = (
     ROOT / "safelibero" / "libero" / "libero" / "envs" / "env_wrapper.py"
 )
@@ -144,10 +145,16 @@ class SameStateAegisReproducerTest(unittest.TestCase):
             "HF_HUB_OFFLINE=1",
             "TRANSFORMERS_OFFLINE=1",
             "MUJOCO_GL=egl",
+            'LIBERO_CONFIG_PATH="$SOURCE/configs/libero_runtime"',
             "/mnt/data/quanth/venvs/safety_vla/main/bin/python",
         ):
             self.assertIn(token, text)
         self.assertNotIn("serve_policy.py", text)
+        runtime_config = LIBERO_RUNTIME_CONFIG.read_text(encoding="utf-8")
+        self.assertIn(
+            "/home/quanth/working_space/vlsa-aegis-baseline-repro",
+            runtime_config,
+        )
 
 
 if __name__ == "__main__":

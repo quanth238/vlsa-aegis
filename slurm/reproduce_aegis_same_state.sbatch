@@ -31,6 +31,7 @@ test -x "$PYTHON"
 mkdir -p /mnt/data/quanth/experiments/aegis-baseline-repro
 
 export PYTHONPATH="$SOURCE/main:$SOURCE/safelibero:$SOURCE/openpi/packages/openpi-client/src"
+export LIBERO_CONFIG_PATH="$SOURCE/configs/libero_runtime"
 export HF_HOME=/mnt/data/quanth/cache/huggingface
 export TRANSFORMERS_CACHE=/mnt/data/quanth/cache/huggingface/transformers
 export HF_HUB_OFFLINE=1

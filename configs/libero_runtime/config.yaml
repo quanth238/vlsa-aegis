@@ -1,0 +1,5 @@
+assets: /home/quanth/working_space/vlsa-aegis-baseline-repro/safelibero/libero/libero/assets
+bddl_files: /home/quanth/working_space/vlsa-aegis-baseline-repro/safelibero/libero/libero/bddl_files
+benchmark_root: /home/quanth/working_space/vlsa-aegis-baseline-repro/safelibero/libero/libero
+datasets: /mnt/data/quanth/datasets
+init_states: /home/quanth/working_space/vlsa-aegis-baseline-repro/safelibero/libero/libero/init_files
