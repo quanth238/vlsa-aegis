@@ -13,7 +13,7 @@ in dependency order; no population job is authorized yet.
 
 Local implementation evidence on 2026-07-17:
 
-- `./init.sh` passes: 87 tests, three optional dependency tests skipped.
+- `./init.sh` passes: 89 tests, three optional dependency tests skipped.
 - The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
   paired evaluation requires exactly 3,200 terminal episode results.
 - Two independent reviews accepted the translational comparison after strict
@@ -39,6 +39,13 @@ and ctime. The repair removes only mount-local `st_dev` from the cross-worker
 identity and retains the full tree hash plus stable file metadata. Run
 `vlsa-table1-paired-canary-20260717a` is immutable and remains an apparatus
 failure; it is never reused.
+
+Retry-B task `28470_0` passed the repaired evaluation preflight, then stopped
+before the first policy query/action because the Python-3.8 SafeLIBERO
+environment does not implement `str.removesuffix`. The wrapper now uses the
+equivalent suffix slice and statically excludes both Python-3.9-only string
+helpers from all runtime reproduction modules. Immutable retry-B remains an
+apparatus failure and is never reused.
 
 The first capture case is frozen as ordinal 100,
 `vlsa-t1-spatial-i-t2-e00`. This is the Level-I version of the qualitative

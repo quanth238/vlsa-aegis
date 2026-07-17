@@ -1314,7 +1314,11 @@ def aggregate(
 
         arm_suites: dict[str, dict[str, Any]] = {}
         for suite in config["population"]["suite_order"]:
-            suite_short = suite.removeprefix("safelibero_")
+            suite_short = (
+                suite[len("safelibero_") :]
+                if suite.startswith("safelibero_")
+                else suite
+            )
             summaries = [
                 value
                 for group_id, value in arm_groups.items()

@@ -80,6 +80,41 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                 {"suite": "safelibero_long", "max_steps": 300}
             )
 
+    def test_runtime_code_avoids_python_39_only_string_helpers(self):
+        runtime_paths = (
+            EVALUATOR_PATH,
+            AGGREGATOR_PATH,
+            ROOT / "manifests" / "build_vlsa_table1_population.py",
+        )
+        for path in runtime_paths:
+            source = path.read_text(encoding="utf-8")
+            with self.subTest(path=path):
+                self.assertNotIn(".removeprefix(", source)
+                self.assertNotIn(".removesuffix(", source)
+
+    def test_active_obstacle_name_parsing_supports_python_38(self):
+        class Model:
+            joint_names = [
+                "blue_moka_pot_obstacle_1_joint0",
+                "robot0_joint0",
+            ]
+
+        class Sim:
+            model = Model()
+
+        class Env:
+            sim = Sim()
+
+        name, candidates = self.evaluator._active_obstacle(
+            Env(),
+            {
+                "blue_moka_pot_obstacle_1_pos": [0.0, 0.0, 0.1],
+            },
+        )
+        self.assertEqual(name, "blue_moka_pot_obstacle_1")
+        self.assertEqual(len(candidates), 1)
+        self.assertTrue(candidates[0]["in_workspace"])
+
     def test_translational_arm_zeros_rotation_but_preserves_xyz_gripper(self):
         nominal = [0.1, -0.2, 0.3, 0.8, -0.7, 0.6, -1.0]
         self.assertEqual(

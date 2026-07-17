@@ -1000,7 +1000,7 @@ def _active_obstacle(
     for joint_name in _joint_names(env.sim.model):
         if "obstacle" not in joint_name or not joint_name.endswith("_joint0"):
             continue
-        obstacle_name = joint_name.removesuffix("_joint0")
+        obstacle_name = joint_name[: -len("_joint0")]
         key = f"{obstacle_name}_pos"
         if key not in observation:
             continue

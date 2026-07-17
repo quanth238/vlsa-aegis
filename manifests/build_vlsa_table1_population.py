@@ -143,7 +143,11 @@ def build_rows(
                     )
                     task_bindings[binding_key] = binding
 
-                suite_short = suite.removeprefix("safelibero_")
+                suite_short = (
+                    suite[len("safelibero_") :]
+                    if suite.startswith("safelibero_")
+                    else suite
+                )
                 group_id = (
                     f"vlsa-t1-{suite_short}-{safety_level.lower()}-"
                     f"t{logical_task_index}"

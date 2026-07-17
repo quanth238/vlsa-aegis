@@ -134,3 +134,11 @@ checkpoint hash was computed on worker-2, but Linux reports a different
 cannot be compared across Slurm workers. The stable identity continues to bind
 the resolved checkpoint path and every file's relative path, byte size, inode,
 mtime, and ctime, in addition to the allocation-backed full-content tree hash.
+
+## ADR-0017: Keep evaluator and publisher compatible with Python 3.8
+
+Accepted after retry-B task `28470_0` reached the evaluator but failed before
+the first policy query because `str.removesuffix` is unavailable in the
+released SafeLIBERO Python-3.8 environment. Equivalent prefix/suffix slicing
+is used in the evaluator, manifest builder, and aggregator, and a structural
+test prohibits both Python-3.9-only string helpers in these runtime modules.
