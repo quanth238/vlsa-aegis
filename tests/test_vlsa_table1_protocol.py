@@ -650,6 +650,121 @@ class Table1ProtocolTest(unittest.TestCase):
             aegis["executed_action_count_mean"],
         )
 
+    def test_analysis_v2_preserves_exact_denominators_and_joint_counts(
+        self,
+    ) -> None:
+        results = self.complete_results()
+        v1 = aggregator.aggregate(
+            config=self.config,
+            manifests=self.rows,
+            results=results,
+        )
+        source_binding = {
+            "v1_publication_receipt_sha256": "1" * 64,
+            "v1_population_summary_sha256": "2" * 64,
+            "v1_accepted_result_payloads_sha256": v1[
+                "accepted_result_payloads_sha256"
+            ],
+        }
+        summary = aggregator.aggregate_v2(
+            config=self.config,
+            manifests=self.rows,
+            results=results,
+            source_binding=source_binding,
+        )
+
+        self.assertEqual(
+            summary["schema_version"], aggregator.OUTPUT_SCHEMA_V2
+        )
+        self.assertEqual(summary["source_v1"], source_binding)
+        self.assertFalse(
+            summary["claim_scope"]["openvla_oft_included"]
+        )
+        self.assertFalse(
+            summary["claim_scope"][
+                "paper_exact_end_to_end_reproduction_claimed"
+            ]
+        )
+        self.assertFalse(
+            summary["claim_scope"]["minimum_clearance_claimed"]
+        )
+        baseline = summary["average"][self.config["arms"][0]]
+        aegis = summary["average"][self.config["arms"][1]]
+        self.assertEqual(
+            baseline["car"],
+            {
+                "success_count": 320,
+                "failure_count": 1280,
+                "denominator": 1600,
+                "percent": 20.0,
+            },
+        )
+        self.assertEqual(baseline["tsr"]["success_count"], 800)
+        self.assertEqual(
+            baseline["legacy_ets_steps"]["sum"],
+            int(baseline["legacy_ets_steps_mean"] * 1600),
+        )
+        self.assertEqual(
+            sum(baseline["joint_outcome_counts"].values()), 1600
+        )
+        self.assertEqual(
+            sum(aegis["joint_outcome_counts"].values()), 1600
+        )
+        transitions = summary["paired_transitions"]["overall"]
+        self.assertEqual(transitions["denominator"], 1600)
+        self.assertEqual(
+            tuple(transitions["car"]), aggregator.CAR_TRANSITIONS
+        )
+        self.assertEqual(
+            tuple(transitions["task"]), aggregator.TASK_TRANSITIONS
+        )
+        self.assertEqual(
+            tuple(transitions["joint"]), aggregator.JOINT_TRANSITIONS
+        )
+        self.assertEqual(sum(transitions["car"].values()), 1600)
+        self.assertEqual(sum(transitions["task"].values()), 1600)
+        self.assertEqual(sum(transitions["joint"].values()), 1600)
+        for suite in self.config["population"]["suite_order"]:
+            suite_summary = summary["suites"][
+                self.config["arms"][1]
+            ][suite]
+            self.assertEqual(suite_summary["car"]["denominator"], 400)
+            self.assertEqual(
+                sum(suite_summary["joint_outcome_counts"].values()),
+                400,
+            )
+        differences = summary["method_differences"]["average"]
+        self.assertEqual(differences["denominator"], 1600)
+        self.assertEqual(
+            differences["car_success_count_delta"],
+            aegis["car"]["success_count"]
+            - baseline["car"]["success_count"],
+        )
+        self.assertEqual(
+            differences["legacy_ets_steps_sum_delta"],
+            aegis["legacy_ets_steps"]["sum"]
+            - baseline["legacy_ets_steps"]["sum"],
+        )
+
+    def test_analysis_v2_rejects_a_different_v1_result_ledger(
+        self,
+    ) -> None:
+        results = self.complete_results()
+        with self.assertRaisesRegex(
+            aggregator.AggregationError,
+            "differs from immutable v1",
+        ):
+            aggregator.aggregate_v2(
+                config=self.config,
+                manifests=self.rows,
+                results=results,
+                source_binding={
+                    "v1_publication_receipt_sha256": "1" * 64,
+                    "v1_population_summary_sha256": "2" * 64,
+                    "v1_accepted_result_payloads_sha256": "3" * 64,
+                },
+            )
+
     def test_compact_population_summary_is_identical(self) -> None:
         manifests_by_group = {}
         for manifest in self.rows:

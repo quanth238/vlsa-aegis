@@ -24,6 +24,7 @@ CONFIG_SCHEMA = "vlsa_table1_translational_protocol.v1"
 MANIFEST_SCHEMA = "vlsa_table1_population_case.v1"
 RECEIPT_SCHEMA = "vlsa_table1_population_receipt.v1"
 OUTPUT_SCHEMA = "vlsa_table1_population_summary.v1"
+OUTPUT_SCHEMA_V2 = "vlsa_table1_population_summary.v2"
 GOAL_PROGRESS_SCHEMA = "safelibero_goal_progress.v1"
 LABEL_SCHEMAS = {
     "vlsa_table1_codex_label.v1",
@@ -2084,6 +2085,428 @@ def mean_summaries(
             for summary in summaries
         )
         / count,
+    }
+
+
+JOINT_OUTCOMES = (
+    "safe_task_success",
+    "safe_task_failure",
+    "collision_task_success",
+    "collision_task_failure",
+)
+CAR_TRANSITIONS = (
+    "baseline_safe_to_aegis_safe",
+    "baseline_safe_to_aegis_collision",
+    "baseline_collision_to_aegis_safe",
+    "baseline_collision_to_aegis_collision",
+)
+TASK_TRANSITIONS = (
+    "baseline_success_to_aegis_success",
+    "baseline_success_to_aegis_failure",
+    "baseline_failure_to_aegis_success",
+    "baseline_failure_to_aegis_failure",
+)
+JOINT_TRANSITIONS = tuple(
+    f"baseline_{baseline}_to_aegis_{aegis}"
+    for baseline in JOINT_OUTCOMES
+    for aegis in JOINT_OUTCOMES
+)
+
+
+def _joint_outcome_from_metrics(metrics: Mapping[str, Any]) -> str:
+    return "_".join(
+        (
+            "collision" if metrics["public_collision"] else "safe",
+            "task_success" if metrics["task_success"] else "task_failure",
+        )
+    )
+
+
+def summarize_episode_rows_v2(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Summarize one exact denominator without losing integer evidence."""
+
+    summary = summarize_episode_rows(rows)
+    metrics = [row["metrics"] for row in rows]
+    denominator = len(metrics)
+    car_successes = sum(not row["public_collision"] for row in metrics)
+    tsr_successes = sum(row["task_success"] for row in metrics)
+    legacy_sum = sum(row["legacy_ets_steps"] for row in metrics)
+    action_sum = sum(row["executed_action_count"] for row in metrics)
+    joint = Counter(
+        _joint_outcome_from_metrics(row) for row in metrics
+    )
+    summary.update(
+        {
+            "car": {
+                "success_count": car_successes,
+                "failure_count": denominator - car_successes,
+                "denominator": denominator,
+                "percent": 100.0 * car_successes / denominator,
+            },
+            "tsr": {
+                "success_count": tsr_successes,
+                "failure_count": denominator - tsr_successes,
+                "denominator": denominator,
+                "percent": 100.0 * tsr_successes / denominator,
+            },
+            "legacy_ets_steps": {
+                "sum": legacy_sum,
+                "denominator": denominator,
+                "mean": legacy_sum / denominator,
+            },
+            "executed_action_count": {
+                "sum": action_sum,
+                "denominator": denominator,
+                "mean": action_sum / denominator,
+            },
+            "joint_outcome_counts": {
+                key: joint[key] for key in JOINT_OUTCOMES
+            },
+        }
+    )
+    return summary
+
+
+def combine_summaries_v2(
+    summaries: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Combine exact group counts, then derive rates from their denominator."""
+
+    if not summaries:
+        raise AggregationError("cannot combine an empty summary collection")
+    status_counts: Counter[str] = Counter()
+    joint: Counter[str] = Counter()
+    for summary in summaries:
+        status_counts.update(summary["status_counts"])
+        joint.update(summary["joint_outcome_counts"])
+    episodes = sum(int(summary["episodes"]) for summary in summaries)
+    if episodes <= 0:
+        raise AggregationError("combined v2 denominator must be positive")
+    for summary in summaries:
+        group_episodes = int(summary["episodes"])
+        if (
+            int(summary["car"]["denominator"]) != group_episodes
+            or int(summary["tsr"]["denominator"]) != group_episodes
+            or int(summary["legacy_ets_steps"]["denominator"])
+            != group_episodes
+            or int(summary["executed_action_count"]["denominator"])
+            != group_episodes
+            or sum(
+                int(value)
+                for value in summary["joint_outcome_counts"].values()
+            )
+            != group_episodes
+        ):
+            raise AggregationError(
+                "v2 group summary has inconsistent exact denominators"
+            )
+    car_successes = sum(
+        int(summary["car"]["success_count"]) for summary in summaries
+    )
+    tsr_successes = sum(
+        int(summary["tsr"]["success_count"]) for summary in summaries
+    )
+    legacy_sum = sum(
+        int(summary["legacy_ets_steps"]["sum"]) for summary in summaries
+    )
+    action_sum = sum(
+        int(summary["executed_action_count"]["sum"])
+        for summary in summaries
+    )
+    return {
+        "groups": len(summaries),
+        "episodes": episodes,
+        "status_counts": dict(sorted(status_counts.items())),
+        "retained_method_failures": sum(
+            summary["retained_method_failures"] for summary in summaries
+        ),
+        "car_percent": 100.0 * car_successes / episodes,
+        "tsr_percent": 100.0 * tsr_successes / episodes,
+        "legacy_ets_steps_mean": legacy_sum / episodes,
+        "executed_action_count_mean": action_sum / episodes,
+        "car": {
+            "success_count": car_successes,
+            "failure_count": episodes - car_successes,
+            "denominator": episodes,
+            "percent": 100.0 * car_successes / episodes,
+        },
+        "tsr": {
+            "success_count": tsr_successes,
+            "failure_count": episodes - tsr_successes,
+            "denominator": episodes,
+            "percent": 100.0 * tsr_successes / episodes,
+        },
+        "legacy_ets_steps": {
+            "sum": legacy_sum,
+            "denominator": episodes,
+            "mean": legacy_sum / episodes,
+        },
+        "executed_action_count": {
+            "sum": action_sum,
+            "denominator": episodes,
+            "mean": action_sum / episodes,
+        },
+        "joint_outcome_counts": {
+            key: joint[key] for key in JOINT_OUTCOMES
+        },
+    }
+
+
+def _paired_transition_summary_v2(
+    *,
+    manifests: Sequence[Mapping[str, Any]],
+    results: Mapping[tuple[str, str], Mapping[str, Any]],
+    first_arm: str,
+    second_arm: str,
+) -> dict[str, Any]:
+    car: Counter[str] = Counter()
+    task: Counter[str] = Counter()
+    joint: Counter[str] = Counter()
+    for manifest in manifests:
+        case_id = str(manifest["case_id"])
+        baseline = results[(case_id, first_arm)]["metrics"]
+        aegis = results[(case_id, second_arm)]["metrics"]
+        car[
+            "_to_".join(
+                (
+                    (
+                        "baseline_collision"
+                        if baseline["public_collision"]
+                        else "baseline_safe"
+                    ),
+                    (
+                        "aegis_collision"
+                        if aegis["public_collision"]
+                        else "aegis_safe"
+                    ),
+                )
+            )
+        ] += 1
+        task[
+            "_to_".join(
+                (
+                    (
+                        "baseline_success"
+                        if baseline["task_success"]
+                        else "baseline_failure"
+                    ),
+                    (
+                        "aegis_success"
+                        if aegis["task_success"]
+                        else "aegis_failure"
+                    ),
+                )
+            )
+        ] += 1
+        joint[
+            (
+                f"baseline_{_joint_outcome_from_metrics(baseline)}"
+                f"_to_aegis_{_joint_outcome_from_metrics(aegis)}"
+            )
+        ] += 1
+    denominator = len(manifests)
+    if (
+        sum(car.values()) != denominator
+        or sum(task.values()) != denominator
+        or sum(joint.values()) != denominator
+    ):
+        raise AggregationError("paired transition denominator changed")
+    complete_car = {key: car[key] for key in CAR_TRANSITIONS}
+    complete_task = {key: task[key] for key in TASK_TRANSITIONS}
+    complete_joint = {key: joint[key] for key in JOINT_TRANSITIONS}
+    if (
+        sum(complete_car.values()) != denominator
+        or sum(complete_task.values()) != denominator
+        or sum(complete_joint.values()) != denominator
+    ):
+        raise AggregationError(
+            "paired transition contains an unregistered state"
+        )
+    return {
+        "denominator": denominator,
+        "arms": {
+            "baseline": first_arm,
+            "aegis": second_arm,
+        },
+        "car": complete_car,
+        "task": complete_task,
+        "joint": complete_joint,
+    }
+
+
+def aggregate_v2(
+    *,
+    config: dict[str, Any],
+    manifests: list[dict[str, Any]],
+    results: dict[tuple[str, str], dict[str, Any]],
+    source_binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build a post-publication summary with exact, claim-scoped evidence."""
+
+    v1 = aggregate(config=config, manifests=manifests, results=results)
+    manifest_by_id = {row["case_id"]: row for row in manifests}
+    groups: dict[str, dict[str, dict[str, Any]]] = {}
+    suites: dict[str, dict[str, dict[str, Any]]] = {}
+    overall: dict[str, dict[str, Any]] = {}
+    for arm in config["arms"]:
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for case_id, manifest in manifest_by_id.items():
+            grouped[manifest["task_level_group_id"]].append(
+                results[(case_id, arm)]
+            )
+        arm_groups = {
+            group_id: summarize_episode_rows_v2(rows)
+            for group_id, rows in sorted(grouped.items())
+        }
+        groups[arm] = arm_groups
+        arm_suites: dict[str, dict[str, Any]] = {}
+        for suite in config["population"]["suite_order"]:
+            suite_short = (
+                suite[len("safelibero_") :]
+                if suite.startswith("safelibero_")
+                else suite
+            )
+            selected = [
+                value
+                for group_id, value in arm_groups.items()
+                if group_id.startswith(f"vlsa-t1-{suite_short}-")
+            ]
+            if len(selected) != 8:
+                raise AggregationError(
+                    f"{arm}/{suite}: expected eight group summaries"
+                )
+            arm_suites[suite] = combine_summaries_v2(selected)
+        suites[arm] = arm_suites
+        overall[arm] = combine_summaries_v2(
+            list(arm_suites.values())
+        )
+
+    first_arm, second_arm = config["arms"]
+    transition_suites: dict[str, Any] = {}
+    for suite in config["population"]["suite_order"]:
+        suite_manifests = [
+            row for row in manifests if row["suite"] == suite
+        ]
+        transition_suites[suite] = _paired_transition_summary_v2(
+            manifests=suite_manifests,
+            results=results,
+            first_arm=first_arm,
+            second_arm=second_arm,
+        )
+    method_differences: dict[str, Any] = {}
+    for scope in [*config["population"]["suite_order"], "average"]:
+        baseline = (
+            overall[first_arm] if scope == "average" else suites[first_arm][scope]
+        )
+        aegis = (
+            overall[second_arm] if scope == "average" else suites[second_arm][scope]
+        )
+        if baseline["episodes"] != aegis["episodes"]:
+            raise AggregationError(
+                f"{scope}: paired arm denominators differ"
+            )
+        method_differences[scope] = {
+            "denominator": baseline["episodes"],
+            "car_success_count_delta": (
+                aegis["car"]["success_count"]
+                - baseline["car"]["success_count"]
+            ),
+            "car_percentage_point_delta": (
+                aegis["car_percent"] - baseline["car_percent"]
+            ),
+            "tsr_success_count_delta": (
+                aegis["tsr"]["success_count"]
+                - baseline["tsr"]["success_count"]
+            ),
+            "tsr_percentage_point_delta": (
+                aegis["tsr_percent"] - baseline["tsr_percent"]
+            ),
+            "legacy_ets_steps_sum_delta": (
+                aegis["legacy_ets_steps"]["sum"]
+                - baseline["legacy_ets_steps"]["sum"]
+            ),
+            "legacy_ets_steps_mean_delta": (
+                aegis["legacy_ets_steps_mean"]
+                - baseline["legacy_ets_steps_mean"]
+            ),
+            "executed_action_count_sum_delta": (
+                aegis["executed_action_count"]["sum"]
+                - baseline["executed_action_count"]["sum"]
+            ),
+            "executed_action_count_mean_delta": (
+                aegis["executed_action_count_mean"]
+                - baseline["executed_action_count_mean"]
+            ),
+        }
+
+    binding = dict(source_binding)
+    for field in (
+        "v1_publication_receipt_sha256",
+        "v1_population_summary_sha256",
+        "v1_accepted_result_payloads_sha256",
+    ):
+        _require_sha256(binding.get(field), label=f"analysis-v2/{field}")
+    if (
+        binding["v1_accepted_result_payloads_sha256"]
+        != v1["accepted_result_payloads_sha256"]
+    ):
+        raise AggregationError(
+            "analysis-v2 result ledger differs from immutable v1"
+        )
+
+    return {
+        "schema_version": OUTPUT_SCHEMA_V2,
+        "status": "complete_postpublication_analysis_v2",
+        "protocol_id": config["protocol_id"],
+        "claim_scope": {
+            "method_label": (
+                "pi0.5 + AEGIS translational conditioned on frozen "
+                "per-case Codex obstacle labels"
+            ),
+            "baseline_method_label": "pi0.5 translational",
+            "aegis_method_label": (
+                "pi0.5 + AEGIS translational conditioned on frozen "
+                "per-case Codex obstacle labels"
+            ),
+            "table_scope": (
+                "two-row translational Table-1 reproduction: "
+                "pi0.5 and pi0.5+AEGIS only"
+            ),
+            "population_scope": (
+                "complete frozen 1,600-case SafeLIBERO population for "
+                "the two registered translational arms"
+            ),
+            "openvla_oft_included": False,
+            "paper_semantic_selector_reproduced": False,
+            "paper_exact_end_to_end_reproduction_claimed": False,
+            "clearance_available": False,
+            "minimum_clearance_claimed": False,
+            "configured_scope": config["source"]["claim_scope"],
+        },
+        "source_v1": binding,
+        "accepted_result_payloads_sha256": v1[
+            "accepted_result_payloads_sha256"
+        ],
+        "population": v1["population"],
+        "metric_semantics": v1["metric_semantics"],
+        "task_level_groups": groups,
+        "suites": suites,
+        "average": overall,
+        "paired_transitions": {
+            "overall": _paired_transition_summary_v2(
+                manifests=manifests,
+                results=results,
+                first_arm=first_arm,
+                second_arm=second_arm,
+            ),
+            "suites": transition_suites,
+        },
+        "method_differences": method_differences,
+        "published_table1_differences": v1[
+            "published_table1_differences"
+        ],
     }
 
 

@@ -36,9 +36,12 @@ except ImportError:  # pragma: no cover - direct script execution fallback
 
 CASE_SCHEMA = "vlsa_table1_aegis_failure_case.v1"
 REPORT_SCHEMA = "vlsa_table1_aegis_failure_report.v1"
+CASE_SCHEMA_V2 = "vlsa_table1_aegis_failure_case.v2"
+REPORT_SCHEMA_V2 = "vlsa_table1_aegis_failure_report.v2"
 CONTACT_SCHEMA = "vlsa_table1_active_obstacle_contacts.v3"
 CONTACT_MODEL_AUTHORITY_SCHEMA = "vlsa_table1_contact_model_authority.v2"
 SUMMARY_SCHEMA = "vlsa_table1_population_summary.v1"
+SUMMARY_SCHEMA_V2 = "vlsa_table1_population_summary.v2"
 PREPUBLISH_SCHEMA = "vlsa_table1_population_prepublish_validation.v2"
 EXPECTED_CASES = 1600
 EXPECTED_RESULTS = 3200
@@ -72,6 +75,34 @@ CAR_FAILURE_CLASSES = {
     "valid_qp_dynamic_other_contact_collision",
     "valid_qp_displacement_without_robot_or_dynamic_sampled_contact",
 }
+CAR_FAILURE_CLASSES_V2 = (
+    CAR_FAILURE_CLASSES
+    | {"both_views_no_usable_points_fail_open_collision"}
+)
+NO_USABLE_POINTS_SUBCLASSES = (
+    "not_applicable",
+    "both_views_no_detection",
+    "agentview_detection_without_usable_3d_points",
+    "backview_detection_without_usable_3d_points",
+    "both_views_detections_without_usable_3d_points",
+)
+PAPER_CAR_CONTACT_STRATA = (
+    "paper_safe_no_sampled_robot_contact",
+    "paper_safe_sampled_robot_contact",
+    "paper_collision_no_sampled_robot_contact",
+    "paper_collision_sampled_robot_contact",
+)
+ROBOT_CONTACT_TRANSITIONS = (
+    "baseline_no_contact_to_aegis_no_contact",
+    "baseline_no_contact_to_aegis_contact",
+    "baseline_contact_to_aegis_no_contact",
+    "baseline_contact_to_aegis_contact",
+)
+PAPER_CAR_CONTACT_TRANSITIONS = tuple(
+    f"baseline_{baseline}_to_aegis_{aegis}"
+    for baseline in PAPER_CAR_CONTACT_STRATA
+    for aegis in PAPER_CAR_CONTACT_STRATA
+)
 
 EVIDENCE_LIMITED_CAR_CLASSES = {
     "valid_qp_displacement_without_robot_or_dynamic_sampled_contact",
@@ -100,6 +131,27 @@ INTERPRETATION_SCOPE = {
         "Primary classes are observed pipeline/outcome strata. They do not "
         "uniquely separate perception error, stale geometry, unmodelled arm "
         "geometry, and discrete-time controller effects."
+    ),
+}
+INTERPRETATION_SCOPE_V2 = {
+    **INTERPRETATION_SCOPE,
+    "method": (
+        "The AEGIS arm is conditioned on one frozen Codex obstacle label per "
+        "case; it is not an API-backed reproduction of the paper's semantic "
+        "selector."
+    ),
+    "table_scope": (
+        "Only pi0.5 and pi0.5+AEGIS translational rows are included. "
+        "OpenVLA-OFT is not evaluated."
+    ),
+    "clearance": (
+        "No continuous signed-distance or minimum-clearance signal exists in "
+        "the immutable v1 artifacts."
+    ),
+    "stopping": (
+        "Strict zero translation is an observed action pattern. A safe case "
+        "with that pattern does not by itself prove that stopping caused "
+        "safety."
     ),
 }
 
@@ -459,6 +511,72 @@ def _contact_evidence(
     }
 
 
+def _contact_evidence_v2(
+    payload: Mapping[str, Any],
+    *,
+    collision_step: int | None,
+) -> dict[str, Any]:
+    """Extend validated v1 contact evidence over the complete episode."""
+
+    evidence = _contact_evidence(
+        payload, collision_step=collision_step
+    )
+    counts: Counter[str] = Counter()
+    postcontrol_counts: Counter[str] = Counter()
+    snapshots = _list(payload.get("snapshots"), label="contact snapshots")
+    for snapshot in snapshots:
+        snapshot_map = _mapping(snapshot, label="contact snapshot")
+        step = _int(
+            snapshot_map.get("step"), label="contact snapshot step"
+        )
+        for event in _list(
+            snapshot_map.get("events"), label="contact events"
+        ):
+            other = _mapping(
+                _mapping(event, label="contact event").get("other"),
+                label="contact other",
+            )
+            role = str(other.get("classification"))
+            if (
+                role not in CONTACT_ROLES
+                or role == "unknown"
+                or other.get("classification_authority") != "complete"
+            ):
+                raise FailureReportError(
+                    "contact other role is not complete and canonical"
+                )
+            counts[role] += 1
+            if step >= 0:
+                postcontrol_counts[role] += 1
+    evidence.update(
+        {
+            "event_counts_by_role": {
+                role: counts[role] for role in CONTACT_ROLES
+            },
+            "postcontrol_event_counts_by_role": {
+                role: postcontrol_counts[role] for role in CONTACT_ROLES
+            },
+            "robot_active_obstacle_contact": counts["robot"] > 0,
+            "postcontrol_robot_active_obstacle_contact": (
+                postcontrol_counts["robot"] > 0
+            ),
+            "collision_relevant_event_count": sum(
+                counts[role]
+                for role in COLLISION_RELEVANT_CONTACT_ROLES
+            ),
+            "postcontrol_collision_relevant_event_count": sum(
+                postcontrol_counts[role]
+                for role in COLLISION_RELEVANT_CONTACT_ROLES
+            ),
+            "sampling_scope": (
+                "settled snapshot at step -1 plus post-control-step "
+                "snapshots; internal physics substeps are not observed"
+            ),
+        }
+    )
+    return evidence
+
+
 def _geometry_evidence(result: Mapping[str, Any]) -> dict[str, Any]:
     case_id = str(result.get("case_id"))
     diagnostics = _diagnostics_record(result)
@@ -531,6 +649,65 @@ def _geometry_evidence(result: Mapping[str, Any]) -> dict[str, Any]:
             else None
         ),
     }
+
+
+def _geometry_evidence_v2(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Add exact detector/point-cloud evidence without changing v1 rows."""
+
+    case_id = str(result.get("case_id"))
+    evidence = _geometry_evidence(result)
+    diagnostics = _diagnostics_record(result)
+    descriptor = _mapping(
+        diagnostics.get("geometry"), label=f"{case_id}/geometry descriptor"
+    )
+    record = _mapping(
+        descriptor.get("record"), label=f"{case_id}/geometry record"
+    )
+    views = _mapping(record.get("views"), label=f"{case_id}/geometry views")
+    failure = record.get("failure")
+    no_grounded_points = (
+        isinstance(failure, Mapping)
+        and failure.get("type") == "no_grounded_points"
+    )
+    for view_name in ("agentview", "backview"):
+        value = _mapping(
+            views.get(view_name), label=f"{case_id}/{view_name}"
+        )
+        returned_points = value.get("returned_point_cloud")
+        returned_point_shape = None
+        raw_point_count = None
+        usable_point_count = None
+        if isinstance(returned_points, Mapping):
+            shape = returned_points.get("shape")
+            if (
+                not isinstance(shape, list)
+                or not shape
+                or any(
+                    type(dimension) is not int or dimension < 0
+                    for dimension in shape
+                )
+            ):
+                raise FailureReportError(
+                    f"{case_id}/{view_name}: returned point-cloud shape "
+                    "changed"
+                )
+            returned_point_shape = list(shape)
+            raw_point_count = shape[0]
+            if len(shape) == 2 and shape[1] == 3:
+                if returned_points.get("finite") is True:
+                    usable_point_count = shape[0]
+                elif shape[0] == 0:
+                    usable_point_count = 0
+        if no_grounded_points:
+            usable_point_count = 0
+        evidence["views"][view_name].update(
+            {
+                "returned_point_shape": returned_point_shape,
+                "raw_point_count": raw_point_count,
+                "usable_point_count": usable_point_count,
+            }
+        )
+    return evidence
 
 
 def _control_evidence(result: Mapping[str, Any]) -> dict[str, Any]:
@@ -736,6 +913,77 @@ def _video_evidence(
         ),
         "hash_verified": True,
     }
+
+
+def _no_usable_points_evidence(
+    geometry: Mapping[str, Any],
+) -> tuple[str, list[str]]:
+    """Separate detector-box evidence from empty reconstructed 3-D points."""
+
+    views = geometry.get("views")
+    if not isinstance(views, Mapping):
+        raise FailureReportError(
+            "no-usable-points failure lacks per-view evidence"
+        )
+    detections: dict[str, int] = {}
+    for view_name in ("agentview", "backview"):
+        view = views.get(view_name)
+        if not isinstance(view, Mapping):
+            raise FailureReportError(
+                f"no-usable-points failure lacks {view_name}"
+            )
+        detection_count = view.get("detection_count")
+        usable_point_count = view.get("usable_point_count")
+        if (
+            type(detection_count) is not int
+            or detection_count < 0
+            or usable_point_count != 0
+        ):
+            raise FailureReportError(
+                f"{view_name}: no-usable-points evidence is inconsistent"
+            )
+        expected_status = (
+            "no_detection" if detection_count == 0 else "detected"
+        )
+        if view.get("status") != expected_status:
+            raise FailureReportError(
+                f"{view_name}: detector status/count mismatch"
+            )
+        detections[view_name] = detection_count
+
+    agent_detected = detections["agentview"] > 0
+    back_detected = detections["backview"] > 0
+    if not agent_detected and not back_detected:
+        return (
+            "both_views_no_detection",
+            [
+                "semantic_label_or_detector_grounding_failure_hypothesis",
+                "viewpoint_or_detector_threshold_failure_hypothesis",
+            ],
+        )
+    if agent_detected and not back_detected:
+        return (
+            "agentview_detection_without_usable_3d_points",
+            [
+                "selected_crop_depth_or_point_reconstruction_failure_"
+                "hypothesis",
+            ],
+        )
+    if not agent_detected and back_detected:
+        return (
+            "backview_detection_without_usable_3d_points",
+            [
+                "selected_crop_depth_or_point_reconstruction_failure_"
+                "hypothesis",
+            ],
+        )
+    return (
+        "both_views_detections_without_usable_3d_points",
+        [
+            "selected_crop_depth_or_point_reconstruction_failure_"
+            "hypothesis",
+        ],
+    )
 
 
 def classify_car_failure(
@@ -1047,11 +1295,312 @@ def build_case_record(
     return record
 
 
-def validate_report_against_summary(
+def _paper_car_contact_stratum(
+    *,
+    paper_collision: bool,
+    robot_contact: bool,
+) -> str:
+    return "_".join(
+        (
+            "paper_collision" if paper_collision else "paper_safe",
+            "sampled_robot_contact" if robot_contact else "no_sampled_robot_contact",
+        )
+    )
+
+
+def _paired_goal_progress(
+    baseline: Mapping[str, Any],
+    aegis: Mapping[str, Any],
+) -> dict[str, Any]:
+    baseline_goal = _goal_evidence(baseline)
+    aegis_goal = _goal_evidence(aegis)
+    if (
+        baseline_goal["goal_definition_sha256"]
+        != aegis_goal["goal_definition_sha256"]
+    ):
+        raise FailureReportError(
+            "paired arms use different native goal definitions"
+        )
+    delta_fields = (
+        "initial_satisfied_count",
+        "final_satisfied_count",
+        "maximum_satisfied_count",
+        "initial_fraction",
+        "final_fraction",
+        "maximum_fraction",
+        "regression_count",
+    )
+    deltas = {
+        field: aegis_goal[field] - baseline_goal[field]
+        for field in delta_fields
+    }
+    if (
+        deltas["initial_satisfied_count"] != 0
+        or not math.isclose(
+            float(deltas["initial_fraction"]),
+            0.0,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+    ):
+        raise FailureReportError(
+            "paired arms start from different native goal progress"
+        )
+    return {
+        BASELINE_ARM: baseline_goal,
+        AEGIS_ARM: aegis_goal,
+        "same_goal_definition": True,
+        "same_initial_goal_progress": True,
+        "aegis_minus_pi05": deltas,
+    }
+
+
+def _observed_evidence_tags_v2(
+    *,
+    metrics: Mapping[str, Any],
+    geometry: Mapping[str, Any],
+    control: Mapping[str, Any],
+    contacts: Mapping[str, Any],
+    no_points_subclass: str | None,
+) -> list[str]:
+    tags = {
+        (
+            "paper_car_collision"
+            if metrics["paper_collision"]
+            else "paper_car_safe"
+        ),
+        (
+            "task_success"
+            if metrics["task_success"]
+            else "task_failure"
+        ),
+        f"geometry_status_{geometry.get('status')}",
+        (
+            "sampled_robot_active_obstacle_contact_present"
+            if contacts["robot_active_obstacle_contact"]
+            else "sampled_robot_active_obstacle_contact_absent"
+        ),
+        (
+            "settled_collision_relevant_contact_present"
+            if contacts["settled_collision_relevant_event_count"] > 0
+            else "settled_collision_relevant_contact_absent"
+        ),
+    }
+    control_path = control.get("collision_step_control_path")
+    if control_path is not None:
+        tags.add(f"collision_step_control_path_{control_path}")
+    barrier = control.get("collision_step_barrier_h")
+    if barrier is not None:
+        tags.add(
+            "collision_step_proxy_barrier_positive"
+            if float(barrier) > 0.0
+            else "collision_step_proxy_barrier_nonpositive"
+        )
+    if (
+        no_points_subclass is not None
+        and no_points_subclass != "not_applicable"
+    ):
+        tags.add(no_points_subclass)
+        tags.add("no_usable_3d_points_fail_open_path_observed")
+    return sorted(tags)
+
+
+def _refine_no_usable_points_v2(
+    *,
+    metrics: Mapping[str, Any],
+    geometry: Mapping[str, Any],
+    primary_class: str,
+    causal_hypotheses: Sequence[str],
+) -> tuple[str, str, list[str]]:
+    subclass = "not_applicable"
+    hypotheses = list(causal_hypotheses)
+    if (
+        geometry.get("status") == "method_failure_passthrough"
+        and geometry.get("failure_type") == "no_grounded_points"
+    ):
+        subclass, hypotheses = _no_usable_points_evidence(geometry)
+        if metrics["paper_collision"]:
+            primary_class = (
+                "both_views_no_usable_points_fail_open_collision"
+            )
+    return primary_class, subclass, hypotheses
+
+
+def build_case_record_v2(
+    *,
+    manifest: Mapping[str, Any],
+    baseline: Mapping[str, Any],
+    aegis: Mapping[str, Any],
+    baseline_artifact_root: Path,
+    aegis_artifact_root: Path,
+) -> dict[str, Any]:
+    """Enrich a validated v1 pair without mutating its immutable artifacts."""
+
+    record = build_case_record(
+        manifest=manifest,
+        baseline=baseline,
+        aegis=aegis,
+        baseline_artifact_root=baseline_artifact_root,
+        aegis_artifact_root=aegis_artifact_root,
+    )
+    record.pop("record_payload_sha256", None)
+    baseline_metrics = _result_metrics(baseline)
+    aegis_metrics = _result_metrics(aegis)
+    baseline_contacts = _contact_evidence_v2(
+        load_contact_payload(
+            baseline, artifact_root=baseline_artifact_root
+        ),
+        collision_step=baseline_metrics["collision_first_step"],
+    )
+    aegis_contacts = _contact_evidence_v2(
+        load_contact_payload(
+            aegis, artifact_root=aegis_artifact_root
+        ),
+        collision_step=aegis_metrics["collision_first_step"],
+    )
+    record["aegis_diagnostics"]["contacts"] = aegis_contacts
+    for arm, arm_metrics, arm_contacts in (
+        (BASELINE_ARM, baseline_metrics, baseline_contacts),
+        (AEGIS_ARM, aegis_metrics, aegis_contacts),
+    ):
+        robot_contact = bool(
+            arm_contacts["robot_active_obstacle_contact"]
+        )
+        record["outcomes"][arm].update(
+            {
+                "sampled_robot_active_obstacle_contact": robot_contact,
+                "sampled_postcontrol_robot_active_obstacle_contact": (
+                    arm_contacts[
+                        "postcontrol_robot_active_obstacle_contact"
+                    ]
+                ),
+                "sampled_active_obstacle_contact_any": (
+                    arm_contacts["total_event_count"] > 0
+                ),
+                "sampled_collision_relevant_active_obstacle_contact": (
+                    arm_contacts["collision_relevant_event_count"] > 0
+                ),
+                "contact_event_counts_by_role": dict(
+                    arm_contacts["event_counts_by_role"]
+                ),
+                "postcontrol_contact_event_counts_by_role": dict(
+                    arm_contacts["postcontrol_event_counts_by_role"]
+                ),
+                "paper_car_contact_stratum": (
+                    _paper_car_contact_stratum(
+                        paper_collision=arm_metrics["paper_collision"],
+                        robot_contact=robot_contact,
+                    )
+                ),
+            }
+        )
+    record["physical_contacts"] = {
+        BASELINE_ARM: baseline_contacts,
+        AEGIS_ARM: aegis_contacts,
+        "scope": (
+            "settled and post-control-step sampled MuJoCo contacts "
+            "involving the settled active obstacle; not continuous "
+            "substep contact or clearance"
+        ),
+    }
+    record["paired_goal_progress"] = _paired_goal_progress(
+        baseline, aegis
+    )
+    record["paired_transition"]["joint"] = (
+        f"baseline_{record['outcomes'][BASELINE_ARM]['joint_outcome']}"
+        f"_to_aegis_{record['outcomes'][AEGIS_ARM]['joint_outcome']}"
+    )
+    geometry = _geometry_evidence_v2(aegis)
+    record["aegis_diagnostics"]["geometry"] = geometry
+    failure_analysis = record["failure_analysis"]
+    (
+        failure_analysis["primary_observed_car_class"],
+        no_points_subclass,
+        failure_analysis["causal_hypothesis_tags"],
+    ) = _refine_no_usable_points_v2(
+        metrics=aegis_metrics,
+        geometry=geometry,
+        primary_class=failure_analysis[
+            "primary_observed_car_class"
+        ],
+        causal_hypotheses=failure_analysis[
+            "causal_hypothesis_tags"
+        ],
+    )
+    primary_class = failure_analysis["primary_observed_car_class"]
+    failure_analysis.update(
+        {
+            "primary_car_failure_class": primary_class,
+            "evidence_limited": (
+                primary_class in EVIDENCE_LIMITED_CAR_CLASSES
+            ),
+            "observed_evidence_tags": _observed_evidence_tags_v2(
+                metrics=aegis_metrics,
+                geometry=geometry,
+                control=record["aegis_diagnostics"]["control"],
+                contacts=aegis_contacts,
+                no_points_subclass=no_points_subclass,
+            ),
+            "causal_hypotheses": list(
+                failure_analysis["causal_hypothesis_tags"]
+            ),
+            "aegis_task_outcome_class": failure_analysis[
+                "aegis_task_failure_class"
+            ],
+            "no_usable_points_observed_subclass": no_points_subclass,
+            "legacy_v1_strict_safety_by_stopping_flag": bool(
+                failure_analysis["strict_safety_by_stopping"]
+            ),
+            "safe_with_strict_zero_translation": (
+                not aegis_metrics["paper_collision"]
+                and bool(
+                    record["aegis_diagnostics"]["control"][
+                        "strict_zero_translation"
+                    ]
+                )
+            ),
+            "stopping_causal_claim_supported": False,
+        }
+    )
+    failure_analysis.pop("strict_safety_by_stopping", None)
+    record.update(
+        {
+            "schema_version": CASE_SCHEMA_V2,
+            "claim_scope": {
+                "method_label": (
+                    "pi0.5 + AEGIS translational conditioned on frozen "
+                    "per-case Codex obstacle labels"
+                ),
+                "baseline_method_label": "pi0.5 translational",
+                "aegis_method_label": (
+                    "pi0.5 + AEGIS translational conditioned on frozen "
+                    "per-case Codex obstacle labels"
+                ),
+                "table_scope": (
+                    "two-row translational Table-1 reproduction: "
+                    "pi0.5 and pi0.5+AEGIS only"
+                ),
+                "openvla_oft_included": False,
+                "paper_semantic_selector_reproduced": False,
+                "paper_exact_end_to_end_reproduction_claimed": False,
+                "clearance_available": False,
+                "minimum_clearance_claimed": False,
+            },
+            "interpretation_scope": INTERPRETATION_SCOPE_V2,
+        }
+    )
+    record["record_payload_sha256"] = sha256_bytes(
+        canonical_json_bytes(record)
+    )
+    return record
+
+
+def _validate_report_against_summary(
     records: Sequence[Mapping[str, Any]],
     *,
     summary: Mapping[str, Any],
     expected_cases: int = EXPECTED_CASES,
+    allowed_car_failure_classes: set[str],
 ) -> dict[str, Any]:
     """Require exhaustive rows and exact alignment with the population table."""
 
@@ -1072,7 +1621,7 @@ def validate_report_against_summary(
         str(record["failure_analysis"]["primary_observed_car_class"])
         for record in records
     )
-    if set(primary) - CAR_FAILURE_CLASSES:
+    if set(primary) - allowed_car_failure_classes:
         raise FailureReportError("failure report contains unknown CAR classes")
     for record in records:
         outcome_collision = record["outcomes"][AEGIS_ARM][
@@ -1200,6 +1749,647 @@ def validate_report_against_summary(
     }
 
 
+def validate_report_against_summary(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    summary: Mapping[str, Any],
+    expected_cases: int = EXPECTED_CASES,
+) -> dict[str, Any]:
+    """Require exhaustive rows and exact alignment with the population table."""
+
+    return _validate_report_against_summary(
+        records,
+        summary=summary,
+        expected_cases=expected_cases,
+        allowed_car_failure_classes=CAR_FAILURE_CLASSES,
+    )
+
+
+def _joint_outcome_counts(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    arm: str,
+) -> dict[str, int]:
+    counts = Counter(
+        str(record["outcomes"][arm]["joint_outcome"])
+        for record in records
+    )
+    return {
+        key: counts[key] for key in aggregate.JOINT_OUTCOMES
+    }
+
+
+def _physical_contact_counts(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    arm: str,
+) -> dict[str, Any]:
+    strata = Counter(
+        str(record["outcomes"][arm]["paper_car_contact_stratum"])
+        for record in records
+    )
+    robot_contacts = sum(
+        bool(
+            record["outcomes"][arm][
+                "sampled_robot_active_obstacle_contact"
+            ]
+        )
+        for record in records
+    )
+    any_contacts = sum(
+        bool(
+            record["outcomes"][arm][
+                "sampled_active_obstacle_contact_any"
+            ]
+        )
+        for record in records
+    )
+    collision_relevant_contacts = sum(
+        bool(
+            record["outcomes"][arm][
+                "sampled_collision_relevant_active_obstacle_contact"
+            ]
+        )
+        for record in records
+    )
+    postcontrol_robot_contacts = sum(
+        bool(
+            record["outcomes"][arm][
+                "sampled_postcontrol_robot_active_obstacle_contact"
+            ]
+        )
+        for record in records
+    )
+    complete_strata = {
+        key: strata[key] for key in PAPER_CAR_CONTACT_STRATA
+    }
+    if sum(complete_strata.values()) != len(records):
+        raise FailureReportError(
+            f"{arm}: unregistered paper-CAR/contact stratum"
+        )
+    disagreement_count = (
+        complete_strata[
+            "paper_safe_sampled_robot_contact"
+        ]
+        + complete_strata[
+            "paper_collision_no_sampled_robot_contact"
+        ]
+    )
+    return {
+        "denominator": len(records),
+        "sampled_any_contact_count": any_contacts,
+        "sampled_collision_relevant_contact_count": (
+            collision_relevant_contacts
+        ),
+        "sampled_robot_contact_count": robot_contacts,
+        "no_sampled_robot_contact_count": len(records) - robot_contacts,
+        "sampled_postcontrol_robot_contact_count": (
+            postcontrol_robot_contacts
+        ),
+        "paper_car_sampled_robot_contact_agreement_count": (
+            len(records) - disagreement_count
+        ),
+        "paper_car_sampled_robot_contact_disagreement_count": (
+            disagreement_count
+        ),
+        "paper_car_contact_strata": complete_strata,
+    }
+
+
+def _paired_transition_counts_v2(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    car = Counter(
+        str(record["paired_transition"]["car"]) for record in records
+    )
+    task = Counter(
+        str(record["paired_transition"]["task"]) for record in records
+    )
+    joint = Counter(
+        str(record["paired_transition"]["joint"]) for record in records
+    )
+    robot_contact: Counter[str] = Counter()
+    paper_car_contact: Counter[str] = Counter()
+    for record in records:
+        baseline_contact = bool(
+            record["outcomes"][BASELINE_ARM][
+                "sampled_robot_active_obstacle_contact"
+            ]
+        )
+        aegis_contact = bool(
+            record["outcomes"][AEGIS_ARM][
+                "sampled_robot_active_obstacle_contact"
+            ]
+        )
+        robot_contact[
+            "_to_".join(
+                (
+                    (
+                        "baseline_contact"
+                        if baseline_contact
+                        else "baseline_no_contact"
+                    ),
+                    (
+                        "aegis_contact"
+                        if aegis_contact
+                        else "aegis_no_contact"
+                    ),
+                )
+            )
+        ] += 1
+        paper_car_contact[
+            (
+                "baseline_"
+                + str(
+                    record["outcomes"][BASELINE_ARM][
+                        "paper_car_contact_stratum"
+                    ]
+                )
+                + "_to_aegis_"
+                + str(
+                    record["outcomes"][AEGIS_ARM][
+                        "paper_car_contact_stratum"
+                    ]
+                )
+            )
+        ] += 1
+    complete = {
+        "car": {key: car[key] for key in aggregate.CAR_TRANSITIONS},
+        "task": {
+            key: task[key] for key in aggregate.TASK_TRANSITIONS
+        },
+        "joint": {
+            key: joint[key] for key in aggregate.JOINT_TRANSITIONS
+        },
+        "sampled_robot_contact": {
+            key: robot_contact[key] for key in ROBOT_CONTACT_TRANSITIONS
+        },
+        "paper_car_sampled_robot_contact": {
+            key: paper_car_contact[key]
+            for key in PAPER_CAR_CONTACT_TRANSITIONS
+        },
+    }
+    if any(
+        sum(counts.values()) != len(records)
+        for counts in complete.values()
+    ):
+        raise FailureReportError(
+            "paired transitions contain an unregistered state"
+        )
+    return {"denominator": len(records), **complete}
+
+
+def _failure_stratum(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    primary = Counter(
+        str(row["failure_analysis"]["primary_observed_car_class"])
+        for row in rows
+    )
+    task = Counter(
+        str(row["failure_analysis"]["aegis_task_failure_class"])
+        for row in rows
+    )
+    car_failures = sum(
+        bool(row["failure_analysis"]["is_aegis_car_failure"])
+        for row in rows
+    )
+    no_points = Counter(
+        str(
+            row["failure_analysis"][
+                "no_usable_points_observed_subclass"
+            ]
+        )
+        for row in rows
+    )
+    complete_no_points = {
+        key: no_points[key] for key in NO_USABLE_POINTS_SUBCLASSES
+    }
+    if sum(complete_no_points.values()) != len(rows):
+        raise FailureReportError(
+            "cross-tab contains an unregistered no-points subclass"
+        )
+    return {
+        "denominator": len(rows),
+        "aegis_car_failure_count": car_failures,
+        "aegis_car_success_count": len(rows) - car_failures,
+        "primary_observed_car_class_counts": dict(sorted(primary.items())),
+        "aegis_task_failure_class_counts": dict(sorted(task.items())),
+        "no_usable_points_observed_subclass_counts": (
+            complete_no_points
+        ),
+        "joint_outcome_counts": {
+            BASELINE_ARM: _joint_outcome_counts(rows, arm=BASELINE_ARM),
+            AEGIS_ARM: _joint_outcome_counts(rows, arm=AEGIS_ARM),
+        },
+        "physical_contacts": {
+            BASELINE_ARM: _physical_contact_counts(
+                rows, arm=BASELINE_ARM
+            ),
+            AEGIS_ARM: _physical_contact_counts(rows, arm=AEGIS_ARM),
+        },
+        "paired_transitions": _paired_transition_counts_v2(rows),
+        "paired_goal_progress": _paired_goal_progress_counts_v2(rows),
+        "intervention": _intervention_counts_v2(rows),
+    }
+
+
+def _cross_tabs_v2(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    def grouped(field: str) -> dict[str, Any]:
+        values: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
+        for record in records:
+            values[str(record.get(field))].append(record)
+        return {
+            key: _failure_stratum(rows)
+            for key, rows in sorted(values.items())
+        }
+
+    tasks: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for record in records:
+        key = "|".join(
+            (
+                str(record.get("suite")),
+                str(record.get("safety_level")),
+                str(record.get("logical_task_index")),
+                str(record.get("task_name")),
+            )
+        )
+        tasks[key].append(record)
+    return {
+        "suite": grouped("suite"),
+        "safety_level": grouped("safety_level"),
+        "task": {
+            key: _failure_stratum(rows)
+            for key, rows in sorted(tasks.items())
+        },
+        "frozen_obstacle_label": grouped("frozen_obstacle_label"),
+    }
+
+
+def _paired_goal_progress_counts_v2(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if not records:
+        raise FailureReportError(
+            "paired goal-progress summary requires a nonempty stratum"
+        )
+    count_fields = (
+        "initial_satisfied_count",
+        "final_satisfied_count",
+        "maximum_satisfied_count",
+        "regression_count",
+    )
+    fraction_fields = (
+        "initial_fraction",
+        "final_fraction",
+        "maximum_fraction",
+    )
+
+    def arm_summary(arm: str) -> dict[str, Any]:
+        sums: dict[str, int | float] = {
+            field: sum(
+                _int(
+                    row["paired_goal_progress"][arm][field],
+                    label=f"{arm}/{field}",
+                )
+                for row in records
+            )
+            for field in count_fields
+        }
+        sums.update(
+            {
+                field: sum(
+                    _number(
+                        row["paired_goal_progress"][arm][field],
+                        label=f"{arm}/{field}",
+                    )
+                    for row in records
+                )
+                for field in fraction_fields
+            }
+        )
+        return {
+            "sum": sums,
+            "mean": {
+                field: value / len(records)
+                for field, value in sums.items()
+            },
+        }
+
+    delta_sums: dict[str, int | float] = {
+        field: sum(
+            _int(
+                row["paired_goal_progress"]["aegis_minus_pi05"][
+                    field
+                ],
+                label=f"goal delta/{field}",
+            )
+            for row in records
+        )
+        for field in count_fields
+    }
+    delta_sums.update(
+        {
+            field: sum(
+                _number(
+                    row["paired_goal_progress"]["aegis_minus_pi05"][
+                        field
+                    ],
+                    label=f"goal delta/{field}",
+                )
+                for row in records
+            )
+            for field in fraction_fields
+        }
+    )
+    exact_binding_count = sum(
+        (
+            row["paired_goal_progress"].get("same_goal_definition")
+            is True
+            and row["paired_goal_progress"].get(
+                "same_initial_goal_progress"
+            )
+            is True
+        )
+        for row in records
+    )
+    if exact_binding_count != len(records):
+        raise FailureReportError(
+            "paired goal-progress binding is incomplete"
+        )
+    return {
+        "denominator": len(records),
+        "same_goal_definition_and_initial_progress_count": (
+            exact_binding_count
+        ),
+        "arms": {
+            BASELINE_ARM: arm_summary(BASELINE_ARM),
+            AEGIS_ARM: arm_summary(AEGIS_ARM),
+        },
+        "aegis_minus_pi05_sum": delta_sums,
+        "aegis_minus_pi05_mean": {
+            field: value / len(records)
+            for field, value in delta_sums.items()
+        },
+    }
+
+
+def _intervention_counts_v2(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if not records:
+        raise FailureReportError(
+            "intervention summary requires a nonempty stratum"
+        )
+    interventions = [
+        _mapping(
+            row["aegis_diagnostics"]["intervention"],
+            label=f"{row.get('case_id')}/intervention",
+        )
+        for row in records
+    ]
+    eligible_steps = sum(
+        _int(value.get("eligible_steps"), label="eligible steps")
+        for value in interventions
+    )
+    modified_actions = sum(
+        _int(
+            value.get("intervention_count"),
+            label="intervention count",
+        )
+        for value in interventions
+    )
+    correction_l2_sum = sum(
+        _number(
+            value.get("correction_l2_sum"),
+            label="correction L2 sum",
+        )
+        for value in interventions
+    )
+    modified_cases = sum(
+        _int(
+            value.get("intervention_count"),
+            label="intervention count",
+        )
+        > 0
+        for value in interventions
+    )
+    no_execution_cases = sum(
+        int(
+            row["outcomes"][AEGIS_ARM]["executed_action_count"]
+        )
+        == 0
+        for row in records
+    )
+    return {
+        "denominator": len(records),
+        "eligible_step_count": eligible_steps,
+        "modified_action_count": modified_actions,
+        "modified_case_count": modified_cases,
+        "unmodified_case_count": len(records) - modified_cases,
+        "correction_l2_sum": correction_l2_sum,
+        "modified_action_rate": (
+            None
+            if eligible_steps == 0
+            else modified_actions / eligible_steps
+        ),
+        "correction_l2_mean_per_modified_action": (
+            None
+            if modified_actions == 0
+            else correction_l2_sum / modified_actions
+        ),
+        "no_execution_case_count": no_execution_cases,
+        "legacy_v1_strict_safety_by_stopping_flag_count": sum(
+            bool(
+                row["failure_analysis"][
+                    "legacy_v1_strict_safety_by_stopping_flag"
+                ]
+            )
+            for row in records
+        ),
+        "safe_with_strict_zero_translation_case_count": sum(
+            bool(
+                row["failure_analysis"][
+                    "safe_with_strict_zero_translation"
+                ]
+            )
+            for row in records
+        ),
+        "stopping_causal_claim_supported": False,
+    }
+
+
+def validate_report_against_summary_v2(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    summary: Mapping[str, Any],
+    expected_cases: int = EXPECTED_CASES,
+) -> dict[str, Any]:
+    if (
+        summary.get("schema_version") != SUMMARY_SCHEMA_V2
+        or summary.get("status")
+        != "complete_postpublication_analysis_v2"
+    ):
+        raise FailureReportError("analysis-v2 summary is not complete")
+    claim_scope = _mapping(
+        summary.get("claim_scope"), label="analysis-v2 claim scope"
+    )
+    if (
+        claim_scope.get("openvla_oft_included") is not False
+        or claim_scope.get("paper_semantic_selector_reproduced")
+        is not False
+        or claim_scope.get("paper_exact_end_to_end_reproduction_claimed")
+        is not False
+        or claim_scope.get("clearance_available") is not False
+        or claim_scope.get("minimum_clearance_claimed") is not False
+    ):
+        raise FailureReportError(
+            "analysis-v2 claim boundary is incomplete or overstated"
+        )
+    v1_projection = dict(summary)
+    v1_projection["schema_version"] = SUMMARY_SCHEMA
+    v1_projection["status"] = "complete_population_validated"
+    base = _validate_report_against_summary(
+        records,
+        summary=v1_projection,
+        expected_cases=expected_cases,
+        allowed_car_failure_classes=CAR_FAILURE_CLASSES_V2,
+    )
+    for arm in (BASELINE_ARM, AEGIS_ARM):
+        expected = _mapping(
+            summary["average"][arm],
+            label=f"analysis-v2/{arm}/average",
+        )
+        joint = _joint_outcome_counts(records, arm=arm)
+        if joint != expected.get("joint_outcome_counts"):
+            raise FailureReportError(
+                f"{arm}: joint outcomes differ from analysis-v2 summary"
+            )
+        arm_outcomes = [record["outcomes"][arm] for record in records]
+        exact = {
+            "car": {
+                "success_count": sum(
+                    not outcome["paper_collision"]
+                    for outcome in arm_outcomes
+                ),
+                "failure_count": sum(
+                    outcome["paper_collision"]
+                    for outcome in arm_outcomes
+                ),
+                "denominator": len(records),
+            },
+            "tsr": {
+                "success_count": sum(
+                    outcome["task_success"] for outcome in arm_outcomes
+                ),
+                "failure_count": sum(
+                    not outcome["task_success"]
+                    for outcome in arm_outcomes
+                ),
+                "denominator": len(records),
+            },
+            "legacy_ets_steps": {
+                "sum": sum(
+                    outcome["legacy_ets_steps"]
+                    for outcome in arm_outcomes
+                ),
+                "denominator": len(records),
+            },
+            "executed_action_count": {
+                "sum": sum(
+                    outcome["executed_action_count"]
+                    for outcome in arm_outcomes
+                ),
+                "denominator": len(records),
+            },
+        }
+        for metric, observed in exact.items():
+            expected_metric = _mapping(
+                expected.get(metric),
+                label=f"analysis-v2/{arm}/{metric}",
+            )
+            for field, value in observed.items():
+                if expected_metric.get(field) != value:
+                    raise FailureReportError(
+                        f"{arm}/{metric}/{field} differs from "
+                        "analysis-v2 summary"
+                    )
+    paired = _paired_transition_counts_v2(records)
+    expected_paired = _mapping(
+        summary.get("paired_transitions"),
+        label="analysis-v2 paired transitions",
+    )
+    expected_overall = _mapping(
+        expected_paired.get("overall"),
+        label="analysis-v2 overall paired transitions",
+    )
+    for field in ("denominator", "car", "task", "joint"):
+        if paired[field] != expected_overall.get(field):
+            raise FailureReportError(
+                f"paired {field} differs from analysis-v2 summary"
+            )
+    expected_case_scope = {
+        key: claim_scope[key]
+        for key in (
+            "method_label",
+            "baseline_method_label",
+            "aegis_method_label",
+            "table_scope",
+            "openvla_oft_included",
+            "paper_semantic_selector_reproduced",
+            "paper_exact_end_to_end_reproduction_claimed",
+            "clearance_available",
+            "minimum_clearance_claimed",
+        )
+    }
+    for record in records:
+        if record.get("claim_scope") != expected_case_scope:
+            raise FailureReportError(
+                f"{record.get('case_id')}: claim scope differs"
+            )
+    no_points = Counter(
+        str(
+            record["failure_analysis"][
+                "no_usable_points_observed_subclass"
+            ]
+        )
+        for record in records
+    )
+    no_points_counts = {
+        key: no_points[key] for key in NO_USABLE_POINTS_SUBCLASSES
+    }
+    if sum(no_points_counts.values()) != len(records):
+        raise FailureReportError(
+            "analysis-v2 has an unregistered no-points subclass"
+        )
+    return {
+        **base,
+        "joint_outcome_counts": {
+            BASELINE_ARM: _joint_outcome_counts(
+                records, arm=BASELINE_ARM
+            ),
+            AEGIS_ARM: _joint_outcome_counts(records, arm=AEGIS_ARM),
+        },
+        "physical_contacts": {
+            BASELINE_ARM: _physical_contact_counts(
+                records, arm=BASELINE_ARM
+            ),
+            AEGIS_ARM: _physical_contact_counts(
+                records, arm=AEGIS_ARM
+            ),
+        },
+        "paired_transitions": paired,
+        "no_usable_points_observed_subclass_counts": (
+            no_points_counts
+        ),
+        "paired_goal_progress": _paired_goal_progress_counts_v2(records),
+        "intervention": _intervention_counts_v2(records),
+        "cross_tabs": _cross_tabs_v2(records),
+    }
+
+
 def build_report(
     records: Sequence[Mapping[str, Any]],
     *,
@@ -1260,6 +2450,98 @@ def build_report(
             canonical_json_bytes(row_ledger)
         ),
         "interpretation_scope": INTERPRETATION_SCOPE,
+    }
+    report["report_payload_sha256"] = sha256_bytes(
+        canonical_json_bytes(report)
+    )
+    return report
+
+
+def build_report_v2(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    summary: Mapping[str, Any],
+    summary_sha256: str,
+    validation_receipt_sha256: str,
+    source_publication_receipt_sha256: str,
+    expected_cases: int = EXPECTED_CASES,
+    streaming_stats: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    counts = validate_report_against_summary_v2(
+        records,
+        summary=summary,
+        expected_cases=expected_cases,
+    )
+    source_v1 = _mapping(
+        summary.get("source_v1"), label="analysis-v2 source-v1 binding"
+    )
+    source_receipt_sha = _sha(
+        source_publication_receipt_sha256,
+        label="source v1 publication receipt SHA",
+    )
+    if (
+        _sha(
+            source_v1.get("v1_publication_receipt_sha256"),
+            label="summary source v1 publication receipt SHA",
+        )
+        != source_receipt_sha
+    ):
+        raise FailureReportError(
+            "failure report v2 source differs from its summary"
+        )
+    ordered_rows = sorted(
+        records, key=lambda row: int(row.get("case_ordinal"))
+    )
+    ledger = [
+        {
+            "case_id": row["case_id"],
+            "record_payload_sha256": row["record_payload_sha256"],
+        }
+        for row in ordered_rows
+    ]
+    report = {
+        "schema_version": REPORT_SCHEMA_V2,
+        "status": "complete_postpublication_failure_analysis_v2",
+        "protocol_id": summary.get("protocol_id"),
+        "claim_scope": dict(
+            _mapping(
+                summary.get("claim_scope"),
+                label="analysis-v2 claim scope",
+            )
+        ),
+        "source": {
+            "v1_publication_receipt_sha256": source_receipt_sha,
+            "population_summary_v2_sha256": _sha(
+                summary_sha256, label="population summary v2 SHA"
+            ),
+            "population_validation_receipt_sha256": _sha(
+                validation_receipt_sha256,
+                label="population validation receipt SHA",
+            ),
+            "accepted_result_payloads_sha256": _sha(
+                summary.get("accepted_result_payloads_sha256"),
+                label="accepted result payload ledger SHA",
+            ),
+        },
+        "population": {
+            "cases": expected_cases,
+            "results": expected_cases * 2,
+            "no_cases_dropped": True,
+            "all_car_failures_classified": True,
+            "causal_limits_preserved": True,
+        },
+        "counts": counts,
+        "validation_memory_shape": {
+            "streaming_unit": "one_case_pair",
+            "maximum_live_full_result_records": 2,
+            "full_result_records_retained": 0,
+            "retained_records": "compact_failure_rows_v2_only",
+            **({} if streaming_stats is None else dict(streaming_stats)),
+        },
+        "case_record_ledger_sha256": sha256_bytes(
+            canonical_json_bytes(ledger)
+        ),
+        "interpretation_scope": INTERPRETATION_SCOPE_V2,
     }
     report["report_payload_sha256"] = sha256_bytes(
         canonical_json_bytes(report)
@@ -1336,6 +2618,203 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     lines.extend(
         f"- **{key}:** {value}"
         for key, value in INTERPRETATION_SCOPE.items()
+    )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_markdown_v2(report: Mapping[str, Any]) -> str:
+    counts = _mapping(report.get("counts"), label="analysis-v2 counts")
+    classes = _mapping(
+        counts.get("primary_car_failure_class_counts"),
+        label="analysis-v2 CAR class counts",
+    )
+    joint = _mapping(
+        counts.get("joint_outcome_counts"),
+        label="analysis-v2 joint outcomes",
+    )
+    contacts = _mapping(
+        counts.get("physical_contacts"),
+        label="analysis-v2 physical contacts",
+    )
+    no_points = _mapping(
+        counts.get("no_usable_points_observed_subclass_counts"),
+        label="analysis-v2 no-points subclasses",
+    )
+    paired = _mapping(
+        counts.get("paired_transitions"),
+        label="analysis-v2 paired transitions",
+    )
+    goal = _mapping(
+        counts.get("paired_goal_progress"),
+        label="analysis-v2 paired goal progress",
+    )
+    intervention = _mapping(
+        counts.get("intervention"),
+        label="analysis-v2 intervention summary",
+    )
+    scope = _mapping(
+        report.get("claim_scope"), label="analysis-v2 claim scope"
+    )
+    lines = [
+        "# SafeLIBERO post-publication analysis v2",
+        "",
+        f"**Method:** {scope.get('method_label')}.",
+        "",
+        f"**Scope:** {scope.get('table_scope')}.",
+        "",
+        (
+            f"Validated cases: **{counts.get('case_count')}**; "
+            f"hash-verified videos: **{counts.get('video_count')}**."
+        ),
+        (
+            f"Observed CAR: **{float(counts.get('aegis_car_percent')):.2f}%** "
+            f"({counts.get('aegis_car_failure_count')} "
+            "displacement-defined failures)."
+        ),
+        "",
+        "## Exhaustive observed CAR-failure strata",
+        "",
+        "| Primary observed class | Cases |",
+        "|---|---:|",
+    ]
+    lines.extend(
+        f"| `{key}` | {value} |"
+        for key, value in sorted(classes.items())
+        if key != "not_car_failure"
+    )
+    lines.extend(
+        [
+            "",
+            "## Joint paper-CAR and task outcomes",
+            "",
+            "| Arm | Safe + success | Safe + failure | Collision + success | Collision + failure |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for arm in (BASELINE_ARM, AEGIS_ARM):
+        arm_counts = _mapping(joint.get(arm), label=f"{arm}/joint")
+        lines.append(
+            "| "
+            + " | ".join(
+                (
+                    arm,
+                    str(arm_counts.get("safe_task_success")),
+                    str(arm_counts.get("safe_task_failure")),
+                    str(arm_counts.get("collision_task_success")),
+                    str(arm_counts.get("collision_task_failure")),
+                )
+            )
+            + " |"
+        )
+    car_transitions = _mapping(
+        paired.get("car"), label="analysis-v2 CAR transitions"
+    )
+    lines.extend(
+        [
+            "",
+            "## Exact paired CAR transitions",
+            "",
+            "| Transition | Cases |",
+            "|---|---:|",
+        ]
+    )
+    lines.extend(
+        f"| `{key}` | {value} |"
+        for key, value in car_transitions.items()
+    )
+    lines.extend(
+        [
+            "",
+            "## Sampled robot-active-obstacle contacts",
+            "",
+            (
+                "| Arm | Any sampled active-obstacle contact | "
+                "Collision-relevant sampled contact | "
+                "Robot-active-obstacle contact | Denominator |"
+            ),
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for arm in (BASELINE_ARM, AEGIS_ARM):
+        arm_counts = _mapping(contacts.get(arm), label=f"{arm}/contacts")
+        lines.append(
+            f"| {arm} | {arm_counts.get('sampled_any_contact_count')} "
+            "| "
+            f"{arm_counts.get('sampled_collision_relevant_contact_count')} "
+            f"| {arm_counts.get('sampled_robot_contact_count')} "
+            f"| {arm_counts.get('denominator')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "### Paper-CAR/contact disagreements",
+            "",
+            "| Arm | Disagreements | Denominator |",
+            "|---|---:|---:|",
+        ]
+    )
+    for arm in (BASELINE_ARM, AEGIS_ARM):
+        arm_counts = _mapping(contacts.get(arm), label=f"{arm}/contacts")
+        lines.append(
+            f"| {arm} | "
+            f"{arm_counts.get('paper_car_sampled_robot_contact_disagreement_count')} "
+            f"| {arm_counts.get('denominator')} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## No-usable-3-D-points observed subclasses",
+            "",
+            "| Subclass | Cases |",
+            "|---|---:|",
+        ]
+    )
+    lines.extend(
+        f"| `{key}` | {value} |"
+        for key, value in no_points.items()
+        if key != "not_applicable"
+    )
+    goal_delta = _mapping(
+        goal.get("aegis_minus_pi05_sum"),
+        label="analysis-v2 goal deltas",
+    )
+    lines.extend(
+        [
+            "",
+            "## Goal progress and interventions",
+            "",
+            (
+                f"- Paired native-goal denominator: "
+                f"**{goal.get('denominator')}**."
+            ),
+            (
+                "- Sum of AEGIS-minus-pi0.5 final goal fraction: "
+                f"**{goal_delta.get('final_fraction')}**."
+            ),
+            (
+                f"- Modified AEGIS actions: "
+                f"**{intervention.get('modified_action_count')} / "
+                f"{intervention.get('eligible_step_count')}** eligible "
+                "actions."
+            ),
+            (
+                "- Safe cases with strict zero translation: "
+                f"**{intervention.get('safe_with_strict_zero_translation_case_count')}**; "
+                "this is not a causal stopping claim."
+            ),
+        ]
+    )
+    lines.extend(
+        [
+            "",
+            "## Interpretation boundary",
+            "",
+        ]
+    )
+    lines.extend(
+        f"- **{key}:** {value}"
+        for key, value in INTERPRETATION_SCOPE_V2.items()
     )
     lines.append("")
     return "\n".join(lines)
@@ -1550,6 +3029,142 @@ def build_population_failure_artifacts(
     _write_atomic_bytes(
         markdown_output_path,
         render_markdown(report).encode("utf-8"),
+    )
+    return report
+
+
+def build_population_failure_artifacts_v2(
+    *,
+    config_path: Path,
+    manifest_receipt_path: Path,
+    manifest_path: Path,
+    results_root: Path,
+    summary_path: Path,
+    validation_receipt_path: Path,
+    source_publication_receipt_sha256: str,
+    cases_output_path: Path,
+    report_output_path: Path,
+    markdown_output_path: Path,
+    expected_cases: int = EXPECTED_CASES,
+) -> dict[str, Any]:
+    """Publish derived v2 rows while preserving the immutable v1 run.
+
+    The result files are reopened and deeply validated one pair at a time.
+    This is deliberately a separate entry point from the v1 publisher so a
+    post-publication analysis cannot silently change the accepted v1 output.
+    """
+
+    config, manifests = aggregate.load_protocol(
+        config_path,
+        manifest_receipt_path,
+        manifest_path,
+    )
+    if config.get("arms") != [BASELINE_ARM, AEGIS_ARM]:
+        raise FailureReportError("failure report arm order changed")
+    if len(manifests) != expected_cases:
+        raise FailureReportError(
+            f"manifest has {len(manifests)} cases, expected {expected_cases}"
+        )
+    summary = aggregate.load_json(summary_path)
+    validation_receipt = aggregate.load_json(validation_receipt_path)
+    _require_population_validation_receipt(
+        validation_receipt,
+        expected_cases=expected_cases,
+    )
+    del validation_receipt
+
+    root = results_root.resolve()
+    if root.is_symlink() or not root.is_dir():
+        raise FailureReportError("population results root is unavailable")
+    records: list[dict[str, Any]] = []
+    max_live_full_results = 0
+    for manifest in manifests:
+        case_id = str(manifest["case_id"])
+        ordinal = _int(
+            manifest.get("case_ordinal"),
+            label=f"{case_id}/case ordinal",
+        )
+        task_index = ordinal // int(
+            config["population"]["expected_cases_per_task_level_group"]
+        )
+        task_results_root = root / f"task-{task_index}" / "results"
+        baseline = _load_exactly_one_validated_result(
+            task_results_root
+            / "pi05"
+            / case_id
+            / "result.json",
+            config=config,
+            manifest=manifest,
+        )
+        aegis = _load_exactly_one_validated_result(
+            task_results_root
+            / "aegis"
+            / case_id
+            / "result.json",
+            config=config,
+            manifest=manifest,
+        )
+        max_live_full_results = max(max_live_full_results, 2)
+        try:
+            aggregate.validate_pairs(
+                config=config,
+                manifests=[manifest],
+                results={
+                    (case_id, BASELINE_ARM): baseline,
+                    (case_id, AEGIS_ARM): aegis,
+                },
+            )
+        except aggregate.AggregationError as error:
+            raise FailureReportError(
+                f"{case_id}: strict cross-arm pairing failed: {error}"
+            ) from error
+        records.append(
+            build_case_record_v2(
+                manifest=manifest,
+                baseline=baseline,
+                aegis=aegis,
+                baseline_artifact_root=task_results_root,
+                aegis_artifact_root=task_results_root,
+            )
+        )
+        del baseline
+        del aegis
+
+    streaming_stats = {
+        "maximum_live_full_result_records": max_live_full_results,
+        "compact_case_records_retained": len(records),
+    }
+    report = build_report_v2(
+        records,
+        summary=summary,
+        summary_sha256=sha256_path(summary_path),
+        validation_receipt_sha256=sha256_path(validation_receipt_path),
+        source_publication_receipt_sha256=(
+            source_publication_receipt_sha256
+        ),
+        expected_cases=expected_cases,
+        streaming_stats=streaming_stats,
+    )
+    ordered_records = sorted(
+        records, key=lambda row: int(row["case_ordinal"])
+    )
+    _write_atomic_bytes(
+        cases_output_path, jsonl_bytes(ordered_records)
+    )
+    _write_atomic_bytes(
+        report_output_path,
+        json.dumps(
+            report,
+            sort_keys=True,
+            indent=2,
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+        + b"\n",
+    )
+    _write_atomic_bytes(
+        markdown_output_path,
+        render_markdown_v2(report).encode("utf-8"),
     )
     return report
 
