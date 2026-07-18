@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Allocation-side source and asset preflight for the AEGIS reproduction.
 
-The script deliberately uses only the Python standard library.  It is safe to
-import in local structural tests, but production invocations belong inside a
-Slurm allocation.  A successful invocation writes one immutable JSON receipt;
-an existing receipt is never replaced.
+The module uses the standard library for structural checks and imports the
+frozen video packages only for an allocation-side evaluation-runtime check.
+Production invocations belong inside a Slurm allocation. A successful
+invocation writes one immutable JSON receipt; an existing receipt is never
+replaced.
 """
 
 from __future__ import annotations
@@ -40,6 +41,26 @@ DEFAULT_DINO_CONFIG = Path(
 DEFAULT_DINO_CHECKPOINT = Path(
     "/mnt/data/quanth/cache/aegis/groundingdino/"
     "groundingdino_swint_ogc.pth"
+)
+DEFAULT_AEGIS_PYTHON = Path(
+    "/mnt/data/quanth/venvs/safety_vla/main/bin/python"
+)
+DEFAULT_AEGIS_PYTHON_RESOLVED = Path(
+    "/home/quanth/.local/share/uv/python/"
+    "cpython-3.8.20-linux-x86_64-gnu/bin/python3.8"
+)
+AEGIS_PYTHON_VERSION = "3.8.20"
+DEFAULT_IMAGEIO_FFMPEG_EXE = Path(
+    "/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/"
+    "imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2"
+)
+IMAGEIO_FFMPEG_SHA256 = (
+    "700073daef5c23bbcb18c2eae60553a454a5221ec19b4a88c8c367a664671a7c"
+)
+IMAGEIO_VERSION = "2.35.1"
+IMAGEIO_FFMPEG_VERSION = "0.5.1"
+LABEL_PUBLICATION_RECEIPT_SHA256 = (
+    "e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20"
 )
 
 # The large OCDBT objects are identified by the exact object names and sizes
@@ -741,6 +762,183 @@ def validate_pi05_hash_receipt(
     }
 
 
+def validate_evaluation_runtime(
+    *,
+    aegis_python: Path,
+    imageio_ffmpeg_exe: Path,
+    expected_imageio_ffmpeg_sha256: str,
+) -> dict[str, Any]:
+    expected_python = DEFAULT_AEGIS_PYTHON
+    if aegis_python != expected_python or not aegis_python.exists():
+        raise PreflightError(
+            "evaluation interpreter differs from the frozen AEGIS runtime"
+        )
+    if not os.access(aegis_python, os.X_OK):
+        raise PreflightError("frozen AEGIS interpreter is not executable")
+    if Path(sys.executable) != aegis_python:
+        raise PreflightError(
+            "evaluation preflight did not run with the frozen AEGIS interpreter"
+        )
+    if (
+        aegis_python.resolve() != DEFAULT_AEGIS_PYTHON_RESOLVED
+        or ".".join(str(component) for component in sys.version_info[:3])
+        != AEGIS_PYTHON_VERSION
+    ):
+        raise PreflightError(
+            "evaluation interpreter target/version differs from the frozen "
+            "AEGIS runtime"
+        )
+    if imageio_ffmpeg_exe != DEFAULT_IMAGEIO_FFMPEG_EXE:
+        raise PreflightError(
+            "ImageIO FFmpeg path differs from the frozen bundled executable"
+        )
+    _regular_file(imageio_ffmpeg_exe, label="bundled ImageIO FFmpeg")
+    if not os.access(imageio_ffmpeg_exe, os.X_OK):
+        raise PreflightError("bundled ImageIO FFmpeg is not executable")
+    expected_sha256 = _require_sha256(
+        expected_imageio_ffmpeg_sha256,
+        label="bundled ImageIO FFmpeg",
+    )
+    observed_sha256 = sha256_path(imageio_ffmpeg_exe)
+    if (
+        expected_sha256 != IMAGEIO_FFMPEG_SHA256
+        or observed_sha256 != expected_sha256
+    ):
+        raise PreflightError("bundled ImageIO FFmpeg SHA-256 changed")
+    if os.environ.get("IMAGEIO_FFMPEG_EXE") != str(imageio_ffmpeg_exe):
+        raise PreflightError(
+            "IMAGEIO_FFMPEG_EXE is not bound to the frozen executable"
+        )
+    try:
+        import imageio
+        import imageio_ffmpeg
+    except ImportError as error:
+        raise PreflightError(
+            "frozen ImageIO decoder packages are unavailable"
+        ) from error
+    if (
+        imageio.__version__ != IMAGEIO_VERSION
+        or imageio_ffmpeg.__version__ != IMAGEIO_FFMPEG_VERSION
+    ):
+        raise PreflightError("frozen ImageIO decoder package versions changed")
+    resolved_ffmpeg = Path(imageio_ffmpeg.get_ffmpeg_exe())
+    if resolved_ffmpeg != imageio_ffmpeg_exe:
+        raise PreflightError(
+            "ImageIO resolved a different FFmpeg executable"
+        )
+    return {
+        "aegis_python": {
+            "path": str(aegis_python),
+            "resolved_path": str(DEFAULT_AEGIS_PYTHON_RESOLVED),
+            "python_version": AEGIS_PYTHON_VERSION,
+        },
+        "imageio": {"version": imageio.__version__},
+        "imageio_ffmpeg": {"version": imageio_ffmpeg.__version__},
+        "ffmpeg": {
+            "path": str(imageio_ffmpeg_exe),
+            "resolved_path": str(resolved_ffmpeg),
+            "sha256": observed_sha256,
+            "executable": True,
+        },
+    }
+
+
+def validate_label_publication_receipt(
+    path: Path,
+    *,
+    expected_label_manifest_sha256: str,
+) -> dict[str, Any]:
+    _regular_file(path, label="frozen label publication receipt")
+    file_sha256 = sha256_path(path)
+    if file_sha256 != LABEL_PUBLICATION_RECEIPT_SHA256:
+        raise PreflightError("frozen label publication receipt SHA-256 changed")
+    try:
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise PreflightError(
+            "frozen label publication receipt is not valid JSON"
+        ) from error
+    labels = receipt.get("labels") if isinstance(receipt, dict) else None
+    ordinal = (
+        receipt.get("ordinal100_canary")
+        if isinstance(receipt, dict)
+        else None
+    )
+    execution = receipt.get("execution") if isinstance(receipt, dict) else None
+    if (
+        receipt.get("schema_version")
+        != "vlsa_table1_actual_label_publication.v1"
+        or receipt.get("status") != "validated_and_atomically_published"
+        or receipt.get("scientific_result") is not False
+        or receipt.get("case_count") != 1600
+        or not isinstance(labels, dict)
+        or not isinstance(ordinal, dict)
+        or not isinstance(execution, dict)
+    ):
+        raise PreflightError("frozen label publication receipt is invalid")
+    label_sha256 = _require_sha256(
+        expected_label_manifest_sha256,
+        label="frozen Codex label manifest",
+    )
+    if (
+        labels.get("labels_sha256") != label_sha256
+        or labels.get("label_count") != 1600
+        or labels.get("canary_row_reused_byte_for_byte") is not True
+        or labels.get("canary_row_with_newline_sha256")
+        != "2d4d1be5c0a4940c72eb452d00361f6a4935de3f5cbc1058c9671fff96a35a36"
+        or ordinal.get("case_id") != "vlsa-t1-spatial-i-t2-e00"
+        or ordinal.get("case_ordinal") != 100
+        or ordinal.get("reused_byte_for_byte") is not True
+    ):
+        raise PreflightError(
+            "frozen label publication receipt does not bind the labels/canary"
+        )
+    forbidden = (
+        "groundingdino_executed",
+        "mvee_executed",
+        "outcome_actions_executed",
+        "point_cloud_filter_executed",
+        "policy_model_executed",
+        "qp_executed",
+        "semantic_selector_executed",
+        "simulator_executed",
+        "simulator_imported",
+        "training_executed",
+    )
+    if any(execution.get(field) is not False for field in forbidden):
+        raise PreflightError(
+            "frozen label publication receipt used forbidden outcome execution"
+        )
+    payload_sha256 = receipt.get("receipt_payload_sha256")
+    if (
+        not isinstance(payload_sha256, str)
+        or payload_sha256
+        != sha256_bytes(
+            canonical_json_bytes(
+                {
+                    key: value
+                    for key, value in receipt.items()
+                    if key != "receipt_payload_sha256"
+                }
+            )
+        )
+    ):
+        raise PreflightError(
+            "frozen label publication receipt payload hash changed"
+        )
+    return {
+        "path": str(path.resolve()),
+        "sha256": file_sha256,
+        "receipt_payload_sha256": payload_sha256,
+        "case_count": 1600,
+        "labels_sha256": label_sha256,
+        "ordinal100_canary_row_sha256": (
+            labels["canary_row_with_newline_sha256"]
+        ),
+        "outcome_blind": True,
+    }
+
+
 def validate_evaluation_assets(
     *,
     cases: list[dict[str, Any]],
@@ -971,7 +1169,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dino-checkpoint", type=Path, default=DEFAULT_DINO_CHECKPOINT
     )
+    parser.add_argument(
+        "--aegis-python", type=Path, default=DEFAULT_AEGIS_PYTHON
+    )
+    parser.add_argument(
+        "--imageio-ffmpeg-exe",
+        type=Path,
+        default=DEFAULT_IMAGEIO_FFMPEG_EXE,
+    )
+    parser.add_argument(
+        "--expected-imageio-ffmpeg-sha256",
+        default=IMAGEIO_FFMPEG_SHA256,
+    )
     parser.add_argument("--label-manifest", type=Path)
+    parser.add_argument("--label-publication-receipt", type=Path)
     parser.add_argument("--expected-label-manifest-sha256")
     parser.add_argument(
         "--required-case-ordinal",
@@ -1012,6 +1223,7 @@ def main(argv: list[str] | None = None) -> int:
             if (
                 args.label_manifest is None
                 or args.expected_label_manifest_sha256 is None
+                or args.label_publication_receipt is None
                 or args.expected_pi05_tree_sha256 is None
                 or args.pi05_hash_receipt is None
                 or args.expected_pi05_hash_receipt_sha256 is None
@@ -1040,6 +1252,21 @@ def main(argv: list[str] | None = None) -> int:
                     dino_config=args.dino_config.resolve(),
                     dino_checkpoint=args.dino_checkpoint.resolve(),
                     label_manifest=args.label_manifest.resolve(),
+                    expected_label_manifest_sha256=(
+                        args.expected_label_manifest_sha256
+                    ),
+                )
+            )
+            assets["video_runtime"] = validate_evaluation_runtime(
+                aegis_python=args.aegis_python,
+                imageio_ffmpeg_exe=args.imageio_ffmpeg_exe,
+                expected_imageio_ffmpeg_sha256=(
+                    args.expected_imageio_ffmpeg_sha256
+                ),
+            )
+            assets["label_publication_receipt"] = (
+                validate_label_publication_receipt(
+                    args.label_publication_receipt.resolve(),
                     expected_label_manifest_sha256=(
                         args.expected_label_manifest_sha256
                     ),

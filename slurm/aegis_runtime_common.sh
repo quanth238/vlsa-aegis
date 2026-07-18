@@ -131,6 +131,7 @@ aegis_validate_identity() {
   MANIFEST_PATH=${MANIFEST_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.jsonl}
   MANIFEST_RECEIPT_PATH=${MANIFEST_RECEIPT_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.receipt.json}
   LABEL_MANIFEST_PATH=${LABEL_MANIFEST_PATH:-}
+  LABEL_PUBLICATION_RECEIPT_PATH=${LABEL_PUBLICATION_RECEIPT_PATH:-}
   PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero}
   PI05_HASH_RECEIPT_PATH=${PI05_HASH_RECEIPT_PATH:-}
   PAIRED_CANARY_RECEIPT_PATH=${PAIRED_CANARY_RECEIPT_PATH:-}
@@ -162,6 +163,10 @@ aegis_validate_identity() {
     if [[ -n "${CASE_ORDINAL:-}" && "$CASE_ORDINAL" != "$CONTRACT_CASE_ORDINAL" ]]; then
       aegis_die "CASE_ORDINAL differs from the reserved canary case"
     fi
+    if [[ "$expected_stage" == paired-canary && \
+      "$CONTRACT_CASE_ORDINAL" != 100 ]]; then
+      aegis_die "paired canary is frozen to case ordinal 100"
+    fi
   else
     [[ "$CONTRACT_CASE_ORDINAL" == all ]] || {
       aegis_die "population run contract must bind the full population"
@@ -181,8 +186,28 @@ aegis_validate_identity() {
     [[ "$expected_label_sha" == "$(aegis_sha256 "$LABEL_MANIFEST_PATH")" ]] || {
       aegis_die "frozen label manifest differs from the run contract"
     }
+    [[ "$expected_label_sha" == \
+      f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e ]] || {
+      aegis_die "evaluation label manifest is not the frozen 1,600-row file"
+    }
+    [[ -n "$LABEL_PUBLICATION_RECEIPT_PATH" && \
+      -f "$LABEL_PUBLICATION_RECEIPT_PATH" && \
+      ! -L "$LABEL_PUBLICATION_RECEIPT_PATH" ]] || {
+      aegis_die "frozen label publication receipt is missing"
+    }
+    [[ "$(aegis_sha256 "$LABEL_PUBLICATION_RECEIPT_PATH")" == \
+      "$(aegis_contract_value label_publication_receipt_sha256)" ]] || {
+      aegis_die "label publication receipt differs from the run contract"
+    }
+    [[ "$(aegis_contract_value label_publication_receipt_sha256)" == \
+      e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20 ]] || {
+      aegis_die "frozen label publication receipt SHA-256 changed"
+    }
     [[ "$GROUNDINGDINO_DEVICE" == "$(aegis_contract_value groundingdino_device)" ]] || {
       aegis_die "GroundingDINO device differs from the run contract"
+    }
+    [[ "$GROUNDINGDINO_DEVICE" == cpu ]] || {
+      aegis_die "evaluation is frozen to GroundingDINO device cpu"
     }
     [[ -n "$PI05_HASH_RECEIPT_PATH" && -f "$PI05_HASH_RECEIPT_PATH" && \
       ! -L "$PI05_HASH_RECEIPT_PATH" ]] || {
@@ -228,7 +253,8 @@ aegis_validate_identity() {
         aegis_die "paired-canary receipt differs from the population contract"
       }
       [[ "$(aegis_json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
-        schema_version)" == vlsa_table1_paired_canary_validation.v1 ]] || {
+        schema_version)" == \
+        vlsa_table1_action_invariant_paired_canary_validation.v1 ]] || {
         aegis_die "paired-canary receipt schema changed"
       }
       [[ "$(aegis_json_top_level_string_value \
@@ -239,6 +265,13 @@ aegis_validate_identity() {
         "$PAIRED_CANARY_RECEIPT_PATH" || {
         aegis_die "paired-canary receipt did not validate the pair"
       }
+      local canary_field
+      for canary_field in action_invariance_valid failure_diagnostics_valid; do
+        grep -Eq "^[[:space:]]*\"$canary_field\":[[:space:]]*true,?[[:space:]]*$" \
+          "$PAIRED_CANARY_RECEIPT_PATH" || {
+          aegis_die "paired-canary receipt did not validate $canary_field"
+        }
+      done
       [[ "$(aegis_json_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
         source_git_commit)" == "$EXPECTED_GIT_COMMIT" ]] || {
         aegis_die "paired-canary source differs from population"
@@ -259,6 +292,9 @@ aegis_validate_identity() {
   else
     [[ "$expected_label_sha" == none ]] || {
       aegis_die "capture run unexpectedly binds an outcome-stage label manifest"
+    }
+    [[ "$(aegis_contract_value label_publication_receipt_sha256)" == none ]] || {
+      aegis_die "capture run unexpectedly binds a label publication receipt"
     }
     [[ "$(aegis_contract_value groundingdino_device)" == none ]] || {
       aegis_die "capture run unexpectedly binds a GroundingDINO device"
@@ -312,6 +348,16 @@ aegis_prepare_environment() {
   # remains available to the pi0.5 policy server.
   export MUJOCO_GL=osmesa
   export PYOPENGL_PLATFORM=osmesa
+  export IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
+  EXPECTED_IMAGEIO_FFMPEG_SHA256=700073daef5c23bbcb18c2eae60553a454a5221ec19b4a88c8c367a664671a7c
+  export EXPECTED_IMAGEIO_FFMPEG_SHA256
+  [[ -x "$IMAGEIO_FFMPEG_EXE" && ! -L "$IMAGEIO_FFMPEG_EXE" ]] || {
+    aegis_die "frozen bundled ImageIO FFmpeg is missing or not executable"
+  }
+  [[ "$(aegis_sha256 "$IMAGEIO_FFMPEG_EXE")" == \
+    "$EXPECTED_IMAGEIO_FFMPEG_SHA256" ]] || {
+    aegis_die "frozen bundled ImageIO FFmpeg SHA-256 changed"
+  }
   export PYTHONPATH=$REMOTE_REPO/openpi/src:$REMOTE_REPO/openpi/packages/openpi-client/src:$REMOTE_REPO/safelibero:$REMOTE_REPO/main
 
   local safelibero_root=$REMOTE_REPO/safelibero/libero/libero
@@ -349,7 +395,12 @@ aegis_run_preflight() {
       "$(aegis_contract_value pi05_hash_receipt_sha256)"
       --dino-config "$DINO_CONFIG"
       --dino-checkpoint "$DINO_CHECKPOINT"
+      --aegis-python "$AEGIS_PYTHON"
+      --imageio-ffmpeg-exe "$IMAGEIO_FFMPEG_EXE"
+      --expected-imageio-ffmpeg-sha256 \
+      "$EXPECTED_IMAGEIO_FFMPEG_SHA256"
       --label-manifest "$LABEL_MANIFEST_PATH"
+      --label-publication-receipt "$LABEL_PUBLICATION_RECEIPT_PATH"
       --expected-label-manifest-sha256 "$(aegis_contract_value label_manifest_sha256)"
     )
     args+=(--expected-pi05-tree-sha256 "$EXPECTED_PI05_TREE_SHA256")

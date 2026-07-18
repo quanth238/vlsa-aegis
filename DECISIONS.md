@@ -142,3 +142,48 @@ the first policy query because `str.removesuffix` is unavailable in the
 released SafeLIBERO Python-3.8 environment. Equivalent prefix/suffix slicing
 is used in the evaluator, manifest builder, and aggregator, and a structural
 test prohibits both Python-3.9-only string helpers in these runtime modules.
+
+## ADR-0018: Prove failure diagnostics are action-invariant
+
+Accepted. The revised ordinal-100 integration gate runs four serial rollouts
+inside one allocation and one pi0.5 server:
+
+1. pi0.5 with diagnostics disabled;
+2. pi0.5 with diagnostics enabled;
+3. pi0.5+AEGIS with diagnostics disabled;
+4. pi0.5+AEGIS with diagnostics enabled.
+
+For each method, the enabled and disabled runs must preserve exact returned
+action bytes, executed action bytes, query-indexed noise schedule, scientific
+outcome fields, simulator state semantics, native goal progress, and decoded
+terminal video content. Only observer timing, diagnostic records, diagnostic
+file encodings, and their hashes may differ. This is an apparatus gate, not a
+population efficacy result.
+
+## ADR-0019: Freeze the revised gate to GroundingDINO on CPU
+
+Accepted and supersedes ADR-0015 for the revised canary and dependent
+population. The validated historical canary
+`vlsa-table1-paired-canary-20260717d` used GroundingDINO on CPU and produced
+the exact AEGIS action reference used by the action-invariance gate. Allowing a
+CUDA detector in the revised gate could change detector numerics and AEGIS
+actions, making the reference comparison ill-posed. Reservation, allocation,
+publisher, and receipt validation therefore all require the CPU detector.
+
+## ADR-0020: Bind outcomes to the complete outcome-blind label publication
+
+Accepted. Evaluation requires the exact 1,600-row Codex label manifest and
+its independently validated publication receipt. Every canary result must
+embed the exact selected ordinal-100 label record, and receipt regeneration
+rechecks the same binding. A copied action reference, a changed label row, a
+different mode/arm mapping, or a label publication with any outcome execution
+is rejected.
+
+## ADR-0021: Keep the full population blocked until diagnostics scale safely
+
+Accepted. Enabling diagnostics in the population runner is insufficient by
+itself. Before release, the CPU publisher must deeply validate every case's
+GroundingDINO boxes, point clouds, filtering and MVEE outputs, QP attempts,
+step-resolved contacts, native goal-progress trace, terminal lossless frame,
+and decoded video. Validation and aggregation must stream or compact each pair
+so they do not retain all 3,200 full diagnostic result dictionaries in memory.

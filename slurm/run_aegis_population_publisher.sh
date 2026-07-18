@@ -20,18 +20,15 @@ set -euo pipefail
 : "${PAIRED_CANARY_RECEIPT_PATH:?set the validated paired-canary receipt}"
 : "${EXPECTED_PI05_HASH_RECEIPT_SHA256:?set the reviewed pi0.5 receipt SHA-256}"
 : "${EXPECTED_PAIRED_CANARY_RECEIPT_SHA256:?set the reviewed canary receipt SHA-256}"
-: "${GROUNDINGDINO_DEVICE:?set the exact paired-canary device (cpu or cuda)}"
+: "${GROUNDINGDINO_DEVICE:?set the exact paired-canary device (cpu)}"
 
 REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-table-repro}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
-case "$GROUNDINGDINO_DEVICE" in
-  cpu|cuda) ;;
-  *)
-    echo "GROUNDINGDINO_DEVICE must be exactly cpu or cuda" >&2
-    exit 2
-    ;;
-esac
+[[ "$GROUNDINGDINO_DEVICE" == cpu ]] || {
+  echo "GROUNDINGDINO_DEVICE must be exactly cpu" >&2
+  exit 2
+}
 
 case "$POPULATION_ARRAY_JOB_ID" in
   ""|*[!0-9]*)

@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from analysis import aggregate_safelibero_aegis as aggregate  # noqa: E402
+from analysis import validate_aegis_action_invariant_canary as action_canary  # noqa: E402
 from scripts import validate_aegis_assets as asset_validation  # noqa: E402
 from scripts.aegis_receipt_utils import (  # noqa: E402
     ReceiptError,
@@ -38,7 +39,9 @@ from scripts.aegis_receipt_utils import (  # noqa: E402
 )
 
 
-CANARY_SCHEMA = "vlsa_table1_paired_canary_validation.v1"
+CANARY_SCHEMA = (
+    "vlsa_table1_action_invariant_paired_canary_validation.v1"
+)
 POPULATION_PREPUBLISH_SCHEMA = (
     "vlsa_table1_population_prepublish_validation.v1"
 )
@@ -48,6 +51,14 @@ PREFLIGHT_SCHEMA = "vlsa_table1_allocation_preflight.v1"
 PI05_HASH_SCHEMA = "vlsa_table1_pi05_hash_receipt.v1"
 RESULT_PAYLOAD_FIELD = "result_payload_sha256"
 VALID_QP_STATUSES = {"optimal", "optimal_inaccurate"}
+FULL_LABEL_MANIFEST_SHA256 = (
+    "f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e"
+)
+CANARY_LABEL_ROW_SHA256 = (
+    "2d4d1be5c0a4940c72eb452d00361f6a4935de3f5cbc1058c9671fff96a35a36"
+)
+CANARY_CASE_ORDINAL = 100
+CANARY_CASE_ID = "vlsa-t1-spatial-i-t2-e00"
 
 
 def _require_equal(observed: Any, expected: Any, *, label: str) -> None:
@@ -87,6 +98,172 @@ def _require_finite_sequence(
             "must be finite"
         )
     return [float(item) for item in value]
+
+
+def validate_full_label_manifest(
+    path: Path,
+    *,
+    canary_case_id: str,
+) -> dict[str, Any]:
+    if path.is_symlink() or not path.is_file():
+        raise ReceiptError("full frozen label manifest is missing or symlinked")
+    _require_equal(
+        sha256_path(path),
+        FULL_LABEL_MANIFEST_SHA256,
+        label="full frozen label manifest SHA-256",
+    )
+    raw_lines = [
+        line
+        for line in path.read_bytes().splitlines(keepends=True)
+        if line.strip()
+    ]
+    if len(raw_lines) != 1600:
+        raise ReceiptError(
+            "full frozen label manifest must contain exactly 1,600 rows"
+        )
+    selected: list[bytes] = []
+    case_ids: set[str] = set()
+    for line in raw_lines:
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as error:
+            raise ReceiptError(
+                "full frozen label manifest contains invalid JSON"
+            ) from error
+        case_id = row.get("case_id") if isinstance(row, Mapping) else None
+        if not isinstance(case_id, str) or not case_id or case_id in case_ids:
+            raise ReceiptError(
+                "full frozen label manifest has an invalid or duplicate case"
+            )
+        case_ids.add(case_id)
+        if case_id == canary_case_id:
+            selected.append(line)
+    if len(selected) != 1:
+        raise ReceiptError(
+            "full frozen label manifest does not bind the canary exactly once"
+        )
+    canary_path = ROOT / "labels/vlsa_table1_canary_labels.jsonl"
+    _require_equal(
+        sha256_path(canary_path),
+        CANARY_LABEL_ROW_SHA256,
+        label="frozen one-row canary label SHA-256",
+    )
+    if selected[0] != canary_path.read_bytes():
+        raise ReceiptError(
+            "full label manifest canary row is not byte-identical to the "
+            "frozen one-row label"
+        )
+    return {
+        "path": str(path),
+        "sha256": FULL_LABEL_MANIFEST_SHA256,
+        "rows": 1600,
+        "unique_case_ids": 1600,
+        "canary_case_id": canary_case_id,
+        "canary_row_sha256": CANARY_LABEL_ROW_SHA256,
+        "canary_row_byte_identical": True,
+    }
+
+
+def _load_selected_frozen_label_record(
+    path: Path,
+    *,
+    case_id: str,
+) -> dict[str, Any]:
+    selected: list[dict[str, Any]] = []
+    for raw_line in path.read_bytes().splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            row = json.loads(raw_line)
+        except json.JSONDecodeError as error:
+            raise ReceiptError(
+                "full frozen label manifest contains invalid JSON"
+            ) from error
+        if isinstance(row, dict) and row.get("case_id") == case_id:
+            selected.append(row)
+    if len(selected) != 1:
+        raise ReceiptError(
+            "full frozen label manifest does not bind the canary exactly once"
+        )
+    return selected[0]
+
+
+def _validate_canary_result_binding(
+    result: Mapping[str, Any],
+    *,
+    diagnostics_mode: str,
+    policy_mode: str,
+    expected_arm: str,
+    expected_label_record: Mapping[str, Any],
+) -> None:
+    label = f"{diagnostics_mode}/{policy_mode}"
+    _require_equal(
+        result.get("mode"),
+        policy_mode,
+        label=f"{label} result mode",
+    )
+    _require_equal(
+        result.get("arm"),
+        expected_arm,
+        label=f"{label} result arm",
+    )
+    settled = result.get("settled_observation")
+    label_record = (
+        settled.get("label_record")
+        if isinstance(settled, Mapping)
+        else None
+    )
+    if not isinstance(label_record, Mapping):
+        raise ReceiptError(f"{label} result lacks its settled label record")
+    _require_equal(
+        canonical_json_bytes(dict(label_record)),
+        canonical_json_bytes(dict(expected_label_record)),
+        label=f"{label} canonical frozen label-record bytes",
+    )
+
+
+def _canary_result_specs(
+    config: Mapping[str, Any],
+) -> tuple[tuple[str, str, str], ...]:
+    expected_arms = tuple(
+        action_canary.EXPECTED_ARM_BY_POLICY_MODE[mode]
+        for mode in action_canary.POLICY_MODES
+    )
+    _require_equal(
+        tuple(config.get("arms", ())),
+        expected_arms,
+        label="paired-canary protocol mode/arm mapping",
+    )
+    return tuple(
+        (
+            diagnostics_mode,
+            mode,
+            action_canary.EXPECTED_ARM_BY_POLICY_MODE[mode],
+        )
+        for diagnostics_mode in action_canary.DIAGNOSTIC_MODES
+        for mode in action_canary.POLICY_MODES
+    )
+
+
+def _validate_canary_action_reference_path(path: Path) -> Path:
+    expected = (
+        ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
+    )
+    if path.is_symlink() or not path.is_file():
+        raise ReceiptError(
+            "paired-canary action reference must be a regular file"
+        )
+    if expected.is_symlink() or not expected.is_file():
+        raise ReceiptError(
+            "canonical paired-canary action-reference fixture is invalid"
+        )
+    resolved = path.resolve()
+    _require_equal(
+        resolved,
+        expected.resolve(),
+        label="paired-canary canonical action-reference fixture",
+    )
+    return resolved
 
 
 def validate_aegis_canary_integration(
@@ -251,6 +428,7 @@ def validate_run_contract(
         "manifest_sha256",
         "manifest_receipt_sha256",
         "label_manifest_sha256",
+        "label_publication_receipt_sha256",
         "pi05_tree_sha256",
         "pi05_hash_receipt_sha256",
         "paired_canary_receipt_sha256",
@@ -292,10 +470,21 @@ def validate_run_contract(
         "manifest_sha256",
         "manifest_receipt_sha256",
         "label_manifest_sha256",
+        "label_publication_receipt_sha256",
         "pi05_tree_sha256",
         "pi05_hash_receipt_sha256",
     ):
         require_sha256(contract[field], label=f"run contract/{field}")
+    _require_equal(
+        contract["label_publication_receipt_sha256"],
+        asset_validation.LABEL_PUBLICATION_RECEIPT_SHA256,
+        label="run contract/frozen label-publication receipt",
+    )
+    _require_equal(
+        contract["groundingdino_device"],
+        "cpu",
+        label="run contract/frozen GroundingDINO device",
+    )
     if expected_stage == "population":
         require_sha256(
             contract["paired_canary_receipt_sha256"],
@@ -488,9 +677,18 @@ def validate_preflight_receipt(
     hash_receipt = assets.get("pi05_hash_receipt")
     labels = assets.get("frozen_codex_labels")
     grounding = assets.get("groundingdino")
+    video_runtime = assets.get("video_runtime")
+    label_publication = assets.get("label_publication_receipt")
     if not all(
         isinstance(item, Mapping)
-        for item in (checkpoint, hash_receipt, labels, grounding)
+        for item in (
+            checkpoint,
+            hash_receipt,
+            labels,
+            grounding,
+            video_runtime,
+            label_publication,
+        )
     ):
         raise ReceiptError("preflight evaluation asset evidence is incomplete")
     _require_equal(
@@ -539,9 +737,98 @@ def validate_preflight_receipt(
         label="preflight frozen labels",
     )
     _require_equal(
+        labels.get("rows"),
+        1600,
+        label="preflight frozen-label row count",
+    )
+    _require_equal(
+        labels.get("all_population_cases_bound"),
+        True,
+        label="preflight complete frozen-label population",
+    )
+    _require_equal(
+        labels.get("required_cases"),
+        1600 if contract["case_ordinal"] == "all" else 1,
+        label="preflight required frozen-label cases",
+    )
+    _require_equal(
+        label_publication.get("sha256"),
+        contract["label_publication_receipt_sha256"],
+        label="preflight label-publication receipt SHA-256",
+    )
+    _require_equal(
+        label_publication.get("labels_sha256"),
+        contract["label_manifest_sha256"],
+        label="preflight label-publication manifest binding",
+    )
+    _require_equal(
+        label_publication.get("case_count"),
+        1600,
+        label="preflight label-publication case count",
+    )
+    _require_equal(
+        label_publication.get("outcome_blind"),
+        True,
+        label="preflight outcome-blind label publication",
+    )
+    _require_equal(
         grounding.get("device"),
         contract["groundingdino_device"],
         label="preflight GroundingDINO device",
+    )
+    aegis_python = video_runtime.get("aegis_python")
+    imageio = video_runtime.get("imageio")
+    imageio_ffmpeg = video_runtime.get("imageio_ffmpeg")
+    ffmpeg = video_runtime.get("ffmpeg")
+    if not all(
+        isinstance(item, Mapping)
+        for item in (aegis_python, imageio, imageio_ffmpeg, ffmpeg)
+    ):
+        raise ReceiptError("preflight video runtime evidence is incomplete")
+    _require_equal(
+        aegis_python.get("path"),
+        str(asset_validation.DEFAULT_AEGIS_PYTHON),
+        label="preflight AEGIS interpreter",
+    )
+    _require_equal(
+        aegis_python.get("resolved_path"),
+        str(asset_validation.DEFAULT_AEGIS_PYTHON_RESOLVED),
+        label="preflight resolved AEGIS interpreter",
+    )
+    _require_equal(
+        aegis_python.get("python_version"),
+        asset_validation.AEGIS_PYTHON_VERSION,
+        label="preflight AEGIS Python version",
+    )
+    _require_equal(
+        imageio.get("version"),
+        asset_validation.IMAGEIO_VERSION,
+        label="preflight ImageIO version",
+    )
+    _require_equal(
+        imageio_ffmpeg.get("version"),
+        asset_validation.IMAGEIO_FFMPEG_VERSION,
+        label="preflight imageio-ffmpeg version",
+    )
+    _require_equal(
+        ffmpeg.get("path"),
+        str(asset_validation.DEFAULT_IMAGEIO_FFMPEG_EXE),
+        label="preflight FFmpeg path",
+    )
+    _require_equal(
+        ffmpeg.get("resolved_path"),
+        str(asset_validation.DEFAULT_IMAGEIO_FFMPEG_EXE),
+        label="preflight resolved FFmpeg path",
+    )
+    _require_equal(
+        ffmpeg.get("sha256"),
+        asset_validation.IMAGEIO_FFMPEG_SHA256,
+        label="preflight FFmpeg SHA-256",
+    )
+    _require_equal(
+        ffmpeg.get("executable"),
+        True,
+        label="preflight FFmpeg executable flag",
     )
     observed_slurm = {key: str(value) for key, value in slurm.items()}
     if expected_slurm is not None:
@@ -653,6 +940,9 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
     manifest_path = args.manifest.resolve()
     manifest_receipt_path = args.manifest_receipt.resolve()
     label_manifest_path = args.labels.resolve()
+    action_reference_path = _validate_canary_action_reference_path(
+        args.action_reference
+    )
     contract, contract_record = validate_run_contract(
         run_root=run_root,
         expected_stage="paired-canary",
@@ -663,6 +953,11 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
         label_manifest_path=label_manifest_path,
     )
     case_ordinal = int(contract["case_ordinal"])
+    _require_equal(
+        case_ordinal,
+        CANARY_CASE_ORDINAL,
+        label="frozen action-invariant canary ordinal",
+    )
     if args.case_ordinal is not None and args.case_ordinal != case_ordinal:
         raise ReceiptError("validator case ordinal differs from run contract")
     config, manifests = aggregate.load_protocol(
@@ -671,6 +966,19 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
     if not 0 <= case_ordinal < len(manifests):
         raise ReceiptError("canary case ordinal is outside the manifest")
     manifest = manifests[case_ordinal]
+    _require_equal(
+        manifest["case_id"],
+        CANARY_CASE_ID,
+        label="frozen action-invariant canary case",
+    )
+    full_label_manifest = validate_full_label_manifest(
+        label_manifest_path,
+        canary_case_id=manifest["case_id"],
+    )
+    expected_label_record = _load_selected_frozen_label_record(
+        label_manifest_path,
+        case_id=manifest["case_id"],
+    )
     current_slurm = allocation_identity(dict(os.environ))
     _require_equal(
         current_slurm["array_task_id"], "0", label="canary array task"
@@ -688,15 +996,16 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
         expected_commit=args.expected_commit,
     )
     output_root = task_root / "results"
-    result_specs = (
-        ("pi05", config["arms"][0]),
-        ("aegis", config["arms"][1]),
-    )
+    result_specs = _canary_result_specs(config)
     expected_result_paths = {
         (
-            output_root / mode / manifest["case_id"] / "result.json"
+            output_root
+            / diagnostics_mode
+            / mode
+            / manifest["case_id"]
+            / "result.json"
         ).resolve()
-        for mode, _ in result_specs
+        for diagnostics_mode, mode, _ in result_specs
     }
     observed_result_paths = {
         path.resolve() for path in output_root.rglob("result.json")
@@ -710,32 +1019,78 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
         raise ReceiptError("paired canary retains a runtime-failure artifact")
     results: dict[tuple[str, str], dict[str, Any]] = {}
     artifacts: list[dict[str, Any]] = []
-    for mode, arm in result_specs:
-        result_path = output_root / mode / manifest["case_id"] / "result.json"
+    for diagnostics_mode, mode, arm in result_specs:
+        diagnostic_output_root = output_root / diagnostics_mode
+        result_path = (
+            diagnostic_output_root
+            / mode
+            / manifest["case_id"]
+            / "result.json"
+        )
         validated, artifact = _validate_result_artifact(
             result_path=result_path,
-            output_root=output_root,
+            output_root=diagnostic_output_root,
             config=config,
             manifest=manifest,
             expected_commit=args.expected_commit,
         )
-        _require_equal(validated["arm"], arm, label=f"{mode} result arm")
-        results[(manifest["case_id"], arm)] = validated
+        _validate_canary_result_binding(
+            validated,
+            diagnostics_mode=diagnostics_mode,
+            policy_mode=mode,
+            expected_arm=arm,
+            expected_label_record=expected_label_record,
+        )
+        results[(diagnostics_mode, mode)] = validated
+        artifact["diagnostics_mode"] = diagnostics_mode
+        artifact["policy_mode"] = mode
         artifacts.append(artifact)
-    aggregate.validate_pairs(
-        config=config,
-        manifests=[manifest],
-        results=results,
-    )
-    integration_gate = validate_aegis_canary_integration(
-        results[(manifest["case_id"], config["arms"][1])]
-    )
+    cross_arm_pairing: dict[str, bool] = {}
+    for diagnostics_mode in action_canary.DIAGNOSTIC_MODES:
+        paired_results = {
+            (manifest["case_id"], config["arms"][0]): results[
+                (diagnostics_mode, "pi05")
+            ],
+            (manifest["case_id"], config["arms"][1]): results[
+                (diagnostics_mode, "aegis")
+            ],
+        }
+        aggregate.validate_pairs(
+            config=config,
+            manifests=[manifest],
+            results=paired_results,
+        )
+        cross_arm_pairing[diagnostics_mode] = True
+    integration_gates = {
+        diagnostics_mode: validate_aegis_canary_integration(
+            results[(diagnostics_mode, "aegis")]
+        )
+        for diagnostics_mode in action_canary.DIAGNOSTIC_MODES
+    }
+    try:
+        action_invariant_evidence = action_canary.validate_four_run_canary(
+            results=results,
+            output_roots={
+                diagnostics_mode: output_root / diagnostics_mode
+                for diagnostics_mode in action_canary.DIAGNOSTIC_MODES
+            },
+            reference_path=action_reference_path,
+        )
+    except (
+        action_canary.ActionInvariantCanaryError,
+        action_canary.failure_validation.DiagnosticValidationError,
+    ) as error:
+        raise ReceiptError(str(error)) from error
     receipt: dict[str, Any] = {
         "schema_version": CANARY_SCHEMA,
         "status": "validated",
         "scientific_result": False,
         "paired_result_valid": True,
-        "aegis_integration_gate": integration_gate,
+        "action_invariance_valid": True,
+        "failure_diagnostics_valid": True,
+        "cross_arm_pairing": cross_arm_pairing,
+        "aegis_integration_gates": integration_gates,
+        "action_invariant_evidence": action_invariant_evidence,
         "source_git_commit": args.expected_commit,
         "pi05_tree_sha256": contract["pi05_tree_sha256"],
         "groundingdino_device": contract["groundingdino_device"],
@@ -745,6 +1100,7 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
         "run_contract": contract_record,
         "pi05_hash_receipt": hash_receipt,
         "allocation_preflight": preflight,
+        "full_label_manifest": full_label_manifest,
         "results": artifacts,
         "slurm": current_slurm,
     }
@@ -821,6 +1177,7 @@ def validate_paired_canary_receipt(
     run_contract_record = value.get("run_contract")
     preflight_record = value.get("allocation_preflight")
     hash_receipt_record = value.get("pi05_hash_receipt")
+    full_label_record = value.get("full_label_manifest")
     result_records = value.get("results")
     if not all(
         isinstance(item, Mapping)
@@ -828,6 +1185,7 @@ def validate_paired_canary_receipt(
             run_contract_record,
             preflight_record,
             hash_receipt_record,
+            full_label_record,
         )
     ) or not isinstance(result_records, list):
         raise ReceiptError(
@@ -892,7 +1250,17 @@ def validate_paired_canary_receipt(
         ) from error
     if not 0 <= case_ordinal < len(manifests):
         raise ReceiptError("paired-canary case ordinal is outside the manifest")
+    _require_equal(
+        case_ordinal,
+        CANARY_CASE_ORDINAL,
+        label="paired-canary frozen ordinal",
+    )
     manifest = manifests[case_ordinal]
+    _require_equal(
+        manifest["case_id"],
+        CANARY_CASE_ID,
+        label="paired-canary frozen case",
+    )
     _require_equal(
         value.get("case_ordinal"),
         case_ordinal,
@@ -902,6 +1270,19 @@ def validate_paired_canary_receipt(
         value.get("case_id"),
         manifest["case_id"],
         label="paired-canary case ID",
+    )
+    regenerated_full_label_record = validate_full_label_manifest(
+        label_manifest_path,
+        canary_case_id=manifest["case_id"],
+    )
+    expected_label_record = _load_selected_frozen_label_record(
+        label_manifest_path,
+        case_id=manifest["case_id"],
+    )
+    _require_equal(
+        dict(full_label_record),
+        regenerated_full_label_record,
+        label="paired-canary full frozen label manifest",
     )
     hash_receipt_path = Path(
         str(hash_receipt_record.get("path", ""))
@@ -932,15 +1313,16 @@ def validate_paired_canary_receipt(
         raise ReceiptError(
             "paired-canary prerequisite retains a runtime-failure artifact"
         )
-    result_specs = (
-        ("pi05", config["arms"][0]),
-        ("aegis", config["arms"][1]),
-    )
+    result_specs = _canary_result_specs(config)
     expected_result_paths = {
         (
-            output_root / mode / manifest["case_id"] / "result.json"
+            output_root
+            / diagnostics_mode
+            / mode
+            / manifest["case_id"]
+            / "result.json"
         ).resolve()
-        for mode, _ in result_specs
+        for diagnostics_mode, mode, _ in result_specs
     }
     observed_result_paths = {
         result_path.resolve()
@@ -951,44 +1333,107 @@ def validate_paired_canary_receipt(
         expected_result_paths,
         label="paired-canary retained result inventory",
     )
-    if len(result_records) != 2:
+    if len(result_records) != 4:
         raise ReceiptError(
-            "paired-canary receipt must bind exactly two result records"
+            "paired-canary receipt must bind exactly four result records"
         )
     validated_results: dict[tuple[str, str], dict[str, Any]] = {}
     regenerated_result_records: list[dict[str, Any]] = []
-    for mode, arm in result_specs:
+    for diagnostics_mode, mode, arm in result_specs:
+        diagnostic_output_root = output_root / diagnostics_mode
         result_path = (
-            output_root / mode / manifest["case_id"] / "result.json"
+            diagnostic_output_root
+            / mode
+            / manifest["case_id"]
+            / "result.json"
         )
         validated, artifact = _validate_result_artifact(
             result_path=result_path,
-            output_root=output_root,
+            output_root=diagnostic_output_root,
             config=config,
             manifest=manifest,
             expected_commit=expected_commit,
         )
-        _require_equal(validated["arm"], arm, label=f"{mode} result arm")
-        validated_results[(manifest["case_id"], arm)] = validated
+        _validate_canary_result_binding(
+            validated,
+            diagnostics_mode=diagnostics_mode,
+            policy_mode=mode,
+            expected_arm=arm,
+            expected_label_record=expected_label_record,
+        )
+        validated_results[(diagnostics_mode, mode)] = validated
+        artifact["diagnostics_mode"] = diagnostics_mode
+        artifact["policy_mode"] = mode
         regenerated_result_records.append(artifact)
     _require_equal(
         result_records,
         regenerated_result_records,
         label="paired-canary nested result records",
     )
-    aggregate.validate_pairs(
-        config=config,
-        manifests=[manifest],
-        results=validated_results,
-    )
-    regenerated_integration_gate = validate_aegis_canary_integration(
-        validated_results[(manifest["case_id"], config["arms"][1])]
-    )
+    regenerated_cross_arm_pairing: dict[str, bool] = {}
+    for diagnostics_mode in action_canary.DIAGNOSTIC_MODES:
+        aggregate.validate_pairs(
+            config=config,
+            manifests=[manifest],
+            results={
+                (manifest["case_id"], config["arms"][0]): (
+                    validated_results[(diagnostics_mode, "pi05")]
+                ),
+                (manifest["case_id"], config["arms"][1]): (
+                    validated_results[(diagnostics_mode, "aegis")]
+                ),
+            },
+        )
+        regenerated_cross_arm_pairing[diagnostics_mode] = True
     _require_equal(
-        value.get("aegis_integration_gate"),
-        regenerated_integration_gate,
-        label="paired-canary AEGIS integration gate",
+        value.get("cross_arm_pairing"),
+        regenerated_cross_arm_pairing,
+        label="paired-canary cross-arm pairing",
     )
+    regenerated_integration_gates = {
+        diagnostics_mode: validate_aegis_canary_integration(
+            validated_results[(diagnostics_mode, "aegis")]
+        )
+        for diagnostics_mode in action_canary.DIAGNOSTIC_MODES
+    }
+    _require_equal(
+        value.get("aegis_integration_gates"),
+        regenerated_integration_gates,
+        label="paired-canary AEGIS integration gates",
+    )
+    reference_path = _validate_canary_action_reference_path(
+        ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
+    )
+    try:
+        regenerated_action_evidence = (
+            action_canary.validate_four_run_canary(
+                results=validated_results,
+                output_roots={
+                    diagnostics_mode: output_root / diagnostics_mode
+                    for diagnostics_mode in action_canary.DIAGNOSTIC_MODES
+                },
+                reference_path=reference_path,
+            )
+        )
+    except (
+        action_canary.ActionInvariantCanaryError,
+        action_canary.failure_validation.DiagnosticValidationError,
+    ) as error:
+        raise ReceiptError(str(error)) from error
+    _require_equal(
+        value.get("action_invariant_evidence"),
+        regenerated_action_evidence,
+        label="paired-canary action-invariant evidence",
+    )
+    for field in (
+        "action_invariance_valid",
+        "failure_diagnostics_valid",
+    ):
+        _require_equal(
+            value.get(field),
+            True,
+            label=f"paired-canary {field}",
+        )
     return {
         "path": str(path),
         "sha256": sha256_path(path),
@@ -1002,7 +1447,10 @@ def validate_paired_canary_receipt(
         "result_artifact_sha256": [
             record["sha256"] for record in regenerated_result_records
         ],
-        "aegis_integration_gate": regenerated_integration_gate,
+        "aegis_integration_gates": regenerated_integration_gates,
+        "action_invariant_evidence_sha256": sha256_bytes(
+            canonical_json_bytes(regenerated_action_evidence)
+        ),
     }
 
 
@@ -1413,6 +1861,7 @@ def build_parser() -> argparse.ArgumentParser:
     canary.add_argument("--manifest-receipt", type=Path, required=True)
     canary.add_argument("--labels", type=Path, required=True)
     canary.add_argument("--pi05-hash-receipt", type=Path, required=True)
+    canary.add_argument("--action-reference", type=Path, required=True)
     canary.add_argument("--case-ordinal", type=int)
     canary.add_argument("--output", type=Path, required=True)
     population = subparsers.add_parser("population-prepublish")

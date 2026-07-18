@@ -11,19 +11,39 @@ and task failures without silently excluding apparatus failures.
 `A03-one-case-paired-canary` is active. The apparatus and capture gates passed
 in dependency order; no population job is authorized yet.
 
-Local implementation evidence on 2026-07-17:
+Local implementation evidence on 2026-07-18:
 
-- `./init.sh` passes: 89 tests, three optional dependency tests skipped.
+- `./init.sh` passes: 131 tests, 16 dependency-optional tests skipped.
 - The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
   paired evaluation requires exactly 3,200 terminal episode results.
-- Two independent reviews accepted the translational comparison after strict
-  action-ledger, pair-binding, method-failure, and infrastructure validation.
-- A paired canary receipt can pass only if the frozen label matches the active
-  obstacle, perception reaches `ready`, and at least one `aegis_qp` action
-  executes with finite, valid OSQP diagnostics.
-- The next allocation-backed steps are one replacement immutable pi0.5
-  checkpoint-tree receipt using cross-worker-stable identity, followed by one
-  fresh ordinal-100 paired canary.
+- The immutable capture population and its independent validator passed for
+  all 1,600 cases, and the actual settled MuJoCo state established exactly one
+  authoritative in-workspace obstacle for every case.
+- The outcome-blind Codex label manifest contains all 1,600 cases, has
+  SHA-256
+  `f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e`,
+  and reuses the accepted ordinal-100 canary row byte-for-byte. Its
+  publication receipt has SHA-256
+  `e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20`.
+- The revised canary runs four serial rollouts in one allocation: pi0.5 with
+  diagnostics off/on, then pi0.5+AEGIS with diagnostics off/on. It requires
+  exact action-byte, query-schedule, outcome, simulator-state, frozen-label,
+  and decoded-video invariance between each off/on pair.
+- The historical ordinal-100 action reference is frozen at SHA-256
+  `1a06b4842b356eb0fd6671b214aaea7d63cb2d9878982aa6817d305a6489fdf1`.
+  It also pins the validated baseline collision/time-limit and AEGIS
+  collision-free task-success outcomes.
+- The revised paired canary is frozen to GroundingDINO on CPU, matching the
+  validated historical canary that produced the action reference. The exact
+  Python 3.8 interpreter, ImageIO packages, and bundled FFmpeg binary are
+  allocation- and receipt-bound.
+- The next allocation-backed steps are one fresh immutable pi0.5
+  checkpoint-tree receipt bound to the final release commit, followed by one
+  fresh ordinal-100 four-run canary.
+- The full population remains unauthorized until its publisher validates all
+  per-case detector, point-cloud, MVEE, QP, contact, goal-progress, terminal
+  frame, and video evidence without retaining all 3,200 large result objects
+  in memory.
 
 Checkpoint hash task `28467_0` completed on worker-2 in 16 seconds. Its full
 content-tree SHA-256 is

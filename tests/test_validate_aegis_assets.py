@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import types
 import unittest
 from unittest import mock
 import os
@@ -103,6 +104,191 @@ class ValidateAegisAssetsTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_evaluation_video_runtime_is_exactly_bound(self) -> None:
+        python = self.root / "aegis-python"
+        ffmpeg = self.root / "ffmpeg"
+        python.write_bytes(b"python")
+        ffmpeg.write_bytes(b"ffmpeg")
+        python.chmod(0o755)
+        ffmpeg.chmod(0o755)
+        ffmpeg_sha256 = preflight.sha256_path(ffmpeg)
+        fake_imageio = types.SimpleNamespace(__version__="2.35.1")
+        fake_imageio_ffmpeg = types.SimpleNamespace(
+            __version__="0.5.1",
+            get_ffmpeg_exe=lambda: str(ffmpeg),
+        )
+        with (
+            mock.patch.object(preflight, "DEFAULT_AEGIS_PYTHON", python),
+            mock.patch.object(
+                preflight,
+                "DEFAULT_AEGIS_PYTHON_RESOLVED",
+                python.resolve(),
+            ),
+            mock.patch.object(
+                preflight,
+                "AEGIS_PYTHON_VERSION",
+                ".".join(
+                    str(component)
+                    for component in preflight.sys.version_info[:3]
+                ),
+            ),
+            mock.patch.object(
+                preflight, "DEFAULT_IMAGEIO_FFMPEG_EXE", ffmpeg
+            ),
+            mock.patch.object(
+                preflight, "IMAGEIO_FFMPEG_SHA256", ffmpeg_sha256
+            ),
+            mock.patch.object(preflight.sys, "executable", str(python)),
+            mock.patch.dict(
+                preflight.os.environ,
+                {"IMAGEIO_FFMPEG_EXE": str(ffmpeg)},
+            ),
+            mock.patch.dict(
+                preflight.sys.modules,
+                {
+                    "imageio": fake_imageio,
+                    "imageio_ffmpeg": fake_imageio_ffmpeg,
+                },
+            ),
+        ):
+            record = preflight.validate_evaluation_runtime(
+                aegis_python=python,
+                imageio_ffmpeg_exe=ffmpeg,
+                expected_imageio_ffmpeg_sha256=ffmpeg_sha256,
+            )
+            self.assertEqual(record["ffmpeg"]["sha256"], ffmpeg_sha256)
+            self.assertEqual(record["imageio"]["version"], "2.35.1")
+            self.assertEqual(
+                record["aegis_python"]["resolved_path"],
+                str(python.resolve()),
+            )
+            with mock.patch.dict(
+                preflight.os.environ,
+                {"IMAGEIO_FFMPEG_EXE": str(self.root / "wrong")},
+            ):
+                with self.assertRaisesRegex(
+                    preflight.PreflightError,
+                    "IMAGEIO_FFMPEG_EXE",
+                ):
+                    preflight.validate_evaluation_runtime(
+                        aegis_python=python,
+                        imageio_ffmpeg_exe=ffmpeg,
+                        expected_imageio_ffmpeg_sha256=ffmpeg_sha256,
+                    )
+            with mock.patch.object(
+                preflight,
+                "DEFAULT_AEGIS_PYTHON_RESOLVED",
+                self.root / "wrong-python",
+            ):
+                with self.assertRaisesRegex(
+                    preflight.PreflightError,
+                    "target/version",
+                ):
+                    preflight.validate_evaluation_runtime(
+                        aegis_python=python,
+                        imageio_ffmpeg_exe=ffmpeg,
+                        expected_imageio_ffmpeg_sha256=ffmpeg_sha256,
+                    )
+            with mock.patch.object(
+                preflight,
+                "AEGIS_PYTHON_VERSION",
+                "3.8.19",
+            ):
+                with self.assertRaisesRegex(
+                    preflight.PreflightError,
+                    "target/version",
+                ):
+                    preflight.validate_evaluation_runtime(
+                        aegis_python=python,
+                        imageio_ffmpeg_exe=ffmpeg,
+                        expected_imageio_ffmpeg_sha256=ffmpeg_sha256,
+                    )
+
+    def test_label_publication_receipt_binds_outcome_blind_labels(
+        self,
+    ) -> None:
+        label_sha256 = "a" * 64
+        receipt = {
+            "schema_version": "vlsa_table1_actual_label_publication.v1",
+            "status": "validated_and_atomically_published",
+            "scientific_result": False,
+            "case_count": 1600,
+            "labels": {
+                "labels_sha256": label_sha256,
+                "label_count": 1600,
+                "canary_row_reused_byte_for_byte": True,
+                "canary_row_with_newline_sha256": (
+                    "2d4d1be5c0a4940c72eb452d00361f6a"
+                    "4935de3f5cbc1058c9671fff96a35a36"
+                ),
+            },
+            "ordinal100_canary": {
+                "case_id": "vlsa-t1-spatial-i-t2-e00",
+                "case_ordinal": 100,
+                "reused_byte_for_byte": True,
+            },
+            "execution": {
+                field: False
+                for field in (
+                    "groundingdino_executed",
+                    "mvee_executed",
+                    "outcome_actions_executed",
+                    "point_cloud_filter_executed",
+                    "policy_model_executed",
+                    "qp_executed",
+                    "semantic_selector_executed",
+                    "simulator_executed",
+                    "simulator_imported",
+                    "training_executed",
+                )
+            },
+        }
+        receipt["receipt_payload_sha256"] = preflight.sha256_bytes(
+            preflight.canonical_json_bytes(receipt)
+        )
+        path = self.root / "label-publication.json"
+        path.write_text(
+            json.dumps(receipt, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        with mock.patch.object(
+            preflight,
+            "LABEL_PUBLICATION_RECEIPT_SHA256",
+            preflight.sha256_path(path),
+        ):
+            record = preflight.validate_label_publication_receipt(
+                path,
+                expected_label_manifest_sha256=label_sha256,
+            )
+            self.assertTrue(record["outcome_blind"])
+            receipt["execution"]["policy_model_executed"] = True
+            receipt["receipt_payload_sha256"] = preflight.sha256_bytes(
+                preflight.canonical_json_bytes(
+                    {
+                        key: value
+                        for key, value in receipt.items()
+                        if key != "receipt_payload_sha256"
+                    }
+                )
+            )
+            path.write_text(
+                json.dumps(receipt, sort_keys=True, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(
+                preflight,
+                "LABEL_PUBLICATION_RECEIPT_SHA256",
+                preflight.sha256_path(path),
+            ):
+                with self.assertRaisesRegex(
+                    preflight.PreflightError,
+                    "forbidden outcome execution",
+                ):
+                    preflight.validate_label_publication_receipt(
+                        path,
+                        expected_label_manifest_sha256=label_sha256,
+                    )
 
     def _arguments(self, output: Path) -> list[str]:
         return [

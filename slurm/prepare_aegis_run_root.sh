@@ -14,6 +14,7 @@ CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_table1_translational.json}
 MANIFEST_PATH=${MANIFEST_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.jsonl}
 MANIFEST_RECEIPT_PATH=${MANIFEST_RECEIPT_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.receipt.json}
 LABEL_MANIFEST_PATH=${LABEL_MANIFEST_PATH:-}
+LABEL_PUBLICATION_RECEIPT_PATH=${LABEL_PUBLICATION_RECEIPT_PATH:-}
 GROUNDINGDINO_DEVICE=${GROUNDINGDINO_DEVICE:-}
 CASE_ORDINAL=${CASE_ORDINAL:-0}
 EXPECTED_PI05_TREE_SHA256=${EXPECTED_PI05_TREE_SHA256:-}
@@ -73,6 +74,10 @@ if [[ "$RUN_STAGE" == capture-canary || "$RUN_STAGE" == paired-canary ]]; then
     exit 2
   }
   contract_case_ordinal=$CASE_ORDINAL
+  if [[ "$RUN_STAGE" == paired-canary && "$CASE_ORDINAL" != 100 ]]; then
+    echo "paired canary is frozen to case ordinal 100" >&2
+    exit 2
+  fi
 else
   contract_case_ordinal=all
 fi
@@ -105,15 +110,31 @@ if [[ "$RUN_STAGE" == paired-canary || "$RUN_STAGE" == population ]]; then
     echo "evaluation run requires LABEL_MANIFEST_PATH" >&2
     exit 2
   }
-  case "$GROUNDINGDINO_DEVICE" in
-    cpu|cuda) ;;
-    *)
-      echo "evaluation requires an explicit GROUNDINGDINO_DEVICE=cpu or cuda" >&2
-      exit 2
-      ;;
-  esac
+  [[ "$GROUNDINGDINO_DEVICE" == cpu ]] || {
+    echo "evaluation is frozen to GROUNDINGDINO_DEVICE=cpu" >&2
+    exit 2
+  }
   [[ -n "$PI05_HASH_RECEIPT_PATH" && -f "$PI05_HASH_RECEIPT_PATH" && ! -L "$PI05_HASH_RECEIPT_PATH" ]] || {
     echo "evaluation requires an allocation-backed PI05_HASH_RECEIPT_PATH" >&2
+    exit 2
+  }
+  [[ -n "$LABEL_PUBLICATION_RECEIPT_PATH" && \
+    -f "$LABEL_PUBLICATION_RECEIPT_PATH" && \
+    ! -L "$LABEL_PUBLICATION_RECEIPT_PATH" ]] || {
+    echo "evaluation requires LABEL_PUBLICATION_RECEIPT_PATH" >&2
+    exit 2
+  }
+  [[ "$(sha256sum "$LABEL_MANIFEST_PATH" | awk '{print $1}')" == \
+    f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e ]] || {
+    echo "evaluation requires the exact frozen 1,600-row label manifest" >&2
+    exit 2
+  }
+  label_publication_receipt_sha256=$(
+    sha256sum "$LABEL_PUBLICATION_RECEIPT_PATH" | awk '{print $1}'
+  )
+  [[ "$label_publication_receipt_sha256" == \
+    e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20 ]] || {
+    echo "frozen label publication receipt SHA-256 changed" >&2
     exit 2
   }
   case "$EXPECTED_PI05_HASH_RECEIPT_SHA256" in
@@ -172,6 +193,7 @@ fi
 if [[ "$RUN_STAGE" == capture-canary || "$RUN_STAGE" == capture-population ]]; then
   pi05_tree_sha256=none
   pi05_hash_receipt_sha256=none
+  label_publication_receipt_sha256=none
 fi
 
 if [[ "$RUN_STAGE" == population ]]; then
@@ -191,7 +213,7 @@ if [[ "$RUN_STAGE" == population ]]; then
     exit 2
   }
   [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" schema_version)" == \
-    vlsa_table1_paired_canary_validation.v1 ]] || {
+    vlsa_table1_action_invariant_paired_canary_validation.v1 ]] || {
     echo "unexpected paired-canary receipt schema" >&2
     exit 2
   }
@@ -204,6 +226,13 @@ if [[ "$RUN_STAGE" == population ]]; then
     echo "paired-canary receipt did not validate the pair" >&2
     exit 2
   }
+  for field in action_invariance_valid failure_diagnostics_valid; do
+    grep -Eq "^[[:space:]]*\"$field\":[[:space:]]*true,?[[:space:]]*$" \
+      "$PAIRED_CANARY_RECEIPT_PATH" || {
+      echo "paired-canary receipt did not validate $field" >&2
+      exit 2
+    }
+  done
   [[ "$(json_string_value "$PAIRED_CANARY_RECEIPT_PATH" source_git_commit)" == \
     "$EXPECTED_GIT_COMMIT" ]] || {
     echo "paired-canary source commit differs from the population release" >&2
@@ -275,6 +304,8 @@ temporary=$(mktemp "$RUN_ROOT/.run-contract.XXXXXX")
   printf 'manifest_sha256\t%s\n' "$manifest_sha256"
   printf 'manifest_receipt_sha256\t%s\n' "$receipt_sha256"
   printf 'label_manifest_sha256\t%s\n' "$label_manifest_sha256"
+  printf 'label_publication_receipt_sha256\t%s\n' \
+    "$label_publication_receipt_sha256"
   printf 'pi05_tree_sha256\t%s\n' "$pi05_tree_sha256"
   printf 'pi05_hash_receipt_sha256\t%s\n' "$pi05_hash_receipt_sha256"
   printf 'paired_canary_receipt_sha256\t%s\n' "$paired_canary_receipt_sha256"

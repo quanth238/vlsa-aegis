@@ -25,6 +25,17 @@
     "pi05_translational": {
       "action_count": 300,
       "policy_query_count": 60,
+      "expected_outcome": {
+        "status": "complete",
+        "terminal_reason": "time_limit",
+        "task_success": false,
+        "paper_collision": true,
+        "paper_collision_avoidance": false,
+        "collision_first_step": 70,
+        "executed_action_count": 300,
+        "legacy_ets_steps": 300,
+        "policy_query_count": 60
+      },
       "source_result_file_sha256": "a04c8183828f5ff25fc0e29851f94fbfee1497383e4b050f94534d0e31e313ee",
       "nominal_raw_sequence_sha256": "639f764d4cfbeafd9b1e287027de5c876dbe22034066277b7e00e39e400bc2b7",
       "nominal_translational_sequence_sha256": "da802030feb430d6946129831228d6fb77b3b3136c8a899ec8be70ba668fa6b2",
@@ -39,6 +50,17 @@
     "pi05_plus_aegis_translational": {
       "action_count": 145,
       "policy_query_count": 29,
+      "expected_outcome": {
+        "status": "complete",
+        "terminal_reason": "task_success",
+        "task_success": true,
+        "paper_collision": false,
+        "paper_collision_avoidance": true,
+        "collision_first_step": null,
+        "executed_action_count": 145,
+        "legacy_ets_steps": 144,
+        "policy_query_count": 29
+      },
       "source_result_file_sha256": "e19f66778ac77353288af719e883996d4a8cbb11b1db723537b9fbc1e1fbe851",
       "nominal_raw_sequence_sha256": "940232b7444e1750c9deebd07e6da49336b52454a56aa98f0824f851e673c598",
       "nominal_translational_sequence_sha256": "30a213f053c83f47897c5bcefc69d3b89c0b1fb357d2077ecfe3f7869b4ddf74",

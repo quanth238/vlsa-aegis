@@ -59,13 +59,40 @@ AEGIS_FAILURE_STAGE=pi05_server_startup
 aegis_start_pi05_server
 
 # Both arms consume the exact same manifest row(s), selector, server, and
-# per-request query-indexed noise schedule.  Running them serially prevents
-# two policy services from competing for the same allocation.
-OUTPUT_ROOT=$TASK_ROOT/results
-mkdir "$OUTPUT_ROOT"
-for ARM in pi05_translational pi05_plus_aegis_translational; do
+# per-request query-indexed noise schedule. The canary repeats each arm with
+# diagnostics disabled and enabled, in that exact order per arm, to prove that
+# the observer cannot change action bytes or outcomes. Population results
+# enable the already-gated diagnostics once, without doubling the rollout.
+RESULTS_ROOT=$TASK_ROOT/results
+mkdir "$RESULTS_ROOT"
+if [[ "$MODE" == canary ]]; then
+  mkdir "$RESULTS_ROOT/diagnostics-off" \
+    "$RESULTS_ROOT/diagnostics-on"
+  RUN_SPECS=(
+    "diagnostics-off|pi05_translational"
+    "diagnostics-on|pi05_translational"
+    "diagnostics-off|pi05_plus_aegis_translational"
+    "diagnostics-on|pi05_plus_aegis_translational"
+  )
+else
+  RUN_SPECS=(
+    "diagnostics-on|pi05_translational"
+    "diagnostics-on|pi05_plus_aegis_translational"
+  )
+fi
+for RUN_SPEC in "${RUN_SPECS[@]}"; do
+  IFS='|' read -r DIAGNOSTICS_MODE ARM <<<"$RUN_SPEC"
   export ARM
-  AEGIS_FAILURE_STAGE=evaluator_$ARM
+  AEGIS_FAILURE_STAGE=evaluator_${DIAGNOSTICS_MODE}_$ARM
+  DIAGNOSTIC_ARGUMENTS=()
+  if [[ "$DIAGNOSTICS_MODE" == diagnostics-on ]]; then
+    DIAGNOSTIC_ARGUMENTS=(--failure-diagnostics)
+  fi
+  if [[ "$MODE" == canary ]]; then
+    OUTPUT_ROOT=$RESULTS_ROOT/$DIAGNOSTICS_MODE
+  else
+    OUTPUT_ROOT=$RESULTS_ROOT
+  fi
   if [[ "$ARM" == pi05_translational ]]; then
     EVALUATOR_MODE=pi05
     ARM_ARGUMENTS=(--labels "$LABEL_MANIFEST_PATH")
@@ -86,7 +113,8 @@ for ARM in pi05_translational pi05_plus_aegis_translational; do
     --host 127.0.0.1 \
     --port "$POLICY_PORT" \
     "${CASE_ARGUMENTS[@]}" \
-    "${ARM_ARGUMENTS[@]}"
+    "${ARM_ARGUMENTS[@]}" \
+    "${DIAGNOSTIC_ARGUMENTS[@]}"
 done
 
 if [[ "$MODE" == canary ]]; then
@@ -103,6 +131,8 @@ if [[ "$MODE" == canary ]]; then
     --manifest-receipt "$MANIFEST_RECEIPT_PATH" \
     --labels "$LABEL_MANIFEST_PATH" \
     --pi05-hash-receipt "$PI05_HASH_RECEIPT_PATH" \
+    --action-reference \
+    "$REMOTE_REPO/fixtures/vlsa_table1_canary_action_reference.json" \
     --case-ordinal "$CASE_ORDINAL" \
     --output "$RUN_ROOT/paired-canary-validation.json"
 fi

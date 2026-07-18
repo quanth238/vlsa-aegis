@@ -93,10 +93,16 @@ class AegisSlurmContractTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertEqual(runtime.count("aegis_start_pi05_server"), 1)
-        self.assertIn(
-            "for ARM in pi05_translational pi05_plus_aegis_translational",
-            runtime,
+        canary_order = (
+            '"diagnostics-off|pi05_translational"',
+            '"diagnostics-on|pi05_translational"',
+            '"diagnostics-off|pi05_plus_aegis_translational"',
+            '"diagnostics-on|pi05_plus_aegis_translational"',
         )
+        positions = [runtime.index(item) for item in canary_order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn('for RUN_SPEC in "${RUN_SPECS[@]}"', runtime)
+        self.assertIn("--failure-diagnostics", runtime)
         self.assertIn('"${CASE_ARGUMENTS[@]}"', runtime)
         self.assertIn("--mode", runtime)
         self.assertGreaterEqual(
@@ -117,6 +123,11 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("LIBERO_CONFIG_PATH", common)
         self.assertIn("export MUJOCO_GL=osmesa", common)
         self.assertIn("export PYOPENGL_PLATFORM=osmesa", common)
+        self.assertIn("export IMAGEIO_FFMPEG_EXE=", common)
+        self.assertIn(
+            "700073daef5c23bbcb18c2eae60553a454a5221ec19b4a88c8c367a664671a7c",
+            common,
+        )
         self.assertNotIn("export MUJOCO_GL=egl", common)
         self.assertIn("paired-canary-validation.json", runtime)
         self.assertIn("--expected-pi05-tree-sha256", common)
@@ -170,8 +181,16 @@ class AegisSlurmContractTest(unittest.TestCase):
         for text in (preparer, common):
             self.assertIn("PI05_HASH_RECEIPT_PATH", text)
             self.assertIn("vlsa_table1_pi05_hash_receipt.v1", text)
+            self.assertIn("LABEL_PUBLICATION_RECEIPT_PATH", text)
+            self.assertIn(
+                "e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20",
+                text,
+            )
             self.assertIn("PAIRED_CANARY_RECEIPT_PATH", text)
-            self.assertIn("vlsa_table1_paired_canary_validation.v1", text)
+            self.assertIn(
+                "vlsa_table1_action_invariant_paired_canary_validation.v1",
+                text,
+            )
             self.assertIn("full_content_tree_sha256", text)
         self.assertIn("EXPECTED_PI05_HASH_RECEIPT_SHA256", preparer)
         self.assertIn(
@@ -181,6 +200,32 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertNotIn("structural-and-metadata-only", preparer)
         self.assertNotIn("structural-and-metadata-only", common)
 
+    def test_evaluation_groundingdino_device_is_frozen_to_cpu(self) -> None:
+        preparer = (SLURM / "prepare_aegis_run_root.sh").read_text(
+            encoding="utf-8"
+        )
+        common = (SLURM / "aegis_runtime_common.sh").read_text(
+            encoding="utf-8"
+        )
+        publisher = (
+            SLURM / "run_aegis_population_publisher.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            '[[ "$GROUNDINGDINO_DEVICE" == cpu ]]',
+            preparer,
+        )
+        self.assertIn(
+            '[[ "$GROUNDINGDINO_DEVICE" == cpu ]]',
+            common,
+        )
+        self.assertIn(
+            '[[ "$GROUNDINGDINO_DEVICE" == cpu ]]',
+            publisher,
+        )
+        for text in (preparer, common, publisher):
+            self.assertNotIn("cpu|cuda", text)
+            self.assertNotIn("cpu or cuda", text)
+
     def test_shell_receipt_parser_ignores_nested_status_fields(self) -> None:
         common_path = SLURM / "aegis_runtime_common.sh"
         with tempfile.TemporaryDirectory() as temporary:
@@ -189,7 +234,8 @@ class AegisSlurmContractTest(unittest.TestCase):
                 json.dumps(
                     {
                         "schema_version": (
-                            "vlsa_table1_paired_canary_validation.v1"
+                            "vlsa_table1_action_invariant_"
+                            "paired_canary_validation.v1"
                         ),
                         "status": "validated",
                         "results": [
