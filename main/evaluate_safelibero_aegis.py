@@ -576,12 +576,13 @@ def _failure_diagnostics_mode_matches(
 ) -> bool:
     """Require a resume artifact from the exact requested diagnostics arm."""
 
+    if not required:
+        return "failure_diagnostics" not in result
     record = result.get("failure_diagnostics")
-    enabled = (
+    return (
         isinstance(record, Mapping)
         and record.get("enabled") is True
     )
-    return enabled is bool(required)
 
 
 def _scientific_resume_is_valid(
@@ -1878,6 +1879,7 @@ def _prepare_aegis_geometry(
         failure_diagnostics.record_initial_geometry_direction(
             diagnostic_state,
             stale_proxy_center=stale_proxy["p1"],
+            stale_proxy_rotation=stale_proxy["R1"],
             obstacle_center=p2,
             direction=z_fixed,
         )
@@ -1974,45 +1976,27 @@ def _aegis_action(
     a_uz = np.asarray(a_uz, dtype=float)
     mu_row = np.asarray(mu_row, dtype=float).reshape(-1)
     u_z_nom = 10.0 * mu_row
-    try:
-        variable = cp.Variable(6)
-        weights = np.diag([1.0 / 25.0] * 3 + [1.0] * 3)
-        reference = np.hstack([u_v_ref, u_z_nom])
-        problem = cp.Problem(
-            cp.Minimize(cp.quad_form(variable - reference, weights)),
-            [a_u_v @ variable[:3] + a_uz @ variable[3:6] + 10.0 * h >= 0],
-        )
-    except Exception as error:
-        if diagnostics_enabled:
-            raise MethodFailure(
-                f"AEGIS QP construction failed: {error}",
-                diagnostics={
-                    **diagnostic_inputs,
-                    "status": "failure",
-                    "failure_type": "qp_construction_exception",
-                    "failure": {
-                        "type": type(error).__name__,
-                        "message": str(error),
-                    },
-                },
-            ) from error
-        raise
-    constraint = problem.constraints[0]
     qp_context: dict[str, Any] = {}
     if diagnostics_enabled:
         try:
+            diagnostic_weights = np.diag(
+                [1.0 / 25.0] * 3 + [1.0] * 3
+            )
+            diagnostic_reference = np.hstack([u_v_ref, u_z_nom])
             reference_lhs = float(
                 a_u_v @ u_v_ref
                 + a_uz @ u_z_nom
                 + 10.0 * float(h)
             )
             qp_context = {
-            "solver": "OSQP",
-            "status": "prepared",
-            **diagnostic_inputs,
-            "u_z_reference": _finite_list(u_z_nom),
-                "reference": _finite_list(reference),
-                "weights_diagonal": _finite_list(np.diag(weights)),
+                "solver": "OSQP",
+                "status": "prepared",
+                **diagnostic_inputs,
+                "u_z_reference": _finite_list(u_z_nom),
+                "reference": _finite_list(diagnostic_reference),
+                "weights_diagonal": _finite_list(
+                    np.diag(diagnostic_weights)
+                ),
                 "cbf": {
                     "a_v": _finite_list(a_v),
                     "a_omega": _finite_list(a_omega),
@@ -2037,9 +2021,34 @@ def _aegis_action(
                 },
             }
     try:
+        variable = cp.Variable(6)
+        weights = np.diag([1.0 / 25.0] * 3 + [1.0] * 3)
+        reference = np.hstack([u_v_ref, u_z_nom])
+        problem = cp.Problem(
+            cp.Minimize(cp.quad_form(variable - reference, weights)),
+            [a_u_v @ variable[:3] + a_uz @ variable[3:6] + 10.0 * h >= 0],
+        )
+    except Exception as error:
+        if diagnostics_enabled:
+            raise MethodFailure(
+                f"AEGIS QP construction failed: {error}",
+                diagnostics={
+                    **qp_context,
+                    "status": "failure",
+                    "failure_type": "qp_construction_exception",
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                    },
+                },
+            ) from error
+        raise
+    constraint = problem.constraints[0]
+    try:
         _solve_aegis_qp(problem, cp)
     except MethodFailure as error:
         if diagnostics_enabled:
+            underlying = error.__cause__
             qp_context.update(
                 {
                     "status": "failure",
@@ -2047,6 +2056,14 @@ def _aegis_action(
                     "failure": {
                         "type": type(error).__name__,
                         "message": str(error),
+                        "cause": (
+                            None
+                            if underlying is None
+                            else {
+                                "type": type(underlying).__name__,
+                                "message": str(underlying),
+                            }
+                        ),
                     },
                     "solver_status": str(getattr(problem, "status", None)),
                     "solver_stats": failure_diagnostics._solver_stats(
@@ -2071,6 +2088,13 @@ def _aegis_action(
                     "solver_stats": failure_diagnostics._solver_stats(
                         problem
                     ),
+                    "solution_observation": {
+                        "variable_value_is_none": True,
+                        "variable_shape": [6],
+                        "problem_value": failure_diagnostics._json_safe(
+                            problem.value
+                        ),
+                    },
                 }
                 if diagnostics_enabled
                 else None
@@ -2086,6 +2110,15 @@ def _aegis_action(
                     "status": "failure",
                     "failure_type": "invalid_solution",
                     "solution_shape": list(solution.shape),
+                    "solution_descriptor": (
+                        failure_diagnostics.array_descriptor(solution)
+                    ),
+                    "solution_values": failure_diagnostics._json_safe(
+                        solution.tolist()
+                    ),
+                    "solution_raw_bytes_hex": (
+                        np.ascontiguousarray(solution).tobytes().hex()
+                    ),
                     "solver_status": str(problem.status),
                     "solver_stats": failure_diagnostics._solver_stats(
                         problem
@@ -2197,9 +2230,22 @@ def _aegis_action(
             "AEGIS QP diagnostics are non-finite",
             diagnostics=(
                 {
-                    **qp_context,
+                    **(
+                        diagnostics.get("context", qp_context)
+                        if isinstance(diagnostics, Mapping)
+                        else qp_context
+                    ),
                     "status": "failure",
                     "failure_type": "nonfinite_diagnostics",
+                    "u_solution": _finite_list(solution),
+                    "nonfinite_values": {
+                        "barrier_h": failure_diagnostics._json_safe(
+                            float(h)
+                        ),
+                        "solution_lhs": failure_diagnostics._json_safe(
+                            constraint_lhs
+                        ),
+                    },
                     "solver_status": str(problem.status),
                     "solver_stats": failure_diagnostics._solver_stats(
                         problem
@@ -2343,6 +2389,7 @@ def evaluate_case(
     video_final = case_dir / "episode.mp4"
     frames_written = 0
     terminal_frame_hash: str | None = None
+    terminal_frame_array: Any = None
     executed_actions: list[dict[str, Any]] = []
     policy_queries: list[dict[str, Any]] = []
     geometry_diagnostic_state: dict[str, Any] | None = None
@@ -2611,6 +2658,7 @@ def evaluate_case(
             video_writer.append_data(frame)
             frames_written += 1
             terminal_frame_hash = array_sha256(frame)
+            terminal_frame_array = np.ascontiguousarray(frame).copy()
 
             if precontrol_method_failure is not None:
                 terminal_reason = "method_failure"
@@ -2691,10 +2739,46 @@ def evaluate_case(
                         "safety_by_no_execution": (
                             len(executed_actions) == 0
                         ),
+                        "nominal_raw": _finite_list(nominal_raw),
+                        "nominal_translational": list(nominal),
                     }
                     if failure_diagnostics_enabled:
-                        hard_method_failure["diagnostics"] = (
-                            error.diagnostics
+                        diagnostic_payload = (
+                            failure_diagnostics._json_safe(
+                                error.diagnostics
+                            )
+                        )
+                        if not isinstance(
+                            diagnostic_payload, Mapping
+                        ):
+                            diagnostic_payload = {
+                                "status": "failure",
+                                "failure_type": (
+                                    "diagnostic_serialization_failure"
+                                ),
+                                "observer_failure": {
+                                    "type": "InvalidDiagnosticPayload",
+                                    "message": (
+                                        "terminal QP diagnostics were not "
+                                        "a JSON object"
+                                    ),
+                                },
+                            }
+                        hard_method_failure.update(
+                            {
+                                "diagnostics": diagnostic_payload,
+                                "diagnostics_payload_sha256": (
+                                    sha256_bytes(
+                                        canonical_json_bytes(
+                                            diagnostic_payload
+                                        )
+                                    )
+                                    if isinstance(
+                                        diagnostic_payload, Mapping
+                                    )
+                                    else None
+                                ),
+                            }
                         )
                     break
             else:
@@ -2809,6 +2893,19 @@ def evaluate_case(
             executed_actions.append(action_record)
 
             proxy = _eef_proxy(runtime, observation)
+            if failure_diagnostics_enabled:
+                action_record["post_step_controller_proxy"] = {
+                    "eef_position": _finite_list(
+                        observation["robot0_eef_pos"]
+                    ),
+                    "eef_quaternion_xyzw": _finite_list(
+                        observation["robot0_eef_quat"]
+                    ),
+                    "p1": _finite_list(proxy["p1"]),
+                    "R1": [
+                        _finite_list(row) for row in proxy["R1"]
+                    ],
+                }
             _update_eef_marker(env, proxy)
             if done:
                 task_success = True
@@ -2822,6 +2919,9 @@ def evaluate_case(
             video_writer.append_data(terminal_frame)
             frames_written += 1
             terminal_frame_hash = array_sha256(terminal_frame)
+            terminal_frame_array = np.ascontiguousarray(
+                terminal_frame
+            ).copy()
 
         executed_action_count = len(executed_actions)
         final_goal_progress = (
@@ -2959,6 +3059,7 @@ def evaluate_case(
                     "sha256": sha256_path(video_final),
                     "frames": frames_written,
                     "fps": video_fps,
+                    "terminal_source_array_sha256": terminal_frame_hash,
                     "complete_episode": (
                         result.get("scientific_result") is True
                         and video_close_error is None
@@ -3069,6 +3170,17 @@ def evaluate_case(
                         "status": "not_run",
                         "reason": "evaluation_failed_before_settled_contact",
                     }
+                if terminal_frame_array is None:
+                    raise ValueError(
+                        "terminal source frame was not retained"
+                    )
+                diagnostic_record["terminal_frame"] = (
+                    failure_diagnostics.publish_terminal_frame_artifact(
+                        frame=terminal_frame_array,
+                        case_dir=case_dir,
+                        output_root=output_root,
+                    )
+                )
                 diagnostic_record["action_invariance_ledger"] = dict(
                     result["action_invariance_ledger"]
                 )

@@ -122,10 +122,21 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         ledger = self.diagnostics.action_invariance_ledger(
             actions=actions, policy_queries=queries
         )
+        settled_contract = {
+            "schema_version": "vlsa_table1_settled_input.v1",
+            "prompt": "pick the bowl",
+        }
         pairing = {
             "manifest_row_sha256": "1" * 64,
             "initial_state_sha256": "2" * 64,
-            "initial_observation_sha256": "3" * 64,
+            "initial_observation_sha256": (
+                self.diagnostics.sha256_bytes(
+                    self.diagnostics.canonical_json_bytes(
+                        settled_contract
+                    )
+                )
+            ),
+            "initial_observation_contract": settled_contract,
             "settled_simulator_state_sha256": "4" * 64,
             "settled_active_obstacle_position_sha256": "5" * 64,
             "policy_noise_schedule_id": "schedule",
@@ -138,7 +149,7 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             "model_action_horizon": 10,
             "replan_steps": 5,
         }
-        return {
+        result = {
             "case_id": "case",
             "arm": "pi05_plus_aegis_translational",
             "mode": "aegis",
@@ -147,8 +158,262 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             "actions": actions,
             "policy_queries": queries,
             "action_invariance_ledger": ledger,
-            "failure_diagnostics": {"enabled": enabled},
         }
+        if enabled:
+            result["failure_diagnostics"] = {"enabled": True}
+        return result
+
+    def _terminal_qp_failure_result(self, *, failure_type="no_solution"):
+        import numpy as np
+
+        context = {
+            "p1": [0.0, 0.0, 0.0],
+            "R1": np.eye(3).tolist(),
+            "q1_diag": [0.06, 0.12, 0.11],
+            "p2": [1.0, 0.0, 0.0],
+            "R2": np.eye(3).tolist(),
+            "Q2_diag": [0.1, 0.1, 0.1],
+            "z_before": [1.0, 0.0, 0.0],
+            "nominal_translational": [
+                0.02,
+                0.01,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -1.0,
+            ],
+            "u_solution": [0.0] * 6,
+        }
+        reconstructed = self.validator._recompute_qp_context(context)
+        context.update(
+            {
+                "status": "failure",
+                "failure_type": failure_type,
+                "solver": "OSQP",
+                "solver_status": "infeasible",
+                "solver_stats": {"available": True},
+                "solution_observation": {
+                    "variable_value_is_none": True,
+                    "variable_shape": [6],
+                    "problem_value": None,
+                },
+                "v_ref": reconstructed["v_ref"].tolist(),
+                "u_v_reference": reconstructed[
+                    "u_v_reference"
+                ].tolist(),
+                "u_z_reference": reconstructed[
+                    "u_z_reference"
+                ].tolist(),
+                "reference": reconstructed["reference"].tolist(),
+                "weights_diagonal": reconstructed[
+                    "weights_diagonal"
+                ].tolist(),
+                "cbf": {
+                    "a_v": reconstructed["a_v"].tolist(),
+                    "a_omega": reconstructed["a_omega"].tolist(),
+                    "a_u_v": reconstructed["a_u_v"].tolist(),
+                    "a_u_z": reconstructed["a_u_z"].tolist(),
+                    "mu_row": reconstructed["mu_row"].tolist(),
+                    "h": reconstructed["h"],
+                    "alpha_gain": 10.0,
+                    "constant": reconstructed["constant"],
+                    "reference_lhs": reconstructed["reference_lhs"],
+                    "reference_slack": reconstructed["reference_lhs"],
+                    "reference_violation": max(
+                        0.0, -reconstructed["reference_lhs"]
+                    ),
+                },
+            }
+        )
+        context.pop("u_solution")
+        method_failure = {
+            "status": "method_failure",
+            "component": "aegis_qp",
+            "phase": "control",
+            "step": 0,
+            "type": "MethodFailure",
+            "message": "synthetic terminal QP failure",
+            "safety_by_no_execution": True,
+            "nominal_raw": [0.02, 0.01, 0.0, 0.4, 0.5, 0.6, -1.0],
+            "nominal_translational": list(
+                context["nominal_translational"]
+            ),
+            "diagnostics": context,
+            "diagnostics_payload_sha256": (
+                self.diagnostics.sha256_bytes(
+                    self.diagnostics.canonical_json_bytes(context)
+                )
+            ),
+        }
+        return {
+            "mode": "aegis",
+            "status": "method_failure",
+            "terminal_reason": "method_failure",
+            "actions": [],
+            "method_failure": method_failure,
+        }
+
+    def _rehash_terminal_qp_failure(self, result):
+        context = result["method_failure"]["diagnostics"]
+        result["method_failure"]["diagnostics_payload_sha256"] = (
+            self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(context)
+            )
+        )
+
+    def _rehash_result_payload(self, result):
+        result.pop("result_payload_sha256", None)
+        result["result_payload_sha256"] = self.diagnostics.sha256_bytes(
+            self.diagnostics.canonical_json_bytes(result)
+        )
+
+    def _goal_terminal_result(self, root):
+        import numpy as np
+
+        result = self._synthetic_result(enabled=True)
+        case = json.loads(
+            next(
+                line
+                for line in MANIFEST_PATH.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+                if line.strip()
+            )
+        )
+        result.update(
+            {
+                "case_id": case["case_id"],
+                "case": case,
+                "protocol_id": case["protocol_id"],
+                "mode": "pi05",
+                "arm": "pi05_translational",
+                "status": "complete",
+                "scientific_result": True,
+                "terminal_reason": "task_success",
+                "task_success": True,
+            }
+        )
+        result["pairing"]["manifest_row_sha256"] = (
+            self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(case)
+            )
+        )
+        atoms = [
+            {
+                "index": 0,
+                "predicate": "on",
+                "arguments": ["akita_black_bowl_1", "plate_1"],
+            }
+        ]
+
+        def snapshot(step, value, state_hash, previous):
+            return {
+                "step": step,
+                "values": [value],
+                "satisfied_count": int(value),
+                "fraction": float(value),
+                "all_satisfied": value,
+                "newly_satisfied_indices": (
+                    [0] if value and not previous else []
+                ),
+                "regressed_indices": (
+                    [0] if previous and not value else []
+                ),
+                "argument_poses": [
+                    {
+                        "atom_index": 0,
+                        "arguments": [
+                            {
+                                "name": "akita_black_bowl_1",
+                                "object_state_type": "object",
+                                "position": [0.1, 0.2, 0.3],
+                                "quaternion": [1.0, 0.0, 0.0, 0.0],
+                            },
+                            {
+                                "name": "plate_1",
+                                "object_state_type": "site",
+                                "position": [0.4, 0.5, 0.6],
+                                "quaternion": [1.0, 0.0, 0.0, 0.0],
+                            },
+                        ],
+                    }
+                ],
+                "simulator_state_sha256_before": state_hash,
+                "simulator_state_sha256_after": state_hash,
+                "inert": True,
+            }
+
+        initial = snapshot(-1, False, "4" * 64, False)
+        first = snapshot(0, False, "9" * 64, False)
+        final = snapshot(1, True, "a" * 64, False)
+        result["actions"][0]["done"] = False
+        result["actions"][1]["done"] = True
+        result["actions"][0]["goal_progress"] = first
+        result["actions"][1]["goal_progress"] = final
+        definition = {
+            "schema_version": "safelibero_goal_progress.v1",
+            "source": "native_bddl_goal_predicates",
+            "logic": "conjunction",
+            "goal_atoms": atoms,
+        }
+        result["goal_progress"] = {
+            **definition,
+            "goal_definition_sha256": self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(definition)
+            ),
+            "initial": initial,
+            "final": final,
+            "summary": self.evaluator._goal_progress_summary(
+                initial,
+                result["actions"],
+            ),
+        }
+        case_dir = root / "pi05" / case["case_id"]
+        case_dir.mkdir(parents=True, exist_ok=True)
+        frame = np.zeros((1024, 1024, 3), dtype=np.uint8)
+        terminal_frame = self.diagnostics.publish_terminal_frame_artifact(
+            frame=frame,
+            case_dir=case_dir,
+            output_root=root,
+        )
+        video_path = case_dir / "episode.mp4"
+        video_path.write_bytes(b"synthetic-complete-video")
+        result["terminal_observation"] = {
+            "agentview_array_sha256": terminal_frame["array"][
+                "array_sha256"
+            ],
+            "simulator_state_sha256": final[
+                "simulator_state_sha256_after"
+            ],
+            "frame_index": 2,
+            "after_executed_action_count": 2,
+        }
+        result["video"] = {
+            "path": str(video_path.relative_to(root)),
+            "sha256": self.diagnostics.sha256_path(video_path),
+            "frames": 3,
+            "fps": 30,
+            "terminal_source_array_sha256": terminal_frame["array"][
+                "array_sha256"
+            ],
+            "complete_episode": True,
+        }
+        result["metrics"] = {
+            "executed_action_count": 2,
+            "termination_reason": "task_success",
+            "task_success": True,
+        }
+        result["failure_diagnostics"] = {
+            "schema_version": self.diagnostics.DIAGNOSTICS_SCHEMA,
+            "enabled": True,
+            "status": "published",
+            "control_effect": "read_only_observation",
+            "terminal_frame": terminal_frame,
+            "contacts": {},
+        }
+        self._rehash_result_payload(result)
+        return result
 
     def test_released_utils_remain_byte_for_byte_pristine(self):
         self.assertEqual(
@@ -184,6 +449,12 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         self.assertFalse(
             self.evaluator._failure_diagnostics_mode_matches(
                 {"failure_diagnostics": {"enabled": True}},
+                required=False,
+            )
+        )
+        self.assertFalse(
+            self.evaluator._failure_diagnostics_mode_matches(
+                {"failure_diagnostics": {"enabled": False}},
                 required=False,
             )
         )
@@ -226,6 +497,350 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 self.validator.DiagnosticValidationError
             ):
                 self.validator.validate_action_invariance_pair(off, changed)
+        changed_contract = copy.deepcopy(on)
+        changed_contract["pairing"]["initial_observation_contract"][
+            "prompt"
+        ] = "tampered prompt"
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator.validate_action_invariance_pair(
+                off,
+                changed_contract,
+            )
+        terminal_attempt = {
+            "component": "aegis_qp",
+            "phase": "control",
+            "step": 2,
+            "nominal_raw": [0.3, 0.2, 0.1, 0.4, 0.5, 0.6, -1.0],
+            "nominal_translational": [
+                0.3,
+                0.2,
+                0.1,
+                0.0,
+                0.0,
+                0.0,
+                -1.0,
+            ],
+        }
+        off["method_failure"] = copy.deepcopy(terminal_attempt)
+        on["method_failure"] = copy.deepcopy(terminal_attempt)
+        self.validator.validate_action_invariance_pair(off, on)
+        on["method_failure"]["nominal_raw"][0] = 9.0
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator.validate_action_invariance_pair(off, on)
+
+    def test_diagnostic_acceptance_binds_goal_terminal_frame_and_video(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = self._goal_terminal_result(root)
+
+            def validate(value):
+                with mock.patch.object(
+                    self.validator, "_validate_contacts"
+                ), mock.patch.object(
+                    self.validator,
+                    "_probe_episode_video",
+                    return_value={
+                        "status": "fully_decoded",
+                        "decoded_frame_count": 3,
+                    },
+                ):
+                    return self.validator.validate_diagnostic_result(
+                        value,
+                        output_root=root,
+                    )
+
+            self.assertEqual(validate(result)["status"], "valid")
+            mutations = (
+                (
+                    "scientific_result",
+                    lambda value: value.__setitem__(
+                        "scientific_result", False
+                    ),
+                ),
+                (
+                    "goal_summary",
+                    lambda value: value["goal_progress"]["summary"].__setitem__(
+                        "final_satisfied_count", 0
+                    ),
+                ),
+                (
+                    "bool_action_step",
+                    lambda value: value["actions"][1].__setitem__(
+                        "step", True
+                    ),
+                ),
+                (
+                    "bool_satisfied_count",
+                    lambda value: value["actions"][1][
+                        "goal_progress"
+                    ].__setitem__("satisfied_count", True),
+                ),
+                (
+                    "string_fraction",
+                    lambda value: value["actions"][1][
+                        "goal_progress"
+                    ].__setitem__("fraction", "1.0"),
+                ),
+                (
+                    "goal_initial_state",
+                    lambda value: value["goal_progress"]["initial"].__setitem__(
+                        "simulator_state_sha256_before", "0" * 64
+                    ),
+                ),
+                (
+                    "goal_terminal_state",
+                    lambda value: value["terminal_observation"].__setitem__(
+                        "simulator_state_sha256", "0" * 64
+                    ),
+                ),
+                (
+                    "terminal_pixels",
+                    lambda value: value["failure_diagnostics"][
+                        "terminal_frame"
+                    ]["array"].__setitem__("array_sha256", "0" * 64),
+                ),
+                (
+                    "terminal_observation_pixels",
+                    lambda value: value["terminal_observation"].__setitem__(
+                        "agentview_array_sha256", "0" * 64
+                    ),
+                ),
+                (
+                    "video_terminal_pixels",
+                    lambda value: value["video"].__setitem__(
+                        "terminal_source_array_sha256", "0" * 64
+                    ),
+                ),
+                (
+                    "video_frame_count",
+                    lambda value: value["video"].__setitem__("frames", 2),
+                ),
+                (
+                    "video_fps",
+                    lambda value: value["video"].__setitem__("fps", 29),
+                ),
+            )
+            for name, mutate in mutations:
+                changed = copy.deepcopy(result)
+                mutate(changed)
+                self._rehash_result_payload(changed)
+                with self.subTest(name=name), self.assertRaises(
+                    self.validator.DiagnosticValidationError
+                ):
+                    validate(changed)
+
+            contradictory_success = copy.deepcopy(result)
+            final_action = contradictory_success["actions"][1]
+            final_action["done"] = False
+            final_snapshot = final_action["goal_progress"]
+            final_snapshot.update(
+                {
+                    "values": [False],
+                    "satisfied_count": 0,
+                    "fraction": 0.0,
+                    "all_satisfied": False,
+                    "newly_satisfied_indices": [],
+                    "regressed_indices": [],
+                }
+            )
+            contradictory_success["goal_progress"]["final"] = copy.deepcopy(
+                final_snapshot
+            )
+            contradictory_success["goal_progress"]["summary"] = (
+                self.evaluator._goal_progress_summary(
+                    contradictory_success["goal_progress"]["initial"],
+                    contradictory_success["actions"],
+                )
+            )
+            self._rehash_result_payload(contradictory_success)
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                validate(contradictory_success)
+
+            changed_atoms = copy.deepcopy(result)
+            changed_atoms["goal_progress"]["goal_atoms"][0][
+                "arguments"
+            ][0] = "wrong_bowl_1"
+            for snapshot in [
+                changed_atoms["goal_progress"]["initial"],
+                *[
+                    action["goal_progress"]
+                    for action in changed_atoms["actions"]
+                ],
+            ]:
+                snapshot["argument_poses"][0]["arguments"][0][
+                    "name"
+                ] = "wrong_bowl_1"
+            definition = {
+                key: changed_atoms["goal_progress"][key]
+                for key in (
+                    "schema_version",
+                    "source",
+                    "logic",
+                    "goal_atoms",
+                )
+            }
+            changed_atoms["goal_progress"][
+                "goal_definition_sha256"
+            ] = self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(definition)
+            )
+            self._rehash_result_payload(changed_atoms)
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                validate(changed_atoms)
+
+            video_path = root / result["video"]["path"]
+            video_path.write_bytes(b"tampered-video")
+            self._rehash_result_payload(result)
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                validate(result)
+            video_path.write_bytes(b"synthetic-complete-video")
+            terminal_path = (
+                root
+                / result["failure_diagnostics"]["terminal_frame"]["path"]
+            )
+            terminal_path.unlink()
+            self._rehash_result_payload(result)
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                validate(result)
+
+    def test_terminal_frame_artifact_requires_lossless_uint8_rgb(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case_dir = root / "pi05" / "case"
+            case_dir.mkdir(parents=True)
+            descriptor = (
+                self.diagnostics.publish_terminal_frame_artifact(
+                    frame=np.zeros((4, 5), dtype=np.uint8),
+                    case_dir=case_dir,
+                    output_root=root,
+                )
+            )
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_terminal_frame_artifact(
+                    descriptor,
+                    output_root=root,
+                )
+
+    def test_episode_video_probe_decodes_every_frame_and_terminal_source(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        class Reader:
+            def __init__(self, frames, *, fps=30.0, decode_error=None):
+                self.frames = frames
+                self.fps = fps
+                self.decode_error = decode_error
+                self.closed = False
+
+            def get_meta_data(self):
+                return {"fps": self.fps}
+
+            def __iter__(self):
+                for frame in self.frames:
+                    yield frame
+                if self.decode_error is not None:
+                    raise self.decode_error
+
+            def close(self):
+                self.closed = True
+
+        imageio_package = types.ModuleType("imageio")
+        imageio_package.__path__ = []
+        imageio_v2 = types.ModuleType("imageio.v2")
+        imageio_package.v2 = imageio_v2
+        terminal = np.zeros((1024, 1024, 3), dtype=np.uint8)
+
+        def run(reader, *, count=2, source=terminal):
+            imageio_v2.get_reader = lambda _path: reader
+            with mock.patch.dict(
+                sys.modules,
+                {
+                    "imageio": imageio_package,
+                    "imageio.v2": imageio_v2,
+                },
+            ):
+                return self.validator._probe_episode_video(
+                    Path("episode.mp4"),
+                    expected_frame_count=count,
+                    terminal_source=source,
+                )
+
+        accepted = run(
+            Reader(
+                [
+                    np.ones((1024, 1024, 3), dtype=np.uint8),
+                    terminal,
+                ]
+            )
+        )
+        self.assertEqual(accepted["status"], "fully_decoded")
+        self.assertEqual(accepted["decoded_frame_count"], 2)
+        for name, reader in (
+            (
+                "truncated",
+                Reader(
+                    [terminal],
+                    decode_error=RuntimeError("truncated h264 stream"),
+                ),
+            ),
+            ("wrong_fps", Reader([terminal, terminal], fps=29.0)),
+            (
+                "wrong_resolution",
+                Reader(
+                    [
+                        terminal,
+                        np.zeros((32, 32, 3), dtype=np.uint8),
+                    ]
+                ),
+            ),
+            (
+                "wrong_terminal",
+                Reader(
+                    [
+                        terminal,
+                        np.full(
+                            (1024, 1024, 3),
+                            255,
+                            dtype=np.uint8,
+                        ),
+                    ]
+                ),
+            ),
+            (
+                "extra_frame",
+                Reader([terminal, terminal, terminal]),
+            ),
+        ):
+            with self.subTest(name=name), self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                run(reader)
 
     def test_canary_reference_is_frozen_and_matches_local_validated_results(self):
         reference = json.loads(REFERENCE_PATH.read_text(encoding="utf-8"))
@@ -492,10 +1107,53 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                     "control_path": "aegis_qp",
                     "executed": executed,
                     "qp": qp,
+                    "post_step_controller_proxy": {
+                        "eef_position": [0.0, 0.0, 0.08],
+                        "eef_quaternion_xyzw": [0.0, 0.0, 0.0, 1.0],
+                        "p1": [0.0, 0.0, 0.0],
+                        "R1": np.eye(3).tolist(),
+                    },
                 }
             ],
         }
         self.validator._validate_qp_contexts(result)
+        controller_binding = {
+            "p1": list(context["p1"]),
+            "R1": copy.deepcopy(context["R1"]),
+            "q1_diag": list(context["q1_diag"]),
+            "p2": list(context["p2"]),
+            "R2": copy.deepcopy(context["R2"]),
+            "Q2_diag": list(context["Q2_diag"]),
+            "z_initial": list(context["z_before"]),
+        }
+        self.validator._validate_qp_contexts(
+            result,
+            controller_binding=controller_binding,
+            require_controller_binding=True,
+        )
+        changed_binding = copy.deepcopy(controller_binding)
+        changed_binding["p2"][0] = 2.0
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(
+                result,
+                controller_binding=changed_binding,
+                require_controller_binding=True,
+            )
+        bypassed_qp = copy.deepcopy(result)
+        bypassed_qp["actions"][0]["control_path"] = (
+            "pi05_translational_nominal"
+        )
+        bypassed_qp["actions"][0]["qp"] = None
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(
+                bypassed_qp,
+                controller_binding=controller_binding,
+                require_controller_binding=True,
+            )
         for name, mutate in (
             (
                 "cbf_h",
@@ -528,6 +1186,264 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 self.validator.DiagnosticValidationError
             ):
                 self.validator._validate_qp_contexts(tampered)
+
+    def test_terminal_qp_failure_is_reconstructed_and_hash_bound(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        result = self._terminal_qp_failure_result()
+        self.validator._validate_qp_contexts(result)
+        context = result["method_failure"]["diagnostics"]
+        controller_binding = {
+            "p1": list(context["p1"]),
+            "R1": copy.deepcopy(context["R1"]),
+            "q1_diag": list(context["q1_diag"]),
+            "p2": list(context["p2"]),
+            "R2": copy.deepcopy(context["R2"]),
+            "Q2_diag": list(context["Q2_diag"]),
+            "z_initial": list(context["z_before"]),
+        }
+        self.validator._validate_qp_contexts(
+            result,
+            controller_binding=controller_binding,
+            require_controller_binding=True,
+        )
+        wrong_geometry = copy.deepcopy(controller_binding)
+        wrong_geometry["p2"][0] = 2.0
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(
+                result,
+                controller_binding=wrong_geometry,
+                require_controller_binding=True,
+            )
+
+        missing = copy.deepcopy(result)
+        missing_context = {
+            "status": "failure",
+            "failure_type": "no_solution",
+        }
+        missing["method_failure"]["diagnostics"] = missing_context
+        self._rehash_terminal_qp_failure(missing)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(missing)
+
+        tampered_math = copy.deepcopy(result)
+        tampered_math["method_failure"]["diagnostics"]["cbf"]["h"] = 999.0
+        self._rehash_terminal_qp_failure(tampered_math)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(tampered_math)
+
+        tampered_hash = copy.deepcopy(result)
+        tampered_hash["method_failure"][
+            "diagnostics_payload_sha256"
+        ] = "0" * 64
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(tampered_hash)
+
+        tampered_nominal = copy.deepcopy(result)
+        tampered_nominal["method_failure"]["nominal_raw"][0] = 9.0
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(tampered_nominal)
+
+        relabeled = copy.deepcopy(result)
+        relabeled["method_failure"]["component"] = "other"
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(relabeled)
+
+        relabeled_precontrol = copy.deepcopy(result)
+        relabeled_precontrol["method_failure"].update(
+            {
+                "component": "aegis_geometry",
+                "phase": "precontrol",
+            }
+        )
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(
+                relabeled_precontrol,
+                controller_binding=controller_binding,
+                require_controller_binding=True,
+            )
+
+        stray_precontrol = copy.deepcopy(relabeled_precontrol)
+        stray_precontrol["status"] = "complete"
+        stray_precontrol["terminal_reason"] = "task_success"
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(stray_precontrol)
+
+        deleted = copy.deepcopy(result)
+        del deleted["method_failure"]
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(deleted)
+
+        false_no_solution = copy.deepcopy(result)
+        false_no_solution["method_failure"]["diagnostics"][
+            "solution_observation"
+        ]["variable_value_is_none"] = False
+        self._rehash_terminal_qp_failure(false_no_solution)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(false_no_solution)
+
+        optimal_no_solution = copy.deepcopy(result)
+        optimal_no_solution["method_failure"]["diagnostics"][
+            "solver_status"
+        ] = "optimal"
+        self._rehash_terminal_qp_failure(optimal_no_solution)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(optimal_no_solution)
+
+        arbitrary_nonfinite = copy.deepcopy(result)
+        arbitrary_context = arbitrary_nonfinite["method_failure"][
+            "diagnostics"
+        ]
+        arbitrary_context["failure_type"] = "nonfinite_diagnostics"
+        arbitrary_context["nonfinite_values"] = {"unrelated": "nan"}
+        self._rehash_terminal_qp_failure(arbitrary_nonfinite)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(arbitrary_nonfinite)
+
+    def test_geometry_failure_and_perception_fail_open_remain_valid(self):
+        precontrol = {
+            "mode": "aegis",
+            "status": "method_failure",
+            "terminal_reason": "method_failure",
+            "actions": [],
+            "method_failure": {
+                "status": "method_failure",
+                "component": "aegis_geometry",
+                "phase": "precontrol",
+                "step": 0,
+                "safety_by_no_execution": True,
+            },
+        }
+        self.validator._validate_qp_contexts(
+            precontrol,
+            controller_binding=None,
+            require_controller_binding=True,
+        )
+        passthrough = {
+            "mode": "aegis",
+            "status": "method_failure_passthrough",
+            "terminal_reason": "time_limit",
+            "actions": [],
+            "method_failure": {
+                "status": "method_failure_passthrough",
+                "component": "aegis_perception",
+                "reason": "no_grounded_points",
+                "corrected_execution": "corrected_translational_nominal",
+                "upstream_released_execution": (
+                    "raw_nominal_including_rotation"
+                ),
+                "executed_steps": 0,
+            },
+        }
+        self.validator._validate_qp_contexts(
+            passthrough,
+            controller_binding=None,
+            require_controller_binding=True,
+        )
+
+    def test_terminal_exception_types_require_typed_evidence(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        for failure_type in (
+            "cbf_coefficient_exception",
+            "qp_construction_exception",
+            "solver_exception",
+        ):
+            with self.subTest(failure_type=failure_type):
+                result = self._terminal_qp_failure_result(
+                    failure_type=failure_type
+                )
+                failure = {
+                    "type": "MethodFailure",
+                    "message": "synthetic exception",
+                }
+                if failure_type == "solver_exception":
+                    failure["cause"] = {
+                        "type": "RuntimeError",
+                        "message": "synthetic OSQP error",
+                    }
+                result["method_failure"]["diagnostics"][
+                    "failure"
+                ] = failure
+                self._rehash_terminal_qp_failure(result)
+                self.validator._validate_qp_contexts(result)
+                tampered = copy.deepcopy(result)
+                tampered["method_failure"]["diagnostics"][
+                    "failure"
+                ] = {}
+                self._rehash_terminal_qp_failure(tampered)
+                with self.assertRaises(
+                    self.validator.DiagnosticValidationError
+                ):
+                    self.validator._validate_qp_contexts(tampered)
+
+    def test_invalid_terminal_solution_bytes_are_reconstructed(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        result = self._terminal_qp_failure_result(
+            failure_type="invalid_solution"
+        )
+        solution = np.asarray([0.0, np.nan], dtype=np.float64)
+        context = result["method_failure"]["diagnostics"]
+        context.update(
+            {
+                "solution_shape": list(solution.shape),
+                "solution_descriptor": (
+                    self.diagnostics.array_descriptor(solution)
+                ),
+                "solution_values": self.diagnostics._json_safe(
+                    solution.tolist()
+                ),
+                "solution_raw_bytes_hex": (
+                    np.ascontiguousarray(solution).tobytes().hex()
+                ),
+            }
+        )
+        self._rehash_terminal_qp_failure(result)
+        self.validator._validate_qp_contexts(result)
+
+        tampered = copy.deepcopy(result)
+        tampered["method_failure"]["diagnostics"][
+            "solution_raw_bytes_hex"
+        ] = np.asarray([0.0, 1.0], dtype=np.float64).tobytes().hex()
+        self._rehash_terminal_qp_failure(tampered)
+        with self.assertRaises(
+            self.validator.DiagnosticValidationError
+        ):
+            self.validator._validate_qp_contexts(tampered)
 
     def test_qp_observer_does_not_change_executed_action_or_z(self):
         try:
@@ -759,7 +1675,17 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 contact_descriptor,
                 output_root=root,
                 action_count=1,
+                expected_case_id="case",
             )
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_contacts(
+                    contact_descriptor,
+                    output_root=root,
+                    action_count=1,
+                    expected_case_id="different-case",
+                )
             changed_summary = dict(contact_descriptor)
             changed_summary["snapshot_count"] = 999
             with self.assertRaises(
@@ -787,6 +1713,252 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             ):
                 self.validator._validate_npz_artifact(
                     descriptor, output_root=root
+                )
+
+    def test_controller_geometry_binding_uses_exact_npz_arrays(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case_dir = root / "aegis" / "case"
+            case_dir.mkdir(parents=True)
+            state = self.diagnostics.new_geometry_state(
+                case_id="case",
+                suite_name="safelibero_spatial",
+                label="blue moka pot",
+            )
+            input_arrays = {
+                "agentview": (
+                    np.zeros((2, 2, 3), dtype=np.uint8),
+                    np.zeros((2, 2), dtype=np.float32),
+                ),
+                "backview": (
+                    np.ones((2, 2, 3), dtype=np.uint8),
+                    np.ones((2, 2), dtype=np.float32),
+                ),
+            }
+            settled_contract = {
+                "agentview_array_sha256": (
+                    self.diagnostics.array_sha256(
+                        input_arrays["agentview"][0]
+                    )
+                ),
+                "agentview_depth_array_sha256": (
+                    self.diagnostics.array_sha256(
+                        input_arrays["agentview"][1]
+                    )
+                ),
+                "backview_array_sha256": (
+                    self.diagnostics.array_sha256(
+                        input_arrays["backview"][0]
+                    )
+                ),
+                "backview_depth_array_sha256": (
+                    self.diagnostics.array_sha256(
+                        input_arrays["backview"][1]
+                    )
+                ),
+            }
+            state["views"] = {}
+            for view in ("agentview", "backview"):
+                boxes = np.empty((0, 4), dtype=np.float32)
+                logits = np.empty((0,), dtype=np.float32)
+                raw_points = np.empty((0, 3), dtype=np.float64)
+                raw_descriptor = self.diagnostics._add_array(
+                    state,
+                    f"{view}_raw_points",
+                    raw_points,
+                )
+                state["views"][view] = {
+                    "view": view,
+                    "status": "no_detection",
+                    "request": {
+                        "caption": "blue moka pot",
+                        "box_threshold": 0.35,
+                        "text_threshold": 0.25,
+                        "device": "cuda",
+                    },
+                    "input_image": self.diagnostics.array_descriptor(
+                        input_arrays[view][0]
+                    ),
+                    "input_depth": self.diagnostics.array_descriptor(
+                        input_arrays[view][1]
+                    ),
+                    "detections": {
+                        "count": 0,
+                        "selected_index": None,
+                        "returned_order_phrases": [],
+                        "returned_order_boxes_cxcywh": [],
+                        "returned_order_boxes_cxcywh_array": (
+                            self.diagnostics.array_descriptor(boxes)
+                        ),
+                        "returned_order_boxes_xyxy": [],
+                        "returned_order_boxes_xyxy_array": (
+                            self.diagnostics.array_descriptor(boxes)
+                        ),
+                        "returned_order_logits": [],
+                        "returned_order_logits_array": (
+                            self.diagnostics.array_descriptor(logits)
+                        ),
+                    },
+                    "no_detection": {"explicit": True},
+                    "raw_points_array": raw_descriptor,
+                    "returned_point_cloud": raw_descriptor,
+                }
+            filtering_arrays = {}
+            for key in (
+                "fused_points",
+                "range_mask",
+                "range_filtered_points",
+                "centroid_distances",
+                "centroid_sorted_indices",
+                "nearest80_points",
+                "dbscan_labels",
+                "shadow_filtered_points",
+                "released_filtered_points",
+            ):
+                filtering_arrays[key] = self.diagnostics._add_array(
+                    state,
+                    key,
+                    np.zeros((1,), dtype=np.float64),
+                )
+            state["filtering"] = {
+                "status": "captured",
+                "shadow_matches_released": True,
+                "centroid_trim": {"fraction_kept": 0.8},
+                "dbscan": {"eps": 0.0001, "min_points": 50},
+                "arrays": filtering_arrays,
+            }
+            center = np.asarray([1.0, 0.0, 0.0])
+            rotation = np.eye(3)
+            semiaxes = np.asarray([0.1, 0.2, 0.3])
+            mvee_arrays = {}
+            for key, value in {
+                "hull_vertices": np.zeros((1,), dtype=np.int64),
+                "hull_simplices": np.zeros((1, 3), dtype=np.int64),
+                "hull_equations": np.zeros((1, 4)),
+                "mvee_input": np.zeros((1, 3)),
+                "center": center,
+                "matrix_A": np.eye(3),
+                "released_center": center,
+                "released_rotation": rotation,
+                "released_semiaxes": semiaxes,
+                "matrix_A_eigenvalues": np.ones(3),
+                "matrix_A_eigenvectors": np.eye(3),
+                "hull_quadratic_values": np.zeros(1),
+            }.items():
+                mvee_arrays[key] = self.diagnostics._add_array(
+                    state, key, value
+                )
+            state["mvee"] = {
+                "status": "captured",
+                "solver_calls": [{"status": "optimal"}],
+                "matrix_A": np.eye(3).tolist(),
+                "eigenvalues": [1.0, 1.0, 1.0],
+                "semiaxes": semiaxes.tolist(),
+                "center": center.tolist(),
+                "rotation": rotation.tolist(),
+                "arrays": mvee_arrays,
+            }
+            self.diagnostics.record_initial_geometry_direction(
+                state,
+                stale_proxy_center=np.zeros(3),
+                stale_proxy_rotation=np.eye(3),
+                obstacle_center=center,
+                direction=np.asarray([1.0, 0.0, 0.0]),
+            )
+            state["status"] = "complete"
+            descriptor = self.diagnostics.publish_geometry_artifact(
+                state,
+                case_dir=case_dir,
+                output_root=root,
+            )
+            binding = self.validator._validate_geometry(
+                descriptor,
+                output_root=root,
+                require_ready=True,
+                expected_case_id="case",
+                expected_suite="safelibero_spatial",
+                expected_label="blue moka pot",
+                settled_contract=settled_contract,
+            )
+            self.assertEqual(binding["p2"], center.tolist())
+            tampered = copy.deepcopy(descriptor)
+            tampered["record"]["mvee"]["center"][0] = 2.0
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_geometry(
+                    tampered,
+                    output_root=root,
+                    require_ready=True,
+                    expected_case_id="case",
+                    expected_suite="safelibero_spatial",
+                    expected_label="blue moka pot",
+                    settled_contract=settled_contract,
+                )
+            wrong_caption = copy.deepcopy(descriptor)
+            wrong_caption["record"]["views"]["agentview"]["request"][
+                "caption"
+            ] = "red mug"
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_geometry(
+                    wrong_caption,
+                    output_root=root,
+                    require_ready=True,
+                    expected_case_id="case",
+                    expected_suite="safelibero_spatial",
+                    expected_label="blue moka pot",
+                    settled_contract=settled_contract,
+                )
+            wrong_points = copy.deepcopy(descriptor)
+            wrong_points["record"]["views"]["backview"][
+                "raw_points_array"
+            ]["array_sha256"] = "0" * 64
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_geometry(
+                    wrong_points,
+                    output_root=root,
+                    require_ready=True,
+                    expected_case_id="case",
+                    expected_suite="safelibero_spatial",
+                    expected_label="blue moka pot",
+                    settled_contract=settled_contract,
+                )
+            wrong_state = copy.deepcopy(state)
+            self.diagnostics.record_initial_geometry_direction(
+                wrong_state,
+                stale_proxy_center=np.zeros(3),
+                stale_proxy_rotation=np.eye(3),
+                obstacle_center=center,
+                direction=np.asarray([0.0, 1.0, 0.0]),
+            )
+            wrong_case_dir = root / "aegis" / "wrong-direction"
+            wrong_case_dir.mkdir(parents=True)
+            wrong_descriptor = (
+                self.diagnostics.publish_geometry_artifact(
+                    wrong_state,
+                    case_dir=wrong_case_dir,
+                    output_root=root,
+                )
+            )
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_geometry(
+                    wrong_descriptor,
+                    output_root=root,
+                    require_ready=True,
+                    expected_case_id="case",
+                    expected_suite="safelibero_spatial",
+                    expected_label="blue moka pot",
+                    settled_contract=settled_contract,
                 )
 
     def test_failure_geometry_requires_explicit_two_view_ledger(self):
@@ -894,6 +2066,27 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 r"\(\s*(In|On)\s+[^\s()]+\s+[^\s()]+\s*\)",
                 goal,
                 flags=re.IGNORECASE,
+            )
+            trusted_atoms = self.validator._trusted_native_goal_atoms(
+                {
+                    "case_id": row["case_id"],
+                    "case": row,
+                    "pairing": {
+                        "manifest_row_sha256": (
+                            self.diagnostics.sha256_bytes(
+                                self.diagnostics.canonical_json_bytes(
+                                    row
+                                )
+                            )
+                        )
+                    },
+                }
+            )
+            self.assertEqual(len(trusted_atoms), len(atoms), group_id)
+            self.assertEqual(
+                [atom["predicate"] for atom in trusted_atoms],
+                [predicate.lower() for predicate in atoms],
+                group_id,
             )
             counts[len(atoms)] += 1
             predicates.update(atom.lower() for atom in atoms)

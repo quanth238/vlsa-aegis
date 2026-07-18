@@ -21,6 +21,7 @@ from typing import Any, Mapping, Sequence
 DIAGNOSTICS_SCHEMA = "vlsa_table1_aegis_failure_diagnostics.v1"
 GEOMETRY_SCHEMA = "vlsa_table1_aegis_geometry_diagnostics.v1"
 CONTACT_SCHEMA = "vlsa_table1_active_obstacle_contacts.v1"
+TERMINAL_FRAME_SCHEMA = "vlsa_table1_terminal_frame.v1"
 ACTION_LEDGER_SCHEMA = "vlsa_table1_action_invariance_ledger.v1"
 REFERENCE_SCHEMA = "vlsa_table1_canary_action_reference.v1"
 
@@ -779,17 +780,22 @@ def record_initial_geometry_direction(
     state: dict[str, Any],
     *,
     stale_proxy_center: Any,
+    stale_proxy_rotation: Any,
     obstacle_center: Any,
     direction: Any,
 ) -> None:
     state["initial_direction"] = {
         "formula": "normalize(mvee_center - stale_pre_settle_eef_proxy_center)",
         "stale_proxy_center": _finite_nested(stale_proxy_center),
+        "stale_proxy_rotation": _finite_nested(stale_proxy_rotation),
         "obstacle_center": _finite_nested(obstacle_center),
         "z_initial": _finite_nested(direction),
         "arrays": {
             "stale_proxy_center": _add_array(
                 state, "stale_proxy_center", stale_proxy_center
+            ),
+            "stale_proxy_rotation": _add_array(
+                state, "stale_proxy_rotation", stale_proxy_rotation
             ),
             "z_initial": _add_array(state, "z_initial", direction),
         },
@@ -858,6 +864,33 @@ def publish_geometry_artifact(
         "keys": sorted(arrays),
         "arrays": metadata,
         "record": public_record,
+    }
+
+
+def publish_terminal_frame_artifact(
+    *,
+    frame: Any,
+    case_dir: Path,
+    output_root: Path,
+) -> dict[str, Any]:
+    import numpy as np
+
+    value = np.ascontiguousarray(frame)
+    path = case_dir / "terminal_agentview.npy"
+    temporary = path.with_name(
+        f".{path.stem}.{os.getpid()}.partial.npy"
+    )
+    with temporary.open("wb") as stream:
+        np.save(stream, value, allow_pickle=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+    return {
+        "schema_version": TERMINAL_FRAME_SCHEMA,
+        "path": str(path.relative_to(output_root)),
+        "sha256": sha256_path(path),
+        "format": "numpy_npy",
+        "array": array_descriptor(value),
     }
 
 
