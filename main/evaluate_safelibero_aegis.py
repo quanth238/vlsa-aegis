@@ -33,6 +33,8 @@ import time
 import traceback
 from typing import Any, Iterable, Mapping, Sequence
 
+import aegis_failure_diagnostics as failure_diagnostics
+
 
 RESULT_SCHEMA = "vlsa_table1_episode_result.v1"
 GOAL_PROGRESS_SCHEMA = "safelibero_goal_progress.v1"
@@ -80,6 +82,17 @@ class ApparatusError(RuntimeError):
 
 class MethodFailure(RuntimeError):
     """The released method reached a validly observed hard failure."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostics: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.diagnostics = (
+            None if diagnostics is None else dict(diagnostics)
+        )
 
 
 def _is_precontrol_geometry_failure(result: Mapping[str, Any]) -> bool:
@@ -563,6 +576,7 @@ def _scientific_resume_is_valid(
     arm: str,
     output_root: Path,
     expected_label_record: Mapping[str, Any] | None,
+    require_failure_diagnostics: bool = False,
 ) -> bool:
     """Conservatively recognize a complete, video-backed terminal result."""
 
@@ -761,6 +775,43 @@ def _scientific_resume_is_valid(
         or not isinstance(goal_progress.get("summary"), Mapping)
     ):
         return False
+    if require_failure_diagnostics:
+        diagnostic_record = result.get("failure_diagnostics")
+        if (
+            not isinstance(diagnostic_record, Mapping)
+            or diagnostic_record.get("enabled") is not True
+            or diagnostic_record.get("status") != "published"
+        ):
+            return False
+        embedded_ledger = result.get("action_invariance_ledger")
+        if not isinstance(embedded_ledger, Mapping):
+            return False
+        recomputed_ledger = failure_diagnostics.action_invariance_ledger(
+            actions=result["actions"],
+            policy_queries=policy_queries,
+        )
+        if failure_diagnostics.compare_action_ledgers(
+            embedded_ledger, recomputed_ledger
+        ):
+            return False
+        contacts = diagnostic_record.get("contacts")
+        if not isinstance(contacts, Mapping):
+            return False
+        try:
+            failure_diagnostics.validate_artifact_descriptor(
+                contacts,
+                output_root=output_root,
+            )
+            if arm == "pi05_plus_aegis_translational":
+                geometry = diagnostic_record.get("geometry")
+                if not isinstance(geometry, Mapping):
+                    return False
+                failure_diagnostics.validate_artifact_descriptor(
+                    geometry,
+                    output_root=output_root,
+                )
+        except ValueError:
+            return False
     payload_hash = result.get("result_payload_sha256")
     if (
         not isinstance(payload_hash, str)
@@ -784,7 +835,13 @@ def _archive_prior_case_artifacts(case_dir: Path) -> dict[str, str]:
 
     archived: dict[str, str] = {}
     archive_dir = case_dir / "attempts"
-    for source_name in ("result.json", "episode.mp4", "episode.partial.mp4"):
+    for source_name in (
+        "result.json",
+        "episode.mp4",
+        "episode.partial.mp4",
+        "aegis_geometry_diagnostics.npz",
+        "active_obstacle_contacts.json.gz",
+    ):
         source = case_dir / source_name
         if not source.is_file():
             continue
@@ -1316,6 +1373,114 @@ def _contact_snapshot(
         }
 
 
+def _detailed_active_obstacle_contacts(
+    env: Any,
+    obstacle_name: str,
+    *,
+    step: int,
+) -> dict[str, Any]:
+    """Read every active-obstacle contact with canonical obstacle-first sides."""
+
+    try:
+        model = env.sim.model
+        data = env.sim.data
+        events: list[dict[str, Any]] = []
+        robot_pairs: list[dict[str, Any]] = []
+        for contact_index in range(int(data.ncon)):
+            contact = data.contact[contact_index]
+            raw_geom_ids = [int(contact.geom1), int(contact.geom2)]
+            raw_body_ids = [
+                int(model.geom_bodyid[raw_geom_ids[0]]),
+                int(model.geom_bodyid[raw_geom_ids[1]]),
+            ]
+            raw_lineages = [
+                _body_lineage(model, raw_body_ids[0]),
+                _body_lineage(model, raw_body_ids[1]),
+            ]
+            obstacle_sides = [
+                index
+                for index, lineage in enumerate(raw_lineages)
+                if _is_obstacle_lineage(lineage, obstacle_name)
+            ]
+            if not obstacle_sides:
+                continue
+            obstacle_side = obstacle_sides[0]
+            other_side = 1 - obstacle_side
+            normal = _finite_list(contact.frame[:3])
+            if obstacle_side == 1:
+                normal = [-value for value in normal]
+
+            def side_record(index: int) -> dict[str, Any]:
+                geom_id = raw_geom_ids[index]
+                body_id = raw_body_ids[index]
+                geom_name = model.geom_id2name(geom_id)
+                body_name = model.body_id2name(body_id)
+                return {
+                    "geom_id": geom_id,
+                    "geom_name": (
+                        None if geom_name is None else str(geom_name)
+                    ),
+                    "body_id": body_id,
+                    "body_name": (
+                        None if body_name is None else str(body_name)
+                    ),
+                    "body_lineage": raw_lineages[index],
+                }
+
+            obstacle = side_record(obstacle_side)
+            other = side_record(other_side)
+            other["classification"] = (
+                "robot"
+                if _is_robot_lineage(raw_lineages[other_side])
+                else "nonrobot"
+            )
+            event = {
+                "step": int(step),
+                "contact_index": contact_index,
+                "raw_order": {
+                    "geom1_id": raw_geom_ids[0],
+                    "geom2_id": raw_geom_ids[1],
+                    "obstacle_side": (
+                        "geom1" if obstacle_side == 0 else "geom2"
+                    ),
+                },
+                "obstacle": obstacle,
+                "other": other,
+                "distance": float(contact.dist),
+                "position": _finite_list(contact.pos),
+                "normal_obstacle_to_other": normal,
+            }
+            event["event_sha256"] = sha256_bytes(
+                canonical_json_bytes(event)
+            )
+            events.append(event)
+            if other["classification"] == "robot":
+                robot_pairs.append(
+                    {
+                        "geom1": model.geom_id2name(raw_geom_ids[0]),
+                        "geom2": model.geom_id2name(raw_geom_ids[1]),
+                        "body_lineage1": raw_lineages[0],
+                        "body_lineage2": raw_lineages[1],
+                    }
+                )
+        return {
+            "status": "available",
+            "step": int(step),
+            "active_obstacle_name": obstacle_name,
+            "events": events,
+            "robot_pairs": robot_pairs,
+        }
+    except Exception as error:
+        return {
+            "status": "unavailable",
+            "step": int(step),
+            "active_obstacle_name": obstacle_name,
+            "events": [],
+            "robot_pairs": [],
+            "error": f"{type(error).__name__}: {error}",
+        }
+
+
 def _finite_list(value: Any) -> list[float]:
     import numpy as np
 
@@ -1387,6 +1552,7 @@ def _prepare_aegis_geometry(
     grounding_device: str,
     artifact_dir: Path,
     stale_proxy: Mapping[str, Any],
+    diagnostic_state: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run the released two-view perception, filtering, and MVEE once."""
 
@@ -1407,34 +1573,99 @@ def _prepare_aegis_geometry(
         "filtering_suite_argument": suite_name,
         "groundingdino_device": grounding_device,
     }
-    try:
-        agent_points = _valid_points(
-            released.get_point_cloud(
-                agent_image,
-                agent_depth,
+    def run_view(
+        view: str,
+        image: Any,
+        depth: Any,
+    ) -> tuple[Any, Any]:
+        if diagnostic_state is None:
+            raw_points = released.get_point_cloud(
+                image,
+                depth,
                 env,
-                "agentview",
+                view,
                 label,
                 grounding_model,
                 perception_dir,
                 device=grounding_device,
-            ),
-            np,
+            )
+            return raw_points, _valid_points(raw_points, np)
+        raw_points, view_record = (
+            failure_diagnostics.run_released_point_cloud_with_diagnostics(
+                released=released,
+                image=image,
+                depth=depth,
+                env=env,
+                view=view,
+                label=label,
+                grounding_model=grounding_model,
+                perception_dir=perception_dir,
+                device=grounding_device,
+            )
         )
-        back_points = _valid_points(
-            released.get_point_cloud(
-                back_image,
-                back_depth,
-                env,
-                "backview",
-                label,
-                grounding_model,
-                perception_dir,
-                device=grounding_device,
-            ),
-            np,
+        failure_diagnostics.record_view_points(
+            diagnostic_state,
+            view=view,
+            view_record=view_record,
+            points=raw_points,
+        )
+        return raw_points, _valid_points(raw_points, np)
+
+    def record_view_failure(
+        error: Exception,
+        *,
+        failed_view: str,
+        unattempted_views: Sequence[str],
+    ) -> None:
+        if diagnostic_state is None:
+            return
+        view_record = getattr(error, "aegis_view_diagnostics", None)
+        if isinstance(view_record, Mapping):
+            diagnostic_state["views"][failed_view] = dict(view_record)
+        else:
+            diagnostic_state["views"][failed_view] = {
+                "view": failed_view,
+                "status": "observer_or_runtime_failure",
+                "failure": {
+                    "type": type(error).__name__,
+                    "message": str(error),
+                },
+            }
+        for view in unattempted_views:
+            diagnostic_state["views"][view] = {
+                "view": view,
+                "status": "not_attempted",
+                "reason": f"prior_view_failed:{failed_view}",
+            }
+        failure_diagnostics.record_geometry_failure(
+            diagnostic_state,
+            component="groundingdino_point_cloud",
+            error=error,
+        )
+
+    try:
+        agent_raw_points, agent_points = run_view(
+            "agentview", agent_image, agent_depth
         )
     except Exception as error:
+        record_view_failure(
+            error,
+            failed_view="agentview",
+            unattempted_views=("backview",),
+        )
+        raise ApparatusError(
+            f"GroundingDINO/point-cloud execution failed: {error}"
+        ) from error
+    try:
+        back_raw_points, back_points = run_view(
+            "backview", back_image, back_depth
+        )
+    except Exception as error:
+        record_view_failure(
+            error,
+            failed_view="backview",
+            unattempted_views=(),
+        )
         raise ApparatusError(
             f"GroundingDINO/point-cloud execution failed: {error}"
         ) from error
@@ -1444,6 +1675,13 @@ def _prepare_aegis_geometry(
     }
     nonempty = [points for points in (agent_points, back_points) if len(points)]
     if not nonempty:
+        if diagnostic_state is not None:
+            diagnostic_state["status"] = "method_failure_passthrough"
+            diagnostic_state["failure"] = {
+                "component": "aegis_perception",
+                "type": "no_grounded_points",
+                "message": "both released camera views returned no points",
+            }
         record.update(
             {
                 "status": "empty",
@@ -1463,12 +1701,45 @@ def _prepare_aegis_geometry(
             released.filtering_points(full_points, suite_name), np
         )
     except Exception as error:
+        if diagnostic_state is not None:
+            failure_diagnostics.record_geometry_failure(
+                diagnostic_state,
+                component="released_point_filtering",
+                error=error,
+            )
         raise ApparatusError(
             f"released point-cloud filtering failed: {error}"
         ) from error
+    if diagnostic_state is not None:
+        try:
+            failure_diagnostics.record_filtering(
+                diagnostic_state,
+                fused_points=full_points,
+                released_filtered_points=filtered,
+                suite_name=suite_name,
+            )
+        except Exception as error:
+            failure_diagnostics.record_geometry_failure(
+                diagnostic_state,
+                component="diagnostic_filter_reconstruction",
+                error=error,
+            )
+            diagnostic_state["filtering"] = {
+                "status": "diagnostic_failure",
+                "type": type(error).__name__,
+                "message": str(error),
+                "released_filtered_point_count": int(filtered.shape[0]),
+            }
     record["fused_point_count"] = int(full_points.shape[0])
     record["filtered_point_count"] = int(filtered.shape[0])
     if not len(filtered):
+        if diagnostic_state is not None:
+            diagnostic_state["status"] = "method_failure_passthrough"
+            diagnostic_state["failure"] = {
+                "component": "aegis_perception",
+                "type": "point_filter_removed_all_points",
+                "message": "released filtering removed all fused points",
+            }
         record.update(
             {
                 "status": "empty",
@@ -1481,10 +1752,27 @@ def _prepare_aegis_geometry(
         )
         return {"enabled": False, "record": record}
     try:
-        p2, R2, Q2_diag = released.fit_ellipse(
-            filtered, plot=True, save_path=perception_dir
-        )
+        if diagnostic_state is None:
+            p2, R2, Q2_diag = released.fit_ellipse(
+                filtered, plot=True, save_path=perception_dir
+            )
+        else:
+            p2, R2, Q2_diag = (
+                failure_diagnostics.run_released_fit_ellipse_with_diagnostics(
+                    released=released,
+                    points=filtered,
+                    plot=True,
+                    save_path=perception_dir,
+                    state=diagnostic_state,
+                )
+            )
     except Exception as error:
+        if diagnostic_state is not None:
+            failure_diagnostics.record_geometry_failure(
+                diagnostic_state,
+                component="released_convex_hull_mvee",
+                error=error,
+            )
         raise MethodFailure(
             f"released ConvexHull/MVEE fitting failed: {error}"
         ) from error
@@ -1505,6 +1793,15 @@ def _prepare_aegis_geometry(
     if not math.isfinite(norm) or norm <= 1e-12:
         raise MethodFailure("released MVEE produced a degenerate direction")
     z_fixed /= norm
+    if diagnostic_state is not None:
+        failure_diagnostics.record_initial_geometry_direction(
+            diagnostic_state,
+            stale_proxy_center=stale_proxy["p1"],
+            obstacle_center=p2,
+            direction=z_fixed,
+        )
+        if diagnostic_state.get("status") != "failure":
+            diagnostic_state["status"] = "complete"
     record.update(
         {
             "status": "ready",
@@ -1530,6 +1827,7 @@ def _aegis_action(
     proxy: Mapping[str, Any],
     geometry: dict[str, Any],
     q1_diag: Any,
+    diagnostics_enabled: bool = False,
 ) -> tuple[list[float], dict[str, Any]]:
     """Apply the released six-variable translational QP exactly."""
 
@@ -1542,42 +1840,203 @@ def _aegis_action(
     R2 = geometry["R2"]
     Q2_diag = geometry["Q2_diag"]
     z_fixed = geometry["z_fixed"]
+    z_before = np.asarray(z_fixed, dtype=float).copy()
 
     movement = np.asarray(nominal_translational, dtype=float)
     v_ref = R1.T @ movement[:3]
     u_v_ref = 5.0 * v_ref
-    a_v, _, a_uz, h, mu_row = released.compute_h_coeffs_3d(
-        p1, q1_diag, R1, p2, Q2_diag, R2, z_fixed
-    )
+    diagnostic_inputs: dict[str, Any] = {}
+    if diagnostics_enabled:
+        try:
+            diagnostic_inputs = {
+                "p1": _finite_list(p1),
+                "R1": [_finite_list(row) for row in R1],
+                "q1_diag": _finite_list(q1_diag),
+                "p2": _finite_list(p2),
+                "R2": [_finite_list(row) for row in R2],
+                "Q2_diag": _finite_list(Q2_diag),
+                "z_before": _finite_list(z_before),
+                "nominal_translational": _finite_list(movement),
+                "v_ref": _finite_list(v_ref),
+                "u_v_reference": _finite_list(u_v_ref),
+            }
+        except Exception as diagnostic_error:
+            diagnostic_inputs = {
+                "status": "diagnostic_failure",
+                "observer_failure": {
+                    "type": type(diagnostic_error).__name__,
+                    "message": str(diagnostic_error),
+                },
+            }
+    try:
+        a_v, a_omega, a_uz, h, mu_row = (
+            released.compute_h_coeffs_3d(
+                p1, q1_diag, R1, p2, Q2_diag, R2, z_fixed
+            )
+        )
+    except Exception as error:
+        if diagnostics_enabled:
+            raise MethodFailure(
+                f"AEGIS CBF coefficient execution failed: {error}",
+                diagnostics={
+                    **diagnostic_inputs,
+                    "status": "failure",
+                    "failure_type": "cbf_coefficient_exception",
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                    },
+                },
+            ) from error
+        raise
     a_u_v = 0.2 * np.asarray(a_v, dtype=float)
     a_uz = np.asarray(a_uz, dtype=float)
     mu_row = np.asarray(mu_row, dtype=float).reshape(-1)
     u_z_nom = 10.0 * mu_row
-    variable = cp.Variable(6)
-    weights = np.diag([1.0 / 25.0] * 3 + [1.0] * 3)
-    reference = np.hstack([u_v_ref, u_z_nom])
-    problem = cp.Problem(
-        cp.Minimize(cp.quad_form(variable - reference, weights)),
-        [a_u_v @ variable[:3] + a_uz @ variable[3:6] + 10.0 * h >= 0],
-    )
-    _solve_aegis_qp(problem, cp)
+    try:
+        variable = cp.Variable(6)
+        weights = np.diag([1.0 / 25.0] * 3 + [1.0] * 3)
+        reference = np.hstack([u_v_ref, u_z_nom])
+        problem = cp.Problem(
+            cp.Minimize(cp.quad_form(variable - reference, weights)),
+            [a_u_v @ variable[:3] + a_uz @ variable[3:6] + 10.0 * h >= 0],
+        )
+    except Exception as error:
+        if diagnostics_enabled:
+            raise MethodFailure(
+                f"AEGIS QP construction failed: {error}",
+                diagnostics={
+                    **diagnostic_inputs,
+                    "status": "failure",
+                    "failure_type": "qp_construction_exception",
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                    },
+                },
+            ) from error
+        raise
+    constraint = problem.constraints[0]
+    qp_context: dict[str, Any] = {}
+    if diagnostics_enabled:
+        try:
+            reference_lhs = float(
+                a_u_v @ u_v_ref
+                + a_uz @ u_z_nom
+                + 10.0 * float(h)
+            )
+            qp_context = {
+            "solver": "OSQP",
+            "status": "prepared",
+            **diagnostic_inputs,
+            "u_z_reference": _finite_list(u_z_nom),
+                "reference": _finite_list(reference),
+                "weights_diagonal": _finite_list(np.diag(weights)),
+                "cbf": {
+                    "a_v": _finite_list(a_v),
+                    "a_omega": _finite_list(a_omega),
+                    "a_u_v": _finite_list(a_u_v),
+                    "a_u_z": _finite_list(a_uz),
+                    "mu_row": _finite_list(mu_row),
+                    "h": float(h),
+                    "alpha_gain": 10.0,
+                    "constant": 10.0 * float(h),
+                    "reference_lhs": reference_lhs,
+                    "reference_slack": reference_lhs,
+                    "reference_violation": max(0.0, -reference_lhs),
+                },
+            }
+        except Exception as diagnostic_error:
+            qp_context = {
+                "solver": "OSQP",
+                "status": "diagnostic_failure",
+                "observer_failure": {
+                    "type": type(diagnostic_error).__name__,
+                    "message": str(diagnostic_error),
+                },
+            }
+    try:
+        _solve_aegis_qp(problem, cp)
+    except MethodFailure as error:
+        if diagnostics_enabled:
+            qp_context.update(
+                {
+                    "status": "failure",
+                    "failure_type": "solver_exception",
+                    "failure": {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                    },
+                    "solver_status": str(getattr(problem, "status", None)),
+                    "solver_stats": failure_diagnostics._solver_stats(
+                        problem
+                    ),
+                }
+            )
+            error.diagnostics = qp_context
+        raise
     if variable.value is None:
         # The release referenced an undefined v_ref2 and then an undefined
         # name.  Preserve the resulting episode-level method failure without
         # inventing a successful fallback.
         raise MethodFailure(
-            f"AEGIS QP returned no solution (status={problem.status})"
+            f"AEGIS QP returned no solution (status={problem.status})",
+            diagnostics=(
+                {
+                    **qp_context,
+                    "status": "failure",
+                    "failure_type": "no_solution",
+                    "solver_status": str(problem.status),
+                    "solver_stats": failure_diagnostics._solver_stats(
+                        problem
+                    ),
+                }
+                if diagnostics_enabled
+                else None
+            ),
         )
     solution = np.asarray(variable.value, dtype=float).reshape(-1)
     if solution.shape != (6,) or not np.all(np.isfinite(solution)):
-        raise MethodFailure("AEGIS QP returned an invalid solution")
+        raise MethodFailure(
+            "AEGIS QP returned an invalid solution",
+            diagnostics=(
+                {
+                    **qp_context,
+                    "status": "failure",
+                    "failure_type": "invalid_solution",
+                    "solution_shape": list(solution.shape),
+                    "solver_status": str(problem.status),
+                    "solver_stats": failure_diagnostics._solver_stats(
+                        problem
+                    ),
+                }
+                if diagnostics_enabled
+                else None
+            ),
+        )
     u_v = solution[:3]
     u_z = solution[3:6]
     projection = np.eye(3) - np.outer(z_fixed, z_fixed)
     next_z = z_fixed + projection @ u_z * 0.05
     next_z_norm = float(np.linalg.norm(next_z))
     if not math.isfinite(next_z_norm) or next_z_norm <= 1e-12:
-        raise MethodFailure("AEGIS virtual direction became degenerate")
+        raise MethodFailure(
+            "AEGIS virtual direction became degenerate",
+            diagnostics=(
+                {
+                    **qp_context,
+                    "status": "failure",
+                    "failure_type": "degenerate_virtual_direction",
+                    "u_solution": _finite_list(solution),
+                    "solver_status": str(problem.status),
+                    "solver_stats": failure_diagnostics._solver_stats(
+                        problem
+                    ),
+                }
+                if diagnostics_enabled
+                else None
+            ),
+        )
     geometry["z_fixed"] = next_z / next_z_norm
     executed = [0.0] * 7
     executed[:3] = _finite_list(0.2 * R1 @ u_v)
@@ -1596,11 +2055,79 @@ def _aegis_action(
         "u_solution": _finite_list(solution),
         "z_after": _finite_list(geometry["z_fixed"]),
     }
+    if diagnostics_enabled:
+        diagnostics["z_before"] = _finite_list(z_before)
+        try:
+            dual_value = getattr(constraint, "dual_value", None)
+            diagnostics.update(
+                {
+                    "status": "solved",
+                    "context": {
+                        **qp_context,
+                        "status": "solved",
+                        "solver_status": str(problem.status),
+                        "solver_stats": failure_diagnostics._solver_stats(
+                            problem
+                        ),
+                        "objective": (
+                            None
+                            if problem.value is None
+                            else float(problem.value)
+                        ),
+                        "u_solution": _finite_list(solution),
+                        "solution_lhs": constraint_lhs,
+                        "solution_slack": constraint_lhs,
+                        "solution_violation": max(0.0, -constraint_lhs),
+                        "constraint_dual": (
+                            None
+                            if dual_value is None
+                            else _finite_list(dual_value)
+                        ),
+                        "z_after": _finite_list(geometry["z_fixed"]),
+                        "executed_action": list(executed),
+                        "executed_action_array_sha256": array_sha256(
+                            np.asarray(executed, dtype=float)
+                        ),
+                        "executed_action_canonical_sha256": sha256_bytes(
+                            canonical_json_bytes(list(executed))
+                        ),
+                    },
+                }
+            )
+        except Exception as diagnostic_error:
+            diagnostics.update(
+                {
+                    "status": "diagnostic_failure",
+                    "context": {
+                        **qp_context,
+                        "status": "diagnostic_failure",
+                        "observer_failure": {
+                            "type": type(diagnostic_error).__name__,
+                            "message": str(diagnostic_error),
+                        },
+                    },
+                }
+            )
     if not all(
         math.isfinite(value)
         for value in (diagnostics["barrier_h"], constraint_lhs)
     ):
-        raise MethodFailure("AEGIS QP diagnostics are non-finite")
+        raise MethodFailure(
+            "AEGIS QP diagnostics are non-finite",
+            diagnostics=(
+                {
+                    **qp_context,
+                    "status": "failure",
+                    "failure_type": "nonfinite_diagnostics",
+                    "solver_status": str(problem.status),
+                    "solver_stats": failure_diagnostics._solver_stats(
+                        problem
+                    ),
+                }
+                if diagnostics_enabled
+                else None
+            ),
+        )
     return executed, diagnostics
 
 
@@ -1686,6 +2213,7 @@ def evaluate_case(
     groundingdino_checkpoint: Path,
     groundingdino_device: str,
     overwrite: bool,
+    failure_diagnostics_enabled: bool = False,
 ) -> dict[str, Any]:
     """Execute one manifest case and atomically publish its result."""
 
@@ -1721,6 +2249,7 @@ def evaluate_case(
             arm=arm,
             output_root=output_root,
             expected_label_record=current_label_record,
+            require_failure_diagnostics=failure_diagnostics_enabled,
         ):
             return existing
     prior_attempt_artifacts = _archive_prior_case_artifacts(case_dir)
@@ -1734,6 +2263,9 @@ def evaluate_case(
     frames_written = 0
     terminal_frame_hash: str | None = None
     executed_actions: list[dict[str, Any]] = []
+    policy_queries: list[dict[str, Any]] = []
+    geometry_diagnostic_state: dict[str, Any] | None = None
+    contact_diagnostic_snapshots: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA,
         "protocol_id": case.get("protocol_id"),
@@ -1775,6 +2307,13 @@ def evaluate_case(
         "timing": {"started_unix": started_wall},
         "actions": executed_actions,
     }
+    if failure_diagnostics_enabled:
+        result["failure_diagnostics"] = {
+            "schema_version": failure_diagnostics.DIAGNOSTICS_SCHEMA,
+            "enabled": True,
+            "mode": mode,
+            "control_effect": "read_only_observation",
+        }
     if prior_attempt_artifacts:
         result["prior_attempt_artifacts"] = prior_attempt_artifacts
     try:
@@ -1870,11 +2409,29 @@ def evaluate_case(
             ),
         }
 
+        if failure_diagnostics_enabled:
+            settled_contacts = _detailed_active_obstacle_contacts(
+                env,
+                obstacle_name,
+                step=-1,
+            )
+            contact_diagnostic_snapshots.append(settled_contacts)
+
         geometry: dict[str, Any] | None = None
         method_degraded = False
         degraded_method_failure: dict[str, Any] | None = None
         precontrol_method_failure: dict[str, Any] | None = None
         if mode == "aegis":
+            if failure_diagnostics_enabled:
+                geometry_diagnostic_state = (
+                    failure_diagnostics.new_geometry_state(
+                        case_id=case_id,
+                        suite_name=normalize_suite_name(
+                            str(case["suite"])
+                        ),
+                        label=str(label),
+                    )
+                )
             grounding_model = _load_grounding_model(
                 config_path=groundingdino_config,
                 checkpoint_path=groundingdino_checkpoint,
@@ -1892,6 +2449,7 @@ def evaluate_case(
                     grounding_device=groundingdino_device,
                     artifact_dir=case_dir,
                     stale_proxy=proxy,
+                    diagnostic_state=geometry_diagnostic_state,
                 )
             except MethodFailure as error:
                 geometry = None
@@ -1933,7 +2491,6 @@ def evaluate_case(
         )
         result["policy_server"] = _server_identity(client)
         action_plan: collections.deque[Any] = collections.deque()
-        policy_queries: list[dict[str, Any]] = []
         result["policy_queries"] = policy_queries
 
         if video_partial.exists():
@@ -2039,6 +2596,7 @@ def evaluate_case(
                         proxy=proxy,
                         geometry=geometry,
                         q1_diag=q1_diag,
+                        diagnostics_enabled=failure_diagnostics_enabled,
                     )
                 except MethodFailure as error:
                     terminal_reason = "method_failure"
@@ -2053,6 +2611,10 @@ def evaluate_case(
                             len(executed_actions) == 0
                         ),
                     }
+                    if failure_diagnostics_enabled:
+                        hard_method_failure["diagnostics"] = (
+                            error.diagnostics
+                        )
                     break
             else:
                 executed = list(nominal)
@@ -2078,6 +2640,11 @@ def evaluate_case(
                 modification_l2_max, correction_l2
             )
 
+            env_step_input = (
+                list(executed)
+                if failure_diagnostics_enabled
+                else None
+            )
             step_started = time.perf_counter()
             observation, reward, done, info = env.step(executed)
             step_elapsed = time.perf_counter() - step_started
@@ -2116,7 +2683,21 @@ def evaluate_case(
             ):
                 collision_first_step = step
 
-            contacts = _contact_snapshot(env, obstacle_name)
+            if failure_diagnostics_enabled:
+                detailed_contacts = _detailed_active_obstacle_contacts(
+                    env,
+                    obstacle_name,
+                    step=step,
+                )
+                contact_diagnostic_snapshots.append(detailed_contacts)
+                contacts = {
+                    "status": detailed_contacts["status"],
+                    "pairs": detailed_contacts["robot_pairs"],
+                }
+                if detailed_contacts["status"] == "unavailable":
+                    contacts["error"] = detailed_contacts.get("error")
+            else:
+                contacts = _contact_snapshot(env, obstacle_name)
             if contacts["status"] == "unavailable":
                 contact_status = "unavailable"
             elif contacts["pairs"]:
@@ -2126,24 +2707,25 @@ def evaluate_case(
                     if pair not in contact_pairs:
                         contact_pairs.append(pair)
 
-            executed_actions.append(
-                {
-                    "step": step,
-                    "nominal_raw": _finite_list(nominal_raw[:7]),
-                    "nominal_translational": list(nominal),
-                    "executed": list(executed),
-                    "control_path": control_path,
-                    "modified": modified,
-                    "correction_l2": correction_l2,
-                    "qp": qp_record,
-                    "reward": float(reward),
-                    "done": bool(done),
-                    "goal_progress": action_goal_progress,
-                    "step_elapsed_seconds": float(step_elapsed),
-                    "obstacle_l1_displacement_m": displacement,
-                    "robot_obstacle_contact": bool(contacts["pairs"]),
-                }
-            )
+            action_record = {
+                "step": step,
+                "nominal_raw": _finite_list(nominal_raw[:7]),
+                "nominal_translational": list(nominal),
+                "executed": list(executed),
+                "control_path": control_path,
+                "modified": modified,
+                "correction_l2": correction_l2,
+                "qp": qp_record,
+                "reward": float(reward),
+                "done": bool(done),
+                "goal_progress": action_goal_progress,
+                "step_elapsed_seconds": float(step_elapsed),
+                "obstacle_l1_displacement_m": displacement,
+                "robot_obstacle_contact": bool(contacts["pairs"]),
+            }
+            if failure_diagnostics_enabled:
+                action_record["env_step_input"] = env_step_input
+            executed_actions.append(action_record)
 
             proxy = _eef_proxy(runtime, observation)
             _update_eef_marker(env, proxy)
@@ -2352,6 +2934,86 @@ def evaluate_case(
                 result["environment_close_error"] = (
                     f"{type(error).__name__}: {error}"
                 )
+        if failure_diagnostics_enabled:
+            result["action_invariance_ledger"] = (
+                failure_diagnostics.action_invariance_ledger(
+                    actions=executed_actions,
+                    policy_queries=policy_queries,
+                )
+            )
+            diagnostic_record = result.setdefault(
+                "failure_diagnostics",
+                {
+                    "schema_version": (
+                        failure_diagnostics.DIAGNOSTICS_SCHEMA
+                    ),
+                    "enabled": True,
+                    "mode": mode,
+                    "control_effect": "read_only_observation",
+                },
+            )
+            try:
+                if geometry_diagnostic_state is not None:
+                    diagnostic_record["geometry"] = (
+                        failure_diagnostics.publish_geometry_artifact(
+                            geometry_diagnostic_state,
+                            case_dir=case_dir,
+                            output_root=output_root,
+                        )
+                    )
+                else:
+                    diagnostic_record["geometry"] = {
+                        "status": "not_run",
+                        "reason": (
+                            "pi05_baseline_arm"
+                            if mode == "pi05"
+                            else "evaluation_failed_before_geometry"
+                        ),
+                    }
+                if contact_diagnostic_snapshots:
+                    contact_artifact = (
+                        failure_diagnostics.publish_contact_artifact(
+                            case_id=case_id,
+                            snapshots=contact_diagnostic_snapshots,
+                            case_dir=case_dir,
+                            output_root=output_root,
+                        )
+                    )
+                    diagnostic_record["contacts"] = contact_artifact
+                    result.setdefault("contact_telemetry", {})[
+                        "detailed_artifact"
+                    ] = contact_artifact
+                else:
+                    diagnostic_record["contacts"] = {
+                        "status": "not_run",
+                        "reason": "evaluation_failed_before_settled_contact",
+                    }
+                diagnostic_record["action_invariance_ledger"] = dict(
+                    result["action_invariance_ledger"]
+                )
+                diagnostic_record["status"] = "published"
+            except Exception as error:
+                diagnostic_record["status"] = "artifact_failure"
+                diagnostic_record["artifact_error"] = {
+                    "type": type(error).__name__,
+                    "message": str(error),
+                    "traceback": traceback.format_exc(),
+                }
+                prior_status = result.get("status")
+                prior_reason = result.get("terminal_reason")
+                result.update(
+                    {
+                        "status": "apparatus_failure",
+                        "scientific_result": False,
+                        "terminal_reason": "diagnostic_artifact_failure",
+                        "apparatus_error": {
+                            "type": "DiagnosticArtifactError",
+                            "message": str(error),
+                            "prior_scientific_status": prior_status,
+                            "prior_terminal_reason": prior_reason,
+                        },
+                    }
+                )
         result["timing"]["finished_unix"] = time.time()
         result["timing"]["wall_seconds"] = (
             result["timing"]["finished_unix"] - started_wall
@@ -2406,6 +3068,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=root / "GroundingDINO/groundingdino_swint_ogc.pth",
     )
     parser.add_argument("--groundingdino-device", default="cuda")
+    parser.add_argument(
+        "--failure-diagnostics",
+        action="store_true",
+        help=(
+            "publish read-only DINO/geometry/QP/contact diagnostics; "
+            "nominal and executed action bytes remain unchanged"
+        ),
+    )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--repo-root", type=Path, default=root)
     return parser
@@ -2478,6 +3148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             groundingdino_device=args.groundingdino_device,
             overwrite=args.overwrite,
+            failure_diagnostics_enabled=args.failure_diagnostics,
         )
         status_counts[str(result["status"])] += 1
         print(

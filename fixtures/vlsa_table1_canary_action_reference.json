@@ -1,0 +1,54 @@
+{
+  "schema_version": "vlsa_table1_canary_action_reference.v1",
+  "case_id": "vlsa-t1-spatial-i-t2-e00",
+  "case_ordinal": 100,
+  "canonicalization": {
+    "algorithm": "sha256",
+    "encoding": "utf-8",
+    "json_allow_nan": false,
+    "json_ensure_ascii": true,
+    "json_separators": [
+      ",",
+      ":"
+    ],
+    "json_sort_keys": true,
+    "sequence_definition": "hash(canonical_json(list_of_values_in_execution_order))"
+  },
+  "source": {
+    "run_id": "vlsa-table1-paired-canary-20260717d",
+    "release_commit": "7784ca58947794e82380db153428a3ddc7c6961d",
+    "checkpoint_tree_sha256": "7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15",
+    "validation_file_sha256": "d2d858c932b571ddc8943b7f376011415a750e9189da527a3ae6c4f4bcfe1abb",
+    "validation_receipt_payload_sha256": "03b486ea8c857f216a5b429b4e6d25e6c3b3b8d7ea9e7c9b912dcc9b8abefdc7"
+  },
+  "arms": {
+    "pi05_translational": {
+      "action_count": 300,
+      "policy_query_count": 60,
+      "source_result_file_sha256": "a04c8183828f5ff25fc0e29851f94fbfee1497383e4b050f94534d0e31e313ee",
+      "nominal_raw_sequence_sha256": "639f764d4cfbeafd9b1e287027de5c876dbe22034066277b7e00e39e400bc2b7",
+      "nominal_translational_sequence_sha256": "da802030feb430d6946129831228d6fb77b3b3136c8a899ec8be70ba668fa6b2",
+      "executed_sequence_sha256": "da802030feb430d6946129831228d6fb77b3b3136c8a899ec8be70ba668fa6b2",
+      "env_step_input_sequence_sha256": "da802030feb430d6946129831228d6fb77b3b3136c8a899ec8be70ba668fa6b2",
+      "control_path_sequence_sha256": "15b44550be22954ac6b894c38dbacb69f221ad848cb7c3c98cc2fcedb63043c2",
+      "z_after_sequence_sha256": "5cf30fb85d4eefb16a253530e50718826acf7e64d3362104a8cbf05b21767821",
+      "policy_query_returned_action_hash_sequence_sha256": "df8ef37641cc64ab0893d27aa10ac0cd91743d9fe0ce68b2a3b32d9f04b2a866",
+      "policy_query_rng_seed_sequence_sha256": "3a2aaa8b104ff6ce02743d7557202cfa35029060a0dc27bff66d0a6501de9ef3",
+      "policy_query_schedule_sha256": "4427305b3ac9f4fb3c6d2ad14269675b273b768a98ec44368379ec1f79a06d93"
+    },
+    "pi05_plus_aegis_translational": {
+      "action_count": 145,
+      "policy_query_count": 29,
+      "source_result_file_sha256": "e19f66778ac77353288af719e883996d4a8cbb11b1db723537b9fbc1e1fbe851",
+      "nominal_raw_sequence_sha256": "940232b7444e1750c9deebd07e6da49336b52454a56aa98f0824f851e673c598",
+      "nominal_translational_sequence_sha256": "30a213f053c83f47897c5bcefc69d3b89c0b1fb357d2077ecfe3f7869b4ddf74",
+      "executed_sequence_sha256": "204d5c5b9533765da040f57a5506bcfa9ed4bbb8efc9d19c45e26d3f6d587c7a",
+      "env_step_input_sequence_sha256": "204d5c5b9533765da040f57a5506bcfa9ed4bbb8efc9d19c45e26d3f6d587c7a",
+      "control_path_sequence_sha256": "2ffecc1e3b565be7aa55c9f180dc77620bf2b2ca5c046d6fe63b610ebec6344b",
+      "z_after_sequence_sha256": "efc40ec63e9937b82cd04a7db2dc5cceedd6ac8de36bea0471d49c9bd56b96be",
+      "policy_query_returned_action_hash_sequence_sha256": "6eddfb5fd94dee3682dd26a09dc6baf5ae31e2980b47cf4ea15b0f0e34f95581",
+      "policy_query_rng_seed_sequence_sha256": "f897aeddd3e52c4e0b7eb6f84b6f0a4e9215c816b2cf566eb115179986d30a9a",
+      "policy_query_schedule_sha256": "cceb585493b6009b6489d950ee3360d2b39abc1fa8c66cc763faf4f4d6d4f673"
+    }
+  }
+}
