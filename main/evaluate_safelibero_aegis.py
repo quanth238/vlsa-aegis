@@ -1351,24 +1351,57 @@ def _active_obstacle(
 
 
 def _body_lineage(model: Any, body_id: int) -> list[str]:
+    """Return one explicit name token for every authoritative lineage ID."""
+
     names: list[str] = []
-    visited: set[int] = set()
-    current = int(body_id)
-    while current >= 0 and current not in visited:
-        visited.add(current)
+    for current in _body_lineage_ids(model, body_id):
         try:
             name = model.body_id2name(current)
         except Exception:
-            break
-        if name:
-            names.append(str(name))
+            name = None
+        names.append(
+            str(name) if name else f"<unnamed_body_id:{current}>"
+        )
+    return names
+
+
+def _body_lineage_ids(model: Any, body_id: int) -> list[int]:
+    """Return the exact MuJoCo body-to-world ancestry without name guessing."""
+
+    try:
+        body_count = len(model.body_parentid)
+    except Exception as error:
+        raise ApparatusError(
+            f"cannot read MuJoCo body-parent table: {error}"
+        ) from error
+    if body_id < 0 or body_id >= body_count:
+        raise ApparatusError(f"invalid MuJoCo body ID: {body_id}")
+    body_ids: list[int] = []
+    visited: set[int] = set()
+    current = int(body_id)
+    while True:
+        if current in visited:
+            raise ApparatusError(
+                f"cyclic MuJoCo body lineage at body ID {current}"
+            )
+        if current < 0 or current >= body_count:
+            raise ApparatusError(
+                f"MuJoCo body lineage escapes the model at {current}"
+            )
+        visited.add(current)
+        body_ids.append(current)
         if current == 0:
             break
         try:
-            current = int(model.body_parentid[current])
-        except Exception:
-            break
-    return names
+            parent = int(model.body_parentid[current])
+        except Exception as error:
+            raise ApparatusError(
+                f"cannot read parent of MuJoCo body ID {current}: {error}"
+            ) from error
+        current = parent
+    if not body_ids or body_ids[-1] != 0:
+        raise ApparatusError("MuJoCo body lineage does not terminate at world")
+    return body_ids
 
 
 def _is_robot_lineage(names: Sequence[str]) -> bool:
@@ -1378,6 +1411,520 @@ def _is_robot_lineage(names: Sequence[str]) -> bool:
 
 def _is_obstacle_lineage(names: Sequence[str], obstacle_name: str) -> bool:
     return any(obstacle_name in name for name in names)
+
+
+CONTACT_ROLE_CLASSES = (
+    "robot",
+    "static_support",
+    "dynamic_task_object",
+    "dynamic_other",
+    "unknown",
+)
+
+CONTACT_TASK_AUTHORITY_SOURCE = (
+    "task_env.obj_body_id + object_states_dict.parent_name + "
+    "parsed_problem.goal_state"
+)
+CONTACT_MODEL_AUTHORITY_SCHEMA = "vlsa_table1_contact_model_authority.v2"
+
+_MUJOCO_JOINT_TYPES = {
+    0: "free",
+    1: "ball",
+    2: "slide",
+    3: "hinge",
+}
+
+
+def _contact_role_context(env: Any) -> dict[str, Any]:
+    """Bind BDDL goal membership to authoritative MuJoCo root-body IDs."""
+
+    task_env = getattr(env, "env", None)
+    object_body_ids = getattr(task_env, "obj_body_id", None)
+    object_states = getattr(task_env, "object_states_dict", None)
+    parsed_problem = getattr(task_env, "parsed_problem", None)
+    goal_state = (
+        parsed_problem.get("goal_state")
+        if isinstance(parsed_problem, Mapping)
+        else None
+    )
+    if (
+        not isinstance(object_body_ids, Mapping)
+        or not isinstance(object_states, Mapping)
+        or not isinstance(goal_state, (list, tuple))
+        or not goal_state
+    ):
+        return {
+            "status": "unknown",
+            "reason": (
+                "task env lacks authoritative obj_body_id, "
+                "object_states_dict, or parsed goal_state"
+            ),
+            "source": CONTACT_TASK_AUTHORITY_SOURCE,
+        }
+    goal_arguments: set[str] = set()
+    for atom in goal_state:
+        if (
+            not isinstance(atom, (list, tuple))
+            or len(atom) != 3
+            or not all(isinstance(value, str) and value for value in atom)
+        ):
+            return {
+                "status": "unknown",
+                "reason": "native BDDL goal atom is not a binary string tuple",
+                "source": CONTACT_TASK_AUTHORITY_SOURCE,
+            }
+        goal_arguments.update((str(atom[1]), str(atom[2])))
+
+    body_records: list[dict[str, Any]] = []
+    goal_argument_records: list[dict[str, Any]] = []
+    goal_site_parents: dict[str, str] = {}
+    try:
+        for name in sorted(goal_arguments):
+            state = object_states.get(name)
+            state_type = getattr(state, "object_state_type", None)
+            if state_type not in {"object", "site"}:
+                raise ValueError(
+                    f"goal argument {name} lacks an object-state type"
+                )
+            parent_name = None
+            body_binding = "direct_object_body"
+            root_body_id = object_body_ids.get(name)
+            if state_type == "site":
+                parent_name = getattr(state, "parent_name", None)
+                if parent_name is None:
+                    root_body_id = None
+                    body_binding = "unparented_static_site"
+                elif not isinstance(parent_name, str) or not parent_name:
+                    raise ValueError(
+                        f"goal site {name} has an invalid native parent name"
+                    )
+                else:
+                    root_body_id = object_body_ids.get(parent_name)
+                    body_binding = "site_parent_body"
+                    goal_site_parents[str(name)] = parent_name
+            if root_body_id is None and body_binding != "unparented_static_site":
+                raise ValueError(
+                    f"goal argument {name} lacks a MuJoCo body binding"
+                )
+            goal_argument_records.append(
+                {
+                    "name": str(name),
+                    "object_state_type": str(state_type),
+                    "root_body_id": (
+                        None
+                        if root_body_id is None
+                        else int(root_body_id)
+                    ),
+                    "body_binding": body_binding,
+                    "parent_name": parent_name,
+                }
+            )
+        for name, raw_body_id in sorted(
+            object_body_ids.items(), key=lambda item: str(item[0])
+        ):
+            body_id = int(raw_body_id)
+            state = object_states.get(name)
+            state_type = getattr(state, "object_state_type", None)
+            if state_type not in {"object", "site"}:
+                raise ValueError(
+                    f"{name} lacks an authoritative object-state type"
+                )
+            goal_site_names = sorted(
+                site_name
+                for site_name, parent_name in goal_site_parents.items()
+                if parent_name == str(name)
+            )
+            direct_goal_object = (
+                str(name) in goal_arguments and state_type == "object"
+            )
+            body_records.append(
+                {
+                    "name": str(name),
+                    "root_body_id": body_id,
+                    "object_state_type": str(state_type),
+                    "is_goal_argument": direct_goal_object,
+                    "is_goal_site_parent": bool(goal_site_names),
+                    "goal_site_names": goal_site_names,
+                    "is_task_goal_body": (
+                        direct_goal_object or bool(goal_site_names)
+                    ),
+                }
+            )
+        root_body_ids = [
+            record["root_body_id"] for record in body_records
+        ]
+        if len(root_body_ids) != len(set(root_body_ids)):
+            raise ValueError(
+                "multiple native task names share one MuJoCo root body"
+            )
+    except Exception as error:
+        return {
+            "status": "unknown",
+            "reason": f"{type(error).__name__}: {error}",
+            "source": CONTACT_TASK_AUTHORITY_SOURCE,
+        }
+    return {
+        "status": "complete",
+        "source": CONTACT_TASK_AUTHORITY_SOURCE,
+        "goal_argument_names": sorted(goal_arguments),
+        "goal_argument_records": goal_argument_records,
+        "body_records": body_records,
+    }
+
+
+def _contact_model_authority(
+    env: Any,
+    active_obstacle_name: str,
+) -> dict[str, Any]:
+    """Freeze the MuJoCo topology used to interpret every contact event."""
+
+    model = env.sim.model
+    try:
+        body_parent_ids = [
+            int(model.body_parentid[index])
+            for index in range(len(model.body_parentid))
+        ]
+        body_joint_counts = [
+            int(model.body_jntnum[index])
+            for index in range(len(model.body_jntnum))
+        ]
+        body_joint_addresses = [
+            int(model.body_jntadr[index])
+            for index in range(len(model.body_jntadr))
+        ]
+        geom_body_ids = [
+            int(model.geom_bodyid[index])
+            for index in range(len(model.geom_bodyid))
+        ]
+        joint_types = [
+            int(model.jnt_type[index])
+            for index in range(len(model.jnt_type))
+        ]
+        joint_body_ids = [
+            int(model.jnt_bodyid[index])
+            for index in range(len(model.jnt_bodyid))
+        ]
+    except Exception as error:
+        raise ApparatusError(
+            f"cannot freeze MuJoCo contact topology: {error}"
+        ) from error
+    if not body_parent_ids or not geom_body_ids:
+        raise ApparatusError("MuJoCo contact topology is empty")
+    if (
+        len(body_joint_counts) != len(body_parent_ids)
+        or len(body_joint_addresses) != len(body_parent_ids)
+        or len(joint_types) != len(joint_body_ids)
+    ):
+        raise ApparatusError("MuJoCo contact joint topology changed")
+    body_names: list[str] = []
+    for body_id in range(len(body_parent_ids)):
+        try:
+            name = model.body_id2name(body_id)
+        except Exception:
+            name = None
+        body_names.append(
+            str(name) if name else f"<unnamed_body_id:{body_id}>"
+        )
+        _body_lineage_ids(model, body_id)
+    geom_names: list[str] = []
+    for geom_id, body_id in enumerate(geom_body_ids):
+        if body_id < 0 or body_id >= len(body_parent_ids):
+            raise ApparatusError(
+                f"geom {geom_id} has invalid body ID {body_id}"
+            )
+        try:
+            name = model.geom_id2name(geom_id)
+        except Exception:
+            name = None
+        geom_names.append(
+            str(name) if name else f"<unnamed_geom_id:{geom_id}>"
+        )
+    joint_names: list[str] = []
+    for joint_id, (joint_type, body_id) in enumerate(
+        zip(joint_types, joint_body_ids)
+    ):
+        if joint_type not in _MUJOCO_JOINT_TYPES:
+            raise ApparatusError(
+                f"joint {joint_id} has unsupported type {joint_type}"
+            )
+        if body_id < 0 or body_id >= len(body_parent_ids):
+            raise ApparatusError(
+                f"joint {joint_id} has invalid body ID {body_id}"
+            )
+        try:
+            name = model.joint_id2name(joint_id)
+        except Exception:
+            name = None
+        joint_names.append(
+            str(name) if name else f"<unnamed_joint_id:{joint_id}>"
+        )
+    covered_joint_ids: list[int] = []
+    for body_id, (count, address) in enumerate(
+        zip(body_joint_counts, body_joint_addresses)
+    ):
+        if count < 0 or (
+            count == 0 and address != -1
+        ) or (
+            count > 0
+            and (
+                address < 0
+                or address + count > len(joint_types)
+            )
+        ):
+            raise ApparatusError(
+                f"body {body_id} has invalid joint address/count"
+            )
+        for joint_id in range(address, address + count):
+            if joint_body_ids[joint_id] != body_id:
+                raise ApparatusError(
+                    f"joint {joint_id} is not owned by body {body_id}"
+                )
+            covered_joint_ids.append(joint_id)
+    if covered_joint_ids != list(range(len(joint_types))):
+        raise ApparatusError(
+            "MuJoCo body joint ranges do not cover the joint table exactly"
+        )
+    task_context = _contact_role_context(env)
+    if task_context.get("status") != "complete":
+        raise ApparatusError(
+            "contact task/body authority is unavailable: "
+            f"{task_context.get('reason')}"
+        )
+    for record in task_context["body_records"]:
+        root_body_id = int(record["root_body_id"])
+        if root_body_id < 0 or root_body_id >= len(body_names):
+            raise ApparatusError(
+                f"task object {record['name']} has invalid root body"
+            )
+        root_body_name = body_names[root_body_id]
+        expected_prefix = f"{record['name']}_"
+        if (
+            root_body_name.startswith("<unnamed_body_id:")
+            or (
+                root_body_name != record["name"]
+                and not root_body_name.startswith(expected_prefix)
+            )
+        ):
+            raise ApparatusError(
+                f"task object {record['name']} does not bind to its "
+                f"MuJoCo root body name {root_body_name}"
+            )
+        record["root_body_name"] = root_body_name
+    for record in task_context["goal_argument_records"]:
+        root_body_id = record["root_body_id"]
+        if root_body_id is None:
+            record["root_body_name"] = None
+            continue
+        root_body_id = int(root_body_id)
+        if root_body_id < 0 or root_body_id >= len(body_names):
+            raise ApparatusError(
+                f"goal argument {record['name']} has invalid root body"
+            )
+        root_body_name = body_names[root_body_id]
+        expected_task_name = (
+            record["name"]
+            if record["body_binding"] == "direct_object_body"
+            else record["parent_name"]
+        )
+        if (
+            not isinstance(expected_task_name, str)
+            or root_body_name.startswith("<unnamed_body_id:")
+            or (
+                root_body_name != expected_task_name
+                and not root_body_name.startswith(
+                    f"{expected_task_name}_"
+                )
+            )
+        ):
+            raise ApparatusError(
+                f"goal argument {record['name']} does not bind to its "
+                f"MuJoCo root body name {root_body_name}"
+            )
+        record["root_body_name"] = root_body_name
+    active_records = [
+        record
+        for record in task_context["body_records"]
+        if record.get("name") == active_obstacle_name
+    ]
+    if len(active_records) != 1:
+        raise ApparatusError(
+            "active obstacle does not map to exactly one task body"
+        )
+    active_root_body_id = int(active_records[0]["root_body_id"])
+    robot_body_ids = [
+        body_id
+        for body_id, name in enumerate(body_names)
+        if _is_robot_lineage([name])
+    ]
+    if not robot_body_ids:
+        raise ApparatusError(
+            "MuJoCo topology has no authoritative named robot bodies"
+        )
+    authority = {
+        "schema_version": CONTACT_MODEL_AUTHORITY_SCHEMA,
+        "source": (
+            "MuJoCo body/geom/joint topology and id2name + "
+            "task_env.obj_body_id + object_states_dict.parent_name"
+        ),
+        "active_obstacle_name": active_obstacle_name,
+        "active_obstacle_root_body_id": active_root_body_id,
+        "robot_body_ids": robot_body_ids,
+        "body_parent_ids": body_parent_ids,
+        "body_names": body_names,
+        "body_joint_counts": body_joint_counts,
+        "body_joint_addresses": body_joint_addresses,
+        "geom_body_ids": geom_body_ids,
+        "geom_names": geom_names,
+        "joint_types": joint_types,
+        "joint_body_ids": joint_body_ids,
+        "joint_names": joint_names,
+        "task_context": task_context,
+        "task_context_sha256": sha256_bytes(
+            canonical_json_bytes(task_context)
+        ),
+    }
+    authority["authority_sha256"] = sha256_bytes(
+        canonical_json_bytes(authority)
+    )
+    return authority
+
+
+def _body_dynamics(
+    model: Any,
+    lineage_ids: Sequence[int],
+) -> dict[str, Any]:
+    """Read exact attached joints along a body lineage."""
+
+    try:
+        body_jntnum = model.body_jntnum
+        body_jntadr = model.body_jntadr
+        joint_types = model.jnt_type
+    except Exception as error:
+        return {
+            "status": "unknown",
+            "reason": f"{type(error).__name__}: {error}",
+            "source": "MuJoCo body_jntnum/body_jntadr/jnt_type",
+        }
+    joints: list[dict[str, Any]] = []
+    try:
+        for body_id in lineage_ids:
+            count = int(body_jntnum[body_id])
+            address = int(body_jntadr[body_id])
+            if count < 0 or (count and address < 0):
+                raise ValueError("invalid body joint address/count")
+            for joint_id in range(address, address + count):
+                joint_type_id = int(joint_types[joint_id])
+                try:
+                    joint_name = model.joint_id2name(joint_id)
+                except Exception:
+                    joint_name = None
+                joints.append(
+                    {
+                        "joint_id": joint_id,
+                        "joint_name": (
+                            str(joint_name)
+                            if joint_name
+                            else f"<unnamed_joint_id:{joint_id}>"
+                        ),
+                        "joint_type_id": joint_type_id,
+                        "joint_type": _MUJOCO_JOINT_TYPES.get(
+                            joint_type_id, f"unknown_{joint_type_id}"
+                        ),
+                        "attached_body_id": int(body_id),
+                    }
+                )
+    except Exception as error:
+        return {
+            "status": "unknown",
+            "reason": f"{type(error).__name__}: {error}",
+            "source": "MuJoCo body_jntnum/body_jntadr/jnt_type",
+        }
+    mobility = (
+        "static_no_joint"
+        if not joints
+        else (
+            "free_joint"
+            if any(joint["joint_type"] == "free" for joint in joints)
+            else "jointed_nonfree"
+        )
+    )
+    return {
+        "status": "complete",
+        "source": "MuJoCo body_jntnum/body_jntadr/jnt_type",
+        "mobility": mobility,
+        "joints": joints,
+    }
+
+
+def _contact_other_role(
+    *,
+    model: Any,
+    body_id: int,
+    lineage_ids: Sequence[int],
+    lineage_names: Sequence[str],
+    task_context: Mapping[str, Any],
+    robot_body_ids: Sequence[int],
+) -> dict[str, Any]:
+    dynamics = _body_dynamics(model, lineage_ids)
+    matched_task_bodies: list[dict[str, Any]] = []
+    if task_context.get("status") == "complete":
+        matched_task_bodies = [
+            dict(record)
+            for record in task_context.get("body_records", [])
+            if int(record["root_body_id"]) in set(lineage_ids)
+        ]
+    membership = {
+        "status": task_context.get("status"),
+        "source": task_context.get("source"),
+        "matched_task_bodies": matched_task_bodies,
+        "goal_argument_names": task_context.get("goal_argument_names"),
+        "goal_argument_records": task_context.get(
+            "goal_argument_records"
+        ),
+    }
+    if task_context.get("status") != "complete":
+        membership["reason"] = task_context.get("reason")
+
+    if set(lineage_ids).intersection(int(value) for value in robot_body_ids):
+        classification = "robot"
+    elif any(
+        name.startswith("<unnamed_body_id:")
+        for name in lineage_names
+        if name != "<unnamed_body_id:0>"
+    ):
+        classification = "unknown"
+    elif (
+        dynamics.get("status") != "complete"
+        or task_context.get("status") != "complete"
+    ):
+        classification = "unknown"
+    elif dynamics.get("mobility") == "static_no_joint":
+        classification = "static_support"
+    elif any(
+        record.get("is_task_goal_body") is True
+        for record in matched_task_bodies
+    ):
+        classification = "dynamic_task_object"
+    else:
+        classification = "dynamic_other"
+    if classification not in CONTACT_ROLE_CLASSES:
+        classification = "unknown"
+    return {
+        "classification": classification,
+        "legacy_binary_classification": (
+            "robot" if classification == "robot" else "nonrobot"
+        ),
+        "classification_authority": (
+            "complete"
+            if classification != "unknown"
+            else "unknown"
+        ),
+        "body_id": int(body_id),
+        "body_lineage_ids": [int(value) for value in lineage_ids],
+        "body_lineage": [str(value) for value in lineage_names],
+        "dynamics": dynamics,
+        "task_membership": membership,
+    }
 
 
 def _contact_snapshot(
@@ -1425,14 +1972,45 @@ def _detailed_active_obstacle_contacts(
     obstacle_name: str,
     *,
     step: int,
+    contact_authority: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Read every active-obstacle contact with canonical obstacle-first sides."""
 
     try:
         model = env.sim.model
         data = env.sim.data
+        if contact_authority is None:
+            contact_authority = _contact_model_authority(
+                env, obstacle_name
+            )
+        if (
+            contact_authority.get("schema_version")
+            != CONTACT_MODEL_AUTHORITY_SCHEMA
+            or contact_authority.get("active_obstacle_name")
+            != obstacle_name
+        ):
+            raise ApparatusError("contact-model authority binding changed")
+        expected_authority_hash = sha256_bytes(
+            canonical_json_bytes(
+                {
+                    key: value
+                    for key, value in contact_authority.items()
+                    if key != "authority_sha256"
+                }
+            )
+        )
+        if contact_authority.get("authority_sha256") != expected_authority_hash:
+            raise ApparatusError("contact-model authority hash changed")
+        task_role_context = contact_authority["task_context"]
+        active_obstacle_root_body_id = int(
+            contact_authority["active_obstacle_root_body_id"]
+        )
+        robot_body_ids = [
+            int(value) for value in contact_authority["robot_body_ids"]
+        ]
         events: list[dict[str, Any]] = []
         robot_pairs: list[dict[str, Any]] = []
+        raw_contact_ledger: list[dict[str, Any]] = []
         for contact_index in range(int(data.ncon)):
             contact = data.contact[contact_index]
             raw_geom_ids = [int(contact.geom1), int(contact.geom2)]
@@ -1440,20 +2018,44 @@ def _detailed_active_obstacle_contacts(
                 int(model.geom_bodyid[raw_geom_ids[0]]),
                 int(model.geom_bodyid[raw_geom_ids[1]]),
             ]
+            raw_lineage_ids = [
+                _body_lineage_ids(model, raw_body_ids[0]),
+                _body_lineage_ids(model, raw_body_ids[1]),
+            ]
             raw_lineages = [
                 _body_lineage(model, raw_body_ids[0]),
                 _body_lineage(model, raw_body_ids[1]),
             ]
+            raw_contact = {
+                "contact_index": contact_index,
+                "geom1_id": raw_geom_ids[0],
+                "geom2_id": raw_geom_ids[1],
+                "body1_id": raw_body_ids[0],
+                "body2_id": raw_body_ids[1],
+                "distance": float(contact.dist),
+                "position": _finite_list(contact.pos),
+                "frame_normal_geom1_to_geom2": _finite_list(
+                    contact.frame[:3]
+                ),
+            }
+            raw_contact["raw_contact_sha256"] = sha256_bytes(
+                canonical_json_bytes(raw_contact)
+            )
+            raw_contact_ledger.append(raw_contact)
             obstacle_sides = [
                 index
-                for index, lineage in enumerate(raw_lineages)
-                if _is_obstacle_lineage(lineage, obstacle_name)
+                for index, lineage_ids in enumerate(raw_lineage_ids)
+                if active_obstacle_root_body_id in lineage_ids
             ]
             if not obstacle_sides:
                 continue
+            if len(obstacle_sides) != 1:
+                raise ApparatusError(
+                    "active-obstacle contact has no unique canonical side"
+                )
             obstacle_side = obstacle_sides[0]
             other_side = 1 - obstacle_side
-            normal = _finite_list(contact.frame[:3])
+            normal = list(raw_contact["frame_normal_geom1_to_geom2"])
             if obstacle_side == 1:
                 normal = [-value for value in normal]
 
@@ -1461,25 +2063,30 @@ def _detailed_active_obstacle_contacts(
                 geom_id = raw_geom_ids[index]
                 body_id = raw_body_ids[index]
                 geom_name = model.geom_id2name(geom_id)
-                body_name = model.body_id2name(body_id)
                 return {
                     "geom_id": geom_id,
                     "geom_name": (
-                        None if geom_name is None else str(geom_name)
+                        str(geom_name)
+                        if geom_name
+                        else f"<unnamed_geom_id:{geom_id}>"
                     ),
                     "body_id": body_id,
-                    "body_name": (
-                        None if body_name is None else str(body_name)
-                    ),
+                    "body_name": raw_lineages[index][0],
+                    "body_lineage_ids": raw_lineage_ids[index],
                     "body_lineage": raw_lineages[index],
                 }
 
             obstacle = side_record(obstacle_side)
             other = side_record(other_side)
-            other["classification"] = (
-                "robot"
-                if _is_robot_lineage(raw_lineages[other_side])
-                else "nonrobot"
+            other.update(
+                _contact_other_role(
+                    model=model,
+                    body_id=raw_body_ids[other_side],
+                    lineage_ids=raw_lineage_ids[other_side],
+                    lineage_names=raw_lineages[other_side],
+                    task_context=task_role_context,
+                    robot_body_ids=robot_body_ids,
+                )
             )
             event = {
                 "step": int(step),
@@ -1487,14 +2094,16 @@ def _detailed_active_obstacle_contacts(
                 "raw_order": {
                     "geom1_id": raw_geom_ids[0],
                     "geom2_id": raw_geom_ids[1],
+                    "body1_id": raw_body_ids[0],
+                    "body2_id": raw_body_ids[1],
                     "obstacle_side": (
                         "geom1" if obstacle_side == 0 else "geom2"
                     ),
                 },
                 "obstacle": obstacle,
                 "other": other,
-                "distance": float(contact.dist),
-                "position": _finite_list(contact.pos),
+                "distance": raw_contact["distance"],
+                "position": raw_contact["position"],
                 "normal_obstacle_to_other": normal,
             }
             event["event_sha256"] = sha256_bytes(
@@ -1514,16 +2123,52 @@ def _detailed_active_obstacle_contacts(
             "status": "available",
             "step": int(step),
             "active_obstacle_name": obstacle_name,
+            "role_authority": {
+                "status": (
+                    "complete"
+                    if task_role_context.get("status") == "complete"
+                    and all(
+                        event.get("other", {}).get(
+                            "classification_authority"
+                        )
+                        == "complete"
+                        for event in events
+                    )
+                    else "unknown"
+                ),
+                "task_context": task_role_context,
+                "task_context_sha256": contact_authority[
+                    "task_context_sha256"
+                ],
+                "model_authority_sha256": contact_authority[
+                    "authority_sha256"
+                ],
+                "active_obstacle_root_body_id": (
+                    active_obstacle_root_body_id
+                ),
+                "role_classes": list(CONTACT_ROLE_CLASSES),
+            },
             "events": events,
             "robot_pairs": robot_pairs,
+            "raw_contact_ledger": raw_contact_ledger,
+            "raw_contact_ledger_sha256": sha256_bytes(
+                canonical_json_bytes(raw_contact_ledger)
+            ),
         }
     except Exception as error:
         return {
             "status": "unavailable",
             "step": int(step),
             "active_obstacle_name": obstacle_name,
+            "role_authority": {
+                "status": "unknown",
+                "reason": f"{type(error).__name__}: {error}",
+                "role_classes": list(CONTACT_ROLE_CLASSES),
+            },
             "events": [],
             "robot_pairs": [],
+            "raw_contact_ledger": [],
+            "raw_contact_ledger_sha256": None,
             "error": f"{type(error).__name__}: {error}",
         }
 
@@ -2394,6 +3039,7 @@ def evaluate_case(
     policy_queries: list[dict[str, Any]] = []
     geometry_diagnostic_state: dict[str, Any] | None = None
     contact_diagnostic_snapshots: list[dict[str, Any]] = []
+    contact_model_authority: dict[str, Any] | None = None
     result: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA,
         "protocol_id": case.get("protocol_id"),
@@ -2538,10 +3184,15 @@ def evaluate_case(
         }
 
         if failure_diagnostics_enabled:
+            contact_model_authority = _contact_model_authority(
+                env,
+                obstacle_name,
+            )
             settled_contacts = _detailed_active_obstacle_contacts(
                 env,
                 obstacle_name,
                 step=-1,
+                contact_authority=contact_model_authority,
             )
             contact_diagnostic_snapshots.append(settled_contacts)
 
@@ -2853,6 +3504,7 @@ def evaluate_case(
                     env,
                     obstacle_name,
                     step=step,
+                    contact_authority=contact_model_authority,
                 )
                 contact_diagnostic_snapshots.append(detailed_contacts)
                 contacts = {
@@ -3153,9 +3805,15 @@ def evaluate_case(
                         ),
                     }
                 if contact_diagnostic_snapshots:
+                    if contact_model_authority is None:
+                        raise ValueError(
+                            "contact model authority was not retained"
+                        )
                     contact_artifact = (
                         failure_diagnostics.publish_contact_artifact(
                             case_id=case_id,
+                            active_obstacle_name=obstacle_name,
+                            model_authority=contact_model_authority,
                             snapshots=contact_diagnostic_snapshots,
                             case_dir=case_dir,
                             output_root=output_root,

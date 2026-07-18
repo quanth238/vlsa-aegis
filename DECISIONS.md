@@ -187,3 +187,64 @@ GroundingDINO boxes, point clouds, filtering and MVEE outputs, QP attempts,
 step-resolved contacts, native goal-progress trace, terminal lossless frame,
 and decoded video. Validation and aggregation must stream or compact each pair
 so they do not retain all 3,200 full diagnostic result dictionaries in memory.
+
+## ADR-0022: Accept the action-invariant canary, not a population claim
+
+Accepted from terminal allocation-backed evidence. Exact Slurm task `28590_0`
+completed on `worker-2` from clean release commit
+`5105894faebd40d2e27e2011d33688b25c2578dc`. Receipt SHA-256
+`6a80afce3ce019bf43090da65c85717344b6dafb4a983d5a9efcf6bbecd46d95`
+validated all four frozen ordinal-100 rollouts. Diagnostics off/on preserved
+exact action bytes, policy-query schedules, outcome semantics, and video bytes
+for both arms. The baseline collision and task failure and the AEGIS
+collision-free task success reproduce the historical canary. This passes
+`A03-one-case-paired-canary` and permits work on `A04-population`; it does not
+establish AEGIS population efficacy or authorize a launch before the
+memory-safe deep population validator passes.
+
+## ADR-0023: Stream, recompute, and byte-bind the population publication
+
+Accepted for implementation; allocation-backed validation remains pending.
+The publisher may hold at most one full result pair in memory. It deeply
+validates that pair, writes a compact receipt row, and releases the full
+objects before reading the next case. After all 1,600 pairs are present, an
+independent finalizer reloads the immutable manifest and configuration,
+recomputes the aggregate table, exhaustive failure report, and indexed video
+gallery from the actual result tree, and requires their exact hashes and bytes
+to match the staged publication. It retains every scientific and apparatus
+failure. Static-support contacts remain reported but are not counted as
+robot--obstacle collision mechanisms.
+
+## ADR-0024: Bind failure explanations to live simulator authority
+
+Accepted for a fresh allocation-backed canary; population authorization
+remains pending. The active obstacle is bound to the settled-input contract,
+not inferred from a mutable result field. Each episode freezes the complete
+MuJoCo body-parent and geom-to-body tables, exact named/unnamed ID tokens,
+body-to-joint ranges, joint ownership/types/names, robot body IDs, the
+active-obstacle root body, and the native task-object mapping. Every step
+stores the ordered raw MuJoCo contact ledger; canonical events, normals, body
+lineages, dynamics, mobility, roles, and goal membership are re-derived
+against that authority. Goal arguments are also checked against the immutable
+BDDL file. Direct goal objects, parented goal sites, and parentless fixed
+arena sites are distinct bindings. Any ambiguous or unnamed non-world role is
+`unknown` and fails publication. This contract is explicitly versioned as
+contact schema `v3`, model-authority schema `v2`, and source-bound paired
+canary receipt schema `v2`; the population reservation rejects stale receipt
+schemas before allocation.
+
+Independent validation reconstructs the exact robot-body ID set from frozen
+MuJoCo body names rather than trusting the producer's list. It also requires
+every task-object and goal-site-parent root ID to resolve to that object's
+exact frozen body name or registered instance prefix. Coordinated,
+fully-rehashed attempts to omit a contacted robot body or exchange two task
+roots are rejected. A malicious rewrite of the complete frozen authority,
+raw ledger, and all hashes remains the explicit clean-source producer trust
+boundary; the fresh source-bound canary must validate that boundary before
+population work.
+
+These observer changes were made after validated task `28590_0`. That task
+remains valid historical integration evidence for `A03`, but it cannot
+authorize a population from the new source. The final clean release therefore
+requires a new source-bound checkpoint receipt and the same four-rollout
+ordinal-100 action-invariance canary before any population submission.

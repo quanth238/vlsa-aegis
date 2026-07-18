@@ -352,6 +352,186 @@ class VideoGalleryTest(unittest.TestCase):
             ):
                 gallery._video_record(result, output_root=root)
 
+    def test_streaming_compaction_is_render_equivalent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            records = complete_records()
+            for result in records:
+                video = root / result["video"]["path"]
+                video.parent.mkdir(parents=True, exist_ok=True)
+                video.write_bytes(b"video-placeholder")
+            expected_document, expected_warnings = gallery.build_gallery(
+                summary=summary_fixture(),
+                records=records,
+                output_root=root,
+            )
+            shard = root / "population.payload"
+            shard.write_text(
+                json.dumps(records, indent=2),
+                encoding="utf-8",
+            )
+            stats: dict[str, int] = {}
+            compact = gallery.load_result_records(
+                [shard],
+                streaming_stats=stats,
+            )
+            observed_document, observed_warnings = gallery.build_gallery(
+                summary=summary_fixture(),
+                records=compact,
+                output_root=root,
+            )
+
+        self.assertEqual(observed_document, expected_document)
+        self.assertEqual(observed_warnings, expected_warnings)
+        self.assertEqual(stats["max_live_full_results"], 1)
+        self.assertEqual(stats["retained_compact_results"], 4)
+        self.assertNotIn("actions", compact[-1])
+        self.assertIn(gallery.GALLERY_TAXONOMY_KEY, compact[-1])
+
+    def test_streaming_loader_is_suffix_independent_for_all_formats(
+        self,
+    ) -> None:
+        fixtures = {
+            "object.bin": json.dumps(result_fixture(0, ARMS[0])),
+            "array.jsonl": json.dumps(
+                [
+                    result_fixture(0, ARMS[0]),
+                    result_fixture(1, ARMS[0]),
+                ]
+            ),
+            "sequence.json": "\n".join(
+                json.dumps(result_fixture(index, ARMS[0]))
+                for index in range(2)
+            ),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            observed: dict[str, int] = {}
+            for name, payload in fixtures.items():
+                path = root / name
+                path.write_text(payload, encoding="utf-8")
+                observed[name] = len(
+                    gallery.load_result_records([path])
+                )
+        self.assertEqual(
+            observed,
+            {
+                "object.bin": 1,
+                "array.jsonl": 2,
+                "sequence.json": 2,
+            },
+        )
+
+    def test_streaming_loader_rejects_trailing_junk_and_commas(
+        self,
+    ) -> None:
+        valid = json.dumps(result_fixture(0, ARMS[0]))
+        malformed = {
+            "object-trailing-comma": valid + "\n,",
+            "object-trailing-junk": valid + "\nJUNK",
+            "array-trailing-comma": f"[{valid},]",
+            "array-trailing-junk": f"[{valid}]JUNK",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, payload in malformed.items():
+                with self.subTest(name=name):
+                    path = root / name
+                    path.write_text(payload, encoding="utf-8")
+                    with self.assertRaises(gallery.GalleryError):
+                        gallery.load_result_records([path])
+
+    def test_streaming_loader_rejects_reserved_taxonomy_tamper(
+        self,
+    ) -> None:
+        result = result_fixture(0, ARMS[1])
+        result[gallery.GALLERY_TAXONOMY_KEY] = {
+            "aegis": {
+                key: "absent" for key, _ in gallery.TAXONOMY
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tampered.json"
+            path.write_text(json.dumps(result), encoding="utf-8")
+            with self.assertRaisesRegex(
+                gallery.GalleryError,
+                "reserved field",
+            ):
+                gallery.load_result_records([path])
+
+    def test_streaming_loader_retains_at_most_one_full_result(self) -> None:
+        records = []
+        for case_index in range(40):
+            result = result_fixture(case_index, ARMS[0])
+            result["actions"] = [
+                {
+                    "large_diagnostic_payload": (
+                        f"{case_index:02d}-" + "x" * 65536
+                    )
+                }
+            ]
+            records.append(result)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "large-array.data"
+            path.write_text(json.dumps(records), encoding="utf-8")
+            stats: dict[str, int] = {}
+            compact = gallery.load_result_records(
+                [path],
+                streaming_stats=stats,
+            )
+        self.assertEqual(stats["result_records"], 40)
+        self.assertEqual(stats["max_live_full_results"], 1)
+        self.assertEqual(stats["retained_compact_results"], 40)
+        self.assertTrue(all("actions" not in row for row in compact))
+        self.assertLess(
+            len(json.dumps(compact)),
+            len(json.dumps(records)) // 10,
+        )
+
+    def test_streamed_video_hash_tamper_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for result in complete_records():
+                mode = (
+                    "pi05"
+                    if result["arm"] == ARMS[0]
+                    else "aegis"
+                )
+                result["video"]["path"] = (
+                    f"{mode}/{result['case_id']}/episode.mp4"
+                )
+                video = root / result["video"]["path"]
+                video.parent.mkdir(parents=True, exist_ok=True)
+                payload = f"{result['case_id']}-{mode}".encode()
+                video.write_bytes(payload)
+                result["video"]["sha256"] = hashlib.sha256(
+                    payload
+                ).hexdigest()
+                result_path = (
+                    root
+                    / mode
+                    / result["case_id"]
+                    / "result.json"
+                )
+                result_path.write_text(
+                    json.dumps(result),
+                    encoding="utf-8",
+                )
+            tampered = (
+                root / "pi05" / "case-0" / "episode.mp4"
+            )
+            tampered.write_bytes(b"tampered")
+            compact = gallery.load_result_records([root])
+            with self.assertRaisesRegex(
+                gallery.GalleryError,
+                "video SHA-256 mismatch",
+            ):
+                gallery.build_gallery(
+                    summary=summary_fixture(),
+                    records=compact,
+                    output_root=root,
+                )
+
     def test_summary_metric_mismatch_is_rejected(self) -> None:
         summary = summary_fixture()
         summary["suites"][ARMS[0]][SUITE]["car_percent"] = 75.0
@@ -511,7 +691,12 @@ class VideoGalleryTest(unittest.TestCase):
             loaded = gallery.load_result_records([root])
         self.assertEqual(len(loaded), 1)
         source = loaded[0].pop(gallery.GALLERY_SOURCE_KEY)
-        self.assertEqual(loaded, [expected])
+        self.assertEqual(loaded[0]["case_id"], expected["case_id"])
+        self.assertEqual(loaded[0]["arm"], expected["arm"])
+        self.assertEqual(loaded[0]["metrics"], expected["metrics"])
+        self.assertEqual(loaded[0]["video"], expected["video"])
+        self.assertNotIn("actions", loaded[0])
+        self.assertIn(gallery.GALLERY_TAXONOMY_KEY, loaded[0])
         self.assertEqual(source["result_path"], str(result_path.resolve()))
         self.assertEqual(source["artifact_root"], str(root.resolve()))
 

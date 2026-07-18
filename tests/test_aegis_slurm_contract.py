@@ -166,6 +166,11 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("population-prepublish", publisher)
         self.assertIn("--format=JobID,JobIDRaw,State", publisher)
         self.assertIn("aggregate_safelibero_aegis.py", publisher)
+        self.assertIn("build_aegis_failure_report.py", publisher)
+        self.assertIn("--population-validation-receipt", publisher)
+        self.assertIn("--failure-cases", publisher)
+        self.assertIn("--failure-report", publisher)
+        self.assertIn("--failure-markdown", publisher)
         self.assertIn("build_safelibero_video_gallery.py", publisher)
         self.assertIn("population-finalize", publisher)
 
@@ -188,7 +193,15 @@ class AegisSlurmContractTest(unittest.TestCase):
             )
             self.assertIn("PAIRED_CANARY_RECEIPT_PATH", text)
             self.assertIn(
-                "vlsa_table1_action_invariant_paired_canary_validation.v1",
+                "vlsa_table1_action_invariant_paired_canary_validation.v2",
+                text,
+            )
+            self.assertIn(
+                "vlsa_table1_active_obstacle_contacts.v3",
+                text,
+            )
+            self.assertIn(
+                "vlsa_table1_contact_model_authority.v2",
                 text,
             )
             self.assertIn("full_content_tree_sha256", text)
@@ -235,7 +248,7 @@ class AegisSlurmContractTest(unittest.TestCase):
                     {
                         "schema_version": (
                             "vlsa_table1_action_invariant_"
-                            "paired_canary_validation.v1"
+                            "paired_canary_validation.v2"
                         ),
                         "status": "validated",
                         "results": [

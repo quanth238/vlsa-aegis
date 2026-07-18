@@ -20,7 +20,8 @@ from typing import Any, Mapping, Sequence
 
 DIAGNOSTICS_SCHEMA = "vlsa_table1_aegis_failure_diagnostics.v1"
 GEOMETRY_SCHEMA = "vlsa_table1_aegis_geometry_diagnostics.v1"
-CONTACT_SCHEMA = "vlsa_table1_active_obstacle_contacts.v1"
+CONTACT_SCHEMA = "vlsa_table1_active_obstacle_contacts.v3"
+CONTACT_MODEL_AUTHORITY_SCHEMA = "vlsa_table1_contact_model_authority.v2"
 TERMINAL_FRAME_SCHEMA = "vlsa_table1_terminal_frame.v1"
 ACTION_LEDGER_SCHEMA = "vlsa_table1_action_invariance_ledger.v1"
 REFERENCE_SCHEMA = "vlsa_table1_canary_action_reference.v1"
@@ -897,13 +898,55 @@ def publish_terminal_frame_artifact(
 def publish_contact_artifact(
     *,
     case_id: str,
+    active_obstacle_name: str,
+    model_authority: Mapping[str, Any],
     snapshots: Sequence[Mapping[str, Any]],
     case_dir: Path,
     output_root: Path,
 ) -> dict[str, Any]:
+    if not isinstance(active_obstacle_name, str) or not active_obstacle_name:
+        raise ValueError("contact artifact requires an active obstacle name")
+    authority = dict(model_authority)
+    expected_authority_hash = sha256_bytes(
+        canonical_json_bytes(
+            {
+                key: value
+                for key, value in authority.items()
+                if key != "authority_sha256"
+            }
+        )
+    )
+    if (
+        authority.get("schema_version") != CONTACT_MODEL_AUTHORITY_SCHEMA
+        or authority.get("active_obstacle_name") != active_obstacle_name
+        or authority.get("authority_sha256") != expected_authority_hash
+    ):
+        raise ValueError("contact model authority binding changed")
+    for snapshot in snapshots:
+        role_authority = snapshot.get("role_authority", {})
+        raw_contact_ledger = snapshot.get("raw_contact_ledger")
+        if (
+            snapshot.get("active_obstacle_name") != active_obstacle_name
+            or role_authority.get("model_authority_sha256")
+            != expected_authority_hash
+            or role_authority.get("task_context_sha256")
+            != authority.get("task_context_sha256")
+            or role_authority.get("active_obstacle_root_body_id")
+            != authority.get("active_obstacle_root_body_id")
+            or role_authority.get("task_context")
+            != authority.get("task_context")
+            or not isinstance(raw_contact_ledger, list)
+            or snapshot.get("raw_contact_ledger_sha256")
+            != sha256_bytes(canonical_json_bytes(raw_contact_ledger))
+        ):
+            raise ValueError(
+                "contact snapshot differs from model/task authority"
+            )
     payload = {
         "schema_version": CONTACT_SCHEMA,
         "case_id": case_id,
+        "active_obstacle_name": active_obstacle_name,
+        "model_authority": authority,
         "snapshots": list(snapshots),
     }
     raw = canonical_json_bytes(payload)
@@ -915,24 +958,74 @@ def publish_contact_artifact(
         for snapshot in snapshots
         for event in snapshot.get("events", [])
     ]
-    robot_events = [
-        event
-        for event in events
-        if event.get("other", {}).get("classification") == "robot"
-    ]
+    role_classes = (
+        "robot",
+        "static_support",
+        "dynamic_task_object",
+        "dynamic_other",
+        "unknown",
+    )
+    events_by_role = {
+        role: [
+            event
+            for event in events
+            if event.get("other", {}).get("classification") == role
+        ]
+        for role in role_classes
+    }
+    unknown_roles = events_by_role["unknown"]
+    role_authority_complete = (
+        not unknown_roles
+        and all(
+            snapshot.get("role_authority", {}).get("status") == "complete"
+            for snapshot in snapshots
+        )
+    )
+    robot_events = events_by_role["robot"]
     nonrobot_events = [
         event
-        for event in events
-        if event.get("other", {}).get("classification") == "nonrobot"
+        for role in role_classes
+        if role != "robot"
+        for event in events_by_role[role]
     ]
     return {
         "schema_version": CONTACT_SCHEMA,
+        "active_obstacle_name": active_obstacle_name,
+        "model_authority_sha256": expected_authority_hash,
+        "active_obstacle_root_body_id": authority.get(
+            "active_obstacle_root_body_id"
+        ),
+        "task_context_sha256": authority.get("task_context_sha256"),
         "path": str(path.relative_to(output_root)),
         "sha256": sha256_path(path),
         "uncompressed_payload_sha256": sha256_bytes(raw),
         "format": "canonical_json_gzip_mtime_zero",
         "snapshot_count": len(snapshots),
         "event_count": len(events),
+        "role_taxonomy": list(role_classes),
+        "role_authority_complete": role_authority_complete,
+        "event_counts_by_role": {
+            role: len(events_by_role[role]) for role in role_classes
+        },
+        "steps_with_contact_by_role": {
+            role: sorted(
+                {int(event["step"]) for event in events_by_role[role]}
+            )
+            for role in role_classes
+        },
+        "first_contact_step_by_role": {
+            role: (
+                None
+                if not events_by_role[role]
+                else min(
+                    int(event["step"]) for event in events_by_role[role]
+                )
+            )
+            for role in role_classes
+        },
+        # Retained for receipt compatibility. Scientific analysis must use the
+        # disjoint role counts above, never generic ``nonrobot`` as a failure
+        # mechanism.
         "robot_event_count": len(robot_events),
         "nonrobot_event_count": len(nonrobot_events),
         "steps_with_any_contact": sorted(

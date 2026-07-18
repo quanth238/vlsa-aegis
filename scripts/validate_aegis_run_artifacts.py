@@ -24,7 +24,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from analysis import aggregate_safelibero_aegis as aggregate  # noqa: E402
+from analysis import build_aegis_failure_report as failure_report_analysis  # noqa: E402
+from analysis import build_safelibero_video_gallery as gallery_analysis  # noqa: E402
 from analysis import validate_aegis_action_invariant_canary as action_canary  # noqa: E402
+from analysis import validate_aegis_failure_diagnostics as failure_validation  # noqa: E402
 from scripts import validate_aegis_assets as asset_validation  # noqa: E402
 from scripts.aegis_receipt_utils import (  # noqa: E402
     ReceiptError,
@@ -40,10 +43,10 @@ from scripts.aegis_receipt_utils import (  # noqa: E402
 
 
 CANARY_SCHEMA = (
-    "vlsa_table1_action_invariant_paired_canary_validation.v1"
+    "vlsa_table1_action_invariant_paired_canary_validation.v2"
 )
 POPULATION_PREPUBLISH_SCHEMA = (
-    "vlsa_table1_population_prepublish_validation.v1"
+    "vlsa_table1_population_prepublish_validation.v2"
 )
 POPULATION_PUBLICATION_SCHEMA = "vlsa_table1_population_publication.v1"
 RUN_CONTRACT_SCHEMA = "vlsa_table1_run_contract.v1"
@@ -51,6 +54,17 @@ PREFLIGHT_SCHEMA = "vlsa_table1_allocation_preflight.v1"
 PI05_HASH_SCHEMA = "vlsa_table1_pi05_hash_receipt.v1"
 RESULT_PAYLOAD_FIELD = "result_payload_sha256"
 VALID_QP_STATUSES = {"optimal", "optimal_inaccurate"}
+CONTACT_SCHEMA_V3 = "vlsa_table1_active_obstacle_contacts.v3"
+CONTACT_MODEL_AUTHORITY_SCHEMA_V2 = (
+    "vlsa_table1_contact_model_authority.v2"
+)
+CONTACT_ROLE_TAXONOMY = (
+    "robot",
+    "static_support",
+    "dynamic_task_object",
+    "dynamic_other",
+    "unknown",
+)
 FULL_LABEL_MANIFEST_SHA256 = (
     "f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e"
 )
@@ -188,6 +202,44 @@ def _load_selected_frozen_label_record(
     return selected[0]
 
 
+def _load_population_frozen_label_records(
+    path: Path,
+    *,
+    manifests: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    expected_case_ids = {str(row["case_id"]) for row in manifests}
+    if len(expected_case_ids) != len(manifests):
+        raise ReceiptError(
+            "population manifest contains duplicate case identities"
+        )
+    records: dict[str, dict[str, Any]] = {}
+    for raw_line in path.read_bytes().splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            row = json.loads(raw_line)
+        except json.JSONDecodeError as error:
+            raise ReceiptError(
+                "full frozen label manifest contains invalid JSON"
+            ) from error
+        case_id = row.get("case_id") if isinstance(row, dict) else None
+        if (
+            not isinstance(case_id, str)
+            or not case_id
+            or case_id in records
+        ):
+            raise ReceiptError(
+                "full frozen label manifest has an invalid or duplicate case"
+            )
+        records[case_id] = row
+    _require_equal(
+        set(records),
+        expected_case_ids,
+        label="full frozen label population identities",
+    )
+    return records
+
+
 def _validate_canary_result_binding(
     result: Mapping[str, Any],
     *,
@@ -215,6 +267,43 @@ def _validate_canary_result_binding(
     )
     if not isinstance(label_record, Mapping):
         raise ReceiptError(f"{label} result lacks its settled label record")
+    _require_equal(
+        canonical_json_bytes(dict(label_record)),
+        canonical_json_bytes(dict(expected_label_record)),
+        label=f"{label} canonical frozen label-record bytes",
+    )
+
+
+def _validate_population_result_binding(
+    result: Mapping[str, Any],
+    *,
+    task_index: int,
+    policy_mode: str,
+    expected_arm: str,
+    expected_label_record: Mapping[str, Any],
+) -> None:
+    case_id = str(result.get("case_id", ""))
+    label = f"task-{task_index}/{case_id}/{policy_mode}"
+    _require_equal(
+        result.get("mode"),
+        policy_mode,
+        label=f"{label} result mode",
+    )
+    _require_equal(
+        result.get("arm"),
+        expected_arm,
+        label=f"{label} result arm",
+    )
+    settled = result.get("settled_observation")
+    label_record = (
+        settled.get("label_record")
+        if isinstance(settled, Mapping)
+        else None
+    )
+    if not isinstance(label_record, Mapping):
+        raise ReceiptError(
+            f"{label} result lacks its settled frozen label record"
+        )
     _require_equal(
         canonical_json_bytes(dict(label_record)),
         canonical_json_bytes(dict(expected_label_record)),
@@ -1088,6 +1177,10 @@ def validate_paired_canary(args: argparse.Namespace) -> dict[str, Any]:
         "paired_result_valid": True,
         "action_invariance_valid": True,
         "failure_diagnostics_valid": True,
+        "contact_schema_version": CONTACT_SCHEMA_V3,
+        "contact_model_authority_schema_version": (
+            CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+        ),
         "cross_arm_pairing": cross_arm_pairing,
         "aegis_integration_gates": integration_gates,
         "action_invariant_evidence": action_invariant_evidence,
@@ -1434,6 +1527,16 @@ def validate_paired_canary_receipt(
             True,
             label=f"paired-canary {field}",
         )
+    _require_equal(
+        value.get("contact_schema_version"),
+        CONTACT_SCHEMA_V3,
+        label="paired-canary contact schema",
+    )
+    _require_equal(
+        value.get("contact_model_authority_schema_version"),
+        CONTACT_MODEL_AUTHORITY_SCHEMA_V2,
+        label="paired-canary contact model-authority schema",
+    )
     return {
         "path": str(path),
         "sha256": sha256_path(path),
@@ -1448,6 +1551,10 @@ def validate_paired_canary_receipt(
             record["sha256"] for record in regenerated_result_records
         ],
         "aegis_integration_gates": regenerated_integration_gates,
+        "contact_schema_version": CONTACT_SCHEMA_V3,
+        "contact_model_authority_schema_version": (
+            CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+        ),
         "action_invariant_evidence_sha256": sha256_bytes(
             canonical_json_bytes(regenerated_action_evidence)
         ),
@@ -1541,6 +1648,655 @@ def _validate_population_result(
         "video_sha256": artifact["video_sha256"],
         "case_id": artifact["case_id"],
         "arm": artifact["arm"],
+        "status": artifact["status"],
+    }
+
+
+def _population_result_specs(
+    config: Mapping[str, Any],
+) -> tuple[tuple[str, str], ...]:
+    expected = tuple(
+        action_canary.EXPECTED_ARM_BY_POLICY_MODE[mode]
+        for mode in action_canary.POLICY_MODES
+    )
+    _require_equal(
+        tuple(config.get("arms", ())),
+        expected,
+        label="population protocol mode/arm mapping",
+    )
+    return tuple(
+        (
+            mode,
+            action_canary.EXPECTED_ARM_BY_POLICY_MODE[mode],
+        )
+        for mode in action_canary.POLICY_MODES
+    )
+
+
+def _compact_population_diagnostic_evidence(
+    result: Mapping[str, Any],
+    *,
+    diagnostic_validation: Mapping[str, Any],
+) -> dict[str, Any]:
+    case_id = str(result.get("case_id", ""))
+    mode = str(result.get("mode", ""))
+    arm = str(result.get("arm", ""))
+    label = f"{case_id}/{mode}"
+    record = result.get("failure_diagnostics")
+    if not isinstance(record, Mapping):
+        raise ReceiptError(f"{label}: failure diagnostics are missing")
+    terminal_frame = record.get("terminal_frame")
+    contacts = record.get("contacts")
+    geometry = record.get("geometry")
+    obstacle = result.get("obstacle")
+    active_obstacle_name = (
+        obstacle.get("active_name")
+        if isinstance(obstacle, Mapping)
+        else None
+    )
+    if not isinstance(terminal_frame, Mapping) or not isinstance(
+        contacts, Mapping
+    ):
+        raise ReceiptError(
+            f"{label}: terminal-frame/contact diagnostics are missing"
+        )
+    if (
+        not isinstance(active_obstacle_name, str)
+        or not active_obstacle_name
+        or contacts.get("active_obstacle_name") != active_obstacle_name
+    ):
+        raise ReceiptError(
+            f"{label}: detailed contact active-obstacle binding changed"
+        )
+    terminal_frame_sha256 = require_sha256(
+        terminal_frame.get("sha256"),
+        label=f"{label}: terminal-frame artifact",
+    )
+    contacts_sha256 = require_sha256(
+        contacts.get("sha256"),
+        label=f"{label}: detailed contact artifact",
+    )
+    contact_payload_sha256 = require_sha256(
+        contacts.get("uncompressed_payload_sha256"),
+        label=f"{label}: detailed contact payload",
+    )
+    contact_model_authority_sha256 = require_sha256(
+        contacts.get("model_authority_sha256"),
+        label=f"{label}: contact model authority",
+    )
+    contact_task_context_sha256 = require_sha256(
+        contacts.get("task_context_sha256"),
+        label=f"{label}: contact task context",
+    )
+    active_obstacle_root_body_id = contacts.get(
+        "active_obstacle_root_body_id"
+    )
+    if (
+        type(active_obstacle_root_body_id) is not int
+        or active_obstacle_root_body_id < 0
+    ):
+        raise ReceiptError(
+            f"{label}: active-obstacle root-body authority changed"
+        )
+    _require_equal(
+        contacts.get("schema_version"),
+        CONTACT_SCHEMA_V3,
+        label=f"{label}: detailed contact schema",
+    )
+    _require_equal(
+        tuple(contacts.get("role_taxonomy", ())),
+        CONTACT_ROLE_TAXONOMY,
+        label=f"{label}: contact role taxonomy",
+    )
+    _require_equal(
+        contacts.get("role_authority_complete"),
+        True,
+        label=f"{label}: contact role authority",
+    )
+    event_counts_by_role = contacts.get("event_counts_by_role")
+    steps_by_role = contacts.get("steps_with_contact_by_role")
+    first_steps_by_role = contacts.get("first_contact_step_by_role")
+    if not all(
+        isinstance(value, Mapping)
+        for value in (
+            event_counts_by_role,
+            steps_by_role,
+            first_steps_by_role,
+        )
+    ):
+        raise ReceiptError(
+            f"{label}: authoritative per-role contact summaries are missing"
+        )
+    for field_name, value in (
+        ("event_counts_by_role", event_counts_by_role),
+        ("steps_with_contact_by_role", steps_by_role),
+        ("first_contact_step_by_role", first_steps_by_role),
+    ):
+        _require_equal(
+            tuple(value),
+            CONTACT_ROLE_TAXONOMY,
+            label=f"{label}: contact {field_name} keys/order",
+        )
+    contact_event_counts_by_role: dict[str, int] = {}
+    contact_steps_by_role: dict[str, list[int]] = {}
+    contact_first_steps_by_role: dict[str, int | None] = {}
+    for role in CONTACT_ROLE_TAXONOMY:
+        count = event_counts_by_role[role]
+        steps = steps_by_role[role]
+        first_step = first_steps_by_role[role]
+        if type(count) is not int or count < 0:
+            raise ReceiptError(
+                f"{label}: contact count for {role} is invalid"
+            )
+        if (
+            not isinstance(steps, list)
+            or any(type(step) is not int for step in steps)
+            or steps != sorted(set(steps))
+        ):
+            raise ReceiptError(
+                f"{label}: contact steps for {role} are invalid"
+            )
+        expected_first = None if not steps else steps[0]
+        if first_step != expected_first:
+            raise ReceiptError(
+                f"{label}: first contact step for {role} is invalid"
+            )
+        if (count == 0) is not (not steps):
+            raise ReceiptError(
+                f"{label}: contact count/steps disagree for {role}"
+            )
+        contact_event_counts_by_role[role] = count
+        contact_steps_by_role[role] = list(steps)
+        contact_first_steps_by_role[role] = first_step
+    if sum(contact_event_counts_by_role.values()) != contacts.get(
+        "event_count"
+    ):
+        raise ReceiptError(
+            f"{label}: per-role counts do not sum to all contact events"
+        )
+    _require_equal(
+        contacts.get("robot_event_count"),
+        contact_event_counts_by_role["robot"],
+        label=f"{label}: legacy robot contact count",
+    )
+    _require_equal(
+        contacts.get("nonrobot_event_count"),
+        sum(
+            contact_event_counts_by_role[role]
+            for role in CONTACT_ROLE_TAXONOMY
+            if role != "robot"
+        ),
+        label=f"{label}: legacy nonrobot contact count",
+    )
+    if (
+        contact_event_counts_by_role["unknown"] != 0
+        or contact_steps_by_role["unknown"]
+        or contact_first_steps_by_role["unknown"] is not None
+    ):
+        raise ReceiptError(
+            f"{label}: unknown contact roles are not publication-valid"
+        )
+    video_decode = diagnostic_validation.get("video_decode")
+    ledger = diagnostic_validation.get("action_invariance_ledger")
+    if not isinstance(video_decode, Mapping) or not isinstance(
+        ledger, Mapping
+    ):
+        raise ReceiptError(
+            f"{label}: compact diagnostic validation evidence is incomplete"
+        )
+
+    geometry_status = "not_applicable"
+    geometry_artifact_sha256: str | None = None
+    geometry_record_sha256: str | None = None
+    geometry_view_statuses: dict[str, str] = {}
+    geometry_detection_counts: dict[str, int | None] = {}
+    filtering_status: str | None = None
+    mvee_status: str | None = None
+    if mode == "aegis":
+        if not isinstance(geometry, Mapping):
+            raise ReceiptError(f"{label}: AEGIS geometry evidence is missing")
+        geometry_artifact_sha256 = require_sha256(
+            geometry.get("sha256"),
+            label=f"{label}: AEGIS geometry artifact",
+        )
+        geometry_record = geometry.get("record")
+        if not isinstance(geometry_record, Mapping):
+            raise ReceiptError(
+                f"{label}: AEGIS geometry record is missing"
+            )
+        geometry_status = str(geometry_record.get("status", ""))
+        geometry_record_sha256 = sha256_bytes(
+            canonical_json_bytes(dict(geometry_record))
+        )
+        views = geometry_record.get("views")
+        if isinstance(views, Mapping):
+            for view_name in ("agentview", "backview"):
+                view = views.get(view_name)
+                if isinstance(view, Mapping):
+                    geometry_view_statuses[view_name] = str(
+                        view.get("status", "")
+                    )
+                    detections = view.get("detections")
+                    geometry_detection_counts[view_name] = (
+                        int(detections["count"])
+                        if isinstance(detections, Mapping)
+                        and type(detections.get("count")) is int
+                        else None
+                    )
+        filtering = geometry_record.get("filtering")
+        mvee = geometry_record.get("mvee")
+        filtering_status = (
+            str(filtering.get("status"))
+            if isinstance(filtering, Mapping)
+            else None
+        )
+        mvee_status = (
+            str(mvee.get("status"))
+            if isinstance(mvee, Mapping)
+            else None
+        )
+    elif mode == "pi05":
+        if not isinstance(geometry, Mapping) or (
+            geometry.get("status"),
+            geometry.get("reason"),
+        ) != ("not_run", "pi05_baseline_arm"):
+            raise ReceiptError(
+                f"{label}: baseline geometry must be explicitly not run"
+            )
+        geometry_status = "not_run"
+    else:
+        raise ReceiptError(f"{label}: unsupported population policy mode")
+
+    qp_rows: list[dict[str, Any]] = []
+    solved_qp_actions = 0
+    for action in result.get("actions", []):
+        if (
+            not isinstance(action, Mapping)
+            or action.get("control_path") != "aegis_qp"
+        ):
+            continue
+        qp = action.get("qp")
+        context = qp.get("context") if isinstance(qp, Mapping) else None
+        if not isinstance(qp, Mapping) or not isinstance(context, Mapping):
+            raise ReceiptError(f"{label}: validated QP context is missing")
+        solved_qp_actions += 1
+        qp_rows.append(
+            {
+                "step": action.get("step"),
+                "solver_status": qp.get("solver_status"),
+                "qp_sha256": sha256_bytes(
+                    canonical_json_bytes(dict(qp))
+                ),
+                "context_sha256": sha256_bytes(
+                    canonical_json_bytes(dict(context))
+                ),
+            }
+        )
+    method_failure = result.get("method_failure")
+    terminal_qp_failure = (
+        isinstance(method_failure, Mapping)
+        and (
+            method_failure.get("component"),
+            method_failure.get("phase"),
+        )
+        == ("aegis_qp", "control")
+    )
+    if terminal_qp_failure:
+        qp_rows.append(
+            {
+                "step": method_failure.get("step"),
+                "terminal_failure": True,
+                "failure_type": (
+                    method_failure.get("diagnostics", {}).get("failure_type")
+                    if isinstance(
+                        method_failure.get("diagnostics"), Mapping
+                    )
+                    else None
+                ),
+                "method_failure_sha256": sha256_bytes(
+                    canonical_json_bytes(dict(method_failure))
+                ),
+            }
+        )
+
+    goal_progress = result.get("goal_progress")
+    settled = result.get("settled_observation")
+    label_record = (
+        settled.get("label_record")
+        if isinstance(settled, Mapping)
+        else None
+    )
+    if not isinstance(goal_progress, Mapping) or not isinstance(
+        label_record, Mapping
+    ):
+        raise ReceiptError(
+            f"{label}: native goal or frozen label evidence is missing"
+        )
+    decoded_frame_count = video_decode.get("decoded_frame_count")
+    if type(decoded_frame_count) is not int or decoded_frame_count < 1:
+        raise ReceiptError(f"{label}: decoded video frame count is invalid")
+    for field in (
+        "snapshot_count",
+        "event_count",
+        "robot_event_count",
+        "nonrobot_event_count",
+    ):
+        if type(contacts.get(field)) is not int or contacts[field] < 0:
+            raise ReceiptError(
+                f"{label}: detailed contact {field} is invalid"
+            )
+
+    compact = {
+        "case_id": case_id,
+        "mode": mode,
+        "arm": arm,
+        "result_status": result.get("status"),
+        "diagnostic_validation_sha256": sha256_bytes(
+            canonical_json_bytes(dict(diagnostic_validation))
+        ),
+        "failure_diagnostics_record_sha256": sha256_bytes(
+            canonical_json_bytes(dict(record))
+        ),
+        "frozen_label_record_sha256": sha256_bytes(
+            canonical_json_bytes(dict(label_record))
+        ),
+        "action_invariance_ledger_sha256": sha256_bytes(
+            canonical_json_bytes(dict(ledger))
+        ),
+        "action_count": int(ledger["action_count"]),
+        "policy_query_count": int(ledger["policy_query_count"]),
+        "terminal_frame_sha256": terminal_frame_sha256,
+        "geometry_status": geometry_status,
+        "geometry_artifact_sha256": geometry_artifact_sha256,
+        "geometry_record_sha256": geometry_record_sha256,
+        "geometry_view_statuses": geometry_view_statuses,
+        "geometry_detection_counts": geometry_detection_counts,
+        "filtering_status": filtering_status,
+        "mvee_status": mvee_status,
+        "qp_solved_action_count": solved_qp_actions,
+        "qp_terminal_failure": terminal_qp_failure,
+        "qp_evidence_sha256": sha256_bytes(
+            canonical_json_bytes(qp_rows)
+        ),
+        "contacts_sha256": contacts_sha256,
+        "active_obstacle_name": active_obstacle_name,
+        "contacts_uncompressed_payload_sha256": (
+            contact_payload_sha256
+        ),
+        "contact_model_authority_sha256": (
+            contact_model_authority_sha256
+        ),
+        "contact_task_context_sha256": contact_task_context_sha256,
+        "active_obstacle_root_body_id": active_obstacle_root_body_id,
+        "contact_schema_version": CONTACT_SCHEMA_V3,
+        "contact_model_authority_schema_version": (
+            CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+        ),
+        "contact_role_taxonomy": list(CONTACT_ROLE_TAXONOMY),
+        "contact_role_authority_complete": True,
+        "contact_event_counts_by_role": contact_event_counts_by_role,
+        "contact_steps_with_contact_by_role": contact_steps_by_role,
+        "contact_first_contact_step_by_role": (
+            contact_first_steps_by_role
+        ),
+        "contact_snapshot_count": int(contacts["snapshot_count"]),
+        "contact_event_count": int(contacts["event_count"]),
+        "contact_robot_event_count": int(contacts["robot_event_count"]),
+        "contact_nonrobot_event_count": int(
+            contacts["nonrobot_event_count"]
+        ),
+        "native_goal_progress_sha256": sha256_bytes(
+            canonical_json_bytes(dict(goal_progress))
+        ),
+        "decoded_video_sha256": sha256_bytes(
+            canonical_json_bytes(dict(video_decode))
+        ),
+        "decoded_video_frame_count": decoded_frame_count,
+    }
+    compact["compact_evidence_sha256"] = sha256_bytes(
+        canonical_json_bytes(compact)
+    )
+    return compact
+
+
+def _validate_population_task_results(
+    *,
+    task_index: int,
+    task_root: Path,
+    run_root: Path,
+    config: dict[str, Any],
+    task_manifests: list[dict[str, Any]],
+    label_records: Mapping[str, Mapping[str, Any]],
+    expected_commit: str,
+) -> dict[str, Any]:
+    if len(task_manifests) != 50:
+        raise ReceiptError(
+            f"task-{task_index} must bind exactly 50 manifest cases"
+        )
+    result_root = task_root / "results"
+    specs = _population_result_specs(config)
+    expected_paths = {
+        (
+            result_root
+            / policy_mode
+            / str(manifest["case_id"])
+            / "result.json"
+        ).resolve()
+        for manifest in task_manifests
+        for policy_mode, _ in specs
+    }
+    observed_paths = {
+        path.resolve() for path in result_root.rglob("result.json")
+    }
+    _require_equal(
+        observed_paths,
+        expected_paths,
+        label=f"task-{task_index} exact result inventory",
+    )
+
+    inventory: list[dict[str, Any]] = []
+    status_counts: Counter[str] = Counter()
+    mode_counts: Counter[str] = Counter()
+    arm_counts: Counter[str] = Counter()
+    geometry_status_counts: Counter[str] = Counter()
+    qp_solved_action_count = 0
+    qp_terminal_failure_result_count = 0
+    contact_snapshot_count = 0
+    contact_event_count = 0
+    contact_robot_event_count = 0
+    contact_nonrobot_event_count = 0
+    contact_event_counts_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_case_step_counts_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_results_with_role_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_first_step_histograms_by_role: dict[str, Counter[str]] = {
+        role: Counter() for role in CONTACT_ROLE_TAXONOMY
+    }
+    decoded_video_frame_count = 0
+
+    # A single case pair is the largest collection of full result dictionaries
+    # retained at any time.  Only compact, hash-bound evidence escapes this
+    # loop.
+    for manifest in task_manifests:
+        case_id = str(manifest["case_id"])
+        expected_label_record = label_records.get(case_id)
+        if not isinstance(expected_label_record, Mapping):
+            raise ReceiptError(
+                f"task-{task_index}/{case_id}: frozen label is missing"
+            )
+        pair: dict[tuple[str, str], dict[str, Any]] = {}
+        pair_items: list[dict[str, Any]] = []
+        for policy_mode, arm in specs:
+            result_path = (
+                result_root / policy_mode / case_id / "result.json"
+            )
+            validated, item = _validate_population_result(
+                path=result_path,
+                task_results_root=result_root,
+                config=config,
+                manifest=manifest,
+                expected_commit=expected_commit,
+            )
+            _validate_population_result_binding(
+                validated,
+                task_index=task_index,
+                policy_mode=policy_mode,
+                expected_arm=arm,
+                expected_label_record=expected_label_record,
+            )
+            try:
+                diagnostic_validation = (
+                    failure_validation.validate_diagnostic_result(
+                        validated,
+                        output_root=result_root,
+                        # Population must retain typed perception/geometry/QP
+                        # method failures; ready geometry is only the canary's
+                        # positive integration gate.
+                        require_ready_geometry=False,
+                    )
+                )
+            except failure_validation.DiagnosticValidationError as error:
+                raise ReceiptError(
+                    f"task-{task_index}/{case_id}/{policy_mode}: "
+                    f"deep diagnostics invalid: {error}"
+                ) from error
+            compact = _compact_population_diagnostic_evidence(
+                validated,
+                diagnostic_validation=diagnostic_validation,
+            )
+            item["relative_result_path"] = str(
+                result_path.relative_to(run_root)
+            )
+            item["case_ordinal"] = int(manifest["case_ordinal"])
+            item["task_index"] = task_index
+            item["policy_mode"] = policy_mode
+            item["diagnostics"] = compact
+            pair[(case_id, arm)] = validated
+            pair_items.append(item)
+        try:
+            aggregate.validate_pairs(
+                config=config,
+                manifests=[manifest],
+                results=pair,
+            )
+        except aggregate.AggregationError as error:
+            raise ReceiptError(
+                f"task-{task_index}/{case_id}: cross-arm pairing invalid: "
+                f"{error}"
+            ) from error
+
+        for item in pair_items:
+            compact = item["diagnostics"]
+            inventory.append(item)
+            status_counts[str(item.get("status", ""))] += 1
+            mode_counts[str(compact["mode"])] += 1
+            arm_counts[str(compact["arm"])] += 1
+            geometry_status_counts[
+                f"{compact['mode']}:{compact['geometry_status']}"
+            ] += 1
+            qp_solved_action_count += int(
+                compact["qp_solved_action_count"]
+            )
+            qp_terminal_failure_result_count += int(
+                compact["qp_terminal_failure"]
+            )
+            contact_snapshot_count += int(
+                compact["contact_snapshot_count"]
+            )
+            contact_event_count += int(compact["contact_event_count"])
+            contact_robot_event_count += int(
+                compact["contact_robot_event_count"]
+            )
+            contact_nonrobot_event_count += int(
+                compact["contact_nonrobot_event_count"]
+            )
+            for role in CONTACT_ROLE_TAXONOMY:
+                role_count = int(
+                    compact["contact_event_counts_by_role"][role]
+                )
+                role_steps = compact[
+                    "contact_steps_with_contact_by_role"
+                ][role]
+                role_first = compact[
+                    "contact_first_contact_step_by_role"
+                ][role]
+                contact_event_counts_by_role[role] += role_count
+                contact_case_step_counts_by_role[role] += len(role_steps)
+                contact_results_with_role_by_role[role] += int(
+                    role_count > 0
+                )
+                histogram_key = (
+                    "none" if role_first is None else str(role_first)
+                )
+                contact_first_step_histograms_by_role[role][
+                    histogram_key
+                ] += 1
+            decoded_video_frame_count += int(
+                compact["decoded_video_frame_count"]
+            )
+        del pair
+        del pair_items
+        del validated
+        del diagnostic_validation
+
+    for role in CONTACT_ROLE_TAXONOMY:
+        _require_equal(
+            sum(contact_first_step_histograms_by_role[role].values()),
+            100,
+            label=(
+                f"task-{task_index} contact first-step accounting/{role}"
+            ),
+        )
+    _require_equal(
+        contact_event_counts_by_role["unknown"],
+        0,
+        label=f"task-{task_index} unknown-role contact events",
+    )
+    return {
+        "inventory": inventory,
+        "status_counts": status_counts,
+        "mode_counts": mode_counts,
+        "arm_counts": arm_counts,
+        "geometry_status_counts": geometry_status_counts,
+        "qp_solved_action_count": qp_solved_action_count,
+        "qp_terminal_failure_result_count": (
+            qp_terminal_failure_result_count
+        ),
+        "contact_snapshot_count": contact_snapshot_count,
+        "contact_event_count": contact_event_count,
+        "contact_robot_event_count": contact_robot_event_count,
+        "contact_nonrobot_event_count": contact_nonrobot_event_count,
+        "contact_event_counts_by_role": dict(
+            contact_event_counts_by_role
+        ),
+        "contact_case_step_counts_by_role": dict(
+            contact_case_step_counts_by_role
+        ),
+        "contact_results_with_role_by_role": dict(
+            contact_results_with_role_by_role
+        ),
+        "contact_first_step_histograms_by_role": {
+            role: dict(
+                sorted(
+                    contact_first_step_histograms_by_role[role].items(),
+                    key=lambda item: (
+                        item[0] != "none",
+                        (
+                            int(item[0])
+                            if item[0] != "none"
+                            else -1
+                        ),
+                    ),
+                )
+            )
+            for role in CONTACT_ROLE_TAXONOMY
+        },
+        "decoded_video_frame_count": decoded_video_frame_count,
     }
 
 
@@ -1586,6 +2342,14 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
     )
     if len(manifests) != 1600:
         raise ReceiptError("population publisher requires exactly 1,600 cases")
+    full_label_manifest = validate_full_label_manifest(
+        label_manifest_path,
+        canary_case_id=CANARY_CASE_ID,
+    )
+    label_records = _load_population_frozen_label_records(
+        label_manifest_path,
+        manifests=manifests,
+    )
     tasks_root = run_root / "tasks"
     observed_task_names = {
         path.name
@@ -1598,11 +2362,32 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
         expected_task_names,
         label="population task directories",
     )
-    manifest_by_id = {row["case_id"]: row for row in manifests}
-    validated_results: dict[tuple[str, str], dict[str, Any]] = {}
     preflights: list[dict[str, Any]] = []
-    inventory: list[dict[str, str]] = []
+    inventory: list[dict[str, Any]] = []
     status_counts: Counter[str] = Counter()
+    mode_counts: Counter[str] = Counter()
+    arm_counts: Counter[str] = Counter()
+    geometry_status_counts: Counter[str] = Counter()
+    qp_solved_action_count = 0
+    qp_terminal_failure_result_count = 0
+    contact_snapshot_count = 0
+    contact_event_count = 0
+    contact_robot_event_count = 0
+    contact_nonrobot_event_count = 0
+    contact_event_counts_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_case_step_counts_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_results_with_role_by_role: Counter[str] = Counter(
+        {role: 0 for role in CONTACT_ROLE_TAXONOMY}
+    )
+    contact_first_step_histograms_by_role: dict[str, Counter[str]] = {
+        role: Counter() for role in CONTACT_ROLE_TAXONOMY
+    }
+    task_diagnostic_summaries: list[dict[str, Any]] = []
+    decoded_video_frame_count = 0
     for task_index in range(32):
         task_root = tasks_root / f"task-{task_index}"
         if (task_root / "runtime-failure.json").exists():
@@ -1616,72 +2401,138 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
         )
         preflights.append(preflight)
         first_ordinal = task_index * 50
-        expected_case_ids = {
-            manifests[ordinal]["case_id"]
-            for ordinal in range(first_ordinal, first_ordinal + 50)
-        }
-        result_root = task_root / "results"
-        result_paths = sorted(result_root.rglob("result.json"))
-        if len(result_paths) != 100:
-            raise ReceiptError(
-                f"task-{task_index} has {len(result_paths)} results, expected 100"
-            )
-        observed_keys: set[tuple[str, str]] = set()
-        for result_path in result_paths:
-            raw = load_json_object(result_path, label="population result")
-            case_id = raw.get("case_id")
-            arm = raw.get("arm")
-            if case_id not in expected_case_ids or arm not in config["arms"]:
-                raise ReceiptError(
-                    f"task-{task_index} contains an unexpected result "
-                    f"{case_id!r}/{arm!r}"
-                )
-            key = (str(case_id), str(arm))
-            if key in observed_keys or key in validated_results:
-                raise ReceiptError(f"duplicate population result {key}")
-            observed_keys.add(key)
-            manifest = manifest_by_id[str(case_id)]
-            validated, item = _validate_population_result(
-                path=result_path,
-                task_results_root=result_root,
-                config=config,
-                manifest=manifest,
-                expected_commit=args.expected_commit,
-            )
-            validated_results[key] = validated
-            item["relative_result_path"] = str(
-                result_path.relative_to(run_root)
-            )
-            inventory.append(item)
-            status_counts[str(validated["status"])] += 1
-        expected_keys = {
-            (case_id, arm)
-            for case_id in expected_case_ids
-            for arm in config["arms"]
-        }
-        _require_equal(
-            observed_keys,
-            expected_keys,
-            label=f"task-{task_index} paired result keys",
+        task_validation = _validate_population_task_results(
+            task_index=task_index,
+            task_root=task_root,
+            run_root=run_root,
+            config=config,
+            task_manifests=manifests[
+                first_ordinal : first_ordinal + 50
+            ],
+            label_records=label_records,
+            expected_commit=args.expected_commit,
         )
-    expected_all = {
-        (row["case_id"], arm)
-        for row in manifests
-        for arm in config["arms"]
-    }
+        inventory.extend(task_validation["inventory"])
+        status_counts.update(task_validation["status_counts"])
+        mode_counts.update(task_validation["mode_counts"])
+        arm_counts.update(task_validation["arm_counts"])
+        geometry_status_counts.update(
+            task_validation["geometry_status_counts"]
+        )
+        qp_solved_action_count += int(
+            task_validation["qp_solved_action_count"]
+        )
+        qp_terminal_failure_result_count += int(
+            task_validation["qp_terminal_failure_result_count"]
+        )
+        contact_snapshot_count += int(
+            task_validation["contact_snapshot_count"]
+        )
+        contact_event_count += int(
+            task_validation["contact_event_count"]
+        )
+        contact_robot_event_count += int(
+            task_validation["contact_robot_event_count"]
+        )
+        contact_nonrobot_event_count += int(
+            task_validation["contact_nonrobot_event_count"]
+        )
+        for role in CONTACT_ROLE_TAXONOMY:
+            contact_event_counts_by_role[role] += int(
+                task_validation["contact_event_counts_by_role"][role]
+            )
+            contact_case_step_counts_by_role[role] += int(
+                task_validation["contact_case_step_counts_by_role"][role]
+            )
+            contact_results_with_role_by_role[role] += int(
+                task_validation["contact_results_with_role_by_role"][role]
+            )
+            contact_first_step_histograms_by_role[role].update(
+                task_validation[
+                    "contact_first_step_histograms_by_role"
+                ][role]
+            )
+        decoded_video_frame_count += int(
+            task_validation["decoded_video_frame_count"]
+        )
+        task_diagnostic_summaries.append(
+            {
+                "task_index": task_index,
+                "result_count": len(task_validation["inventory"]),
+                "contact_schema_version": CONTACT_SCHEMA_V3,
+                "contact_model_authority_schema_version": (
+                    CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+                ),
+                "contact_role_taxonomy": list(CONTACT_ROLE_TAXONOMY),
+                "contact_role_authority_complete": True,
+                "contact_event_counts_by_role": dict(
+                    task_validation["contact_event_counts_by_role"]
+                ),
+                "contact_case_step_counts_by_role": dict(
+                    task_validation[
+                        "contact_case_step_counts_by_role"
+                    ]
+                ),
+                "contact_results_with_role_by_role": dict(
+                    task_validation[
+                        "contact_results_with_role_by_role"
+                    ]
+                ),
+                "contact_first_step_histograms_by_role": dict(
+                    task_validation[
+                        "contact_first_step_histograms_by_role"
+                    ]
+                ),
+                "diagnostic_inventory_sha256": sha256_bytes(
+                    canonical_json_bytes(
+                        [
+                            {
+                                "case_ordinal": item["case_ordinal"],
+                                "task_index": item["task_index"],
+                                **dict(item["diagnostics"]),
+                            }
+                            for item in task_validation["inventory"]
+                        ]
+                    )
+                ),
+            }
+        )
+        del task_validation
     _require_equal(
-        set(validated_results),
-        expected_all,
-        label="complete paired population",
+        len(inventory),
+        3200,
+        label="complete compact population inventory",
     )
-    aggregate.validate_pairs(
-        config=config,
-        manifests=manifests,
-        results=validated_results,
+    expected_mode_counts = {"pi05": 1600, "aegis": 1600}
+    _require_equal(
+        dict(mode_counts),
+        expected_mode_counts,
+        label="population diagnostics mode counts",
     )
-    inventory.sort(
-        key=lambda item: (item["case_id"], item["arm"])
+    _require_equal(
+        dict(arm_counts),
+        {str(arm): 1600 for arm in config["arms"]},
+        label="population diagnostics arm counts",
     )
+    _require_equal(
+        contact_event_counts_by_role["unknown"],
+        0,
+        label="population unknown-role contact events",
+    )
+    for role in CONTACT_ROLE_TAXONOMY:
+        _require_equal(
+            sum(contact_first_step_histograms_by_role[role].values()),
+            3200,
+            label=f"population contact first-step accounting/{role}",
+        )
+    diagnostic_inventory = [
+        {
+            "case_ordinal": item["case_ordinal"],
+            "task_index": item["task_index"],
+            **dict(item["diagnostics"]),
+        }
+        for item in inventory
+    ]
     receipt: dict[str, Any] = {
         "schema_version": POPULATION_PREPUBLISH_SCHEMA,
         "status": "validated",
@@ -1696,6 +2547,7 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
         "run_contract": contract_record,
         "pi05_hash_receipt": hash_receipt,
         "paired_canary_receipt": canary_receipt,
+        "full_label_manifest": full_label_manifest,
         "slurm_accounting": accounting,
         "allocation_preflights": {
             "count": len(preflights),
@@ -1709,6 +2561,82 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
             "inventory_sha256": sha256_bytes(
                 canonical_json_bytes(inventory)
             ),
+        },
+        "failure_diagnostics": {
+            "validator": (
+                "analysis.validate_aegis_failure_diagnostics."
+                "validate_diagnostic_result"
+            ),
+            "count": len(diagnostic_inventory),
+            "all_results_deep_validated": True,
+            "require_ready_geometry": False,
+            "mode_counts": dict(sorted(mode_counts.items())),
+            "arm_counts": dict(sorted(arm_counts.items())),
+            "geometry_status_counts": dict(
+                sorted(geometry_status_counts.items())
+            ),
+            "qp_solved_action_count": qp_solved_action_count,
+            "qp_terminal_failure_result_count": (
+                qp_terminal_failure_result_count
+            ),
+            "contact_snapshot_count": contact_snapshot_count,
+            "contact_event_count": contact_event_count,
+            "contact_robot_event_count": (
+                contact_robot_event_count
+            ),
+            "contact_nonrobot_event_count": (
+                contact_nonrobot_event_count
+            ),
+            "contact_schema_version": CONTACT_SCHEMA_V3,
+            "contact_model_authority_schema_version": (
+                CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+            ),
+            "contact_role_taxonomy": list(CONTACT_ROLE_TAXONOMY),
+            "contact_role_authority_complete": True,
+            "contact_event_counts_by_role": dict(
+                contact_event_counts_by_role
+            ),
+            "contact_case_step_counts_by_role": dict(
+                contact_case_step_counts_by_role
+            ),
+            "contact_results_with_role_by_role": dict(
+                contact_results_with_role_by_role
+            ),
+            "contact_first_step_histograms_by_role": {
+                role: dict(
+                    sorted(
+                        contact_first_step_histograms_by_role[
+                            role
+                        ].items(),
+                        key=lambda item: (
+                            item[0] != "none",
+                            (
+                                int(item[0])
+                                if item[0] != "none"
+                                else -1
+                            ),
+                        ),
+                    )
+                )
+                for role in CONTACT_ROLE_TAXONOMY
+            },
+            "unknown_role_event_count": (
+                contact_event_counts_by_role["unknown"]
+            ),
+            "task_summaries": task_diagnostic_summaries,
+            "task_summaries_sha256": sha256_bytes(
+                canonical_json_bytes(task_diagnostic_summaries)
+            ),
+            "decoded_video_frame_count": decoded_video_frame_count,
+            "inventory_sha256": sha256_bytes(
+                canonical_json_bytes(diagnostic_inventory)
+            ),
+        },
+        "validation_memory_shape": {
+            "streaming_unit": "one_case_pair",
+            "maximum_live_full_result_records": 2,
+            "full_result_records_retained": 0,
+            "retained_records": "compact_hash_bound_summaries_only",
         },
     }
     receipt["receipt_payload_sha256"] = sha256_bytes(
@@ -1801,13 +2729,505 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
             expected,
             label=f"population summary/{field}",
         )
+    protocol_config, manifests = aggregate.load_protocol(
+        args.config.resolve(),
+        args.manifest_receipt.resolve(),
+        args.manifest.resolve(),
+    )
+    results_root = args.results.resolve()
+    _require_equal(
+        results_root,
+        run_root / "tasks",
+        label="population finalizer results root",
+    )
+    recomputed_results = aggregate.load_compact_results_streaming(
+        [results_root],
+        config=protocol_config,
+        manifests=manifests,
+        # The independently regenerated failure rows below verify both video
+        # files and hashes. Avoid reading all 3,200 videos twice here.
+        verify_video_files=False,
+    )
+    recomputed_summary = aggregate.aggregate(
+        config=protocol_config,
+        manifests=manifests,
+        results=recomputed_results,
+    )
+    if canonical_json_bytes(recomputed_summary) != canonical_json_bytes(
+        summary
+    ):
+        raise ReceiptError(
+            "population summary does not match the exact result population"
+        )
+    expected_case_ids = {
+        str(manifest["case_id"]) for manifest in manifests
+    }
+    current_contract_path = run_root / "run-contract.tsv"
+    current_contract = load_tsv_contract(current_contract_path)
+    recorded_contract = prepublish.get("run_contract")
+    if not isinstance(recorded_contract, Mapping):
+        raise ReceiptError("population prepublish run contract is missing")
+    _require_equal(
+        sha256_path(current_contract_path),
+        recorded_contract.get("sha256"),
+        label="population prepublish run-contract file",
+    )
+    for field, expected in (
+        ("schema_version", RUN_CONTRACT_SCHEMA),
+        ("run_stage", "population"),
+        ("run_id", prepublish.get("run_id")),
+        ("git_commit", prepublish.get("source_git_commit")),
+        ("config_sha256", sha256_path(args.config.resolve())),
+        ("manifest_sha256", sha256_path(args.manifest.resolve())),
+        (
+            "manifest_receipt_sha256",
+            sha256_path(args.manifest_receipt.resolve()),
+        ),
+    ):
+        _require_equal(
+            current_contract.get(field),
+            expected,
+            label=f"population finalizer run contract/{field}",
+        )
     gallery_path = args.gallery.resolve()
     if gallery_path.is_symlink() or not gallery_path.is_file():
         raise ReceiptError("strict population gallery is missing")
+    failure_cases_path = args.failure_cases.resolve()
+    failure_report_path = args.failure_report.resolve()
+    failure_markdown_path = args.failure_markdown.resolve()
+    for path, label in (
+        (failure_cases_path, "failure case ledger"),
+        (failure_report_path, "failure report"),
+        (failure_markdown_path, "failure report Markdown"),
+    ):
+        if path.is_symlink() or not path.is_file():
+            raise ReceiptError(f"strict population {label} is missing")
+    failure_report = load_json_object(
+        failure_report_path,
+        label="population failure report",
+    )
+    _require_equal(
+        failure_report.get("schema_version"),
+        "vlsa_table1_aegis_failure_report.v1",
+        label="population failure report schema",
+    )
+    _require_equal(
+        failure_report.get("status"),
+        "complete_population_failure_analysis",
+        label="population failure report status",
+    )
+    failure_population = failure_report.get("population")
+    failure_counts = failure_report.get("counts")
+    failure_source = failure_report.get("source")
+    if (
+        not isinstance(failure_population, Mapping)
+        or not isinstance(failure_counts, Mapping)
+        or not isinstance(failure_source, Mapping)
+    ):
+        raise ReceiptError(
+            "population failure report lacks population/count/source records"
+        )
+    for field, expected in (
+        ("cases", 1600),
+        ("results", 3200),
+        ("no_cases_dropped", True),
+        ("all_car_failures_classified", True),
+        ("causal_limits_preserved", True),
+    ):
+        _require_equal(
+            failure_population.get(field),
+            expected,
+            label=f"population failure report/{field}",
+        )
+    for field, expected in (
+        ("case_count", 1600),
+        ("video_count", 3200),
+        ("unclassified_aegis_car_failures", 0),
+        ("all_videos_hash_verified", True),
+    ):
+        _require_equal(
+            failure_counts.get(field),
+            expected,
+            label=f"population failure counts/{field}",
+        )
+    _require_equal(
+        failure_source.get("population_summary_sha256"),
+        sha256_path(summary_path),
+        label="failure report population summary binding",
+    )
+    _require_equal(
+        failure_source.get("population_validation_receipt_sha256"),
+        sha256_path(prepublish_path),
+        label="failure report prepublish binding",
+    )
+    _require_equal(
+        failure_source.get("accepted_result_payloads_sha256"),
+        summary.get("accepted_result_payloads_sha256"),
+        label="failure report accepted-result binding",
+    )
+    failure_report_payload_sha256 = verify_payload_sha256(
+        failure_report,
+        field="report_payload_sha256",
+        label="population failure report",
+    )
+    failure_case_ledger: list[dict[str, str]] = []
+    failure_result_payload_ledger: list[dict[str, str]] = []
+    failure_case_rows: list[dict[str, Any]] = []
+    failure_case_ids: set[str] = set()
+    with failure_cases_path.open("rb") as stream:
+        for line_number, raw_line in enumerate(stream, 1):
+            line = raw_line.strip()
+            if not line:
+                raise ReceiptError(
+                    "population failure case ledger contains a blank row"
+                )
+            try:
+                row = json.loads(line)
+            except Exception as error:
+                raise ReceiptError(
+                    "population failure case ledger is not valid JSONL"
+                ) from error
+            if not isinstance(row, dict):
+                raise ReceiptError(
+                    "population failure case ledger row is not an object"
+                )
+            _require_equal(
+                row.get("schema_version"),
+                "vlsa_table1_aegis_failure_case.v1",
+                label=f"failure case row {line_number} schema",
+            )
+            case_id = row.get("case_id")
+            if not isinstance(case_id, str) or case_id in failure_case_ids:
+                raise ReceiptError(
+                    "population failure case identities are invalid"
+                )
+            failure_case_ids.add(case_id)
+            row_payload_sha256 = verify_payload_sha256(
+                row,
+                field="record_payload_sha256",
+                label=f"population failure case {case_id}",
+            )
+            failure_case_ledger.append(
+                {
+                    "case_id": case_id,
+                    "record_payload_sha256": row_payload_sha256,
+                }
+            )
+            failure_case_rows.append(row)
+            outcomes = row.get("outcomes")
+            if not isinstance(outcomes, Mapping):
+                raise ReceiptError(
+                    f"population failure case {case_id} lacks outcomes"
+                )
+            for arm in (
+                "pi05_translational",
+                "pi05_plus_aegis_translational",
+            ):
+                arm_outcome = outcomes.get(arm)
+                if not isinstance(arm_outcome, Mapping):
+                    raise ReceiptError(
+                        f"population failure case {case_id}/{arm} is missing"
+                    )
+                failure_result_payload_ledger.append(
+                    {
+                        "case_id": case_id,
+                        "arm": arm,
+                        "result_payload_sha256": require_sha256(
+                            arm_outcome.get("result_payload_sha256"),
+                            label=(
+                                "population failure case "
+                                f"{case_id}/{arm}/result payload"
+                            ),
+                        ),
+                    }
+                )
+                compact = recomputed_results.get((case_id, arm))
+                if not isinstance(compact, Mapping):
+                    raise ReceiptError(
+                        "population failure case references an unknown "
+                        f"result: {case_id}/{arm}"
+                    )
+                compact_metrics = compact.get("metrics")
+                if not isinstance(compact_metrics, Mapping):
+                    raise ReceiptError(
+                        f"recomputed result metrics missing: {case_id}/{arm}"
+                    )
+                for row_field, compact_field in (
+                    ("paper_collision", "public_collision"),
+                    ("task_success", "task_success"),
+                    ("legacy_ets_steps", "legacy_ets_steps"),
+                    ("executed_action_count", "executed_action_count"),
+                ):
+                    _require_equal(
+                        arm_outcome.get(row_field),
+                        compact_metrics.get(compact_field),
+                        label=(
+                            "population failure outcome "
+                            f"{case_id}/{arm}/{row_field}"
+                        ),
+                    )
+                _require_equal(
+                    arm_outcome.get("result_payload_sha256"),
+                    compact.get("result_payload_sha256"),
+                    label=(
+                        "population failure result payload "
+                        f"{case_id}/{arm}"
+                    ),
+                )
+    _require_equal(
+        len(failure_case_ledger),
+        1600,
+        label="population failure case count",
+    )
+    _require_equal(
+        failure_case_ids,
+        expected_case_ids,
+        label="population failure case identities",
+    )
+    failure_rows_by_case = {
+        str(row["case_id"]): row for row in failure_case_rows
+    }
+    group_size = int(
+        protocol_config["population"][
+            "expected_cases_per_task_level_group"
+        ]
+    )
+    regenerated_diagnostic_inventory: list[dict[str, Any]] = []
+    regenerated_result_inventory: list[dict[str, Any]] = []
+    for manifest in manifests:
+        case_id = str(manifest["case_id"])
+        task_index = int(manifest["case_ordinal"]) // group_size
+        task_results_root = (
+            results_root / f"task-{task_index}" / "results"
+        )
+        baseline_path = (
+            task_results_root / "pi05" / case_id / "result.json"
+        )
+        aegis_path = (
+            task_results_root / "aegis" / case_id / "result.json"
+        )
+        baseline, baseline_item = _validate_population_result(
+            path=baseline_path,
+            task_results_root=task_results_root,
+            config=protocol_config,
+            manifest=manifest,
+            expected_commit=str(prepublish["source_git_commit"]),
+        )
+        aegis, aegis_item = _validate_population_result(
+            path=aegis_path,
+            task_results_root=task_results_root,
+            config=protocol_config,
+            manifest=manifest,
+            expected_commit=str(prepublish["source_git_commit"]),
+        )
+        for policy_mode, result, item, result_path in (
+            ("pi05", baseline, baseline_item, baseline_path),
+            ("aegis", aegis, aegis_item, aegis_path),
+        ):
+            diagnostic_validation = (
+                failure_validation.validate_diagnostic_result(
+                    result,
+                    output_root=task_results_root,
+                    require_ready_geometry=False,
+                )
+            )
+            compact_diagnostics = (
+                _compact_population_diagnostic_evidence(
+                    result,
+                    diagnostic_validation=diagnostic_validation,
+                )
+            )
+            _require_equal(
+                compact_diagnostics.get("mode"),
+                policy_mode,
+                label=(
+                    "population finalizer diagnostic mode "
+                    f"{case_id}/{policy_mode}"
+                ),
+            )
+            regenerated_diagnostic_inventory.append(
+                {
+                    "case_ordinal": int(manifest["case_ordinal"]),
+                    "task_index": task_index,
+                    **compact_diagnostics,
+                }
+            )
+            item["relative_result_path"] = str(
+                result_path.relative_to(run_root)
+            )
+            item["case_ordinal"] = int(manifest["case_ordinal"])
+            item["task_index"] = task_index
+            item["policy_mode"] = policy_mode
+            item["diagnostics"] = compact_diagnostics
+            regenerated_result_inventory.append(item)
+        try:
+            aggregate.validate_pairs(
+                config=protocol_config,
+                manifests=[manifest],
+                results={
+                    (
+                        case_id,
+                        failure_report_analysis.BASELINE_ARM,
+                    ): baseline,
+                    (
+                        case_id,
+                        failure_report_analysis.AEGIS_ARM,
+                    ): aegis,
+                },
+            )
+            regenerated_case = (
+                failure_report_analysis.build_case_record(
+                    manifest=manifest,
+                    baseline=baseline,
+                    aegis=aegis,
+                    baseline_artifact_root=task_results_root,
+                    aegis_artifact_root=task_results_root,
+                )
+            )
+        finally:
+            del baseline
+            del aegis
+        if canonical_json_bytes(
+            regenerated_case
+        ) != canonical_json_bytes(failure_rows_by_case[case_id]):
+            raise ReceiptError(
+                "population failure case does not regenerate from exact "
+                f"paired results: {case_id}"
+            )
+    prepublish_diagnostics = prepublish.get("failure_diagnostics")
+    if not isinstance(prepublish_diagnostics, Mapping):
+        raise ReceiptError(
+            "population prepublish receipt lacks failure diagnostics"
+        )
+    _require_equal(
+        sha256_bytes(
+            canonical_json_bytes(regenerated_diagnostic_inventory)
+        ),
+        prepublish_diagnostics.get("inventory_sha256"),
+        label="population prepublish diagnostic inventory",
+    )
+    prepublish_results = prepublish.get("result_artifacts")
+    if not isinstance(prepublish_results, Mapping):
+        raise ReceiptError(
+            "population prepublish receipt lacks result artifacts"
+        )
+    _require_equal(
+        sha256_bytes(canonical_json_bytes(regenerated_result_inventory)),
+        prepublish_results.get("inventory_sha256"),
+        label="population prepublish result inventory",
+    )
+    _require_equal(
+        sha256_bytes(canonical_json_bytes(failure_case_ledger)),
+        failure_report.get("case_record_ledger_sha256"),
+        label="population failure case ledger binding",
+    )
+    _require_equal(
+        sha256_bytes(
+            canonical_json_bytes(
+                sorted(
+                    failure_result_payload_ledger,
+                    key=lambda row: (row["case_id"], row["arm"]),
+                )
+            )
+        ),
+        summary.get("accepted_result_payloads_sha256"),
+        label="population failure accepted-result ledger binding",
+    )
+    regenerated_counts = (
+        failure_report_analysis.validate_report_against_summary(
+            failure_case_rows,
+            summary=summary,
+            expected_cases=1600,
+        )
+    )
+    _require_equal(
+        regenerated_counts,
+        failure_report.get("counts"),
+        label="population failure report recomputed counts",
+    )
+    report_memory = failure_report.get("validation_memory_shape")
+    if not isinstance(report_memory, Mapping):
+        raise ReceiptError(
+            "population failure report lacks its streaming memory shape"
+        )
+    regenerated_report = failure_report_analysis.build_report(
+        failure_case_rows,
+        summary=summary,
+        summary_sha256=sha256_path(summary_path),
+        validation_receipt_sha256=sha256_path(prepublish_path),
+        expected_cases=1600,
+        streaming_stats={
+            "maximum_live_full_result_records": 2,
+            "compact_case_records_retained": 1600,
+        },
+    )
+    if canonical_json_bytes(regenerated_report) != canonical_json_bytes(
+        failure_report
+    ):
+        raise ReceiptError(
+            "population failure report does not regenerate from its rows"
+        )
+    try:
+        markdown_text = failure_markdown_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise ReceiptError(
+            "population failure Markdown is unreadable"
+        ) from error
+    _require_equal(
+        markdown_text,
+        failure_report_analysis.render_markdown(failure_report),
+        label="population failure Markdown",
+    )
+    try:
+        gallery_text = gallery_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise ReceiptError("strict population gallery is unreadable") from error
+    for marker, expected in (
+        ('<article class="case-card"', 1600),
+        ('<section class="arm-panel"', 3200),
+        ("<video controls", 3200),
+        ("Open MP4", 3200),
+    ):
+        _require_equal(
+            gallery_text.count(marker),
+            expected,
+            label=f"strict population gallery marker {marker}",
+        )
+    if any(
+        gallery_text.count(f"<h2>{case_id}</h2>") != 1
+        for case_id in expected_case_ids
+    ):
+        raise ReceiptError(
+            "strict population gallery case identities are incomplete"
+        )
+    gallery_records = gallery_analysis.load_result_records(
+        [results_root]
+    )
+    regenerated_gallery, gallery_warnings = (
+        gallery_analysis.build_gallery(
+            summary=summary,
+            records=gallery_records,
+            output_root=gallery_path.parent,
+            allow_partial=False,
+        )
+    )
+    if gallery_warnings:
+        raise ReceiptError(
+            "strict population gallery regeneration produced warnings: "
+            f"{gallery_warnings[:5]}"
+        )
+    _require_equal(
+        gallery_text,
+        regenerated_gallery,
+        label="strict population gallery exact regeneration",
+    )
     try:
         gallery_path.relative_to(run_root)
         summary_path.relative_to(run_root)
         prepublish_path.relative_to(run_root)
+        failure_cases_path.relative_to(run_root)
+        failure_report_path.relative_to(run_root)
+        failure_markdown_path.relative_to(run_root)
     except ValueError as error:
         raise ReceiptError("publication artifacts must remain under the run root") from error
     publisher_slurm = publisher_allocation_identity(
@@ -1840,6 +3260,24 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
         "gallery": {
             "path": str(gallery_path),
             "sha256": sha256_path(gallery_path),
+        },
+        "failure_analysis": {
+            "cases": {
+                "path": str(failure_cases_path),
+                "sha256": sha256_path(failure_cases_path),
+                "count": len(failure_case_ledger),
+            },
+            "report": {
+                "path": str(failure_report_path),
+                "sha256": sha256_path(failure_report_path),
+                "report_payload_sha256": (
+                    failure_report_payload_sha256
+                ),
+            },
+            "markdown": {
+                "path": str(failure_markdown_path),
+                "sha256": sha256_path(failure_markdown_path),
+            },
         },
     }
     receipt["receipt_payload_sha256"] = sha256_bytes(
@@ -1881,8 +3319,17 @@ def build_parser() -> argparse.ArgumentParser:
     finalize = subparsers.add_parser("population-finalize")
     finalize.add_argument("--run-root", type=Path, required=True)
     finalize.add_argument("--prepublish-receipt", type=Path, required=True)
+    finalize.add_argument("--config", type=Path, required=True)
+    finalize.add_argument(
+        "--manifest-receipt", type=Path, required=True
+    )
+    finalize.add_argument("--manifest", type=Path, required=True)
+    finalize.add_argument("--results", type=Path, required=True)
     finalize.add_argument("--summary", type=Path, required=True)
     finalize.add_argument("--gallery", type=Path, required=True)
+    finalize.add_argument("--failure-cases", type=Path, required=True)
+    finalize.add_argument("--failure-report", type=Path, required=True)
+    finalize.add_argument("--failure-markdown", type=Path, required=True)
     finalize.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -1924,6 +3371,9 @@ def main(argv: list[str] | None = None) -> int:
         ValueError,
         ReceiptError,
         aggregate.AggregationError,
+        failure_report_analysis.FailureReportError,
+        failure_validation.DiagnosticValidationError,
+        gallery_analysis.GalleryError,
     ) as error:
         print(f"AEGIS artifact validation failed: {error}", file=sys.stderr)
         return 2

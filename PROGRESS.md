@@ -8,12 +8,17 @@ and task failures without silently excluding apparatus failures.
 
 ## Current gate
 
-`A03-one-case-paired-canary` is active. The apparatus and capture gates passed
-in dependency order; no population job is authorized yet.
+`A04-population` is active. The apparatus, capture, and action-invariant
+paired-canary gates passed in dependency order. The population implementation
+has passed local and independent review for a fresh canary, but no population
+job is authorized until that exact-source canary validates live simulator
+artifacts.
 
 Local implementation evidence on 2026-07-18:
 
-- `./init.sh` passes: 131 tests, 16 dependency-optional tests skipped.
+- The focused diagnostics/publisher suite passes 162 tests with one
+  dependency-optional skip. The full `./init.sh` structural gate passes all
+  175 tests with 18 dependency-optional skips.
 - The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
   paired evaluation requires exactly 3,200 terminal episode results.
 - The immutable capture population and its independent validator passed for
@@ -37,13 +42,43 @@ Local implementation evidence on 2026-07-18:
   validated historical canary that produced the action reference. The exact
   Python 3.8 interpreter, ImageIO packages, and bundled FFmpeg binary are
   allocation- and receipt-bound.
-- The next allocation-backed steps are one fresh immutable pi0.5
-  checkpoint-tree receipt bound to the final release commit, followed by one
-  fresh ordinal-100 four-run canary.
+- Checkpoint receipt task `28589_0` completed on `worker-1`. Receipt SHA-256
+  `4336a202b2519f461c9b715dc8a30e09f897756a1efb27c0af096582b37e87d9`
+  binds full checkpoint-tree SHA-256
+  `7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15`.
+- Action-invariant canary task `28590_0` completed on `worker-2` in 7 minutes
+  20 seconds from clean release commit
+  `5105894faebd40d2e27e2011d33688b25c2578dc`. Allocation-side receipt
+  SHA-256
+  `6a80afce3ce019bf43090da65c85717344b6dafb4a983d5a9efcf6bbecd46d95`
+  has status `validated`.
+- Independent local regeneration validated all four artifacts. For both
+  pi0.5 and pi0.5+AEGIS, diagnostics off/on preserved exact action bytes,
+  policy-query schedules, simulator outcome semantics, and video bytes. The
+  baseline collided at step 70 and timed out after 300 actions; AEGIS remained
+  collision-free and completed the task after 145 actions. This is apparatus
+  evidence for one frozen case, not population efficacy.
 - The full population remains unauthorized until its publisher validates all
   per-case detector, point-cloud, MVEE, QP, contact, goal-progress, terminal
   frame, and video evidence without retaining all 3,200 large result objects
   in memory.
+- The memory-safe publisher now validates one full pair at a time, then
+  independently recomputes and byte-compares the final aggregate, exhaustive
+  failure report, and indexed gallery from the immutable result tree.
+- Contact explanations are now bound to the settled active obstacle, immutable
+  BDDL goal arguments, full MuJoCo body/geom/joint topology, and an ordered
+  raw contact ledger. Dynamics, mobility, and roles are independently
+  reconstructed from frozen joint ownership/types/names. The validator also
+  reconstructs the complete robot-body ID set from frozen body names and
+  binds every task object and goal-site parent to its exact frozen MuJoCo root
+  name. Direct goal objects, parented goal sites, and parentless fixed sites
+  are handled separately; unknown roles fail closed. Rehashed attempts to
+  omit the contacted robot or swap two task-object roots are rejected.
+- Independent adversarial review gives a conditional GO for a fresh paired
+  canary only, after the final clean release is frozen. Because the contact
+  observer changed after task `28590_0`, the next allocation-backed steps are
+  a new clean source-bound checkpoint-tree receipt and a new ordinal-100
+  four-run action-invariance canary. Population remains unauthorized.
 
 Checkpoint hash task `28467_0` completed on worker-2 in 16 seconds. Its full
 content-tree SHA-256 is
@@ -137,7 +172,8 @@ Evidence established before implementation:
 6. `A06-openvla` — optional OpenVLA-OFT row after its exact checkpoint and
    environment are preregistered.
 
-No population job may launch before the paired canary is validated.
+No population job may launch before a paired canary from the final exact
+release is validated.
 
 ## Known interpretation limits
 

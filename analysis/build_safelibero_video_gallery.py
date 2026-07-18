@@ -17,12 +17,24 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 from urllib.parse import quote
+
+try:
+    from analysis.aggregate_safelibero_aegis import (
+        AggregationError as _AggregationError,
+        iter_result_records as _iter_aggregate_result_records,
+    )
+except ModuleNotFoundError:
+    from aggregate_safelibero_aegis import (  # type: ignore[no-redef]
+        AggregationError as _AggregationError,
+        iter_result_records as _iter_aggregate_result_records,
+    )
 
 
 SUMMARY_SCHEMA = "vlsa_table1_population_summary.v1"
 GALLERY_SOURCE_KEY = "__gallery_source__"
+GALLERY_TAXONOMY_KEY = "__gallery_taxonomy__"
 EVALUATOR_ARM_DIRECTORIES = {"pi05", "aegis"}
 
 TAXONOMY: tuple[tuple[str, str], ...] = (
@@ -56,6 +68,10 @@ SCIENTIFIC_STATUSES = {
 
 class GalleryError(RuntimeError):
     """Raised when gallery input is incomplete, ambiguous, or unsafe."""
+
+
+class CompactGalleryRecord(dict):
+    """Internal marker for taxonomy evidence derived during streaming."""
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -152,6 +168,22 @@ def classify_failure_taxonomy(
     aegis_arm: bool,
 ) -> dict[str, str]:
     """Return explicit tri-state evidence for every registered failure class."""
+
+    cached = (
+        _mapping(result.get(GALLERY_TAXONOMY_KEY))
+        if isinstance(result, CompactGalleryRecord)
+        else {}
+    )
+    cached_arm = cached.get("aegis" if aegis_arm else "baseline")
+    if isinstance(cached_arm, Mapping):
+        taxonomy = dict(cached_arm)
+        if set(taxonomy) != {key for key, _ in TAXONOMY}:
+            raise GalleryError("cached taxonomy coverage error")
+        if any(
+            value not in EVIDENCE_STATES for value in taxonomy.values()
+        ):
+            raise GalleryError("cached taxonomy state error")
+        return taxonomy
 
     status = result.get("status")
     metrics = episode_metrics(result)
@@ -362,28 +394,6 @@ def load_summary(path: Path) -> dict[str, Any]:
     return value
 
 
-def _read_result_file(path: Path) -> list[dict[str, Any]]:
-    if path.suffix == ".jsonl":
-        rows: list[dict[str, Any]] = []
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8").splitlines(),
-            start=1,
-        ):
-            if not line.strip():
-                continue
-            value = json.loads(line)
-            if not isinstance(value, dict):
-                raise GalleryError(
-                    f"{path}:{line_number} is not a JSON object"
-                )
-            rows.append(value)
-        return rows
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise GalleryError(f"{path} is not a per-episode JSON object")
-    return [value]
-
-
 def _evaluator_artifact_root(path: Path) -> Path | None:
     """Return the output root for an evaluator-layout ``result.json``."""
 
@@ -395,7 +405,90 @@ def _evaluator_artifact_root(path: Path) -> Path | None:
     return path.parent.parent.parent.resolve()
 
 
-def load_result_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
+def _compact_result_record(
+    result: Mapping[str, Any],
+    *,
+    path: Path,
+    artifact_root: Path | None,
+) -> CompactGalleryRecord:
+    """Retain only the fixed-size evidence consumed by the gallery."""
+
+    for reserved_key in (GALLERY_SOURCE_KEY, GALLERY_TAXONOMY_KEY):
+        if reserved_key in result:
+            raise GalleryError(
+                f"{path}: result uses reserved field {reserved_key}"
+            )
+    metrics = episode_metrics(result)
+    video = _mapping(result.get("video"))
+    compact_video = {
+        key: video.get(key)
+        for key in ("path", "sha256")
+        if key in video
+    }
+    taxonomy = {
+        "baseline": classify_failure_taxonomy(
+            result,
+            aegis_arm=False,
+        ),
+        "aegis": classify_failure_taxonomy(
+            result,
+            aegis_arm=True,
+        ),
+    }
+    return CompactGalleryRecord({
+        "protocol_id": result.get("protocol_id"),
+        "case_id": result.get("case_id"),
+        "arm": result.get("arm"),
+        "status": result.get("status"),
+        "suite": _case_value(result, "suite"),
+        "safety_level": _case_value(result, "safety_level"),
+        "logical_task_index": _case_value(
+            result, "logical_task_index"
+        ),
+        "resolved_task_index": _case_value(
+            result, "resolved_task_index"
+        ),
+        "task_name": _case_value(result, "task_name"),
+        "episode_index": _case_value(result, "episode_index"),
+        "metrics": {
+            "public_collision": metrics["collision"],
+            "task_success": metrics["task_success"],
+            "legacy_ets_steps": metrics["legacy_ets_steps"],
+            "executed_action_count": metrics["executed_action_count"],
+        },
+        "video": compact_video,
+        GALLERY_TAXONOMY_KEY: taxonomy,
+        GALLERY_SOURCE_KEY: {
+            "result_path": str(path),
+            "artifact_root": (
+                None if artifact_root is None else str(artifact_root)
+            ),
+        },
+    })
+
+
+def _iter_strict_result_records(path: Path) -> Iterable[dict[str, Any]]:
+    """Translate the shared strict streaming decoder into gallery errors."""
+
+    try:
+        yield from _iter_aggregate_result_records(path)
+    except _AggregationError as error:
+        raise GalleryError(str(error)) from error
+
+
+def load_result_records(
+    paths: Iterable[Path],
+    *,
+    streaming_stats: MutableMapping[str, int] | None = None,
+) -> list[dict[str, Any]]:
+    """Stream full inputs and retain only compact gallery records.
+
+    Each object is decoded, classified, compacted, and released before the
+    next object is decoded. Input syntax is content-driven: one object, a
+    top-level array, and whitespace-separated JSON objects are accepted
+    regardless of the filename suffix.
+    """
+
     files: list[Path] = []
     seen_files: set[Path] = set()
     for supplied in paths:
@@ -414,17 +507,37 @@ def load_result_records(paths: Iterable[Path]) -> list[dict[str, Any]]:
     if not files:
         raise GalleryError("no per-episode result JSONs were found")
     records: list[dict[str, Any]] = []
+    live_full_results = 0
+    max_live_full_results = 0
     for path in files:
         artifact_root = _evaluator_artifact_root(path)
-        for row in _read_result_file(path):
-            record = dict(row)
-            record[GALLERY_SOURCE_KEY] = {
-                "result_path": str(path),
-                "artifact_root": (
-                    None if artifact_root is None else str(artifact_root)
-                ),
+        for row in _iter_strict_result_records(path):
+            live_full_results += 1
+            max_live_full_results = max(
+                max_live_full_results,
+                live_full_results,
+            )
+            try:
+                records.append(
+                    _compact_result_record(
+                        row,
+                        path=path,
+                        artifact_root=artifact_root,
+                    )
+                )
+            finally:
+                live_full_results -= 1
+            del row
+    if streaming_stats is not None:
+        streaming_stats.clear()
+        streaming_stats.update(
+            {
+                "result_files": len(files),
+                "result_records": len(records),
+                "max_live_full_results": max_live_full_results,
+                "retained_compact_results": len(records),
             }
-            records.append(record)
+        )
     return records
 
 
@@ -1110,7 +1223,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         raise GalleryError("--index-name must be one HTML filename")
     summary = load_summary(args.summary.resolve())
-    records = load_result_records(args.results)
+    streaming_stats: dict[str, int] = {}
+    records = load_result_records(
+        args.results,
+        streaming_stats=streaming_stats,
+    )
     output_root = args.output_root.resolve()
     document, warnings = build_gallery(
         summary=summary,
@@ -1125,6 +1242,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             {
                 "output": str(output),
                 "records": len(records),
+                "streaming": streaming_stats,
                 "warnings": warnings,
             },
             sort_keys=True,

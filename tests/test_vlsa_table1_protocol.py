@@ -6,6 +6,7 @@ import ast
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -429,6 +430,9 @@ class Table1ProtocolTest(unittest.TestCase):
                 "label_record_sha256": label_hash,
                 "obstacle_label": "red milk carton",
             },
+            "obstacle": {
+                "active_name": settled_contract["active_obstacle_name"],
+            },
             "timing": {"started_unix": 2_000_000_000.0},
             "policy_queries": policy_queries,
             "actions": action_rows,
@@ -558,6 +562,18 @@ class Table1ProtocolTest(unittest.TestCase):
             stride,
         )
 
+    def test_incremental_canonical_hash_matches_canonical_bytes(self) -> None:
+        value = {
+            "unicode": "robot \N{ROBOT FACE}",
+            "nested": [{"z": 1.25, "a": False}, None],
+        }
+        self.assertEqual(
+            aggregator.canonical_json_sha256(value),
+            aggregator.sha256_bytes(
+                aggregator.canonical_json_bytes(value)
+            ),
+        )
+
     def test_frozen_tasks_match_released_map_and_goal_remap(self) -> None:
         self.assertEqual(
             self.config["population"]["tasks"],
@@ -633,6 +649,185 @@ class Table1ProtocolTest(unittest.TestCase):
             aegis["legacy_ets_steps_mean"],
             aegis["executed_action_count_mean"],
         )
+
+    def test_compact_population_summary_is_identical(self) -> None:
+        manifests_by_group = {}
+        for manifest in self.rows:
+            manifests_by_group.setdefault(
+                manifest["task_level_group_id"], manifest
+            )
+        manifests = list(manifests_by_group.values())
+        self.assertEqual(len(manifests), 32)
+        full_results = {
+            (manifest["case_id"], arm): self.make_result(
+                manifest,
+                arm,
+                include_evidence=False,
+            )
+            for manifest in manifests
+            for arm in self.config["arms"]
+        }
+        expected = aggregator.aggregate(
+            config=self.config,
+            manifests=manifests,
+            results=full_results,
+        )
+        compact_results = {
+            key: aggregator._compact_validated_result(
+                result,
+                path=Path(f"/tmp/{key[0]}/{key[1]}/result.json"),
+                artifact_root=Path("/tmp"),
+                resolved_video_path=None,
+                aegis_arm=self.config["arms"][1],
+            )
+            for key, result in full_results.items()
+        }
+        aggregator.validate_compact_pairs(
+            config=self.config,
+            manifests=manifests,
+            results=compact_results,
+        )
+        observed = aggregator.aggregate(
+            config=self.config,
+            manifests=manifests,
+            results=compact_results,
+        )
+        self.assertEqual(observed, expected)
+
+    def test_streaming_loader_retains_one_full_result_and_video_refs(
+        self,
+    ) -> None:
+        manifest = self.rows[0]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for arm, directory_name in zip(
+                self.config["arms"], ("pi05", "aegis")
+            ):
+                result = self.make_result(
+                    manifest,
+                    arm,
+                    collision=False,
+                    success=True,
+                    executed=1,
+                    legacy=0,
+                    reason="task_success",
+                )
+                case_root = root / directory_name / manifest["case_id"]
+                case_root.mkdir(parents=True)
+                video_path = case_root / "episode.mp4"
+                video_path.write_bytes(
+                    f"{manifest['case_id']}:{arm}:video".encode("utf-8")
+                )
+                result["video"]["sha256"] = (
+                    aggregator.sha256_path(video_path)
+                )
+                result["result_payload_sha256"] = (
+                    aggregator._result_payload_sha256(result)
+                )
+                (case_root / "result.json").write_text(
+                    json.dumps(result, sort_keys=True, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+
+            stats: dict[str, int] = {}
+            class TrackedResult(dict):
+                live = 0
+                peak = 0
+
+                def __init__(self, value):
+                    super().__init__(value)
+                    type(self).live += 1
+                    type(self).peak = max(
+                        type(self).peak, type(self).live
+                    )
+
+                def __del__(self):
+                    type(self).live -= 1
+
+            original_iterator = aggregator.iter_result_records
+
+            def tracked_iterator(path):
+                value = json.loads(path.read_text(encoding="utf-8"))
+                tracked = TrackedResult(value)
+                del value
+                yield tracked
+                del tracked
+
+            aggregator.iter_result_records = tracked_iterator
+            try:
+                compact = aggregator.load_compact_results_streaming(
+                    [root],
+                    config=self.config,
+                    manifests=[manifest],
+                    streaming_stats=stats,
+                )
+            finally:
+                aggregator.iter_result_records = original_iterator
+            self.assertEqual(
+                stats,
+                {
+                    "result_files": 2,
+                    "result_records": 2,
+                    "max_live_full_results": 1,
+                    "retained_compact_results": 2,
+                },
+            )
+            self.assertEqual(TrackedResult.peak, 1)
+            self.assertEqual(TrackedResult.live, 0)
+            self.assertEqual(
+                set(compact),
+                {
+                    (manifest["case_id"], arm)
+                    for arm in self.config["arms"]
+                },
+            )
+            for record in compact.values():
+                self.assertNotIn("actions", record)
+                self.assertNotIn("policy_queries", record)
+                self.assertNotIn("pairing", record)
+                self.assertNotIn("failure_diagnostics", record)
+                self.assertTrue(
+                    Path(record["_resolved_video_path"]).is_file()
+                )
+                self.assertEqual(
+                    aggregator.sha256_path(
+                        Path(record["_resolved_video_path"])
+                    ),
+                    record["video"]["sha256"],
+                )
+
+    def test_streaming_loader_preserves_video_hash_rejection(self) -> None:
+        manifest = self.rows[0]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for arm, directory_name in zip(
+                self.config["arms"], ("pi05", "aegis")
+            ):
+                result = self.make_result(
+                    manifest,
+                    arm,
+                    collision=False,
+                    success=True,
+                    executed=1,
+                    legacy=0,
+                    reason="task_success",
+                )
+                case_root = root / directory_name / manifest["case_id"]
+                case_root.mkdir(parents=True)
+                (case_root / "episode.mp4").write_bytes(b"changed video")
+                (case_root / "result.json").write_text(
+                    json.dumps(result, sort_keys=True, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            with self.assertRaisesRegex(
+                aggregator.AggregationError,
+                "video file/hash mismatch",
+            ):
+                aggregator.load_compact_results_streaming(
+                    [root],
+                    config=self.config,
+                    manifests=[manifest],
+                )
 
     def test_load_results_rejects_one_missing_arm(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1176,6 +1371,93 @@ class Table1ProtocolTest(unittest.TestCase):
                 aggregator.expand_result_paths([root]),
                 [result_path],
             )
+
+    def test_streaming_parser_is_suffix_independent(self) -> None:
+        rows = [
+            {"case_id": "case-0", "nested": {"text": "} [ {"}},
+            {"case_id": "case-1", "values": [1, 2, 3]},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            jsonl_with_other_suffix = root / "results.data"
+            jsonl_with_other_suffix.write_text(
+                "\n".join(json.dumps(row) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+            pretty_with_jsonl_suffix = root / "pretty.jsonl"
+            pretty_with_jsonl_suffix.write_text(
+                json.dumps(rows[0], indent=2) + "\n",
+                encoding="utf-8",
+            )
+            array_path = root / "results.json"
+            array_path.write_text(
+                json.dumps(rows, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                list(
+                    aggregator.iter_result_records(
+                        jsonl_with_other_suffix
+                    )
+                ),
+                rows,
+            )
+            self.assertEqual(
+                list(
+                    aggregator.iter_result_records(
+                        pretty_with_jsonl_suffix
+                    )
+                ),
+                [rows[0]],
+            )
+            self.assertEqual(
+                list(aggregator.iter_result_records(array_path)),
+                rows,
+            )
+            for chunk_size in (1, 2, 7):
+                with self.subTest(chunk_size=chunk_size):
+                    self.assertEqual(
+                        list(
+                            aggregator._iter_json_object_sequence_records(
+                                io.StringIO(
+                                    "\n".join(
+                                        json.dumps(row) for row in rows
+                                    )
+                                ),
+                                source="chunked-jsonl",
+                                chunk_size=chunk_size,
+                            )
+                        ),
+                        rows,
+                    )
+
+    def test_streaming_parser_rejects_array_trailing_comma(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "results.json"
+            path.write_text('[{"case_id": "case-0"},]\n', encoding="utf-8")
+            with self.assertRaisesRegex(
+                aggregator.AggregationError,
+                "trailing comma",
+            ):
+                list(aggregator.iter_result_records(path))
+
+    def test_streaming_parser_rejects_junk_after_valid_value(self) -> None:
+        payloads = {
+            "object": '{"case_id": "case-0"}\nnot-json\n',
+            "array": '[{"case_id": "case-0"}] trailing',
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, payload in payloads.items():
+                with self.subTest(name=name):
+                    path = root / f"{name}.data"
+                    path.write_text(payload, encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        aggregator.AggregationError,
+                        "data after|after its result array",
+                    ):
+                        list(aggregator.iter_result_records(path))
 
 
 if __name__ == "__main__":

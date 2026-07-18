@@ -22,13 +22,17 @@
     },
     {
       "id": "A03-one-case-paired-canary",
-      "status": "active",
+      "status": "passing",
       "depends_on": ["A02-one-case-capture"],
-      "evidence": []
+      "evidence": [
+        "Slurm 28590_0 completed the four-run action-invariant canary on worker-2 in 00:07:20 from clean release commit 5105894faebd40d2e27e2011d33688b25c2578dc",
+        "Allocation-side paired-canary receipt SHA-256 6a80afce3ce019bf43090da65c85717344b6dafb4a983d5a9efcf6bbecd46d95 has status validated and binds all four result and video hashes",
+        "Independent local regeneration confirmed exact diagnostics-off/on action, policy-query, outcome, and video-byte invariance for both arms; pi0.5 collided at step 70 and failed, while pi0.5+AEGIS was collision-free and succeeded"
+      ]
     },
     {
       "id": "A04-population",
-      "status": "pending",
+      "status": "active",
       "depends_on": ["A03-one-case-paired-canary"],
       "evidence": []
     },

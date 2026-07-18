@@ -796,6 +796,10 @@ class AegisInfrastructureReceiptTest(unittest.TestCase):
             "paired_result_valid": True,
             "action_invariance_valid": True,
             "failure_diagnostics_valid": True,
+            "contact_schema_version": artifacts.CONTACT_SCHEMA_V3,
+            "contact_model_authority_schema_version": (
+                artifacts.CONTACT_MODEL_AUTHORITY_SCHEMA_V2
+            ),
             "cross_arm_pairing": {
                 "diagnostics-off": True,
                 "diagnostics-on": True,

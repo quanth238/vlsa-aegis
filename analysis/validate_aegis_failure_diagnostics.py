@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import math
 from pathlib import Path
 import re
 import sys
@@ -26,6 +27,10 @@ class DiagnosticValidationError(RuntimeError):
 
 
 _MANIFEST_CASES: dict[str, dict[str, Any]] | None = None
+_CONTACT_TASK_AUTHORITY_SOURCE = (
+    "task_env.obj_body_id + object_states_dict.parent_name + "
+    "parsed_problem.goal_state"
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -788,15 +793,337 @@ def _validate_geometry(
     return bindings
 
 
+def _validate_contact_side(
+    side: Any,
+    *,
+    label: str,
+) -> dict[str, Any]:
+    if not isinstance(side, Mapping):
+        raise DiagnosticValidationError(f"{label}: contact side is missing")
+    geom_id = side.get("geom_id")
+    body_id = side.get("body_id")
+    geom_name = side.get("geom_name")
+    body_name = side.get("body_name")
+    lineage_ids = side.get("body_lineage_ids")
+    lineage_names = side.get("body_lineage")
+    if (
+        type(geom_id) is not int
+        or geom_id < 0
+        or type(body_id) is not int
+        or body_id < 0
+        or not isinstance(geom_name, str)
+        or not geom_name
+        or not isinstance(body_name, str)
+        or not body_name
+        or not isinstance(lineage_ids, list)
+        or not lineage_ids
+        or not all(type(value) is int and value >= 0 for value in lineage_ids)
+        or len(lineage_ids) != len(set(lineage_ids))
+        or lineage_ids[0] != body_id
+        or lineage_ids[-1] != 0
+        or not isinstance(lineage_names, list)
+        or len(lineage_names) != len(lineage_ids)
+        or not all(isinstance(name, str) and name for name in lineage_names)
+        or lineage_names[0] != body_name
+        or lineage_names[-1] not in {"world", "<unnamed_body_id:0>"}
+    ):
+        raise DiagnosticValidationError(
+            f"{label}: contact side lacks a complete body-to-world lineage"
+        )
+    if geom_name.startswith("<unnamed_geom_id:"):
+        if geom_name != f"<unnamed_geom_id:{geom_id}>":
+            raise DiagnosticValidationError(
+                f"{label}: unnamed geom sentinel does not match its ID"
+            )
+    elif geom_name.startswith("<unnamed"):
+        raise DiagnosticValidationError(
+            f"{label}: malformed unnamed geom sentinel"
+        )
+    for lineage_id, lineage_name in zip(lineage_ids, lineage_names):
+        if lineage_name.startswith("<unnamed_body_id:"):
+            if lineage_name != f"<unnamed_body_id:{lineage_id}>":
+                raise DiagnosticValidationError(
+                    f"{label}: unnamed body sentinel does not match its ID"
+                )
+        elif lineage_name.startswith("<unnamed"):
+            raise DiagnosticValidationError(
+                f"{label}: malformed unnamed body sentinel"
+            )
+    return {
+        "geom_id": geom_id,
+        "body_id": body_id,
+        "geom_name": geom_name,
+        "body_name": body_name,
+        "body_lineage_ids": lineage_ids,
+        "body_lineage": lineage_names,
+    }
+
+
+def _contact_authority_lineage(
+    authority: Mapping[str, Any],
+    body_id: int,
+) -> list[int]:
+    parent_ids = authority["body_parent_ids"]
+    if body_id < 0 or body_id >= len(parent_ids):
+        raise DiagnosticValidationError(
+            "contact body ID is outside model authority"
+        )
+    lineage: list[int] = []
+    visited: set[int] = set()
+    current = body_id
+    while True:
+        if current in visited:
+            raise DiagnosticValidationError(
+                "contact model authority has cyclic body ancestry"
+            )
+        if current < 0 or current >= len(parent_ids):
+            raise DiagnosticValidationError(
+                "contact model authority body ancestry escapes the model"
+            )
+        visited.add(current)
+        lineage.append(current)
+        if current == 0:
+            return lineage
+        current = parent_ids[current]
+
+
+_CONTACT_JOINT_TYPES = {
+    0: "free",
+    1: "ball",
+    2: "slide",
+    3: "hinge",
+}
+
+
+def _contact_authority_dynamics(
+    authority: Mapping[str, Any],
+    lineage_ids: Sequence[int],
+) -> dict[str, Any]:
+    """Reconstruct exact lineage mobility from frozen MuJoCo joint tables."""
+
+    joints: list[dict[str, Any]] = []
+    for body_id in lineage_ids:
+        count = authority["body_joint_counts"][body_id]
+        address = authority["body_joint_addresses"][body_id]
+        for joint_id in range(address, address + count):
+            joint_type_id = authority["joint_types"][joint_id]
+            joints.append(
+                {
+                    "joint_id": joint_id,
+                    "joint_name": authority["joint_names"][joint_id],
+                    "joint_type_id": joint_type_id,
+                    "joint_type": _CONTACT_JOINT_TYPES[joint_type_id],
+                    "attached_body_id": body_id,
+                }
+            )
+    mobility = (
+        "static_no_joint"
+        if not joints
+        else (
+            "free_joint"
+            if any(joint["joint_type"] == "free" for joint in joints)
+            else "jointed_nonfree"
+        )
+    )
+    return {
+        "status": "complete",
+        "source": "MuJoCo body_jntnum/body_jntadr/jnt_type",
+        "mobility": mobility,
+        "joints": joints,
+    }
+
+
+def _validate_contact_model_authority(
+    authority: Any,
+    *,
+    descriptor: Mapping[str, Any],
+    active_obstacle_name: str,
+) -> dict[str, Any]:
+    if not isinstance(authority, Mapping):
+        raise DiagnosticValidationError(
+            "contact model authority is missing"
+        )
+    expected_hash = diagnostics.sha256_bytes(
+        diagnostics.canonical_json_bytes(
+            {
+                key: value
+                for key, value in authority.items()
+                if key != "authority_sha256"
+            }
+        )
+    )
+    body_parent_ids = authority.get("body_parent_ids")
+    body_names = authority.get("body_names")
+    body_joint_counts = authority.get("body_joint_counts")
+    body_joint_addresses = authority.get("body_joint_addresses")
+    geom_body_ids = authority.get("geom_body_ids")
+    geom_names = authority.get("geom_names")
+    joint_types = authority.get("joint_types")
+    joint_body_ids = authority.get("joint_body_ids")
+    joint_names = authority.get("joint_names")
+    robot_body_ids = authority.get("robot_body_ids")
+    active_root = authority.get("active_obstacle_root_body_id")
+    task_context = authority.get("task_context")
+    task_context_sha256 = authority.get("task_context_sha256")
+    if (
+        authority.get("schema_version")
+        != diagnostics.CONTACT_MODEL_AUTHORITY_SCHEMA
+        or authority.get("source")
+        != (
+            "MuJoCo body/geom/joint topology and id2name + "
+            "task_env.obj_body_id + object_states_dict.parent_name"
+        )
+        or authority.get("active_obstacle_name") != active_obstacle_name
+        or authority.get("authority_sha256") != expected_hash
+        or descriptor.get("model_authority_sha256") != expected_hash
+        or descriptor.get("active_obstacle_root_body_id") != active_root
+        or descriptor.get("task_context_sha256") != task_context_sha256
+        or not isinstance(body_parent_ids, list)
+        or not body_parent_ids
+        or not all(type(value) is int for value in body_parent_ids)
+        or not isinstance(body_names, list)
+        or len(body_names) != len(body_parent_ids)
+        or not all(isinstance(name, str) and name for name in body_names)
+        or not isinstance(body_joint_counts, list)
+        or len(body_joint_counts) != len(body_parent_ids)
+        or not all(type(value) is int for value in body_joint_counts)
+        or not isinstance(body_joint_addresses, list)
+        or len(body_joint_addresses) != len(body_parent_ids)
+        or not all(type(value) is int for value in body_joint_addresses)
+        or not isinstance(geom_body_ids, list)
+        or not geom_body_ids
+        or not all(
+            type(value) is int and 0 <= value < len(body_parent_ids)
+            for value in geom_body_ids
+        )
+        or not isinstance(geom_names, list)
+        or len(geom_names) != len(geom_body_ids)
+        or not all(isinstance(name, str) and name for name in geom_names)
+        or not isinstance(joint_types, list)
+        or not all(
+            type(value) is int and value in _CONTACT_JOINT_TYPES
+            for value in joint_types
+        )
+        or not isinstance(joint_body_ids, list)
+        or len(joint_body_ids) != len(joint_types)
+        or not all(
+            type(value) is int and 0 <= value < len(body_parent_ids)
+            for value in joint_body_ids
+        )
+        or not isinstance(joint_names, list)
+        or len(joint_names) != len(joint_types)
+        or not all(isinstance(name, str) and name for name in joint_names)
+        or not isinstance(robot_body_ids, list)
+        or not robot_body_ids
+        or robot_body_ids != sorted(set(robot_body_ids))
+        or not all(
+            type(value) is int and 0 <= value < len(body_parent_ids)
+            for value in robot_body_ids
+        )
+        or type(active_root) is not int
+        or not 0 <= active_root < len(body_parent_ids)
+        or not isinstance(task_context, Mapping)
+        or task_context_sha256
+        != diagnostics.sha256_bytes(
+            diagnostics.canonical_json_bytes(task_context)
+        )
+    ):
+        raise DiagnosticValidationError(
+            "contact model authority binding changed"
+        )
+    for body_id, body_name in enumerate(body_names):
+        if body_name.startswith("<unnamed_body_id:"):
+            if body_name != f"<unnamed_body_id:{body_id}>":
+                raise DiagnosticValidationError(
+                    "contact model authority body sentinel changed"
+                )
+        elif body_name.startswith("<unnamed"):
+            raise DiagnosticValidationError(
+                "contact model authority body sentinel is malformed"
+            )
+        _contact_authority_lineage(authority, body_id)
+    covered_joint_ids: list[int] = []
+    for body_id, (count, address) in enumerate(
+        zip(body_joint_counts, body_joint_addresses)
+    ):
+        if count < 0 or (
+            count == 0 and address != -1
+        ) or (
+            count > 0
+            and (
+                address < 0
+                or address + count > len(joint_types)
+            )
+        ):
+            raise DiagnosticValidationError(
+                "contact model body-joint range changed"
+            )
+        for joint_id in range(address, address + count):
+            if joint_body_ids[joint_id] != body_id:
+                raise DiagnosticValidationError(
+                    "contact model joint ownership changed"
+                )
+            covered_joint_ids.append(joint_id)
+    if covered_joint_ids != list(range(len(joint_types))):
+        raise DiagnosticValidationError(
+            "contact model joint ranges are incomplete or overlapping"
+        )
+    for geom_id, geom_name in enumerate(geom_names):
+        if geom_name.startswith("<unnamed_geom_id:"):
+            if geom_name != f"<unnamed_geom_id:{geom_id}>":
+                raise DiagnosticValidationError(
+                    "contact model authority geom sentinel changed"
+                )
+        elif geom_name.startswith("<unnamed"):
+            raise DiagnosticValidationError(
+                "contact model authority geom sentinel is malformed"
+            )
+    for joint_id, joint_name in enumerate(joint_names):
+        if joint_name.startswith("<unnamed_joint_id:"):
+            if joint_name != f"<unnamed_joint_id:{joint_id}>":
+                raise DiagnosticValidationError(
+                    "contact model authority joint sentinel changed"
+                )
+        elif joint_name.startswith("<unnamed"):
+            raise DiagnosticValidationError(
+                "contact model authority joint sentinel is malformed"
+            )
+    robot_tokens = ("robot0", "panda", "gripper", "eef")
+    expected_robot_body_ids = [
+        body_id
+        for body_id, body_name in enumerate(body_names)
+        if any(token in body_name.lower() for token in robot_tokens)
+    ]
+    if robot_body_ids != expected_robot_body_ids:
+        raise DiagnosticValidationError(
+            "contact model robot-body authority changed"
+        )
+    return dict(authority)
+
+
 def _validate_contacts(
     descriptor: Mapping[str, Any],
     *,
     output_root: Path,
     action_count: int,
     expected_case_id: str | None = None,
+    expected_active_obstacle_name: str | None = None,
+    expected_goal_argument_names: Sequence[str] | None = None,
 ) -> None:
     if descriptor.get("schema_version") != diagnostics.CONTACT_SCHEMA:
         raise DiagnosticValidationError("unexpected contact schema")
+    active_obstacle_name = descriptor.get("active_obstacle_name")
+    if (
+        not isinstance(active_obstacle_name, str)
+        or not active_obstacle_name
+        or (
+            expected_active_obstacle_name is not None
+            and active_obstacle_name != expected_active_obstacle_name
+        )
+    ):
+        raise DiagnosticValidationError(
+            "contact descriptor active obstacle changed"
+        )
     try:
         diagnostics.validate_artifact_descriptor(
             descriptor, output_root=output_root
@@ -819,8 +1146,19 @@ def _validate_contacts(
             expected_case_id is not None
             and payload.get("case_id") != expected_case_id
         )
+        or payload.get("active_obstacle_name") != active_obstacle_name
     ):
         raise DiagnosticValidationError("contact payload binding changed")
+    model_authority = _validate_contact_model_authority(
+        payload.get("model_authority"),
+        descriptor=descriptor,
+        active_obstacle_name=active_obstacle_name,
+    )
+    model_task_context = model_authority["task_context"]
+    active_obstacle_root_body_id = model_authority[
+        "active_obstacle_root_body_id"
+    ]
+    robot_body_ids = set(model_authority["robot_body_ids"])
     snapshots = payload.get("snapshots")
     if not isinstance(snapshots, list) or len(snapshots) != action_count + 1:
         raise DiagnosticValidationError(
@@ -831,17 +1169,392 @@ def _validate_contacts(
     ):
         raise DiagnosticValidationError("contact snapshot steps changed")
     all_events = []
-    robot_events = []
-    nonrobot_events = []
+    role_classes = (
+        "robot",
+        "static_support",
+        "dynamic_task_object",
+        "dynamic_other",
+        "unknown",
+    )
+    events_by_role = {role: [] for role in role_classes}
     for snapshot in snapshots:
-        if snapshot.get("status") != "available":
+        if (
+            not isinstance(snapshot, Mapping)
+            or snapshot.get("status") != "available"
+            or snapshot.get("active_obstacle_name") != active_obstacle_name
+        ):
             raise DiagnosticValidationError(
                 f"contact snapshot unavailable at step {snapshot.get('step')}"
             )
+        role_authority = snapshot.get("role_authority")
+        task_context = (
+            role_authority.get("task_context")
+            if isinstance(role_authority, Mapping)
+            else None
+        )
+        if (
+            not isinstance(role_authority, Mapping)
+            or role_authority.get("status") != "complete"
+            or role_authority.get("role_classes") != list(role_classes)
+            or role_authority.get("model_authority_sha256")
+            != model_authority["authority_sha256"]
+            or role_authority.get("task_context_sha256")
+            != model_authority["task_context_sha256"]
+            or role_authority.get("active_obstacle_root_body_id")
+            != active_obstacle_root_body_id
+            or not isinstance(task_context, Mapping)
+            or task_context != model_task_context
+            or task_context.get("status") != "complete"
+            or task_context.get("source") != _CONTACT_TASK_AUTHORITY_SOURCE
+            or not isinstance(task_context.get("goal_argument_names"), list)
+            or not task_context["goal_argument_names"]
+            or not all(
+                isinstance(value, str) and value
+                for value in task_context["goal_argument_names"]
+            )
+            or not isinstance(
+                task_context.get("goal_argument_records"), list
+            )
+            or not isinstance(task_context.get("body_records"), list)
+            or not task_context["body_records"]
+        ):
+            raise DiagnosticValidationError(
+                "contact snapshot lacks authoritative task/body roles"
+            )
+        goal_names = set(task_context["goal_argument_names"])
+        if (
+            len(goal_names) != len(task_context["goal_argument_names"])
+            or task_context["goal_argument_names"] != sorted(goal_names)
+            or (
+                expected_goal_argument_names is not None
+                and task_context["goal_argument_names"]
+                != sorted(set(expected_goal_argument_names))
+            )
+        ):
+            raise DiagnosticValidationError(
+                "contact goal-argument authority contains duplicates"
+            )
+        goal_argument_records = task_context["goal_argument_records"]
+        if (
+            len(goal_argument_records)
+            != len(task_context["goal_argument_names"])
+            or [
+                record.get("name")
+                if isinstance(record, Mapping)
+                else None
+                for record in goal_argument_records
+            ]
+            != task_context["goal_argument_names"]
+            or any(
+                not isinstance(record, Mapping)
+                or record.get("object_state_type")
+                not in {"object", "site"}
+                or record.get("body_binding")
+                not in {
+                    "direct_object_body",
+                    "site_parent_body",
+                    "unparented_static_site",
+                }
+                or (
+                    record.get("object_state_type") == "object"
+                    and (
+                        record.get("body_binding") != "direct_object_body"
+                        or type(record.get("root_body_id")) is not int
+                        or record.get("root_body_id") < 0
+                        or not isinstance(
+                            record.get("root_body_name"), str
+                        )
+                        or not record.get("root_body_name")
+                        or record.get("parent_name") is not None
+                    )
+                )
+                or (
+                    record.get("object_state_type") == "site"
+                    and (
+                        (
+                            record.get("body_binding") == "site_parent_body"
+                            and (
+                                type(record.get("root_body_id")) is not int
+                                or record.get("root_body_id") < 0
+                                or not isinstance(
+                                    record.get("root_body_name"), str
+                                )
+                                or not record.get("root_body_name")
+                                or not isinstance(
+                                    record.get("parent_name"), str
+                                )
+                                or not record.get("parent_name")
+                            )
+                        )
+                        or (
+                            record.get("body_binding")
+                            == "unparented_static_site"
+                            and (
+                                record.get("root_body_id") is not None
+                                or record.get("root_body_name") is not None
+                                or record.get("parent_name") is not None
+                            )
+                        )
+                        or record.get("body_binding")
+                        == "direct_object_body"
+                    )
+                )
+                for record in goal_argument_records
+            )
+        ):
+            raise DiagnosticValidationError(
+                "contact goal-argument body/site authority is malformed"
+        )
+        task_body_records = []
+        for raw_record in task_context["body_records"]:
+            raw_name = (
+                raw_record.get("name")
+                if isinstance(raw_record, Mapping)
+                else None
+            )
+            expected_goal_site_names = sorted(
+                record["name"]
+                for record in goal_argument_records
+                if isinstance(record, Mapping)
+                and record.get("object_state_type") == "site"
+                and record.get("body_binding") == "site_parent_body"
+                and record.get("parent_name") == raw_name
+            )
+            if (
+                not isinstance(raw_record, Mapping)
+                or not isinstance(raw_record.get("name"), str)
+                or not raw_record.get("name")
+                or type(raw_record.get("root_body_id")) is not int
+                or raw_record.get("root_body_id") < 0
+                or not isinstance(raw_record.get("root_body_name"), str)
+                or not raw_record.get("root_body_name")
+                or raw_record["root_body_id"]
+                >= len(model_authority["body_names"])
+                or model_authority["body_names"][
+                    raw_record["root_body_id"]
+                ]
+                != raw_record["root_body_name"]
+                or (
+                    raw_record["root_body_name"] != raw_record["name"]
+                    and not raw_record["root_body_name"].startswith(
+                        f"{raw_record['name']}_"
+                    )
+                )
+                or raw_record.get("object_state_type")
+                not in {"object", "site"}
+                or type(raw_record.get("is_goal_argument")) is not bool
+                or raw_record.get("is_goal_argument")
+                is not (
+                    raw_record["name"] in goal_names
+                    and raw_record["object_state_type"] == "object"
+                )
+                or type(raw_record.get("is_goal_site_parent")) is not bool
+                or not isinstance(raw_record.get("goal_site_names"), list)
+                or raw_record["goal_site_names"]
+                != expected_goal_site_names
+                or not all(
+                    isinstance(name, str) and name
+                    for name in raw_record["goal_site_names"]
+                )
+                or raw_record.get("is_goal_site_parent")
+                is not bool(raw_record["goal_site_names"])
+                or type(raw_record.get("is_task_goal_body")) is not bool
+                or raw_record.get("is_task_goal_body")
+                is not (
+                    raw_record["is_goal_argument"]
+                    or raw_record["is_goal_site_parent"]
+                )
+            ):
+                raise DiagnosticValidationError(
+                    "contact task-body authority is malformed"
+                )
+            task_body_records.append(dict(raw_record))
+        if [
+            record["name"] for record in task_body_records
+        ] != sorted(record["name"] for record in task_body_records):
+            raise DiagnosticValidationError(
+                "contact task-body authority is not canonical"
+            )
+        if len(
+            {(row["name"], row["root_body_id"]) for row in task_body_records}
+        ) != len(task_body_records):
+            raise DiagnosticValidationError(
+                "contact task-body authority is ambiguous"
+            )
+        if len(
+            {row["root_body_id"] for row in task_body_records}
+        ) != len(task_body_records):
+            raise DiagnosticValidationError(
+                "contact task-body root IDs are not one-to-one"
+            )
+        active_body_records = [
+            record
+            for record in task_body_records
+            if record["name"] == active_obstacle_name
+            and record["root_body_id"] == active_obstacle_root_body_id
+        ]
+        if len(active_body_records) != 1:
+            raise DiagnosticValidationError(
+                "active obstacle is not bound to one authoritative task body"
+            )
+        for goal_record in goal_argument_records:
+            if goal_record["body_binding"] == "unparented_static_site":
+                if any(
+                    goal_record["name"] in body_record["goal_site_names"]
+                    for body_record in task_body_records
+                ):
+                    raise DiagnosticValidationError(
+                        "unparented goal site was assigned a task body"
+                    )
+                continue
+            expected_body_name = (
+                goal_record["name"]
+                if goal_record["object_state_type"] == "object"
+                else goal_record["parent_name"]
+            )
+            if (
+                goal_record["root_body_id"]
+                >= len(model_authority["body_names"])
+                or model_authority["body_names"][
+                    goal_record["root_body_id"]
+                ]
+                != goal_record["root_body_name"]
+                or (
+                    goal_record["root_body_name"] != expected_body_name
+                    and not goal_record["root_body_name"].startswith(
+                        f"{expected_body_name}_"
+                    )
+                )
+            ):
+                raise DiagnosticValidationError(
+                    "contact goal argument differs from its MuJoCo root body"
+                )
+            matching_bodies = [
+                body_record
+                for body_record in task_body_records
+                if body_record["name"] == expected_body_name
+                and body_record["root_body_id"]
+                == goal_record["root_body_id"]
+                and body_record["root_body_name"]
+                == goal_record["root_body_name"]
+            ]
+            if len(matching_bodies) != 1:
+                raise DiagnosticValidationError(
+                    "contact goal argument is not bound to one task body"
+                )
+            matching = matching_bodies[0]
+            if goal_record["object_state_type"] == "object":
+                if (
+                    matching["is_goal_argument"] is not True
+                    or matching["is_task_goal_body"] is not True
+                ):
+                    raise DiagnosticValidationError(
+                        "contact goal object is not task-body bound"
+                    )
+            elif (
+                matching["is_goal_site_parent"] is not True
+                or matching["is_task_goal_body"] is not True
+                or goal_record["name"] not in matching["goal_site_names"]
+            ):
+                raise DiagnosticValidationError(
+                    "contact goal site parent is not task-body bound"
+                )
+        raw_contact_ledger = snapshot.get("raw_contact_ledger")
+        if (
+            not isinstance(raw_contact_ledger, list)
+            or snapshot.get("raw_contact_ledger_sha256")
+            != diagnostics.sha256_bytes(
+                diagnostics.canonical_json_bytes(raw_contact_ledger)
+            )
+        ):
+            raise DiagnosticValidationError(
+                "raw MuJoCo contact ledger binding changed"
+            )
+        raw_contacts_by_index: dict[int, Mapping[str, Any]] = {}
+        active_contact_indices: list[int] = []
+        for expected_index, raw_contact in enumerate(raw_contact_ledger):
+            if not isinstance(raw_contact, Mapping):
+                raise DiagnosticValidationError(
+                    "raw MuJoCo contact record is malformed"
+                )
+            raw_without_hash = {
+                key: value
+                for key, value in raw_contact.items()
+                if key != "raw_contact_sha256"
+            }
+            geom1_id = raw_contact.get("geom1_id")
+            geom2_id = raw_contact.get("geom2_id")
+            body1_id = raw_contact.get("body1_id")
+            body2_id = raw_contact.get("body2_id")
+            position = raw_contact.get("position")
+            frame_normal = raw_contact.get(
+                "frame_normal_geom1_to_geom2"
+            )
+            if (
+                raw_contact.get("contact_index") != expected_index
+                or raw_contact.get("raw_contact_sha256")
+                != diagnostics.sha256_bytes(
+                    diagnostics.canonical_json_bytes(raw_without_hash)
+                )
+                or type(geom1_id) is not int
+                or type(geom2_id) is not int
+                or not 0 <= geom1_id < len(model_authority["geom_body_ids"])
+                or not 0 <= geom2_id < len(model_authority["geom_body_ids"])
+                or type(body1_id) is not int
+                or type(body2_id) is not int
+                or body1_id != model_authority["geom_body_ids"][geom1_id]
+                or body2_id != model_authority["geom_body_ids"][geom2_id]
+                or not isinstance(raw_contact.get("distance"), (int, float))
+                or not math.isfinite(float(raw_contact["distance"]))
+                or not isinstance(position, list)
+                or len(position) != 3
+                or not all(
+                    isinstance(value, (int, float))
+                    and math.isfinite(float(value))
+                    for value in position
+                )
+                or not isinstance(frame_normal, list)
+                or len(frame_normal) != 3
+                or not all(
+                    isinstance(value, (int, float))
+                    and math.isfinite(float(value))
+                    for value in frame_normal
+                )
+            ):
+                raise DiagnosticValidationError(
+                    "raw MuJoCo contact record binding changed"
+                )
+            raw_contacts_by_index[expected_index] = raw_contact
+            active_sides = [
+                side
+                for side, body_id in enumerate((body1_id, body2_id))
+                if active_obstacle_root_body_id
+                in _contact_authority_lineage(model_authority, body_id)
+            ]
+            if len(active_sides) > 1:
+                raise DiagnosticValidationError(
+                    "raw active-obstacle contact has no unique side"
+                )
+            if active_sides:
+                active_contact_indices.append(expected_index)
         events = snapshot.get("events")
         if not isinstance(events, list):
             raise DiagnosticValidationError(
                 f"contact events are invalid at step {snapshot.get('step')}"
+            )
+        event_indices = [
+            event.get("contact_index")
+            if isinstance(event, Mapping)
+            else None
+            for event in events
+        ]
+        if (
+            not all(type(value) is int for value in event_indices)
+            or len(set(event_indices)) != len(events)
+            or sorted(event_indices) != active_contact_indices
+        ):
+            raise DiagnosticValidationError(
+                "active-obstacle events differ from the raw contact ledger"
             )
         for event in events:
             if (
@@ -854,21 +1567,255 @@ def _validate_contacts(
             all_events.append(event)
             obstacle = event.get("obstacle")
             other = event.get("other")
+            obstacle_side = _validate_contact_side(
+                obstacle, label="contact obstacle"
+            )
+            other_side = _validate_contact_side(
+                other, label="contact other"
+            )
             if (
-                not isinstance(obstacle, Mapping)
-                or not isinstance(other, Mapping)
+                active_obstacle_root_body_id
+                not in obstacle_side["body_lineage_ids"]
+            ):
+                raise DiagnosticValidationError(
+                    "contact obstacle lineage does not match the active obstacle"
+                )
+            if (
+                active_obstacle_root_body_id
+                in other_side["body_lineage_ids"]
+            ):
+                raise DiagnosticValidationError(
+                    "contact active-obstacle side is not unique"
+                )
+            raw_order = event.get("raw_order")
+            raw_contact = raw_contacts_by_index.get(event["contact_index"])
+            if raw_contact is None:
+                raise DiagnosticValidationError(
+                    "contact event lacks its raw MuJoCo record"
+                )
+            if (
+                not isinstance(raw_order, Mapping)
+                or type(raw_order.get("geom1_id")) is not int
+                or type(raw_order.get("geom2_id")) is not int
+                or type(raw_order.get("body1_id")) is not int
+                or type(raw_order.get("body2_id")) is not int
+                or raw_order.get("obstacle_side") not in {"geom1", "geom2"}
+                or not all(
+                    0 <= raw_order[key]
+                    < len(model_authority["geom_body_ids"])
+                    for key in ("geom1_id", "geom2_id")
+                )
+                or not all(
+                    0 <= raw_order[key]
+                    < len(model_authority["body_parent_ids"])
+                    for key in ("body1_id", "body2_id")
+                )
+                or raw_order.get("geom1_id")
+                != raw_contact.get("geom1_id")
+                or raw_order.get("geom2_id")
+                != raw_contact.get("geom2_id")
+                or raw_order.get("body1_id")
+                != raw_contact.get("body1_id")
+                or raw_order.get("body2_id")
+                != raw_contact.get("body2_id")
+            ):
+                raise DiagnosticValidationError(
+                    "contact raw MuJoCo ordering is malformed"
+                )
+            obstacle_is_geom1 = raw_order["obstacle_side"] == "geom1"
+            expected_obstacle_ids = (
+                raw_order["geom1_id"],
+                raw_order["body1_id"],
+            ) if obstacle_is_geom1 else (
+                raw_order["geom2_id"],
+                raw_order["body2_id"],
+            )
+            expected_other_ids = (
+                raw_order["geom2_id"],
+                raw_order["body2_id"],
+            ) if obstacle_is_geom1 else (
+                raw_order["geom1_id"],
+                raw_order["body1_id"],
+            )
+            expected_obstacle_side = (
+                "geom1"
+                if active_obstacle_root_body_id
+                in _contact_authority_lineage(
+                    model_authority, raw_order["body1_id"]
+                )
+                else "geom2"
+            )
+            expected_normal = list(
+                raw_contact["frame_normal_geom1_to_geom2"]
+            )
+            if expected_obstacle_side == "geom2":
+                expected_normal = [-value for value in expected_normal]
+            if (
+                raw_order["obstacle_side"] != expected_obstacle_side
+                or event.get("distance") != raw_contact.get("distance")
+                or event.get("position") != raw_contact.get("position")
+                or event.get("normal_obstacle_to_other")
+                != expected_normal
+            ):
+                raise DiagnosticValidationError(
+                    "contact event differs from its raw MuJoCo record"
+                )
+            for side, expected_ids, label in (
+                (
+                    obstacle_side,
+                    expected_obstacle_ids,
+                    "contact obstacle",
+                ),
+                (other_side, expected_other_ids, "contact other"),
+            ):
+                geom_id, body_id = expected_ids
+                if (
+                    model_authority["geom_body_ids"][geom_id] != body_id
+                    or model_authority["geom_names"][geom_id]
+                    != side["geom_name"]
+                    or model_authority["body_names"][body_id]
+                    != side["body_name"]
+                ):
+                    raise DiagnosticValidationError(
+                        f"{label}: raw IDs differ from MuJoCo authority"
+                    )
+                authority_lineage_ids = _contact_authority_lineage(
+                    model_authority, body_id
+                )
+                authority_lineage_names = [
+                    model_authority["body_names"][value]
+                    for value in authority_lineage_ids
+                ]
+                if (
+                    side["body_lineage_ids"] != authority_lineage_ids
+                    or side["body_lineage"] != authority_lineage_names
+                ):
+                    raise DiagnosticValidationError(
+                        f"{label}: lineage differs from MuJoCo authority"
+                    )
+            if (
+                (obstacle_side["geom_id"], obstacle_side["body_id"])
+                != expected_obstacle_ids
+                or (other_side["geom_id"], other_side["body_id"])
+                != expected_other_ids
+                or type(event.get("contact_index")) is not int
+                or event["contact_index"] < 0
                 or other.get("classification")
-                not in {"robot", "nonrobot"}
+                not in role_classes
+                or other.get("classification") == "unknown"
+                or other.get("classification_authority") != "complete"
+                or other.get("legacy_binary_classification")
+                != (
+                    "robot"
+                    if other.get("classification") == "robot"
+                    else "nonrobot"
+                )
                 or not isinstance(event.get("distance"), (int, float))
+                or not math.isfinite(float(event["distance"]))
                 or not isinstance(event.get("position"), list)
                 or len(event["position"]) != 3
+                or not all(
+                    isinstance(value, (int, float))
+                    and math.isfinite(float(value))
+                    for value in event["position"]
+                )
                 or not isinstance(
                     event.get("normal_obstacle_to_other"), list
                 )
                 or len(event["normal_obstacle_to_other"]) != 3
+                or not all(
+                    isinstance(value, (int, float))
+                    and math.isfinite(float(value))
+                    for value in event["normal_obstacle_to_other"]
+                )
             ):
                 raise DiagnosticValidationError(
                     "contact event lacks canonical physical context"
+                )
+            dynamics = other.get("dynamics")
+            membership = other.get("task_membership")
+            if (
+                not isinstance(dynamics, Mapping)
+                or dynamics.get("status") != "complete"
+                or dynamics.get("source")
+                != "MuJoCo body_jntnum/body_jntadr/jnt_type"
+                or dynamics.get("mobility")
+                not in {
+                    "static_no_joint",
+                    "free_joint",
+                    "jointed_nonfree",
+                }
+                or not isinstance(dynamics.get("joints"), list)
+                or not isinstance(membership, Mapping)
+                or membership.get("status") != "complete"
+                or membership.get("source") != task_context.get("source")
+                or membership.get("goal_argument_names")
+                != task_context.get("goal_argument_names")
+                or membership.get("goal_argument_records")
+                != task_context.get("goal_argument_records")
+                or not isinstance(
+                    membership.get("matched_task_bodies"), list
+                )
+            ):
+                raise DiagnosticValidationError(
+                    "contact role lacks MuJoCo/task authority"
+                )
+            expected_dynamics = _contact_authority_dynamics(
+                model_authority,
+                other["body_lineage_ids"],
+            )
+            if dynamics != expected_dynamics:
+                raise DiagnosticValidationError(
+                    "contact dynamics differ from MuJoCo joint authority"
+                )
+            joints = expected_dynamics["joints"]
+            for joint in joints:
+                if (
+                    not isinstance(joint, Mapping)
+                    or type(joint.get("joint_id")) is not int
+                    or joint.get("joint_type")
+                    not in {"free", "ball", "slide", "hinge"}
+                    or type(joint.get("joint_type_id")) is not int
+                    or type(joint.get("attached_body_id")) is not int
+                    or joint["attached_body_id"]
+                    not in other["body_lineage_ids"]
+                ):
+                    raise DiagnosticValidationError(
+                        "contact MuJoCo joint authority is malformed"
+                    )
+            expected_mobility = expected_dynamics["mobility"]
+            matched = membership["matched_task_bodies"]
+            expected_matched = [
+                record
+                for record in task_body_records
+                if record["root_body_id"] in other["body_lineage_ids"]
+            ]
+            if matched != expected_matched:
+                raise DiagnosticValidationError(
+                    "contact task membership is not body-lineage bound"
+                )
+            robot_lineage = bool(
+                set(other["body_lineage_ids"]).intersection(robot_body_ids)
+            )
+            expected_role = (
+                "robot"
+                if robot_lineage
+                else (
+                    "static_support"
+                    if expected_mobility == "static_no_joint"
+                    else (
+                        "dynamic_task_object"
+                        if any(
+                            record.get("is_task_goal_body") is True
+                            for record in expected_matched
+                        )
+                        else "dynamic_other"
+                    )
+                )
+            )
+            if other.get("classification") != expected_role:
+                raise DiagnosticValidationError(
+                    "contact role does not follow authoritative inputs"
                 )
             expected_hash = diagnostics.sha256_bytes(
                 diagnostics.canonical_json_bytes(
@@ -883,13 +1830,38 @@ def _validate_contacts(
                 raise DiagnosticValidationError(
                     "contact event hash mismatch"
                 )
-            if other["classification"] == "robot":
-                robot_events.append(event)
-            else:
-                nonrobot_events.append(event)
+            events_by_role[other["classification"]].append(event)
+    robot_events = events_by_role["robot"]
+    nonrobot_events = [
+        event
+        for role in role_classes
+        if role != "robot"
+        for event in events_by_role[role]
+    ]
     expected_summary = {
         "snapshot_count": len(snapshots),
         "event_count": len(all_events),
+        "role_taxonomy": list(role_classes),
+        "role_authority_complete": True,
+        "event_counts_by_role": {
+            role: len(events_by_role[role]) for role in role_classes
+        },
+        "steps_with_contact_by_role": {
+            role: sorted(
+                {int(event["step"]) for event in events_by_role[role]}
+            )
+            for role in role_classes
+        },
+        "first_contact_step_by_role": {
+            role: (
+                None
+                if not events_by_role[role]
+                else min(
+                    int(event["step"]) for event in events_by_role[role]
+                )
+            )
+            for role in role_classes
+        },
         "robot_event_count": len(robot_events),
         "nonrobot_event_count": len(nonrobot_events),
         "steps_with_any_contact": sorted(
@@ -2791,11 +3763,34 @@ def validate_diagnostic_result(
     contacts = record.get("contacts")
     if not isinstance(contacts, Mapping):
         raise DiagnosticValidationError("contact artifact is missing")
+    obstacle = result.get("obstacle")
+    result_active_obstacle_name = (
+        obstacle.get("active_name") if isinstance(obstacle, Mapping) else None
+    )
+    active_obstacle_name = settled_contract.get("active_obstacle_name")
+    if (
+        not isinstance(active_obstacle_name, str)
+        or not active_obstacle_name
+        or result_active_obstacle_name != active_obstacle_name
+    ):
+        raise DiagnosticValidationError(
+            "result active obstacle differs from the settled-input contract"
+        )
+    trusted_goal_atoms = _trusted_native_goal_atoms(result)
+    expected_goal_argument_names = sorted(
+        {
+            str(argument)
+            for atom in trusted_goal_atoms
+            for argument in atom["arguments"]
+        }
+    )
     _validate_contacts(
         contacts,
         output_root=output_root,
         action_count=action_count,
         expected_case_id=str(result.get("case_id")),
+        expected_active_obstacle_name=active_obstacle_name,
+        expected_goal_argument_names=expected_goal_argument_names,
     )
     _validate_qp_contexts(
         result,

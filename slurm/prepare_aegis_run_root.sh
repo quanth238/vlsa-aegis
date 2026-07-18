@@ -213,12 +213,24 @@ if [[ "$RUN_STAGE" == population ]]; then
     exit 2
   }
   [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" schema_version)" == \
-    vlsa_table1_action_invariant_paired_canary_validation.v1 ]] || {
+    vlsa_table1_action_invariant_paired_canary_validation.v2 ]] || {
     echo "unexpected paired-canary receipt schema" >&2
     exit 2
   }
   [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" status)" == validated ]] || {
     echo "paired-canary receipt is not validated" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+    contact_schema_version)" == \
+    vlsa_table1_active_obstacle_contacts.v3 ]] || {
+    echo "paired-canary contact schema is stale" >&2
+    exit 2
+  }
+  [[ "$(json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
+    contact_model_authority_schema_version)" == \
+    vlsa_table1_contact_model_authority.v2 ]] || {
+    echo "paired-canary contact-model authority schema is stale" >&2
     exit 2
   }
   grep -Eq '^[[:space:]]*"paired_result_valid":[[:space:]]*true,?[[:space:]]*$' \

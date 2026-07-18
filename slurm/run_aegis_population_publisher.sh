@@ -135,6 +135,23 @@ PUBLISH_STAGE=strict_population_aggregation
   --results "$RUN_ROOT/tasks" \
   --output "$SUMMARY_PATH"
 
+FAILURE_ROOT=$PUBLISH_ATTEMPT_ROOT/failure-analysis
+mkdir "$FAILURE_ROOT"
+FAILURE_CASES_PATH=$FAILURE_ROOT/cases.jsonl
+FAILURE_REPORT_PATH=$FAILURE_ROOT/report.json
+FAILURE_MARKDOWN_PATH=$FAILURE_ROOT/report.md
+PUBLISH_STAGE=exhaustive_population_failure_analysis
+"$AEGIS_PYTHON" "$REMOTE_REPO/analysis/build_aegis_failure_report.py" \
+  --config "$CONFIG_PATH" \
+  --receipt "$MANIFEST_RECEIPT_PATH" \
+  --manifest "$MANIFEST_PATH" \
+  --results "$RUN_ROOT/tasks" \
+  --summary "$SUMMARY_PATH" \
+  --population-validation-receipt "$PREPUBLISH_RECEIPT" \
+  --cases-output "$FAILURE_CASES_PATH" \
+  --report-output "$FAILURE_REPORT_PATH" \
+  --markdown-output "$FAILURE_MARKDOWN_PATH"
+
 GALLERY_ROOT=$PUBLISH_ATTEMPT_ROOT/gallery
 mkdir "$GALLERY_ROOT"
 GALLERY_PATH=$GALLERY_ROOT/index.html
@@ -149,8 +166,15 @@ PUBLISH_STAGE=publication_receipt
 "$AEGIS_PYTHON" "$VALIDATOR" population-finalize \
   --run-root "$RUN_ROOT" \
   --prepublish-receipt "$PREPUBLISH_RECEIPT" \
+  --config "$CONFIG_PATH" \
+  --manifest-receipt "$MANIFEST_RECEIPT_PATH" \
+  --manifest "$MANIFEST_PATH" \
+  --results "$RUN_ROOT/tasks" \
   --summary "$SUMMARY_PATH" \
   --gallery "$GALLERY_PATH" \
+  --failure-cases "$FAILURE_CASES_PATH" \
+  --failure-report "$FAILURE_REPORT_PATH" \
+  --failure-markdown "$FAILURE_MARKDOWN_PATH" \
   --output "$RUN_ROOT/population-publication-receipt.json"
 
 PUBLISH_STAGE=complete

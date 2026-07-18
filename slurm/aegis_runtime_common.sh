@@ -254,12 +254,23 @@ aegis_validate_identity() {
       }
       [[ "$(aegis_json_top_level_string_value "$PAIRED_CANARY_RECEIPT_PATH" \
         schema_version)" == \
-        vlsa_table1_action_invariant_paired_canary_validation.v1 ]] || {
+        vlsa_table1_action_invariant_paired_canary_validation.v2 ]] || {
         aegis_die "paired-canary receipt schema changed"
       }
       [[ "$(aegis_json_top_level_string_value \
         "$PAIRED_CANARY_RECEIPT_PATH" status)" == validated ]] || {
         aegis_die "paired-canary receipt is not validated"
+      }
+      [[ "$(aegis_json_top_level_string_value \
+        "$PAIRED_CANARY_RECEIPT_PATH" contact_schema_version)" == \
+        vlsa_table1_active_obstacle_contacts.v3 ]] || {
+        aegis_die "paired-canary contact schema is stale"
+      }
+      [[ "$(aegis_json_top_level_string_value \
+        "$PAIRED_CANARY_RECEIPT_PATH" \
+        contact_model_authority_schema_version)" == \
+        vlsa_table1_contact_model_authority.v2 ]] || {
+        aegis_die "paired-canary contact-model authority schema is stale"
       }
       grep -Eq '^[[:space:]]*"paired_result_valid":[[:space:]]*true,?[[:space:]]*$' \
         "$PAIRED_CANARY_RECEIPT_PATH" || {

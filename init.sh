@@ -15,9 +15,12 @@ for optional_file in \
   main/evaluate_safelibero_aegis.py \
   main/capture_safelibero_labels.py \
   analysis/aggregate_safelibero_aegis.py \
+  analysis/build_aegis_failure_report.py \
   analysis/build_safelibero_video_gallery.py \
+  analysis/validate_aegis_failure_diagnostics.py \
   manifests/build_vlsa_table1_population.py \
-  scripts/validate_aegis_assets.py
+  scripts/validate_aegis_assets.py \
+  scripts/validate_aegis_run_artifacts.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")

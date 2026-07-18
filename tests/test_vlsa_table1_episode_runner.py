@@ -809,6 +809,9 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
                 "label_record_sha256": label_record_sha256,
                 "obstacle_label": "red milk carton",
             },
+            "obstacle": {
+                "active_name": settled_contract["active_obstacle_name"],
+            },
             "timing": {"started_unix": 2_000_000_000.0},
             "policy_queries": [
                 {

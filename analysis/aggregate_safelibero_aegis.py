@@ -17,7 +17,7 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Iterator, Mapping, MutableMapping, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_table1_translational_protocol.v1"
@@ -42,6 +42,23 @@ NOISE_SCHEMA = "pi05_query_noise_schedule.v1"
 SETTLED_INPUT_SCHEMA = "vlsa_table1_settled_input.v1"
 TRANSLATIONAL_FAIL_OPEN = "corrected_translational_nominal"
 PAPER_COLLISION_THRESHOLD_M = 0.001
+PAIRED_FIELDS = (
+    "initial_state_sha256",
+    "initial_observation_sha256",
+    "initial_observation_contract",
+    "settled_simulator_state_sha256",
+    "settled_active_obstacle_position_sha256",
+    "policy_noise_schedule_id",
+    "policy_noise_schedule_sha256",
+    "policy_noise_schedule",
+    "semantic_label_record_sha256",
+    "semantic_label_settled_agentview_sha256",
+    "semantic_obstacle_label",
+    "max_steps",
+    "model_action_horizon",
+    "replan_steps",
+    "translational_fail_open",
+)
 
 
 class AggregationError(RuntimeError):
@@ -72,6 +89,27 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 def canonical_record_sha256(value: dict[str, Any]) -> str:
     return sha256_bytes(canonical_json_bytes(value))
+
+
+def canonical_json_sha256(value: Any) -> str:
+    """Hash canonical JSON incrementally instead of building one large blob."""
+
+    digest = hashlib.sha256()
+
+    class HashSink:
+        def write(self, text: str) -> int:
+            digest.update(text.encode("utf-8"))
+            return len(text)
+
+    json.dump(
+        value,
+        HashSink(),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
+    return digest.hexdigest()
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -119,6 +157,234 @@ def load_result_records(path: Path) -> list[dict[str, Any]]:
     raise AggregationError(
         f"{path} must contain a result object, result-object list, or JSONL"
     )
+
+
+def _iter_json_array_records(
+    stream: Any,
+    *,
+    source: str,
+    chunk_size: int = 1024 * 1024,
+) -> Iterator[dict[str, Any]]:
+    """Incrementally decode a top-level result array.
+
+    This compatibility path keeps at most one decoded result object live. The
+    production evaluator writes one ``result.json`` per episode, but accepting
+    array shards here preserves the historical aggregator input contract
+    without materializing the entire shard.
+    """
+
+    decoder = json.JSONDecoder()
+    buffer = ""
+    cursor = 0
+    eof = False
+
+    def read_more() -> None:
+        nonlocal buffer, cursor, eof
+        if cursor:
+            buffer = buffer[cursor:]
+            cursor = 0
+        chunk = stream.read(chunk_size)
+        if chunk:
+            buffer += chunk
+        else:
+            eof = True
+
+    def skip_whitespace() -> None:
+        nonlocal cursor
+        while True:
+            while cursor < len(buffer) and buffer[cursor].isspace():
+                cursor += 1
+            if cursor < len(buffer) or eof:
+                return
+            read_more()
+
+    read_more()
+    skip_whitespace()
+    if cursor >= len(buffer) or buffer[cursor] != "[":
+        raise AggregationError(f"{source} must start with a JSON array")
+    cursor += 1
+    item_index = 0
+    value_required = False
+    while True:
+        skip_whitespace()
+        if cursor < len(buffer) and buffer[cursor] == "]":
+            if value_required:
+                raise AggregationError(
+                    f"{source}: trailing comma in result array"
+                )
+            cursor += 1
+            skip_whitespace()
+            if cursor < len(buffer) or not eof:
+                if not eof:
+                    read_more()
+                    skip_whitespace()
+                if cursor < len(buffer):
+                    raise AggregationError(
+                        f"{source} has data after its result array"
+                    )
+            return
+        while True:
+            try:
+                value, end = decoder.raw_decode(buffer, cursor)
+                break
+            except json.JSONDecodeError as error:
+                if eof:
+                    raise AggregationError(
+                        f"{source}: result array item {item_index} is "
+                        "invalid JSON"
+                    ) from error
+                read_more()
+        if not isinstance(value, dict):
+            raise AggregationError(
+                f"{source}: result array item {item_index} must be an object"
+            )
+        cursor = end
+        if cursor:
+            buffer = buffer[cursor:]
+            cursor = 0
+        yield value
+        del value
+        item_index += 1
+        value_required = False
+        skip_whitespace()
+        if cursor >= len(buffer):
+            raise AggregationError(f"{source}: unterminated result array")
+        delimiter = buffer[cursor]
+        if delimiter == ",":
+            cursor += 1
+            value_required = True
+            continue
+        if delimiter != "]":
+            raise AggregationError(
+                f"{source}: expected ',' or ']' after result array "
+                f"item {item_index - 1}"
+            )
+
+
+def _iter_json_object_sequence_records(
+    stream: Any,
+    *,
+    source: str,
+    chunk_size: int = 1024 * 1024,
+) -> Iterator[dict[str, Any]]:
+    """Stream one pretty object or whitespace-delimited JSON objects.
+
+    A structural scan finds one complete top-level object without decoding
+    later records. ``json.loads`` then enforces the exact JSON grammar for
+    that object. This preserves legacy JSONL acceptance independently of a
+    filename suffix and keeps memory bounded by one full result.
+    """
+
+    parts: list[str] = []
+    depth = 0
+    in_string = False
+    escaped = False
+    record_count = 0
+    separator_seen = True
+
+    for chunk in iter(lambda: stream.read(chunk_size), ""):
+        segment_start = 0
+        for index, character in enumerate(chunk):
+            if depth == 0:
+                if character.isspace():
+                    separator_seen = True
+                    continue
+                if character != "{":
+                    qualifier = (
+                        "data after a valid result"
+                        if record_count
+                        else "expected a JSON result object"
+                    )
+                    raise AggregationError(f"{source}: {qualifier}")
+                if record_count and not separator_seen:
+                    raise AggregationError(
+                        f"{source}: result objects require whitespace "
+                        "separation"
+                    )
+                parts = ["{"]
+                depth = 1
+                in_string = False
+                escaped = False
+                separator_seen = False
+                segment_start = index + 1
+                continue
+
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == '"':
+                    in_string = False
+                continue
+            if character == '"':
+                in_string = True
+            elif character in "[{":
+                depth += 1
+            elif character in "]}":
+                depth -= 1
+                if depth < 0:
+                    raise AggregationError(
+                        f"{source}: invalid JSON result object"
+                    )
+                if depth == 0:
+                    parts.append(chunk[segment_start : index + 1])
+                    payload = "".join(parts)
+                    try:
+                        value = json.loads(payload)
+                    except json.JSONDecodeError as error:
+                        raise AggregationError(
+                            f"{source}: invalid JSON result object "
+                            f"{record_count}"
+                        ) from error
+                    if not isinstance(value, dict):
+                        raise AggregationError(
+                            f"{source}: result {record_count} must be a "
+                            "JSON object"
+                        )
+                    parts = []
+                    record_count += 1
+                    del payload
+                    yield value
+                    del value
+                    segment_start = index + 1
+        if depth != 0:
+            parts.append(chunk[segment_start:])
+
+    if depth != 0 or in_string or escaped:
+        raise AggregationError(f"{source}: incomplete JSON result object")
+    if record_count == 0:
+        raise AggregationError(f"{source}: no JSON result objects found")
+
+
+def iter_result_records(path: Path) -> Iterator[dict[str, Any]]:
+    """Yield result records while retaining at most one decoded record.
+
+    Pretty-printed evaluator ``result.json`` files contain one object. JSONL
+    shards are decoded line by line and top-level JSON arrays are decoded one
+    element at a time.
+    """
+
+    with path.open("r", encoding="utf-8") as stream:
+        first_nonwhitespace = ""
+        while True:
+            character = stream.read(1)
+            if not character:
+                break
+            if not character.isspace():
+                first_nonwhitespace = character
+                break
+        stream.seek(0)
+        if first_nonwhitespace == "[":
+            yield from _iter_json_array_records(
+                stream,
+                source=str(path),
+            )
+            return
+        yield from _iter_json_object_sequence_records(
+            stream,
+            source=str(path),
+        )
 
 
 def expand_result_paths(paths: Iterable[Path]) -> list[Path]:
@@ -187,15 +453,13 @@ def _require_sha256(value: Any, *, label: str) -> str:
 
 
 def _result_payload_sha256(result: Mapping[str, Any]) -> str:
-    return sha256_bytes(
-        canonical_json_bytes(
-            {
-                key: value
-                for key, value in result.items()
-                if key != "result_payload_sha256"
-                and not str(key).startswith("_")
-            }
-        )
+    return canonical_json_sha256(
+        {
+            key: value
+            for key, value in result.items()
+            if key != "result_payload_sha256"
+            and not str(key).startswith("_")
+        }
     )
 
 
@@ -1290,9 +1554,17 @@ def validate_result(
         raise AggregationError(
             f"{case_id}/{arm}: settled non-array inputs are missing"
         )
+    obstacle = result.get("obstacle")
+    if (
+        not isinstance(obstacle, Mapping)
+        or obstacle.get("active_name")
+        != settled_contract["active_obstacle_name"]
+    ):
+        raise AggregationError(
+            f"{case_id}/{arm}: active obstacle differs from settled input"
+        )
 
-    validated = dict(result)
-    validated["metrics"] = _validate_metrics(result, manifest)
+    validated_metrics = _validate_metrics(result, manifest)
     _validate_goal_progress(
         result,
         actions=result["actions"],
@@ -1302,15 +1574,15 @@ def validate_result(
         result,
         manifest=manifest,
         pairing=pairing,
-        executed=validated["metrics"]["executed_action_count"],
+        executed=validated_metrics["executed_action_count"],
         precontrol_geometry_failure=precontrol_geometry_failure,
     )
     _validate_video_metadata(
         result,
         manifest=manifest,
-        executed=validated["metrics"]["executed_action_count"],
+        executed=validated_metrics["executed_action_count"],
     )
-    return validated
+    return result
 
 
 def load_results(
@@ -1383,29 +1655,284 @@ def load_results(
     return results
 
 
+def _artifact_root_for_result(path: Path) -> Path:
+    artifact_root = path.parent
+    if (
+        path.name == "result.json"
+        and path.parent.parent.name in {"pi05", "aegis"}
+    ):
+        artifact_root = path.parents[2]
+    return artifact_root.resolve()
+
+
+def _resolved_verified_video(
+    result: Mapping[str, Any],
+    *,
+    path: Path,
+    artifact_root: Path,
+    verify_video_files: bool,
+) -> Path | None:
+    if not verify_video_files:
+        return None
+    case_id = str(result["case_id"])
+    arm = str(result["arm"])
+    relative_video = Path(str(result["video"]["path"]))
+    root = artifact_root.resolve()
+    candidate = (root / relative_video).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as error:
+        raise AggregationError(
+            f"{case_id}/{arm}: video escapes artifact root"
+        ) from error
+    if (
+        not candidate.is_file()
+        or sha256_path(candidate) != result["video"]["sha256"]
+    ):
+        raise AggregationError(
+            f"{case_id}/{arm}: video file/hash mismatch"
+        )
+    return candidate
+
+
+def _compact_validated_result(
+    result: Mapping[str, Any],
+    *,
+    path: Path,
+    artifact_root: Path,
+    resolved_video_path: Path | None,
+    aegis_arm: str,
+) -> dict[str, Any]:
+    """Retain only aggregation, exact-pair, and gallery-reference fields."""
+
+    pairing = result["pairing"]
+    goal_progress = result["goal_progress"]
+    metrics = result["metrics"]
+    precontrol_geometry_failure = _validate_precontrol_geometry_failure(
+        result,
+        aegis_arm=aegis_arm,
+        pairing=pairing,
+    )
+    compact_metrics = {
+        key: metrics[key]
+        for key in (
+            "public_collision",
+            "task_success",
+            "legacy_ets_steps",
+            "executed_action_count",
+        )
+    }
+    compact_video = {
+        key: result["video"][key]
+        for key in (
+            "path",
+            "sha256",
+            "frames",
+            "fps",
+            "complete_episode",
+        )
+    }
+    return {
+        "protocol_id": result["protocol_id"],
+        "case_id": result["case_id"],
+        "arm": result["arm"],
+        "status": result["status"],
+        "suite": result["suite"],
+        "safety_level": result["safety_level"],
+        "logical_task_index": result["logical_task_index"],
+        "resolved_task_index": result["resolved_task_index"],
+        "task_name": result["task_name"],
+        "episode_index": result["episode_index"],
+        "metrics": compact_metrics,
+        "result_payload_sha256": result["result_payload_sha256"],
+        "video": compact_video,
+        "_result_source_path": str(path.resolve()),
+        "_artifact_root": str(artifact_root),
+        "_resolved_video_path": (
+            None
+            if resolved_video_path is None
+            else str(resolved_video_path)
+        ),
+        "_paired_field_sha256": {
+            field: sha256_bytes(canonical_json_bytes(pairing.get(field)))
+            for field in PAIRED_FIELDS
+        },
+        "_goal_definition_sha256": goal_progress[
+            "goal_definition_sha256"
+        ],
+        "_goal_initial_sha256": sha256_bytes(
+            canonical_json_bytes(goal_progress["initial"])
+        ),
+        "_initial_policy_action_chunk_sha256": pairing.get(
+            "initial_policy_action_chunk_sha256"
+        ),
+        "_precontrol_geometry_failure": precontrol_geometry_failure,
+    }
+
+
+def validate_compact_pairs(
+    *,
+    config: dict[str, Any],
+    manifests: list[dict[str, Any]],
+    results: Mapping[tuple[str, str], Mapping[str, Any]],
+) -> None:
+    """Validate exact arm pairing using fixed-size validated fingerprints."""
+
+    expected = {
+        (row["case_id"], arm)
+        for row in manifests
+        for arm in config["arms"]
+    }
+    actual = set(results)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise AggregationError(
+            f"incomplete paired population: missing={len(missing)} "
+            f"{missing[:5]}, extra={len(extra)} {extra[:5]}"
+        )
+
+    first_arm, second_arm = config["arms"]
+    for manifest in manifests:
+        case_id = manifest["case_id"]
+        first = results[(case_id, first_arm)]
+        second = results[(case_id, second_arm)]
+        first_fields = first["_paired_field_sha256"]
+        second_fields = second["_paired_field_sha256"]
+        changed = [
+            field
+            for field in PAIRED_FIELDS
+            if first_fields.get(field) != second_fields.get(field)
+        ]
+        if changed:
+            raise AggregationError(
+                f"{case_id}: arms are not paired for {changed}"
+            )
+        if (
+            first["_goal_definition_sha256"]
+            != second["_goal_definition_sha256"]
+            or first["_goal_initial_sha256"]
+            != second["_goal_initial_sha256"]
+        ):
+            raise AggregationError(
+                f"{case_id}: arms are not paired for native initial "
+                "goal progress"
+            )
+        baseline_action_hash = _require_sha256(
+            first["_initial_policy_action_chunk_sha256"],
+            label=(
+                f"{case_id}/{first_arm}/"
+                "initial_policy_action_chunk_sha256"
+            ),
+        )
+        if second["_precontrol_geometry_failure"]:
+            if second["_initial_policy_action_chunk_sha256"] is not None:
+                raise AggregationError(
+                    f"{case_id}: precontrol geometry failure has an "
+                    "initial policy action hash"
+                )
+        else:
+            aegis_action_hash = _require_sha256(
+                second["_initial_policy_action_chunk_sha256"],
+                label=(
+                    f"{case_id}/{second_arm}/"
+                    "initial_policy_action_chunk_sha256"
+                ),
+            )
+            if baseline_action_hash != aegis_action_hash:
+                raise AggregationError(
+                    f"{case_id}: arms are not paired for "
+                    "['initial_policy_action_chunk_sha256']"
+                )
+
+
+def load_compact_results_streaming(
+    result_paths: Iterable[Path],
+    *,
+    config: dict[str, Any],
+    manifests: list[dict[str, Any]],
+    verify_video_files: bool = True,
+    streaming_stats: MutableMapping[str, int] | None = None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Strictly validate the population without retaining full results.
+
+    One full result is decoded, validated, video-hash checked, compacted, and
+    released before the next record is decoded. Only fixed-size summary and
+    exact-pair fingerprints plus gallery video references remain resident.
+    """
+
+    manifest_by_id = {row["case_id"]: row for row in manifests}
+    compact_results: dict[tuple[str, str], dict[str, Any]] = {}
+    files = expand_result_paths(result_paths)
+    records_seen = 0
+    live_full_results = 0
+    max_live_full_results = 0
+    for path in files:
+        artifact_root = _artifact_root_for_result(path)
+        for raw in iter_result_records(path):
+            live_full_results += 1
+            max_live_full_results = max(
+                max_live_full_results, live_full_results
+            )
+            try:
+                case_id = raw.get("case_id")
+                arm = raw.get("arm")
+                manifest = manifest_by_id.get(case_id)
+                if manifest is None:
+                    raise AggregationError(
+                        f"unexpected case result: {case_id}"
+                    )
+                key = (case_id, arm)
+                if key in compact_results:
+                    raise AggregationError(f"duplicate result: {key}")
+                validated = validate_result(
+                    raw,
+                    config=config,
+                    manifest=manifest,
+                )
+                video_path = _resolved_verified_video(
+                    validated,
+                    path=path,
+                    artifact_root=artifact_root,
+                    verify_video_files=verify_video_files,
+                )
+                compact_results[key] = _compact_validated_result(
+                    validated,
+                    path=path,
+                    artifact_root=artifact_root,
+                    resolved_video_path=video_path,
+                    aegis_arm=str(config["arms"][1]),
+                )
+                records_seen += 1
+                del validated
+            finally:
+                live_full_results -= 1
+            del raw
+
+    validate_compact_pairs(
+        config=config,
+        manifests=manifests,
+        results=compact_results,
+    )
+    if streaming_stats is not None:
+        streaming_stats.clear()
+        streaming_stats.update(
+            {
+                "result_files": len(files),
+                "result_records": records_seen,
+                "max_live_full_results": max_live_full_results,
+                "retained_compact_results": len(compact_results),
+            }
+        )
+    return compact_results
+
+
 def validate_pairs(
     *,
     config: dict[str, Any],
     manifests: list[dict[str, Any]],
     results: dict[tuple[str, str], dict[str, Any]],
 ) -> None:
-    paired_fields = (
-        "initial_state_sha256",
-        "initial_observation_sha256",
-        "initial_observation_contract",
-        "settled_simulator_state_sha256",
-        "settled_active_obstacle_position_sha256",
-        "policy_noise_schedule_id",
-        "policy_noise_schedule_sha256",
-        "policy_noise_schedule",
-        "semantic_label_record_sha256",
-        "semantic_label_settled_agentview_sha256",
-        "semantic_obstacle_label",
-        "max_steps",
-        "model_action_horizon",
-        "replan_steps",
-        "translational_fail_open",
-    )
     first_arm, second_arm = config["arms"]
     for manifest in manifests:
         case_id = manifest["case_id"]
@@ -1422,7 +1949,7 @@ def validate_pairs(
         )
         changed = [
             field
-            for field in paired_fields
+            for field in PAIRED_FIELDS
             if first.get(field) != second.get(field)
         ]
         if changed:
@@ -1713,11 +2240,8 @@ def main() -> int:
     config, manifests = load_protocol(
         args.config, args.receipt, args.manifest
     )
-    results = load_results(
+    results = load_compact_results_streaming(
         args.results, config=config, manifests=manifests
-    )
-    validate_pairs(
-        config=config, manifests=manifests, results=results
     )
     summary = aggregate(
         config=config, manifests=manifests, results=results

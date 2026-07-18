@@ -125,6 +125,7 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         settled_contract = {
             "schema_version": "vlsa_table1_settled_input.v1",
             "prompt": "pick the bowl",
+            "active_obstacle_name": "moka_pot_obstacle_1",
         }
         pairing = {
             "manifest_row_sha256": "1" * 64,
@@ -268,6 +269,73 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             self.diagnostics.canonical_json_bytes(result)
         )
 
+    def _contact_model_authority_fixture(
+        self,
+        *,
+        task_context,
+        active_root,
+        body_names,
+        geom_body_ids,
+        geom_names,
+        robot_body_ids,
+        joint_records=(),
+    ):
+        canonical_joints = sorted(
+            (dict(record) for record in joint_records),
+            key=lambda record: int(record["body_id"]),
+        )
+        body_joint_counts = [0 for _ in body_names]
+        body_joint_addresses = [-1 for _ in body_names]
+        joint_types = []
+        joint_body_ids = []
+        joint_names = []
+        for joint_id, record in enumerate(canonical_joints):
+            body_id = int(record["body_id"])
+            if body_joint_counts[body_id] == 0:
+                body_joint_addresses[body_id] = joint_id
+            body_joint_counts[body_id] += 1
+            joint_types.append(int(record["joint_type_id"]))
+            joint_body_ids.append(body_id)
+            joint_names.append(str(record["joint_name"]))
+        bound_task_context = copy.deepcopy(task_context)
+        for record in bound_task_context["body_records"]:
+            record["root_body_name"] = body_names[record["root_body_id"]]
+        for record in bound_task_context["goal_argument_records"]:
+            record["root_body_name"] = (
+                None
+                if record["root_body_id"] is None
+                else body_names[record["root_body_id"]]
+            )
+        authority = {
+            "schema_version": (
+                self.diagnostics.CONTACT_MODEL_AUTHORITY_SCHEMA
+            ),
+            "source": (
+                "MuJoCo body/geom/joint topology and id2name + "
+                "task_env.obj_body_id + object_states_dict.parent_name"
+            ),
+            "active_obstacle_name": "moka_pot_obstacle_1",
+            "active_obstacle_root_body_id": active_root,
+            "robot_body_ids": list(robot_body_ids),
+            "body_parent_ids": [0 for _ in body_names],
+            "body_names": list(body_names),
+            "body_joint_counts": body_joint_counts,
+            "body_joint_addresses": body_joint_addresses,
+            "geom_body_ids": list(geom_body_ids),
+            "geom_names": list(geom_names),
+            "joint_types": joint_types,
+            "joint_body_ids": joint_body_ids,
+            "joint_names": joint_names,
+            "task_context": bound_task_context,
+            "task_context_sha256": self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(bound_task_context)
+            ),
+        }
+        authority["authority_sha256"] = self.diagnostics.sha256_bytes(
+            self.diagnostics.canonical_json_bytes(authority)
+        )
+        return authority
+
     def _goal_terminal_result(self, root):
         import numpy as np
 
@@ -292,6 +360,9 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 "scientific_result": True,
                 "terminal_reason": "task_success",
                 "task_success": True,
+                "obstacle": {
+                    "active_name": "moka_pot_obstacle_1",
+                },
             }
         )
         result["pairing"]["manifest_row_sha256"] = (
@@ -1554,7 +1625,7 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             ):
                 self.validator._validate_qp_contexts(tampered)
 
-    def test_detailed_contacts_include_robot_and_nonrobot_canonical_sides(self):
+    def test_detailed_contacts_include_robot_and_static_support_roles(self):
         try:
             import numpy  # noqa: F401
         except ImportError:
@@ -1571,11 +1642,15 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         class Model:
             geom_bodyid = [1, 2, 3]
             body_parentid = [0, 0, 0, 0]
+            body_jntnum = [0, 1, 1, 0]
+            body_jntadr = [-1, 0, 1, -1]
+            jnt_type = [3, 0]
+            jnt_bodyid = [1, 2]
             body_names = [
                 "world",
                 "robot0_link",
                 "moka_pot_obstacle_1",
-                "table",
+                "table_fixture",
             ]
             geom_names = ["robot_geom", "obstacle_geom", "table_geom"]
 
@@ -1584,6 +1659,9 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
 
             def geom_id2name(self, index):
                 return self.geom_names[index]
+
+            def joint_id2name(self, index):
+                return ["robot_hinge", "obstacle_free"][index]
 
         model = Model()
         data = types.SimpleNamespace(
@@ -1594,7 +1672,30 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             ],
         )
         env = types.SimpleNamespace(
-            sim=types.SimpleNamespace(model=model, data=data)
+            sim=types.SimpleNamespace(model=model, data=data),
+            env=types.SimpleNamespace(
+                obj_body_id={
+                    "moka_pot_obstacle_1": 2,
+                    "table_fixture": 3,
+                },
+                object_states_dict={
+                    "moka_pot_obstacle_1": types.SimpleNamespace(
+                        object_state_type="object"
+                    ),
+                    "table": types.SimpleNamespace(
+                        object_state_type="site",
+                        parent_name="table_fixture",
+                    ),
+                    "table_fixture": types.SimpleNamespace(
+                        object_state_type="object"
+                    ),
+                },
+                parsed_problem={
+                    "goal_state": [
+                        ["on", "moka_pot_obstacle_1", "table"]
+                    ]
+                },
+            ),
         )
         snapshot = self.evaluator._detailed_active_obstacle_contacts(
             env, "moka_pot_obstacle_1", step=-1
@@ -1602,7 +1703,16 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "available")
         self.assertEqual(
             [event["other"]["classification"] for event in snapshot["events"]],
-            ["robot", "nonrobot"],
+            ["robot", "static_support"],
+        )
+        self.assertEqual(snapshot["role_authority"]["status"], "complete")
+        self.assertEqual(
+            snapshot["events"][0]["other"]["dynamics"]["mobility"],
+            "jointed_nonfree",
+        )
+        self.assertEqual(
+            snapshot["events"][1]["other"]["dynamics"]["mobility"],
+            "static_no_joint",
         )
         self.assertEqual(
             snapshot["events"][0]["normal_obstacle_to_other"],
@@ -1623,6 +1733,420 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 )
             )
             self.assertEqual(event["event_sha256"], expected)
+
+    def test_detailed_contacts_bind_dynamic_goal_and_other_roles(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        class Contact:
+            def __init__(self, geom1, geom2):
+                self.geom1 = geom1
+                self.geom2 = geom2
+                self.dist = -0.001
+                self.pos = [0.0, 0.0, 0.0]
+                self.frame = [1.0, 0.0, 0.0] + [0.0] * 6
+
+        class Model:
+            geom_bodyid = [1, 2, 3, 4]
+            body_parentid = [0, 0, 0, 0, 0, 0]
+            body_jntnum = [0, 1, 1, 1, 1, 0]
+            body_jntadr = [-1, 0, 1, 2, 3, -1]
+            jnt_type = [0, 0, 0, 0]
+            jnt_bodyid = [1, 2, 3, 4]
+            body_names = [
+                "world",
+                "red_mug_obstacle_1",
+                "goal_object",
+                "distractor_object",
+                "basket_1",
+                "robot0_base",
+            ]
+            geom_names = [
+                "obstacle_geom",
+                "goal_geom",
+                "distractor_geom",
+                "basket_geom",
+            ]
+
+            def body_id2name(self, index):
+                return self.body_names[index]
+
+            def geom_id2name(self, index):
+                return self.geom_names[index]
+
+            def joint_id2name(self, index):
+                return [
+                    "obstacle_free",
+                    "goal_free",
+                    "distractor_free",
+                    "basket_free",
+                ][index]
+
+        model = Model()
+        data = types.SimpleNamespace(
+            ncon=3,
+            contact=[Contact(0, 1), Contact(0, 2), Contact(0, 3)],
+        )
+        task_env = types.SimpleNamespace(
+            obj_body_id={
+                "red_mug_obstacle_1": 1,
+                "goal_object": 2,
+                "distractor_object": 3,
+                "basket_1": 4,
+            },
+            object_states_dict={
+                "red_mug_obstacle_1": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "goal_object": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "distractor_object": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "basket_1": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "target_site": types.SimpleNamespace(
+                    object_state_type="site",
+                    parent_name="basket_1",
+                ),
+            },
+            parsed_problem={
+                "goal_state": [["in", "goal_object", "target_site"]]
+            },
+        )
+        snapshot = self.evaluator._detailed_active_obstacle_contacts(
+            types.SimpleNamespace(
+                sim=types.SimpleNamespace(model=model, data=data),
+                env=task_env,
+            ),
+            "red_mug_obstacle_1",
+            step=4,
+        )
+        self.assertEqual(
+            [
+                event["other"]["classification"]
+                for event in snapshot["events"]
+            ],
+            [
+                "dynamic_task_object",
+                "dynamic_other",
+                "dynamic_task_object",
+            ],
+        )
+        self.assertEqual(snapshot["role_authority"]["status"], "complete")
+        context = snapshot["role_authority"]["task_context"]
+        self.assertEqual(
+            context["goal_argument_names"],
+            ["goal_object", "target_site"],
+        )
+        self.assertEqual(
+            context["goal_argument_records"],
+            [
+                {
+                    "name": "goal_object",
+                    "object_state_type": "object",
+                    "root_body_id": 2,
+                    "body_binding": "direct_object_body",
+                    "parent_name": None,
+                    "root_body_name": "goal_object",
+                },
+                {
+                    "name": "target_site",
+                    "object_state_type": "site",
+                    "root_body_id": 4,
+                    "body_binding": "site_parent_body",
+                    "parent_name": "basket_1",
+                    "root_body_name": "basket_1",
+                },
+            ],
+        )
+        self.assertNotIn(
+            "target_site",
+            [record["name"] for record in context["body_records"]],
+        )
+        goal_membership = snapshot["events"][0]["other"][
+            "task_membership"
+        ]["matched_task_bodies"]
+        self.assertEqual(
+            [record["name"] for record in goal_membership],
+            ["goal_object"],
+        )
+        site_parent_membership = snapshot["events"][2]["other"][
+            "task_membership"
+        ]["matched_task_bodies"]
+        self.assertEqual(
+            [record["name"] for record in site_parent_membership],
+            ["basket_1"],
+        )
+        self.assertTrue(site_parent_membership[0]["is_goal_site_parent"])
+        self.assertEqual(
+            site_parent_membership[0]["goal_site_names"], ["target_site"]
+        )
+
+        unknown = self.evaluator._detailed_active_obstacle_contacts(
+            types.SimpleNamespace(
+                sim=types.SimpleNamespace(model=model, data=data),
+                env=types.SimpleNamespace(),
+            ),
+            "red_mug_obstacle_1",
+            step=4,
+        )
+        self.assertEqual(unknown["role_authority"]["status"], "unknown")
+        self.assertTrue(
+            all(
+                event["other"]["classification"] == "unknown"
+                for event in unknown["events"]
+            )
+        )
+
+    def test_detailed_contacts_fail_closed_for_unnamed_task_root_and_other(
+        self,
+    ):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        class Contact:
+            geom1 = 0
+            geom2 = 1
+            dist = -0.001
+            pos = [0.0, 0.0, 0.0]
+            frame = [1.0, 0.0, 0.0] + [0.0] * 6
+
+        class Model:
+            geom_bodyid = [1, 2, 3]
+            body_parentid = [0, 0, 0, 0]
+            body_jntnum = [0, 1, 1, 1]
+            body_jntadr = [-1, 0, 1, 2]
+            jnt_type = [0, 3, 0]
+            jnt_bodyid = [1, 2, 3]
+            body_names = ["world", None, "robot0_link", None]
+            geom_names = ["obstacle_geom", "robot_geom", "other_geom"]
+
+            def body_id2name(self, index):
+                return self.body_names[index]
+
+            def geom_id2name(self, index):
+                return self.geom_names[index]
+
+            def joint_id2name(self, index):
+                return ["obstacle_free", "robot_hinge", "other_free"][index]
+
+        task_env = types.SimpleNamespace(
+            obj_body_id={
+                "red_mug_obstacle_1": 1,
+            },
+            object_states_dict={
+                "red_mug_obstacle_1": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "target_site": types.SimpleNamespace(
+                    object_state_type="site",
+                    parent_name=None,
+                ),
+            },
+            parsed_problem={
+                "goal_state": [
+                    ["on", "red_mug_obstacle_1", "target_site"]
+                ]
+            },
+        )
+        model = Model()
+        env = types.SimpleNamespace(
+            sim=types.SimpleNamespace(
+                model=model,
+                data=types.SimpleNamespace(ncon=1, contact=[Contact()]),
+            ),
+            env=task_env,
+        )
+
+        unnamed_task_root = self.evaluator._detailed_active_obstacle_contacts(
+            env,
+            "red_mug_obstacle_1",
+            step=0,
+        )
+        self.assertEqual(unnamed_task_root["status"], "unavailable")
+        self.assertIn(
+            "does not bind to its MuJoCo root body name",
+            unnamed_task_root["error"],
+        )
+
+        model.body_names[1] = "red_mug_obstacle_1"
+        robot_contact = self.evaluator._detailed_active_obstacle_contacts(
+            env,
+            "red_mug_obstacle_1",
+            step=0,
+        )
+        self.assertEqual(robot_contact["status"], "available")
+        self.assertEqual(len(robot_contact["events"]), 1)
+        self.assertEqual(
+            robot_contact["events"][0]["obstacle"]["body_name"],
+            "red_mug_obstacle_1",
+        )
+        self.assertEqual(
+            robot_contact["events"][0]["other"]["classification"],
+            "robot",
+        )
+        self.assertEqual(robot_contact["role_authority"]["status"], "complete")
+
+        env.sim.data.contact[0].geom2 = 2
+        unnamed_other_contact = (
+            self.evaluator._detailed_active_obstacle_contacts(
+                env,
+                "red_mug_obstacle_1",
+                step=1,
+            )
+        )
+        self.assertEqual(unnamed_other_contact["status"], "available")
+        self.assertEqual(len(unnamed_other_contact["events"]), 1)
+        self.assertEqual(
+            unnamed_other_contact["events"][0]["other"]["body_name"],
+            "<unnamed_body_id:3>",
+        )
+        self.assertEqual(
+            unnamed_other_contact["events"][0]["other"]["classification"],
+            "unknown",
+        )
+        self.assertEqual(
+            unnamed_other_contact["role_authority"]["status"], "unknown"
+        )
+
+    def test_body_lineage_preserves_unnamed_ancestor_ids(self):
+        class Model:
+            body_parentid = [0, 0, 1]
+
+            def body_id2name(self, index):
+                return ["world", None, "named_child"][index]
+
+        self.assertEqual(
+            self.evaluator._body_lineage(Model(), 2),
+            [
+                "named_child",
+                "<unnamed_body_id:1>",
+                "world",
+            ],
+        )
+        self.assertFalse(
+            self.evaluator._is_robot_lineage(
+                ["<unnamed_body_id:1>", "world"]
+            )
+        )
+        with self.assertRaises(self.evaluator.ApparatusError):
+            self.evaluator._body_lineage_ids(
+                types.SimpleNamespace(body_parentid=[0, 2, 1]), 1
+            )
+        with self.assertRaises(self.evaluator.ApparatusError):
+            self.evaluator._body_lineage_ids(
+                types.SimpleNamespace(body_parentid=[0, 4]), 1
+            )
+
+    def test_contact_role_context_binds_goal_object_and_site_parent(self):
+        task_env = types.SimpleNamespace(
+            obj_body_id={
+                "goal_object": 7,
+                "distractor": 8,
+                "basket_1": 9,
+            },
+            object_states_dict={
+                "goal_object": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "distractor": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "basket_1": types.SimpleNamespace(
+                    object_state_type="object"
+                ),
+                "target_site": types.SimpleNamespace(
+                    object_state_type="site",
+                    parent_name="basket_1",
+                ),
+            },
+            parsed_problem={
+                "goal_state": [["in", "goal_object", "target_site"]]
+            },
+        )
+        context = self.evaluator._contact_role_context(
+            types.SimpleNamespace(env=task_env)
+        )
+        self.assertEqual(context["status"], "complete")
+        self.assertEqual(
+            context["goal_argument_records"],
+            [
+                {
+                    "name": "goal_object",
+                    "object_state_type": "object",
+                    "root_body_id": 7,
+                    "body_binding": "direct_object_body",
+                    "parent_name": None,
+                },
+                {
+                    "name": "target_site",
+                    "object_state_type": "site",
+                    "root_body_id": 9,
+                    "body_binding": "site_parent_body",
+                    "parent_name": "basket_1",
+                },
+            ],
+        )
+        self.assertEqual(
+            [record["name"] for record in context["body_records"]],
+            ["basket_1", "distractor", "goal_object"],
+        )
+        basket_record = context["body_records"][0]
+        self.assertTrue(basket_record["is_goal_site_parent"])
+        self.assertTrue(basket_record["is_task_goal_body"])
+        self.assertEqual(basket_record["goal_site_names"], ["target_site"])
+
+        target_zone = "living_room_table_plate_right_region"
+        task_env.object_states_dict[target_zone] = types.SimpleNamespace(
+            object_state_type="site",
+            parent_name=None,
+        )
+        task_env.parsed_problem["goal_state"] = [
+            ["on", "goal_object", target_zone]
+        ]
+        arena_context = self.evaluator._contact_role_context(
+            types.SimpleNamespace(env=task_env)
+        )
+        self.assertEqual(arena_context["status"], "complete")
+        self.assertEqual(
+            arena_context["goal_argument_records"],
+            [
+                {
+                    "name": "goal_object",
+                    "object_state_type": "object",
+                    "root_body_id": 7,
+                    "body_binding": "direct_object_body",
+                    "parent_name": None,
+                },
+                {
+                    "name": target_zone,
+                    "object_state_type": "site",
+                    "root_body_id": None,
+                    "body_binding": "unparented_static_site",
+                    "parent_name": None,
+                },
+            ],
+        )
+        self.assertFalse(
+            any(
+                target_zone in record["goal_site_names"]
+                for record in arena_context["body_records"]
+            )
+        )
+
+        task_env.obj_body_id["distractor"] = 7
+        ambiguous = self.evaluator._contact_role_context(
+            types.SimpleNamespace(env=task_env)
+        )
+        self.assertEqual(ambiguous["status"], "unknown")
+        self.assertIn("share one MuJoCo root body", ambiguous["reason"])
 
     def test_compressed_geometry_and_contact_artifacts_are_hash_bound(self):
         try:
@@ -1648,23 +2172,116 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             self.validator._validate_npz_artifact(
                 descriptor, output_root=root
             )
+            task_context = {
+                "status": "complete",
+                "source": (
+                    "task_env.obj_body_id + "
+                    "object_states_dict.parent_name + "
+                    "parsed_problem.goal_state"
+                ),
+                "goal_argument_names": ["bowl", "plate"],
+                "goal_argument_records": [
+                    {
+                        "name": "bowl",
+                        "object_state_type": "object",
+                        "root_body_id": 1,
+                        "body_binding": "direct_object_body",
+                        "parent_name": None,
+                    },
+                    {
+                        "name": "plate",
+                        "object_state_type": "site",
+                        "root_body_id": None,
+                        "body_binding": "unparented_static_site",
+                        "parent_name": None,
+                    },
+                ],
+                "body_records": [
+                    {
+                        "name": "bowl",
+                        "root_body_id": 1,
+                        "object_state_type": "object",
+                        "is_goal_argument": True,
+                        "is_goal_site_parent": False,
+                        "goal_site_names": [],
+                        "is_task_goal_body": True,
+                    },
+                    {
+                        "name": "moka_pot_obstacle_1",
+                        "root_body_id": 3,
+                        "object_state_type": "object",
+                        "is_goal_argument": False,
+                        "is_goal_site_parent": False,
+                        "goal_site_names": [],
+                        "is_task_goal_body": False,
+                    },
+                ],
+            }
+            model_authority = self._contact_model_authority_fixture(
+                task_context=task_context,
+                active_root=3,
+                body_names=[
+                    "world",
+                    "bowl",
+                    "<unnamed_body_id:2>",
+                    "moka_pot_obstacle_1",
+                    "robot0_base",
+                ],
+                geom_body_ids=[3],
+                geom_names=["obstacle_geom"],
+                robot_body_ids=[4],
+            )
+            task_context = model_authority["task_context"]
+            role_authority = {
+                "status": "complete",
+                "role_classes": [
+                    "robot",
+                    "static_support",
+                    "dynamic_task_object",
+                    "dynamic_other",
+                    "unknown",
+                ],
+                "task_context": task_context,
+                "task_context_sha256": model_authority[
+                    "task_context_sha256"
+                ],
+                "model_authority_sha256": model_authority[
+                    "authority_sha256"
+                ],
+                "active_obstacle_root_body_id": 3,
+            }
+            empty_raw_ledger_sha256 = self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes([])
+            )
             contact_descriptor = (
                 self.diagnostics.publish_contact_artifact(
                     case_id="case",
+                    active_obstacle_name="moka_pot_obstacle_1",
+                    model_authority=model_authority,
                     snapshots=[
                         {
                             "status": "available",
                             "step": -1,
                             "active_obstacle_name": "moka_pot_obstacle_1",
+                            "role_authority": role_authority,
                             "events": [],
                             "robot_pairs": [],
+                            "raw_contact_ledger": [],
+                            "raw_contact_ledger_sha256": (
+                                empty_raw_ledger_sha256
+                            ),
                         },
                         {
                             "status": "available",
                             "step": 0,
                             "active_obstacle_name": "moka_pot_obstacle_1",
+                            "role_authority": copy.deepcopy(role_authority),
                             "events": [],
                             "robot_pairs": [],
+                            "raw_contact_ledger": [],
+                            "raw_contact_ledger_sha256": (
+                                empty_raw_ledger_sha256
+                            ),
                         },
                     ],
                     case_dir=case_dir,
@@ -1676,6 +2293,7 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 output_root=root,
                 action_count=1,
                 expected_case_id="case",
+                expected_active_obstacle_name="moka_pot_obstacle_1",
             )
             with self.assertRaises(
                 self.validator.DiagnosticValidationError
@@ -1685,6 +2303,7 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                     output_root=root,
                     action_count=1,
                     expected_case_id="different-case",
+                    expected_active_obstacle_name="moka_pot_obstacle_1",
                 )
             changed_summary = dict(contact_descriptor)
             changed_summary["snapshot_count"] = 999
@@ -1713,6 +2332,462 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             ):
                 self.validator._validate_npz_artifact(
                     descriptor, output_root=root
+                )
+
+    def test_contact_validator_binds_active_obstacle_and_raw_contact_sides(self):
+        role_classes = [
+            "robot",
+            "static_support",
+            "dynamic_task_object",
+            "dynamic_other",
+            "unknown",
+        ]
+        task_context = {
+            "status": "complete",
+            "source": (
+                "task_env.obj_body_id + object_states_dict.parent_name + "
+                "parsed_problem.goal_state"
+            ),
+            "goal_argument_names": ["bowl"],
+            "goal_argument_records": [
+                {
+                    "name": "bowl",
+                    "object_state_type": "object",
+                    "root_body_id": 3,
+                    "body_binding": "direct_object_body",
+                    "parent_name": None,
+                }
+            ],
+            "body_records": [
+                {
+                    "name": "bowl",
+                    "root_body_id": 3,
+                    "object_state_type": "object",
+                    "is_goal_argument": True,
+                    "is_goal_site_parent": False,
+                    "goal_site_names": [],
+                    "is_task_goal_body": True,
+                },
+                {
+                    "name": "cup",
+                    "root_body_id": 4,
+                    "object_state_type": "object",
+                    "is_goal_argument": False,
+                    "is_goal_site_parent": False,
+                    "goal_site_names": [],
+                    "is_task_goal_body": False,
+                },
+                {
+                    "name": "moka_pot_obstacle_1",
+                    "root_body_id": 5,
+                    "object_state_type": "object",
+                    "is_goal_argument": False,
+                    "is_goal_site_parent": False,
+                    "goal_site_names": [],
+                    "is_task_goal_body": False,
+                },
+            ],
+        }
+        model_authority = self._contact_model_authority_fixture(
+            task_context=task_context,
+            active_root=5,
+            body_names=[
+                "world",
+                "<unnamed_body_id:1>",
+                "<unnamed_body_id:2>",
+                "bowl",
+                "cup",
+                "moka_pot_obstacle_1",
+                "robot0_link",
+                "robot0_unused",
+            ],
+            geom_body_ids=[0, 0, 0, 0, 0, 0, 0, 5, 6],
+            geom_names=[
+                "<unnamed_geom_id:0>",
+                "<unnamed_geom_id:1>",
+                "<unnamed_geom_id:2>",
+                "<unnamed_geom_id:3>",
+                "<unnamed_geom_id:4>",
+                "<unnamed_geom_id:5>",
+                "<unnamed_geom_id:6>",
+                "obstacle_geom",
+                "robot_geom",
+            ],
+            robot_body_ids=[6, 7],
+            joint_records=[
+                {
+                    "body_id": 6,
+                    "joint_type_id": 3,
+                    "joint_name": "robot_hinge",
+                }
+            ],
+        )
+        task_context = model_authority["task_context"]
+        event = {
+            "step": 0,
+            "contact_index": 0,
+            "raw_order": {
+                "geom1_id": 7,
+                "geom2_id": 8,
+                "body1_id": 5,
+                "body2_id": 6,
+                "obstacle_side": "geom1",
+            },
+            "obstacle": {
+                "geom_id": 7,
+                "geom_name": "obstacle_geom",
+                "body_id": 5,
+                "body_name": "moka_pot_obstacle_1",
+                "body_lineage_ids": [5, 0],
+                "body_lineage": ["moka_pot_obstacle_1", "world"],
+            },
+            "other": {
+                "geom_id": 8,
+                "geom_name": "robot_geom",
+                "body_id": 6,
+                "body_name": "robot0_link",
+                "body_lineage_ids": [6, 0],
+                "body_lineage": ["robot0_link", "world"],
+                "classification": "robot",
+                "legacy_binary_classification": "robot",
+                "classification_authority": "complete",
+                "dynamics": {
+                    "status": "complete",
+                    "source": "MuJoCo body_jntnum/body_jntadr/jnt_type",
+                    "mobility": "jointed_nonfree",
+                    "joints": [
+                        {
+                            "joint_id": 0,
+                            "joint_name": "robot_hinge",
+                            "joint_type_id": 3,
+                            "joint_type": "hinge",
+                            "attached_body_id": 6,
+                        }
+                    ],
+                },
+                "task_membership": {
+                    "status": "complete",
+                    "source": task_context["source"],
+                    "matched_task_bodies": [],
+                    "goal_argument_names": ["bowl"],
+                    "goal_argument_records": copy.deepcopy(
+                        task_context["goal_argument_records"]
+                    ),
+                },
+            },
+            "distance": -0.001,
+            "position": [0.1, 0.2, 0.3],
+            "normal_obstacle_to_other": [1.0, 0.0, 0.0],
+        }
+        event["event_sha256"] = self.diagnostics.sha256_bytes(
+            self.diagnostics.canonical_json_bytes(event)
+        )
+        raw_contact = {
+            "contact_index": 0,
+            "geom1_id": 7,
+            "geom2_id": 8,
+            "body1_id": 5,
+            "body2_id": 6,
+            "distance": -0.001,
+            "position": [0.1, 0.2, 0.3],
+            "frame_normal_geom1_to_geom2": [1.0, 0.0, 0.0],
+        }
+        raw_contact["raw_contact_sha256"] = (
+            self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(raw_contact)
+            )
+        )
+        empty_raw_ledger_sha256 = self.diagnostics.sha256_bytes(
+            self.diagnostics.canonical_json_bytes([])
+        )
+        role_authority = {
+            "status": "complete",
+            "task_context": task_context,
+            "task_context_sha256": model_authority[
+                "task_context_sha256"
+            ],
+            "model_authority_sha256": model_authority[
+                "authority_sha256"
+            ],
+            "active_obstacle_root_body_id": 5,
+            "role_classes": role_classes,
+        }
+        snapshots = [
+            {
+                "status": "available",
+                "step": -1,
+                "active_obstacle_name": "moka_pot_obstacle_1",
+                "role_authority": role_authority,
+                "events": [],
+                "robot_pairs": [],
+                "raw_contact_ledger": [],
+                "raw_contact_ledger_sha256": empty_raw_ledger_sha256,
+            },
+            {
+                "status": "available",
+                "step": 0,
+                "active_obstacle_name": "moka_pot_obstacle_1",
+                "role_authority": copy.deepcopy(role_authority),
+                "events": [event],
+                "robot_pairs": [
+                    {
+                        "geom1": "obstacle_geom",
+                        "geom2": "robot_geom",
+                        "body_lineage1": [
+                            "moka_pot_obstacle_1",
+                            "world",
+                        ],
+                        "body_lineage2": ["robot0_link", "world"],
+                    }
+                ],
+                "raw_contact_ledger": [raw_contact],
+                "raw_contact_ledger_sha256": (
+                    self.diagnostics.sha256_bytes(
+                        self.diagnostics.canonical_json_bytes([raw_contact])
+                    )
+                ),
+            },
+        ]
+
+        def rehash_event(value):
+            value["event_sha256"] = self.diagnostics.sha256_bytes(
+                self.diagnostics.canonical_json_bytes(
+                    {
+                        key: item
+                        for key, item in value.items()
+                        if key != "event_sha256"
+                    }
+                )
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def publish(
+                name,
+                values,
+                *,
+                active_name="moka_pot_obstacle_1",
+                authority=model_authority,
+            ):
+                case_dir = root / name
+                case_dir.mkdir()
+                return self.diagnostics.publish_contact_artifact(
+                    case_id="case",
+                    active_obstacle_name=active_name,
+                    model_authority=authority,
+                    snapshots=values,
+                    case_dir=case_dir,
+                    output_root=root,
+                )
+
+            descriptor = publish("valid", copy.deepcopy(snapshots))
+            self.validator._validate_contacts(
+                descriptor,
+                output_root=root,
+                action_count=1,
+                expected_case_id="case",
+                expected_active_obstacle_name="moka_pot_obstacle_1",
+            )
+
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_contacts(
+                    descriptor,
+                    output_root=root,
+                    action_count=1,
+                    expected_case_id="case",
+                    expected_active_obstacle_name="wrong_obstacle",
+                )
+
+            mutations = {
+                "obstacle_lineage": lambda value: value["obstacle"][
+                    "body_lineage"
+                ].__setitem__(0, "wrong_obstacle"),
+                "raw_side": lambda value: value["raw_order"].__setitem__(
+                    "obstacle_side", "geom2"
+                ),
+                "coherent_event_raw_swap": lambda value: value[
+                    "raw_order"
+                ].update(
+                    {
+                        "geom1_id": 8,
+                        "geom2_id": 7,
+                        "body1_id": 6,
+                        "body2_id": 5,
+                        "obstacle_side": "geom2",
+                    }
+                ),
+                "obstacle_geom_id": lambda value: value["obstacle"].__setitem__(
+                    "geom_id", 99
+                ),
+                "nonunique_obstacle_side": lambda value: value["other"][
+                    "body_lineage"
+                ].__setitem__(0, "moka_pot_obstacle_1_child"),
+                "partial_lineage": lambda value: (
+                    value["obstacle"].__setitem__("body_lineage_ids", [5]),
+                    value["obstacle"].__setitem__(
+                        "body_lineage", ["moka_pot_obstacle_1"]
+                    ),
+                ),
+                "fabricated_unique_lineage": lambda value: (
+                    value["obstacle"].__setitem__(
+                        "body_lineage_ids", [5, 4, 0]
+                    ),
+                    value["obstacle"].__setitem__(
+                        "body_lineage",
+                        [
+                            "moka_pot_obstacle_1",
+                            "cup",
+                            "world",
+                        ],
+                    ),
+                ),
+                "forged_task_membership": lambda value: value["other"][
+                    "task_membership"
+                ].__setitem__(
+                    "matched_task_bodies",
+                    [copy.deepcopy(task_context["body_records"][0])],
+                ),
+                "coherent_joint_dynamics": lambda value: (
+                    value["other"]["dynamics"]["joints"][0].update(
+                        {
+                            "joint_name": "forged_free_joint",
+                            "joint_type_id": 0,
+                            "joint_type": "free",
+                        }
+                    ),
+                    value["other"]["dynamics"].__setitem__(
+                        "mobility", "free_joint"
+                    ),
+                ),
+                "missing_other_body_name": lambda value: value["other"].__setitem__(
+                    "body_name", None
+                ),
+            }
+            for name, mutate in mutations.items():
+                changed = copy.deepcopy(snapshots)
+                mutate(changed[1]["events"][0])
+                rehash_event(changed[1]["events"][0])
+                changed_descriptor = publish(name, changed)
+                with (
+                    self.subTest(name=name),
+                    self.assertRaises(
+                        self.validator.DiagnosticValidationError
+                    ),
+                ):
+                    self.validator._validate_contacts(
+                        changed_descriptor,
+                        output_root=root,
+                        action_count=1,
+                        expected_case_id="case",
+                        expected_active_obstacle_name=(
+                            "moka_pot_obstacle_1"
+                        ),
+                    )
+
+            missing_contacted_robot = copy.deepcopy(model_authority)
+            missing_contacted_robot["robot_body_ids"] = [7]
+            missing_contacted_robot["authority_sha256"] = (
+                self.diagnostics.sha256_bytes(
+                    self.diagnostics.canonical_json_bytes(
+                        {
+                            key: value
+                            for key, value in missing_contacted_robot.items()
+                            if key != "authority_sha256"
+                        }
+                    )
+                )
+            )
+            missing_robot_snapshots = copy.deepcopy(snapshots)
+            for snapshot in missing_robot_snapshots:
+                snapshot["role_authority"][
+                    "model_authority_sha256"
+                ] = missing_contacted_robot["authority_sha256"]
+            missing_robot_descriptor = publish(
+                "missing_contacted_robot",
+                missing_robot_snapshots,
+                authority=missing_contacted_robot,
+            )
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_contacts(
+                    missing_robot_descriptor,
+                    output_root=root,
+                    action_count=1,
+                    expected_case_id="case",
+                    expected_active_obstacle_name=(
+                        "moka_pot_obstacle_1"
+                    ),
+                )
+
+            permuted_task_roots = copy.deepcopy(model_authority)
+            permuted_context = permuted_task_roots["task_context"]
+            records_by_name = {
+                record["name"]: record
+                for record in permuted_context["body_records"]
+            }
+            records_by_name["bowl"].update(
+                {"root_body_id": 4, "root_body_name": "cup"}
+            )
+            records_by_name["cup"].update(
+                {"root_body_id": 3, "root_body_name": "bowl"}
+            )
+            permuted_context["goal_argument_records"][0].update(
+                {"root_body_id": 4, "root_body_name": "cup"}
+            )
+            permuted_task_roots["task_context_sha256"] = (
+                self.diagnostics.sha256_bytes(
+                    self.diagnostics.canonical_json_bytes(
+                        permuted_context
+                    )
+                )
+            )
+            permuted_task_roots["authority_sha256"] = (
+                self.diagnostics.sha256_bytes(
+                    self.diagnostics.canonical_json_bytes(
+                        {
+                            key: value
+                            for key, value in permuted_task_roots.items()
+                            if key != "authority_sha256"
+                        }
+                    )
+                )
+            )
+            permuted_snapshots = copy.deepcopy(snapshots)
+            for snapshot in permuted_snapshots:
+                snapshot["role_authority"]["task_context"] = (
+                    copy.deepcopy(permuted_context)
+                )
+                snapshot["role_authority"]["task_context_sha256"] = (
+                    permuted_task_roots["task_context_sha256"]
+                )
+                snapshot["role_authority"][
+                    "model_authority_sha256"
+                ] = permuted_task_roots["authority_sha256"]
+            permuted_event = permuted_snapshots[1]["events"][0]
+            permuted_event["other"]["task_membership"][
+                "goal_argument_records"
+            ] = copy.deepcopy(permuted_context["goal_argument_records"])
+            rehash_event(permuted_event)
+            permuted_descriptor = publish(
+                "permuted_task_roots",
+                permuted_snapshots,
+                authority=permuted_task_roots,
+            )
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_contacts(
+                    permuted_descriptor,
+                    output_root=root,
+                    action_count=1,
+                    expected_case_id="case",
+                    expected_active_obstacle_name=(
+                        "moka_pot_obstacle_1"
+                    ),
                 )
 
     def test_controller_geometry_binding_uses_exact_npz_arrays(self):
