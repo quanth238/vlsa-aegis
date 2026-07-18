@@ -190,6 +190,7 @@ def paired_results() -> tuple[dict, dict]:
 
 def decision_record() -> dict:
     return {
+        "task_level_group_id": "group-0",
         "outcomes": {
             report.BASELINE_ARM: {
                 "task_success": True,
@@ -218,7 +219,13 @@ def decision_record() -> dict:
             },
         },
         "physical_contacts": {
+            report.BASELINE_ARM: {
+                "settled_collision_relevant_event_count": 0,
+                "collision_relevant_event_count": 1,
+                "postcontrol_collision_relevant_event_count": 1,
+            },
             report.AEGIS_ARM: {
+                "settled_collision_relevant_event_count": 0,
                 "collision_relevant_event_count": 0,
                 "postcontrol_collision_relevant_event_count": 0,
                 "robot_contact_scope_v3": {
@@ -466,6 +473,10 @@ class PairedTemporalEvidenceV3Tests(unittest.TestCase):
         evidence = report.paired_temporal_evidence_v3(
             baseline, aegis
         )
+        self.assertEqual(
+            evidence["schema_version"],
+            report.PAIRED_TEMPORAL_EVIDENCE_SCHEMA,
+        )
         self.assertEqual(evidence["first_intervention_step"], 1)
         self.assertEqual(
             evidence["first_nominal_action_exact_divergence_step"], 2
@@ -478,6 +489,12 @@ class PairedTemporalEvidenceV3Tests(unittest.TestCase):
         )
         self.assertEqual(
             evidence["first_native_goal_vector_divergence_step"], 3
+        )
+        self.assertEqual(
+            evidence["first_aegis_goal_fraction_deficit_step"], 3
+        )
+        self.assertAlmostEqual(
+            evidence["first_aegis_goal_fraction_deficit"], -1.0
         )
         self.assertEqual(
             evidence["post_intervention_common_step_count"], 3
@@ -507,6 +524,12 @@ class PairedTemporalEvidenceV3Tests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             evidence["first_native_goal_divergence_fraction"], 1.0
+        )
+        self.assertAlmostEqual(
+            evidence[
+                "first_native_goal_aegis_minus_baseline_fraction"
+            ],
+            -1.0,
         )
         self.assertEqual(
             evidence[
@@ -539,6 +562,39 @@ class PairedTemporalEvidenceV3Tests(unittest.TestCase):
             "b" * 64,
         )
         self.assertFalse(evidence["causal_claim_supported"])
+
+    def test_first_divergence_ahead_then_later_deficit_is_distinct(
+        self,
+    ) -> None:
+        baseline, aegis = paired_results()
+        for action in aegis["actions"]:
+            action["modified"] = False
+        aegis["actions"][3]["modified"] = True
+        baseline["actions"][1]["goal_progress"]["values"] = [False, False]
+        aegis["actions"][1]["goal_progress"]["values"] = [True, False]
+        baseline["actions"][2]["goal_progress"]["values"] = [True, True]
+        aegis["actions"][2]["goal_progress"]["values"] = [False, False]
+
+        evidence = report.paired_temporal_evidence_v3(
+            baseline, aegis
+        )
+
+        self.assertEqual(
+            evidence["first_native_goal_vector_divergence_step"], 1
+        )
+        self.assertAlmostEqual(
+            evidence[
+                "first_native_goal_aegis_minus_baseline_fraction"
+            ],
+            0.5,
+        )
+        self.assertEqual(
+            evidence["first_aegis_goal_fraction_deficit_step"], 2
+        )
+        self.assertAlmostEqual(
+            evidence["first_aegis_goal_fraction_deficit"], -1.0
+        )
+        self.assertEqual(evidence["first_intervention_step"], 3)
 
     def test_no_intervention_is_explicit_not_vacuously_temporal(self) -> None:
         baseline, _ = paired_results()
@@ -636,8 +692,17 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
 
     def test_strong_candidate_requires_every_registered_gate(self) -> None:
         evidence = report.decision_evidence_v3(decision_record())
+        self.assertEqual(
+            evidence["schema_version"], report.FLOW_EVIDENCE_SCHEMA
+        )
         self.assertTrue(
-            evidence["baseline_success_to_aegis_safe_failure"]
+            evidence[
+                "baseline_physical_collision_task_success_to_aegis_"
+                "physical_safe_task_failure"
+            ]
+        )
+        self.assertTrue(
+            evidence["baseline_sampled_physical_collision_confirmed"]
         )
         self.assertEqual(
             evidence["decision_partition_class"],
@@ -646,14 +711,234 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
         self.assertTrue(evidence["strong_flow_candidate_association"])
         self.assertFalse(evidence["causal_flow_claim_supported"])
 
+    def test_group_bootstrap_uses_complete_task_level_groups(self) -> None:
+        strong = decision_record()
+        strong["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(strong)
+        )
+        preserved = decision_record()
+        preserved["task_level_group_id"] = "group-1"
+        preserved["outcomes"][report.AEGIS_ARM]["task_success"] = True
+        preserved["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(preserved)
+        )
+        first = report.group_bootstrap_flow_prevalence_v3(
+            [strong, preserved],
+            seed=17,
+            replicates=500,
+        )
+        second = report.group_bootstrap_flow_prevalence_v3(
+            [strong, preserved],
+            seed=17,
+            replicates=500,
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(first["unit"], "task_level_group_id")
+        self.assertEqual(first["estimator"], "ratio_of_sums")
+        self.assertEqual(
+            first["sampling"], "whole_groups_with_replacement"
+        )
+        self.assertEqual(
+            first["rng_algorithm"],
+            report.FLOW_BOOTSTRAP_RNG_ALGORITHM,
+        )
+        self.assertEqual(first["source_group_count"], 2)
+        self.assertEqual(first["draw_group_count_per_replicate"], 2)
+        self.assertEqual(
+            first["source_group_ids"], ["group-0", "group-1"]
+        )
+        self.assertEqual(
+            first["source_group_case_counts"],
+            {"group-0": 1, "group-1": 1},
+        )
+        self.assertEqual(first["uniform_source_group_size"], 1)
+        self.assertEqual(
+            first["interval_conditioning"],
+            "nonzero_denominator_replicates",
+        )
+        self.assertEqual(first["task_level_group_count"], 2)
+        self.assertEqual(first["eligible_case_count"], 2)
+        self.assertEqual(first["candidate_case_count"], 1)
+        self.assertEqual(first["candidate_group_ids"], ["group-0"])
+        self.assertEqual(
+            first["replicates_with_nonzero_denominator"], 500
+        )
+        self.assertEqual(first["zero_denominator_replicates"], 0)
+        self.assertEqual(first["observed_fraction"], 0.5)
+        self.assertEqual(first["interval_fraction"]["lower"], 0.0)
+        self.assertEqual(first["interval_fraction"]["upper"], 1.0)
+
+    def test_group_bootstrap_reports_zero_eligible_denominator(self) -> None:
+        row = decision_record()
+        row["physical_contacts"][report.BASELINE_ARM][
+            "postcontrol_collision_relevant_event_count"
+        ] = 0
+        row["physical_contacts"][report.BASELINE_ARM][
+            "collision_relevant_event_count"
+        ] = 0
+        row["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(row)
+        )
+        bootstrap = report.group_bootstrap_flow_prevalence_v3(
+            [row],
+            seed=23,
+            replicates=100,
+        )
+        self.assertEqual(bootstrap["eligible_case_count"], 0)
+        self.assertEqual(bootstrap["candidate_case_count"], 0)
+        self.assertEqual(
+            bootstrap["zero_denominator_replicates"], 100
+        )
+        self.assertIsNone(bootstrap["observed_fraction"])
+        self.assertIsNone(bootstrap["interval_fraction"])
+
+    def test_registered_population_bootstrap_contract_is_exact(self) -> None:
+        rows = []
+        for group_index in range(
+            report.FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT
+        ):
+            for _ in range(
+                report.FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP
+            ):
+                row = decision_record()
+                row["task_level_group_id"] = f"group-{group_index:02d}"
+                row["flow_direction_evidence_v3"] = (
+                    report.decision_evidence_v3(row)
+                )
+                rows.append(row)
+
+        bootstrap = report.group_bootstrap_flow_prevalence_v3(
+            rows,
+            seed=29,
+            replicates=100,
+        )
+
+        self.assertEqual(
+            bootstrap["source_group_count"],
+            report.FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT,
+        )
+        self.assertEqual(
+            bootstrap["draw_group_count_per_replicate"],
+            report.FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT,
+        )
+        self.assertEqual(
+            bootstrap["uniform_source_group_size"],
+            report.FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP,
+        )
+        self.assertTrue(
+            bootstrap["registered_population_contract"]["satisfied"]
+        )
+
+    def test_bootstrap_rejects_candidate_outside_eligible_denominator(
+        self,
+    ) -> None:
+        row = decision_record()
+        row["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(row)
+        )
+        row["flow_direction_evidence_v3"][
+            "baseline_sampled_physical_collision_confirmed"
+        ] = False
+        with self.assertRaisesRegex(
+            report.FailureReportV3Error,
+            "outside the eligible denominator",
+        ):
+            report.group_bootstrap_flow_prevalence_v3(
+                [row], seed=31, replicates=10
+            )
+
+    def test_task_loss_before_intervention_counterexample_is_signed(
+        self,
+    ) -> None:
+        row = decision_record()
+        row["paired_temporal_evidence_v3"].update(
+            first_aegis_goal_fraction_deficit_step=0,
+            first_aegis_goal_fraction_deficit=-0.5,
+            first_intervention_step=1,
+            intervention_strictly_precedes_nominal_divergence=False,
+            nominal_divergence_precedes_or_coincides_goal_divergence=False,
+            registered_intervention_nominal_goal_chain=False,
+        )
+        row["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(row)
+        )
+        counts = report.decision_counts_v3([row])
+        self.assertEqual(
+            counts["task_loss_precedes_intervention_counterexample"][
+                "count"
+            ],
+            1,
+        )
+
+        row["paired_temporal_evidence_v3"][
+            "first_aegis_goal_fraction_deficit"
+        ] = 0.5
+        counts = report.decision_counts_v3([row])
+        self.assertEqual(
+            counts["task_loss_precedes_intervention_counterexample"][
+                "count"
+            ],
+            0,
+        )
+
+    def test_temporal_counterexample_uses_physical_eligible_denominator(
+        self,
+    ) -> None:
+        row = decision_record()
+        row["physical_contacts"][report.BASELINE_ARM].update(
+            collision_relevant_event_count=0,
+            postcontrol_collision_relevant_event_count=0,
+        )
+        row["paired_temporal_evidence_v3"].update(
+            first_aegis_goal_fraction_deficit_step=0,
+            first_aegis_goal_fraction_deficit=-0.5,
+            first_intervention_step=1,
+        )
+        row["flow_direction_evidence_v3"] = (
+            report.decision_evidence_v3(row)
+        )
+
+        counts = report.decision_counts_v3([row])
+
+        counterexamples = counts[
+            "task_loss_precedes_intervention_counterexample"
+        ]
+        self.assertEqual(counterexamples["count"], 0)
+        self.assertEqual(
+            counterexamples[
+                "eligible_baseline_collision_task_loss_denominator"
+            ],
+            0,
+        )
+
     def test_exact_exclusion_precedence(self) -> None:
         cases = {
-            "not_baseline_success_to_aegis_safe_failure": (
+            "not_baseline_task_success_to_aegis_task_failure": (
                 lambda row: row["outcomes"][report.BASELINE_ARM].update(
                     task_success=False
                 )
             ),
-            "excluded_baseline_already_safe": (
+            "excluded_preexisting_settled_collision_relevant_contact": (
+                lambda row: (
+                    row["physical_contacts"][report.BASELINE_ARM].update(
+                        settled_collision_relevant_event_count=1,
+                        collision_relevant_event_count=2,
+                    ),
+                    row["physical_contacts"][report.AEGIS_ARM].update(
+                        settled_collision_relevant_event_count=1,
+                        collision_relevant_event_count=1,
+                    ),
+                )
+            ),
+            "excluded_baseline_sampled_physical_collision_unconfirmed": (
+                lambda row: row["physical_contacts"][
+                    report.BASELINE_ARM
+                ].update(
+                    collision_relevant_event_count=0,
+                    postcontrol_collision_relevant_event_count=0,
+                )
+            ),
+            "excluded_paper_car_sampled_contact_mismatch": (
                 lambda row: row["outcomes"][
                     report.BASELINE_ARM
                 ].update(paper_collision=False)
@@ -684,10 +969,14 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
                 )
             ),
             "excluded_sampled_physical_safety_unconfirmed": (
-                lambda row: row["physical_contacts"][
-                    report.AEGIS_ARM
-                ].update(
-                    postcontrol_collision_relevant_event_count=1
+                lambda row: (
+                    row["physical_contacts"][report.AEGIS_ARM].update(
+                        collision_relevant_event_count=1,
+                        postcontrol_collision_relevant_event_count=1,
+                    ),
+                    row["outcomes"][report.AEGIS_ARM].update(
+                        paper_collision=True
+                    ),
                 )
             ),
             "excluded_no_negative_final_goal_delta": (
@@ -724,9 +1013,15 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
 
         self.assertEqual(
             self.classify(
-                lambda row: row["physical_contacts"][
-                    report.AEGIS_ARM
-                ].update(collision_relevant_event_count=1)
+                lambda row: (
+                    row["physical_contacts"][report.AEGIS_ARM].update(
+                        collision_relevant_event_count=1,
+                        postcontrol_collision_relevant_event_count=1,
+                    ),
+                    row["outcomes"][report.AEGIS_ARM].update(
+                        paper_collision=True
+                    ),
+                )
             ),
             "excluded_sampled_physical_safety_unconfirmed",
         )
@@ -751,6 +1046,22 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
         )
         self.assertEqual(partition["excluded_no_intervention"], 1)
         self.assertTrue(counts["exact_partition"])
+        self.assertEqual(
+            counts["schema_version"],
+            report.FLOW_DECISION_COUNTS_SCHEMA,
+        )
+        self.assertEqual(
+            counts["strong_flow_candidate_association"][
+                "eligible_denominator"
+            ],
+            2,
+        )
+        self.assertEqual(
+            counts["strong_flow_candidate_association"][
+                "distinct_task_level_group_count"
+            ],
+            1,
+        )
         self.assertFalse(counts["causal_flow_claim_supported"])
 
     def test_paper_safe_but_sampled_contact_is_not_strong(self) -> None:
@@ -761,50 +1072,132 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
         row["physical_contacts"][report.AEGIS_ARM][
             "collision_relevant_event_count"
         ] = 1
+        row["physical_contacts"][report.AEGIS_ARM][
+            "postcontrol_collision_relevant_event_count"
+        ] = 1
         evidence = report.decision_evidence_v3(row)
         self.assertEqual(
             evidence["decision_partition_class"],
-            "excluded_sampled_physical_safety_unconfirmed",
+            "excluded_paper_car_sampled_contact_mismatch",
         )
         self.assertFalse(evidence["strong_flow_candidate_association"])
 
-    def test_baseline_already_safe_degradation_is_separate(self) -> None:
+    def test_inconsistent_contact_counts_fail_closed(self) -> None:
+        for arm in (report.BASELINE_ARM, report.AEGIS_ARM):
+            with self.subTest(arm=arm):
+                row = decision_record()
+                row["physical_contacts"][arm][
+                    "postcontrol_collision_relevant_event_count"
+                ] = 2
+                with self.assertRaisesRegex(
+                    report.FailureReportV3Error,
+                    "contact counts differ",
+                ):
+                    report.decision_evidence_v3(row)
+
+    def test_paper_safe_baseline_contact_is_eligible_but_not_candidate(
+        self,
+    ) -> None:
         row = decision_record()
         row["outcomes"][report.BASELINE_ARM]["paper_collision"] = False
         evidence = report.decision_evidence_v3(row)
-        self.assertTrue(
-            evidence["baseline_success_to_aegis_safe_failure"]
-        )
-        self.assertTrue(
-            evidence[
-                "baseline_safe_success_to_aegis_safe_failure_degradation"
-            ]
-        )
         self.assertEqual(
             evidence["decision_partition_class"],
-            "excluded_baseline_already_safe",
+            "excluded_paper_car_sampled_contact_mismatch",
+        )
+        self.assertFalse(evidence["strong_flow_candidate_association"])
+        self.assertFalse(evidence["baseline_paper_collision"])
+        self.assertTrue(
+            evidence["baseline_sampled_physical_collision_confirmed"]
+        )
+
+    def test_paper_collision_without_sampled_baseline_contact_is_not_strong(
+        self,
+    ) -> None:
+        row = decision_record()
+        row["physical_contacts"][report.BASELINE_ARM].update(
+            collision_relevant_event_count=0,
+            postcontrol_collision_relevant_event_count=0,
+        )
+        evidence = report.decision_evidence_v3(row)
+        self.assertTrue(evidence["baseline_paper_collision"])
+        self.assertEqual(
+            evidence["decision_partition_class"],
+            "excluded_baseline_sampled_physical_collision_unconfirmed",
         )
         self.assertFalse(evidence["strong_flow_candidate_association"])
 
-    def test_markdown_surfaces_baseline_safe_degradation_count(
+    def test_settled_plus_postcontrol_contact_is_preexisting_exclusion(
+        self,
+    ) -> None:
+        row = decision_record()
+        row["physical_contacts"][report.BASELINE_ARM].update(
+            settled_collision_relevant_event_count=1,
+            collision_relevant_event_count=2,
+        )
+        row["physical_contacts"][report.AEGIS_ARM].update(
+            settled_collision_relevant_event_count=1,
+            collision_relevant_event_count=1,
+        )
+        evidence = report.decision_evidence_v3(row)
+        self.assertEqual(
+            evidence["decision_partition_class"],
+            "excluded_preexisting_settled_collision_relevant_contact",
+        )
+        self.assertFalse(
+            evidence[
+                "paired_initial_sampled_collision_relevant_contact_free"
+            ]
+        )
+        self.assertFalse(
+            evidence["baseline_sampled_physical_collision_confirmed"]
+        )
+
+    def test_markdown_surfaces_physical_denominator_and_bootstrap(
         self,
     ) -> None:
         partition = {
             key: 0 for key in report.DECISION_PARTITION
         }
-        partition["excluded_baseline_already_safe"] = 3
+        partition["strong_flow_candidate_association"] = 2
         markdown = report.render_markdown_v3(
             {
                 "counts": {
                     "flow_direction_decision_v3": {
                         "decision_partition_class_counts": partition,
-                        "baseline_success_to_aegis_safe_failure": {
-                            "count": 7
+                        "eligible_baseline_sampled_collision_task_success": {
+                            "count": 7,
                         },
-                        "baseline_safe_success_to_aegis_safe_"
-                        "failure_degradation": {"count": 3},
+                        "baseline_physical_collision_task_success_to_aegis_"
+                        "physical_safe_task_failure": {"count": 3},
+                        "baseline_paper_collision_task_success_to_aegis_"
+                        "paper_safe_task_failure": {"count": 2},
+                        "opposite_physical_safety_and_task_preserved": {
+                            "count": 4,
+                            "distinct_task_level_group_count": 3,
+                        },
+                        "task_loss_precedes_intervention_counterexample": {
+                            "count": 1,
+                            "distinct_task_level_group_count": 1,
+                        },
                         "strong_flow_candidate_association": {
-                            "count": 2
+                            "count": 2,
+                            "eligible_denominator": 7,
+                            "distinct_task_level_group_count": 2,
+                            "task_level_group_ids": [
+                                "group-0",
+                                "group-1",
+                            ],
+                            "paper_car_concordant_count": 2,
+                            "paper_car_discordant_count": 0,
+                            "group_bootstrap_prevalence": {
+                                "interval_percent": {
+                                    "lower": 10.0,
+                                    "upper": 50.0,
+                                },
+                                "replicates_with_nonzero_denominator": 10000,
+                                "zero_denominator_replicates": 0,
+                            },
                         },
                     },
                     "robot_contact_scope_v3": {
@@ -826,9 +1219,14 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
                 }
             }
         )
-        self.assertIn("Baseline-already-safe degradations", markdown)
-        self.assertIn("**3** cases", markdown)
-        self.assertIn("`excluded_baseline_already_safe` | 3", markdown)
+        self.assertIn("**2 / 7** eligible cases", markdown)
+        self.assertIn("**[10.00%, 50.00%]**", markdown)
+        self.assertIn("`group-0, group-1`", markdown)
+        self.assertIn("zero-denominator replicates excluded", markdown)
+        self.assertIn(
+            "AEGIS first has lower native-goal completion", markdown
+        )
+        self.assertIn("`strong_flow_candidate_association` | 2", markdown)
 
 
 class AcceptedV2SummaryBindingV3Tests(unittest.TestCase):
@@ -843,6 +1241,75 @@ class AcceptedV2SummaryBindingV3Tests(unittest.TestCase):
                 "v1_publication_receipt_sha256": "a" * 64,
             },
         }
+
+    def compact_record(
+        self,
+        *,
+        temporal_schema: str | None = None,
+        flow_schema: str | None = None,
+    ) -> dict:
+        row = {
+            "case_id": "case-0",
+            "schema_version": report.CASE_SCHEMA,
+            "paired_temporal_evidence_v3": {
+                "schema_version": (
+                    report.PAIRED_TEMPORAL_EVIDENCE_SCHEMA
+                    if temporal_schema is None
+                    else temporal_schema
+                )
+            },
+            "flow_direction_evidence_v3": {
+                "schema_version": (
+                    report.FLOW_EVIDENCE_SCHEMA
+                    if flow_schema is None
+                    else flow_schema
+                )
+            },
+        }
+        row["record_payload_sha256"] = report.v2.sha256_bytes(
+            report.v2.canonical_json_bytes(row)
+        )
+        return row
+
+    def validation_mocks(self, decision_schema=None, bootstrap_schema=None):
+        decision = {
+            "schema_version": (
+                report.FLOW_DECISION_COUNTS_SCHEMA
+                if decision_schema is None
+                else decision_schema
+            ),
+            "strong_flow_candidate_association": {
+                "group_bootstrap_prevalence": {
+                    "schema_version": (
+                        report.FLOW_BOOTSTRAP_SCHEMA
+                        if bootstrap_schema is None
+                        else bootstrap_schema
+                    )
+                }
+            },
+        }
+        return (
+            mock.patch.object(
+                report.v2,
+                "validate_report_against_summary_v2",
+                return_value={},
+            ),
+            mock.patch.object(
+                report,
+                "contact_scope_counts_v3",
+                return_value={},
+            ),
+            mock.patch.object(
+                report,
+                "pipeline_counts_v3",
+                return_value={},
+            ),
+            mock.patch.object(
+                report,
+                "decision_counts_v3",
+                return_value=decision,
+            ),
+        )
 
     def test_validation_consumes_exact_accepted_v2_summary(self) -> None:
         summary = self.summary()
@@ -876,6 +1343,54 @@ class AcceptedV2SummaryBindingV3Tests(unittest.TestCase):
             report.validate_report_against_summary_v3(
                 [], summary=summary, expected_cases=0
             )
+
+    def test_nested_v3_schemas_are_enforced_when_outer_v3_is_reused(
+        self,
+    ) -> None:
+        for field, row in (
+            (
+                "temporal",
+                self.compact_record(temporal_schema="retired.temporal.v1"),
+            ),
+            (
+                "flow",
+                self.compact_record(flow_schema="retired.flow.v1"),
+            ),
+        ):
+            with self.subTest(field=field):
+                patches = self.validation_mocks()
+                with patches[0], patches[1], patches[2], patches[3]:
+                    with self.assertRaisesRegex(
+                        report.FailureReportV3Error,
+                        "nested analysis-v3 schema differs",
+                    ):
+                        report.validate_report_against_summary_v3(
+                            [row],
+                            summary=self.summary(),
+                            expected_cases=1,
+                        )
+
+    def test_aggregate_nested_v3_schemas_are_enforced(self) -> None:
+        fixtures = (
+            ("decision-count", "retired.counts.v0", None),
+            ("bootstrap", None, "retired.bootstrap.v0"),
+        )
+        for field, decision_schema, bootstrap_schema in fixtures:
+            with self.subTest(field=field):
+                patches = self.validation_mocks(
+                    decision_schema=decision_schema,
+                    bootstrap_schema=bootstrap_schema,
+                )
+                with patches[0], patches[1], patches[2], patches[3]:
+                    with self.assertRaisesRegex(
+                        report.FailureReportV3Error,
+                        "schema differs",
+                    ):
+                        report.validate_report_against_summary_v3(
+                            [self.compact_record()],
+                            summary=self.summary(),
+                            expected_cases=1,
+                        )
 
     def test_report_requires_exact_source_receipt_equality(self) -> None:
         summary = self.summary()
@@ -1020,7 +1535,7 @@ class RealArtifactCompatibilityV3Tests(unittest.TestCase):
             geometry = report.geometry_evidence_v3(aegis)
             self.assertEqual(
                 temporal["schema_version"],
-                "vlsa_table1_paired_temporal_evidence.v1",
+                report.PAIRED_TEMPORAL_EVIDENCE_SCHEMA,
             )
             self.assertIn(
                 geometry["status"],

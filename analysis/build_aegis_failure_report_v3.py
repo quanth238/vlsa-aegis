@@ -23,6 +23,7 @@ from collections import Counter
 import json
 import math
 from pathlib import Path
+import random
 from typing import Any, Iterable, Mapping, Sequence
 
 try:
@@ -49,8 +50,10 @@ ROBOT_CONTACT_SCOPES = (
     "diagnostic_eef_marker",
 )
 DECISION_PARTITION = (
-    "not_baseline_success_to_aegis_safe_failure",
-    "excluded_baseline_already_safe",
+    "not_baseline_task_success_to_aegis_task_failure",
+    "excluded_preexisting_settled_collision_relevant_contact",
+    "excluded_baseline_sampled_physical_collision_unconfirmed",
+    "excluded_paper_car_sampled_contact_mismatch",
     "excluded_no_valid_execution",
     "excluded_pipeline_not_complete_or_not_all_qp",
     "excluded_no_intervention",
@@ -59,6 +62,22 @@ DECISION_PARTITION = (
     "excluded_no_negative_final_goal_delta",
     "excluded_temporal_precedence_unavailable",
     "strong_flow_candidate_association",
+)
+FLOW_EVIDENCE_SCHEMA = "vlsa_table1_flow_direction_evidence.v2"
+PAIRED_TEMPORAL_EVIDENCE_SCHEMA = (
+    "vlsa_table1_paired_temporal_evidence.v2"
+)
+FLOW_DECISION_COUNTS_SCHEMA = (
+    "vlsa_table1_flow_direction_decision_counts.v1"
+)
+FLOW_BOOTSTRAP_SCHEMA = "vlsa_table1_group_bootstrap_prevalence.v1"
+FLOW_BOOTSTRAP_SEED = 2026071801
+FLOW_BOOTSTRAP_REPLICATES = 10000
+FLOW_BOOTSTRAP_CONFIDENCE_LEVEL = 0.95
+FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT = 32
+FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP = 50
+FLOW_BOOTSTRAP_RNG_ALGORITHM = (
+    "python_random.Random_mt19937_randrange"
 )
 
 INTERPRETATION_SCOPE = {
@@ -75,10 +94,14 @@ INTERPRETATION_SCOPE = {
     ),
     "flow_candidate": (
         "A strong flow candidate is an observational stratum after explicit "
-        "baseline-collision, perception, QP, execution, contact, progress, "
-        "intervention, and temporal-chain gates. Baseline-already-safe "
-        "degradations remain separate. This is not a causal efficacy claim "
-        "for a learned flow method."
+        "baseline post-control sampled collision-relevant contact, native "
+        "task success, initially contact-free paired state, pipeline-complete "
+        "captured proxy geometry, QP, execution, sampled-contact safety, "
+        "progress, intervention, and temporal-chain gates. Detector-box "
+        "correctness and true-obstacle mesh enclosure remain uncertified. "
+        "The paper's displacement CAR remains a separate metric and is not "
+        "the sampled-contact eligibility gate. This is not a causal efficacy "
+        "claim for a learned flow method."
     ),
     "stale_geometry": (
         "The released obstacle geometry is fitted once before control. The "
@@ -635,8 +658,10 @@ def paired_temporal_evidence_v3(
             "paired temporal evidence starts from different native goals"
         )
     first_goal_divergence: int | None = None
+    first_goal_deficit: int | None = None
     goal_hamming_divergences: list[int] = []
     goal_fraction_divergences: list[float] = []
+    goal_signed_fraction_deltas: list[float] = []
     for index in range(common):
         baseline_snapshot = _mapping(
             _mapping(
@@ -692,6 +717,12 @@ def paired_temporal_evidence_v3(
         goal_fraction_divergences.append(
             hamming / len(baseline_values)
         )
+        signed_fraction_delta = (
+            sum(aegis_values) - sum(baseline_values)
+        ) / len(baseline_values)
+        goal_signed_fraction_deltas.append(signed_fraction_delta)
+        if first_goal_deficit is None and signed_fraction_delta < 0.0:
+            first_goal_deficit = index
         if (
             first_goal_divergence is None
             and hamming > 0
@@ -775,7 +806,7 @@ def paired_temporal_evidence_v3(
         intervention_strictly_before_nominal and nominal_before_goal
     )
     return {
-        "schema_version": "vlsa_table1_paired_temporal_evidence.v1",
+        "schema_version": PAIRED_TEMPORAL_EVIDENCE_SCHEMA,
         "source_immutable_records": {
             "baseline_result_payload_sha256": v2._sha(
                 baseline.get("result_payload_sha256"),
@@ -842,6 +873,17 @@ def paired_temporal_evidence_v3(
             if first_goal_divergence is None
             else goal_fraction_divergences[first_goal_divergence]
         ),
+        "first_native_goal_aegis_minus_baseline_fraction": (
+            None
+            if first_goal_divergence is None
+            else goal_signed_fraction_deltas[first_goal_divergence]
+        ),
+        "first_aegis_goal_fraction_deficit_step": first_goal_deficit,
+        "first_aegis_goal_fraction_deficit": (
+            None
+            if first_goal_deficit is None
+            else goal_signed_fraction_deltas[first_goal_deficit]
+        ),
         "aegis_goal_regression_count_at_or_after_first_intervention": (
             aegis_regressions_after_intervention
         ),
@@ -893,6 +935,9 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
     contacts = _mapping(
         record.get("physical_contacts"), label="decision contacts"
     )
+    baseline_contact = _mapping(
+        contacts.get(BASELINE_ARM), label="decision baseline contacts"
+    )
     aegis_contact = _mapping(
         contacts.get(AEGIS_ARM), label="decision AEGIS contacts"
     )
@@ -930,27 +975,45 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
         geometry.get("status") == "complete"
         and geometry.get("mvee_status") == "captured"
     )
-    stratum = (
-        _bool(
-            baseline.get("task_success"),
-            label="decision baseline success",
-        )
-        and not _bool(
-            aegis.get("paper_collision"),
-            label="decision AEGIS collision",
-        )
-        and not _bool(
-            aegis.get("task_success"),
-            label="decision AEGIS success",
-        )
+    baseline_task_success = _bool(
+        baseline.get("task_success"),
+        label="decision baseline success",
+    )
+    aegis_task_success = _bool(
+        aegis.get("task_success"),
+        label="decision AEGIS success",
     )
     baseline_paper_collision = _bool(
         baseline.get("paper_collision"),
         label="decision baseline collision",
     )
-    baseline_safe_degradation = (
-        stratum and not baseline_paper_collision
+    aegis_paper_collision = _bool(
+        aegis.get("paper_collision"),
+        label="decision AEGIS collision",
     )
+    baseline_collision_relevant_events = _int(
+        baseline_contact.get("collision_relevant_event_count"),
+        label="decision baseline collision-relevant contacts",
+    )
+    baseline_settled_collision_relevant_events = _int(
+        baseline_contact.get("settled_collision_relevant_event_count"),
+        label="decision baseline settled collision-relevant contacts",
+    )
+    baseline_postcontrol_collision_relevant_events = _int(
+        baseline_contact.get("postcontrol_collision_relevant_event_count"),
+        label="decision baseline postcontrol collision-relevant contacts",
+    )
+    if (
+        baseline_collision_relevant_events < 0
+        or baseline_settled_collision_relevant_events < 0
+        or baseline_postcontrol_collision_relevant_events < 0
+        or baseline_collision_relevant_events
+        != baseline_settled_collision_relevant_events
+        + baseline_postcontrol_collision_relevant_events
+    ):
+        raise FailureReportV3Error(
+            "decision baseline collision-relevant contact counts differ"
+        )
     nonzero_execution = executed > 0
     intervened = (
         _int(
@@ -963,13 +1026,58 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
         aegis_contact.get("collision_relevant_event_count"),
         label="decision all sampled collision-relevant contacts",
     )
+    settled_collision_relevant_events = _int(
+        aegis_contact.get("settled_collision_relevant_event_count"),
+        label="decision AEGIS settled collision-relevant contacts",
+    )
     postcontrol_collision_relevant_events = _int(
         aegis_contact.get("postcontrol_collision_relevant_event_count"),
         label="decision postcontrol collision-relevant contacts",
     )
+    if (
+        collision_relevant_events < 0
+        or settled_collision_relevant_events < 0
+        or postcontrol_collision_relevant_events < 0
+        or collision_relevant_events
+        != settled_collision_relevant_events
+        + postcontrol_collision_relevant_events
+    ):
+        raise FailureReportV3Error(
+            "decision AEGIS collision-relevant contact counts differ"
+        )
+    if (
+        baseline_settled_collision_relevant_events
+        != settled_collision_relevant_events
+    ):
+        raise FailureReportV3Error(
+            "decision paired settled collision-relevant contacts differ"
+        )
+    initially_contact_free = (
+        baseline_settled_collision_relevant_events == 0
+        and settled_collision_relevant_events == 0
+    )
+    baseline_physical_collision_confirmed = (
+        initially_contact_free
+        and baseline_postcontrol_collision_relevant_events > 0
+    )
     physical_safety_confirmed = (
         collision_relevant_events == 0
         and postcontrol_collision_relevant_events == 0
+    )
+    task_outcome_stratum = baseline_task_success and not aegis_task_success
+    physical_tradeoff_stratum = (
+        task_outcome_stratum
+        and baseline_physical_collision_confirmed
+        and physical_safety_confirmed
+    )
+    paper_tradeoff_stratum = (
+        task_outcome_stratum
+        and baseline_paper_collision
+        and not aegis_paper_collision
+    )
+    paper_car_sampled_contact_concordant = (
+        baseline_paper_collision
+        and aegis_paper_collision == (not physical_safety_confirmed)
     )
     unprotected_contact = _bool(
         scope.get("sampled_unprotected_robot_link_contact"),
@@ -1006,10 +1114,18 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
         raise FailureReportV3Error(
             "registered intervention/nominal/goal chain is inconsistent"
         )
-    if not stratum:
-        partition = "not_baseline_success_to_aegis_safe_failure"
-    elif baseline_safe_degradation:
-        partition = "excluded_baseline_already_safe"
+    if not task_outcome_stratum:
+        partition = "not_baseline_task_success_to_aegis_task_failure"
+    elif not initially_contact_free:
+        partition = (
+            "excluded_preexisting_settled_collision_relevant_contact"
+        )
+    elif not baseline_physical_collision_confirmed:
+        partition = (
+            "excluded_baseline_sampled_physical_collision_unconfirmed"
+        )
+    elif not paper_car_sampled_contact_concordant:
+        partition = "excluded_paper_car_sampled_contact_mismatch"
     elif not nonzero_execution:
         partition = "excluded_no_valid_execution"
     elif not geometry_complete or not all_qp:
@@ -1029,13 +1145,45 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
     if partition not in DECISION_PARTITION:
         raise FailureReportV3Error("flow decision partition is invalid")
     return {
-        "schema_version": "vlsa_table1_flow_direction_evidence.v1",
-        "baseline_success_to_aegis_safe_failure": stratum,
+        "schema_version": FLOW_EVIDENCE_SCHEMA,
+        "baseline_task_success_to_aegis_task_failure": (
+            task_outcome_stratum
+        ),
+        "baseline_physical_collision_task_success_to_aegis_physical_"
+        "safe_task_failure": physical_tradeoff_stratum,
+        "baseline_paper_collision_task_success_to_aegis_paper_safe_"
+        "task_failure": paper_tradeoff_stratum,
+        "baseline_task_success": baseline_task_success,
+        "aegis_task_success": aegis_task_success,
         "baseline_paper_collision": baseline_paper_collision,
-        "baseline_safe_success_to_aegis_safe_failure_degradation": (
-            baseline_safe_degradation
+        "aegis_paper_collision": aegis_paper_collision,
+        "baseline_sampled_physical_collision_confirmed": (
+            baseline_physical_collision_confirmed
+        ),
+        "paired_initial_sampled_collision_relevant_contact_free": (
+            initially_contact_free
+        ),
+        "paper_car_sampled_contact_concordant": (
+            paper_car_sampled_contact_concordant
+        ),
+        "baseline_sampled_collision_relevant_event_count": (
+            baseline_collision_relevant_events
+        ),
+        "baseline_sampled_settled_collision_relevant_event_count": (
+            baseline_settled_collision_relevant_events
+        ),
+        "baseline_sampled_postcontrol_collision_relevant_event_count": (
+            baseline_postcontrol_collision_relevant_events
+        ),
+        "aegis_sampled_settled_collision_relevant_event_count": (
+            settled_collision_relevant_events
         ),
         "geometry_complete": geometry_complete,
+        "pipeline_complete_with_captured_proxy_geometry": (
+            geometry_complete
+        ),
+        "detector_box_correctness_certified": False,
+        "true_obstacle_mesh_enclosure_certified": False,
         "all_executed_actions_used_solved_aegis_qp": all_qp,
         "nonzero_execution": nonzero_execution,
         "intervention_observed": intervened,
@@ -1088,6 +1236,180 @@ def decision_evidence_v3(record: Mapping[str, Any]) -> dict[str, Any]:
             partition == "strong_flow_candidate_association"
         ),
         "causal_flow_claim_supported": False,
+        "sampled_contact_scope": (
+            "active-obstacle contact with robot, dynamic task object, or "
+            "dynamic other object; static-support contact excluded; sampled "
+            "only at settled and post-control states"
+        ),
+    }
+
+
+def _type7_percentile(values: Sequence[float], probability: float) -> float:
+    if not values:
+        raise FailureReportV3Error(
+            "cannot compute a percentile over an empty sequence"
+        )
+    if not 0.0 <= probability <= 1.0:
+        raise FailureReportV3Error("percentile probability is invalid")
+    ordered = sorted(float(value) for value in values)
+    position = (len(ordered) - 1) * probability
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def group_bootstrap_flow_prevalence_v3(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    seed: int = FLOW_BOOTSTRAP_SEED,
+    replicates: int = FLOW_BOOTSTRAP_REPLICATES,
+    confidence_level: float = FLOW_BOOTSTRAP_CONFIDENCE_LEVEL,
+) -> dict[str, Any]:
+    if replicates <= 0:
+        raise FailureReportV3Error("bootstrap replicate count is invalid")
+    if not 0.0 < confidence_level < 1.0:
+        raise FailureReportV3Error("bootstrap confidence level is invalid")
+
+    grouped: dict[str, dict[str, int]] = {}
+    for record in records:
+        group_id = record.get("task_level_group_id")
+        if not isinstance(group_id, str) or not group_id:
+            raise FailureReportV3Error(
+                "flow bootstrap task-level group ID is invalid"
+            )
+        evidence = _mapping(
+            record.get("flow_direction_evidence_v3"),
+            label=f"{group_id}/flow evidence",
+        )
+        eligible = (
+            evidence.get("baseline_task_success") is True
+            and evidence.get(
+                "baseline_sampled_physical_collision_confirmed"
+            )
+            is True
+        )
+        candidate = (
+            evidence.get("strong_flow_candidate_association") is True
+        )
+        if candidate and not eligible:
+            raise FailureReportV3Error(
+                "strong flow candidate is outside the eligible denominator"
+            )
+        counts = grouped.setdefault(
+            group_id, {"cases": 0, "eligible": 0, "candidate": 0}
+        )
+        counts["cases"] += 1
+        counts["eligible"] += int(eligible)
+        counts["candidate"] += int(candidate)
+
+    group_ids = sorted(grouped)
+    group_case_counts = {
+        group_id: grouped[group_id]["cases"] for group_id in group_ids
+    }
+    unique_group_sizes = set(group_case_counts.values())
+    uniform_source_group_size = (
+        next(iter(unique_group_sizes))
+        if len(unique_group_sizes) == 1
+        else None
+    )
+    eligible_count = sum(row["eligible"] for row in grouped.values())
+    candidate_count = sum(row["candidate"] for row in grouped.values())
+    observed_fraction = (
+        None
+        if eligible_count == 0
+        else candidate_count / eligible_count
+    )
+
+    estimates: list[float] = []
+    zero_denominator_replicates = 0
+    if group_ids:
+        generator = random.Random(seed)
+        for _ in range(replicates):
+            sampled = [
+                group_ids[generator.randrange(len(group_ids))]
+                for _ in group_ids
+            ]
+            denominator = sum(
+                grouped[group_id]["eligible"] for group_id in sampled
+            )
+            if denominator == 0:
+                zero_denominator_replicates += 1
+                continue
+            numerator = sum(
+                grouped[group_id]["candidate"] for group_id in sampled
+            )
+            estimates.append(numerator / denominator)
+
+    alpha = (1.0 - confidence_level) / 2.0
+    interval_fraction = (
+        None
+        if not estimates
+        else {
+            "lower": _type7_percentile(estimates, alpha),
+            "upper": _type7_percentile(estimates, 1.0 - alpha),
+        }
+    )
+    return {
+        "schema_version": FLOW_BOOTSTRAP_SCHEMA,
+        "unit": "task_level_group_id",
+        "estimator": "ratio_of_sums",
+        "sampling": "whole_groups_with_replacement",
+        "rng_algorithm": FLOW_BOOTSTRAP_RNG_ALGORITHM,
+        "seed": seed,
+        "replicates_requested": replicates,
+        "replicates_with_nonzero_denominator": len(estimates),
+        "zero_denominator_replicates": zero_denominator_replicates,
+        "interval_conditioning": "nonzero_denominator_replicates",
+        "confidence_level": confidence_level,
+        "percentile_method": "linear_type7",
+        "source_group_count": len(group_ids),
+        "draw_group_count_per_replicate": len(group_ids),
+        "source_group_ids": group_ids,
+        "source_group_case_counts": group_case_counts,
+        "uniform_source_group_size": uniform_source_group_size,
+        "task_level_group_count": len(group_ids),
+        "registered_population_contract": {
+            "expected_source_group_count": (
+                FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT
+            ),
+            "expected_cases_per_group": (
+                FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP
+            ),
+            "satisfied": (
+                len(group_ids)
+                == FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT
+                and uniform_source_group_size
+                == FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP
+            ),
+        },
+        "eligible_case_count": eligible_count,
+        "candidate_case_count": candidate_count,
+        "observed_fraction": observed_fraction,
+        "observed_percent": (
+            None if observed_fraction is None else 100.0 * observed_fraction
+        ),
+        "interval_fraction": interval_fraction,
+        "interval_percent": (
+            None
+            if interval_fraction is None
+            else {
+                "lower": 100.0 * interval_fraction["lower"],
+                "upper": 100.0 * interval_fraction["upper"],
+            }
+        ),
+        "candidate_group_ids": sorted(
+            group_id
+            for group_id, counts in grouped.items()
+            if counts["candidate"] > 0
+        ),
+        "eligible_group_ids": sorted(
+            group_id
+            for group_id, counts in grouped.items()
+            if counts["eligible"] > 0
+        ),
     }
 
 
@@ -1275,11 +1597,45 @@ def decision_counts_v3(
         raise FailureReportV3Error(
             "flow decision classes do not exactly partition cases"
         )
-    stratum = [
+    task_loss_stratum = [
         record
         for record in records
         if record["flow_direction_evidence_v3"][
-            "baseline_success_to_aegis_safe_failure"
+            "baseline_task_success_to_aegis_task_failure"
+        ]
+    ]
+    physical_tradeoff_stratum = [
+        record
+        for record in records
+        if record["flow_direction_evidence_v3"][
+            "baseline_physical_collision_task_success_to_aegis_"
+            "physical_safe_task_failure"
+        ]
+    ]
+    paper_tradeoff_stratum = [
+        record
+        for record in records
+        if record["flow_direction_evidence_v3"][
+            "baseline_paper_collision_task_success_to_aegis_paper_"
+            "safe_task_failure"
+        ]
+    ]
+    eligible = [
+        record
+        for record in records
+        if record["flow_direction_evidence_v3"][
+            "baseline_task_success"
+        ]
+        and record["flow_direction_evidence_v3"][
+            "baseline_sampled_physical_collision_confirmed"
+        ]
+    ]
+    opposite = [
+        record
+        for record in eligible
+        if record["flow_direction_evidence_v3"]["aegis_task_success"]
+        and record["flow_direction_evidence_v3"][
+            "sampled_physical_safety_confirmed"
         ]
     ]
     candidates = [
@@ -1289,6 +1645,65 @@ def decision_counts_v3(
             "strong_flow_candidate_association"
         ]
     ]
+    eligible_task_loss_stratum = [
+        record
+        for record in eligible
+        if not record["flow_direction_evidence_v3"]["aegis_task_success"]
+    ]
+    task_loss_precedes_intervention = []
+    for record in eligible_task_loss_stratum:
+        temporal = _mapping(
+            record.get("paired_temporal_evidence_v3"),
+            label="decision temporal counterexample",
+        )
+        first_goal_deficit = temporal.get(
+            "first_aegis_goal_fraction_deficit_step"
+        )
+        first_intervention = temporal.get("first_intervention_step")
+        first_goal_deficit_value = temporal.get(
+            "first_aegis_goal_fraction_deficit"
+        )
+        if first_goal_deficit is None or first_intervention is None:
+            continue
+        if (
+            isinstance(first_goal_deficit, bool)
+            or not isinstance(first_goal_deficit, int)
+            or isinstance(first_intervention, bool)
+            or not isinstance(first_intervention, int)
+        ):
+            raise FailureReportV3Error(
+                "decision temporal counterexample steps are invalid"
+            )
+        if (
+            first_goal_deficit_value is not None
+            and _number(
+                first_goal_deficit_value,
+                label="decision first native-goal fraction deficit",
+            )
+            < 0.0
+            and first_goal_deficit < first_intervention
+        ):
+            task_loss_precedes_intervention.append(record)
+
+    def group_ids(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+        output: set[str] = set()
+        for row in rows:
+            group_id = row.get("task_level_group_id")
+            if not isinstance(group_id, str) or not group_id:
+                raise FailureReportV3Error(
+                    "decision task-level group ID is invalid"
+                )
+            output.add(group_id)
+        return sorted(output)
+
+    bootstrap = group_bootstrap_flow_prevalence_v3(records)
+    if (
+        bootstrap["eligible_case_count"] != len(eligible)
+        or bootstrap["candidate_case_count"] != len(candidates)
+    ):
+        raise FailureReportV3Error(
+            "flow bootstrap counts differ from the decision denominator"
+        )
 
     def correction_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         corrections = [
@@ -1333,27 +1748,17 @@ def decision_counts_v3(
         }
 
     return {
+        "schema_version": FLOW_DECISION_COUNTS_SCHEMA,
         "denominator": len(records),
         "decision_partition_class_counts": complete_partition,
         "exact_partition": True,
-        "baseline_success_to_aegis_safe_failure": {
-            "count": len(stratum),
-            "baseline_collision_count": sum(
-                bool(
-                    row["flow_direction_evidence_v3"][
-                        "baseline_paper_collision"
-                    ]
-                )
-                for row in stratum
-            ),
-            "baseline_safe_count": sum(
-                not bool(
-                    row["flow_direction_evidence_v3"][
-                        "baseline_paper_collision"
-                    ]
-                )
-                for row in stratum
-            ),
+        "eligible_baseline_sampled_collision_task_success": {
+            "count": len(eligible),
+            "distinct_task_level_group_count": len(group_ids(eligible)),
+            "task_level_group_ids": group_ids(eligible),
+        },
+        "baseline_task_success_to_aegis_task_failure": {
+            "count": len(task_loss_stratum),
             "geometry_complete_and_all_qp_count": sum(
                 row["flow_direction_evidence_v3"][
                     "geometry_complete"
@@ -1361,7 +1766,7 @@ def decision_counts_v3(
                 and row["flow_direction_evidence_v3"][
                     "all_executed_actions_used_solved_aegis_qp"
                 ]
-                for row in stratum
+                for row in task_loss_stratum
             ),
             "intervention_observed_count": sum(
                 bool(
@@ -1369,7 +1774,7 @@ def decision_counts_v3(
                         "intervention_observed"
                     ]
                 )
-                for row in stratum
+                for row in task_loss_stratum
             ),
             "sampled_physical_safety_confirmed_count": sum(
                 bool(
@@ -1377,7 +1782,7 @@ def decision_counts_v3(
                         "sampled_physical_safety_confirmed"
                     ]
                 )
-                for row in stratum
+                for row in task_loss_stratum
             ),
             "negative_final_goal_fraction_delta_count": sum(
                 bool(
@@ -1385,7 +1790,7 @@ def decision_counts_v3(
                         "negative_final_goal_fraction_delta"
                     ]
                 )
-                for row in stratum
+                for row in task_loss_stratum
             ),
             "strict_zero_translation_count": sum(
                 bool(
@@ -1393,29 +1798,78 @@ def decision_counts_v3(
                         "strict_zero_translation"
                     ]
                 )
-                for row in stratum
+                for row in task_loss_stratum
             ),
-            "correction": correction_summary(stratum),
+            "correction": correction_summary(task_loss_stratum),
         },
-        "baseline_safe_success_to_aegis_safe_failure_degradation": {
-            "count": sum(
-                bool(
-                    row["flow_direction_evidence_v3"][
-                        "baseline_safe_success_to_aegis_safe_"
-                        "failure_degradation"
-                    ]
-                )
-                for row in stratum
+        "baseline_physical_collision_task_success_to_aegis_physical_"
+        "safe_task_failure": {
+            "count": len(physical_tradeoff_stratum),
+            "distinct_task_level_group_count": len(
+                group_ids(physical_tradeoff_stratum)
             ),
-            "strong_flow_candidate_count": 0,
-            "interpretation": (
-                "baseline was already paper-safe; inspect false-positive "
-                "perception or gating before collision-avoidance flow"
+            "task_level_group_ids": group_ids(physical_tradeoff_stratum),
+            "correction": correction_summary(physical_tradeoff_stratum),
+        },
+        "baseline_paper_collision_task_success_to_aegis_paper_safe_"
+        "task_failure": {
+            "count": len(paper_tradeoff_stratum),
+            "distinct_task_level_group_count": len(
+                group_ids(paper_tradeoff_stratum)
+            ),
+            "task_level_group_ids": group_ids(paper_tradeoff_stratum),
+        },
+        "opposite_physical_safety_and_task_preserved": {
+            "count": len(opposite),
+            "eligible_denominator": len(eligible),
+            "distinct_task_level_group_count": len(group_ids(opposite)),
+            "task_level_group_ids": group_ids(opposite),
+        },
+        "task_loss_precedes_intervention_counterexample": {
+            "count": len(task_loss_precedes_intervention),
+            "eligible_baseline_collision_task_loss_denominator": (
+                len(eligible_task_loss_stratum)
+            ),
+            "distinct_task_level_group_count": len(
+                group_ids(task_loss_precedes_intervention)
+            ),
+            "task_level_group_ids": group_ids(
+                task_loss_precedes_intervention
             ),
         },
         "strong_flow_candidate_association": {
             "count": len(candidates),
+            "eligible_denominator": len(eligible),
+            "prevalence_fraction": (
+                None if not eligible else len(candidates) / len(eligible)
+            ),
+            "prevalence_percent": (
+                None
+                if not eligible
+                else 100.0 * len(candidates) / len(eligible)
+            ),
+            "distinct_task_level_group_count": len(group_ids(candidates)),
+            "task_level_group_ids": group_ids(candidates),
+            "paper_car_concordant_count": sum(
+                bool(
+                    row["flow_direction_evidence_v3"][
+                        "paper_car_sampled_contact_concordant"
+                    ]
+                )
+                for row in candidates
+            ),
+            "paper_car_discordant_count": sum(
+                not bool(
+                    row["flow_direction_evidence_v3"][
+                        "paper_car_sampled_contact_concordant"
+                    ]
+                )
+                for row in candidates
+            ),
+            "group_bootstrap_prevalence": bootstrap,
             "correction": correction_summary(candidates),
+            "detector_box_correctness_certified": False,
+            "true_obstacle_mesh_enclosure_certified": False,
             "causal_claim_supported": False,
         },
         "causal_flow_claim_supported": False,
@@ -1489,11 +1943,60 @@ def validate_report_against_summary_v3(
             raise FailureReportV3Error(
                 f"{record.get('case_id')}: v3 payload hash differs"
             )
+        temporal = _mapping(
+            record.get("paired_temporal_evidence_v3"),
+            label=f"{record.get('case_id')}/paired temporal evidence",
+        )
+        flow = _mapping(
+            record.get("flow_direction_evidence_v3"),
+            label=f"{record.get('case_id')}/flow direction evidence",
+        )
+        if (
+            temporal.get("schema_version")
+            != PAIRED_TEMPORAL_EVIDENCE_SCHEMA
+            or flow.get("schema_version") != FLOW_EVIDENCE_SCHEMA
+        ):
+            raise FailureReportV3Error(
+                f"{record.get('case_id')}: nested analysis-v3 schema differs"
+            )
+    decision_counts = decision_counts_v3(records)
+    if decision_counts.get("schema_version") != FLOW_DECISION_COUNTS_SCHEMA:
+        raise FailureReportV3Error(
+            "analysis-v3 flow decision-count schema differs"
+        )
+    bootstrap = _mapping(
+        _mapping(
+            decision_counts.get("strong_flow_candidate_association"),
+            label="analysis-v3 flow candidates",
+        ).get("group_bootstrap_prevalence"),
+        label="analysis-v3 group bootstrap",
+    )
+    if bootstrap.get("schema_version") != FLOW_BOOTSTRAP_SCHEMA:
+        raise FailureReportV3Error(
+            "analysis-v3 group-bootstrap schema differs"
+        )
+    if expected_cases == EXPECTED_CASES:
+        contract = _mapping(
+            bootstrap.get("registered_population_contract"),
+            label="analysis-v3 registered group-bootstrap contract",
+        )
+        if (
+            contract.get("satisfied") is not True
+            or bootstrap.get("source_group_count")
+            != FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT
+            or bootstrap.get("draw_group_count_per_replicate")
+            != FLOW_BOOTSTRAP_EXPECTED_SOURCE_GROUP_COUNT
+            or bootstrap.get("uniform_source_group_size")
+            != FLOW_BOOTSTRAP_EXPECTED_CASES_PER_GROUP
+        ):
+            raise FailureReportV3Error(
+                "analysis-v3 group-bootstrap population contract differs"
+            )
     return {
         **base,
         "robot_contact_scope_v3": contact_scope_counts_v3(records),
         "pipeline_v3": pipeline_counts_v3(records),
-        "flow_direction_decision_v3": decision_counts_v3(records),
+        "flow_direction_decision_v3": decision_counts,
     }
 
 
@@ -1630,37 +2133,116 @@ def render_markdown_v3(report: Mapping[str, Any]) -> str:
             f"{arm_counts['unprotected_robot_link']} | "
             f"{arm_counts['diagnostic_eef_marker']} |"
         )
-    stratum = _mapping(
-        decision.get("baseline_success_to_aegis_safe_failure"),
-        label="v3 decision stratum",
+    eligible = _mapping(
+        decision.get("eligible_baseline_sampled_collision_task_success"),
+        label="v3 eligible denominator",
+    )
+    physical_tradeoff = _mapping(
+        decision.get(
+            "baseline_physical_collision_task_success_to_aegis_"
+            "physical_safe_task_failure"
+        ),
+        label="v3 physical tradeoff stratum",
+    )
+    paper_tradeoff = _mapping(
+        decision.get(
+            "baseline_paper_collision_task_success_to_aegis_paper_"
+            "safe_task_failure"
+        ),
+        label="v3 paper-CAR tradeoff stratum",
     )
     candidate = _mapping(
         decision.get("strong_flow_candidate_association"),
         label="v3 flow candidate",
     )
-    baseline_safe_degradation = _mapping(
+    opposite = _mapping(
         decision.get(
-            "baseline_safe_success_to_aegis_safe_failure_degradation"
+            "opposite_physical_safety_and_task_preserved"
         ),
-        label="v3 baseline-safe degradation",
+        label="v3 opposite outcome",
     )
+    counterexample = _mapping(
+        decision.get("task_loss_precedes_intervention_counterexample"),
+        label="v3 temporal counterexample",
+    )
+    bootstrap = _mapping(
+        candidate.get("group_bootstrap_prevalence"),
+        label="v3 flow bootstrap",
+    )
+    interval = bootstrap.get("interval_percent")
+    interval_text = "not estimable"
+    if isinstance(interval, Mapping):
+        interval_text = (
+            f"[{float(interval['lower']):.2f}%, "
+            f"{float(interval['upper']):.2f}%]"
+        )
     lines.extend(
         [
             "",
             "## Task-aware flow decision stratum",
             "",
             (
-                "Baseline-task-success to AEGIS-paper-safe task failure: "
-                f"**{stratum.get('count')}** cases."
+                "Eligible initially-contact-free baseline cases with "
+                "post-control sampled collision-relevant active-obstacle "
+                "contact and native-task success: "
+                f"**{eligible.get('count')}**."
+            ),
+            (
+                "This eligibility uses post-control sampled collision-"
+                "relevant contact; the paper's displacement CAR is reported "
+                "separately."
+            ),
+            (
+                "Baseline sampled collision-relevant contact/task success to "
+                "AEGIS sampled-contact safety/task failure: "
+                f"**{physical_tradeoff.get('count')}** cases."
+            ),
+            (
+                "Paper-CAR collision/task success to AEGIS paper-CAR safety/"
+                f"task failure: **{paper_tradeoff.get('count')}** cases."
             ),
             (
                 "Strong post-gate flow-candidate associations: "
-                f"**{candidate.get('count')}** cases."
+                f"**{candidate.get('count')} / "
+                f"{candidate.get('eligible_denominator')}** eligible cases "
+                f"across **{candidate.get('distinct_task_level_group_count')}** "
+                "task-level groups."
             ),
             (
-                "Baseline-already-safe degradations (reported separately, "
-                "never strong flow candidates): "
-                f"**{baseline_safe_degradation.get('count')}** cases."
+                "Within this candidate stratum, paper-CAR concordant/"
+                "discordant counts are "
+                f"**{candidate.get('paper_car_concordant_count')} / "
+                f"{candidate.get('paper_car_discordant_count')}**."
+            ),
+            (
+                "Candidate task-level group IDs: "
+                f"`{', '.join(candidate.get('task_level_group_ids', []))}`."
+            ),
+            (
+                "Task-group bootstrap prevalence interval, conditional on "
+                "nonzero-denominator replicates: "
+                f"**{interval_text}** "
+                f"({bootstrap.get('replicates_with_nonzero_denominator')} "
+                "nonzero-denominator replicates; "
+                f"{bootstrap.get('zero_denominator_replicates')} "
+                "zero-denominator replicates excluded)."
+            ),
+            (
+                "This is a descriptive registered SafeLIBERO task-group "
+                "bootstrap, not a general benchmark-performance interval."
+            ),
+            (
+                "Opposite cases where AEGIS preserves sampled physical safety "
+                f"and task success: **{opposite.get('count')}** across "
+                f"**{opposite.get('distinct_task_level_group_count')}** "
+                "task-level groups."
+            ),
+            (
+                "Temporal counterexamples where AEGIS first has lower native-"
+                "goal completion than baseline before intervention: "
+                f"**{counterexample.get('count')}** across "
+                f"**{counterexample.get('distinct_task_level_group_count')}** "
+                "task-level groups."
             ),
             "",
             "| Exact decision partition | Cases |",
