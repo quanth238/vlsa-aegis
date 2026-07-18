@@ -18,6 +18,7 @@ for optional_file in \
   analysis/build_aegis_failure_report.py \
   analysis/build_safelibero_postpublication_gallery_v2.py \
   analysis/build_safelibero_postpublication_v2.py \
+  analysis/render_safelibero_table1_comparison.py \
   analysis/build_safelibero_video_gallery.py \
   analysis/validate_aegis_failure_diagnostics.py \
   manifests/build_vlsa_table1_population.py \
