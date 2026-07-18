@@ -35,7 +35,10 @@ except ImportError:  # pragma: no cover - direct script fallback
 
 CASE_SCHEMA = "vlsa_table1_aegis_failure_case.v3"
 REPORT_SCHEMA = "vlsa_table1_aegis_failure_report.v3"
-SUMMARY_SCHEMA = "vlsa_table1_population_summary.v3"
+SOURCE_SUMMARY_SCHEMA = v2.SUMMARY_SCHEMA_V2
+SOURCE_SUMMARY_STATUS = "complete_postpublication_analysis_v2"
+# Compatibility alias for callers that inspect the accepted input contract.
+SUMMARY_SCHEMA = SOURCE_SUMMARY_SCHEMA
 EXPECTED_CASES = v2.EXPECTED_CASES
 BASELINE_ARM = v2.BASELINE_ARM
 AEGIS_ARM = v2.AEGIS_ARM
@@ -1456,17 +1459,15 @@ def validate_report_against_summary_v3(
     expected_cases: int = EXPECTED_CASES,
 ) -> dict[str, Any]:
     if (
-        summary.get("schema_version") != SUMMARY_SCHEMA
-        or summary.get("status")
-        != "complete_postpublication_analysis_v3"
+        summary.get("schema_version") != SOURCE_SUMMARY_SCHEMA
+        or summary.get("status") != SOURCE_SUMMARY_STATUS
     ):
-        raise FailureReportV3Error("analysis-v3 summary is not complete")
-    projection = dict(summary)
-    projection["schema_version"] = v2.SUMMARY_SCHEMA_V2
-    projection["status"] = "complete_postpublication_analysis_v2"
+        raise FailureReportV3Error(
+            "accepted analysis-v2 source summary is not complete"
+        )
     base = v2.validate_report_against_summary_v2(
         records,
-        summary=projection,
+        summary=summary,
         expected_cases=expected_cases,
     )
     if len(records) != expected_cases:
@@ -1509,6 +1510,27 @@ def build_report_v3(
     counts = validate_report_against_summary_v3(
         records, summary=summary, expected_cases=expected_cases
     )
+    source_v1 = _mapping(
+        summary.get("source_v1"),
+        label="analysis-v3 source-v1 binding",
+    )
+    source_receipt_sha = v2._sha(
+        source_publication_receipt_sha256,
+        label="analysis-v3 source v1 publication receipt SHA",
+    )
+    if (
+        v2._sha(
+            source_v1.get("v1_publication_receipt_sha256"),
+            label=(
+                "accepted analysis-v2 summary source v1 publication "
+                "receipt SHA"
+            ),
+        )
+        != source_receipt_sha
+    ):
+        raise FailureReportV3Error(
+            "failure report v3 source differs from its accepted v2 summary"
+        )
     ordered = sorted(
         records, key=lambda row: int(row.get("case_ordinal"))
     )
@@ -1527,13 +1549,12 @@ def build_report_v3(
             _mapping(summary.get("claim_scope"), label="v3 claim scope")
         ),
         "source": {
-            "v1_publication_receipt_sha256": v2._sha(
-                source_publication_receipt_sha256,
-                label="v3 source publication SHA",
+            "v1_publication_receipt_sha256": source_receipt_sha,
+            "population_summary_v2_sha256": v2._sha(
+                summary_sha256, label="accepted population summary v2 SHA"
             ),
-            "population_summary_v3_sha256": v2._sha(
-                summary_sha256, label="v3 summary SHA"
-            ),
+            "population_summary_source_schema": SOURCE_SUMMARY_SCHEMA,
+            "v3_counts_derived_read_only_from_v2_summary": True,
             "population_validation_receipt_sha256": v2._sha(
                 validation_receipt_sha256,
                 label="v3 validation receipt SHA",
@@ -1781,7 +1802,12 @@ def main() -> int:
     parser.add_argument("--manifest-receipt", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--results-root", type=Path, required=True)
-    parser.add_argument("--summary", type=Path, required=True)
+    parser.add_argument(
+        "--summary",
+        type=Path,
+        required=True,
+        help="exact accepted population-summary-v2.json",
+    )
     parser.add_argument("--validation-receipt", type=Path, required=True)
     parser.add_argument("--source-publication-sha256", required=True)
     parser.add_argument("--cases-output", type=Path, required=True)

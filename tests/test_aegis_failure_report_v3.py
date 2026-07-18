@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import unittest
+from unittest import mock
 
 from analysis import build_aegis_failure_report_v3 as report
 
@@ -828,6 +829,145 @@ class FlowDecisionEvidenceV3Tests(unittest.TestCase):
         self.assertIn("Baseline-already-safe degradations", markdown)
         self.assertIn("**3** cases", markdown)
         self.assertIn("`excluded_baseline_already_safe` | 3", markdown)
+
+
+class AcceptedV2SummaryBindingV3Tests(unittest.TestCase):
+    def summary(self) -> dict:
+        return {
+            "schema_version": report.v2.SUMMARY_SCHEMA_V2,
+            "status": "complete_postpublication_analysis_v2",
+            "protocol_id": "accepted-v2-protocol",
+            "claim_scope": {},
+            "accepted_result_payloads_sha256": "b" * 64,
+            "source_v1": {
+                "v1_publication_receipt_sha256": "a" * 64,
+            },
+        }
+
+    def test_validation_consumes_exact_accepted_v2_summary(self) -> None:
+        summary = self.summary()
+        before = copy.deepcopy(summary)
+        with mock.patch.object(
+            report.v2,
+            "validate_report_against_summary_v2",
+            return_value={"accepted_v2": True},
+        ) as validator:
+            counts = report.validate_report_against_summary_v3(
+                [], summary=summary, expected_cases=0
+            )
+        validator.assert_called_once_with(
+            [], summary=summary, expected_cases=0
+        )
+        self.assertEqual(summary, before)
+        self.assertTrue(counts["accepted_v2"])
+        self.assertEqual(
+            report.SOURCE_SUMMARY_SCHEMA,
+            report.v2.SUMMARY_SCHEMA_V2,
+        )
+
+    def test_unproduced_v3_summary_contract_is_rejected(self) -> None:
+        summary = self.summary()
+        summary["schema_version"] = "vlsa_table1_population_summary.v3"
+        summary["status"] = "complete_postpublication_analysis_v3"
+        with self.assertRaisesRegex(
+            report.FailureReportV3Error,
+            "accepted analysis-v2 source summary is not complete",
+        ):
+            report.validate_report_against_summary_v3(
+                [], summary=summary, expected_cases=0
+            )
+
+    def test_report_requires_exact_source_receipt_equality(self) -> None:
+        summary = self.summary()
+        records = [
+            {
+                "case_id": "case-0",
+                "case_ordinal": 0,
+                "record_payload_sha256": "c" * 64,
+            }
+        ]
+        with mock.patch.object(
+            report,
+            "validate_report_against_summary_v3",
+            return_value={"bound": True},
+        ):
+            built = report.build_report_v3(
+                records,
+                summary=summary,
+                summary_sha256="d" * 64,
+                validation_receipt_sha256="e" * 64,
+                source_publication_receipt_sha256="a" * 64,
+                expected_cases=1,
+            )
+            self.assertEqual(
+                built["source"]["v1_publication_receipt_sha256"],
+                summary["source_v1"][
+                    "v1_publication_receipt_sha256"
+                ],
+            )
+            self.assertEqual(
+                built["source"]["population_summary_source_schema"],
+                report.v2.SUMMARY_SCHEMA_V2,
+            )
+            self.assertTrue(
+                built["source"][
+                    "v3_counts_derived_read_only_from_v2_summary"
+                ]
+            )
+            with self.assertRaisesRegex(
+                report.FailureReportV3Error,
+                "source differs from its accepted v2 summary",
+            ):
+                report.build_report_v3(
+                    records,
+                    summary=summary,
+                    summary_sha256="d" * 64,
+                    validation_receipt_sha256="e" * 64,
+                    source_publication_receipt_sha256="f" * 64,
+                    expected_cases=1,
+                )
+
+    def test_report_rejects_missing_source_binding(self) -> None:
+        records = [
+            {
+                "case_id": "case-0",
+                "case_ordinal": 0,
+                "record_payload_sha256": "c" * 64,
+            }
+        ]
+        missing_object = self.summary()
+        missing_object.pop("source_v1")
+        missing_hash = self.summary()
+        missing_hash["source_v1"] = {}
+        with mock.patch.object(
+            report,
+            "validate_report_against_summary_v3",
+            return_value={"bound": True},
+        ):
+            with self.assertRaisesRegex(
+                report.FailureReportV3Error,
+                "source-v1 binding must be an object",
+            ):
+                report.build_report_v3(
+                    records,
+                    summary=missing_object,
+                    summary_sha256="d" * 64,
+                    validation_receipt_sha256="e" * 64,
+                    source_publication_receipt_sha256="a" * 64,
+                    expected_cases=1,
+                )
+            with self.assertRaisesRegex(
+                report.FailureReportV3Error,
+                "summary source v1 publication receipt SHA",
+            ):
+                report.build_report_v3(
+                    records,
+                    summary=missing_hash,
+                    summary_sha256="d" * 64,
+                    validation_receipt_sha256="e" * 64,
+                    source_publication_receipt_sha256="a" * 64,
+                    expected_cases=1,
+                )
 
 
 @unittest.skipUnless(
