@@ -156,6 +156,50 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             "fa394d4d3c01de4b6864674cb7e0072b0d850d841986ddd2dc83963ee88208ab",
         )
 
+    def test_prior_perception_directory_is_attempt_isolated(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            case_dir = Path(temporary) / "aegis" / "case"
+            perception = case_dir / "perception"
+            perception.mkdir(parents=True)
+            stale = perception / "annotated_ agentview_image.jpg"
+            stale.write_bytes(b"stale-prior-attempt")
+            archived = self.evaluator._archive_prior_case_artifacts(
+                case_dir
+            )
+            self.assertFalse(perception.exists())
+            archived_path = case_dir / archived["perception/"]
+            self.assertTrue(archived_path.is_dir())
+            self.assertEqual(
+                (archived_path / stale.name).read_bytes(),
+                b"stale-prior-attempt",
+            )
+
+    def test_resume_requires_exact_diagnostics_mode(self):
+        self.assertTrue(
+            self.evaluator._failure_diagnostics_mode_matches(
+                {},
+                required=False,
+            )
+        )
+        self.assertFalse(
+            self.evaluator._failure_diagnostics_mode_matches(
+                {"failure_diagnostics": {"enabled": True}},
+                required=False,
+            )
+        )
+        self.assertTrue(
+            self.evaluator._failure_diagnostics_mode_matches(
+                {"failure_diagnostics": {"enabled": True}},
+                required=True,
+            )
+        )
+        self.assertFalse(
+            self.evaluator._failure_diagnostics_mode_matches(
+                {},
+                required=True,
+            )
+        )
+
     def test_action_ledgers_are_equal_and_tampering_is_rejected(self):
         off = self._synthetic_result(enabled=False)
         on = self._synthetic_result(enabled=True)
@@ -349,6 +393,142 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
         )
         self.assertTrue(empty_record["no_detection"]["explicit"])
 
+    def test_qp_reconstruction_rejects_derived_value_tampering(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+
+        context = {
+            "p1": [0.0, 0.0, 0.0],
+            "R1": np.eye(3).tolist(),
+            "q1_diag": [0.06, 0.12, 0.11],
+            "p2": [1.0, 0.0, 0.0],
+            "R2": np.eye(3).tolist(),
+            "Q2_diag": [0.1, 0.1, 0.1],
+            "z_before": [1.0, 0.0, 0.0],
+            "nominal_translational": [
+                0.02,
+                0.01,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -1.0,
+            ],
+            "u_solution": [0.1, 0.05, 0.0, 0.0, 0.2, 0.0],
+        }
+        reconstructed = self.validator._recompute_qp_context(context)
+        executed = reconstructed["executed"].tolist()
+        context.update(
+            {
+                "status": "solved",
+                "solver": "OSQP",
+                "solver_status": "optimal",
+                "solver_stats": {},
+                "v_ref": reconstructed["v_ref"].tolist(),
+                "u_v_reference": reconstructed[
+                    "u_v_reference"
+                ].tolist(),
+                "u_z_reference": reconstructed[
+                    "u_z_reference"
+                ].tolist(),
+                "reference": reconstructed["reference"].tolist(),
+                "weights_diagonal": reconstructed[
+                    "weights_diagonal"
+                ].tolist(),
+                "cbf": {
+                    "a_v": reconstructed["a_v"].tolist(),
+                    "a_omega": reconstructed["a_omega"].tolist(),
+                    "a_u_v": reconstructed["a_u_v"].tolist(),
+                    "a_u_z": reconstructed["a_u_z"].tolist(),
+                    "mu_row": reconstructed["mu_row"].tolist(),
+                    "h": reconstructed["h"],
+                    "alpha_gain": 10.0,
+                    "constant": reconstructed["constant"],
+                    "reference_lhs": reconstructed["reference_lhs"],
+                    "reference_slack": reconstructed["reference_lhs"],
+                    "reference_violation": max(
+                        0.0, -reconstructed["reference_lhs"]
+                    ),
+                },
+                "solution_lhs": reconstructed["solution_lhs"],
+                "solution_slack": reconstructed["solution_lhs"],
+                "solution_violation": max(
+                    0.0, -reconstructed["solution_lhs"]
+                ),
+                "constraint_dual": 0.0,
+                "objective": reconstructed["objective"],
+                "z_after": reconstructed["z_after"].tolist(),
+                "executed_action": executed,
+                "executed_action_array_sha256": (
+                    self.diagnostics.array_sha256(
+                        np.asarray(executed, dtype=float)
+                    )
+                ),
+                "executed_action_canonical_sha256": (
+                    self.diagnostics.sha256_bytes(
+                        self.diagnostics.canonical_json_bytes(executed)
+                    )
+                ),
+            }
+        )
+        qp = {
+            "solver": "OSQP",
+            "solver_status": "optimal",
+            "barrier_h": reconstructed["h"],
+            "constraint_lhs": reconstructed["solution_lhs"],
+            "objective": reconstructed["objective"],
+            "u_solution": list(context["u_solution"]),
+            "z_before": list(context["z_before"]),
+            "z_after": list(context["z_after"]),
+            "context": context,
+        }
+        result = {
+            "mode": "aegis",
+            "actions": [
+                {
+                    "step": 0,
+                    "control_path": "aegis_qp",
+                    "executed": executed,
+                    "qp": qp,
+                }
+            ],
+        }
+        self.validator._validate_qp_contexts(result)
+        for name, mutate in (
+            (
+                "cbf_h",
+                lambda value: value["actions"][0]["qp"]["context"][
+                    "cbf"
+                ].__setitem__("h", 999.0),
+            ),
+            (
+                "executed_hash",
+                lambda value: value["actions"][0]["qp"]["context"].__setitem__(
+                    "executed_action_array_sha256", "0" * 64
+                ),
+            ),
+            (
+                "z_transition",
+                lambda value: value["actions"][0]["qp"]["context"][
+                    "z_after"
+                ].__setitem__(0, 0.0),
+            ),
+            (
+                "top_level_lhs",
+                lambda value: value["actions"][0]["qp"].__setitem__(
+                    "constraint_lhs", 999.0
+                ),
+            ),
+        ):
+            tampered = copy.deepcopy(result)
+            mutate(tampered)
+            with self.subTest(name=name), self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_qp_contexts(tampered)
+
     def test_qp_observer_does_not_change_executed_action_or_z(self):
         try:
             import cvxpy as cp
@@ -419,6 +599,44 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             "executed_action_array_sha256",
         ):
             self.assertIn(key, context)
+        diagnostic_result = {
+            "mode": "aegis",
+            "actions": [
+                {
+                    "step": 0,
+                    "control_path": "aegis_qp",
+                    "executed": on_action,
+                    "qp": on_qp,
+                }
+            ],
+        }
+        self.validator._validate_qp_contexts(diagnostic_result)
+        for name, mutate in (
+            (
+                "cbf_h",
+                lambda value: value["actions"][0]["qp"]["context"][
+                    "cbf"
+                ].__setitem__("h", 999.0),
+            ),
+            (
+                "executed_hash",
+                lambda value: value["actions"][0]["qp"]["context"].__setitem__(
+                    "executed_action_array_sha256", "0" * 64
+                ),
+            ),
+            (
+                "z_transition",
+                lambda value: value["actions"][0]["qp"]["context"][
+                    "z_after"
+                ].__setitem__(0, 0.0),
+            ),
+        ):
+            tampered = copy.deepcopy(diagnostic_result)
+            mutate(tampered)
+            with self.subTest(name=name), self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_qp_contexts(tampered)
 
     def test_detailed_contacts_include_robot_and_nonrobot_canonical_sides(self):
         try:
@@ -542,6 +760,16 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
                 output_root=root,
                 action_count=1,
             )
+            changed_summary = dict(contact_descriptor)
+            changed_summary["snapshot_count"] = 999
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_contacts(
+                    changed_summary,
+                    output_root=root,
+                    action_count=1,
+                )
             contact_path = root / contact_descriptor["path"]
             contact_path.write_bytes(contact_path.read_bytes() + b"tamper")
             with self.assertRaises(
@@ -559,6 +787,78 @@ class AegisFailureDiagnosticsTests(unittest.TestCase):
             ):
                 self.validator._validate_npz_artifact(
                     descriptor, output_root=root
+                )
+
+    def test_failure_geometry_requires_explicit_two_view_ledger(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy unavailable")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case_dir = root / "aegis" / "case"
+            case_dir.mkdir(parents=True)
+            state = self.diagnostics.new_geometry_state(
+                case_id="case",
+                suite_name="safelibero_spatial",
+                label="blue moka pot",
+            )
+            state["status"] = "failure"
+            state["failure"] = {
+                "component": "groundingdino_point_cloud",
+                "type": "RuntimeError",
+                "message": "synthetic",
+            }
+            state["views"] = {
+                "agentview": {
+                    "view": "agentview",
+                    "status": "observer_or_runtime_failure",
+                    "failure": {
+                        "type": "RuntimeError",
+                        "message": "synthetic",
+                    },
+                },
+                "backview": {
+                    "view": "backview",
+                    "status": "not_attempted",
+                    "reason": "prior_view_failed:agentview",
+                },
+            }
+            self.diagnostics._add_array(
+                state,
+                "failure_marker",
+                np.asarray([1], dtype=np.int8),
+            )
+            descriptor = self.diagnostics.publish_geometry_artifact(
+                state,
+                case_dir=case_dir,
+                output_root=root,
+            )
+            self.validator._validate_geometry(
+                descriptor,
+                output_root=root,
+                require_ready=False,
+            )
+            missing = copy.deepcopy(descriptor)
+            del missing["record"]["views"]["backview"]
+            with self.assertRaises(
+                self.validator.DiagnosticValidationError
+            ):
+                self.validator._validate_geometry(
+                    missing,
+                    output_root=root,
+                    require_ready=False,
+                )
+            collecting = self.diagnostics.new_geometry_state(
+                case_id="collecting",
+                suite_name="safelibero_spatial",
+                label="blue moka pot",
+            )
+            with self.assertRaises(ValueError):
+                self.diagnostics.publish_geometry_artifact(
+                    collecting,
+                    case_dir=case_dir,
+                    output_root=root,
                 )
 
     def test_manifest_bddl_goal_structure_is_exactly_24_one_and_8_two(self):

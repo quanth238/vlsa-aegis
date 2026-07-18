@@ -222,6 +222,27 @@ def _validate_geometry(
     for view_name, view in views.items():
         if not isinstance(view, Mapping):
             raise DiagnosticValidationError(f"{view_name}: invalid view")
+        view_status = view.get("status")
+        if view_status in {"not_attempted", "observer_or_runtime_failure"}:
+            if status == "complete":
+                raise DiagnosticValidationError(
+                    f"{view_name}: complete geometry contains an unobserved view"
+                )
+            if (
+                view.get("view") != view_name
+                or (
+                    view_status == "not_attempted"
+                    and not isinstance(view.get("reason"), str)
+                )
+                or (
+                    view_status == "observer_or_runtime_failure"
+                    and not isinstance(view.get("failure"), Mapping)
+                )
+            ):
+                raise DiagnosticValidationError(
+                    f"{view_name}: explicit failed-view context is incomplete"
+                )
+            continue
         detections = view.get("detections")
         request = view.get("request")
         if not isinstance(detections, Mapping) or not isinstance(
@@ -308,6 +329,20 @@ def _validate_geometry(
         raise DiagnosticValidationError(
             "released ConvexHull/MVEE diagnostics are incomplete"
         )
+    initial_direction = record.get("initial_direction")
+    if (
+        not isinstance(initial_direction, Mapping)
+        or initial_direction.get("formula")
+        != "normalize(mvee_center - stale_pre_settle_eef_proxy_center)"
+        or not isinstance(initial_direction.get("z_initial"), list)
+        or len(initial_direction["z_initial"]) != 3
+        or not isinstance(initial_direction.get("arrays"), Mapping)
+        or set(initial_direction["arrays"])
+        != {"stale_proxy_center", "z_initial"}
+    ):
+        raise DiagnosticValidationError(
+            "complete geometry lacks the exact initial virtual direction"
+        )
 
 
 def _validate_contacts(
@@ -355,7 +390,19 @@ def _validate_contacts(
             raise DiagnosticValidationError(
                 f"contact snapshot unavailable at step {snapshot.get('step')}"
             )
-        for event in snapshot.get("events", []):
+        events = snapshot.get("events")
+        if not isinstance(events, list):
+            raise DiagnosticValidationError(
+                f"contact events are invalid at step {snapshot.get('step')}"
+            )
+        for event in events:
+            if (
+                not isinstance(event, Mapping)
+                or event.get("step") != snapshot.get("step")
+            ):
+                raise DiagnosticValidationError(
+                    "contact event step is not bound to its snapshot"
+                )
             all_events.append(event)
             obstacle = event.get("obstacle")
             other = event.get("other")
@@ -428,9 +475,175 @@ def _validate_contacts(
             )
 
 
+def _vector_hat(value: Any, np: Any) -> Any:
+    x, y, z = value
+    return np.asarray([[0.0, -z, y], [z, 0.0, -x], [-y, x, 0.0]])
+
+
+def _recompute_qp_context(context: Mapping[str, Any]) -> dict[str, Any]:
+    import numpy as np
+
+    p1 = np.asarray(context["p1"], dtype=float)
+    R1 = np.asarray(context["R1"], dtype=float)
+    q1 = np.asarray(context["q1_diag"], dtype=float)
+    p2 = np.asarray(context["p2"], dtype=float)
+    R2 = np.asarray(context["R2"], dtype=float)
+    q2 = np.asarray(context["Q2_diag"], dtype=float)
+    z_input = np.asarray(context["z_before"], dtype=float)
+    nominal = np.asarray(context["nominal_translational"], dtype=float)
+    if (
+        p1.shape != (3,)
+        or R1.shape != (3, 3)
+        or q1.shape != (3,)
+        or p2.shape != (3,)
+        or R2.shape != (3, 3)
+        or q2.shape != (3,)
+        or z_input.shape != (3,)
+        or nominal.shape != (7,)
+    ):
+        raise DiagnosticValidationError("QP context array shape changed")
+    values = (p1, R1, q1, p2, R2, q2, z_input, nominal)
+    if not all(np.all(np.isfinite(value)) for value in values):
+        raise DiagnosticValidationError("QP context contains non-finite input")
+
+    eps = 1e-10
+    Q1 = np.diag(q1)
+    Q2 = np.diag(q2)
+    Qbar1 = R1 @ Q1 @ R1.T
+    Qbar2 = R2 @ Q2 @ R2.T
+    Qbar1_inv = np.linalg.inv(Qbar1)
+    Qbar1_inv2 = Qbar1_inv @ Qbar1_inv
+    Qbar2_sq = Qbar2 @ Qbar2
+    z = z_input / (np.linalg.norm(z_input) + eps)
+    a_vec = Qbar1_inv @ z
+    denom = np.linalg.norm(a_vec) + eps
+    b_vec = Qbar2 @ a_vec
+    term1 = np.linalg.norm(b_vec) + eps
+    sigma = term1 * denom + eps
+    rho = 1.0 - (p2 - p1).T @ a_vec + term1
+    eta_row = -(1.0 / denom) * (z.T @ Qbar1_inv)
+    mu_row = (
+        (rho / (denom**3 + eps)) * (z.T @ Qbar1_inv2)
+        + (1.0 / denom) * ((p2 - p1).T @ Qbar1_inv)
+        - (1.0 / sigma)
+        * (z.T @ Qbar1_inv @ Qbar2_sq @ Qbar1_inv)
+    )
+    tmp1 = z.T @ Qbar1_inv2 @ _vector_hat(z, np)
+    left_vec = z.T @ Qbar1_inv @ Qbar2_sq
+    tmp2 = left_vec @ (
+        _vector_hat(a_vec, np)
+        - Qbar1_inv @ _vector_hat(z, np)
+    )
+    tmp3 = (
+        (p2 - p1).T @ Qbar1_inv @ _vector_hat(z, np)
+        + z.T @ Qbar1_inv @ _vector_hat(p2 - p1, np)
+    )
+    zeta = (
+        rho * (1.0 / (denom**3 + eps)) * tmp1
+        + (1.0 / sigma) * tmp2
+        + (1.0 / denom) * tmp3
+    )
+    a_v = np.asarray(eta_row @ R1).reshape(-1)
+    a_omega = np.asarray(zeta @ R1).reshape(-1)
+    projected_z = z / (np.linalg.norm(z) + 1e-12)
+    cbf_projection = np.eye(3) - np.outer(projected_z, projected_z)
+    a_u_z = np.asarray(mu_row @ cbf_projection).reshape(-1)
+
+    h_z = z / np.linalg.norm(z)
+    h_a = Qbar1_inv @ h_z
+    h = (
+        -np.linalg.norm(Qbar2 @ h_a)
+        + (p2 - p1).T @ h_a
+        - 1.0
+    ) / np.linalg.norm(h_a)
+    a_u_v = 0.2 * a_v
+    v_ref = R1.T @ nominal[:3]
+    u_v_ref = 5.0 * v_ref
+    u_z_ref = 10.0 * mu_row
+    reference = np.hstack([u_v_ref, u_z_ref])
+    weights = np.asarray([1.0 / 25.0] * 3 + [1.0] * 3)
+    reference_lhs = float(
+        a_u_v @ u_v_ref + a_u_z @ u_z_ref + 10.0 * h
+    )
+    solution = np.asarray(context["u_solution"], dtype=float)
+    if solution.shape != (6,) or not np.all(np.isfinite(solution)):
+        raise DiagnosticValidationError("QP solution is invalid")
+    solution_lhs = float(
+        a_u_v @ solution[:3]
+        + a_u_z @ solution[3:]
+        + 10.0 * h
+    )
+    objective = float(np.sum(weights * (solution - reference) ** 2))
+    # The released controller updates the virtual direction with the original
+    # stored z, not compute_h_coeffs_3d's epsilon-normalized local copy.
+    flow_projection = np.eye(3) - np.outer(z_input, z_input)
+    next_z = z_input + flow_projection @ solution[3:] * 0.05
+    next_z_norm = np.linalg.norm(next_z)
+    if not np.isfinite(next_z_norm) or next_z_norm <= 1e-12:
+        raise DiagnosticValidationError(
+            "QP reconstruction produced a degenerate virtual direction"
+        )
+    next_z = next_z / next_z_norm
+    executed = np.zeros(7, dtype=float)
+    executed[:3] = 0.2 * R1 @ solution[:3]
+    executed[6] = nominal[6]
+    return {
+        "a_v": a_v,
+        "a_omega": a_omega,
+        "a_u_v": a_u_v,
+        "a_u_z": a_u_z,
+        "mu_row": np.asarray(mu_row).reshape(-1),
+        "h": float(h),
+        "constant": float(10.0 * h),
+        "v_ref": v_ref,
+        "u_v_reference": u_v_ref,
+        "u_z_reference": u_z_ref,
+        "reference": reference,
+        "weights_diagonal": weights,
+        "reference_lhs": reference_lhs,
+        "solution_lhs": solution_lhs,
+        "objective": objective,
+        "z_after": next_z,
+        "executed": executed,
+    }
+
+
+def _assert_numeric_close(
+    actual: Any,
+    expected: Any,
+    *,
+    label: str,
+) -> None:
+    import numpy as np
+
+    try:
+        actual_array = np.asarray(actual, dtype=float)
+        expected_array = np.asarray(expected, dtype=float)
+    except Exception as error:
+        raise DiagnosticValidationError(
+            f"QP reconstruction value is invalid: {label}"
+        ) from error
+    if (
+        actual_array.shape != expected_array.shape
+        or not np.all(np.isfinite(actual_array))
+        or not np.all(np.isfinite(expected_array))
+    ):
+        raise DiagnosticValidationError(
+            f"QP reconstruction shape/finiteness mismatch: {label}"
+        )
+    if not np.allclose(
+        actual_array,
+        expected_array,
+        rtol=1e-8,
+        atol=1e-10,
+    ):
+        raise DiagnosticValidationError(f"QP reconstruction mismatch: {label}")
+
+
 def _validate_qp_contexts(result: Mapping[str, Any]) -> None:
     if result.get("mode") != "aegis":
         return
+    previous_z_after = None
     for action in result.get("actions", []):
         if action.get("control_path") != "aegis_qp":
             continue
@@ -444,6 +657,10 @@ def _validate_qp_contexts(result: Mapping[str, Any]) -> None:
             "R2",
             "Q2_diag",
             "z_before",
+            "nominal_translational",
+            "v_ref",
+            "u_v_reference",
+            "u_z_reference",
             "reference",
             "weights_diagonal",
             "cbf",
@@ -471,6 +688,15 @@ def _validate_qp_contexts(result: Mapping[str, Any]) -> None:
             raise DiagnosticValidationError(
                 f"step {action.get('step')}: executed action binding changed"
             )
+        if (
+            qp.get("solver") != "OSQP"
+            or context.get("solver") != "OSQP"
+            or qp.get("solver_status") != context.get("solver_status")
+            or not isinstance(context.get("solver_stats"), Mapping)
+        ):
+            raise DiagnosticValidationError(
+                f"step {action.get('step')}: QP solver context changed"
+            )
         cbf = context.get("cbf")
         if not isinstance(cbf, Mapping) or not {
             "a_v",
@@ -487,6 +713,148 @@ def _validate_qp_contexts(result: Mapping[str, Any]) -> None:
         }.issubset(cbf):
             raise DiagnosticValidationError(
                 f"step {action.get('step')}: CBF reconstruction is incomplete"
+            )
+        try:
+            reconstructed = _recompute_qp_context(context)
+        except DiagnosticValidationError:
+            raise
+        except Exception as error:
+            raise DiagnosticValidationError(
+                f"step {action.get('step')}: QP reconstruction failed"
+            ) from error
+        for key in (
+            "a_v",
+            "a_omega",
+            "a_u_v",
+            "a_u_z",
+            "mu_row",
+            "h",
+            "constant",
+        ):
+            _assert_numeric_close(
+                cbf[key],
+                reconstructed[key],
+                label=f"cbf.{key}",
+            )
+        for key in (
+            "v_ref",
+            "u_v_reference",
+            "u_z_reference",
+            "reference",
+            "weights_diagonal",
+        ):
+            _assert_numeric_close(
+                context[key],
+                reconstructed[key],
+                label=key,
+            )
+        for prefix, expected_lhs in (
+            ("reference", reconstructed["reference_lhs"]),
+            ("solution", reconstructed["solution_lhs"]),
+        ):
+            _assert_numeric_close(
+                (
+                    cbf[f"{prefix}_lhs"]
+                    if prefix == "reference"
+                    else context[f"{prefix}_lhs"]
+                ),
+                expected_lhs,
+                label=f"{prefix}_lhs",
+            )
+            stored_slack = (
+                cbf[f"{prefix}_slack"]
+                if prefix == "reference"
+                else context[f"{prefix}_slack"]
+            )
+            stored_violation = (
+                cbf[f"{prefix}_violation"]
+                if prefix == "reference"
+                else context[f"{prefix}_violation"]
+            )
+            _assert_numeric_close(
+                stored_slack,
+                expected_lhs,
+                label=f"{prefix}_slack",
+            )
+            _assert_numeric_close(
+                stored_violation,
+                max(0.0, -expected_lhs),
+                label=f"{prefix}_violation",
+            )
+        _assert_numeric_close(
+            context["objective"],
+            reconstructed["objective"],
+            label="objective",
+        )
+        _assert_numeric_close(
+            context["z_after"],
+            reconstructed["z_after"],
+            label="z_after",
+        )
+        _assert_numeric_close(
+            context["executed_action"],
+            reconstructed["executed"],
+            label="executed_action",
+        )
+        _assert_numeric_close(
+            qp["barrier_h"],
+            reconstructed["h"],
+            label="top_level.barrier_h",
+        )
+        _assert_numeric_close(
+            qp["constraint_lhs"],
+            reconstructed["solution_lhs"],
+            label="top_level.constraint_lhs",
+        )
+        _assert_numeric_close(
+            qp["u_solution"],
+            context["u_solution"],
+            label="top_level.u_solution",
+        )
+        _assert_numeric_close(
+            qp["objective"],
+            context["objective"],
+            label="top_level.objective",
+        )
+        _assert_numeric_close(
+            qp["z_before"],
+            context["z_before"],
+            label="top_level.z_before",
+        )
+        _assert_numeric_close(
+            qp["z_after"],
+            context["z_after"],
+            label="top_level.z_after",
+        )
+        if previous_z_after is not None:
+            _assert_numeric_close(
+                context["z_before"],
+                previous_z_after,
+                label="cross_step.z_before",
+            )
+        previous_z_after = context["z_after"]
+        if cbf.get("alpha_gain") != 10.0:
+            raise DiagnosticValidationError(
+                f"step {action.get('step')}: CBF alpha gain changed"
+            )
+        try:
+            import numpy as np
+
+            dual = np.asarray(
+                context["constraint_dual"], dtype=float
+            ).reshape(-1)
+        except Exception as error:
+            raise DiagnosticValidationError(
+                f"step {action.get('step')}: invalid QP dual"
+            ) from error
+        if (
+            dual.size != 1
+            or not np.all(np.isfinite(dual))
+            or float(dual[0]) < -1e-8
+            or reconstructed["solution_lhs"] < -1e-6
+        ):
+            raise DiagnosticValidationError(
+                f"step {action.get('step')}: invalid QP feasibility evidence"
             )
         try:
             import numpy as np

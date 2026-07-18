@@ -569,6 +569,21 @@ def pairing_record(
     }
 
 
+def _failure_diagnostics_mode_matches(
+    result: Mapping[str, Any],
+    *,
+    required: bool,
+) -> bool:
+    """Require a resume artifact from the exact requested diagnostics arm."""
+
+    record = result.get("failure_diagnostics")
+    enabled = (
+        isinstance(record, Mapping)
+        and record.get("enabled") is True
+    )
+    return enabled is bool(required)
+
+
 def _scientific_resume_is_valid(
     result: Mapping[str, Any],
     *,
@@ -580,6 +595,11 @@ def _scientific_resume_is_valid(
 ) -> bool:
     """Conservatively recognize a complete, video-backed terminal result."""
 
+    if not _failure_diagnostics_mode_matches(
+        result,
+        required=require_failure_diagnostics,
+    ):
+        return False
     if (
         result.get("schema_version") != RESULT_SCHEMA
         or result.get("protocol_id") != case.get("protocol_id")
@@ -859,6 +879,32 @@ def _archive_prior_case_artifacts(case_dir: Path) -> dict[str, str]:
         else:
             os.replace(source, target)
         archived[source_name] = str(target.relative_to(case_dir))
+    perception = case_dir / "perception"
+    if perception.is_dir():
+        entries = []
+        for path in sorted(
+            (item for item in perception.rglob("*") if item.is_file()),
+            key=lambda item: str(item.relative_to(perception)),
+        ):
+            entries.append(
+                {
+                    "path": str(path.relative_to(perception)),
+                    "bytes": path.stat().st_size,
+                    "sha256": sha256_path(path),
+                }
+            )
+        tree_hash = sha256_bytes(canonical_json_bytes(entries))
+        base = archive_dir / f"perception-{tree_hash}"
+        target = base
+        duplicate_index = 0
+        while target.exists():
+            duplicate_index += 1
+            target = archive_dir / (
+                f"perception-{tree_hash}-duplicate-{duplicate_index:03d}"
+            )
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        os.replace(perception, target)
+        archived["perception/"] = str(target.relative_to(case_dir))
     return archived
 
 
@@ -1787,11 +1833,46 @@ def _prepare_aegis_geometry(
         or not np.all(np.isfinite(R2))
         or not np.all(np.isfinite(Q2_diag))
     ):
-        raise MethodFailure("released MVEE fitting returned invalid geometry")
+        error = MethodFailure(
+            "released MVEE fitting returned invalid geometry"
+        )
+        if diagnostic_state is not None:
+            failure_diagnostics.record_geometry_failure(
+                diagnostic_state,
+                component="released_mvee_invalid_geometry",
+                error=error,
+            )
+            diagnostic_state["failure"]["type"] = (
+                "invalid_or_nonfinite_geometry"
+            )
+            diagnostic_state["failure"]["shapes"] = {
+                "center": list(p2.shape),
+                "rotation": list(R2.shape),
+                "semiaxes": list(Q2_diag.shape),
+            }
+        raise error
     z_fixed = p2 - stale_proxy["p1"]
     norm = float(np.linalg.norm(z_fixed))
     if not math.isfinite(norm) or norm <= 1e-12:
-        raise MethodFailure("released MVEE produced a degenerate direction")
+        error = MethodFailure(
+            "released MVEE produced a degenerate direction"
+        )
+        if diagnostic_state is not None:
+            failure_diagnostics.record_geometry_failure(
+                diagnostic_state,
+                component="released_mvee_direction",
+                error=error,
+            )
+            diagnostic_state["failure"]["type"] = (
+                "degenerate_initial_direction"
+            )
+            diagnostic_state["failure"]["direction_norm"] = (
+                norm if math.isfinite(norm) else None
+            )
+            diagnostic_state["failure"][
+                "direction_norm_was_nonfinite"
+            ] = not math.isfinite(norm)
+        raise error
     z_fixed /= norm
     if diagnostic_state is not None:
         failure_diagnostics.record_initial_geometry_direction(

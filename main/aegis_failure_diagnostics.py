@@ -847,7 +847,9 @@ def publish_geometry_artifact(
         key: value for key, value in state.items() if key != "_arrays"
     }
     if public_record.get("status") == "collecting":
-        public_record["status"] = "complete"
+        raise ValueError(
+            "geometry diagnostics cannot be published while still collecting"
+        )
     return {
         "schema_version": GEOMETRY_SCHEMA,
         "path": str(path.relative_to(output_root)),
