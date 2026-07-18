@@ -30,7 +30,7 @@ The v3 job is unusable until all of these conditions hold:
    analysis receipt have independently accepted SHA-256 identities;
 4. the reviewed v3 launch release is clean and descends from accepted v3
    implementation commit
-   `59b7cdf42acfcb2c76e5cd7a50703ee1dd375e74`;
+   `1c92370cb5b1278a4fcdda81332ec8eed9a49f8b`;
 5. the exact v3 destination has never been used.
 
 The shell-only entry point is

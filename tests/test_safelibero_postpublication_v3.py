@@ -353,7 +353,7 @@ class PostpublicationV3BuilderTest(unittest.TestCase):
         )
         self.assertEqual(
             receipt["implementation"]["accepted_v3_implementation_commit"],
-            builder.EXPECTED_V3_IMPLEMENTATION_COMMIT,
+            "1c92370cb5b1278a4fcdda81332ec8eed9a49f8b",
         )
         self.assertEqual(
             receipt["launch"]["analysis_job_id"], self.v3_job_id
@@ -377,6 +377,12 @@ class PostpublicationV3BuilderTest(unittest.TestCase):
         payload = dict(receipt)
         expected = payload.pop("receipt_payload_sha256")
         self.assertEqual(expected, payload_hash(payload))
+
+    def test_builder_binds_canonical_physical_gate_commit(self) -> None:
+        self.assertEqual(
+            builder.EXPECTED_V3_IMPLEMENTATION_COMMIT,
+            "1c92370cb5b1278a4fcdda81332ec8eed9a49f8b",
+        )
 
     def test_wrong_summary_hash_rejects_before_output(self) -> None:
         arguments = self.arguments()

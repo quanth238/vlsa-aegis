@@ -234,6 +234,29 @@ Evidence established before implementation:
 No population job may launch before a paired canary from the final exact
 release is validated.
 
+## Canonical physical-contact analysis-v3 release
+
+The accepted analysis-v3 implementation is now canonical commit
+`1c92370cb5b1278a4fcdda81332ec8eed9a49f8b`, a direct child of the previously
+accepted v3 source-binding implementation. It changes exactly
+`analysis/build_aegis_failure_report_v3.py` and its dedicated test. The
+accepted module SHA-256 is
+`ec0bd92ad083c9f877eb98fa43fe9de76b87dec90face58f1bd18b133e633df9`.
+
+The revised decision denominator requires paired zero settled
+collision-relevant contact, baseline post-control sampled
+collision-relevant contact, and native baseline task success. It keeps the
+paper's displacement CAR separate from sampled physical contact, retains
+CAR/contact mismatches as exclusions, and limits flow-direction candidates
+to observational associations. Detector correctness, true mesh enclosure,
+continuous-time safety, causal flow efficacy, and learned-model efficacy
+remain uncertified.
+
+The held analysis-v3 launcher is replayed only on a descendant of this
+canonical commit and now checks this exact ancestry on both the login and
+allocation sides. No analysis-v3 job is submitted while population array
+`28609` or publisher `28610` is active.
+
 ## Known interpretation limits
 
 - Paper CAR is operationalized by the release as active-obstacle L1

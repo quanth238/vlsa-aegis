@@ -36,7 +36,7 @@ class PostpublicationV3LaunchContractTest(unittest.TestCase):
             )
             self.assertIn(
                 "ACCEPTED_V3_IMPLEMENTATION_COMMIT="
-                "59b7cdf42acfcb2c76e5cd7a50703ee1dd375e74",
+                "1c92370cb5b1278a4fcdda81332ec8eed9a49f8b",
                 text,
             )
 

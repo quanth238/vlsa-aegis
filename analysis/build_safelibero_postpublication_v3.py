@@ -31,7 +31,7 @@ except ImportError:  # pragma: no cover - direct script execution fallback
 RECEIPT_SCHEMA = "vlsa_table1_postpublication_analysis_v3_receipt.v1"
 RECEIPT_STATUS = "published_derived_analysis_v3"
 EXPECTED_V3_IMPLEMENTATION_COMMIT = (
-    "59b7cdf42acfcb2c76e5cd7a50703ee1dd375e74"
+    "1c92370cb5b1278a4fcdda81332ec8eed9a49f8b"
 )
 EXPECTED_RUNTIME_COMMIT = (
     "1592aa59361f431ba96c6ddcbebcb596f6c20853"

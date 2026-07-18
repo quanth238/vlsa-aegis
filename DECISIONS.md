@@ -286,3 +286,28 @@ The v3 builder writes its result receipt atomically and last. Partial output is
 never resumed or accepted. This gate derives explanatory associations only; it
 does not run policy inference, AEGIS, perception, rendering, simulation, or
 training, and it does not create a new efficacy claim.
+
+## ADR-0027: Rebind analysis v3 to physical-contact eligibility
+
+Accepted for the post-publication analysis release; no job has been
+submitted. Canonical implementation
+`1c92370cb5b1278a4fcdda81332ec8eed9a49f8b` replaces paper displacement CAR
+as the eligibility gate for the flow-direction diagnostic with exact sampled
+physical-contact evidence: both paired arms must begin with zero settled
+collision-relevant contact, and the baseline must develop post-control
+collision-relevant contact while retaining native task success.
+
+Paper CAR remains independently reported. A paper-CAR/contact mismatch,
+pre-existing contact, incomplete geometry/QP execution, absent intervention,
+AEGIS sampled contact, absent task loss, or invalid temporal order excludes a
+case from the strong observational candidate stratum without dropping it
+from the population. The report uses complete registered task groups for its
+descriptive bootstrap and does not claim benchmark generalization, causal
+flow efficacy, correct detector boxes, true mesh enclosure, or learned-probe
+efficacy.
+
+Any server-side analysis-v3 release must descend from the canonical
+implementation and bind that exact ancestry in both the held submission
+helper and allocation runner. The running population source remains pinned
+to `1592aa59361f431ba96c6ddcbebcb596f6c20853` until the array and publisher
+are terminal.
