@@ -43,6 +43,36 @@ The exact next action is to wait for terminal publisher `28610`. Only then
 may the final reviewed analysis release be synchronized, all terminal
 publication/input hashes be supplied, and the held launcher be invoked once.
 
+### Postpublication analysis-v3 launch readiness
+
+The accepted decision-aligned v3 derivation now has its own isolated,
+fail-closed launch path. This is local implementation evidence only: no v3
+job was submitted, no runtime or remote source was changed, and v3 remains
+blocked until an independently accepted analysis-v2 job exists.
+
+- `scripts/submit_vlsa_postpublication_analysis_v3.sh` requires exact terminal
+  success of publisher `28610` and the supplied analysis-v2 job. It submits
+  one held `afterok:<v2-job-id>` CPU job and rejects dependency, resource,
+  GPU, path, hash, dirty-source, reused-output, or receipt mutations.
+- The allocation runner binds the exact v1 publication, accepted v2 summary
+  and terminal receipt, both v2 control receipts, protocol inputs, runtime
+  commit, accepted v3 implementation, and reviewed builder/runner/SBatch/
+  submit-helper bytes.
+- The terminal v3 result receipt is written last and binds its own v3 job,
+  submission receipt, release receipt, dependency, exact four-CPU/32-GiB/
+  no-GPU resources, all 1,600 cases and 3,200 results, and every v3 artifact.
+- Recovery reuses the exact recorded job. A held job still requires an unused
+  output; a previously released job may be observed with its existing output
+  without submitting a duplicate.
+- The focused builder/launcher gate passes 22 tests. The broader v3 analysis
+  gate passes 42 tests with one dependency-optional skip. The final full
+  `./init.sh` structural gate passes 305 tests with 19 dependency-optional
+  skips.
+
+The exact sequence is publisher v1 acceptance, analysis-v2 terminal
+acceptance, then one separately reviewed v3 launch. No v3 identity or hash may
+be guessed before v2 exists.
+
 Local implementation evidence on 2026-07-18:
 
 - The focused diagnostics/publisher suite passes 162 tests with one

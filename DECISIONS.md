@@ -266,3 +266,23 @@ analysis-v2 builder writes its receipt last, so a partial directory is never
 accepted as a derived publication. This gate cannot modify or replace the v1
 publication, run a simulator or model, or support a scientific claim before
 its terminal receipt is independently validated.
+
+## ADR-0026: Chain analysis v3 to accepted v2 through its own held CPU job
+
+Accepted for implementation; no v3 job has been submitted. Decision-aligned
+analysis v3 may consume only an accepted terminal analysis-v2 publication. Its
+exact v2 Slurm job must be `COMPLETED` with exit `0:0`, and the new v3 job must
+use the exact dependency `afterok:<v2-job-id>`.
+
+The v3 login helper is shell-only and submits one held CPU job. Before release
+it binds the population/runtime/publisher identities, both v2 control
+receipts, the v2 summary and terminal receipt, every protocol input, the clean
+reviewed v3 release, exact source hashes, an unused output, and the four-CPU,
+32-GiB, no-GPU Slurm contract. Its terminal result receipt also binds the v3
+submission and release receipts and exact v3 job identity, closing the launch
+to result provenance chain.
+
+The v3 builder writes its result receipt atomically and last. Partial output is
+never resumed or accepted. This gate derives explanatory associations only; it
+does not run policy inference, AEGIS, perception, rendering, simulation, or
+training, and it does not create a new efficacy claim.
