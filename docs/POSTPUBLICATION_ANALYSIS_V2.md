@@ -63,3 +63,37 @@ The derived directory contains:
 - `aegis-failure-report-v2.json` and Markdown;
 - `gallery-v2/index.html`;
 - `analysis-v2-receipt.json`.
+
+## Exact VinUni launch gate
+
+The reviewed control-plane entry point is
+`scripts/submit_vlsa_postpublication_analysis_v2_28610.sh`. It is shell-only
+on the login node. It refuses to submit until exact publisher job `28610` is
+`COMPLETED` with exit `0:0`, and it submits one CPU-only job with dependency
+`afterok:28610`. The job is held, inspected, and immutably receipted before
+release.
+
+The launch is intentionally not performed by this implementation commit.
+After publisher `28610` is terminal and the final analysis release commit is
+reviewed, supply all of these exact identities:
+
+```text
+EXPECTED_PUBLICATION_RECEIPT_SHA256
+EXPECTED_ANALYSIS_GIT_COMMIT
+EXPECTED_BUILDER_SHA256
+EXPECTED_RUNNER_SHA256
+EXPECTED_SBATCH_SHA256
+EXPECTED_SUBMIT_HELPER_SHA256
+EXPECTED_CONFIG_SHA256
+EXPECTED_MANIFEST_SHA256
+EXPECTED_MANIFEST_RECEIPT_SHA256
+EXPECTED_V1_SUMMARY_SHA256
+EXPECTED_PREPUBLISH_RECEIPT_SHA256
+```
+
+The launcher fixes population array `28609`, publisher `28610`, runtime
+source `1592aa59361f431ba96c6ddcbebcb596f6c20853`, all source/result descriptor
+paths, and the unused analysis destination. Its intent, job ID, held-job
+snapshot, submission receipt, and release receipt each have an immutable
+SHA-256 sidecar. A rerun recovers the exact recorded job; it never uses a
+broad cancellation or submission command.

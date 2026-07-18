@@ -248,3 +248,21 @@ remains valid historical integration evidence for `A03`, but it cannot
 authorize a population from the new source. The final clean release therefore
 requires a new source-bound checkpoint receipt and the same four-rollout
 ordinal-100 action-invariance canary before any population submission.
+
+## ADR-0025: Derive analysis v2 only through a terminal-bound held CPU job
+
+Accepted for implementation; no job has been submitted. The immutable v1
+population remains authoritative. Postpublication analysis v2 may run only
+after exact publisher `28610` is `COMPLETED` with exit `0:0`, through one
+CPU-only job with exact dependency `afterok:28610`. The job is submitted held,
+its dependency, resources, command, paths, source identity, and all terminal
+input hashes are immutably receipted, and it is released only after a second
+fail-closed check. Recovery must reuse that exact job rather than submit a
+duplicate.
+
+The login-node helper is shell-only. Python executes only inside the CPU
+allocation. The analysis output directory must be unused; the existing
+analysis-v2 builder writes its receipt last, so a partial directory is never
+accepted as a derived publication. This gate cannot modify or replace the v1
+publication, run a simulator or model, or support a scientific claim before
+its terminal receipt is independently validated.

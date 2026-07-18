@@ -14,6 +14,35 @@ has passed local and independent review for a fresh canary, but no population
 job is authorized until that exact-source canary validates live simulator
 artifacts.
 
+### Postpublication analysis-v2 launch readiness
+
+The derived analysis now has a separate fail-closed VinUni launch path. This
+is implementation evidence only; no analysis job was submitted:
+
+- `scripts/submit_vlsa_postpublication_analysis_v2_28610.sh` is a shell-only
+  login-node helper fixed to population array `28609`, publisher `28610`, run
+  `vlsa-table1-contact-authority-population-20260718a`, and runtime source
+  `1592aa59361f431ba96c6ddcbebcb596f6c20853`.
+- It requires publisher `28610` to be exactly `COMPLETED` with exit `0:0`,
+  submits one held `afterok:28610` CPU job, validates the exact Slurm
+  dependency/resources/no-GPU contract, publishes immutable intent/job/
+  scontrol/submission/release records with SHA-256 sidecars, rechecks every
+  frozen input, and releases only that exact job.
+- The allocation runner rechecks the reviewed Git commit; builder, runner,
+  and SBatch hashes; v1 publication/summary/prepublish hashes; protocol
+  config, manifest, and manifest-receipt hashes; the immutable result root;
+  and an unused output directory before invoking the existing receipt-last
+  analysis-v2 builder.
+- Adversarial tests cover nonterminal publisher state, dependency/resource
+  mutation, source-input mutation, reused output, receipt-sidecar tampering,
+  release interruption, exact-job recovery, and allocation-side rechecks.
+  The focused analysis/launcher gate passes 15 tests. The full local gate
+  passes 237 tests with 18 dependency-optional skips.
+
+The exact next action is to wait for terminal publisher `28610`. Only then
+may the final reviewed analysis release be synchronized, all terminal
+publication/input hashes be supplied, and the held launcher be invoked once.
+
 Local implementation evidence on 2026-07-18:
 
 - The focused diagnostics/publisher suite passes 162 tests with one
