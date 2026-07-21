@@ -145,6 +145,9 @@ class AegisSlurmContractTest(unittest.TestCase):
         publisher_batch = (
             SLURM / "aegis_population_publisher.sbatch"
         ).read_text(encoding="utf-8")
+        publisher_retry_batch = (
+            SLURM / "aegis_population_publisher_retry.sbatch"
+        ).read_text(encoding="utf-8")
         publisher = (
             SLURM / "run_aegis_population_publisher.sh"
         ).read_text(encoding="utf-8")
@@ -153,6 +156,10 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("SLURM_JOB_ID", hash_runner)
         self.assertIn("compute_pi05_tree_receipt.py", hash_runner)
         self.assertNotIn("#SBATCH --gres=gpu", publisher_batch)
+        self.assertNotIn("#SBATCH --gres=gpu", publisher_retry_batch)
+        self.assertIn("#SBATCH --cpus-per-task=4", publisher_retry_batch)
+        self.assertIn("#SBATCH --mem=32G", publisher_retry_batch)
+        self.assertIn("#SBATCH --exclude=worker-3", publisher_retry_batch)
         self.assertIn("--dependency=afterany:", publisher)
         self.assertIn(
             ': "${GROUNDINGDINO_DEVICE:?set the exact paired-canary device',
@@ -173,6 +180,12 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("--failure-markdown", publisher)
         self.assertIn("build_safelibero_video_gallery.py", publisher)
         self.assertIn("population-finalize", publisher)
+        self.assertIn("POPULATION_RUNTIME_REPO", publisher)
+        self.assertIn("PUBLISHER_RELEASE_REPO", publisher)
+        self.assertIn("EXPECTED_PUBLISHER_GIT_COMMIT", publisher)
+        self.assertIn("build_aegis_publisher_retry_authority.py", publisher)
+        self.assertNotIn("scripts/serve_policy.py", publisher)
+        self.assertNotIn("evaluate_safelibero_aegis.py", publisher)
 
     def test_population_contract_requires_a_validated_canary_receipt(
         self,

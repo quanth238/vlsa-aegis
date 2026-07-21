@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -400,6 +401,59 @@ class PopulationStreamingValidationTest(unittest.TestCase):
             "unknown contact roles are not publication-valid",
         ):
             self._run_with_plain_patches(result_loader=result_loader)
+
+    def test_accepts_contact_maps_after_sorted_json_round_trip(self) -> None:
+        path = (
+            self.result_root
+            / "pi05"
+            / self.manifests[0]["case_id"]
+            / "result.json"
+        )
+        result, _ = self._result_for_path(path)
+        round_tripped = json.loads(json.dumps(result, sort_keys=True))
+
+        compact = artifacts._compact_population_diagnostic_evidence(
+            round_tripped,
+            diagnostic_validation=self._diagnostic_evidence(round_tripped),
+        )
+
+        self.assertEqual(
+            compact["contact_role_taxonomy"],
+            list(artifacts.CONTACT_ROLE_TAXONOMY),
+        )
+        self.assertEqual(
+            compact["contact_event_counts_by_role"],
+            {role: 0 for role in artifacts.CONTACT_ROLE_TAXONOMY},
+        )
+
+    def test_rejects_missing_or_extra_contact_map_keys(self) -> None:
+        path = (
+            self.result_root
+            / "pi05"
+            / self.manifests[0]["case_id"]
+            / "result.json"
+        )
+        for field, mutation in (
+            (
+                "event_counts_by_role",
+                lambda value: value.pop("robot"),
+            ),
+            (
+                "steps_with_contact_by_role",
+                lambda value: value.update({"extra": []}),
+            ),
+        ):
+            result, _ = self._result_for_path(path)
+            contacts = result["failure_diagnostics"]["contacts"]
+            mutation(contacts[field])
+            with self.subTest(field=field), self.assertRaisesRegex(
+                ReceiptError,
+                f"contact {field} keys differs",
+            ):
+                artifacts._compact_population_diagnostic_evidence(
+                    result,
+                    diagnostic_validation=self._diagnostic_evidence(result),
+                )
 
     def test_requires_v3_complete_contact_role_authority(self) -> None:
         target = self.manifests[2]["case_id"]

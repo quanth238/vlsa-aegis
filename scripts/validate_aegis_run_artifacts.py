@@ -58,6 +58,9 @@ CONTACT_SCHEMA_V3 = "vlsa_table1_active_obstacle_contacts.v3"
 CONTACT_MODEL_AUTHORITY_SCHEMA_V2 = (
     "vlsa_table1_contact_model_authority.v2"
 )
+PUBLISHER_RETRY_AUTHORITY_SCHEMA = (
+    "vlsa_table1_publisher_retry_authority.v1"
+)
 CONTACT_ROLE_TAXONOMY = (
     "robot",
     "static_support",
@@ -112,6 +115,107 @@ def _require_finite_sequence(
             "must be finite"
         )
     return [float(item) for item in value]
+
+
+def validate_publisher_retry_authority(
+    path: Path,
+    *,
+    run_root: Path,
+    expected_population_commit: str,
+    expected_run_id: str,
+    expected_population_array_job_id: str,
+) -> dict[str, Any]:
+    run_root = run_root.resolve()
+    authority = load_json_object(path, label="publisher retry authority")
+    payload_sha256 = verify_payload_sha256(
+        authority,
+        field="receipt_payload_sha256",
+        label="publisher retry authority",
+    )
+    for field, expected in (
+        ("schema_version", PUBLISHER_RETRY_AUTHORITY_SCHEMA),
+        ("status", "validated"),
+        ("scientific_result", False),
+        ("run_id", expected_run_id),
+        ("population_array_job_id", expected_population_array_job_id),
+        ("preserves_immutable_result_tree", True),
+        ("permits_inference_or_simulation", False),
+        ("failure_class", "publisher_validator_json_key_order"),
+    ):
+        _require_equal(
+            authority.get(field),
+            expected,
+            label=f"publisher retry authority/{field}",
+        )
+    population_source = authority.get("population_source")
+    publisher_source = authority.get("publisher_source")
+    recovery_from = authority.get("recovery_from")
+    publisher_slurm = authority.get("publisher_slurm")
+    if not all(
+        isinstance(value, Mapping)
+        for value in (
+            population_source,
+            publisher_source,
+            recovery_from,
+            publisher_slurm,
+        )
+    ):
+        raise ReceiptError("publisher retry authority records are incomplete")
+    _require_equal(
+        population_source.get("git_commit"),
+        expected_population_commit,
+        label="publisher retry population source commit",
+    )
+    publisher_commit = publisher_source.get("git_commit")
+    if (
+        not isinstance(publisher_commit, str)
+        or len(publisher_commit) != 40
+        or any(
+            character not in "0123456789abcdef"
+            for character in publisher_commit
+        )
+        or publisher_commit == expected_population_commit
+    ):
+        raise ReceiptError("publisher retry source commit is invalid")
+    _require_equal(
+        publisher_source.get("validator_sha256"),
+        sha256_path(Path(__file__).resolve()),
+        label="publisher retry validator source",
+    )
+    current_job_id = os.environ.get("SLURM_JOB_ID")
+    current_host = os.environ.get("SLURMD_NODENAME")
+    current_dependency = os.environ.get("SLURM_JOB_DEPENDENCY")
+    for field, expected in (
+        ("job_id", current_job_id),
+        ("host", current_host),
+        (
+            "dependency",
+            f"afterany:{expected_population_array_job_id}",
+        ),
+    ):
+        _require_equal(
+            publisher_slurm.get(field),
+            expected,
+            label=f"publisher retry Slurm/{field}",
+        )
+    expected_parent = (
+        run_root / "publication-attempts" / f"job-{current_job_id}"
+    )
+    _require_equal(
+        path.resolve().parent,
+        expected_parent,
+        label="publisher retry authority parent",
+    )
+    return {
+        "path": str(path.resolve()),
+        "sha256": sha256_path(path.resolve()),
+        "receipt_payload_sha256": payload_sha256,
+        "publisher_source_git_commit": publisher_commit,
+        "previous_publisher_job_id": recovery_from.get(
+            "publisher_job_id"
+        ),
+        "publisher_slurm": dict(publisher_slurm),
+    }
 
 
 def validate_full_label_manifest(
@@ -1773,9 +1877,9 @@ def _compact_population_diagnostic_evidence(
         ("first_contact_step_by_role", first_steps_by_role),
     ):
         _require_equal(
-            tuple(value),
-            CONTACT_ROLE_TAXONOMY,
-            label=f"{label}: contact {field_name} keys/order",
+            frozenset(value),
+            frozenset(CONTACT_ROLE_TAXONOMY),
+            label=f"{label}: contact {field_name} keys",
         )
     contact_event_counts_by_role: dict[str, int] = {}
     contact_steps_by_role: dict[str, list[int]] = {}
@@ -2340,6 +2444,15 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
         args.slurm_accounting.resolve(),
         population_array_job_id=args.population_array_job_id,
     )
+    publisher_retry_authority = None
+    if args.publisher_retry_authority is not None:
+        publisher_retry_authority = validate_publisher_retry_authority(
+            args.publisher_retry_authority.resolve(),
+            run_root=run_root,
+            expected_population_commit=args.expected_commit,
+            expected_run_id=contract["run_id"],
+            expected_population_array_job_id=args.population_array_job_id,
+        )
     if len(manifests) != 1600:
         raise ReceiptError("population publisher requires exactly 1,600 cases")
     full_label_manifest = validate_full_label_manifest(
@@ -2639,6 +2752,8 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
             "retained_records": "compact_hash_bound_summaries_only",
         },
     }
+    if publisher_retry_authority is not None:
+        receipt["publisher_retry_authority"] = publisher_retry_authority
     receipt["receipt_payload_sha256"] = sha256_bytes(
         canonical_json_bytes(receipt)
     )
@@ -2702,6 +2817,41 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
         field="receipt_payload_sha256",
         label="population prepublish receipt",
     )
+    publisher_retry_authority = prepublish.get(
+        "publisher_retry_authority"
+    )
+    if publisher_retry_authority is not None:
+        if not isinstance(publisher_retry_authority, Mapping):
+            raise ReceiptError(
+                "population prepublish publisher retry authority is invalid"
+            )
+        authority_path = Path(
+            str(publisher_retry_authority.get("path", ""))
+        ).resolve()
+        try:
+            authority_path.relative_to(run_root)
+        except ValueError as error:
+            raise ReceiptError(
+                "publisher retry authority escaped the immutable run root"
+            ) from error
+        _require_equal(
+            sha256_path(authority_path),
+            publisher_retry_authority.get("sha256"),
+            label="population prepublish publisher retry authority file",
+        )
+        authority = load_json_object(
+            authority_path,
+            label="population publisher retry authority",
+        )
+        _require_equal(
+            verify_payload_sha256(
+                authority,
+                field="receipt_payload_sha256",
+                label="population publisher retry authority",
+            ),
+            publisher_retry_authority.get("receipt_payload_sha256"),
+            label="population publisher retry authority payload",
+        )
     summary_path = args.summary.resolve()
     summary = load_json_object(summary_path, label="population summary")
     _require_equal(
@@ -3280,6 +3430,15 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
             },
         },
     }
+    if publisher_retry_authority is not None:
+        _require_equal(
+            publisher_retry_authority.get("publisher_slurm"),
+            publisher_slurm,
+            label="population publisher retry allocation binding",
+        )
+        receipt["publisher_retry_authority"] = dict(
+            publisher_retry_authority
+        )
     receipt["receipt_payload_sha256"] = sha256_bytes(
         canonical_json_bytes(receipt)
     )
@@ -3315,6 +3474,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     population.add_argument("--population-array-job-id", required=True)
     population.add_argument("--slurm-accounting", type=Path, required=True)
+    population.add_argument(
+        "--publisher-retry-authority",
+        type=Path,
+    )
     population.add_argument("--output", type=Path, required=True)
     finalize = subparsers.add_parser("population-finalize")
     finalize.add_argument("--run-root", type=Path, required=True)
