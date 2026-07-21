@@ -1254,7 +1254,9 @@ class TransferManifestV2Tests(unittest.TestCase):
         finally:
             extra.unlink()
 
-    def test_42_exact_cpu_afterok_28610_launch_contract(self) -> None:
+    def test_42_exact_cpu_afterok_terminal_publisher_launch_contract(
+        self,
+    ) -> None:
         root = Path(__file__).resolve().parents[1]
         batch_path = (
             root
@@ -1298,7 +1300,12 @@ class TransferManifestV2Tests(unittest.TestCase):
         self.assertNotIn("#SBATCH --gres", batch)
         self.assertNotIn("#SBATCH --gpus", batch)
         self.assertNotIn("#SBATCH --array", batch)
-        self.assertIn("readonly PUBLISHER_JOB_ID=28610", runner)
+        self.assertIn(
+            "readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}",
+            runner,
+        )
+        self.assertIn("ARTIFACT_PUBLISHER_JOB_ID", runner)
+        self.assertIn("TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940", runner)
         self.assertIn("readonly POPULATION_ARRAY_JOB_ID=28609", runner)
         self.assertIn(
             "1592aa59361f431ba96c6ddcbebcb596f6c20853",
@@ -1317,10 +1324,15 @@ class TransferManifestV2Tests(unittest.TestCase):
         )
         self.assertIn("--expected-verifier-sha256", runner)
         self.assertIn("--expected-verifier-git-commit", runner)
+        self.assertIn("--expected-artifact-publisher-job-id", runner)
         self.assertIn(
             "readonly POPULATION_ARRAY_JOB_ID=28609", submit
         )
-        self.assertIn("readonly PUBLISHER_JOB_ID=28610", submit)
+        self.assertIn(
+            "readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}",
+            submit,
+        )
+        self.assertIn("artifact_publisher_job_id", submit)
         self.assertIn("sbatch --parsable --hold", submit)
         self.assertIn(
             '--dependency="afterok:$PUBLISHER_JOB_ID"', submit

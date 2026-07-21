@@ -7,10 +7,12 @@ set -euo pipefail
 # simulation, metrics rollouts, model serving, or training.
 
 readonly POPULATION_ARRAY_JOB_ID=28609
-readonly PUBLISHER_JOB_ID=28610
+readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}
+readonly ARTIFACT_PUBLISHER_JOB_ID=${ARTIFACT_PUBLISHER_JOB_ID:-$PUBLISHER_JOB_ID}
+readonly TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940
 readonly POPULATION_RUN_ID=vlsa-table1-contact-authority-population-20260718a
 readonly POPULATION_SOURCE_GIT_COMMIT=1592aa59361f431ba96c6ddcbebcb596f6c20853
-readonly EXPECTED_JOB_NAME=vlsa-tx-p28610
+readonly EXPECTED_JOB_NAME=vlsa-tx-p${PUBLISHER_JOB_ID}
 
 : "${RUN_ID:?set the immutable population run ID}"
 : "${EXPECTED_SOURCE_GIT_COMMIT:?set the exact population source commit}"
@@ -42,6 +44,15 @@ die() {
 
 [[ "$RUN_ID" == "$POPULATION_RUN_ID" ]] || \
   die "run ID differs from the exact population"
+[[ "$PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "terminal publisher job ID is not numeric"
+[[ "$ARTIFACT_PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "artifact publisher job ID is not numeric"
+if [[ "$ARTIFACT_PUBLISHER_JOB_ID" != "$PUBLISHER_JOB_ID" ]]; then
+  [[ "$ARTIFACT_PUBLISHER_JOB_ID" == \
+    "$TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID" ]] || \
+    die "split publication is allowed only for timed-out artifact publisher 28940"
+fi
 [[ "$EXPECTED_SOURCE_GIT_COMMIT" == "$POPULATION_SOURCE_GIT_COMMIT" ]] || \
   die "source commit differs from the exact population"
 
@@ -111,6 +122,7 @@ exec "$AEGIS_PYTHON" "$VERIFIER" \
   --expected-source-commit "$EXPECTED_SOURCE_GIT_COMMIT" \
   --expected-population-array-job-id "$POPULATION_ARRAY_JOB_ID" \
   --expected-publisher-job-id "$PUBLISHER_JOB_ID" \
+  --expected-artifact-publisher-job-id "$ARTIFACT_PUBLISHER_JOB_ID" \
   --expected-verifier-sha256 "$EXPECTED_VERIFIER_SHA256" \
   --expected-verifier-git-commit "$EXPECTED_VERIFIER_GIT_COMMIT" \
   --config "$CONFIG_PATH" \

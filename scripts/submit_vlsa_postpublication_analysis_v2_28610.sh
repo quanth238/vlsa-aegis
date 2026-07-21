@@ -2,20 +2,24 @@
 set -euo pipefail
 
 # Exact shell-only control-plane launcher for the postpublication analysis-v2
-# job.  Publisher 28610 must already be terminal-successful.  The CPU job is
-# submitted held, inspected, immutably receipted, rechecked, and only then
-# released.  Reruns recover the one exact job instead of submitting another.
+# job.  The terminal publisher may be a finalize-only recovery job while the
+# immutable summary and prepublish artifacts remain owned by timed-out job
+# 28940.  The CPU job is submitted held, inspected, immutably receipted,
+# rechecked, and only then released.  Reruns recover the one exact job instead
+# of submitting another.
 
 readonly POPULATION_ARRAY_JOB_ID=28609
-readonly PUBLISHER_JOB_ID=28610
+readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}
+readonly ARTIFACT_PUBLISHER_JOB_ID=${ARTIFACT_PUBLISHER_JOB_ID:-$PUBLISHER_JOB_ID}
+readonly TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940
 readonly POPULATION_RUN_ID=vlsa-table1-contact-authority-population-20260718a
 readonly POPULATION_SOURCE_GIT_COMMIT=1592aa59361f431ba96c6ddcbebcb596f6c20853
-readonly EXPECTED_JOB_NAME=vlsa-a2-p28610
+readonly EXPECTED_JOB_NAME=vlsa-a2-p${PUBLISHER_JOB_ID}
 readonly EXPECTED_REMOTE_REPO=/home/quanth/working_space/vlsa-aegis-table-repro
 readonly EXPECTED_EXPERIMENT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1
 readonly EXPECTED_OUTPUT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1-analysis-v2
 
-: "${EXPECTED_PUBLICATION_RECEIPT_SHA256:?set only after publisher 28610 completes}"
+: "${EXPECTED_PUBLICATION_RECEIPT_SHA256:?set only after the terminal publisher completes}"
 : "${EXPECTED_ANALYSIS_GIT_COMMIT:?set the exact reviewed analysis release commit}"
 : "${EXPECTED_BUILDER_SHA256:?set the reviewed analysis-v2 builder SHA-256}"
 : "${EXPECTED_RUNNER_SHA256:?set the reviewed allocation runner SHA-256}"
@@ -34,8 +38,8 @@ EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-$EXPECTED_EXPERIMENT_ROOT}
 RUN_ROOT=${RUN_ROOT:-$EXPERIMENT_ROOT/$RUN_ID}
 RESULTS_ROOT=${RESULTS_ROOT:-$RUN_ROOT/tasks}
 PUBLICATION_RECEIPT=${PUBLICATION_RECEIPT:-$RUN_ROOT/population-publication-receipt.json}
-V1_SUMMARY_PATH=${V1_SUMMARY_PATH:-$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/population-summary.json}
-PREPUBLISH_RECEIPT_PATH=${PREPUBLISH_RECEIPT_PATH:-$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/prepublish-validation.json}
+V1_SUMMARY_PATH=${V1_SUMMARY_PATH:-$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/population-summary.json}
+PREPUBLISH_RECEIPT_PATH=${PREPUBLISH_RECEIPT_PATH:-$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/prepublish-validation.json}
 CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_table1_translational.json}
 MANIFEST_PATH=${MANIFEST_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.jsonl}
 MANIFEST_RECEIPT_PATH=${MANIFEST_RECEIPT_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.receipt.json}
@@ -325,6 +329,8 @@ validate_submission_receipt() {
   require_tsv_field "$SUBMISSION_RECEIPT" population_array_job_id \
     "$POPULATION_ARRAY_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" publisher_job_id "$PUBLISHER_JOB_ID"
+  require_tsv_field "$SUBMISSION_RECEIPT" artifact_publisher_job_id \
+    "$ARTIFACT_PUBLISHER_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" dependency \
     "afterok:$PUBLISHER_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" source_git_commit \
@@ -366,6 +372,8 @@ validate_release_receipt() {
   require_tsv_field "$RELEASE_RECEIPT" population_array_job_id \
     "$POPULATION_ARRAY_JOB_ID"
   require_tsv_field "$RELEASE_RECEIPT" publisher_job_id "$PUBLISHER_JOB_ID"
+  require_tsv_field "$RELEASE_RECEIPT" artifact_publisher_job_id \
+    "$ARTIFACT_PUBLISHER_JOB_ID"
   require_tsv_field "$RELEASE_RECEIPT" dependency \
     "afterok:$PUBLISHER_JOB_ID"
   require_tsv_field "$RELEASE_RECEIPT" submission_receipt_sha256 \
@@ -383,6 +391,15 @@ validate_release_receipt() {
 for value in "$EXPECTED_SOURCE_GIT_COMMIT" "$EXPECTED_ANALYSIS_GIT_COMMIT"; do
   [[ "$value" =~ ^[0-9a-f]{40}$ ]] || die "expected commit is not 40 hex"
 done
+[[ "$PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "terminal publisher job ID is not numeric"
+[[ "$ARTIFACT_PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "artifact publisher job ID is not numeric"
+if [[ "$ARTIFACT_PUBLISHER_JOB_ID" != "$PUBLISHER_JOB_ID" ]]; then
+  [[ "$ARTIFACT_PUBLISHER_JOB_ID" == \
+    "$TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID" ]] || \
+    die "split publication is allowed only for timed-out artifact publisher 28940"
+fi
 for value in \
   "$EXPECTED_PUBLICATION_RECEIPT_SHA256" \
   "$EXPECTED_BUILDER_SHA256" \
@@ -412,10 +429,10 @@ done
   "$RUN_ROOT/population-publication-receipt.json" ]] || \
   die "publication receipt path differs from the exact population"
 [[ "$V1_SUMMARY_PATH" == \
-  "$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/population-summary.json" ]] || \
+  "$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/population-summary.json" ]] || \
   die "v1 summary path differs from the exact publisher"
 [[ "$PREPUBLISH_RECEIPT_PATH" == \
-  "$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/prepublish-validation.json" ]] || \
+  "$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/prepublish-validation.json" ]] || \
   die "prepublish receipt path differs from the exact publisher"
 [[ "$CONFIG_PATH" == "$REMOTE_REPO/configs/vlsa_table1_translational.json" ]] || \
   die "config path differs from the reviewed protocol"
@@ -430,7 +447,8 @@ done
   "$OUTPUT_ROOT/$POPULATION_RUN_ID-publisher-$PUBLISHER_JOB_ID" ]] || \
   die "output directory differs from the reviewed destination"
 
-for name in RUN_ID EXPECTED_SOURCE_GIT_COMMIT \
+for name in PUBLISHER_JOB_ID ARTIFACT_PUBLISHER_JOB_ID \
+  RUN_ID EXPECTED_SOURCE_GIT_COMMIT \
   EXPECTED_PUBLICATION_RECEIPT_SHA256 EXPECTED_ANALYSIS_GIT_COMMIT \
   EXPECTED_BUILDER_SHA256 EXPECTED_RUNNER_SHA256 \
   EXPECTED_SBATCH_SHA256 EXPECTED_CONFIG_SHA256 \
@@ -468,6 +486,7 @@ flock -n 9 || die "another exact postpublication analysis launch is active"
   printf 'run_id\t%s\n' "$RUN_ID"
   printf 'population_array_job_id\t%s\n' "$POPULATION_ARRAY_JOB_ID"
   printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+  printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
   printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
   printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
   printf 'population_source_git_commit\t%s\n' "$EXPECTED_SOURCE_GIT_COMMIT"
@@ -524,7 +543,8 @@ else
   else
     require_output_unused
     export_spec="RUN_ID=$RUN_ID"
-    for name in EXPECTED_SOURCE_GIT_COMMIT \
+    for name in PUBLISHER_JOB_ID ARTIFACT_PUBLISHER_JOB_ID \
+      EXPECTED_SOURCE_GIT_COMMIT \
       EXPECTED_PUBLICATION_RECEIPT_SHA256 EXPECTED_ANALYSIS_GIT_COMMIT \
       EXPECTED_BUILDER_SHA256 EXPECTED_RUNNER_SHA256 \
       EXPECTED_SBATCH_SHA256 EXPECTED_CONFIG_SHA256 \
@@ -562,6 +582,7 @@ if [[ ! -f "$SUBMISSION_RECEIPT" && ! -L "$SUBMISSION_RECEIPT" ]]; then
     printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
     printf 'population_array_job_id\t%s\n' "$POPULATION_ARRAY_JOB_ID"
     printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+    printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
     printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
     printf 'source_git_commit\t%s\n' "$EXPECTED_SOURCE_GIT_COMMIT"
     printf 'analysis_git_commit\t%s\n' "$EXPECTED_ANALYSIS_GIT_COMMIT"
@@ -654,6 +675,7 @@ fi
   printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
   printf 'population_array_job_id\t%s\n' "$POPULATION_ARRAY_JOB_ID"
   printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+  printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
   printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
   printf 'release_action\t%s\n' "$release_action"
   printf 'observed_state_before_action\t%s\n' "${current_state:-unknown}"

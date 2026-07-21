@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Exact recovery-safe launch helper for the postpublication verifier that is
-# allowed to run only after publisher 28610 succeeds.  The job is submitted
-# held, inspected and receipted, rechecked against every frozen input, and
-# only then released.  An interruption before release leaves the exact job
-# held; rerunning this helper recovers it by its immutable state and job name.
+# Exact recovery-safe launch helper for the postpublication verifier.  The
+# terminal publisher may be a finalize-only recovery job while immutable
+# prepublication artifacts remain owned by timed-out job 28940.  The job is
+# submitted held, inspected and receipted, rechecked against every frozen
+# input, and only then released.  An interruption before release leaves the
+# exact job held; rerunning this helper recovers it by immutable identity.
 
 readonly POPULATION_ARRAY_JOB_ID=28609
-readonly PUBLISHER_JOB_ID=28610
+readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}
+readonly ARTIFACT_PUBLISHER_JOB_ID=${ARTIFACT_PUBLISHER_JOB_ID:-$PUBLISHER_JOB_ID}
+readonly TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940
 readonly POPULATION_RUN_ID=vlsa-table1-contact-authority-population-20260718a
 readonly POPULATION_SOURCE_GIT_COMMIT=1592aa59361f431ba96c6ddcbebcb596f6c20853
-readonly EXPECTED_JOB_NAME=vlsa-tx-p28610
+readonly EXPECTED_JOB_NAME=vlsa-tx-p${PUBLISHER_JOB_ID}
 readonly EXPECTED_REMOTE_REPO=/home/quanth/working_space/vlsa-aegis-table-repro
 readonly EXPECTED_EXPERIMENT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1
 readonly EXPECTED_TRANSFER_OUTPUT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1-transfer
@@ -170,6 +173,8 @@ validate_submission_receipt() {
     "$POPULATION_ARRAY_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" publisher_job_id \
     "$PUBLISHER_JOB_ID"
+  require_tsv_field "$SUBMISSION_RECEIPT" artifact_publisher_job_id \
+    "$ARTIFACT_PUBLISHER_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" dependency \
     "afterok:$PUBLISHER_JOB_ID"
   require_tsv_field "$SUBMISSION_RECEIPT" source_git_commit \
@@ -203,6 +208,8 @@ validate_release_receipt() {
   require_tsv_field "$RELEASE_RECEIPT" job_id "$job_id"
   require_tsv_field "$RELEASE_RECEIPT" job_name "$EXPECTED_JOB_NAME"
   require_tsv_field "$RELEASE_RECEIPT" publisher_job_id "$PUBLISHER_JOB_ID"
+  require_tsv_field "$RELEASE_RECEIPT" artifact_publisher_job_id \
+    "$ARTIFACT_PUBLISHER_JOB_ID"
   require_tsv_field "$RELEASE_RECEIPT" dependency \
     "afterok:$PUBLISHER_JOB_ID"
   require_tsv_field "$RELEASE_RECEIPT" submission_receipt_sha256 \
@@ -338,6 +345,15 @@ for value in \
   "$EXPECTED_SOURCE_GIT_COMMIT" "$EXPECTED_VERIFIER_GIT_COMMIT"; do
   [[ "$value" =~ ^[0-9a-f]{40}$ ]] || die "expected commit is not 40 hex"
 done
+[[ "$PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "terminal publisher job ID is not numeric"
+[[ "$ARTIFACT_PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "artifact publisher job ID is not numeric"
+if [[ "$ARTIFACT_PUBLISHER_JOB_ID" != "$PUBLISHER_JOB_ID" ]]; then
+  [[ "$ARTIFACT_PUBLISHER_JOB_ID" == \
+    "$TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID" ]] || \
+    die "split publication is allowed only for timed-out artifact publisher 28940"
+fi
 for value in \
   "$EXPECTED_PUBLICATION_RECEIPT_SHA256" \
   "$EXPECTED_VERIFIER_SHA256" \
@@ -367,7 +383,8 @@ case "$LABEL_MANIFEST_PATH" in
   /*) ;;
   *) die "label manifest path must be absolute" ;;
 esac
-for name in RUN_ID EXPECTED_SOURCE_GIT_COMMIT \
+for name in PUBLISHER_JOB_ID ARTIFACT_PUBLISHER_JOB_ID \
+  RUN_ID EXPECTED_SOURCE_GIT_COMMIT \
   EXPECTED_PUBLICATION_RECEIPT_SHA256 EXPECTED_VERIFIER_SHA256 \
   EXPECTED_VERIFIER_GIT_COMMIT EXPECTED_RUNNER_SHA256 \
   EXPECTED_SBATCH_SHA256 LABEL_MANIFEST_PATH REMOTE_REPO \
@@ -401,6 +418,7 @@ flock -n 9 || die "another exact postpublication launch is active"
   printf 'run_id\t%s\n' "$RUN_ID"
   printf 'population_array_job_id\t%s\n' "$POPULATION_ARRAY_JOB_ID"
   printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+  printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
   printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
   printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
   printf 'population_source_git_commit\t%s\n' "$EXPECTED_SOURCE_GIT_COMMIT"
@@ -442,7 +460,8 @@ else
     job_id=${recovered_jobs[0]}
   else
     export_spec="RUN_ID=$RUN_ID"
-    for name in EXPECTED_SOURCE_GIT_COMMIT \
+    for name in PUBLISHER_JOB_ID ARTIFACT_PUBLISHER_JOB_ID \
+      EXPECTED_SOURCE_GIT_COMMIT \
       EXPECTED_PUBLICATION_RECEIPT_SHA256 EXPECTED_VERIFIER_SHA256 \
       EXPECTED_VERIFIER_GIT_COMMIT EXPECTED_RUNNER_SHA256 \
       EXPECTED_SBATCH_SHA256 LABEL_MANIFEST_PATH REMOTE_REPO \
@@ -475,6 +494,7 @@ if [[ ! -f "$SUBMISSION_RECEIPT" && ! -L "$SUBMISSION_RECEIPT" ]]; then
     printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
     printf 'population_array_job_id\t%s\n' "$POPULATION_ARRAY_JOB_ID"
     printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+    printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
     printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
     printf 'source_git_commit\t%s\n' "$EXPECTED_SOURCE_GIT_COMMIT"
     printf 'publication_receipt_sha256\t%s\n' "$EXPECTED_PUBLICATION_RECEIPT_SHA256"
@@ -563,6 +583,7 @@ fi
   printf 'job_id\t%s\n' "$job_id"
   printf 'job_name\t%s\n' "$EXPECTED_JOB_NAME"
   printf 'publisher_job_id\t%s\n' "$PUBLISHER_JOB_ID"
+  printf 'artifact_publisher_job_id\t%s\n' "$ARTIFACT_PUBLISHER_JOB_ID"
   printf 'dependency\tafterok:%s\n' "$PUBLISHER_JOB_ID"
   printf 'release_action\t%s\n' "$release_action"
   printf 'observed_state_before_action\t%s\n' "${current_state:-unknown}"

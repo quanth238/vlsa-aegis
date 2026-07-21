@@ -7,10 +7,12 @@ set -euo pipefail
 # rendering, simulation, model serving, or training.
 
 readonly POPULATION_ARRAY_JOB_ID=28609
-readonly PUBLISHER_JOB_ID=28610
+readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}
+readonly ARTIFACT_PUBLISHER_JOB_ID=${ARTIFACT_PUBLISHER_JOB_ID:-$PUBLISHER_JOB_ID}
+readonly TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940
 readonly POPULATION_RUN_ID=vlsa-table1-contact-authority-population-20260718a
 readonly POPULATION_SOURCE_GIT_COMMIT=1592aa59361f431ba96c6ddcbebcb596f6c20853
-readonly EXPECTED_JOB_NAME=vlsa-a2-p28610
+readonly EXPECTED_JOB_NAME=vlsa-a2-p${PUBLISHER_JOB_ID}
 readonly EXPECTED_REMOTE_REPO=/home/quanth/working_space/vlsa-aegis-table-repro
 readonly EXPECTED_EXPERIMENT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1
 readonly EXPECTED_OUTPUT_ROOT=/mnt/data/quanth/experiments/vlsa-aegis-table1-analysis-v2
@@ -34,8 +36,8 @@ EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-$EXPECTED_EXPERIMENT_ROOT}
 RUN_ROOT=${RUN_ROOT:-$EXPERIMENT_ROOT/$RUN_ID}
 RESULTS_ROOT=${RESULTS_ROOT:-$RUN_ROOT/tasks}
 PUBLICATION_RECEIPT=${PUBLICATION_RECEIPT:-$RUN_ROOT/population-publication-receipt.json}
-V1_SUMMARY_PATH=${V1_SUMMARY_PATH:-$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/population-summary.json}
-PREPUBLISH_RECEIPT_PATH=${PREPUBLISH_RECEIPT_PATH:-$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/prepublish-validation.json}
+V1_SUMMARY_PATH=${V1_SUMMARY_PATH:-$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/population-summary.json}
+PREPUBLISH_RECEIPT_PATH=${PREPUBLISH_RECEIPT_PATH:-$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/prepublish-validation.json}
 CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_table1_translational.json}
 MANIFEST_PATH=${MANIFEST_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.jsonl}
 MANIFEST_RECEIPT_PATH=${MANIFEST_RECEIPT_PATH:-$REMOTE_REPO/manifests/vlsa_table1_population.receipt.json}
@@ -79,6 +81,15 @@ require_file_hash() {
 
 [[ "$RUN_ID" == "$POPULATION_RUN_ID" ]] || \
   die "run ID differs from the exact population"
+[[ "$PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "terminal publisher job ID is not numeric"
+[[ "$ARTIFACT_PUBLISHER_JOB_ID" =~ ^[0-9]+$ ]] || \
+  die "artifact publisher job ID is not numeric"
+if [[ "$ARTIFACT_PUBLISHER_JOB_ID" != "$PUBLISHER_JOB_ID" ]]; then
+  [[ "$ARTIFACT_PUBLISHER_JOB_ID" == \
+    "$TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID" ]] || \
+    die "split publication is allowed only for timed-out artifact publisher 28940"
+fi
 [[ "$EXPECTED_SOURCE_GIT_COMMIT" == "$POPULATION_SOURCE_GIT_COMMIT" ]] || \
   die "population source commit differs from the exact runtime"
 [[ "$REMOTE_REPO" == "$EXPECTED_REMOTE_REPO" ]] || \
@@ -92,11 +103,11 @@ require_file_hash() {
 [[ "$PUBLICATION_RECEIPT" == "$RUN_ROOT/population-publication-receipt.json" ]] || \
   die "publication receipt path differs from the exact population"
 [[ "$V1_SUMMARY_PATH" == \
-  "$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/population-summary.json" ]] || \
-  die "v1 summary path differs from publisher $PUBLISHER_JOB_ID"
+  "$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/population-summary.json" ]] || \
+  die "v1 summary path differs from artifact publisher $ARTIFACT_PUBLISHER_JOB_ID"
 [[ "$PREPUBLISH_RECEIPT_PATH" == \
-  "$RUN_ROOT/publication-attempts/job-$PUBLISHER_JOB_ID/prepublish-validation.json" ]] || \
-  die "prepublish receipt path differs from publisher $PUBLISHER_JOB_ID"
+  "$RUN_ROOT/publication-attempts/job-$ARTIFACT_PUBLISHER_JOB_ID/prepublish-validation.json" ]] || \
+  die "prepublish receipt path differs from artifact publisher $ARTIFACT_PUBLISHER_JOB_ID"
 [[ "$CONFIG_PATH" == "$REMOTE_REPO/configs/vlsa_table1_translational.json" ]] || \
   die "config path differs from the reviewed protocol"
 [[ "$MANIFEST_PATH" == "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" ]] || \

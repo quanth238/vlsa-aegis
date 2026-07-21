@@ -195,8 +195,9 @@ class LaunchFixture:
             self.fake_bin / "sacct",
             """#!/usr/bin/env bash
 set -euo pipefail
-if [[ " $* " == *" -j 28610 "* ]]; then
-  printf '28610|%s|%s\\n' "${FAKE_PUBLISHER_STATE:-COMPLETED}" "${FAKE_PUBLISHER_EXIT:-0:0}"
+publisher_id=${FAKE_PUBLISHER_ID:-28610}
+if [[ " $* " == *" -j $publisher_id "* ]]; then
+  printf '%s|%s|%s\\n' "$publisher_id" "${FAKE_PUBLISHER_STATE:-COMPLETED}" "${FAKE_PUBLISHER_EXIT:-0:0}"
 else
   printf '9002|%s|0:0\\n' "${FAKE_JOB_STATE:-PENDING}"
 fi
@@ -231,11 +232,12 @@ if [[ "$1" == show ]]; then
     state=PENDING
     reason=JobHeldUser
   fi
-  printf 'JobId=9002 JobName=vlsa-a2-p28610 JobState=%s Reason=%s Dependency=%s Partition=main Account=normal QOS=normal NumNodes=1 NumCPUs=%s NumTasks=1 CPUs/Task=%s MinMemoryNode=%s TimeLimit=%s Requeue=0 ExcNodeList=%s Command=%s WorkDir=%s StdOut=/mnt/data/quanth/slurm_logs/vlsa-a2-p28610-9002.out ReqTRES=cpu=4,mem=32G,node=1,billing=4 AllocTRES=(null) TresPerNode=(null) TresPerTask=cpu=4 Gres=(null)\\n' \
-    "$state" "$reason" "${FAKE_DEPENDENCY:-afterok:28610}" \
+  job_name=${FAKE_JOB_NAME:-vlsa-a2-p28610}
+  printf 'JobId=9002 JobName=%s JobState=%s Reason=%s Dependency=%s Partition=main Account=normal QOS=normal NumNodes=1 NumCPUs=%s NumTasks=1 CPUs/Task=%s MinMemoryNode=%s TimeLimit=%s Requeue=0 ExcNodeList=%s Command=%s WorkDir=%s StdOut=/mnt/data/quanth/slurm_logs/%s-9002.out ReqTRES=cpu=4,mem=32G,node=1,billing=4 AllocTRES=(null) TresPerNode=(null) TresPerTask=cpu=4 Gres=(null)\\n' \
+    "$job_name" "$state" "$reason" "${FAKE_DEPENDENCY:-afterok:28610}" \
     "${FAKE_CPUS:-4}" "${FAKE_CPUS:-4}" "${FAKE_MEMORY:-32G}" \
     "${FAKE_TIME:-04:00:00}" "${FAKE_EXCLUDE:-worker-3}" \
-    "$FAKE_SBATCH_PATH" "$FAKE_REMOTE_REPO"
+    "$FAKE_SBATCH_PATH" "$FAKE_REMOTE_REPO" "$job_name"
 elif [[ "$1" == release ]]; then
   printf 'release %s\\n' "$2" >>"$FAKE_STATE_DIR/commands.log"
   if [[ -f "$FAKE_STATE_DIR/fail-release-once" ]]; then
@@ -380,7 +382,12 @@ class PostpublicationAnalysisV2LaunchTests(unittest.TestCase):
 
         for text in (submit, runner):
             self.assertIn("readonly POPULATION_ARRAY_JOB_ID=28609", text)
-            self.assertIn("readonly PUBLISHER_JOB_ID=28610", text)
+            self.assertIn(
+                "readonly PUBLISHER_JOB_ID=${PUBLISHER_JOB_ID:-28610}",
+                text,
+            )
+            self.assertIn("ARTIFACT_PUBLISHER_JOB_ID", text)
+            self.assertIn("TIMEOUT_ARTIFACT_PUBLISHER_JOB_ID=28940", text)
             self.assertIn(RUN_ID, text)
             self.assertIn(SOURCE_COMMIT, text)
             self.assertIn("afterok:$PUBLISHER_JOB_ID", text)
@@ -477,6 +484,66 @@ class PostpublicationAnalysisV2LaunchTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("not exactly COMPLETED", result.stderr)
         self.assertFalse(self.fixture.command_log.exists())
+
+    def test_22_timeout_recovery_separates_terminal_and_artifact_jobs(
+        self,
+    ) -> None:
+        timeout_root = (
+            self.fixture.run_root / "publication-attempts" / "job-28940"
+        )
+        timeout_root.mkdir(parents=True)
+        shutil.copy2(
+            self.fixture.summary,
+            timeout_root / "population-summary.json",
+        )
+        shutil.copy2(
+            self.fixture.prepublish,
+            timeout_root / "prepublish-validation.json",
+        )
+        overrides = {
+            "PUBLISHER_JOB_ID": "9003",
+            "ARTIFACT_PUBLISHER_JOB_ID": "28940",
+            "FAKE_PUBLISHER_ID": "9003",
+            "FAKE_JOB_NAME": "vlsa-a2-p9003",
+            "FAKE_DEPENDENCY": "afterok:9003",
+        }
+        result = self.fixture.run(overrides=overrides)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = self.fixture.command_log.read_text(encoding="utf-8")
+        self.assertIn("--dependency=afterok:9003", commands)
+        control_dir = (
+            self.fixture.output_root
+            / ".analysis-v2-control"
+            / f"{RUN_ID}-publisher-9003"
+        )
+        receipt = (control_dir / "submission-receipt.tsv").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("publisher_job_id\t9003\n", receipt)
+        self.assertIn("artifact_publisher_job_id\t28940\n", receipt)
+
+        allocation = self.fixture.run_allocation(
+            overrides={
+                **overrides,
+                "SLURM_JOB_NAME": "vlsa-a2-p9003",
+                "SLURM_JOB_DEPENDENCY": "afterok:9003",
+            }
+        )
+        self.assertEqual(allocation.returncode, 0, allocation.stderr)
+
+        rejected = LaunchFixture()
+        try:
+            failed = rejected.run(
+                overrides={
+                    "PUBLISHER_JOB_ID": "9003",
+                    "ARTIFACT_PUBLISHER_JOB_ID": "28941",
+                }
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("timed-out artifact publisher 28940", failed.stderr)
+            self.assertFalse(rejected.command_log.exists())
+        finally:
+            rejected.cleanup()
 
     def test_25_dependency_and_resource_mutations_fail_before_release(
         self,
