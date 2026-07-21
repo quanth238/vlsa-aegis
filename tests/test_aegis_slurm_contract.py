@@ -192,6 +192,13 @@ class AegisSlurmContractTest(unittest.TestCase):
             "EXPECTED_PRIOR_RETRY_PUBLISHER_LOG_SHA256",
             "EXPECTED_PRIOR_RETRY_PUBLISHER_FAILURE_SHA256",
             "EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256",
+            "LATEST_RETRY_PUBLISHER_JOB_ID",
+            "LATEST_RETRY_PUBLISHER_LOG_PATH",
+            "LATEST_RETRY_PUBLISHER_FAILURE_PATH",
+            "LATEST_RETRY_PUBLISHER_AUTHORITY_PATH",
+            "EXPECTED_LATEST_RETRY_PUBLISHER_LOG_SHA256",
+            "EXPECTED_LATEST_RETRY_PUBLISHER_FAILURE_SHA256",
+            "EXPECTED_LATEST_RETRY_PUBLISHER_AUTHORITY_SHA256",
         ):
             self.assertIn(binding, publisher)
         self.assertNotIn("scripts/serve_policy.py", publisher)

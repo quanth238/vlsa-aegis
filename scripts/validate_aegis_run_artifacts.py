@@ -59,7 +59,7 @@ CONTACT_MODEL_AUTHORITY_SCHEMA_V2 = (
     "vlsa_table1_contact_model_authority.v2"
 )
 PUBLISHER_RETRY_AUTHORITY_SCHEMA = (
-    "vlsa_table1_publisher_retry_authority.v2"
+    "vlsa_table1_publisher_retry_authority.v3"
 )
 CONTACT_ROLE_TAXONOMY = (
     "robot",
@@ -155,7 +155,7 @@ def validate_publisher_retry_authority(
         ("permits_inference_or_simulation", False),
         (
             "failure_class",
-            "publisher_validator_source_root_rebinding",
+            "publisher_validator_canonical_fixture_source_root_rebinding",
         ),
     ):
         _require_equal(
@@ -167,6 +167,7 @@ def validate_publisher_retry_authority(
     publisher_source = authority.get("publisher_source")
     recovery_from = authority.get("recovery_from")
     prior_retry = authority.get("prior_retry")
+    latest_retry = authority.get("latest_retry")
     publisher_slurm = authority.get("publisher_slurm")
     if not all(
         isinstance(value, Mapping)
@@ -175,6 +176,7 @@ def validate_publisher_retry_authority(
             publisher_source,
             recovery_from,
             prior_retry,
+            latest_retry,
             publisher_slurm,
         )
     ):
@@ -247,42 +249,65 @@ def validate_publisher_retry_authority(
         expected_parent,
         label="publisher retry authority parent",
     )
-    prior_job_id = prior_retry.get("publisher_job_id")
-    if (
-        not isinstance(prior_job_id, str)
-        or not prior_job_id.isdigit()
-        or prior_job_id
-        in {str(recovery_from.get("publisher_job_id", "")), current_job_id}
+    retry_job_ids: dict[str, str] = {}
+    disallowed_job_ids = {
+        str(recovery_from.get("publisher_job_id", "")),
+        str(current_job_id),
+    }
+    for retry_label, retry_record in (
+        ("prior", prior_retry),
+        ("latest", latest_retry),
     ):
-        raise ReceiptError("publisher retry prior job identity is invalid")
-    for field, expected in (
-        ("failure_stage", "population_prepublish_validation"),
-        ("exit_code", 2),
-    ):
-        _require_equal(
-            prior_retry.get(field),
-            expected,
-            label=f"publisher retry prior failure/{field}",
-        )
-    for label in ("log", "failure_receipt", "authority_receipt"):
-        artifact = prior_retry.get(label)
-        if not isinstance(artifact, Mapping):
-            raise ReceiptError(
-                f"publisher retry prior {label} binding is missing"
-            )
-        artifact_path = Path(str(artifact.get("path", "")))
-        expected_sha256 = require_sha256(
-            artifact.get("sha256"),
-            label=f"publisher retry prior {label} SHA-256",
-        )
+        retry_job_id = retry_record.get("publisher_job_id")
         if (
-            artifact_path.is_symlink()
-            or not artifact_path.is_file()
-            or sha256_path(artifact_path) != expected_sha256
+            not isinstance(retry_job_id, str)
+            or not retry_job_id.isdigit()
+            or retry_job_id in disallowed_job_ids
         ):
             raise ReceiptError(
-                f"publisher retry prior {label} artifact differs"
+                f"publisher retry {retry_label} job identity is invalid"
             )
+        retry_job_ids[retry_label] = retry_job_id
+        disallowed_job_ids.add(retry_job_id)
+        for field, expected in (
+            ("failure_stage", "population_prepublish_validation"),
+            ("exit_code", 2),
+        ):
+            _require_equal(
+                retry_record.get(field),
+                expected,
+                label=(
+                    f"publisher retry {retry_label} failure/{field}"
+                ),
+            )
+        for artifact_label in (
+            "log",
+            "failure_receipt",
+            "authority_receipt",
+        ):
+            artifact = retry_record.get(artifact_label)
+            if not isinstance(artifact, Mapping):
+                raise ReceiptError(
+                    "publisher retry "
+                    f"{retry_label} {artifact_label} binding is missing"
+                )
+            artifact_path = Path(str(artifact.get("path", "")))
+            expected_sha256 = require_sha256(
+                artifact.get("sha256"),
+                label=(
+                    "publisher retry "
+                    f"{retry_label} {artifact_label} SHA-256"
+                ),
+            )
+            if (
+                artifact_path.is_symlink()
+                or not artifact_path.is_file()
+                or sha256_path(artifact_path) != expected_sha256
+            ):
+                raise ReceiptError(
+                    "publisher retry "
+                    f"{retry_label} {artifact_label} artifact differs"
+                )
     return {
         "path": str(path.resolve()),
         "sha256": sha256_path(path.resolve()),
@@ -294,7 +319,8 @@ def validate_publisher_retry_authority(
         "previous_publisher_job_id": recovery_from.get(
             "publisher_job_id"
         ),
-        "prior_retry_publisher_job_id": prior_job_id,
+        "prior_retry_publisher_job_id": retry_job_ids["prior"],
+        "latest_retry_publisher_job_id": retry_job_ids["latest"],
         "publisher_slurm": dict(publisher_slurm),
     }
 
@@ -519,9 +545,15 @@ def _canary_result_specs(
     )
 
 
-def _validate_canary_action_reference_path(path: Path) -> Path:
+def _validate_canary_action_reference_path(
+    path: Path,
+    *,
+    canonical_path: Path | None = None,
+) -> Path:
     expected = (
         ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
+        if canonical_path is None
+        else canonical_path
     )
     if path.is_symlink() or not path.is_file():
         raise ReceiptError(
@@ -1685,7 +1717,8 @@ def validate_paired_canary_receipt(
             ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
             if action_reference_path is None
             else action_reference_path.resolve()
-        )
+        ),
+        canonical_path=action_reference_path,
     )
     try:
         regenerated_action_evidence = (

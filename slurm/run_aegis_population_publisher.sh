@@ -104,6 +104,13 @@ if [[ "$EXPECTED_PUBLISHER_GIT_COMMIT" != "$EXPECTED_GIT_COMMIT" ]]; then
   : "${EXPECTED_PRIOR_RETRY_PUBLISHER_LOG_SHA256:?set the prior retry log SHA-256}"
   : "${EXPECTED_PRIOR_RETRY_PUBLISHER_FAILURE_SHA256:?set the prior retry failure SHA-256}"
   : "${EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256:?set the prior retry authority SHA-256}"
+  : "${LATEST_RETRY_PUBLISHER_JOB_ID:?set the latest retry publisher job ID}"
+  : "${LATEST_RETRY_PUBLISHER_LOG_PATH:?set the latest retry log path}"
+  : "${LATEST_RETRY_PUBLISHER_FAILURE_PATH:?set the latest retry failure path}"
+  : "${LATEST_RETRY_PUBLISHER_AUTHORITY_PATH:?set the latest retry authority path}"
+  : "${EXPECTED_LATEST_RETRY_PUBLISHER_LOG_SHA256:?set the latest retry log SHA-256}"
+  : "${EXPECTED_LATEST_RETRY_PUBLISHER_FAILURE_SHA256:?set the latest retry failure SHA-256}"
+  : "${EXPECTED_LATEST_RETRY_PUBLISHER_AUTHORITY_SHA256:?set the latest retry authority SHA-256}"
 fi
 PUBLISHER_CODE_ROOT=$PUBLISHER_RELEASE_REPO
 export PYTHONDONTWRITEBYTECODE=1
@@ -180,6 +187,18 @@ if [[ "$PUBLISHER_RETRY" == true ]]; then
       "$PRIOR_RETRY_PUBLISHER_AUTHORITY_PATH" \
     --expected-prior-retry-publisher-authority-sha256 \
       "$EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256" \
+    --latest-retry-publisher-job-id "$LATEST_RETRY_PUBLISHER_JOB_ID" \
+    --latest-retry-publisher-log "$LATEST_RETRY_PUBLISHER_LOG_PATH" \
+    --expected-latest-retry-publisher-log-sha256 \
+      "$EXPECTED_LATEST_RETRY_PUBLISHER_LOG_SHA256" \
+    --latest-retry-publisher-failure \
+      "$LATEST_RETRY_PUBLISHER_FAILURE_PATH" \
+    --expected-latest-retry-publisher-failure-sha256 \
+      "$EXPECTED_LATEST_RETRY_PUBLISHER_FAILURE_SHA256" \
+    --latest-retry-publisher-authority \
+      "$LATEST_RETRY_PUBLISHER_AUTHORITY_PATH" \
+    --expected-latest-retry-publisher-authority-sha256 \
+      "$EXPECTED_LATEST_RETRY_PUBLISHER_AUTHORITY_SHA256" \
     --validator "$VALIDATOR" \
     --publisher-authority-builder \
       "$PUBLISHER_CODE_ROOT/scripts/build_aegis_publisher_retry_authority.py" \

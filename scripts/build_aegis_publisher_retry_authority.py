@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bind two reviewed publication-only fixes to one immutable retry."""
+"""Bind three reviewed publication-only fixes to one immutable retry."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from scripts.aegis_receipt_utils import (
 )
 
 
-SCHEMA_VERSION = "vlsa_table1_publisher_retry_authority.v2"
+SCHEMA_VERSION = "vlsa_table1_publisher_retry_authority.v3"
 EXPECTED_FAILURE_LOG = (
     "AEGIS artifact validation failed: "
     "vlsa-t1-spatial-i-t0-e00/pi05: contact event_counts_by_role "
@@ -57,6 +57,30 @@ PRIOR_RETRY_OBSERVED_REFERENCE = (
 PRIOR_RETRY_EXPECTED_REFERENCE = (
     "'path': '/home/quanth/working_space/vlsa-aegis-publication-retry/"
     "fixtures/vlsa_table1_canary_action_reference.json'"
+)
+LATEST_RETRY_LOG_PREFIX = (
+    '{"output": '
+    '"/mnt/data/quanth/experiments/vlsa-aegis-table1/'
+    'vlsa-table1-contact-authority-population-20260718a/'
+    'publication-attempts/job-28921/publisher-retry-authority.json", '
+    '"receipt_file_sha256": '
+    '"121cdd483c8c339b1ae6b96f0a5da0b621e838466889248f11c5ab88c9e0b29b", '
+    '"receipt_payload_sha256": '
+    '"a7154ade833f29d00f3d8c39d77bca3f4e2001bae9d1131a04e05a07702cfb36", '
+    '"status": "validated"}\n'
+    "AEGIS artifact validation failed: paired-canary canonical "
+    "action-reference fixture differs: observed="
+)
+LATEST_RETRY_OBSERVED_REFERENCE = (
+    "PosixPath('/home/quanth/working_space/vlsa-aegis-table-repro/"
+    "fixtures/vlsa_table1_canary_action_reference.json')"
+)
+LATEST_RETRY_EXPECTED_REFERENCE = (
+    "PosixPath('/home/quanth/working_space/vlsa-aegis-publication-retry-v2/"
+    "fixtures/vlsa_table1_canary_action_reference.json')"
+)
+LATEST_RETRY_PUBLISHER_COMMIT = (
+    "85a8c2e573eac1d5348b77b973bc7009e86371bf"
 )
 EXPECTED_CHANGED_PATHS = (
     "scripts/build_aegis_publisher_retry_authority.py",
@@ -297,6 +321,116 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
     ):
         raise ReceiptError("prior retry publisher authority chain differs")
 
+    latest_retry_log = args.latest_retry_publisher_log.resolve()
+    latest_retry_failure_path = (
+        args.latest_retry_publisher_failure.resolve()
+    )
+    latest_retry_authority_path = (
+        args.latest_retry_publisher_authority.resolve()
+    )
+    expected_latest_log_sha256 = require_sha256(
+        args.expected_latest_retry_publisher_log_sha256,
+        label="latest retry publisher log SHA-256",
+    )
+    expected_latest_failure_sha256 = require_sha256(
+        args.expected_latest_retry_publisher_failure_sha256,
+        label="latest retry publisher failure SHA-256",
+    )
+    expected_latest_authority_sha256 = require_sha256(
+        args.expected_latest_retry_publisher_authority_sha256,
+        label="latest retry publisher authority SHA-256",
+    )
+    if latest_retry_log.is_symlink() or not latest_retry_log.is_file():
+        raise ReceiptError("latest retry publisher log is missing or symlinked")
+    if sha256_path(latest_retry_log) != expected_latest_log_sha256:
+        raise ReceiptError("latest retry publisher log SHA-256 differs")
+    try:
+        latest_retry_log_text = latest_retry_log.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise ReceiptError("latest retry publisher log is unreadable") from error
+    if (
+        not latest_retry_log_text.startswith(LATEST_RETRY_LOG_PREFIX)
+        or LATEST_RETRY_OBSERVED_REFERENCE not in latest_retry_log_text
+        or LATEST_RETRY_EXPECTED_REFERENCE not in latest_retry_log_text
+    ):
+        raise ReceiptError("latest retry publisher failure message differs")
+    latest_retry_failure = load_json_object(
+        latest_retry_failure_path,
+        label="latest retry publisher failure receipt",
+    )
+    if (
+        sha256_path(latest_retry_failure_path)
+        != expected_latest_failure_sha256
+    ):
+        raise ReceiptError(
+            "latest retry publisher failure receipt SHA-256 differs"
+        )
+    expected_latest_failure = {
+        "schema_version": "vlsa_table1_population_publisher_failure.v1",
+        "status": "apparatus_failure",
+        "scientific_result": False,
+        "run_id": args.run_id,
+        "population_array_job_id": args.population_array_job_id,
+        "publisher_job_id": args.latest_retry_publisher_job_id,
+        "host": "worker-1",
+        "failure_stage": "population_prepublish_validation",
+        "exit_code": 2,
+    }
+    if latest_retry_failure != expected_latest_failure:
+        raise ReceiptError(
+            "latest retry publisher failure receipt payload differs"
+        )
+    latest_retry_authority = load_json_object(
+        latest_retry_authority_path,
+        label="latest retry publisher authority receipt",
+    )
+    if (
+        sha256_path(latest_retry_authority_path)
+        != expected_latest_authority_sha256
+    ):
+        raise ReceiptError(
+            "latest retry publisher authority receipt SHA-256 differs"
+        )
+    for field, expected in (
+        ("schema_version", "vlsa_table1_publisher_retry_authority.v2"),
+        ("status", "validated"),
+        ("scientific_result", False),
+        ("run_id", args.run_id),
+        ("population_array_job_id", args.population_array_job_id),
+        ("preserves_immutable_result_tree", True),
+        ("permits_inference_or_simulation", False),
+        ("failure_class", "publisher_validator_source_root_rebinding"),
+    ):
+        if latest_retry_authority.get(field) != expected:
+            raise ReceiptError(
+                f"latest retry publisher authority {field} differs"
+            )
+    latest_retry_slurm = latest_retry_authority.get("publisher_slurm")
+    latest_retry_recovery = latest_retry_authority.get("recovery_from")
+    latest_retry_prior = latest_retry_authority.get("prior_retry")
+    latest_retry_source = latest_retry_authority.get("publisher_source")
+    if not all(
+        isinstance(value, dict)
+        for value in (
+            latest_retry_slurm,
+            latest_retry_recovery,
+            latest_retry_prior,
+            latest_retry_source,
+        )
+    ):
+        raise ReceiptError("latest retry publisher authority is incomplete")
+    if (
+        latest_retry_slurm.get("job_id")
+        != args.latest_retry_publisher_job_id
+        or latest_retry_recovery.get("publisher_job_id")
+        != args.previous_publisher_job_id
+        or latest_retry_prior.get("publisher_job_id")
+        != args.prior_retry_publisher_job_id
+        or latest_retry_source.get("git_commit")
+        != LATEST_RETRY_PUBLISHER_COMMIT
+    ):
+        raise ReceiptError("latest retry publisher authority chain differs")
+
     environment = os.environ
     current_job_id = environment.get("SLURM_JOB_ID", "")
     current_dependency = environment.get("SLURM_JOB_DEPENDENCY", "")
@@ -304,6 +438,7 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
     if not current_job_id or current_job_id in {
         args.previous_publisher_job_id,
         args.prior_retry_publisher_job_id,
+        args.latest_retry_publisher_job_id,
     }:
         raise ReceiptError("publisher retry requires one new exact Slurm job")
     if current_dependency != f"afterany:{args.population_array_job_id}":
@@ -346,7 +481,9 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
         "population_array_job_id": args.population_array_job_id,
         "preserves_immutable_result_tree": True,
         "permits_inference_or_simulation": False,
-        "failure_class": "publisher_validator_source_root_rebinding",
+        "failure_class": (
+            "publisher_validator_canonical_fixture_source_root_rebinding"
+        ),
         "population_source": {
             "repo": str(population_repo),
             "git_commit": population_commit,
@@ -387,6 +524,23 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
             "authority_receipt": {
                 "path": str(prior_retry_authority_path),
                 "sha256": expected_prior_authority_sha256,
+            },
+        },
+        "latest_retry": {
+            "publisher_job_id": args.latest_retry_publisher_job_id,
+            "failure_stage": "population_prepublish_validation",
+            "exit_code": 2,
+            "log": {
+                "path": str(latest_retry_log),
+                "sha256": expected_latest_log_sha256,
+            },
+            "failure_receipt": {
+                "path": str(latest_retry_failure_path),
+                "sha256": expected_latest_failure_sha256,
+            },
+            "authority_receipt": {
+                "path": str(latest_retry_authority_path),
+                "sha256": expected_latest_authority_sha256,
             },
         },
         "publisher_slurm": {
@@ -441,6 +595,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--expected-prior-retry-publisher-authority-sha256", required=True
+    )
+    parser.add_argument("--latest-retry-publisher-job-id", required=True)
+    parser.add_argument(
+        "--latest-retry-publisher-log", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-latest-retry-publisher-log-sha256", required=True
+    )
+    parser.add_argument(
+        "--latest-retry-publisher-failure", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-latest-retry-publisher-failure-sha256", required=True
+    )
+    parser.add_argument(
+        "--latest-retry-publisher-authority", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-latest-retry-publisher-authority-sha256", required=True
     )
     parser.add_argument("--validator", type=Path, required=True)
     parser.add_argument(
