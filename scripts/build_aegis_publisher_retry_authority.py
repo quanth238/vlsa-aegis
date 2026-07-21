@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bind a publication-only source fix to one immutable publisher retry."""
+"""Bind two reviewed publication-only fixes to one immutable retry."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from scripts.aegis_receipt_utils import (
 )
 
 
-SCHEMA_VERSION = "vlsa_table1_publisher_retry_authority.v1"
+SCHEMA_VERSION = "vlsa_table1_publisher_retry_authority.v2"
 EXPECTED_FAILURE_LOG = (
     "AEGIS artifact validation failed: "
     "vlsa-t1-spatial-i-t0-e00/pi05: contact event_counts_by_role "
@@ -36,6 +36,27 @@ EXPECTED_FAILURE_LOG = (
     "'static_support', 'unknown'), "
     "expected=('robot', 'static_support', 'dynamic_task_object', "
     "'dynamic_other', 'unknown')\n"
+)
+PRIOR_RETRY_LOG_PREFIX = (
+    '{"output": '
+    '"/mnt/data/quanth/experiments/vlsa-aegis-table1/'
+    'vlsa-table1-contact-authority-population-20260718a/'
+    'publication-attempts/job-28906/publisher-retry-authority.json", '
+    '"receipt_file_sha256": '
+    '"0ab7c8fded8357a545ccf85fd0325905485427b9810b2022f51b6bd30e3dd798", '
+    '"receipt_payload_sha256": '
+    '"68ad8e700b458780a65543b017e9917d126828fbefcb9f0dfc06218dcc6e1220", '
+    '"status": "validated"}\n'
+    "AEGIS artifact validation failed: paired-canary action-invariant "
+    "evidence differs: observed="
+)
+PRIOR_RETRY_OBSERVED_REFERENCE = (
+    "'path': '/home/quanth/working_space/vlsa-aegis-table-repro/"
+    "fixtures/vlsa_table1_canary_action_reference.json'"
+)
+PRIOR_RETRY_EXPECTED_REFERENCE = (
+    "'path': '/home/quanth/working_space/vlsa-aegis-publication-retry/"
+    "fixtures/vlsa_table1_canary_action_reference.json'"
 )
 EXPECTED_CHANGED_PATHS = (
     "scripts/build_aegis_publisher_retry_authority.py",
@@ -189,11 +210,101 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
     if previous_failure != expected_failure:
         raise ReceiptError("previous publisher failure receipt payload differs")
 
+    prior_retry_log = args.prior_retry_publisher_log.resolve()
+    prior_retry_failure_path = args.prior_retry_publisher_failure.resolve()
+    prior_retry_authority_path = args.prior_retry_publisher_authority.resolve()
+    expected_prior_log_sha256 = require_sha256(
+        args.expected_prior_retry_publisher_log_sha256,
+        label="prior retry publisher log SHA-256",
+    )
+    expected_prior_failure_sha256 = require_sha256(
+        args.expected_prior_retry_publisher_failure_sha256,
+        label="prior retry publisher failure SHA-256",
+    )
+    expected_prior_authority_sha256 = require_sha256(
+        args.expected_prior_retry_publisher_authority_sha256,
+        label="prior retry publisher authority SHA-256",
+    )
+    if prior_retry_log.is_symlink() or not prior_retry_log.is_file():
+        raise ReceiptError("prior retry publisher log is missing or symlinked")
+    if sha256_path(prior_retry_log) != expected_prior_log_sha256:
+        raise ReceiptError("prior retry publisher log SHA-256 differs")
+    try:
+        prior_retry_log_text = prior_retry_log.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise ReceiptError("prior retry publisher log is unreadable") from error
+    if (
+        not prior_retry_log_text.startswith(PRIOR_RETRY_LOG_PREFIX)
+        or PRIOR_RETRY_OBSERVED_REFERENCE not in prior_retry_log_text
+        or PRIOR_RETRY_EXPECTED_REFERENCE not in prior_retry_log_text
+    ):
+        raise ReceiptError("prior retry publisher failure message differs")
+    prior_retry_failure = load_json_object(
+        prior_retry_failure_path,
+        label="prior retry publisher failure receipt",
+    )
+    if sha256_path(prior_retry_failure_path) != expected_prior_failure_sha256:
+        raise ReceiptError(
+            "prior retry publisher failure receipt SHA-256 differs"
+        )
+    expected_prior_failure = {
+        "schema_version": "vlsa_table1_population_publisher_failure.v1",
+        "status": "apparatus_failure",
+        "scientific_result": False,
+        "run_id": args.run_id,
+        "population_array_job_id": args.population_array_job_id,
+        "publisher_job_id": args.prior_retry_publisher_job_id,
+        "host": "worker-1",
+        "failure_stage": "population_prepublish_validation",
+        "exit_code": 2,
+    }
+    if prior_retry_failure != expected_prior_failure:
+        raise ReceiptError(
+            "prior retry publisher failure receipt payload differs"
+        )
+    prior_retry_authority = load_json_object(
+        prior_retry_authority_path,
+        label="prior retry publisher authority receipt",
+    )
+    if sha256_path(prior_retry_authority_path) != expected_prior_authority_sha256:
+        raise ReceiptError(
+            "prior retry publisher authority receipt SHA-256 differs"
+        )
+    for field, expected in (
+        ("schema_version", "vlsa_table1_publisher_retry_authority.v1"),
+        ("status", "validated"),
+        ("scientific_result", False),
+        ("run_id", args.run_id),
+        ("population_array_job_id", args.population_array_job_id),
+        ("preserves_immutable_result_tree", True),
+        ("permits_inference_or_simulation", False),
+        ("failure_class", "publisher_validator_json_key_order"),
+    ):
+        if prior_retry_authority.get(field) != expected:
+            raise ReceiptError(
+                f"prior retry publisher authority {field} differs"
+            )
+    prior_retry_slurm = prior_retry_authority.get("publisher_slurm")
+    prior_retry_recovery = prior_retry_authority.get("recovery_from")
+    if not isinstance(prior_retry_slurm, dict) or not isinstance(
+        prior_retry_recovery, dict
+    ):
+        raise ReceiptError("prior retry publisher authority is incomplete")
+    if (
+        prior_retry_slurm.get("job_id") != args.prior_retry_publisher_job_id
+        or prior_retry_recovery.get("publisher_job_id")
+        != args.previous_publisher_job_id
+    ):
+        raise ReceiptError("prior retry publisher authority chain differs")
+
     environment = os.environ
     current_job_id = environment.get("SLURM_JOB_ID", "")
     current_dependency = environment.get("SLURM_JOB_DEPENDENCY", "")
     current_host = environment.get("SLURMD_NODENAME", "")
-    if not current_job_id or current_job_id == args.previous_publisher_job_id:
+    if not current_job_id or current_job_id in {
+        args.previous_publisher_job_id,
+        args.prior_retry_publisher_job_id,
+    }:
         raise ReceiptError("publisher retry requires one new exact Slurm job")
     if current_dependency != f"afterany:{args.population_array_job_id}":
         raise ReceiptError("publisher retry dependency differs")
@@ -235,7 +346,7 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
         "population_array_job_id": args.population_array_job_id,
         "preserves_immutable_result_tree": True,
         "permits_inference_or_simulation": False,
-        "failure_class": "publisher_validator_json_key_order",
+        "failure_class": "publisher_validator_source_root_rebinding",
         "population_source": {
             "repo": str(population_repo),
             "git_commit": population_commit,
@@ -259,6 +370,23 @@ def build_receipt(args: argparse.Namespace) -> dict[str, Any]:
             "failure_receipt": {
                 "path": str(previous_failure_path),
                 "sha256": expected_failure_sha256,
+            },
+        },
+        "prior_retry": {
+            "publisher_job_id": args.prior_retry_publisher_job_id,
+            "failure_stage": "population_prepublish_validation",
+            "exit_code": 2,
+            "log": {
+                "path": str(prior_retry_log),
+                "sha256": expected_prior_log_sha256,
+            },
+            "failure_receipt": {
+                "path": str(prior_retry_failure_path),
+                "sha256": expected_prior_failure_sha256,
+            },
+            "authority_receipt": {
+                "path": str(prior_retry_authority_path),
+                "sha256": expected_prior_authority_sha256,
             },
         },
         "publisher_slurm": {
@@ -294,6 +422,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--expected-previous-publisher-failure-sha256", required=True
+    )
+    parser.add_argument("--prior-retry-publisher-job-id", required=True)
+    parser.add_argument(
+        "--prior-retry-publisher-log", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-prior-retry-publisher-log-sha256", required=True
+    )
+    parser.add_argument(
+        "--prior-retry-publisher-failure", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-prior-retry-publisher-failure-sha256", required=True
+    )
+    parser.add_argument(
+        "--prior-retry-publisher-authority", type=Path, required=True
+    )
+    parser.add_argument(
+        "--expected-prior-retry-publisher-authority-sha256", required=True
     )
     parser.add_argument("--validator", type=Path, required=True)
     parser.add_argument(

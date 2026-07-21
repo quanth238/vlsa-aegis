@@ -59,7 +59,7 @@ CONTACT_MODEL_AUTHORITY_SCHEMA_V2 = (
     "vlsa_table1_contact_model_authority.v2"
 )
 PUBLISHER_RETRY_AUTHORITY_SCHEMA = (
-    "vlsa_table1_publisher_retry_authority.v1"
+    "vlsa_table1_publisher_retry_authority.v2"
 )
 CONTACT_ROLE_TAXONOMY = (
     "robot",
@@ -83,6 +83,19 @@ def _require_equal(observed: Any, expected: Any, *, label: str) -> None:
         raise ReceiptError(
             f"{label} differs: observed={observed!r}, expected={expected!r}"
         )
+
+
+def _population_canary_action_reference_path(
+    publisher_retry_authority: Mapping[str, Any] | None,
+) -> Path:
+    source_root = (
+        ROOT
+        if publisher_retry_authority is None
+        else Path(
+            str(publisher_retry_authority["population_source_repo"])
+        ).resolve()
+    )
+    return source_root / "fixtures/vlsa_table1_canary_action_reference.json"
 
 
 def _require_bool(value: Any, *, label: str) -> bool:
@@ -140,7 +153,10 @@ def validate_publisher_retry_authority(
         ("population_array_job_id", expected_population_array_job_id),
         ("preserves_immutable_result_tree", True),
         ("permits_inference_or_simulation", False),
-        ("failure_class", "publisher_validator_json_key_order"),
+        (
+            "failure_class",
+            "publisher_validator_source_root_rebinding",
+        ),
     ):
         _require_equal(
             authority.get(field),
@@ -150,6 +166,7 @@ def validate_publisher_retry_authority(
     population_source = authority.get("population_source")
     publisher_source = authority.get("publisher_source")
     recovery_from = authority.get("recovery_from")
+    prior_retry = authority.get("prior_retry")
     publisher_slurm = authority.get("publisher_slurm")
     if not all(
         isinstance(value, Mapping)
@@ -157,10 +174,34 @@ def validate_publisher_retry_authority(
             population_source,
             publisher_source,
             recovery_from,
+            prior_retry,
             publisher_slurm,
         )
     ):
         raise ReceiptError("publisher retry authority records are incomplete")
+    for label, source in (
+        ("population", population_source),
+        ("publisher", publisher_source),
+    ):
+        _require_equal(
+            source.get("clean"),
+            True,
+            label=f"publisher retry {label} source cleanliness",
+        )
+        repo_value = source.get("repo")
+        if not isinstance(repo_value, str) or not repo_value.startswith("/"):
+            raise ReceiptError(
+                f"publisher retry {label} source repository is invalid"
+            )
+        repo_path = Path(repo_value)
+        if (
+            repo_path.is_symlink()
+            or not repo_path.is_dir()
+            or str(repo_path.resolve()) != repo_value
+        ):
+            raise ReceiptError(
+                f"publisher retry {label} source repository is unavailable"
+            )
     _require_equal(
         population_source.get("git_commit"),
         expected_population_commit,
@@ -206,14 +247,54 @@ def validate_publisher_retry_authority(
         expected_parent,
         label="publisher retry authority parent",
     )
+    prior_job_id = prior_retry.get("publisher_job_id")
+    if (
+        not isinstance(prior_job_id, str)
+        or not prior_job_id.isdigit()
+        or prior_job_id
+        in {str(recovery_from.get("publisher_job_id", "")), current_job_id}
+    ):
+        raise ReceiptError("publisher retry prior job identity is invalid")
+    for field, expected in (
+        ("failure_stage", "population_prepublish_validation"),
+        ("exit_code", 2),
+    ):
+        _require_equal(
+            prior_retry.get(field),
+            expected,
+            label=f"publisher retry prior failure/{field}",
+        )
+    for label in ("log", "failure_receipt", "authority_receipt"):
+        artifact = prior_retry.get(label)
+        if not isinstance(artifact, Mapping):
+            raise ReceiptError(
+                f"publisher retry prior {label} binding is missing"
+            )
+        artifact_path = Path(str(artifact.get("path", "")))
+        expected_sha256 = require_sha256(
+            artifact.get("sha256"),
+            label=f"publisher retry prior {label} SHA-256",
+        )
+        if (
+            artifact_path.is_symlink()
+            or not artifact_path.is_file()
+            or sha256_path(artifact_path) != expected_sha256
+        ):
+            raise ReceiptError(
+                f"publisher retry prior {label} artifact differs"
+            )
     return {
         "path": str(path.resolve()),
         "sha256": sha256_path(path.resolve()),
         "receipt_payload_sha256": payload_sha256,
         "publisher_source_git_commit": publisher_commit,
+        "population_source_repo": str(
+            Path(str(population_source["repo"])).resolve()
+        ),
         "previous_publisher_job_id": recovery_from.get(
             "publisher_job_id"
         ),
+        "prior_retry_publisher_job_id": prior_job_id,
         "publisher_slurm": dict(publisher_slurm),
     }
 
@@ -1319,6 +1400,7 @@ def validate_paired_canary_receipt(
     manifest_receipt_path: Path,
     config: dict[str, Any],
     manifests: list[dict[str, Any]],
+    action_reference_path: Path | None = None,
 ) -> dict[str, Any]:
     value = load_json_object(path, label="paired-canary validation receipt")
     _require_equal(
@@ -1599,7 +1681,11 @@ def validate_paired_canary_receipt(
         label="paired-canary AEGIS integration gates",
     )
     reference_path = _validate_canary_action_reference_path(
-        ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
+        (
+            ROOT / "fixtures/vlsa_table1_canary_action_reference.json"
+            if action_reference_path is None
+            else action_reference_path.resolve()
+        )
     )
     try:
         regenerated_action_evidence = (
@@ -2428,6 +2514,19 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
     config, manifests = aggregate.load_protocol(
         config_path, manifest_receipt_path, manifest_path
     )
+    publisher_retry_authority = None
+    action_reference_path = None
+    if args.publisher_retry_authority is not None:
+        publisher_retry_authority = validate_publisher_retry_authority(
+            args.publisher_retry_authority.resolve(),
+            run_root=run_root,
+            expected_population_commit=args.expected_commit,
+            expected_run_id=contract["run_id"],
+            expected_population_array_job_id=args.population_array_job_id,
+        )
+        action_reference_path = _population_canary_action_reference_path(
+            publisher_retry_authority
+        )
     canary_receipt = validate_paired_canary_receipt(
         args.paired_canary_receipt.resolve(),
         expected_file_sha256=contract["paired_canary_receipt_sha256"],
@@ -2439,20 +2538,12 @@ def validate_population_prepublish(args: argparse.Namespace) -> dict[str, Any]:
         manifest_receipt_path=manifest_receipt_path,
         config=config,
         manifests=manifests,
+        action_reference_path=action_reference_path,
     )
     accounting = validate_slurm_accounting(
         args.slurm_accounting.resolve(),
         population_array_job_id=args.population_array_job_id,
     )
-    publisher_retry_authority = None
-    if args.publisher_retry_authority is not None:
-        publisher_retry_authority = validate_publisher_retry_authority(
-            args.publisher_retry_authority.resolve(),
-            run_root=run_root,
-            expected_population_commit=args.expected_commit,
-            expected_run_id=contract["run_id"],
-            expected_population_array_job_id=args.population_array_job_id,
-        )
     if len(manifests) != 1600:
         raise ReceiptError("population publisher requires exactly 1,600 cases")
     full_label_manifest = validate_full_label_manifest(

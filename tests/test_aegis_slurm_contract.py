@@ -184,6 +184,16 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("PUBLISHER_RELEASE_REPO", publisher)
         self.assertIn("EXPECTED_PUBLISHER_GIT_COMMIT", publisher)
         self.assertIn("build_aegis_publisher_retry_authority.py", publisher)
+        for binding in (
+            "PRIOR_RETRY_PUBLISHER_JOB_ID",
+            "PRIOR_RETRY_PUBLISHER_LOG_PATH",
+            "PRIOR_RETRY_PUBLISHER_FAILURE_PATH",
+            "PRIOR_RETRY_PUBLISHER_AUTHORITY_PATH",
+            "EXPECTED_PRIOR_RETRY_PUBLISHER_LOG_SHA256",
+            "EXPECTED_PRIOR_RETRY_PUBLISHER_FAILURE_SHA256",
+            "EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256",
+        ):
+            self.assertIn(binding, publisher)
         self.assertNotIn("scripts/serve_policy.py", publisher)
         self.assertNotIn("evaluate_safelibero_aegis.py", publisher)
 

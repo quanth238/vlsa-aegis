@@ -22,6 +22,7 @@ RUN_ID = "vlsa-table1-contact-authority-population-20260718a"
 POPULATION_JOB_ID = "28609"
 PREVIOUS_PUBLISHER_JOB_ID = "28610"
 CURRENT_PUBLISHER_JOB_ID = "30000"
+PRIOR_RETRY_PUBLISHER_JOB_ID = "28906"
 
 
 class PublisherRetryAuthorityTest(unittest.TestCase):
@@ -116,6 +117,64 @@ class PublisherRetryAuthorityTest(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
+        self.prior_retry_log = root / "publisher-retry.log"
+        self.prior_retry_log.write_text(
+            retry.PRIOR_RETRY_LOG_PREFIX
+            + retry.PRIOR_RETRY_OBSERVED_REFERENCE
+            + " expected="
+            + retry.PRIOR_RETRY_EXPECTED_REFERENCE
+            + "\n",
+            encoding="utf-8",
+        )
+        self.prior_retry_failure = root / "publisher-retry-failure.json"
+        self.prior_retry_failure.write_text(
+            json.dumps(
+                {
+                    "schema_version": (
+                        "vlsa_table1_population_publisher_failure.v1"
+                    ),
+                    "status": "apparatus_failure",
+                    "scientific_result": False,
+                    "run_id": RUN_ID,
+                    "population_array_job_id": POPULATION_JOB_ID,
+                    "publisher_job_id": PRIOR_RETRY_PUBLISHER_JOB_ID,
+                    "host": "worker-1",
+                    "failure_stage": "population_prepublish_validation",
+                    "exit_code": 2,
+                },
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        self.prior_retry_authority = root / "publisher-retry-authority.json"
+        self.prior_retry_authority.write_text(
+            json.dumps(
+                {
+                    "schema_version": (
+                        "vlsa_table1_publisher_retry_authority.v1"
+                    ),
+                    "status": "validated",
+                    "scientific_result": False,
+                    "run_id": RUN_ID,
+                    "population_array_job_id": POPULATION_JOB_ID,
+                    "preserves_immutable_result_tree": True,
+                    "permits_inference_or_simulation": False,
+                    "failure_class": "publisher_validator_json_key_order",
+                    "publisher_slurm": {
+                        "job_id": PRIOR_RETRY_PUBLISHER_JOB_ID,
+                    },
+                    "recovery_from": {
+                        "publisher_job_id": PREVIOUS_PUBLISHER_JOB_ID,
+                    },
+                },
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -149,6 +208,19 @@ class PublisherRetryAuthorityTest(unittest.TestCase):
             previous_publisher_failure=self.previous_failure,
             expected_previous_publisher_failure_sha256=sha256_path(
                 self.previous_failure
+            ),
+            prior_retry_publisher_job_id=PRIOR_RETRY_PUBLISHER_JOB_ID,
+            prior_retry_publisher_log=self.prior_retry_log,
+            expected_prior_retry_publisher_log_sha256=sha256_path(
+                self.prior_retry_log
+            ),
+            prior_retry_publisher_failure=self.prior_retry_failure,
+            expected_prior_retry_publisher_failure_sha256=sha256_path(
+                self.prior_retry_failure
+            ),
+            prior_retry_publisher_authority=self.prior_retry_authority,
+            expected_prior_retry_publisher_authority_sha256=sha256_path(
+                self.prior_retry_authority
             ),
             validator=(
                 self.publisher_repo
@@ -192,6 +264,10 @@ class PublisherRetryAuthorityTest(unittest.TestCase):
             receipt["recovery_from"]["publisher_job_id"],
             PREVIOUS_PUBLISHER_JOB_ID,
         )
+        self.assertEqual(
+            receipt["prior_retry"]["publisher_job_id"],
+            PRIOR_RETRY_PUBLISHER_JOB_ID,
+        )
         write_json_exclusive(self._args().output, receipt)
         with mock.patch.dict(
             os.environ,
@@ -212,6 +288,15 @@ class PublisherRetryAuthorityTest(unittest.TestCase):
         self.assertEqual(
             validated["publisher_source_git_commit"],
             self.publisher_commit,
+        )
+        self.assertEqual(
+            validated["population_source_repo"],
+            str(self.population_repo.resolve()),
+        )
+        self.assertEqual(
+            artifacts._population_canary_action_reference_path(validated),
+            self.population_repo.resolve()
+            / "fixtures/vlsa_table1_canary_action_reference.json",
         )
 
     def test_rejects_any_unreviewed_changed_path(self) -> None:
@@ -258,6 +343,26 @@ class PublisherRetryAuthorityTest(unittest.TestCase):
         ), self.assertRaisesRegex(
             ReceiptError,
             "failure message differs",
+        ):
+            retry.build_receipt(args)
+
+    def test_rejects_prior_retry_log_without_exact_path_failure(self) -> None:
+        self.prior_retry_log.write_text(
+            retry.PRIOR_RETRY_LOG_PREFIX + "different\n",
+            encoding="utf-8",
+        )
+        args = self._args()
+        with mock.patch.dict(
+            os.environ,
+            {
+                "SLURM_JOB_ID": CURRENT_PUBLISHER_JOB_ID,
+                "SLURM_JOB_DEPENDENCY": f"afterany:{POPULATION_JOB_ID}",
+                "SLURMD_NODENAME": "worker-2",
+            },
+            clear=False,
+        ), self.assertRaisesRegex(
+            ReceiptError,
+            "prior retry publisher failure message differs",
         ):
             retry.build_receipt(args)
 

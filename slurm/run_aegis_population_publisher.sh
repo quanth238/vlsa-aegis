@@ -97,6 +97,13 @@ if [[ "$EXPECTED_PUBLISHER_GIT_COMMIT" != "$EXPECTED_GIT_COMMIT" ]]; then
   : "${PREVIOUS_PUBLISHER_FAILURE_PATH:?set the failed publisher receipt path}"
   : "${EXPECTED_PREVIOUS_PUBLISHER_LOG_SHA256:?set the failed publisher log SHA-256}"
   : "${EXPECTED_PREVIOUS_PUBLISHER_FAILURE_SHA256:?set the failed publisher receipt SHA-256}"
+  : "${PRIOR_RETRY_PUBLISHER_JOB_ID:?set the prior retry publisher job ID}"
+  : "${PRIOR_RETRY_PUBLISHER_LOG_PATH:?set the prior retry log path}"
+  : "${PRIOR_RETRY_PUBLISHER_FAILURE_PATH:?set the prior retry failure path}"
+  : "${PRIOR_RETRY_PUBLISHER_AUTHORITY_PATH:?set the prior retry authority path}"
+  : "${EXPECTED_PRIOR_RETRY_PUBLISHER_LOG_SHA256:?set the prior retry log SHA-256}"
+  : "${EXPECTED_PRIOR_RETRY_PUBLISHER_FAILURE_SHA256:?set the prior retry failure SHA-256}"
+  : "${EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256:?set the prior retry authority SHA-256}"
 fi
 PUBLISHER_CODE_ROOT=$PUBLISHER_RELEASE_REPO
 export PYTHONDONTWRITEBYTECODE=1
@@ -161,6 +168,18 @@ if [[ "$PUBLISHER_RETRY" == true ]]; then
     --previous-publisher-failure "$PREVIOUS_PUBLISHER_FAILURE_PATH" \
     --expected-previous-publisher-failure-sha256 \
       "$EXPECTED_PREVIOUS_PUBLISHER_FAILURE_SHA256" \
+    --prior-retry-publisher-job-id "$PRIOR_RETRY_PUBLISHER_JOB_ID" \
+    --prior-retry-publisher-log "$PRIOR_RETRY_PUBLISHER_LOG_PATH" \
+    --expected-prior-retry-publisher-log-sha256 \
+      "$EXPECTED_PRIOR_RETRY_PUBLISHER_LOG_SHA256" \
+    --prior-retry-publisher-failure \
+      "$PRIOR_RETRY_PUBLISHER_FAILURE_PATH" \
+    --expected-prior-retry-publisher-failure-sha256 \
+      "$EXPECTED_PRIOR_RETRY_PUBLISHER_FAILURE_SHA256" \
+    --prior-retry-publisher-authority \
+      "$PRIOR_RETRY_PUBLISHER_AUTHORITY_PATH" \
+    --expected-prior-retry-publisher-authority-sha256 \
+      "$EXPECTED_PRIOR_RETRY_PUBLISHER_AUTHORITY_SHA256" \
     --validator "$VALIDATOR" \
     --publisher-authority-builder \
       "$PUBLISHER_CODE_ROOT/scripts/build_aegis_publisher_retry_authority.py" \
