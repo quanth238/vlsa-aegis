@@ -45,6 +45,9 @@ ROW_SCHEMA = "vlsa_table1_video_transfer_row.v2"
 RECEIPT_SCHEMA = "vlsa_table1_video_transfer_receipt.v2"
 FAILURE_CASE_SCHEMA = "vlsa_table1_aegis_failure_case.v1"
 FAILURE_REPORT_SCHEMA = "vlsa_table1_aegis_failure_report.v1"
+TIMEOUT_RECOVERY_SCHEMA = (
+    "vlsa_table1_publisher_timeout_recovery_authority.v1"
+)
 
 EXPECTED_CASES = 1600
 EXPECTED_TASKS = 32
@@ -767,6 +770,7 @@ def validate_publication_chain(
     manifest_path: Path,
     manifest_receipt_path: Path,
     labels_path: Path,
+    expected_artifact_publisher_job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     expected_source_commit = require_commit(
         expected_source_commit, "expected outcome source commit"
@@ -784,6 +788,15 @@ def validate_publication_chain(
     ):
         raise TransferVerificationError(
             "expected publisher job ID must be numeric"
+        )
+    if expected_artifact_publisher_job_id is None:
+        expected_artifact_publisher_job_id = expected_publisher_job_id
+    if (
+        not isinstance(expected_artifact_publisher_job_id, str)
+        or not expected_artifact_publisher_job_id.isdigit()
+    ):
+        raise TransferVerificationError(
+            "expected artifact publisher job ID must be numeric"
         )
     run_root = lexical_absolute(run_root)
     if run_root.is_symlink() or not run_root.is_dir():
@@ -864,11 +877,144 @@ def validate_publication_chain(
         expected_publisher_job_id,
         "publication publisher job ID",
     )
-    require_equal(
-        publisher.get("dependency"),
-        "afterany:{}".format(publication.get("population_array_job_id")),
-        "publication publisher dependency",
+    timeout_recovery_record = publication.get(
+        "publisher_timeout_recovery_authority"
     )
+    timeout_recovery_path: Optional[Path] = None
+    timeout_recovery: Optional[Dict[str, Any]] = None
+    timeout_recovery_sha256: Optional[str] = None
+    if timeout_recovery_record is None:
+        require_equal(
+            expected_artifact_publisher_job_id,
+            expected_publisher_job_id,
+            "publication artifact publisher job ID",
+        )
+        require_equal(
+            publisher.get("dependency"),
+            "afterany:{}".format(
+                publication.get("population_array_job_id")
+            ),
+            "publication publisher dependency",
+        )
+    else:
+        timeout_recovery_path, timeout_recovery, timeout_recovery_sha256 = (
+            load_bound_artifact(
+                run_root,
+                timeout_recovery_record,
+                "publisher timeout recovery authority",
+                json_object=True,
+            )
+        )
+        assert timeout_recovery is not None
+        timeout_recovery_payload_sha256 = verify_payload_hash(
+            timeout_recovery,
+            "receipt_payload_sha256",
+            "publisher timeout recovery authority",
+        )
+        require_equal(
+            timeout_recovery_record.get("receipt_payload_sha256"),
+            timeout_recovery_payload_sha256,
+            "publication/timeout recovery payload SHA-256",
+        )
+        for field, expected in (
+            ("schema_version", TIMEOUT_RECOVERY_SCHEMA),
+            ("status", "validated"),
+            ("scientific_result", False),
+            ("run_id", expected_run_id),
+            (
+                "population_array_job_id",
+                expected_population_array_job_id,
+            ),
+            ("preserves_immutable_result_tree", True),
+            ("permits_inference_or_simulation", False),
+            ("recovery_scope", "population_finalize_only"),
+        ):
+            require_equal(
+                timeout_recovery.get(field),
+                expected,
+                "timeout recovery/{}".format(field),
+            )
+        expected_recovery_authority_path = (
+            run_root
+            / "publication-attempts"
+            / "job-{}".format(expected_publisher_job_id)
+            / "publisher-timeout-recovery-authority.json"
+        )
+        require_equal(
+            timeout_recovery_path,
+            expected_recovery_authority_path,
+            "publisher timeout recovery authority path",
+        )
+        timed_out = timeout_recovery.get("timed_out_publisher")
+        recovery_publisher = timeout_recovery.get(
+            "recovery_publisher_slurm"
+        )
+        if not isinstance(timed_out, Mapping) or not isinstance(
+            recovery_publisher, Mapping
+        ):
+            raise TransferVerificationError(
+                "publisher timeout recovery authority is incomplete"
+            )
+        timed_out_publisher = timed_out.get("publisher_slurm")
+        if not isinstance(timed_out_publisher, Mapping):
+            raise TransferVerificationError(
+                "timed-out publisher allocation is missing"
+            )
+        timed_out_host = timed_out_publisher.get("host")
+        if (
+            not isinstance(timed_out_host, str)
+            or not timed_out_host
+            or timed_out_host == "worker-3"
+            or timed_out_host.startswith(("login", "login-restricted"))
+        ):
+            raise TransferVerificationError(
+                "timed-out publisher host is invalid: {!r}".format(
+                    timed_out_host
+                )
+            )
+        for field, expected in (
+            ("job_id", expected_artifact_publisher_job_id),
+            ("state", "TIMEOUT"),
+            ("exit_code", "0:0"),
+            (
+                "dependency",
+                "afterany:{}".format(expected_population_array_job_id),
+            ),
+        ):
+            require_equal(
+                timed_out_publisher.get(field),
+                expected,
+                "timed-out publisher/{}".format(field),
+            )
+        require_equal(
+            dict(recovery_publisher),
+            dict(publisher),
+            "timeout recovery publisher allocation",
+        )
+        require_equal(
+            publisher.get("dependency"),
+            "afterany:{}".format(expected_artifact_publisher_job_id),
+            "publication publisher dependency",
+        )
+        require_equal(
+            timed_out.get("attempt_root"),
+            str(
+                run_root
+                / "publication-attempts"
+                / "job-{}".format(expected_artifact_publisher_job_id)
+            ),
+            "timed-out publisher attempt root",
+        )
+        require_equal(
+            timed_out.get("final_receipt_missing"),
+            True,
+            "timed-out publisher historical final-receipt state",
+        )
+        require_equal(
+            timed_out.get("failure_receipt_missing"),
+            True,
+            "timed-out publisher historical failure-receipt state",
+        )
 
     prepublish_path, prepublish, prepublish_sha256 = load_bound_artifact(
         run_root,
@@ -893,7 +1039,7 @@ def validate_publication_chain(
     publication_attempt_root = (
         run_root
         / "publication-attempts"
-        / "job-{}".format(expected_publisher_job_id)
+        / "job-{}".format(expected_artifact_publisher_job_id)
     )
     for path, expected, label in (
         (
@@ -1107,6 +1253,9 @@ def validate_publication_chain(
         "gallery_path": gallery_path,
         "gallery_sha256": gallery_sha256,
         "gallery_text": gallery_text,
+        "timeout_recovery_path": timeout_recovery_path,
+        "timeout_recovery": timeout_recovery,
+        "timeout_recovery_sha256": timeout_recovery_sha256,
         "failure_analysis": failure_analysis,
         "contract": contract,
         "contract_record": contract_record,
@@ -1510,6 +1659,14 @@ def revalidate_artifacts(
         (chain["summary_path"], chain["summary_sha256"], "summary"),
         (chain["gallery_path"], chain["gallery_sha256"], "gallery"),
     ]
+    if chain.get("timeout_recovery_path") is not None:
+        frozen.append(
+            (
+                chain["timeout_recovery_path"],
+                chain["timeout_recovery_sha256"],
+                "publisher timeout recovery authority",
+            )
+        )
     failure = chain["failure_analysis"]
     for key in ("cases", "report", "markdown"):
         frozen.append(
@@ -1811,6 +1968,19 @@ def publish_bundle(
             ),
         },
     }
+    if chain.get("timeout_recovery_path") is not None:
+        timeout_recovery = chain.get("timeout_recovery")
+        if not isinstance(timeout_recovery, Mapping):
+            raise TransferVerificationError(
+                "publisher timeout recovery authority is missing"
+            )
+        receipt["source"]["publisher_timeout_recovery_authority"] = {
+            "path": str(chain["timeout_recovery_path"]),
+            "sha256": chain["timeout_recovery_sha256"],
+            "receipt_payload_sha256": timeout_recovery[
+                "receipt_payload_sha256"
+            ],
+        }
     receipt["receipt_payload_sha256"] = sha256_bytes(
         canonical_json_bytes(receipt)
     )
@@ -1889,6 +2059,7 @@ def generate_transfer_bundle(
     allocation: Optional[Mapping[str, Any]] = None,
     verifier_identity: Optional[Mapping[str, Any]] = None,
     generated_utc: Optional[str] = None,
+    expected_artifact_publisher_job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     selected_allocation = validate_allocation_record(
         (
@@ -1924,6 +2095,9 @@ def generate_transfer_bundle(
         manifest_path=manifest_path,
         manifest_receipt_path=manifest_receipt_path,
         labels_path=labels_path,
+        expected_artifact_publisher_job_id=(
+            expected_artifact_publisher_job_id
+        ),
     )
     enumeration = reconstruct_v2_inventory(chain)
     return publish_bundle(
@@ -1954,6 +2128,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--expected-population-array-job-id", required=True
     )
     parser.add_argument("--expected-publisher-job-id", required=True)
+    parser.add_argument(
+        "--expected-artifact-publisher-job-id",
+    )
     parser.add_argument("--expected-verifier-sha256", required=True)
     parser.add_argument("--expected-verifier-git-commit", required=True)
     parser.add_argument("--config", type=Path, required=True)
@@ -1986,6 +2163,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             args.expected_population_array_job_id
         ),
         expected_publisher_job_id=args.expected_publisher_job_id,
+        expected_artifact_publisher_job_id=(
+            args.expected_artifact_publisher_job_id
+        ),
         config_path=args.config,
         manifest_path=args.manifest,
         manifest_receipt_path=args.manifest_receipt,

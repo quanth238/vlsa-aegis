@@ -991,6 +991,130 @@ class TransferManifestV2Tests(unittest.TestCase):
                     labels_path=self.fixture.labels_path,
                 )
 
+    def test_15_timeout_finalizer_binds_distinct_artifact_publisher(
+        self,
+    ) -> None:
+        recovery_job_id = "9003"
+        authority_path = (
+            self.fixture.run_root
+            / "publication-attempts"
+            / "job-{}".format(recovery_job_id)
+            / "publisher-timeout-recovery-authority.json"
+        )
+        authority = add_payload_hash(
+            {
+                "schema_version": helper.TIMEOUT_RECOVERY_SCHEMA,
+                "status": "validated",
+                "scientific_result": False,
+                "run_id": self.fixture.run_id,
+                "population_array_job_id": self.fixture.population_job_id,
+                "preserves_immutable_result_tree": True,
+                "permits_inference_or_simulation": False,
+                "recovery_scope": "population_finalize_only",
+                "timed_out_publisher": {
+                    "publisher_slurm": {
+                        "job_id": self.fixture.publisher_job_id,
+                        "host": "worker-1",
+                        "dependency": "afterany:{}".format(
+                            self.fixture.population_job_id
+                        ),
+                        "state": "TIMEOUT",
+                        "exit_code": "0:0",
+                    },
+                    "attempt_root": str(
+                        (
+                            self.fixture.run_root
+                            / "publication-attempts"
+                            / "job-{}".format(
+                                self.fixture.publisher_job_id
+                            )
+                        ).resolve()
+                    ),
+                    "final_receipt_missing": True,
+                    "failure_receipt_missing": True,
+                },
+                "recovery_publisher_slurm": {
+                    "job_id": recovery_job_id,
+                    "host": "worker-2",
+                    "dependency": "afterany:{}".format(
+                        self.fixture.publisher_job_id
+                    ),
+                },
+            },
+            "receipt_payload_sha256",
+        )
+        original_publication = self.fixture.publication_path.read_bytes()
+        try:
+            write_json(authority_path, authority)
+            publication = json.loads(original_publication)
+            publication.pop("receipt_payload_sha256")
+            publication["publisher_slurm"] = dict(
+                authority["recovery_publisher_slurm"]
+            )
+            publication["publisher_timeout_recovery_authority"] = {
+                "path": str(authority_path.resolve()),
+                "sha256": helper.stable_file_sha256_and_size(
+                    authority_path,
+                    "synthetic timeout recovery authority",
+                )[0],
+                "receipt_payload_sha256": authority[
+                    "receipt_payload_sha256"
+                ],
+            }
+            publication = add_payload_hash(
+                publication, "receipt_payload_sha256"
+            )
+            write_json(self.fixture.publication_path, publication)
+            publication_sha256 = helper.stable_file_sha256_and_size(
+                self.fixture.publication_path,
+                "synthetic recovered publication",
+            )[0]
+            arguments = {
+                "run_root": self.fixture.run_root,
+                "publication_receipt": self.fixture.publication_path,
+                "expected_publication_receipt_sha256": (
+                    publication_sha256
+                ),
+                "expected_run_id": self.fixture.run_id,
+                "expected_source_commit": self.fixture.source_commit,
+                "expected_population_array_job_id": (
+                    self.fixture.population_job_id
+                ),
+                "expected_publisher_job_id": recovery_job_id,
+                "config_path": self.fixture.config_path,
+                "manifest_path": self.fixture.manifest_path,
+                "manifest_receipt_path": (
+                    self.fixture.manifest_receipt_path
+                ),
+                "labels_path": self.fixture.labels_path,
+            }
+            with self.fixture.patch_runtime():
+                chain = helper.validate_publication_chain(
+                    **arguments,
+                    expected_artifact_publisher_job_id=(
+                        self.fixture.publisher_job_id
+                    ),
+                )
+            self.assertEqual(
+                chain["timeout_recovery_path"], authority_path.resolve()
+            )
+            self.assertEqual(
+                chain["prepublish_path"],
+                self.fixture.prepublish_path.resolve(),
+            )
+            with self.fixture.patch_runtime(), self.assertRaisesRegex(
+                helper.TransferVerificationError,
+                "timed-out publisher/job_id",
+            ):
+                helper.validate_publication_chain(**arguments)
+        finally:
+            self.fixture.publication_path.write_bytes(original_publication)
+            try:
+                authority_path.unlink()
+                authority_path.parent.rmdir()
+            except FileNotFoundError:
+                pass
+
     def test_20_tampered_video_is_rejected(self) -> None:
         target = self.fixture.video_paths[0]
         original = target.read_bytes()
