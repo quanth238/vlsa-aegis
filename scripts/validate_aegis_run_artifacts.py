@@ -2888,6 +2888,7 @@ def publisher_allocation_identity(
     environment: Mapping[str, str],
     *,
     expected_population_array_job_id: str,
+    expected_dependency: str | None = None,
 ) -> dict[str, str]:
     required = (
         "SLURM_JOB_ID",
@@ -2902,7 +2903,8 @@ def publisher_allocation_identity(
     host = str(environment["SLURMD_NODENAME"])
     if host == "worker-3" or host.startswith(("login", "login-restricted")):
         raise ReceiptError(f"publisher cannot execute on {host}")
-    expected_dependency = f"afterany:{expected_population_array_job_id}"
+    if expected_dependency is None:
+        expected_dependency = f"afterany:{expected_population_array_job_id}"
     _require_equal(
         environment["SLURM_JOB_DEPENDENCY"],
         expected_dependency,
@@ -2913,6 +2915,103 @@ def publisher_allocation_identity(
         "host": host,
         "dependency": str(environment["SLURM_JOB_DEPENDENCY"]),
     }
+
+
+def validate_publisher_timeout_recovery_authority(
+    path: Path,
+    *,
+    run_root: Path,
+    expected_run_id: str,
+    expected_population_array_job_id: str,
+    timed_out_retry_authority: Mapping[str, Any] | None,
+    environment: Mapping[str, str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    resolved_path = path.resolve()
+    try:
+        resolved_path.relative_to(run_root.resolve())
+    except ValueError as error:
+        raise ReceiptError(
+            "publisher timeout recovery authority escaped the run root"
+        ) from error
+    authority = load_json_object(
+        resolved_path,
+        label="publisher timeout recovery authority",
+    )
+    for field, expected in (
+        (
+            "schema_version",
+            "vlsa_table1_publisher_timeout_recovery_authority.v1",
+        ),
+        ("status", "validated"),
+        ("scientific_result", False),
+        ("run_id", expected_run_id),
+        ("population_array_job_id", expected_population_array_job_id),
+        ("preserves_immutable_result_tree", True),
+        ("permits_inference_or_simulation", False),
+        ("recovery_scope", "population_finalize_only"),
+    ):
+        _require_equal(
+            authority.get(field),
+            expected,
+            label=f"publisher timeout recovery/{field}",
+        )
+    timed_out = authority.get("timed_out_publisher")
+    recovery_slurm = authority.get("recovery_publisher_slurm")
+    if not isinstance(timed_out, Mapping) or not isinstance(
+        recovery_slurm, Mapping
+    ):
+        raise ReceiptError("publisher timeout recovery authority is incomplete")
+    timed_out_slurm = timed_out.get("publisher_slurm")
+    if not isinstance(timed_out_slurm, Mapping):
+        raise ReceiptError(
+            "publisher timeout recovery lacks timed-out Slurm authority"
+        )
+    for field, expected in (
+        ("state", "TIMEOUT"),
+        ("exit_code", "0:0"),
+        ("dependency", f"afterany:{expected_population_array_job_id}"),
+    ):
+        _require_equal(
+            timed_out_slurm.get(field),
+            expected,
+            label=f"timed-out publisher Slurm/{field}",
+        )
+    timed_out_job_id = str(timed_out_slurm.get("job_id", ""))
+    if not timed_out_job_id.isdecimal():
+        raise ReceiptError("timed-out publisher job ID is invalid")
+    publisher_slurm = publisher_allocation_identity(
+        environment,
+        expected_population_array_job_id=expected_population_array_job_id,
+        expected_dependency=f"afterany:{timed_out_job_id}",
+    )
+    _require_equal(
+        dict(recovery_slurm),
+        publisher_slurm,
+        label="publisher timeout recovery allocation binding",
+    )
+    if timed_out_retry_authority is None:
+        raise ReceiptError(
+            "timeout recovery requires the timed-out retry authority"
+        )
+    _require_equal(
+        timed_out_retry_authority.get("publisher_slurm"),
+        {
+            "job_id": timed_out_job_id,
+            "host": timed_out_slurm.get("host"),
+            "dependency": timed_out_slurm.get("dependency"),
+        },
+        label="timed-out retry allocation binding",
+    )
+    record = {
+        "path": str(resolved_path),
+        "sha256": sha256_path(resolved_path),
+        "receipt_payload_sha256": verify_payload_sha256(
+            authority,
+            field="receipt_payload_sha256",
+            label="publisher timeout recovery authority",
+        ),
+    }
+    return publisher_slurm, record
 
 
 def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
@@ -2944,6 +3043,7 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
     publisher_retry_authority = prepublish.get(
         "publisher_retry_authority"
     )
+    publisher_retry_authority_payload: Mapping[str, Any] | None = None
     if publisher_retry_authority is not None:
         if not isinstance(publisher_retry_authority, Mapping):
             raise ReceiptError(
@@ -2967,6 +3067,7 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
             authority_path,
             label="population publisher retry authority",
         )
+        publisher_retry_authority_payload = authority
         _require_equal(
             verify_payload_sha256(
                 authority,
@@ -3504,12 +3605,30 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
         failure_markdown_path.relative_to(run_root)
     except ValueError as error:
         raise ReceiptError("publication artifacts must remain under the run root") from error
-    publisher_slurm = publisher_allocation_identity(
-        dict(os.environ),
-        expected_population_array_job_id=str(
-            prepublish["population_array_job_id"]
-        ),
-    )
+    timeout_recovery_record: dict[str, str] | None = None
+    timeout_recovery_path = args.publisher_timeout_recovery_authority
+    if timeout_recovery_path is not None:
+        publisher_slurm, timeout_recovery_record = (
+            validate_publisher_timeout_recovery_authority(
+                timeout_recovery_path,
+                run_root=run_root,
+                expected_run_id=str(prepublish["run_id"]),
+                expected_population_array_job_id=str(
+                    prepublish["population_array_job_id"]
+                ),
+                timed_out_retry_authority=(
+                    publisher_retry_authority_payload
+                ),
+                environment=dict(os.environ),
+            )
+        )
+    else:
+        publisher_slurm = publisher_allocation_identity(
+            dict(os.environ),
+            expected_population_array_job_id=str(
+                prepublish["population_array_job_id"]
+            ),
+        )
     receipt: dict[str, Any] = {
         "schema_version": POPULATION_PUBLICATION_SCHEMA,
         "status": "published",
@@ -3555,13 +3674,18 @@ def finalize_population_publication(args: argparse.Namespace) -> dict[str, Any]:
         },
     }
     if publisher_retry_authority is not None:
-        _require_equal(
-            publisher_retry_authority.get("publisher_slurm"),
-            publisher_slurm,
-            label="population publisher retry allocation binding",
-        )
+        if timeout_recovery_record is None:
+            _require_equal(
+                publisher_retry_authority.get("publisher_slurm"),
+                publisher_slurm,
+                label="population publisher retry allocation binding",
+            )
         receipt["publisher_retry_authority"] = dict(
             publisher_retry_authority
+        )
+    if timeout_recovery_record is not None:
+        receipt["publisher_timeout_recovery_authority"] = (
+            timeout_recovery_record
         )
     receipt["receipt_payload_sha256"] = sha256_bytes(
         canonical_json_bytes(receipt)
@@ -3617,6 +3741,10 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument("--failure-cases", type=Path, required=True)
     finalize.add_argument("--failure-report", type=Path, required=True)
     finalize.add_argument("--failure-markdown", type=Path, required=True)
+    finalize.add_argument(
+        "--publisher-timeout-recovery-authority",
+        type=Path,
+    )
     finalize.add_argument("--output", type=Path, required=True)
     return parser
 

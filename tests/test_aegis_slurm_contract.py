@@ -148,6 +148,12 @@ class AegisSlurmContractTest(unittest.TestCase):
         publisher_retry_batch = (
             SLURM / "aegis_population_publisher_retry.sbatch"
         ).read_text(encoding="utf-8")
+        timeout_recovery_batch = (
+            SLURM / "aegis_population_publisher_timeout_finalize.sbatch"
+        ).read_text(encoding="utf-8")
+        timeout_recovery = (
+            SLURM / "run_aegis_population_publisher_timeout_finalize.sh"
+        ).read_text(encoding="utf-8")
         publisher = (
             SLURM / "run_aegis_population_publisher.sh"
         ).read_text(encoding="utf-8")
@@ -160,6 +166,24 @@ class AegisSlurmContractTest(unittest.TestCase):
         self.assertIn("#SBATCH --cpus-per-task=4", publisher_retry_batch)
         self.assertIn("#SBATCH --mem=32G", publisher_retry_batch)
         self.assertIn("#SBATCH --exclude=worker-3", publisher_retry_batch)
+        self.assertNotIn("#SBATCH --gres=gpu", timeout_recovery_batch)
+        self.assertIn("#SBATCH --cpus-per-task=4", timeout_recovery_batch)
+        self.assertIn("#SBATCH --mem=32G", timeout_recovery_batch)
+        self.assertIn("#SBATCH --exclude=worker-3", timeout_recovery_batch)
+        self.assertIn("afterany:$TIMED_OUT_PUBLISHER_JOB_ID", timeout_recovery)
+        self.assertIn(
+            "build_aegis_publisher_timeout_recovery_authority.py",
+            timeout_recovery,
+        )
+        self.assertEqual(timeout_recovery.count("population-finalize"), 1)
+        for forbidden in (
+            "aggregate_safelibero_aegis.py",
+            "build_aegis_failure_report.py",
+            "build_safelibero_video_gallery.py",
+            "scripts/serve_policy.py",
+            "evaluate_safelibero_aegis.py",
+        ):
+            self.assertNotIn(forbidden, timeout_recovery)
         self.assertIn("--dependency=afterany:", publisher)
         self.assertIn(
             ': "${GROUNDINGDINO_DEVICE:?set the exact paired-canary device',
