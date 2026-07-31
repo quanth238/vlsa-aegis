@@ -228,6 +228,62 @@ Git commit, interpreter, packages, Slurm ID, host, controller properties,
 geometry authority, Jacobian result, and an atomic `results.json`.  The
 completed Table-1 result root is read-only.
 
+## Allocation-backed prerequisite result
+
+The prerequisite probe was run after this review on 31 July 2026.
+
+```text
+case:       vlsa-t1-goal-ii-t0-e05
+Slurm job:  33249
+node:       worker-mig-3g40gb-0
+state:      COMPLETED (0:0), 36 seconds
+commit:     554cce4c3200ea4aeddf15a837ad097decc6bbc4
+result:     vlsa-poisson-runtime-prereq-20260731b/results.json
+SHA-256:    a5d5a5cd17564d16873607b4cb7684d819e075a6088ba26932a72b99d015ec5f
+```
+
+All eight registered runtime checks passed:
+
+- OSC action dimension is 7: six pose controls plus one gripper command;
+- JOINT_VELOCITY action dimension is 8: seven joint controls plus one gripper
+  command;
+- normalized joint-velocity input maps to `[-0.5, 0.5]` rad/s;
+- the selected moka pot resolves identically under both controllers;
+- it contains 15 collision-enabled group-0 box geoms and two noncollision
+  visual geoms;
+- `mujoco.mj_jac` returns finite `(3, 79)` translational Jacobians for link 5
+  and link 6, with finite rank-3 `(3, 7)` Panda-arm slices.
+
+The runtime uses a 20 Hz controller and a 2 ms physics timestep, so each
+current `env.step` contains 25 MuJoCo substeps.  This confirms that endpoint
+contact sampling is insufficient for a physical clearance claim.
+
+The most important empirical correction is controller-dependent settling.
+Starting from the same frozen state and independently executing 20 neutral
+actions gives different final states:
+
+```text
+arm qpos L2 difference:    0.030552 rad
+arm qpos Linf difference:  0.022747 rad
+states byte-identical:     false
+```
+
+Therefore the active study must settle once under the original OSC controller
+and restore that exact physical state into every matched joint-velocity arm.
+It must also synchronize controller-internal state; independent settling is
+not a paired experiment.
+
+Job `33246` is retained as an apparatus failure.  It stopped before simulator
+construction because the first standalone probe omitted LIBERO's
+noninteractive path configuration.  The probe was repaired to create that
+configuration in the new run directory and to atomically record future
+import-time failures.  No failed output was reused.
+
+This canary establishes runtime compatibility only.  It does not yet validate
+surface coverage, Jacobian finite differences, the Poisson solver, the
+Cartesian-to-joint adapter, velocity tracking, substep clearance, task
+success, or collision prevention.
+
 ## Sources
 
 - Wilkinson et al., [Full-Body Dynamic Safety for Robot Manipulators: 3D
