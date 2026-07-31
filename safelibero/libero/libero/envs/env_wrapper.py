@@ -88,6 +88,177 @@ class ControlEnv:
     def step(self, action):
         return self.env.step(action)
 
+    def step_with_substep_callback(
+        self,
+        action,
+        callback,
+        *,
+        expected_substeps=None,
+        update_observables=True,
+        collect_observations=True,
+    ):
+        """Execute one control action and observe every MuJoCo substep.
+
+        This opt-in method mirrors robosuite 1.4.1's ``MujocoEnv.step`` loop
+        and calls ``callback`` immediately after each ``sim.step()``.  The
+        callback must use a forwarded analysis-data mirror for integrated-state
+        geometry; MuJoCo's live derived arrays may still be solver-phase data.
+        The ordinary ``step`` method above remains the exact released
+        delegation.
+        """
+        if not callable(callback):
+            raise TypeError("callback must be callable")
+        if collect_observations and not update_observables:
+            raise ValueError(
+                "collect_observations requires update_observables"
+            )
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        if expected_substeps is not None:
+            if (
+                isinstance(expected_substeps, bool)
+                or not isinstance(expected_substeps, int)
+                or expected_substeps <= 0
+            ):
+                raise ValueError("expected_substeps must be a positive integer")
+            if substeps != expected_substeps:
+                raise ValueError(
+                    "controller cadence gives %d physics substeps, expected %d"
+                    % (substeps, expected_substeps)
+                )
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+
+        self.env.timestep += 1
+        policy_step = True
+        for substep_index in range(substeps):
+            self.env.sim.forward()
+            self.env._pre_action(action, policy_step)
+            self.env.sim.step()
+            callback(self.env.sim, substep_index)
+            if update_observables:
+                self.env._update_observables()
+            policy_step = False
+
+        self.env.cur_time += self.env.control_timestep
+        reward, done, info = self.env._post_action(action)
+        # BDDLBaseDomain.step replaces robosuite's horizon done flag with task
+        # success.  This callback path bypasses that override, so reproduce it
+        # explicitly after the same _post_action call.
+        done = self.env._check_success()
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = None
+        if collect_observations:
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
+        return observations, reward, done, info
+
+    def step_grouped_actions_with_substep_callback(
+        self,
+        action_provider,
+        callback,
+        *,
+        expected_inner_updates=5,
+        expected_substeps_per_inner=5,
+        expected_high_level_dt=0.05,
+        update_observables=True,
+        collect_observations=True,
+    ):
+        """Execute one registered 20 Hz action as five 100 Hz controls.
+
+        The environment must be built with a 100 Hz controller.
+        ``action_provider(sim, inner_index)`` is called from the freshly
+        forwarded current state immediately before every inner update, so the
+        adapter, Jacobians, field queries, and QP can be recomputed at 100 Hz
+        and can fail closed before more physics. Physics runs at the model
+        cadence, while episode timestep, post-processing, reward, success, and
+        observation collection occur exactly once for the grouped 50 ms
+        high-level action. This method is opt-in and does not change the
+        released ``step`` path.
+        """
+        if not callable(action_provider):
+            raise TypeError("action_provider must be callable")
+        if not callable(callback):
+            raise TypeError("callback must be callable")
+        if collect_observations and not update_observables:
+            raise ValueError(
+                "collect_observations requires update_observables"
+            )
+        if (
+            isinstance(expected_inner_updates, bool)
+            or not isinstance(expected_inner_updates, int)
+            or expected_inner_updates <= 0
+        ):
+            raise ValueError("expected_inner_updates must be a positive integer")
+        if (
+            isinstance(expected_substeps_per_inner, bool)
+            or not isinstance(expected_substeps_per_inner, int)
+            or expected_substeps_per_inner <= 0
+        ):
+            raise ValueError(
+                "expected_substeps_per_inner must be a positive integer"
+            )
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        if substeps != expected_substeps_per_inner:
+            raise ValueError(
+                "controller cadence gives %d physics substeps per inner update, expected %d"
+                % (substeps, expected_substeps_per_inner)
+            )
+        grouped_dt = expected_inner_updates * self.env.control_timestep
+        if not np.isclose(grouped_dt, expected_high_level_dt, rtol=0.0, atol=1e-12):
+            raise ValueError(
+                "grouped controller duration is %.17g seconds, expected %.17g"
+                % (grouped_dt, expected_high_level_dt)
+            )
+        action_dim = int(self.env.action_dim)
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+
+        self.env.timestep += 1
+        final_action = None
+        for inner_index in range(expected_inner_updates):
+            # This forward is the same first forward that an ordinary control
+            # loop performs; place the provider after it so kinematics describe
+            # the current integrated state, without adding a second live
+            # forward or running any physics before validation.
+            self.env.sim.forward()
+            action = np.asarray(
+                action_provider(self.env.sim, inner_index), dtype=float
+            )
+            if action.shape != (action_dim,) or not np.all(np.isfinite(action)):
+                raise ValueError(
+                    "action_provider must return one finite action of dimension %d"
+                    % action_dim
+                )
+            final_action = action
+            policy_step = True
+            for substep_index in range(substeps):
+                if substep_index:
+                    self.env.sim.forward()
+                self.env._pre_action(action, policy_step)
+                self.env.sim.step()
+                callback(self.env.sim, inner_index, substep_index)
+                if update_observables:
+                    self.env._update_observables()
+                policy_step = False
+
+        self.env.cur_time += grouped_dt
+        reward, done, info = self.env._post_action(final_action)
+        done = self.env._check_success()
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = None
+        if collect_observations:
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
+        return observations, reward, done, info
+
     def reset(self):
         success = False
         while not success:

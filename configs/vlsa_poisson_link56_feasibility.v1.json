@@ -1,0 +1,230 @@
+{
+  "schema_version": "vlsa_poisson_link56_feasibility_protocol.v1",
+  "protocol_id": "vlsa-poisson-link56-aegis-car-109-v1",
+  "source": {
+    "table1_run_id": "vlsa-table1-contact-authority-population-20260718a",
+    "table1_protocol_id": "vlsa-table1-translational-1600-v1",
+    "table1_manifest_schema_version": "vlsa_table1_population_case.v1",
+    "table1_manifest_rows": 1600,
+    "table1_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "case_audit_rows": 1600,
+    "case_audit_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+    "analysis_directory_label": "full_failure_reanalysis_20260730",
+    "source_arm": "pi05_plus_aegis_translational",
+    "historical_results": {
+      "root_identifier": "vlsa-table1-contact-authority-population-20260718a",
+      "aegis_result_relative_glob": "tasks/task-*/results/aegis/*/result.json",
+      "aegis_result_relative_pattern": "tasks/task-*/results/aegis/{case_id}/result.json",
+      "expected_aegis_result_files": 1600,
+      "result_schema_version": "vlsa_table1_episode_result.v1",
+      "accepted_status": "complete",
+      "source_git_commit": "1592aa59361f431ba96c6ddcbebcb596f6c20853",
+      "source_run_contract_relative_path": "run-contract.tsv",
+      "source_run_contract_sha256": "3054fe79c428e608dc8ba3b696ef1393017ed3edbf5a1e520125566d27ae40dc",
+      "pi05_tree_sha256": "7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15",
+      "pi05_hash_receipt_sha256": "423c10b3435b84dfb694c309c7d2684cc9457c4616878043618847e9e75df7b9",
+      "pi05_hash_receipt_schema_version": "vlsa_table1_pi05_hash_receipt.v1",
+      "population_summary_relative_path": "publication-attempts/job-28940/population-summary.json",
+      "population_summary_sha256": "c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330",
+      "failure_case_ledger_relative_path": "publication-attempts/job-28940/failure-analysis/cases.jsonl",
+      "failure_case_ledger_sha256": "2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780",
+      "accepted_result_payloads_sha256": "28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285"
+    }
+  },
+  "population": {
+    "expected_cases": 109,
+    "expected_aegis_task_failures": 62,
+    "selection_rule": {
+      "aegis_collision": true,
+      "aegis_postcontrol_robot_contact": true,
+      "literal_robot_contact_body_any_of": [
+        "robot0_link5",
+        "robot0_link6"
+      ]
+    },
+    "strata": {
+      "primary_static_positive_aegis_barrier": {
+        "expected_cases": 60,
+        "expected_aegis_task_failures": 31,
+        "observed_car_class": "valid_qp_robot_contact_positive_proxy_barrier",
+        "refined_collision_mechanism": "positive_h_unmodelled_arm_link_contact"
+      },
+      "support_contact_after_settling_stress": {
+        "expected_cases": 47,
+        "expected_aegis_task_failures": 29,
+        "observed_car_class": "preexisting_settled_robot_or_dynamic_contact_then_collision",
+        "refined_collision_mechanism": "settled_dynamic_other_contact_before_action"
+      },
+      "nonpositive_aegis_barrier_recovery_stress": {
+        "expected_cases": 2,
+        "expected_aegis_task_failures": 2,
+        "observed_car_class": "valid_qp_robot_contact_nonpositive_proxy_barrier",
+        "refined_collision_mechanism": "sampled_data_barrier_invariance_loss"
+      }
+    },
+    "outcome_conditioned_disclosure": {
+      "outcome_conditioned": true,
+      "population_kind": "post_hoc_collision_mechanism_population",
+      "selection_uses_aegis_outcomes": true,
+      "claim_scope": "targeted_feasibility_diagnostic_only",
+      "prohibited_interpretation": "unbiased_safelibero_benchmark_or_population_level_safety_estimate",
+      "required_reporting": "report_all_109_intent_to_treat_and_the_preregistered_static_admissible_subset_without_silent_drops"
+    }
+  },
+  "split": {
+    "blocking_unit": "task_family_id_sha256_of_suite_nul_task_name",
+    "assignment_policy": "whole_semantic_task_families_between_development_and_heldout_evaluation",
+    "development_pool": {
+      "expected_cases": 25,
+      "task_families": [
+        {
+          "suite": "safelibero_goal",
+          "task_name": "put_the_bowl_on_the_plate",
+          "expected_cases": 10
+        },
+        {
+          "suite": "safelibero_spatial",
+          "task_name": "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+          "expected_cases": 6
+        },
+        {
+          "suite": "safelibero_object",
+          "task_name": "pick_up_the_orange_juice_and_place_it_in_the_basket",
+          "expected_cases": 6
+        },
+        {
+          "suite": "safelibero_long",
+          "task_name": "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+          "expected_cases": 3
+        }
+      ]
+    },
+    "bringup_canary": {
+      "expected_cases": 5,
+      "expected_aegis_task_failures": 3,
+      "expected_strata": {
+        "primary_static_positive_aegis_barrier": 2,
+        "support_contact_after_settling_stress": 2,
+        "nonpositive_aegis_barrier_recovery_stress": 1
+      },
+      "expected_suites": {
+        "safelibero_spatial": 1,
+        "safelibero_goal": 2,
+        "safelibero_object": 1,
+        "safelibero_long": 1
+      },
+      "case_ids": [
+        "vlsa-t1-goal-ii-t0-e05",
+        "vlsa-t1-goal-ii-t0-e24",
+        "vlsa-t1-spatial-i-t3-e42",
+        "vlsa-t1-object-i-t0-e00",
+        "vlsa-t1-long-i-t1-e01"
+      ],
+      "parameter_use": "engineering_debug"
+    },
+    "parameter_freeze": {
+      "expected_cases": 20,
+      "expected_aegis_task_failures": 13,
+      "expected_strata": {
+        "primary_static_positive_aegis_barrier": 12,
+        "support_contact_after_settling_stress": 8,
+        "nonpositive_aegis_barrier_recovery_stress": 0
+      },
+      "expected_suites": {
+        "safelibero_spatial": 5,
+        "safelibero_goal": 8,
+        "safelibero_object": 5,
+        "safelibero_long": 2
+      },
+      "case_ids": "all_remaining_development_pool_cases",
+      "parameter_use": "preregistered_development_checks_and_final_parameter_freeze"
+    },
+    "heldout_evaluation": {
+      "expected_cases": 84,
+      "expected_aegis_task_failures": 46,
+      "expected_strata": {
+        "primary_static_positive_aegis_barrier": 46,
+        "support_contact_after_settling_stress": 37,
+        "nonpositive_aegis_barrier_recovery_stress": 1
+      },
+      "expected_suites": {
+        "safelibero_spatial": 19,
+        "safelibero_goal": 36,
+        "safelibero_object": 18,
+        "safelibero_long": 11
+      },
+      "task_families": "all_remaining_semantic_task_families",
+      "parameter_use": "no_parameter_or_threshold_changes"
+    }
+  },
+  "execution": {
+    "settle_actions": 20,
+    "state_pairing": "settle_once_with_original_osc_then_restore_exact_full_mjstate_integration_into_both_joint_velocity_arms",
+    "source_action_pairing": "same_complete_historical_pi05_plus_aegis_translational_executed_action_ledger_in_both_arms_no_online_policy_queries",
+    "source_exposure_scope": "historical_outcome_dependent_exposure_only_not_the_full_table1_suite_horizon",
+    "max_steps_by_suite": {
+      "safelibero_spatial": 300,
+      "safelibero_goal": 300,
+      "safelibero_object": 300,
+      "safelibero_long": 550
+    },
+    "high_level_control_frequency_hz": 20,
+    "inner_filter_frequency_hz": 100,
+    "inner_updates_per_high_level_action": 5,
+    "physics_timestep_s": 0.002,
+    "static_selected_obstacle_geometry": "mujoco_collision_enabled_geoms",
+    "gripper_command_policy": "unchanged_from_frozen_vla"
+  },
+  "runtime_protocol": {
+    "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v1.json",
+    "schema_version": "vlsa_poisson_runtime_protocol.v1",
+    "protocol_id": "vlsa-poisson-link56-canary-parameters-v1",
+    "semantic_protocol_sha256": "a3f8af718a3068dc90a733ec8b3adbcc85e80828623dd215242085167e3ab5f6",
+    "parameter_block_sha256": "4f6c08f7b0490c13577484b03c811e8e13b8b19fed185379568905c27a4ff552",
+    "raw_file_sha256": "021bc42819973ae30df235de699281a60e3469722ec4cd5def5c6ecafde4cb1c",
+    "selection_status": "development_canary_not_heldout_frozen"
+  },
+  "required_arms": [
+    "joint_velocity_adapter_only",
+    "joint_velocity_psf_link56"
+  ],
+  "endpoints": {
+    "safety": [
+      "selected_obstacle_physics_substep_contact",
+      "literal_robot_link_contact",
+      "minimum_simulator_clearance_D_sim_m",
+      "collision_avoidance_rate"
+    ],
+    "utility": [
+      "task_success_within_registered_source_exposure",
+      "native_goal_progress",
+      "executed_path_length_m",
+      "motion_retention_ratio",
+      "correction_norm"
+    ],
+    "validity": [
+      "static_obstacle_pose_drift",
+      "poisson_safe_start",
+      "invalid_field_queries",
+      "qp_infeasibility",
+      "joint_velocity_tracking_error",
+      "optimizer_clearance_D_opt",
+      "runtime_ms"
+    ],
+    "reporting_populations": [
+      "all_109_intent_to_treat",
+      "primary_60_static_stratum",
+      "preregistered_static_admissible_subset",
+      "support_47_stress_stratum",
+      "recovery_2_stress_stratum"
+    ],
+    "infeasible_case_policy": "retain_in_all_case_denominator_and_report_reason"
+  },
+  "result_contract": {
+    "schema_version": "vlsa_poisson_link56_episode_result.v2",
+    "json_schema_relative_path": "schemas/vlsa_poisson_case_result.v2.schema.json",
+    "expected_results": 218,
+    "write_policy": "atomic_after_v2_semantic_provenance_and_referenced_artifact_validation",
+    "partial_result_policy": "never_use_for_claim_or_aggregate"
+  }
+}

@@ -335,3 +335,24 @@ mode must first prove action/outcome parity and validate full substep contact,
 simulator clearance, voxel-set semantics, Poisson numerics, sample coverage,
 Jacobian finite differences, QP residuals, and controller scaling. Infeasible
 repairs and failed cases remain in the denominator.
+
+## ADR-0028: Stage the first causal test as adapter-only versus link-5/6 Poisson-CBF
+
+Accepted for P01 bring-up. The first active H100 canary contains exactly two
+matched joint-velocity arms: the translational adapter alone and that same
+adapter plus the static Poisson-CBF constraints on `robot0_link5` and
+`robot0_link6`. End-effector-only and all-moving-link variants are future
+experiments, not unexecuted arms in this result contract.
+
+Both arms replay the exact actions actually executed by the completed
+historical pi0.5+AEGIS translational episode; no policy server or new pi0.5
+query runs. For the first canary this is an outcome-dependent 237-action
+exposure, not the full 300-step Table-1 suite horizon. Task success, Paper CAR,
+and correction utility are therefore reported only within that registered
+exposure and cannot be substituted for a new Table-1 TSR/CAR estimate.
+
+Active physics is permitted only after allocation-backed production-grid
+numerics, exact unchanged-OSC replay parity, and read-only static-Poisson
+identification pass on the same clean commit and immutable case inputs. A
+contact-prevention observation is kept distinct from task-preserving useful
+correction, all-robot contact avoidance, and safety achieved by stopping.

@@ -1,0 +1,839 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "vlsa_poisson_case_result.v2.schema.json",
+  "title": "Static full-body Poisson-CBF final episode result",
+  "description": "Closed structural contract. Cross-field physics, pairing, optimizer, and fail-closed invariants are additionally enforced by validate_episode_result.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "result_payload_sha256",
+    "status",
+    "scientific_result",
+    "completion_class",
+    "run_id",
+    "protocol_id",
+    "case_id",
+    "arm",
+    "provenance",
+    "case_identity",
+    "seeds",
+    "pairing",
+    "runtime",
+    "optimizer",
+    "allocation",
+    "execution",
+    "endpoints",
+    "artifact_references"
+  ],
+  "properties": {
+    "schema_version": {"const": "vlsa_poisson_link56_episode_result.v2"},
+    "result_payload_sha256": {"$ref": "#/$defs/sha256"},
+    "status": {"const": "complete"},
+    "scientific_result": {"const": true},
+    "completion_class": {
+      "enum": [
+        "executed",
+        "safe_start_inadmissible",
+        "static_obstacle_inadmissible",
+        "field_invalid",
+        "barrier_invariance_lost",
+        "qp_infeasible",
+        "qp_solver_failure",
+        "controller_tracking_invalid",
+        "fail_closed_runtime"
+      ]
+    },
+    "run_id": {"$ref": "#/$defs/nonemptyString"},
+    "protocol_id": {"const": "vlsa-poisson-link56-aegis-car-109-v1"},
+    "case_id": {"$ref": "#/$defs/nonemptyString"},
+    "arm": {"$ref": "#/$defs/arm"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "case_identity": {"$ref": "#/$defs/caseIdentity"},
+    "seeds": {"$ref": "#/$defs/seeds"},
+    "pairing": {"$ref": "#/$defs/pairing"},
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "optimizer": {"$ref": "#/$defs/optimizer"},
+    "allocation": {"$ref": "#/$defs/allocation"},
+    "execution": {"$ref": "#/$defs/execution"},
+    "endpoints": {"$ref": "#/$defs/endpoints"},
+    "artifact_references": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifactReference"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitObjectId": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "nonemptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nonnegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "finiteNumber": {
+      "type": "number"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$)).+$"
+    },
+    "arm": {
+      "enum": [
+        "joint_velocity_adapter_only",
+        "joint_velocity_psf_eef_only",
+        "joint_velocity_psf_link56",
+        "joint_velocity_psf_all_moving_links"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "code_repository",
+        "code_commit",
+        "code_dirty",
+        "code_dirty_state_sha256",
+        "code_dirty_state_semantics",
+        "baseline_repository",
+        "baseline_commit",
+        "run_contract_sha256",
+        "manifest_sha256",
+        "manifest_record_sha256",
+        "protocol_config_sha256",
+        "runtime_protocol_raw_sha256",
+        "runtime_protocol_semantic_sha256"
+      ],
+      "properties": {
+        "code_repository": {"const": "quanth238/vlsa-aegis"},
+        "code_commit": {"$ref": "#/$defs/gitObjectId"},
+        "code_dirty": {"const": false},
+        "code_dirty_state_sha256": {"const": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+        "code_dirty_state_semantics": {"const": "sha256_empty_bytes_for_required_clean_git_worktree_v1"},
+        "baseline_repository": {"const": "THU-RCSCT/vlsa-aegis"},
+        "baseline_commit": {"const": "1592aa59361f431ba96c6ddcbebcb596f6c20853"},
+        "run_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_record_sha256": {"$ref": "#/$defs/sha256"},
+        "protocol_config_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_protocol_raw_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_protocol_semantic_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "caseIdentity": {
+      "type": "object",
+      "required": [
+        "dataset",
+        "manifest_case_id",
+        "manifest_case_ordinal",
+        "pair_group_id",
+        "suite",
+        "safety_level",
+        "logical_task_index",
+        "resolved_task_index",
+        "episode_index",
+        "task_name",
+        "task_family_id",
+        "task_level_group_id",
+        "bddl_relative_path",
+        "bddl_sha256",
+        "initial_states_relative_path",
+        "initial_states_sha256",
+        "initial_state_record_sha256",
+        "active_obstacle_name",
+        "split",
+        "stratum",
+        "suite_horizon_high_level_steps",
+        "registered_source_exposure_high_level_steps"
+      ],
+      "properties": {
+        "dataset": {"const": "SafeLIBERO"},
+        "manifest_case_id": {"$ref": "#/$defs/nonemptyString"},
+        "manifest_case_ordinal": {"$ref": "#/$defs/nonnegativeInteger"},
+        "pair_group_id": {"$ref": "#/$defs/nonemptyString"},
+        "suite": {
+          "enum": [
+            "safelibero_spatial",
+            "safelibero_goal",
+            "safelibero_object",
+            "safelibero_long"
+          ]
+        },
+        "safety_level": {"enum": ["I", "II"]},
+        "logical_task_index": {"$ref": "#/$defs/nonnegativeInteger"},
+        "resolved_task_index": {"$ref": "#/$defs/nonnegativeInteger"},
+        "episode_index": {"$ref": "#/$defs/nonnegativeInteger"},
+        "task_name": {"$ref": "#/$defs/nonemptyString"},
+        "task_family_id": {"$ref": "#/$defs/sha256"},
+        "task_level_group_id": {"$ref": "#/$defs/nonemptyString"},
+        "bddl_relative_path": {"$ref": "#/$defs/relativePath"},
+        "bddl_sha256": {"$ref": "#/$defs/sha256"},
+        "initial_states_relative_path": {"$ref": "#/$defs/relativePath"},
+        "initial_states_sha256": {"$ref": "#/$defs/sha256"},
+        "initial_state_record_sha256": {"$ref": "#/$defs/sha256"},
+        "active_obstacle_name": {"$ref": "#/$defs/nonemptyString"},
+        "split": {
+          "enum": ["bringup_canary", "parameter_freeze", "heldout_evaluation"]
+        },
+        "stratum": {
+          "enum": [
+            "primary_static_positive_aegis_barrier",
+            "support_contact_after_settling_stress",
+            "nonpositive_aegis_barrier_recovery_stress"
+          ]
+        },
+        "suite_horizon_high_level_steps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "registered_source_exposure_high_level_steps": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "seeds": {
+      "type": "object",
+      "required": ["inventory_complete", "entries", "ledger_sha256"],
+      "properties": {
+        "inventory_complete": {"const": true},
+        "entries": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["scope", "name", "value"],
+            "properties": {
+              "scope": {
+                "enum": ["python", "numpy", "simulator", "policy", "policy_noise"]
+              },
+              "name": {"$ref": "#/$defs/nonemptyString"},
+              "value": {"$ref": "#/$defs/nonnegativeInteger"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "ledger_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "pairing": {
+      "type": "object",
+      "required": [
+        "pair_group_id",
+        "pairing_key_sha256",
+        "restored_settled_state_sha256",
+        "source_settled_observation_sha256",
+        "active_joint_velocity_initial_observation_sha256",
+        "policy_noise_schedule_sha256",
+        "policy_query_schedule_sha256",
+        "nominal_high_level_action_ledger_sha256",
+        "settling_action_ledger_sha256",
+        "controller_initial_state_sha256",
+        "compiled_physical_model_sha256",
+        "compiled_mjb_sha256",
+        "field_sha256",
+        "source_exposure_high_level_steps",
+        "inner_updates_per_high_level_action",
+        "high_level_dt_seconds",
+        "inner_dt_seconds",
+        "physics_dt_seconds"
+      ],
+      "properties": {
+        "pair_group_id": {"$ref": "#/$defs/nonemptyString"},
+        "pairing_key_sha256": {"$ref": "#/$defs/sha256"},
+        "restored_settled_state_sha256": {"$ref": "#/$defs/sha256"},
+        "source_settled_observation_sha256": {"$ref": "#/$defs/sha256"},
+        "active_joint_velocity_initial_observation_sha256": {"$ref": "#/$defs/sha256"},
+        "policy_noise_schedule_sha256": {"$ref": "#/$defs/sha256"},
+        "policy_query_schedule_sha256": {"$ref": "#/$defs/sha256"},
+        "nominal_high_level_action_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "settling_action_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "controller_initial_state_sha256": {"$ref": "#/$defs/sha256"},
+        "compiled_physical_model_sha256": {"$ref": "#/$defs/sha256"},
+        "compiled_mjb_sha256": {"$ref": "#/$defs/sha256"},
+        "field_sha256": {"$ref": "#/$defs/sha256"},
+        "source_exposure_high_level_steps": {"type": "integer", "minimum": 1},
+        "inner_updates_per_high_level_action": {"const": 5},
+        "high_level_dt_seconds": {"const": 0.05},
+        "inner_dt_seconds": {"const": 0.01},
+        "physics_dt_seconds": {"const": 0.002}
+      },
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "protocol_parameter_block_sha256",
+        "model",
+        "sampler",
+        "intervention",
+        "controller",
+        "action_space",
+        "measurement"
+      ],
+      "properties": {
+        "protocol_parameter_block_sha256": {"$ref": "#/$defs/sha256"},
+        "model": {"$ref": "#/$defs/model"},
+        "sampler": {"$ref": "#/$defs/sampler"},
+        "intervention": {"$ref": "#/$defs/intervention"},
+        "controller": {"$ref": "#/$defs/controller"},
+        "action_space": {"$ref": "#/$defs/actionSpace"},
+        "measurement": {"$ref": "#/$defs/measurementRuntime"}
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "policy_name",
+        "model_configuration_sha256",
+        "checkpoint_identifier",
+        "checkpoint_sha256",
+        "checkpoint_hash_semantics",
+        "normalization_statistics_sha256"
+      ],
+      "properties": {
+        "policy_name": {"const": "pi0.5"},
+        "model_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_identifier": {"$ref": "#/$defs/nonemptyString"},
+        "checkpoint_sha256": {"$ref": "#/$defs/sha256"},
+        "checkpoint_hash_semantics": {"const": "sha256_content_tree_v1"},
+        "normalization_statistics_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "sampler": {
+      "type": "object",
+      "required": [
+        "implementation",
+        "configuration_sha256",
+        "source_action_horizon",
+        "source_replan_steps",
+        "source_policy_query_count",
+        "active_policy_query_count",
+        "active_policy_rng_exercised",
+        "source_action_semantics",
+        "deterministic_replay"
+      ],
+      "properties": {
+        "implementation": {"const": "frozen_historical_pi05_plus_aegis_executed_action_replay"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "source_action_horizon": {"const": 10},
+        "source_replan_steps": {"const": 5},
+        "source_policy_query_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "active_policy_query_count": {"const": 0},
+        "active_policy_rng_exercised": {"const": false},
+        "source_action_semantics": {"const": "historical_pi05_plus_aegis_translational_exact_actions_executed_not_nominal_raw"},
+        "deterministic_replay": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "intervention": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "mode",
+        "configuration_sha256",
+        "protected_robot_bodies",
+        "static_selected_obstacle_only",
+        "fail_closed"
+      ],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "mode": {"$ref": "#/$defs/arm"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "protected_robot_bodies": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/nonemptyString"},
+          "uniqueItems": true
+        },
+        "static_selected_obstacle_only": {"const": true},
+        "fail_closed": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "controller": {
+      "type": "object",
+      "required": [
+        "name",
+        "implementation_version",
+        "configuration_sha256",
+        "controlled_joint_count",
+        "command_dimension",
+        "normalized_limit_abs",
+        "physical_velocity_limit_rad_s"
+      ],
+      "properties": {
+        "name": {"const": "JOINT_VELOCITY"},
+        "implementation_version": {"$ref": "#/$defs/nonemptyString"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "controlled_joint_count": {"const": 7},
+        "command_dimension": {"const": 8},
+        "normalized_limit_abs": {"const": 1.0},
+        "physical_velocity_limit_rad_s": {"const": 0.5}
+      },
+      "additionalProperties": false
+    },
+    "actionSpace": {
+      "type": "object",
+      "required": [
+        "source_policy_frame",
+        "controller_command_frame",
+        "source_policy_normalization_space",
+        "controller_normalization_space",
+        "physical_displacement_conversion",
+        "gripper_semantics"
+      ],
+      "properties": {
+        "source_policy_frame": {"const": "mujoco_world_frame_cartesian_delta"},
+        "controller_command_frame": {"const": "panda_joint_velocity_coordinates"},
+        "source_policy_normalization_space": {"const": "openpi_output_after_libero_action_unnormalization"},
+        "controller_normalization_space": {"const": "robosuite_joint_velocity_normalized_minus1_plus1"},
+        "physical_displacement_conversion": {"const": "scale_only_never_subtract_normalization_mean"},
+        "gripper_semantics": {"const": "unchanged_vla_command"}
+      },
+      "additionalProperties": false
+    },
+    "measurementRuntime": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "implementation_sha256",
+        "configuration_sha256",
+        "simulator",
+        "simulator_version",
+        "robosuite_version",
+        "physics_timestep_seconds",
+        "contact_definition",
+        "contact_sources",
+        "D_opt_semantics",
+        "D_sim_semantics",
+        "optimizer_and_simulator_clearance_distinct"
+      ],
+      "properties": {
+        "schema_version": {"const": "vlsa_poisson_simulator_measurement.v1"},
+        "implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "simulator": {"const": "MuJoCo"},
+        "simulator_version": {"$ref": "#/$defs/nonemptyString"},
+        "robosuite_version": {"$ref": "#/$defs/nonemptyString"},
+        "physics_timestep_seconds": {"const": 0.002},
+        "contact_definition": {"const": "mujoco_contact_dist_le_zero"},
+        "contact_sources": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "settled_state",
+              "live_solver_state",
+              "forwarded_post_integration_state"
+            ]
+          }
+        },
+        "D_opt_semantics": {"const": "minimum_registered_surface_sample_signed_distance_to_selected_obstacle_obb_union"},
+        "D_sim_semantics": {"$ref": "#/$defs/dSimSemantics"},
+        "optimizer_and_simulator_clearance_distinct": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "optimizer": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "solver",
+        "solver_version",
+        "configuration_sha256",
+        "attempt_count",
+        "solved_count",
+        "infeasible_count",
+        "solver_failure_count",
+        "postcheck_failure_count",
+        "terminal_status",
+        "minimum_normalized_cbf_residual",
+        "minimum_raw_cbf_residual_m2_per_s",
+        "normalized_cbf_postcheck_tolerance"
+      ],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "solver": {"const": "osqp"},
+        "solver_version": {"$ref": "#/$defs/nonemptyString"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "attempt_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "solved_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "infeasible_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "solver_failure_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "postcheck_failure_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "terminal_status": {
+          "enum": [
+            "not_applicable",
+            "not_reached",
+            "solved",
+            "infeasible",
+            "solver_failure",
+            "postcheck_failure"
+          ]
+        },
+        "minimum_normalized_cbf_residual": {"type": ["number", "null"]},
+        "minimum_raw_cbf_residual_m2_per_s": {"type": ["number", "null"]},
+        "normalized_cbf_postcheck_tolerance": {"const": 5e-7}
+      },
+      "additionalProperties": false
+    },
+    "allocation": {
+      "type": "object",
+      "required": [
+        "execution_environment",
+        "slurm_job_id",
+        "slurm_array_job_id",
+        "slurm_array_task_id",
+        "slurm_step_id",
+        "host_name",
+        "process_id",
+        "device"
+      ],
+      "properties": {
+        "execution_environment": {"const": "slurm_allocation"},
+        "slurm_job_id": {"type": "string", "pattern": "^[0-9]+$"},
+        "slurm_array_job_id": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+$"
+        },
+        "slurm_array_task_id": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+$"
+        },
+        "slurm_step_id": {
+          "type": ["string", "null"],
+          "pattern": "^(?:batch|extern|interactive|[0-9]+(?:\\.[0-9]+)*)$"
+        },
+        "host_name": {"$ref": "#/$defs/nonemptyString"},
+        "process_id": {"type": "integer", "minimum": 1},
+        "device": {
+          "type": "object",
+          "required": [
+            "device_type",
+            "visible_device_ids",
+            "model",
+            "uuid",
+            "driver_version",
+            "cuda_runtime_version"
+          ],
+          "properties": {
+            "device_type": {"const": "cuda"},
+            "visible_device_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/nonemptyString"}
+            },
+            "model": {"type": "string", "pattern": "H100"},
+            "uuid": {"$ref": "#/$defs/nonemptyString"},
+            "driver_version": {"$ref": "#/$defs/nonemptyString"},
+            "cuda_runtime_version": {"$ref": "#/$defs/nonemptyString"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "required": [
+        "high_level_steps",
+        "inner_control_steps",
+        "physics_substeps",
+        "physics_exposure_seconds",
+        "exposure_complete",
+        "fail_closed_no_further_physics",
+        "terminal_reason",
+        "completed_high_level_steps",
+        "terminal_entered_high_level_index",
+        "terminal_entered_inner_control_index",
+        "completed_physics_substeps_in_terminal_inner_control",
+        "source_action_prefix_semantics",
+        "planned_source_action_ledger_sha256",
+        "entered_source_action_prefix_sha256",
+        "completed_high_level_source_action_prefix_sha256",
+        "nominal_joint_velocity_ledger_sha256",
+        "executed_controller_action_ledger_sha256",
+        "terminal_simulator_state_sha256",
+        "terminal_simulator_state_semantics",
+        "terminal_observation_sha256",
+        "terminal_observation_semantics"
+      ],
+      "properties": {
+        "high_level_steps": {"$ref": "#/$defs/nonnegativeInteger"},
+        "inner_control_steps": {"$ref": "#/$defs/nonnegativeInteger"},
+        "physics_substeps": {"$ref": "#/$defs/nonnegativeInteger"},
+        "physics_exposure_seconds": {"type": "number", "minimum": 0},
+        "exposure_complete": {"type": "boolean"},
+        "fail_closed_no_further_physics": {"type": "boolean"},
+        "terminal_reason": {"$ref": "#/$defs/nonemptyString"},
+        "completed_high_level_steps": {"$ref": "#/$defs/nonnegativeInteger"},
+        "terminal_entered_high_level_index": {
+          "oneOf": [{"$ref": "#/$defs/nonnegativeInteger"}, {"type": "null"}]
+        },
+        "terminal_entered_inner_control_index": {
+          "oneOf": [
+            {"type": "integer", "minimum": 0, "maximum": 4},
+            {"type": "null"}
+          ]
+        },
+        "completed_physics_substeps_in_terminal_inner_control": {
+          "type": "integer", "minimum": 0, "maximum": 5
+        },
+        "source_action_prefix_semantics": {
+          "const": "entered_hash_counts_provider_entered_actions_completed_hash_counts_only_fully_returned_high_level_post_steps"
+        },
+        "planned_source_action_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "entered_source_action_prefix_sha256": {"$ref": "#/$defs/sha256"},
+        "completed_high_level_source_action_prefix_sha256": {"$ref": "#/$defs/sha256"},
+        "nominal_joint_velocity_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "executed_controller_action_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "terminal_simulator_state_sha256": {"$ref": "#/$defs/sha256"},
+        "terminal_simulator_state_semantics": {"const": "complete_official_mujoco_mjSTATE_INTEGRATION"},
+        "terminal_observation_sha256": {"$ref": "#/$defs/sha256"},
+        "terminal_observation_semantics": {"const": "current_state_synchronized_without_additional_physics"}
+      },
+      "additionalProperties": false
+    },
+    "measurementRecord": {
+      "type": "object",
+      "required": ["available", "value", "units", "reason"],
+      "properties": {
+        "available": {"type": "boolean"},
+        "value": {"type": ["number", "null"]},
+        "units": {"$ref": "#/$defs/nonemptyString"},
+        "reason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "dSimSemantics": {
+      "enum": [
+        "contact_authority_plus_exact_primitive_clearance",
+        "contact_authority_plus_coverage_lower_bound",
+        "contact_only_positive_clearance_unavailable",
+        "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_plus_exact_obb_coverage_lower_bound"
+      ]
+    },
+    "endpoints": {
+      "type": "object",
+      "required": ["safety", "task", "usefulness", "validity"],
+      "properties": {
+        "safety": {"$ref": "#/$defs/safetyEndpoint"},
+        "task": {"$ref": "#/$defs/taskEndpoint"},
+        "usefulness": {"$ref": "#/$defs/usefulnessEndpoint"},
+        "validity": {"$ref": "#/$defs/validityEndpoint"}
+      },
+      "additionalProperties": false
+    },
+    "safetyEndpoint": {
+      "type": "object",
+      "required": [
+        "h_min",
+        "minimum_nominal_cbf_residual",
+        "minimum_safe_cbf_residual",
+        "minimum_realized_cbf_residual",
+        "D_opt_min_m",
+        "D_sim_min_m",
+        "D_sim_semantics",
+        "any_robot_obstacle_contact",
+        "link56_obstacle_contact",
+        "contact_observation_complete",
+        "contact_absence_right_censored",
+        "total_physical_contact_point_record_count",
+        "settled_physical_contact_point_record_count",
+        "rollout_phase_physical_contact_point_record_count",
+        "live_solver_nonpositive_contact_point_record_count",
+        "post_state_physical_contact_point_record_count",
+        "first_physical_contact_point_record",
+        "first_settled_physical_contact_point_record",
+        "first_live_solver_physical_contact_point_record",
+        "first_post_state_physical_contact_point_record",
+        "paper_car"
+      ],
+      "properties": {
+        "h_min": {"$ref": "#/$defs/measurementRecord"},
+        "minimum_nominal_cbf_residual": {"$ref": "#/$defs/measurementRecord"},
+        "minimum_safe_cbf_residual": {"$ref": "#/$defs/measurementRecord"},
+        "minimum_realized_cbf_residual": {"$ref": "#/$defs/measurementRecord"},
+        "D_opt_min_m": {"$ref": "#/$defs/measurementRecord"},
+        "D_sim_min_m": {"$ref": "#/$defs/measurementRecord"},
+        "D_sim_semantics": {"$ref": "#/$defs/dSimSemantics"},
+        "any_robot_obstacle_contact": {"type": "boolean"},
+        "link56_obstacle_contact": {"type": "boolean"},
+        "contact_observation_complete": {"type": "boolean"},
+        "contact_absence_right_censored": {"type": "boolean"},
+        "total_physical_contact_point_record_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "settled_physical_contact_point_record_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "rollout_phase_physical_contact_point_record_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "live_solver_nonpositive_contact_point_record_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "post_state_physical_contact_point_record_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "first_physical_contact_point_record": {"type": ["object", "null"]},
+        "first_settled_physical_contact_point_record": {"type": ["object", "null"]},
+        "first_live_solver_physical_contact_point_record": {"type": ["object", "null"]},
+        "first_post_state_physical_contact_point_record": {"type": ["object", "null"]},
+        "paper_car": {
+          "type": "object",
+          "required": [
+            "available",
+            "maximum_active_obstacle_l1_displacement_m",
+            "threshold_m",
+            "collision",
+            "avoidance",
+            "reason",
+            "exposure_scope",
+            "position_ledger_sha256"
+          ],
+          "properties": {
+            "available": {"type": "boolean"},
+            "maximum_active_obstacle_l1_displacement_m": {"type": "number", "minimum": 0},
+            "threshold_m": {"const": 0.001},
+            "collision": {"type": ["boolean", "null"]},
+            "avoidance": {"type": ["boolean", "null"]},
+            "reason": {"type": ["string", "null"]}
+            ,"exposure_scope": {"const": "registered_historical_source_exposure_not_full_table1_suite_horizon"}
+            ,"position_ledger_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "taskEndpoint": {
+      "type": "object",
+      "required": [
+        "fixed_exposure_available",
+        "outcome_scope",
+        "ever_task_success_within_registered_source_exposure",
+        "terminal_task_success_within_registered_source_exposure",
+        "first_task_success_high_level_index",
+        "initial_task_success",
+        "prefix_task_success_latched",
+        "prefix_first_task_success_high_level_index",
+        "prefix_terminal_task_success",
+        "terminal_goal_fraction",
+        "maximum_goal_fraction",
+        "goal_regression_count",
+        "unavailable_reason"
+      ],
+      "properties": {
+        "fixed_exposure_available": {"type": "boolean"},
+        "outcome_scope": {"const": "registered_source_outcome_dependent_exposure_not_full_table1_suite_horizon"},
+        "ever_task_success_within_registered_source_exposure": {"type": ["boolean", "null"]},
+        "terminal_task_success_within_registered_source_exposure": {"type": ["boolean", "null"]},
+        "first_task_success_high_level_index": {"type": ["integer", "null"], "minimum": 0},
+        "initial_task_success": {"type": "boolean"},
+        "prefix_task_success_latched": {"type": "boolean"},
+        "prefix_first_task_success_high_level_index": {"type": ["integer", "null"], "minimum": 0},
+        "prefix_terminal_task_success": {"type": "boolean"},
+        "terminal_goal_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "maximum_goal_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "goal_regression_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "unavailable_reason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "usefulnessEndpoint": {
+      "type": "object",
+      "required": [
+        "nominal_joint_motion_integral_rad",
+        "safe_joint_motion_integral_rad",
+        "measured_joint_motion_integral_rad",
+        "eef_path_length_m",
+        "correction_integral_rad",
+        "motion_retention_ratio",
+        "zero_motion_fraction",
+        "all_issued_arm_joint_commands_zero",
+        "safety_by_no_execution"
+      ],
+      "properties": {
+        "nominal_joint_motion_integral_rad": {"type": "number", "minimum": 0},
+        "safe_joint_motion_integral_rad": {"type": "number", "minimum": 0},
+        "measured_joint_motion_integral_rad": {"type": "number", "minimum": 0},
+        "eef_path_length_m": {"type": "number", "minimum": 0},
+        "correction_integral_rad": {"type": "number", "minimum": 0},
+        "motion_retention_ratio": {"type": "number", "minimum": 0},
+        "zero_motion_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "all_issued_arm_joint_commands_zero": {"type": "boolean"},
+        "safety_by_no_execution": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "validityEndpoint": {
+      "type": "object",
+      "required": [
+        "poisson_safe_start",
+        "static_admissible",
+        "coverage_audit_passed",
+        "obstacle_translation_drift_m",
+        "obstacle_rotation_drift_rad",
+        "invalid_field_query_count",
+        "nonpositive_runtime_field_query_count",
+        "negative_realized_cbf_residual_count",
+        "realized_cbf_observed_physics_substep_count",
+        "realized_cbf_residual_evaluation_count",
+        "first_negative_realized_cbf_residual",
+        "qp_infeasible_count",
+        "qp_solver_failure_count",
+        "qp_postcheck_failure_count",
+        "maximum_velocity_tracking_error_rad_s",
+        "velocity_tracking_rmse_rad_s",
+        "velocity_tracking_linf_threshold_rad_s",
+        "velocity_tracking_rmse_threshold_rad_s",
+        "velocity_tracking_gate_semantics",
+        "velocity_tracking_observed_physics_substep_count",
+        "first_velocity_tracking_threshold_crossing"
+      ],
+      "properties": {
+        "poisson_safe_start": {"type": "boolean"},
+        "static_admissible": {"type": "boolean"},
+        "coverage_audit_passed": {"type": "boolean"},
+        "obstacle_translation_drift_m": {"type": "number", "minimum": 0},
+        "obstacle_rotation_drift_rad": {"type": "number", "minimum": 0},
+        "invalid_field_query_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "nonpositive_runtime_field_query_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "negative_realized_cbf_residual_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "realized_cbf_observed_physics_substep_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "realized_cbf_residual_evaluation_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "first_negative_realized_cbf_residual": {"type": ["object", "null"]},
+        "qp_infeasible_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "qp_solver_failure_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "qp_postcheck_failure_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "maximum_velocity_tracking_error_rad_s": {"type": "number", "minimum": 0},
+        "velocity_tracking_rmse_rad_s": {"type": "number", "minimum": 0},
+        "velocity_tracking_linf_threshold_rad_s": {"const": 0.05},
+        "velocity_tracking_rmse_threshold_rad_s": {"const": 0.02},
+        "velocity_tracking_gate_semantics": {"const": "empirical_controller_fidelity_gate_not_cbf_safety_certificate"},
+        "velocity_tracking_observed_physics_substep_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "first_velocity_tracking_threshold_crossing": {"type": ["object", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "artifactReference": {
+      "type": "object",
+      "required": ["relative_path", "bytes", "sha256", "artifact_type", "media_type"],
+      "properties": {
+        "relative_path": {"$ref": "#/$defs/relativePath"},
+        "bytes": {"$ref": "#/$defs/nonnegativeInteger"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_type": {"$ref": "#/$defs/nonemptyString"},
+        "media_type": {"$ref": "#/$defs/nonemptyString"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

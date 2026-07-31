@@ -1,0 +1,5 @@
+benchmark_root: safelibero/libero/libero
+bddl_files: safelibero/libero/libero/bddl_files
+init_states: safelibero/libero/libero/init_files
+datasets: safelibero/libero/libero
+assets: safelibero/libero/libero/assets

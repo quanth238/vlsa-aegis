@@ -1,0 +1,96 @@
+{
+  "accepted_result_payloads_sha256": "28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285",
+  "aegis_task_failures": 62,
+  "development_pool_cases": 25,
+  "exact_source_join_rows": 109,
+  "failure_case_ledger_sha256": "2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780",
+  "first_case_id": "vlsa-t1-spatial-i-t1-e00",
+  "full_source_join_rows_validated": 1600,
+  "historical_aegis_results_bound": 109,
+  "historical_result_bindings_sha256": "cd9908ea166e71e0ba9b80d853bf789d5218a31da889071e80c719a27ec361b4",
+  "historical_result_root_identifier": "vlsa-table1-contact-authority-population-20260718a",
+  "last_case_id": "vlsa-t1-long-ii-t0-e38",
+  "manifest_rows": 109,
+  "manifest_schema_version": "vlsa_poisson_link56_case.v1",
+  "manifest_sha256": "48db7943fc47a6fe9517ef38993053dbc40738ade05a000de24d80eedd5c0ed1",
+  "outcome_conditioned_disclosure": {
+    "claim_scope": "targeted_feasibility_diagnostic_only",
+    "outcome_conditioned": true,
+    "population_kind": "post_hoc_collision_mechanism_population",
+    "prohibited_interpretation": "unbiased_safelibero_benchmark_or_population_level_safety_estimate",
+    "required_reporting": "report_all_109_intent_to_treat_and_the_preregistered_static_admissible_subset_without_silent_drops",
+    "selection_uses_aegis_outcomes": true
+  },
+  "paired_results_required": 218,
+  "pi05_hash_receipt_sha256": "423c10b3435b84dfb694c309c7d2684cc9457c4616878043618847e9e75df7b9",
+  "pi05_tree_sha256": "7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15",
+  "population_summary_sha256": "c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330",
+  "protocol_config_sha256": "41455a62282e7158588f3bf1ee0378a5d051395436866647c83b114dfef2bd4a",
+  "protocol_id": "vlsa-poisson-link56-aegis-car-109-v1",
+  "required_arms": [
+    "joint_velocity_adapter_only",
+    "joint_velocity_psf_link56"
+  ],
+  "schema_version": "vlsa_poisson_link56_manifest_receipt.v1",
+  "semantic_task_families": 10,
+  "source_audit_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+  "source_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "source_run_contract_sha256": "3054fe79c428e608dc8ba3b696ef1393017ed3edbf5a1e520125566d27ae40dc",
+  "split_counts": {
+    "bringup_canary": 5,
+    "heldout_evaluation": 84,
+    "parameter_freeze": 20
+  },
+  "split_stratum_counts": {
+    "bringup_canary": {
+      "nonpositive_aegis_barrier_recovery_stress": 1,
+      "primary_static_positive_aegis_barrier": 2,
+      "support_contact_after_settling_stress": 2
+    },
+    "heldout_evaluation": {
+      "nonpositive_aegis_barrier_recovery_stress": 1,
+      "primary_static_positive_aegis_barrier": 46,
+      "support_contact_after_settling_stress": 37
+    },
+    "parameter_freeze": {
+      "nonpositive_aegis_barrier_recovery_stress": 0,
+      "primary_static_positive_aegis_barrier": 12,
+      "support_contact_after_settling_stress": 8
+    }
+  },
+  "split_suite_counts": {
+    "bringup_canary": {
+      "safelibero_goal": 2,
+      "safelibero_long": 1,
+      "safelibero_object": 1,
+      "safelibero_spatial": 1
+    },
+    "heldout_evaluation": {
+      "safelibero_goal": 36,
+      "safelibero_long": 11,
+      "safelibero_object": 18,
+      "safelibero_spatial": 19
+    },
+    "parameter_freeze": {
+      "safelibero_goal": 8,
+      "safelibero_long": 2,
+      "safelibero_object": 5,
+      "safelibero_spatial": 5
+    }
+  },
+  "split_task_failures": {
+    "bringup_canary": 3,
+    "heldout_evaluation": 46,
+    "parameter_freeze": 13
+  },
+  "stratum_counts": {
+    "nonpositive_aegis_barrier_recovery_stress": 2,
+    "primary_static_positive_aegis_barrier": 60,
+    "support_contact_after_settling_stress": 47
+  },
+  "stratum_task_failures": {
+    "nonpositive_aegis_barrier_recovery_stress": 2,
+    "primary_static_positive_aegis_barrier": 31,
+    "support_contact_after_settling_stress": 29
+  }
+}

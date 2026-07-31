@@ -618,6 +618,18 @@ class Table1EpisodeRunnerTests(unittest.TestCase):
         )
         self.assertLess(seed_position, construction_position)
 
+    def test_shared_environment_builder_keeps_controller_override_opt_in(self):
+        signature = inspect.signature(self.evaluator._build_environment)
+        self.assertIsNone(signature.parameters["controller"].default)
+        self.assertIsNone(signature.parameters["control_frequency_hz"].default)
+        source = inspect.getsource(self.evaluator._build_environment)
+        self.assertIn('env_args["controller"] = controller', source)
+        self.assertIn('env_args["control_freq"] = control_frequency_hz', source)
+        self.assertLess(
+            source.index('if controller is not None:'),
+            source.index('env = runtime["OffScreenRenderEnv"](**env_args)'),
+        )
+
     def test_capture_contract_hard_codes_zero_outcome_calls(self):
         source = CAPTURE_PATH.read_text(encoding="utf-8")
         for field in (

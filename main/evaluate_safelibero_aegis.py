@@ -1218,6 +1218,8 @@ def _build_environment(
     case: Mapping[str, Any],
     *,
     render_resolution: int,
+    controller: str | None = None,
+    control_frequency_hz: int | None = None,
 ) -> tuple[Any, Any, Any, Any]:
     suite_name = normalize_suite_name(str(case["suite"]))
     benchmark_dict = runtime["benchmark"].get_benchmark_dict()
@@ -1254,6 +1256,21 @@ def _build_environment(
         "camera_widths": render_resolution,
         "camera_depths": True,
     }
+    # Opt-in controller overrides are reserved for the Poisson feasibility
+    # runner.  Omitting them preserves the exact released OSC construction and
+    # kwargs used by every Table-1 baseline call.
+    if controller is not None:
+        if not isinstance(controller, str) or not controller:
+            raise ApparatusError("controller override must be a non-empty string")
+        env_args["controller"] = controller
+    if control_frequency_hz is not None:
+        if (
+            isinstance(control_frequency_hz, bool)
+            or not isinstance(control_frequency_hz, int)
+            or control_frequency_hz <= 0
+        ):
+            raise ApparatusError("control-frequency override must be a positive integer")
+        env_args["control_freq"] = control_frequency_hz
     # Match the released evaluator before constructing OffScreenRenderEnv.
     # LIBERO performs a temporary randomized placement in the constructor,
     # before we restore the frozen episode state, so this process-level seed

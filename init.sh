@@ -19,15 +19,35 @@ for optional_file in \
   analysis/build_safelibero_video_gallery.py \
   analysis/validate_aegis_failure_diagnostics.py \
   manifests/build_vlsa_table1_population.py \
+  scripts/build_poisson_link56_manifest.py \
+  scripts/run_poisson_active_canary.py \
+  scripts/run_poisson_numeric_validation.py \
+  scripts/run_poisson_shadow_identification.py \
+  scripts/run_poisson_shadow_parity.py \
   scripts/validate_aegis_assets.py \
-  scripts/validate_aegis_run_artifacts.py
+  scripts/validate_aegis_run_artifacts.py \
+  scripts/validate_poisson_run_artifacts.py \
+  scripts/validate_poisson_runtime_prerequisites.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
   fi
 done
 
+for optional_file in main/poisson_fullbody/*.py; do
+  if [[ -f "${optional_file}" ]]; then
+    python_files+=("${optional_file}")
+  fi
+done
+
 python3 -m py_compile "${python_files[@]}"
+
+for slurm_file in slurm/poisson_*.sbatch; do
+  if [[ -f "${slurm_file}" ]]; then
+    bash -n "${slurm_file}"
+  fi
+done
+
 python3 -m unittest discover -s tests -p 'test_*.py'
 
 active_count="$(

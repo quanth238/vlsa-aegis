@@ -1,0 +1,134 @@
+{
+  "schema_version": "vlsa_poisson_runtime_protocol.v1",
+  "protocol_id": "vlsa-poisson-link56-canary-parameters-v1",
+  "workspace": {
+    "minimum_m": [-1.0, -1.0, 0.0],
+    "maximum_m": [1.0, 1.0, 2.0],
+    "grid_shape_vertices": [101, 101, 101],
+    "grid_spacing_m": [0.02, 0.02, 0.02],
+    "boundary_condition": "homogeneous_dirichlet_h_zero",
+    "outside_workspace_policy": "invalid_fail_closed"
+  },
+  "occupancy": {
+    "geometry_source": "selected_mujoco_collision_enabled_geoms",
+    "rasterization": "closed_cell_obb_intersection",
+    "obstacle_clearance_m": 0.051001,
+    "outer_boundary_clearance_m": 0.051,
+    "buffer_application": "exactly_once",
+    "voxel_discretization_policy": "closed_cells_no_extra_half_diagonal",
+    "field_motion_model": "static_selected_obstacle",
+    "unknown_geometry_policy": "invalid_fail_closed"
+  },
+  "coverage": {
+    "epsilon_m": 0.05,
+    "ball_semantics": "strict_open_ball",
+    "certificate_method": "analytic_triangle_lattice_covering_bound",
+    "certificate_relation": "max_covering_radius_strictly_less_than_epsilon",
+    "require_every_collision_surface_component": true
+  },
+  "safety": {
+    "contact_margin_m": 0.001,
+    "physical_contact_definition": "mujoco_contact_dist_le_zero",
+    "positive_margin_contact_policy": "diagnostic_candidate_not_physical_contact",
+    "distance_accounting": "D_opt_and_D_sim_are_distinct"
+  },
+  "poisson": {
+    "equation": "minus_laplacian_h_equals_forcing",
+    "forcing_value": 1.0,
+    "boundary_value": 0.0,
+    "solver": "red_black_sor",
+    "relaxation_omega": 1.7,
+    "max_iterations": 50000,
+    "normalized_backward_error_tolerance": 1e-08,
+    "residual_check_interval": 20,
+    "query_interpolation": "trilinear_discrete_C0",
+    "invalid_query_policy": "terminate_retain_case",
+    "zero_cell_policy": "nonregular_zero_cell_invalid_fail_closed"
+  },
+  "cbf": {
+    "alpha_gain_per_s": 5.0,
+    "constraint_form": "grad_h_J_qdot_plus_alpha_h_ge_issf_epsilon0_grad_norm_squared",
+    "time_derivative_policy": "zero_only_while_static_field_admissible",
+    "issf_mode": "disabled_initial_pilot",
+    "issf_epsilon0": 0.0,
+    "unsafe_initial_policy": "terminate_retain_case"
+  },
+  "adapter": {
+    "dls_damping": 0.05,
+    "position_gain_per_s": 20.0,
+    "orientation_gain_per_s": 20.0,
+    "translation_action_scale_m": 0.05,
+    "input_clip_abs": 1.0,
+    "orientation_target": "hold_pose_at_high_level_action_start",
+    "physical_joint_velocity_scale_rad_s": 0.5,
+    "gripper_policy": "unchanged_vla_command"
+  },
+  "qp": {
+    "solver": "osqp",
+    "objective": "minimize_weighted_squared_qdot_deviation",
+    "weight_diagonal": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    "hard_cbf_constraints": true,
+    "slack_enabled": false,
+    "velocity_lower_rad_s": [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5],
+    "velocity_upper_rad_s": [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+    "joint_limit_alpha_per_s": 5.0,
+    "joint_position_margin_rad": 0.01,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iterations": 10000,
+    "postcheck_cbf_tolerance": 5e-07,
+    "postcheck_bound_tolerance_rad_s": 5e-08,
+    "row_scaling": "enabled",
+    "failure_policy": "terminate_retain_case_no_cached_command"
+  },
+  "cadence": {
+    "physics_timestep_s": 0.002,
+    "high_level_frequency_hz": 20.0,
+    "shadow": {
+      "mode": "monitor_only_no_action_mutation",
+      "filter_updates_per_high_level_action": 1,
+      "physics_substeps_per_filter_update": 25
+    },
+    "active": {
+      "mode": "recompute_joint_velocity_each_filter_update",
+      "filter_frequency_hz": 100.0,
+      "filter_updates_per_high_level_action": 5,
+      "physics_substeps_per_filter_update": 5
+    }
+  },
+  "admissibility": {
+    "max_state_restore_qpos_error_rad": 1e-10,
+    "max_state_restore_qvel_error_rad_s": 1e-10,
+    "joint_position_margin_rad": 0.01,
+    "max_joint_velocity_tracking_linf_rad_s": 0.05,
+    "max_joint_velocity_tracking_rmse_rad_s": 0.02,
+    "max_selected_body_linear_speed_m_s": 0.0001,
+    "max_selected_body_angular_speed_rad_s": 0.0001,
+    "max_selected_geom_translation_drift_m": 1e-06,
+    "max_selected_geom_rotation_drift_rad": 1e-05,
+    "max_selected_geom_surface_drift_m": 1e-06,
+    "maximum_invalid_field_queries": 0,
+    "require_safe_initial_samples": true,
+    "static_field_refresh_policy": "never_refresh_terminate_on_drift",
+    "violation_policy": "terminate_retain_invalid_not_collision_free"
+  },
+  "claim_scope": {
+    "obstacle_scope": "one_selected_obstacle_collision_geometry_only",
+    "protected_robot_bodies": ["robot0_link5", "robot0_link6"],
+    "unprotected_body_policy": "measure_contacts_but_exclude_from_link56_claim",
+    "population_scope": "outcome_conditioned_109_case_targeted_feasibility",
+    "claim_strength": "empirical_discrete_C0_static_field_feasibility_not_formal_guarantee",
+    "prohibited_generalization": "not_all_obstacles_not_all_links_not_unbiased_safelibero"
+  },
+  "parameter_selection": {
+    "selection_order": ["bringup_canary", "parameter_freeze", "heldout_evaluation"],
+    "allowed_tuning_splits": ["bringup_canary", "parameter_freeze"],
+    "heldout_split": "heldout_evaluation",
+    "blocking_unit": "whole_semantic_task_family",
+    "freeze_before_heldout": true,
+    "heldout_parameter_changes": "forbidden",
+    "after_change_policy": "new_protocol_and_new_heldout_required",
+    "parameter_sections": ["workspace", "occupancy", "coverage", "safety", "poisson", "cbf", "adapter", "qp", "cadence", "admissibility", "claim_scope"],
+    "parameter_block_sha256": "4f6c08f7b0490c13577484b03c811e8e13b8b19fed185379568905c27a4ff552"
+  }
+}
