@@ -30,7 +30,7 @@ import traceback
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v1"
+SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v2"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v1"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
@@ -265,7 +265,10 @@ def _prepare_shadow_runtime(
         StaticDriftThresholds,
         StaticPoissonShadowObserver,
     )
-    from main.poisson_fullbody.surface_sampling import build_robot_collision_samples
+    from main.poisson_fullbody.surface_sampling import (
+        build_robot_collision_samples,
+        validate_robot_sample_evidence,
+    )
     from scripts.run_poisson_shadow_parity import _prepare_environment
 
     env, task, observation, goal_atoms, previous_goal = _prepare_environment(
@@ -319,13 +322,64 @@ def _prepare_shadow_runtime(
     full_samples = build_robot_collision_samples(
         env.sim.model,
         forwarded,
-        body_ids=resolved.robot_body_ids,
+        geom_ids=resolved.robot_geom_ids,
         epsilon_m=float(protocol["coverage"]["epsilon_m"]),
     )
+    sampled_geom_ids = tuple(
+        int(record["geom_id"]) for record in full_samples.geom_records
+    )
+    if sampled_geom_ids != tuple(int(value) for value in resolved.robot_geom_ids):
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "full-robot measurement samples differ from authoritative resolved geoms"
+        )
     roundtrip = validate_rigid_roundtrip(full_samples.samples, forwarded)
     if not roundtrip["passed"]:
         env.close()
         raise ShadowIdentificationRunnerError("full-robot sample transform audit failed")
+    full_sampling_evidence = {
+        "sample_count": len(full_samples.samples),
+        "sample_ledger_sha256": full_samples.sample_ledger_sha256,
+        "geom_records": list(full_samples.geom_records),
+        "epsilon_m": full_samples.epsilon_m,
+        "maximum_surface_cover_radius_m": (
+            full_samples.maximum_surface_cover_radius_m
+        ),
+        "coverage_semantics": full_samples.coverage_semantics,
+        "rigid_roundtrip": roundtrip,
+    }
+    try:
+        type_counts = validate_robot_sample_evidence(
+            full_sampling_evidence,
+            resolved_geom_ids=resolved.robot_geom_ids,
+            resolved_geom_names=resolved.robot_geom_names,
+            resolved_body_ids=resolved.robot_body_ids,
+            roundtrip_field="rigid_roundtrip",
+        )
+    except (KeyError, TypeError, ValueError, OverflowError) as error:
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "full-robot surface-sampling evidence is invalid: %s" % error
+        ) from error
+    if type_counts != {"mesh": 11, "box": 4, "cylinder": 1}:
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "first-canary robot collision geometry type counts changed"
+        )
+    cylinder_record = next(
+        record
+        for record in full_samples.geom_records
+        if record["geom_type_name"] == "cylinder"
+    )
+    if (
+        cylinder_record["geom_id"] != 84
+        or cylinder_record["geom_name"] != "mount0_pedestal_col"
+        or cylinder_record["geom_size"] != [0.18, 0.31, 0.0]
+    ):
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "first-canary pedestal-cylinder identity or dimensions changed"
+        )
     admissibility = protocol["admissibility"]
     safety = protocol["safety"]
     monitor = FullRobotObstacleMonitor(
@@ -333,7 +387,7 @@ def _prepare_shadow_runtime(
         resolved,
         full_samples.samples,
         certified_coverage_radius_m=(
-            full_samples.maximum_triangle_cover_radius_m
+            full_samples.maximum_surface_cover_radius_m
         ),
         max_selected_geom_surface_drift_m=float(
             admissibility["max_selected_geom_surface_drift_m"]
@@ -410,16 +464,7 @@ def _prepare_shadow_runtime(
             ],
             "protected_sample_count": len(bundle.protected_samples.samples),
         },
-        "full_robot_measurement_sampling": {
-            "sample_count": len(full_samples.samples),
-            "geom_records": list(full_samples.geom_records),
-            "epsilon_m": full_samples.epsilon_m,
-            "maximum_triangle_cover_radius_m": (
-                full_samples.maximum_triangle_cover_radius_m
-            ),
-            "coverage_semantics": full_samples.coverage_semantics,
-            "rigid_roundtrip": roundtrip,
-        },
+        "full_robot_measurement_sampling": full_sampling_evidence,
         "settled_measurement": monitor.settled_state.to_dict(),
         "measurement_drift_mode": (
             "diagnostic_continue_contact_measurement_after_static_field_invalidation"

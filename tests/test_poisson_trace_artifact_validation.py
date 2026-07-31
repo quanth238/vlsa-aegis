@@ -307,13 +307,109 @@ def _fixture():
         "terminal_simulator_state_sha256": payload["execution"]["terminal_simulator_state_sha256"],
         "terminal_observation_sha256": payload["execution"]["terminal_observation_sha256"],
     }
+    robot_geom_ids = [55, 56] + list(range(70, 83)) + [84]
+    robot_geom_names = [
+        "robot_geom_%d" % value for value in robot_geom_ids[:-1]
+    ] + ["mount0_pedestal_col"]
+    surface_records = []
+    for index, (geom_id, geom_name) in enumerate(
+        zip(robot_geom_ids, robot_geom_names)
+    ):
+        if index < 11:
+            type_id, type_name = 7, "mesh"
+            geometry_kind = "compiled_mesh_convex_hull"
+            certificate_kind = "analytic_triangle_lattice_covering_bound"
+            certificate_parameters = {
+                "triangle_count": 12,
+                "requested_epsilon_m": 0.05,
+            }
+            geom_size = [1.0, 1.0, 1.0]
+            sample_count = 8
+            cover = 0.04
+        elif index < 15:
+            type_id, type_name = 6, "box"
+            geometry_kind = "exact_box_faces"
+            certificate_kind = "analytic_triangle_lattice_covering_bound"
+            certificate_parameters = {
+                "triangle_count": 12,
+                "requested_epsilon_m": 0.05,
+            }
+            geom_size = [0.01, 0.02, 0.03]
+            sample_count = 8
+            cover = 0.04
+        else:
+            type_id, type_name = 5, "cylinder"
+            geometry_kind = "exact_cylinder_surface"
+            certificate_kind = "analytic_cylinder_parameter_grid_covering_bound"
+            certificate_parameters = {
+                "angular_sample_count": 16,
+                "axial_interval_count": 9,
+                "cap_radial_interval_count": 3,
+                "requested_epsilon_m": 0.05,
+                "implementation_caps": {
+                    "maximum_angular_samples": 100000,
+                    "maximum_axial_intervals": 100000,
+                    "maximum_radial_intervals": 100000,
+                    "maximum_raw_sample_count": 1000000,
+                },
+            }
+            geom_size = [0.18, 0.31, 0.0]
+            sample_count = 226
+            cover = 0.04931058286977641
+        surface_records.append(
+            {
+                "geom_id": geom_id,
+                "geom_name": geom_name,
+                "body_id": geom_id,
+                "body_name": "robot_body_%d" % geom_id,
+                "geom_type_id": type_id,
+                "geom_type_name": type_name,
+                "geom_size": geom_size,
+                "contype": 1,
+                "conaffinity": 1,
+                "mask_collision_enabled": True,
+                "selection_authority": "authoritative_resolved_geom_ids",
+                "geometry_kind": geometry_kind,
+                "certificate_kind": certificate_kind,
+                "certificate_parameters": certificate_parameters,
+                "surface_element_count": (
+                    240 if type_name == "cylinder" else 12
+                ),
+                "sample_count": sample_count,
+                "certified_surface_cover_radius_m": cover,
+            }
+        )
+    full_sample_count = sum(record["sample_count"] for record in surface_records)
     trace = {
-        "schema_version": "vlsa_poisson_active_arm_trace.v1",
+        "schema_version": "vlsa_poisson_active_arm_trace.v2",
         "scientific_result": False,
         "run_id": payload["run_id"],
         "case_id": payload["case_id"],
         "arm": payload["arm"],
-        "resolved_geometry": {"link56_geom_ids": [55, 56]},
+        "resolved_geometry": {
+            "robot_body_ids": robot_geom_ids,
+            "robot_geom_ids": robot_geom_ids,
+            "robot_geom_names": robot_geom_names,
+            "link56_geom_ids": [55, 56],
+        },
+        "full_robot_surface_sampling": {
+            "sample_count": full_sample_count,
+            "sample_ledger_sha256": "a" * 64,
+            "epsilon_m": 0.05,
+            "maximum_surface_cover_radius_m": 0.04931058286977641,
+            "coverage_semantics": (
+                "strict_open_ball_surface_cover_from_triangle_lattices_for_compiled_"
+                "convex_hulls_and_exact_boxes_or_analytic_parameter_grids_for_exact_"
+                "cylinders; MuJoCo collision-semantic equivalence requires allocation audit"
+            ),
+            "geom_records": surface_records,
+            "roundtrip": {
+                "sample_count": full_sample_count,
+                "maximum_roundtrip_error_m": 1e-16,
+                "tolerance_m": 1e-10,
+                "passed": True,
+            },
+        },
         "outcome": outcome,
     }
 
@@ -517,6 +613,18 @@ def _publish(root, payload, trace):
 
 
 class PoissonTraceArtifactValidationTest(unittest.TestCase):
+    def test_active_prerequisite_accepts_registered_sampler_evidence(self):
+        from scripts.run_poisson_active_canary import (
+            _require_full_robot_sampling_evidence,
+        )
+
+        _, trace = _fixture()
+        _require_full_robot_sampling_evidence(
+            trace["resolved_geometry"],
+            trace["full_robot_surface_sampling"],
+            roundtrip_field="roundtrip",
+        )
+
     def test_complete_trace_reconstructs_all_scientific_endpoints(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -533,6 +641,32 @@ class PoissonTraceArtifactValidationTest(unittest.TestCase):
             result = validate_run_artifacts(result_path, root)
             self.assertEqual(result["completion_class"], "controller_tracking_invalid")
             self.assertEqual(result["execution"]["physics_substeps"], 1)
+
+    def test_full_robot_sampler_must_match_authoritative_geom_resolution(self):
+        payload, trace = _fixture()
+        trace["full_robot_surface_sampling"]["geom_records"][0]["geom_id"] = 54
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError, "geom IDs differ from authoritative resolution"
+            ):
+                validate_run_artifacts(result_path, root)
+
+    def test_cylinder_cover_is_recomputed_from_exact_grid_and_size(self):
+        payload, trace = _fixture()
+        cylinder = trace["full_robot_surface_sampling"]["geom_records"][-1]
+        cylinder["certified_surface_cover_radius_m"] = 0.04
+        trace["full_robot_surface_sampling"][
+            "maximum_surface_cover_radius_m"
+        ] = 0.04
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError, "reconstructed"
+            ):
+                validate_run_artifacts(result_path, root)
 
     def test_collusive_endpoint_tampering_is_rejected_against_raw_ledgers(self):
         mutations = {

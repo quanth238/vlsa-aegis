@@ -159,7 +159,7 @@ class StaticFieldBundleTests(unittest.TestCase):
             set(resolved.link56_geom_ids),
         )
         self.assertLess(
-            bundle.protected_samples.maximum_triangle_cover_radius_m,
+            bundle.protected_samples.maximum_surface_cover_radius_m,
             self.protocol["coverage"]["epsilon_m"],
         )
         self.assertGreater(bundle.diagnostics.minimum_initial_h_m2, 0.0)
@@ -296,7 +296,8 @@ class StaticFieldBundleTests(unittest.TestCase):
         empty = RobotSampleSet(
             samples=(),
             epsilon_m=epsilon,
-            maximum_triangle_cover_radius_m=0.0,
+            maximum_surface_cover_radius_m=0.0,
+            sample_ledger_sha256="0" * 64,
             geom_records=(),
             coverage_semantics="synthetic_empty_failure",
         )
@@ -316,7 +317,7 @@ class StaticFieldBundleTests(unittest.TestCase):
         complete = build_robot_collision_samples(
             model,
             data,
-            body_ids=resolved.link56_body_ids,
+            geom_ids=resolved.link56_geom_ids,
             epsilon_m=epsilon,
         )
         retained_geom = complete.geom_records[0]["geom_id"]
@@ -325,9 +326,10 @@ class StaticFieldBundleTests(unittest.TestCase):
                 sample for sample in complete.samples if sample.geom_id == retained_geom
             ),
             epsilon_m=complete.epsilon_m,
-            maximum_triangle_cover_radius_m=(
-                complete.geom_records[0]["certified_triangle_cover_radius_m"]
+            maximum_surface_cover_radius_m=(
+                complete.geom_records[0]["certified_surface_cover_radius_m"]
             ),
+            sample_ledger_sha256=complete.sample_ledger_sha256,
             geom_records=(complete.geom_records[0],),
             coverage_semantics=complete.coverage_semantics,
         )
@@ -336,6 +338,33 @@ class StaticFieldBundleTests(unittest.TestCase):
             return_value=incomplete,
         ):
             with self.assertRaisesRegex(ValueError, "coverage mismatch; missing="):
+                build_static_field_bundle(
+                    model,
+                    data,
+                    resolved=resolved,
+                    protocol=self.protocol,
+                    protocol_hashes=self.protocol_hashes,
+                )
+
+        wrong_record = copy.deepcopy(complete.geom_records[0])
+        wrong_record["certificate_kind"] = (
+            "analytic_cylinder_parameter_grid_covering_bound"
+        )
+        wrong_certificate = RobotSampleSet(
+            samples=complete.samples,
+            epsilon_m=complete.epsilon_m,
+            maximum_surface_cover_radius_m=(
+                complete.maximum_surface_cover_radius_m
+            ),
+            sample_ledger_sha256=complete.sample_ledger_sha256,
+            geom_records=(wrong_record,) + complete.geom_records[1:],
+            coverage_semantics=complete.coverage_semantics,
+        )
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.build_robot_collision_samples",
+            return_value=wrong_certificate,
+        ):
+            with self.assertRaisesRegex(ValueError, "differs from protocol"):
                 build_static_field_bundle(
                     model,
                     data,

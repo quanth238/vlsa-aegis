@@ -74,9 +74,10 @@ class SurfaceComponentCertificate:
     body_id: int
     body_name: str
     geometry_kind: str
-    triangle_count: int
+    certificate_kind: str
+    surface_element_count: int
     sample_count: int
-    certified_triangle_cover_radius_m: float
+    certified_surface_cover_radius_m: float
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,7 @@ class ProtectedSurfaceSamples:
     samples: Tuple[BodySample, ...]
     components: Tuple[SurfaceComponentCertificate, ...]
     epsilon_m: float
-    maximum_triangle_cover_radius_m: float
+    maximum_surface_cover_radius_m: float
     coverage_semantics: str
 
     def __post_init__(self) -> None:
@@ -106,7 +107,7 @@ class ProtectedSurfaceSamples:
                 "components must contain SurfaceComponentCertificate records"
             )
         epsilon = float(self.epsilon_m)
-        maximum = float(self.maximum_triangle_cover_radius_m)
+        maximum = float(self.maximum_surface_cover_radius_m)
         if not math.isfinite(epsilon) or epsilon <= 0.0:
             raise StaticFieldBundleError("coverage epsilon must be finite and positive")
         if not math.isfinite(maximum) or maximum < 0.0 or not maximum < epsilon:
@@ -128,13 +129,13 @@ class ProtectedSurfaceSamples:
                 "sample and component collision-geom identities disagree"
             )
         for component in components:
-            if component.triangle_count <= 0 or component.sample_count <= 0:
+            if component.surface_element_count <= 0 or component.sample_count <= 0:
                 raise StaticFieldBundleError(
                     "every protected surface component must be nonempty"
                 )
             if not (
-                math.isfinite(component.certified_triangle_cover_radius_m)
-                and component.certified_triangle_cover_radius_m < epsilon
+                math.isfinite(component.certified_surface_cover_radius_m)
+                and component.certified_surface_cover_radius_m < epsilon
             ):
                 raise StaticFieldBundleError(
                     "every component covering radius must be strictly less than epsilon"
@@ -149,7 +150,7 @@ class ProtectedSurfaceSamples:
         object.__setattr__(self, "samples", samples)
         object.__setattr__(self, "components", components)
         object.__setattr__(self, "epsilon_m", epsilon)
-        object.__setattr__(self, "maximum_triangle_cover_radius_m", maximum)
+        object.__setattr__(self, "maximum_surface_cover_radius_m", maximum)
 
 
 class ImmutableTrilinearPoissonField(TrilinearPoissonField):
@@ -338,13 +339,14 @@ def _protected_surface_samples(
     resolved: ResolvedGeomSets,
     protected_body_ids: Sequence[int],
     epsilon_m: float,
+    certificate_method: str,
 ) -> ProtectedSurfaceSamples:
     mujoco, _ = _modules()
     try:
         extracted = build_robot_collision_samples(
             model,
             data,
-            body_ids=protected_body_ids,
+            geom_ids=resolved.link56_geom_ids,
             epsilon_m=epsilon_m,
         )
     except (RuntimeError, TypeError, ValueError) as error:
@@ -426,6 +428,12 @@ def _protected_surface_samples(
             raise StaticFieldBundleError(
                 "protected surface provenance disagrees with authoritative MuJoCo"
             )
+        if str(record["certificate_kind"]) != str(
+            certificate_method
+        ):
+            raise StaticFieldBundleError(
+                "protected surface certificate method differs from protocol"
+            )
         components.append(
             SurfaceComponentCertificate(
                 geom_id=geom_id,
@@ -433,10 +441,11 @@ def _protected_surface_samples(
                 body_id=body_id,
                 body_name=str(record["body_name"]),
                 geometry_kind=str(record["geometry_kind"]),
-                triangle_count=int(record["triangle_count"]),
+                certificate_kind=str(record["certificate_kind"]),
+                surface_element_count=int(record["surface_element_count"]),
                 sample_count=int(record["sample_count"]),
-                certified_triangle_cover_radius_m=float(
-                    record["certified_triangle_cover_radius_m"]
+                certified_surface_cover_radius_m=float(
+                    record["certified_surface_cover_radius_m"]
                 ),
             )
         )
@@ -444,8 +453,8 @@ def _protected_surface_samples(
         samples=immutable_samples,
         components=tuple(components),
         epsilon_m=float(extracted.epsilon_m),
-        maximum_triangle_cover_radius_m=float(
-            extracted.maximum_triangle_cover_radius_m
+        maximum_surface_cover_radius_m=float(
+            extracted.maximum_surface_cover_radius_m
         ),
         coverage_semantics=str(extracted.coverage_semantics),
     )
@@ -587,8 +596,8 @@ def _bundle_hashes(
     )
     sample_payload = {
         "epsilon_m": protected.epsilon_m,
-        "maximum_triangle_cover_radius_m": (
-            protected.maximum_triangle_cover_radius_m
+        "maximum_surface_cover_radius_m": (
+            protected.maximum_surface_cover_radius_m
         ),
         "coverage_semantics": protected.coverage_semantics,
         "components": [asdict(component) for component in protected.components],
@@ -651,6 +660,7 @@ def build_static_field_bundle(
         resolved,
         protected_ids,
         coverage_epsilon,
+        str(snapshot["coverage"]["certificate_method"]),
     )
     world_points = evaluate_world_points(protected.samples, forwarded_data)
 

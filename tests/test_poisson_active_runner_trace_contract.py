@@ -247,7 +247,7 @@ def serialized_trace_fixture():
         ],
     }
     trace = {
-        "schema_version": "vlsa_poisson_active_arm_trace.v1",
+        "schema_version": "vlsa_poisson_active_arm_trace.v2",
         "scientific_result": False,
         "run_id": scientific["run_id"],
         "case_id": scientific["case_id"],

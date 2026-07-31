@@ -39,7 +39,7 @@ DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 ARMS = ("joint_velocity_adapter_only", "joint_velocity_psf_link56")
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
 EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v1"
-EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v1"
+EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v2"
 D_SIM_SEMANTICS = (
     "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_"
     "plus_exact_obb_coverage_lower_bound"
@@ -390,6 +390,54 @@ def _require_true_acceptance(
         raise ActiveRunnerError("%s acceptance is incomplete" % label)
 
 
+def _require_full_robot_sampling_evidence(
+    resolved: Any,
+    evidence: Any,
+    *,
+    roundtrip_field: str,
+) -> None:
+    from main.poisson_fullbody.surface_sampling import (
+        validate_robot_sample_evidence,
+    )
+
+    if not isinstance(resolved, Mapping):
+        raise ActiveRunnerError("authoritative resolved geometry evidence is absent")
+    try:
+        type_counts = validate_robot_sample_evidence(
+            evidence,
+            resolved_geom_ids=resolved["robot_geom_ids"],
+            resolved_geom_names=resolved["robot_geom_names"],
+            resolved_body_ids=resolved["robot_body_ids"],
+            roundtrip_field=roundtrip_field,
+        )
+    except (KeyError, TypeError, ValueError, OverflowError) as error:
+        raise ActiveRunnerError(
+            "full-robot surface-sampling evidence is invalid: %s" % error
+        ) from error
+    if type_counts != {"mesh": 11, "box": 4, "cylinder": 1}:
+        raise ActiveRunnerError(
+            "first-canary robot collision geometry type counts changed"
+        )
+    records = evidence.get("geom_records")
+    cylinder_records = [
+        record
+        for record in records
+        if isinstance(record, Mapping) and record.get("geom_type_name") == "cylinder"
+    ]
+    if len(cylinder_records) != 1:
+        raise ActiveRunnerError("first-canary pedestal cylinder is not unique")
+    cylinder = cylinder_records[0]
+    if (
+        cylinder.get("geom_id") != 84
+        or cylinder.get("geom_name") != "mount0_pedestal_col"
+        or cylinder.get("geom_type_id") != 5
+        or cylinder.get("geom_size") != [0.18, 0.31, 0.0]
+    ):
+        raise ActiveRunnerError(
+            "first-canary pedestal-cylinder identity or dimensions changed"
+        )
+
+
 def _require_numeric_prerequisite(path: Path, *, source_commit: str) -> Dict[str, Any]:
     from main.poisson_fullbody.contracts import load_hashed_json
 
@@ -519,6 +567,16 @@ def _require_identification_prerequisite(
         raise ActiveRunnerError(
             "shadow-identification prerequisite exposure is incomplete"
         )
+    construction = shadow.get("construction")
+    if not isinstance(construction, Mapping):
+        raise ActiveRunnerError(
+            "shadow-identification construction evidence is absent"
+        )
+    _require_full_robot_sampling_evidence(
+        construction.get("resolved_geometry"),
+        construction.get("full_robot_measurement_sampling"),
+        roundtrip_field="rigid_roundtrip",
+    )
     identification = shadow.get("poisson_identification")
     assessment = (
         identification.get("contact_prediction_assessment")
@@ -1071,7 +1129,7 @@ def _run_arm(
             env.sim,
             resolved,
             full_samples.samples,
-            certified_coverage_radius_m=full_samples.maximum_triangle_cover_radius_m,
+            certified_coverage_radius_m=full_samples.maximum_surface_cover_radius_m,
             max_selected_geom_surface_drift_m=float(admissibility["max_selected_geom_surface_drift_m"]),
             max_selected_geom_translation_drift_m=float(admissibility["max_selected_geom_translation_drift_m"]),
             max_selected_geom_rotation_drift_rad=float(admissibility["max_selected_geom_rotation_drift_rad"]),
@@ -3153,12 +3211,37 @@ def main() -> int:
             full_samples = build_robot_collision_samples(
                 source_env.sim.model,
                 forwarded,
-                body_ids=resolved.robot_body_ids,
+                geom_ids=resolved.robot_geom_ids,
                 epsilon_m=float(protocol["coverage"]["epsilon_m"]),
             )
+            sampled_geom_ids = tuple(
+                int(record["geom_id"]) for record in full_samples.geom_records
+            )
+            if sampled_geom_ids != tuple(
+                int(value) for value in resolved.robot_geom_ids
+            ):
+                raise ActiveRunnerError(
+                    "full-robot measurement samples differ from authoritative resolved geoms"
+                )
             roundtrip = validate_rigid_roundtrip(full_samples.samples, forwarded)
             if not roundtrip["passed"]:
                 raise ActiveRunnerError("full-robot measurement surface roundtrip failed")
+            full_sampling_evidence = {
+                "sample_count": len(full_samples.samples),
+                "sample_ledger_sha256": full_samples.sample_ledger_sha256,
+                "geom_records": list(full_samples.geom_records),
+                "epsilon_m": full_samples.epsilon_m,
+                "maximum_surface_cover_radius_m": (
+                    full_samples.maximum_surface_cover_radius_m
+                ),
+                "coverage_semantics": full_samples.coverage_semantics,
+                "roundtrip": roundtrip,
+            }
+            _require_full_robot_sampling_evidence(
+                resolved.to_dict(),
+                full_sampling_evidence,
+                roundtrip_field="roundtrip",
+            )
             source_official_after = _official_integration_state(source_env.sim, runtime["np"])
             if not runtime["np"].array_equal(source_official_before, source_official_after):
                 raise ActiveRunnerError("field construction changed source integration state")
@@ -3204,7 +3287,7 @@ def main() -> int:
                     publish_hashed_json(arm_dir / "arm_error.json", arm_error)
                     raise
                 trace_payload = {
-                    "schema_version": "vlsa_poisson_active_arm_trace.v1",
+                    "schema_version": "vlsa_poisson_active_arm_trace.v2",
                     "scientific_result": False,
                     "run_id": arguments.run_id,
                     "case_id": case["case_id"],
@@ -3214,12 +3297,7 @@ def main() -> int:
                     "field_bundle_hashes": asdict(bundle.hashes),
                     "field_bundle_diagnostics": asdict(bundle.diagnostics),
                     "resolved_geometry": resolved.to_dict(),
-                    "full_robot_surface_sampling": {
-                        "sample_count": len(full_samples.samples),
-                        "epsilon_m": full_samples.epsilon_m,
-                        "maximum_triangle_cover_radius_m": full_samples.maximum_triangle_cover_radius_m,
-                        "roundtrip": roundtrip,
-                    },
+                    "full_robot_surface_sampling": full_sampling_evidence,
                     "outcome": outcome,
                 }
                 trace_path = arm_dir / "trace.json"

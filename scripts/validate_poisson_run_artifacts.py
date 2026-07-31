@@ -30,12 +30,17 @@ from main.poisson_fullbody.contracts import (  # noqa: E402
 from main.poisson_fullbody.result_schema import validate_episode_result  # noqa: E402
 
 
-TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v1"
+TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v2"
 TRACE_ARTIFACT_TYPE = "active_arm_audit_trace"
 PHYSICS_DT_SECONDS = 0.002
 INNER_UPDATES_PER_HIGH_LEVEL = 5
 PHYSICS_SUBSTEPS_PER_INNER = 5
 PAPER_CAR_THRESHOLD_M = 0.001
+FULL_ROBOT_COVERAGE_SEMANTICS = (
+    "strict_open_ball_surface_cover_from_triangle_lattices_for_compiled_"
+    "convex_hulls_and_exact_boxes_or_analytic_parameter_grids_for_exact_"
+    "cylinders; MuJoCo collision-semantic equivalence requires allocation audit"
+)
 
 
 def _fail(label: str, message: str) -> None:
@@ -165,6 +170,287 @@ def _validate_identity(result: Mapping[str, Any], trace: Mapping[str, Any]) -> M
         "trace.outcome.completion_class",
     )
     return outcome
+
+
+def _validate_full_robot_surface_sampling(trace: Mapping[str, Any]) -> None:
+    """Validate the v2 trace's authoritative mixed-geometry D_sim sampler."""
+
+    resolved = _mapping(trace.get("resolved_geometry"), "trace.resolved_geometry")
+    raw_expected_geoms = _list(
+        resolved.get("robot_geom_ids"), "trace.resolved_geometry.robot_geom_ids"
+    )
+    expected_geoms = [
+        _integer(value, "trace.resolved_geometry.robot_geom_ids[%d]" % index)
+        for index, value in enumerate(raw_expected_geoms)
+    ]
+    raw_expected_names = _list(
+        resolved.get("robot_geom_names"),
+        "trace.resolved_geometry.robot_geom_names",
+    )
+    expected_names = []
+    for index, value in enumerate(raw_expected_names):
+        _require(
+            isinstance(value, str) and bool(value),
+            "trace.resolved_geometry.robot_geom_names[%d]" % index,
+            "must be a nonempty string",
+        )
+        expected_names.append(value)
+    robot_bodies = {
+        _integer(value, "trace.resolved_geometry.robot_body_ids[%d]" % index)
+        for index, value in enumerate(
+            _list(
+                resolved.get("robot_body_ids"),
+                "trace.resolved_geometry.robot_body_ids",
+            )
+        )
+    }
+    _require(bool(expected_geoms), "trace.resolved_geometry.robot_geom_ids", "must be nonempty")
+    _require(
+        expected_geoms == sorted(set(expected_geoms)),
+        "trace.resolved_geometry.robot_geom_ids",
+        "must be strictly ordered and unique",
+    )
+    _require(
+        len(expected_names) == len(expected_geoms) and bool(robot_bodies),
+        "trace.resolved_geometry robot identities",
+    )
+
+    sampling = _mapping(
+        trace.get("full_robot_surface_sampling"),
+        "trace.full_robot_surface_sampling",
+    )
+    epsilon = _finite(sampling.get("epsilon_m"), "trace.full_robot_surface_sampling.epsilon_m")
+    maximum = _finite(
+        sampling.get("maximum_surface_cover_radius_m"),
+        "trace.full_robot_surface_sampling.maximum_surface_cover_radius_m",
+    )
+    _require(epsilon > 0.0, "trace.full_robot_surface_sampling.epsilon_m", "must be positive")
+    _require(
+        0.0 <= maximum < epsilon,
+        "trace.full_robot_surface_sampling.maximum_surface_cover_radius_m",
+        "must be nonnegative and strictly below epsilon",
+    )
+    semantics = sampling.get("coverage_semantics")
+    _require(
+        semantics == FULL_ROBOT_COVERAGE_SEMANTICS,
+        "trace.full_robot_surface_sampling.coverage_semantics",
+        "differs from the v2 registered semantics",
+    )
+    sample_hash = sampling.get("sample_ledger_sha256")
+    _require(
+        isinstance(sample_hash, str)
+        and len(sample_hash) == 64
+        and all(character in "0123456789abcdef" for character in sample_hash),
+        "trace.full_robot_surface_sampling.sample_ledger_sha256",
+        "must be a lowercase SHA-256 digest",
+    )
+    records = _list(
+        sampling.get("geom_records"),
+        "trace.full_robot_surface_sampling.geom_records",
+    )
+    _require(
+        len(records) == len(expected_geoms),
+        "trace.full_robot_surface_sampling.geom_records",
+        "count differs from authoritative robot geoms",
+    )
+    observed_geoms: List[int] = []
+    observed_names: List[str] = []
+    sample_total = 0
+    record_maximum = 0.0
+    type_counts = {"mesh": 0, "box": 0, "cylinder": 0}
+    expected_certificate = {
+        "compiled_mesh_convex_hull": "analytic_triangle_lattice_covering_bound",
+        "exact_box_faces": "analytic_triangle_lattice_covering_bound",
+        "exact_cylinder_surface": "analytic_cylinder_parameter_grid_covering_bound",
+    }
+    expected_type = {
+        "compiled_mesh_convex_hull": (7, "mesh"),
+        "exact_box_faces": (6, "box"),
+        "exact_cylinder_surface": (5, "cylinder"),
+    }
+    for index, raw_record in enumerate(records):
+        label = "trace.full_robot_surface_sampling.geom_records[%d]" % index
+        record = _mapping(raw_record, label)
+        observed_geoms.append(_integer(record.get("geom_id"), label + ".geom_id"))
+        body_id = _integer(record.get("body_id"), label + ".body_id")
+        _require(body_id in robot_bodies, label + ".body_id", "is outside the robot tree")
+        for field in ("geom_name", "body_name"):
+            value = record.get(field)
+            _require(
+                isinstance(value, str) and bool(value),
+                label + "." + field,
+                "must be a nonempty string",
+            )
+        observed_names.append(record["geom_name"])
+        geometry_kind = record.get("geometry_kind")
+        _require(
+            geometry_kind in expected_certificate,
+            label + ".geometry_kind",
+            "is unsupported",
+        )
+        _require(
+            record.get("certificate_kind") == expected_certificate[geometry_kind],
+            label + ".certificate_kind",
+        )
+        _require(
+            record.get("geom_type_name") == expected_type[geometry_kind][1],
+            label + ".geom_type_name",
+        )
+        _require(
+            _integer(record.get("geom_type_id"), label + ".geom_type_id")
+            == expected_type[geometry_kind][0],
+            label + ".geom_type_id",
+        )
+        _vector(record.get("geom_size"), 3, label + ".geom_size")
+        contype = _integer(record.get("contype"), label + ".contype")
+        conaffinity = _integer(record.get("conaffinity"), label + ".conaffinity")
+        _require(
+            isinstance(record.get("mask_collision_enabled"), bool),
+            label + ".mask_collision_enabled",
+            "must be Boolean",
+        )
+        _require(
+            record.get("mask_collision_enabled") is bool(contype or conaffinity),
+            label + ".mask_collision_enabled",
+            "differs from contype/conaffinity",
+        )
+        _require(
+            record.get("selection_authority") == "authoritative_resolved_geom_ids",
+            label + ".selection_authority",
+        )
+        parameters = _mapping(
+            record.get("certificate_parameters"),
+            label + ".certificate_parameters",
+        )
+        _close(
+            parameters.get("requested_epsilon_m"),
+            epsilon,
+            label + ".certificate_parameters.requested_epsilon_m",
+        )
+        if geometry_kind == "exact_cylinder_surface":
+            for field in (
+                "angular_sample_count",
+                "axial_interval_count",
+                "cap_radial_interval_count",
+            ):
+                _require(
+                    _integer(parameters.get(field), label + ".certificate_parameters." + field)
+                    > 0,
+                    label + ".certificate_parameters." + field,
+                    "must be positive",
+                )
+        _require(
+            _integer(record.get("surface_element_count"), label + ".surface_element_count") > 0,
+            label + ".surface_element_count",
+            "must be positive",
+        )
+        sample_count = _integer(record.get("sample_count"), label + ".sample_count")
+        _require(sample_count > 0, label + ".sample_count", "must be positive")
+        if geometry_kind == "exact_cylinder_surface":
+            angular = int(parameters["angular_sample_count"])
+            axial = int(parameters["axial_interval_count"])
+            radial = int(parameters["cap_radial_interval_count"])
+            _require(
+                record["surface_element_count"]
+                == angular * (axial + 2 * radial),
+                label + ".surface_element_count",
+                "differs from the cylinder grid",
+            )
+            _require(
+                sample_count
+                == angular * (axial + 1) + 2 * (1 + angular * (radial - 1)),
+                label + ".sample_count",
+                "differs from the unique cylinder surface grid",
+            )
+        sample_total += sample_count
+        cover = _finite(
+            record.get("certified_surface_cover_radius_m"),
+            label + ".certified_surface_cover_radius_m",
+        )
+        _require(
+            0.0 <= cover < epsilon,
+            label + ".certified_surface_cover_radius_m",
+            "must be nonnegative and strictly below epsilon",
+        )
+        if geometry_kind == "exact_cylinder_surface":
+            geom_size = _vector(record.get("geom_size"), 3, label + ".geom_size")
+            radius, half_length = geom_size[:2]
+            _require(
+                radius > 0.0 and half_length > 0.0,
+                label + ".geom_size",
+                "must contain a positive radius and half-length",
+            )
+            angular_bound = 2.0 * radius * math.sin(
+                math.pi / (2.0 * float(angular))
+            )
+            recomputed_cover = max(
+                math.hypot(angular_bound, half_length / float(axial)),
+                math.hypot(angular_bound, radius / (2.0 * float(radial))),
+            )
+            _close(
+                cover,
+                recomputed_cover,
+                label + ".certified_surface_cover_radius_m.reconstructed",
+                absolute=1e-15,
+            )
+        type_counts[expected_type[geometry_kind][1]] += 1
+        record_maximum = max(record_maximum, cover)
+    _require(
+        observed_geoms == expected_geoms and observed_names == expected_names,
+        "trace.full_robot_surface_sampling.geom_records",
+        "geom IDs differ from authoritative resolution",
+    )
+    _require(
+        type_counts == {"mesh": 11, "box": 4, "cylinder": 1},
+        "trace.full_robot_surface_sampling geometry type counts",
+    )
+    cylinder_records = [
+        record for record in records if record.get("geom_type_name") == "cylinder"
+    ]
+    cylinder = cylinder_records[0]
+    _require(
+        cylinder.get("geom_id") == 84
+        and cylinder.get("geom_name") == "mount0_pedestal_col"
+        and cylinder.get("geom_type_id") == 5
+        and cylinder.get("geom_size") == [0.18, 0.31, 0.0],
+        "trace.full_robot_surface_sampling first-canary pedestal cylinder",
+    )
+    _require(
+        _integer(sampling.get("sample_count"), "trace.full_robot_surface_sampling.sample_count")
+        == sample_total,
+        "trace.full_robot_surface_sampling.sample_count",
+        "differs from component sum",
+    )
+    _close(
+        maximum,
+        record_maximum,
+        "trace.full_robot_surface_sampling.maximum_surface_cover_radius_m",
+    )
+    roundtrip = _mapping(
+        sampling.get("roundtrip"), "trace.full_robot_surface_sampling.roundtrip"
+    )
+    _require(
+        roundtrip.get("passed") is True,
+        "trace.full_robot_surface_sampling.roundtrip.passed",
+    )
+    _require(
+        _integer(roundtrip.get("sample_count"), "trace.full_robot_surface_sampling.roundtrip.sample_count")
+        == sample_total,
+        "trace.full_robot_surface_sampling.roundtrip.sample_count",
+    )
+    roundtrip_error = _finite(
+        roundtrip.get("maximum_roundtrip_error_m"),
+        "trace.full_robot_surface_sampling.roundtrip.maximum_roundtrip_error_m",
+    )
+    roundtrip_tolerance = _finite(
+        roundtrip.get("tolerance_m"),
+        "trace.full_robot_surface_sampling.roundtrip.tolerance_m",
+    )
+    _require(
+        0.0 <= roundtrip_error <= roundtrip_tolerance and roundtrip_tolerance > 0.0,
+        "trace.full_robot_surface_sampling.roundtrip",
+        "error exceeds its positive tolerance",
+    )
 
 
 def _validate_execution(
@@ -1033,6 +1319,7 @@ def validate_active_arm_trace(result: Mapping[str, Any], trace: Mapping[str, Any
     """Independently reconstruct one compact result from its raw arm trace."""
 
     outcome = _validate_identity(result, trace)
+    _validate_full_robot_surface_sampling(trace)
     high_steps, _inner_steps, physics_steps, _entered, completed = _validate_execution(result, outcome)
     _validate_motion_and_tracking(result, outcome, physics_steps)
     _validate_car(result, outcome, completed)
