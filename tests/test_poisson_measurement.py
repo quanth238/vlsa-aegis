@@ -885,13 +885,14 @@ class FullRobotMeasurementTests(unittest.TestCase):
         self.assertEqual(event.explicit_pair_id, 0)
         self.assertAlmostEqual(event.explicit_pair_margin_m, 0.03)
         self.assertAlmostEqual(event.explicit_pair_gap_m, 0.005)
-        # MuJoCo exposes mjContact.includemargin as the force-generation
-        # margin.  The pair gap remains a separately recorded solver threshold
-        # parameter and must not be silently subtracted from this raw field.
-        self.assertAlmostEqual(event.contact_includemargin_m, 0.03)
+        # MuJoCo 3.2.3 stores the effective solver-activation threshold in
+        # mjContact.includemargin: pair margin minus pair gap.  The raw pair
+        # parameters remain separately recorded above, while physical-contact
+        # authority continues to use the unshifted signed geom distance.
+        self.assertAlmostEqual(event.contact_includemargin_m, 0.025)
         self.assertAlmostEqual(
             event.contact_includemargin_m,
-            event.explicit_pair_margin_m,
+            event.explicit_pair_margin_m - event.explicit_pair_gap_m,
         )
 
     def test_settled_obstacle_translational_motion_fails_closed(self):

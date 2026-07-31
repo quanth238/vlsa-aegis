@@ -81,27 +81,35 @@ def _gpu_inventory() -> Dict[str, Any]:
     output = subprocess.check_output(
         [
             "nvidia-smi",
-            "--query-gpu=name,uuid,memory.total",
+            "--query-gpu=name,uuid,driver_version",
             "--format=csv,noheader,nounits",
         ],
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         timeout=30,
     )
-    devices = []
-    for line in output.splitlines():
-        parts = [part.strip() for part in line.split(",")]
-        if len(parts) != 3:
-            raise ShadowParityError("unexpected nvidia-smi row: %r" % line)
-        devices.append(
-            {
-                "name": parts[0],
-                "uuid": parts[1],
-                "memory_total_mib": int(parts[2]),
-            }
+    rows = output.splitlines()
+    if len(rows) != 1:
+        raise ShadowParityError(
+            "shadow parity requires exactly one visible H100 GPU"
         )
-    if not devices or not all("H100" in row["name"] for row in devices):
-        raise ShadowParityError("the allocation does not expose only H100 GPUs")
+    line = rows[0]
+    parts = [part.strip() for part in line.split(",")]
+    if (
+        len(parts) != 3
+        or not all(parts)
+        or any(part.startswith("[") and part.endswith("]") for part in parts)
+    ):
+        raise ShadowParityError("unexpected nvidia-smi row: %r" % line)
+    devices = [
+        {
+            "name": parts[0],
+            "uuid": parts[1],
+            "driver_version": parts[2],
+        }
+    ]
+    if "H100" not in devices[0]["name"]:
+        raise ShadowParityError("the allocation does not expose one H100 GPU")
     return {"devices": devices}
 
 

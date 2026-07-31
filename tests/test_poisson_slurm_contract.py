@@ -30,9 +30,10 @@ class PoissonSlurmContractTest(unittest.TestCase):
         self.assertIn('and not source["status_short"]', source)
         self.assertIn("and bool(slurm_job_id)", source)
         self.assertIn('and gpu_inventory["available"]', source)
-        self.assertIn('all("H100" in device["name"]', source)
+        self.assertIn('"H100" in device.get("name", "")', source)
         self.assertIn('and h100_only', source)
-        self.assertIn('"--query-gpu=name,uuid,memory.total"', source)
+        self.assertIn('"--query-gpu=name,uuid,driver_version"', source)
+        self.assertNotIn("memory.total", source)
         self.assertIn('"scientific_result": False', source)
         self.assertIn("synthetic and numerical tests do not establish SafeLIBERO safety efficacy", source)
 

@@ -30,6 +30,7 @@ DEFAULT_TEST_MODULES = (
     "tests.test_poisson_adapter",
     "tests.test_poisson_controller_bridge",
     "tests.test_poisson_measurement",
+    "tests.test_poisson_numeric_validation_runner",
 )
 
 
@@ -88,7 +89,7 @@ def allocated_gpu_inventory():
         output = subprocess.check_output(
             [
                 "nvidia-smi",
-                "--query-gpu=name,uuid,memory.total",
+                "--query-gpu=name,uuid,driver_version",
                 "--format=csv,noheader,nounits",
             ],
             stderr=subprocess.STDOUT,
@@ -98,6 +99,7 @@ def allocated_gpu_inventory():
     except (OSError, subprocess.SubprocessError) as error:
         return {"available": False, "devices": [], "error": str(error)}
     devices = []
+    seen_uuids = set()
     for line in output.splitlines():
         parts = [part.strip() for part in line.split(",")]
         if len(parts) != 3 or not all(parts):
@@ -106,22 +108,51 @@ def allocated_gpu_inventory():
                 "devices": [],
                 "error": "unexpected nvidia-smi row: %r" % line,
             }
-        try:
-            memory_mib = int(parts[2])
-        except ValueError:
+        # Framebuffer memory is intentionally not queried: MIG allocations can
+        # expose authoritative name/UUID/driver identity while denying that
+        # optional NVML field.  Every queried identity field remains required.
+        if any(part.startswith("[") and part.endswith("]") for part in parts):
             return {
                 "available": False,
                 "devices": [],
-                "error": "noninteger GPU memory: %r" % parts[2],
+                "error": "unavailable required GPU identity field: %r" % line,
             }
+        if parts[1] in seen_uuids:
+            return {
+                "available": False,
+                "devices": [],
+                "error": "duplicate GPU UUID: %r" % parts[1],
+            }
+        seen_uuids.add(parts[1])
         devices.append(
-            {"name": parts[0], "uuid": parts[1], "memory_total_mib": memory_mib}
+            {
+                "name": parts[0],
+                "uuid": parts[1],
+                "driver_version": parts[2],
+            }
         )
     return {
         "available": bool(devices),
         "devices": devices,
         "error": None if devices else "no allocated GPU was visible",
     }
+
+
+def inventory_is_single_h100(inventory):
+    """Require an unambiguous single-device H100 allocation inventory."""
+
+    devices = inventory.get("devices") or []
+    return bool(
+        inventory.get("available")
+        and inventory.get("error") is None
+        and len(devices) == 1
+        and all(
+            "H100" in device.get("name", "")
+            and device.get("uuid")
+            and device.get("driver_version")
+            for device in devices
+        )
+    )
 
 
 def atomic_json(path, payload):
@@ -178,11 +209,7 @@ def main():
     source = git_record(root)
     slurm_job_id = os.environ.get("SLURM_JOB_ID")
     gpu_inventory = allocated_gpu_inventory()
-    h100_only = bool(
-        gpu_inventory["available"]
-        and gpu_inventory["devices"]
-        and all("H100" in device["name"] for device in gpu_inventory["devices"])
-    )
+    h100_only = inventory_is_single_h100(gpu_inventory)
     modules = tuple(arguments.test_modules or DEFAULT_TEST_MODULES)
     production_grid_enabled = (
         os.environ.get("VLSA_POISSON_RUN_PRODUCTION_GRID_VALIDATION") == "1"

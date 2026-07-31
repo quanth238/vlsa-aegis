@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 from pathlib import Path
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RUNNER_PATH = ROOT / "scripts" / "run_poisson_shadow_parity.py"
+SPEC = importlib.util.spec_from_file_location(
+    "poisson_shadow_parity_under_test", RUNNER_PATH
+)
+MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(MODULE)
 
 
 class ShadowRunnerContractTest(unittest.TestCase):
@@ -39,7 +48,9 @@ class ShadowRunnerContractTest(unittest.TestCase):
     def test_job_requires_clean_slurm_h100_allocation(self):
         self.assertIn("source[\"status_short\"]", self.runner)
         self.assertIn("SLURM_JOB_ID", self.runner)
-        self.assertIn('"H100" in row["name"]', self.runner)
+        self.assertIn('"H100" not in devices[0]["name"]', self.runner)
+        self.assertIn('"--query-gpu=name,uuid,driver_version"', self.runner)
+        self.assertNotIn("memory.total", self.runner)
         self.assertIn("git status --short", self.batch)
         self.assertIn("EXPECTED_GIT_COMMIT", self.batch)
         self.assertIn("git rev-parse HEAD", self.batch)
@@ -54,6 +65,42 @@ class ShadowRunnerContractTest(unittest.TestCase):
         self.assertLess(callback_call, publish_call)
         self.assertIn("scientific_result", self.runner)
         self.assertIn("no Poisson correction or safety efficacy", self.runner)
+
+    def test_mig_inventory_uses_exactly_one_h100_identity_row(self):
+        with mock.patch.object(
+            MODULE.subprocess,
+            "check_output",
+            return_value="NVIDIA H100 80GB HBM3, GPU-012345, 555.42.06\n",
+        ):
+            inventory = MODULE._gpu_inventory()
+        self.assertEqual(
+            inventory,
+            {
+                "devices": [
+                    {
+                        "name": "NVIDIA H100 80GB HBM3",
+                        "uuid": "GPU-012345",
+                        "driver_version": "555.42.06",
+                    }
+                ]
+            },
+        )
+
+    def test_shadow_inventory_rejects_ambiguous_or_non_h100_visibility(self):
+        outputs = (
+            "NVIDIA A100, GPU-a100, 555.42.06\n",
+            (
+                "NVIDIA H100 80GB HBM3, GPU-a, 555.42.06\n"
+                "NVIDIA H100 80GB HBM3, GPU-b, 555.42.06\n"
+            ),
+            "NVIDIA H100 80GB HBM3, GPU-a, [Insufficient Permissions]\n",
+        )
+        for output in outputs:
+            with self.subTest(output=output), mock.patch.object(
+                MODULE.subprocess, "check_output", return_value=output
+            ):
+                with self.assertRaises(MODULE.ShadowParityError):
+                    MODULE._gpu_inventory()
 
 
 if __name__ == "__main__":
