@@ -82,6 +82,34 @@ def _atomic_json(path, payload, np):
     os.replace(str(partial), str(path))
 
 
+def _ensure_libero_config(repo_root, output_path):
+    configured = os.environ.get("LIBERO_CONFIG_PATH")
+    config_root = (
+        Path(configured).resolve()
+        if configured
+        else (output_path.parent / "libero-config").resolve()
+    )
+    config_root.mkdir(parents=True, exist_ok=True)
+    config_path = config_root / "config.yaml"
+    if not config_path.exists():
+        safelibero_root = repo_root / "safelibero" / "libero" / "libero"
+        lines = [
+            "benchmark_root: %s" % safelibero_root,
+            "bddl_files: %s" % (safelibero_root / "bddl_files"),
+            "init_states: %s" % (safelibero_root / "init_files"),
+            "datasets: %s" % (repo_root / "safelibero" / "libero" / "datasets"),
+            "assets: %s" % (safelibero_root / "assets"),
+        ]
+        partial = config_path.with_name(config_path.name + ".partial")
+        with partial.open("w", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(str(partial), str(config_path))
+    os.environ["LIBERO_CONFIG_PATH"] = str(config_root)
+    return config_path
+
+
 def _git_record(repo_root):
     def run(*args):
         return subprocess.check_output(
@@ -343,43 +371,57 @@ def _parse_args():
 def main():
     args = _parse_args()
     repo_root = args.repo_root.resolve()
+    output_path = args.output.resolve()
     manifest_path = args.manifest
     if not manifest_path.is_absolute():
         manifest_path = repo_root / manifest_path
 
-    sys.path.insert(0, str(repo_root / "safelibero"))
-    sys.path.insert(0, str(repo_root / "main"))
-    evaluator = importlib.import_module("evaluate_safelibero_aegis")
-    runtime = evaluator._runtime_imports(include_aegis=False)
-    np = runtime["np"]
-    line_number, case = _load_case(manifest_path, args.case_id)
+    import numpy as np
 
     started = time.time()
     payload = {
         "schema_version": SCHEMA_VERSION,
         "status": "running",
         "case_id": args.case_id,
-        "manifest": {
-            "path": str(manifest_path),
-            "line_number": line_number,
-            "sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-        },
         "provenance": {
-            "git": _git_record(repo_root),
             "host": os.uname().nodename,
             "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
             "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
             "python_executable": sys.executable,
             "python_version": sys.version,
-            "packages": _package_versions(
-                ["mujoco", "robosuite", "numpy", "scipy", "cvxpy", "osqp"]
-            ),
         },
         "timing": {"started_unix": started},
     }
     osc_env = None
     joint_env = None
     try:
+        libero_config = _ensure_libero_config(repo_root, output_path)
+        sys.path.insert(0, str(repo_root / "safelibero"))
+        sys.path.insert(0, str(repo_root / "main"))
+        evaluator = importlib.import_module("evaluate_safelibero_aegis")
+        runtime = evaluator._runtime_imports(include_aegis=False)
+        line_number, case = _load_case(manifest_path, args.case_id)
+        payload["manifest"] = {
+            "path": str(manifest_path),
+            "line_number": line_number,
+            "sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        }
+        payload["provenance"].update(
+            {
+                "git": _git_record(repo_root),
+                "libero_config": str(libero_config),
+                "packages": _package_versions(
+                    [
+                        "mujoco",
+                        "robosuite",
+                        "numpy",
+                        "scipy",
+                        "cvxpy",
+                        "osqp",
+                    ]
+                ),
+            }
+        )
         osc_env, osc = _build_and_settle(
             evaluator, runtime, case, "OSC_POSE", np
         )
@@ -477,7 +519,7 @@ def main():
                 "elapsed_seconds": time.time() - started,
             }
         )
-        _atomic_json(args.output.resolve(), payload, np)
+        _atomic_json(output_path, payload, np)
 
     return 0 if payload["status"] == "complete" else 1
 
