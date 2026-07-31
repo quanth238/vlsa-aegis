@@ -576,6 +576,30 @@ class PoissonResultSchemaTest(unittest.TestCase):
     def test_complete_executed_result_is_valid(self):
         validate_episode_result(hashed(valid_payload()))
 
+    def test_executed_result_rejects_tracking_threshold_crossing(self):
+        payload = valid_payload()
+        payload["endpoints"]["validity"].update(
+            {
+                "maximum_velocity_tracking_error_rad_s": 0.06,
+                "velocity_tracking_rmse_rad_s": 0.023,
+                "first_velocity_tracking_threshold_crossing": {
+                    "high_level_index": 0,
+                    "inner_control_index": 0,
+                    "physics_substep_index": 0,
+                    "error_linf_rad_s": 0.06,
+                    "cumulative_rmse_rad_s": 0.023,
+                    "linf_threshold_rad_s": 0.05,
+                    "rmse_threshold_rad_s": 0.02,
+                    "command_rad_s": [0.0] * 7,
+                    "measured_rad_s": [0.06] + [0.0] * 6,
+                },
+            }
+        )
+        with self.assertRaisesRegex(
+            ArtifactContractError, "tracking-threshold crossing"
+        ):
+            validate_episode_result(hashed(payload))
+
     def test_every_registered_fail_closed_completion_is_directly_validated(self):
         completions = (
             "safe_start_inadmissible",

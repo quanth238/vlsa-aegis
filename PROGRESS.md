@@ -176,3 +176,41 @@ as an apparatus event.
 No learned perception, moving-obstacle model, grasped-object model, or learned
 steering controller is authorized by P01. Those are later gates contingent on
 the static simulator-oracle result.
+
+## P01 tracking-validity adversarial audit
+
+Run `vlsa-poisson-link56-first-canary-20260731d` produced passing immutable
+numeric and exact-parity gates on clean commit
+`ad738550ef3a8fef18cab73139a4d1ecbe0d18c1`. Numeric job `33491` ran 127
+tests with zero skips; its file and payload SHA-256 values are respectively
+`72581ba35e7789269f9eb1418658089ef1aa37a8454fb3af19706cce2fee3b74`
+and `351c53b377b68ef83deda59fb65a910ea7861063d49d6c7a22823688f9e96a70`.
+Parity job `33492` reproduced all 237 actions and 5,925 callbacks exactly;
+its file and payload SHA-256 values are respectively
+`2d9856060265845a35c8fc8581610f56959c775af79e9f74b6fae7a31e092ab7`
+and `93c648ba57c4195c4c539648286fb45b9495297d4f78b8d3ab80d02cc9cb17d4`.
+
+An adversarial audit then proved that the compact episode validator accepted
+an `executed` result whose reported joint-velocity tracking Linf and RMSE both
+crossed the registered apparatus thresholds. The live runner already stops on
+that condition, but a rehashed forged compact result could otherwise reach the
+pair eligibility logic. The validator now rejects every `executed` arm with a
+tracking-threshold crossing, and a regression reproduces the former forgery.
+The complete local structural gate now passes 413 tests with 130 expected
+allocation-only skips; the focused Poisson suite passes 237 tests with 112
+expected local MuJoCo/NumPy skips. Both changed Python files also parse under
+the Python-3.8 grammar used by the H100 evaluation environment.
+
+Identification job `33494` was launched from the superseded clean commit.
+Regardless of its eventual terminal state, neither it nor the earlier gates
+can authorize active physics after this source change. No active canary was
+submitted. Numeric, parity, and complete shadow identification must rerun from
+one new clean commit and unused immutable run root.
+
+The original engineering ladder also recommends a one-step counterfactual,
+a manual static-box active trial, and a coupled protected-sample
+field/Jacobian finite-difference test. Their absence does not permit a false
+positive because the first real canary is development-only and all tracking,
+completion, baseline-hazard, and no-motion paths fail closed. They remain
+required before scaling beyond the first exploratory link-5/6 canary or making
+a broader full-body claim.

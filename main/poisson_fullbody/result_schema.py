@@ -2066,6 +2066,10 @@ def validate_episode_result(result: Mapping[str, Any]) -> None:
             "endpoints.validity",
             "tracking thresholds must equal the registered 0.05 Linf / 0.02 RMSE limits",
         )
+    threshold_crossed = bool(
+        maximum_tracking_error > tracking_linf_threshold
+        or tracking_rmse > tracking_rmse_threshold
+    )
     if arm == "joint_velocity_psf_link56":
         if realized_observed_substeps != physics_steps:
             _error(
@@ -2099,6 +2103,12 @@ def validate_episode_result(result: Mapping[str, Any]) -> None:
         )
 
     if completion == "executed":
+        if threshold_crossed:
+            _error(
+                "completion_class",
+                "executed results cannot contain a registered joint-velocity "
+                "tracking-threshold crossing",
+            )
         if arm != "joint_velocity_adapter_only" and not (
             poisson_safe_start and static_admissible and coverage_audit_passed
         ):
@@ -2183,10 +2193,6 @@ def validate_episode_result(result: Mapping[str, Any]) -> None:
     elif completion == "fail_closed_runtime" and qp_postcheck_count == 0:
         _error("completion_class", "requires at least one QP postcheck failure")
 
-    threshold_crossed = bool(
-        maximum_tracking_error > tracking_linf_threshold
-        or tracking_rmse > tracking_rmse_threshold
-    )
     if (first_tracking_crossing is not None) != threshold_crossed:
         _error(
             "endpoints.validity.first_velocity_tracking_threshold_crossing",

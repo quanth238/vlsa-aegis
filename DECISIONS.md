@@ -402,3 +402,29 @@ protected-surface components, and full-robot sampling ledger. These records,
 the arm DOFs, and the exact settled `mjSTATE_INTEGRATION` hash must equal the
 shadow-identification construction. An internally valid trace for another
 obstacle, field, sample set, or settled state cannot authorize either arm.
+
+## ADR-0030: Treat tracking validity as a bidirectional completion invariant
+
+Accepted after adversarial review. The active runner already terminates with
+`controller_tracking_invalid` when measured joint velocity crosses the
+registered 0.05 rad/s Linf or 0.02 rad/s cumulative-RMSE apparatus threshold.
+The compact episode validator previously checked only the forward implication:
+that this completion class required a crossing. It did not reject an
+`executed` result that also reported a crossing. Because pair eligibility is
+conditioned on `completion_class == executed`, a self-consistent rehashed
+compact forgery could otherwise bypass the runtime gate.
+
+The result contract now enforces the reverse implication needed for a positive
+observation: `executed` requires that neither tracking threshold crossed. A
+regression test constructs the formerly accepted forged result and requires
+rejection. Runtime failure priority remains unchanged: static-obstacle drift
+and realized-field/invariance failures may be reported instead of tracking
+failure when both arise on the same completed physics callback, but no such
+partial arm is eligible as executed.
+
+All allocation-backed prerequisites are commit-bound. Therefore the otherwise
+valid numeric and parity artifacts from clean commit
+`ad738550ef3a8fef18cab73139a4d1ecbe0d18c1`, and identification job `33494`
+from that commit, remain historical implementation evidence only. A new clean
+commit must rerun numeric, exact parity, and complete phase-correct shadow
+identification before active physics.
