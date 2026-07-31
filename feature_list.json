@@ -32,21 +32,38 @@
     },
     {
       "id": "A04-population",
-      "status": "active",
+      "status": "passing",
       "depends_on": ["A03-one-case-paired-canary"],
-      "evidence": []
+      "evidence": [
+        "Run vlsa-table1-contact-authority-population-20260718a executed from source commit 1592aa59361f431ba96c6ddcbebcb596f6c20853; all 32 Slurm array tasks are recorded COMPLETED in prepublish receipt SHA-256 05df4c759a478069f1df3fe318c6f6237e65aeb667212f208ec94e2ab2a13eaf",
+        "The validated prepublish receipt records complete_paired_population=true, no_results_dropped=true, exactly 3,200 complete result artifacts, and result inventory SHA-256 f7f28e88b43ac62c183284ef55cff61bd1a195109c02bf67058ae73845269d50",
+        "Population summary SHA-256 c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330 binds 1,600 cases, two arms, 3,200 results, 32 groups, zero retained method failures, and accepted-result ledger SHA-256 28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285"
+      ]
     },
     {
       "id": "A05-analysis",
-      "status": "pending",
+      "status": "passing",
       "depends_on": ["A04-population"],
-      "evidence": []
+      "evidence": [
+        "The exhaustive 1,600-row paired case ledger has SHA-256 2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780; its source failure report SHA-256 is 6d1d74040c55512ad9035cdd4a2976c6eeae15c6d32e17aff6164164cdc44de4 and its 3,200-entry gallery SHA-256 is 40781fa0a817931ad23bb12b2b7be2b858e16033f97ed18b7f76b86d291b2bb2",
+        "Complete-population reanalysis report SHA-256 9457175a69b84895cd2c8aa18b3fe29e291992e80178e9a692f66588a4492430 and case-audit SHA-256 acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8 retain all 359 AEGIS CAR failures and all 530 AEGIS task failures",
+        "Independent verifier rehashed all 1,600 self-hashed case rows and all 3,200 mirrored MP4s (2,263,857,516 bytes) against the terminal ledger with zero mismatch; the adversarial validation addendum SHA-256 is cb854b3d25be6452af67ec62c3d3b404883bac428d31d59b34a9238aab4fb259"
+      ]
     },
     {
       "id": "A06-openvla",
       "status": "pending",
       "depends_on": ["A05-analysis"],
       "evidence": []
+    },
+    {
+      "id": "P01-static-poisson-runtime",
+      "status": "active",
+      "depends_on": ["A05-analysis"],
+      "evidence": [
+        "H100 Slurm prerequisite job 33249 completed on worker-mig-3g40gb-0; results.json SHA-256 a5d5a5cd17564d16873607b4cb7684d819e075a6088ba26932a72b99d015ec5f passed all eight runtime prerequisite checks",
+        "The opt-in feasibility review SHA-256 is 596b59661beaf4746781ef57afaf4aa6b09a7225db91996b183c5c587109b63d and the allocation probe SHA-256 is 7532bdce73597d1e0581e9af891846df289b80a9dc7777a8fe6acc0585249a38"
+      ]
     }
   ]
 }

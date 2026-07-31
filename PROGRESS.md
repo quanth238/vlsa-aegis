@@ -1,189 +1,132 @@
-# AEGIS SafeLIBERO table reproduction
+# AEGIS SafeLIBERO reproduction and static-Poisson feasibility
 
 ## Objective
 
-Reproduce the translational-action portion of AEGIS Table 1 from the authors'
-release, retain videos for every SafeLIBERO rollout, and explain both collision
-and task failures without silently excluding apparatus failures.
+The paired translational SafeLIBERO reproduction is terminal. The active work
+now tests, as an opt-in research arm, whether simulator-ground-truth static
+obstacle geometry plus a full-body Poisson-CBF safety filter can prevent the
+arm-link contacts that the released end-effector-only AEGIS model misses.
 
 ## Current gate
 
-`A04-population` is active. The apparatus, capture, and action-invariant
-paired-canary gates passed in dependency order. The population implementation
-has passed local and independent review for a fresh canary, but no population
-job is authorized until that exact-source canary validates live simulator
-artifacts.
+`P01-static-poisson-runtime` is the sole active gate. It depends on the now
+verified `A05-analysis` gate. `A06-openvla` remains optional and pending; no
+OpenVLA result is inferred from the pi0.5 population.
 
-Local implementation evidence on 2026-07-18:
+P01 must preserve the released Table-1 baseline and make every new controller,
+measurement, and result schema opt-in. The first claim-bearing comparison must
+pair exact settled state, policy noise, nominal action history, controller
+horizon, and case identity. Optimizer clearance and simulator contact/clearance
+remain distinct measurements.
 
-- The focused diagnostics/publisher suite passes 162 tests with one
-  dependency-optional skip. The full `./init.sh` structural gate passes all
-  175 tests with 18 dependency-optional skips.
-- The immutable manifest contains exactly 1,600 cases in 32 groups of 50;
-  paired evaluation requires exactly 3,200 terminal episode results.
-- The immutable capture population and its independent validator passed for
-  all 1,600 cases, and the actual settled MuJoCo state established exactly one
-  authoritative in-workspace obstacle for every case.
-- The outcome-blind Codex label manifest contains all 1,600 cases, has
-  SHA-256
-  `f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e`,
-  and reuses the accepted ordinal-100 canary row byte-for-byte. Its
-  publication receipt has SHA-256
-  `e83611f46ce5fbb13c84f74db3825ab114bf7184db96b62be2965c7a0c5b9e20`.
-- The revised canary runs four serial rollouts in one allocation: pi0.5 with
-  diagnostics off/on, then pi0.5+AEGIS with diagnostics off/on. It requires
-  exact action-byte, query-schedule, outcome, simulator-state, frozen-label,
-  and decoded-video invariance between each off/on pair.
-- The historical ordinal-100 action reference is frozen at SHA-256
-  `1a06b4842b356eb0fd6671b214aaea7d63cb2d9878982aa6817d305a6489fdf1`.
-  It also pins the validated baseline collision/time-limit and AEGIS
-  collision-free task-success outcomes.
-- The revised paired canary is frozen to GroundingDINO on CPU, matching the
-  validated historical canary that produced the action reference. The exact
-  Python 3.8 interpreter, ImageIO packages, and bundled FFmpeg binary are
-  allocation- and receipt-bound.
-- Checkpoint receipt task `28589_0` completed on `worker-1`. Receipt SHA-256
-  `4336a202b2519f461c9b715dc8a30e09f897756a1efb27c0af096582b37e87d9`
-  binds full checkpoint-tree SHA-256
-  `7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15`.
-- Action-invariant canary task `28590_0` completed on `worker-2` in 7 minutes
-  20 seconds from clean release commit
-  `5105894faebd40d2e27e2011d33688b25c2578dc`. Allocation-side receipt
-  SHA-256
-  `6a80afce3ce019bf43090da65c85717344b6dafb4a983d5a9efcf6bbecd46d95`
-  has status `validated`.
-- Independent local regeneration validated all four artifacts. For both
-  pi0.5 and pi0.5+AEGIS, diagnostics off/on preserved exact action bytes,
-  policy-query schedules, simulator outcome semantics, and video bytes. The
-  baseline collided at step 70 and timed out after 300 actions; AEGIS remained
-  collision-free and completed the task after 145 actions. This is apparatus
-  evidence for one frozen case, not population efficacy.
-- The full population remains unauthorized until its publisher validates all
-  per-case detector, point-cloud, MVEE, QP, contact, goal-progress, terminal
-  frame, and video evidence without retaining all 3,200 large result objects
-  in memory.
-- The memory-safe publisher now validates one full pair at a time, then
-  independently recomputes and byte-compares the final aggregate, exhaustive
-  failure report, and indexed gallery from the immutable result tree.
-- Contact explanations are now bound to the settled active obstacle, immutable
-  BDDL goal arguments, full MuJoCo body/geom/joint topology, and an ordered
-  raw contact ledger. Dynamics, mobility, and roles are independently
-  reconstructed from frozen joint ownership/types/names. The validator also
-  reconstructs the complete robot-body ID set from frozen body names and
-  binds every task object and goal-site parent to its exact frozen MuJoCo root
-  name. Direct goal objects, parented goal sites, and parentless fixed sites
-  are handled separately; unknown roles fail closed. Rehashed attempts to
-  omit the contacted robot or swap two task-object roots are rejected.
-- Independent adversarial review gives a conditional GO for a fresh paired
-  canary only, after the final clean release is frozen. Because the contact
-  observer changed after task `28590_0`, the next allocation-backed steps are
-  a new clean source-bound checkpoint-tree receipt and a new ordinal-100
-  four-run action-invariance canary. Population remains unauthorized.
+## Verifier promotion of A04 and A05
 
-Checkpoint hash task `28467_0` completed on worker-2 in 16 seconds. Its full
-content-tree SHA-256 is
-`7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15`;
-the small receipt was independently revalidated locally.
+Independent verification on 2026-07-31 promoted `A04-population` and
+`A05-analysis` in dependency order.
 
-Paired-canary attempt `28468_0` terminated during asset preflight on worker-1
-after one second, before policy, simulator, GroundingDINO, or QP execution.
-The checkpoint bytes had not changed. The hash receipt included Linux
-`st_dev=1048662`, while the same shared file is exposed as `st_dev=1048723`
-from another cluster mount namespace with identical path, size, inode, mtime,
-and ctime. The repair removes only mount-local `st_dev` from the cross-worker
-identity and retains the full tree hash plus stable file metadata. Run
-`vlsa-table1-paired-canary-20260717a` is immutable and remains an apparatus
-failure; it is never reused.
+### A04-population: passing
 
-Retry-B task `28470_0` passed the repaired evaluation preflight, then stopped
-before the first policy query/action because the Python-3.8 SafeLIBERO
-environment does not implement `str.removesuffix`. The wrapper now uses the
-equivalent suffix slice and statically excludes both Python-3.9-only string
-helpers from all runtime reproduction modules. Immutable retry-B remains an
-apparatus failure and is never reused.
+- Terminal run:
+  `vlsa-table1-contact-authority-population-20260718a`.
+- Runtime source commit:
+  `1592aa59361f431ba96c6ddcbebcb596f6c20853`.
+- The prepublish validation receipt has file SHA-256
+  `05df4c759a478069f1df3fe318c6f6237e65aeb667212f208ec94e2ab2a13eaf`,
+  payload SHA-256
+  `a5afb0d99fe7968be974a6b7d53489b0c5d5554876fe5fa651d3862cee03b9ff`,
+  and status `validated`.
+- It records all 32 Slurm array tasks as `COMPLETED`,
+  `complete_paired_population=true`, `no_results_dropped=true`, and exactly
+  3,200 result artifacts with status `complete`. The result inventory SHA-256
+  is `f7f28e88b43ac62c183284ef55cff61bd1a195109c02bf67058ae73845269d50`.
+- The population summary has SHA-256
+  `c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330`.
+  It binds 1,600 paired cases, two arms, 3,200 results, 32 task-level groups,
+  no dropped results, and accepted-result ledger SHA-256
+  `28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285`.
 
-The first capture case is frozen as ordinal 100,
-`vlsa-t1-spatial-i-t2-e00`. This is the Level-I version of the qualitative
-task shown by the user: pick up the black bowl on the stove and place it on the
-plate. The capture is apparatus evidence only; it cannot establish either
-baseline failure or AEGIS success.
+The complete reproduced suite metrics are:
 
-Capture attempt `vlsa-table1-capture-canary-20260717a`, Slurm task `28460_0`,
-terminated before reset on worker-1. Source/protocol preflight passed, but the
-legacy Robosuite stack could not initialize EGL because the allocation cannot
-open the host `/dev/dri` render devices. The run is preserved as an apparatus
-failure with zero reset, settle, policy, perception, QP, or outcome actions.
-The repair selects the OSMesa headless path already proven by this project's
-VinUni workloads; it does not alter simulator state or policy behavior.
+| Arm | Suite | CAR (%) | TSR (%) | ETS |
+|---|---|---:|---:|---:|
+| pi0.5 | Spatial | 15.50 | 58.75 | 201.52 |
+| pi0.5 | Goal | 21.75 | 55.75 | 206.82 |
+| pi0.5 | Object | 22.00 | 55.00 | 217.33 |
+| pi0.5 | Long | 14.00 | 38.50 | 472.05 |
+| pi0.5+AEGIS | Spatial | 77.00 | 74.25 | 183.77 |
+| pi0.5+AEGIS | Goal | 82.25 | 78.00 | 174.82 |
+| pi0.5+AEGIS | Object | 78.75 | 81.25 | 197.88 |
+| pi0.5+AEGIS | Long | 72.25 | 34.00 | 494.58 |
 
-Capture retry `vlsa-table1-capture-canary-20260717b`, Slurm task `28461_0`,
-successfully initialized OSMesa but terminated before reset when the
-OffScreenRenderEnv constructor could not generate its temporary randomized
-object placement. The author evaluator calls `np.random.seed(7)` before that
-constructor; the wrapper had omitted this ordering while still calling
-`env.seed(7)` afterward. The repair restores the author's pre-construction
-NumPy seed. The failed run again executed zero reset, settle, policy,
-perception, QP, or outcome actions.
+Across all suites, pi0.5 is `18.3125 / 52.0 / 274.42875` and
+pi0.5+AEGIS is `77.5625 / 66.875 / 262.759375` for CAR/TSR/ETS.
 
-Capture retry `vlsa-table1-capture-canary-20260717c`, Slurm task `28462_0`,
-completed on worker-1 in 23 seconds from clean commit
-`bce7737369328da06d62d3840ae577a52b46780f`. It executed exactly one reset,
-one immutable-state restore, and 20 settling actions, with zero policy,
-semantic-selector, GroundingDINO, filtering, MVEE, QP, or outcome calls. The
-capture payload SHA-256 is
-`4fea432ba3ebc62b2c115e0804ade2e28da7243520a04cbb2fe1adbadedc891e`.
-Local revalidation independently reproduced that payload hash, the stored NPY
-hash, and settled agent-view array hash
-`b8bcd1a309fbfc900d18ed472853bbec56a9e8e1fa98c55462a4960782560e7b`.
-Visual review identified the exact active obstacle as `blue moka pot`; the
-one-row Codex label manifest was frozen before any outcome at
-`labels/vlsa_table1_canary_labels.jsonl`, SHA-256
-`2d4d1be5c0a4940c72eb452d00361f6a4935de3f5cbc1058c9671fff96a35a36`.
-This is allocation-backed capture evidence only. No baseline or AEGIS outcome
-has run.
+### A05-analysis: passing
 
-Evidence established before implementation:
+- The exhaustive case ledger contains exactly 1,600 unique paired rows and
+  has SHA-256
+  `2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780`.
+  Its source failure report has SHA-256
+  `6d1d74040c55512ad9035cdd4a2976c6eeae15c6d32e17aff6164164cdc44de4`.
+- The strict indexed gallery contains 1,600 paired case cards and 3,200 video
+  entries; its SHA-256 is
+  `40781fa0a817931ad23bb12b2b7be2b858e16033f97ed18b7f76b86d291b2bb2`.
+- The complete-population diagnostic report has SHA-256
+  `9457175a69b84895cd2c8aa18b3fe29e291992e80178e9a692f66588a4492430`;
+  its 1,600-row case audit has SHA-256
+  `acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8`.
+- An independent verifier recomputed every case-row payload hash and rehashed
+  all 3,200 mirrored MP4s, totaling 2,263,857,516 bytes, with zero mismatch.
+  The adversarial validation addendum has SHA-256
+  `cb854b3d25be6452af67ec62c3d3b404883bac428d31d59b34a9238aab4fb259`.
+- The analysis retains all 359 AEGIS CAR failures and all 530 AEGIS task
+  failures. It distinguishes paper CAR from sampled MuJoCo contact, identifies
+  109 link-5/link-6 contact cases, and reports that 257 cases satisfy the
+  registered strict useful-rescue gates. There are zero strict-zero-
+  translation episodes.
 
-- Source begins at untouched upstream commit
-  `57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b`.
-- The Table 1 screenshot is the translational protocol, not the released
-  full-action README command.
-- SafeLIBERO contains 32 scenarios and 50 frozen initial states per scenario:
-  1,600 episodes per method.
-- The released translational evaluator cannot execute unchanged:
-  it omits the required suite argument to `filtering_points`, rejects the
-  `safelibero_long` suite name, and has an undefined infeasible-QP fallback.
-- The released repository has no SafeLIBERO-only pi0.5 runner, no population
-  manifest, no aggregator, and no structured result schema.
-- The released GLM-4.5V selector has an empty API key. The user requested Codex
-  labels instead; these must be frozen from pre-outcome images.
-- VinUni has the pi0.5-LIBERO and GroundingDINO checkpoints. OpenVLA-OFT is not
-  installed and the paper does not identify the exact public checkpoint used.
+Publisher job `28940` timed out only after writing the validated prepublish
+receipt, exact population summary, 1,600-row failure ledger, and 3,200-entry
+gallery; it did not write the planned final publication receipt. Gate
+promotion does not treat the timeout itself as success. It relies on the
+complete prepublish evidence above plus the later independent result, case,
+aggregate, and video-integrity audits. The timed-out attempt remains preserved
+as an apparatus event.
 
-## Gate order
+## P01 prerequisite evidence
 
-1. `A01-reproduction-apparatus` — manifest, capture, frozen-label contract,
-   paired pi0.5/AEGIS evaluator, aggregation, tests.
-2. `A02-one-case-capture` — allocation-backed settled-image capture only.
-3. `A03-one-case-paired-canary` — one translational pi0.5/AEGIS pair with
-   identical initial state and per-request flow-noise schedule.
-4. `A04-population` — all 1,600 cases for both arms; every case terminal.
-5. `A05-analysis` — Table 1 comparison, indexed videos, and failure taxonomy.
-6. `A06-openvla` — optional OpenVLA-OFT row after its exact checkpoint and
-   environment are preregistered.
+- Branch: `codex/full-body-poisson-cbf-feasibility`.
+- Feasibility review SHA-256:
+  `596b59661beaf4746781ef57afaf4aa6b09a7225db91996b183c5c587109b63d`.
+- Runtime prerequisite probe SHA-256:
+  `7532bdce73597d1e0581e9af891846df289b80a9dc7777a8fe6acc0585249a38`.
+- H100 Slurm job `33249` completed on `worker-mig-3g40gb-0`; its result
+  SHA-256 is
+  `a5d5a5cd17564d16873607b4cb7684d819e075a6088ba26932a72b99d015ec5f`.
+  All eight runtime checks passed, including seven-arm-DOF joint-velocity
+  control, 8-dimensional controller actions, link-5/link-6 arbitrary-point
+  Jacobians, active-obstacle collision geoms, and the physical velocity scale.
+- The probe also established that independently settling OSC and
+  JOINT_VELOCITY controllers changes the robot state. P01 must therefore
+  settle once under the registered OSC apparatus and restore that exact state
+  into every experimental arm.
 
-No population job may launch before a paired canary from the final exact
-release is validated.
+## Immediate P01 verification order
 
-## Known interpretation limits
+1. Freeze an immutable targeted-case manifest from the verified 109 link-5/6
+   population, with the 60 positive-proxy/no-settled-contact cases as the
+   primary static stratum and all 109 retained in intent-to-treat reporting.
+2. Add an exact-action, shadow-only replay that records qpos, qvel, obstacle
+   pose, arbitrary-point Jacobians, every physics-substep contact, and
+   simulator clearance without changing executed actions.
+3. Validate conservative collision-geom voxelization, sample coverage,
+   buffered-set semantics, Poisson residuals/gradients/interpolation, and
+   finite-difference Jacobians on synthetic geometry before a SafeLIBERO case.
+4. Validate joint-velocity scaling and an adapter-only matched controller
+   before enabling the hard CBF-QP.
+5. Run the first H100 active canary only after shadow-mode action and outcome
+   parity pass. Report infeasible QPs and all failed cases; never drop them.
 
-- Paper CAR is operationalized by the release as active-obstacle L1
-  displacement strictly greater than 1 mm. It is not a direct collision,
-  clearance, or whole-arm-contact measurement.
-- Codex replaces only GLM semantic selection. Results must be named
-  `AEGIS conditioned on frozen Codex labels`, not exact end-to-end AEGIS.
-- The published Long-suite translational CAR of 79.63% cannot be produced by a
-  single 400-episode population, whose resolution is 0.25 percentage points.
-  This is an unresolved reporting ambiguity.
-- Full pi0.5-versus-AEGIS evaluation is 3,200 rollouts and is expected to take
-  roughly 50--100 GPU-hours under the two-GPU user limit.
+No learned perception, moving-obstacle model, grasped-object model, or learned
+steering controller is authorized by P01. Those are later gates contingent on
+the static simulator-oracle result.

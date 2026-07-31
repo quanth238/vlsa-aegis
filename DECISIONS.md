@@ -248,3 +248,90 @@ remains valid historical integration evidence for `A03`, but it cannot
 authorize a population from the new source. The final clean release therefore
 requires a new source-bound checkpoint receipt and the same four-rollout
 ordinal-100 action-invariance canary before any population submission.
+
+## ADR-0025: Accept the complete population through independent terminal verification
+
+Accepted on 2026-07-31. Run
+`vlsa-table1-contact-authority-population-20260718a` is the terminal A04
+population from source commit
+`1592aa59361f431ba96c6ddcbebcb596f6c20853`.
+
+Publisher retry `28940` reached its four-hour limit after producing the
+validated prepublish receipt, aggregate, exhaustive case ledger, and strict
+gallery, but before atomically writing the planned final publication receipt.
+The timeout remains an apparatus event and is not itself accepted as evidence.
+The population is accepted because later independent verification established
+the same terminal facts without weakening a denominator or result check:
+
+- prepublish receipt SHA-256
+  `05df4c759a478069f1df3fe318c6f6237e65aeb667212f208ec94e2ab2a13eaf`
+  has status `validated`, binds all 32 completed Slurm tasks, and records
+  `complete_paired_population=true` and `no_results_dropped=true`;
+- its result inventory contains exactly 3,200 `complete` artifacts and has
+  SHA-256
+  `f7f28e88b43ac62c183284ef55cff61bd1a195109c02bf67058ae73845269d50`;
+- summary SHA-256
+  `c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330`
+  binds 1,600 cases, two arms, 32 groups, and accepted-result ledger SHA-256
+  `28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285`;
+- the independent verifier regenerated the exact complete aggregate from the
+  local 3,200-result tree and found no payload, schema, case, arm, or pairing
+  mismatch.
+
+This decision does not rewrite job-28940 artifacts, does not relabel its Slurm
+state, and does not permit a partial-population claim.
+
+## ADR-0026: Accept the exhaustive terminal analysis and video binding
+
+Accepted on 2026-07-31. A05 is complete because its analysis is an exhaustive
+derivation from the accepted A04 ledger rather than a selection of examples.
+
+- The 1,600-row paired case ledger has SHA-256
+  `2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780`;
+  its source report has SHA-256
+  `6d1d74040c55512ad9035cdd4a2976c6eeae15c6d32e17aff6164164cdc44de4`.
+- The strict 3,200-entry gallery has SHA-256
+  `40781fa0a817931ad23bb12b2b7be2b858e16033f97ed18b7f76b86d291b2bb2`.
+- The complete-population reanalysis report has SHA-256
+  `9457175a69b84895cd2c8aa18b3fe29e291992e80178e9a692f66588a4492430`;
+  its 1,600-row audit has SHA-256
+  `acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8`.
+- Independent verification recomputed all 1,600 case-row self-hashes and all
+  3,200 mirrored MP4 SHA-256 values, totaling 2,263,857,516 bytes, with zero
+  mismatch. The adversarial validation addendum has SHA-256
+  `cb854b3d25be6452af67ec62c3d3b404883bac428d31d59b34a9238aab4fb259`.
+
+The accepted interpretation retains all 359 AEGIS CAR failures and all 530
+AEGIS task failures. The failure categories are observational routing labels,
+not unique causal mechanisms. Paper CAR remains distinct from sampled contact
+and continuous clearance. The 149 pre-action movable-base contacts are not
+equated with the AEGIS proxy condition `h < 0`. The analysis reports 109
+literal link-5/link-6 contact cases and 257 strict useful rescues, with zero
+strict-zero-translation episodes.
+
+## ADR-0027: Make static simulator-oracle full-body Poisson-CBF the next gate
+
+Accepted. `P01-static-poisson-runtime` depends on passing A05 and is the sole
+active feature. `A06-openvla` remains pending and is not a dependency of P01.
+
+P01 is a feasibility experiment, not a retrofit of the frozen reproduction.
+It must be opt-in and must preserve the default OpenPI sampler, released AEGIS
+paths, and ordinary `env.step` behavior. The first experiment uses exact
+static MuJoCo collision geometry and matched joint-velocity controller arms;
+it does not claim learned perception, dynamic-obstacle, carried-object, or
+learned-steering coverage.
+
+H100 prerequisite job `33249` completed all eight registered checks. Its
+result SHA-256 is
+`a5d5a5cd17564d16873607b4cb7684d819e075a6088ba26932a72b99d015ec5f`.
+The feasibility review and runtime probe SHA-256 values are respectively
+`596b59661beaf4746781ef57afaf4aa6b09a7225db91996b183c5c587109b63d`
+and
+`7532bdce73597d1e0581e9af891846df289b80a9dc7777a8fe6acc0585249a38`.
+
+The registered causal comparison is adapter-only versus the identical adapter
+plus Poisson-CBF, with exact settled state restored into both arms. Shadow
+mode must first prove action/outcome parity and validate full substep contact,
+simulator clearance, voxel-set semantics, Poisson numerics, sample coverage,
+Jacobian finite differences, QP residuals, and controller scaling. Infeasible
+repairs and failed cases remain in the denominator.
