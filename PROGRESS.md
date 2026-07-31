@@ -111,6 +111,52 @@ as an apparatus event.
   settle once under the registered OSC apparatus and restore that exact state
   into every experimental arm.
 
+## P01 first-canary gate history
+
+- Immutable run `vlsa-poisson-link56-first-canary-20260731c` used clean commit
+  `80ebe9a68ffb901f2cd45f3c4f354a8dc16aab4f`.
+- Numeric job `33447` and exact-parity job `33449` completed. The numeric
+  artifact file SHA-256 is
+  `8f6192b3cb266dbd9b5f3274af6c97e6349c28e012cf4a1e5335d6426fe6743c`;
+  the parity artifact file SHA-256 is
+  `06318ab6aa7f665dfdd06c02f39035a4df670a4ed0807e493c3449e002633120`.
+- Identification job `33451` completed all 5,925 callbacks over 237 historical
+  actions, then failed after 17,684.27 seconds in a post-run validator that
+  incorrectly coerced the typed cadence tuple `measurement.first_index` with
+  `int()`. Its immutable failed artifact has file SHA-256
+  `5fe2aef4eb93c28452fde86b87d0b925b95544fe43c2d16b59550e6fd5a2a318`
+  and payload SHA-256
+  `16c1feccb78d7da013f6063be09c27b018f77c52c0a5f46bf0a76942ac796925`.
+  This is an apparatus failure and carries no scientific result.
+- The rerun change validates typed three-level cadence directly, executes the
+  complete post-run path in tests, reconstructs first contact from the raw
+  MuJoCo ledgers, reconstructs the registered warning from the raw per-geom
+  Poisson trace, binds exhaustive samples and drift thresholds to the frozen
+  protocol, and rechecks exact-parity hashes in the active consumer.
+- Warning lead now uses physical phase boundaries: post-state contact `N` is
+  compared at boundary `N`, while live-solver contact `N` is compared at
+  boundary `N-1` in trace-index coordinates. This prevents a simultaneous
+  live-solver contact from being mislabeled as a one-substep-early warning.
+- A positive 500 Hz lead is not sufficient by itself. The active gate also
+  requires at least one scheduled 100 Hz filter-update boundary after the
+  warning state and strictly before the contact boundary.
+- Adversarial validation now rejects cross-link sample-ID substitution,
+  contacts outside the resolved selected-obstacle pair authority, and physical
+  contacts absent from the corresponding candidate-contact ledger. It also
+  rejects a forged negative CBF residual when the recorded Jacobian and joint
+  velocity imply a different directional derivative, or when diagnostics in
+  one callback claim different instantaneous joint velocities. Active physics
+  also rebuilds and exactly matches the shadow obstacle, contact authority,
+  resolved geometry, field bundle, sample ledger, arm DOFs, and settled-state
+  hash before either arm can start. The final local structural gate passed 412
+  tests with 130 expected allocation-only skips; the focused Poisson suite
+  passed 236 tests with 112 expected local MuJoCo/NumPy skips. A fresh H100
+  numeric gate with zero skips remains mandatory on the frozen revision.
+- Because source changed, numeric, parity, and identification must all rerun
+  from one new clean commit and unused immutable run root. Active physics is
+  permitted only if the new identification artifact independently validates
+  and reports a strictly positive phase-correct pre-contact warning.
+
 ## Immediate P01 verification order
 
 1. Freeze an immutable targeted-case manifest from the verified 109 link-5/6

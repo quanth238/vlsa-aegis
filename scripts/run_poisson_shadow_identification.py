@@ -34,6 +34,11 @@ SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v2"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v1"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
+INNER_UPDATES_PER_HIGH_LEVEL_ACTION = 5
+PHYSICS_SUBSTEPS_PER_INNER_UPDATE = 5
+PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION = (
+    INNER_UPDATES_PER_HIGH_LEVEL_ACTION * PHYSICS_SUBSTEPS_PER_INNER_UPDATE
+)
 
 
 class ShadowIdentificationRunnerError(RuntimeError):
@@ -245,6 +250,70 @@ def _first_link56_contact(
     return min(records, key=order).to_dict()
 
 
+def _require_complete_measurement_exposure(
+    measurement: Any, *, action_count: int
+) -> int:
+    """Validate the monitor's typed three-level callback cadence.
+
+    ``FullRobotObstacleMeasurement.first_index`` and ``last_index`` are
+    ``(high_level, inner_control, physics_substep)`` tuples.  They are not
+    scalar global callback indices.  Keep this check executable and separate
+    from the expensive replay so a type/semantic regression fails in unit
+    tests instead of after the final H100 callback.
+    """
+
+    if (
+        isinstance(action_count, bool)
+        or not isinstance(action_count, int)
+        or action_count <= 0
+    ):
+        raise ShadowIdentificationRunnerError(
+            "measurement exposure action_count must be a positive integer"
+        )
+    expected_count = action_count * PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+    expected_first = (0, 0, 0)
+    expected_last = (
+        action_count - 1,
+        INNER_UPDATES_PER_HIGH_LEVEL_ACTION - 1,
+        PHYSICS_SUBSTEPS_PER_INNER_UPDATE - 1,
+    )
+    observed_count = measurement.observed_physics_substeps
+    if isinstance(observed_count, bool) or not isinstance(observed_count, int):
+        raise ShadowIdentificationRunnerError(
+            "MuJoCo contact measurement callback count is not an integer"
+        )
+    first_index = measurement.first_index
+    last_index = measurement.last_index
+    if not all(
+        isinstance(index, tuple)
+        and len(index) == 3
+        and all(type(value) is int for value in index)
+        for index in (first_index, last_index)
+    ):
+        raise ShadowIdentificationRunnerError(
+            "MuJoCo contact measurement cadence indices must be strict "
+            "(high_level, inner_control, physics_substep) integer tuples"
+        )
+    if (
+        observed_count != expected_count
+        or first_index != expected_first
+        or last_index != expected_last
+    ):
+        raise ShadowIdentificationRunnerError(
+            "MuJoCo contact measurement did not cover every physics callback: "
+            "expected count=%d first=%r last=%r; observed count=%r first=%r last=%r"
+            % (
+                expected_count,
+                expected_first,
+                expected_last,
+                measurement.observed_physics_substeps,
+                first_index,
+                last_index,
+            )
+        )
+    return expected_count
+
+
 def _prepare_shadow_runtime(
     *,
     evaluator: Any,
@@ -407,8 +476,8 @@ def _prepare_shadow_runtime(
         require_settled_static_motion=True,
         terminate_on_static_drift=False,
         near_contact_tolerance_m=float(safety["contact_margin_m"]),
-        inner_updates_per_high_level_action=5,
-        physics_substeps_per_inner_update=5,
+        inner_updates_per_high_level_action=INNER_UPDATES_PER_HIGH_LEVEL_ACTION,
+        physics_substeps_per_inner_update=PHYSICS_SUBSTEPS_PER_INNER_UPDATE,
     )
     monitor.require_settled_obstacle_motion_admissible()
     arm_dof_indices = tuple(int(value) for value in env.robots[0]._ref_joint_vel_indexes)
@@ -428,7 +497,9 @@ def _prepare_shadow_runtime(
             ),
             surface_m=float(admissibility["max_selected_geom_surface_drift_m"]),
         ),
-        physics_substeps_per_high_level_action=25,
+        physics_substeps_per_high_level_action=(
+            PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+        ),
     )
     construction_state_after = _official_integration_state(
         env.sim, runtime["np"]
@@ -464,6 +535,18 @@ def _prepare_shadow_runtime(
             ],
             "protected_sample_count": len(bundle.protected_samples.samples),
         },
+        "static_field_drift_thresholds": {
+            "translation_m": float(
+                admissibility["max_selected_geom_translation_drift_m"]
+            ),
+            "rotation_rad": float(
+                admissibility["max_selected_geom_rotation_drift_rad"]
+            ),
+            "surface_m": float(
+                admissibility["max_selected_geom_surface_drift_m"]
+            ),
+        },
+        "cbf_alpha_gain_per_s": float(protocol["cbf"]["alpha_gain_per_s"]),
         "full_robot_measurement_sampling": full_sampling_evidence,
         "settled_measurement": monitor.settled_state.to_dict(),
         "measurement_drift_mode": (
@@ -504,6 +587,9 @@ def _run_shadow(
     upstream_parity: Mapping[str, Any],
 ) -> Dict[str, Any]:
     from main.poisson_fullbody.measurement import StaticObstacleDriftInadmissible
+    from main.poisson_fullbody.shadow_identification import (
+        validate_shadow_replay_record,
+    )
     from scripts.run_poisson_shadow_parity import _canonical, _check_step, _sha256
 
     env = None
@@ -535,8 +621,12 @@ def _run_shadow(
             def callback(sim: Any, substep_index: int) -> None:
                 before_state = _official_integration_state(sim, runtime["np"])
                 before_state_hash = evaluator.array_sha256(before_state)
-                inner = int(substep_index) // 5
-                physics = int(substep_index) % 5
+                inner = (
+                    int(substep_index) // PHYSICS_SUBSTEPS_PER_INNER_UPDATE
+                )
+                physics = (
+                    int(substep_index) % PHYSICS_SUBSTEPS_PER_INNER_UPDATE
+                )
                 try:
                     monitor.observe_post_integration(
                         sim,
@@ -551,7 +641,9 @@ def _run_shadow(
                     monitor_drift_exceptions.append(
                         {
                             "observation_index": (
-                                int(expected_step.step) * 25 + int(substep_index)
+                                int(expected_step.step)
+                                * PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+                                + int(substep_index)
                             ),
                             "message": str(error),
                         }
@@ -574,9 +666,12 @@ def _run_shadow(
             observation, reward, done, _ = env.step_with_substep_callback(
                 expected_step.action,
                 callback,
-                expected_substeps=25,
+                expected_substeps=PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION,
             )
-            if len(current_callback_hashes) != 25:
+            if (
+                len(current_callback_hashes)
+                != PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+            ):
                 raise ShadowIdentificationRunnerError(
                     "shadow callback cadence differs at step %d" % expected_step.step
                 )
@@ -601,15 +696,9 @@ def _run_shadow(
                     "shadow replay terminated before the registered horizon"
                 )
         measurement = monitor.result()
-        expected_callback_count = 25 * len(replay.steps)
-        if (
-            int(measurement.observed_physics_substeps) != expected_callback_count
-            or int(measurement.first_index) != 0
-            or int(measurement.last_index) != expected_callback_count - 1
-        ):
-            raise ShadowIdentificationRunnerError(
-                "MuJoCo contact measurement did not cover every physics callback"
-            )
+        expected_callback_count = _require_complete_measurement_exposure(
+            measurement, action_count=len(replay.steps)
+        )
         if measurement.physical_contact_distance_semantics != CONTACT_DEFINITION:
             raise ShadowIdentificationRunnerError(
                 "MuJoCo physical-contact authority semantics changed"
@@ -633,7 +722,7 @@ def _run_shadow(
             raise ShadowIdentificationRunnerError(
                 "shadow observation sequence differs from upstream exact parity"
             )
-        return {
+        shadow = {
             "executed_action_count": len(state_hashes),
             "callback_count": len(callback_state_hashes),
             "expected_callback_count": expected_callback_count,
@@ -649,6 +738,37 @@ def _run_shadow(
             "monitor_static_drift_exceptions": monitor_drift_exceptions,
             "poisson_identification": identification,
         }
+        validate_shadow_replay_record(
+            shadow,
+            action_count=len(replay.steps),
+            inner_updates_per_high_level_action=(
+                INNER_UPDATES_PER_HIGH_LEVEL_ACTION
+            ),
+            physics_substeps_per_inner_update=(
+                PHYSICS_SUBSTEPS_PER_INNER_UPDATE
+            ),
+            physics_timestep_s=0.002,
+            contact_definition=CONTACT_DEFINITION,
+            alpha_gain_per_s=float(protocol["cbf"]["alpha_gain_per_s"]),
+            static_drift_thresholds={
+                "translation_m": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_translation_drift_m"
+                    ]
+                ),
+                "rotation_rad": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_rotation_drift_rad"
+                    ]
+                ),
+                "surface_m": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_surface_drift_m"
+                    ]
+                ),
+            },
+        )
+        return shadow
     finally:
         if env is not None:
             env.close()
@@ -767,7 +887,9 @@ def main() -> int:
             historical_payload_sha256=replay.result_payload_sha256,
             manifest_sha256=manifest_hash,
             manifest_row_sha256=row_hash,
-            expected_callback_count=25 * len(replay.steps),
+            expected_callback_count=(
+                PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION * len(replay.steps)
+            ),
         )
         protocol, protocol_hashes, selection, runtime_path = (
             _load_bound_runtime_protocol(

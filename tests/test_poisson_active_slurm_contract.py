@@ -49,6 +49,8 @@ class PoissonActiveSlurmContractTest(unittest.TestCase):
         self.assertIn('${RESULT_ROOT:?RESULT_ROOT is required}', self.source)
         self.assertIn('"${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}"', self.source)
         self.assertIn('"${RESULT_ROOT}" != "${REGISTERED_RESULT_ROOT}"', self.source)
+        self.assertIn('"${RUN_ID}" =~ ^[A-Za-z0-9]', self.source)
+        self.assertIn('! -d "${RESULT_ROOT}" || -L "${RESULT_ROOT}"', self.source)
         self.assertIn("vlsa-t1-goal-ii-t0-e05", self.source)
 
     def test_launcher_requires_all_bound_inputs(self):

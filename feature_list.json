@@ -62,7 +62,8 @@
       "depends_on": ["A05-analysis"],
       "evidence": [
         "H100 Slurm prerequisite job 33249 completed on worker-mig-3g40gb-0; results.json SHA-256 a5d5a5cd17564d16873607b4cb7684d819e075a6088ba26932a72b99d015ec5f passed all eight runtime prerequisite checks",
-        "The opt-in feasibility review SHA-256 is 596b59661beaf4746781ef57afaf4aa6b09a7225db91996b183c5c587109b63d and the allocation probe SHA-256 is 7532bdce73597d1e0581e9af891846df289b80a9dc7777a8fe6acc0585249a38"
+        "The opt-in feasibility review SHA-256 is 596b59661beaf4746781ef57afaf4aa6b09a7225db91996b183c5c587109b63d and the allocation probe SHA-256 is 7532bdce73597d1e0581e9af891846df289b80a9dc7777a8fe6acc0585249a38",
+        "H100 identification job 33451 on clean commit 80ebe9a68ffb901f2cd45f3c4f354a8dc16aab4f completed its 5,925-callback replay but failed only in a post-run typed-tuple check; immutable failed artifact file SHA-256 5fe2aef4eb93c28452fde86b87d0b925b95544fe43c2d16b59550e6fd5a2a318 and payload SHA-256 16c1feccb78d7da013f6063be09c27b018f77c52c0a5f46bf0a76942ac796925 are retained as non-scientific apparatus evidence"
       ]
     }
   ]

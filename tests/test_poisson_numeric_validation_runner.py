@@ -17,6 +17,15 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PoissonNumericGpuInventoryTest(unittest.TestCase):
+    def test_default_modules_execute_shadow_runner_and_observer_regressions(self):
+        self.assertIn(
+            "tests.test_poisson_shadow_identification", MODULE.DEFAULT_TEST_MODULES
+        )
+        self.assertIn(
+            "tests.test_poisson_shadow_identification_runner",
+            MODULE.DEFAULT_TEST_MODULES,
+        )
+
     def inventory_for(self, output: str):
         with mock.patch.object(
             MODULE.subprocess, "check_output", return_value=output

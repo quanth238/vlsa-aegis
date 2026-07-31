@@ -30,6 +30,8 @@ DEFAULT_TEST_MODULES = (
     "tests.test_poisson_adapter",
     "tests.test_poisson_controller_bridge",
     "tests.test_poisson_measurement",
+    "tests.test_poisson_shadow_identification",
+    "tests.test_poisson_shadow_identification_runner",
     "tests.test_poisson_numeric_validation_runner",
 )
 

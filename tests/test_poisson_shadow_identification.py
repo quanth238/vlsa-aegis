@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -83,6 +84,16 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
         self.data.geom_xpos[0, 0] = 2e-6
         last = observer.observe(object(), high_level_index=0, physics_substep_index=2)
         self.assertTrue(first["field_query_attempted"])
+        diagnostic = first["per_geom"][0][
+            "minimum_observed_cbf_lhs_sample"
+        ]
+        self.assertEqual(
+            diagnostic["point_translational_jacobian_arm_3x7"][0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
+        self.assertAlmostEqual(
+            diagnostic["observed_grad_h_J_qdot_m2_per_s"], -1.1
+        )
         self.assertFalse(last["field_query_attempted"])
         result = observer.result(
             expected_callback_count=3,
@@ -135,6 +146,24 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
         )
         self.assertEqual(
             live_same_index["contact_prediction_assessment"][
+                "lead_physics_substeps"
+            ],
+            -1,
+        )
+        live_next_index = observer.result(
+            expected_callback_count=3,
+            first_link56_contact={
+                "observation_index": 1,
+                "robot_geom_id": 10,
+                "source_phase": "live_solver_phase_preintegration_geometry",
+            },
+        )
+        self.assertEqual(
+            live_next_index["contact_prediction_assessment"]["assessment"],
+            "registered_warning_coincident_with_link56_contact",
+        )
+        self.assertEqual(
+            live_next_index["contact_prediction_assessment"][
                 "lead_physics_substeps"
             ],
             0,
@@ -327,6 +356,148 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "gap/duplicate"):
             observer.observe(object(), high_level_index=0, physics_substep_index=1)
+
+    def test_serialized_validator_accepts_actual_observer_invalidation_trace(self):
+        from main.poisson_fullbody.shadow_identification import (
+            validate_shadow_replay_record,
+        )
+
+        class Field:
+            def query(_self, point):
+                return SimpleNamespace(
+                    valid=True,
+                    value=float(point[0]),
+                    gradient=(1.0, 0.0, 0.0),
+                    reason=None,
+                )
+
+        thresholds = {
+            "translation_m": 1e-6,
+            "rotation_rad": 1e-5,
+            "surface_m": 1e-6,
+        }
+        observer = StaticPoissonShadowObserver(
+            field=Field(),
+            samples=self.samples,
+            settled_obstacle_boxes=(self.box,),
+            arm_dof_indices=range(7),
+            alpha_gain_per_s=5.0,
+            physics_timestep_s=0.002,
+            drift_thresholds=StaticDriftThresholds(
+                thresholds["translation_m"],
+                thresholds["rotation_rad"],
+                thresholds["surface_m"],
+            ),
+            physics_substeps_per_high_level_action=3,
+            snapshot_provider=self._snapshot,
+            jacobian_provider=self._jacobian,
+        )
+        observer.observe(object(), high_level_index=0, physics_substep_index=0)
+        observer.observe(object(), high_level_index=0, physics_substep_index=1)
+        self.data.geom_xpos[0, 0] = 2e-6
+        observer.observe(object(), high_level_index=0, physics_substep_index=2)
+        identification = observer.result(
+            expected_callback_count=3, first_link56_contact=None
+        )
+        settled = {
+            "candidate_contact_point_record_count": 0,
+            "candidate_contact_point_records": [],
+            "physical_contact_point_record_count": 0,
+            "physical_contact_point_records": [],
+        }
+        measurement = {
+            "observed_physics_substeps": 3,
+            "first_index": [0, 0, 0],
+            "last_index": [0, 0, 2],
+            "any_robot_obstacle_contact": False,
+            "link56_obstacle_contact": False,
+            "rollout_any_robot_obstacle_contact": False,
+            "rollout_link56_obstacle_contact": False,
+            "post_state_any_robot_obstacle_contact": False,
+            "post_state_link56_obstacle_contact": False,
+            "live_solver_any_robot_obstacle_contact": False,
+            "live_solver_link56_obstacle_contact": False,
+            "total_candidate_contact_point_record_count": 0,
+            "total_physical_contact_point_record_count": 0,
+            "rollout_phase_physical_contact_point_record_count": 0,
+            "post_state_candidate_contact_point_record_count": 0,
+            "post_state_physical_contact_point_record_count": 0,
+            "live_solver_candidate_contact_point_record_count": 0,
+            "live_solver_nonpositive_contact_point_record_count": 0,
+            "settled_state": settled,
+            "live_solver_phase_contact_point_records": [],
+            "post_state_candidate_contact_point_records": [],
+            "post_state_physical_contact_point_records": [],
+            "physical_contact_distance_semantics": "mujoco_contact_dist_le_0",
+        }
+        shadow = {
+            "executed_action_count": 1,
+            "callback_count": 3,
+            "expected_callback_count": 3,
+            "construction": {
+                "resolved_geometry": {
+                    "robot_body_ids": [0, 1],
+                    "robot_body_names": ["robot0_link5", "robot0_link6"],
+                    "obstacle_body_ids": [2],
+                    "obstacle_body_names": ["obstacle_body"],
+                    "robot_geom_ids": [10, 11],
+                    "robot_geom_names": [
+                        "link5_collision",
+                        "link6_collision",
+                    ],
+                    "link56_geom_ids": [10, 11],
+                    "link56_geom_names": [
+                        "link5_collision",
+                        "link6_collision",
+                    ],
+                    "obstacle_geom_ids": [0],
+                    "obstacle_geom_names": ["obstacle_geom"],
+                    "collision_enabled_pairs": [[10, 0], [11, 0]],
+                },
+                "field_bundle": {
+                    "protected_sample_count": 2,
+                    "surface_components": [
+                        {
+                            "geom_id": 10,
+                            "geom_name": "link5_collision",
+                            "body_id": 0,
+                            "body_name": "robot0_link5",
+                            "sample_count": 1,
+                        },
+                        {
+                            "geom_id": 11,
+                            "geom_name": "link6_collision",
+                            "body_id": 1,
+                            "body_name": "robot0_link6",
+                            "sample_count": 1,
+                        },
+                    ],
+                },
+                "static_field_drift_thresholds": thresholds,
+                "cbf_alpha_gain_per_s": 5.0,
+                "settled_measurement": settled,
+                "complete_integration_state_read_only_audit": {
+                    "exact_array_equal": True,
+                    "before_sha256": "same-state",
+                    "after_sha256": "same-state",
+                },
+            },
+            "measurement": measurement,
+            "monitor_static_drift_exception_count": 0,
+            "monitor_static_drift_exceptions": [],
+            "poisson_identification": identification,
+        }
+        serialized = json.loads(json.dumps(shadow, allow_nan=False))
+        validate_shadow_replay_record(
+            serialized,
+            action_count=1,
+            inner_updates_per_high_level_action=1,
+            physics_substeps_per_inner_update=3,
+            physics_timestep_s=0.002,
+            contact_definition="mujoco_contact_dist_le_0",
+            alpha_gain_per_s=5.0,
+            static_drift_thresholds=thresholds,
+        )
 
     def test_robot_roots_are_derived_from_authoritative_parent_ids(self):
         parents = (0, 0, 1, 2, 0, 4)

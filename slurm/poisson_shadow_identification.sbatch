@@ -6,6 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
+#SBATCH --no-requeue
 #SBATCH --output=/mnt/data/quanth/slurm_logs/vlsa-poisson-identify-%j.out
 
 set -euo pipefail

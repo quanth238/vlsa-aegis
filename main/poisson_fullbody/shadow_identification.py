@@ -21,16 +21,72 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, Set, Tuple
 
 from main.poisson_fullbody.geometry import OrientedBox
 from main.poisson_fullbody.jacobians import point_translational_jacobian
 from main.poisson_fullbody.measurement import clone_forwarded_state
+from main.poisson_fullbody.poisson_field import QueryInvalidReason
 from main.poisson_fullbody.robot_samples import BodySample
 
 
 class ShadowIdentificationError(RuntimeError):
     """Raised when a read-only shadow trace is incomplete or inconsistent."""
+
+
+REGISTERED_QUERY_INVALID_REASONS = frozenset(
+    reason.value for reason in QueryInvalidReason
+)
+
+
+def rollout_contact_boundary_index(
+    observation_index: int, source_phase: str
+) -> int:
+    """Map a contact record to the field-trace boundary at the same time."""
+
+    if (
+        isinstance(observation_index, bool)
+        or not isinstance(observation_index, int)
+        or observation_index < 0
+    ):
+        raise ShadowIdentificationError(
+            "rollout contact observation index must be a nonnegative integer"
+        )
+    if source_phase == "live_solver_phase_preintegration_geometry":
+        return int(observation_index) - 1
+    if source_phase == "post_integration_recomputed":
+        return int(observation_index)
+    raise ShadowIdentificationError("rollout contact source phase is invalid")
+
+
+def registered_filter_update_available_before_contact(
+    *,
+    warning_observation_index: int,
+    contact_observation_index: int,
+    contact_source_phase: str,
+    physics_substeps_per_filter_update: int,
+) -> bool:
+    """Return whether a scheduled filter solve can use the warning in time."""
+
+    if (
+        isinstance(warning_observation_index, bool)
+        or not isinstance(warning_observation_index, int)
+        or warning_observation_index < 0
+        or isinstance(physics_substeps_per_filter_update, bool)
+        or not isinstance(physics_substeps_per_filter_update, int)
+        or physics_substeps_per_filter_update <= 0
+    ):
+        raise ShadowIdentificationError("filter-update timing inputs are invalid")
+    contact_trace_boundary = rollout_contact_boundary_index(
+        contact_observation_index, contact_source_phase
+    )
+    warning_physics_boundary = int(warning_observation_index) + 1
+    update_period = int(physics_substeps_per_filter_update)
+    next_filter_boundary = (
+        (warning_physics_boundary + update_period - 1) // update_period
+    ) * update_period
+    contact_physics_boundary = contact_trace_boundary + 1
+    return next_filter_boundary < contact_physics_boundary
 
 
 def _modules() -> Tuple[Any, Any]:
@@ -50,6 +106,1813 @@ def _canonical(value: Any) -> bytes:
         ensure_ascii=True,
         allow_nan=False,
     ).encode("utf-8")
+
+
+def _artifact_mapping(value: Any, label: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ShadowIdentificationError("%s must be a mapping" % label)
+    return value
+
+
+def _artifact_integer(
+    value: Any, label: str, *, minimum: Optional[int] = None
+) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ShadowIdentificationError("%s must be an integer" % label)
+    observed = int(value)
+    if minimum is not None and observed < minimum:
+        raise ShadowIdentificationError(
+            "%s must be at least %d" % (label, int(minimum))
+        )
+    return observed
+
+
+def _artifact_cadence_index(value: Any, label: str) -> Tuple[int, int, int]:
+    # Producer-side records retain tuples; JSON round trips them as lists.
+    if not isinstance(value, (tuple, list)) or len(value) != 3:
+        raise ShadowIdentificationError(
+            "%s must be a three-element cadence sequence" % label
+        )
+    result = tuple(
+        _artifact_integer(item, "%s[%d]" % (label, index), minimum=0)
+        for index, item in enumerate(value)
+    )
+    return result  # type: ignore[return-value]
+
+
+def _artifact_sequence(value: Any, label: str) -> Sequence[Any]:
+    if not isinstance(value, (tuple, list)):
+        raise ShadowIdentificationError("%s must be a sequence" % label)
+    return value
+
+
+def _artifact_boolean(value: Any, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise ShadowIdentificationError("%s must be boolean" % label)
+    return value
+
+
+def _artifact_physical_contact(record: Mapping[str, Any], label: str) -> bool:
+    raw_distance = record.get("contact_distance_m")
+    if (
+        isinstance(raw_distance, bool)
+        or not isinstance(raw_distance, (int, float))
+        or not math.isfinite(float(raw_distance))
+    ):
+        raise ShadowIdentificationError("%s distance must be finite" % label)
+    physical = _artifact_boolean(
+        record.get("is_physical_nonpositive_distance_contact"),
+        "%s physical-contact flag" % label,
+    )
+    if physical is not (float(raw_distance) <= 0.0):
+        raise ShadowIdentificationError(
+            "%s physical flag differs from MuJoCo nonpositive distance" % label
+        )
+    return physical
+
+
+def _artifact_nonnegative_number(value: Any, label: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+        or float(value) < 0.0
+    ):
+        raise ShadowIdentificationError("%s must be finite and nonnegative" % label)
+    return float(value)
+
+
+def _same_artifact_value(left: Any, right: Any) -> bool:
+    """Compare typed producer values and their equivalent JSON representation."""
+
+    try:
+        return _canonical(left) == _canonical(right)
+    except (TypeError, ValueError):
+        return False
+
+
+def _artifact_finite_vector(value: Any, length: int, label: str) -> Tuple[float, ...]:
+    sequence = _artifact_sequence(value, label)
+    if len(sequence) != length:
+        raise ShadowIdentificationError("%s has the wrong length" % label)
+    result = []
+    for index, item in enumerate(sequence):
+        if (
+            isinstance(item, bool)
+            or not isinstance(item, (int, float))
+            or not math.isfinite(float(item))
+        ):
+            raise ShadowIdentificationError(
+                "%s[%d] must be finite" % (label, index)
+            )
+        result.append(float(item))
+    return tuple(result)
+
+
+def _artifact_finite_matrix(
+    value: Any, rows: int, columns: int, label: str
+) -> Tuple[Tuple[float, ...], ...]:
+    sequence = _artifact_sequence(value, label)
+    if len(sequence) != rows:
+        raise ShadowIdentificationError("%s has the wrong row count" % label)
+    return tuple(
+        _artifact_finite_vector(
+            row,
+            columns,
+            "%s[%d]" % (label, row_index),
+        )
+        for row_index, row in enumerate(sequence)
+    )
+
+
+def _validate_sample_provenance(
+    raw: Any,
+    *,
+    group: Mapping[str, Any],
+    registered_sample_id_range: Tuple[int, int],
+    label: str,
+) -> Mapping[str, Any]:
+    evidence = _artifact_mapping(raw, label)
+    sample_id = _artifact_integer(
+        evidence.get("sample_id"), "%s sample_id" % label, minimum=0
+    )
+    sample_id_start, sample_id_stop = registered_sample_id_range
+    if not sample_id_start <= sample_id < sample_id_stop:
+        raise ShadowIdentificationError(
+            "%s sample ID is not owned by its protected geom" % label
+        )
+    for field in ("body_id", "body_name", "geom_id", "geom_name"):
+        if evidence.get(field) != group.get(field):
+            raise ShadowIdentificationError(
+                "%s provenance differs at %s" % (label, field)
+            )
+    return evidence
+
+
+def _validate_invalid_sample_evidence(
+    raw: Any,
+    *,
+    group: Mapping[str, Any],
+    registered_sample_id_range: Tuple[int, int],
+    expected_reason: Optional[str],
+    label: str,
+) -> Mapping[str, Any]:
+    evidence = _validate_sample_provenance(
+        raw,
+        group=group,
+        registered_sample_id_range=registered_sample_id_range,
+        label=label,
+    )
+    reason = evidence.get("reason")
+    if reason not in REGISTERED_QUERY_INVALID_REASONS:
+        raise ShadowIdentificationError("%s reason is invalid" % label)
+    if expected_reason is not None and reason != expected_reason:
+        raise ShadowIdentificationError("%s reason differs" % label)
+    _artifact_finite_vector(
+        evidence.get("point_world_m"), 3, "%s point_world_m" % label
+    )
+    return evidence
+
+
+def _validate_cbf_diagnostic(
+    raw: Any,
+    *,
+    group: Mapping[str, Any],
+    registered_sample_id_range: Tuple[int, int],
+    alpha_gain_per_s: float,
+    label: str,
+) -> Mapping[str, Any]:
+    diagnostic = _validate_sample_provenance(
+        raw,
+        group=group,
+        registered_sample_id_range=registered_sample_id_range,
+        label=label,
+    )
+    _artifact_finite_vector(
+        diagnostic.get("point_world_m"), 3, "%s point_world_m" % label
+    )
+    gradient = _artifact_finite_vector(
+        diagnostic.get("gradient_world_m"), 3, "%s gradient_world_m" % label
+    )
+    arm_qvel = _artifact_finite_vector(
+        diagnostic.get("observed_arm_qvel_rad_s"),
+        7,
+        "%s observed_arm_qvel_rad_s" % label,
+    )
+    point_jacobian = _artifact_finite_matrix(
+        diagnostic.get("point_translational_jacobian_arm_3x7"),
+        3,
+        7,
+        "%s point_translational_jacobian_arm_3x7" % label,
+    )
+    numeric = {}
+    for field in (
+        "h_m2",
+        "gradient_norm_m",
+        "observed_grad_h_J_qdot_m2_per_s",
+        "alpha_h_m2_per_s",
+        "observed_cbf_lhs_m2_per_s",
+    ):
+        raw_value = diagnostic.get(field)
+        if (
+            isinstance(raw_value, bool)
+            or not isinstance(raw_value, (int, float))
+            or not math.isfinite(float(raw_value))
+        ):
+            raise ShadowIdentificationError("%s %s is invalid" % (label, field))
+        numeric[field] = float(raw_value)
+    expected_gradient_norm = math.sqrt(sum(value * value for value in gradient))
+    if not math.isclose(
+        numeric["gradient_norm_m"],
+        expected_gradient_norm,
+        rel_tol=1e-12,
+        abs_tol=1e-15,
+    ):
+        raise ShadowIdentificationError("%s gradient norm differs" % label)
+    point_velocity = tuple(
+        sum(point_jacobian[row][column] * arm_qvel[column] for column in range(7))
+        for row in range(3)
+    )
+    expected_directional = sum(
+        gradient[row] * point_velocity[row] for row in range(3)
+    )
+    if not math.isclose(
+        numeric["observed_grad_h_J_qdot_m2_per_s"],
+        expected_directional,
+        rel_tol=1e-12,
+        abs_tol=1e-15,
+    ):
+        raise ShadowIdentificationError(
+            "%s directional derivative differs from gradient, Jacobian, and qvel"
+            % label
+        )
+    expected_alpha_h = alpha_gain_per_s * numeric["h_m2"]
+    if not math.isclose(
+        numeric["alpha_h_m2_per_s"],
+        expected_alpha_h,
+        rel_tol=1e-12,
+        abs_tol=1e-15,
+    ):
+        raise ShadowIdentificationError("%s alpha*h arithmetic differs" % label)
+    expected_lhs = (
+        numeric["observed_grad_h_J_qdot_m2_per_s"]
+        + numeric["alpha_h_m2_per_s"]
+    )
+    if not math.isclose(
+        numeric["observed_cbf_lhs_m2_per_s"],
+        expected_lhs,
+        rel_tol=1e-12,
+        abs_tol=1e-15,
+    ):
+        raise ShadowIdentificationError("%s CBF LHS arithmetic differs" % label)
+    if not isinstance(diagnostic.get("observed_cbf_diagnostic_semantics"), str):
+        raise ShadowIdentificationError("%s semantics are absent" % label)
+    return diagnostic
+
+
+def _resolved_id_name_map(
+    resolved: Mapping[str, Any], *, id_field: str, name_field: str, label: str
+) -> Dict[int, str]:
+    raw_ids = _artifact_sequence(resolved.get(id_field), "%s IDs" % label)
+    raw_names = _artifact_sequence(resolved.get(name_field), "%s names" % label)
+    if not raw_ids or len(raw_ids) != len(raw_names):
+        raise ShadowIdentificationError("%s ID/name coverage differs" % label)
+    result: Dict[int, str] = {}
+    for index, (raw_id, raw_name) in enumerate(zip(raw_ids, raw_names)):
+        identifier = _artifact_integer(
+            raw_id, "%s ID[%d]" % (label, index), minimum=0
+        )
+        if identifier in result or not isinstance(raw_name, str) or not raw_name:
+            raise ShadowIdentificationError("%s ID/name provenance is invalid" % label)
+        result[identifier] = raw_name
+    return result
+
+
+def _validate_contact_record_provenance(
+    record: Mapping[str, Any],
+    *,
+    robot_geom_names: Mapping[int, str],
+    obstacle_geom_names: Mapping[int, str],
+    robot_body_names: Mapping[int, str],
+    obstacle_body_names: Mapping[int, str],
+    collision_pairs: Set[Tuple[int, int]],
+    component_by_geom: Mapping[int, Mapping[str, Any]],
+    label: str,
+) -> None:
+    """Bind a serialized MuJoCo contact to the selected geometry authority."""
+
+    robot_geom = _artifact_integer(
+        record.get("robot_geom_id"), "%s robot_geom_id" % label, minimum=0
+    )
+    obstacle_geom = _artifact_integer(
+        record.get("obstacle_geom_id"), "%s obstacle_geom_id" % label, minimum=0
+    )
+    if (
+        robot_geom not in robot_geom_names
+        or obstacle_geom not in obstacle_geom_names
+        or (robot_geom, obstacle_geom) not in collision_pairs
+        or record.get("robot_geom_name") != robot_geom_names[robot_geom]
+        or record.get("obstacle_geom_name") != obstacle_geom_names[obstacle_geom]
+    ):
+        raise ShadowIdentificationError(
+            "%s is outside the resolved robot/selected-obstacle contact authority"
+            % label
+        )
+
+    robot_body = _artifact_integer(
+        record.get("robot_body_id"), "%s robot_body_id" % label, minimum=0
+    )
+    obstacle_body = _artifact_integer(
+        record.get("obstacle_body_id"), "%s obstacle_body_id" % label, minimum=0
+    )
+    if (
+        robot_body not in robot_body_names
+        or obstacle_body not in obstacle_body_names
+        or record.get("robot_body_name") != robot_body_names[robot_body]
+        or record.get("obstacle_body_name") != obstacle_body_names[obstacle_body]
+    ):
+        raise ShadowIdentificationError(
+            "%s body provenance is outside the resolved geometry trees" % label
+        )
+    component = component_by_geom.get(robot_geom)
+    if component is not None and (
+        robot_body != component.get("body_id")
+        or record.get("robot_body_name") != component.get("body_name")
+    ):
+        raise ShadowIdentificationError(
+            "%s protected-link body provenance differs" % label
+        )
+
+    geom1 = _artifact_integer(
+        record.get("mujoco_geom1_id"), "%s mujoco_geom1_id" % label, minimum=0
+    )
+    geom2 = _artifact_integer(
+        record.get("mujoco_geom2_id"), "%s mujoco_geom2_id" % label, minimum=0
+    )
+    if (geom1, geom2) == (robot_geom, obstacle_geom):
+        expected_name1 = robot_geom_names[robot_geom]
+        expected_name2 = obstacle_geom_names[obstacle_geom]
+    elif (geom1, geom2) == (obstacle_geom, robot_geom):
+        expected_name1 = obstacle_geom_names[obstacle_geom]
+        expected_name2 = robot_geom_names[robot_geom]
+    else:
+        raise ShadowIdentificationError(
+            "%s MuJoCo geom orientation differs from its resolved pair" % label
+        )
+    if (
+        record.get("mujoco_geom1_name") != expected_name1
+        or record.get("mujoco_geom2_name") != expected_name2
+    ):
+        raise ShadowIdentificationError(
+            "%s MuJoCo geom-name provenance differs" % label
+        )
+
+
+def _first_measurement_link_contact(
+    measurement: Mapping[str, Any],
+    *,
+    link_geoms: Set[int],
+    robot_geom_names: Mapping[int, str],
+    obstacle_geom_names: Mapping[int, str],
+    robot_body_names: Mapping[int, str],
+    obstacle_body_names: Mapping[int, str],
+    collision_pairs: Set[Tuple[int, int]],
+    component_by_geom: Mapping[int, Mapping[str, Any]],
+) -> Optional[Mapping[str, Any]]:
+    """Reconstruct the producer's authoritative first link-5/6 contact."""
+
+    settled = _artifact_mapping(
+        measurement.get("settled_state"), "measurement.settled_state"
+    )
+    settled_records = _artifact_sequence(
+        settled.get("physical_contact_point_records"),
+        "measurement settled physical-contact records",
+    )
+    settled_candidate_records = _artifact_sequence(
+        settled.get("candidate_contact_point_records"),
+        "measurement settled candidate-contact records",
+    )
+    live_records = _artifact_sequence(
+        measurement.get("live_solver_phase_contact_point_records"),
+        "measurement live-solver contact records",
+    )
+    post_candidate_records = _artifact_sequence(
+        measurement.get("post_state_candidate_contact_point_records"),
+        "measurement post-state candidate-contact records",
+    )
+    post_records = _artifact_sequence(
+        measurement.get("post_state_physical_contact_point_records"),
+        "measurement post-state physical-contact records",
+    )
+
+    settled_candidates = []
+    for index, raw in enumerate(settled_candidate_records):
+        record = _artifact_mapping(
+            raw, "settled candidate-contact record[%d]" % index
+        )
+        _validate_contact_record_provenance(
+            record,
+            robot_geom_names=robot_geom_names,
+            obstacle_geom_names=obstacle_geom_names,
+            robot_body_names=robot_body_names,
+            obstacle_body_names=obstacle_body_names,
+            collision_pairs=collision_pairs,
+            component_by_geom=component_by_geom,
+            label="settled candidate-contact record[%d]" % index,
+        )
+        if (
+            record.get("source_phase")
+            != "settled_post_integration_recomputed"
+            or record.get("observation_index") is not None
+        ):
+            raise ShadowIdentificationError(
+                "settled candidate-contact ledger has the wrong phase"
+            )
+        _artifact_physical_contact(record, "settled candidate contact")
+        settled_candidates.append(record)
+
+    settled_physical = []
+    for index, raw in enumerate(settled_records):
+        record = _artifact_mapping(
+            raw, "settled physical-contact record[%d]" % index
+        )
+        _validate_contact_record_provenance(
+            record,
+            robot_geom_names=robot_geom_names,
+            obstacle_geom_names=obstacle_geom_names,
+            robot_body_names=robot_body_names,
+            obstacle_body_names=obstacle_body_names,
+            collision_pairs=collision_pairs,
+            component_by_geom=component_by_geom,
+            label="settled physical-contact record[%d]" % index,
+        )
+        if (
+            record.get("source_phase")
+            != "settled_post_integration_recomputed"
+            or record.get("observation_index") is not None
+            or _artifact_physical_contact(record, "settled contact") is not True
+        ):
+            raise ShadowIdentificationError(
+                "settled physical-contact ledger contains a nonphysical record"
+        )
+        settled_physical.append(record)
+    expected_settled_physical = [
+        record
+        for record in settled_candidates
+        if record.get("is_physical_nonpositive_distance_contact") is True
+    ]
+    if not _same_artifact_value(settled_physical, expected_settled_physical):
+        raise ShadowIdentificationError(
+            "settled physical-contact ledger is not the candidate-ledger subset"
+        )
+
+    live_physical = []
+    for index, raw in enumerate(live_records):
+        record = _artifact_mapping(raw, "live-solver contact record[%d]" % index)
+        _validate_contact_record_provenance(
+            record,
+            robot_geom_names=robot_geom_names,
+            obstacle_geom_names=obstacle_geom_names,
+            robot_body_names=robot_body_names,
+            obstacle_body_names=obstacle_body_names,
+            collision_pairs=collision_pairs,
+            component_by_geom=component_by_geom,
+            label="live-solver contact record[%d]" % index,
+        )
+        physical = _artifact_physical_contact(record, "live-solver contact")
+        if record.get("source_phase") != "live_solver_phase_preintegration_geometry":
+            raise ShadowIdentificationError(
+                "live-solver contact ledger has the wrong source phase"
+            )
+        if physical:
+            live_physical.append(record)
+
+    post_candidates = []
+    for index, raw in enumerate(post_candidate_records):
+        record = _artifact_mapping(
+            raw, "post-state candidate-contact record[%d]" % index
+        )
+        _validate_contact_record_provenance(
+            record,
+            robot_geom_names=robot_geom_names,
+            obstacle_geom_names=obstacle_geom_names,
+            robot_body_names=robot_body_names,
+            obstacle_body_names=obstacle_body_names,
+            collision_pairs=collision_pairs,
+            component_by_geom=component_by_geom,
+            label="post-state candidate-contact record[%d]" % index,
+        )
+        if record.get("source_phase") != "post_integration_recomputed":
+            raise ShadowIdentificationError(
+                "post-state candidate-contact ledger has the wrong source phase"
+            )
+        _artifact_physical_contact(record, "post-state candidate contact")
+        post_candidates.append(record)
+
+    post_physical = []
+    for index, raw in enumerate(post_records):
+        record = _artifact_mapping(raw, "post-state physical-contact record[%d]" % index)
+        _validate_contact_record_provenance(
+            record,
+            robot_geom_names=robot_geom_names,
+            obstacle_geom_names=obstacle_geom_names,
+            robot_body_names=robot_body_names,
+            obstacle_body_names=obstacle_body_names,
+            collision_pairs=collision_pairs,
+            component_by_geom=component_by_geom,
+            label="post-state physical-contact record[%d]" % index,
+        )
+        if (
+            record.get("source_phase") != "post_integration_recomputed"
+            or _artifact_physical_contact(record, "post-state contact") is not True
+        ):
+            raise ShadowIdentificationError(
+                "post-state physical-contact ledger contains a nonphysical record"
+        )
+        post_physical.append(record)
+    expected_post_physical = [
+        record
+        for record in post_candidates
+        if record.get("is_physical_nonpositive_distance_contact") is True
+    ]
+    if not _same_artifact_value(post_physical, expected_post_physical):
+        raise ShadowIdentificationError(
+            "post-state physical-contact ledger is not the candidate-ledger subset"
+        )
+
+    rollout_physical = live_physical + post_physical
+    all_physical = settled_physical + rollout_physical
+    expected_counts = (
+        (
+            settled,
+            "candidate_contact_point_record_count",
+            len(settled_candidates),
+        ),
+        (
+            settled,
+            "physical_contact_point_record_count",
+            len(settled_physical),
+        ),
+        (
+            measurement,
+            "live_solver_candidate_contact_point_record_count",
+            len(live_records),
+        ),
+        (
+            measurement,
+            "live_solver_nonpositive_contact_point_record_count",
+            len(live_physical),
+        ),
+        (
+            measurement,
+            "post_state_candidate_contact_point_record_count",
+            len(post_candidates),
+        ),
+        (
+            measurement,
+            "post_state_physical_contact_point_record_count",
+            len(post_physical),
+        ),
+        (
+            measurement,
+            "rollout_phase_physical_contact_point_record_count",
+            len(rollout_physical),
+        ),
+        (
+            measurement,
+            "total_candidate_contact_point_record_count",
+            len(settled_candidates) + len(live_records) + len(post_candidates),
+        ),
+        (
+            measurement,
+            "total_physical_contact_point_record_count",
+            len(all_physical),
+        ),
+    )
+    for container, field, expected in expected_counts:
+        if (
+            _artifact_integer(
+                container.get(field), "measurement.%s" % field, minimum=0
+            )
+            != expected
+        ):
+            raise ShadowIdentificationError(
+                "measurement physical-contact count differs at %s" % field
+            )
+
+    expected_flags = (
+        ("any_robot_obstacle_contact", bool(all_physical)),
+        ("rollout_any_robot_obstacle_contact", bool(rollout_physical)),
+        ("post_state_any_robot_obstacle_contact", bool(post_physical)),
+        ("live_solver_any_robot_obstacle_contact", bool(live_physical)),
+        (
+            "link56_obstacle_contact",
+            any(
+                _artifact_integer(
+                    record.get("robot_geom_id"), "physical contact robot geom", minimum=0
+                )
+                in link_geoms
+                for record in all_physical
+            ),
+        ),
+        (
+            "rollout_link56_obstacle_contact",
+            any(
+                _artifact_integer(
+                    record.get("robot_geom_id"), "rollout contact robot geom", minimum=0
+                )
+                in link_geoms
+                for record in rollout_physical
+            ),
+        ),
+        (
+            "post_state_link56_obstacle_contact",
+            any(
+                _artifact_integer(
+                    record.get("robot_geom_id"), "post-state contact robot geom", minimum=0
+                )
+                in link_geoms
+                for record in post_physical
+            ),
+        ),
+        (
+            "live_solver_link56_obstacle_contact",
+            any(
+                _artifact_integer(
+                    record.get("robot_geom_id"), "live-solver contact robot geom", minimum=0
+                )
+                in link_geoms
+                for record in live_physical
+            ),
+        ),
+    )
+    for field, expected in expected_flags:
+        if _artifact_boolean(measurement.get(field), "measurement.%s" % field) is not expected:
+            raise ShadowIdentificationError(
+                "measurement physical-contact flag differs at %s" % field
+            )
+
+    candidates = []
+    for record in all_physical:
+        geom_id = _artifact_integer(
+            record.get("robot_geom_id"), "physical contact robot geom", minimum=0
+        )
+        if geom_id in link_geoms:
+            candidates.append(record)
+    if not candidates:
+        return None
+
+    def order(record: Mapping[str, Any]) -> Tuple[int, int, int]:
+        raw_observation = record.get("observation_index")
+        observation = (
+            -1
+            if raw_observation is None
+            else _artifact_integer(
+                raw_observation, "physical contact observation_index", minimum=0
+            )
+        )
+        phase = {
+            "settled_post_integration_recomputed": 0,
+            "live_solver_phase_preintegration_geometry": 1,
+            "post_integration_recomputed": 2,
+        }.get(record.get("source_phase"), 3)
+        contact_index = _artifact_integer(
+            record.get("mujoco_contact_index"),
+            "physical contact mujoco_contact_index",
+            minimum=0,
+        )
+        return observation, phase, contact_index
+
+    return min(candidates, key=order)
+
+
+def _first_trace_signal(
+    trace: Sequence[Any], *, geom_id: Optional[int], kind: str
+) -> Optional[Dict[str, Any]]:
+    """Reconstruct the observer signal used to authorize the active canary."""
+
+    for row_index, raw_row in enumerate(trace):
+        row = _artifact_mapping(raw_row, "trace[%d]" % row_index)
+        if row.get("field_query_attempted") is not True:
+            continue
+        groups = _artifact_sequence(row.get("per_geom"), "trace per-geom records")
+        for group_index, raw_group in enumerate(groups):
+            group = _artifact_mapping(
+                raw_group, "trace[%d].per_geom[%d]" % (row_index, group_index)
+            )
+            observed_geom = _artifact_integer(
+                group.get("geom_id"), "trace per-geom geom_id", minimum=0
+            )
+            if geom_id is not None and observed_geom != geom_id:
+                continue
+            evidence: Optional[Mapping[str, Any]] = None
+            if kind == "any_invalid":
+                if (
+                    _artifact_integer(
+                        group.get("invalid_query_count"),
+                        "trace per-geom invalid_query_count",
+                        minimum=0,
+                    )
+                    > 0
+                ):
+                    evidence = _artifact_mapping(
+                        group.get("first_invalid_sample"),
+                        "trace first invalid sample",
+                    )
+            elif kind == "cbf_lhs_negative":
+                minimum_lhs = group.get("minimum_observed_cbf_lhs_sample")
+                if minimum_lhs is not None:
+                    candidate = _artifact_mapping(
+                        minimum_lhs, "trace minimum observed CBF sample"
+                    )
+                    raw_lhs = candidate.get("observed_cbf_lhs_m2_per_s")
+                    if (
+                        isinstance(raw_lhs, bool)
+                        or not isinstance(raw_lhs, (int, float))
+                        or not math.isfinite(float(raw_lhs))
+                    ):
+                        raise ShadowIdentificationError(
+                            "trace minimum observed CBF value is invalid"
+                        )
+                    if float(raw_lhs) < 0.0:
+                        evidence = candidate
+            else:  # pragma: no cover - private caller is closed over two kinds
+                raise ShadowIdentificationError("unknown trace signal kind")
+            if evidence is not None:
+                geom_name = group.get("geom_name")
+                body_name = group.get("body_name")
+                if not isinstance(geom_name, str) or not isinstance(body_name, str):
+                    raise ShadowIdentificationError(
+                        "trace signal geometry names are invalid"
+                    )
+                return {
+                    "observation_index": _artifact_integer(
+                        row.get("observation_index"),
+                        "trace signal observation_index",
+                        minimum=0,
+                    ),
+                    "high_level_index": _artifact_integer(
+                        row.get("high_level_index"),
+                        "trace signal high_level_index",
+                        minimum=0,
+                    ),
+                    "physics_substep_index": _artifact_integer(
+                        row.get("physics_substep_index"),
+                        "trace signal physics_substep_index",
+                        minimum=0,
+                    ),
+                    "signal_kind": kind,
+                    "geom_id": observed_geom,
+                    "geom_name": geom_name,
+                    "body_id": _artifact_integer(
+                        group.get("body_id"), "trace signal body_id", minimum=0
+                    ),
+                    "body_name": body_name,
+                    "evidence": dict(evidence),
+                }
+    return None
+
+
+def _drift_crossing_reasons(
+    raw_drift: Any,
+    *,
+    thresholds: Mapping[str, float],
+    expected_geom_ids: Set[int],
+    label: str,
+) -> Tuple[str, ...]:
+    """Validate one raw drift record and return its registered crossings."""
+
+    drift = _artifact_mapping(raw_drift, label)
+    raw_geoms = _artifact_sequence(drift.get("geoms"), "%s.geoms" % label)
+    if not raw_geoms:
+        raise ShadowIdentificationError("%s geoms are empty" % label)
+    observed_geom_ids = set()
+    translations = []
+    rotations = []
+    surfaces = []
+    all_reasons = set()
+    for index, raw_geom in enumerate(raw_geoms):
+        geom = _artifact_mapping(raw_geom, "%s.geoms[%d]" % (label, index))
+        geom_id = _artifact_integer(
+            geom.get("geom_id"), "%s geom_id" % label, minimum=0
+        )
+        if geom_id in observed_geom_ids:
+            raise ShadowIdentificationError("%s has duplicate geom IDs" % label)
+        observed_geom_ids.add(geom_id)
+        translation = _artifact_nonnegative_number(
+            geom.get("translation_m"), "%s translation" % label
+        )
+        rotation = _artifact_nonnegative_number(
+            geom.get("rotation_rad"), "%s rotation" % label
+        )
+        surface = _artifact_nonnegative_number(
+            geom.get("maximum_surface_point_displacement_m"),
+            "%s surface displacement" % label,
+        )
+        translations.append(translation)
+        rotations.append(rotation)
+        surfaces.append(surface)
+        expected_reasons = []
+        if translation > thresholds["translation_m"]:
+            expected_reasons.append("translation_threshold_crossed")
+        if rotation > thresholds["rotation_rad"]:
+            expected_reasons.append("rotation_threshold_crossed")
+        if surface > thresholds["surface_m"]:
+            expected_reasons.append("surface_threshold_crossed")
+        raw_reasons = _artifact_sequence(
+            geom.get("threshold_crossing_reasons"),
+            "%s threshold-crossing reasons" % label,
+        )
+        if list(raw_reasons) != expected_reasons:
+            raise ShadowIdentificationError(
+                "%s threshold-crossing reasons differ" % label
+            )
+        all_reasons.update(expected_reasons)
+    if observed_geom_ids != expected_geom_ids:
+        raise ShadowIdentificationError(
+            "%s geom coverage differs from the selected obstacle" % label
+        )
+    aggregates = (
+        ("maximum_translation_m", max(translations)),
+        ("maximum_rotation_rad", max(rotations)),
+        ("maximum_surface_point_displacement_m", max(surfaces)),
+    )
+    for field, expected in aggregates:
+        observed = _artifact_nonnegative_number(
+            drift.get(field), "%s.%s" % (label, field)
+        )
+        if observed != expected:
+            raise ShadowIdentificationError(
+                "%s aggregate %s differs" % (label, field)
+            )
+    return tuple(sorted(all_reasons))
+
+
+def validate_shadow_replay_record(
+    shadow: Mapping[str, Any],
+    *,
+    action_count: int,
+    inner_updates_per_high_level_action: int,
+    physics_substeps_per_inner_update: int,
+    physics_timestep_s: float,
+    contact_definition: str,
+    alpha_gain_per_s: float,
+    static_drift_thresholds: Mapping[str, float],
+) -> None:
+    """Independently validate the complete serialized shadow replay.
+
+    This validator is deliberately pure: the producer invokes it before
+    publishing a passed artifact, and the active consumer invokes it again
+    after loading JSON.  It therefore accepts typed runtime cadence tuples and
+    their JSON list representation, but recomputes counts, coordinates, trace
+    hashing, field invalidation stopping, and warning/contact arithmetic.
+    """
+
+    record = _artifact_mapping(shadow, "shadow replay")
+    actions = _artifact_integer(action_count, "action_count", minimum=1)
+    inner_count = _artifact_integer(
+        inner_updates_per_high_level_action,
+        "inner_updates_per_high_level_action",
+        minimum=1,
+    )
+    physics_count = _artifact_integer(
+        physics_substeps_per_inner_update,
+        "physics_substeps_per_inner_update",
+        minimum=1,
+    )
+    timestep = float(physics_timestep_s)
+    if not math.isfinite(timestep) or timestep <= 0.0:
+        raise ShadowIdentificationError(
+            "physics_timestep_s must be finite and positive"
+        )
+    if not isinstance(contact_definition, str) or not contact_definition:
+        raise ShadowIdentificationError("contact_definition must be nonempty")
+    if (
+        isinstance(alpha_gain_per_s, bool)
+        or not isinstance(alpha_gain_per_s, (int, float))
+        or not math.isfinite(float(alpha_gain_per_s))
+        or float(alpha_gain_per_s) <= 0.0
+    ):
+        raise ShadowIdentificationError("expected alpha_gain_per_s is invalid")
+    expected_alpha = float(alpha_gain_per_s)
+    expected_drift_thresholds = _artifact_mapping(
+        static_drift_thresholds, "expected static-field drift thresholds"
+    )
+    registered_drift_thresholds: Dict[str, float] = {}
+    for field in ("translation_m", "rotation_rad", "surface_m"):
+        raw_threshold = expected_drift_thresholds.get(field)
+        if (
+            isinstance(raw_threshold, bool)
+            or not isinstance(raw_threshold, (int, float))
+            or not math.isfinite(float(raw_threshold))
+            or float(raw_threshold) < 0.0
+        ):
+            raise ShadowIdentificationError(
+                "expected static-field drift threshold %s is invalid" % field
+            )
+        registered_drift_thresholds[field] = float(raw_threshold)
+    per_high = inner_count * physics_count
+    expected = actions * per_high
+    for field, value in (
+        ("executed_action_count", actions),
+        ("callback_count", expected),
+        ("expected_callback_count", expected),
+    ):
+        if _artifact_integer(record.get(field), "shadow.%s" % field, minimum=0) != value:
+            raise ShadowIdentificationError("shadow %s differs" % field)
+
+    measurement = _artifact_mapping(record.get("measurement"), "shadow measurement")
+    if (
+        _artifact_integer(
+            measurement.get("observed_physics_substeps"),
+            "measurement.observed_physics_substeps",
+            minimum=0,
+        )
+        != expected
+    ):
+        raise ShadowIdentificationError("measurement callback count differs")
+    first_index = _artifact_cadence_index(
+        measurement.get("first_index"), "measurement.first_index"
+    )
+    last_index = _artifact_cadence_index(
+        measurement.get("last_index"), "measurement.last_index"
+    )
+    if first_index != (0, 0, 0) or last_index != (
+        actions - 1,
+        inner_count - 1,
+        physics_count - 1,
+    ):
+        raise ShadowIdentificationError("measurement cadence endpoints differ")
+    if measurement.get("physical_contact_distance_semantics") != contact_definition:
+        raise ShadowIdentificationError("measurement contact semantics differ")
+
+    construction = _artifact_mapping(
+        record.get("construction"), "shadow construction"
+    )
+    resolved = _artifact_mapping(
+        construction.get("resolved_geometry"), "resolved geometry"
+    )
+    raw_link_geoms = resolved.get("link56_geom_ids")
+    if not isinstance(raw_link_geoms, (tuple, list)) or not raw_link_geoms:
+        raise ShadowIdentificationError("resolved link56 geom IDs are absent")
+    link_geom_sequence = tuple(
+        _artifact_integer(value, "resolved link56 geom ID", minimum=0)
+        for value in raw_link_geoms
+    )
+    link_geoms = set(link_geom_sequence)
+    if len(link_geoms) != len(raw_link_geoms):
+        raise ShadowIdentificationError("resolved link56 geom IDs are not unique")
+    raw_obstacle_geoms = _artifact_sequence(
+        resolved.get("obstacle_geom_ids"), "resolved obstacle geom IDs"
+    )
+    obstacle_geoms = {
+        _artifact_integer(value, "resolved obstacle geom ID", minimum=0)
+        for value in raw_obstacle_geoms
+    }
+    if not obstacle_geoms or len(obstacle_geoms) != len(raw_obstacle_geoms):
+        raise ShadowIdentificationError(
+            "resolved obstacle geom IDs must be nonempty and unique"
+        )
+    field_bundle = _artifact_mapping(
+        construction.get("field_bundle"), "construction field bundle"
+    )
+    registered_sample_count = _artifact_integer(
+        field_bundle.get("protected_sample_count"),
+        "field bundle protected_sample_count",
+        minimum=1,
+    )
+    raw_components = _artifact_sequence(
+        field_bundle.get("surface_components"), "field bundle surface components"
+    )
+    component_by_geom: Dict[int, Mapping[str, Any]] = {}
+    component_sample_ranges: Dict[int, Tuple[int, int]] = {}
+    component_sample_total = 0
+    for index, raw_component in enumerate(raw_components):
+        component = _artifact_mapping(
+            raw_component, "field bundle surface component[%d]" % index
+        )
+        geom_id = _artifact_integer(
+            component.get("geom_id"), "surface component geom_id", minimum=0
+        )
+        if geom_id in component_by_geom:
+            raise ShadowIdentificationError(
+                "field bundle has duplicate surface-component geom IDs"
+            )
+        sample_count = _artifact_integer(
+            component.get("sample_count"),
+            "surface component sample_count",
+            minimum=1,
+        )
+        component_by_geom[geom_id] = component
+        sample_start = component_sample_total
+        component_sample_total += sample_count
+        component_sample_ranges[geom_id] = (
+            sample_start,
+            component_sample_total,
+        )
+    if (
+        tuple(component_by_geom) != link_geom_sequence
+        or component_sample_total != registered_sample_count
+    ):
+        raise ShadowIdentificationError(
+            "field bundle ordered sample/component coverage differs from resolved "
+            "link56 geoms"
+        )
+    robot_geom_names = _resolved_id_name_map(
+        resolved,
+        id_field="robot_geom_ids",
+        name_field="robot_geom_names",
+        label="resolved robot geoms",
+    )
+    obstacle_geom_names = _resolved_id_name_map(
+        resolved,
+        id_field="obstacle_geom_ids",
+        name_field="obstacle_geom_names",
+        label="resolved obstacle geoms",
+    )
+    robot_body_names = _resolved_id_name_map(
+        resolved,
+        id_field="robot_body_ids",
+        name_field="robot_body_names",
+        label="resolved robot bodies",
+    )
+    obstacle_body_names = _resolved_id_name_map(
+        resolved,
+        id_field="obstacle_body_ids",
+        name_field="obstacle_body_names",
+        label="resolved obstacle bodies",
+    )
+    if (
+        link_geoms - set(robot_geom_names)
+        or obstacle_geoms != set(obstacle_geom_names)
+        or set(robot_geom_names) & set(obstacle_geom_names)
+    ):
+        raise ShadowIdentificationError(
+            "resolved protected/obstacle geom authority is inconsistent"
+        )
+    raw_link_names = _artifact_sequence(
+        resolved.get("link56_geom_names"), "resolved link56 geom names"
+    )
+    if list(raw_link_names) != [
+        robot_geom_names[geom_id] for geom_id in link_geom_sequence
+    ]:
+        raise ShadowIdentificationError(
+            "resolved link56 geom ID/name authority differs"
+        )
+    for geom_id, component in component_by_geom.items():
+        body_id = _artifact_integer(
+            component.get("body_id"), "surface component body_id", minimum=0
+        )
+        if (
+            component.get("geom_name") != robot_geom_names[geom_id]
+            or body_id not in robot_body_names
+            or component.get("body_name") != robot_body_names[body_id]
+        ):
+            raise ShadowIdentificationError(
+                "surface component provenance differs from resolved geometry"
+            )
+    raw_pairs = _artifact_sequence(
+        resolved.get("collision_enabled_pairs"),
+        "resolved collision-enabled pairs",
+    )
+    collision_pairs: Set[Tuple[int, int]] = set()
+    for index, raw_pair in enumerate(raw_pairs):
+        pair_values = _artifact_sequence(
+            raw_pair, "resolved collision-enabled pair[%d]" % index
+        )
+        if len(pair_values) != 2:
+            raise ShadowIdentificationError(
+                "resolved collision-enabled pair has the wrong length"
+            )
+        pair = (
+            _artifact_integer(
+                pair_values[0], "resolved pair robot geom", minimum=0
+            ),
+            _artifact_integer(
+                pair_values[1], "resolved pair obstacle geom", minimum=0
+            ),
+        )
+        if (
+            pair in collision_pairs
+            or pair[0] not in robot_geom_names
+            or pair[1] not in obstacle_geom_names
+        ):
+            raise ShadowIdentificationError(
+                "resolved collision-enabled pair authority is invalid"
+            )
+        collision_pairs.add(pair)
+    if not collision_pairs:
+        raise ShadowIdentificationError(
+            "resolved collision-enabled pair authority is empty"
+        )
+    drift_thresholds = _artifact_mapping(
+        construction.get("static_field_drift_thresholds"),
+        "construction static-field drift thresholds",
+    )
+    for field in ("translation_m", "rotation_rad", "surface_m"):
+        raw_threshold = drift_thresholds.get(field)
+        if (
+            isinstance(raw_threshold, bool)
+            or not isinstance(raw_threshold, (int, float))
+            or not math.isfinite(float(raw_threshold))
+            or float(raw_threshold) < 0.0
+        ):
+            raise ShadowIdentificationError(
+                "static-field drift threshold %s is invalid" % field
+            )
+        if float(raw_threshold) != registered_drift_thresholds[field]:
+            raise ShadowIdentificationError(
+                "construction static-field drift threshold %s differs" % field
+            )
+    raw_construction_alpha = construction.get("cbf_alpha_gain_per_s")
+    if (
+        isinstance(raw_construction_alpha, bool)
+        or not isinstance(raw_construction_alpha, (int, float))
+        or not math.isfinite(float(raw_construction_alpha))
+        or float(raw_construction_alpha) != expected_alpha
+    ):
+        raise ShadowIdentificationError(
+            "construction CBF alpha differs from the bound protocol"
+        )
+    if not _same_artifact_value(
+        construction.get("settled_measurement"), measurement.get("settled_state")
+    ):
+        raise ShadowIdentificationError(
+            "construction and rollout settled measurements differ"
+        )
+    authoritative_contact = _first_measurement_link_contact(
+        measurement,
+        link_geoms=link_geoms,
+        robot_geom_names=robot_geom_names,
+        obstacle_geom_names=obstacle_geom_names,
+        robot_body_names=robot_body_names,
+        obstacle_body_names=obstacle_body_names,
+        collision_pairs=collision_pairs,
+        component_by_geom=component_by_geom,
+    )
+    read_only = _artifact_mapping(
+        construction.get("complete_integration_state_read_only_audit"),
+        "construction read-only audit",
+    )
+    if (
+        read_only.get("exact_array_equal") is not True
+        or not isinstance(read_only.get("before_sha256"), str)
+        or read_only.get("before_sha256") != read_only.get("after_sha256")
+    ):
+        raise ShadowIdentificationError("construction read-only audit differs")
+
+    identification = _artifact_mapping(
+        record.get("poisson_identification"), "Poisson identification"
+    )
+    for field in ("observed_callback_count", "expected_callback_count"):
+        if (
+            _artifact_integer(
+                identification.get(field),
+                "identification.%s" % field,
+                minimum=0,
+            )
+            != expected
+        ):
+            raise ShadowIdentificationError("identification %s differs" % field)
+    trace = identification.get("trace")
+    if not isinstance(trace, list) or len(trace) != expected:
+        raise ShadowIdentificationError("identification trace length differs")
+    first_invalidation = identification.get("first_static_field_invalidation")
+    invalidation_index: Optional[int] = None
+    invalidation_record: Optional[Mapping[str, Any]] = None
+    if first_invalidation is not None:
+        invalidation = _artifact_mapping(
+            first_invalidation, "first static field invalidation"
+        )
+        invalidation_record = invalidation
+        invalidation_index = _artifact_integer(
+            invalidation.get("observation_index"),
+            "first invalidation observation_index",
+            minimum=0,
+        )
+        if invalidation_index >= expected:
+            raise ShadowIdentificationError(
+                "first invalidation observation is outside the replay"
+            )
+        if (
+            _artifact_integer(
+                invalidation.get("high_level_index"),
+                "first invalidation high_level_index",
+                minimum=0,
+            )
+            != invalidation_index // per_high
+            or _artifact_integer(
+                invalidation.get("physics_substep_index"),
+                "first invalidation physics_substep_index",
+                minimum=0,
+            )
+            != invalidation_index % per_high
+            or invalidation.get("reason") != "static_selected_obstacle_drift"
+        ):
+            raise ShadowIdentificationError(
+                "first static field invalidation coordinates differ"
+            )
+
+    attempted_count = 0
+    skipped_count = 0
+    valid_query_total = 0
+    lhs_total = 0
+    observed_first_drift_crossing: Optional[int] = None
+    for index, raw_row in enumerate(trace):
+        row = _artifact_mapping(raw_row, "trace[%d]" % index)
+        if (
+            _artifact_integer(
+                row.get("observation_index"),
+                "trace[%d].observation_index" % index,
+                minimum=0,
+            )
+            != index
+            or _artifact_integer(
+                row.get("high_level_index"),
+                "trace[%d].high_level_index" % index,
+                minimum=0,
+            )
+            != index // per_high
+            or _artifact_integer(
+                row.get("physics_substep_index"),
+                "trace[%d].physics_substep_index" % index,
+                minimum=0,
+            )
+            != index % per_high
+        ):
+            raise ShadowIdentificationError("trace cadence differs at %d" % index)
+        for field, expected_time in (
+            ("time_from_first_callback_s", index * timestep),
+            ("time_from_settled_state_s", (index + 1) * timestep),
+        ):
+            raw_time = row.get(field)
+            if (
+                isinstance(raw_time, bool)
+                or not isinstance(raw_time, (int, float))
+                or not math.isfinite(float(raw_time))
+                or not math.isclose(
+                    float(raw_time), expected_time, rel_tol=0.0, abs_tol=1e-12
+                )
+            ):
+                raise ShadowIdentificationError(
+                    "trace timing differs at %d for %s" % (index, field)
+                )
+        drift_reasons = _drift_crossing_reasons(
+            row.get("drift"),
+            thresholds=registered_drift_thresholds,
+            expected_geom_ids=obstacle_geoms,
+            label="trace[%d].drift" % index,
+        )
+        if drift_reasons and observed_first_drift_crossing is None:
+            observed_first_drift_crossing = index
+        attempted = row.get("field_query_attempted")
+        static_valid = row.get("static_field_admissible_for_this_query")
+        if not isinstance(attempted, bool) or not isinstance(static_valid, bool):
+            raise ShadowIdentificationError(
+                "trace query/static flags are not boolean at %d" % index
+            )
+        expected_attempted = (
+            invalidation_index is None or index < invalidation_index
+        )
+        if attempted is not expected_attempted or static_valid is not expected_attempted:
+            raise ShadowIdentificationError(
+                "field queries did not stop exactly at invalidation index %d"
+                % index
+            )
+        sample_count = _artifact_integer(
+            row.get("sample_count"), "trace[%d].sample_count" % index, minimum=1
+        )
+        if sample_count != registered_sample_count:
+            raise ShadowIdentificationError(
+                "trace sample count differs from the registered field bundle"
+            )
+        valid_count = _artifact_integer(
+            row.get("valid_query_count"),
+            "trace[%d].valid_query_count" % index,
+            minimum=0,
+        )
+        invalid_count = _artifact_integer(
+            row.get("invalid_query_count"),
+            "trace[%d].invalid_query_count" % index,
+            minimum=0,
+        )
+        lhs_count = _artifact_integer(
+            row.get("observed_cbf_lhs_evaluation_count"),
+            "trace[%d].observed_cbf_lhs_evaluation_count" % index,
+            minimum=0,
+        )
+        raw_groups = _artifact_sequence(
+            row.get("per_geom"), "trace[%d].per_geom" % index
+        )
+        if attempted:
+            attempted_count += 1
+            if valid_count + invalid_count != sample_count or lhs_count != valid_count:
+                raise ShadowIdentificationError(
+                    "trace query coverage differs at %d" % index
+                )
+            observed_groups = {}
+            group_sample_total = 0
+            group_valid_total = 0
+            group_invalid_total = 0
+            group_lhs_total = 0
+            aggregate_invalid_reasons = Counter()
+            minimum_h_candidates = []
+            minimum_lhs_candidates = []
+            row_arm_qvel: Optional[Tuple[float, ...]] = None
+            for group_index, raw_group in enumerate(raw_groups):
+                group = _artifact_mapping(
+                    raw_group,
+                    "trace[%d].per_geom[%d]" % (index, group_index),
+                )
+                geom_id = _artifact_integer(
+                    group.get("geom_id"), "trace per-geom geom_id", minimum=0
+                )
+                if geom_id in observed_groups:
+                    raise ShadowIdentificationError(
+                        "trace per-geom coverage has duplicate geom IDs"
+                    )
+                component = component_by_geom.get(geom_id)
+                if component is None:
+                    raise ShadowIdentificationError(
+                        "trace per-geom coverage includes an unregistered geom"
+                    )
+                sample_id_range = component_sample_ranges[geom_id]
+                observed_groups[geom_id] = group
+                for field in ("geom_name", "body_id", "body_name"):
+                    if group.get(field) != component.get(field):
+                        raise ShadowIdentificationError(
+                            "trace per-geom provenance differs at %s" % field
+                        )
+                group_sample = _artifact_integer(
+                    group.get("sample_count"),
+                    "trace per-geom sample_count",
+                    minimum=1,
+                )
+                group_valid = _artifact_integer(
+                    group.get("valid_query_count"),
+                    "trace per-geom valid_query_count",
+                    minimum=0,
+                )
+                group_invalid = _artifact_integer(
+                    group.get("invalid_query_count"),
+                    "trace per-geom invalid_query_count",
+                    minimum=0,
+                )
+                group_lhs = _artifact_integer(
+                    group.get("observed_cbf_lhs_evaluation_count"),
+                    "trace per-geom CBF evaluation count",
+                    minimum=0,
+                )
+                if (
+                    group_sample != component.get("sample_count")
+                    or group_valid + group_invalid != group_sample
+                    or group_lhs != group_valid
+                ):
+                    raise ShadowIdentificationError(
+                        "trace per-geom sample/query coverage differs"
+                    )
+                raw_reason_counts = _artifact_mapping(
+                    group.get("invalid_reason_counts"),
+                    "trace per-geom invalid reason counts",
+                )
+                reason_counts: Dict[str, int] = {}
+                for raw_reason, raw_count in raw_reason_counts.items():
+                    if not isinstance(raw_reason, str) or not raw_reason:
+                        raise ShadowIdentificationError(
+                            "trace invalid-query reason is invalid"
+                        )
+                    reason_counts[raw_reason] = _artifact_integer(
+                        raw_count,
+                        "trace invalid-query reason count",
+                        minimum=1,
+                    )
+                if sum(reason_counts.values()) != group_invalid:
+                    raise ShadowIdentificationError(
+                        "trace invalid-query reason counts differ"
+                    )
+                aggregate_invalid_reasons.update(reason_counts)
+                first_invalid = group.get("first_invalid_sample")
+                raw_by_reason = _artifact_mapping(
+                    group.get("first_invalid_sample_by_reason"),
+                    "trace first invalid samples by reason",
+                )
+                if group_invalid:
+                    first_invalid_evidence = _validate_invalid_sample_evidence(
+                        first_invalid,
+                        group=group,
+                        registered_sample_id_range=sample_id_range,
+                        expected_reason=None,
+                        label="trace first invalid sample",
+                    )
+                    if first_invalid_evidence.get("reason") not in reason_counts:
+                        raise ShadowIdentificationError(
+                            "trace first invalid sample reason was not counted"
+                        )
+                    if set(raw_by_reason) != set(reason_counts):
+                        raise ShadowIdentificationError(
+                            "trace invalid-sample reason coverage differs"
+                        )
+                    for reason, raw_evidence in raw_by_reason.items():
+                        _validate_invalid_sample_evidence(
+                            raw_evidence,
+                            group=group,
+                            registered_sample_id_range=sample_id_range,
+                            expected_reason=reason,
+                            label="trace first invalid sample for %s" % reason,
+                        )
+                elif first_invalid is not None or raw_by_reason:
+                    raise ShadowIdentificationError(
+                        "trace zero-invalid group retains invalid evidence"
+                    )
+
+                minimum_h = group.get("minimum_h_sample")
+                minimum_lhs = group.get("minimum_observed_cbf_lhs_sample")
+                if group_valid:
+                    minimum_h_record = _validate_cbf_diagnostic(
+                        minimum_h,
+                        group=group,
+                        registered_sample_id_range=sample_id_range,
+                        alpha_gain_per_s=expected_alpha,
+                        label="trace per-geom minimum-h diagnostic",
+                    )
+                    minimum_lhs_record = _validate_cbf_diagnostic(
+                        minimum_lhs,
+                        group=group,
+                        registered_sample_id_range=sample_id_range,
+                        alpha_gain_per_s=expected_alpha,
+                        label="trace per-geom minimum-LHS diagnostic",
+                    )
+                    if (
+                        minimum_h_record.get("sample_id")
+                        == minimum_lhs_record.get("sample_id")
+                        and not _same_artifact_value(
+                            minimum_h_record, minimum_lhs_record
+                        )
+                    ):
+                        raise ShadowIdentificationError(
+                            "one protected sample has contradictory CBF diagnostics"
+                        )
+                    for diagnostic in (minimum_h_record, minimum_lhs_record):
+                        diagnostic_qvel = _artifact_finite_vector(
+                            diagnostic.get("observed_arm_qvel_rad_s"),
+                            7,
+                            "trace callback arm qvel",
+                        )
+                        if row_arm_qvel is None:
+                            row_arm_qvel = diagnostic_qvel
+                        elif diagnostic_qvel != row_arm_qvel:
+                            raise ShadowIdentificationError(
+                                "one trace callback has contradictory arm qvel"
+                            )
+                    minimum_h_candidates.append(minimum_h_record)
+                    minimum_lhs_candidates.append(minimum_lhs_record)
+                elif minimum_h is not None or minimum_lhs is not None:
+                    raise ShadowIdentificationError(
+                        "trace zero-valid group retains CBF diagnostics"
+                    )
+                group_sample_total += group_sample
+                group_valid_total += group_valid
+                group_invalid_total += group_invalid
+                group_lhs_total += group_lhs
+            if (
+                set(observed_groups) != set(component_by_geom)
+                or group_sample_total != sample_count
+                or group_valid_total != valid_count
+                or group_invalid_total != invalid_count
+                or group_lhs_total != lhs_count
+            ):
+                raise ShadowIdentificationError(
+                    "trace per-geom aggregates differ at %d" % index
+                )
+            expected_reason_counts = dict(sorted(aggregate_invalid_reasons.items()))
+            if not _same_artifact_value(
+                row.get("invalid_reason_counts"), expected_reason_counts
+            ):
+                raise ShadowIdentificationError(
+                    "trace row invalid-reason aggregates differ"
+                )
+            expected_minimum_h = (
+                min(minimum_h_candidates, key=lambda value: float(value["h_m2"]))
+                if minimum_h_candidates
+                else None
+            )
+            expected_minimum_lhs = (
+                min(
+                    minimum_lhs_candidates,
+                    key=lambda value: float(
+                        value["observed_cbf_lhs_m2_per_s"]
+                    ),
+                )
+                if minimum_lhs_candidates
+                else None
+            )
+            for sample_field, value_field, expected_sample in (
+                ("minimum_h_sample", "minimum_h_m2", expected_minimum_h),
+                (
+                    "minimum_observed_cbf_lhs_sample",
+                    "minimum_observed_cbf_lhs_m2_per_s",
+                    expected_minimum_lhs,
+                ),
+            ):
+                if not _same_artifact_value(row.get(sample_field), expected_sample):
+                    raise ShadowIdentificationError(
+                        "trace row %s differs from per-geom diagnostics"
+                        % sample_field
+                    )
+                expected_value = (
+                    float(expected_sample["h_m2"])
+                    if sample_field == "minimum_h_sample"
+                    and expected_sample is not None
+                    else (
+                        float(expected_sample["observed_cbf_lhs_m2_per_s"])
+                        if expected_sample is not None
+                        else None
+                    )
+                )
+                raw_value = row.get(value_field)
+                if expected_value is None:
+                    if raw_value is not None:
+                        raise ShadowIdentificationError(
+                            "trace row %s must be absent" % value_field
+                        )
+                elif (
+                    isinstance(raw_value, bool)
+                    or not isinstance(raw_value, (int, float))
+                    or not math.isfinite(float(raw_value))
+                    or float(raw_value) != expected_value
+                ):
+                    raise ShadowIdentificationError(
+                        "trace row %s differs from its diagnostic" % value_field
+                    )
+        else:
+            skipped_count += 1
+            if (
+                row.get("skip_reason")
+                != "static_selected_obstacle_drift_invalidated_field"
+                or valid_count != 0
+                or invalid_count != 0
+                or lhs_count != 0
+                or len(raw_groups) != 0
+                or row.get("invalid_reason_counts") != {}
+                or row.get("minimum_h_m2") is not None
+                or row.get("minimum_h_sample") is not None
+                or row.get("minimum_observed_cbf_lhs_m2_per_s") is not None
+                or row.get("minimum_observed_cbf_lhs_sample") is not None
+            ):
+                raise ShadowIdentificationError(
+                    "invalidated trace row differs at %d" % index
+                )
+        valid_query_total += valid_count
+        lhs_total += lhs_count
+
+    if observed_first_drift_crossing != invalidation_index:
+        raise ShadowIdentificationError(
+            "first static-field drift crossing differs from invalidation"
+        )
+    if invalidation_record is not None:
+        invalidation_row = _artifact_mapping(
+            trace[invalidation_index], "trace row at first invalidation"
+        )
+        drift_reasons = _drift_crossing_reasons(
+            invalidation_row.get("drift"),
+            thresholds=registered_drift_thresholds,
+            expected_geom_ids=obstacle_geoms,
+            label="trace drift at first invalidation",
+        )
+        if (
+            not _same_artifact_value(
+                invalidation_record.get("drift"), invalidation_row.get("drift")
+            )
+            or list(
+                _artifact_sequence(
+                    invalidation_record.get("threshold_crossing_reasons"),
+                    "first invalidation threshold-crossing reasons",
+                )
+            )
+            != list(drift_reasons)
+        ):
+            raise ShadowIdentificationError(
+                "first invalidation evidence differs from the trace crossing"
+            )
+
+    if identification.get("every_valid_query_has_observed_cbf_lhs") is not True:
+        raise ShadowIdentificationError("CBF residual coverage flag differs")
+    for field, value in (
+        ("field_query_callback_count", attempted_count),
+        (
+            "field_query_skipped_after_static_invalidation_count",
+            skipped_count,
+        ),
+        ("valid_field_query_count", valid_query_total),
+        ("observed_cbf_lhs_evaluation_count", lhs_total),
+    ):
+        if (
+            _artifact_integer(
+                identification.get(field),
+                "identification.%s" % field,
+                minimum=0,
+            )
+            != value
+        ):
+            raise ShadowIdentificationError(
+                "identification aggregate %s differs" % field
+            )
+    trace_hash = hashlib.sha256(_canonical(trace)).hexdigest()
+    if identification.get("trace_sha256") != trace_hash:
+        raise ShadowIdentificationError("identification trace SHA-256 differs")
+
+    exception_count = _artifact_integer(
+        record.get("monitor_static_drift_exception_count"),
+        "monitor drift exception count",
+        minimum=0,
+    )
+    exception_rows = record.get("monitor_static_drift_exceptions")
+    if (
+        not isinstance(exception_rows, list)
+        or exception_count != 0
+        or exception_rows
+    ):
+        raise ShadowIdentificationError("monitor drift exception ledger differs")
+
+    assessment = _artifact_mapping(
+        identification.get("contact_prediction_assessment"),
+        "contact prediction assessment",
+    )
+    assessment_name = assessment.get("assessment")
+    allowed = {
+        "no_link56_contact_outcome",
+        "link56_contact_already_present_after_settling",
+        "no_registered_precontact_warning_on_contact_geom",
+        "registered_warning_preceded_link56_contact",
+        "registered_warning_coincident_with_link56_contact",
+        "registered_warning_followed_link56_contact",
+    }
+    if assessment_name not in allowed:
+        raise ShadowIdentificationError("contact prediction assessment is unknown")
+    contact = assessment.get("first_link56_contact")
+    primary = assessment.get("primary_registered_warning")
+    lead = assessment.get("lead_physics_substeps")
+    lead_time = assessment.get("lead_time_s")
+    if not _same_artifact_value(contact, authoritative_contact):
+        raise ShadowIdentificationError(
+            "contact assessment differs from the MuJoCo measurement ledger"
+        )
+    signals = _artifact_mapping(identification.get("signals"), "identification signals")
+    contact_geom_for_signal = (
+        _artifact_integer(
+            authoritative_contact.get("robot_geom_id"),
+            "authoritative contact robot_geom_id",
+            minimum=0,
+        )
+        if authoritative_contact is not None
+        else None
+    )
+    expected_any_warning = (
+        _first_trace_signal(trace, geom_id=contact_geom_for_signal, kind="any_invalid")
+        if contact_geom_for_signal is not None
+        else None
+    )
+    expected_lhs_warning = (
+        _first_trace_signal(
+            trace, geom_id=contact_geom_for_signal, kind="cbf_lhs_negative"
+        )
+        if contact_geom_for_signal is not None
+        else None
+    )
+    if not _same_artifact_value(
+        signals.get("first_any_fail_closed_query_on_contact_geom"),
+        expected_any_warning,
+    ) or not _same_artifact_value(
+        signals.get("first_observed_minimum_cbf_lhs_negative_on_contact_geom"),
+        expected_lhs_warning,
+    ):
+        raise ShadowIdentificationError(
+            "contact-geom warning signals differ from the raw trace"
+        )
+    warning_candidates = [
+        value
+        for value in (expected_any_warning, expected_lhs_warning)
+        if value is not None
+    ]
+    expected_primary = (
+        min(
+            warning_candidates,
+            key=lambda value: int(value["observation_index"]),
+        )
+        if warning_candidates
+        else None
+    )
+    if not _same_artifact_value(primary, expected_primary):
+        raise ShadowIdentificationError(
+            "primary registered warning differs from the raw trace"
+        )
+    if contact is None:
+        if (
+            assessment_name != "no_link56_contact_outcome"
+            or primary is not None
+            or lead is not None
+            or lead_time is not None
+        ):
+            raise ShadowIdentificationError("no-contact assessment differs")
+        return
+    contact_record = _artifact_mapping(contact, "first link56 contact")
+    contact_geom = _artifact_integer(
+        contact_record.get("robot_geom_id"), "contact robot_geom_id", minimum=0
+    )
+    if (
+        contact_geom not in link_geoms
+        or contact_record.get("is_physical_nonpositive_distance_contact") is not True
+    ):
+        raise ShadowIdentificationError(
+            "first link56 contact is not a physical resolved-link contact"
+        )
+    raw_contact_observation = contact_record.get("observation_index")
+    if raw_contact_observation is None:
+        if (
+            assessment_name != "link56_contact_already_present_after_settling"
+            or lead is not None
+            or lead_time is not None
+            or contact_record.get("source_phase")
+            != "settled_post_integration_recomputed"
+        ):
+            raise ShadowIdentificationError("settled-contact assessment differs")
+        if primary is not None and not isinstance(primary, Mapping):
+            raise ShadowIdentificationError(
+                "settled-contact primary warning is malformed"
+            )
+        return
+    contact_observation = _artifact_integer(
+        raw_contact_observation, "contact observation_index", minimum=0
+    )
+    if contact_observation >= expected or contact_record.get("source_phase") not in {
+        "live_solver_phase_preintegration_geometry",
+        "post_integration_recomputed",
+    }:
+        raise ShadowIdentificationError("rollout contact coordinate differs")
+    contact_high = _artifact_integer(
+        contact_record.get("high_level_index"), "contact high_level_index", minimum=0
+    )
+    contact_inner = _artifact_integer(
+        contact_record.get("inner_control_index"),
+        "contact inner_control_index",
+        minimum=0,
+    )
+    contact_physics = _artifact_integer(
+        contact_record.get("physics_substep_index"),
+        "contact physics_substep_index",
+        minimum=0,
+    )
+    if (
+        contact_inner >= inner_count
+        or contact_physics >= physics_count
+        or (contact_high * inner_count + contact_inner) * physics_count
+        + contact_physics
+        != contact_observation
+    ):
+        raise ShadowIdentificationError("rollout contact cadence differs")
+    if primary is None:
+        if (
+            assessment_name != "no_registered_precontact_warning_on_contact_geom"
+            or lead is not None
+            or lead_time is not None
+        ):
+            raise ShadowIdentificationError("no-warning assessment differs")
+        return
+    warning = _artifact_mapping(primary, "primary registered warning")
+    warning_observation = _artifact_integer(
+        warning.get("observation_index"), "warning observation_index", minimum=0
+    )
+    warning_geom = _artifact_integer(
+        warning.get("geom_id"), "warning geom_id", minimum=0
+    )
+    lead_substeps = _artifact_integer(lead, "warning lead_physics_substeps")
+    if warning_observation >= expected or warning_geom != contact_geom:
+        raise ShadowIdentificationError("warning/contact identity differs")
+    contact_boundary_index = rollout_contact_boundary_index(
+        contact_observation, str(contact_record.get("source_phase"))
+    )
+    if warning_observation + lead_substeps != contact_boundary_index:
+        raise ShadowIdentificationError("warning lead arithmetic differs")
+    if (
+        isinstance(lead_time, bool)
+        or not isinstance(lead_time, (int, float))
+        or not math.isfinite(float(lead_time))
+        or not math.isclose(
+            float(lead_time), lead_substeps * timestep, rel_tol=0.0, abs_tol=1e-12
+        )
+    ):
+        raise ShadowIdentificationError("warning lead time differs")
+    expected_assessment = (
+        "registered_warning_preceded_link56_contact"
+        if lead_substeps > 0
+        else (
+            "registered_warning_coincident_with_link56_contact"
+            if lead_substeps == 0
+            else "registered_warning_followed_link56_contact"
+        )
+    )
+    if assessment_name != expected_assessment:
+        raise ShadowIdentificationError("warning/contact assessment differs")
 
 
 def _raw_model_data(sim: Any) -> Tuple[Any, Any]:
@@ -419,7 +2282,8 @@ class StaticPoissonShadowObserver:
                 raise ShadowIdentificationError(
                     "field query and Jacobian use different world points"
                 )
-            directional = float(gradient_array @ jacobian @ arm_velocity)
+            point_velocity = jacobian @ arm_velocity
+            directional = float(gradient_array @ point_velocity)
             lhs = float(directional + self._alpha * value)
             if not math.isfinite(directional) or not math.isfinite(lhs):
                 raise ShadowIdentificationError("observed CBF diagnostic is non-finite")
@@ -431,12 +2295,15 @@ class StaticPoissonShadowObserver:
                 "gradient_world_m": [float(item) for item in gradient_array],
                 "gradient_norm_m": float(np.linalg.norm(gradient_array)),
                 "observed_arm_qvel_rad_s": [float(item) for item in arm_velocity],
+                "point_translational_jacobian_arm_3x7": [
+                    [float(item) for item in row] for row in jacobian
+                ],
                 "observed_grad_h_J_qdot_m2_per_s": directional,
                 "alpha_h_m2_per_s": float(self._alpha * value),
                 "observed_cbf_lhs_m2_per_s": lhs,
                 "observed_cbf_diagnostic_semantics": (
-                    "post-integration instantaneous MuJoCo qvel at this protected "
-                    "surface sample; not a QP nominal"
+                    "post-integration instantaneous MuJoCo point Jacobian and qvel "
+                    "at this protected surface sample; not a QP nominal"
                 ),
             }
             previous_h = group["minimum_h_sample"]
@@ -656,13 +2523,19 @@ class StaticPoissonShadowObserver:
             assessment = "no_registered_precontact_warning_on_contact_geom"
             lead_substeps = None
         else:
-            lead_substeps = contact_observation - int(primary["observation_index"])
+            # Row N is a post-integration field query at (N + 1) * dt.  A
+            # live-solver record at N describes the pre-integration boundary
+            # N * dt, whereas a forwarded post-state contact at N describes
+            # (N + 1) * dt.  Compare physical boundaries, not raw row labels.
+            contact_boundary_index = rollout_contact_boundary_index(
+                contact_observation, str(contact_phase)
+            )
+            lead_substeps = contact_boundary_index - int(
+                primary["observation_index"]
+            )
             if lead_substeps > 0:
                 assessment = "registered_warning_preceded_link56_contact"
-            elif (
-                lead_substeps == 0
-                and contact_phase == "post_integration_recomputed"
-            ):
+            elif lead_substeps == 0:
                 assessment = "registered_warning_coincident_with_link56_contact"
             else:
                 assessment = "registered_warning_followed_link56_contact"
@@ -744,10 +2617,10 @@ class StaticPoissonShadowObserver:
                 ),
                 "contact_source_phase": contact_phase,
                 "same_callback_phase_semantics": (
-                    "a live_solver_phase_preintegration_geometry contact at index N "
-                    "precedes the post-integration field query at N; a "
-                    "post_integration_recomputed contact at N is coincident with "
-                    "that query state"
+                    "field query N is at the post-integration boundary (N+1)*dt; "
+                    "a live_solver_phase_preintegration_geometry contact at N is "
+                    "at N*dt, while a post_integration_recomputed contact at N is "
+                    "at (N+1)*dt"
                 ),
                 "interpretation_limit": (
                     "one outcome-conditioned canary tests temporal identification "
@@ -772,4 +2645,7 @@ __all__ = [
     "StaticDriftThresholds",
     "StaticPoissonShadowObserver",
     "robot_root_body_ids",
+    "registered_filter_update_available_before_contact",
+    "rollout_contact_boundary_index",
+    "validate_shadow_replay_record",
 ]

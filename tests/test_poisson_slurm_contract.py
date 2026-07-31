@@ -16,6 +16,7 @@ class PoissonSlurmContractTest(unittest.TestCase):
         self.assertIn("#SBATCH --gres=gpu:1", source)
         self.assertIn("#SBATCH --cpus-per-task=4", source)
         self.assertIn("#SBATCH --mem=32G", source)
+        self.assertIn("#SBATCH --no-requeue", source)
         self.assertNotIn("#SBATCH --time", source)
         self.assertIn('if [[ -n "$(git status --short)" ]]', source)
         self.assertIn("EXPECTED_GIT_COMMIT", source)

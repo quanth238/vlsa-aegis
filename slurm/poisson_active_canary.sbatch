@@ -37,6 +37,14 @@ if [[ "${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}" ]]; then
 fi
 if [[ "${RESULT_ROOT}" != "${REGISTERED_RESULT_ROOT}" ]]; then
   echo "RESULT_ROOT differs from the registered Poisson-feasibility artifact root" >&2
+    exit 2
+fi
+if [[ ! "${RUN_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
+  echo "RUN_ID must use only portable alphanumeric/dot/underscore/hyphen characters" >&2
+  exit 2
+fi
+if [[ ! -d "${RESULT_ROOT}" || -L "${RESULT_ROOT}" ]]; then
+  echo "RESULT_ROOT must be an existing real directory" >&2
   exit 2
 fi
 
@@ -86,7 +94,6 @@ if [[ "$(git rev-parse HEAD)" != "${EXPECTED_GIT_COMMIT}" ]]; then
   exit 2
 fi
 
-mkdir -p "${RESULT_ROOT}"
 export LIBERO_CONFIG_PATH="${REMOTE_REPO}/configs/libero_runtime"
 export MUJOCO_GL=osmesa
 export PYOPENGL_PLATFORM=osmesa

@@ -54,6 +54,7 @@ class ShadowRunnerContractTest(unittest.TestCase):
         self.assertIn("git status --short", self.batch)
         self.assertIn("EXPECTED_GIT_COMMIT", self.batch)
         self.assertIn("git rev-parse HEAD", self.batch)
+        self.assertIn("#SBATCH --no-requeue", self.batch)
         self.assertIn("MUJOCO_GL=osmesa", self.batch)
         self.assertIn("PYOPENGL_PLATFORM=osmesa", self.batch)
         self.assertIn("LIBERO_CONFIG_PATH", self.batch)

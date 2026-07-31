@@ -356,3 +356,49 @@ numerics, exact unchanged-OSC replay parity, and read-only static-Poisson
 identification pass on the same clean commit and immutable case inputs. A
 contact-prevention observation is kept distinct from task-preserving useful
 correction, all-robot contact avoidance, and safety achieved by stopping.
+
+## ADR-0029: Fail closed on replay evidence and phase-correct contact timing
+
+Accepted. H100 identification job `33451` is retained as a non-scientific
+apparatus failure: it completed the expensive replay but crashed when a
+post-run check treated a typed `(high_level, inner_control, physics_substep)`
+cadence tuple as a scalar. No partial trace or inferred warning from that run
+may authorize active physics.
+
+The replacement gate must validate the complete serialized record both before
+publication and after loading it as an active prerequisite. It reconstructs
+the first protected-link contact from the settled, live-solver, and forwarded
+post-state MuJoCo ledgers; requires `contact_distance_m <= 0`; reconstructs the
+primary warning from exhaustive registered per-geom samples in the raw trace;
+checks the bound-alpha CBF arithmetic and typed invalid-query evidence;
+recomputes the first static-drift threshold crossing over exactly the selected
+obstacle geoms; and binds state and observation hashes to exact shadow parity.
+Summary fields alone are not authority.
+
+Timing follows physical state boundaries. Poisson trace row `N` is the
+post-integration state at `(N+1)dt`. A forwarded post-state contact labeled `N`
+shares that boundary, while a live-solver contact labeled `N` belongs to
+`N*dt`. Therefore warning lead is `contact_N - warning_N` for post-state
+contact and `contact_N - warning_N - 1` for live-solver contact. Only a
+strictly positive phase-correct lead can unlock the active canary.
+The active gate additionally requires a scheduled 100 Hz filter update that
+can consume the warning before contact; a merely positive 500 Hz lead with no
+intervening controller decision is not actionable feasibility evidence.
+
+Each warning sample ID is bound to the half-open ID range of its ordered
+protected-geom component; a globally valid sample from another link cannot be
+used as evidence. Contact records are bound to the resolved robot--selected-
+obstacle collision pair, aligned MuJoCo geom names and orientation, and body
+provenance. Settled and forwarded post-state physical-contact ledgers must be
+exactly the nonpositive-distance subsets of their candidate-contact ledgers.
+Each CBF diagnostic serializes its 3-by-7 point Jacobian. The consumer
+recomputes `J qdot`, `grad(h)^T J qdot`, `alpha h`, and the CBF residual,
+requires one identical instantaneous arm velocity across the callback, and
+requires duplicate summaries of the same sample to be identical.
+
+Before active physics, the source environment independently rebuilds the
+selected-obstacle contact authority, resolved geometry, Poisson bundle,
+protected-surface components, and full-robot sampling ledger. These records,
+the arm DOFs, and the exact settled `mjSTATE_INTEGRATION` hash must equal the
+shadow-identification construction. An internally valid trace for another
+obstacle, field, sample set, or settled state cannot authorize either arm.

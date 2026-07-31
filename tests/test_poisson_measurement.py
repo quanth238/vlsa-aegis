@@ -288,6 +288,8 @@ class FullRobotMeasurementTests(unittest.TestCase):
         result = monitor.result()
 
         self.assertEqual(result.observed_physics_substeps, 2)
+        self.assertEqual(result.first_index, (0, 0, 0))
+        self.assertEqual(result.last_index, (0, 0, 1))
         self.assertTrue(result.obstacle_pose_drift.surface_drift_threshold_crossed)
         self.assertEqual(
             result.obstacle_pose_drift.first_surface_drift_threshold_crossing_observation_index,

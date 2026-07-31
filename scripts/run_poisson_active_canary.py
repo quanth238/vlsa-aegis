@@ -27,6 +27,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -44,10 +45,26 @@ D_SIM_SEMANTICS = (
     "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_"
     "plus_exact_obb_coverage_lower_bound"
 )
+RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 class ActiveRunnerError(RuntimeError):
     pass
+
+
+def _validated_run_output(output_root: Path, run_id: str) -> Path:
+    if not isinstance(run_id, str) or RUN_ID_PATTERN.fullmatch(run_id) is None:
+        raise ActiveRunnerError(
+            "run ID must be 1-128 portable alphanumeric/dot/underscore/hyphen characters"
+        )
+    raw_root = Path(output_root)
+    if raw_root.is_symlink() or not raw_root.is_dir():
+        raise ActiveRunnerError("output root must be an existing real directory")
+    resolved_root = raw_root.resolve()
+    output = resolved_root / run_id
+    if output.parent != resolved_root or output.is_symlink():
+        raise ActiveRunnerError("run output must remain inside the registered root")
+    return output
 
 
 class ArmTermination(RuntimeError):
@@ -489,10 +506,18 @@ def _require_identification_prerequisite(
     runtime_protocol_raw_sha256: str,
     runtime_protocol_semantic_sha256: str,
     runtime_parameter_block_sha256: str,
+    alpha_gain_per_s: float,
+    static_drift_thresholds: Mapping[str, float],
     replay: Any,
     parity: Mapping[str, Any],
 ) -> Dict[str, Any]:
     from main.poisson_fullbody.contracts import load_hashed_json
+    from main.poisson_fullbody.shadow_identification import (
+        ShadowIdentificationError,
+        registered_filter_update_available_before_contact,
+        rollout_contact_boundary_index,
+        validate_shadow_replay_record,
+    )
 
     result = load_hashed_json(path)
     if (
@@ -567,6 +592,32 @@ def _require_identification_prerequisite(
         raise ActiveRunnerError(
             "shadow-identification prerequisite exposure is incomplete"
         )
+    parity_callback = parity.get("callback_replay")
+    if (
+        not isinstance(parity_callback, Mapping)
+        or shadow.get("state_sequence_sha256")
+        != parity_callback.get("state_sequence_sha256")
+        or shadow.get("observation_sequence_sha256")
+        != parity_callback.get("observation_sequence_sha256")
+    ):
+        raise ActiveRunnerError(
+            "shadow-identification replay hashes differ from exact parity"
+        )
+    try:
+        validate_shadow_replay_record(
+            shadow,
+            action_count=len(replay.actions),
+            inner_updates_per_high_level_action=5,
+            physics_substeps_per_inner_update=5,
+            physics_timestep_s=0.002,
+            contact_definition="mujoco_contact_dist_le_0",
+            alpha_gain_per_s=alpha_gain_per_s,
+            static_drift_thresholds=static_drift_thresholds,
+        )
+    except ShadowIdentificationError as error:
+        raise ActiveRunnerError(
+            "shadow-identification serialized replay is invalid: %s" % error
+        ) from error
     construction = shadow.get("construction")
     if not isinstance(construction, Mapping):
         raise ActiveRunnerError(
@@ -610,12 +661,108 @@ def _require_identification_prerequisite(
         or not isinstance(contact, Mapping)
         or primary.get("geom_id") != contact.get("robot_geom_id")
         or int(primary.get("observation_index", -1)) + lead_substeps
-        != int(contact.get("observation_index", -2))
+        != rollout_contact_boundary_index(
+            int(contact.get("observation_index", -2)),
+            str(contact.get("source_phase")),
+        )
     ):
         raise ActiveRunnerError(
             "shadow warning lead or registered contact-geom identity is invalid"
         )
+    if not registered_filter_update_available_before_contact(
+        warning_observation_index=int(primary["observation_index"]),
+        contact_observation_index=int(contact["observation_index"]),
+        contact_source_phase=str(contact["source_phase"]),
+        physics_substeps_per_filter_update=5,
+    ):
+        raise ActiveRunnerError(
+            "shadow warning leaves no scheduled 100 Hz filter update before contact"
+        )
     return result
+
+
+def _require_identification_matches_active_construction(
+    identification_prerequisite: Mapping[str, Any],
+    *,
+    case: Mapping[str, Any],
+    active_obstacle_name: str,
+    contact_model_authority_sha256: str,
+    robot_root_body_name: str,
+    robot_root_body_ids: Sequence[int],
+    arm_dof_indices: Sequence[int],
+    resolved_geometry: Mapping[str, Any],
+    field_bundle: Any,
+    full_robot_sampling: Mapping[str, Any],
+    settled_integration_state_sha256: str,
+    settled_integration_state_length: int,
+) -> None:
+    """Bind shadow authorization to the exact field rebuilt for active physics."""
+
+    shadow = identification_prerequisite.get("shadow_replay")
+    construction = shadow.get("construction") if isinstance(shadow, Mapping) else None
+    if not isinstance(construction, Mapping):
+        raise ActiveRunnerError(
+            "shadow-identification construction evidence is absent"
+        )
+    expected_obstacle = case.get("active_obstacle_name")
+    expected_field_bundle = {
+        "protocol_id": field_bundle.protocol_id,
+        "protected_body_ids": list(field_bundle.protected_body_ids),
+        "protected_body_names": list(field_bundle.protected_body_names),
+        "diagnostics": asdict(field_bundle.diagnostics),
+        "hashes": asdict(field_bundle.hashes),
+        "surface_components": [
+            asdict(value) for value in field_bundle.protected_samples.components
+        ],
+        "protected_sample_count": len(field_bundle.protected_samples.samples),
+    }
+    expected_sampling = dict(full_robot_sampling)
+    roundtrip = expected_sampling.pop("roundtrip", None)
+    if roundtrip is None:
+        raise ActiveRunnerError(
+            "active full-robot sampling omitted its rigid roundtrip audit"
+        )
+    expected_sampling["rigid_roundtrip"] = roundtrip
+    expected = {
+        "active_obstacle_name": expected_obstacle,
+        "contact_model_authority_sha256": contact_model_authority_sha256,
+        "robot_root_body_name": robot_root_body_name,
+        "robot_root_body_ids": list(robot_root_body_ids),
+        "arm_dof_indices": list(arm_dof_indices),
+        "resolved_geometry": dict(resolved_geometry),
+        "field_bundle": expected_field_bundle,
+        "full_robot_measurement_sampling": expected_sampling,
+    }
+    if active_obstacle_name != expected_obstacle:
+        raise ActiveRunnerError(
+            "active selected obstacle differs from the immutable manifest"
+        )
+    differences = [
+        field
+        for field, value in expected.items()
+        if _canonical(construction.get(field)) != _canonical(value)
+    ]
+    if differences:
+        raise ActiveRunnerError(
+            "shadow identification differs from active construction at %s"
+            % ", ".join(sorted(differences))
+        )
+    read_only = construction.get("complete_integration_state_read_only_audit")
+    if not isinstance(read_only, Mapping):
+        raise ActiveRunnerError(
+            "shadow construction read-only state audit is absent"
+        )
+    if (
+        read_only.get("mujoco_state_specification") != "mjSTATE_INTEGRATION"
+        or read_only.get("state_vector_length")
+        != int(settled_integration_state_length)
+        or read_only.get("before_sha256") != settled_integration_state_sha256
+        or read_only.get("after_sha256") != settled_integration_state_sha256
+        or read_only.get("exact_array_equal") is not True
+    ):
+        raise ActiveRunnerError(
+            "shadow identification and active settled MuJoCo state differ"
+        )
 
 
 RESUME_IDENTITY_FIELDS = (
@@ -2953,7 +3100,11 @@ def main() -> int:
     for import_root in (root / "main", root / "safelibero"):
         if str(import_root) not in sys.path:
             sys.path.insert(0, str(import_root))
-    output = arguments.output_root.resolve() / arguments.run_id
+    try:
+        output = _validated_run_output(arguments.output_root, arguments.run_id)
+    except ActiveRunnerError as error:
+        print("active canary refused: %s" % error, file=sys.stderr)
+        return 2
     output.mkdir(parents=True, exist_ok=True)
     receipt_path = output / "run_receipt.json"
     started = time.time()
@@ -3073,6 +3224,24 @@ def main() -> int:
             runtime_protocol_raw_sha256=_file_sha256(runtime_protocol_path),
             runtime_protocol_semantic_sha256=protocol_hashes.protocol_sha256,
             runtime_parameter_block_sha256=protocol_hashes.parameter_block_sha256,
+            alpha_gain_per_s=float(protocol["cbf"]["alpha_gain_per_s"]),
+            static_drift_thresholds={
+                "translation_m": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_translation_drift_m"
+                    ]
+                ),
+                "rotation_rad": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_rotation_drift_rad"
+                    ]
+                ),
+                "surface_m": float(
+                    protocol["admissibility"][
+                        "max_selected_geom_surface_drift_m"
+                    ]
+                ),
+            },
             replay=replay,
             parity=parity_prerequisite,
         )
@@ -3185,9 +3354,23 @@ def main() -> int:
             ).copy()
             source_pairing = replay.provenance()
             obstacle_name, _ = evaluator._active_obstacle(source_env, source_observation)
+            if obstacle_name != case.get("active_obstacle_name"):
+                raise ActiveRunnerError(
+                    "active selected obstacle differs from the immutable manifest"
+                )
             authority = evaluator._contact_model_authority(source_env, obstacle_name)
             robot_root_name = source_env.robots[0].robot_model.root_body
             robot_root = _model_body_id(source_env.sim.model, robot_root_name)
+            if robot_root not in set(
+                int(value) for value in authority["robot_body_ids"]
+            ):
+                raise ActiveRunnerError(
+                    "robot root is absent from the contact-model authority"
+                )
+            arm_dof_indices = tuple(
+                int(value)
+                for value in source_env.robots[0]._ref_joint_vel_indexes
+            )
             link_ids = tuple(
                 _model_body_id(source_env.sim.model, name)
                 for name in protocol["claim_scope"]["protected_robot_bodies"]
@@ -3245,6 +3428,24 @@ def main() -> int:
             source_official_after = _official_integration_state(source_env.sim, runtime["np"])
             if not runtime["np"].array_equal(source_official_before, source_official_after):
                 raise ActiveRunnerError("field construction changed source integration state")
+            _require_identification_matches_active_construction(
+                identification_prerequisite,
+                case=case,
+                active_obstacle_name=obstacle_name,
+                contact_model_authority_sha256=authority["authority_sha256"],
+                robot_root_body_name=robot_root_name,
+                robot_root_body_ids=(robot_root,),
+                arm_dof_indices=arm_dof_indices,
+                resolved_geometry=resolved.to_dict(),
+                field_bundle=bundle,
+                full_robot_sampling=full_sampling_evidence,
+                settled_integration_state_sha256=evaluator.array_sha256(
+                    source_official_before
+                ),
+                settled_integration_state_length=int(
+                    source_official_before.size
+                ),
+            )
 
             results = {}
             for arm in ARMS:
