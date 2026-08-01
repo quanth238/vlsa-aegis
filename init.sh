@@ -21,6 +21,7 @@ for optional_file in \
   manifests/build_vlsa_table1_population.py \
   scripts/build_poisson_link56_manifest.py \
   scripts/run_poisson_active_canary.py \
+  scripts/run_poisson_fast_feasibility.py \
   scripts/run_poisson_numeric_validation.py \
   scripts/run_poisson_one_step_counterfactual.py \
   scripts/run_poisson_shadow_identification.py \
