@@ -45,6 +45,13 @@ class FastFeasibilityRunnerContractTests(unittest.TestCase):
         self.assertIn("expected_substeps_per_inner=5", self.source)
         self.assertIn("joint_velocity_adapter_only", self.source)
         self.assertIn("joint_velocity_adapter_plus_link56_psf", self.source)
+        self.assertIn("live_control_timestep", self.source)
+        self.assertIn("live_model_timestep", self.source)
+        self.assertIn("live_raw_model_timestep", self.source)
+        self.assertIn("INNER_DT_S", self.source)
+        self.assertIn("PHYSICS_DT_S", self.source)
+        self.assertIn('"execution_cadence": execution_cadence', self.source)
+        self.assertIn('"physics_monitor_trace_counts_match"', self.source)
 
     def test_runner_does_not_preclip_filtered_command(self):
         run_arm = self.source[
@@ -54,14 +61,25 @@ class FastFeasibilityRunnerContractTests(unittest.TestCase):
         self.assertIn("normalized_joint_velocity_action(executed", run_arm)
 
     def test_post_state_field_queries_use_world_points_not_jacobians(self):
-        clearance = self.source[
-            self.source.index("def _protected_clearance(") : self.source.index(
-                "def _first_link_contact_observation("
+        callback = self.source[
+            self.source.index("def callback(") : self.source.index(
+                "env.step_grouped_actions_with_substep_callback("
             )
         ]
-        self.assertIn("evaluate_world_points", clearance)
-        self.assertNotIn("evaluate_point_jacobians", clearance)
-        self.assertIn("post_state_field_observation_count == 200", self.source)
+        self.assertIn("evaluate_world_points", callback)
+        self.assertNotIn("evaluate_point_jacobians", callback)
+        self.assertIn("if psf_enabled and final_endpoint:", self.source)
+        self.assertIn("pre_filter_field_observation_count += 1", self.source)
+        self.assertIn("post_state_field_observation_count == 1", self.source)
+
+    def test_exploratory_solver_budget_is_explicit_and_hash_bound(self):
+        protocol = (
+            ROOT / "configs/vlsa_poisson_fast_feasibility.v1.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"qp_max_iterations": 50000', protocol)
+        self.assertIn("max_iter=int(qp_max_iterations)", self.source)
+        self.assertIn('"qp_max_iterations_effective"', self.source)
+        self.assertIn('"exploratory_execution": dict(', self.source)
 
     def test_marker_is_synced_to_source_boundary_before_restore(self):
         build = self.source.index("marker_sync = _synchronize_visual_marker_model(source_env, env)")

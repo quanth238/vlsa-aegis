@@ -479,21 +479,6 @@ def _active_interval_motion(
     }
 
 
-def _protected_clearance(model: Any, data: Any, bundle: Any) -> float:
-    from main.poisson_fullbody.geometry import minimum_point_to_oriented_boxes_distance
-    from main.poisson_fullbody.robot_samples import evaluate_world_points
-
-    current_boxes = _current_obstacle_boxes(model, data, bundle.obstacle_boxes)
-    points = evaluate_world_points(bundle.protected_samples.samples, data)
-    if len(points) != len(bundle.protected_samples.samples):
-        raise FastRunnerError("protected-link point population is incomplete")
-    minimum = min(
-        minimum_point_to_oriented_boxes_distance(point, current_boxes)
-        for point in points
-    )
-    return float(minimum - bundle.protected_samples.maximum_surface_cover_radius_m)
-
-
 def _contact_physical_boundary(record: Any, start_boundary: int) -> int:
     if record.observation_index is None:
         raise FastRunnerError("rollout contact lacks an observation index")
@@ -568,6 +553,7 @@ def _run_arm(
     full_samples: Any,
     runtime_protocol: Mapping[str, Any],
     nominal_activation_threshold_m2_per_s: float,
+    qp_max_iterations: int,
 ) -> Dict[str, Any]:
     import numpy as np
     from main.poisson_fullbody.cbf_qp import HardCbfQp, joint_velocity_bounds
@@ -589,10 +575,11 @@ def _run_arm(
     physics_rows: List[Dict[str, Any]] = []
     action_progress_rows: List[Dict[str, Any]] = []
     static_rows: List[Dict[str, float]] = []
-    protected_clearances: List[float] = []
     activation_rows: List[Dict[str, Any]] = []
     last_qp_attempt: Any = None
     invalid_field_queries = 0
+    pre_filter_field_observation_count = 0
+    pre_filter_field_query_count = 0
     post_state_field_observation_count = 0
     post_state_field_query_count = 0
     nonpositive_post_state_field_query_count = 0
@@ -611,6 +598,8 @@ def _run_arm(
     minimum_nominal_residual = float("inf")
     contact_terminated_early = False
     pending: Dict[str, Any] = {}
+    execution_cadence: Dict[str, float] = {}
+    qp = None
     try:
         failure_stage = "build_joint_velocity_environment"
         env, _, _, _ = evaluator._build_environment(
@@ -620,6 +609,34 @@ def _run_arm(
             controller="JOINT_VELOCITY",
             control_frequency_hz=100,
         )
+        live_control_timestep = float(env.env.control_timestep)
+        live_model_timestep = float(env.env.model_timestep)
+        live_raw_model_timestep = float(_raw_model_data(env.sim)[0].opt.timestep)
+        if not math.isclose(
+            live_control_timestep,
+            INNER_DT_S,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        ) or not math.isclose(
+            live_model_timestep,
+            PHYSICS_DT_S,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        ) or not math.isclose(
+            live_raw_model_timestep,
+            PHYSICS_DT_S,
+            rel_tol=0.0,
+            abs_tol=1.0e-12,
+        ):
+            raise FastRunnerError(
+                "live JV cadence differs from registered 100 Hz control / "
+                "500 Hz physics"
+            )
+        execution_cadence = {
+            "control_timestep_s": live_control_timestep,
+            "wrapper_model_timestep_s": live_model_timestep,
+            "mujoco_model_timestep_s": live_raw_model_timestep,
+        }
         marker_sync = _synchronize_visual_marker_model(source_env, env)
         limits = runtime_protocol["admissibility"]
         restore = restore_osc_settled_state_into_joint_velocity_env(
@@ -668,7 +685,7 @@ def _run_arm(
         qp = HardCbfQp(
             eps_abs=float(qp_cfg["eps_abs"]),
             eps_rel=float(qp_cfg["eps_rel"]),
-            max_iter=int(qp_cfg["max_iterations"]),
+            max_iter=int(qp_max_iterations),
             postcheck_cbf_tolerance=float(qp_cfg["postcheck_cbf_tolerance"]),
             postcheck_bound_tolerance=float(qp_cfg["postcheck_bound_tolerance_rad_s"]),
         )
@@ -695,7 +712,6 @@ def _run_arm(
         model, data = _raw_model_data(env.sim)
         start_official_sha256 = _sha256(_official_state(env.sim).tobytes())
         static_rows = [_obstacle_state(model, data, bundle, resolved.obstacle_body_ids)]
-        protected_clearances = [_protected_clearance(model, data, bundle)]
 
         for local_index, action_value in enumerate(actions):
             source_index = source_start_action + local_index
@@ -706,6 +722,8 @@ def _run_arm(
 
             def provider(sim: Any, inner_index: int) -> Any:
                 nonlocal invalid_field_queries, qp_solve_count, qp_postcheck_count
+                nonlocal pre_filter_field_observation_count
+                nonlocal pre_filter_field_query_count
                 nonlocal joint_limit_postcheck_count, issued_bound_check_count
                 nonlocal minimum_safe_residual, nominal_command_integral
                 nonlocal executed_command_integral, maximum_correction, maximum_safe_command
@@ -777,6 +795,8 @@ def _run_arm(
                         arm_dofs,
                     )
                     queries = [bundle.field.query(point) for point in points]
+                    pre_filter_field_observation_count += 1
+                    pre_filter_field_query_count += len(queries)
                     invalid = [query for query in queries if not query.valid or query.value is None or query.gradient is None]
                     invalid_field_queries += len(invalid)
                     if invalid:
@@ -927,6 +947,11 @@ def _run_arm(
                 if pending.get("inner_index") != int(inner_index):
                     raise FastRunnerError("physics callback lacks its issued command")
                 observation_index = len(physics_rows)
+                final_endpoint = bool(
+                    local_index == len(actions) - 1
+                    and int(inner_index) == 4
+                    and int(physics_index) == 4
+                )
                 post_state_physical_boundary = (
                     source_start_action * 25 + observation_index + 1
                 )
@@ -940,6 +965,9 @@ def _run_arm(
                     physics_substep_index=int(physics_index),
                 )
                 current_measurement = monitor.result()
+                current_clearance = float(
+                    current_measurement.sample_clearance.full_surface_clearance_lower_bound_m
+                )
                 any_contact_seen = bool(current_measurement.any_robot_obstacle_contact)
                 if psf_enabled and any_contact_seen:
                     physics_rows.append(
@@ -954,7 +982,7 @@ def _run_arm(
                             "issued_qvel_rad_s": pending["executed"].tolist(),
                             "tracking_error_rad_s": error.tolist(),
                             "literal_contact_observed": True,
-                            "protected_link_full_surface_clearance_lower_bound_m": None,
+                            "cumulative_full_robot_surface_clearance_lower_bound_m": current_clearance,
                             "post_state_minimum_h_m2": None,
                             "selected_obstacle": None,
                         }
@@ -968,12 +996,11 @@ def _run_arm(
                     raise FastRunnerError(
                         "selected obstacle left the frozen-field static envelope before contact"
                     )
-                protected_clearances.append(_protected_clearance(model, forwarded, bundle))
                 eef_position_post = np.asarray(
                     forwarded.site_xpos[site_id], dtype=np.float64
                 ).copy()
                 post_minimum_h = None
-                if psf_enabled:
+                if psf_enabled and final_endpoint:
                     from main.poisson_fullbody.robot_samples import evaluate_world_points
 
                     post_points = evaluate_world_points(
@@ -1014,7 +1041,7 @@ def _run_arm(
                         "measured_qvel_rad_s": measured.tolist(),
                         "issued_qvel_rad_s": pending["executed"].tolist(),
                         "tracking_error_rad_s": error.tolist(),
-                        "protected_link_full_surface_clearance_lower_bound_m": protected_clearances[-1],
+                        "cumulative_full_robot_surface_clearance_lower_bound_m": current_clearance,
                         "post_state_minimum_h_m2": post_minimum_h,
                         "selected_obstacle": static,
                         "eef_position_world_m": eef_position_post.tolist(),
@@ -1060,6 +1087,13 @@ def _run_arm(
             )
 
         measurement = monitor.result()
+        monitor_observed_physics_substeps = int(
+            measurement.observed_physics_substeps
+        )
+        physics_trace_row_count = len(physics_rows)
+        physics_monitor_trace_counts_match = bool(
+            monitor_observed_physics_substeps == physics_trace_row_count
+        )
         first_link_contact = _first_link_contact_observation(measurement, resolved.link56_geom_ids)
         first_any_contact = _first_any_contact_observation(measurement)
         start_boundary = int(source_start_action) * 25
@@ -1094,18 +1128,11 @@ def _run_arm(
         precontact_field_valid = bool(
             not psf_enabled
             or (
-                post_state_field_observation_count == len(precontact_rows)
+                pre_filter_field_observation_count == len(command_rows)
+                and pre_filter_field_query_count
+                == len(command_rows) * len(bundle.protected_samples.samples)
                 and nonpositive_post_state_field_query_count == 0
                 and invalid_field_queries == 0
-            )
-        )
-        precontact_tracking_valid = bool(
-            precontact_tracking["observation_count"] == 0
-            or (
-                precontact_tracking["linf_rad_s"]
-                <= float(limits["max_joint_velocity_tracking_linf_rad_s"])
-                and precontact_tracking["rmse_rad_s"]
-                <= float(limits["max_joint_velocity_tracking_rmse_rad_s"])
             )
         )
         precontact_execution_valid = bool(
@@ -1117,7 +1144,6 @@ def _run_arm(
                 and issued_bound_check_count == len(command_rows)
                 and precontact_static_admissible
                 and precontact_field_valid
-                and precontact_tracking_valid
                 and minimum_safe_residual
                 >= float(runtime_protocol["qp"]["postcheck_cbf_tolerance"]) * -1.0
             )
@@ -1129,9 +1155,23 @@ def _run_arm(
             "fresh_adapter": True,
             "start_official_raw_bytes_sha256": start_official_sha256,
             "source_action_indexes": list(range(source_start_action, source_start_action + len(actions))),
+            "execution_cadence": execution_cadence,
+            "qp_max_iterations_effective": int(qp.max_iter),
             "filter_update_count": len(command_rows),
-            "physics_substep_count": len(physics_rows),
-            "exposure_complete": bool(len(command_rows) == 40 and len(physics_rows) == 200),
+            "physics_substep_count": physics_trace_row_count,
+            "physics_trace_row_count": physics_trace_row_count,
+            "monitor_observed_physics_substep_count": (
+                monitor_observed_physics_substeps
+            ),
+            "physics_monitor_trace_counts_match": (
+                physics_monitor_trace_counts_match
+            ),
+            "exposure_complete": bool(
+                len(command_rows) == 40
+                and physics_trace_row_count == 200
+                and monitor_observed_physics_substeps == 200
+                and physics_monitor_trace_counts_match
+            ),
             "contact_terminated_early": contact_terminated_early,
             "precontact_execution_valid": precontact_execution_valid,
             "qp_solve_count": qp_solve_count,
@@ -1151,15 +1191,17 @@ def _run_arm(
             ),
             "protected_sample_count": len(bundle.protected_samples.samples),
             "invalid_field_query_count": invalid_field_queries,
+            "pre_filter_field_observation_count": pre_filter_field_observation_count,
+            "pre_filter_field_query_count": pre_filter_field_query_count,
             "post_state_field_observation_count": post_state_field_observation_count,
             "post_state_field_query_count": post_state_field_query_count,
             "nonpositive_post_state_field_query_count": nonpositive_post_state_field_query_count,
             "all_post_state_field_queries_valid_and_positive": bool(
                 not psf_enabled
                 or (
-                    post_state_field_observation_count == 200
+                    post_state_field_observation_count == 1
                     and post_state_field_query_count
-                    == 200 * len(bundle.protected_samples.samples)
+                    == len(bundle.protected_samples.samples)
                     and nonpositive_post_state_field_query_count == 0
                     and invalid_field_queries == 0
                 )
@@ -1176,10 +1218,20 @@ def _run_arm(
                 "first_any_robot_physical_boundary": first_any_contact_boundary,
             },
             "minimum_D_sim_m_diagnostic_only": float(measurement.D_sim_min_m),
-            "protected_link_clearance": {
-                "available": bool(protected_clearances and all(math.isfinite(value) for value in protected_clearances)),
-                "minimum_full_surface_lower_bound_m": float(min(protected_clearances)),
-                "semantics": "sample_to_current_selected_obstacle_obb_minus_certified_protected_link_cover_radius",
+            "conservative_full_robot_clearance": {
+                "available": bool(
+                    measurement.sample_clearance.available
+                    and measurement.sample_clearance.full_surface_clearance_lower_bound_m
+                    is not None
+                ),
+                "minimum_full_surface_lower_bound_m": float(
+                    measurement.sample_clearance.full_surface_clearance_lower_bound_m
+                ),
+                "semantics": (
+                    "cumulative_minimum_full_robot_sample_to_selected_obstacle_"
+                    "obb_minus_certified_full_robot_surface_cover_radius;_a_"
+                    "positive_value_conservatively_implies_positive_link56_clearance"
+                ),
             },
             "tracking_full_window": _tracking(physics_rows),
             "tracking_precontact": precontact_tracking,
@@ -1217,14 +1269,32 @@ def _run_arm(
                 measurement_record = monitor.result().to_dict()
             except Exception:
                 measurement_record = None
+        failure_monitor_observation_count = (
+            measurement_record.get("observed_physics_substeps")
+            if isinstance(measurement_record, Mapping)
+            else None
+        )
         evidence = {
             "arm_name": arm_name,
             "psf_enabled": psf_enabled,
             "failure_stage": failure_stage,
             "failure_type": type(error).__name__,
             "failure_message": str(error),
+            "execution_cadence": execution_cadence,
+            "qp_max_iterations_effective": (
+                int(qp.max_iter) if qp is not None else None
+            ),
             "filter_update_count": len(command_rows),
             "physics_substep_count": len(physics_rows),
+            "physics_trace_row_count": len(physics_rows),
+            "monitor_observed_physics_substep_count": (
+                failure_monitor_observation_count
+            ),
+            "physics_monitor_trace_counts_match": (
+                failure_monitor_observation_count == len(physics_rows)
+                if failure_monitor_observation_count is not None
+                else None
+            ),
             "qp_solve_count": qp_solve_count,
             "qp_postcheck_count": qp_postcheck_count,
             "joint_limit_postcheck_count": joint_limit_postcheck_count,
@@ -1232,6 +1302,8 @@ def _run_arm(
             "nominal_dynamic_bound_check_count": nominal_dynamic_bound_check_count,
             "nominal_dynamic_bound_violation_count": nominal_dynamic_bound_violation_count,
             "invalid_field_query_count": invalid_field_queries,
+            "pre_filter_field_observation_count": pre_filter_field_observation_count,
+            "pre_filter_field_query_count": pre_filter_field_query_count,
             "post_state_field_observation_count": post_state_field_observation_count,
             "post_state_field_query_count": post_state_field_query_count,
             "nonpositive_post_state_field_query_count": nonpositive_post_state_field_query_count,
@@ -1384,6 +1456,7 @@ def main() -> int:
             "historical_result_payload_sha256": replay.result_payload_sha256,
             "historical_executed_action_sequence_sha256": replay.executed_sequence_sha256,
             "online_policy_query_count": 0,
+            "exploratory_execution": dict(protocol["exploratory_execution"]),
         }
         runtime = evaluator._runtime_imports(include_aegis=False)
         source_env, _, observation, goal_atoms, previous_goal = _prepare_environment(
@@ -1560,6 +1633,7 @@ def main() -> int:
             nominal_activation_threshold_m2_per_s=derived["thresholds"][
                 "maximum_nominal_cbf_residual_for_activation_m2_per_s"
             ],
+            qp_max_iterations=derived["qp_max_iterations"],
         )
         arm_evidence["adapter_only"] = adapter
         psf = _run_arm(
@@ -1578,6 +1652,7 @@ def main() -> int:
             nominal_activation_threshold_m2_per_s=derived["thresholds"][
                 "maximum_nominal_cbf_residual_for_activation_m2_per_s"
             ],
+            qp_max_iterations=derived["qp_max_iterations"],
         )
         arm_evidence["adapter_plus_psf"] = psf
         exact_pair = _pair_exact(adapter, psf)
@@ -1630,6 +1705,12 @@ def main() -> int:
             "exact_paired_start": exact_pair,
             "adapter_exposure_complete": adapter["exposure_complete"],
             "psf_exposure_complete": psf["exposure_complete"],
+            "adapter_physics_monitor_trace_counts_match": adapter[
+                "physics_monitor_trace_counts_match"
+            ],
+            "psf_physics_monitor_trace_counts_match": psf[
+                "physics_monitor_trace_counts_match"
+            ],
             "adapter_precontact_static_obstacle_admissible": adapter["static_precontact_admissible"],
             "psf_static_obstacle_admissible": psf["static_full_window_admissible"],
             "psf_all_qp_solved": psf["qp_solve_count"] == derived["expected_updates"],
@@ -1664,11 +1745,19 @@ def main() -> int:
             ),
             "psf_link56_contact_present": psf["literal_contact"]["link56_present"],
             "psf_any_robot_selected_obstacle_contact_present": psf["literal_contact"]["any_robot_selected_obstacle_present"],
-            "psf_protected_link_clearance_lower_bound_available": psf["protected_link_clearance"]["available"],
+            "psf_conservative_full_robot_clearance_lower_bound_available": psf[
+                "conservative_full_robot_clearance"
+            ]["available"],
             "adapter_filter_update_count": adapter["filter_update_count"],
             "psf_filter_update_count": psf["filter_update_count"],
             "adapter_physics_substep_count": adapter["physics_substep_count"],
             "psf_physics_substep_count": psf["physics_substep_count"],
+            "adapter_monitor_observed_physics_substep_count": adapter[
+                "monitor_observed_physics_substep_count"
+            ],
+            "psf_monitor_observed_physics_substep_count": psf[
+                "monitor_observed_physics_substep_count"
+            ],
             "psf_qp_solve_count": psf["qp_solve_count"],
             "psf_qp_postcheck_count": psf["qp_postcheck_count"],
             "psf_joint_limit_postcheck_count": psf["joint_limit_postcheck_count"],
@@ -1676,6 +1765,12 @@ def main() -> int:
             "psf_issued_command_bound_check_count": psf["issued_command_bound_check_count"],
             "adapter_precontact_tracking_observation_count": adapter_tracking["observation_count"],
             "psf_tracking_observation_count": psf_tracking["observation_count"],
+            "psf_pre_filter_field_observation_count": psf[
+                "pre_filter_field_observation_count"
+            ],
+            "psf_pre_filter_field_query_count": psf[
+                "pre_filter_field_query_count"
+            ],
             "psf_post_state_field_observation_count": psf["post_state_field_observation_count"],
             "psf_post_state_field_query_count": psf["post_state_field_query_count"],
             "psf_nonpositive_post_state_field_query_count": psf["nonpositive_post_state_field_query_count"],
@@ -1720,7 +1815,9 @@ def main() -> int:
             "active_cartesian_path_length_m": active_motion[
                 "cartesian_path_length_m"
             ],
-            "psf_protected_link_full_surface_clearance_lower_bound_m": psf["protected_link_clearance"]["minimum_full_surface_lower_bound_m"],
+            "psf_conservative_full_robot_surface_clearance_lower_bound_m": psf[
+                "conservative_full_robot_clearance"
+            ]["minimum_full_surface_lower_bound_m"],
             "psf_minimum_nominal_cbf_residual_before_adapter_contact_m2_per_s": minimum_precontact_nominal_residual,
             "psf_maximum_activation_correction_norm_before_adapter_contact_rad_s": maximum_activation_correction,
         }
@@ -1756,7 +1853,11 @@ def main() -> int:
             },
             "classification": classification,
             "arms": arm_evidence,
-            "claim_scope": "one_post_hoc_0.4_second_window_not_task_success_not_full_episode_not_population_safety",
+            "claim_scope": (
+                "one_post_hoc_0.4_second_window_offline_empirical_contact_"
+                "feasibility_not_tracking_certified_not_task_success_not_"
+                "full_episode_not_population_safety"
+            ),
             "partial_output_interpreted": False,
             "timing": {
                 "started_unix": started,

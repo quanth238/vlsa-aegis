@@ -184,6 +184,28 @@ def validate_fast_feasibility_protocol(
     ):
         raise FastFeasibilityError("fast cadence differs")
 
+    exploratory = _mapping(
+        protocol.get("exploratory_execution"),
+        "protocol.exploratory_execution",
+    )
+    qp_max_iterations = _integer(
+        exploratory.get("qp_max_iterations"),
+        "exploratory QP maximum iterations",
+        1,
+    )
+    if qp_max_iterations != 50000:
+        raise FastFeasibilityError("exploratory QP iteration budget differs")
+    if (
+        exploratory.get("field_audit_cadence")
+        != "all_protected_samples_at_each_100hz_pre_filter_boundary_plus_final_endpoint"
+        or exploratory.get("literal_contact_cadence_hz") != 500
+        or exploratory.get("tracking_policy")
+        != "diagnostic_only_not_contact_outcome_gate"
+        or exploratory.get("solver_claim")
+        != "offline_contact_feasibility_not_realtime_100hz"
+    ):
+        raise FastFeasibilityError("exploratory execution contract differs")
+
     pairing = _mapping(protocol.get("pairing"), "protocol.pairing")
     if (
         pairing.get("settle_actions") != 20
@@ -249,14 +271,14 @@ def validate_fast_feasibility_protocol(
         "require_adapter_first_selected_obstacle_contact_is_link56",
         "require_psf_link56_contact_absent",
         "require_psf_all_robot_selected_obstacle_contact_absent",
-        "require_psf_protected_link_coverage_lower_bound_strictly_positive",
+        "require_psf_conservative_full_robot_clearance_lower_bound_strictly_positive",
         "require_psf_all_post_state_field_queries_valid_and_positive",
         "require_static_selected_obstacle",
         "require_exact_paired_start",
         "require_complete_fixed_exposure_for_no_contact_claim",
         "require_valid_psf_precontact_execution_for_contact_failure",
         "require_both_arms_nominal_commands_within_same_dynamic_joint_bounds",
-        "require_exhaustive_post_state_field_query_population",
+        "require_exhaustive_field_query_population_at_registered_100hz_boundaries",
         "require_material_poisson_activation_before_adapter_contact",
     ):
         if _boolean(acceptance.get(field), "acceptance.%s" % field) is not True:
@@ -303,6 +325,8 @@ def validate_fast_feasibility_protocol(
         "action_count": action_count,
         "expected_updates": expected_updates,
         "expected_substeps": expected_substeps,
+        "qp_max_iterations": qp_max_iterations,
+        "expected_post_state_field_observations": 1,
         "thresholds": thresholds,
     }
 
@@ -319,6 +343,8 @@ def classify_fast_feasibility(
         "exact_paired_start",
         "adapter_exposure_complete",
         "psf_exposure_complete",
+        "adapter_physics_monitor_trace_counts_match",
+        "psf_physics_monitor_trace_counts_match",
         "adapter_precontact_static_obstacle_admissible",
         "psf_static_obstacle_admissible",
         "psf_all_qp_solved",
@@ -337,7 +363,7 @@ def classify_fast_feasibility(
         "adapter_first_selected_obstacle_contact_is_link56",
         "psf_link56_contact_present",
         "psf_any_robot_selected_obstacle_contact_present",
-        "psf_protected_link_clearance_lower_bound_available",
+        "psf_conservative_full_robot_clearance_lower_bound_available",
     )
     booleans = {
         field: _boolean(metrics.get(field), "metrics.%s" % field)
@@ -345,6 +371,9 @@ def classify_fast_feasibility(
     }
     expected_updates = derived["expected_updates"]
     expected_substeps = derived["expected_substeps"]
+    expected_post_state_field_observations = derived[
+        "expected_post_state_field_observations"
+    ]
     integers = {
         field: _integer(metrics.get(field), "metrics.%s" % field)
         for field in (
@@ -352,6 +381,8 @@ def classify_fast_feasibility(
             "psf_filter_update_count",
             "adapter_physics_substep_count",
             "psf_physics_substep_count",
+            "adapter_monitor_observed_physics_substep_count",
+            "psf_monitor_observed_physics_substep_count",
             "psf_qp_solve_count",
             "psf_qp_postcheck_count",
             "psf_joint_limit_postcheck_count",
@@ -359,6 +390,8 @@ def classify_fast_feasibility(
             "psf_issued_command_bound_check_count",
             "adapter_precontact_tracking_observation_count",
             "psf_tracking_observation_count",
+            "psf_pre_filter_field_observation_count",
+            "psf_pre_filter_field_query_count",
             "psf_post_state_field_observation_count",
             "psf_post_state_field_query_count",
             "psf_nonpositive_post_state_field_query_count",
@@ -388,7 +421,7 @@ def classify_fast_feasibility(
             "active_safe_to_nominal_command_motion_ratio",
             "active_safe_measured_joint_motion_integral_rad",
             "active_cartesian_path_length_m",
-            "psf_protected_link_full_surface_clearance_lower_bound_m",
+            "psf_conservative_full_robot_surface_clearance_lower_bound_m",
             "psf_precontact_tracking_linf_rad_s",
             "psf_precontact_tracking_rmse_rad_s",
             "psf_minimum_nominal_cbf_residual_before_adapter_contact_m2_per_s",
@@ -409,6 +442,23 @@ def classify_fast_feasibility(
         apparatus_reasons.append("paired_start_not_exact")
     if not booleans["adapter_exposure_complete"]:
         apparatus_reasons.append("adapter_exposure_incomplete")
+    if not booleans["adapter_physics_monitor_trace_counts_match"]:
+        apparatus_reasons.append("adapter_physics_monitor_trace_count_mismatch")
+    if not booleans["psf_physics_monitor_trace_counts_match"]:
+        apparatus_reasons.append("psf_physics_monitor_trace_count_mismatch")
+    if integers["psf_monitor_observed_physics_substep_count"] != integers[
+        "psf_physics_substep_count"
+    ]:
+        apparatus_reasons.append(
+            "psf_monitor_observed_physics_substep_count_differs_from_trace"
+        )
+    for field, maximum in (
+        ("psf_filter_update_count", expected_updates),
+        ("psf_physics_substep_count", expected_substeps),
+        ("psf_monitor_observed_physics_substep_count", expected_substeps),
+    ):
+        if integers[field] > maximum:
+            apparatus_reasons.append("%s_exceeds_fixed_exposure" % field)
     if not booleans["adapter_precontact_static_obstacle_admissible"]:
         apparatus_reasons.append("adapter_precontact_static_obstacle_inadmissible")
     if not booleans["all_issued_commands_within_physical_bounds"]:
@@ -418,14 +468,13 @@ def classify_fast_feasibility(
     common_expected_counts = {
         "adapter_filter_update_count": expected_updates,
         "adapter_physics_substep_count": expected_substeps,
+        "adapter_monitor_observed_physics_substep_count": expected_substeps,
         "adapter_issued_command_bound_check_count": expected_updates,
         "adapter_nominal_dynamic_bound_check_count": expected_updates,
     }
     for field, expected in common_expected_counts.items():
         if integers[field] != expected:
             apparatus_reasons.append("%s_differs" % field)
-    if integers["adapter_precontact_tracking_observation_count"] <= 0:
-        apparatus_reasons.append("adapter_precontact_tracking_population_empty")
     if integers["adapter_nominal_dynamic_bound_violation_count"] != 0:
         apparatus_reasons.append("adapter_nominal_dynamic_joint_bound_violation")
     if integers["psf_protected_sample_count"] <= 0:
@@ -434,15 +483,17 @@ def classify_fast_feasibility(
         "maximum_invalid_field_queries"
     ]:
         apparatus_reasons.append("psf_invalid_field_query")
-    for arm, linf_field, rmse_field in (
-        ("adapter_precontact", "adapter_precontact_tracking_linf_rad_s", "adapter_precontact_tracking_rmse_rad_s"),
-    ):
-        if numbers[linf_field] > thresholds["maximum_tracking_linf_rad_s"]:
-            apparatus_reasons.append("%s_tracking_linf_failed" % arm)
-        if numbers[rmse_field] > thresholds["maximum_tracking_rmse_rad_s"]:
-            apparatus_reasons.append("%s_tracking_rmse_failed" % arm)
-
     if psf_contact_present:
+        psf_physics_prefix = integers["psf_physics_substep_count"]
+        expected_prefix_filter_updates = (
+            (psf_physics_prefix + 4) // 5 if psf_physics_prefix > 0 else 0
+        )
+        if psf_physics_prefix <= 0:
+            apparatus_reasons.append("psf_contact_without_observed_physics_substep")
+        if integers["psf_filter_update_count"] != expected_prefix_filter_updates:
+            apparatus_reasons.append(
+                "psf_contact_prefix_filter_physics_cadence_differs"
+            )
         if not booleans["psf_all_nominal_commands_within_dynamic_joint_bounds"]:
             apparatus_reasons.append("psf_nominal_dynamic_joint_bounds_confounded")
         if not booleans["psf_precontact_execution_valid"]:
@@ -469,15 +520,19 @@ def classify_fast_feasibility(
             * integers["psf_protected_sample_count"]
         ):
             apparatus_reasons.append("psf_precontact_field_query_population_differs")
-        if integers["psf_precontact_tracking_observation_count"] > 0:
-            if numbers["psf_precontact_tracking_linf_rad_s"] > thresholds[
-                "maximum_tracking_linf_rad_s"
-            ]:
-                apparatus_reasons.append("psf_precontact_tracking_linf_failed")
-            if numbers["psf_precontact_tracking_rmse_rad_s"] > thresholds[
-                "maximum_tracking_rmse_rad_s"
-            ]:
-                apparatus_reasons.append("psf_precontact_tracking_rmse_failed")
+        if integers["psf_pre_filter_field_observation_count"] != integers[
+            "psf_filter_update_count"
+        ]:
+            apparatus_reasons.append(
+                "psf_pre_filter_field_observations_differ_from_entered_prefix"
+            )
+        if integers["psf_pre_filter_field_query_count"] != (
+            integers["psf_pre_filter_field_observation_count"]
+            * integers["psf_protected_sample_count"]
+        ):
+            apparatus_reasons.append(
+                "psf_pre_filter_field_query_population_differs"
+            )
     else:
         if not booleans["psf_all_nominal_commands_within_dynamic_joint_bounds"]:
             apparatus_reasons.append("psf_nominal_dynamic_joint_bounds_confounded")
@@ -503,13 +558,17 @@ def classify_fast_feasibility(
         for field, expected in {
             "psf_filter_update_count": expected_updates,
             "psf_physics_substep_count": expected_substeps,
+            "psf_monitor_observed_physics_substep_count": expected_substeps,
             "psf_qp_solve_count": expected_updates,
             "psf_qp_postcheck_count": expected_updates,
             "psf_joint_limit_postcheck_count": expected_updates,
             "psf_issued_command_bound_check_count": expected_updates,
             "psf_nominal_dynamic_bound_check_count": expected_updates,
             "psf_tracking_observation_count": expected_substeps,
-            "psf_post_state_field_observation_count": expected_substeps,
+            "psf_pre_filter_field_observation_count": expected_updates,
+            "psf_post_state_field_observation_count": (
+                expected_post_state_field_observations
+            ),
         }.items():
             if integers[field] != expected:
                 apparatus_reasons.append("%s_differs" % field)
@@ -520,18 +579,15 @@ def classify_fast_feasibility(
             * integers["psf_protected_sample_count"]
         ):
             apparatus_reasons.append("psf_post_state_field_query_population_differs")
+        if integers["psf_pre_filter_field_query_count"] != (
+            integers["psf_pre_filter_field_observation_count"]
+            * integers["psf_protected_sample_count"]
+        ):
+            apparatus_reasons.append("psf_pre_filter_field_query_population_differs")
         if integers["psf_nominal_dynamic_bound_violation_count"] != 0:
             apparatus_reasons.append("psf_nominal_dynamic_joint_bound_violation")
         if integers["psf_nonpositive_post_state_field_query_count"] != 0:
             apparatus_reasons.append("psf_post_state_nonpositive_h")
-        if numbers["psf_tracking_linf_rad_s"] > thresholds[
-            "maximum_tracking_linf_rad_s"
-        ]:
-            apparatus_reasons.append("psf_tracking_linf_failed")
-        if numbers["psf_tracking_rmse_rad_s"] > thresholds[
-            "maximum_tracking_rmse_rad_s"
-        ]:
-            apparatus_reasons.append("psf_tracking_rmse_failed")
     if numbers["psf_minimum_safe_cbf_residual_m2_per_s"] < thresholds[
         "minimum_safe_cbf_residual_m2_per_s"
     ]:
@@ -543,8 +599,9 @@ def classify_fast_feasibility(
     if booleans["psf_any_robot_selected_obstacle_contact_present"]:
         prevention_failure_reasons.append("psf_shifted_or_other_robot_contact_present")
     clearance_certified = bool(
-        booleans["psf_protected_link_clearance_lower_bound_available"]
-        and numbers["psf_protected_link_full_surface_clearance_lower_bound_m"] > 0.0
+        booleans["psf_conservative_full_robot_clearance_lower_bound_available"]
+        and numbers["psf_conservative_full_robot_surface_clearance_lower_bound_m"]
+        > 0.0
     )
     activation_attributed = bool(
         booleans[
@@ -584,6 +641,25 @@ def classify_fast_feasibility(
             "active_cartesian_path_length_m"
         ]
         >= thresholds["minimum_active_interval_cartesian_path_length_m"],
+    }
+    tracking_diagnostics = {
+        "adapter_precontact_population_nonempty": integers[
+            "adapter_precontact_tracking_observation_count"
+        ]
+        > 0,
+        "adapter_precontact_linf_within_threshold": numbers[
+            "adapter_precontact_tracking_linf_rad_s"
+        ]
+        <= thresholds["maximum_tracking_linf_rad_s"],
+        "adapter_precontact_rmse_within_threshold": numbers[
+            "adapter_precontact_tracking_rmse_rad_s"
+        ]
+        <= thresholds["maximum_tracking_rmse_rad_s"],
+        "psf_population_nonempty": integers["psf_tracking_observation_count"] > 0,
+        "psf_linf_within_threshold": numbers["psf_tracking_linf_rad_s"]
+        <= thresholds["maximum_tracking_linf_rad_s"],
+        "psf_rmse_within_threshold": numbers["psf_tracking_rmse_rad_s"]
+        <= thresholds["maximum_tracking_rmse_rad_s"],
     }
 
     apparatus_valid = not apparatus_reasons
@@ -631,7 +707,7 @@ def classify_fast_feasibility(
     elif uncertified_clearance:
         primary_outcome = "UNCERTIFIED_CLEARANCE"
         safety_mechanism = "NOT_APPLICABLE"
-        reasons = ["psf_protected_link_clearance_not_strictly_positive"]
+        reasons = ["psf_conservative_full_robot_clearance_not_strictly_positive"]
     elif not activation_attributed:
         primary_outcome = "INCONCLUSIVE"
         safety_mechanism = "NOT_APPLICABLE"
@@ -668,9 +744,13 @@ def classify_fast_feasibility(
         "apparatus_failure_reasons": apparatus_reasons,
         "contact_prevention_reasons": prevention_failure_reasons,
         "motion_preservation_checks": motion_preservation_checks,
+        "tracking_diagnostic_only": True,
+        "tracking_diagnostics": tracking_diagnostics,
+        "tracking_certified": all(tracking_diagnostics.values()),
         "classification_reasons": reasons,
         "claim_scope": (
-            "one_outcome_conditioned_0.4_second_window_only_not_task_success"
+            "one_outcome_conditioned_0.4_second_window_only_offline_"
+            "tracking_diagnostic_not_task_success"
         ),
     }
 

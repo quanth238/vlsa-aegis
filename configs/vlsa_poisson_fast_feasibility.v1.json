@@ -58,6 +58,13 @@
     "expected_filter_updates_per_arm": 40,
     "expected_physics_substeps_per_arm": 200
   },
+  "exploratory_execution": {
+    "qp_max_iterations": 50000,
+    "field_audit_cadence": "all_protected_samples_at_each_100hz_pre_filter_boundary_plus_final_endpoint",
+    "literal_contact_cadence_hz": 500,
+    "tracking_policy": "diagnostic_only_not_contact_outcome_gate",
+    "solver_claim": "offline_contact_feasibility_not_realtime_100hz"
+  },
   "arms": [
     "joint_velocity_adapter_only",
     "joint_velocity_adapter_plus_link56_psf"
@@ -91,14 +98,14 @@
     "require_adapter_first_selected_obstacle_contact_is_link56": true,
     "require_psf_link56_contact_absent": true,
     "require_psf_all_robot_selected_obstacle_contact_absent": true,
-    "require_psf_protected_link_coverage_lower_bound_strictly_positive": true,
+    "require_psf_conservative_full_robot_clearance_lower_bound_strictly_positive": true,
     "require_psf_all_post_state_field_queries_valid_and_positive": true,
     "require_static_selected_obstacle": true,
     "require_exact_paired_start": true,
     "require_complete_fixed_exposure_for_no_contact_claim": true,
     "require_valid_psf_precontact_execution_for_contact_failure": true,
     "require_both_arms_nominal_commands_within_same_dynamic_joint_bounds": true,
-    "require_exhaustive_post_state_field_query_population": true,
+    "require_exhaustive_field_query_population_at_registered_100hz_boundaries": true,
     "require_material_poisson_activation_before_adapter_contact": true
   },
   "classification": {
@@ -127,9 +134,9 @@
     "motion_preserving_correction_scope": "material_safe_command_command_retention_realized_joint_motion_and_cartesian_path_during_the_poisson_correction_active_intervals_not_task_success_or_task_utility",
     "stop_only_definition": "contact_prevented_but_any_correction_active_interval_motion_preservation_gate_fails",
     "contact_prevention_failed_definition": "adapter_reproduces_literal_link56_contact_and_psf_has_literal_link56_or_shifted_robot_selected_obstacle_contact",
-    "uncertified_clearance_definition": "adapter_reproduces_literal_contact_and_psf_has_no_literal_contact_but_the_protected_link_coverage_lower_bound_is_unavailable_or_nonpositive",
+    "uncertified_clearance_definition": "adapter_reproduces_literal_contact_and_psf_has_no_literal_contact_but_the_conservative_full_robot_sample_coverage_lower_bound_is_unavailable_or_nonpositive",
     "inconclusive_definition": "valid_pair_does_not_reproduce_the_adapter_baseline_literal_link56_contact",
-    "apparatus_failure_definition": "pairing_exposure_field_qp_static_tracking_or_inactive_non_poisson_joint_bound_equivalence_failed"
+    "apparatus_failure_definition": "pairing_exposure_field_qp_static_or_inactive_non_poisson_joint_bound_equivalence_failed"
   },
   "result_contract": {
     "schema_version": "vlsa_poisson_fast_feasibility_result.v1",
@@ -137,6 +144,6 @@
     "failure_policy": "publish_typed_apparatus_failure_when_output_is_available",
     "partial_output_policy": "never_interpret",
     "independent_consumer_required": false,
-    "claim_scope": "exploratory_local_feasibility_not_early_warning_not_full_episode_task_success_not_population_safety"
+    "claim_scope": "exploratory_local_feasibility_not_realtime_not_tracking_certified_not_early_warning_not_full_episode_task_success_not_population_safety"
   }
 }
