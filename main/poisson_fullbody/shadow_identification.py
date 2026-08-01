@@ -152,6 +152,18 @@ def _artifact_boolean(value: Any, label: str) -> bool:
     return value
 
 
+def _artifact_sha256(value: Any, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ShadowIdentificationError(
+            "%s must be a lowercase SHA-256 digest" % label
+        )
+    return value
+
+
 def _artifact_physical_contact(record: Mapping[str, Any], label: str) -> bool:
     raw_distance = record.get("contact_distance_m")
     if (
@@ -1045,6 +1057,109 @@ def validate_shadow_replay_record(
         raise ShadowIdentificationError("measurement cadence endpoints differ")
     if measurement.get("physical_contact_distance_semantics") != contact_definition:
         raise ShadowIdentificationError("measurement contact semantics differ")
+
+    raw_action_state_hashes = _artifact_sequence(
+        record.get("action_boundary_state_sha256_ledger"),
+        "action-boundary state SHA-256 ledger",
+    )
+    if len(raw_action_state_hashes) != actions:
+        raise ShadowIdentificationError(
+            "action-boundary state SHA-256 ledger length differs"
+        )
+    action_state_hashes = [
+        _artifact_sha256(
+            value, "action-boundary state SHA-256 ledger[%d]" % index
+        )
+        for index, value in enumerate(raw_action_state_hashes)
+    ]
+    state_sequence_sha256 = _artifact_sha256(
+        record.get("state_sequence_sha256"), "state sequence SHA-256"
+    )
+    if state_sequence_sha256 != hashlib.sha256(
+        _canonical(action_state_hashes)
+    ).hexdigest():
+        raise ShadowIdentificationError(
+            "state sequence SHA-256 differs from its action-boundary ledger"
+        )
+    terminal_state_sha256 = _artifact_sha256(
+        record.get("terminal_simulator_state_sha256"),
+        "terminal simulator state SHA-256",
+    )
+    if terminal_state_sha256 != action_state_hashes[-1]:
+        raise ShadowIdentificationError(
+            "terminal simulator state differs from the action-boundary ledger"
+        )
+    _artifact_sha256(
+        record.get("observation_sequence_sha256"),
+        "observation sequence SHA-256",
+    )
+
+    raw_callback_state_ledger = _artifact_sequence(
+        record.get("callback_state_read_only_ledger"),
+        "callback state read-only ledger",
+    )
+    if len(raw_callback_state_ledger) != expected:
+        raise ShadowIdentificationError(
+            "callback state read-only ledger length differs"
+        )
+    callback_after_hashes = []
+    for index, raw_callback_record in enumerate(raw_callback_state_ledger):
+        callback_record = _artifact_mapping(
+            raw_callback_record, "callback state read-only ledger[%d]" % index
+        )
+        expected_high = index // per_high
+        expected_inner = (index % per_high) // physics_count
+        expected_physics = index % physics_count
+        for field, expected_value in (
+            ("observation_index", index),
+            ("high_level_index", expected_high),
+            ("inner_control_index", expected_inner),
+            ("physics_substep_index", expected_physics),
+        ):
+            if _artifact_integer(
+                callback_record.get(field),
+                "callback state read-only ledger[%d].%s" % (index, field),
+                minimum=0,
+            ) != expected_value:
+                raise ShadowIdentificationError(
+                    "callback state read-only cadence differs at %d" % index
+                )
+        before_sha256 = _artifact_sha256(
+            callback_record.get("before_sha256"),
+            "callback state read-only ledger[%d].before_sha256" % index,
+        )
+        after_sha256 = _artifact_sha256(
+            callback_record.get("after_sha256"),
+            "callback state read-only ledger[%d].after_sha256" % index,
+        )
+        if (
+            _artifact_boolean(
+                callback_record.get("exact_array_equal"),
+                "callback state read-only ledger[%d].exact_array_equal"
+                % index,
+            )
+            is not True
+            or before_sha256 != after_sha256
+        ):
+            raise ShadowIdentificationError(
+                "callback changed the complete MuJoCo integration state at %d"
+                % index
+            )
+        callback_after_hashes.append(after_sha256)
+    if _artifact_sha256(
+        record.get("callback_state_read_only_ledger_sha256"),
+        "callback state read-only ledger SHA-256",
+    ) != hashlib.sha256(_canonical(list(raw_callback_state_ledger))).hexdigest():
+        raise ShadowIdentificationError(
+            "callback state read-only ledger SHA-256 differs"
+        )
+    if _artifact_sha256(
+        record.get("callback_state_sequence_sha256"),
+        "callback state sequence SHA-256",
+    ) != hashlib.sha256(_canonical(callback_after_hashes)).hexdigest():
+        raise ShadowIdentificationError(
+            "callback state sequence SHA-256 differs from its ledger"
+        )
 
     construction = _artifact_mapping(
         record.get("construction"), "shadow construction"

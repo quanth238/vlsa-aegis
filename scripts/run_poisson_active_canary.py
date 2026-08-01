@@ -39,7 +39,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 ARMS = ("joint_velocity_adapter_only", "joint_velocity_psf_link56")
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v1"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
 EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v2"
 D_SIM_SEMANTICS = (
     "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_"
@@ -583,6 +583,9 @@ def _require_identification_prerequisite(
     )
     shadow = result.get("shadow_replay")
     expected_callbacks = 25 * len(replay.actions)
+    expected_action_states = [
+        step.simulator_state_sha256 for step in replay.steps
+    ]
     if (
         not isinstance(shadow, Mapping)
         or shadow.get("executed_action_count") != len(replay.actions)
@@ -592,6 +595,20 @@ def _require_identification_prerequisite(
         raise ActiveRunnerError(
             "shadow-identification prerequisite exposure is incomplete"
         )
+    if (
+        not expected_action_states
+        or shadow.get("action_boundary_state_sha256_ledger")
+        != expected_action_states
+        or shadow.get("state_sequence_sha256")
+        != _sha256(_canonical(expected_action_states))
+        or shadow.get("terminal_simulator_state_sha256")
+        != replay.terminal_simulator_state_sha256
+        or replay.terminal_simulator_state_sha256
+        != expected_action_states[-1]
+    ):
+        raise ActiveRunnerError(
+            "shadow-identification action-boundary states differ from history"
+        )
     parity_callback = parity.get("callback_replay")
     if (
         not isinstance(parity_callback, Mapping)
@@ -599,9 +616,11 @@ def _require_identification_prerequisite(
         != parity_callback.get("state_sequence_sha256")
         or shadow.get("observation_sequence_sha256")
         != parity_callback.get("observation_sequence_sha256")
+        or shadow.get("terminal_simulator_state_sha256")
+        != parity_callback.get("terminal_simulator_state_sha256")
     ):
         raise ActiveRunnerError(
-            "shadow-identification replay hashes differ from exact parity"
+            "shadow-identification replay or terminal hashes differ from exact parity"
         )
     try:
         validate_shadow_replay_record(
@@ -618,6 +637,23 @@ def _require_identification_prerequisite(
         raise ActiveRunnerError(
             "shadow-identification serialized replay is invalid: %s" % error
         ) from error
+    callback_state_ledger = shadow.get("callback_state_read_only_ledger")
+    parity_callback_state_ledger = parity_callback.get(
+        "official_integration_state_sha256_ledger"
+    )
+    if (
+        not isinstance(callback_state_ledger, list)
+        or not isinstance(parity_callback_state_ledger, list)
+        or [record["after_sha256"] for record in callback_state_ledger]
+        != parity_callback_state_ledger
+        or shadow.get("callback_state_sequence_sha256")
+        != parity_callback.get(
+            "official_integration_state_sequence_sha256"
+        )
+    ):
+        raise ActiveRunnerError(
+            "shadow callback integration-state ledger differs from exact parity"
+        )
     construction = shadow.get("construction")
     if not isinstance(construction, Mapping):
         raise ActiveRunnerError(
@@ -3190,6 +3226,10 @@ def main() -> int:
             manifest_sha256=manifest_sha256,
             manifest_row_sha256=case_row_hash,
             expected_callback_count=25 * len(replay.actions),
+            historical_provenance=replay.provenance(),
+            expected_action_state_sha256_ledger=[
+                step.simulator_state_sha256 for step in replay.steps
+            ],
         )
         identification_prerequisite = _require_identification_prerequisite(
             arguments.shadow_identification_result.resolve(),

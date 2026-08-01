@@ -288,3 +288,53 @@ and new numeric plus exact-parity submissions on that same commit. Shadow
 identification remains blocked until both gates are terminal and deeply
 validated. Active physics remains blocked until identification also proves an
 actionable warning at a scheduled 100 Hz update strictly before contact.
+
+## P01 frozen-replay state-evidence hardening
+
+Two later immutable roots are preserved as apparatus history. In root
+`vlsa-poisson-link56-first-canary-20260801b`, numeric job `33605` completed,
+while parity job `33606` failed before simulation because it was given one
+historical result file instead of the registered population root. Root
+`vlsa-poisson-link56-first-canary-20260801c` corrected that operator error on
+clean commit `8cce5bc4241f70cd608217759246353efc964b0b`. Numeric job `33607`
+completed 127 tests with zero skips; its file/payload SHA-256 pair is
+`d50a1164c2ad4be7caf69ec187f9b49ec96362f1098177eeedd80f85d453b1b0` /
+`6956cc754727f15c92f61c0056cccd6cd14eee3ad387c71675722edc67dfc170`.
+Parity job `33608` completed all 237 actions and 5,925 callbacks; its
+file/payload pair is
+`cb66e8aaf092deb673e6550daa7135b6339e3c2586549bd4bc39e3c22df2388c` /
+`c786d2a538fae2fb26cd82d1cd3276d319ebcc3b7b457505173b8cd8046c2fec`.
+
+Identification job `33610` was inspected by exact job ID and canceled after
+10 minutes 2 seconds because an adversarial audit found that its source
+serialized callback and terminal state summaries without binding every value
+to an independently consumed upstream ledger. It wrote no final
+identification artifact. No active canary was submitted, and all old artifacts
+remain preserved.
+
+The replacement parity-v2 contract records and validates two complete state
+ledgers: all 237 action-boundary hashes are bound directly to the frozen
+historical replay, and all 5,925 callbacks use MuJoCo's official
+`mjSTATE_INTEGRATION` representation. Identification records before/after
+callback hashes, proves read-only equality at every typed callback index, and
+must exactly match parity. The active consumer independently repeats the
+237-state historical binding and the 5,925-state parity binding. Coherently
+rehashing both ordinary and callback parity ledgers, or both parity and
+identification summaries, therefore cannot replace the frozen replay oracle.
+The obsolete `sim.get_state().flatten()` callback summary was removed rather
+than retained as a second, non-authoritative simulator-state definition.
+
+Adversarial tests cover missing, reordered, middle-row, terminal, cadence,
+trace-shape, and collusive-rehash attacks. The broader Poisson suite passes
+264 tests with 112 expected allocation-only skips. An independent refreshed
+audit passes 36 focused tests with 8 expected skips, Python-3.8 grammar, and
+the full `./init.sh` gate at 440 tests with 130 expected allocation-only
+skips. P01 remains active: these are apparatus guarantees, not safety results.
+
+The next unused immutable root is
+`/mnt/data/quanth/experiments/vlsa-aegis-poisson-feasibility/vlsa-poisson-link56-first-canary-20260801d`.
+After the hardened source is committed and pushed, numeric and parity-v2 must
+rerun on that exact clean commit. Identification-v2 may run only after both
+terminal artifacts validate completely. Active physics remains forbidden
+unless the final identification proves a warning that a scheduled 100 Hz
+filter update can consume strictly before physical contact.

@@ -39,11 +39,18 @@ class ShadowRunnerContractTest(unittest.TestCase):
         start = self.runner.index("            def callback(")
         end = self.runner.index("            observation, reward", start)
         callback = self.runner[start:end]
-        self.assertIn("sim.get_state().flatten()", callback)
+        self.assertNotIn("sim.get_state().flatten()", callback)
+        self.assertIn("_official_integration_state", callback)
         self.assertNotIn("sim.step", callback)
         self.assertNotIn("sim.forward", callback)
         self.assertIn("expected_substeps=25", self.runner)
         self.assertIn("25 * len(replay.steps)", self.runner)
+        self.assertIn(
+            '"official_integration_state_sha256_ledger"', self.runner
+        )
+        self.assertIn(
+            '"official_integration_state_sequence_sha256"', self.runner
+        )
 
     def test_job_requires_clean_slurm_h100_allocation(self):
         self.assertIn("source[\"status_short\"]", self.runner)
@@ -64,6 +71,10 @@ class ShadowRunnerContractTest(unittest.TestCase):
         callback_call = self.runner.index("callback = _run_callback")
         publish_call = self.runner.index("publish_hashed_json(output, payload)")
         self.assertLess(callback_call, publish_call)
+        self.assertIn(
+            'SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v2"',
+            self.runner,
+        )
         self.assertIn("scientific_result", self.runner)
         self.assertIn("no Poisson correction or safety efficacy", self.runner)
 

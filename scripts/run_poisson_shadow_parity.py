@@ -32,7 +32,7 @@ import traceback
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v1"
+SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v2"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 
 
@@ -306,6 +306,7 @@ def _run_ordinary(
         return {
             "executed_action_count": len(state_hashes),
             "expected_state_match_count": len(state_hashes),
+            "action_boundary_state_sha256_ledger": state_hashes,
             "state_sequence_sha256": _sha256(_canonical(state_hashes)),
             "observation_sequence_sha256": _sha256(_canonical(observation_hashes)),
             "terminal_simulator_state_sha256": state_hashes[-1],
@@ -324,6 +325,10 @@ def _run_callback(
     replay: Any,
     ordinary: Mapping[str, Any],
 ) -> Dict[str, Any]:
+    from scripts.run_poisson_shadow_identification import (
+        _official_integration_state,
+    )
+
     env = None
     try:
         env, _, observation, goal_atoms, previous_goal = _prepare_environment(
@@ -332,17 +337,24 @@ def _run_callback(
         state_hashes = []
         observation_hashes = []
         substep_trace = []
+        official_integration_state_hashes = []
         for expected_step in replay.steps:
             current_substeps = []
 
             def callback(sim: Any, substep_index: int) -> None:
+                official_state_hash = evaluator.array_sha256(
+                    _official_integration_state(sim, runtime["np"])
+                )
                 current_substeps.append(
                     {
                         "substep": int(substep_index),
-                        "simulator_state_sha256": evaluator.array_sha256(
-                            sim.get_state().flatten()
+                        "official_mjstate_integration_sha256": (
+                            official_state_hash
                         ),
                     }
+                )
+                official_integration_state_hashes.append(
+                    official_state_hash
                 )
 
             observation, reward, done, _ = env.step_with_substep_callback(
@@ -385,9 +397,20 @@ def _run_callback(
             "executed_action_count": len(state_hashes),
             "callback_count": sum(len(row) for row in substep_trace),
             "expected_callback_count": 25 * len(replay.steps),
+            "action_boundary_state_sha256_ledger": state_hashes,
             "state_sequence_sha256": _sha256(_canonical(state_hashes)),
             "observation_sequence_sha256": _sha256(_canonical(observation_hashes)),
+            "substep_trace": substep_trace,
             "substep_trace_sha256": _sha256(_canonical(substep_trace)),
+            "official_integration_state_count": len(
+                official_integration_state_hashes
+            ),
+            "official_integration_state_sha256_ledger": (
+                official_integration_state_hashes
+            ),
+            "official_integration_state_sequence_sha256": _sha256(
+                _canonical(official_integration_state_hashes)
+            ),
             "first_substep": substep_trace[0][0],
             "last_substep": substep_trace[-1][-1],
             "terminal_simulator_state_sha256": state_hashes[-1],
@@ -467,6 +490,19 @@ def main() -> int:
             == expected_sequence_hash
         ):
             raise ShadowParityError("final state-sequence identities disagree")
+        if not (
+            ordinary["action_boundary_state_sha256_ledger"]
+            == callback["action_boundary_state_sha256_ledger"]
+            == historical_state_sequence
+        ) or not (
+            ordinary["terminal_simulator_state_sha256"]
+            == callback["terminal_simulator_state_sha256"]
+            == replay.terminal_simulator_state_sha256
+            == historical_state_sequence[-1]
+        ):
+            raise ShadowParityError(
+                "action-boundary or terminal state ledger differs from history"
+            )
         if callback["callback_count"] != callback["expected_callback_count"]:
             raise ShadowParityError("callback exposure is incomplete")
         payload.update(

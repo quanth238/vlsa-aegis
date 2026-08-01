@@ -31,7 +31,10 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         ast.parse(self.runner)
         ast.parse(self.module)
         self.assertIn("--parity-result", self.runner)
-        self.assertIn("upstream exact-parity commit differs", self.runner)
+        self.assertIn(
+            "upstream exact-parity source is not this exact clean commit",
+            self.runner,
+        )
         self.assertIn("ordinary_and_callback_observations_exact", self.runner)
         self.assertIn("state sequence differs from upstream exact parity", self.runner)
 
@@ -157,6 +160,185 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         self.assertIn(
             "registered_filter_update_available_before_contact(", self.active
         )
+
+    def test_upstream_parity_binds_clean_official_callback_state_ledger(self):
+        from scripts import run_poisson_shadow_identification as runner
+        from scripts import run_poisson_shadow_parity as parity
+
+        callback_hashes = ["a" * 64] * 50
+        action_state_hashes = ["b" * 64, "d" * 64]
+        state_sequence_sha256 = parity._sha256(
+            parity._canonical(action_state_hashes)
+        )
+        substep_trace = [
+            [
+                {
+                    "substep": substep_index,
+                    "official_mjstate_integration_sha256": "a" * 64,
+                }
+                for substep_index in range(25)
+            ]
+            for _ in range(2)
+        ]
+        historical = {
+            "identity": "historical",
+            "terminal_simulator_state_sha256": action_state_hashes[-1],
+        }
+        record = {
+            "schema_version": runner.EXPECTED_PARITY_SCHEMA,
+            "status": "passed",
+            "scientific_result": False,
+            "case_id": runner.DEFAULT_CASE_ID,
+            "provenance": {
+                "source": {"commit": "source-commit", "status_short": []},
+                "historical_result_payload_sha256": "historical-payload",
+                "manifest_sha256": "manifest",
+                "manifest_row_sha256": "row",
+            },
+            "historical": historical,
+            "ordinary_replay": {
+                "executed_action_count": 2,
+                "expected_state_match_count": 2,
+                "action_boundary_state_sha256_ledger": action_state_hashes,
+                "state_sequence_sha256": state_sequence_sha256,
+                "observation_sequence_sha256": "c" * 64,
+                "terminal_simulator_state_sha256": "d" * 64,
+            },
+            "callback_replay": {
+                "executed_action_count": 2,
+                "callback_count": 50,
+                "expected_callback_count": 50,
+                "action_boundary_state_sha256_ledger": action_state_hashes,
+                "state_sequence_sha256": state_sequence_sha256,
+                "observation_sequence_sha256": "c" * 64,
+                "terminal_simulator_state_sha256": "d" * 64,
+                "substep_trace": substep_trace,
+                "substep_trace_sha256": parity._sha256(
+                    parity._canonical(substep_trace)
+                ),
+                "official_integration_state_count": 50,
+                "official_integration_state_sha256_ledger": callback_hashes,
+                "official_integration_state_sequence_sha256": parity._sha256(
+                    parity._canonical(callback_hashes)
+                ),
+                "first_substep": substep_trace[0][0],
+                "last_substep": substep_trace[-1][-1],
+            },
+            "acceptance": {
+                "all_historical_post_step_states_exact": True,
+                "ordinary_and_callback_states_exact": True,
+                "ordinary_and_callback_observations_exact": True,
+                "reward_done_goal_exact": True,
+                "full_callback_exposure": True,
+                "ordinary_step_path_unmodified": True,
+            },
+        }
+        arguments = {
+            "case_id": runner.DEFAULT_CASE_ID,
+            "source_commit": "source-commit",
+            "historical_payload_sha256": "historical-payload",
+            "manifest_sha256": "manifest",
+            "manifest_row_sha256": "row",
+            "expected_callback_count": 50,
+            "historical_provenance": historical,
+            "expected_action_state_sha256_ledger": action_state_hashes,
+        }
+        with mock.patch(
+            "main.poisson_fullbody.contracts.load_hashed_json",
+            return_value=record,
+        ):
+            self.assertIs(
+                runner._require_upstream_parity(
+                    Path("unused-parity.json"), **arguments
+                ),
+                record,
+            )
+
+        tampered_records = []
+        dirty = json.loads(json.dumps(record))
+        dirty["provenance"]["source"]["status_short"] = [" M file.py"]
+        tampered_records.append(dirty)
+        wrong_ledger = json.loads(json.dumps(record))
+        wrong_ledger["callback_replay"][
+            "official_integration_state_sha256_ledger"
+        ][0] = "f" * 64
+        tampered_records.append(wrong_ledger)
+        wrong_historical = json.loads(json.dumps(record))
+        wrong_historical["historical"] = {"identity": "other"}
+        tampered_records.append(wrong_historical)
+        wrong_trace = json.loads(json.dumps(record))
+        wrong_trace["callback_replay"]["substep_trace"][0][0][
+            "substep"
+        ] = 1
+        tampered_records.append(wrong_trace)
+        legacy_trace = json.loads(json.dumps(record))
+        legacy_trace["callback_replay"]["substep_trace"][0][7][
+            "simulator_state_sha256"
+        ] = "f" * 64
+        legacy_trace["callback_replay"][
+            "substep_trace_sha256"
+        ] = parity._sha256(
+            parity._canonical(
+                legacy_trace["callback_replay"]["substep_trace"]
+            )
+        )
+        tampered_records.append(legacy_trace)
+        wrong_action_ledger = json.loads(json.dumps(record))
+        wrong_action_ledger["ordinary_replay"][
+            "action_boundary_state_sha256_ledger"
+        ][0] = "0" * 64
+        wrong_action_ledger["ordinary_replay"][
+            "state_sequence_sha256"
+        ] = parity._sha256(
+            parity._canonical(
+                wrong_action_ledger["ordinary_replay"][
+                    "action_boundary_state_sha256_ledger"
+                ]
+            )
+        )
+        tampered_records.append(wrong_action_ledger)
+        collusive_middle = json.loads(json.dumps(record))
+        for arm in ("ordinary_replay", "callback_replay"):
+            collusive_middle[arm][
+                "action_boundary_state_sha256_ledger"
+            ][0] = "e" * 64
+            collusive_middle[arm][
+                "state_sequence_sha256"
+            ] = parity._sha256(
+                parity._canonical(
+                    collusive_middle[arm][
+                        "action_boundary_state_sha256_ledger"
+                    ]
+                )
+            )
+        tampered_records.append(collusive_middle)
+        collusive_terminal = json.loads(json.dumps(record))
+        for arm in ("ordinary_replay", "callback_replay"):
+            collusive_terminal[arm][
+                "action_boundary_state_sha256_ledger"
+            ][-1] = "e" * 64
+            collusive_terminal[arm][
+                "state_sequence_sha256"
+            ] = parity._sha256(
+                parity._canonical(
+                    collusive_terminal[arm][
+                        "action_boundary_state_sha256_ledger"
+                    ]
+                )
+            )
+            collusive_terminal[arm][
+                "terminal_simulator_state_sha256"
+            ] = "e" * 64
+        tampered_records.append(collusive_terminal)
+        for tampered in tampered_records:
+            with self.subTest(tampered=tampered), mock.patch(
+                "main.poisson_fullbody.contracts.load_hashed_json",
+                return_value=tampered,
+            ):
+                with self.assertRaises(runner.ShadowIdentificationRunnerError):
+                    runner._require_upstream_parity(
+                        Path("unused-parity.json"), **arguments
+                    )
 
     def test_fake_complete_replay_executes_the_postrun_path(self):
         from scripts import run_poisson_shadow_identification as runner
@@ -390,9 +572,18 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         env = FakeEnv()
         monitor = FakeMonitor()
         observer = FakeObserver()
+        state_hashes = ["a" * 64, "b" * 64]
         replay_steps = (
-            SimpleNamespace(step=0, action=(0.0,) * 7),
-            SimpleNamespace(step=1, action=(0.0,) * 7),
+            SimpleNamespace(
+                step=0,
+                action=(0.0,) * 7,
+                simulator_state_sha256=state_hashes[0],
+            ),
+            SimpleNamespace(
+                step=1,
+                action=(0.0,) * 7,
+                simulator_state_sha256=state_hashes[1],
+            ),
         )
         replay_provenance = {"identity": "fake-historical-replay"}
         replay = SimpleNamespace(
@@ -400,23 +591,31 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
             actions=tuple(step.action for step in replay_steps),
             result_file_sha256="historical-file",
             result_payload_sha256="historical-payload",
+            terminal_simulator_state_sha256=state_hashes[-1],
             provenance=lambda: replay_provenance,
         )
-        state_hashes = ["state-0", "state-1"]
         observation_hashes = ["observation-0", "observation-1"]
         upstream = {
             "result_payload_sha256": "parity-payload",
             "callback_replay": {
+                "action_boundary_state_sha256_ledger": state_hashes,
                 "state_sequence_sha256": parity._sha256(
                     parity._canonical(state_hashes)
                 ),
                 "observation_sequence_sha256": parity._sha256(
                     parity._canonical(observation_hashes)
                 ),
+                "terminal_simulator_state_sha256": state_hashes[-1],
+                "official_integration_state_sha256_ledger": [
+                    "c" * 64
+                ] * 50,
+                "official_integration_state_sequence_sha256": parity._sha256(
+                    parity._canonical(["c" * 64] * 50)
+                ),
             }
         }
         evaluator = SimpleNamespace(
-            array_sha256=lambda state: "callback-state",
+            array_sha256=lambda state: "c" * 64,
             _eef_proxy=lambda runtime, observation: None,
             _update_eef_marker=lambda environment, proxy: None,
         )
@@ -519,6 +718,20 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         self.assertEqual(result["executed_action_count"], 2)
         self.assertEqual(result["callback_count"], 50)
         self.assertEqual(result["expected_callback_count"], 50)
+        self.assertEqual(
+            result["action_boundary_state_sha256_ledger"], state_hashes
+        )
+        self.assertEqual(len(result["callback_state_read_only_ledger"]), 50)
+        self.assertTrue(
+            all(
+                row["before_sha256"] == row["after_sha256"] == "c" * 64
+                and row["exact_array_equal"] is True
+                for row in result["callback_state_read_only_ledger"]
+            )
+        )
+        self.assertEqual(
+            result["terminal_simulator_state_sha256"], state_hashes[-1]
+        )
         self.assertEqual(result["measurement"]["first_index"], (0, 0, 0))
         self.assertEqual(result["measurement"]["last_index"], (1, 4, 4))
         self.assertEqual(monitor.indices[0], (0, 0, 0))
@@ -834,6 +1047,161 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
             )
         self.assertIs(loaded, prerequisite)
 
+        wrong_terminal = json.loads(json.dumps(prerequisite))
+        wrong_terminal["shadow_replay"][
+            "terminal_simulator_state_sha256"
+        ] = "d" * 64
+        with mock.patch(
+            "main.poisson_fullbody.contracts.load_hashed_json",
+            return_value=wrong_terminal,
+        ), mock.patch.object(
+            active_runner, "_require_full_robot_sampling_evidence"
+        ):
+            with self.assertRaisesRegex(
+                active_runner.ActiveRunnerError,
+                "action-boundary states differ from history",
+            ):
+                active_runner._require_identification_prerequisite(
+                    Path("unused-identification.json"),
+                    case={"case_id": "vlsa-t1-goal-ii-t0-e05"},
+                    case_row_hash="row",
+                    source_commit="source-commit",
+                    manifest_sha256="manifest",
+                    selection_sha256="selection",
+                    runtime_protocol_raw_sha256="runtime-raw",
+                    runtime_protocol_semantic_sha256="runtime-semantic",
+                    runtime_parameter_block_sha256="runtime-parameters",
+                    alpha_gain_per_s=5.0,
+                    static_drift_thresholds=validation_arguments[
+                        "static_drift_thresholds"
+                    ],
+                    replay=replay,
+                    parity=upstream,
+                )
+
+        for rewritten_index in (0, len(state_hashes) - 1):
+            collusive_action_rewrite = json.loads(
+                json.dumps(prerequisite)
+            )
+            collusive_parity_rewrite = json.loads(json.dumps(upstream))
+            rewritten_states = list(state_hashes)
+            rewritten_states[rewritten_index] = "e" * 64
+            rewritten_sequence = parity._sha256(
+                parity._canonical(rewritten_states)
+            )
+            rewritten_identification_shadow = collusive_action_rewrite[
+                "shadow_replay"
+            ]
+            rewritten_identification_shadow[
+                "action_boundary_state_sha256_ledger"
+            ] = rewritten_states
+            rewritten_identification_shadow[
+                "state_sequence_sha256"
+            ] = rewritten_sequence
+            rewritten_parity_callback = collusive_parity_rewrite[
+                "callback_replay"
+            ]
+            rewritten_parity_callback[
+                "action_boundary_state_sha256_ledger"
+            ] = rewritten_states
+            rewritten_parity_callback[
+                "state_sequence_sha256"
+            ] = rewritten_sequence
+            if rewritten_index == len(state_hashes) - 1:
+                rewritten_identification_shadow[
+                    "terminal_simulator_state_sha256"
+                ] = rewritten_states[-1]
+                rewritten_parity_callback[
+                    "terminal_simulator_state_sha256"
+                ] = rewritten_states[-1]
+            with self.subTest(
+                collusive_action_rewrite_index=rewritten_index
+            ), mock.patch(
+                "main.poisson_fullbody.contracts.load_hashed_json",
+                return_value=collusive_action_rewrite,
+            ), mock.patch.object(
+                active_runner, "_require_full_robot_sampling_evidence"
+            ):
+                with self.assertRaisesRegex(
+                    active_runner.ActiveRunnerError,
+                    "action-boundary states differ from history",
+                ):
+                    active_runner._require_identification_prerequisite(
+                        Path("unused-identification.json"),
+                        case={"case_id": "vlsa-t1-goal-ii-t0-e05"},
+                        case_row_hash="row",
+                        source_commit="source-commit",
+                        manifest_sha256="manifest",
+                        selection_sha256="selection",
+                        runtime_protocol_raw_sha256="runtime-raw",
+                        runtime_protocol_semantic_sha256=(
+                            "runtime-semantic"
+                        ),
+                        runtime_parameter_block_sha256=(
+                            "runtime-parameters"
+                        ),
+                        alpha_gain_per_s=5.0,
+                        static_drift_thresholds=validation_arguments[
+                            "static_drift_thresholds"
+                        ],
+                        replay=replay,
+                        parity=collusive_parity_rewrite,
+                    )
+
+        collusive_callback_rewrite = json.loads(json.dumps(prerequisite))
+        rewritten_shadow = collusive_callback_rewrite["shadow_replay"]
+        rewritten_callback = rewritten_shadow[
+            "callback_state_read_only_ledger"
+        ][0]
+        rewritten_callback["before_sha256"] = "d" * 64
+        rewritten_callback["after_sha256"] = "d" * 64
+        rewritten_shadow[
+            "callback_state_read_only_ledger_sha256"
+        ] = parity._sha256(
+            parity._canonical(
+                rewritten_shadow["callback_state_read_only_ledger"]
+            )
+        )
+        rewritten_shadow[
+            "callback_state_sequence_sha256"
+        ] = parity._sha256(
+            parity._canonical(
+                [
+                    row["after_sha256"]
+                    for row in rewritten_shadow[
+                        "callback_state_read_only_ledger"
+                    ]
+                ]
+            )
+        )
+        with mock.patch(
+            "main.poisson_fullbody.contracts.load_hashed_json",
+            return_value=collusive_callback_rewrite,
+        ), mock.patch.object(
+            active_runner, "_require_full_robot_sampling_evidence"
+        ):
+            with self.assertRaisesRegex(
+                active_runner.ActiveRunnerError,
+                "callback integration-state ledger differs from exact parity",
+            ):
+                active_runner._require_identification_prerequisite(
+                    Path("unused-identification.json"),
+                    case={"case_id": "vlsa-t1-goal-ii-t0-e05"},
+                    case_row_hash="row",
+                    source_commit="source-commit",
+                    manifest_sha256="manifest",
+                    selection_sha256="selection",
+                    runtime_protocol_raw_sha256="runtime-raw",
+                    runtime_protocol_semantic_sha256="runtime-semantic",
+                    runtime_parameter_block_sha256="runtime-parameters",
+                    alpha_gain_per_s=5.0,
+                    static_drift_thresholds=validation_arguments[
+                        "static_drift_thresholds"
+                    ],
+                    replay=replay,
+                    parity=upstream,
+                )
+
         invalidated = json.loads(json.dumps(serialized))
         invalidation_index = 17
         identification = invalidated["poisson_identification"]
@@ -886,6 +1254,42 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         validate_shadow_replay_record(invalidated, **validation_arguments)
 
         tamperers = (
+            (
+                "action-boundary state ledger",
+                lambda value: value[
+                    "action_boundary_state_sha256_ledger"
+                ].__setitem__(0, "d" * 64),
+            ),
+            (
+                "terminal state summary",
+                lambda value: value.__setitem__(
+                    "terminal_simulator_state_sha256", "d" * 64
+                ),
+            ),
+            (
+                "callback state sequence hash",
+                lambda value: value.__setitem__(
+                    "callback_state_sequence_sha256", "d" * 64
+                ),
+            ),
+            (
+                "callback state ledger hash",
+                lambda value: value.__setitem__(
+                    "callback_state_read_only_ledger_sha256", "d" * 64
+                ),
+            ),
+            (
+                "callback state equality",
+                lambda value: value["callback_state_read_only_ledger"][0].__setitem__(
+                    "after_sha256", "d" * 64
+                ),
+            ),
+            (
+                "callback state cadence",
+                lambda value: value["callback_state_read_only_ledger"][0].__setitem__(
+                    "observation_index", 1
+                ),
+            ),
             (
                 "measurement endpoint",
                 lambda value: value["measurement"].__setitem__(

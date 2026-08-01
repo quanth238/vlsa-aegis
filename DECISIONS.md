@@ -469,3 +469,38 @@ Jobs `33494` and `33575`--`33577` predate this decision. Their artifacts are
 preserved but cannot authorize active physics. Numeric, exact parity, and
 complete shadow identification must rerun from one new clean commit and unused
 immutable root before the active canary can be submitted.
+
+## ADR-0032: Bind every shadow state to the frozen replay and official MuJoCo state
+
+Accepted after the pre-identification adversarial audit. Aggregate sequence
+hashes and self-hashed summaries are insufficient when a downstream active
+gate is expected to consume them. Exact parity schema v2 therefore carries the
+complete 237-entry action-boundary ledger and binds it byte-for-byte to
+`HistoricalActionReplay.steps[*].simulator_state_sha256`. Its terminal value
+must also equal the frozen historical terminal state. The identification
+producer and active consumer repeat this external binding rather than relying
+only on parity's aggregate sequence hash.
+
+At substep cadence, the sole simulator-state authority is MuJoCo's complete
+official `mjSTATE_INTEGRATION` vector. Parity records one hash for every one of
+the 5,925 callbacks, with exact nested action/substep cadence, endpoints, and
+ledger hashes. Identification records official state immediately before and
+after every read-only callback query, requires equality, and matches the full
+sequence to parity. The active prerequisite validator repeats that match. The
+legacy `sim.get_state().flatten()` trace field is removed from schema v2
+because it was neither the official complete state nor independently consumed.
+
+This decision rejects coherent middle-state and terminal rewrites even when
+ordinary parity, callback parity, and identification are all internally
+rehash-consistent: the frozen historical replay remains unchanged and is the
+external oracle. It does not claim cryptographic authenticity against an
+attacker who can replace every upstream byte and the clean source together.
+Raw protected geometry, Poisson field arrays, compiled model arrays, and
+manifests remain explicit byte-level producer trust boundaries. MuJoCo
+nonpositive contact remains the scientific safety authority.
+
+Identification job `33610` was canceled by exact job ID after this gap was
+confirmed and before a final artifact existed. Artifacts from numeric job
+`33607` and parity-v1 job `33608` remain preserved implementation evidence but
+cannot authorize schema-v2 identification or active physics. All prerequisites
+must rerun from one new clean commit and immutable root.

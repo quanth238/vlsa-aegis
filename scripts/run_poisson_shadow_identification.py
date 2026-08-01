@@ -32,7 +32,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v2"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v1"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
 INNER_UPDATES_PER_HIGH_LEVEL_ACTION = 5
 PHYSICS_SUBSTEPS_PER_INNER_UPDATE = 5
@@ -168,22 +168,38 @@ def _require_upstream_parity(
     manifest_sha256: str,
     manifest_row_sha256: str,
     expected_callback_count: int,
+    historical_provenance: Mapping[str, Any],
+    expected_action_state_sha256_ledger: Sequence[str],
 ) -> Mapping[str, Any]:
     from main.poisson_fullbody.contracts import load_hashed_json
+    from scripts.run_poisson_shadow_parity import _canonical, _sha256
+
+    def valid_sha256(value: Any) -> bool:
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+        )
 
     parity = load_hashed_json(parity_path)
     if (
         parity.get("schema_version") != EXPECTED_PARITY_SCHEMA
         or parity.get("status") != "passed"
+        or parity.get("scientific_result") is not False
         or parity.get("case_id") != case_id
     ):
         raise ShadowIdentificationRunnerError(
             "upstream exact-parity artifact has wrong schema, status, or case"
         )
     provenance = parity.get("provenance")
+    ordinary = parity.get("ordinary_replay")
     callback = parity.get("callback_replay")
     acceptance = parity.get("acceptance")
-    if not isinstance(provenance, dict) or not isinstance(callback, dict):
+    if (
+        not isinstance(provenance, dict)
+        or not isinstance(ordinary, dict)
+        or not isinstance(callback, dict)
+    ):
         raise ShadowIdentificationRunnerError("upstream exact-parity provenance is incomplete")
     if not isinstance(acceptance, dict) or not all(
         acceptance.get(field) is True
@@ -198,9 +214,13 @@ def _require_upstream_parity(
     ):
         raise ShadowIdentificationRunnerError("upstream exact-parity acceptance is incomplete")
     source = provenance.get("source")
-    if not isinstance(source, dict) or source.get("commit") != source_commit:
+    if (
+        not isinstance(source, dict)
+        or source.get("commit") != source_commit
+        or source.get("status_short") != []
+    ):
         raise ShadowIdentificationRunnerError(
-            "upstream exact-parity commit differs from this clean source"
+            "upstream exact-parity source is not this exact clean commit"
         )
     if (
         provenance.get("historical_result_payload_sha256")
@@ -211,12 +231,152 @@ def _require_upstream_parity(
         raise ShadowIdentificationRunnerError(
             "upstream exact-parity evidence binding differs"
         )
+    if parity.get("historical") != dict(historical_provenance):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity historical replay identity differs"
+        )
     if (
-        callback.get("callback_count") != expected_callback_count
+        isinstance(expected_callback_count, bool)
+        or not isinstance(expected_callback_count, int)
+        or expected_callback_count <= 0
+        or expected_callback_count
+        % PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+        != 0
+    ):
+        raise ShadowIdentificationRunnerError(
+            "expected exact-parity callback count is invalid"
+        )
+    expected_action_count = (
+        expected_callback_count // PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+    )
+    if (
+        not isinstance(expected_action_state_sha256_ledger, (list, tuple))
+        or len(expected_action_state_sha256_ledger) != expected_action_count
+        or not all(
+            valid_sha256(value)
+            for value in expected_action_state_sha256_ledger
+        )
+    ):
+        raise ShadowIdentificationRunnerError(
+            "historical action-boundary state ledger is invalid"
+        )
+    expected_action_states = list(expected_action_state_sha256_ledger)
+    expected_state_sequence_sha256 = _sha256(
+        _canonical(expected_action_states)
+    )
+    if (
+        historical_provenance.get("terminal_simulator_state_sha256")
+        != expected_action_states[-1]
+    ):
+        raise ShadowIdentificationRunnerError(
+            "historical terminal state differs from its action-state ledger"
+        )
+    if (
+        ordinary.get("executed_action_count") != expected_action_count
+        or ordinary.get("expected_state_match_count")
+        != expected_action_count
+        or callback.get("executed_action_count") != expected_action_count
+        or callback.get("callback_count") != expected_callback_count
         or callback.get("expected_callback_count") != expected_callback_count
     ):
         raise ShadowIdentificationRunnerError(
             "upstream exact-parity callback exposure differs"
+        )
+    if (
+        ordinary.get("action_boundary_state_sha256_ledger")
+        != expected_action_states
+        or callback.get("action_boundary_state_sha256_ledger")
+        != expected_action_states
+        or ordinary.get("state_sequence_sha256")
+        != expected_state_sequence_sha256
+        or callback.get("state_sequence_sha256")
+        != expected_state_sequence_sha256
+        or ordinary.get("terminal_simulator_state_sha256")
+        != expected_action_states[-1]
+        or callback.get("terminal_simulator_state_sha256")
+        != expected_action_states[-1]
+    ):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity action-boundary states differ from history"
+        )
+    for field in (
+        "state_sequence_sha256",
+        "observation_sequence_sha256",
+        "terminal_simulator_state_sha256",
+    ):
+        if (
+            not valid_sha256(ordinary.get(field))
+            or ordinary.get(field) != callback.get(field)
+        ):
+            raise ShadowIdentificationRunnerError(
+                "upstream ordinary/callback parity differs at %s" % field
+            )
+    official_ledger = callback.get(
+        "official_integration_state_sha256_ledger"
+    )
+    if (
+        not isinstance(official_ledger, list)
+        or len(official_ledger) != expected_callback_count
+        or callback.get("official_integration_state_count")
+        != expected_callback_count
+        or not all(valid_sha256(value) for value in official_ledger)
+        or callback.get("official_integration_state_sequence_sha256")
+        != _sha256(_canonical(official_ledger))
+    ):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity official integration-state ledger differs"
+        )
+    first_substep = callback.get("first_substep")
+    last_substep = callback.get("last_substep")
+    substep_trace = callback.get("substep_trace")
+    if (
+        not isinstance(substep_trace, list)
+        or len(substep_trace) != expected_action_count
+        or not isinstance(first_substep, dict)
+        or not isinstance(last_substep, dict)
+    ):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity callback trace is incomplete"
+        )
+    for high_level_index, raw_action_trace in enumerate(substep_trace):
+        if (
+            not isinstance(raw_action_trace, list)
+            or len(raw_action_trace)
+            != PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+        ):
+            raise ShadowIdentificationRunnerError(
+                "upstream exact-parity callback action trace differs"
+            )
+        for substep_index, raw_substep in enumerate(raw_action_trace):
+            callback_index = (
+                high_level_index * PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+                + substep_index
+            )
+            if (
+                not isinstance(raw_substep, dict)
+                or set(raw_substep)
+                != {
+                    "substep",
+                    "official_mjstate_integration_sha256",
+                }
+                or raw_substep.get("substep") != substep_index
+                or raw_substep.get(
+                    "official_mjstate_integration_sha256"
+                )
+                != official_ledger[callback_index]
+            ):
+                raise ShadowIdentificationRunnerError(
+                    "upstream exact-parity callback trace differs at %d"
+                    % callback_index
+                )
+    if (
+        callback.get("substep_trace_sha256")
+        != _sha256(_canonical(substep_trace))
+        or first_substep != substep_trace[0][0]
+        or last_substep != substep_trace[-1][-1]
+    ):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity callback trace hash or endpoints differ"
         )
     return parity
 
@@ -614,9 +774,11 @@ def _run_shadow(
         state_hashes = []
         observation_hashes = []
         callback_state_hashes = []
+        callback_state_read_only_ledger = []
         monitor_drift_exceptions = []
         for expected_step in replay.steps:
             current_callback_hashes = []
+            current_callback_state_read_only_records = []
 
             def callback(sim: Any, substep_index: int) -> None:
                 before_state = _official_integration_state(sim, runtime["np"])
@@ -661,6 +823,21 @@ def _run_shadow(
                     raise ShadowIdentificationRunnerError(
                         "read-only shadow callback mutated complete MuJoCo integration state"
                     )
+                current_callback_state_read_only_records.append(
+                    {
+                        "observation_index": (
+                            int(expected_step.step)
+                            * PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
+                            + int(substep_index)
+                        ),
+                        "high_level_index": int(expected_step.step),
+                        "inner_control_index": inner,
+                        "physics_substep_index": physics,
+                        "before_sha256": before_state_hash,
+                        "after_sha256": after_state_hash,
+                        "exact_array_equal": True,
+                    }
+                )
                 current_callback_hashes.append(after_state_hash)
 
             observation, reward, done, _ = env.step_with_substep_callback(
@@ -689,6 +866,9 @@ def _run_shadow(
             state_hashes.append(state_hash)
             observation_hashes.append(observation_hash)
             callback_state_hashes.extend(current_callback_hashes)
+            callback_state_read_only_ledger.extend(
+                current_callback_state_read_only_records
+            )
             proxy = evaluator._eef_proxy(runtime, observation)
             evaluator._update_eef_marker(env, proxy)
             if done and expected_step.step != len(replay.steps) - 1:
@@ -714,7 +894,18 @@ def _run_shadow(
         state_sequence_hash = _sha256(_canonical(state_hashes))
         observation_sequence_hash = _sha256(_canonical(observation_hashes))
         upstream_callback = upstream_parity["callback_replay"]
-        if state_sequence_hash != upstream_callback["state_sequence_sha256"]:
+        expected_action_states = [
+            step.simulator_state_sha256 for step in replay.steps
+        ]
+        if (
+            state_hashes != expected_action_states
+            or upstream_callback.get(
+                "action_boundary_state_sha256_ledger"
+            )
+            != expected_action_states
+            or state_sequence_hash
+            != upstream_callback["state_sequence_sha256"]
+        ):
             raise ShadowIdentificationRunnerError(
                 "shadow state sequence differs from upstream exact parity"
             )
@@ -722,12 +913,33 @@ def _run_shadow(
             raise ShadowIdentificationRunnerError(
                 "shadow observation sequence differs from upstream exact parity"
             )
+        if callback_state_hashes != upstream_callback[
+            "official_integration_state_sha256_ledger"
+        ] or _sha256(_canonical(callback_state_hashes)) != upstream_callback[
+            "official_integration_state_sequence_sha256"
+        ]:
+            raise ShadowIdentificationRunnerError(
+                "shadow callback integration-state sequence differs from upstream exact parity"
+            )
+        if state_hashes[-1] != upstream_callback[
+            "terminal_simulator_state_sha256"
+        ]:
+            raise ShadowIdentificationRunnerError(
+                "shadow terminal state differs from upstream exact parity"
+            )
         shadow = {
             "executed_action_count": len(state_hashes),
             "callback_count": len(callback_state_hashes),
             "expected_callback_count": expected_callback_count,
+            "action_boundary_state_sha256_ledger": state_hashes,
             "state_sequence_sha256": state_sequence_hash,
             "observation_sequence_sha256": observation_sequence_hash,
+            "callback_state_read_only_ledger": (
+                callback_state_read_only_ledger
+            ),
+            "callback_state_read_only_ledger_sha256": _sha256(
+                _canonical(callback_state_read_only_ledger)
+            ),
             "callback_state_sequence_sha256": _sha256(
                 _canonical(callback_state_hashes)
             ),
@@ -890,6 +1102,10 @@ def main() -> int:
             expected_callback_count=(
                 PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION * len(replay.steps)
             ),
+            historical_provenance=replay.provenance(),
+            expected_action_state_sha256_ledger=[
+                step.simulator_state_sha256 for step in replay.steps
+            ],
         )
         protocol, protocol_hashes, selection, runtime_path = (
             _load_bound_runtime_protocol(
@@ -980,7 +1196,18 @@ def main() -> int:
                             "complete_integration_state_read_only_audit"
                         ]["exact_array_equal"]
                     ),
-                    "complete_mujoco_integration_state_unchanged_by_callback": True,
+                    "complete_mujoco_integration_state_unchanged_by_callback": (
+                        len(shadow["callback_state_read_only_ledger"])
+                        == 5925
+                        and all(
+                            record["exact_array_equal"] is True
+                            and record["before_sha256"]
+                            == record["after_sha256"]
+                            for record in shadow[
+                                "callback_state_read_only_ledger"
+                            ]
+                        )
+                    ),
                     "static_queries_stop_at_first_registered_drift": True,
                     "contact_authority_is_mujoco_nonpositive_distance": True,
                     "no_action_or_control_mutation": True,

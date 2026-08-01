@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -430,10 +431,45 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
             "post_state_physical_contact_point_records": [],
             "physical_contact_distance_semantics": "mujoco_contact_dist_le_0",
         }
+        action_state_hashes = ["a" * 64]
+        callback_state_hashes = ["b" * 64] * 3
+        callback_state_ledger = [
+            {
+                "observation_index": index,
+                "high_level_index": 0,
+                "inner_control_index": 0,
+                "physics_substep_index": index,
+                "before_sha256": callback_state_hashes[index],
+                "after_sha256": callback_state_hashes[index],
+                "exact_array_equal": True,
+            }
+            for index in range(3)
+        ]
+
+        def digest(value):
+            return hashlib.sha256(
+                json.dumps(
+                    value,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                    allow_nan=False,
+                ).encode("utf-8")
+            ).hexdigest()
+
         shadow = {
             "executed_action_count": 1,
             "callback_count": 3,
             "expected_callback_count": 3,
+            "action_boundary_state_sha256_ledger": action_state_hashes,
+            "state_sequence_sha256": digest(action_state_hashes),
+            "observation_sequence_sha256": "c" * 64,
+            "callback_state_read_only_ledger": callback_state_ledger,
+            "callback_state_read_only_ledger_sha256": digest(
+                callback_state_ledger
+            ),
+            "callback_state_sequence_sha256": digest(callback_state_hashes),
+            "terminal_simulator_state_sha256": action_state_hashes[-1],
             "construction": {
                 "resolved_geometry": {
                     "robot_body_ids": [0, 1],
