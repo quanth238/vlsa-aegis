@@ -138,6 +138,8 @@ class HardCbfQpTest(unittest.TestCase):
                 weight_diagonal=weights,
             )
             self.assertTrue(production.valid, production)
+            self.assertTrue(np.all(production.qdot_safe >= velocity_lower))
+            self.assertTrue(np.all(production.qdot_safe <= velocity_upper))
             np.testing.assert_allclose(
                 production.qdot_safe, reference, rtol=2e-5, atol=2e-5
             )
@@ -170,6 +172,8 @@ class HardCbfQpTest(unittest.TestCase):
             np.asarray([0.2] + [0.5] * 6),
         )
         self.assertTrue(bounded.valid, bounded)
+        self.assertGreaterEqual(float(bounded.qdot_safe[0]), velocity_lower[0])
+        self.assertLessEqual(float(bounded.qdot_safe[0]), 0.2)
         self.assertAlmostEqual(float(bounded.qdot_safe[0]), 0.2, places=6)
 
         infeasible_rows = np.asarray([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])

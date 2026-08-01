@@ -882,87 +882,64 @@ def _validate_complete_run_receipt(
     output: Path,
     expected_receipt_identity: Mapping[str, Any],
     expected_arm_identities: Mapping[str, Mapping[str, Any]],
+    expected_source_action_count: int,
 ) -> Dict[str, Any]:
     from main.poisson_fullbody.contracts import (
-        final_is_resumable,
-        load_hashed_json,
-        sha256_file,
+        ArtifactContractError,
+        validate_resume_identity,
     )
-    from main.poisson_fullbody.result_schema import validate_active_canary_pair
+    from scripts.validate_poisson_run_artifacts import (
+        validate_complete_run_artifacts,
+    )
 
-    receipt = load_hashed_json(receipt_path)
-    if receipt.get("status") == "failed":
-        raise ActiveRunnerError(
-            "this run ID already has a failed immutable receipt; choose a new run ID"
+    expected_receipt_path = output.absolute() / "run_receipt.json"
+    if receipt_path.absolute() != expected_receipt_path:
+        raise ActiveRunnerError("complete receipt path differs from the run root")
+    try:
+        complete = validate_complete_run_artifacts(
+            output,
+            expected_source_action_count=expected_source_action_count,
         )
-    if (
-        receipt.get("schema_version")
-        != "vlsa_poisson_active_canary_run_receipt.v2"
-        or receipt.get("status") != "complete"
-        or receipt.get("scientific_result") is not False
-    ):
+    except (
+        ArtifactContractError,
+        KeyError,
+        OSError,
+        OverflowError,
+        TypeError,
+        ValueError,
+    ) as error:
         raise ActiveRunnerError(
-            "existing run receipt is not a reusable complete v2 receipt"
-        )
+            "existing complete run artifacts failed deep validation: %s" % error
+        ) from error
+
+    receipt = complete["receipt"]
     if receipt.get("identity") != expected_receipt_identity:
         raise ActiveRunnerError(
             "existing complete run receipt differs from current full identity"
         )
-    results: Dict[str, Any] = {}
-    arm_records = receipt.get("arm_results")
-    if not isinstance(arm_records, Mapping) or set(arm_records) != set(ARMS):
-        raise ActiveRunnerError("complete receipt arm-result inventory differs")
+    results = complete["results"]
+    if not isinstance(results, Mapping) or set(results) != set(ARMS):
+        raise ActiveRunnerError("deeply validated arm-result inventory differs")
+    if set(expected_arm_identities) != set(ARMS):
+        raise ActiveRunnerError("expected resume arm-identity inventory differs")
     for arm in ARMS:
-        expected_relative = "%s/%s/result.json" % (
-            expected_receipt_identity["case_id"],
-            arm,
-        )
-        record = arm_records.get(arm)
-        if not isinstance(record, Mapping) or record.get("relative_path") != expected_relative:
-            raise ActiveRunnerError("complete receipt arm path differs for %s" % arm)
-        final_path = output / expected_relative
-        resumable, reason = final_is_resumable(
-            final_path,
-            expected_arm_identities[arm],
-            identity_fields=RESUME_IDENTITY_FIELDS,
-            artifact_root=output,
-        )
-        if not resumable:
+        result = results[arm]
+        if not isinstance(result, Mapping):
             raise ActiveRunnerError(
-                "complete receipt arm %s is not resumable: %s" % (arm, reason)
+                "deeply validated arm result is invalid for %s" % arm
             )
-        if sha256_file(final_path) != record.get("sha256"):
-            raise ActiveRunnerError("complete receipt arm file hash differs for %s" % arm)
-        results[arm] = load_hashed_json(final_path)
-    pair_relative = "%s/pair_result.json" % expected_receipt_identity["case_id"]
-    if receipt.get("pair_result_relative_path") != pair_relative:
-        raise ActiveRunnerError("complete receipt pair-result path differs")
-    pair_path = output / pair_relative
-    pair = load_hashed_json(pair_path)
-    if sha256_file(pair_path) != receipt.get("pair_result_sha256"):
-        raise ActiveRunnerError("complete receipt pair-result file hash differs")
-    expected_pair = dict(
-        validate_active_canary_pair(
-            results["joint_velocity_adapter_only"],
-            results["joint_velocity_psf_link56"],
-        )
-    )
-    expected_pair.update(
-        {
-            "status": "complete",
-            "scientific_result": False,
-            "four_arm_109_case_study_complete": False,
-            "run_contract_sha256": expected_receipt_identity[
-                "run_contract_sha256"
-            ],
-        }
-    )
-    observed_pair_without_hash = {
-        key: value for key, value in pair.items() if key != "result_payload_sha256"
-    }
-    if observed_pair_without_hash != expected_pair:
-        raise ActiveRunnerError("complete receipt pair-result payload differs")
-    return results
+        try:
+            validate_resume_identity(
+                result,
+                expected_arm_identities[arm],
+                identity_fields=RESUME_IDENTITY_FIELDS,
+            )
+        except ArtifactContractError as error:
+            raise ActiveRunnerError(
+                "complete receipt arm %s differs from current identity: %s"
+                % (arm, error)
+            ) from error
+    return dict(results)
 
 
 def _historical_result_path(root: Path, relative_pattern: str, case_id: str) -> Path:
@@ -2223,8 +2200,8 @@ def _scientific_payload(
         raise ActiveRunnerError("complete action prefix hashes differ from historical source")
     seeds = [
         {"scope": "simulator", "name": "environment", "value": int(case["environment_seed"])},
-        {"scope": "numpy_rng", "name": "environment_construction_np_random_seed", "value": int(case["environment_seed"])},
-        {"scope": "historical_policy_noise", "name": "historical_pi05_query_noise_not_reexecuted", "value": int(case["policy_noise_seed"])},
+        {"scope": "numpy", "name": "environment_construction_np_random_seed", "value": int(case["environment_seed"])},
+        {"scope": "policy_noise", "name": "historical_pi05_query_noise_not_reexecuted", "value": int(case["policy_noise_seed"])},
     ]
     controller_contract = arm_outcome["restore"]["controller"]
     controller_initial_sha = arm_outcome["restore"]["controller_software_state"]["sha256"]
@@ -3329,6 +3306,7 @@ def main() -> int:
                 output=output,
                 expected_receipt_identity=receipt_identity,
                 expected_arm_identities=early_arm_identities,
+                expected_source_action_count=len(replay.actions),
             )
             print(
                 json.dumps(
@@ -3540,7 +3518,11 @@ def main() -> int:
                 # completion is subject to the same scientific schema as a full run.
                 validate_episode_result(attach_payload_hash(payload))
                 publish_episode_result(final_path, payload, artifact_root=output)
-                results[arm] = load_hashed_json(final_path)
+                from scripts.validate_poisson_run_artifacts import (
+                    validate_run_artifacts,
+                )
+
+                results[arm] = validate_run_artifacts(final_path, output)
         finally:
             if source_env is not None:
                 source_env.close()
@@ -3582,7 +3564,20 @@ def main() -> int:
             "pair_result_sha256": _file_sha256(pair_path),
             "elapsed_seconds": time.time() - started,
         }
+        from scripts.validate_poisson_run_artifacts import (
+            validate_complete_run_artifacts,
+        )
+
+        # The immutable complete receipt is the last publication.  Validate an
+        # exactly hashed candidate first so a producer/validator disagreement
+        # cannot leave a false ``status=complete`` receipt behind.
+        validate_complete_run_artifacts(
+            output,
+            candidate_receipt=attach_payload_hash(run_receipt),
+        )
         publish_hashed_json(receipt_path, run_receipt)
+        # Assert that the exact bytes now on disk pass the downstream path too.
+        validate_complete_run_artifacts(output)
         return 0
     except Exception as error:
         failure = {

@@ -2325,6 +2325,14 @@ def validate_active_canary_pair(
     for field in ("model", "sampler", "controller", "action_space", "measurement"):
         if adapter["runtime"].get(field) != psf["runtime"].get(field):
             _error("pair.runtime." + field, "differs between arms")
+    if (
+        adapter["runtime"].get("protocol_parameter_block_sha256")
+        != psf["runtime"].get("protocol_parameter_block_sha256")
+    ):
+        _error(
+            "pair.runtime.protocol_parameter_block_sha256",
+            "differs between arms",
+        )
 
     link56_reasons = []
     if adapter["completion_class"] != "executed" or psf["completion_class"] != "executed":

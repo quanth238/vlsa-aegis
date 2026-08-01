@@ -428,3 +428,44 @@ valid numeric and parity artifacts from clean commit
 from that commit, remain historical implementation evidence only. A new clean
 commit must rerun numeric, exact parity, and complete phase-correct shadow
 identification before active physics.
+
+## ADR-0031: Publish the active canary receipt last and validate raw ledgers deeply
+
+Accepted after adversarial review. A schema-valid compact arm result is not
+sufficient evidence for this first active canary. The immutable
+`run_receipt.json` is now published last and is reusable only after a deep
+validator has loaded both arm traces, reconstructed their scientific
+endpoints, recomputed the paired result, and verified every referenced file
+and payload hash. A candidate receipt is validated before publication, and the
+on-disk receipt is validated again after publication.
+
+For the registered first canary, internal evidence is fixed rather than
+self-described: 237 historical translation-only actions, the exact native
+`on(akita_black_bowl_1, plate_1)` goal, the moka-pot obstacle tree, the Panda
+grip site, the full declared robot--obstacle collision-pair population, and
+the settled simulator/controller identity. Contact authority is reconstructed
+from raw MuJoCo candidate ledgers. Every issued PSF command requires one solved
+QP and a command record binding nominal velocity, executed velocity,
+correction, normalization, and gripper. Provider-time and realized barrier
+conditions, static-obstacle validity, tracking, motion, task, CAR, and
+right-censoring are recomputed rather than trusted from summaries. An executed
+arm with any fail-closed record is invalid.
+
+OSQP solutions are canonicalized to the hard velocity bounds before the
+returned command and residual diagnostics are computed. This keeps the
+serialized command identical to the command accepted by the joint-velocity
+adapter even when the raw solver vector lies a few floating-point ulps outside
+an active bound.
+
+This decision does not overstate what trace schema v2 contains. Positive
+sample-to-OBB clearance cannot be independently regenerated without raw
+sample coordinates and obstacle OBB poses; compiled model arrays, field arrays,
+upstream manifests, protocol files, checkpoints, historical results, and H100
+prerequisite payloads also remain external byte-level trust boundaries.
+MuJoCo nonpositive contact is therefore the safety authority, and all external
+artifacts must be validated separately before scientific interpretation.
+
+Jobs `33494` and `33575`--`33577` predate this decision. Their artifacts are
+preserved but cannot authorize active physics. Numeric, exact parity, and
+complete shadow identification must rerun from one new clean commit and unused
+immutable root before the active canary can be submitted.

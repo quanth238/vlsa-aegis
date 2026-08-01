@@ -214,3 +214,77 @@ positive because the first real canary is development-only and all tracking,
 completion, baseline-hazard, and no-motion paths fail closed. They remain
 required before scaling beyond the first exploratory link-5/6 canary or making
 a broader full-body claim.
+
+## P01 complete-run integrity audit and superseded jobs
+
+Live Slurm inspection on 2026-08-01 established the exact terminal states of
+the superseded jobs. Identification job `33494` completed with exit `0:0` on
+commit `ad738550ef3a8fef18cab73139a4d1ecbe0d18c1`, but its source predates the
+tracking and deep-trace fixes, so its preserved artifact is implementation
+evidence only. On later clean commit
+`c7dd260dcb0023a3cc81b1209aa3b521ae6e8be1`, numeric job `33575` and parity
+job `33576` completed with exit `0:0`. Their immutable artifacts have these
+file/payload SHA-256 pairs:
+
+- numeric: `5f14fd126cd7e3839285c7e2b32b33aada90bf3925ad185f158c0fb3c3d04ef7` /
+  `5f15c8c1150dfcef833207577327e34109a854380ca88e7a64af4000734fb2f5`;
+- exact parity: `aeeb0132cca102a153e5e6cf12c19f188610b7fe56e7af5515b37e35e71b09b4` /
+  `8bf1e45762ce273b3be558efc1ae9a51a4bf174eaacbadd836b3709b58454e5a`.
+
+Identification job `33577` from `c7dd260` was inspected by exact job ID and
+canceled after 11 minutes 48 seconds because a new adversarial audit had
+already superseded its validator. It produced no final identification
+artifact. Nothing from jobs `33494` or `33575`--`33577` can authorize active
+physics on the next commit, and all old files remain preserved.
+
+The current complete-run gate now treats `run_receipt.json` as a receipt-last
+commit marker. Before it can be published or resumed, it deeply validates both
+arm traces, reconstructs the paired result, verifies file and payload hashes,
+and binds the exact 237-action/5,925-callback canary exposure. The audit closes
+the concrete rehash attacks found during independent review:
+
+- physical contact subsets, counts, flags, first records, and contact-clamped
+  `D_sim` are reconstructed from the settled/live/post MuJoCo candidate
+  ledgers;
+- the selected moka-pot geometry, every declared robot--obstacle collision
+  pair, literal link-5/link-6 identities, exact Panda grip site, settled state,
+  obstacle position, native BDDL goal, and translation-only source actions are
+  fixed to the registered canary;
+- every issued PSF command has one solved OSQP record, positive provider-time
+  `h` and `D_opt`, exhaustive protected-sample counts, bounded optimizer
+  diagnostics, and an execution record that binds nominal velocity, filtered
+  velocity, correction, normalization, and unchanged gripper;
+- every completed 2 ms callback has one exhaustive realized-CBF evaluation,
+  while restore, obstacle-static, joint-velocity, and tracking tolerances are
+  fixed rather than trusted from mutable result fields;
+- an `executed` arm cannot contain a fail-closed attempt, missing filter
+  update, invalid tracking, nonpositive barrier value, hidden contact, or
+  safety-by-no-execution path.
+
+The QP now canonicalizes a solver result to the hard joint-velocity bounds
+before recomputing residuals and returning the command. This prevents a
+few-ulp OSQP bound tolerance from creating different declared and executed
+commands. Independent adversarial audits found no remaining locally
+reconstructible claim-impacting false positive or producer/schema mismatch.
+The focused four-module suite passes 61 tests; the broader Poisson suite passes
+263 tests with 112 expected allocation-only skips. The final full local
+structural gate passes 439 tests with 130 expected allocation-only skips after
+the collision-pair assertion was added.
+
+The v2 trace still does not embed raw protected-sample coordinates, obstacle
+OBB poses, field arrays, compiled model arrays, or upstream manifests and
+checkpoint bytes. Consequently, the validator can recompute typed ledger and
+arithmetic consistency but cannot independently regenerate the exact positive
+sample-to-OBB `D_sim` magnitude from the run tree alone. MuJoCo nonpositive
+contact remains the safety authority. The run contract, selected manifest row,
+runtime protocol, checkpoint, historical result, and all three H100
+prerequisites must still be checked byte-for-byte outside the run receipt.
+
+The next immutable root is
+`/mnt/data/quanth/experiments/vlsa-aegis-poisson-feasibility/vlsa-poisson-link56-first-canary-20260801b`.
+After the final clean commit is pushed, the exact next operation is a fresh
+read-only VinUni preflight, followed by clean remote checkout synchronization
+and new numeric plus exact-parity submissions on that same commit. Shadow
+identification remains blocked until both gates are terminal and deeply
+validated. Active physics remains blocked until identification also proves an
+actionable warning at a scheduled 100 Hz update strictly before contact.

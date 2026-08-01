@@ -379,6 +379,15 @@ class HardCbfQp:
             diagnostics["candidate_finite"] = False
             return FilterResult(False, "invalid_qp_solution", None, diagnostics)
 
+        # OSQP may return a solution a few ulps beyond an active velocity
+        # bound while remaining inside the registered postcheck tolerance.
+        # Canonicalize the command to the actual hard bounds before computing
+        # CBF residuals or returning it to the controller.  The raw violation
+        # remains audited below; the postcheck therefore still fails closed if
+        # it exceeds the registered tolerance.
+        raw_candidate = candidate.copy()
+        candidate = np.clip(raw_candidate, lower_velocity, upper_velocity)
+
         if cbf_count:
             normalized_residual = scaled_rows @ candidate - scaled_lower
             minimum_residual = float(np.min(normalized_residual))
@@ -389,8 +398,12 @@ class HardCbfQp:
             minimum_residual = None
             raw_residual = np.empty(0, dtype=np.float64)
             minimum_raw_residual = None
-        lower_violation = float(np.max(np.maximum(lower_velocity - candidate, 0.0)))
-        upper_violation = float(np.max(np.maximum(candidate - upper_velocity, 0.0)))
+        lower_violation = float(
+            np.max(np.maximum(lower_velocity - raw_candidate, 0.0))
+        )
+        upper_violation = float(
+            np.max(np.maximum(raw_candidate - upper_velocity, 0.0))
+        )
         bound_violation = max(lower_violation, upper_violation)
         diagnostics.update(
             {
