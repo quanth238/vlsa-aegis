@@ -437,3 +437,48 @@ exact-parity, and complete schema-v3 identification in one unused immutable
 root. An actionable 100 Hz warning authorizes only the mandatory one-step
 counterfactual next. The manual static-box and adapter-only gates must then
 pass in order before the active link-5/6 canary.
+
+## P01 Stage-13 one-step counterfactual preflight
+
+Stage 13 now selects its intervention state from the first controller boundary
+scheduled at or after the physical warning: `B = ceil(W / 5) * 5`. This
+supersedes selecting a latest boundary derived backward from contact. In the
+preserved obsolete complete diagnostic, the late candidate `B = 4695` is
+outside the epsilon-buffered field for 352 of 1,531 protected samples. The
+warning-derived candidate `B = 4510` is diagnostic all-valid and precedes the
+physical contact boundary `C = 4697` by 187 simulator substeps.
+
+That same obsolete diagnostic indicates that the exact endpoint-derived
+nominal joint velocity appears to exceed the frozen `[-0.5, +0.5]` rad/s
+controller envelope on joints 2 and 4. The implementation therefore publishes
+a complete typed `preflight_inadmissible_nominal_velocity` negative when the
+fresh exact-boundary reconstruction confirms this condition. This completion
+class executes no QP and no arm physics, and it neither clips nor projects the
+nominal command into the registered envelope. It diagnoses controller-envelope
+incompatibility, not a Poisson failure. The obsolete evidence cannot establish
+the fresh outcome; same-commit H100 production and independent artifact
+validation remain mandatory.
+
+Stage 13 is scoped only to the preregistered one-step exact-state
+counterfactual and its typed admissibility outcome. It does not establish
+multi-step safety, useful retained motion, task preservation, or active-canary
+eligibility. If the fresh nominal velocity is out of bounds, Stage 14 and all
+active physics remain blocked. P01 remains `active`, never `passing`, pending
+fresh allocation-backed evidence. Local implementation checks are not a final
+Stage-13 result.
+
+The post-fix authority audit also closes two concrete artifact attacks. The
+Stage-13 protocol freezes the installed joint-velocity controller source,
+configuration, Panda XML, timing, scaling, gains, indices, and actuator
+identity; the independent consumer rehashes those installed files and fails
+closed when any is unavailable. The physical-model v3 contract fixes
+`nq`/`nv`/`na` and requires the flattened state to be exactly
+`[time, qpos, qvel, act]`, so a rehashed appended state tail is rejected in
+both executable and inadmissible branches. Only the seven Panda arm velocity
+entries are claim-bearing; other full-`nv` values are retained as producer
+diagnostics. The independent adversarial audit reports PASS. Local evidence is
+114 focused tests with 14 expected dependency skips, 368 broader Poisson tests
+with 117 expected skips, and a complete `./init.sh` gate of 544 tests with 135
+expected allocation-only skips. These remain implementation checks, so all
+upstream H100 prerequisites and Stage 13 must be produced afresh from the next
+exact clean commit.

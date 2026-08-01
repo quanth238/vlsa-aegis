@@ -599,3 +599,40 @@ counterfactual and manual gates is superseded. No active job was submitted
 under that exception. Separate immutable artifacts and independent validators
 must be implemented for both missing gates before an active submission can be
 authorized.
+
+## ADR-0036: Select Stage-13 from the warning and fail closed on an inadmissible nominal velocity
+
+Accepted before Stage-13 H100 execution. Any earlier design that chooses the
+latest controller boundary by working backward from contact is superseded.
+Stage 13 uses the physical warning `W` and the first scheduled 100 Hz boundary
+`B = ceil(W / 5) * 5`. The preserved obsolete complete diagnostic explains the
+change: contact-derived `B = 4695` is outside the epsilon-buffered Poisson
+field for 352 of 1,531 samples, whereas warning-derived `B = 4510` is
+diagnostic all-valid and is 187 simulator substeps before `C = 4697`.
+
+The exact endpoint-derived nominal `qdot` in that obsolete diagnostic also
+appears to exceed the frozen `[-0.5, +0.5]` rad/s controller envelope on joints
+2 and 4. Stage 13 must not rescue this input by clipping, projection, QP
+execution, or arm physics. If the fresh same-commit reconstruction confirms
+the violation, it publishes the complete typed negative
+`preflight_inadmissible_nominal_velocity`. That outcome means the recorded
+nominal transition is incompatible with the registered controller envelope;
+it is not evidence that the Poisson field or QP failed.
+
+The obsolete diagnostic motivates this fail-closed branch but cannot decide
+the fresh result. Only a same-commit H100 artifact that validates completely
+may establish the Stage-13 outcome. Stage 13 claims no more than the registered
+one-step exact-state counterfactual and typed admissibility result. An
+out-of-bounds nominal command blocks Stage 14 and active physics. P01 remains
+`active` and cannot become `passing` from implementation or synthetic evidence.
+
+The accepted artifact authority is also fail-closed. A physical-model v3
+contract fixes the compiled `nq`/`nv`/`na` dimensions and the exact flattened
+state layout `[time, qpos, qvel, act]`; appended user-data tails are forbidden.
+The live joint-velocity controller must match frozen installed source,
+configuration, Panda XML, cadence, scaling, gain, joint, and actuator
+identities, and the independent consumer rehashes the three installed files.
+Only the seven scalar-hinge Panda arm entries of the endpoint-derived velocity
+are independently claim-bearing. Non-arm full-`nv` values remain producer
+diagnostics and cannot support the Stage-13 result. These bindings apply to the
+complete inadmissible terminal as well as the executable paired branch.

@@ -22,10 +22,12 @@ for optional_file in \
   scripts/build_poisson_link56_manifest.py \
   scripts/run_poisson_active_canary.py \
   scripts/run_poisson_numeric_validation.py \
+  scripts/run_poisson_one_step_counterfactual.py \
   scripts/run_poisson_shadow_identification.py \
   scripts/run_poisson_shadow_parity.py \
   scripts/validate_aegis_assets.py \
   scripts/validate_aegis_run_artifacts.py \
+  scripts/validate_poisson_one_step_counterfactual_artifact.py \
   scripts/validate_poisson_run_artifacts.py \
   scripts/validate_poisson_runtime_prerequisites.py
 do

@@ -6,6 +6,7 @@ import hashlib
 import inspect
 import json
 import math
+import os
 from collections import deque
 from collections.abc import Mapping
 from typing import Any, Dict, Sequence, Tuple
@@ -189,10 +190,40 @@ def model_physics_contract(model_or_sim: Any) -> Dict[str, Any]:
             compiled_mjb_sha256 = hashlib.sha256(buffer.tobytes()).hexdigest()
     except ImportError:
         pass
+    nq = int(model.nq)
+    nv = int(model.nv)
+    na = int(model.na)
+    if nq <= 0 or nv <= 0 or na < 0:
+        raise ValueError("compiled MuJoCo state dimensions are invalid")
+    integration_state_size = None
+    try:
+        import mujoco
+
+        if isinstance(model, mujoco.MjModel):
+            integration_state_size = int(
+                mujoco.mj_stateSize(
+                    model, int(mujoco.mjtState.mjSTATE_INTEGRATION)
+                )
+            )
+    except ImportError:
+        pass
+    if integration_state_size is None:
+        # Structural unit-test doubles do not expose the official MuJoCo
+        # state API.  Their integration state has only the common prefix.
+        integration_state_size = 1 + nq + nv + na
+    if integration_state_size < 1 + nq + nv + na:
+        raise ValueError("official MuJoCo integration-state layout is truncated")
+    flattened_state_size = 1 + nq + nv + na
     payload = {
-        "schema_version": "vlsa_poisson_physical_model.v2",
+        "schema_version": "vlsa_poisson_physical_model.v3",
         "compiled_mjb_sha256": compiled_mjb_sha256,
         "compiled_mjb_bytes": compiled_mjb_bytes,
+        "nq": nq,
+        "nv": nv,
+        "na": na,
+        "mjstate_integration_size": integration_state_size,
+        "robosuite_flattened_state_size": flattened_state_size,
+        "robosuite_flattened_state_layout": "time_qpos_qvel_act_no_udd_tail",
         "fields": records,
         "options": option_records,
     }
@@ -203,6 +234,12 @@ def model_physics_contract(model_or_sim: Any) -> Dict[str, Any]:
         "option_field_count": len(option_records),
         "compiled_mjb_sha256": compiled_mjb_sha256,
         "compiled_mjb_bytes": compiled_mjb_bytes,
+        "nq": nq,
+        "nv": nv,
+        "na": na,
+        "mjstate_integration_size": integration_state_size,
+        "robosuite_flattened_state_size": flattened_state_size,
+        "robosuite_flattened_state_layout": "time_qpos_qvel_act_no_udd_tail",
     }
 
 
@@ -278,6 +315,30 @@ def joint_velocity_controller_contract(env: Any) -> Dict[str, Any]:
             module_sha256 = hashlib.sha256(stream.read()).hexdigest()
     except (OSError, TypeError) as error:
         raise ValueError("controller implementation source is unavailable") from error
+    config_path = os.path.join(
+        os.path.dirname(str(module_path)), "config", "joint_velocity.json"
+    )
+    try:
+        with open(config_path, "rb") as stream:
+            config_sha256 = hashlib.sha256(stream.read()).hexdigest()
+    except OSError:
+        # Structural test doubles intentionally have no installed Robosuite
+        # configuration file.  Production Stage-13 validation rejects this
+        # null value against its H100-frozen protocol authority.
+        config_sha256 = None
+    panda_xml_path = os.path.join(
+        os.path.dirname(os.path.dirname(str(module_path))),
+        "models",
+        "assets",
+        "robots",
+        "panda",
+        "robot.xml",
+    )
+    try:
+        with open(panda_xml_path, "rb") as stream:
+            panda_xml_sha256 = hashlib.sha256(stream.read()).hexdigest()
+    except OSError:
+        panda_xml_sha256 = None
 
     gains = {}
     for gain_name in ("kp", "ki", "kd"):
@@ -361,6 +422,8 @@ def joint_velocity_controller_contract(env: Any) -> Dict[str, Any]:
         "controller_class_module": module_name,
         "controller_class_qualname": qualified_name,
         "controller_implementation_file_sha256": module_sha256,
+        "controller_configuration_file_sha256": config_sha256,
+        "panda_robot_xml_file_sha256": panda_xml_sha256,
         "controller_name": str(controller.name),
         "environment_action_dim": int(env.env.action_dim),
         "arm_control_dim": int(controller.control_dim),

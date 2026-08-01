@@ -63,6 +63,7 @@ class ControllerBridgeTest(unittest.TestCase):
         class Model:
             nq = 9
             nv = 9
+            na = 0
             nbody = 2
             ngeom = 1
             njnt = 2

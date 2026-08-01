@@ -28,6 +28,23 @@ if np is not None:
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def physical_model_contract_evidence():
+    return {
+        "schema_version": "vlsa_poisson_physical_model.v3",
+        "sha256": "7" * 64,
+        "field_count": 128,
+        "option_field_count": 16,
+        "compiled_mjb_sha256": "8" * 64,
+        "compiled_mjb_bytes": 4096,
+        "nq": 7,
+        "nv": 7,
+        "na": 0,
+        "mjstate_integration_size": 15,
+        "robosuite_flattened_state_size": 15,
+        "robosuite_flattened_state_layout": "time_qpos_qvel_act_no_udd_tail",
+    }
+
+
 class ProtectedSampleIdentity(dict):
     """JSON-native BodySample stand-in for dependency-free contract tests."""
 
@@ -390,6 +407,7 @@ class ShadowProtectedSamplingValidationTest(unittest.TestCase):
             ),
             "callback_state_sequence_sha256": cls._digest(callback_states),
             "construction": {
+                "physical_model": physical_model_contract_evidence(),
                 "resolved_geometry": {
                     "link56_geom_ids": [5, 6],
                     "obstacle_geom_ids": [100],
@@ -923,6 +941,7 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
             "callback_state_sequence_sha256": digest(callback_state_hashes),
             "terminal_simulator_state_sha256": action_state_hashes[-1],
             "construction": {
+                "physical_model": physical_model_contract_evidence(),
                 "resolved_geometry": {
                     "robot_body_ids": [0, 1],
                     "robot_body_names": ["robot0_link5", "robot0_link6"],

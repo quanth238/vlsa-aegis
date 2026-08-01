@@ -696,6 +696,15 @@ def _prepare_shadow_runtime(
             PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION
         ),
     )
+    from main.poisson_fullbody.controller_bridge import model_physics_contract
+
+    try:
+        physical_model = model_physics_contract(env.sim)
+    except (RuntimeError, TypeError, ValueError) as error:
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "compiled physical-model authority construction failed: %s" % error
+        ) from error
     construction_state_after = _official_integration_state(
         env.sim, runtime["np"]
     )
@@ -712,6 +721,7 @@ def _prepare_shadow_runtime(
     construction = {
         "active_obstacle_name": obstacle_name,
         "contact_model_authority_sha256": authority["authority_sha256"],
+        "physical_model": physical_model,
         "robot_root_body_name": robot_root_name,
         "robot_root_body_ids": list(robot_roots),
         "arm_dof_indices": list(arm_dof_indices),

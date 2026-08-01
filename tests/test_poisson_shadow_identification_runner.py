@@ -10,6 +10,7 @@ from unittest import mock
 from tests.test_poisson_shadow_identification import (
     ProtectedSampleIdentity,
     differential_audit_config,
+    physical_model_contract_evidence,
     protected_sample_identities,
     protected_sampling_evidence,
     valid_differential_audit,
@@ -680,6 +681,7 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                     "obstacle_geom_names": ["moka_pot_geom"],
                     "collision_enabled_pairs": [[5, 100], [6, 100]],
                 },
+                "physical_model": physical_model_contract_evidence(),
                 "field_bundle": field_sampling,
                 "static_field_drift_thresholds": {
                     "translation_m": 1e-6,
@@ -754,6 +756,9 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
             upstream["callback_replay"]["observation_sequence_sha256"],
         )
         construction = result["construction"]
+        self.assertEqual(
+            construction["physical_model"], physical_model_contract_evidence()
+        )
         self.assertEqual(
             construction["settled_link56_differential_audit"],
             differential_audit,
@@ -1390,6 +1395,30 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 lambda value: value["construction"][
                     "complete_integration_state_read_only_audit"
                 ].__setitem__("after_sha256", "different-state"),
+            ),
+            (
+                "physical-model digest",
+                lambda value: value["construction"]["physical_model"].__setitem__(
+                    "sha256", "not-a-sha256"
+                ),
+            ),
+            (
+                "compiled-model digest",
+                lambda value: value["construction"]["physical_model"].__setitem__(
+                    "compiled_mjb_sha256", "not-a-sha256"
+                ),
+            ),
+            (
+                "physical-model exact structure",
+                lambda value: value["construction"]["physical_model"].__setitem__(
+                    "unregistered", True
+                ),
+            ),
+            (
+                "physical-model field population",
+                lambda value: value["construction"]["physical_model"].__setitem__(
+                    "field_count", 0
+                ),
             ),
             (
                 "registered sample coverage",

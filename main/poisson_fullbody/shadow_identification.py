@@ -164,6 +164,91 @@ def _artifact_sha256(value: Any, label: str) -> str:
     return value
 
 
+def _validate_physical_model_contract(value: Any) -> Dict[str, Any]:
+    """Validate the exact summary returned by ``model_physics_contract``.
+
+    The opaque ``sha256`` binds every readable compiled-model field and option;
+    the official MJB digest is an independent complete compiled-model identity.
+    A live Stage-13 allocation must recompute this same contract from MuJoCo.
+    """
+
+    contract = _artifact_mapping(value, "construction physical model")
+    expected_fields = {
+        "schema_version",
+        "sha256",
+        "field_count",
+        "option_field_count",
+        "compiled_mjb_sha256",
+        "compiled_mjb_bytes",
+        "nq",
+        "nv",
+        "na",
+        "mjstate_integration_size",
+        "robosuite_flattened_state_size",
+        "robosuite_flattened_state_layout",
+    }
+    if set(contract) != expected_fields:
+        raise ShadowIdentificationError(
+            "construction physical-model contract fields differ"
+        )
+    if contract.get("schema_version") != "vlsa_poisson_physical_model.v3":
+        raise ShadowIdentificationError(
+            "construction physical-model schema differs"
+        )
+    _artifact_sha256(
+        contract.get("sha256"), "construction physical-model SHA-256"
+    )
+    _artifact_sha256(
+        contract.get("compiled_mjb_sha256"),
+        "construction compiled-MJB SHA-256",
+    )
+    _artifact_integer(
+        contract.get("field_count"),
+        "construction physical-model field_count",
+        minimum=1,
+    )
+    _artifact_integer(
+        contract.get("option_field_count"),
+        "construction physical-model option_field_count",
+        minimum=1,
+    )
+    _artifact_integer(
+        contract.get("compiled_mjb_bytes"),
+        "construction compiled-MJB byte count",
+        minimum=1,
+    )
+    nq = _artifact_integer(
+        contract.get("nq"), "construction physical-model nq", minimum=1
+    )
+    nv = _artifact_integer(
+        contract.get("nv"), "construction physical-model nv", minimum=1
+    )
+    na = _artifact_integer(
+        contract.get("na"), "construction physical-model na", minimum=0
+    )
+    integration_size = _artifact_integer(
+        contract.get("mjstate_integration_size"),
+        "construction physical-model integration-state size",
+        minimum=1,
+    )
+    flattened_size = _artifact_integer(
+        contract.get("robosuite_flattened_state_size"),
+        "construction physical-model flattened-state size",
+        minimum=1,
+    )
+    common_size = 1 + nq + nv + na
+    if (
+        integration_size < common_size
+        or flattened_size != common_size
+        or contract.get("robosuite_flattened_state_layout")
+        != "time_qpos_qvel_act_no_udd_tail"
+    ):
+        raise ShadowIdentificationError(
+            "construction physical-model state layout differs"
+        )
+    return dict(contract)
+
+
 def _artifact_physical_contact(record: Mapping[str, Any], label: str) -> bool:
     raw_distance = record.get("contact_distance_m")
     if (
@@ -1165,6 +1250,7 @@ def validate_shadow_replay_record(
     construction = _artifact_mapping(
         record.get("construction"), "shadow construction"
     )
+    _validate_physical_model_contract(construction.get("physical_model"))
     resolved = _artifact_mapping(
         construction.get("resolved_geometry"), "resolved geometry"
     )

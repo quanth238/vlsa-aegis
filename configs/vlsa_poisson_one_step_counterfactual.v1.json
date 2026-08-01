@@ -1,0 +1,370 @@
+{
+  "schema_version": "vlsa_poisson_one_step_counterfactual_protocol.v1",
+  "protocol_id": "vlsa-poisson-link56-one-step-counterfactual-v1",
+  "purpose": "allocation_backed_exact_state_counterfactual_gate_before_any_active_controller_trial",
+  "case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "required_split": "bringup_canary",
+    "selected_obstacle_name": "moka_pot_obstacle_1",
+    "protected_robot_body_names": [
+      "robot0_link5",
+      "robot0_link6"
+    ],
+    "required_nominal_contact_body_names": [
+      "robot0_link5"
+    ]
+  },
+  "prerequisites": {
+    "selection_protocol_relative_path": "configs/vlsa_poisson_link56_feasibility.v1.json",
+    "selection_schema_version": "vlsa_poisson_link56_feasibility_protocol.v1",
+    "selection_protocol_id": "vlsa-poisson-link56-aegis-car-109-v1",
+    "selection_raw_file_sha256": "c4a552c88391e05222b3d2ecfefa581b8f2279f515eb18dc16be1c23b008ab44",
+    "runtime_protocol_relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v2.json",
+    "runtime_schema_version": "vlsa_poisson_runtime_protocol.v2",
+    "runtime_protocol_id": "vlsa-poisson-link56-canary-parameters-v2",
+    "runtime_raw_file_sha256": "72a2035cc98c02e0e3fc6d6fa193498c9a3999742e6442ebd31b1945e3b1bc93",
+    "runtime_semantic_protocol_sha256": "7f38e57653a7d0cf0a5aa2260a01b1f08f605b36a99cb4d08dd6b6e4a6ef8dda",
+    "runtime_parameter_block_sha256": "4bc752e6e10ebe81c03540ea9c46b257d8ede48f534f39f76740644dca638caa",
+    "numeric_validation_schema_version": "vlsa_poisson_numeric_validation.v1",
+    "exact_parity_schema_version": "vlsa_poisson_shadow_parity.v2",
+    "shadow_identification_schema_version": "vlsa_poisson_shadow_identification.v3",
+    "same_clean_git_commit_required": true,
+    "complete_final_artifacts_required": true,
+    "actionable_identification_warning_required": true,
+    "identification_authorization": {
+      "primary_registered_warning_signal_kind": "cbf_lhs_negative",
+      "primary_warning_robot_geom_must_equal_first_contact_robot_geom": true,
+      "invalid_query_warning_cannot_authorize": true,
+      "warning_physical_boundary": "warning_observation_index_plus_1",
+      "contact_physical_boundary": "phase_correct_live_N_or_post_N_plus_1",
+      "require_positive_phase_correct_lead": true,
+      "next_filter_boundary_formula": "ceil(warning_physical_boundary/5)*5",
+      "require_next_filter_boundary_strictly_before_C": true
+    },
+    "required_shadow_construction_bindings": [
+      "contact_model_authority_sha256",
+      "physical_model_v3_compiled_identity_and_exact_state_layout_contract",
+      "resolved_geometry",
+      "field_bundle_hashes",
+      "ordered_protected_sample_ledger_and_sha256",
+      "protected_sample_count_and_surface_components",
+      "full_robot_measurement_sampling_exact_sample_ledger_and_sha256",
+      "seven_arm_dof_indices",
+      "settled_mjstate_integration_sha256",
+      "settled_link56_differential_audit_binding_sha256",
+      "settled_link56_differential_audit_classification_ledger_sha256",
+      "settled_link56_differential_audit_validation"
+    ],
+    "partial_artifact_policy": "reject_without_interpretation"
+  },
+  "contact_boundary": {
+    "authority": "mujoco_physics_substep_contact_dist_le_zero",
+    "target": "protected_robot_body_to_selected_obstacle",
+    "target_pair_binding": "exact_first_link56_contact_robot_geom_and_selected_obstacle_geom_from_validated_shadow_identification",
+    "trace_callback_semantics": "callback_index_k_is_post_integration_state_at_physical_boundary_k_plus_1",
+    "initial_settled_state_physical_boundary": 0,
+    "post_contact_observation_mapping": "observation_N_maps_to_physical_boundary_N_plus_1",
+    "live_solver_observation_mapping": "observation_N_maps_to_physical_boundary_N",
+    "contact_boundary_symbol": "C",
+    "require_unique_first_target_contact_boundary": true
+  },
+  "counterfactual_boundary": {
+    "boundary_symbol": "B",
+    "warning_boundary_symbol": "W",
+    "selection_rule": "first_registered_filter_boundary_at_or_after_W_and_strictly_before_C",
+    "formula": "W=warning_observation_index+1;B=ceil(W/5)*5;B<C",
+    "require_B_nonnegative": true,
+    "physics_substeps_per_filter_update": 5,
+    "physics_timestep_s": 0.002,
+    "counterfactual_horizon_substeps": 5,
+    "counterfactual_horizon_s": 0.01
+  },
+  "pairing": {
+    "prefix_execution": "replay_exact_historical_OSC_action_prefix_once",
+    "required_prefix_authorities": [
+      "historical_executed_action_sequence_sha256",
+      "exact_parity_callback_prefix_sha256",
+      "shadow_identification_callback_prefix_sha256"
+    ],
+    "state_capture": "capture_full_mjstate_integration_at_physical_boundaries_B_and_B_plus_5",
+    "counterfactual_restore": "restore_same_exact_B_state_into_two_fresh_joint_velocity_environments",
+    "controller_internal_state": "reset_and_synchronize_before_each_arm",
+    "field_and_samples": "same_settled_static_field_and_same_ordered_protected_sample_ledger",
+    "randomness": "no_online_policy_query_and_no_unpaired_randomness",
+    "exact_state_hash_equality_required": true,
+    "arm_start_state_requirement": "after_controller_reset_and_synchronization_each_arm_official_and_flattened_state_hashes_equal_source_state_at_B"
+  },
+  "joint_velocity_controller_authority": {
+    "authority_source": "VinUni_H100_safety_vla_robosuite_installation_and_frozen_Panda_XML",
+    "independent_installed_source_rehash_required": true,
+    "expected_restore_controller_contract": {
+      "controller_class_module": "robosuite.controllers.joint_vel",
+      "controller_class_qualname": "JointVelocityController",
+      "controller_implementation_file_sha256": "57b7ac41a89a1c6d867b58e87ae4a1acf5f0966214d43175cf270aa1676a9294",
+      "controller_configuration_file_sha256": "422a7de8bf357eb6b8b7a8875e904e8d08e62f33b6fcc48c608c9ec89d89da2e",
+      "panda_robot_xml_file_sha256": "263c0f9abacbc8686027ec5545bee144481cbcf5cc74aa421cbe3227030cd95e",
+      "controller_name": "JOINT_VELOCITY",
+      "environment_action_dim": 8,
+      "arm_control_dim": 7,
+      "control_frequency_hz": 100,
+      "control_timestep_s": 0.01,
+      "physics_timestep_s": 0.002,
+      "physics_substeps_per_control": 5,
+      "normalized_input_lower": [-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0],
+      "normalized_input_upper": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+      "physical_output_lower_rad_s": [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5],
+      "physical_output_upper_rad_s": [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+      "velocity_gain_kp": [480.0, 480.0, 480.0, 480.0, 480.0, 72.0, 72.0],
+      "velocity_gain_ki": [2.4, 2.4, 2.4, 2.4, 2.4, 0.36, 0.36],
+      "velocity_gain_kd": [0.48, 0.48, 0.48, 0.48, 0.48, 0.072, 0.072],
+      "controller_policy_frequency_hz": 100,
+      "velocity_limits_rad_s": [-1, 1],
+      "controller_joint_index": {
+        "joints": [0, 1, 2, 3, 4, 5, 6],
+        "qpos": [0, 1, 2, 3, 4, 5, 6],
+        "qvel": [0, 1, 2, 3, 4, 5, 6]
+      },
+      "arm_qpos_indexes": [0, 1, 2, 3, 4, 5, 6],
+      "arm_qvel_indexes": [0, 1, 2, 3, 4, 5, 6],
+      "arm_joint_ids": [0, 1, 2, 3, 4, 5, 6],
+      "arm_joint_names": ["robot0_joint1", "robot0_joint2", "robot0_joint3", "robot0_joint4", "robot0_joint5", "robot0_joint6", "robot0_joint7"],
+      "arm_actuator_ids": [0, 1, 2, 3, 4, 5, 6],
+      "arm_actuator_names": ["robot0_torq_j1", "robot0_torq_j2", "robot0_torq_j3", "robot0_torq_j4", "robot0_torq_j5", "robot0_torq_j6", "robot0_torq_j7"],
+      "arm_actuator_lower": [-80.0, -80.0, -80.0, -80.0, -80.0, -12.0, -12.0],
+      "arm_actuator_upper": [80.0, 80.0, 80.0, 80.0, 80.0, 12.0, 12.0],
+      "compiled_arm_actuator_ctrlrange": [[-80.0, 80.0], [-80.0, 80.0], [-80.0, 80.0], [-80.0, 80.0], [-80.0, 80.0], [-12.0, 12.0], [-12.0, 12.0]],
+      "interpolator": null
+    }
+  },
+  "nominal_velocity_estimator": {
+    "method": "mujoco_mj_differentiatePos_full_nv",
+    "qpos_endpoints": [
+      "qpos_at_B",
+      "qpos_at_B_plus_5"
+    ],
+    "interval_s": 0.01,
+    "full_nv_producer_diagnostic_retained": true,
+    "arm_velocity_dof_slice": "registered_seven_panda_arm_velocity_dofs",
+    "expected_arm_qpos_indices": [0, 1, 2, 3, 4, 5, 6],
+    "independent_claim_bearing_reconstruction": "seven_scalar_hinge_arm_slice_only",
+    "nonarm_values_validation_scope": "producer_diagnostic_not_independently_reconstructed_no_claim",
+    "finite_values_required": true,
+    "arm_velocity_lower_rad_s": [-0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5],
+    "arm_velocity_upper_rad_s": [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+    "out_of_bounds_policy": "inadmissible_no_hidden_clipping",
+    "direct_qpos_subtraction_prohibited": true
+  },
+  "arms": {
+    "nominal_measured_velocity": {
+      "command": "hold_registered_qdot_nom_for_all_five_physics_substeps",
+      "safety_filter": "disabled",
+      "post_B_invalid_field_query_policy": "retain_typed_query_and_complete_fixed_counterfactual_exposure"
+    },
+    "poisson_filtered_velocity": {
+      "command": "solve_hard_PSF_QP_once_at_B_and_hold_qdot_safe_for_all_five_physics_substeps",
+      "safety_filter": "link5_link6_protected_samples_against_selected_static_obstacle",
+      "post_B_invalid_field_query_policy": "retain_typed_query_complete_fixed_exposure_and_fail_strong_gate"
+    },
+    "gripper_policy": {
+      "source_action_index_formula": "floor(B/25)",
+      "source_field": "historical_executed_action_dimension_6",
+      "required_evidence": [
+        "source_action_index",
+        "source_action_7d",
+        "source_action_sha256",
+        "exact_gripper_value",
+        "exact_gripper_value_sha256"
+      ],
+      "execution": "same_exact_frozen_value_in_both_arms_at_all_five_substeps"
+    }
+  },
+  "boundary_B_preflight": {
+    "query_population": "every_exact_ordered_link5_link6_sample_bound_to_shadow_v3",
+    "require_query_count_equal_bound_sample_count": true,
+    "require_all_queries_valid": true,
+    "require_every_h_strictly_positive": true,
+    "require_minimum_D_sim_strictly_positive": true,
+    "require_zero_robot_to_selected_obstacle_physical_contacts": true,
+    "require_selected_obstacle_static_admissibility": true,
+    "require_selected_obstacle_body_linear_and_angular_speed_within_runtime_v2_thresholds": true,
+    "failure_policy": "apparatus_failure_no_QP_no_arm_physics_no_scientific_interpretation"
+  },
+  "qp_execution": {
+    "solve_count": 1,
+    "solve_boundary": "B",
+    "hold_solution_physics_substeps": 5,
+    "constraint_rows": "exactly_one_CBF_row_per_bound_ordered_protected_sample",
+    "hard_constraints": true,
+    "slack_enabled": false,
+    "require_solved_status": true,
+    "joint_velocity_bounds": "exact_runtime_v2_bounds",
+    "joint_position_constraints": "exact_runtime_v2_joint_limit_margin_and_gain",
+    "expected_arm_q_min_rad": [-2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973],
+    "expected_arm_q_max_rad": [2.8973, 1.7628, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973],
+    "joint_limit_match_absolute_tolerance_rad": 1e-12,
+    "require_independent_CBF_residual_reconstruction": true,
+    "require_independent_bound_and_joint_limit_postcheck": true,
+    "independent_postproducer_reference_check": {
+      "execution": "separate_artifact_consumer_after_producer_exit",
+      "solver": "cvxpy_osqp",
+      "eps_abs": 1e-9,
+      "eps_rel": 1e-9,
+      "max_iterations": 20000,
+      "qdot_linf_tolerance_rad_s": 2e-5,
+      "required_before_scientific_interpretation": true
+    },
+    "arbitrary_or_subset_safe_command_policy": "reject"
+  },
+  "exposure_and_tracking": {
+    "applies_to_arms": [
+      "nominal_measured_velocity",
+      "poisson_filtered_velocity"
+    ],
+    "required_completed_physical_boundaries": "B_plus_1_through_B_plus_5_inclusive",
+    "required_substep_count_per_arm": 5,
+    "early_stop_policy": "failed_or_inconclusive_never_strong",
+    "tracking_comparison": "each_post_integration_measured_arm_qvel_against_held_arm_command",
+    "require_each_arm_linf_and_cumulative_rmse_within_registered_thresholds": true
+  },
+  "required_evidence": {
+    "per_physics_substep": [
+      "physical_boundary",
+      "integration_state_sha256",
+      "qpos",
+      "qvel",
+      "commanded_arm_qdot",
+      "normalized_joint_velocity_action_8d",
+      "measured_arm_qdot",
+      "ordered_sample_h_m2",
+      "ordered_sample_grad_h_m",
+      "ordered_field_query_validity_and_reason",
+      "ordered_sample_D_opt_m",
+      "ordered_full_robot_sample_distance_m",
+      "minimum_D_sim_m",
+      "selected_obstacle_translation_drift_m",
+      "selected_obstacle_rotation_drift_rad",
+      "selected_obstacle_surface_drift_m",
+      "selected_obstacle_max_body_linear_speed_m_s",
+      "selected_obstacle_max_body_angular_speed_rad_s",
+      "all_mujoco_contact_pairs_with_distances",
+      "exact_ordered_nonpositive_physical_contact_subset",
+      "target_contact_present",
+      "any_robot_to_selected_obstacle_contact_present",
+      "any_shifted_robot_to_selected_obstacle_contact_present"
+    ],
+    "at_boundary_B": [
+      "qdot_nom_full_nv",
+      "qdot_nom_arm_slice",
+      "instantaneous_source_qvel_full_nv_at_B",
+      "instantaneous_source_arm_qvel_at_B",
+      "estimated_minus_instantaneous_arm_qvel",
+      "ordered_sample_points_world",
+      "ordered_sample_point_jacobians",
+      "nominal_CBF_residuals_m2_per_s",
+      "safe_CBF_residuals_m2_per_s",
+      "qdot_safe",
+      "correction_norm",
+      "QP_status",
+      "QP_iterations",
+      "QP_postcheck",
+      "one_CBF_row_per_exact_bound_sample",
+      "joint_velocity_bound_rows",
+      "joint_position_constraint_rows"
+    ],
+    "at_boundary_B_simulator_clearance": [
+      "ordered_full_robot_sample_distance_m",
+      "registered_full_robot_sample_count",
+      "registered_full_robot_sample_ledger_sha256",
+      "certified_full_robot_coverage_radius_m",
+      "minimum_D_sim_m"
+    ],
+    "trend_reference_acceptance_evidence": [
+      "first_order_predicted_h_after_horizon_m2",
+      "actual_h_after_each_physics_substep_m2",
+      "nominal_D_sim_at_B_m",
+      "nominal_minimum_D_sim_over_horizon_m",
+      "psf_h_after_horizon_m2",
+      "psf_minus_nominal_h_after_horizon_m2",
+      "psf_warning_sample_h_strictly_greater_than_nominal_at_horizon"
+    ],
+    "diagnostic_only": [
+      "prediction_error_m2_without_acceptance_threshold"
+    ]
+  },
+  "acceptance": {
+    "qp_safe_residual_minimum": -5e-7,
+    "joint_velocity_tracking_linf_max_rad_s": 0.05,
+    "joint_velocity_tracking_rmse_max_rad_s": 0.02,
+    "maximum_safe_arm_invalid_field_queries": 0,
+    "maximum_incomplete_physics_substeps": 0,
+    "require_selected_obstacle_static_admissibility": true,
+    "static_field_admissibility_scopes": {
+      "poisson_filtered_velocity": "boundary_B_through_B_plus_5_inclusive",
+      "nominal_with_selected_obstacle_contact": "boundary_B_through_strictly_before_phase_correct_C_any_nom_excluding_contact_consequence",
+      "nominal_without_selected_obstacle_contact": "boundary_B_through_B_plus_5_inclusive"
+    },
+    "tracking_admissibility_scopes": {
+      "poisson_filtered_velocity": "physical_boundaries_B_plus_1_through_B_plus_5_inclusive",
+      "nominal_with_selected_obstacle_contact": "physical_boundaries_B_plus_1_through_strictly_before_phase_correct_C_any_nom_excluding_contact_consequence",
+      "nominal_without_selected_obstacle_contact": "physical_boundaries_B_plus_1_through_B_plus_5_inclusive"
+    },
+    "minimum_filter_correction_norm_rad_s": 0.0001,
+    "minimum_safe_command_norm_rad_s": 0.05,
+    "minimum_safe_to_nominal_command_norm_ratio": 0.25,
+    "minimum_safe_measured_joint_motion_rad": 0.0001,
+    "minimum_safe_measured_motion_to_command_integral_ratio": 0.25,
+    "local_motion_interpretation": "nonzero_local_joint_motion_not_nominal_direction_progress_or_task_success",
+    "require_safe_arm_minimum_h_nonnegative_at_every_substep": true,
+    "require_safe_arm_minimum_D_sim_strictly_positive_at_every_substep": true,
+    "require_safe_arm_target_contact_absent": true,
+    "require_safe_arm_all_robot_to_selected_obstacle_contacts_absent": true,
+    "require_nominal_arm_target_contact_for_strong_result": true,
+    "require_nominal_contact_within_registered_five_substep_horizon": true,
+    "require_safe_clearance_strictly_greater_than_nominal_at_nominal_contact_boundary": true,
+    "prediction_error_acceptance_threshold": null,
+    "prediction_error_policy": "diagnostic_only_no_post_hoc_tolerance",
+    "strong_result_label": "one_interval_target_contact_prevention_observed",
+    "trend_only_label": "one_interval_local_feasibility_with_unsafe_nominal_trend",
+    "trend_only_definition": {
+      "sample": "boundary_B_sample_on_identification_target_robot_geom_with_minimum_nominal_CBF_residual",
+      "predicted_condition": "h_B_plus_0.01_grad_h_B_J_B_qdot_nom_strictly_less_than_h_B",
+      "actual_nominal_sample_condition": "same_sample_h_nominal_at_B_plus_5_strictly_less_than_h_B",
+      "actual_simulator_condition": "nominal_minimum_D_sim_over_five_substeps_strictly_less_than_D_sim_at_B",
+      "psf_comparison_condition": "same_sample_h_psf_at_B_plus_5_strictly_greater_than_same_sample_h_nominal_at_B_plus_5",
+      "combination": "all_registered_trend_conditions_and_no_nominal_target_contact"
+    },
+    "trend_only_quality_prerequisites": [
+      "complete_exposure",
+      "exact_paired_start",
+      "qp_valid",
+      "both_tracking_valid",
+      "static_field_admissible"
+    ],
+    "trend_only_gate_status": "passes_stage_13_as_one_interval_local_feasibility_only_when_all_local_and_active_trend_conditions_pass",
+    "other_outcome_label": "inconclusive_or_failed_with_typed_reason"
+  },
+  "result_contract": {
+    "schema_version": "vlsa_poisson_one_step_counterfactual_result.v1",
+    "write_policy": "atomic_only_after_complete_core_validation",
+    "receipt_policy": "write_validation_receipt_last",
+    "resume_policy": "existing_output_path_rejected_new_immutable_run_required",
+    "execution_environment": "VinUni_H100_Slurm_allocation_only",
+    "policy_server": "forbidden",
+    "required_provenance": [
+      "clean_exact_git_commit_and_empty_status",
+      "one_step_protocol_raw_and_semantic_sha256",
+      "numeric_prerequisite_file_and_payload_sha256",
+      "parity_prerequisite_file_and_payload_sha256",
+      "shadow_identification_file_and_payload_sha256",
+      "manifest_and_manifest_row_sha256",
+      "historical_result_file_payload_and_action_ledger_sha256",
+      "physical_model_and_contact_model_sha256",
+      "runtime_parameter_and_field_bundle_sha256",
+      "slurm_job_id_host_and_single_H100_device"
+    ],
+    "independent_validator": "separate_artifact_consumer_required_after_producer_exit",
+    "post_job_acceptance": "exact_slurm_job_must_be_COMPLETED_with_exit_0_0_before_scientific_interpretation",
+    "claim_scope": "one_100hz_interval_local_geometry_field_jacobian_qp_and_tracking_feasibility_not_task_success_or_full_episode_safety",
+    "preflight_inadmissible_terminal": "complete_scientific_negative_with_source_prefix_and_gripper_evidence_but_without_QP_or_paired_arm_physics"
+  }
+}
