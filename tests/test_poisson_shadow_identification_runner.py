@@ -13,6 +13,7 @@ from tests.test_poisson_shadow_identification import (
     physical_model_contract_evidence,
     protected_sample_identities,
     protected_sampling_evidence,
+    synthetic_integration_state_sha256,
     valid_differential_audit,
 )
 
@@ -405,6 +406,12 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
             },
             "historical": historical,
             "ordinary_replay": {
+                "settled_official_integration_state": {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": "e" * 64,
+                },
                 "executed_action_count": 2,
                 "expected_state_match_count": 2,
                 "action_boundary_state_sha256_ledger": action_state_hashes,
@@ -413,6 +420,12 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "terminal_simulator_state_sha256": "d" * 64,
             },
             "callback_replay": {
+                "settled_official_integration_state": {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": "e" * 64,
+                },
                 "executed_action_count": 2,
                 "callback_count": 50,
                 "expected_callback_count": 50,
@@ -436,6 +449,7 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "all_historical_post_step_states_exact": True,
                 "ordinary_and_callback_states_exact": True,
                 "ordinary_and_callback_observations_exact": True,
+                "ordinary_and_callback_boundary_0_mjstate_integration_exact": True,
                 "reward_done_goal_exact": True,
                 "full_callback_exposure": True,
                 "ordinary_step_path_unmodified": True,
@@ -474,6 +488,28 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         wrong_historical = json.loads(json.dumps(record))
         wrong_historical["historical"] = {"identity": "other"}
         tampered_records.append(wrong_historical)
+        missing_settled_authority = json.loads(json.dumps(record))
+        missing_settled_authority["callback_replay"].pop(
+            "settled_official_integration_state"
+        )
+        tampered_records.append(missing_settled_authority)
+        wrong_settled_hash = json.loads(json.dumps(record))
+        wrong_settled_hash["callback_replay"][
+            "settled_official_integration_state"
+        ]["sha256"] = "f" * 64
+        tampered_records.append(wrong_settled_hash)
+        bool_settled_length = json.loads(json.dumps(record))
+        for arm in ("ordinary_replay", "callback_replay"):
+            bool_settled_length[arm][
+                "settled_official_integration_state"
+            ]["state_vector_length"] = True
+        tampered_records.append(bool_settled_length)
+        bool_settled_boundary = json.loads(json.dumps(record))
+        for arm in ("ordinary_replay", "callback_replay"):
+            bool_settled_boundary[arm][
+                "settled_official_integration_state"
+            ]["physical_boundary"] = False
+        tampered_records.append(bool_settled_boundary)
         wrong_trace = json.loads(json.dumps(record))
         wrong_trace["callback_replay"]["substep_trace"][0][0][
             "substep"
@@ -547,6 +583,60 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                     runner._require_upstream_parity(
                         Path("unused-parity.json"), **arguments
                     )
+
+    @mock.patch(
+        "main.poisson_fullbody.shadow_identification.BodySample",
+        ProtectedSampleIdentity,
+    )
+    def test_shadow_refuses_external_settled_state_mismatch_before_replay(self):
+        from scripts import run_poisson_shadow_identification as runner
+        from scripts import run_poisson_shadow_parity as parity
+
+        env = SimpleNamespace(close=mock.Mock())
+        prepared = (
+            env,
+            object(),
+            {},
+            (),
+            (),
+            object(),
+            object(),
+            {
+                "complete_integration_state_read_only_audit": {
+                    "state_vector_length": 15,
+                    "before_sha256": "a" * 64,
+                    "after_sha256": "a" * 64,
+                }
+            },
+        )
+        upstream = {
+            "callback_replay": {
+                "settled_official_integration_state": {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": "b" * 64,
+                }
+            }
+        }
+        with mock.patch.object(
+            runner, "_prepare_shadow_runtime", return_value=prepared
+        ), mock.patch.object(parity, "_check_step") as check_step:
+            with self.assertRaisesRegex(
+                runner.ShadowIdentificationRunnerError,
+                "settled state differs from upstream exact parity",
+            ):
+                runner._run_shadow(
+                    evaluator=object(),
+                    runtime={},
+                    case={},
+                    replay=SimpleNamespace(steps=(object(),)),
+                    protocol={},
+                    protocol_hashes=SimpleNamespace(),
+                    upstream_parity=upstream,
+                )
+        check_step.assert_not_called()
+        env.close.assert_called_once()
 
     @mock.patch(
         "main.poisson_fullbody.shadow_identification.BodySample",
@@ -810,6 +900,12 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         upstream = {
             "result_payload_sha256": "parity-payload",
             "callback_replay": {
+                "settled_official_integration_state": {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": synthetic_integration_state_sha256(),
+                },
                 "action_boundary_state_sha256_ledger": state_hashes,
                 "state_sequence_sha256": parity._sha256(
                     parity._canonical(state_hashes)
@@ -846,7 +942,7 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         audit_config = differential_audit_config()
         protected_samples = protected_sample_identities()
         field_sampling = protected_sampling_evidence(protected_samples)
-        settled_state_sha256 = "c" * 64
+        settled_state_sha256 = synthetic_integration_state_sha256()
         differential_audit, differential_validation = valid_differential_audit(
             protected_samples,
             settled_state_sha256,
@@ -895,9 +991,12 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 ),
                 "settled_measurement": settled_measurement,
                 "complete_integration_state_read_only_audit": {
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
                     "exact_array_equal": True,
+                    "state_vector_length": 15,
                     "before_sha256": settled_state_sha256,
                     "after_sha256": settled_state_sha256,
+                    "semantics": "fixture complete official state remained unchanged",
                 },
             },
         )
@@ -992,6 +1091,8 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "surface_m": 1e-6,
             },
             "differential_audit_config": audit_config,
+            "expected_settled_integration_state_sha256": settled_state_sha256,
+            "expected_settled_integration_state_length": 15,
         }
         validate_shadow_replay_record(serialized, **validation_arguments)
 
@@ -1240,6 +1341,7 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "all_5925_callbacks_observed": True,
                 "historical_state_reward_done_goal_exact": True,
                 "upstream_observation_sequence_exact": True,
+                "settled_mjstate_integration_matches_upstream_exact_parity": True,
                 "complete_mujoco_integration_state_unchanged_by_construction": True,
                 "complete_mujoco_integration_state_unchanged_by_callback": True,
                 "all_link56_protected_sample_point_jacobians_validated": True,
@@ -1594,6 +1696,14 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 lambda value: value["construction"][
                     "complete_integration_state_read_only_audit"
                 ].__setitem__("after_sha256", "different-state"),
+            ),
+            (
+                "collusive construction state rewrite",
+                lambda value: value["construction"][
+                    "complete_integration_state_read_only_audit"
+                ].update(
+                    {"before_sha256": "d" * 64, "after_sha256": "d" * 64}
+                ),
             ),
             (
                 "physical-model digest",

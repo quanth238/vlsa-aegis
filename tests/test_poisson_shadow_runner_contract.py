@@ -72,11 +72,27 @@ class ShadowRunnerContractTest(unittest.TestCase):
         publish_call = self.runner.index("publish_hashed_json(output, payload)")
         self.assertLess(callback_call, publish_call)
         self.assertIn(
-            'SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v2"',
+            'SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v3"',
             self.runner,
         )
         self.assertIn("scientific_result", self.runner)
         self.assertIn("no Poisson correction or safety efficacy", self.runner)
+
+    def test_boundary_zero_official_state_is_captured_before_replay_steps(self):
+        ordinary_start = self.runner.index("def _run_ordinary(")
+        callback_start = self.runner.index("def _run_callback(")
+        main_start = self.runner.index("def main()")
+        ordinary = self.runner[ordinary_start:callback_start]
+        callback = self.runner[callback_start:main_start]
+        for arm in (ordinary, callback):
+            self.assertLess(
+                arm.index("settled_official_state = _official_integration_state("),
+                arm.index("for expected_step in replay.steps:"),
+            )
+            self.assertIn('"physical_boundary": 0', arm)
+            self.assertIn('"mujoco_state_specification": "mjSTATE_INTEGRATION"', arm)
+            self.assertIn('"state_vector_length"', arm)
+            self.assertIn('"settled_official_integration_state"', arm)
 
     def test_mig_inventory_uses_exactly_one_h100_identity_row(self):
         with mock.patch.object(

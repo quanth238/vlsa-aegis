@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only independent consumer for shadow-identification v3 artifacts.
+"""Read-only independent consumer for shadow-identification v4 artifacts.
 
 The producer and this consumer must run in different Slurm allocations.  This
 program never publishes or modifies an experiment artifact: its only output is
@@ -28,9 +28,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-EXPECTED_SCHEMA = "vlsa_poisson_shadow_identification.v3"
+EXPECTED_SCHEMA = "vlsa_poisson_shadow_identification.v4"
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v3"
 EXPECTED_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
 ACTION_COUNT = 237
@@ -42,7 +42,7 @@ CALLBACKS_PER_ACTION = (
 CALLBACK_COUNT = ACTION_COUNT * CALLBACKS_PER_ACTION
 PHYSICS_TIMESTEP_S = 0.002
 FILTER_UPDATE_PERIOD = 5
-CONSUMER_SCHEMA = "vlsa_poisson_shadow_identification_consumer.v1"
+CONSUMER_SCHEMA = "vlsa_poisson_shadow_identification_consumer.v2"
 IDENTIFICATION_EVIDENCE_TIER = (
     "allocation_backed_exact_replay_shadow_identification"
 )
@@ -65,7 +65,7 @@ REGISTERED_EVALUATION_PYTHON = (
     "/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 )
 DIFFERENTIAL_FAILURE_SCHEMA = (
-    "vlsa_poisson_shadow_identification_differential_audit_failure_evidence.v1"
+    "vlsa_poisson_shadow_identification_differential_audit_failure_evidence.v2"
 )
 DIFFERENTIAL_FAILURE_PHASE = (
     "settled_link56_protected_sample_differential_audit_validation"
@@ -214,6 +214,7 @@ IDENTIFICATION_ACCEPTANCE_FIELDS = frozenset(
         "all_5925_callbacks_observed",
         "historical_state_reward_done_goal_exact",
         "upstream_observation_sequence_exact",
+        "settled_mjstate_integration_matches_upstream_exact_parity",
         "complete_mujoco_integration_state_unchanged_by_construction",
         "complete_mujoco_integration_state_unchanged_by_callback",
         "all_link56_protected_sample_point_jacobians_validated",
@@ -242,6 +243,7 @@ PARITY_ACCEPTANCE_FIELDS = frozenset(
         "all_historical_post_step_states_exact",
         "ordinary_and_callback_states_exact",
         "ordinary_and_callback_observations_exact",
+        "ordinary_and_callback_boundary_0_mjstate_integration_exact",
         "reward_done_goal_exact",
         "full_callback_exposure",
         "ordinary_step_path_unmodified",
@@ -1317,9 +1319,9 @@ def _validate_failure_envelope(
                 audit,
                 expected_samples=ordered_samples,
                 expected_arm_dof_indices=list(range(7)),
-                expected_integration_state_sha256=integration.get(
-                    "source_initial_sha256"
-                ),
+                expected_integration_state_sha256=external_authority["parity"][
+                    "callback_replay"
+                ]["settled_official_integration_state"]["sha256"],
                 expected_differential_audit_config=external_authority[
                     "runtime_protocol"
                 ]["differential_audit"],
@@ -1335,14 +1337,14 @@ def _validate_failure_envelope(
                 "retained failed differential audit receipt differs"
             )
         failure_validation = dict(reconstructed)
-        # The external inputs bind the protocol, history, parity, and producer
-        # allocation, but they do not independently supply the settled-state
-        # hash or exact protected-sample point ledger.  This reconstruction can
-        # establish producer-local receipt consistency only; it cannot promote
-        # that failure into a verified mechanism diagnosis.
+        # Parity v3 independently binds the settled official integration state,
+        # but it does not supply the exact protected-sample point ledger.  This
+        # reconstruction can establish state-bound receipt consistency only;
+        # it cannot promote the producer-local sample geometry into a verified
+        # mechanism diagnosis.
         diagnostic_kind = (
             "producer_reported_differential_audit_failure_with_"
-            "unbound_sample_state_authority"
+            "unbound_sample_geometry_authority"
         )
 
     return {
@@ -1363,10 +1365,12 @@ def _validate_failure_envelope(
         },
         "retained_differential_audit_validation": failure_validation,
         "retained_differential_audit_validation_scope": (
-            "producer_local_structural_and_receipt_consistency_only"
+            "external_settled_state_with_producer_local_sample_geometry"
             if failure_validation is not None
             else None
         ),
+        "external_settled_state_authority_bound": failure_validation is not None,
+        "external_sample_geometry_authority_bound": False,
         "external_sample_state_authority_bound": False,
         "mechanism_diagnosis_verified": False,
         "partial_shadow_interpreted": False,
@@ -1932,6 +1936,52 @@ def validate_shadow_identification_artifact(
     parity_callback = _mapping(
         parity.get("callback_replay"), "exact-parity callback replay"
     )
+    parity_settled_state = _mapping(
+        parity_callback.get("settled_official_integration_state"),
+        "exact-parity boundary-0 official integration state",
+    )
+    if (
+        set(parity_settled_state)
+        != {
+            "physical_boundary",
+            "mujoco_state_specification",
+            "state_vector_length",
+            "sha256",
+        }
+        or isinstance(parity_settled_state.get("physical_boundary"), bool)
+        or not isinstance(parity_settled_state.get("physical_boundary"), int)
+        or parity_settled_state.get("physical_boundary") != 0
+        or parity_settled_state.get("mujoco_state_specification")
+        != "mjSTATE_INTEGRATION"
+        or isinstance(parity_settled_state.get("state_vector_length"), bool)
+        or not isinstance(parity_settled_state.get("state_vector_length"), int)
+        or parity_settled_state.get("state_vector_length") <= 0
+    ):
+        raise ShadowIdentificationArtifactError(
+            "exact-parity boundary-0 integration-state authority is invalid"
+        )
+    parity_settled_state_sha256 = _require_sha256(
+        parity_settled_state.get("sha256"),
+        "exact-parity boundary-0 integration-state hash",
+    )
+    shadow_construction = _mapping(
+        shadow.get("construction"), "shadow construction"
+    )
+    construction_read_only = _mapping(
+        shadow_construction.get("complete_integration_state_read_only_audit"),
+        "shadow construction read-only audit",
+    )
+    if (
+        construction_read_only.get("before_sha256")
+        != parity_settled_state_sha256
+        or construction_read_only.get("after_sha256")
+        != parity_settled_state_sha256
+        or construction_read_only.get("state_vector_length")
+        != parity_settled_state.get("state_vector_length")
+    ):
+        raise ShadowIdentificationArtifactError(
+            "identification settled state differs from exact parity"
+        )
     callback_ledger = shadow.get("callback_state_read_only_ledger")
     callback_ledger_sha256 = _sha256_bytes(_canonical(callback_ledger))
     if (
@@ -1987,6 +2037,12 @@ def validate_shadow_identification_artifact(
                 ),
             },
             differential_audit_config=runtime_protocol["differential_audit"],
+            expected_settled_integration_state_sha256=(
+                parity_settled_state_sha256
+            ),
+            expected_settled_integration_state_length=(
+                parity_settled_state["state_vector_length"]
+            ),
         )
     except (ShadowIdentificationError, KeyError, TypeError, ValueError) as error:
         raise ShadowIdentificationArtifactError(

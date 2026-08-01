@@ -5,7 +5,7 @@ The compact episode schema is necessary but not sufficient: a self-consistent
 ``result.json`` could otherwise disagree with the 2 ms audit ledger it cites.
 This validator loads the referenced ``active_arm_audit_trace``, verifies both
 layers of hashes, and reconstructs action, contact, motion, task, and optimizer
-endpoints from serialized ledgers.  Trace v3 also embeds the exact protected
+endpoints from serialized ledgers.  Trace v4 also embeds the exact protected
 link-surface sample ledger and the complete settled-state differential audit.
 The coverage component of ``D_sim`` still cannot be regenerated from the run
 tree alone because obstacle OBB poses are not serialized; its exact
@@ -47,7 +47,7 @@ from main.poisson_fullbody.jacobians import (  # noqa: E402
 )
 
 
-TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v3"
+TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v4"
 TRACE_ARTIFACT_TYPE = "active_arm_audit_trace"
 RUN_RECEIPT_SCHEMA_VERSION = "vlsa_poisson_active_canary_run_receipt.v2"
 ACTIVE_ARMS = (

@@ -18,9 +18,9 @@ set -euo pipefail
 EVALUATION_PYTHON="${EVALUATION_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}"
 REGISTERED_REMOTE_REPO="/home/quanth/working_space/vlsa-aegis-poisson-feasibility"
 REGISTERED_RESULT_ROOT="/mnt/data/quanth/experiments/vlsa-aegis-poisson-feasibility"
-PROTOCOL_RELATIVE_PATH="configs/vlsa_poisson_one_step_counterfactual.v1.json"
+PROTOCOL_RELATIVE_PATH="configs/vlsa_poisson_one_step_counterfactual.v2.json"
 SELECTION_RELATIVE_PATH="configs/vlsa_poisson_link56_feasibility.v1.json"
-RUNTIME_RELATIVE_PATH="configs/vlsa_poisson_runtime_protocol.canary.v2.json"
+RUNTIME_RELATIVE_PATH="configs/vlsa_poisson_runtime_protocol.canary.v3.json"
 
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${RESULT_ROOT:?RESULT_ROOT is required}"

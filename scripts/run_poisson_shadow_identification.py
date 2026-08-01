@@ -30,9 +30,9 @@ import traceback
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v3"
+SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v4"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v3"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
 INNER_UPDATES_PER_HIGH_LEVEL_ACTION = 5
 PHYSICS_SUBSTEPS_PER_INNER_UPDATE = 5
@@ -40,7 +40,7 @@ PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION = (
     INNER_UPDATES_PER_HIGH_LEVEL_ACTION * PHYSICS_SUBSTEPS_PER_INNER_UPDATE
 )
 DIFFERENTIAL_AUDIT_FAILURE_EVIDENCE_SCHEMA = (
-    "vlsa_poisson_shadow_identification_differential_audit_failure_evidence.v1"
+    "vlsa_poisson_shadow_identification_differential_audit_failure_evidence.v2"
 )
 DIFFERENTIAL_AUDIT_FAILURE_PHASE = (
     "settled_link56_protected_sample_differential_audit_validation"
@@ -377,6 +377,7 @@ def _require_upstream_parity(
             "all_historical_post_step_states_exact",
             "ordinary_and_callback_states_exact",
             "ordinary_and_callback_observations_exact",
+            "ordinary_and_callback_boundary_0_mjstate_integration_exact",
             "reward_done_goal_exact",
             "full_callback_exposure",
             "ordinary_step_path_unmodified",
@@ -484,6 +485,43 @@ def _require_upstream_parity(
     official_ledger = callback.get(
         "official_integration_state_sha256_ledger"
     )
+    ordinary_settled_official_state = ordinary.get(
+        "settled_official_integration_state"
+    )
+    callback_settled_official_state = callback.get(
+        "settled_official_integration_state"
+    )
+    if (
+        not isinstance(ordinary_settled_official_state, dict)
+        or set(ordinary_settled_official_state)
+        != {
+            "physical_boundary",
+            "mujoco_state_specification",
+            "state_vector_length",
+            "sha256",
+        }
+        or isinstance(
+            ordinary_settled_official_state.get("physical_boundary"), bool
+        )
+        or not isinstance(
+            ordinary_settled_official_state.get("physical_boundary"), int
+        )
+        or ordinary_settled_official_state.get("physical_boundary") != 0
+        or ordinary_settled_official_state.get("mujoco_state_specification")
+        != "mjSTATE_INTEGRATION"
+        or isinstance(
+            ordinary_settled_official_state.get("state_vector_length"), bool
+        )
+        or not isinstance(
+            ordinary_settled_official_state.get("state_vector_length"), int
+        )
+        or ordinary_settled_official_state.get("state_vector_length") <= 0
+        or not valid_sha256(ordinary_settled_official_state.get("sha256"))
+        or ordinary_settled_official_state != callback_settled_official_state
+    ):
+        raise ShadowIdentificationRunnerError(
+            "upstream exact-parity settled official integration state differs"
+        )
     if (
         not isinstance(official_ledger, list)
         or len(official_ledger) != expected_callback_count
@@ -1006,6 +1044,23 @@ def _run_shadow(
             protocol=protocol,
             protocol_hashes=protocol_hashes,
         )
+        external_settled_state = upstream_parity["callback_replay"][
+            "settled_official_integration_state"
+        ]
+        construction_read_only = construction[
+            "complete_integration_state_read_only_audit"
+        ]
+        if (
+            construction_read_only["before_sha256"]
+            != external_settled_state["sha256"]
+            or construction_read_only["after_sha256"]
+            != external_settled_state["sha256"]
+            or construction_read_only["state_vector_length"]
+            != external_settled_state["state_vector_length"]
+        ):
+            raise ShadowIdentificationRunnerError(
+                "shadow construction settled state differs from upstream exact parity"
+            )
         state_hashes = []
         observation_hashes = []
         callback_state_hashes = []
@@ -1215,6 +1270,12 @@ def _run_shadow(
                 ),
             },
             differential_audit_config=protocol["differential_audit"],
+            expected_settled_integration_state_sha256=(
+                external_settled_state["sha256"]
+            ),
+            expected_settled_integration_state_length=(
+                external_settled_state["state_vector_length"]
+            ),
         )
         return shadow
     finally:
@@ -1434,6 +1495,14 @@ def main() -> int:
                     "upstream_observation_sequence_exact": (
                         shadow["observation_sequence_sha256"]
                         == expected_observation_hash
+                    ),
+                    "settled_mjstate_integration_matches_upstream_exact_parity": (
+                        shadow["construction"][
+                            "complete_integration_state_read_only_audit"
+                        ]["before_sha256"]
+                        == upstream_parity["callback_replay"][
+                            "settled_official_integration_state"
+                        ]["sha256"]
                     ),
                     "complete_mujoco_integration_state_unchanged_by_construction": (
                         shadow["construction"][

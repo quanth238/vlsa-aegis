@@ -35,8 +35,8 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
-EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v3"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v3"
+EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v4"
 EXPECTED_RESULT_SCHEMA = "vlsa_poisson_one_step_counterfactual_result.v1"
 ARM_NAMES = ("nominal", "psf")
 PHYSICS_SUBSTEPS_PER_OSC_ACTION = 25
@@ -217,7 +217,7 @@ def _protocol_paths(root: Path, protocol_path: Path) -> Tuple[Path, Dict[str, An
     protocol = _load_json_object(path, "one-step protocol")
     if (
         protocol.get("schema_version")
-        != "vlsa_poisson_one_step_counterfactual_protocol.v1"
+        != "vlsa_poisson_one_step_counterfactual_protocol.v2"
         or protocol.get("result_contract", {}).get("schema_version")
         != EXPECTED_RESULT_SCHEMA
     ):
@@ -2954,7 +2954,7 @@ def main() -> int:
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=Path("configs/vlsa_poisson_one_step_counterfactual.v1.json"),
+        default=Path("configs/vlsa_poisson_one_step_counterfactual.v2.json"),
     )
     parser.add_argument("--historical-result-root", required=True, type=Path)
     parser.add_argument("--numeric-validation-result", required=True, type=Path)
@@ -3678,6 +3678,16 @@ def main() -> int:
             raise OneStepRunnerError(
                 "identification callback state authority differs from exact parity"
             )
+        identification_settled_state_sha256 = identification_construction[
+            "complete_integration_state_read_only_audit"
+        ]["before_sha256"]
+        if (
+            identification_settled_state_sha256
+            != parity_callback["settled_official_integration_state"]["sha256"]
+        ):
+            raise OneStepRunnerError(
+                "identification settled state authority differs from exact parity"
+            )
         authority["dynamic_authority"] = {
             "case": {
                 "case_id": case["case_id"],
@@ -3709,6 +3719,9 @@ def main() -> int:
                 },
             },
             "parity": {
+                "settled_official_integration_state": parity_callback[
+                    "settled_official_integration_state"
+                ],
                 "executed_action_count": parity_callback["executed_action_count"],
                 "action_boundary_state_sha256_ledger": parity_callback[
                     "action_boundary_state_sha256_ledger"

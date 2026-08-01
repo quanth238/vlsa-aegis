@@ -10,6 +10,9 @@ sample, DOF, state, and protocol identities.
 import hashlib
 import json
 import math
+from fractions import Fraction
+import struct
+import sys
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
@@ -18,9 +21,14 @@ from main.poisson_fullbody.robot_samples import BodySample
 
 
 PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA = (
-    "vlsa_poisson_protected_sample_differential_audit.v1"
+    "vlsa_poisson_protected_sample_differential_audit.v2"
 )
 DIFFERENTIAL_AUDIT_HASH_FIELD = "audit_payload_sha256"
+BINARY64_UNIT_ROUNDOFF = 2.0 ** -53
+LEGACY_ARM_TANGENT_TOLERANCE_RAD_S = 1.0e-10
+ARM_TANGENT_ROUNDTRIP_CRITERION = (
+    "scalar_hinge_two_stage_exact_fraction_binary64_roundoff"
+)
 _DIFFERENTIAL_CONFIG_KEYS = (
     "state_source",
     "perturbation_integrator",
@@ -28,7 +36,15 @@ _DIFFERENTIAL_CONFIG_KEYS = (
     "point_jacobian_absolute_tolerance_m_per_rad",
     "point_jacobian_relative_tolerance",
     "point_jacobian_near_zero_frobenius_m_per_rad",
-    "arm_tangent_reconstruction_tolerance_rad_s",
+    "arm_tangent_roundtrip_criterion",
+    "binary64_unit_roundoff",
+    "expected_mujoco_version",
+    "expected_arm_dof_indices",
+    "expected_arm_joint_ids",
+    "expected_arm_qpos_indices",
+    "expected_arm_joint_names",
+    "required_arm_joint_type",
+    "legacy_arm_tangent_reconstruction_tolerance_rad_s",
     "nonarm_tangent_leakage_tolerance_rad_s",
     "joint_velocity_directions_rad_s",
     "coupled_eta_ladder_s",
@@ -243,6 +259,9 @@ def _parse_differential_config(config: Mapping[str, Any]) -> Dict[str, Any]:
             "fail_on_no_certified_stencil_or_detected_cancellation"
         ),
         "failure_policy": "fail_before_active_physics_retain_artifact",
+        "arm_tangent_roundtrip_criterion": ARM_TANGENT_ROUNDTRIP_CRITERION,
+        "expected_mujoco_version": "3.2.3",
+        "required_arm_joint_type": "hinge",
     }
     for key, expected in literals.items():
         if output[key] != expected:
@@ -252,13 +271,50 @@ def _parse_differential_config(config: Mapping[str, Any]) -> Dict[str, Any]:
         "point_jacobian_absolute_tolerance_m_per_rad",
         "point_jacobian_relative_tolerance",
         "point_jacobian_near_zero_frobenius_m_per_rad",
-        "arm_tangent_reconstruction_tolerance_rad_s",
+        "binary64_unit_roundoff",
+        "legacy_arm_tangent_reconstruction_tolerance_rad_s",
         "nonarm_tangent_leakage_tolerance_rad_s",
         "coupled_absolute_tolerance_m2_per_s",
         "coupled_relative_tolerance",
         "coupled_near_zero_m2_per_s",
     ):
         output[key] = _positive_number(output[key], "differential_audit_config.%s" % key)
+    if output["binary64_unit_roundoff"] != BINARY64_UNIT_ROUNDOFF:
+        raise DifferentialAuditError(
+            "binary64_unit_roundoff must equal the registered IEEE-754 value"
+        )
+    if (
+        output["legacy_arm_tangent_reconstruction_tolerance_rad_s"]
+        != LEGACY_ARM_TANGENT_TOLERANCE_RAD_S
+    ):
+        raise DifferentialAuditError(
+            "legacy tangent diagnostic must remain 1e-10 rad/s"
+        )
+    expected_topology = list(range(7))
+    for key in (
+        "expected_arm_dof_indices",
+        "expected_arm_joint_ids",
+        "expected_arm_qpos_indices",
+    ):
+        observed = output[key]
+        if (
+            not isinstance(observed, list)
+            or any(
+                isinstance(item, bool) or not isinstance(item, int)
+                for item in observed
+            )
+            or observed != expected_topology
+        ):
+            raise DifferentialAuditError(
+                "differential_audit_config.%s must equal the registered Panda topology"
+                % key
+            )
+    expected_joint_names = ["robot0_joint%d" % index for index in range(1, 8)]
+    if output["expected_arm_joint_names"] != expected_joint_names:
+        raise DifferentialAuditError(
+            "differential_audit_config.expected_arm_joint_names must equal "
+            "the registered Panda topology"
+        )
     if output["same_trilinear_cell_required"] is not True:
         raise DifferentialAuditError("same_trilinear_cell_required must be true")
     directions = output["joint_velocity_directions_rad_s"]
@@ -342,6 +398,264 @@ def _arm_dofs(value: Sequence[int], nv: Optional[int] = None) -> List[int]:
     if nv is not None and any(item >= nv for item in result):
         raise DifferentialAuditError("arm DOF index is outside model.nv")
     return result
+
+
+def _arm_scalar_hinge_roundoff_authority(
+    mujoco: Any,
+    model: Any,
+    base_qpos: Any,
+    source_state: Sequence[float],
+    arm_dofs: Sequence[int],
+    config: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Bind scalar-hinge qpos values directly to the official state vector."""
+
+    mujoco_version = getattr(mujoco, "__version__", None)
+    if mujoco_version != config["expected_mujoco_version"]:
+        raise DifferentialAuditError(
+            "MuJoCo version differs from the registered roundoff derivation"
+        )
+    hinge_type = int(mujoco.mjtJoint.mjJNT_HINGE)
+    joint_ids = []
+    joint_names = []
+    dof_joint_ids = []
+    joint_dof_addresses = []
+    joint_qpos_addresses = []
+    qpos_indices = []
+    positions = []
+    for dof in arm_dofs:
+        joint_id = int(model.dof_jntid[dof])
+        joint_name = mujoco.mj_id2name(
+            model, mujoco.mjtObj.mjOBJ_JOINT, joint_id
+        )
+        if not isinstance(joint_name, str) or not joint_name:
+            raise DifferentialAuditError("arm joint name is unavailable")
+        if int(model.jnt_type[joint_id]) != hinge_type:
+            raise DifferentialAuditError(
+                "arm tangent roundoff bound requires scalar hinge joints"
+            )
+        if int(model.jnt_dofadr[joint_id]) != int(dof):
+            raise DifferentialAuditError(
+                "arm tangent roundoff joint/DOF authority is inconsistent"
+            )
+        qpos_index = int(model.jnt_qposadr[joint_id])
+        if qpos_index < 0 or qpos_index >= int(model.nq):
+            raise DifferentialAuditError("arm qpos index is outside model.nq")
+        value = float(base_qpos[qpos_index])
+        if not math.isfinite(value):
+            raise DifferentialAuditError("base arm qpos is non-finite")
+        joint_ids.append(joint_id)
+        joint_names.append(joint_name)
+        dof_joint_ids.append(int(model.dof_jntid[dof]))
+        joint_dof_addresses.append(int(model.jnt_dofadr[joint_id]))
+        joint_qpos_addresses.append(int(model.jnt_qposadr[joint_id]))
+        qpos_indices.append(qpos_index)
+        positions.append(value)
+    if len(set(joint_ids)) != 7 or len(set(qpos_indices)) != 7:
+        raise DifferentialAuditError(
+            "arm tangent roundoff authority must contain seven scalar joints"
+        )
+    if list(arm_dofs) != config["expected_arm_dof_indices"]:
+        raise DifferentialAuditError("arm DOFs differ from registered topology")
+    if joint_ids != config["expected_arm_joint_ids"]:
+        raise DifferentialAuditError("arm joint IDs differ from registered topology")
+    if qpos_indices != config["expected_arm_qpos_indices"]:
+        raise DifferentialAuditError("arm qpos indices differ from registered topology")
+    if joint_names != config["expected_arm_joint_names"]:
+        raise DifferentialAuditError("arm joint names differ from registered topology")
+    qpos_state_offset = 1
+    if len(source_state) < 1 + int(model.nq) + int(model.nv):
+        raise DifferentialAuditError(
+            "official integration state is too short for model qpos/qvel"
+        )
+    state_positions = [
+        float(source_state[qpos_state_offset + index]) for index in qpos_indices
+    ]
+    if any(
+        struct.pack("<d", position) != struct.pack("<d", state_position)
+        for position, state_position in zip(positions, state_positions)
+    ):
+        raise DifferentialAuditError(
+            "base arm qpos does not match the official integration state"
+        )
+    return {
+        "criterion": config["arm_tangent_roundtrip_criterion"],
+        "mujoco_version": mujoco_version,
+        "state_specification": "mjSTATE_INTEGRATION",
+        "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
+        "model_nq": int(model.nq),
+        "model_nv": int(model.nv),
+        "arm_dof_indices": list(arm_dofs),
+        "arm_dof_jntid": dof_joint_ids,
+        "arm_joint_ids": joint_ids,
+        "arm_joint_names": joint_names,
+        "arm_qpos_indices": qpos_indices,
+        "arm_joint_types": ["hinge"] * 7,
+        "arm_jnt_dofadr": joint_dof_addresses,
+        "arm_jnt_qposadr": joint_qpos_addresses,
+        "qpos_state_offset": qpos_state_offset,
+        "source_state_element_count": len(source_state),
+        "base_arm_qpos_rad": positions,
+        "base_positions_match_source_state": True,
+    }
+
+
+def _validate_arm_scalar_hinge_roundoff_authority(
+    value: Any,
+    arm_dofs: Sequence[int],
+    source_state: Sequence[float],
+    config: Mapping[str, Any],
+) -> Dict[str, Any]:
+    record = _exact_keys(
+        value,
+        (
+            "criterion",
+            "mujoco_version",
+            "state_specification",
+            "state_layout",
+            "model_nq",
+            "model_nv",
+            "arm_dof_indices",
+            "arm_dof_jntid",
+            "arm_joint_ids",
+            "arm_joint_names",
+            "arm_qpos_indices",
+            "arm_joint_types",
+            "arm_jnt_dofadr",
+            "arm_jnt_qposadr",
+            "qpos_state_offset",
+            "source_state_element_count",
+            "base_arm_qpos_rad",
+            "base_positions_match_source_state",
+        ),
+        "arm scalar-hinge roundoff authority",
+    )
+    if record["criterion"] != config["arm_tangent_roundtrip_criterion"]:
+        raise DifferentialAuditError("roundoff authority criterion is wrong")
+    if record["mujoco_version"] != config["expected_mujoco_version"]:
+        raise DifferentialAuditError("roundoff authority MuJoCo version is wrong")
+    if record["state_specification"] != "mjSTATE_INTEGRATION":
+        raise DifferentialAuditError("roundoff authority state specification is wrong")
+    if record["state_layout"] != "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1":
+        raise DifferentialAuditError("roundoff authority state layout is wrong")
+    for key in ("model_nq", "model_nv"):
+        if (
+            isinstance(record[key], bool)
+            or not isinstance(record[key], int)
+            or record[key] <= 0
+        ):
+            raise DifferentialAuditError("roundoff authority %s is invalid" % key)
+    authority_dofs = _arm_dofs(record["arm_dof_indices"], record["model_nv"])
+    if authority_dofs != list(arm_dofs):
+        raise DifferentialAuditError("roundoff authority arm DOFs are wrong")
+    for key in (
+        "arm_dof_jntid",
+        "arm_joint_ids",
+        "arm_qpos_indices",
+        "arm_jnt_dofadr",
+        "arm_jnt_qposadr",
+    ):
+        values = record[key]
+        if (
+            not isinstance(values, list)
+            or len(values) != 7
+            or any(
+                isinstance(item, bool) or not isinstance(item, int) or item < 0
+                for item in values
+            )
+            or len(set(values)) != 7
+        ):
+            raise DifferentialAuditError("roundoff authority %s is invalid" % key)
+    if record["arm_joint_types"] != ["hinge"] * 7:
+        raise DifferentialAuditError("roundoff authority requires seven hinges")
+    if record["arm_joint_names"] != config["expected_arm_joint_names"]:
+        raise DifferentialAuditError("roundoff authority joint names are wrong")
+    if record["arm_dof_indices"] != config["expected_arm_dof_indices"]:
+        raise DifferentialAuditError("roundoff authority DOF topology is wrong")
+    if record["arm_joint_ids"] != config["expected_arm_joint_ids"]:
+        raise DifferentialAuditError("roundoff authority joint topology is wrong")
+    if record["arm_qpos_indices"] != config["expected_arm_qpos_indices"]:
+        raise DifferentialAuditError("roundoff authority qpos topology is wrong")
+    if record["arm_dof_jntid"] != record["arm_joint_ids"]:
+        raise DifferentialAuditError("roundoff authority dof_jntid is inconsistent")
+    if record["arm_jnt_dofadr"] != record["arm_dof_indices"]:
+        raise DifferentialAuditError("roundoff authority jnt_dofadr is inconsistent")
+    if record["arm_jnt_qposadr"] != record["arm_qpos_indices"]:
+        raise DifferentialAuditError("roundoff authority jnt_qposadr is inconsistent")
+    if any(index >= record["model_nv"] for index in record["arm_dof_indices"]):
+        raise DifferentialAuditError("roundoff authority DOF exceeds model.nv")
+    if any(index >= record["model_nq"] for index in record["arm_qpos_indices"]):
+        raise DifferentialAuditError("roundoff authority qpos exceeds model.nq")
+    if (
+        isinstance(record["qpos_state_offset"], bool)
+        or not isinstance(record["qpos_state_offset"], int)
+        or record["qpos_state_offset"] != 1
+    ):
+        raise DifferentialAuditError("roundoff authority qpos state offset is wrong")
+    if (
+        isinstance(record["source_state_element_count"], bool)
+        or not isinstance(record["source_state_element_count"], int)
+        or record["source_state_element_count"] <= 0
+        or record["source_state_element_count"] != len(source_state)
+    ):
+        raise DifferentialAuditError("roundoff authority state size is wrong")
+    if len(source_state) < 1 + record["model_nq"] + record["model_nv"]:
+        raise DifferentialAuditError(
+            "roundoff authority state is too short for qpos/qvel"
+        )
+    positions = _vector(record["base_arm_qpos_rad"], 7, "base arm qpos")
+    indexes = record["arm_qpos_indices"]
+    if any(1 + index >= len(source_state) for index in indexes):
+        raise DifferentialAuditError("roundoff authority qpos index exceeds state")
+    state_positions = [float(source_state[1 + index]) for index in indexes]
+    matches = all(
+        struct.pack("<d", position) == struct.pack("<d", state_position)
+        for position, state_position in zip(positions, state_positions)
+    )
+    if record["base_positions_match_source_state"] is not matches or not matches:
+        raise DifferentialAuditError("roundoff authority qpos/state binding failed")
+    return _json_copy(dict(record))
+
+
+def _float64_le_hex_vector(value: Sequence[float]) -> List[str]:
+    result = []
+    for item in value:
+        number = float(item)
+        if not math.isfinite(number):
+            raise DifferentialAuditError("float64 state vector is non-finite")
+        result.append(struct.pack("<d", number).hex())
+    return result
+
+
+def _decode_float64_le_hex_vector(
+    value: Any, expected_length: int, label: str
+) -> List[float]:
+    if not isinstance(value, list) or len(value) != expected_length:
+        raise DifferentialAuditError("%s has invalid length" % label)
+    result = []
+    for item in value:
+        if (
+            not isinstance(item, str)
+            or len(item) != 16
+            or any(character not in "0123456789abcdef" for character in item)
+        ):
+            raise DifferentialAuditError("%s contains invalid float64 bits" % label)
+        number = struct.unpack("<d", bytes.fromhex(item))[0]
+        if not math.isfinite(number):
+            raise DifferentialAuditError("%s contains non-finite float64" % label)
+        result.append(number)
+    return result
+
+
+def _float64_vector_sha256(value: Sequence[float]) -> str:
+    header = canonical_json_bytes({"dtype": "<f8", "shape": [len(value)]})
+    digest = hashlib.sha256()
+    digest.update(b"vlsa-table1-array-v1\0")
+    digest.update(header)
+    digest.update(b"\0")
+    for item in value:
+        digest.update(struct.pack("<d", float(item)))
+    return digest.hexdigest()
 
 
 def _state_vector(mujoco: Any, np: Any, model: Any, data: Any) -> Any:
@@ -439,47 +753,198 @@ def _tangent_reconstruction(
     requested: Sequence[float],
     plus_reconstructed: Sequence[float],
     minus_reconstructed: Sequence[float],
+    base_arm_qpos: Sequence[float],
+    plus_perturbed_arm_qpos: Sequence[float],
+    minus_perturbed_arm_qpos: Sequence[float],
     arm_dofs: Sequence[int],
+    perturbation_step_s: float,
     config: Mapping[str, Any],
 ) -> Dict[str, Any]:
+    step = _positive_number(perturbation_step_s, "perturbation_step_s")
+    base_positions = _vector(list(base_arm_qpos), 7, "base arm qpos")
+    plus_positions = _vector(
+        list(plus_perturbed_arm_qpos), 7, "plus perturbed arm qpos"
+    )
+    minus_positions = _vector(
+        list(minus_perturbed_arm_qpos), 7, "minus perturbed arm qpos"
+    )
+    requested_values = list(requested)
+    nv = len(requested_values)
+    requested_values = _vector(requested_values, nv, "requested tangent")
+    plus_values = _vector(
+        list(plus_reconstructed), nv, "plus reconstructed tangent"
+    )
+    minus_values = _vector(
+        list(minus_reconstructed), nv, "minus reconstructed tangent"
+    )
+    dofs = _arm_dofs(arm_dofs, nv)
+    full_vectors = (requested_values, plus_values, minus_values)
+    values_requiring_normality = [step]
+    values_requiring_normality.extend(base_positions)
+    values_requiring_normality.extend(plus_positions)
+    values_requiring_normality.extend(minus_positions)
+    values_requiring_normality.extend(float(value) for vector in full_vectors for value in vector)
+    if any(
+        value != 0.0 and abs(value) < sys.float_info.min
+        for value in values_requiring_normality
+    ):
+        raise DifferentialAuditError(
+            "tangent reconstruction contains a subnormal binary64 value"
+        )
     plus_error = [
         float(observed - expected)
-        for observed, expected in zip(plus_reconstructed, requested)
+        for observed, expected in zip(plus_values, requested_values)
     ]
     minus_error = [
         float(observed + expected)
-        for observed, expected in zip(minus_reconstructed, requested)
+        for observed, expected in zip(minus_values, requested_values)
     ]
-    arm = set(arm_dofs)
+    arm = set(dofs)
     arm_max = max(
-        [abs(plus_error[index]) for index in arm_dofs]
-        + [abs(minus_error[index]) for index in arm_dofs]
+        [abs(plus_error[index]) for index in dofs]
+        + [abs(minus_error[index]) for index in dofs]
     )
-    nonarm_indices = [index for index in range(len(requested)) if index not in arm]
+    nonarm_indices = [index for index in range(nv) if index not in arm]
     nonarm_max = max(
         [0.0]
-        + [abs(plus_reconstructed[index]) for index in nonarm_indices]
-        + [abs(minus_reconstructed[index]) for index in nonarm_indices]
+        + [abs(plus_values[index]) for index in nonarm_indices]
+        + [abs(minus_values[index]) for index in nonarm_indices]
     )
-    arm_tolerance = config["arm_tangent_reconstruction_tolerance_rad_s"]
+    unit_roundoff = config["binary64_unit_roundoff"]
+    unit_roundoff_exact = Fraction.from_float(unit_roundoff)
+    gamma_2_exact = (2 * unit_roundoff_exact) / (1 - 2 * unit_roundoff_exact)
+    gamma_2 = float(gamma_2_exact)
+
+    integration_residuals = {"plus": [], "minus": []}
+    integration_allowances = {"plus": [], "minus": []}
+    integration_passes = {"plus": [], "minus": []}
+    differentiation_residuals = {"plus": [], "minus": []}
+    differentiation_allowances = {"plus": [], "minus": []}
+    differentiation_passes = {"plus": [], "minus": []}
+    observability_passes = {"plus": [], "minus": []}
+    step_exact = Fraction.from_float(step)
+    for sign_name, sign, perturbed_positions, reconstructed in (
+        ("plus", 1.0, plus_positions, plus_values),
+        ("minus", -1.0, minus_positions, minus_values),
+    ):
+        for arm_column, dof in enumerate(dofs):
+            base = float(base_positions[arm_column])
+            perturbed = float(perturbed_positions[arm_column])
+            expected_velocity = float(sign * requested_values[dof])
+            observed_velocity = float(reconstructed[dof])
+            base_exact = Fraction.from_float(base)
+            perturbed_exact = Fraction.from_float(perturbed)
+            expected_velocity_exact = Fraction.from_float(expected_velocity)
+            observed_velocity_exact = Fraction.from_float(observed_velocity)
+            binary64_intermediates = (
+                step * expected_velocity,
+                perturbed - base,
+                step * observed_velocity,
+            )
+            if any(
+                value != 0.0 and abs(value) < sys.float_info.min
+                for value in binary64_intermediates
+            ):
+                raise DifferentialAuditError(
+                    "tangent reconstruction has a subnormal scalar-hinge intermediate"
+                )
+            ideal_displacement = step_exact * expected_velocity_exact
+            actual_displacement = perturbed_exact - base_exact
+            integration_residual = abs(actual_displacement - ideal_displacement)
+            integration_allowance = (
+                abs(base_exact) * unit_roundoff_exact
+                + abs(ideal_displacement) * gamma_2_exact
+            )
+            differentiation_residual = abs(
+                step_exact * observed_velocity_exact - actual_displacement
+            )
+            differentiation_allowance = abs(actual_displacement) * gamma_2_exact
+            if expected_velocity == 0.0:
+                observable = bool(
+                    perturbed == base
+                    and observed_velocity == 0.0
+                )
+            else:
+                observable = bool(
+                    struct.pack("<d", perturbed) != struct.pack("<d", base)
+                )
+            integration_residuals[sign_name].append(float(integration_residual))
+            integration_allowances[sign_name].append(float(integration_allowance))
+            integration_passes[sign_name].append(
+                bool(integration_residual <= integration_allowance)
+            )
+            differentiation_residuals[sign_name].append(
+                float(differentiation_residual)
+            )
+            differentiation_allowances[sign_name].append(
+                float(differentiation_allowance)
+            )
+            differentiation_passes[sign_name].append(
+                bool(differentiation_residual <= differentiation_allowance)
+            )
+            observability_passes[sign_name].append(observable)
+
+    maximum_arm_displacement_error = float(step * arm_max)
+    legacy_arm_tolerance = config[
+        "legacy_arm_tangent_reconstruction_tolerance_rad_s"
+    ]
     nonarm_tolerance = config["nonarm_tangent_leakage_tolerance_rad_s"]
+    integration_roundoff_passed = all(
+        value for values in integration_passes.values() for value in values
+    )
+    differentiation_roundoff_passed = all(
+        value for values in differentiation_passes.values() for value in values
+    )
+    observability_passed = all(
+        value for values in observability_passes.values() for value in values
+    )
+    arm_passed = bool(
+        integration_roundoff_passed
+        and differentiation_roundoff_passed
+        and observability_passed
+    )
+    legacy_arm_passed = bool(arm_max <= legacy_arm_tolerance)
+    nonarm_passed = bool(nonarm_max <= nonarm_tolerance)
     return {
-        "requested_tangent_nv_rad_s": [float(value) for value in requested],
-        "plus_reconstructed_tangent_nv_rad_s": [
-            float(value) for value in plus_reconstructed
-        ],
-        "minus_reconstructed_tangent_nv_rad_s": [
-            float(value) for value in minus_reconstructed
-        ],
+        "perturbation_step_s": step,
+        "requested_tangent_nv_rad_s": requested_values,
+        "plus_reconstructed_tangent_nv_rad_s": plus_values,
+        "minus_reconstructed_tangent_nv_rad_s": minus_values,
+        "plus_perturbed_arm_qpos_rad": plus_positions,
+        "minus_perturbed_arm_qpos_rad": minus_positions,
         "plus_error_nv_rad_s": plus_error,
         "minus_error_nv_rad_s": minus_error,
         "maximum_arm_reconstruction_error_rad_s": arm_max,
+        "maximum_arm_reconstruction_displacement_error_rad": (
+            maximum_arm_displacement_error
+        ),
         "maximum_nonarm_leakage_rad_s": nonarm_max,
-        "arm_tolerance_rad_s": arm_tolerance,
+        "arm_roundtrip_criterion": config["arm_tangent_roundtrip_criterion"],
+        "binary64_unit_roundoff": unit_roundoff,
+        "roundoff_gamma_2": gamma_2,
+        "plus_integration_residual_rad_by_arm_dof": integration_residuals["plus"],
+        "minus_integration_residual_rad_by_arm_dof": integration_residuals["minus"],
+        "plus_integration_allowance_rad_by_arm_dof": integration_allowances["plus"],
+        "minus_integration_allowance_rad_by_arm_dof": integration_allowances["minus"],
+        "plus_integration_passed_by_arm_dof": integration_passes["plus"],
+        "minus_integration_passed_by_arm_dof": integration_passes["minus"],
+        "plus_differentiation_residual_rad_by_arm_dof": differentiation_residuals["plus"],
+        "minus_differentiation_residual_rad_by_arm_dof": differentiation_residuals["minus"],
+        "plus_differentiation_allowance_rad_by_arm_dof": differentiation_allowances["plus"],
+        "minus_differentiation_allowance_rad_by_arm_dof": differentiation_allowances["minus"],
+        "plus_differentiation_passed_by_arm_dof": differentiation_passes["plus"],
+        "minus_differentiation_passed_by_arm_dof": differentiation_passes["minus"],
+        "plus_observable_by_arm_dof": observability_passes["plus"],
+        "minus_observable_by_arm_dof": observability_passes["minus"],
+        "integration_roundoff_passed": integration_roundoff_passed,
+        "differentiation_roundoff_passed": differentiation_roundoff_passed,
+        "roundtrip_observability_passed": observability_passed,
+        "legacy_arm_tolerance_rad_s": legacy_arm_tolerance,
         "nonarm_tolerance_rad_s": nonarm_tolerance,
-        "arm_passed": bool(arm_max <= arm_tolerance),
-        "nonarm_passed": bool(nonarm_max <= nonarm_tolerance),
-        "passed": bool(arm_max <= arm_tolerance and nonarm_max <= nonarm_tolerance),
+        "legacy_arm_passed": legacy_arm_passed,
+        "arm_passed": arm_passed,
+        "nonarm_passed": nonarm_passed,
+        "passed": bool(arm_passed and nonarm_passed),
     }
 
 
@@ -534,15 +999,20 @@ def _batched_perturb(
     step: float,
     samples: Sequence[BodySample],
     arm_dofs: Sequence[int],
+    arm_qpos_indices: Sequence[int],
     config: Mapping[str, Any],
 ) -> Tuple[List[List[float]], List[List[float]], Dict[str, Any]]:
     specification = mujoco.mjtState.mjSTATE_INTEGRATION
     points = []
     reconstructed = []
+    perturbed_arm_qpos = []
     for sign in (1.0, -1.0):
         mujoco.mj_setState(model, clone, base_state, specification)
         mujoco.mj_integratePos(model, clone.qpos, tangent, sign * float(step))
         perturbed_qpos = np.asarray(clone.qpos, dtype=np.float64).copy()
+        perturbed_arm_qpos.append(
+            [float(perturbed_qpos[index]) for index in arm_qpos_indices]
+        )
         velocity = np.zeros(int(model.nv), dtype=np.float64)
         mujoco.mj_differentiatePos(
             model, velocity, float(step), base_qpos, perturbed_qpos
@@ -556,7 +1026,15 @@ def _batched_perturb(
             ]
         )
     reconstruction = _tangent_reconstruction(
-        tangent.tolist(), reconstructed[0].tolist(), reconstructed[1].tolist(), arm_dofs, config
+        tangent.tolist(),
+        reconstructed[0].tolist(),
+        reconstructed[1].tolist(),
+        [float(base_qpos[index]) for index in arm_qpos_indices],
+        perturbed_arm_qpos[0],
+        perturbed_arm_qpos[1],
+        arm_dofs,
+        step,
+        config,
     )
     return points[0], points[1], reconstruction
 
@@ -645,19 +1123,29 @@ def _stable_audit_hashes(
     arm_dofs: Sequence[int],
     identities: Sequence[Mapping[str, Any]],
     config: Mapping[str, Any],
+    roundoff_authority: Mapping[str, Any],
     sample_records: Sequence[Mapping[str, Any]],
 ) -> Dict[str, str]:
     specification_sha256 = sha256_bytes(canonical_json_bytes(config))
     identity_sha256 = sha256_bytes(canonical_json_bytes(identities))
+    roundoff_authority_sha256 = sha256_bytes(
+        canonical_json_bytes(roundoff_authority)
+    )
     binding = {
         "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         "integration_state_sha256": state_sha256,
         "arm_dof_indices": list(arm_dofs),
         "ordered_sample_identity_sha256": identity_sha256,
         "specification_sha256": specification_sha256,
+        "arm_scalar_hinge_roundoff_authority_sha256": (
+            roundoff_authority_sha256
+        ),
     }
     return {
         "specification_sha256": specification_sha256,
+        "arm_scalar_hinge_roundoff_authority_sha256": (
+            roundoff_authority_sha256
+        ),
         "binding_sha256": sha256_bytes(canonical_json_bytes(binding)),
         "classification_ledger_sha256": sha256_bytes(
             canonical_json_bytes(_classification_ledger(sample_records))
@@ -693,6 +1181,11 @@ def audit_protected_sample_differentials(
     specification = mujoco.mjtState.mjSTATE_INTEGRATION
     source_before = _state_vector(mujoco, np, raw_model, raw_data)
     source_hash = _array_sha256(np, source_before)
+    serialized_source_state = _float64_le_hex_vector(source_before.tolist())
+    if _float64_vector_sha256(source_before.tolist()) != source_hash:
+        raise DifferentialAuditError(
+            "serialized integration state does not reproduce its source hash"
+        )
     clone = mujoco.MjData(raw_model)
     mujoco.mj_setState(raw_model, clone, source_before, specification)
     clone_base_hash = _array_sha256(
@@ -700,6 +1193,14 @@ def audit_protected_sample_differentials(
     )
     mujoco.mj_forward(raw_model, clone)
     base_qpos = np.asarray(clone.qpos, dtype=np.float64).copy()
+    roundoff_authority = _arm_scalar_hinge_roundoff_authority(
+        mujoco,
+        raw_model,
+        base_qpos,
+        source_before.tolist(),
+        dofs,
+        config,
+    )
     base_points = [
         [float(value) for value in sample.world_point(clone)] for sample in records
     ]
@@ -731,6 +1232,7 @@ def audit_protected_sample_differentials(
             delta,
             records,
             dofs,
+            roundoff_authority["arm_qpos_indices"],
             config,
         )
         point_reconstruction.append(reconstruction)
@@ -785,6 +1287,7 @@ def audit_protected_sample_differentials(
                 eta,
                 records,
                 dofs,
+                roundoff_authority["arm_qpos_indices"],
                 config,
             )
             for sample_index in range(len(records)):
@@ -1016,13 +1519,20 @@ def audit_protected_sample_differentials(
         "passed_sample_count": sum(record["passed"] for record in sample_records),
     }
     stable_hashes = _stable_audit_hashes(
-        source_hash, dofs, identities, config, sample_records
+        source_hash,
+        dofs,
+        identities,
+        config,
+        roundoff_authority,
+        sample_records,
     )
     payload = {
         "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         "integration_state": {
             "state_specification": "mjSTATE_INTEGRATION",
+            "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
             "element_count": int(source_before.size),
+            "source_initial_state_f64_le_hex": serialized_source_state,
             "source_initial_sha256": source_hash,
             "clone_base_sha256": clone_base_hash,
             "clone_final_sha256": clone_final_hash,
@@ -1031,6 +1541,10 @@ def audit_protected_sample_differentials(
             "clone_state_restored": bool(source_hash == clone_base_hash == clone_final_hash),
         },
         "arm_dof_indices": dofs,
+        "arm_scalar_hinge_roundoff_authority": roundoff_authority,
+        "arm_scalar_hinge_roundoff_authority_sha256": stable_hashes[
+            "arm_scalar_hinge_roundoff_authority_sha256"
+        ],
         "ordered_samples": identities,
         "ordered_sample_identity_sha256": sha256_bytes(canonical_json_bytes(identities)),
         "specification_sha256": stable_hashes["specification_sha256"],
@@ -1129,19 +1643,46 @@ def _validate_tangent_record(
     value: Any,
     expected_tangent: Sequence[float],
     arm_dofs: Sequence[int],
+    base_arm_qpos: Sequence[float],
+    expected_perturbation_step_s: float,
     config: Mapping[str, Any],
     label: str,
 ) -> Dict[str, Any]:
     keys = (
+        "perturbation_step_s",
         "requested_tangent_nv_rad_s",
         "plus_reconstructed_tangent_nv_rad_s",
         "minus_reconstructed_tangent_nv_rad_s",
+        "plus_perturbed_arm_qpos_rad",
+        "minus_perturbed_arm_qpos_rad",
         "plus_error_nv_rad_s",
         "minus_error_nv_rad_s",
         "maximum_arm_reconstruction_error_rad_s",
+        "maximum_arm_reconstruction_displacement_error_rad",
         "maximum_nonarm_leakage_rad_s",
-        "arm_tolerance_rad_s",
+        "arm_roundtrip_criterion",
+        "binary64_unit_roundoff",
+        "roundoff_gamma_2",
+        "plus_integration_residual_rad_by_arm_dof",
+        "minus_integration_residual_rad_by_arm_dof",
+        "plus_integration_allowance_rad_by_arm_dof",
+        "minus_integration_allowance_rad_by_arm_dof",
+        "plus_integration_passed_by_arm_dof",
+        "minus_integration_passed_by_arm_dof",
+        "plus_differentiation_residual_rad_by_arm_dof",
+        "minus_differentiation_residual_rad_by_arm_dof",
+        "plus_differentiation_allowance_rad_by_arm_dof",
+        "minus_differentiation_allowance_rad_by_arm_dof",
+        "plus_differentiation_passed_by_arm_dof",
+        "minus_differentiation_passed_by_arm_dof",
+        "plus_observable_by_arm_dof",
+        "minus_observable_by_arm_dof",
+        "integration_roundoff_passed",
+        "differentiation_roundoff_passed",
+        "roundtrip_observability_passed",
+        "legacy_arm_tolerance_rad_s",
         "nonarm_tolerance_rad_s",
+        "legacy_arm_passed",
         "arm_passed",
         "nonarm_passed",
         "passed",
@@ -1151,10 +1692,24 @@ def _validate_tangent_record(
     requested = _vector(record["requested_tangent_nv_rad_s"], nv, label)
     plus = _vector(record["plus_reconstructed_tangent_nv_rad_s"], nv, label)
     minus = _vector(record["minus_reconstructed_tangent_nv_rad_s"], nv, label)
+    plus_qpos = _vector(record["plus_perturbed_arm_qpos_rad"], 7, label)
+    minus_qpos = _vector(record["minus_perturbed_arm_qpos_rad"], 7, label)
     if requested != list(expected_tangent):
         raise DifferentialAuditError("%s requested a different tangent" % label)
-    reconstructed = _tangent_reconstruction(requested, plus, minus, arm_dofs, config)
-    if _json_copy(record) != reconstructed:
+    if record["perturbation_step_s"] != expected_perturbation_step_s:
+        raise DifferentialAuditError("%s used a different perturbation step" % label)
+    reconstructed = _tangent_reconstruction(
+        requested,
+        plus,
+        minus,
+        base_arm_qpos,
+        plus_qpos,
+        minus_qpos,
+        arm_dofs,
+        expected_perturbation_step_s,
+        config,
+    )
+    if canonical_json_bytes(record) != canonical_json_bytes(reconstructed):
         raise DifferentialAuditError("%s tangent diagnostics do not reconstruct" % label)
     return reconstructed
 
@@ -1286,6 +1841,8 @@ def inspect_protected_sample_differential_audit(
         "schema_version",
         "integration_state",
         "arm_dof_indices",
+        "arm_scalar_hinge_roundoff_authority",
+        "arm_scalar_hinge_roundoff_authority_sha256",
         "ordered_samples",
         "ordered_sample_identity_sha256",
         "specification_sha256",
@@ -1308,13 +1865,16 @@ def inspect_protected_sample_differential_audit(
         raise DifferentialAuditError("audit_payload_sha256 does not match payload")
 
     expected_config = _parse_differential_config(expected_differential_audit_config)
-    if _json_copy(top["differential_audit_config"]) != expected_config:
+    observed_config = _parse_differential_config(top["differential_audit_config"])
+    if canonical_json_bytes(observed_config) != canonical_json_bytes(expected_config):
         raise DifferentialAuditError("differential audit config differs from authority")
     dofs = _arm_dofs(expected_arm_dof_indices)
-    if top["arm_dof_indices"] != dofs:
+    observed_dofs = _arm_dofs(top["arm_dof_indices"])
+    if observed_dofs != dofs:
         raise DifferentialAuditError("arm DOF order differs from authority")
     identities = _sample_identities(expected_samples)
-    if top["ordered_samples"] != identities:
+    observed_identities = _sample_identities(top["ordered_samples"])
+    if canonical_json_bytes(observed_identities) != canonical_json_bytes(identities):
         raise DifferentialAuditError("ordered protected samples differ from authority")
     identity_hash = sha256_bytes(canonical_json_bytes(identities))
     if top["ordered_sample_identity_sha256"] != identity_hash:
@@ -1329,7 +1889,9 @@ def inspect_protected_sample_differential_audit(
         top["integration_state"],
         (
             "state_specification",
+            "state_layout",
             "element_count",
+            "source_initial_state_f64_le_hex",
             "source_initial_sha256",
             "clone_base_sha256",
             "clone_final_sha256",
@@ -1341,6 +1903,8 @@ def inspect_protected_sample_differential_audit(
     )
     if state["state_specification"] != "mjSTATE_INTEGRATION":
         raise DifferentialAuditError("wrong MuJoCo state specification")
+    if state["state_layout"] != "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1":
+        raise DifferentialAuditError("wrong MuJoCo integration-state layout")
     if isinstance(state["element_count"], bool) or not isinstance(state["element_count"], int) or state["element_count"] <= 0:
         raise DifferentialAuditError("integration state element count is invalid")
     hashes = [
@@ -1354,8 +1918,33 @@ def inspect_protected_sample_differential_audit(
     ]
     if hashes != [expected_integration_state_sha256] * 4:
         raise DifferentialAuditError("source/clone integration state binding failed")
+    source_state = _decode_float64_le_hex_vector(
+        state["source_initial_state_f64_le_hex"],
+        state["element_count"],
+        "source integration state",
+    )
+    if _float64_vector_sha256(source_state) != expected_integration_state_sha256:
+        raise DifferentialAuditError(
+            "serialized integration-state bits do not match external authority"
+        )
     if state["source_state_unchanged"] is not True or state["clone_state_restored"] is not True:
         raise DifferentialAuditError("source or clone state was not preserved")
+    roundoff_authority = _validate_arm_scalar_hinge_roundoff_authority(
+        top["arm_scalar_hinge_roundoff_authority"],
+        dofs,
+        source_state,
+        expected_config,
+    )
+    roundoff_authority_sha256 = sha256_bytes(
+        canonical_json_bytes(roundoff_authority)
+    )
+    if (
+        top["arm_scalar_hinge_roundoff_authority_sha256"]
+        != roundoff_authority_sha256
+    ):
+        raise DifferentialAuditError(
+            "arm scalar-hinge roundoff authority hash does not match"
+        )
 
     rows = top["sample_records"]
     if not isinstance(rows, list) or len(rows) != len(identities):
@@ -1388,7 +1977,8 @@ def inspect_protected_sample_differential_audit(
             ),
             "sample_records[%d]" % sample_index,
         )
-        if sample["identity"] != identity:
+        observed_identity = _sample_identity(sample["identity"])
+        if canonical_json_bytes(observed_identity) != canonical_json_bytes(identity):
             raise DifferentialAuditError("sample record identity/order mismatch")
         base_point = _vector(sample["base_point_world_m"], 3, "base point")
         base_query = _validate_query_record(sample["base_field_query"], base_point, "base query")
@@ -1406,7 +1996,7 @@ def inspect_protected_sample_differential_audit(
         if numerical != expected_numerical:
             raise DifferentialAuditError("numerical point Jacobian does not reconstruct")
         metrics = _point_metrics(analytic, numerical, expected_config)
-        if _json_copy(sample["point_jacobian_metrics"]) != metrics:
+        if canonical_json_bytes(sample["point_jacobian_metrics"]) != canonical_json_bytes(metrics):
             raise DifferentialAuditError("point Jacobian metrics do not reconstruct")
         tangent_rows = sample["point_perturbation_tangent_reconstruction_by_arm_dof"]
         if not isinstance(tangent_rows, list) or len(tangent_rows) != 7:
@@ -1422,7 +2012,13 @@ def inspect_protected_sample_differential_audit(
             expected_tangent = [0.0] * nv
             expected_tangent[dofs[column]] = 1.0
             reconstructed = _validate_tangent_record(
-                tangent_row, expected_tangent, dofs, expected_config, "point tangent"
+                tangent_row,
+                expected_tangent,
+                dofs,
+                roundoff_authority["base_arm_qpos_rad"],
+                expected_config["point_jacobian_delta_rad"],
+                expected_config,
+                "point tangent",
             )
             point_tangent_pass = point_tangent_pass and reconstructed["passed"]
         point_passed = bool(metrics["passed"] and point_tangent_pass)
@@ -1449,7 +2045,16 @@ def inspect_protected_sample_differential_audit(
                 ),
                 "coupled direction",
             )
-            if direction["direction_index"] != direction_index or direction["arm_joint_velocity_rad_s"] != arm_direction:
+            observed_direction_index = direction["direction_index"]
+            observed_arm_direction = _vector(
+                direction["arm_joint_velocity_rad_s"], 7, "arm joint velocity"
+            )
+            if (
+                isinstance(observed_direction_index, bool)
+                or not isinstance(observed_direction_index, int)
+                or observed_direction_index != direction_index
+                or observed_arm_direction != arm_direction
+            ):
                 raise DifferentialAuditError("coupled direction identity is wrong")
             attempt_rows = direction["attempts"]
             if not isinstance(attempt_rows, list) or not attempt_rows:
@@ -1471,7 +2076,10 @@ def inspect_protected_sample_differential_audit(
                     ),
                     "coupled attempt",
                 )
-                if attempt_index >= len(expected_config["coupled_eta_ladder_s"]) or attempt["eta_s"] != expected_config["coupled_eta_ladder_s"][attempt_index]:
+                observed_eta = _positive_number(
+                    attempt["eta_s"], "coupled perturbation eta"
+                )
+                if attempt_index >= len(expected_config["coupled_eta_ladder_s"]) or observed_eta != expected_config["coupled_eta_ladder_s"][attempt_index]:
                     raise DifferentialAuditError("eta attempts are not the registered prefix")
                 plus_point = _vector(attempt["plus_point_world_m"], 3, "coupled plus point")
                 minus_point = _vector(attempt["minus_point_world_m"], 3, "coupled minus point")
@@ -1485,7 +2093,13 @@ def inspect_protected_sample_differential_audit(
                 for arm_column, dof in enumerate(dofs):
                     expected_tangent[dof] = arm_direction[arm_column]
                 _validate_tangent_record(
-                    attempt["tangent_reconstruction"], expected_tangent, dofs, expected_config, "coupled tangent"
+                    attempt["tangent_reconstruction"],
+                    expected_tangent,
+                    dofs,
+                    roundoff_authority["base_arm_qpos_rad"],
+                    expected_config["coupled_eta_ladder_s"][attempt_index],
+                    expected_config,
+                    "coupled tangent",
                 )
                 total_attempts += 1
                 noneligible_attempts += int(not eligible)
@@ -1496,7 +2110,17 @@ def inspect_protected_sample_differential_audit(
             if chosen is None and len(attempt_rows) != len(expected_config["coupled_eta_ladder_s"]):
                 raise DifferentialAuditError("failed eta search did not retain every attempt")
             expected_selected_index = None if chosen is None else len(attempt_rows) - 1
-            if direction["selected_attempt_index"] != expected_selected_index:
+            observed_selected_index = direction["selected_attempt_index"]
+            if (
+                observed_selected_index is not None
+                and (
+                    isinstance(observed_selected_index, bool)
+                    or not isinstance(observed_selected_index, int)
+                    or observed_selected_index < 0
+                )
+            ):
+                raise DifferentialAuditError("selected eta index has the wrong type")
+            if observed_selected_index != expected_selected_index:
                 raise DifferentialAuditError("selected eta index does not reconstruct")
             comparison = None
             direction_passed = False
@@ -1516,11 +2140,20 @@ def inspect_protected_sample_differential_audit(
                     and comparison["direct_analytic_passed"]
                     and not comparison["central_numerator_cancellation_detected"]
                 )
-            if direction["derived_comparison"] != comparison or direction["passed"] is not direction_passed:
+            if (
+                canonical_json_bytes(direction["derived_comparison"])
+                != canonical_json_bytes(comparison)
+                or direction["passed"] is not direction_passed
+            ):
                 raise DifferentialAuditError("coupled comparison/pass flag does not reconstruct")
             direction_pass_count += int(direction_passed)
             sample_coupled_pass = sample_coupled_pass and direction_passed
-        if sample["eligible_coupled_direction_count"] != sample_selected:
+        observed_eligible_count = sample["eligible_coupled_direction_count"]
+        if (
+            isinstance(observed_eligible_count, bool)
+            or not isinstance(observed_eligible_count, int)
+            or observed_eligible_count != sample_selected
+        ):
             raise DifferentialAuditError("eligible coupled count does not reconstruct")
         expected_coupled = bool(
             len(directions) == expected_config["required_direction_count_per_sample"]
@@ -1542,10 +2175,21 @@ def inspect_protected_sample_differential_audit(
         "noneligible_coupled_attempt_count": noneligible_attempts,
         "passed_sample_count": sample_pass_count,
     }
-    if top["counts"] != expected_counts:
+    observed_counts = _exact_keys(top["counts"], tuple(expected_counts), "audit counts")
+    if any(
+        isinstance(observed_counts[key], bool)
+        or not isinstance(observed_counts[key], int)
+        or observed_counts[key] < 0
+        for key in expected_counts
+    ) or dict(observed_counts) != expected_counts:
         raise DifferentialAuditError("audit counts do not reconstruct")
     stable_hashes = _stable_audit_hashes(
-        expected_integration_state_sha256, dofs, identities, expected_config, rows
+        expected_integration_state_sha256,
+        dofs,
+        identities,
+        expected_config,
+        roundoff_authority,
+        rows,
     )
     for key, expected in stable_hashes.items():
         if top[key] != expected:

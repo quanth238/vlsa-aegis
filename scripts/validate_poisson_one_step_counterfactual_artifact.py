@@ -33,7 +33,7 @@ RESULT_HASH_FIELD = "result_payload_sha256"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
-EXPECTED_PROTOCOL_SCHEMA = "vlsa_poisson_one_step_counterfactual_protocol.v1"
+EXPECTED_PROTOCOL_SCHEMA = "vlsa_poisson_one_step_counterfactual_protocol.v2"
 EXPECTED_RESULT_SCHEMA = "vlsa_poisson_one_step_counterfactual_result.v1"
 EXPECTED_RECEIPT_SCHEMA = (
     "vlsa_poisson_one_step_counterfactual_validation_receipt.v1"
@@ -81,9 +81,38 @@ PROJECTION_HASH_FIELDS = (
 )
 PREREQUISITE_SCHEMAS = {
     "numeric": "vlsa_poisson_numeric_validation.v1",
-    "parity": "vlsa_poisson_shadow_parity.v2",
-    "identification": "vlsa_poisson_shadow_identification.v3",
+    "parity": "vlsa_poisson_shadow_parity.v3",
+    "identification": "vlsa_poisson_shadow_identification.v4",
 }
+PARITY_ACCEPTANCE_FIELDS = frozenset(
+    (
+        "all_historical_post_step_states_exact",
+        "ordinary_and_callback_states_exact",
+        "ordinary_and_callback_observations_exact",
+        "ordinary_and_callback_boundary_0_mjstate_integration_exact",
+        "reward_done_goal_exact",
+        "full_callback_exposure",
+        "ordinary_step_path_unmodified",
+    )
+)
+IDENTIFICATION_ACCEPTANCE_FIELDS = frozenset(
+    (
+        "upstream_exact_parity_same_clean_commit",
+        "all_237_historical_actions_executed",
+        "all_5925_callbacks_observed",
+        "historical_state_reward_done_goal_exact",
+        "upstream_observation_sequence_exact",
+        "settled_mjstate_integration_matches_upstream_exact_parity",
+        "complete_mujoco_integration_state_unchanged_by_construction",
+        "complete_mujoco_integration_state_unchanged_by_callback",
+        "all_link56_protected_sample_point_jacobians_validated",
+        "all_link56_protected_sample_field_chain_rules_validated",
+        "static_queries_stop_at_first_registered_drift",
+        "contact_authority_is_mujoco_nonpositive_distance",
+        "no_action_or_control_mutation",
+        "no_active_safety_efficacy_claim",
+    )
+)
 EXTERNAL_SLURM_REQUIREMENT = (
     "exact_producer_job_must_be_independently_confirmed_COMPLETED_with_exit_0_0"
 )
@@ -581,10 +610,23 @@ def _load_prerequisite(path: Path, kind: str) -> Tuple[Dict[str, Any], Dict[str,
     acceptance = _mapping(
         value.get("acceptance"), kind + " prerequisite.acceptance"
     )
+    expected_acceptance = (
+        PARITY_ACCEPTANCE_FIELDS
+        if kind == "parity"
+        else IDENTIFICATION_ACCEPTANCE_FIELDS
+        if kind == "identification"
+        else None
+    )
     if not acceptance or any(item is not True for item in acceptance.values()):
         raise OneStepArtifactValidationError(
             "%s prerequisite acceptance must be nonempty and literally all true"
             % kind
+        )
+    if expected_acceptance is not None and set(acceptance) != set(
+        expected_acceptance
+    ):
+        raise OneStepArtifactValidationError(
+            "%s prerequisite acceptance fields differ" % kind
         )
     return value, identity
 
@@ -671,20 +713,20 @@ def _load_selection_protocol(
 def _load_runtime_protocol(
     path: Path, protocol: Mapping[str, Any]
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    real, runtime = _load_strict_json(path, "runtime v2 protocol")
+    real, runtime = _load_strict_json(path, "runtime v3 protocol")
     frozen = _mapping(protocol.get("prerequisites"), "protocol.prerequisites")
     relative = _registered_relative_path(
         frozen.get("runtime_protocol_relative_path"),
         "protocol.prerequisites.runtime_protocol_relative_path",
     )
-    _path_has_registered_suffix(real, relative, "runtime v2 protocol")
+    _path_has_registered_suffix(real, relative, "runtime v3 protocol")
     expected_raw = _require_sha256(
         frozen.get("runtime_raw_file_sha256"),
         "protocol.prerequisites.runtime_raw_file_sha256",
     )
     if _sha256_file(real) != expected_raw:
         raise OneStepArtifactValidationError(
-            "runtime v2 raw file differs from the Stage-13 protocol"
+            "runtime v3 raw file differs from the Stage-13 protocol"
         )
 
     from main.poisson_fullbody.feasibility_protocol import (  # noqa: E402
@@ -696,7 +738,7 @@ def _load_runtime_protocol(
         hashes = validate_feasibility_protocol(runtime)
     except (FeasibilityProtocolError, KeyError, TypeError, ValueError) as error:
         raise OneStepArtifactValidationError(
-            "runtime v2 protocol fails pure semantic validation"
+            "runtime v3 protocol fails pure semantic validation"
         ) from error
     expected_semantic = _require_sha256(
         frozen.get("runtime_semantic_protocol_sha256"),
@@ -713,7 +755,7 @@ def _load_runtime_protocol(
         or hashes.parameter_block_sha256 != expected_parameters
     ):
         raise OneStepArtifactValidationError(
-            "runtime v2 semantic identity differs from the Stage-13 protocol"
+            "runtime v3 semantic identity differs from the Stage-13 protocol"
         )
     return runtime, {
         "relative_path": str(relative),
@@ -761,7 +803,7 @@ def _cross_validate_prerequisite_chain(
     parity_identity: Mapping[str, Any],
     identification: Mapping[str, Any],
 ) -> None:
-    """Bind the external replay artifacts to each other and runtime v2."""
+    """Bind the external replay artifacts to each other and runtime v3."""
 
     case_id = _mapping(protocol.get("case"), "protocol.case").get("case_id")
     if parity.get("case_id") != case_id or identification.get("case_id") != case_id:
@@ -842,7 +884,7 @@ def _validate_identification_differential_audit(
     )
     differential_config = _mapping(
         runtime_protocol.get("differential_audit"),
-        "runtime v2 differential_audit",
+        "runtime v3 differential_audit",
     )
     audit = _mapping(
         construction.get("settled_link56_differential_audit"),
@@ -973,7 +1015,20 @@ def _dynamic_authority(
             "parity and identification historical replay authorities differ"
         )
 
+    ordinary = _mapping(parity.get("ordinary_replay"), "parity.ordinary_replay")
     callback = _mapping(parity.get("callback_replay"), "parity.callback_replay")
+    ordinary_settled_state = _mapping(
+        ordinary.get("settled_official_integration_state"),
+        "parity ordinary boundary-0 official integration state",
+    )
+    callback_settled_state = _mapping(
+        callback.get("settled_official_integration_state"),
+        "parity callback boundary-0 official integration state",
+    )
+    if _canonical(ordinary_settled_state) != _canonical(callback_settled_state):
+        raise OneStepArtifactValidationError(
+            "parity ordinary/callback boundary-0 integration states differ"
+        )
     shadow = _mapping(
         identification.get("shadow_replay"), "identification.shadow_replay"
     )
@@ -1067,6 +1122,58 @@ def _dynamic_authority(
         construction.get("complete_integration_state_read_only_audit"),
         "construction complete integration-state audit",
     )
+    parity_settled_state = _mapping(
+        callback.get("settled_official_integration_state"),
+        "parity boundary-0 official integration state",
+    )
+    if (
+        set(parity_settled_state)
+        != {
+            "physical_boundary",
+            "mujoco_state_specification",
+            "state_vector_length",
+            "sha256",
+        }
+        or isinstance(parity_settled_state.get("physical_boundary"), bool)
+        or not isinstance(parity_settled_state.get("physical_boundary"), int)
+        or parity_settled_state.get("physical_boundary") != 0
+        or parity_settled_state.get("mujoco_state_specification")
+        != "mjSTATE_INTEGRATION"
+        or isinstance(parity_settled_state.get("state_vector_length"), bool)
+        or not isinstance(parity_settled_state.get("state_vector_length"), int)
+        or parity_settled_state.get("state_vector_length") <= 0
+    ):
+        raise OneStepArtifactValidationError(
+            "parity boundary-0 integration-state authority is invalid"
+        )
+    parity_settled_state_sha256 = _require_sha256(
+        parity_settled_state.get("sha256"),
+        "parity boundary-0 integration-state hash",
+    )
+    if (
+        set(read_only)
+        != {
+            "mujoco_state_specification",
+            "state_vector_length",
+            "before_sha256",
+            "after_sha256",
+            "exact_array_equal",
+            "semantics",
+        }
+        or read_only.get("mujoco_state_specification") != "mjSTATE_INTEGRATION"
+        or read_only.get("exact_array_equal") is not True
+        or not isinstance(read_only.get("semantics"), str)
+        or not read_only.get("semantics")
+        or read_only.get("before_sha256") != parity_settled_state_sha256
+        or read_only.get("after_sha256") != parity_settled_state_sha256
+        or read_only.get("state_vector_length")
+        != parity_settled_state.get("state_vector_length")
+        or read_only.get("state_vector_length")
+        != physical_model["mjstate_integration_size"]
+    ):
+        raise OneStepArtifactValidationError(
+            "identification settled state authority differs from parity"
+        )
     differential = _mapping(
         construction.get("settled_link56_differential_audit"),
         "construction differential audit",
@@ -1194,13 +1301,14 @@ def _dynamic_authority(
                 section: dict(
                     _mapping(
                         runtime_protocol.get(section),
-                        "runtime v2.%s" % section,
+                        "runtime v3.%s" % section,
                     )
                 )
                 for section in ("admissibility", "coverage", "cbf", "qp", "cadence")
             },
         },
         "parity": {
+            "settled_official_integration_state": dict(parity_settled_state),
             "executed_action_count": callback.get("executed_action_count"),
             "action_boundary_state_sha256_ledger": action_states,
             "state_sequence_sha256": digests["parity_state_sequence_sha256"],
@@ -1323,7 +1431,7 @@ def _validate_independent_qp_reference(
     recorded = _finite_vector(
         boundary_filter.get("qdot_safe"), 7, "producer safe qdot"
     )
-    runtime_qp = _mapping(runtime_protocol.get("qp"), "runtime v2.qp")
+    runtime_qp = _mapping(runtime_protocol.get("qp"), "runtime v3.qp")
     weights = _finite_vector(
         runtime_qp.get("weight_diagonal"), 7, "runtime QP weights"
     )
@@ -1535,7 +1643,7 @@ def _validate_preflight_inadmissible_nominal_velocity(
         raise OneStepArtifactValidationError(
             "inadmissible nominal arm-qpos mapping differs from protocol"
         )
-    runtime_qp = _mapping(runtime_protocol.get("qp"), "runtime v2.qp")
+    runtime_qp = _mapping(runtime_protocol.get("qp"), "runtime v3.qp")
     lower = _finite_vector(
         estimator.get("arm_velocity_lower_rad_s"),
         7,

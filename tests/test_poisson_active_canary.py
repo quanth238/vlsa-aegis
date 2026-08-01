@@ -26,6 +26,7 @@ from tests.test_poisson_shadow_identification import (
     differential_audit_config,
     protected_sample_identities,
     protected_sampling_evidence,
+    synthetic_integration_state_sha256,
     valid_differential_audit,
 )
 
@@ -68,7 +69,7 @@ class ActiveCanaryContractTest(unittest.TestCase):
         protected_samples = protected_sample_identities()
         field_sampling = protected_sampling_evidence(protected_samples)
         audit_config = differential_audit_config()
-        settled_state_sha256 = "c" * 64
+        settled_state_sha256 = synthetic_integration_state_sha256()
         differential_audit, differential_validation = valid_differential_audit(
             protected_samples,
             settled_state_sha256,

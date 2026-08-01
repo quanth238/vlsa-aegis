@@ -529,3 +529,57 @@ roundtrip criterion from displacement-space roundoff or a scale-aware numerical
 bound, retain the present diagnostic, and rerun every upstream gate. The
 observed result must not be used to tune the old threshold in place. P01 remains
 `active`.
+
+## P01 runtime-v3 roundoff gate and parity-v3 boundary-zero authority
+
+The root-g negative is preserved and not reinterpreted. Runtime protocol v3
+replaces its scale-dependent `1e-10` rad/s tangent authorization threshold with
+an exact-rational, two-stage binary64 scalar-hinge roundoff check. Every arm
+coordinate must separately pass the registered integration and differentiation
+bounds derived from `u = 2^-53` and `gamma_2 = 2u/(1-2u)`. The old velocity
+threshold remains a serialized non-gating diagnostic. The root-g signature and
+its scale-equivalent displacement both pass the derived bound; wrong sign, DOF
+swap, nonzero unresolved perturbation, non-arm leakage, non-finite or subnormal
+inputs, `1e-8` rad/s velocity corruption, and `1e-12` rad position corruption
+remain rejected.
+
+Differential audit v2 now serializes the complete source
+`mjSTATE_INTEGRATION` binary64 bits and freezes MuJoCo 3.2.3 plus the Panda
+seven-hinge DOF/joint/qpos topology. Exact source-state identity uses binary64
+bit equality, while zero-motion observability correctly treats `+0.0` and
+`-0.0` as the same mathematical position. Shadow identification v4 and active
+trace v4 carry the new evidence. The Stage-13 protocol is v2; its result and
+validation-receipt outer schemas remain v1 because their field sets are
+unchanged and the embedded protocol identity is hash-bound.
+
+An adversarial audit then found that parity v2 began its official-state ledger
+only after the first physics callback. It could not independently bind the
+settled official state used to construct the differential audit. Exact parity
+therefore advances to v3 and captures, in both ordinary and callback replay
+before action zero, the exact record `{physical_boundary: 0,
+mujoco_state_specification: mjSTATE_INTEGRATION, state_vector_length, sha256}`.
+The records must match exactly. Identification, its independent consumer v2,
+the active prerequisite helper, and the Stage-13 producer/core/consumer all
+bind the construction read-only audit and serialized differential state to that
+external hash and length, and bind the length to physical-model v3. Exact
+acceptance fields, Boolean type confusion, collusive rehashes, replay-arm
+divergence, and malformed or missing authority are rejected. The final
+independent audit found no remaining boundary-zero authorization path.
+
+Root-g exact-parity job `33727` is parity v2 with six acceptance fields. It and
+all other old artifacts remain immutable history and cannot authorize
+identification v4 or Stage 13. The selection manifest and all 109 rows were
+regenerated against runtime v3. Local post-hardening evidence is 120 targeted
+tests with 8 expected dependency skips, 400 broader Poisson tests with 117
+expected allocation-only skips, 18/18 real-MuJoCo Jacobian tests, and the final
+`./init.sh` gate at 576 tests with 135 expected allocation-only skips. Static
+Python compilation, Slurm shell syntax, JSON parsing, and diff checks also
+pass. These are implementation evidence only; P01 remains `active`.
+
+The next run must use a clean pushed commit and unused immutable root
+`/mnt/data/quanth/experiments/vlsa-aegis-poisson-feasibility/vlsa-poisson-link56-first-canary-20260801h`.
+After a fresh live preflight and exact clean remote sync, rerun numeric and
+exact-parity-v3 gates on that same commit, independently validate both complete
+artifacts, and only then submit identification v4. Stage 13 remains blocked
+unless the complete identification has an actionable warning with a scheduled
+100 Hz update strictly before contact. No partial artifact may be interpreted.

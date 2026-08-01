@@ -9,7 +9,7 @@ from main.poisson_fullbody.feasibility_protocol import load_feasibility_protocol
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROTOCOL_PATH = ROOT / "configs/vlsa_poisson_one_step_counterfactual.v1.json"
+PROTOCOL_PATH = ROOT / "configs/vlsa_poisson_one_step_counterfactual.v2.json"
 
 
 def _load_without_duplicate_keys(path: Path):
@@ -102,7 +102,7 @@ class OneStepCounterfactualProtocolTest(unittest.TestCase):
         )
         self.assertEqual(
             self.protocol["qp_execution"]["joint_position_constraints"],
-            "exact_runtime_v2_joint_limit_margin_and_gain",
+            "exact_runtime_v3_joint_limit_margin_and_gain",
         )
         self.assertIn(
             "physical_model_v3_compiled_identity_and_exact_state_layout_contract",
@@ -284,7 +284,7 @@ class OneStepCounterfactualProtocolTest(unittest.TestCase):
         )
         self.assertTrue(
             preflight[
-                "require_selected_obstacle_body_linear_and_angular_speed_within_runtime_v2_thresholds"
+                "require_selected_obstacle_body_linear_and_angular_speed_within_runtime_v3_thresholds"
             ]
         )
         self.assertEqual(

@@ -12,8 +12,8 @@ from main.poisson_fullbody.surface_sampling import COVERAGE_SEMANTICS
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PROTOCOL_PATH = REPO_ROOT / "configs/vlsa_poisson_one_step_counterfactual.v1.json"
-RUNTIME_PATH = REPO_ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v2.json"
+PROTOCOL_PATH = REPO_ROOT / "configs/vlsa_poisson_one_step_counterfactual.v2.json"
+RUNTIME_PATH = REPO_ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v3.json"
 
 
 def _digest(label: str) -> str:
@@ -561,14 +561,14 @@ def build_valid_one_step_fixture() -> tuple[dict, dict, str, dict]:
             "path": "/fixture/parity.json",
             "file_sha256": _digest("parity-file"),
             "payload_sha256": _digest("parity-payload"),
-            "schema_version": "vlsa_poisson_shadow_parity.v2",
+            "schema_version": "vlsa_poisson_shadow_parity.v3",
             "status": "passed",
         },
         "identification_prerequisite": {
             "path": "/fixture/identification.json",
             "file_sha256": _digest("identification-file"),
             "payload_sha256": _digest("identification-payload"),
-            "schema_version": "vlsa_poisson_shadow_identification.v3",
+            "schema_version": "vlsa_poisson_shadow_identification.v4",
             "status": "passed",
         },
         "dynamic_authority": {
@@ -606,6 +606,14 @@ def build_valid_one_step_fixture() -> tuple[dict, dict, str, dict]:
                 },
             },
             "parity": {
+                "settled_official_integration_state": {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": identification[
+                        "settled_mjstate_integration_sha256"
+                    ],
+                },
                 "executed_action_count": 1,
                 "action_boundary_state_sha256_ledger": [_digest("action-state")],
                 "state_sequence_sha256": core._sha([_digest("action-state")]),
@@ -1677,6 +1685,25 @@ class CoreArtifactValidationTests(unittest.TestCase):
             prefix["identification_callback_prefix_sha256"] = digest
 
         self.assert_rehashed_tamper_rejected(mutate)
+
+    def test_collusive_parity_settled_hash_rewrite_cannot_hide_identification_mismatch(self) -> None:
+        attacked = copy.deepcopy(self.result)
+        external = copy.deepcopy(self.authority)
+        for authority in (attacked["authority"], external):
+            authority["dynamic_authority"]["parity"][
+                "settled_official_integration_state"
+            ]["sha256"] = _digest("forged-settled-state")
+        _rehash(attacked)
+        with self.assertRaisesRegex(
+            core.OneStepCounterfactualError,
+            "identification and parity state authorities differ",
+        ):
+            core.validate_one_step_counterfactual_result(
+                attacked,
+                protocol=self.protocol,
+                protocol_raw_sha256=self.protocol_raw_sha256,
+                expected_authority=external,
+            )
 
     def test_rehashed_tracking_summary_forgery_is_rejected(self) -> None:
         self.assert_rehashed_tamper_rejected(

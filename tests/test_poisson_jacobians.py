@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import copy
 import json
+import struct
 import unittest
 
 
@@ -25,25 +26,25 @@ class PointJacobianTest(unittest.TestCase):
           <option gravity="0 0 0"/>
           <worldbody>
             <body name="link1" pos="0 0 0.1">
-              <joint name="j1" type="hinge" axis="0 0 1"/>
+              <joint name="robot0_joint1" type="hinge" axis="0 0 1"/>
               <geom name="g1" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
               <body name="link2" pos="0.1 0 0">
-                <joint name="j2" type="hinge" axis="0 1 0"/>
+                <joint name="robot0_joint2" type="hinge" axis="0 1 0"/>
                 <geom name="g2" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
                 <body name="link3" pos="0.1 0 0">
-                  <joint name="j3" type="hinge" axis="1 0 0"/>
+                  <joint name="robot0_joint3" type="hinge" axis="1 0 0"/>
                   <geom name="g3" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
                   <body name="link4" pos="0.1 0 0">
-                    <joint name="j4" type="hinge" axis="0 0 1"/>
+                    <joint name="robot0_joint4" type="hinge" axis="0 0 1"/>
                     <geom name="g4" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
                     <body name="link5" pos="0.1 0 0">
-                      <joint name="j5" type="hinge" axis="0 1 0"/>
+                      <joint name="robot0_joint5" type="hinge" axis="0 1 0"/>
                       <geom name="g5" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
                       <body name="link6" pos="0.1 0 0">
-                        <joint name="j6" type="hinge" axis="1 0 0"/>
+                        <joint name="robot0_joint6" type="hinge" axis="1 0 0"/>
                         <geom name="g6" type="capsule" size="0.02 0.05" pos="0.05 0 0" quat="0.70710678 0 0.70710678 0"/>
                         <body name="link7" pos="0.1 0 0">
-                          <joint name="j7" type="hinge" axis="0 0 1"/>
+                          <joint name="robot0_joint7" type="hinge" axis="0 0 1"/>
                           <geom name="g7" type="sphere" size="0.025" pos="0.08 0.02 0.01"/>
                         </body>
                       </body>
@@ -82,7 +83,19 @@ class PointJacobianTest(unittest.TestCase):
             "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
             "point_jacobian_relative_tolerance": 1.0e-4,
             "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
-            "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+            "arm_tangent_roundtrip_criterion": (
+                "scalar_hinge_two_stage_exact_fraction_binary64_roundoff"
+            ),
+            "binary64_unit_roundoff": 2.0 ** -53,
+            "expected_mujoco_version": "3.2.3",
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_arm_joint_ids": list(range(7)),
+            "expected_arm_qpos_indices": list(range(7)),
+            "expected_arm_joint_names": [
+                "robot0_joint%d" % index for index in range(1, 8)
+            ],
+            "required_arm_joint_type": "hinge",
+            "legacy_arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
             "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
             "joint_velocity_directions_rad_s": [
                 [0.5 if row == column else 0.0 for column in range(7)]
@@ -351,6 +364,281 @@ class PointJacobianTest(unittest.TestCase):
         self.assertTrue(adaptive["attempts"][-1]["selected"])
 
 
+class ScalarHingeRoundoffCriterionTest(unittest.TestCase):
+    @staticmethod
+    def _record(*, step_s, velocity_rad_s, dof=3, qpos_rad=-2.35619449):
+        from main.poisson_fullbody.jacobians import _tangent_reconstruction
+        from tests.test_poisson_shadow_identification import (
+            differential_audit_config,
+        )
+
+        config = differential_audit_config()
+        base_qpos = [0.0] * 7
+        base_qpos[dof] = qpos_rad
+        requested = [0.0] * 7
+        requested[dof] = velocity_rad_s
+        plus_qpos = list(base_qpos)
+        minus_qpos = list(base_qpos)
+        plus_qpos[dof] = float(qpos_rad + step_s * velocity_rad_s)
+        minus_qpos[dof] = float(qpos_rad - step_s * velocity_rad_s)
+        plus_reconstructed = [0.0] * 7
+        minus_reconstructed = [0.0] * 7
+        plus_reconstructed[dof] = (
+            plus_qpos[dof] - base_qpos[dof]
+        ) / step_s
+        minus_reconstructed[dof] = (
+            minus_qpos[dof] - base_qpos[dof]
+        ) / step_s
+        arguments = {
+            "requested": requested,
+            "plus_reconstructed": plus_reconstructed,
+            "minus_reconstructed": minus_reconstructed,
+            "base_arm_qpos": base_qpos,
+            "plus_perturbed_arm_qpos": plus_qpos,
+            "minus_perturbed_arm_qpos": minus_qpos,
+            "arm_dofs": list(range(7)),
+            "perturbation_step_s": step_s,
+            "config": config,
+        }
+        return _tangent_reconstruction(**arguments), arguments
+
+    def test_root_g_signature_and_scale_equivalent_displacement_both_pass(self):
+        root_g, _ = self._record(step_s=1.0e-6, velocity_rad_s=1.0)
+        scaled, _ = self._record(step_s=2.0e-6, velocity_rad_s=0.5)
+
+        self.assertEqual(
+            root_g["maximum_arm_reconstruction_error_rad_s"],
+            1.397779669787269e-10,
+        )
+        self.assertEqual(
+            root_g["maximum_arm_reconstruction_displacement_error_rad"],
+            1.397779669787269e-16,
+        )
+        self.assertIs(root_g["legacy_arm_passed"], False)
+        self.assertIs(root_g["arm_passed"], True)
+        self.assertIs(root_g["passed"], True)
+
+        self.assertEqual(
+            scaled["maximum_arm_reconstruction_displacement_error_rad"],
+            root_g["maximum_arm_reconstruction_displacement_error_rad"],
+        )
+        self.assertEqual(
+            scaled["plus_perturbed_arm_qpos_rad"],
+            root_g["plus_perturbed_arm_qpos_rad"],
+        )
+        self.assertEqual(
+            scaled["minus_perturbed_arm_qpos_rad"],
+            root_g["minus_perturbed_arm_qpos_rad"],
+        )
+        self.assertIs(scaled["arm_passed"], True)
+        self.assertIs(scaled["passed"], True)
+
+    def test_velocity_and_perturbed_qpos_corruption_fail(self):
+        from main.poisson_fullbody.jacobians import _tangent_reconstruction
+
+        _, arguments = self._record(step_s=1.0e-6, velocity_rad_s=1.0)
+
+        velocity_corruption = copy.deepcopy(arguments)
+        velocity_corruption["plus_reconstructed"][3] += 1.0e-8
+        result = _tangent_reconstruction(**velocity_corruption)
+        self.assertIs(result["plus_differentiation_passed_by_arm_dof"][3], False)
+        self.assertIs(result["arm_passed"], False)
+        self.assertIs(result["passed"], False)
+
+    def test_zero_tangent_accepts_only_signed_zero_representation_change(self):
+        from main.poisson_fullbody.jacobians import _tangent_reconstruction
+
+        result, arguments = self._record(
+            step_s=1.0e-6,
+            velocity_rad_s=0.0,
+            qpos_rad=-0.0,
+        )
+        self.assertNotEqual(
+            struct.pack("<d", arguments["base_arm_qpos"][3]),
+            struct.pack("<d", arguments["plus_perturbed_arm_qpos"][3]),
+        )
+        self.assertEqual(arguments["base_arm_qpos"][3], -0.0)
+        self.assertEqual(arguments["plus_perturbed_arm_qpos"][3], 0.0)
+        self.assertIs(result["plus_observable_by_arm_dof"][3], True)
+        self.assertIs(result["minus_observable_by_arm_dof"][3], True)
+        self.assertIs(result["passed"], True)
+
+        corrupted = copy.deepcopy(arguments)
+        corrupted["plus_reconstructed"][3] = 1.0e-12
+        result = _tangent_reconstruction(**corrupted)
+        self.assertIs(result["plus_observable_by_arm_dof"][3], False)
+        self.assertIs(result["passed"], False)
+
+        qpos_corruption = copy.deepcopy(arguments)
+        qpos_corruption["plus_perturbed_arm_qpos"][3] += 1.0e-12
+        result = _tangent_reconstruction(**qpos_corruption)
+        self.assertIs(result["plus_integration_passed_by_arm_dof"][3], False)
+        self.assertIs(result["arm_passed"], False)
+        self.assertIs(result["passed"], False)
+
+    def test_wrong_sign_and_dof_swap_fail(self):
+        from main.poisson_fullbody.jacobians import _tangent_reconstruction
+
+        _, arguments = self._record(step_s=1.0e-6, velocity_rad_s=1.0)
+
+        wrong_sign = copy.deepcopy(arguments)
+        wrong_sign["minus_reconstructed"][3] = abs(
+            wrong_sign["minus_reconstructed"][3]
+        )
+        result = _tangent_reconstruction(**wrong_sign)
+        self.assertIs(result["minus_differentiation_passed_by_arm_dof"][3], False)
+        self.assertIs(result["passed"], False)
+
+        dof_swap = copy.deepcopy(arguments)
+        dof_swap["plus_reconstructed"] = [0.0] * 7
+        dof_swap["minus_reconstructed"] = [0.0] * 7
+        dof_swap["plus_perturbed_arm_qpos"] = list(dof_swap["base_arm_qpos"])
+        dof_swap["minus_perturbed_arm_qpos"] = list(dof_swap["base_arm_qpos"])
+        dof_swap["plus_perturbed_arm_qpos"][5] += 1.0e-6
+        dof_swap["minus_perturbed_arm_qpos"][5] -= 1.0e-6
+        dof_swap["plus_reconstructed"][5] = 1.0
+        dof_swap["minus_reconstructed"][5] = -1.0
+        result = _tangent_reconstruction(**dof_swap)
+        self.assertIs(result["plus_integration_passed_by_arm_dof"][3], False)
+        self.assertIs(result["plus_observable_by_arm_dof"][3], False)
+        self.assertIs(result["passed"], False)
+
+    def test_rehashed_bool_topology_and_pass_field_substitutions_fail(self):
+        from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+        from main.poisson_fullbody.jacobians import (
+            DIFFERENTIAL_AUDIT_HASH_FIELD,
+            DifferentialAuditError,
+            validate_protected_sample_differential_audit,
+        )
+        from tests.test_poisson_shadow_identification import (
+            differential_audit_config,
+            protected_sample_identities,
+            synthetic_integration_state_sha256,
+            valid_differential_audit,
+        )
+
+        samples = protected_sample_identities()
+        config = differential_audit_config()
+        state_sha256 = synthetic_integration_state_sha256()
+        arguments = {
+            "expected_samples": samples,
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_integration_state_sha256": state_sha256,
+            "expected_differential_audit_config": config,
+        }
+
+        def rehash(audit):
+            audit.pop(DIFFERENTIAL_AUDIT_HASH_FIELD, None)
+            audit[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+                canonical_json_bytes(audit)
+            )
+
+        bool_topology, _ = valid_differential_audit(
+            samples, state_sha256, config
+        )
+        bool_topology["arm_dof_indices"][0:2] = [False, True]
+        rehash(bool_topology)
+        with self.assertRaisesRegex(
+            DifferentialAuditError, "arm_dof_indices must contain seven integers"
+        ):
+            validate_protected_sample_differential_audit(
+                bool_topology, **arguments
+            )
+
+        pass_substitution, _ = valid_differential_audit(
+            samples, state_sha256, config
+        )
+        pass_substitution["sample_records"][0][
+            "point_perturbation_tangent_reconstruction_by_arm_dof"
+        ][0]["integration_roundoff_passed"] = 1
+        rehash(pass_substitution)
+        with self.assertRaisesRegex(
+            DifferentialAuditError, "tangent diagnostics do not reconstruct"
+        ):
+            validate_protected_sample_differential_audit(
+                pass_substitution, **arguments
+            )
+
+    def test_rehashed_source_bits_and_qpos_mapping_cannot_replace_authority(self):
+        from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+        from main.poisson_fullbody.jacobians import (
+            DIFFERENTIAL_AUDIT_HASH_FIELD,
+            DifferentialAuditError,
+            _stable_audit_hashes,
+            validate_protected_sample_differential_audit,
+        )
+        from tests.test_poisson_shadow_identification import (
+            differential_audit_config,
+            protected_sample_identities,
+            synthetic_integration_state_sha256,
+            valid_differential_audit,
+        )
+
+        samples = protected_sample_identities()
+        config = differential_audit_config()
+        state_sha256 = synthetic_integration_state_sha256()
+        arguments = {
+            "expected_samples": samples,
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_integration_state_sha256": state_sha256,
+            "expected_differential_audit_config": config,
+        }
+
+        state_bits, _ = valid_differential_audit(samples, state_sha256, config)
+        state_bits["integration_state"]["source_initial_state_f64_le_hex"][1] = (
+            "000000000000c03f"
+        )
+        state_bits.pop(DIFFERENTIAL_AUDIT_HASH_FIELD)
+        state_bits[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+            canonical_json_bytes(state_bits)
+        )
+        with self.assertRaisesRegex(
+            DifferentialAuditError, "serialized integration-state bits"
+        ):
+            validate_protected_sample_differential_audit(state_bits, **arguments)
+
+        topology, _ = valid_differential_audit(samples, state_sha256, config)
+        authority = topology["arm_scalar_hinge_roundoff_authority"]
+        authority["arm_qpos_indices"][0:2] = [1, 0]
+        authority["arm_jnt_qposadr"][0:2] = [1, 0]
+        topology["arm_scalar_hinge_roundoff_authority_sha256"] = sha256_bytes(
+            canonical_json_bytes(authority)
+        )
+        identities = [sample.to_dict() for sample in samples]
+        for key, value in _stable_audit_hashes(
+            state_sha256,
+            list(range(7)),
+            identities,
+            config,
+            authority,
+            topology["sample_records"],
+        ).items():
+            topology[key] = value
+        topology.pop(DIFFERENTIAL_AUDIT_HASH_FIELD)
+        topology[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+            canonical_json_bytes(topology)
+        )
+        with self.assertRaisesRegex(DifferentialAuditError, "qpos topology is wrong"):
+            validate_protected_sample_differential_audit(topology, **arguments)
+
+    def test_nonfinite_and_subnormal_roundtrip_inputs_fail_closed(self):
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            _tangent_reconstruction,
+        )
+
+        _, arguments = self._record(step_s=1.0e-6, velocity_rad_s=1.0)
+        nonfinite = copy.deepcopy(arguments)
+        nonfinite["plus_perturbed_arm_qpos"][3] = float("nan")
+        with self.assertRaisesRegex(DifferentialAuditError, "finite number"):
+            _tangent_reconstruction(**nonfinite)
+
+        subnormal = copy.deepcopy(arguments)
+        subnormal["perturbation_step_s"] = float.fromhex("0x0.0000000000001p-1022")
+        with self.assertRaisesRegex(DifferentialAuditError, "subnormal"):
+            _tangent_reconstruction(**subnormal)
+
+
 def _strict_failed_differential_audit_fixture():
     """Construct a self-consistent failed audit without MuJoCo dependencies."""
 
@@ -363,12 +651,13 @@ def _strict_failed_differential_audit_fixture():
     from tests.test_poisson_shadow_identification import (
         differential_audit_config,
         protected_sample_identities,
+        synthetic_integration_state_sha256,
         valid_differential_audit,
     )
 
     samples = protected_sample_identities()
     config = differential_audit_config()
-    state_sha256 = "c" * 64
+    state_sha256 = synthetic_integration_state_sha256()
     audit, _ = valid_differential_audit(samples, state_sha256, config)
     row = audit["sample_records"][0]
     tangent = row[
@@ -381,7 +670,11 @@ def _strict_failed_differential_audit_fixture():
             tangent["requested_tangent_nv_rad_s"],
             plus,
             tangent["minus_reconstructed_tangent_nv_rad_s"],
+            audit["arm_scalar_hinge_roundoff_authority"]["base_arm_qpos_rad"],
+            tangent["plus_perturbed_arm_qpos_rad"],
+            tangent["minus_perturbed_arm_qpos_rad"],
             list(range(7)),
+            tangent["perturbation_step_s"],
             config,
         )
     )
@@ -396,6 +689,7 @@ def _strict_failed_differential_audit_fixture():
         list(range(7)),
         identities,
         config,
+        audit["arm_scalar_hinge_roundoff_authority"],
         audit["sample_records"],
     ).items():
         audit[key] = value
@@ -478,12 +772,13 @@ class DifferentialAuditFailureInspectionTest(unittest.TestCase):
         from tests.test_poisson_shadow_identification import (
             differential_audit_config,
             protected_sample_identities,
+            synthetic_integration_state_sha256,
             valid_differential_audit,
         )
 
         samples = protected_sample_identities()
         config = differential_audit_config()
-        state_sha256 = "d" * 64
+        state_sha256 = synthetic_integration_state_sha256()
         audit, expected_receipt = valid_differential_audit(
             samples, state_sha256, config
         )

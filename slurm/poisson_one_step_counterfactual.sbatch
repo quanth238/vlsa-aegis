@@ -15,7 +15,7 @@ EVALUATION_PYTHON="${EVALUATION_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/b
 CASE_ID="${CASE_ID:-vlsa-t1-goal-ii-t0-e05}"
 REGISTERED_REMOTE_REPO="/home/quanth/working_space/vlsa-aegis-poisson-feasibility"
 REGISTERED_RESULT_ROOT="/mnt/data/quanth/experiments/vlsa-aegis-poisson-feasibility"
-PROTOCOL_RELATIVE_PATH="configs/vlsa_poisson_one_step_counterfactual.v1.json"
+PROTOCOL_RELATIVE_PATH="configs/vlsa_poisson_one_step_counterfactual.v2.json"
 
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${RESULT_ROOT:?RESULT_ROOT is required}"

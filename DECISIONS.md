@@ -665,3 +665,108 @@ roundoff bound, preserve the old value as a diagnostic, and rerun numeric,
 exact-parity, independent prerequisite validation, and full identification.
 Only a passing, actionable identification may authorize Stage 13. P01 remains
 `active`.
+
+## ADR-0038: Gate scalar-hinge tangent reconstruction with a two-stage binary64 proof
+
+Accepted before any rerun of the retained root-g negative. Runtime protocol v3
+replaces the scale-dependent `1e-10` rad/s authorization threshold with a
+two-stage bound derived from the two scalar-hinge operations used by MuJoCo
+3.2.3. For sign `sigma`, registered perturbation interval `h`, requested signed
+velocity `w`, base position `q`, perturbed position `q_prime`, reconstructed
+velocity `r`, binary64 unit roundoff `u = 2^-53`, and
+`gamma_2 = 2u/(1-2u)`, every arm coordinate must satisfy both
+
+`abs((q_prime-q)-h*w) <= abs(q)*u + abs(h*w)*gamma_2`
+
+and
+
+`abs(h*r-(q_prime-q)) <= abs(q_prime-q)*gamma_2`.
+
+The first inequality audits scalar-hinge integration (`qpos += dt*qvel`); the
+second audits scalar-hinge differentiation (`(qpos2-qpos1)/dt`). Comparisons
+use exact rational representations of the observed binary64 values, not a
+rounded derived tolerance. The old `1e-10` rad/s result remains frozen and
+serialized as a non-gating diagnostic. It cannot authorize or reject the new
+audit.
+
+This is not an empirical relaxation. The root-g signature has
+`1.397779669787269e-10` rad/s error but only
+`1.397779669787269e-16` rad displacement error; it satisfies both derived
+bounds. The scale-equivalent `0.5` rad/s over `2e-6` seconds produces the same
+perturbed position and also passes. A `1e-8` rad/s reconstructed-velocity
+corruption, a `1e-12` rad perturbed-position corruption, wrong sign, DOF swap,
+unresolved nonzero perturbation, non-arm leakage, non-finite input, or
+subnormal intermediate remains fail-closed.
+
+Audit schema v2 serializes the exact full source `mjSTATE_INTEGRATION` binary64
+bits and binds them to the independently supplied parity state hash. The
+claim-bearing qpos prefix is fixed at offset one. Runtime v3 also freezes
+MuJoCo version 3.2.3 and the Panda scalar-hinge topology: arm DOF, joint, and
+qpos indices `0..6`, joint names `robot0_joint1..7`, and matching
+`dof_jntid`, `jnt_dofadr`, and `jnt_qposadr` arrays. The pure consumer rejects
+type-confused booleans, collusively rehashed state-bit substitutions, remapped
+qpos authority, unknown fields, or legacy schemas.
+
+Because the nested evidence contract changed, shadow identification is v4,
+active trace is v4, retained differential-audit failure evidence is v2, and
+the Stage-13 protocol is v2. The Stage-13 result and receipt schemas remain v1
+because their outer field sets are unchanged; their embedded protocol identity
+and prerequisites explicitly require runtime v3 and differential audit v2
+through shadow identification v4, and therefore reject every older artifact.
+The selection manifest and receipt are regenerated against the new runtime
+identity. Root g cannot be retrospectively certified because it did not record
+the required perturbed qpos and source-state bit evidence.
+
+Primary implementation authorities are MuJoCo 3.2.3's scalar-hinge integration
+and differentiation source and the robosuite 1.4.1 Panda joint definition. The
+Panda joint-6 upper limit exceeds pi, so the rejected global-pi/gamma-8 draft
+would have excluded a valid model state and is not used. A new clean commit,
+unused immutable root, H100 numeric gate, exact parity gate, independent
+prerequisite validation, and complete identification-v4 artifact are mandatory
+before Stage 13. This decision changes apparatus only and supplies no safety or
+feasibility result.
+
+## ADR-0039: Bind the settled differential audit to parity boundary zero
+
+Accepted before the first runtime-v3 rerun. Exact parity v2 recorded official
+`mjSTATE_INTEGRATION` hashes only after physics callbacks began, so it had no
+independent official-state authority for the settled boundary before action
+zero. Shadow identification could serialize a self-consistent construction
+state, state bits, and differential audit, and its independent consumer could
+authorize Stage 13 using only values from that same artifact. Stage 13 would
+still reject a mismatch against a fresh live environment before paired physics,
+but that later refusal did not make the prerequisite authorization sound.
+
+Exact parity therefore advances to v3. Both the ordinary and callback replay
+capture, before their first `env.step`, the exact structured authority
+`{physical_boundary: 0, mujoco_state_specification: mjSTATE_INTEGRATION,
+state_vector_length, sha256}`. A pass requires the two records to be exactly
+equal and adds the literal acceptance
+`ordinary_and_callback_boundary_0_mjstate_integration_exact`. Boolean boundary
+or length substitutions, missing or extra fields, malformed hashes, unequal
+replay arms, or a length different from the compiled physical model fail
+closed.
+
+Shadow identification v4 was not yet released, so it incorporates this parity
+v3 requirement before publication rather than advancing again. Its pure replay
+validator now requires the external settled hash and length, validates the
+exact six-field read-only audit, binds the length to the physical-model v3
+`mjstate_integration_size`, and reconstructs the differential audit against
+that external hash. The independent consumer advances to v2. A retained
+differential-audit failure is now externally state-bound but remains only a
+diagnostic because its exact protected-sample geometry ledger is still local to
+the producer.
+
+The uncommitted Stage-13 protocol v2 likewise incorporates parity v3. Its
+producer, pure core, and independent consumer require parity boundary zero to
+equal the identification settled state, validate the record length against the
+compiled model, and preserve the structured authority in final dynamic
+evidence. The independent consumer requires the exact parity-v3 and
+identification-v4 acceptance field sets and checks ordinary/callback equality.
+Old parity-v2 artifacts, including root-g job 33727, cannot authorize
+identification v4 or Stage 13 and remain immutable apparatus history.
+
+This is evidence-authority hardening, not a safety result. A new clean commit,
+unused immutable root, numeric job, exact-parity-v3 job, independent prerequisite
+validation, and complete identification-v4 job are all mandatory. No old
+artifact can be upgraded or reinterpreted in place.

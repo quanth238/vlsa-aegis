@@ -32,7 +32,7 @@ import traceback
 from typing import Any, Dict, Mapping, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v2"
+SCHEMA_VERSION = "vlsa_poisson_shadow_parity.v3"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 
 
@@ -275,11 +275,24 @@ def _run_ordinary(
     case: Mapping[str, Any],
     replay: Any,
 ) -> Dict[str, Any]:
+    from scripts.run_poisson_shadow_identification import (
+        _official_integration_state,
+    )
+
     env = None
     try:
         env, _, observation, goal_atoms, previous_goal = _prepare_environment(
             evaluator, runtime, case, replay
         )
+        settled_official_state = _official_integration_state(
+            env.sim, runtime["np"]
+        )
+        settled_official_state_authority = {
+            "physical_boundary": 0,
+            "mujoco_state_specification": "mjSTATE_INTEGRATION",
+            "state_vector_length": int(settled_official_state.size),
+            "sha256": evaluator.array_sha256(settled_official_state),
+        }
         state_hashes = []
         observation_hashes = []
         for expected_step in replay.steps:
@@ -304,6 +317,9 @@ def _run_ordinary(
         if not replay.steps[-1].done:
             raise ShadowParityError("registered canary did not terminate in task success")
         return {
+            "settled_official_integration_state": (
+                settled_official_state_authority
+            ),
             "executed_action_count": len(state_hashes),
             "expected_state_match_count": len(state_hashes),
             "action_boundary_state_sha256_ledger": state_hashes,
@@ -334,6 +350,15 @@ def _run_callback(
         env, _, observation, goal_atoms, previous_goal = _prepare_environment(
             evaluator, runtime, case, replay
         )
+        settled_official_state = _official_integration_state(
+            env.sim, runtime["np"]
+        )
+        settled_official_state_authority = {
+            "physical_boundary": 0,
+            "mujoco_state_specification": "mjSTATE_INTEGRATION",
+            "state_vector_length": int(settled_official_state.size),
+            "sha256": evaluator.array_sha256(settled_official_state),
+        }
         state_hashes = []
         observation_hashes = []
         substep_trace = []
@@ -394,6 +419,9 @@ def _run_callback(
             if done and expected_step.step != len(replay.steps) - 1:
                 raise ShadowParityError("callback replay terminated early")
         return {
+            "settled_official_integration_state": (
+                settled_official_state_authority
+            ),
             "executed_action_count": len(state_hashes),
             "callback_count": sum(len(row) for row in substep_trace),
             "expected_callback_count": 25 * len(replay.steps),
@@ -480,6 +508,13 @@ def main() -> int:
         runtime = evaluator._runtime_imports(include_aegis=False)
         ordinary = _run_ordinary(evaluator, runtime, case, replay)
         callback = _run_callback(evaluator, runtime, case, replay, ordinary)
+        if (
+            ordinary["settled_official_integration_state"]
+            != callback["settled_official_integration_state"]
+        ):
+            raise ShadowParityError(
+                "ordinary and callback settled official integration states differ"
+            )
         historical_state_sequence = [
             step.simulator_state_sha256 for step in replay.steps
         ]
@@ -536,6 +571,7 @@ def main() -> int:
                     "all_historical_post_step_states_exact": True,
                     "ordinary_and_callback_states_exact": True,
                     "ordinary_and_callback_observations_exact": True,
+                    "ordinary_and_callback_boundary_0_mjstate_integration_exact": True,
                     "reward_done_goal_exact": True,
                     "full_callback_exposure": True,
                     "ordinary_step_path_unmodified": True,

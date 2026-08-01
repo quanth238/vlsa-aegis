@@ -53,8 +53,8 @@ def _consumer_fixture(root):
     _write(selection_path, selection)
     selection_raw = hashlib.sha256(selection_path.read_bytes()).hexdigest()
     runtime = {
-        "schema_version": "vlsa_poisson_runtime_protocol.v2",
-        "protocol_id": "runtime-v2",
+        "schema_version": "vlsa_poisson_runtime_protocol.v3",
+        "protocol_id": "runtime-v3-fixture",
         "differential_audit": {"fixture": True},
         "admissibility": {"fixture": True},
         "coverage": {"fixture": True},
@@ -68,7 +68,7 @@ def _consumer_fixture(root):
     stage_protocol = json.loads(
         (
             Path(__file__).resolve().parents[1]
-            / "configs/vlsa_poisson_one_step_counterfactual.v1.json"
+            / "configs/vlsa_poisson_one_step_counterfactual.v2.json"
         ).read_text(encoding="utf-8")
     )
     controller_authority = stage_protocol["joint_velocity_controller_authority"]
@@ -95,20 +95,10 @@ def _consumer_fixture(root):
             "runtime_raw_file_sha256": runtime_raw,
             "runtime_semantic_protocol_sha256": runtime_semantic,
             "runtime_parameter_block_sha256": runtime_parameters,
-            "runtime_schema_version": "vlsa_poisson_runtime_protocol.v2",
-            "runtime_protocol_id": "runtime-v2",
+            "runtime_schema_version": "vlsa_poisson_runtime_protocol.v3",
+            "runtime_protocol_id": "runtime-v3-fixture",
         },
-        "qp_execution": {
-            "independent_postproducer_reference_check": {
-                "execution": "separate_artifact_consumer_after_producer_exit",
-                "solver": "cvxpy_osqp",
-                "eps_abs": 1e-9,
-                "eps_rel": 1e-9,
-                "max_iterations": 20000,
-                "qdot_linf_tolerance_rad_s": 2e-5,
-                "required_before_scientific_interpretation": True,
-            }
-        },
+        "qp_execution": copy.deepcopy(stage_protocol["qp_execution"]),
         "counterfactual_boundary": {
             "physics_substeps_per_filter_update": 5,
             "counterfactual_horizon_substeps": 5,
@@ -118,12 +108,9 @@ def _consumer_fixture(root):
         "nominal_velocity_estimator": stage_protocol[
             "nominal_velocity_estimator"
         ],
-        "boundary_B_preflight": {
-            "failure_policy": (
-                "apparatus_failure_no_QP_no_arm_physics_no_scientific_"
-                "interpretation"
-            ),
-        },
+        "boundary_B_preflight": copy.deepcopy(
+            stage_protocol["boundary_B_preflight"]
+        ),
         "arms": {
             "gripper_policy": {
                 "required_evidence": [
@@ -223,6 +210,12 @@ def _consumer_fixture(root):
     action_state_ledger = ["a" * 64]
     official_state_ledger = ["c" * 64]
     callback = {
+        "settled_official_integration_state": {
+            "physical_boundary": 0,
+            "mujoco_state_specification": "mjSTATE_INTEGRATION",
+            "state_vector_length": 15,
+            "sha256": "0" * 64,
+        },
         "executed_action_count": 1,
         "action_boundary_state_sha256_ledger": action_state_ledger,
         "state_sequence_sha256": hashlib.sha256(
@@ -239,7 +232,19 @@ def _consumer_fixture(root):
         payload = {
             "schema_version": schema,
             "status": "passed",
-            "acceptance": {"fixture_acceptance": True},
+            "acceptance": (
+                {
+                    field: True
+                    for field in validator.PARITY_ACCEPTANCE_FIELDS
+                }
+                if kind == "parity"
+                else {
+                    field: True
+                    for field in validator.IDENTIFICATION_ACCEPTANCE_FIELDS
+                }
+                if kind == "identification"
+                else {"fixture_acceptance": True}
+            ),
         }
         if kind == "numeric":
             payload["source"] = source
@@ -258,6 +263,11 @@ def _consumer_fixture(root):
             payload["case_id"] = "vlsa-t1-goal-ii-t0-e05"
             payload["historical"] = dict(historical)
         if kind == "parity":
+            payload["ordinary_replay"] = {
+                "settled_official_integration_state": copy.deepcopy(
+                    callback["settled_official_integration_state"]
+                )
+            }
             payload["callback_replay"] = copy.deepcopy(callback)
         if kind == "identification":
             callback_rows = [
@@ -331,9 +341,12 @@ def _consumer_fixture(root):
                     },
                     "full_robot_measurement_sampling": {},
                     "complete_integration_state_read_only_audit": {
+                        "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                        "state_vector_length": 15,
                         "before_sha256": "0" * 64,
                         "after_sha256": "0" * 64,
                         "exact_array_equal": True,
+                        "semantics": "fixture complete official state remained unchanged",
                     },
                     "settled_link56_differential_audit": {
                         "binding_sha256": "1" * 64,
@@ -516,7 +529,7 @@ class OneStepArtifactStrictLoaderTest(unittest.TestCase):
             protocol = json.loads(
                 (
                     Path(__file__).resolve().parents[1]
-                    / "configs/vlsa_poisson_one_step_counterfactual.v1.json"
+                    / "configs/vlsa_poisson_one_step_counterfactual.v2.json"
                 ).read_text(encoding="utf-8")
             )
             expected = protocol["joint_velocity_controller_authority"][
@@ -863,6 +876,15 @@ class OneStepArtifactStrictLoaderTest(unittest.TestCase):
                 },
             )
             self.assertEqual(
+                dynamic["parity"]["settled_official_integration_state"],
+                {
+                    "physical_boundary": 0,
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "sha256": "0" * 64,
+                },
+            )
+            self.assertEqual(
                 dynamic["parity"]["official_integration_state_sha256_ledger"],
                 ["c" * 64],
             )
@@ -956,6 +978,80 @@ class OneStepArtifactStrictLoaderTest(unittest.TestCase):
                             "acceptance",
                         ):
                             validator.validate_one_step_artifacts(**arguments)
+
+    def test_parity_v3_requires_complete_acceptance_and_matching_boundary_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            arguments, _ = _consumer_fixture(Path(directory))
+            parity_path = arguments["parity_path"]
+            _, parity = validator._load_strict_json(parity_path, "parity")
+            incomplete = {
+                key: value
+                for key, value in parity.items()
+                if key != "result_payload_sha256"
+            }
+            incomplete = copy.deepcopy(incomplete)
+            incomplete["acceptance"].pop(
+                "ordinary_and_callback_boundary_0_mjstate_integration_exact"
+            )
+            _write(parity_path, _hashed(incomplete))
+            with self.assertRaisesRegex(
+                validator.OneStepArtifactValidationError,
+                "acceptance fields differ",
+            ):
+                validator.validate_one_step_artifacts(**arguments)
+
+        with tempfile.TemporaryDirectory() as directory:
+            arguments, _ = _consumer_fixture(Path(directory))
+            _, parity = validator._load_strict_json(
+                arguments["parity_path"], "parity"
+            )
+            _, identification = validator._load_strict_json(
+                arguments["identification_path"], "identification"
+            )
+            parity = copy.deepcopy(parity)
+            parity["ordinary_replay"][
+                "settled_official_integration_state"
+            ]["sha256"] = "9" * 64
+            with self.assertRaisesRegex(
+                validator.OneStepArtifactValidationError,
+                "ordinary/callback boundary-0 integration states differ",
+            ):
+                validator._dynamic_authority(
+                    protocol={"case": {}},
+                    selection_identity={},
+                    runtime_protocol={},
+                    parity=parity,
+                    identification=identification,
+                )
+
+    def test_rehashed_identification_settled_state_remains_bound_to_parity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            arguments, _ = _consumer_fixture(Path(directory))
+            _, identification = validator._load_strict_json(
+                arguments["identification_path"], "identification"
+            )
+            identification.pop("result_payload_sha256")
+            read_only = identification["shadow_replay"]["construction"][
+                "complete_integration_state_read_only_audit"
+            ]
+            read_only["before_sha256"] = "9" * 64
+            read_only["after_sha256"] = "9" * 64
+            _write(
+                arguments["identification_path"],
+                _hashed(identification),
+            )
+            with mock.patch(
+                "main.poisson_fullbody.feasibility_protocol."
+                "validate_feasibility_protocol",
+                return_value=SimpleNamespace(
+                    protocol_sha256="2" * 64,
+                    parameter_block_sha256="3" * 64,
+                ),
+            ), self.assertRaisesRegex(
+                validator.OneStepArtifactValidationError,
+                "settled state authority differs from parity",
+            ):
+                validator.validate_one_step_artifacts(**arguments)
 
     def test_rehashed_dynamic_authority_tamper_reaches_real_core(self):
         """A self-consistent upstream rewrite must not inherit old result authority."""

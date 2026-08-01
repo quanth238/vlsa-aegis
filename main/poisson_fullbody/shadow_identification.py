@@ -1056,6 +1056,8 @@ def validate_shadow_replay_record(
     alpha_gain_per_s: float,
     static_drift_thresholds: Mapping[str, float],
     differential_audit_config: Mapping[str, Any],
+    expected_settled_integration_state_sha256: str,
+    expected_settled_integration_state_length: int,
 ) -> None:
     """Independently validate the complete serialized shadow replay.
 
@@ -1093,6 +1095,15 @@ def validate_shadow_replay_record(
     ):
         raise ShadowIdentificationError("expected alpha_gain_per_s is invalid")
     expected_alpha = float(alpha_gain_per_s)
+    expected_settled_sha256 = _artifact_sha256(
+        expected_settled_integration_state_sha256,
+        "expected settled integration-state SHA-256",
+    )
+    expected_settled_length = _artifact_integer(
+        expected_settled_integration_state_length,
+        "expected settled integration-state length",
+        minimum=1,
+    )
     expected_drift_thresholds = _artifact_mapping(
         static_drift_thresholds, "expected static-field drift thresholds"
     )
@@ -1250,7 +1261,9 @@ def validate_shadow_replay_record(
     construction = _artifact_mapping(
         record.get("construction"), "shadow construction"
     )
-    _validate_physical_model_contract(construction.get("physical_model"))
+    physical_model = _validate_physical_model_contract(
+        construction.get("physical_model")
+    )
     resolved = _artifact_mapping(
         construction.get("resolved_geometry"), "resolved geometry"
     )
@@ -1618,9 +1631,36 @@ def validate_shadow_replay_record(
         "construction read-only audit",
     )
     if (
-        read_only.get("exact_array_equal") is not True
-        or not isinstance(read_only.get("before_sha256"), str)
-        or read_only.get("before_sha256") != read_only.get("after_sha256")
+        set(read_only)
+        != {
+            "mujoco_state_specification",
+            "state_vector_length",
+            "before_sha256",
+            "after_sha256",
+            "exact_array_equal",
+            "semantics",
+        }
+        or read_only.get("mujoco_state_specification") != "mjSTATE_INTEGRATION"
+        or _artifact_integer(
+            read_only.get("state_vector_length"),
+            "construction read-only state-vector length",
+            minimum=1,
+        )
+        != expected_settled_length
+        or expected_settled_length != physical_model["mjstate_integration_size"]
+        or _artifact_sha256(
+            read_only.get("before_sha256"),
+            "construction read-only before SHA-256",
+        )
+        != expected_settled_sha256
+        or _artifact_sha256(
+            read_only.get("after_sha256"),
+            "construction read-only after SHA-256",
+        )
+        != expected_settled_sha256
+        or read_only.get("exact_array_equal") is not True
+        or not isinstance(read_only.get("semantics"), str)
+        or not read_only.get("semantics")
     ):
         raise ShadowIdentificationError("construction read-only audit differs")
     raw_arm_dofs = _artifact_sequence(

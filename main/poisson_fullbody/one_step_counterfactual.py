@@ -19,10 +19,10 @@ class OneStepCounterfactualError(RuntimeError):
     """Raised when a Stage-13 result is incomplete or self-inconsistent."""
 
 
-PROTOCOL_SCHEMA = "vlsa_poisson_one_step_counterfactual_protocol.v1"
+PROTOCOL_SCHEMA = "vlsa_poisson_one_step_counterfactual_protocol.v2"
 RESULT_SCHEMA = "vlsa_poisson_one_step_counterfactual_result.v1"
 DIFFERENTIAL_AUDIT_SCHEMA = (
-    "vlsa_poisson_protected_sample_differential_audit.v1"
+    "vlsa_poisson_protected_sample_differential_audit.v2"
 )
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
@@ -552,7 +552,13 @@ def _validate_protocol(
         protocol.get("boundary_B_preflight"), "protocol boundary-B preflight"
     )
     if (
-        boundary_preflight.get("failure_policy")
+        boundary_preflight.get("query_population")
+        != "every_exact_ordered_link5_link6_sample_bound_to_shadow_v4"
+        or boundary_preflight.get(
+            "require_selected_obstacle_body_linear_and_angular_speed_within_runtime_v3_thresholds"
+        )
+        is not True
+        or boundary_preflight.get("failure_policy")
         != "apparatus_failure_no_QP_no_arm_physics_no_scientific_interpretation"
     ):
         raise OneStepCounterfactualError(
@@ -570,8 +576,15 @@ def _validate_protocol(
         "exact_gripper_value_sha256",
     ]:
         raise OneStepCounterfactualError("gripper evidence contract differs")
+    qp_execution = _mapping(protocol.get("qp_execution"), "protocol QP execution")
+    if (
+        qp_execution.get("joint_velocity_bounds") != "exact_runtime_v3_bounds"
+        or qp_execution.get("joint_position_constraints")
+        != "exact_runtime_v3_joint_limit_margin_and_gain"
+    ):
+        raise OneStepCounterfactualError("Stage-13 runtime-v3 QP authority differs")
     reference = _exact_keys(
-        _mapping(protocol.get("qp_execution"), "protocol QP execution").get(
+        qp_execution.get(
             "independent_postproducer_reference_check"
         ),
         (
@@ -724,8 +737,8 @@ def _validate_authority(
     _sha256(protocol_identity["semantic_sha256"], "authority protocol semantic hash")
     for kind, schema in (
         ("numeric_prerequisite", "vlsa_poisson_numeric_validation.v1"),
-        ("parity_prerequisite", "vlsa_poisson_shadow_parity.v2"),
-        ("identification_prerequisite", "vlsa_poisson_shadow_identification.v3"),
+        ("parity_prerequisite", "vlsa_poisson_shadow_parity.v3"),
+        ("identification_prerequisite", "vlsa_poisson_shadow_identification.v4"),
     ):
         identity = _exact_keys(
             observed[kind],
@@ -889,6 +902,7 @@ def _validate_authority(
     parity = _exact_keys(
         dynamic["parity"],
         (
+            "settled_official_integration_state",
             "executed_action_count",
             "action_boundary_state_sha256_ledger",
             "state_sequence_sha256",
@@ -897,6 +911,38 @@ def _validate_authority(
             "official_integration_state_sequence_sha256",
         ),
         "dynamic_authority.parity",
+    )
+    settled_official_state = _exact_keys(
+        parity["settled_official_integration_state"],
+        (
+            "physical_boundary",
+            "mujoco_state_specification",
+            "state_vector_length",
+            "sha256",
+        ),
+        "dynamic parity boundary-0 official integration state",
+    )
+    if (
+        _integer(
+            settled_official_state["physical_boundary"],
+            "dynamic parity settled physical boundary",
+            0,
+        )
+        != 0
+        or settled_official_state["mujoco_state_specification"]
+        != "mjSTATE_INTEGRATION"
+    ):
+        raise OneStepCounterfactualError(
+            "dynamic parity settled-state authority is invalid"
+        )
+    settled_state_length = _integer(
+        settled_official_state["state_vector_length"],
+        "dynamic parity settled state-vector length",
+        1,
+    )
+    _sha256(
+        settled_official_state["sha256"],
+        "dynamic parity settled official integration state hash",
     )
     action_states = _sequence(
         parity["action_boundary_state_sha256_ledger"], "parity action state ledger"
@@ -953,6 +999,13 @@ def _validate_authority(
     _validate_physical_model_contract(
         identification["physical_model"], "dynamic identification physical model"
     )
+    if (
+        settled_state_length
+        != identification["physical_model"]["mjstate_integration_size"]
+    ):
+        raise OneStepCounterfactualError(
+            "dynamic parity settled-state length differs from physical model"
+        )
     _integer(identification["protected_sample_count"], "dynamic protected sample count", 1)
     if len(_sequence(identification["arm_dof_indices"], "dynamic arm DOFs")) != 7:
         raise OneStepCounterfactualError("dynamic identification arm DOF count differs")
@@ -973,11 +1026,15 @@ def _validate_authority(
     ]:
         raise OneStepCounterfactualError("identification callback ledger hash differs")
     if (
-        list(identification_states) != list(callback_states)
+        identification["settled_mjstate_integration_sha256"]
+        != settled_official_state["sha256"]
+        or list(identification_states) != list(callback_states)
         or identification["callback_state_sequence_sha256"]
         != parity["official_integration_state_sequence_sha256"]
     ):
-        raise OneStepCounterfactualError("identification and parity callback ledgers differ")
+        raise OneStepCounterfactualError(
+            "identification and parity state authorities differ"
+        )
     return observed
 
 

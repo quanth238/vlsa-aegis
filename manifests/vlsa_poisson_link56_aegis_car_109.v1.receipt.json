@@ -12,7 +12,7 @@
   "last_case_id": "vlsa-t1-long-ii-t0-e38",
   "manifest_rows": 109,
   "manifest_schema_version": "vlsa_poisson_link56_case.v1",
-  "manifest_sha256": "537675f170f8961b44f43b58c99c6d8e74f422dcbac2b60f3bbcb4dc25e302a3",
+  "manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
   "outcome_conditioned_disclosure": {
     "claim_scope": "targeted_feasibility_diagnostic_only",
     "outcome_conditioned": true,
@@ -25,7 +25,7 @@
   "pi05_hash_receipt_sha256": "423c10b3435b84dfb694c309c7d2684cc9457c4616878043618847e9e75df7b9",
   "pi05_tree_sha256": "7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15",
   "population_summary_sha256": "c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330",
-  "protocol_config_sha256": "c4a552c88391e05222b3d2ecfefa581b8f2279f515eb18dc16be1c23b008ab44",
+  "protocol_config_sha256": "298fdfb36e65916bd4d780ff7e789152a66e45ccbcfa09939816af86188972c9",
   "protocol_id": "vlsa-poisson-link56-aegis-car-109-v1",
   "required_arms": [
     "joint_velocity_adapter_only",

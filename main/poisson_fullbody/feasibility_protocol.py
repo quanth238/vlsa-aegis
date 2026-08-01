@@ -6,7 +6,7 @@ fields.  The parameter-block digest can therefore be frozen before held-out
 evaluation and embedded in every manifest/result without relying on mutable
 filenames.
 
-The v1 contract is deliberately narrower than the mathematical full-body PSF
+The canary contract is deliberately narrower than the mathematical full-body PSF
 claim: it covers only the selected obstacle and ``robot0_link5`` /
 ``robot0_link6`` with a discrete, static Poisson field.  ISSf is represented
 explicitly but disabled (epsilon0 = 0) until the runtime implements and tests
@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v2"
+SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v3"
 PARAMETER_SECTIONS = (
     "workspace",
     "occupancy",
@@ -68,6 +68,19 @@ REGISTERED_DIFFERENTIAL_ETA_LADDER_S = (
     1.953125e-9,
     4.8828125e-10,
 )
+REGISTERED_BINARY64_UNIT_ROUNDOFF = 2.0 ** -53
+REGISTERED_ARM_TANGENT_ROUNDTRIP_CRITERION = (
+    "scalar_hinge_two_stage_exact_fraction_binary64_roundoff"
+)
+REGISTERED_MUJOCO_VERSION = "3.2.3"
+REGISTERED_ARM_DOF_INDICES = tuple(range(7))
+REGISTERED_ARM_JOINT_IDS = tuple(range(7))
+REGISTERED_ARM_QPOS_INDICES = tuple(range(7))
+REGISTERED_ARM_JOINT_NAMES = tuple(
+    "robot0_joint%d" % index for index in range(1, 8)
+)
+REGISTERED_ARM_JOINT_TYPE = "hinge"
+REGISTERED_LEGACY_ARM_TANGENT_TOLERANCE_RAD_S = 1.0e-10
 
 
 class FeasibilityProtocolError(ValueError):
@@ -947,7 +960,15 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "point_jacobian_absolute_tolerance_m_per_rad",
             "point_jacobian_relative_tolerance",
             "point_jacobian_near_zero_frobenius_m_per_rad",
-            "arm_tangent_reconstruction_tolerance_rad_s",
+            "arm_tangent_roundtrip_criterion",
+            "binary64_unit_roundoff",
+            "expected_mujoco_version",
+            "expected_arm_dof_indices",
+            "expected_arm_joint_ids",
+            "expected_arm_qpos_indices",
+            "expected_arm_joint_names",
+            "required_arm_joint_type",
+            "legacy_arm_tangent_reconstruction_tolerance_rad_s",
             "nonarm_tangent_leakage_tolerance_rad_s",
             "joint_velocity_directions_rad_s",
             "coupled_eta_ladder_s",
@@ -971,12 +992,28 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
         "mujoco_mj_integratePos_full_nv_tangent",
         "differential_audit.perturbation_integrator",
     )
+    _literal(
+        differential["arm_tangent_roundtrip_criterion"],
+        REGISTERED_ARM_TANGENT_ROUNDTRIP_CRITERION,
+        "differential_audit.arm_tangent_roundtrip_criterion",
+    )
+    _literal(
+        differential["expected_mujoco_version"],
+        REGISTERED_MUJOCO_VERSION,
+        "differential_audit.expected_mujoco_version",
+    )
+    _literal(
+        differential["required_arm_joint_type"],
+        REGISTERED_ARM_JOINT_TYPE,
+        "differential_audit.required_arm_joint_type",
+    )
     for field in (
         "point_jacobian_delta_rad",
         "point_jacobian_absolute_tolerance_m_per_rad",
         "point_jacobian_relative_tolerance",
         "point_jacobian_near_zero_frobenius_m_per_rad",
-        "arm_tangent_reconstruction_tolerance_rad_s",
+        "binary64_unit_roundoff",
+        "legacy_arm_tangent_reconstruction_tolerance_rad_s",
         "nonarm_tangent_leakage_tolerance_rad_s",
         "coupled_absolute_tolerance_m2_per_s",
         "coupled_relative_tolerance",
@@ -987,6 +1024,44 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "differential_audit.%s" % field,
             minimum=0.0,
             strict_minimum=True,
+        )
+    if differential["binary64_unit_roundoff"] != REGISTERED_BINARY64_UNIT_ROUNDOFF:
+        raise FeasibilityProtocolError(
+            "differential_audit.binary64_unit_roundoff differs from binary64"
+        )
+    if (
+        differential["legacy_arm_tangent_reconstruction_tolerance_rad_s"]
+        != REGISTERED_LEGACY_ARM_TANGENT_TOLERANCE_RAD_S
+    ):
+        raise FeasibilityProtocolError(
+            "differential_audit legacy tangent diagnostic must remain 1e-10 rad/s"
+        )
+    for field, expected in (
+        ("expected_arm_dof_indices", REGISTERED_ARM_DOF_INDICES),
+        ("expected_arm_joint_ids", REGISTERED_ARM_JOINT_IDS),
+        ("expected_arm_qpos_indices", REGISTERED_ARM_QPOS_INDICES),
+    ):
+        observed = differential[field]
+        if (
+            not isinstance(observed, list)
+            or any(
+                isinstance(item, bool) or not isinstance(item, int)
+                for item in observed
+            )
+            or tuple(observed) != expected
+        ):
+            raise FeasibilityProtocolError(
+                "differential_audit.%s differs from the registered Panda topology"
+                % field
+            )
+    if (
+        not isinstance(differential["expected_arm_joint_names"], list)
+        or tuple(differential["expected_arm_joint_names"])
+        != REGISTERED_ARM_JOINT_NAMES
+    ):
+        raise FeasibilityProtocolError(
+            "differential_audit.expected_arm_joint_names differs from the "
+            "registered Panda topology"
         )
     raw_directions = differential["joint_velocity_directions_rad_s"]
     if not isinstance(raw_directions, list) or len(raw_directions) != len(

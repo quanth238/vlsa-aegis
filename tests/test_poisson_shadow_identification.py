@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import struct
 from types import SimpleNamespace
 import unittest
 
@@ -26,6 +27,36 @@ if np is not None:
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def synthetic_integration_state():
+    return [
+        0.0,
+        0.1,
+        -0.2,
+        0.15,
+        -0.1,
+        0.05,
+        0.2,
+        -0.05,
+    ] + [0.0] * 7
+
+
+def synthetic_integration_state_sha256():
+    values = synthetic_integration_state()
+    header = json.dumps(
+        {"dtype": "<f8", "shape": [len(values)]},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    digest = hashlib.sha256()
+    digest.update(b"vlsa-table1-array-v1\0")
+    digest.update(header)
+    digest.update(b"\0")
+    digest.update(struct.pack("<%dd" % len(values), *values))
+    return digest.hexdigest()
 
 
 def physical_model_contract_evidence():
@@ -86,7 +117,19 @@ def differential_audit_config():
         "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
         "point_jacobian_relative_tolerance": 1.0e-4,
         "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
-        "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+        "arm_tangent_roundtrip_criterion": (
+            "scalar_hinge_two_stage_exact_fraction_binary64_roundoff"
+        ),
+        "binary64_unit_roundoff": 2.0 ** -53,
+        "expected_mujoco_version": "3.2.3",
+        "expected_arm_dof_indices": list(range(7)),
+        "expected_arm_joint_ids": list(range(7)),
+        "expected_arm_qpos_indices": list(range(7)),
+        "expected_arm_joint_names": [
+            "robot0_joint%d" % index for index in range(1, 8)
+        ],
+        "required_arm_joint_type": "hinge",
+        "legacy_arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
         "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
         "joint_velocity_directions_rad_s": directions,
         "coupled_eta_ladder_s": [2.0e-6],
@@ -185,6 +228,7 @@ def valid_differential_audit(samples, state_sha256, config=None):
         DIFFERENTIAL_AUDIT_HASH_FIELD,
         PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         _coupled_comparison,
+        _float64_le_hex_vector,
         _point_metrics,
         _stable_audit_hashes,
         _tangent_reconstruction,
@@ -193,6 +237,10 @@ def valid_differential_audit(samples, state_sha256, config=None):
 
     registered = differential_audit_config() if config is None else config
     registered = json.loads(json.dumps(registered, allow_nan=False))
+    source_state = synthetic_integration_state()
+    if state_sha256 != synthetic_integration_state_sha256():
+        raise AssertionError("synthetic differential audit received the wrong state hash")
+    base_arm_qpos = source_state[1:8]
     identities = [
         sample.to_dict() if hasattr(sample, "to_dict") else dict(sample)
         for sample in samples
@@ -202,12 +250,32 @@ def valid_differential_audit(samples, state_sha256, config=None):
     numerical = [[0.0] * 7 for _ in range(3)]
     point_metrics = _point_metrics(analytic, numerical, registered)
 
-    def tangent_record(requested):
+    def tangent_record(requested, step):
+        plus_qpos = [
+            float(base + float(step) * float(velocity))
+            for base, velocity in zip(base_arm_qpos, requested)
+        ]
+        minus_qpos = [
+            float(base - float(step) * float(velocity))
+            for base, velocity in zip(base_arm_qpos, requested)
+        ]
+        plus_reconstructed = [
+            float((perturbed - base) / float(step))
+            for perturbed, base in zip(plus_qpos, base_arm_qpos)
+        ]
+        minus_reconstructed = [
+            float((perturbed - base) / float(step))
+            for perturbed, base in zip(minus_qpos, base_arm_qpos)
+        ]
         return _tangent_reconstruction(
             requested,
-            requested,
-            [-value for value in requested],
+            plus_reconstructed,
+            minus_reconstructed,
+            base_arm_qpos,
+            plus_qpos,
+            minus_qpos,
             arm_dofs,
+            step,
             registered,
         )
 
@@ -227,7 +295,9 @@ def valid_differential_audit(samples, state_sha256, config=None):
     for column in range(7):
         requested = [0.0] * 7
         requested[column] = 1.0
-        point_tangents.append(tangent_record(requested))
+        point_tangents.append(
+            tangent_record(requested, registered["point_jacobian_delta_rad"])
+        )
 
     records = []
     eta = registered["coupled_eta_ladder_s"][0]
@@ -244,7 +314,7 @@ def valid_differential_audit(samples, state_sha256, config=None):
                 "minus_point_world_m": list(point),
                 "plus_query": query_record(point),
                 "minus_query": query_record(point),
-                "tangent_reconstruction": tangent_record(arm_direction),
+                "tangent_reconstruction": tangent_record(arm_direction, eta),
                 "eligible_same_cell_stencil": True,
                 "noneligible_reasons": [],
                 "selected": True,
@@ -296,14 +366,41 @@ def valid_differential_audit(samples, state_sha256, config=None):
         "noneligible_coupled_attempt_count": 0,
         "passed_sample_count": len(records),
     }
+    roundoff_authority = {
+        "criterion": registered["arm_tangent_roundtrip_criterion"],
+        "mujoco_version": registered["expected_mujoco_version"],
+        "state_specification": "mjSTATE_INTEGRATION",
+        "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
+        "model_nq": 7,
+        "model_nv": 7,
+        "arm_dof_indices": arm_dofs,
+        "arm_dof_jntid": arm_dofs,
+        "arm_joint_ids": arm_dofs,
+        "arm_joint_names": registered["expected_arm_joint_names"],
+        "arm_qpos_indices": arm_dofs,
+        "arm_joint_types": ["hinge"] * 7,
+        "arm_jnt_dofadr": arm_dofs,
+        "arm_jnt_qposadr": arm_dofs,
+        "qpos_state_offset": 1,
+        "source_state_element_count": len(source_state),
+        "base_arm_qpos_rad": base_arm_qpos,
+        "base_positions_match_source_state": True,
+    }
     stable = _stable_audit_hashes(
-        state_sha256, arm_dofs, identities, registered, records
+        state_sha256,
+        arm_dofs,
+        identities,
+        registered,
+        roundoff_authority,
+        records,
     )
     audit = {
         "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         "integration_state": {
             "state_specification": "mjSTATE_INTEGRATION",
-            "element_count": 7,
+            "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
+            "element_count": len(source_state),
+            "source_initial_state_f64_le_hex": _float64_le_hex_vector(source_state),
             "source_initial_sha256": state_sha256,
             "clone_base_sha256": state_sha256,
             "clone_final_sha256": state_sha256,
@@ -312,6 +409,10 @@ def valid_differential_audit(samples, state_sha256, config=None):
             "clone_state_restored": True,
         },
         "arm_dof_indices": arm_dofs,
+        "arm_scalar_hinge_roundoff_authority": roundoff_authority,
+        "arm_scalar_hinge_roundoff_authority_sha256": stable[
+            "arm_scalar_hinge_roundoff_authority_sha256"
+        ],
         "ordered_samples": identities,
         "ordered_sample_identity_sha256": sha256_bytes(
             canonical_json_bytes(identities)
@@ -431,6 +532,10 @@ class ShadowProtectedSamplingValidationTest(unittest.TestCase):
                 "surface_m": 1.0e-6,
             },
             "differential_audit_config": differential_audit_config(),
+            "expected_settled_integration_state_sha256": (
+                synthetic_integration_state_sha256()
+            ),
+            "expected_settled_integration_state_length": 15,
         }
 
     def _assert_sampling_rejected(self, field_bundle, message):
@@ -909,7 +1014,7 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
         ]
         audit_config = differential_audit_config()
         field_sampling = protected_sampling_evidence(self.samples)
-        settled_state_sha256 = "d" * 64
+        settled_state_sha256 = synthetic_integration_state_sha256()
         differential_audit, differential_validation = valid_differential_audit(
             self.samples,
             settled_state_sha256,
@@ -971,9 +1076,12 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
                 ),
                 "settled_measurement": settled,
                 "complete_integration_state_read_only_audit": {
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
                     "exact_array_equal": True,
                     "before_sha256": settled_state_sha256,
                     "after_sha256": settled_state_sha256,
+                    "semantics": "fixture complete official state remained unchanged",
                 },
             },
             "measurement": measurement,
@@ -992,6 +1100,8 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
             alpha_gain_per_s=5.0,
             static_drift_thresholds=thresholds,
             differential_audit_config=audit_config,
+            expected_settled_integration_state_sha256=settled_state_sha256,
+            expected_settled_integration_state_length=15,
         )
 
     def test_robot_roots_are_derived_from_authoritative_parent_ids(self):

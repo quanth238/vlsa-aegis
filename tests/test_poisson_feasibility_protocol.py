@@ -149,7 +149,19 @@ def valid_protocol():
             "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
             "point_jacobian_relative_tolerance": 1.0e-4,
             "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
-            "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+            "arm_tangent_roundtrip_criterion": (
+                "scalar_hinge_two_stage_exact_fraction_binary64_roundoff"
+            ),
+            "binary64_unit_roundoff": 2.0 ** -53,
+            "expected_mujoco_version": "3.2.3",
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_arm_joint_ids": list(range(7)),
+            "expected_arm_qpos_indices": list(range(7)),
+            "expected_arm_joint_names": [
+                "robot0_joint%d" % index for index in range(1, 8)
+            ],
+            "required_arm_joint_type": "hinge",
+            "legacy_arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
             "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
             "joint_velocity_directions_rad_s": [
                 [0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -478,9 +490,27 @@ class FeasibilityProtocolTest(unittest.TestCase):
         )
         self.assert_invalid(
             lambda value: value["differential_audit"].update(
-                {"arm_tangent_reconstruction_tolerance_rad_s": 0.0}
+                {"legacy_arm_tangent_reconstruction_tolerance_rad_s": 0.0}
             ),
             "must be > 0.0",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"legacy_arm_tangent_reconstruction_tolerance_rad_s": 2.0e-10}
+            ),
+            "must remain 1e-10",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"][
+                "expected_arm_dof_indices"
+            ].__setitem__(0, False),
+            "registered Panda topology",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"arm_tangent_roundtrip_criterion": "empirical_tolerance"}
+            ),
+            "arm_tangent_roundtrip_criterion",
         )
         self.assert_invalid(
             lambda value: value["differential_audit"].update(

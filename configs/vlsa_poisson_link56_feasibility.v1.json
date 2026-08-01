@@ -176,12 +176,12 @@
     "gripper_command_policy": "unchanged_from_frozen_vla"
   },
   "runtime_protocol": {
-    "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v2.json",
-    "schema_version": "vlsa_poisson_runtime_protocol.v2",
-    "protocol_id": "vlsa-poisson-link56-canary-parameters-v2",
-    "semantic_protocol_sha256": "7f38e57653a7d0cf0a5aa2260a01b1f08f605b36a99cb4d08dd6b6e4a6ef8dda",
-    "parameter_block_sha256": "4bc752e6e10ebe81c03540ea9c46b257d8ede48f534f39f76740644dca638caa",
-    "raw_file_sha256": "72a2035cc98c02e0e3fc6d6fa193498c9a3999742e6442ebd31b1945e3b1bc93",
+    "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v3.json",
+    "schema_version": "vlsa_poisson_runtime_protocol.v3",
+    "protocol_id": "vlsa-poisson-link56-canary-parameters-v3",
+    "semantic_protocol_sha256": "2125989269a2ffeeb8d3408d56e4aaa74e1dc5816256d8210bf9ee686c5f5a30",
+    "parameter_block_sha256": "11de833ab8b1586948e7eb039c449a66a0c1a4107fa3232b236ad1ecb9ceeabe",
+    "raw_file_sha256": "396de850fb7f03b9ee038b2fec05f90ef1cb0230c5d40a81a43177162193726a",
     "selection_status": "development_canary_not_heldout_frozen"
   },
   "required_arms": [

@@ -19,7 +19,7 @@ REGISTERED_HISTORICAL_ROOT="/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-
 REGISTERED_EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 MANIFEST_RELATIVE_PATH="manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl"
 SELECTION_RELATIVE_PATH="configs/vlsa_poisson_link56_feasibility.v1.json"
-RUNTIME_RELATIVE_PATH="configs/vlsa_poisson_runtime_protocol.canary.v2.json"
+RUNTIME_RELATIVE_PATH="configs/vlsa_poisson_runtime_protocol.canary.v3.json"
 
 EVALUATION_PYTHON="${EVALUATION_PYTHON:-${REGISTERED_EVALUATION_PYTHON}}"
 

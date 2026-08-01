@@ -150,6 +150,12 @@ class _CompleteFixture:
             for index in range(validator.ACTION_COUNT)
         ]
         callback_hash = "4" * 64
+        settled_official_state = {
+            "physical_boundary": 0,
+            "mujoco_state_specification": "mjSTATE_INTEGRATION",
+            "state_vector_length": 15,
+            "sha256": "7" * 64,
+        }
         official_states = [callback_hash] * validator.CALLBACK_COUNT
         state_sequence = hashlib.sha256(_canonical(action_states)).hexdigest()
         callback_sequence = hashlib.sha256(_canonical(official_states)).hexdigest()
@@ -281,6 +287,7 @@ class _CompleteFixture:
                 "historical": replay_provenance,
                 "ordinary_replay": {},
                 "callback_replay": {
+                    "settled_official_integration_state": settled_official_state,
                     "state_sequence_sha256": state_sequence,
                     "observation_sequence_sha256": observation_sequence,
                     "terminal_simulator_state_sha256": action_states[-1],
@@ -326,6 +333,13 @@ class _CompleteFixture:
                 "last_index": [236, 4, 4],
             },
             "construction": {
+                "complete_integration_state_read_only_audit": {
+                    "mujoco_state_specification": "mjSTATE_INTEGRATION",
+                    "state_vector_length": 15,
+                    "before_sha256": settled_official_state["sha256"],
+                    "after_sha256": settled_official_state["sha256"],
+                    "exact_array_equal": True,
+                },
                 "settled_link56_differential_audit_validation": {
                     "passed": True,
                     "counts": {
@@ -421,8 +435,8 @@ class _CompleteFixture:
             "parity": parity,
             "result": result,
             "runtime_protocol": {
-                "schema_version": "vlsa_poisson_runtime_protocol.v2",
-                "protocol_id": "runtime-v2",
+                "schema_version": "vlsa_poisson_runtime_protocol.v3",
+                "protocol_id": "runtime-v3-fixture",
                 "cbf": {"alpha_gain_per_s": 5.0},
                 "admissibility": {
                     "max_selected_geom_translation_drift_m": 1e-6,
@@ -513,6 +527,18 @@ class ShadowIdentificationIndependentConsumerTest(unittest.TestCase):
             self.assertEqual(
                 pure.call_args.kwargs["differential_audit_config"],
                 {"fixture": True},
+            )
+            self.assertEqual(
+                pure.call_args.kwargs[
+                    "expected_settled_integration_state_sha256"
+                ],
+                "7" * 64,
+            )
+            self.assertEqual(
+                pure.call_args.kwargs[
+                    "expected_settled_integration_state_length"
+                ],
+                15,
             )
 
     def test_arithmetic_geom_and_signal_tampering_are_rejected(self):
@@ -711,6 +737,35 @@ class ShadowIdentificationIndependentConsumerTest(unittest.TestCase):
                             validator.validate_shadow_identification_artifact(
                                 **fixture.arguments()
                             )
+
+    def test_collusively_rehashed_construction_state_cannot_self_authorize(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = _CompleteFixture(directory)
+            forged = {
+                key: value
+                for key, value in fixture.values["result"].items()
+                if key != "result_payload_sha256"
+            }
+            forged = copy.deepcopy(forged)
+            read_only = forged["shadow_replay"]["construction"][
+                "complete_integration_state_read_only_audit"
+            ]
+            read_only["before_sha256"] = "8" * 64
+            read_only["after_sha256"] = "8" * 64
+            _write(
+                fixture.paths["identification_path"],
+                _hashed(forged),
+            )
+            patches = fixture.patches()
+            with patches[0], patches[1], patches[2], patches[3] as pure:
+                with self.assertRaisesRegex(
+                    validator.ShadowIdentificationArtifactError,
+                    "settled state differs from exact parity",
+                ):
+                    validator.validate_shadow_identification_artifact(
+                        **fixture.arguments()
+                    )
+            pure.assert_not_called()
 
     def test_collusively_rehashed_numeric_and_parity_forgery_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -975,11 +1030,21 @@ class ShadowIdentificationIndependentConsumerTest(unittest.TestCase):
                 )
             inspect.assert_called_once()
             self.assertEqual(
+                inspect.call_args.kwargs["expected_integration_state_sha256"],
+                "7" * 64,
+            )
+            self.assertEqual(
                 report["diagnostic_kind"],
                 "producer_reported_differential_audit_failure_with_"
-                "unbound_sample_state_authority",
+                "unbound_sample_geometry_authority",
             )
             self.assertIs(report["stage_13_authorized"], False)
+            self.assertIs(
+                report["external_settled_state_authority_bound"], True
+            )
+            self.assertIs(
+                report["external_sample_geometry_authority_bound"], False
+            )
             self.assertIs(report["external_sample_state_authority_bound"], False)
             self.assertIs(report["mechanism_diagnosis_verified"], False)
             self.assertEqual(

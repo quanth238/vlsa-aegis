@@ -29,6 +29,10 @@ from scripts.validate_poisson_run_artifacts import (
     validate_run_artifacts as _validate_run_artifacts,
 )
 from tests.test_poisson_result_schema import valid_payload
+from tests.test_poisson_shadow_identification import (
+    synthetic_integration_state,
+    synthetic_integration_state_sha256,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +66,7 @@ def _producer_sha256(value):
 
 def _registered_runtime_parameter_block():
     protocol = json.loads(
-        (ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v2.json").read_text(
+        (ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v3.json").read_text(
             encoding="utf-8"
         )
     )
@@ -82,13 +86,33 @@ def _valid_query(point, value_m2):
     }
 
 
-def _exact_tangent_record(requested, arm_dofs, config):
+def _exact_tangent_record(requested, arm_dofs, base_arm_qpos, step, config):
     requested = [float(value) for value in requested]
+    plus_qpos = [
+        float(base + float(step) * velocity)
+        for base, velocity in zip(base_arm_qpos, requested)
+    ]
+    minus_qpos = [
+        float(base - float(step) * velocity)
+        for base, velocity in zip(base_arm_qpos, requested)
+    ]
+    plus_reconstructed = [
+        float((perturbed - base) / float(step))
+        for perturbed, base in zip(plus_qpos, base_arm_qpos)
+    ]
+    minus_reconstructed = [
+        float((perturbed - base) / float(step))
+        for perturbed, base in zip(minus_qpos, base_arm_qpos)
+    ]
     return _tangent_reconstruction(
         requested,
-        requested,
-        [-value for value in requested],
+        plus_reconstructed,
+        minus_reconstructed,
+        base_arm_qpos,
+        plus_qpos,
+        minus_qpos,
         arm_dofs,
+        step,
         config,
     )
 
@@ -102,6 +126,10 @@ def _synthetic_protected_sample_differential_audit(
     """Build a compact, exact linear-field audit accepted by the pure verifier."""
 
     config = _parse_differential_config(differential_audit_config)
+    source_state = synthetic_integration_state()
+    if integration_state_sha256 != synthetic_integration_state_sha256():
+        raise AssertionError("trace fixture has the wrong integration-state hash")
+    base_arm_qpos = source_state[1:8]
     delta = config["point_jacobian_delta_rad"]
     analytic = [[1.0] * 7, [0.0] * 7, [0.0] * 7]
     sample_records = []
@@ -124,7 +152,9 @@ def _synthetic_protected_sample_differential_audit(
             direction = [0.0] * 7
             direction[column] = 1.0
             point_tangents.append(
-                _exact_tangent_record(direction, arm_dofs, config)
+                _exact_tangent_record(
+                    direction, arm_dofs, base_arm_qpos, delta, config
+                )
             )
 
         directions = []
@@ -155,7 +185,7 @@ def _synthetic_protected_sample_differential_audit(
                     minus_point, base_value - eta * point_velocity
                 ),
                 "tangent_reconstruction": _exact_tangent_record(
-                    arm_direction, arm_dofs, config
+                    arm_direction, arm_dofs, base_arm_qpos, eta, config
                 ),
                 "eligible_same_cell_stencil": True,
                 "noneligible_reasons": [],
@@ -201,16 +231,41 @@ def _synthetic_protected_sample_differential_audit(
             }
         )
 
+    roundoff_authority = {
+        "criterion": config["arm_tangent_roundtrip_criterion"],
+        "mujoco_version": config["expected_mujoco_version"],
+        "state_specification": "mjSTATE_INTEGRATION",
+        "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
+        "model_nq": 7,
+        "model_nv": 7,
+        "arm_dof_indices": list(arm_dofs),
+        "arm_dof_jntid": list(arm_dofs),
+        "arm_joint_ids": list(arm_dofs),
+        "arm_joint_names": config["expected_arm_joint_names"],
+        "arm_qpos_indices": list(arm_dofs),
+        "arm_joint_types": ["hinge"] * 7,
+        "arm_jnt_dofadr": list(arm_dofs),
+        "arm_jnt_qposadr": list(arm_dofs),
+        "qpos_state_offset": 1,
+        "source_state_element_count": len(source_state),
+        "base_arm_qpos_rad": base_arm_qpos,
+        "base_positions_match_source_state": True,
+    }
     stable_hashes = _stable_audit_hashes(
         integration_state_sha256,
         arm_dofs,
         samples,
         config,
+        roundoff_authority,
         sample_records,
     )
     state = {
         "state_specification": "mjSTATE_INTEGRATION",
-        "element_count": 7,
+        "state_layout": "mjSTATE_INTEGRATION_qpos_prefix_at_offset_1",
+        "element_count": len(source_state),
+        "source_initial_state_f64_le_hex": [
+            struct.pack("<d", value).hex() for value in source_state
+        ],
         "source_initial_sha256": integration_state_sha256,
         "clone_base_sha256": integration_state_sha256,
         "clone_final_sha256": integration_state_sha256,
@@ -225,6 +280,10 @@ def _synthetic_protected_sample_differential_audit(
         "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         "integration_state": state,
         "arm_dof_indices": list(arm_dofs),
+        "arm_scalar_hinge_roundoff_authority": roundoff_authority,
+        "arm_scalar_hinge_roundoff_authority_sha256": stable_hashes[
+            "arm_scalar_hinge_roundoff_authority_sha256"
+        ],
         "ordered_samples": copy.deepcopy(samples),
         "ordered_sample_identity_sha256": sha256_bytes(
             canonical_json_bytes(samples)
@@ -512,6 +571,9 @@ def _forge_realized_query_population(payload, trace):
 
 def _fixture():
     payload = valid_payload()
+    payload["pairing"][
+        "restored_settled_state_sha256"
+    ] = synthetic_integration_state_sha256()
     entered_actions = [
         [0.0] * 7,
         [0.1, 0.1, 0.1, 0.0, 0.0, 0.0, 0.1],
@@ -1101,7 +1163,7 @@ def _fixture():
         )
     full_sample_count = sum(record["sample_count"] for record in surface_records)
     trace = {
-        "schema_version": "vlsa_poisson_active_arm_trace.v3",
+        "schema_version": "vlsa_poisson_active_arm_trace.v4",
         "scientific_result": False,
         "run_id": payload["run_id"],
         "case_id": payload["case_id"],
@@ -1635,7 +1697,7 @@ class PoissonTraceArtifactValidationTest(unittest.TestCase):
             with self.assertRaisesRegex(ArtifactContractError, "trace.schema_version"):
                 validate_run_artifacts(result_path, root)
 
-    def test_v3_trace_requires_every_differential_authority(self):
+    def test_v4_trace_requires_every_differential_authority(self):
         fields = (
             "runtime_protocol_parameter_block",
             "protected_link_surface_sampling",

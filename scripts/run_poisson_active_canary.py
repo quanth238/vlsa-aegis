@@ -39,8 +39,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 ARMS = ("joint_velocity_adapter_only", "joint_velocity_psf_link56")
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
-EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
-EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v3"
+EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v3"
+EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v4"
 D_SIM_SEMANTICS = (
     "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_"
     "plus_exact_obb_coverage_lower_bound"
@@ -573,6 +573,7 @@ def _require_identification_prerequisite(
             "all_5925_callbacks_observed",
             "historical_state_reward_done_goal_exact",
             "upstream_observation_sequence_exact",
+            "settled_mjstate_integration_matches_upstream_exact_parity",
             "complete_mujoco_integration_state_unchanged_by_construction",
             "complete_mujoco_integration_state_unchanged_by_callback",
             "all_link56_protected_sample_point_jacobians_validated",
@@ -636,6 +637,14 @@ def _require_identification_prerequisite(
             alpha_gain_per_s=alpha_gain_per_s,
             static_drift_thresholds=static_drift_thresholds,
             differential_audit_config=differential_audit_config,
+            expected_settled_integration_state_sha256=(
+                parity_callback["settled_official_integration_state"]["sha256"]
+            ),
+            expected_settled_integration_state_length=(
+                parity_callback["settled_official_integration_state"][
+                    "state_vector_length"
+                ]
+            ),
         )
     except ShadowIdentificationError as error:
         raise ActiveRunnerError(
@@ -662,6 +671,30 @@ def _require_identification_prerequisite(
     if not isinstance(construction, Mapping):
         raise ActiveRunnerError(
             "shadow-identification construction evidence is absent"
+        )
+    construction_read_only = construction.get(
+        "complete_integration_state_read_only_audit"
+    )
+    parity_settled_state = parity_callback.get(
+        "settled_official_integration_state"
+    )
+    if (
+        not isinstance(construction_read_only, Mapping)
+        or not isinstance(parity_settled_state, Mapping)
+        or isinstance(parity_settled_state.get("physical_boundary"), bool)
+        or not isinstance(parity_settled_state.get("physical_boundary"), int)
+        or parity_settled_state.get("physical_boundary") != 0
+        or parity_settled_state.get("mujoco_state_specification")
+        != "mjSTATE_INTEGRATION"
+        or construction_read_only.get("before_sha256")
+        != parity_settled_state.get("sha256")
+        or construction_read_only.get("after_sha256")
+        != parity_settled_state.get("sha256")
+        or construction_read_only.get("state_vector_length")
+        != parity_settled_state.get("state_vector_length")
+    ):
+        raise ActiveRunnerError(
+            "shadow construction settled state differs from exact parity"
         )
     _require_full_robot_sampling_evidence(
         construction.get("resolved_geometry"),
@@ -3611,7 +3644,7 @@ def main() -> int:
                     publish_hashed_json(arm_dir / "arm_error.json", arm_error)
                     raise
                 trace_payload = {
-                    "schema_version": "vlsa_poisson_active_arm_trace.v3",
+                    "schema_version": "vlsa_poisson_active_arm_trace.v4",
                     "scientific_result": False,
                     "run_id": arguments.run_id,
                     "case_id": case["case_id"],
