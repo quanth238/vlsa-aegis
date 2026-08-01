@@ -583,3 +583,93 @@ exact-parity-v3 gates on that same commit, independently validate both complete
 artifacts, and only then submit identification v4. Stage 13 remains blocked
 unless the complete identification has an actionable warning with a scheduled
 100 Hz update strictly before contact. No partial artifact may be interpreted.
+
+## P01 lean one-case H100 feasibility result
+
+The user requested a direct feasibility test before continuing the formal
+multi-stage ladder. This exploratory branch leaves every earlier artifact and
+formal gate unchanged. It tests one known link-contact window with simulator
+geometry and no policy queries; it does not claim task success, full-episode or
+population safety, learned perception, moving-obstacle coverage, or real-time
+control.
+
+- Source branch: `codex/poisson-fast-feasibility`; clean pushed producer commit:
+  `b1854d6b82836757fdfed50ad0788791a62e651b`.
+- Local implementation gate: 613 tests passed with 135 expected
+  allocation-only skips. Independent runtime and semantic reviews passed.
+- Immutable H100 run:
+  `vlsa-poisson-fast-window-20260802e`; Slurm job `33907` completed
+  `COMPLETED|0:0` on `worker-mig-3g40gb-0` in `00:22:56` with an NVIDIA H100
+  80GB HBM3.
+- Final `result.json`: 1,801,847 bytes, raw SHA-256
+  `fc74b73582b392b484be5d208c3bc20c676f66c6c4783408b99ba780284e391b`,
+  canonical payload SHA-256
+  `d6805095ebec1eca0617b604002e500a9c5d68ce6dcd2330451598e44f36d4ff`.
+
+The paired case is `vlsa-t1-goal-ii-t0-e05` with static selected obstacle
+`moka_pot_obstacle_1`. Actions 0--179 reconstruct exact boundary 4500 once.
+Both fresh 100 Hz joint-velocity arms then restore the same complete
+`mjSTATE_INTEGRATION` state and consume the same recorded actions 180--187 for
+40 controller updates and 200 two-millisecond physics substeps. The adapter-
+only arm first contacts the selected obstacle with `robot0_link5_collision` at
+boundary 4677. The link-5/link-6 Poisson-CBF arm activates at boundary 4500,
+354 ms before that baseline contact, and completes all 200 substeps with zero
+literal contact from any robot collision geom to the selected obstacle.
+
+All 40 hard QPs solved and passed independent residual, velocity-bound, and
+one-step joint-limit checks. The minimum safe CBF residual is
+`-2.7755575615628914e-17 m^2/s`, and the conservative full-robot surface
+clearance lower bound remains strictly positive at `0.02482047062948021 m`.
+The filter is not merely stopping: over the 32 materially active updates, the
+maximum correction is `0.5625295109410573 rad/s`, maximum safe command norm is
+`0.8410539123239245 rad/s`, safe/nominal command-motion retention is
+`0.7335847886013575`, measured joint-motion integral is
+`0.2036842792363826 rad`, Cartesian path is `0.06754197871836201 m`, and
+target-error progress is `0.04156768990794801 m`.
+
+Independent reconstruction from the raw contact, command, and physics ledgers
+found zero discrepancy and classifies the narrow result as empirical contact
+prevention with a positive clearance certificate and motion-preserving
+correction. The follow-up independent validator passes 56 focused tests,
+including pairing, geometry-authority, adapter-command, QP, contact,
+`STOP_ONLY`, `UNCERTIFIED_CLEARANCE`, missing restore authority, hidden
+settled/rollout contact, command-to-physics, clearance-certificate, and
+apparatus-flag mutations; the complete repository gate passes 632 tests with
+135 expected allocation-only skips. Tracking is not
+certified: pre-contact adapter and full-window PSF
+L-infinity errors are respectively `1.7544031695017919` and
+`1.7405264821616433 rad/s`. Solver timing is also not real-time: 35/40 OSQP
+solves exceed 10 ms, with mean `0.032117390175 s`, p95 `0.078985875 s`, and
+maximum `0.244499723 s`; field, Jacobian, controller, and simulator overhead is
+additional. The 50,000-iteration exploratory budget was chosen after the
+retained 10,000-iteration convergence failure; the accepted run used at most
+15,150 iterations.
+
+Motion preservation is not task preservation. Across the complete window, the
+PSF arm reduces target error by 53.33 mm, versus 116.93 mm for adapter-only.
+Both arms also fail the same tracking diagnostics, and PSF tracking remains
+material after the initial transient. The observation is therefore
+controller-mediated empirical avoidance, not realized-velocity barrier
+invariance.
+
+This is positive evidence that full-body link-local Poisson-CBF correction can
+prevent the observed arm-link contact without freezing the robot in this one
+static, post-hoc window. It is sufficient to continue the research direction,
+but `P01-static-poisson-runtime` remains active for broader or formal claims.
+The next research priority is a shadow persistent-OSQP implementation with one
+fixed 1,531-by-7 sparsity pattern, numeric matrix/vector updates, cross-step
+primal/dual warm starts, all hard rows retained, and full pipeline timing. It
+must keep the present full-row postcheck and fail closed while targeting 40/40
+updates within 10 ms. Low-level tracking follows, then a small preregistered
+multi-case evaluation that reports contact avoidance and task success
+separately.
+
+The complete artifact is mirrored locally at
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_poisson_fast_feasibility/vlsa-poisson-fast-window-20260802e/result.json`.
+The exact handoff validation command is:
+
+```bash
+python3 scripts/validate_poisson_fast_feasibility_artifact.py \
+  --result /Users/quanth238/personal/Research/probe_vla/output/vlsa_poisson_fast_feasibility/vlsa-poisson-fast-window-20260802e/result.json \
+  --expected-job-id 33907
+```

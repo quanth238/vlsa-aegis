@@ -770,3 +770,51 @@ This is evidence-authority hardening, not a safety result. A new clean commit,
 unused immutable root, numeric job, exact-parity-v3 job, independent prerequisite
 validation, and complete identification-v4 job are all mandatory. No old
 artifact can be upgraded or reinterpreted in place.
+
+## ADR-0040: Accept the lean H100 result as directional feasibility evidence
+
+Accepted after the user explicitly requested a direct feasibility test instead
+of continuing the publication-grade ladder. The lean test is a separate,
+opt-in exploratory branch and does not weaken or reinterpret ADR-0035 or any
+earlier immutable artifact. Its claim is limited to one post-hoc 0.4-second
+window with static simulator-oracle geometry.
+
+H100 job `33907` completed `COMPLETED|0:0` from clean pushed commit
+`b1854d6b82836757fdfed50ad0788791a62e651b`. Exact paired restoration and the
+fixed adapter-only arm reproduce the link-5 contact at physical boundary 4677.
+The adapter-plus-link-5/link-6 Poisson-CBF arm activates at boundary 4500,
+solves and postchecks all 40 hard QPs, completes all 200 physics substeps, and
+has no literal selected-obstacle contact from any robot collision geom. Its
+conservative full-robot clearance lower bound is 24.82 mm. The active intervals
+retain 73.36% of nominal command-motion integral, traverse 67.54 mm in
+Cartesian space, and reduce target error by 41.57 mm, so the observation is
+classified as motion-preserving correction rather than stop-only.
+
+The accepted interpretation is empirical and offline. It establishes neither
+task success nor a full-episode, population, perception, dynamic-obstacle,
+continuous-time, or real-time safety claim. Tracking exceeds the diagnostic
+thresholds, and 35 of 40 OSQP solves exceed the 10 ms controller period before
+field/Jacobian and simulator overhead. Increasing the exploratory OSQP budget
+from 10,000 to 50,000 iterations is disclosed as outcome-informed numerical
+debugging; every accepted solution still has solved status and passes the hard
+constraint postchecks. The maximum observed iteration count is 15,150.
+
+The PSF arm's complete-window target progress is 53.33 mm, compared with
+116.93 mm for adapter-only. This confirms continued useful motion but prevents
+equating the result with task preservation. The follow-up independent validator
+reconstructs the raw geometry-bound contacts, visible action/gripper pairing,
+adapter commands, all 40 QPs, activation, clearance, active motion, tracking,
+and timing without calling the producer classifier. It also rejects missing
+restore authority, hidden settled/rollout contact, command-to-physics
+substitution, forged clearance certificates, and false apparatus flags. Its 56
+focused tests and the complete 632-test repository gate pass; 135
+allocation-only tests skip as expected.
+
+This result is enough to continue the full-body Poisson-CBF research direction,
+not enough to mark the broader `P01-static-poisson-runtime` gate passing. The
+next work should first test persistent OSQP with fixed full-row sparsity,
+numeric updates, and cross-step primal/dual warm starts while retaining every
+hard constraint and the independent postcheck. It must measure the complete
+pre-physics pipeline and target 40/40 updates within 10 ms. Joint-velocity
+tracking follows, then a frozen multi-case link-contact set with contact
+avoidance and task success reported separately.
