@@ -5,10 +5,11 @@ The compact episode schema is necessary but not sufficient: a self-consistent
 ``result.json`` could otherwise disagree with the 2 ms audit ledger it cites.
 This validator loads the referenced ``active_arm_audit_trace``, verifies both
 layers of hashes, and reconstructs action, contact, motion, task, and optimizer
-endpoints from serialized ledgers.  The coverage component of ``D_sim`` gets
-strict typed/arithmetic/provenance consistency checks, but its exact
-sample-to-OBB minimum remains a simulator-produced summary because v2 does not
-serialize raw sample coordinates and obstacle OBB poses.
+endpoints from serialized ledgers.  Trace v3 also embeds the exact protected
+link-surface sample ledger and the complete settled-state differential audit.
+The coverage component of ``D_sim`` still cannot be regenerated from the run
+tree alone because obstacle OBB poses are not serialized; its exact
+sample-to-OBB minimum remains a simulator-produced summary.
 """
 
 import argparse
@@ -37,9 +38,16 @@ from main.poisson_fullbody.result_schema import (  # noqa: E402
     validate_active_canary_pair,
     validate_episode_result,
 )
+from main.poisson_fullbody.feasibility_protocol import (  # noqa: E402
+    PARAMETER_SECTIONS,
+)
+from main.poisson_fullbody.jacobians import (  # noqa: E402
+    DifferentialAuditError,
+    validate_protected_sample_differential_audit,
+)
 
 
-TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v2"
+TRACE_SCHEMA_VERSION = "vlsa_poisson_active_arm_trace.v3"
 TRACE_ARTIFACT_TYPE = "active_arm_audit_trace"
 RUN_RECEIPT_SCHEMA_VERSION = "vlsa_poisson_active_canary_run_receipt.v2"
 ACTIVE_ARMS = (
@@ -130,6 +138,33 @@ FIELD_BUNDLE_HASH_FIELDS = {
     "field_sha256",
     "protected_samples_sha256",
     "bundle_sha256",
+}
+PROTECTED_LINK_SURFACE_SAMPLING_FIELDS = {
+    "epsilon_m",
+    "maximum_surface_cover_radius_m",
+    "coverage_semantics",
+    "components",
+    "samples",
+}
+PROTECTED_SURFACE_COMPONENT_FIELDS = {
+    "geom_id",
+    "geom_name",
+    "body_id",
+    "body_name",
+    "geometry_kind",
+    "certificate_kind",
+    "surface_element_count",
+    "sample_count",
+    "certified_surface_cover_radius_m",
+}
+PROTECTED_SAMPLE_FIELDS = {
+    "sample_id",
+    "body_id",
+    "body_name",
+    "geom_id",
+    "geom_name",
+    "point_body_local_m",
+    "source",
 }
 RESOLVED_GEOMETRY_FIELDS = {
     "robot_root_body_ids",
@@ -563,6 +598,315 @@ def _validate_identity(result: Mapping[str, Any], trace: Mapping[str, Any]) -> M
         "trace.outcome.completion_class",
     )
     return outcome
+
+
+def _validate_settled_differential_audit(
+    result: Mapping[str, Any],
+    trace: Mapping[str, Any],
+    outcome: Mapping[str, Any],
+) -> None:
+    """Reconstruct the claim-bearing all-sample settled-state audit.
+
+    The trace carries the registered parameter block and exact body-local
+    samples so this check does not trust producer summary booleans or an
+    external in-memory field bundle.
+    """
+
+    runtime = _mapping(result.get("runtime"), "result.runtime")
+    pairing = _mapping(result.get("pairing"), "result.pairing")
+    field_hashes = _mapping(
+        trace.get("field_bundle_hashes"), "trace.field_bundle_hashes"
+    )
+    parameter_block = _mapping(
+        trace.get("runtime_protocol_parameter_block"),
+        "trace.runtime_protocol_parameter_block",
+    )
+    _exact_keys(
+        parameter_block,
+        set(PARAMETER_SECTIONS),
+        "trace.runtime_protocol_parameter_block",
+    )
+    parameter_block_sha256 = _producer_configuration_sha256(parameter_block)
+    _require(
+        parameter_block_sha256
+        == runtime.get("protocol_parameter_block_sha256")
+        == field_hashes.get("parameter_block_sha256"),
+        "trace.runtime_protocol_parameter_block",
+        "does not match the runtime and field-bundle parameter identity",
+    )
+    differential_config = _mapping(
+        parameter_block.get("differential_audit"),
+        "trace.runtime_protocol_parameter_block.differential_audit",
+    )
+
+    sampling = _mapping(
+        trace.get("protected_link_surface_sampling"),
+        "trace.protected_link_surface_sampling",
+    )
+    _exact_keys(
+        sampling,
+        PROTECTED_LINK_SURFACE_SAMPLING_FIELDS,
+        "trace.protected_link_surface_sampling",
+    )
+    epsilon_m = _finite_number(
+        sampling.get("epsilon_m"),
+        "trace.protected_link_surface_sampling.epsilon_m",
+    )
+    maximum_radius_m = _finite_number(
+        sampling.get("maximum_surface_cover_radius_m"),
+        "trace.protected_link_surface_sampling.maximum_surface_cover_radius_m",
+    )
+    _require(
+        epsilon_m > 0.0 and 0.0 <= maximum_radius_m < epsilon_m,
+        "trace.protected_link_surface_sampling coverage radius",
+        "must certify a strict open-ball cover",
+    )
+    coverage_semantics = sampling.get("coverage_semantics")
+    _require(
+        isinstance(coverage_semantics, str) and bool(coverage_semantics),
+        "trace.protected_link_surface_sampling.coverage_semantics",
+    )
+
+    raw_components = _list(
+        sampling.get("components"),
+        "trace.protected_link_surface_sampling.components",
+    )
+    _require(
+        bool(raw_components),
+        "trace.protected_link_surface_sampling.components",
+        "must be nonempty",
+    )
+    components: List[Dict[str, Any]] = []
+    component_geom_ids = set()
+    component_geom_sequence: List[int] = []
+    for index, raw_component in enumerate(raw_components):
+        label = "trace.protected_link_surface_sampling.components[%d]" % index
+        component = _mapping(raw_component, label)
+        _exact_keys(component, PROTECTED_SURFACE_COMPONENT_FIELDS, label)
+        geom_id = _integer(component.get("geom_id"), label + ".geom_id")
+        body_id = _integer(component.get("body_id"), label + ".body_id")
+        surface_count = _integer(
+            component.get("surface_element_count"),
+            label + ".surface_element_count",
+        )
+        sample_count = _integer(
+            component.get("sample_count"), label + ".sample_count"
+        )
+        component_radius = _finite_number(
+            component.get("certified_surface_cover_radius_m"),
+            label + ".certified_surface_cover_radius_m",
+        )
+        _require(
+            geom_id >= 0
+            and body_id >= 0
+            and surface_count > 0
+            and sample_count > 0
+            and 0.0 <= component_radius < epsilon_m,
+            label,
+            "contains an invalid coverage certificate",
+        )
+        for name_field in (
+            "geom_name",
+            "body_name",
+            "geometry_kind",
+            "certificate_kind",
+        ):
+            value = component.get(name_field)
+            _require(
+                isinstance(value, str) and bool(value),
+                label + "." + name_field,
+            )
+        _require(
+            geom_id not in component_geom_ids,
+            label + ".geom_id",
+            "duplicates another protected component",
+        )
+        component_geom_ids.add(geom_id)
+        component_geom_sequence.append(geom_id)
+        components.append(dict(component))
+    _close(
+        maximum_radius_m,
+        max(
+            float(component["certified_surface_cover_radius_m"])
+            for component in components
+        ),
+        "trace.protected_link_surface_sampling.maximum_surface_cover_radius_m",
+    )
+
+    raw_samples = _list(
+        sampling.get("samples"),
+        "trace.protected_link_surface_sampling.samples",
+    )
+    _require(
+        bool(raw_samples),
+        "trace.protected_link_surface_sampling.samples",
+        "must be nonempty",
+    )
+    samples: List[Dict[str, Any]] = []
+    sample_counts_by_geom: Dict[int, int] = {}
+    for index, raw_sample in enumerate(raw_samples):
+        label = "trace.protected_link_surface_sampling.samples[%d]" % index
+        sample = _mapping(raw_sample, label)
+        _exact_keys(sample, PROTECTED_SAMPLE_FIELDS, label)
+        sample_id = _integer(sample.get("sample_id"), label + ".sample_id")
+        body_id = _integer(sample.get("body_id"), label + ".body_id")
+        geom_id = _integer(sample.get("geom_id"), label + ".geom_id")
+        _require(
+            sample_id == index and body_id >= 0 and geom_id >= 0,
+            label,
+            "has a noncontiguous or negative identity",
+        )
+        body_name = sample.get("body_name")
+        geom_name = sample.get("geom_name")
+        source = sample.get("source")
+        _require(
+            isinstance(body_name, str)
+            and bool(body_name)
+            and isinstance(geom_name, str)
+            and bool(geom_name)
+            and source == "collision_geom_surface",
+            label,
+            "has invalid protected-surface provenance",
+        )
+        point = _finite_number_vector(
+            sample.get("point_body_local_m"),
+            3,
+            label + ".point_body_local_m",
+        )
+        samples.append(
+            {
+                "sample_id": sample_id,
+                "body_id": body_id,
+                "body_name": body_name,
+                "geom_id": geom_id,
+                "geom_name": geom_name,
+                "point_body_local_m": point,
+                "source": source,
+            }
+        )
+        sample_counts_by_geom[geom_id] = sample_counts_by_geom.get(geom_id, 0) + 1
+    _require(
+        set(sample_counts_by_geom) == component_geom_ids,
+        "trace.protected_link_surface_sampling",
+        "sample and component geom identities differ",
+    )
+    for component in components:
+        geom_id = int(component["geom_id"])
+        _require(
+            sample_counts_by_geom[geom_id] == int(component["sample_count"]),
+            "trace.protected_link_surface_sampling component sample count",
+        )
+        for sample in samples:
+            if sample["geom_id"] == geom_id:
+                _require(
+                    sample["geom_name"] == component["geom_name"]
+                    and sample["body_id"] == component["body_id"]
+                    and sample["body_name"] == component["body_name"],
+                    "trace.protected_link_surface_sampling sample/component identity",
+                )
+
+    resolved = _mapping(trace.get("resolved_geometry"), "trace.resolved_geometry")
+    resolved_link_geom_ids = _list(
+        resolved.get("link56_geom_ids"), "trace.resolved_geometry.link56_geom_ids"
+    )
+    resolved_link_geom_names = _list(
+        resolved.get("link56_geom_names"),
+        "trace.resolved_geometry.link56_geom_names",
+    )
+    resolved_link_body_ids = _list(
+        resolved.get("link56_body_ids"), "trace.resolved_geometry.link56_body_ids"
+    )
+    _require(
+        component_geom_sequence == resolved_link_geom_ids
+        and [component["geom_name"] for component in components]
+        == resolved_link_geom_names
+        and set(component["body_id"] for component in components)
+        == set(resolved_link_body_ids),
+        "trace.protected_link_surface_sampling",
+        "does not cover the authoritative ordered link-5/link-6 geoms and bodies",
+    )
+    field_diagnostics = _mapping(
+        trace.get("field_bundle_diagnostics"), "trace.field_bundle_diagnostics"
+    )
+    initial_sample_audit = _mapping(
+        outcome.get("initial_protected_sample_audit"),
+        "trace.outcome.initial_protected_sample_audit",
+    )
+    _require(
+        len(samples)
+        == field_diagnostics.get("protected_sample_count")
+        == initial_sample_audit.get("protected_sample_count")
+        and len(components)
+        == field_diagnostics.get("protected_surface_component_count"),
+        "trace.protected_link_surface_sampling population",
+        "differs from the field and settled execution authorities",
+    )
+
+    sampling_payload = {
+        "epsilon_m": epsilon_m,
+        "maximum_surface_cover_radius_m": maximum_radius_m,
+        "coverage_semantics": coverage_semantics,
+        "components": components,
+        "samples": samples,
+    }
+    _require(
+        sha256_bytes(canonical_json_bytes(sampling_payload))
+        == field_hashes.get("protected_samples_sha256"),
+        "trace.protected_link_surface_sampling",
+        "does not match field_bundle_hashes.protected_samples_sha256",
+    )
+
+    arm_dof_indices = _list(trace.get("arm_dof_indices"), "trace.arm_dof_indices")
+    _require(
+        len(arm_dof_indices) == 7
+        and all(
+            isinstance(value, int) and not isinstance(value, bool) and value >= 0
+            for value in arm_dof_indices
+        )
+        and len(set(arm_dof_indices)) == 7,
+        "trace.arm_dof_indices",
+        "must contain seven unique nonnegative integer DOFs",
+    )
+    restore = _mapping(outcome.get("restore"), "trace.outcome.restore")
+    settled_state_sha256 = _sha256_string(
+        restore.get("official_integration_state_sha256"),
+        "trace.outcome.restore.official_integration_state_sha256",
+    )
+    _require(
+        settled_state_sha256 == pairing.get("restored_settled_state_sha256"),
+        "trace settled differential-audit state",
+        "differs from the compact result pairing state",
+    )
+    audit = _mapping(
+        trace.get("settled_link56_differential_audit"),
+        "trace.settled_link56_differential_audit",
+    )
+    try:
+        reconstructed = validate_protected_sample_differential_audit(
+            audit,
+            expected_samples=samples,
+            expected_arm_dof_indices=arm_dof_indices,
+            expected_integration_state_sha256=settled_state_sha256,
+            expected_differential_audit_config=differential_config,
+        )
+    except (DifferentialAuditError, KeyError, TypeError, ValueError) as error:
+        _fail(
+            "trace.settled_link56_differential_audit",
+            "is invalid: %s" % error,
+        )
+    serialized_summary = _mapping(
+        trace.get("settled_link56_differential_audit_validation"),
+        "trace.settled_link56_differential_audit_validation",
+    )
+    _require(
+        _canonical_equal(serialized_summary, reconstructed),
+        "trace.settled_link56_differential_audit_validation",
+        "differs from independent reconstruction",
+    )
+    _require(
+        reconstructed.get("passed") is True,
+        "trace.settled_link56_differential_audit_validation.passed",
+    )
 
 
 def _validate_trace_configuration_bindings(
@@ -1259,7 +1603,7 @@ def _validate_trace_configuration_bindings(
 
 
 def _validate_full_robot_surface_sampling(trace: Mapping[str, Any]) -> None:
-    """Validate the v2 trace's authoritative mixed-geometry D_sim sampler."""
+    """Validate the trace's authoritative mixed-geometry D_sim sampler."""
 
     resolved = _mapping(trace.get("resolved_geometry"), "trace.resolved_geometry")
     raw_expected_geoms = _list(
@@ -3963,6 +4307,7 @@ def validate_active_arm_trace(
         trace,
         expected_source_action_count=expected_source_action_count,
     )
+    _validate_settled_differential_audit(result, trace, outcome)
     _validate_full_robot_surface_sampling(trace)
     high_steps, _inner_steps, physics_steps, _entered, completed = _validate_execution(result, outcome)
     _validate_eef_reference_site(outcome)
@@ -4263,8 +4608,13 @@ def validate_complete_run_artifacts(
     psf_trace = traces["joint_velocity_psf_link56"]
     for field in (
         "source_replay",
+        "runtime_protocol_parameter_block",
         "field_bundle_hashes",
         "field_bundle_diagnostics",
+        "protected_link_surface_sampling",
+        "arm_dof_indices",
+        "settled_link56_differential_audit",
+        "settled_link56_differential_audit_validation",
         "resolved_geometry",
         "full_robot_surface_sampling",
     ):

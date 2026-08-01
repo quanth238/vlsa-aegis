@@ -50,7 +50,7 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         from main.poisson_fullbody.voxel_grid import GridSpec, PoissonDomain
 
         protocol_path = (
-            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v1.json"
+            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v2.json"
         )
         protocol, protocol_hashes = load_feasibility_protocol(protocol_path)
         workspace = protocol["workspace"]

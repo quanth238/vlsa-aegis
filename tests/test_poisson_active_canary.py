@@ -22,6 +22,12 @@ from scripts.run_poisson_active_canary import (
     _require_identification_matches_active_construction,
     _validated_run_output,
 )
+from tests.test_poisson_shadow_identification import (
+    differential_audit_config,
+    protected_sample_identities,
+    protected_sampling_evidence,
+    valid_differential_audit,
+)
 
 
 class ActiveCanaryContractTest(unittest.TestCase):
@@ -45,20 +51,53 @@ class ActiveCanaryContractTest(unittest.TestCase):
         @dataclass(frozen=True)
         class Hashes:
             bundle_sha256: str
+            protected_samples_sha256: str
 
         @dataclass(frozen=True)
         class Component:
             geom_id: int
+            geom_name: str
+            body_id: int
+            body_name: str
+            geometry_kind: str
+            certificate_kind: str
+            surface_element_count: int
+            sample_count: int
+            certified_surface_cover_radius_m: float
+
+        protected_samples = protected_sample_identities()
+        field_sampling = protected_sampling_evidence(protected_samples)
+        audit_config = differential_audit_config()
+        settled_state_sha256 = "c" * 64
+        differential_audit, differential_validation = valid_differential_audit(
+            protected_samples,
+            settled_state_sha256,
+            audit_config,
+        )
+        components = tuple(
+            Component(**component)
+            for component in field_sampling["surface_components"]
+        )
 
         bundle = SimpleNamespace(
             protocol_id="poisson-protocol",
             protected_body_ids=(50, 60),
             protected_body_names=("robot0_link5", "robot0_link6"),
             diagnostics=Diagnostics(7),
-            hashes=Hashes("bundle-hash"),
+            hashes=Hashes(
+                "bundle-hash",
+                field_sampling["hashes"]["protected_samples_sha256"],
+            ),
             protected_samples=SimpleNamespace(
-                components=(Component(5), Component(6)),
-                samples=(object(), object()),
+                components=components,
+                samples=protected_samples,
+                epsilon_m=field_sampling["protected_sampling_epsilon_m"],
+                maximum_surface_cover_radius_m=field_sampling[
+                    "protected_sampling_maximum_surface_cover_radius_m"
+                ],
+                coverage_semantics=field_sampling[
+                    "protected_sampling_coverage_semantics"
+                ],
             ),
         )
         resolved = {"robot_geom_ids": [5, 6], "obstacle_geom_ids": [100]}
@@ -79,9 +118,26 @@ class ActiveCanaryContractTest(unittest.TestCase):
                 "protected_body_ids": [50, 60],
                 "protected_body_names": ["robot0_link5", "robot0_link6"],
                 "diagnostics": {"value": 7},
-                "hashes": {"bundle_sha256": "bundle-hash"},
-                "surface_components": [{"geom_id": 5}, {"geom_id": 6}],
+                "hashes": {
+                    "bundle_sha256": "bundle-hash",
+                    "protected_samples_sha256": field_sampling["hashes"][
+                        "protected_samples_sha256"
+                    ],
+                },
+                "surface_components": field_sampling["surface_components"],
                 "protected_sample_count": 2,
+                "protected_sampling_epsilon_m": field_sampling[
+                    "protected_sampling_epsilon_m"
+                ],
+                "protected_sampling_maximum_surface_cover_radius_m": (
+                    field_sampling[
+                        "protected_sampling_maximum_surface_cover_radius_m"
+                    ]
+                ),
+                "protected_sampling_coverage_semantics": field_sampling[
+                    "protected_sampling_coverage_semantics"
+                ],
+                "protected_samples": field_sampling["protected_samples"],
             },
             "full_robot_measurement_sampling": {
                 "sample_count": 2,
@@ -91,10 +147,14 @@ class ActiveCanaryContractTest(unittest.TestCase):
             "complete_integration_state_read_only_audit": {
                 "mujoco_state_specification": "mjSTATE_INTEGRATION",
                 "state_vector_length": 9,
-                "before_sha256": "settled-state",
-                "after_sha256": "settled-state",
+                "before_sha256": settled_state_sha256,
+                "after_sha256": settled_state_sha256,
                 "exact_array_equal": True,
             },
+            "settled_link56_differential_audit": differential_audit,
+            "settled_link56_differential_audit_validation": (
+                differential_validation
+            ),
         }
         prerequisite = {
             "shadow_replay": {"construction": construction}
@@ -109,7 +169,9 @@ class ActiveCanaryContractTest(unittest.TestCase):
             "resolved_geometry": resolved,
             "field_bundle": bundle,
             "full_robot_sampling": sampling,
-            "settled_integration_state_sha256": "settled-state",
+            "active_differential_audit": differential_audit,
+            "differential_audit_config": audit_config,
+            "settled_integration_state_sha256": settled_state_sha256,
             "settled_integration_state_length": 9,
         }
         _require_identification_matches_active_construction(
@@ -140,6 +202,22 @@ class ActiveCanaryContractTest(unittest.TestCase):
                     "before_sha256",
                 ),
                 "other-state",
+            ),
+            (
+                "differential audit",
+                (
+                    "settled_link56_differential_audit",
+                    "binding_sha256",
+                ),
+                "0" * 64,
+            ),
+            (
+                "differential validation receipt",
+                (
+                    "settled_link56_differential_audit_validation",
+                    "binding_sha256",
+                ),
+                "0" * 64,
             ),
         ):
             with self.subTest(binding=label):

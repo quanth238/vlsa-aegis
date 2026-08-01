@@ -970,6 +970,7 @@ def validate_shadow_replay_record(
     contact_definition: str,
     alpha_gain_per_s: float,
     static_drift_thresholds: Mapping[str, float],
+    differential_audit_config: Mapping[str, Any],
 ) -> None:
     """Independently validate the complete serialized shadow replay.
 
@@ -1199,13 +1200,29 @@ def validate_shadow_replay_record(
     raw_components = _artifact_sequence(
         field_bundle.get("surface_components"), "field bundle surface components"
     )
+    expected_component_fields = {
+        "geom_id",
+        "geom_name",
+        "body_id",
+        "body_name",
+        "geometry_kind",
+        "certificate_kind",
+        "surface_element_count",
+        "sample_count",
+        "certified_surface_cover_radius_m",
+    }
     component_by_geom: Dict[int, Mapping[str, Any]] = {}
     component_sample_ranges: Dict[int, Tuple[int, int]] = {}
+    component_cover_radii = []
     component_sample_total = 0
     for index, raw_component in enumerate(raw_components):
         component = _artifact_mapping(
             raw_component, "field bundle surface component[%d]" % index
         )
+        if set(component) != expected_component_fields:
+            raise ShadowIdentificationError(
+                "field bundle surface component fields differ at %d" % index
+            )
         geom_id = _artifact_integer(
             component.get("geom_id"), "surface component geom_id", minimum=0
         )
@@ -1217,6 +1234,28 @@ def validate_shadow_replay_record(
             component.get("sample_count"),
             "surface component sample_count",
             minimum=1,
+        )
+        _artifact_integer(
+            component.get("surface_element_count"),
+            "surface component surface_element_count",
+            minimum=1,
+        )
+        for field in (
+            "geom_name",
+            "body_name",
+            "geometry_kind",
+            "certificate_kind",
+        ):
+            value = component.get(field)
+            if not isinstance(value, str) or not value:
+                raise ShadowIdentificationError(
+                    "surface component %s is invalid" % field
+                )
+        component_cover_radii.append(
+            _artifact_nonnegative_number(
+                component.get("certified_surface_cover_radius_m"),
+                "surface component certified cover radius",
+            )
         )
         component_by_geom[geom_id] = component
         sample_start = component_sample_total
@@ -1232,6 +1271,118 @@ def validate_shadow_replay_record(
         raise ShadowIdentificationError(
             "field bundle ordered sample/component coverage differs from resolved "
             "link56 geoms"
+        )
+    sampling_epsilon_m = _artifact_nonnegative_number(
+        field_bundle.get("protected_sampling_epsilon_m"),
+        "field bundle protected sampling epsilon",
+    )
+    maximum_cover_radius_m = _artifact_nonnegative_number(
+        field_bundle.get("protected_sampling_maximum_surface_cover_radius_m"),
+        "field bundle protected sampling maximum cover radius",
+    )
+    coverage_semantics = field_bundle.get(
+        "protected_sampling_coverage_semantics"
+    )
+    if (
+        sampling_epsilon_m <= 0.0
+        or maximum_cover_radius_m >= sampling_epsilon_m
+        or not component_cover_radii
+        or any(radius >= sampling_epsilon_m for radius in component_cover_radii)
+        or maximum_cover_radius_m != max(component_cover_radii)
+        or not isinstance(coverage_semantics, str)
+        or not coverage_semantics
+    ):
+        raise ShadowIdentificationError(
+            "field bundle protected sampling certificate is invalid"
+        )
+    raw_protected_samples = _artifact_sequence(
+        field_bundle.get("protected_samples"),
+        "field bundle protected samples",
+    )
+    if len(raw_protected_samples) != registered_sample_count:
+        raise ShadowIdentificationError(
+            "field bundle protected sample ledger length differs"
+        )
+    protected_samples = []
+    expected_sample_fields = {
+        "sample_id",
+        "body_id",
+        "body_name",
+        "geom_id",
+        "geom_name",
+        "point_body_local_m",
+        "source",
+    }
+    for sample_index, raw_sample in enumerate(raw_protected_samples):
+        sample_record = _artifact_mapping(
+            raw_sample,
+            "field bundle protected sample[%d]" % sample_index,
+        )
+        if set(sample_record) != expected_sample_fields:
+            raise ShadowIdentificationError(
+                "field bundle protected sample fields differ at %d" % sample_index
+            )
+        sample_id = _artifact_integer(
+            sample_record.get("sample_id"),
+            "field bundle protected sample sample_id",
+            minimum=0,
+        )
+        body_id = _artifact_integer(
+            sample_record.get("body_id"),
+            "field bundle protected sample body_id",
+            minimum=0,
+        )
+        geom_id = _artifact_integer(
+            sample_record.get("geom_id"),
+            "field bundle protected sample geom_id",
+            minimum=0,
+        )
+        body_name = sample_record.get("body_name")
+        geom_name = sample_record.get("geom_name")
+        source = sample_record.get("source")
+        if (
+            sample_id != sample_index
+            or not isinstance(body_name, str)
+            or not body_name
+            or not isinstance(geom_name, str)
+            or not geom_name
+            or source != "collision_geom_surface"
+        ):
+            raise ShadowIdentificationError(
+                "field bundle protected sample identity differs at %d" % sample_index
+            )
+        local_point = _artifact_finite_vector(
+            sample_record.get("point_body_local_m"),
+            3,
+            "field bundle protected sample local point",
+        )
+        protected_samples.append(
+            {
+                "sample_id": sample_id,
+                "body_id": body_id,
+                "body_name": body_name,
+                "geom_id": geom_id,
+                "geom_name": geom_name,
+                "point_body_local_m": list(local_point),
+                "source": source,
+            }
+        )
+    field_bundle_hashes = _artifact_mapping(
+        field_bundle.get("hashes"), "construction field bundle hashes"
+    )
+    protected_sample_payload = {
+        "epsilon_m": sampling_epsilon_m,
+        "maximum_surface_cover_radius_m": maximum_cover_radius_m,
+        "coverage_semantics": coverage_semantics,
+        "components": list(raw_components),
+        "samples": protected_samples,
+    }
+    if _artifact_sha256(
+        field_bundle_hashes.get("protected_samples_sha256"),
+        "field bundle protected_samples_sha256",
+    ) != hashlib.sha256(_canonical(protected_sample_payload)).hexdigest():
+        raise ShadowIdentificationError(
+            "field bundle protected sample SHA-256 differs from its ledger"
         )
     robot_geom_names = _resolved_id_name_map(
         resolved,
@@ -1286,6 +1437,17 @@ def validate_shadow_replay_record(
             raise ShadowIdentificationError(
                 "surface component provenance differs from resolved geometry"
             )
+        sample_start, sample_stop = component_sample_ranges[geom_id]
+        for sample in protected_samples[sample_start:sample_stop]:
+            if (
+                sample["geom_id"] != geom_id
+                or sample["geom_name"] != robot_geom_names[geom_id]
+                or sample["body_id"] != body_id
+                or sample["body_name"] != robot_body_names[body_id]
+            ):
+                raise ShadowIdentificationError(
+                    "protected sample ledger differs from its ordered component range"
+                )
     raw_pairs = _artifact_sequence(
         resolved.get("collision_enabled_pairs"),
         "resolved collision-enabled pairs",
@@ -1375,6 +1537,52 @@ def validate_shadow_replay_record(
         or read_only.get("before_sha256") != read_only.get("after_sha256")
     ):
         raise ShadowIdentificationError("construction read-only audit differs")
+    raw_arm_dofs = _artifact_sequence(
+        construction.get("arm_dof_indices"),
+        "construction arm DOF indices",
+    )
+    arm_dof_indices = tuple(
+        _artifact_integer(
+            value,
+            "construction arm DOF index",
+            minimum=0,
+        )
+        for value in raw_arm_dofs
+    )
+    if len(arm_dof_indices) != 7 or len(set(arm_dof_indices)) != 7:
+        raise ShadowIdentificationError(
+            "construction arm DOF indices are incomplete or duplicated"
+        )
+    try:
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            validate_protected_sample_differential_audit,
+        )
+
+        differential_validation = validate_protected_sample_differential_audit(
+            _artifact_mapping(
+                construction.get("settled_link56_differential_audit"),
+                "settled link56 differential audit",
+            ),
+            expected_samples=protected_samples,
+            expected_arm_dof_indices=arm_dof_indices,
+            expected_integration_state_sha256=_artifact_sha256(
+                read_only.get("before_sha256"),
+                "construction read-only before_sha256",
+            ),
+            expected_differential_audit_config=differential_audit_config,
+        )
+    except DifferentialAuditError as error:
+        raise ShadowIdentificationError(
+            "settled link56 differential audit is invalid: %s" % error
+        ) from error
+    if not _same_artifact_value(
+        construction.get("settled_link56_differential_audit_validation"),
+        differential_validation,
+    ):
+        raise ShadowIdentificationError(
+            "serialized differential-audit validation summary differs"
+        )
 
     identification = _artifact_mapping(
         record.get("poisson_identification"), "Poisson identification"

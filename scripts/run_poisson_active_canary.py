@@ -40,7 +40,7 @@ DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 ARMS = ("joint_velocity_adapter_only", "joint_velocity_psf_link56")
 EXPECTED_NUMERIC_SCHEMA = "vlsa_poisson_numeric_validation.v1"
 EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
-EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v2"
+EXPECTED_IDENTIFICATION_SCHEMA = "vlsa_poisson_shadow_identification.v3"
 D_SIM_SEMANTICS = (
     "union_of_settled_live_solver_and_forwarded_post_state_nonpositive_contacts_"
     "plus_exact_obb_coverage_lower_bound"
@@ -508,6 +508,7 @@ def _require_identification_prerequisite(
     runtime_parameter_block_sha256: str,
     alpha_gain_per_s: float,
     static_drift_thresholds: Mapping[str, float],
+    differential_audit_config: Mapping[str, Any],
     replay: Any,
     parity: Mapping[str, Any],
 ) -> Dict[str, Any]:
@@ -574,6 +575,8 @@ def _require_identification_prerequisite(
             "upstream_observation_sequence_exact",
             "complete_mujoco_integration_state_unchanged_by_construction",
             "complete_mujoco_integration_state_unchanged_by_callback",
+            "all_link56_protected_sample_point_jacobians_validated",
+            "all_link56_protected_sample_field_chain_rules_validated",
             "static_queries_stop_at_first_registered_drift",
             "contact_authority_is_mujoco_nonpositive_distance",
             "no_action_or_control_mutation",
@@ -632,6 +635,7 @@ def _require_identification_prerequisite(
             contact_definition="mujoco_contact_dist_le_0",
             alpha_gain_per_s=alpha_gain_per_s,
             static_drift_thresholds=static_drift_thresholds,
+            differential_audit_config=differential_audit_config,
         )
     except ShadowIdentificationError as error:
         raise ActiveRunnerError(
@@ -695,6 +699,7 @@ def _require_identification_prerequisite(
         )
         or not isinstance(primary, Mapping)
         or not isinstance(contact, Mapping)
+        or primary.get("signal_kind") != "cbf_lhs_negative"
         or primary.get("geom_id") != contact.get("robot_geom_id")
         or int(primary.get("observation_index", -1)) + lead_substeps
         != rollout_contact_boundary_index(
@@ -729,6 +734,8 @@ def _require_identification_matches_active_construction(
     resolved_geometry: Mapping[str, Any],
     field_bundle: Any,
     full_robot_sampling: Mapping[str, Any],
+    active_differential_audit: Mapping[str, Any],
+    differential_audit_config: Mapping[str, Any],
     settled_integration_state_sha256: str,
     settled_integration_state_length: int,
 ) -> None:
@@ -751,6 +758,18 @@ def _require_identification_matches_active_construction(
             asdict(value) for value in field_bundle.protected_samples.components
         ],
         "protected_sample_count": len(field_bundle.protected_samples.samples),
+        "protected_sampling_epsilon_m": float(
+            field_bundle.protected_samples.epsilon_m
+        ),
+        "protected_sampling_maximum_surface_cover_radius_m": float(
+            field_bundle.protected_samples.maximum_surface_cover_radius_m
+        ),
+        "protected_sampling_coverage_semantics": (
+            field_bundle.protected_samples.coverage_semantics
+        ),
+        "protected_samples": [
+            sample.to_dict() for sample in field_bundle.protected_samples.samples
+        ],
     }
     expected_sampling = dict(full_robot_sampling)
     roundtrip = expected_sampling.pop("roundtrip", None)
@@ -798,6 +817,56 @@ def _require_identification_matches_active_construction(
     ):
         raise ActiveRunnerError(
             "shadow identification and active settled MuJoCo state differ"
+        )
+    try:
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            validate_protected_sample_differential_audit,
+        )
+
+        shadow_differential_audit = construction.get(
+            "settled_link56_differential_audit"
+        )
+        shadow_validation = validate_protected_sample_differential_audit(
+            shadow_differential_audit,
+            expected_samples=field_bundle.protected_samples.samples,
+            expected_arm_dof_indices=arm_dof_indices,
+            expected_integration_state_sha256=settled_integration_state_sha256,
+            expected_differential_audit_config=differential_audit_config,
+        )
+        active_validation = validate_protected_sample_differential_audit(
+            active_differential_audit,
+            expected_samples=field_bundle.protected_samples.samples,
+            expected_arm_dof_indices=arm_dof_indices,
+            expected_integration_state_sha256=settled_integration_state_sha256,
+            expected_differential_audit_config=differential_audit_config,
+        )
+    except (DifferentialAuditError, TypeError, ValueError) as error:
+        raise ActiveRunnerError(
+            "shadow or active settled differential audit is invalid: %s" % error
+        ) from error
+    if _canonical(
+        construction.get("settled_link56_differential_audit_validation")
+    ) != _canonical(shadow_validation):
+        raise ActiveRunnerError(
+            "shadow differential-audit validation summary differs"
+        )
+    stable_fields = (
+        "specification_sha256",
+        "binding_sha256",
+        "classification_ledger_sha256",
+    )
+    if any(
+        shadow_differential_audit.get(field)
+        != active_differential_audit.get(field)
+        for field in stable_fields
+    ):
+        raise ActiveRunnerError(
+            "shadow and active differential-audit classifications differ"
+        )
+    if shadow_validation["passed"] is not True or active_validation["passed"] is not True:
+        raise ActiveRunnerError(
+            "shadow or active differential audit did not pass"
         )
 
 
@@ -3133,6 +3202,12 @@ def main() -> int:
             ledger_sha256,
         )
         from main.poisson_fullbody.field_bundle import build_static_field_bundle
+        from main.poisson_fullbody.feasibility_protocol import PARAMETER_SECTIONS
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            audit_protected_sample_differentials,
+            validate_protected_sample_differential_audit,
+        )
         from main.poisson_fullbody.measurement import (
             FullRobotObstacleMonitor,
             clone_forwarded_state,
@@ -3259,6 +3334,7 @@ def main() -> int:
                     ]
                 ),
             },
+            differential_audit_config=protocol["differential_audit"],
             replay=replay,
             parity=parity_prerequisite,
         )
@@ -3443,6 +3519,35 @@ def main() -> int:
                 full_sampling_evidence,
                 roundtrip_field="roundtrip",
             )
+            source_state_sha256 = evaluator.array_sha256(
+                source_official_before
+            )
+            try:
+                active_differential_audit = (
+                    audit_protected_sample_differentials(
+                        raw_model,
+                        raw_data,
+                        bundle.protected_samples.samples,
+                        arm_dof_indices,
+                        bundle.field,
+                        protocol["differential_audit"],
+                    )
+                )
+                active_differential_audit_validation = (
+                    validate_protected_sample_differential_audit(
+                        active_differential_audit,
+                        expected_samples=bundle.protected_samples.samples,
+                        expected_arm_dof_indices=arm_dof_indices,
+                        expected_integration_state_sha256=source_state_sha256,
+                        expected_differential_audit_config=protocol[
+                            "differential_audit"
+                        ],
+                    )
+                )
+            except (DifferentialAuditError, RuntimeError, TypeError, ValueError) as error:
+                raise ActiveRunnerError(
+                    "active-source settled differential audit failed: %s" % error
+                ) from error
             source_official_after = _official_integration_state(source_env.sim, runtime["np"])
             if not runtime["np"].array_equal(source_official_before, source_official_after):
                 raise ActiveRunnerError("field construction changed source integration state")
@@ -3457,9 +3562,9 @@ def main() -> int:
                 resolved_geometry=resolved.to_dict(),
                 field_bundle=bundle,
                 full_robot_sampling=full_sampling_evidence,
-                settled_integration_state_sha256=evaluator.array_sha256(
-                    source_official_before
-                ),
+                active_differential_audit=active_differential_audit,
+                differential_audit_config=protocol["differential_audit"],
+                settled_integration_state_sha256=source_state_sha256,
                 settled_integration_state_length=int(
                     source_official_before.size
                 ),
@@ -3506,15 +3611,42 @@ def main() -> int:
                     publish_hashed_json(arm_dir / "arm_error.json", arm_error)
                     raise
                 trace_payload = {
-                    "schema_version": "vlsa_poisson_active_arm_trace.v2",
+                    "schema_version": "vlsa_poisson_active_arm_trace.v3",
                     "scientific_result": False,
                     "run_id": arguments.run_id,
                     "case_id": case["case_id"],
                     "arm": arm,
                     "source_replay": replay.provenance(),
                     "staged_scope": "first_two_arm_canary_only",
+                    "runtime_protocol_parameter_block": {
+                        section: protocol[section] for section in PARAMETER_SECTIONS
+                    },
                     "field_bundle_hashes": asdict(bundle.hashes),
                     "field_bundle_diagnostics": asdict(bundle.diagnostics),
+                    "protected_link_surface_sampling": {
+                        "epsilon_m": float(bundle.protected_samples.epsilon_m),
+                        "maximum_surface_cover_radius_m": float(
+                            bundle.protected_samples.maximum_surface_cover_radius_m
+                        ),
+                        "coverage_semantics": (
+                            bundle.protected_samples.coverage_semantics
+                        ),
+                        "components": [
+                            asdict(component)
+                            for component in bundle.protected_samples.components
+                        ],
+                        "samples": [
+                            sample.to_dict()
+                            for sample in bundle.protected_samples.samples
+                        ],
+                    },
+                    "arm_dof_indices": list(arm_dof_indices),
+                    "settled_link56_differential_audit": (
+                        active_differential_audit
+                    ),
+                    "settled_link56_differential_audit_validation": (
+                        active_differential_audit_validation
+                    ),
                     "resolved_geometry": resolved.to_dict(),
                     "full_robot_surface_sampling": full_sampling_evidence,
                     "outcome": outcome,

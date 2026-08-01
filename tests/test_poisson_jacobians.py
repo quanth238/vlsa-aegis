@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import copy
+import json
 import unittest
 
 
@@ -71,6 +73,65 @@ class PointJacobianTest(unittest.TestCase):
             point_body_local_m=(0.08, 0.02, 0.01),
         )
 
+    @staticmethod
+    def differential_config():
+        return {
+            "state_source": "settled_mujoco_mjstate_integration_clone",
+            "perturbation_integrator": "mujoco_mj_integratePos_full_nv_tangent",
+            "point_jacobian_delta_rad": 1.0e-6,
+            "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
+            "point_jacobian_relative_tolerance": 1.0e-4,
+            "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
+            "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+            "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
+            "joint_velocity_directions_rad_s": [
+                [0.5 if row == column else 0.0 for column in range(7)]
+                for row in range(7)
+            ]
+            + [
+                [0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 0.5],
+                [(index + 1.0) / 14.0 for index in range(7)],
+            ],
+            "coupled_eta_ladder_s": [
+                2.0e-6,
+                5.0e-7,
+                1.25e-7,
+                3.125e-8,
+                7.8125e-9,
+                1.953125e-9,
+                4.8828125e-10,
+            ],
+            "coupled_absolute_tolerance_m2_per_s": 2.0e-7,
+            "coupled_relative_tolerance": 2.0e-4,
+            "coupled_near_zero_m2_per_s": 1.0e-10,
+            "same_trilinear_cell_required": True,
+            "required_direction_count_per_sample": 9,
+            "stencil_selection_policy": (
+                "largest_eta_with_valid_base_plus_minus_in_same_exact_cell"
+            ),
+            "finite_difference_resolution_policy": (
+                "fail_on_no_certified_stencil_or_detected_cancellation"
+            ),
+            "failure_policy": "fail_before_active_physics_retain_artifact",
+        }
+
+    def linear_field(self, *, lower=None, upper=None, valid_cell_mask=None):
+        from main.poisson_fullbody.poisson_field import TrilinearPoissonField
+        from main.poisson_fullbody.voxel_grid import GridSpec
+
+        np = self.np
+        if lower is None:
+            lower = np.asarray([-2.123, -2.234, -2.345])
+        if upper is None:
+            upper = np.asarray([2.077, 1.966, 1.855])
+        grid = GridSpec.from_bounds(lower, upper, (8, 8, 8))
+        axes = grid.vertex_axes()
+        x, y, z = np.meshgrid(*axes, indexing="ij")
+        values = 10.0 + 0.2 * x - 0.3 * y + 0.4 * z
+        return TrilinearPoissonField(
+            grid, values, valid_cell_mask=valid_cell_mask
+        )
+
     def test_body_local_roundtrip(self) -> None:
         from main.poisson_fullbody.robot_samples import validate_rigid_roundtrip
 
@@ -123,6 +184,171 @@ class PointJacobianTest(unittest.TestCase):
         )
         expected = float(self.np.array([1.0, -2.0, 0.5]) @ jacobian @ self.data.qvel)
         self.assertAlmostEqual(value, expected, places=12)
+
+    def test_exhaustive_differential_audit_is_json_native_and_state_preserving(self):
+        from main.poisson_fullbody.jacobians import (
+            audit_protected_sample_differentials,
+            mujoco_integration_state_sha256,
+            validate_protected_sample_differential_audit,
+        )
+
+        before = mujoco_integration_state_sha256(self.model, self.data)
+        result = audit_protected_sample_differentials(
+            self.model,
+            self.data,
+            [self.sample],
+            list(range(7)),
+            self.linear_field(),
+            self.differential_config(),
+        )
+        self.assertEqual(mujoco_integration_state_sha256(self.model, self.data), before)
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(result["counts"]["selected_coupled_direction_count"], 9)
+        json.dumps(result, allow_nan=False)
+        receipt = validate_protected_sample_differential_audit(
+            result,
+            expected_samples=[self.sample.to_dict()],
+            expected_arm_dof_indices=list(range(7)),
+            expected_integration_state_sha256=before,
+            expected_differential_audit_config=self.differential_config(),
+        )
+        self.assertTrue(receipt["passed"])
+
+    def test_pure_validator_rejects_rehashed_matrix_and_identity_tampering(self):
+        from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+        from main.poisson_fullbody.jacobians import (
+            DIFFERENTIAL_AUDIT_HASH_FIELD,
+            DifferentialAuditError,
+            audit_protected_sample_differentials,
+            mujoco_integration_state_sha256,
+            validate_protected_sample_differential_audit,
+        )
+
+        state_hash = mujoco_integration_state_sha256(self.model, self.data)
+        result = audit_protected_sample_differentials(
+            self.model, self.data, [self.sample], list(range(7)),
+            self.linear_field(), self.differential_config()
+        )
+
+        def rehash(value):
+            value.pop(DIFFERENTIAL_AUDIT_HASH_FIELD, None)
+            value[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+                canonical_json_bytes(value)
+            )
+
+        forged = copy.deepcopy(result)
+        forged["sample_records"][0][
+            "numerical_point_jacobian_m_per_rad_3x7"
+        ][0][0] += 1.0e-3
+        rehash(forged)
+        with self.assertRaisesRegex(DifferentialAuditError, "does not reconstruct"):
+            validate_protected_sample_differential_audit(
+                forged,
+                expected_samples=[self.sample],
+                expected_arm_dof_indices=list(range(7)),
+                expected_integration_state_sha256=state_hash,
+                expected_differential_audit_config=self.differential_config(),
+            )
+
+        forged = copy.deepcopy(result)
+        forged["ordered_samples"][0]["geom_name"] = "wrong_geom"
+        forged["sample_records"][0]["identity"]["geom_name"] = "wrong_geom"
+        rehash(forged)
+        with self.assertRaisesRegex(DifferentialAuditError, "differ from authority"):
+            validate_protected_sample_differential_audit(
+                forged,
+                expected_samples=[self.sample],
+                expected_arm_dof_indices=list(range(7)),
+                expected_integration_state_sha256=state_hash,
+                expected_differential_audit_config=self.differential_config(),
+            )
+
+    def test_no_certified_stencil_retains_every_invalid_attempt(self):
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            audit_protected_sample_differentials,
+            mujoco_integration_state_sha256,
+            validate_protected_sample_differential_audit,
+        )
+
+        point = self.sample.world_point(self.data)
+        lower = point - self.np.asarray([0.7, 0.7, 0.7])
+        upper = point.copy()  # base is valid on the closed outer boundary
+        result = audit_protected_sample_differentials(
+            self.model,
+            self.data,
+            [self.sample],
+            list(range(7)),
+            self.linear_field(lower=lower, upper=upper),
+            self.differential_config(),
+        )
+        self.assertFalse(result["passed"])
+        failed = [
+            direction
+            for direction in result["sample_records"][0]["coupled_directions"]
+            if direction["selected_attempt_index"] is None
+        ]
+        self.assertTrue(failed)
+        for direction in failed:
+            self.assertEqual(len(direction["attempts"]), 7)
+            self.assertTrue(
+                any(
+                    "outside_grid" in reason
+                    for attempt in direction["attempts"]
+                    for reason in attempt["noneligible_reasons"]
+                )
+            )
+        with self.assertRaisesRegex(DifferentialAuditError, "did not pass"):
+            validate_protected_sample_differential_audit(
+                result,
+                expected_samples=[self.sample],
+                expected_arm_dof_indices=list(range(7)),
+                expected_integration_state_sha256=mujoco_integration_state_sha256(
+                    self.model, self.data
+                ),
+                expected_differential_audit_config=self.differential_config(),
+            )
+
+    def test_adaptive_eta_retains_rejected_larger_same_cell_attempt(self):
+        from main.poisson_fullbody.jacobians import (
+            audit_protected_sample_differentials,
+            point_translational_jacobian,
+        )
+
+        point, jacobian = point_translational_jacobian(
+            self.model, self.data, self.sample, list(range(7))
+        )
+        direction = self.np.asarray(self.differential_config()[
+            "joint_velocity_directions_rad_s"
+        ][0])
+        velocity = jacobian @ direction
+        axis = int(self.np.argmax(self.np.abs(velocity)))
+        self.assertGreater(abs(float(velocity[axis])), 1.0e-6)
+        largest_eta = self.differential_config()["coupled_eta_ladder_s"][0]
+        boundary = float(point[axis] + 0.5 * velocity[axis] * largest_eta)
+        spacing = 0.1
+        lower = self.np.asarray(point, dtype=float) - 0.337
+        lower[axis] = boundary - 3.0 * spacing
+        upper = lower + 7.0 * spacing
+        result = audit_protected_sample_differentials(
+            self.model,
+            self.data,
+            [self.sample],
+            list(range(7)),
+            self.linear_field(lower=lower, upper=upper),
+            self.differential_config(),
+        )
+        self.assertTrue(result["passed"], result)
+        adaptive = result["sample_records"][0]["coupled_directions"][0]
+        self.assertGreater(len(adaptive["attempts"]), 1)
+        self.assertFalse(adaptive["attempts"][0]["eligible_same_cell_stencil"])
+        self.assertTrue(
+            any(
+                "cell_differs_from_base" in reason
+                for reason in adaptive["attempts"][0]["noneligible_reasons"]
+            )
+        )
+        self.assertTrue(adaptive["attempts"][-1]["selected"])
 
 
 if __name__ == "__main__":

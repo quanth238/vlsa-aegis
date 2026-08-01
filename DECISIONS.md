@@ -457,9 +457,10 @@ serialized command identical to the command accepted by the joint-velocity
 adapter even when the raw solver vector lies a few floating-point ulps outside
 an active bound.
 
-This decision does not overstate what trace schema v2 contains. Positive
-sample-to-OBB clearance cannot be independently regenerated without raw
-sample coordinates and obstacle OBB poses; compiled model arrays, field arrays,
+This decision records what the then-current trace schema v2 contained.
+Positive sample-to-OBB clearance could not be independently regenerated
+without raw sample coordinates and obstacle OBB poses; compiled model arrays,
+field arrays,
 upstream manifests, protocol files, checkpoints, historical results, and H100
 prerequisite payloads also remain external byte-level trust boundaries.
 MuJoCo nonpositive contact is therefore the safety authority, and all external
@@ -540,3 +541,61 @@ Identification job `33642` was canceled by exact job ID at 12 minutes 28
 seconds, produced no final artifact, and no active job was submitted. Numeric,
 parity-v2, and identification-v2 must rerun from the next exact clean commit
 and unused immutable root.
+
+## ADR-0034: Audit every actual protected sample before active physics
+
+Accepted after a pre-identification adversarial review. Synthetic Jacobian
+tests and a small number of representative sample checks cannot establish that
+the live link-5/6 sample transform, MuJoCo body ID, arm-DOF slice, and Poisson
+gradient are jointly correct for the full constraint population. Runtime
+protocol v2 therefore freezes an all-sample audit at the exact settled
+`mjSTATE_INTEGRATION` state.
+
+The audit perturbs cloned state only. It uses `mj_integratePos` rather than raw
+qpos addition and reconstructs each full-`nv` tangent with
+`mj_differentiatePos`. Every sample must pass all seven point-Jacobian columns
+and nine coupled field directions under registered absolute and relative
+criteria. Relative criteria are waived only under an explicit near-zero
+numeric norm; absolute criteria still apply. Coupled stencils must keep the
+base and both perturbations inside one exact valid trilinear cell. The largest
+eligible eta is selected, all ineligible attempts and typed reasons are
+retained, and no eligible stencil or detected cancellation is fail-closed.
+
+Shadow schema v3 and active trace schema v3 bind the full audit to the exact
+ordered protected-sample ledger, seven DOFs, runtime parameter block, and
+settled-state hash. Independent consumers reconstruct every matrix, tangent,
+query classification, derivative, tolerance, count, and hash. Shadow and live
+audits must match in specification, state/sample binding, and complete
+classification ledger. Exact full-payload float-bit equality across different
+allocations is deliberately not required: both payloads are independently
+validated against the same fixed tolerances, while classification equality
+detects stencil, eligibility, cancellation, and pass/fail drift without adding
+an unregistered cross-host numeric constraint.
+
+Jobs `33653` and `33654` are preserved zero-exit numeric/parity evidence from
+superseded commit `8fd43304cf16091035a8c9ebb2f5dd81a535fb2e`.
+Identification job `33655` was canceled by exact job ID after this gap was
+found and produced no final artifact. None can authorize active physics.
+
+## ADR-0035: Enforce the feasibility ladder before the VLA active canary
+
+Accepted after rereading the user's minimal feasibility plan. Its instruction
+to not proceed until the current stage passes is binding. A complete and
+actionable shadow warning is necessary but no longer sufficient to submit the
+recorded-action active canary.
+
+The required order is: exhaustive actual-sample differential audit; one-step
+exact-state counterfactual immediately before the recorded collision; paired
+manual control against one world-fixed static box; independently validated
+adapter-only execution; then the link-5/6 PSF active canary. The one-step and
+manual gates require exact paired state, complete 2 ms exposure, hard-QP
+postchecks, measured tracking, simulator contact authority, nonzero correction,
+and no shifted robot contact. Any claim that the manual filter gives useful
+motion must use a material tangential/joint-motion retention threshold frozen
+before the allocation, not mere positivity selected after an outcome.
+
+The earlier text allowing a development-only active canary before the
+counterfactual and manual gates is superseded. No active job was submitted
+under that exception. Separate immutable artifacts and independent validators
+must be implemented for both missing gates before an active submission can be
+authorized.

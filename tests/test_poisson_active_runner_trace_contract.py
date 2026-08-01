@@ -261,7 +261,7 @@ def serialized_trace_fixture():
         ],
     }
     trace = {
-        "schema_version": "vlsa_poisson_active_arm_trace.v2",
+        "schema_version": "vlsa_poisson_active_arm_trace.v3",
         "scientific_result": False,
         "run_id": scientific["run_id"],
         "case_id": scientific["case_id"],
@@ -727,6 +727,87 @@ class ActiveRunnerTraceContractTest(unittest.TestCase):
             with self.assertRaisesRegex(
                 ActiveRunnerError,
                 "failed deep validation",
+            ):
+                _validate_complete_run_receipt(
+                    receipt_path=receipt_path,
+                    output=run_root,
+                    expected_receipt_identity=receipt_identity,
+                    expected_arm_identities=original_results,
+                    expected_source_action_count=2,
+                )
+
+    def test_complete_resume_rejects_individually_valid_paired_audit_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (
+                run_root,
+                receipt_path,
+                receipt_identity,
+                original_results,
+            ) = _publish_complete_resume_fixture(Path(directory))
+            case_id = receipt_identity["case_id"]
+            psf_arm = "joint_velocity_psf_link56"
+            psf_directory = run_root / case_id / psf_arm
+            trace_path = psf_directory / "trace.json"
+            trace = load_hashed_json(trace_path)
+
+            # This query remains structurally and numerically valid; clearance
+            # is not used in the derivative arithmetic.  Rehashing both the
+            # audit and its independently reconstructed receipt therefore
+            # creates one individually valid arm with different settled-state
+            # evidence.  The matched-arm gate must still reject it.
+            audit = trace["settled_link56_differential_audit"]
+            audit["sample_records"][0]["base_field_query"][
+                "outer_boundary_clearance_m"
+            ] = 0.2
+            audit.pop("audit_payload_sha256")
+            audit["audit_payload_sha256"] = sha256_bytes(
+                canonical_json_bytes(audit)
+            )
+            trace["settled_link56_differential_audit_validation"][
+                "audit_payload_sha256"
+            ] = audit["audit_payload_sha256"]
+            _replace_hashed_json(trace_path, trace)
+
+            result_path = psf_directory / "result.json"
+            psf_result = load_hashed_json(result_path)
+            trace_reference = psf_result["artifact_references"][0]
+            trace_reference["bytes"] = trace_path.stat().st_size
+            trace_reference["sha256"] = sha256_file(trace_path)
+            _replace_hashed_json(result_path, psf_result)
+            psf_result = load_hashed_json(result_path)
+
+            adapter_result = load_hashed_json(
+                run_root
+                / case_id
+                / "joint_velocity_adapter_only"
+                / "result.json"
+            )
+            pair_payload = dict(
+                validate_active_canary_pair(adapter_result, psf_result)
+            )
+            pair_payload.update(
+                {
+                    "status": "complete",
+                    "scientific_result": False,
+                    "four_arm_109_case_study_complete": False,
+                    "run_contract_sha256": receipt_identity[
+                        "run_contract_sha256"
+                    ],
+                }
+            )
+            pair_path = run_root / case_id / "pair_result.json"
+            _replace_hashed_json(pair_path, pair_payload)
+
+            receipt = load_hashed_json(receipt_path)
+            receipt["arm_results"][psf_arm]["sha256"] = sha256_file(
+                result_path
+            )
+            receipt["pair_result_sha256"] = sha256_file(pair_path)
+            _replace_hashed_json(receipt_path, receipt)
+
+            with self.assertRaisesRegex(
+                ActiveRunnerError,
+                "paired trace.settled_link56_differential_audit",
             ):
                 _validate_complete_run_receipt(
                     receipt_path=receipt_path,

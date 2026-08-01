@@ -219,7 +219,9 @@ def _pair_payload(adapter, psf):
     return payload
 
 
-def _receipt_identity(source_action_ledger_sha256):
+def _receipt_identity(
+    source_action_ledger_sha256, runtime_parameter_block_sha256
+):
     return {
         "run_id": RUN_ID,
         "case_id": CASE_ID,
@@ -230,7 +232,7 @@ def _receipt_identity(source_action_ledger_sha256):
         "selection_config_sha256": "e" * 64,
         "runtime_protocol_raw_sha256": "6" * 64,
         "runtime_protocol_semantic_sha256": "7" * 64,
-        "runtime_parameter_block_sha256": "c" * 64,
+        "runtime_parameter_block_sha256": runtime_parameter_block_sha256,
         "checkpoint_tree_sha256": "e" * 64,
         "checkpoint_receipt_file_sha256": "f" * 64,
         "historical_source_run_contract_sha256": "1" * 64,
@@ -249,7 +251,8 @@ def _build_complete_run(parent):
     adapter_payload, adapter_trace = _adapter_fixture()
     psf_payload, psf_trace = _fixture()
     identity = _receipt_identity(
-        psf_payload["pairing"]["nominal_high_level_action_ledger_sha256"]
+        psf_payload["pairing"]["nominal_high_level_action_ledger_sha256"],
+        psf_payload["runtime"]["protocol_parameter_block_sha256"],
     )
     adapter_path, adapter_trace_path = _publish_arm(
         root, adapter_payload, adapter_trace

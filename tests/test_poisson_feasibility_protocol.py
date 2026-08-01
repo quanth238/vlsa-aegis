@@ -142,6 +142,56 @@ def valid_protocol():
             "static_field_refresh_policy": "never_refresh_terminate_on_drift",
             "violation_policy": "terminate_retain_invalid_not_collision_free",
         },
+        "differential_audit": {
+            "state_source": "settled_mujoco_mjstate_integration_clone",
+            "perturbation_integrator": "mujoco_mj_integratePos_full_nv_tangent",
+            "point_jacobian_delta_rad": 1.0e-6,
+            "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
+            "point_jacobian_relative_tolerance": 1.0e-4,
+            "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
+            "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+            "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
+            "joint_velocity_directions_rad_s": [
+                [0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5],
+                [0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 0.5],
+                [
+                    1.0 / 14.0,
+                    2.0 / 14.0,
+                    3.0 / 14.0,
+                    4.0 / 14.0,
+                    5.0 / 14.0,
+                    6.0 / 14.0,
+                    7.0 / 14.0,
+                ],
+            ],
+            "coupled_eta_ladder_s": [
+                2.0e-6,
+                5.0e-7,
+                1.25e-7,
+                3.125e-8,
+                7.8125e-9,
+                1.953125e-9,
+                4.8828125e-10,
+            ],
+            "coupled_absolute_tolerance_m2_per_s": 2.0e-7,
+            "coupled_relative_tolerance": 2.0e-4,
+            "coupled_near_zero_m2_per_s": 1.0e-10,
+            "same_trilinear_cell_required": True,
+            "required_direction_count_per_sample": 9,
+            "stencil_selection_policy": (
+                "largest_eta_with_valid_base_plus_minus_in_same_exact_cell"
+            ),
+            "finite_difference_resolution_policy": (
+                "fail_on_no_certified_stencil_or_detected_cancellation"
+            ),
+            "failure_policy": "fail_before_active_physics_retain_artifact",
+        },
         "claim_scope": {
             "obstacle_scope": "one_selected_obstacle_collision_geometry_only",
             "protected_robot_bodies": ["robot0_link5", "robot0_link6"],
@@ -399,6 +449,50 @@ class FeasibilityProtocolTest(unittest.TestCase):
                 {"freeze_before_heldout": False}
             ),
             "freeze",
+        )
+
+    def test_differential_audit_is_exhaustive_and_hash_bound(self):
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"required_direction_count_per_sample": 1}
+            ),
+            "every protected sample",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"same_trilinear_cell_required": False}
+            ),
+            "within one trilinear cell",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"][
+                "joint_velocity_directions_rad_s"
+            ][7].__setitem__(0, 0.4),
+            "directions differ",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"][
+                "coupled_eta_ladder_s"
+            ].__setitem__(1, 4.0e-7),
+            "eta ladder differs",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"arm_tangent_reconstruction_tolerance_rad_s": 0.0}
+            ),
+            "must be > 0.0",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"stencil_selection_policy": "first_valid_eta"}
+            ),
+            "stencil_selection_policy",
+        )
+        self.assert_invalid(
+            lambda value: value["differential_audit"].update(
+                {"finite_difference_resolution_policy": "ignore_cancellation"}
+            ),
+            "finite_difference_resolution_policy",
         )
 
     def test_parameter_change_invalidates_declared_freeze_hash(self):

@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v1"
+SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v2"
 PARAMETER_SECTIONS = (
     "workspace",
     "occupancy",
@@ -36,7 +36,37 @@ PARAMETER_SECTIONS = (
     "qp",
     "cadence",
     "admissibility",
+    "differential_audit",
     "claim_scope",
+)
+
+REGISTERED_DIFFERENTIAL_DIRECTIONS_RAD_S = (
+    (0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+    (0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0),
+    (0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0),
+    (0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0),
+    (0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0),
+    (0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0),
+    (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5),
+    (0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 0.5),
+    (
+        1.0 / 14.0,
+        2.0 / 14.0,
+        3.0 / 14.0,
+        4.0 / 14.0,
+        5.0 / 14.0,
+        6.0 / 14.0,
+        7.0 / 14.0,
+    ),
+)
+REGISTERED_DIFFERENTIAL_ETA_LADDER_S = (
+    2.0e-6,
+    5.0e-7,
+    1.25e-7,
+    3.125e-8,
+    7.8125e-9,
+    1.953125e-9,
+    4.8828125e-10,
 )
 
 
@@ -229,6 +259,7 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "qp",
             "cadence",
             "admissibility",
+            "differential_audit",
             "claim_scope",
             "parameter_selection",
         ),
@@ -905,6 +936,137 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             raise FeasibilityProtocolError(
                 "outer-boundary clearance removes the workspace on axis {}".format(axis)
             )
+
+    differential = _object(
+        top["differential_audit"],
+        "protocol.differential_audit",
+        (
+            "state_source",
+            "perturbation_integrator",
+            "point_jacobian_delta_rad",
+            "point_jacobian_absolute_tolerance_m_per_rad",
+            "point_jacobian_relative_tolerance",
+            "point_jacobian_near_zero_frobenius_m_per_rad",
+            "arm_tangent_reconstruction_tolerance_rad_s",
+            "nonarm_tangent_leakage_tolerance_rad_s",
+            "joint_velocity_directions_rad_s",
+            "coupled_eta_ladder_s",
+            "coupled_absolute_tolerance_m2_per_s",
+            "coupled_relative_tolerance",
+            "coupled_near_zero_m2_per_s",
+            "same_trilinear_cell_required",
+            "required_direction_count_per_sample",
+            "stencil_selection_policy",
+            "finite_difference_resolution_policy",
+            "failure_policy",
+        ),
+    )
+    _literal(
+        differential["state_source"],
+        "settled_mujoco_mjstate_integration_clone",
+        "differential_audit.state_source",
+    )
+    _literal(
+        differential["perturbation_integrator"],
+        "mujoco_mj_integratePos_full_nv_tangent",
+        "differential_audit.perturbation_integrator",
+    )
+    for field in (
+        "point_jacobian_delta_rad",
+        "point_jacobian_absolute_tolerance_m_per_rad",
+        "point_jacobian_relative_tolerance",
+        "point_jacobian_near_zero_frobenius_m_per_rad",
+        "arm_tangent_reconstruction_tolerance_rad_s",
+        "nonarm_tangent_leakage_tolerance_rad_s",
+        "coupled_absolute_tolerance_m2_per_s",
+        "coupled_relative_tolerance",
+        "coupled_near_zero_m2_per_s",
+    ):
+        _number(
+            differential[field],
+            "differential_audit.%s" % field,
+            minimum=0.0,
+            strict_minimum=True,
+        )
+    raw_directions = differential["joint_velocity_directions_rad_s"]
+    if not isinstance(raw_directions, list) or len(raw_directions) != len(
+        REGISTERED_DIFFERENTIAL_DIRECTIONS_RAD_S
+    ):
+        raise FeasibilityProtocolError(
+            "differential_audit.joint_velocity_directions_rad_s must contain "
+            "the seven basis and two dense registered directions"
+        )
+    directions = tuple(
+        _number_vector(
+            value,
+            "differential_audit.joint_velocity_directions_rad_s[%d]" % index,
+            7,
+        )
+        for index, value in enumerate(raw_directions)
+    )
+    for observed, expected in zip(
+        directions, REGISTERED_DIFFERENTIAL_DIRECTIONS_RAD_S
+    ):
+        if any(not _close(left, right) for left, right in zip(observed, expected)):
+            raise FeasibilityProtocolError(
+                "differential_audit joint-velocity directions differ from the "
+                "registered seven basis plus two dense directions"
+            )
+    raw_eta = differential["coupled_eta_ladder_s"]
+    if not isinstance(raw_eta, list) or len(raw_eta) != len(
+        REGISTERED_DIFFERENTIAL_ETA_LADDER_S
+    ):
+        raise FeasibilityProtocolError(
+            "differential_audit.coupled_eta_ladder_s has the wrong length"
+        )
+    eta = tuple(
+        _number(
+            value,
+            "differential_audit.coupled_eta_ladder_s[%d]" % index,
+            minimum=0.0,
+            strict_minimum=True,
+        )
+        for index, value in enumerate(raw_eta)
+    )
+    if any(
+        not _close(observed, expected)
+        for observed, expected in zip(
+            eta, REGISTERED_DIFFERENTIAL_ETA_LADDER_S
+        )
+    ):
+        raise FeasibilityProtocolError(
+            "differential_audit eta ladder differs from the registered divide-by-four ladder"
+        )
+    if not _boolean(
+        differential["same_trilinear_cell_required"],
+        "differential_audit.same_trilinear_cell_required",
+    ):
+        raise FeasibilityProtocolError(
+            "coupled differential audit must remain within one trilinear cell"
+        )
+    if _integer(
+        differential["required_direction_count_per_sample"],
+        "differential_audit.required_direction_count_per_sample",
+        minimum=1,
+    ) != len(REGISTERED_DIFFERENTIAL_DIRECTIONS_RAD_S):
+        raise FeasibilityProtocolError(
+            "every protected sample must pass all registered differential directions"
+        )
+    _literal(
+        differential["stencil_selection_policy"],
+        "largest_eta_with_valid_base_plus_minus_in_same_exact_cell",
+        "differential_audit.stencil_selection_policy",
+    )
+    _literal(
+        differential["finite_difference_resolution_policy"],
+        "fail_on_no_certified_stencil_or_detected_cancellation",
+        "differential_audit.finite_difference_resolution_policy",
+    )
+    _literal(
+        differential["failure_policy"],
+        "fail_before_active_physics_retain_artifact",
+        "differential_audit.failure_policy",
+    )
 
     scope = _object(
         top["claim_scope"],

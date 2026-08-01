@@ -30,7 +30,7 @@ import traceback
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v2"
+SCHEMA_VERSION = "vlsa_poisson_shadow_identification.v3"
 DEFAULT_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 EXPECTED_PARITY_SCHEMA = "vlsa_poisson_shadow_parity.v2"
 CONTACT_DEFINITION = "mujoco_contact_dist_le_0"
@@ -484,6 +484,11 @@ def _prepare_shadow_runtime(
     protocol_hashes: Any,
 ) -> Tuple[Any, Any, Mapping[str, Any], Sequence[Sequence[str]], Sequence[bool], Any, Any, Any]:
     from main.poisson_fullbody.field_bundle import build_static_field_bundle
+    from main.poisson_fullbody.jacobians import (
+        DifferentialAuditError,
+        audit_protected_sample_differentials,
+        validate_protected_sample_differential_audit,
+    )
     from main.poisson_fullbody.measurement import (
         FullRobotObstacleMonitor,
         clone_forwarded_state,
@@ -641,6 +646,36 @@ def _prepare_shadow_runtime(
     )
     monitor.require_settled_obstacle_motion_admissible()
     arm_dof_indices = tuple(int(value) for value in env.robots[0]._ref_joint_vel_indexes)
+    construction_state_before_hash = evaluator.array_sha256(
+        construction_state_before
+    )
+    try:
+        differential_audit = audit_protected_sample_differentials(
+            raw_model,
+            raw_data,
+            bundle.protected_samples.samples,
+            arm_dof_indices,
+            bundle.field,
+            protocol["differential_audit"],
+        )
+        differential_audit_validation = (
+            validate_protected_sample_differential_audit(
+                differential_audit,
+                expected_samples=bundle.protected_samples.samples,
+                expected_arm_dof_indices=arm_dof_indices,
+                expected_integration_state_sha256=(
+                    construction_state_before_hash
+                ),
+                expected_differential_audit_config=protocol[
+                    "differential_audit"
+                ],
+            )
+        )
+    except (DifferentialAuditError, RuntimeError, TypeError, ValueError) as error:
+        env.close()
+        raise ShadowIdentificationRunnerError(
+            "settled link-5/6 differential audit failed: %s" % error
+        ) from error
     observer = StaticPoissonShadowObserver(
         field=bundle.field,
         samples=bundle.protected_samples.samples,
@@ -663,9 +698,6 @@ def _prepare_shadow_runtime(
     )
     construction_state_after = _official_integration_state(
         env.sim, runtime["np"]
-    )
-    construction_state_before_hash = evaluator.array_sha256(
-        construction_state_before
     )
     construction_state_after_hash = evaluator.array_sha256(
         construction_state_after
@@ -694,6 +726,18 @@ def _prepare_shadow_runtime(
                 asdict(value) for value in bundle.protected_samples.components
             ],
             "protected_sample_count": len(bundle.protected_samples.samples),
+            "protected_sampling_epsilon_m": float(
+                bundle.protected_samples.epsilon_m
+            ),
+            "protected_sampling_maximum_surface_cover_radius_m": float(
+                bundle.protected_samples.maximum_surface_cover_radius_m
+            ),
+            "protected_sampling_coverage_semantics": (
+                bundle.protected_samples.coverage_semantics
+            ),
+            "protected_samples": [
+                sample.to_dict() for sample in bundle.protected_samples.samples
+            ],
         },
         "static_field_drift_thresholds": {
             "translation_m": float(
@@ -707,6 +751,10 @@ def _prepare_shadow_runtime(
             ),
         },
         "cbf_alpha_gain_per_s": float(protocol["cbf"]["alpha_gain_per_s"]),
+        "settled_link56_differential_audit": differential_audit,
+        "settled_link56_differential_audit_validation": (
+            differential_audit_validation
+        ),
         "full_robot_measurement_sampling": full_sampling_evidence,
         "settled_measurement": monitor.settled_state.to_dict(),
         "measurement_drift_mode": (
@@ -720,7 +768,8 @@ def _prepare_shadow_runtime(
             "exact_array_equal": True,
             "semantics": (
                 "the complete official MuJoCo integration state was bitwise "
-                "unchanged across field, sampling, and monitor construction"
+                "unchanged across field, sampling, monitor construction, and "
+                "the exhaustive clone-only differential audit"
             ),
         },
     }
@@ -979,6 +1028,7 @@ def _run_shadow(
                     ]
                 ),
             },
+            differential_audit_config=protocol["differential_audit"],
         )
         return shadow
     finally:
@@ -1207,6 +1257,24 @@ def main() -> int:
                                 "callback_state_read_only_ledger"
                             ]
                         )
+                    ),
+                    "all_link56_protected_sample_point_jacobians_validated": (
+                        shadow["construction"][
+                            "settled_link56_differential_audit_validation"
+                        ]["counts"][
+                            "point_jacobian_passed_sample_count"
+                        ]
+                        == shadow["construction"][
+                            "settled_link56_differential_audit_validation"
+                        ]["counts"]["sample_count"]
+                    ),
+                    "all_link56_protected_sample_field_chain_rules_validated": (
+                        shadow["construction"][
+                            "settled_link56_differential_audit_validation"
+                        ]["counts"]["passed_coupled_direction_count"]
+                        == shadow["construction"][
+                            "settled_link56_differential_audit_validation"
+                        ]["counts"]["required_coupled_direction_count"]
                     ),
                     "static_queries_stop_at_first_registered_drift": True,
                     "contact_authority_is_mujoco_nonpositive_distance": True,

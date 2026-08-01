@@ -7,6 +7,14 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
+from tests.test_poisson_shadow_identification import (
+    ProtectedSampleIdentity,
+    differential_audit_config,
+    protected_sample_identities,
+    protected_sampling_evidence,
+    valid_differential_audit,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -340,6 +348,10 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                         Path("unused-parity.json"), **arguments
                     )
 
+    @mock.patch(
+        "main.poisson_fullbody.shadow_identification.BodySample",
+        ProtectedSampleIdentity,
+    )
     def test_fake_complete_replay_executes_the_postrun_path(self):
         from scripts import run_poisson_shadow_identification as runner
         from scripts import run_poisson_shadow_parity as parity
@@ -631,6 +643,15 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 keywords["previous_goal_values"],
             )
 
+        audit_config = differential_audit_config()
+        protected_samples = protected_sample_identities()
+        field_sampling = protected_sampling_evidence(protected_samples)
+        settled_state_sha256 = "c" * 64
+        differential_audit, differential_validation = valid_differential_audit(
+            protected_samples,
+            settled_state_sha256,
+            audit_config,
+        )
         prepared = (
             env,
             object(),
@@ -659,36 +680,23 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                     "obstacle_geom_names": ["moka_pot_geom"],
                     "collision_enabled_pairs": [[5, 100], [6, 100]],
                 },
-                "field_bundle": {
-                    "protected_sample_count": 2,
-                    "surface_components": [
-                        {
-                            "geom_id": 5,
-                            "geom_name": "link5_collision",
-                            "body_id": 50,
-                            "body_name": "robot0_link5",
-                            "sample_count": 1,
-                        },
-                        {
-                            "geom_id": 6,
-                            "geom_name": "link6_collision",
-                            "body_id": 60,
-                            "body_name": "robot0_link6",
-                            "sample_count": 1,
-                        },
-                    ],
-                },
+                "field_bundle": field_sampling,
                 "static_field_drift_thresholds": {
                     "translation_m": 1e-6,
                     "rotation_rad": 1e-5,
                     "surface_m": 1e-6,
                 },
                 "cbf_alpha_gain_per_s": 5.0,
+                "arm_dof_indices": list(range(7)),
+                "settled_link56_differential_audit": differential_audit,
+                "settled_link56_differential_audit_validation": (
+                    differential_validation
+                ),
                 "settled_measurement": settled_measurement,
                 "complete_integration_state_read_only_audit": {
                     "exact_array_equal": True,
-                    "before_sha256": "construction-state",
-                    "after_sha256": "construction-state",
+                    "before_sha256": settled_state_sha256,
+                    "after_sha256": settled_state_sha256,
                 },
             },
         )
@@ -708,7 +716,8 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                         "max_selected_geom_translation_drift_m": 1e-6,
                         "max_selected_geom_rotation_drift_rad": 1e-5,
                         "max_selected_geom_surface_drift_m": 1e-6,
-                    }
+                    },
+                    "differential_audit": audit_config,
                 },
                 protocol_hashes=SimpleNamespace(),
                 upstream_parity=upstream,
@@ -744,6 +753,18 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
             result["observation_sequence_sha256"],
             upstream["callback_replay"]["observation_sequence_sha256"],
         )
+        construction = result["construction"]
+        self.assertEqual(
+            construction["settled_link56_differential_audit"],
+            differential_audit,
+        )
+        self.assertEqual(
+            construction["settled_link56_differential_audit_validation"],
+            differential_validation,
+        )
+        self.assertEqual(
+            differential_validation["counts"]["passed_sample_count"], 2
+        )
 
         # Exercise the consumer representation too: JSON converts the typed
         # cadence tuples to lists, and the independent validator must accept
@@ -766,6 +787,7 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "rotation_rad": 1e-5,
                 "surface_m": 1e-6,
             },
+            "differential_audit_config": audit_config,
         }
         validate_shadow_replay_record(serialized, **validation_arguments)
 
@@ -1016,6 +1038,8 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 "upstream_observation_sequence_exact": True,
                 "complete_mujoco_integration_state_unchanged_by_construction": True,
                 "complete_mujoco_integration_state_unchanged_by_callback": True,
+                "all_link56_protected_sample_point_jacobians_validated": True,
+                "all_link56_protected_sample_field_chain_rules_validated": True,
                 "static_queries_stop_at_first_registered_drift": True,
                 "contact_authority_is_mujoco_nonpositive_distance": True,
                 "no_action_or_control_mutation": True,
@@ -1042,10 +1066,48 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 static_drift_thresholds=validation_arguments[
                     "static_drift_thresholds"
                 ],
+                differential_audit_config=validation_arguments[
+                    "differential_audit_config"
+                ],
                 replay=replay,
                 parity=upstream,
             )
         self.assertIs(loaded, prerequisite)
+
+        invalid_query_only_prerequisite = json.loads(json.dumps(prerequisite))
+        invalid_query_only_prerequisite["shadow_replay"] = (
+            invalid_warning_contacted
+        )
+        with mock.patch(
+            "main.poisson_fullbody.contracts.load_hashed_json",
+            return_value=invalid_query_only_prerequisite,
+        ), mock.patch.object(
+            active_runner, "_require_full_robot_sampling_evidence"
+        ):
+            with self.assertRaisesRegex(
+                active_runner.ActiveRunnerError,
+                "warning lead or registered contact-geom identity is invalid",
+            ):
+                active_runner._require_identification_prerequisite(
+                    Path("unused-identification.json"),
+                    case={"case_id": "vlsa-t1-goal-ii-t0-e05"},
+                    case_row_hash="row",
+                    source_commit="source-commit",
+                    manifest_sha256="manifest",
+                    selection_sha256="selection",
+                    runtime_protocol_raw_sha256="runtime-raw",
+                    runtime_protocol_semantic_sha256="runtime-semantic",
+                    runtime_parameter_block_sha256="runtime-parameters",
+                    alpha_gain_per_s=5.0,
+                    static_drift_thresholds=validation_arguments[
+                        "static_drift_thresholds"
+                    ],
+                    differential_audit_config=validation_arguments[
+                        "differential_audit_config"
+                    ],
+                    replay=replay,
+                    parity=upstream,
+                )
 
         wrong_terminal = json.loads(json.dumps(prerequisite))
         wrong_terminal["shadow_replay"][
@@ -1074,6 +1136,9 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                     alpha_gain_per_s=5.0,
                     static_drift_thresholds=validation_arguments[
                         "static_drift_thresholds"
+                    ],
+                    differential_audit_config=validation_arguments[
+                        "differential_audit_config"
                     ],
                     replay=replay,
                     parity=upstream,
@@ -1144,6 +1209,9 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                         static_drift_thresholds=validation_arguments[
                             "static_drift_thresholds"
                         ],
+                        differential_audit_config=validation_arguments[
+                            "differential_audit_config"
+                        ],
                         replay=replay,
                         parity=collusive_parity_rewrite,
                     )
@@ -1197,6 +1265,9 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                     alpha_gain_per_s=5.0,
                     static_drift_thresholds=validation_arguments[
                         "static_drift_thresholds"
+                    ],
+                    differential_audit_config=validation_arguments[
+                        "differential_audit_config"
                     ],
                     replay=replay,
                     parity=upstream,
@@ -1337,6 +1408,18 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
                 lambda value: value["construction"].__setitem__(
                     "cbf_alpha_gain_per_s", 6.0
                 ),
+            ),
+            (
+                "differential audit payload",
+                lambda value: value["construction"][
+                    "settled_link56_differential_audit"
+                ]["sample_records"][0].__setitem__("passed", False),
+            ),
+            (
+                "differential audit validation receipt",
+                lambda value: value["construction"][
+                    "settled_link56_differential_audit_validation"
+                ]["counts"].__setitem__("passed_sample_count", 1),
             ),
             (
                 "per-geom trace coverage",

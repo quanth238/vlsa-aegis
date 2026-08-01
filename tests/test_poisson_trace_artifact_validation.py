@@ -15,10 +15,23 @@ from main.poisson_fullbody.contracts import (
     sha256_bytes,
     sha256_file,
 )
+from main.poisson_fullbody.feasibility_protocol import PARAMETER_SECTIONS
+from main.poisson_fullbody.jacobians import (
+    PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
+    _coupled_comparison,
+    _parse_differential_config,
+    _point_metrics,
+    _stable_audit_hashes,
+    _tangent_reconstruction,
+    validate_protected_sample_differential_audit,
+)
 from scripts.validate_poisson_run_artifacts import (
     validate_run_artifacts as _validate_run_artifacts,
 )
 from tests.test_poisson_result_schema import valid_payload
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def validate_run_artifacts(result_path, artifact_root=None):
@@ -45,6 +58,205 @@ def _producer_sha256(value):
             allow_nan=False,
         ).encode("utf-8")
     )
+
+
+def _registered_runtime_parameter_block():
+    protocol = json.loads(
+        (ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    return {section: protocol[section] for section in PARAMETER_SECTIONS}
+
+
+def _valid_query(point, value_m2):
+    return {
+        "point_world_m": list(point),
+        "valid": True,
+        "value_m2": float(value_m2),
+        "gradient_m": [1.0, 0.0, 0.0],
+        "reason": None,
+        "cell_index": [1, 1, 1],
+        "local_coordinates": [0.5, 0.5, 0.5],
+        "outer_boundary_clearance_m": 0.1,
+    }
+
+
+def _exact_tangent_record(requested, arm_dofs, config):
+    requested = [float(value) for value in requested]
+    return _tangent_reconstruction(
+        requested,
+        requested,
+        [-value for value in requested],
+        arm_dofs,
+        config,
+    )
+
+
+def _synthetic_protected_sample_differential_audit(
+    samples,
+    arm_dofs,
+    integration_state_sha256,
+    differential_audit_config,
+):
+    """Build a compact, exact linear-field audit accepted by the pure verifier."""
+
+    config = _parse_differential_config(differential_audit_config)
+    delta = config["point_jacobian_delta_rad"]
+    analytic = [[1.0] * 7, [0.0] * 7, [0.0] * 7]
+    sample_records = []
+    for sample in samples:
+        base_point = [
+            float(value) for value in sample["point_body_local_m"]
+        ]
+        base_value = 0.02 + base_point[0]
+        plus_points = [
+            [base_point[0] + delta, base_point[1], base_point[2]]
+            for _ in range(7)
+        ]
+        minus_points = [
+            [base_point[0] - delta, base_point[1], base_point[2]]
+            for _ in range(7)
+        ]
+        numerical = [[1.0] * 7, [0.0] * 7, [0.0] * 7]
+        point_tangents = []
+        for column in range(7):
+            direction = [0.0] * 7
+            direction[column] = 1.0
+            point_tangents.append(
+                _exact_tangent_record(direction, arm_dofs, config)
+            )
+
+        directions = []
+        eta = config["coupled_eta_ladder_s"][0]
+        base_query = _valid_query(base_point, base_value)
+        for direction_index, arm_direction in enumerate(
+            config["joint_velocity_directions_rad_s"]
+        ):
+            point_velocity = float(sum(arm_direction))
+            plus_point = [
+                base_point[0] + eta * point_velocity,
+                base_point[1],
+                base_point[2],
+            ]
+            minus_point = [
+                base_point[0] - eta * point_velocity,
+                base_point[1],
+                base_point[2],
+            ]
+            attempt = {
+                "eta_s": eta,
+                "plus_point_world_m": plus_point,
+                "minus_point_world_m": minus_point,
+                "plus_query": _valid_query(
+                    plus_point, base_value + eta * point_velocity
+                ),
+                "minus_query": _valid_query(
+                    minus_point, base_value - eta * point_velocity
+                ),
+                "tangent_reconstruction": _exact_tangent_record(
+                    arm_direction, arm_dofs, config
+                ),
+                "eligible_same_cell_stencil": True,
+                "noneligible_reasons": [],
+                "selected": True,
+            }
+            comparison = _coupled_comparison(
+                attempt,
+                analytic,
+                base_query["gradient_m"],
+                arm_direction,
+                config,
+            )
+            directions.append(
+                {
+                    "direction_index": direction_index,
+                    "arm_joint_velocity_rad_s": list(arm_direction),
+                    "attempts": [attempt],
+                    "selected_attempt_index": 0,
+                    "derived_comparison": comparison,
+                    "passed": True,
+                }
+            )
+
+        point_diagnostics = _point_metrics(analytic, numerical, config)
+        sample_records.append(
+            {
+                "identity": copy.deepcopy(sample),
+                "base_point_world_m": base_point,
+                "base_field_query": base_query,
+                "analytic_point_jacobian_m_per_rad_3x7": copy.deepcopy(analytic),
+                "plus_points_world_m_by_arm_dof": plus_points,
+                "minus_points_world_m_by_arm_dof": minus_points,
+                "numerical_point_jacobian_m_per_rad_3x7": numerical,
+                "point_jacobian_metrics": point_diagnostics,
+                "point_perturbation_tangent_reconstruction_by_arm_dof": (
+                    point_tangents
+                ),
+                "point_jacobian_passed": True,
+                "coupled_directions": directions,
+                "eligible_coupled_direction_count": len(directions),
+                "coupled_directions_passed": True,
+                "passed": True,
+            }
+        )
+
+    stable_hashes = _stable_audit_hashes(
+        integration_state_sha256,
+        arm_dofs,
+        samples,
+        config,
+        sample_records,
+    )
+    state = {
+        "state_specification": "mjSTATE_INTEGRATION",
+        "element_count": 7,
+        "source_initial_sha256": integration_state_sha256,
+        "clone_base_sha256": integration_state_sha256,
+        "clone_final_sha256": integration_state_sha256,
+        "source_final_sha256": integration_state_sha256,
+        "source_state_unchanged": True,
+        "clone_state_restored": True,
+    }
+    coupled_count = len(samples) * len(
+        config["joint_velocity_directions_rad_s"]
+    )
+    audit = {
+        "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
+        "integration_state": state,
+        "arm_dof_indices": list(arm_dofs),
+        "ordered_samples": copy.deepcopy(samples),
+        "ordered_sample_identity_sha256": sha256_bytes(
+            canonical_json_bytes(samples)
+        ),
+        "specification_sha256": stable_hashes["specification_sha256"],
+        "binding_sha256": stable_hashes["binding_sha256"],
+        "classification_ledger_sha256": stable_hashes[
+            "classification_ledger_sha256"
+        ],
+        "differential_audit_config": config,
+        "sample_records": sample_records,
+        "counts": {
+            "sample_count": len(samples),
+            "point_jacobian_passed_sample_count": len(samples),
+            "required_coupled_direction_count": coupled_count,
+            "selected_coupled_direction_count": coupled_count,
+            "passed_coupled_direction_count": coupled_count,
+            "coupled_attempt_count": coupled_count,
+            "noneligible_coupled_attempt_count": 0,
+            "passed_sample_count": len(samples),
+        },
+        "passed": True,
+    }
+    audit["audit_payload_sha256"] = sha256_bytes(canonical_json_bytes(audit))
+    summary = validate_protected_sample_differential_audit(
+        audit,
+        expected_samples=samples,
+        expected_arm_dof_indices=arm_dofs,
+        expected_integration_state_sha256=integration_state_sha256,
+        expected_differential_audit_config=config,
+    )
+    return audit, summary
 
 
 def _snapshot(step, value, previous, kind):
@@ -889,7 +1101,7 @@ def _fixture():
         )
     full_sample_count = sum(record["sample_count"] for record in surface_records)
     trace = {
-        "schema_version": "vlsa_poisson_active_arm_trace.v2",
+        "schema_version": "vlsa_poisson_active_arm_trace.v3",
         "scientific_result": False,
         "run_id": payload["run_id"],
         "case_id": payload["case_id"],
@@ -943,6 +1155,79 @@ def _fixture():
         "outcome": outcome,
     }
 
+    parameter_block = _registered_runtime_parameter_block()
+    payload["runtime"]["protocol_parameter_block_sha256"] = _producer_sha256(
+        parameter_block
+    )
+    protected_samples = [
+        {
+            "sample_id": 0,
+            "body_id": 55,
+            "body_name": "robot0_link5",
+            "geom_id": 55,
+            "geom_name": "robot_geom_55",
+            "point_body_local_m": [0.0, 0.0, 0.0],
+            "source": "collision_geom_surface",
+        },
+        {
+            "sample_id": 1,
+            "body_id": 56,
+            "body_name": "robot0_link6",
+            "geom_id": 56,
+            "geom_name": "robot_geom_56",
+            "point_body_local_m": [0.0, 0.01, 0.0],
+            "source": "collision_geom_surface",
+        },
+    ]
+    protected_sampling = {
+        "epsilon_m": 0.05,
+        "maximum_surface_cover_radius_m": 0.01,
+        "coverage_semantics": "fixture_strict_open_ball_collision_surface_cover",
+        "components": [
+            {
+                "geom_id": 55,
+                "geom_name": "robot_geom_55",
+                "body_id": 55,
+                "body_name": "robot0_link5",
+                "geometry_kind": "compiled_collision_geom",
+                "certificate_kind": "deterministic_fixture_cover",
+                "surface_element_count": 1,
+                "sample_count": 1,
+                "certified_surface_cover_radius_m": 0.01,
+            },
+            {
+                "geom_id": 56,
+                "geom_name": "robot_geom_56",
+                "body_id": 56,
+                "body_name": "robot0_link6",
+                "geometry_kind": "compiled_collision_geom",
+                "certificate_kind": "deterministic_fixture_cover",
+                "surface_element_count": 1,
+                "sample_count": 1,
+                "certified_surface_cover_radius_m": 0.01,
+            },
+        ],
+        "samples": protected_samples,
+    }
+    arm_dof_indices = list(range(7))
+    differential_audit, differential_summary = (
+        _synthetic_protected_sample_differential_audit(
+            protected_samples,
+            arm_dof_indices,
+            outcome["restore"]["official_integration_state_sha256"],
+            parameter_block["differential_audit"],
+        )
+    )
+    trace.update(
+        {
+            "runtime_protocol_parameter_block": parameter_block,
+            "protected_link_surface_sampling": protected_sampling,
+            "arm_dof_indices": arm_dof_indices,
+            "settled_link56_differential_audit": differential_audit,
+            "settled_link56_differential_audit_validation": differential_summary,
+        }
+    )
+
     source_hash = sha256_bytes(canonical_json_bytes(entered_actions))
     payload["pairing"]["nominal_high_level_action_ledger_sha256"] = source_hash
     source_replay = {
@@ -987,7 +1272,9 @@ def _fixture():
         "domain_sha256": "7" * 64,
         "system_sha256": "8" * 64,
         "field_sha256": payload["pairing"]["field_sha256"],
-        "protected_samples_sha256": "9" * 64,
+        "protected_samples_sha256": sha256_bytes(
+            canonical_json_bytes(protected_sampling)
+        ),
         "bundle_sha256": "a" * 64,
     }
     trace["field_bundle_diagnostics"] = {
@@ -1299,6 +1586,24 @@ def _publish(root, payload, trace):
     return result_path, trace_path
 
 
+def _rehash_differential_audit(trace):
+    audit = trace["settled_link56_differential_audit"]
+    audit.pop("audit_payload_sha256", None)
+    audit["audit_payload_sha256"] = sha256_bytes(canonical_json_bytes(audit))
+
+
+def _rehash_field_bundle(trace):
+    identity = {
+        key: value
+        for key, value in trace["field_bundle_hashes"].items()
+        if key != "bundle_sha256"
+    }
+    identity["diagnostics"] = trace["field_bundle_diagnostics"]
+    trace["field_bundle_hashes"]["bundle_sha256"] = sha256_bytes(
+        canonical_json_bytes(identity)
+    )
+
+
 class PoissonTraceArtifactValidationTest(unittest.TestCase):
     def test_active_prerequisite_accepts_registered_sampler_evidence(self):
         from scripts.run_poisson_active_canary import (
@@ -1320,6 +1625,115 @@ class PoissonTraceArtifactValidationTest(unittest.TestCase):
             self.assertEqual(result["case_id"], "vlsa-t1-goal-ii-t0-e05")
             inferred = validate_run_artifacts(result_path)
             self.assertEqual(inferred["result_payload_sha256"], result["result_payload_sha256"])
+
+    def test_legacy_v2_trace_is_rejected(self):
+        payload, trace = _fixture()
+        trace["schema_version"] = "vlsa_poisson_active_arm_trace.v2"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(ArtifactContractError, "trace.schema_version"):
+                validate_run_artifacts(result_path, root)
+
+    def test_v3_trace_requires_every_differential_authority(self):
+        fields = (
+            "runtime_protocol_parameter_block",
+            "protected_link_surface_sampling",
+            "arm_dof_indices",
+            "settled_link56_differential_audit",
+            "settled_link56_differential_audit_validation",
+        )
+        for field in fields:
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                payload, trace = _fixture()
+                trace.pop(field)
+                root = Path(directory)
+                result_path, _ = _publish(root, payload, trace)
+                with self.assertRaises(ArtifactContractError):
+                    validate_run_artifacts(result_path, root)
+
+    def test_differential_audit_matrix_tamper_is_rejected_after_rehash(self):
+        payload, trace = _fixture()
+        trace["settled_link56_differential_audit"]["sample_records"][0][
+            "analytic_point_jacobian_m_per_rad_3x7"
+        ][0][0] += 0.25
+        _rehash_differential_audit(trace)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError,
+                "settled_link56_differential_audit",
+            ):
+                validate_run_artifacts(result_path, root)
+
+    def test_differential_audit_sample_reorder_is_rejected_after_rehash(self):
+        payload, trace = _fixture()
+        samples = trace["protected_link_surface_sampling"]["samples"]
+        samples.reverse()
+        for sample_id, sample in enumerate(samples):
+            sample["sample_id"] = sample_id
+        trace["field_bundle_hashes"]["protected_samples_sha256"] = sha256_bytes(
+            canonical_json_bytes(trace["protected_link_surface_sampling"])
+        )
+        _rehash_field_bundle(trace)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError,
+                "settled_link56_differential_audit",
+            ):
+                validate_run_artifacts(result_path, root)
+
+    def test_differential_audit_config_tamper_is_rejected_after_rehash(self):
+        payload, trace = _fixture()
+        trace["settled_link56_differential_audit"]["differential_audit_config"][
+            "point_jacobian_delta_rad"
+        ] *= 2.0
+        _rehash_differential_audit(trace)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError,
+                "settled_link56_differential_audit",
+            ):
+                validate_run_artifacts(result_path, root)
+
+    def test_differential_audit_state_tamper_is_rejected_after_rehash(self):
+        payload, trace = _fixture()
+        state = trace["settled_link56_differential_audit"]["integration_state"]
+        for field in (
+            "source_initial_sha256",
+            "clone_base_sha256",
+            "clone_final_sha256",
+            "source_final_sha256",
+        ):
+            state[field] = "0" * 64
+        _rehash_differential_audit(trace)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError,
+                "settled_link56_differential_audit",
+            ):
+                validate_run_artifacts(result_path, root)
+
+    def test_differential_audit_serialized_summary_is_reconstructed(self):
+        payload, trace = _fixture()
+        trace["settled_link56_differential_audit_validation"]["counts"][
+            "passed_sample_count"
+        ] = 1
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result_path, _ = _publish(root, payload, trace)
+            with self.assertRaisesRegex(
+                ArtifactContractError,
+                "differs from independent reconstruction",
+            ):
+                validate_run_artifacts(result_path, root)
 
     def test_right_censored_tracking_failure_reconstructs_exact_prefix(self):
         with tempfile.TemporaryDirectory() as directory:

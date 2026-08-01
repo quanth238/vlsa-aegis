@@ -55,7 +55,7 @@ class StaticFieldBundleTests(unittest.TestCase):
         cls.mujoco = mujoco
         cls.np = np
         cls.protocol, cls.protocol_hashes = load_feasibility_protocol(
-            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v1.json"
+            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v2.json"
         )
 
     def _id(self, model, object_type, name):

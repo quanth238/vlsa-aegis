@@ -28,6 +28,450 @@ if np is not None:
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class ProtectedSampleIdentity(dict):
+    """JSON-native BodySample stand-in for dependency-free contract tests."""
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError as error:
+            raise AttributeError(name) from error
+
+    def to_dict(self):
+        return {
+            "sample_id": int(self["sample_id"]),
+            "body_id": int(self["body_id"]),
+            "body_name": self["body_name"],
+            "geom_id": int(self["geom_id"]),
+            "geom_name": self["geom_name"],
+            "point_body_local_m": [
+                float(value) for value in self["point_body_local_m"]
+            ],
+            "source": self["source"],
+        }
+
+
+def differential_audit_config():
+    directions = [
+        [0.5 if row == column else 0.0 for column in range(7)]
+        for row in range(7)
+    ]
+    directions.extend(
+        (
+            [0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 0.5],
+            [(index + 1.0) / 14.0 for index in range(7)],
+        )
+    )
+    return {
+        "state_source": "settled_mujoco_mjstate_integration_clone",
+        "perturbation_integrator": "mujoco_mj_integratePos_full_nv_tangent",
+        "point_jacobian_delta_rad": 1.0e-6,
+        "point_jacobian_absolute_tolerance_m_per_rad": 2.0e-6,
+        "point_jacobian_relative_tolerance": 1.0e-4,
+        "point_jacobian_near_zero_frobenius_m_per_rad": 1.0e-10,
+        "arm_tangent_reconstruction_tolerance_rad_s": 1.0e-10,
+        "nonarm_tangent_leakage_tolerance_rad_s": 1.0e-12,
+        "joint_velocity_directions_rad_s": directions,
+        "coupled_eta_ladder_s": [2.0e-6],
+        "coupled_absolute_tolerance_m2_per_s": 2.0e-7,
+        "coupled_relative_tolerance": 2.0e-4,
+        "coupled_near_zero_m2_per_s": 1.0e-10,
+        "same_trilinear_cell_required": True,
+        "required_direction_count_per_sample": 9,
+        "stencil_selection_policy": (
+            "largest_eta_with_valid_base_plus_minus_in_same_exact_cell"
+        ),
+        "finite_difference_resolution_policy": (
+            "fail_on_no_certified_stencil_or_detected_cancellation"
+        ),
+        "failure_policy": "fail_before_active_physics_retain_artifact",
+    }
+
+
+def protected_sample_identities(
+    *,
+    body_ids=(50, 60),
+    body_names=("robot0_link5", "robot0_link6"),
+    geom_ids=(5, 6),
+    geom_names=("link5_collision", "link6_collision"),
+):
+    return tuple(
+        ProtectedSampleIdentity(
+            sample_id=index,
+            body_id=body_id,
+            body_name=body_name,
+            geom_id=geom_id,
+            geom_name=geom_name,
+            point_body_local_m=[0.0, 0.0, 0.0],
+            source="collision_geom_surface",
+        )
+        for index, (body_id, body_name, geom_id, geom_name) in enumerate(
+            zip(body_ids, body_names, geom_ids, geom_names)
+        )
+    )
+
+
+def protected_sampling_evidence(samples):
+    identities = [sample.to_dict() for sample in samples]
+    components = []
+    for identity in identities:
+        components.append(
+            {
+                "geom_id": identity["geom_id"],
+                "geom_name": identity["geom_name"],
+                "body_id": identity["body_id"],
+                "body_name": identity["body_name"],
+                "geometry_kind": "mesh",
+                "certificate_kind": "triangle_barycentric_lattice",
+                "surface_element_count": 1,
+                "sample_count": 1,
+                "certified_surface_cover_radius_m": 0.001,
+            }
+        )
+    sampling = {
+        "epsilon_m": 0.01,
+        "maximum_surface_cover_radius_m": 0.001,
+        "coverage_semantics": "strict_open_epsilon_surface_cover",
+        "components": components,
+        "samples": identities,
+    }
+    return {
+        "protected_sample_count": len(identities),
+        "surface_components": components,
+        "protected_sampling_epsilon_m": sampling["epsilon_m"],
+        "protected_sampling_maximum_surface_cover_radius_m": sampling[
+            "maximum_surface_cover_radius_m"
+        ],
+        "protected_sampling_coverage_semantics": sampling[
+            "coverage_semantics"
+        ],
+        "protected_samples": identities,
+        "hashes": {
+            "protected_samples_sha256": hashlib.sha256(
+                json.dumps(
+                    sampling,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=True,
+                    allow_nan=False,
+                ).encode("utf-8")
+            ).hexdigest()
+        },
+    }
+
+
+def valid_differential_audit(samples, state_sha256, config=None):
+    """Return a strict passing zero-motion audit and its validation receipt."""
+
+    from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+    from main.poisson_fullbody.jacobians import (
+        DIFFERENTIAL_AUDIT_HASH_FIELD,
+        PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
+        _coupled_comparison,
+        _point_metrics,
+        _stable_audit_hashes,
+        _tangent_reconstruction,
+        validate_protected_sample_differential_audit,
+    )
+
+    registered = differential_audit_config() if config is None else config
+    registered = json.loads(json.dumps(registered, allow_nan=False))
+    identities = [
+        sample.to_dict() if hasattr(sample, "to_dict") else dict(sample)
+        for sample in samples
+    ]
+    arm_dofs = list(range(7))
+    analytic = [[0.0] * 7 for _ in range(3)]
+    numerical = [[0.0] * 7 for _ in range(3)]
+    point_metrics = _point_metrics(analytic, numerical, registered)
+
+    def tangent_record(requested):
+        return _tangent_reconstruction(
+            requested,
+            requested,
+            [-value for value in requested],
+            arm_dofs,
+            registered,
+        )
+
+    def query_record(point):
+        return {
+            "point_world_m": list(point),
+            "valid": True,
+            "value_m2": 1.0,
+            "gradient_m": [0.0, 0.0, 0.0],
+            "reason": None,
+            "cell_index": [0, 0, 0],
+            "local_coordinates": [0.5, 0.5, 0.5],
+            "outer_boundary_clearance_m": 1.0,
+        }
+
+    point_tangents = []
+    for column in range(7):
+        requested = [0.0] * 7
+        requested[column] = 1.0
+        point_tangents.append(tangent_record(requested))
+
+    records = []
+    eta = registered["coupled_eta_ladder_s"][0]
+    for identity in identities:
+        point = [0.1, 0.2, 0.3]
+        base_query = query_record(point)
+        directions = []
+        for direction_index, arm_direction in enumerate(
+            registered["joint_velocity_directions_rad_s"]
+        ):
+            attempt = {
+                "eta_s": eta,
+                "plus_point_world_m": list(point),
+                "minus_point_world_m": list(point),
+                "plus_query": query_record(point),
+                "minus_query": query_record(point),
+                "tangent_reconstruction": tangent_record(arm_direction),
+                "eligible_same_cell_stencil": True,
+                "noneligible_reasons": [],
+                "selected": True,
+            }
+            comparison = _coupled_comparison(
+                attempt,
+                analytic,
+                base_query["gradient_m"],
+                arm_direction,
+                registered,
+            )
+            directions.append(
+                {
+                    "direction_index": direction_index,
+                    "arm_joint_velocity_rad_s": list(arm_direction),
+                    "attempts": [attempt],
+                    "selected_attempt_index": 0,
+                    "derived_comparison": comparison,
+                    "passed": True,
+                }
+            )
+        records.append(
+            {
+                "identity": identity,
+                "base_point_world_m": point,
+                "base_field_query": base_query,
+                "analytic_point_jacobian_m_per_rad_3x7": analytic,
+                "plus_points_world_m_by_arm_dof": [list(point) for _ in range(7)],
+                "minus_points_world_m_by_arm_dof": [list(point) for _ in range(7)],
+                "numerical_point_jacobian_m_per_rad_3x7": numerical,
+                "point_jacobian_metrics": point_metrics,
+                "point_perturbation_tangent_reconstruction_by_arm_dof": (
+                    point_tangents
+                ),
+                "point_jacobian_passed": True,
+                "coupled_directions": directions,
+                "eligible_coupled_direction_count": 9,
+                "coupled_directions_passed": True,
+                "passed": True,
+            }
+        )
+    counts = {
+        "sample_count": len(records),
+        "point_jacobian_passed_sample_count": len(records),
+        "required_coupled_direction_count": 9 * len(records),
+        "selected_coupled_direction_count": 9 * len(records),
+        "passed_coupled_direction_count": 9 * len(records),
+        "coupled_attempt_count": 9 * len(records),
+        "noneligible_coupled_attempt_count": 0,
+        "passed_sample_count": len(records),
+    }
+    stable = _stable_audit_hashes(
+        state_sha256, arm_dofs, identities, registered, records
+    )
+    audit = {
+        "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
+        "integration_state": {
+            "state_specification": "mjSTATE_INTEGRATION",
+            "element_count": 7,
+            "source_initial_sha256": state_sha256,
+            "clone_base_sha256": state_sha256,
+            "clone_final_sha256": state_sha256,
+            "source_final_sha256": state_sha256,
+            "source_state_unchanged": True,
+            "clone_state_restored": True,
+        },
+        "arm_dof_indices": arm_dofs,
+        "ordered_samples": identities,
+        "ordered_sample_identity_sha256": sha256_bytes(
+            canonical_json_bytes(identities)
+        ),
+        "specification_sha256": stable["specification_sha256"],
+        "binding_sha256": stable["binding_sha256"],
+        "classification_ledger_sha256": stable[
+            "classification_ledger_sha256"
+        ],
+        "differential_audit_config": registered,
+        "sample_records": records,
+        "counts": counts,
+        "passed": True,
+    }
+    audit[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+        canonical_json_bytes(audit)
+    )
+    audit = json.loads(json.dumps(audit, allow_nan=False))
+    receipt = validate_protected_sample_differential_audit(
+        audit,
+        expected_samples=identities,
+        expected_arm_dof_indices=arm_dofs,
+        expected_integration_state_sha256=state_sha256,
+        expected_differential_audit_config=registered,
+    )
+    return audit, receipt
+
+
+class ShadowProtectedSamplingValidationTest(unittest.TestCase):
+    @staticmethod
+    def _digest(value):
+        return hashlib.sha256(
+            json.dumps(
+                value,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+
+    @classmethod
+    def _rehash_protected_sampling(cls, field_bundle):
+        payload = {
+            "epsilon_m": field_bundle["protected_sampling_epsilon_m"],
+            "maximum_surface_cover_radius_m": field_bundle[
+                "protected_sampling_maximum_surface_cover_radius_m"
+            ],
+            "coverage_semantics": field_bundle[
+                "protected_sampling_coverage_semantics"
+            ],
+            "components": field_bundle["surface_components"],
+            "samples": field_bundle["protected_samples"],
+        }
+        field_bundle["hashes"]["protected_samples_sha256"] = cls._digest(
+            payload
+        )
+
+    @classmethod
+    def _validation_prefix(cls, field_bundle):
+        action_states = ["a" * 64]
+        callback_states = ["c" * 64]
+        callback_ledger = [
+            {
+                "observation_index": 0,
+                "high_level_index": 0,
+                "inner_control_index": 0,
+                "physics_substep_index": 0,
+                "before_sha256": callback_states[0],
+                "after_sha256": callback_states[0],
+                "exact_array_equal": True,
+            }
+        ]
+        return {
+            "executed_action_count": 1,
+            "callback_count": 1,
+            "expected_callback_count": 1,
+            "measurement": {
+                "observed_physics_substeps": 1,
+                "first_index": [0, 0, 0],
+                "last_index": [0, 0, 0],
+                "physical_contact_distance_semantics": (
+                    "mujoco_contact_dist_le_0"
+                ),
+            },
+            "action_boundary_state_sha256_ledger": action_states,
+            "state_sequence_sha256": cls._digest(action_states),
+            "terminal_simulator_state_sha256": action_states[-1],
+            "observation_sequence_sha256": "b" * 64,
+            "callback_state_read_only_ledger": callback_ledger,
+            "callback_state_read_only_ledger_sha256": cls._digest(
+                callback_ledger
+            ),
+            "callback_state_sequence_sha256": cls._digest(callback_states),
+            "construction": {
+                "resolved_geometry": {
+                    "link56_geom_ids": [5, 6],
+                    "obstacle_geom_ids": [100],
+                },
+                "field_bundle": field_bundle,
+            },
+        }
+
+    @staticmethod
+    def _validation_arguments():
+        return {
+            "action_count": 1,
+            "inner_updates_per_high_level_action": 1,
+            "physics_substeps_per_inner_update": 1,
+            "physics_timestep_s": 0.002,
+            "contact_definition": "mujoco_contact_dist_le_0",
+            "alpha_gain_per_s": 5.0,
+            "static_drift_thresholds": {
+                "translation_m": 1.0e-6,
+                "rotation_rad": 1.0e-5,
+                "surface_m": 1.0e-6,
+            },
+            "differential_audit_config": differential_audit_config(),
+        }
+
+    def _assert_sampling_rejected(self, field_bundle, message):
+        from main.poisson_fullbody.shadow_identification import (
+            ShadowIdentificationError,
+            validate_shadow_replay_record,
+        )
+
+        self._rehash_protected_sampling(field_bundle)
+        with self.assertRaisesRegex(ShadowIdentificationError, message):
+            validate_shadow_replay_record(
+                self._validation_prefix(field_bundle),
+                **self._validation_arguments(),
+            )
+
+    def test_rehashed_component_radius_at_epsilon_is_rejected(self):
+        field_bundle = protected_sampling_evidence(
+            protected_sample_identities()
+        )
+        field_bundle["surface_components"][0][
+            "certified_surface_cover_radius_m"
+        ] = field_bundle["protected_sampling_epsilon_m"]
+        self._assert_sampling_rejected(
+            field_bundle,
+            "protected sampling certificate is invalid",
+        )
+
+    def test_rehashed_global_maximum_must_equal_component_maximum(self):
+        field_bundle = protected_sampling_evidence(
+            protected_sample_identities()
+        )
+        field_bundle[
+            "protected_sampling_maximum_surface_cover_radius_m"
+        ] = 0.0005
+        self._assert_sampling_rejected(
+            field_bundle,
+            "protected sampling certificate is invalid",
+        )
+
+    def test_rehashed_malformed_component_fields_are_rejected(self):
+        for mutation in ("missing", "extra"):
+            with self.subTest(mutation=mutation):
+                field_bundle = protected_sampling_evidence(
+                    protected_sample_identities()
+                )
+                if mutation == "missing":
+                    field_bundle["surface_components"][0].pop(
+                        "certificate_kind"
+                    )
+                else:
+                    field_bundle["surface_components"][0][
+                        "unregistered_field"
+                    ] = True
+                self._assert_sampling_rejected(
+                    field_bundle,
+                    "surface component fields differ",
+                )
+
+
 @unittest.skipIf(np is None, "MuJoCo/NumPy are unavailable")
 class StaticPoissonShadowObserverTest(unittest.TestCase):
     def setUp(self):
@@ -445,6 +889,14 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
             }
             for index in range(3)
         ]
+        audit_config = differential_audit_config()
+        field_sampling = protected_sampling_evidence(self.samples)
+        settled_state_sha256 = "d" * 64
+        differential_audit, differential_validation = valid_differential_audit(
+            self.samples,
+            settled_state_sha256,
+            audit_config,
+        )
 
         def digest(value):
             return hashlib.sha256(
@@ -490,32 +942,19 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
                     "obstacle_geom_names": ["obstacle_geom"],
                     "collision_enabled_pairs": [[10, 0], [11, 0]],
                 },
-                "field_bundle": {
-                    "protected_sample_count": 2,
-                    "surface_components": [
-                        {
-                            "geom_id": 10,
-                            "geom_name": "link5_collision",
-                            "body_id": 0,
-                            "body_name": "robot0_link5",
-                            "sample_count": 1,
-                        },
-                        {
-                            "geom_id": 11,
-                            "geom_name": "link6_collision",
-                            "body_id": 1,
-                            "body_name": "robot0_link6",
-                            "sample_count": 1,
-                        },
-                    ],
-                },
+                "field_bundle": field_sampling,
                 "static_field_drift_thresholds": thresholds,
                 "cbf_alpha_gain_per_s": 5.0,
+                "arm_dof_indices": list(range(7)),
+                "settled_link56_differential_audit": differential_audit,
+                "settled_link56_differential_audit_validation": (
+                    differential_validation
+                ),
                 "settled_measurement": settled,
                 "complete_integration_state_read_only_audit": {
                     "exact_array_equal": True,
-                    "before_sha256": "same-state",
-                    "after_sha256": "same-state",
+                    "before_sha256": settled_state_sha256,
+                    "after_sha256": settled_state_sha256,
                 },
             },
             "measurement": measurement,
@@ -533,6 +972,7 @@ class StaticPoissonShadowObserverTest(unittest.TestCase):
             contact_definition="mujoco_contact_dist_le_0",
             alpha_gain_per_s=5.0,
             static_drift_thresholds=thresholds,
+            differential_audit_config=audit_config,
         )
 
     def test_robot_roots_are_derived_from_authoritative_parent_ids(self):
