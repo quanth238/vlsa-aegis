@@ -636,3 +636,32 @@ Only the seven scalar-hinge Panda arm entries of the endpoint-derived velocity
 are independently claim-bearing. Non-arm full-`nv` values remain producer
 diagnostics and cannot support the Stage-13 result. These bindings apply to the
 complete inadmissible terminal as well as the executable paired branch.
+
+## ADR-0037: Preserve the H100 audit negative and redesign the tangent criterion before rerun
+
+Accepted after the complete root `vlsa-poisson-link56-first-canary-20260801g`
+identification. Jobs `33726`, `33727`, and independent prerequisite consumer
+`33730` passed. Identification job `33731` published a complete retained
+schema-v3 diagnostic and exited nonzero; independent consumer job `33732`
+validated it as a negative that cannot authorize Stage 13 or active physics.
+No downstream physics was submitted.
+
+The failure is confined to the registered point-tangent roundtrip check. Every
+one of 1,531 samples passes the actual analytic-versus-numeric point-Jacobian
+criteria, and all 13,779 coupled Poisson field/Jacobian directions pass. Only
+shared tangent columns 3 and 5 exceed the fixed `1e-10` velocity-space tolerance:
+the error is `1.397779669787269e-10`, corresponding to approximately
+`1.39778e-16` rad of displacement at the registered interval. The same
+displacement roundoff passes when represented as half the requested velocity
+over twice the interval. This scale dependence identifies a numerical apparatus
+false negative; it does not test contact avoidance or establish Poisson-CBF
+feasibility.
+
+The root and all artifacts remain immutable. We will not relax the observed
+threshold in place or reinterpret the producer failure as a pass. Any rerun
+requires a new preregistered protocol, clean commit, and unused root. The new
+tangent-integrity gate must use a principled scale-aware or displacement-space
+roundoff bound, preserve the old value as a diagnostic, and rerun numeric,
+exact-parity, independent prerequisite validation, and full identification.
+Only a passing, actionable identification may authorize Stage 13. P01 remains
+`active`.

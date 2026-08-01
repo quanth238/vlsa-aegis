@@ -482,3 +482,50 @@ with 117 expected skips, and a complete `./init.sh` gate of 544 tests with 135
 expected allocation-only skips. These remain implementation checks, so all
 upstream H100 prerequisites and Stage 13 must be produced afresh from the next
 exact clean commit.
+
+## P01 retained H100 differential-audit negative
+
+Fresh root `vlsa-poisson-link56-first-canary-20260801g` used clean pushed commit
+`ad87170549d9b865fadb89de0f99ecf054f1d50b`. Numeric job `33726` completed
+`COMPLETED|0:0` on an NVIDIA H100 80GB HBM3 with 154/154 tests and all nine
+acceptance checks true (file SHA-256
+`bee0b6109513662e9b70704a87a70b78c37738108dbd9b0fff5d0518350e3980`).
+Exact-parity job `33727` completed `COMPLETED|0:0` with 237 actions, 5,925
+callbacks, and all six acceptance checks true (file SHA-256
+`5c6100a8851e651c40da8c995ddeb41c8c20993919f3b7d1320946627cfaa785`).
+Independent prerequisite consumer job `33730` completed `COMPLETED|0:0` and
+bound those artifacts to the immutable manifest, selected row, runtime, and
+historical replay.
+
+Identification job `33731` terminated `FAILED|1:0` only after atomically
+publishing a complete 346,300,863-byte schema-v3 diagnostic (file SHA-256
+`8418f3f0d07cd2d30f87b13f51736db1ab6610426fc3d13acfae59a05d3c9c41`,
+canonical payload SHA-256
+`dda149ee6b262e1dafec790e0608e119717ff241ca33ed63447b64b9c82ca76f`).
+Independent CPU consumer job `33732` completed `COMPLETED|0:0`, reconstructed
+the complete failed audit, classified it `validated_negative`, and explicitly
+set both Stage-13 and active-physics authorization false. No Stage-13, manual,
+adapter-only, or active VLA physics was submitted.
+
+The complete audit contains 1,531 protected samples and 13,779 eligible coupled
+directions. All 13,779 coupled field/Jacobian checks pass, and the actual
+analytic-versus-numeric point-Jacobian errors pass their registered absolute
+and relative tolerances for every sample. The sole producer-local failure is
+the shared tangent roundtrip record: columns 3 and 5 reconstruct requested
+velocities `+/-1.0` as `+/-1.000000000139778`, an absolute velocity error of
+`1.397779669787269e-10` against a fixed `1e-10` threshold. The same physical
+displacement roundtrip error is approximately `1.39778e-16` rad. At half the
+requested velocity and twice the finite-difference interval, the identical
+displacement error becomes `6.988898348936345e-11` in velocity units and
+passes. Jobs `33734` and `33735` independently extracted these exact retained
+values from the final artifact.
+
+This is a scale-dependent finite-precision audit false negative, not evidence
+that the point Jacobian, Poisson chain rule, collision filter, or research idea
+failed. It also is not positive feasibility evidence because active physics was
+correctly blocked. Root `20260801g` is retained unchanged. The next protocol
+change must be preregistered on a new clean commit and root, derive the tangent
+roundtrip criterion from displacement-space roundoff or a scale-aware numerical
+bound, retain the present diagnostic, and rerun every upstream gate. The
+observed result must not be used to tune the old threshold in place. P01 remains
+`active`.
