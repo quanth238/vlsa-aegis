@@ -716,6 +716,18 @@ def restore_osc_settled_state_into_joint_velocity_env(
     if not np.array_equal(state_before_observables, state_after_observables):
         raise RuntimeError("target observation/controller synchronization changed physics")
     if source_official_state is not None:
+        # ``controller.update(force=True)`` intentionally forwards MuJoCo to
+        # synchronize Jacobians and controller memory.  Forward dynamics may
+        # rewrite hidden integration fields such as qacc_warmstart even though
+        # qpos/qvel are unchanged.  Reapply the registered full state once,
+        # without another forward, so both paired arms enter their first
+        # scheduled 100 Hz forward from the exact same historical state.
+        mujoco.mj_setState(
+            target_raw_model,
+            target_raw_data,
+            source_official_state.copy(),
+            int(mujoco.mjtState.mjSTATE_INTEGRATION),
+        )
         _, _, target_official_state = _official_integration_state(
             target_joint_velocity_env
         )

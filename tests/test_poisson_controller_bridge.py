@@ -346,7 +346,9 @@ class ControllerBridgeTest(unittest.TestCase):
             velocity_limits = None
             interpolator = None
 
-            def __init__(self, model):
+            def __init__(self, simulation):
+                model = simulation.model
+                self._simulation = simulation
                 self.current_vel = np.ones(7)
                 self.last_err = np.ones(7)
                 self.summed_err = np.ones(7)
@@ -372,10 +374,13 @@ class ControllerBridgeTest(unittest.TestCase):
 
             def update(self, force=False):
                 self.updated_force = force
+                if force:
+                    self._simulation.forward()
+                    self._simulation.data.qacc_warmstart[:] = -123.0
 
         def environment(controller_name):
             simulation = Sim()
-            controller = Controller(simulation.model)
+            controller = Controller(simulation)
             controller.name = controller_name
             robot = SimpleNamespace(
                 controller=controller,
