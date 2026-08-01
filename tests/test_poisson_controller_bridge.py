@@ -135,11 +135,9 @@ class ControllerBridgeTest(unittest.TestCase):
                 self.kd = self.kp * 0.001
                 self.control_freq = 100
                 self.velocity_limits = None
-                self.joint_index = {
-                    "joints": np.arange(7),
-                    "qpos": np.arange(1, 8),
-                    "qvel": np.arange(1, 8),
-                }
+                self.joint_index = np.asarray([0, 1, 0, 1, 0, 1, 0])
+                self.qpos_index = np.arange(1, 8)
+                self.qvel_index = np.arange(1, 8)
                 self.actuator_limits = (
                     np.full(7, -2.0),
                     np.full(7, 2.0),
@@ -195,6 +193,14 @@ class ControllerBridgeTest(unittest.TestCase):
         state = source.sim.get_state().flatten().copy()
         contract = self.controller_contract(target)
         self.assertEqual(contract["physics_substeps_per_control"], 5)
+        self.assertEqual(
+            contract["controller_joint_index"],
+            {
+                "joints": [0, 1, 0, 1, 0, 1, 0],
+                "qpos": list(range(1, 8)),
+                "qvel": list(range(1, 8)),
+            },
+        )
         result = self.restore(
             source,
             target,
@@ -350,11 +356,9 @@ class ControllerBridgeTest(unittest.TestCase):
                 self.torques = np.ones(7)
                 self.new_update = False
                 self.goal_vel = np.ones(7)
-                self.joint_index = {
-                    "joints": np.arange(7),
-                    "qpos": np.arange(7),
-                    "qvel": np.arange(7),
-                }
+                self.joint_index = np.arange(7)
+                self.qpos_index = np.arange(7)
+                self.qvel_index = np.arange(7)
                 self.actuator_limits = (
                     np.asarray(model.actuator_ctrlrange[:, 0], dtype=float).copy(),
                     np.asarray(model.actuator_ctrlrange[:, 1], dtype=float).copy(),

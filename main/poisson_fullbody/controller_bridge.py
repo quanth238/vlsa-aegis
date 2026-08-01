@@ -363,20 +363,34 @@ def joint_velocity_controller_contract(env: Any) -> Dict[str, Any]:
         velocity_limits_record = velocity_limits.tolist()
     else:
         velocity_limits_record = None
-    joint_index = getattr(controller, "joint_index", None)
-    if not isinstance(joint_index, Mapping):
-        raise ValueError("joint-velocity controller joint_index is missing")
-    joint_index_record = {
-        str(key): np.asarray(value, dtype=np.int64).reshape(-1).tolist()
-        for key, value in sorted(joint_index.items(), key=lambda row: str(row[0]))
-    }
-    for field in ("qpos", "qvel"):
-        if field not in joint_index_record or len(joint_index_record[field]) != 7:
-            raise ValueError("joint-velocity controller joint_index lacks seven %s indexes" % field)
+    # Robosuite's production Controller stores the constructor's
+    # ``joint_indexes`` mapping as three separate arrays.  Keep the artifact
+    # schema normalized to the original mapping while reading the real runtime
+    # attributes directly.
+    joint_index_record = {}
+    for field, attribute in (
+        ("joints", "joint_index"),
+        ("qpos", "qpos_index"),
+        ("qvel", "qvel_index"),
+    ):
+        indexes = np.asarray(getattr(controller, attribute, None), dtype=np.int64)
+        if indexes.shape != (7,):
+            raise ValueError(
+                "joint-velocity controller %s lacks seven indexes" % attribute
+            )
+        joint_index_record[field] = indexes.tolist()
     arm_qpos_indexes = np.asarray(robot._ref_joint_pos_indexes, dtype=np.int64)
     arm_qvel_indexes = np.asarray(robot._ref_joint_vel_indexes, dtype=np.int64)
+    joint_ids = np.asarray(
+        getattr(robot, "_ref_joint_indexes", None), dtype=np.int64
+    )
+    if joint_ids.shape != (7,):
+        raise ValueError("robot does not expose seven ordered arm joint IDs")
     if not (
-        np.array_equal(np.asarray(joint_index_record["qpos"]), arm_qpos_indexes)
+        np.array_equal(np.asarray(joint_index_record["joints"]), joint_ids)
+        and np.array_equal(
+            np.asarray(joint_index_record["qpos"]), arm_qpos_indexes
+        )
         and np.array_equal(np.asarray(joint_index_record["qvel"]), arm_qvel_indexes)
     ):
         raise ValueError("controller and robot arm joint index order differ")
@@ -411,11 +425,6 @@ def joint_velocity_controller_contract(env: Any) -> Dict[str, Any]:
         model, "actuator", int(getattr(model, "nu", len(actuator_indexes)))
     )
     ordered_actuator_names = [actuator_names[index] for index in actuator_indexes]
-    joint_ids = np.asarray(
-        getattr(robot, "_ref_joint_indexes", None), dtype=np.int64
-    )
-    if joint_ids.shape != (7,):
-        raise ValueError("robot does not expose seven ordered arm joint IDs")
     joint_names = _model_names(model, "joint", int(model.njnt))
     ordered_joint_names = [joint_names[index] for index in joint_ids]
     return {
