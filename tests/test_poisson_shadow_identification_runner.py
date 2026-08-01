@@ -47,6 +47,205 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         self.assertIn("ordinary_and_callback_observations_exact", self.runner)
         self.assertIn("state sequence differs from upstream exact parity", self.runner)
 
+    def test_failed_differential_audit_retains_deep_receipt_without_authorizing_success(self):
+        from main.poisson_fullbody.jacobians import (
+            inspect_protected_sample_differential_audit,
+        )
+        from scripts import run_poisson_shadow_identification as runner
+        from tests.test_poisson_jacobians import (
+            _strict_failed_differential_audit_fixture,
+        )
+
+        audit, samples, state_sha256, config = (
+            _strict_failed_differential_audit_fixture()
+        )
+        receipt = inspect_protected_sample_differential_audit(
+            audit,
+            expected_samples=samples,
+            expected_arm_dof_indices=list(range(7)),
+            expected_integration_state_sha256=state_sha256,
+            expected_differential_audit_config=config,
+        )
+        evidence = runner._differential_audit_failure_evidence(
+            audit, receipt
+        )
+        self.assertEqual(
+            set(evidence),
+            {
+                "schema_version",
+                "phase",
+                "failure_kind",
+                "scientific_result",
+                "active_physics_authorized",
+                "settled_link56_differential_audit",
+                "settled_link56_differential_audit_validation",
+                "interpretation",
+            },
+        )
+        self.assertEqual(
+            evidence["schema_version"],
+            runner.DIFFERENTIAL_AUDIT_FAILURE_EVIDENCE_SCHEMA,
+        )
+        self.assertEqual(evidence["phase"], runner.DIFFERENTIAL_AUDIT_FAILURE_PHASE)
+        self.assertIs(evidence["scientific_result"], False)
+        self.assertIs(evidence["active_physics_authorized"], False)
+        self.assertEqual(evidence["settled_link56_differential_audit"], audit)
+        self.assertEqual(
+            evidence["settled_link56_differential_audit_validation"], receipt
+        )
+        self.assertIs(receipt["passed"], False)
+
+        mismatched = dict(receipt)
+        mismatched["audit_payload_sha256"] = "0" * 64
+        with self.assertRaisesRegex(
+            runner.ShadowIdentificationRunnerError, "differs from audit"
+        ):
+            runner._differential_audit_failure_evidence(audit, mismatched)
+
+        passing = dict(receipt)
+        passing["passed"] = True
+        with self.assertRaises(runner.ShadowIdentificationRunnerError):
+            runner._differential_audit_failure_evidence(audit, passing)
+
+    def test_failed_audit_authority_binding_requires_source_inputs_and_slurm(self):
+        from scripts import run_poisson_shadow_identification as runner
+
+        provenance = {
+            "source": {
+                "commit": "a" * 40,
+                "branch": "codex/full-body-poisson-cbf-feasibility",
+                "status_short": [],
+            },
+            "manifest_sha256": "b" * 64,
+            "manifest_row_sha256": "c" * 64,
+            "selection_config_sha256": "d" * 64,
+            "runtime_protocol_raw_sha256": "e" * 64,
+            "runtime_protocol_semantic_sha256": "f" * 64,
+            "runtime_parameter_block_sha256": "0" * 64,
+            "historical_result_file_sha256": "1" * 64,
+            "historical_result_payload_sha256": "2" * 64,
+            "upstream_parity_payload_sha256": "3" * 64,
+            "host": "worker",
+            "slurm_job_id": "33712",
+            "slurm_job_name": "poisson-identification",
+        }
+        binding = runner._failure_authority_binding(provenance)
+        self.assertEqual(binding["source"], provenance["source"])
+        self.assertEqual(binding["slurm_job_id"], "33712")
+        self.assertEqual(
+            binding["historical_result_payload_sha256"], "2" * 64
+        )
+        missing = dict(provenance)
+        missing.pop("upstream_parity_payload_sha256")
+        with self.assertRaisesRegex(
+            runner.ShadowIdentificationRunnerError,
+            "invalid immutable input or Slurm provenance",
+        ):
+            runner._failure_authority_binding(missing)
+        malformed_source = dict(provenance)
+        malformed_source["source"] = {
+            "commit": "not-a-commit",
+            "branch": "codex/full-body-poisson-cbf-feasibility",
+            "status_short": [],
+        }
+        with self.assertRaisesRegex(
+            runner.ShadowIdentificationRunnerError,
+            "lacks exact clean source provenance",
+        ):
+            runner._failure_authority_binding(malformed_source)
+        malformed_slurm = dict(provenance)
+        malformed_slurm["slurm_job_id"] = "33712.batch"
+        with self.assertRaisesRegex(
+            runner.ShadowIdentificationRunnerError,
+            "invalid immutable input or Slurm provenance",
+        ):
+            runner._failure_authority_binding(malformed_slurm)
+
+    def test_failed_audit_is_recorded_with_exact_phase_and_authority(self):
+        from main.poisson_fullbody.jacobians import (
+            inspect_protected_sample_differential_audit,
+        )
+        from scripts import run_poisson_shadow_identification as runner
+        from tests.test_poisson_jacobians import (
+            _strict_failed_differential_audit_fixture,
+        )
+
+        audit, samples, state_sha256, config = (
+            _strict_failed_differential_audit_fixture()
+        )
+        receipt = inspect_protected_sample_differential_audit(
+            audit,
+            expected_samples=samples,
+            expected_arm_dof_indices=list(range(7)),
+            expected_integration_state_sha256=state_sha256,
+            expected_differential_audit_config=config,
+        )
+        evidence = runner._differential_audit_failure_evidence(
+            audit, receipt
+        )
+        provenance = {
+            "source": {
+                "commit": "a" * 40,
+                "branch": "codex/full-body-poisson-cbf-feasibility",
+                "status_short": [],
+            },
+            "manifest_sha256": "b" * 64,
+            "manifest_row_sha256": "c" * 64,
+            "selection_config_sha256": "d" * 64,
+            "runtime_protocol_raw_sha256": "e" * 64,
+            "runtime_protocol_semantic_sha256": "f" * 64,
+            "runtime_parameter_block_sha256": "0" * 64,
+            "historical_result_file_sha256": "1" * 64,
+            "historical_result_payload_sha256": "2" * 64,
+            "upstream_parity_payload_sha256": "3" * 64,
+            "host": "worker",
+            "slurm_job_id": "33712",
+            "slurm_job_name": "poisson-identification",
+        }
+        payload = {
+            "status": "passed",
+            "scientific_result": True,
+            "phase": "prepare_shadow_runtime_and_exact_replay",
+            "provenance": provenance,
+        }
+        error = runner.ShadowIdentificationDifferentialAuditFailure(evidence)
+        runner._record_failed_result(payload, error, "registered traceback")
+        self.assertEqual(payload["status"], "failed")
+        self.assertIs(payload["scientific_result"], False)
+        self.assertEqual(payload["phase"], runner.DIFFERENTIAL_AUDIT_FAILURE_PHASE)
+        self.assertEqual(
+            payload["failure_evidence"][
+                "settled_link56_differential_audit"
+            ],
+            audit,
+        )
+        self.assertEqual(
+            payload["failure_evidence"]["authority_binding"]["slurm_job_id"],
+            "33712",
+        )
+        self.assertIs(
+            payload["failure_evidence"]["active_physics_authorized"], False
+        )
+        self.assertEqual(payload["failure"]["traceback"], "registered traceback")
+
+    def test_generic_failure_never_serializes_differential_audit_evidence(self):
+        from scripts import run_poisson_shadow_identification as runner
+
+        payload = {
+            "status": "failed",
+            "scientific_result": False,
+            "phase": "prepare_shadow_runtime_and_exact_replay",
+        }
+        error = runner.ShadowIdentificationRunnerError(
+            "source or clone state was not preserved"
+        )
+        runner._record_failed_result(payload, error, "registered traceback")
+        self.assertEqual(payload["status"], "failed")
+        self.assertNotIn("failure_evidence", payload)
+        self.assertEqual(
+            payload["failure"]["type"], "ShadowIdentificationRunnerError"
+        )
+
     def test_exact_historical_replay_and_complete_callback_exposure(self):
         self.assertIn("len(replay.steps) != 237", self.runner)
         self.assertIn("INNER_UPDATES_PER_HIGH_LEVEL_ACTION = 5", self.runner)
@@ -1709,6 +1908,16 @@ class ShadowIdentificationRunnerContractTest(unittest.TestCase):
         self.assertIn("requires a clean source tree", self.runner)
         self.assertIn("SLURM_JOB_ID", self.runner)
         self.assertIn("_gpu_inventory()", self.runner)
+        main_source = self.runner[self.runner.index("def main()") :]
+        provenance_index = main_source.index('"provenance": provenance')
+        risky_audit_index = main_source.index("shadow = _run_shadow")
+        self.assertLess(provenance_index, risky_audit_index)
+        self.assertIn("_record_failed_result(payload, error", main_source)
+        self.assertIn('payload["failure_evidence"] = failure_evidence', self.runner)
+        self.assertIn(
+            "settled_link56_protected_sample_differential_audit_validation",
+            self.runner,
+        )
 
 
 if __name__ == "__main__":

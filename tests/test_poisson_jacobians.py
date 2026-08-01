@@ -351,5 +351,168 @@ class PointJacobianTest(unittest.TestCase):
         self.assertTrue(adaptive["attempts"][-1]["selected"])
 
 
+def _strict_failed_differential_audit_fixture():
+    """Construct a self-consistent failed audit without MuJoCo dependencies."""
+
+    from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+    from main.poisson_fullbody.jacobians import (
+        DIFFERENTIAL_AUDIT_HASH_FIELD,
+        _stable_audit_hashes,
+        _tangent_reconstruction,
+    )
+    from tests.test_poisson_shadow_identification import (
+        differential_audit_config,
+        protected_sample_identities,
+        valid_differential_audit,
+    )
+
+    samples = protected_sample_identities()
+    config = differential_audit_config()
+    state_sha256 = "c" * 64
+    audit, _ = valid_differential_audit(samples, state_sha256, config)
+    row = audit["sample_records"][0]
+    tangent = row[
+        "point_perturbation_tangent_reconstruction_by_arm_dof"
+    ][0]
+    plus = list(tangent["plus_reconstructed_tangent_nv_rad_s"])
+    plus[0] = 2.0
+    row["point_perturbation_tangent_reconstruction_by_arm_dof"][0] = (
+        _tangent_reconstruction(
+            tangent["requested_tangent_nv_rad_s"],
+            plus,
+            tangent["minus_reconstructed_tangent_nv_rad_s"],
+            list(range(7)),
+            config,
+        )
+    )
+    row["point_jacobian_passed"] = False
+    row["passed"] = False
+    audit["counts"]["point_jacobian_passed_sample_count"] -= 1
+    audit["counts"]["passed_sample_count"] -= 1
+    audit["passed"] = False
+    identities = [sample.to_dict() for sample in samples]
+    for key, value in _stable_audit_hashes(
+        state_sha256,
+        list(range(7)),
+        identities,
+        config,
+        audit["sample_records"],
+    ).items():
+        audit[key] = value
+    audit.pop(DIFFERENTIAL_AUDIT_HASH_FIELD, None)
+    audit[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+        canonical_json_bytes(audit)
+    )
+    return audit, samples, state_sha256, config
+
+
+class DifferentialAuditFailureInspectionTest(unittest.TestCase):
+    def test_inspection_retains_failure_but_default_validation_still_rejects(self):
+        from main.poisson_fullbody.jacobians import (
+            DifferentialAuditError,
+            inspect_protected_sample_differential_audit,
+            validate_protected_sample_differential_audit,
+        )
+
+        audit, samples, state_sha256, config = (
+            _strict_failed_differential_audit_fixture()
+        )
+        arguments = {
+            "expected_samples": samples,
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_integration_state_sha256": state_sha256,
+            "expected_differential_audit_config": config,
+        }
+        receipt = inspect_protected_sample_differential_audit(
+            audit, **arguments
+        )
+        self.assertIs(receipt["passed"], False)
+        self.assertEqual(receipt["audit_payload_sha256"], audit["audit_payload_sha256"])
+        self.assertEqual(receipt["counts"], audit["counts"])
+        self.assertEqual(receipt["counts"]["passed_sample_count"], 1)
+        with self.assertRaisesRegex(DifferentialAuditError, "did not pass"):
+            validate_protected_sample_differential_audit(audit, **arguments)
+
+    def test_inspection_rejects_malformed_and_rehashed_failed_audit(self):
+        from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+        from main.poisson_fullbody.jacobians import (
+            DIFFERENTIAL_AUDIT_HASH_FIELD,
+            DifferentialAuditError,
+            inspect_protected_sample_differential_audit,
+        )
+
+        audit, samples, state_sha256, config = (
+            _strict_failed_differential_audit_fixture()
+        )
+        arguments = {
+            "expected_samples": samples,
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_integration_state_sha256": state_sha256,
+            "expected_differential_audit_config": config,
+        }
+
+        malformed = copy.deepcopy(audit)
+        malformed["unexpected"] = "not registered"
+        with self.assertRaisesRegex(DifferentialAuditError, "invalid keys"):
+            inspect_protected_sample_differential_audit(malformed, **arguments)
+
+        rehashed = copy.deepcopy(audit)
+        rehashed["sample_records"][0][
+            "numerical_point_jacobian_m_per_rad_3x7"
+        ][0][0] += 1.0e-3
+        rehashed.pop(DIFFERENTIAL_AUDIT_HASH_FIELD)
+        rehashed[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+            canonical_json_bytes(rehashed)
+        )
+        with self.assertRaisesRegex(DifferentialAuditError, "does not reconstruct"):
+            inspect_protected_sample_differential_audit(rehashed, **arguments)
+
+    def test_passing_inspection_and_default_validation_are_identical_and_strict(self):
+        from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
+        from main.poisson_fullbody.jacobians import (
+            DIFFERENTIAL_AUDIT_HASH_FIELD,
+            DifferentialAuditError,
+            inspect_protected_sample_differential_audit,
+            validate_protected_sample_differential_audit,
+        )
+        from tests.test_poisson_shadow_identification import (
+            differential_audit_config,
+            protected_sample_identities,
+            valid_differential_audit,
+        )
+
+        samples = protected_sample_identities()
+        config = differential_audit_config()
+        state_sha256 = "d" * 64
+        audit, expected_receipt = valid_differential_audit(
+            samples, state_sha256, config
+        )
+        arguments = {
+            "expected_samples": samples,
+            "expected_arm_dof_indices": list(range(7)),
+            "expected_integration_state_sha256": state_sha256,
+            "expected_differential_audit_config": config,
+        }
+        self.assertEqual(
+            inspect_protected_sample_differential_audit(audit, **arguments),
+            expected_receipt,
+        )
+        self.assertEqual(
+            validate_protected_sample_differential_audit(audit, **arguments),
+            expected_receipt,
+        )
+
+        forged_failure = copy.deepcopy(audit)
+        forged_failure["passed"] = False
+        forged_failure.pop(DIFFERENTIAL_AUDIT_HASH_FIELD)
+        forged_failure[DIFFERENTIAL_AUDIT_HASH_FIELD] = sha256_bytes(
+            canonical_json_bytes(forged_failure)
+        )
+        with self.assertRaisesRegex(DifferentialAuditError, "does not reconstruct"):
+            inspect_protected_sample_differential_audit(
+                forged_failure, **arguments
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

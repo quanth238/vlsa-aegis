@@ -39,10 +39,180 @@ PHYSICS_SUBSTEPS_PER_INNER_UPDATE = 5
 PHYSICS_SUBSTEPS_PER_HIGH_LEVEL_ACTION = (
     INNER_UPDATES_PER_HIGH_LEVEL_ACTION * PHYSICS_SUBSTEPS_PER_INNER_UPDATE
 )
+DIFFERENTIAL_AUDIT_FAILURE_EVIDENCE_SCHEMA = (
+    "vlsa_poisson_shadow_identification_differential_audit_failure_evidence.v1"
+)
+DIFFERENTIAL_AUDIT_FAILURE_PHASE = (
+    "settled_link56_protected_sample_differential_audit_validation"
+)
 
 
 class ShadowIdentificationRunnerError(RuntimeError):
     """A required allocation, pairing, or exact-replay invariant failed."""
+
+
+class ShadowIdentificationDifferentialAuditFailure(
+    ShadowIdentificationRunnerError
+):
+    """A complete, deeply validated differential audit genuinely failed."""
+
+    def __init__(self, failure_evidence: Mapping[str, Any]) -> None:
+        super().__init__(
+            "settled link-5/6 protected-sample differential audit did not pass"
+        )
+        self.phase = DIFFERENTIAL_AUDIT_FAILURE_PHASE
+        self.failure_evidence = dict(failure_evidence)
+
+
+def _differential_audit_failure_evidence(
+    audit: Mapping[str, Any], validation_receipt: Mapping[str, Any]
+) -> Dict[str, Any]:
+    """Retain one genuine failed audit without making it success evidence."""
+
+    receipt_keys = {
+        "schema_version",
+        "audit_payload_sha256",
+        "ordered_sample_identity_sha256",
+        "integration_state_sha256",
+        "specification_sha256",
+        "binding_sha256",
+        "classification_ledger_sha256",
+        "counts",
+        "passed",
+    }
+    if not isinstance(audit, Mapping) or not isinstance(
+        validation_receipt, Mapping
+    ):
+        raise ShadowIdentificationRunnerError(
+            "differential-audit failure evidence must contain mappings"
+        )
+    if set(validation_receipt) != receipt_keys:
+        raise ShadowIdentificationRunnerError(
+            "differential-audit failed validation receipt has invalid keys"
+        )
+    integration_state = audit.get("integration_state")
+    matching_fields = (
+        ("schema_version", "schema_version"),
+        ("audit_payload_sha256", "audit_payload_sha256"),
+        ("ordered_sample_identity_sha256", "ordered_sample_identity_sha256"),
+        ("specification_sha256", "specification_sha256"),
+        ("binding_sha256", "binding_sha256"),
+        ("classification_ledger_sha256", "classification_ledger_sha256"),
+        ("counts", "counts"),
+        ("passed", "passed"),
+    )
+    if any(
+        validation_receipt[receipt_key] != audit.get(audit_key)
+        for receipt_key, audit_key in matching_fields
+    ) or not isinstance(integration_state, Mapping) or validation_receipt[
+        "integration_state_sha256"
+    ] != integration_state.get("source_initial_sha256"):
+        raise ShadowIdentificationRunnerError(
+            "differential-audit failed validation receipt differs from audit"
+        )
+    if validation_receipt["passed"] is not False:
+        raise ShadowIdentificationRunnerError(
+            "differential-audit failure evidence requires a failed validation receipt"
+        )
+    return {
+        "schema_version": DIFFERENTIAL_AUDIT_FAILURE_EVIDENCE_SCHEMA,
+        "phase": DIFFERENTIAL_AUDIT_FAILURE_PHASE,
+        "failure_kind": "registered_protected_sample_differential_audit_failed",
+        "scientific_result": False,
+        "active_physics_authorized": False,
+        "settled_link56_differential_audit": dict(audit),
+        "settled_link56_differential_audit_validation": dict(
+            validation_receipt
+        ),
+        "interpretation": (
+            "complete registered numerical audit failure; this is retained "
+            "diagnostic evidence and cannot authorize shadow interpretation "
+            "or active physics"
+        ),
+    }
+
+
+def _failure_authority_binding(provenance: Mapping[str, Any]) -> Dict[str, Any]:
+    """Select the source, immutable-input, and Slurm identities for a failure."""
+
+    source = provenance.get("source")
+    if (
+        not isinstance(source, Mapping)
+        or set(source) != {"commit", "branch", "status_short"}
+        or not isinstance(source.get("commit"), str)
+        or len(source["commit"]) != 40
+        or any(character not in "0123456789abcdef" for character in source["commit"])
+        or not isinstance(source.get("branch"), str)
+        or not source["branch"]
+        or source.get("status_short") != []
+    ):
+        raise ShadowIdentificationRunnerError(
+            "failure evidence lacks exact clean source provenance"
+        )
+    hash_fields = (
+        "manifest_sha256",
+        "manifest_row_sha256",
+        "selection_config_sha256",
+        "runtime_protocol_raw_sha256",
+        "runtime_protocol_semantic_sha256",
+        "runtime_parameter_block_sha256",
+        "historical_result_file_sha256",
+        "historical_result_payload_sha256",
+        "upstream_parity_payload_sha256",
+    )
+    required = hash_fields + (
+        "host",
+        "slurm_job_id",
+        "slurm_job_name",
+    )
+    if any(
+        not isinstance(provenance.get(key), str)
+        or len(provenance[key]) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in provenance[key]
+        )
+        for key in hash_fields
+    ) or any(
+        not isinstance(provenance.get(key), str) or not provenance[key]
+        for key in ("host", "slurm_job_name")
+    ) or (
+        not isinstance(provenance.get("slurm_job_id"), str)
+        or not provenance["slurm_job_id"].isdigit()
+    ):
+        raise ShadowIdentificationRunnerError(
+            "failure evidence has invalid immutable input or Slurm provenance"
+        )
+    return {
+        "source": dict(source),
+        **{key: provenance[key] for key in required},
+    }
+
+
+def _record_failed_result(
+    payload: Dict[str, Any], error: Exception, traceback_text: str
+) -> None:
+    """Record a terminal failure, preserving validated numerical evidence."""
+
+    payload["status"] = "failed"
+    payload["scientific_result"] = False
+    if isinstance(error, ShadowIdentificationDifferentialAuditFailure):
+        failure_evidence = dict(error.failure_evidence)
+        provenance = payload.get("provenance")
+        if not isinstance(provenance, Mapping):
+            raise ShadowIdentificationRunnerError(
+                "differential-audit failure occurred before provenance was bound"
+            )
+        failure_evidence["authority_binding"] = _failure_authority_binding(
+            provenance
+        )
+        payload["phase"] = error.phase
+        payload["failure_evidence"] = failure_evidence
+    payload["failure"] = {
+        "type": type(error).__name__,
+        "message": str(error),
+        "traceback": traceback_text,
+    }
 
 
 def _package_versions(names: Sequence[str]) -> Dict[str, Any]:
@@ -487,7 +657,7 @@ def _prepare_shadow_runtime(
     from main.poisson_fullbody.jacobians import (
         DifferentialAuditError,
         audit_protected_sample_differentials,
-        validate_protected_sample_differential_audit,
+        inspect_protected_sample_differential_audit,
     )
     from main.poisson_fullbody.measurement import (
         FullRobotObstacleMonitor,
@@ -659,7 +829,7 @@ def _prepare_shadow_runtime(
             protocol["differential_audit"],
         )
         differential_audit_validation = (
-            validate_protected_sample_differential_audit(
+            inspect_protected_sample_differential_audit(
                 differential_audit,
                 expected_samples=bundle.protected_samples.samples,
                 expected_arm_dof_indices=arm_dof_indices,
@@ -676,6 +846,12 @@ def _prepare_shadow_runtime(
         raise ShadowIdentificationRunnerError(
             "settled link-5/6 differential audit failed: %s" % error
         ) from error
+    if differential_audit_validation["passed"] is not True:
+        failure_evidence = _differential_audit_failure_evidence(
+            differential_audit, differential_audit_validation
+        )
+        env.close()
+        raise ShadowIdentificationDifferentialAuditFailure(failure_evidence)
     observer = StaticPoissonShadowObserver(
         field=bundle.field,
         samples=bundle.protected_samples.samples,
@@ -1101,6 +1277,7 @@ def main() -> int:
             "no active safety or utility efficacy was tested"
         ),
         "case_id": arguments.case_id,
+        "phase": "initial_authority_validation",
         "timing": {"started_unix": started},
     }
     try:
@@ -1174,6 +1351,49 @@ def main() -> int:
                 selection_config_path=selection_config,
             )
         )
+        provenance = {
+            "source": source,
+            "manifest_path": str(manifest),
+            "manifest_sha256": manifest_hash,
+            "manifest_line_number": line_number,
+            "manifest_row_sha256": row_hash,
+            "selection_config_path": str(selection_config),
+            "selection_config_sha256": _file_sha256(selection_config),
+            "selection_protocol_id": selection["protocol_id"],
+            "runtime_protocol_path": str(runtime_path),
+            "runtime_protocol_raw_sha256": _file_sha256(runtime_path),
+            "runtime_protocol_semantic_sha256": (
+                protocol_hashes.protocol_sha256
+            ),
+            "runtime_parameter_block_sha256": (
+                protocol_hashes.parameter_block_sha256
+            ),
+            "historical_result_path": str(historical_path),
+            "historical_result_file_sha256": replay.result_file_sha256,
+            "historical_result_payload_sha256": (
+                replay.result_payload_sha256
+            ),
+            "upstream_parity_path": str(arguments.parity_result.resolve()),
+            "upstream_parity_payload_sha256": upstream_parity[
+                "result_payload_sha256"
+            ],
+            "host": socket.gethostname(),
+            "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+            "slurm_job_name": os.environ.get("SLURM_JOB_NAME"),
+            "python_executable": sys.executable,
+            "python_version": platform.python_version(),
+            "packages": _package_versions(
+                ("numpy", "mujoco", "robosuite", "scipy")
+            ),
+            "gpu": gpu,
+        }
+        payload.update(
+            {
+                "phase": "prepare_shadow_runtime_and_exact_replay",
+                "provenance": provenance,
+                "historical": replay.provenance(),
+            }
+        )
         evaluator = importlib.import_module("evaluate_safelibero_aegis")
         runtime = evaluator._runtime_imports(include_aegis=False)
         shadow = _run_shadow(
@@ -1185,6 +1405,7 @@ def main() -> int:
             protocol_hashes=protocol_hashes,
             upstream_parity=upstream_parity,
         )
+        payload["phase"] = "final_shadow_validation"
         expected_state_hash = upstream_parity["callback_replay"][
             "state_sequence_sha256"
         ]
@@ -1195,43 +1416,6 @@ def main() -> int:
         payload.update(
             {
                 "status": "passed",
-                "provenance": {
-                    "source": source,
-                    "manifest_path": str(manifest),
-                    "manifest_sha256": manifest_hash,
-                    "manifest_line_number": line_number,
-                    "manifest_row_sha256": row_hash,
-                    "selection_config_path": str(selection_config),
-                    "selection_config_sha256": _file_sha256(selection_config),
-                    "selection_protocol_id": selection["protocol_id"],
-                    "runtime_protocol_path": str(runtime_path),
-                    "runtime_protocol_raw_sha256": _file_sha256(runtime_path),
-                    "runtime_protocol_semantic_sha256": (
-                        protocol_hashes.protocol_sha256
-                    ),
-                    "runtime_parameter_block_sha256": (
-                        protocol_hashes.parameter_block_sha256
-                    ),
-                    "historical_result_path": str(historical_path),
-                    "historical_result_file_sha256": replay.result_file_sha256,
-                    "historical_result_payload_sha256": (
-                        replay.result_payload_sha256
-                    ),
-                    "upstream_parity_path": str(arguments.parity_result.resolve()),
-                    "upstream_parity_payload_sha256": upstream_parity[
-                        "result_payload_sha256"
-                    ],
-                    "host": socket.gethostname(),
-                    "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-                    "slurm_job_name": os.environ.get("SLURM_JOB_NAME"),
-                    "python_executable": sys.executable,
-                    "python_version": platform.python_version(),
-                    "packages": _package_versions(
-                        ("numpy", "mujoco", "robosuite", "scipy")
-                    ),
-                    "gpu": gpu,
-                },
-                "historical": replay.provenance(),
                 "shadow_replay": shadow,
                 "acceptance": {
                     "upstream_exact_parity_same_clean_commit": True,
@@ -1297,13 +1481,9 @@ def main() -> int:
             raise ShadowIdentificationRunnerError(
                 "one or more final shadow acceptance checks failed"
             )
+        payload["phase"] = "complete"
     except Exception as error:
-        payload["status"] = "failed"
-        payload["failure"] = {
-            "type": type(error).__name__,
-            "message": str(error),
-            "traceback": traceback.format_exc(),
-        }
+        _record_failed_result(payload, error, traceback.format_exc())
     payload["timing"].update(
         {
             "finished_unix": time.time(),

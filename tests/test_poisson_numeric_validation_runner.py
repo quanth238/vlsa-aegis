@@ -25,6 +25,10 @@ class PoissonNumericGpuInventoryTest(unittest.TestCase):
             "tests.test_poisson_shadow_identification_runner",
             MODULE.DEFAULT_TEST_MODULES,
         )
+        self.assertIn(
+            "tests.test_poisson_shadow_identification_artifact_validator",
+            MODULE.DEFAULT_TEST_MODULES,
+        )
 
     def inventory_for(self, output: str):
         with mock.patch.object(

@@ -28,6 +28,7 @@ for optional_file in \
   scripts/validate_aegis_assets.py \
   scripts/validate_aegis_run_artifacts.py \
   scripts/validate_poisson_one_step_counterfactual_artifact.py \
+  scripts/validate_poisson_shadow_identification_artifact.py \
   scripts/validate_poisson_run_artifacts.py \
   scripts/validate_poisson_runtime_prerequisites.py
 do

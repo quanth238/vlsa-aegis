@@ -1263,7 +1263,7 @@ def _coupled_comparison(
     }
 
 
-def validate_protected_sample_differential_audit(
+def inspect_protected_sample_differential_audit(
     payload: Mapping[str, Any],
     *,
     expected_samples: Iterable[Any],
@@ -1271,7 +1271,16 @@ def validate_protected_sample_differential_audit(
     expected_integration_state_sha256: str,
     expected_differential_audit_config: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    """Purely reconstruct and require one complete passing audit artifact."""
+    """Purely reconstruct one complete audit, including a genuine failure.
+
+    This inspection path is intentionally just as strict as the success gate:
+    it verifies the complete payload hash, frozen authorities, every sample and
+    direction, all derived numerics, counts, stable hashes, and pass flags.  Its
+    only difference from :func:`validate_protected_sample_differential_audit`
+    is that a structurally valid audit whose reconstructed ``passed`` value is
+    false is returned as a typed receipt instead of being discarded by an
+    exception.  Callers must not use this function to authorize active physics.
+    """
 
     top_keys = (
         "schema_version",
@@ -1544,8 +1553,6 @@ def validate_protected_sample_differential_audit(
     expected_pass = bool(sample_pass_count == len(identities))
     if top["passed"] is not expected_pass:
         raise DifferentialAuditError("top-level audit pass flag does not reconstruct")
-    if not expected_pass:
-        raise DifferentialAuditError("protected-sample differential audit did not pass")
     return {
         "schema_version": PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA,
         "audit_payload_sha256": observed_hash,
@@ -1557,5 +1564,29 @@ def validate_protected_sample_differential_audit(
             "classification_ledger_sha256"
         ],
         "counts": expected_counts,
-        "passed": True,
+        "passed": expected_pass,
     }
+
+
+def validate_protected_sample_differential_audit(
+    payload: Mapping[str, Any],
+    *,
+    expected_samples: Iterable[Any],
+    expected_arm_dof_indices: Sequence[int],
+    expected_integration_state_sha256: str,
+    expected_differential_audit_config: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Purely reconstruct and require one complete passing audit artifact."""
+
+    receipt = inspect_protected_sample_differential_audit(
+        payload,
+        expected_samples=expected_samples,
+        expected_arm_dof_indices=expected_arm_dof_indices,
+        expected_integration_state_sha256=expected_integration_state_sha256,
+        expected_differential_audit_config=expected_differential_audit_config,
+    )
+    if receipt["passed"] is not True:
+        raise DifferentialAuditError(
+            "protected-sample differential audit did not pass"
+        )
+    return receipt
