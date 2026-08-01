@@ -504,3 +504,39 @@ confirmed and before a final artifact existed. Artifacts from numeric job
 `33607` and parity-v1 job `33608` remain preserved implementation evidence but
 cannot authorize schema-v2 identification or active physics. All prerequisites
 must rerun from one new clean commit and immutable root.
+
+## ADR-0033: Require realized arm motion before any nonzero-motion prevention claim
+
+Accepted after an adversarial pair-level audit. Commanded joint motion is not
+physical motion. The former pair gate could report every prevention and
+task-utility eligibility flag as true when the Poisson arm issued nonzero
+commands and corrections but measured joint-motion and end-effector-path
+integrals were both exactly zero. Tracking validity did not close this path:
+small issued commands can differ from zero realized velocity without crossing
+the registered tracking-error thresholds.
+
+Every narrow prevention claim now requires both nonzero issued safe-joint
+motion and `measured_joint_motion_integral_rad > 0`. A zero realized integral
+adds `psf_realized_no_nonzero_arm_joint_motion` to the base link-5/6
+ineligibility reasons; all-robot, Paper-CAR, task-success, preservation, and
+rescue claims inherit it. The pair diagnostics serialize both issued and
+measured motion so independent reporting cannot silently substitute one for
+the other. The deep run validator already reconstructs measured motion from
+every 2 ms physics row and regenerates the pair record, so there is one
+authoritative eligibility implementation.
+
+End-effector path length remains a continuous diagnostic. It is not required
+for the narrow arm-link contact observation because valid null-space elbow
+reconfiguration can preserve an end-effector pose while moving the protected
+links. Task success and native goal progress remain separate utility
+endpoints. Exact positivity establishes only nonzero realized motion; a future
+claim of materially useful motion must preregister a numerical/noise floor or
+retention threshold before evaluation. No such threshold is selected from an
+observed active outcome here.
+
+This source change supersedes root `20260801d` for active authorization even
+though numeric job `33640` and parity-v2 job `33641` passed completely.
+Identification job `33642` was canceled by exact job ID at 12 minutes 28
+seconds, produced no final artifact, and no active job was submitted. Numeric,
+parity-v2, and identification-v2 must rerun from the next exact clean commit
+and unused immutable root.

@@ -338,3 +338,56 @@ rerun on that exact clean commit. Identification-v2 may run only after both
 terminal artifacts validate completely. Active physics remains forbidden
 unless the final identification proves a warning that a scheduled 100 Hz
 filter update can consume strictly before physical contact.
+
+## P01 realized-motion eligibility hardening
+
+Root `vlsa-poisson-link56-first-canary-20260801d` ran on clean commit
+`b3abd5c93e7789267f9e709ed8a9074cbeed18b4`. Numeric job `33640`
+completed with exit `0:0` in 1 minute 37 seconds. Its immutable artifact has
+file/payload SHA-256 values
+`8c3dd38e4698a5d89c84031d4817f48c25c50eea822d0803c332517eebe34a13` /
+`2fdd5368636aac3b713bac61994a1caed79505a7f6a0544a85ca10b37aea83a1`;
+independent reconstruction confirmed 128 tests, zero skips, one H100, and the
+exact clean commit. Parity-v2 job `33641` completed with exit `0:0` in 3
+minutes 10 seconds. Its file/payload SHA-256 values are
+`2a957a382389a6d5ef452c61e2dca906be055ad71301deb0946174a1a511462c` /
+`bcc06df4ef43435efe4864ef65b3ce02ba75280e275bfa8b89887d7001350251`.
+Independent reconstruction matched the frozen historical result, all 237
+action-boundary states, all 5,925 official MuJoCo integration states, exact
+typed cadence from `[0,0,0]` through `[236,4,4]`, and every acceptance gate.
+
+Before active physics, another independent adversarial audit found a distinct
+claim-impacting false positive. The pair eligibility gate required nonzero
+issued safe-joint motion, but did not require nonzero realized joint motion.
+A coherently valid pair with `0.008` rad commanded-motion integral, nonzero
+correction, and exactly zero measured joint and end-effector motion therefore
+made all six prevention and task-utility eligibility flags true. This would
+confuse command issuance with physical motion and could label stopping as a
+useful correction.
+
+The pair gate now also requires
+`measured_joint_motion_integral_rad > 0`. Zero realized motion propagates the
+reason `psf_realized_no_nonzero_arm_joint_motion` into link-5/6, all-robot,
+Paper-CAR, task-success, preservation, and rescue ineligibility. The measured
+integral is included in the pair's continuous-motion diagnostics. End-effector
+path length remains a diagnostic rather than a universal contact-prevention
+gate because legitimate null-space arm-link avoidance can move joints while
+holding the end effector nearly fixed. A stronger claim that motion was
+materially useful, rather than merely mathematically nonzero, still requires
+a preregistered material-motion or retention threshold; this first canary does
+not invent one after seeing an outcome.
+
+Identification job `33642` was inspected by exact job ID and canceled after
+12 minutes 28 seconds once this source change made same-commit active
+authorization impossible. It produced no final identification artifact. No
+active canary was submitted. Root `20260801d` and all logs remain preserved as
+implementation evidence, but its prerequisites cannot authorize the next
+commit.
+
+The dedicated adversarial regression and all inherited pair flags pass. The
+focused active/trace/schema suite passes 62 tests; the broader Poisson suite
+passes 265 tests with 112 expected allocation-only skips; and the final local
+`./init.sh` gate passes 441 tests with 130 expected allocation-only skips.
+P01 remains active. After a new clean commit is pushed, all H100 prerequisites
+must rerun in a new unused immutable root, preferably
+`vlsa-poisson-link56-first-canary-20260801e`.

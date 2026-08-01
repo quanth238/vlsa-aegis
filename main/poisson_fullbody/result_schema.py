@@ -2353,6 +2353,10 @@ def validate_active_canary_pair(
         link56_reasons.append("psf_executed_no_nonzero_correction")
     if psf_use["safe_joint_motion_integral_rad"] <= 0.0:
         link56_reasons.append("psf_executed_no_nonzero_arm_joint_motion")
+    if psf_use["measured_joint_motion_integral_rad"] <= 0.0:
+        link56_reasons.append(
+            "psf_realized_no_nonzero_arm_joint_motion"
+        )
     if (
         psf_use["all_issued_arm_joint_commands_zero"]
         or psf_use["safety_by_no_execution"]
@@ -2426,6 +2430,9 @@ def validate_active_canary_pair(
         "psf_continuous_motion_diagnostics": {
             "safe_joint_motion_integral_rad": psf_use[
                 "safe_joint_motion_integral_rad"
+            ],
+            "measured_joint_motion_integral_rad": psf_use[
+                "measured_joint_motion_integral_rad"
             ],
             "motion_retention_ratio": psf_use["motion_retention_ratio"],
             "zero_motion_fraction": psf_use["zero_motion_fraction"],

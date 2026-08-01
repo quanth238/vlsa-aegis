@@ -328,6 +328,47 @@ class PoissonCompleteRunValidationTest(unittest.TestCase):
                 attach_payload_hash(psf),
             )
 
+    def test_pair_does_not_call_unrealized_command_motion_nonzero(self):
+        adapter, _adapter_trace = _adapter_fixture()
+        psf, _psf_trace = _fixture()
+        psf["endpoints"]["usefulness"].update(
+            {
+                "measured_joint_motion_integral_rad": 0.0,
+                "eef_path_length_m": 0.0,
+            }
+        )
+        pair = validate_active_canary_pair(
+            attach_payload_hash(adapter),
+            attach_payload_hash(psf),
+        )
+        for field in (
+            "nonzero_motion_link56_contact_prevention_eligible",
+            "all_robot_selected_obstacle_contact_prevention_eligible",
+            "paper_car_displacement_prevention_eligible",
+            "task_successful_full_safety_correction_eligible",
+            "task_success_preservation_eligible",
+            "task_rescue_eligible",
+        ):
+            self.assertFalse(pair[field], field)
+        for field in (
+            "link56_prevention_ineligibility_reasons",
+            "all_robot_prevention_ineligibility_reasons",
+            "paper_car_prevention_ineligibility_reasons",
+            "task_success_ineligibility_reasons",
+            "task_preservation_ineligibility_reasons",
+            "task_rescue_ineligibility_reasons",
+        ):
+            self.assertIn(
+                "psf_realized_no_nonzero_arm_joint_motion",
+                pair[field],
+            )
+        self.assertEqual(
+            pair["psf_continuous_motion_diagnostics"][
+                "measured_joint_motion_integral_rad"
+            ],
+            0.0,
+        )
+
     def test_valid_two_arm_run_is_deeply_validated(self):
         with tempfile.TemporaryDirectory() as directory:
             run = _build_complete_run(Path(directory))
