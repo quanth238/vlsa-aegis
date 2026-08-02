@@ -818,3 +818,43 @@ hard constraint and the independent postcheck. It must measure the complete
 pre-physics pipeline and target 40/40 updates within 10 ms. Joint-velocity
 tracking follows, then a frozen multi-case link-contact set with contact
 avoidance and task success reported separately.
+
+## ADR-0041: Test task preservation with one shared prefix and complete suffix
+
+Accepted for the user's requested feasibility test. Re-running joint-velocity
+control from action zero would replace a long, already validated successful
+OSC trajectory and spend most computation before the relevant collision. The
+minimal integration instead replays the exact historical AEGIS/OSC prefix once
+through action 179, then branches adapter-only and adapter-plus-link-5/link-6
+Poisson-CBF from the same complete pre-contact MuJoCo state. Both consume all
+remaining recorded actions 180--236 with fixed cadence. This preserves a real
+full recorded SafeLIBERO episode while concentrating the intervention on the
+controller segment being tested.
+
+The design is open-loop after the branched states diverge and must be reported
+as such. It can establish one-case controller feasibility if the PSF arm still
+reaches the native task goal, but it cannot establish closed-loop VLA recovery
+or population safety. The historical AEGIS result remains the authority that
+the original policy succeeds while contacting the moka pot with link 5; the
+new adapter-only suffix must independently reproduce that contact.
+
+A no-contact result is accepted only with complete suffix exposure, positive
+full-robot clearance, material pre-contact correction, continued measured
+joint/Cartesian motion, nonzero commands, and native task success after the
+correction and at terminal. Contact avoidance without task success is a task-
+failure result; insufficient post-correction motion is `STOP_ONLY`; any link-5,
+link-6, or shifted robot contact is a collision failure. A PSF contact ends the
+arm immediately and is interpreted from its complete pre-contact trace because
+continuing after leaving the strict `h > 0` safe set would require an
+unregistered fallback. Tracking error and solve time remain diagnostics, so
+this feasibility experiment does not claim realized-velocity invariance or
+real-time deployment.
+
+The independent consumer binds the frozen suffix action array from every
+entered controller update and reconstructs contact-authoritative `D_sim` from
+the minimum raw signed MuJoCo contact distance rather than from a binary contact
+flag. It does not reconstruct the static-obstacle
+envelope from a second raw pose/velocity stream; those flags remain bound to
+the exact producer commit and runtime protocol. This is an accepted limitation
+for the requested lean feasibility test, not authority for a publication-grade
+dynamic-obstacle or population claim.

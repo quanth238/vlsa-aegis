@@ -673,3 +673,57 @@ python3 scripts/validate_poisson_fast_feasibility_artifact.py \
   --result /Users/quanth238/personal/Research/probe_vla/output/vlsa_poisson_fast_feasibility/vlsa-poisson-fast-window-20260802e/result.json \
   --expected-job-id 33907
 ```
+
+## P01 full recorded-episode feasibility protocol (implementation pending H100)
+
+The next test asks the narrower result's unresolved question: can the same
+link-5/link-6 3D Poisson-CBF correction prevent the arm-link collision and
+still finish `put_the_bowl_on_the_plate`? The smallest valid integration replays
+the exact successful AEGIS/OSC prefix actions 0--179 once, snapshots complete
+`mjSTATE_INTEGRATION` state at pre-contact boundary 4500, and restores that
+same state into adapter-only and adapter-plus-PSF suffix arms. Both arms consume
+the complete recorded suffix actions 180--236. Each no-contact arm therefore
+executes 57 high-level actions, 285 safety-filter updates, and 1,425 two-
+millisecond physics substeps; together with the shared prefix this is the full
+237-action recorded VLA episode.
+
+The protocol is explicitly an offline, single-case, hybrid controller-
+feasibility test. It makes no online policy queries after the two suffix arms
+diverge, so it is not a closed-loop VLA evaluation. The native BDDL goal is
+false at the branch. Both arms record reward, `done`, native predicate values,
+argument poses, and terminal simulator/observation hashes at every completed
+suffix action. Reaching the goal early is latched but does not shorten the
+registered exposure.
+
+Only `SAFE_TASK_SUCCESS_USEFUL_CORRECTION` is positive. It requires the paired
+adapter to reproduce the first link-5/moka-pot contact; the PSF arm to have no
+selected-obstacle contact from any robot collision geom and a strictly positive
+full-robot clearance certificate; material correction before baseline contact;
+complete QP, field, bound, and exposure evidence; nontrivial post-correction
+joint and Cartesian motion with nonzero commands; and native task success after
+the correction and at the terminal action. Separate negative labels distinguish
+shifted/remaining contact, useful collision prevention with task failure, and
+stop-only behavior. Tracking and timing remain disclosed diagnostics rather
+than feasibility gates.
+
+Implementation lives in
+`configs/vlsa_poisson_full_episode_feasibility.v1.json`,
+`main/poisson_fullbody/full_episode_feasibility.py`, the reusable paired runner,
+and an independent trace consumer. A literal PSF contact terminates that arm as
+a valid scientific negative: continuing from `h <= 0` would require an unsafe
+fallback and cannot support the requested feasibility claim. No-contact claims
+must complete the entire suffix. H100 evidence is not yet recorded in this
+section; P01 remains `active`.
+
+The consumer independently binds the exact suffix actions at every controller
+update, QP arithmetic, command-to-physics trace, all-robot contact records,
+signed MuJoCo contact distance in `D_sim`, clearance certificate, task ledger,
+and post-correction motion. The final local gate passes 672 tests with 136
+expected allocation-only skips; the focused full-episode contracts pass 54
+tests with one expected local NumPy allocation skip. One retained
+limitation is explicit: static-obstacle envelope booleans and their aggregate
+drift/speed diagnostics are code-bound producer evidence, rather than a second
+reconstruction from serialized raw MuJoCo obstacle poses and velocities. The
+clean source commit and runtime hashes bind that simple calculation, but the
+experiment must not be described as independently remeasuring obstacle
+staticity.

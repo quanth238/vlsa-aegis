@@ -1,0 +1,138 @@
+{
+  "schema_version": "vlsa_poisson_full_episode_feasibility_protocol.v1",
+  "protocol_id": "vlsa-poisson-link56-full-episode-hybrid-v1",
+  "purpose": "single_case_paired_hybrid_full_recorded_episode_test_of_link56_poisson_cbf_controller_feasibility_and_native_task_success",
+  "case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "suite": "safelibero_goal",
+    "safety_level": "II",
+    "logical_task_index": 0,
+    "episode_index": 5,
+    "selected_obstacle_name": "moka_pot_obstacle_1",
+    "protected_robot_body_names": [
+      "robot0_link5",
+      "robot0_link6"
+    ]
+  },
+  "source": {
+    "source_arm": "pi05_plus_aegis_translational",
+    "action_field": "actions[*].executed",
+    "nominal_translational_field_prohibited": true,
+    "historical_result_relative_pattern": "tasks/task-*/results/aegis/{case_id}/result.json",
+    "historical_result_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "historical_result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+    "historical_executed_action_count": 237,
+    "historical_executed_action_sequence_sha256": "e5e2df4efee667fee0b0b7596dbc203a3cce84e67cb3507cb839132d2ee67481",
+    "suffix_action_record_sha256": "fdbddb5e98c0d4872773a9c980c7efd5bef0acc14b961ee785a5fb1323ed0dc7",
+    "suffix_action_array_sha256": "30f914fb87dbf6313afa0a8998179ecc24cf289556e95ace7a3132298da6f7ac",
+    "post_action_179_flattened_state_sha256": "2b4d25f12da2e1c110883b9f2194c9790270f36911f449d8c4f058a039c90335"
+  },
+  "episode": {
+    "execution_kind": "shared_prefix_branched_complete_suffix",
+    "shared_prefix_start_action_index": 0,
+    "shared_prefix_end_action_index_inclusive": 179,
+    "shared_prefix_action_count": 180,
+    "branch_physical_boundary": 4500,
+    "suffix_start_action_index": 180,
+    "suffix_end_action_index_inclusive": 236,
+    "suffix_action_count": 57,
+    "terminal_physical_boundary": 5925,
+    "no_event_physical_boundary_sentinel": 5926,
+    "recorded_full_episode_action_count": 237,
+    "expected_boundary_goal_values": [
+      false
+    ],
+    "continue_fixed_suffix_after_task_success": true,
+    "psf_contact_policy": "terminate_as_valid_scientific_negative_without_unsafe_h_nonpositive_fallback",
+    "interpretation": "complete_recorded_vla_episode_with_shared_historical_osc_prefix_and_branched_joint_velocity_suffix_open_loop_after_divergence"
+  },
+  "pairing": {
+    "settle_actions": 20,
+    "prefix": "replay_exact_historical_aegis_executed_actions_0_through_179_once_under_unchanged_osc",
+    "field": "construct_once_after_20_settling_actions_then_validate_selected_obstacle_pose_surface_drift_and_speed_through_boundary_4500",
+    "state": "one_exact_full_mjstate_integration_snapshot_restored_into_both_suffix_arms",
+    "controller_state": "fresh_identically_reset_joint_velocity_pid_in_both_suffix_arms",
+    "nominal_input": "same_historical_aegis_executed_actions_180_through_236_through_same_translational_joint_velocity_adapter",
+    "gripper": "same_exact_historical_executed_gripper_value_per_suffix_action_in_both_arms",
+    "online_policy_queries": 0
+  },
+  "cadence": {
+    "high_level_frequency_hz": 20,
+    "filter_frequency_hz": 100,
+    "physics_frequency_hz": 500,
+    "inner_updates_per_high_level_action": 5,
+    "physics_substeps_per_inner_update": 5,
+    "physics_timestep_s": 0.002,
+    "expected_filter_updates_per_arm": 285,
+    "expected_physics_substeps_per_arm": 1425
+  },
+  "exploratory_execution": {
+    "qp_max_iterations": 50000,
+    "field_audit_cadence": "all_protected_samples_at_each_100hz_pre_filter_boundary_plus_final_endpoint_for_no_contact_arm",
+    "literal_contact_cadence_hz": 500,
+    "tracking_policy": "diagnostic_only_not_feasibility_gate",
+    "solver_claim": "offline_controller_feasibility_not_realtime_100hz"
+  },
+  "arms": [
+    "joint_velocity_adapter_only",
+    "joint_velocity_adapter_plus_link56_psf"
+  ],
+  "runtime": {
+    "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v3.json",
+    "schema_version": "vlsa_poisson_runtime_protocol.v3",
+    "protocol_id": "vlsa-poisson-link56-canary-parameters-v3",
+    "raw_file_sha256": "396de850fb7f03b9ee038b2fec05f90ef1cb0230c5d40a81a43177162193726a",
+    "semantic_sha256": "2125989269a2ffeeb8d3408d56e4aaa74e1dc5816256d8210bf9ee686c5f5a30",
+    "parameter_block_sha256": "11de833ab8b1586948e7eb039c449a66a0c1a4107fa3232b236ad1ecb9ceeabe"
+  },
+  "selection": {
+    "relative_path": "configs/vlsa_poisson_link56_feasibility.v1.json",
+    "raw_file_sha256": "298fdfb36e65916bd4d780ff7e789152a66e45ccbcfa09939816af86188972c9",
+    "manifest_relative_path": "manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl",
+    "manifest_file_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2"
+  },
+  "acceptance": {
+    "minimum_safe_cbf_residual_m2_per_s": -5e-7,
+    "maximum_nominal_cbf_residual_for_activation_m2_per_s": -5e-7,
+    "maximum_invalid_field_queries": 0,
+    "minimum_filter_correction_norm_rad_s": 0.0001,
+    "minimum_filter_correction_integral_rad": 1e-6,
+    "minimum_post_correction_measured_joint_motion_integral_rad": 0.0001,
+    "minimum_post_correction_cartesian_path_length_m": 0.001,
+    "minimum_post_correction_executed_command_integral_rad": 0.0001,
+    "maximum_post_correction_zero_command_fraction": 0.99,
+    "require_exact_paired_start": true,
+    "require_adapter_link56_contact": true,
+    "require_adapter_first_selected_obstacle_contact_is_link56": true,
+    "require_psf_all_robot_selected_obstacle_contact_absent": true,
+    "require_psf_conservative_full_robot_clearance_strictly_positive": true,
+    "require_material_correction_before_adapter_contact": true,
+    "require_post_correction_motion": true,
+    "require_native_task_success_ever_and_terminal": true,
+    "require_task_success_after_material_correction": true
+  },
+  "classification": {
+    "labels": [
+      "SAFE_TASK_SUCCESS_USEFUL_CORRECTION",
+      "CONTACT_PREVENTED_TASK_FAILED",
+      "STOP_ONLY",
+      "CONTACT_REMAINS_OR_SHIFTED",
+      "INCONCLUSIVE_APPARATUS"
+    ],
+    "positive_definition": "adapter_reproduces_first_link56_contact_psf_has_no_selected_obstacle_contact_from_any_robot_geom_full_clearance_is_certified_material_correction_occurs_before_baseline_contact_post_correction_motion_is_nontrivial_and_native_task_success_is_reached_after_correction_and_at_terminal",
+    "contact_prevented_task_failed_definition": "complete_valid_no_contact_psf_suffix_has_useful_correction_but_native_terminal_task_goal_is_false",
+    "stop_only_definition": "contact_is_prevented_after_material_psf_activation_but_registered_post_correction_motion_gate_fails",
+    "contact_remains_or_shifted_definition": "psf_suffix_has_literal_selected_obstacle_contact_from_link56_or_any_other_robot_geometry",
+    "inconclusive_definition": "apparatus_pairing_exposure_qp_field_bound_static_clearance_or_baseline_reproduction_authority_is_missing"
+  },
+  "result_contract": {
+    "schema_version": "vlsa_poisson_full_episode_feasibility_result.v1",
+    "metrics_schema_version": "vlsa_poisson_full_episode_feasibility_metrics.v1",
+    "classification_schema_version": "vlsa_poisson_full_episode_feasibility_classification.v1",
+    "write_policy": "atomic_final_json_only_never_overwrite",
+    "failure_policy": "publish_typed_apparatus_failure_when_output_is_available",
+    "partial_output_policy": "never_interpret",
+    "independent_consumer_required": true,
+    "claim_scope": "one_offline_single_case_hybrid_full_recorded_episode_controller_feasibility_not_closed_loop_policy_not_population_safety_not_realtime"
+  }
+}

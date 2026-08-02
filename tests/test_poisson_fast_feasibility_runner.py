@@ -1,4 +1,5 @@
 import ast
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -6,6 +7,7 @@ import unittest
 from scripts.run_poisson_fast_feasibility import (
     _contact_physical_boundary,
     _first_contact_boundary,
+    _run_arm,
 )
 
 
@@ -52,6 +54,244 @@ class FastFeasibilityRunnerContractTests(unittest.TestCase):
         self.assertIn("PHYSICS_DT_S", self.source)
         self.assertIn('"execution_cadence": execution_cadence', self.source)
         self.assertIn('"physics_monitor_trace_counts_match"', self.source)
+
+    def test_exposure_counts_are_reusable_parameters_with_window_defaults(self):
+        parameters = inspect.signature(_run_arm).parameters
+        self.assertEqual(parameters["expected_filter_updates"].default, 40)
+        self.assertEqual(parameters["expected_physics_substeps"].default, 200)
+        self.assertIsNone(parameters["expected_boundary_goal_values"].default)
+        run_arm = self.source[
+            self.source.index("def _run_arm(") : self.source.index("def _pair_exact(")
+        ]
+        self.assertIn(
+            "expected_filter_updates != expected_action_count * 5", run_arm
+        )
+        self.assertIn(
+            "expected_physics_substeps != expected_filter_updates * 5", run_arm
+        )
+        self.assertIn(
+            "len(command_rows) == expected_filter_updates", run_arm
+        )
+        self.assertIn(
+            "physics_trace_row_count == expected_physics_substeps", run_arm
+        )
+        self.assertNotIn("len(command_rows) == 40", run_arm)
+        self.assertNotIn("physics_trace_row_count == 200", run_arm)
+
+    def test_full_episode_mode_binds_frozen_suffix_and_protocol_counts(self):
+        self.assertIn(
+            '"vlsa_poisson_full_episode_feasibility_protocol.v1"',
+            self.source,
+        )
+        self.assertIn(
+            "validate_full_episode_feasibility_protocol", self.source
+        )
+        self.assertIn("classify_full_episode_feasibility", self.source)
+        self.assertIn('"suffix_action_record_sha256"', self.source)
+        self.assertIn('"suffix_action_array_sha256"', self.source)
+        self.assertIn(
+            'expected_filter_updates=derived["expected_updates"]',
+            self.source,
+        )
+        self.assertIn(
+            'expected_physics_substeps=derived["expected_substeps"]',
+            self.source,
+        )
+        self.assertIn(
+            "expected_boundary_goal_values=expected_boundary_goal_values",
+            self.source,
+        )
+        self.assertIn(
+            'protocol["episode"]["expected_boundary_goal_values"]',
+            self.source,
+        )
+        self.assertIn(
+            'replay.steps[derived["start_action"] - 1].goal_values',
+            self.source,
+        )
+
+    def test_full_episode_compact_metrics_match_classifier_contract(self):
+        expected = {
+            "schema_version",
+            "exact_paired_start",
+            "shared_prefix_complete",
+            "full_recorded_episode_complete",
+            "adapter_exposure_complete",
+            "psf_exposure_complete",
+            "adapter_physics_monitor_trace_counts_match",
+            "psf_physics_monitor_trace_counts_match",
+            "adapter_filter_update_count",
+            "psf_filter_update_count",
+            "adapter_physics_substep_count",
+            "psf_physics_substep_count",
+            "adapter_completed_suffix_action_count",
+            "psf_completed_suffix_action_count",
+            "psf_qp_count_complete",
+            "psf_qp_postchecks_complete",
+            "psf_joint_limit_postchecks_complete",
+            "all_issued_commands_within_physical_bounds",
+            "both_nominal_commands_within_dynamic_joint_bounds",
+            "psf_invalid_field_query_count",
+            "psf_all_post_state_field_queries_valid_and_positive",
+            "static_selected_obstacle_admissible",
+            "boundary_goal_unsatisfied",
+            "adapter_link56_contact_present",
+            "adapter_first_selected_obstacle_contact_is_link56",
+            "psf_link56_contact_present",
+            "psf_any_robot_selected_obstacle_contact_present",
+            "psf_clearance_certified",
+            "material_correction_before_adapter_contact",
+            "first_material_correction_physical_boundary",
+            "adapter_first_link56_contact_physical_boundary",
+            "material_correction_update_count",
+            "maximum_correction_norm_rad_s",
+            "filter_correction_integral_rad",
+            "post_correction_measured_joint_motion_integral_rad",
+            "post_correction_cartesian_path_length_m",
+            "post_correction_executed_command_integral_rad",
+            "post_correction_zero_command_fraction",
+            "psf_task_success_ever",
+            "psf_terminal_task_success",
+            "psf_first_task_success_source_action_index",
+            "psf_task_success_after_material_correction",
+            "adapter_task_success_ever",
+            "adapter_terminal_task_success",
+        }
+        candidates = []
+        for node in ast.walk(self.tree):
+            if not isinstance(node, ast.Assign) or not isinstance(
+                node.value, ast.Dict
+            ):
+                continue
+            keys = {
+                key.value
+                for key in node.value.keys
+                if isinstance(key, ast.Constant)
+                and isinstance(key.value, str)
+            }
+            if "full_recorded_episode_complete" in keys:
+                candidates.append(keys)
+        self.assertEqual(candidates, [expected])
+
+    def test_full_episode_result_and_failure_use_selected_schema(self):
+        self.assertIn('"protocol_id": selected_protocol_id', self.source)
+        self.assertIn('"episode": episode', self.source)
+        self.assertIn('"shared_osc_prefix"', self.source)
+        self.assertIn('"paired_joint_velocity_suffix"', self.source)
+        self.assertIn(
+            '"historical_aegis_reference": historical_aegis_reference',
+            self.source,
+        )
+        self.assertIn(
+            '"released_aegis_barrier_h_values_positive"', self.source
+        )
+        self.assertIn('"terminal_recorded_action"', self.source)
+        self.assertIn('"post_correction_motion": post_correction_motion', self.source)
+        self.assertIn('"schema_version": selected_result_schema', self.source)
+        self.assertNotIn(
+            "from main.poisson_fullbody.fast_feasibility import RESULT_SCHEMA\n",
+            self.source[self.source.index("except Exception as error:") :],
+        )
+
+    def test_native_goal_is_initialized_only_after_exact_restore(self):
+        run_arm = self.source[
+            self.source.index("def _run_arm(") : self.source.index("def _pair_exact(")
+        ]
+        restore = run_arm.index(
+            "restore = restore_osc_settled_state_into_joint_velocity_env("
+        )
+        exact_restore_check = run_arm.index(
+            'raise FastRunnerError("JV arm did not receive exact boundary B")'
+        )
+        goal_definition = run_arm.index(
+            "goal_definition, goal_atoms = evaluator._goal_progress_definition(env)"
+        )
+        goal_snapshot = run_arm.index(
+            "boundary_goal = evaluator._goal_progress_snapshot("
+        )
+        self.assertLess(restore, exact_restore_check)
+        self.assertLess(exact_restore_check, goal_definition)
+        self.assertLess(goal_definition, goal_snapshot)
+        self.assertIn(
+            "observed_boundary_values != expected_boundary_values", run_arm
+        )
+        self.assertIn(
+            'boundary_goal["transition_metadata_available"] = False', run_arm
+        )
+        self.assertIn(
+            "unavailable_without_preceding_action_boundary_goal_vector", run_arm
+        )
+        self.assertIn(
+            'boundary_goal["newly_satisfied_indices"] = []', run_arm
+        )
+        self.assertIn(
+            'boundary_goal["regressed_indices"] = []', run_arm
+        )
+
+    def test_grouped_native_task_result_is_measured_without_early_success_stop(self):
+        run_arm = self.source[
+            self.source.index("def _run_arm(") : self.source.index("def _pair_exact(")
+        ]
+        self.assertIn(
+            "observation, reward, done, info = (", run_arm
+        )
+        self.assertIn(
+            'failure_stage = "measure_native_task_goal"', run_arm
+        )
+        self.assertIn(
+            'if bool(done) is not bool(goal["all_satisfied"]):', run_arm
+        )
+        self.assertIn(
+            'snapshot_kind="completed_high_level_post_step"', run_arm
+        )
+        self.assertIn(
+            "ever_task_success = bool(ever_task_success or terminal_task_success)",
+            run_arm,
+        )
+        self.assertIn(
+            '"continue_fixed_exposure_after_success": True', run_arm
+        )
+        self.assertNotIn("if done:\n                break", run_arm)
+        terminal_sync = run_arm.index(
+            'failure_stage = "synchronize_terminal_task_observation"'
+        )
+        partial_start = run_arm.index(
+            "if contact_terminated_early:", terminal_sync
+        )
+        partial = run_arm[
+            partial_start : run_arm.index("measurement = monitor.result()", partial_start)
+        ]
+        self.assertIn("ever_task_success = True", partial)
+        self.assertIn(
+            "first_task_success_source_action_index = source_index", partial
+        )
+
+    def test_task_evidence_binds_rewards_goals_and_terminal_hashes(self):
+        run_arm = self.source[
+            self.source.index("def _run_arm(") : self.source.index("def _pair_exact(")
+        ]
+        for field in (
+            '"goal_definition": goal_definition',
+            '"goal_progress_ledger": goal_ledger',
+            '"reward_sum": float(reward_sum)',
+            '"terminal_reward": terminal_reward',
+            '"ever_task_success_at_or_after_branch"',
+            '"first_task_success_source_action_index"',
+            '"terminal_task_success"',
+            '"terminal_goal_fraction"',
+            '"terminal_simulator_state_sha256": terminal_state_hash',
+            '"terminal_official_integration_state_raw_bytes_sha256"',
+            '"terminal_observation_sha256": terminal_observation_hash',
+        ):
+            self.assertIn(field, run_arm)
+        self.assertIn(
+            "terminal_official_before_observables = _official_state(env.sim)",
+            run_arm,
+        )
+        self.assertIn(
+            "terminal observation synchronization changed integration state",
+            run_arm,
+        )
 
     def test_runner_does_not_preclip_filtered_command(self):
         run_arm = self.source[

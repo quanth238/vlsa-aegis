@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Run one lean, paired link-5/6 Poisson-CBF feasibility window.
+"""Run a paired link-5/6 Poisson-CBF feasibility experiment.
 
-This is deliberately not a full-episode safety evaluation.  It restores the
-exact historical state at action 180, then compares the same eight recorded
-AEGIS-executed actions under the joint-velocity adapter with and without the
-link-5/6 Poisson filter.  There are no policy queries and no exhaustive shadow
-scan.  A single immutable ``result.json`` is published atomically.
+The default protocol preserves the original eight-action fast window.  The
+separately versioned full-episode protocol reuses the same exact OSC prefix and
+boundary-4500 restore, then executes all recorded suffix actions through action
+236.  Neither mode makes online policy queries.  Each publishes one immutable
+``result.json`` atomically.
 """
 
 from __future__ import annotations
@@ -29,6 +29,12 @@ from typing import Any, Dict, List, Mapping, Sequence, Tuple
 RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 PHYSICS_DT_S = 0.002
 INNER_DT_S = 0.01
+FAST_PROTOCOL_SCHEMA = "vlsa_poisson_fast_feasibility_protocol.v1"
+FAST_RESULT_SCHEMA = "vlsa_poisson_fast_feasibility_result.v1"
+FULL_EPISODE_PROTOCOL_SCHEMA = (
+    "vlsa_poisson_full_episode_feasibility_protocol.v1"
+)
+FULL_EPISODE_RESULT_SCHEMA = "vlsa_poisson_full_episode_feasibility_result.v1"
 
 
 class FastRunnerError(RuntimeError):
@@ -479,6 +485,124 @@ def _active_interval_motion(
     }
 
 
+def _post_correction_motion(
+    command_rows: Sequence[Mapping[str, Any]],
+    physics_rows: Sequence[Mapping[str, Any]],
+    *,
+    first_correction_physical_boundary: Any,
+) -> Dict[str, Any]:
+    """Measure useful execution from the first material correction onward.
+
+    This population is deliberately broader than the correction-active updates:
+    completing the task after a safety intervention requires continued motion,
+    including updates where the CBF later becomes inactive.
+    """
+
+    import numpy as np
+
+    commands = (
+        []
+        if first_correction_physical_boundary is None
+        else [
+            row
+            for row in command_rows
+            if int(row["physical_boundary"])
+            >= int(first_correction_physical_boundary)
+        ]
+    )
+    keys = {
+        (int(row["source_action_index"]), int(row["inner_control_index"]))
+        for row in commands
+    }
+    physics = [
+        row
+        for row in physics_rows
+        if (int(row["source_action_index"]), int(row["inner_control_index"]))
+        in keys
+    ]
+    correction_integral = sum(
+        float(row["correction_l2_rad_s"]) * INNER_DT_S for row in commands
+    )
+    command_integral = sum(
+        float(
+            np.linalg.norm(
+                np.asarray(row["executed_qdot_rad_s"], dtype=np.float64)
+            )
+        )
+        * INNER_DT_S
+        for row in commands
+    )
+    measured_integral = sum(
+        float(
+            np.linalg.norm(
+                np.asarray(row["measured_qvel_rad_s"], dtype=np.float64)
+            )
+        )
+        * PHYSICS_DT_S
+        for row in physics
+    )
+    zero_command_count = sum(
+        float(
+            np.linalg.norm(
+                np.asarray(row["executed_qdot_rad_s"], dtype=np.float64)
+            )
+        )
+        <= 1e-8
+        for row in commands
+    )
+    cartesian_path = 0.0
+    complete_intervals = 0
+    for command in commands:
+        key = (
+            int(command["source_action_index"]),
+            int(command["inner_control_index"]),
+        )
+        rows = sorted(
+            (
+                row
+                for row in physics
+                if (
+                    int(row["source_action_index"]),
+                    int(row["inner_control_index"]),
+                )
+                == key
+                and row.get("eef_position_world_m") is not None
+            ),
+            key=lambda row: int(row["physics_substep_index"]),
+        )
+        if len(rows) != 5:
+            continue
+        previous = np.asarray(
+            command["eef_position_before_update_world_m"], dtype=np.float64
+        )
+        for row in rows:
+            current = np.asarray(row["eef_position_world_m"], dtype=np.float64)
+            cartesian_path += float(np.linalg.norm(current - previous))
+            previous = current
+        complete_intervals += 1
+    return {
+        "first_correction_physical_boundary": (
+            None
+            if first_correction_physical_boundary is None
+            else int(first_correction_physical_boundary)
+        ),
+        "command_update_count": len(commands),
+        "physics_substep_count": len(physics),
+        "complete_command_interval_count": complete_intervals,
+        "maximum_correction_norm_rad_s": max(
+            (float(row["correction_l2_rad_s"]) for row in commands),
+            default=0.0,
+        ),
+        "filter_correction_integral_rad": correction_integral,
+        "executed_command_integral_rad": command_integral,
+        "measured_joint_motion_integral_rad": measured_integral,
+        "cartesian_path_length_m": cartesian_path,
+        "zero_command_fraction": (
+            1.0 if not commands else float(zero_command_count) / len(commands)
+        ),
+    }
+
+
 def _contact_physical_boundary(record: Any, start_boundary: int) -> int:
     if record.observation_index is None:
         raise FastRunnerError("rollout contact lacks an observation index")
@@ -554,6 +678,9 @@ def _run_arm(
     runtime_protocol: Mapping[str, Any],
     nominal_activation_threshold_m2_per_s: float,
     qp_max_iterations: int,
+    expected_filter_updates: int = 40,
+    expected_physics_substeps: int = 200,
+    expected_boundary_goal_values: Any = None,
 ) -> Dict[str, Any]:
     import numpy as np
     from main.poisson_fullbody.cbf_qp import HardCbfQp, joint_velocity_bounds
@@ -564,9 +691,40 @@ def _run_arm(
         normalized_joint_velocity_action,
     )
     from main.poisson_fullbody.measurement import FullRobotObstacleMonitor, clone_forwarded_state
+    from scripts.run_poisson_shadow_parity import _fingerprint, _observation_sha256
 
     if arm_name not in ("joint_velocity_adapter_only", "joint_velocity_adapter_plus_link56_psf"):
         raise FastRunnerError("unknown fast arm")
+    if (
+        isinstance(expected_filter_updates, bool)
+        or not isinstance(expected_filter_updates, int)
+        or expected_filter_updates <= 0
+        or isinstance(expected_physics_substeps, bool)
+        or not isinstance(expected_physics_substeps, int)
+        or expected_physics_substeps <= 0
+    ):
+        raise FastRunnerError("expected exposure counts must be positive integers")
+    expected_action_count = len(actions)
+    if (
+        expected_action_count <= 0
+        or expected_filter_updates != expected_action_count * 5
+        or expected_physics_substeps != expected_filter_updates * 5
+    ):
+        raise FastRunnerError(
+            "expected exposure does not match the supplied high-level actions"
+        )
+    expected_boundary_values = None
+    if expected_boundary_goal_values is not None:
+        if (
+            isinstance(expected_boundary_goal_values, (str, bytes))
+            or not isinstance(expected_boundary_goal_values, Sequence)
+            or not expected_boundary_goal_values
+            or any(not isinstance(value, bool) for value in expected_boundary_goal_values)
+        ):
+            raise FastRunnerError(
+                "expected boundary native-goal values must be a nonempty Boolean sequence"
+            )
+        expected_boundary_values = tuple(expected_boundary_goal_values)
     psf_enabled = arm_name.endswith("psf")
     env = None
     monitor = None
@@ -599,6 +757,20 @@ def _run_arm(
     contact_terminated_early = False
     pending: Dict[str, Any] = {}
     execution_cadence: Dict[str, float] = {}
+    goal_definition: Dict[str, Any] = {}
+    goal_ledger: List[Dict[str, Any]] = []
+    boundary_goal: Dict[str, Any] = {}
+    previous_goal_values: Sequence[bool] = ()
+    ever_task_success = False
+    first_task_success_source_action_index: Any = None
+    terminal_task_success = False
+    terminal_goal_fraction = 0.0
+    reward_sum = 0.0
+    terminal_reward: Any = None
+    returned_observation_hashes: List[str] = []
+    terminal_observation_hash: Any = None
+    terminal_state_hash: Any = None
+    terminal_official_state_raw_bytes_sha256: Any = None
     qp = None
     try:
         failure_stage = "build_joint_velocity_environment"
@@ -666,6 +838,49 @@ def _run_arm(
             )
         ):
             raise FastRunnerError("fresh JV PID memory was not reset")
+
+        failure_stage = "initialize_native_task_goal"
+        goal_definition, goal_atoms = evaluator._goal_progress_definition(env)
+        boundary_goal = evaluator._goal_progress_snapshot(
+            env,
+            goal_atoms,
+            step=source_start_action - 1,
+            previous_values=expected_boundary_values,
+        )
+        observed_boundary_values = tuple(boundary_goal["values"])
+        if (
+            expected_boundary_values is not None
+            and observed_boundary_values != expected_boundary_values
+        ):
+            raise FastRunnerError(
+                "restored boundary native-goal values differ from the expected prefix"
+            )
+        # The optional expected vector describes this boundary, not the
+        # preceding action boundary.  It can validate current goal state but
+        # cannot establish which predicates changed during action 179.
+        boundary_goal["newly_satisfied_indices"] = []
+        boundary_goal["regressed_indices"] = []
+        boundary_goal["transition_metadata_available"] = False
+        boundary_goal["transition_metadata_semantics"] = (
+            "unavailable_without_preceding_action_boundary_goal_vector; "
+            "newly_satisfied_indices and regressed_indices are placeholders"
+        )
+        previous_goal_values = observed_boundary_values
+        ever_task_success = bool(boundary_goal["all_satisfied"])
+        terminal_task_success = ever_task_success
+        terminal_goal_fraction = float(boundary_goal["fraction"])
+        goal_ledger.append(
+            dict(
+                boundary_goal,
+                snapshot_kind="branch_boundary_pre_action",
+                local_action_index=None,
+                source_action_index=source_start_action - 1,
+                reward=None,
+                returned_done=None,
+                returned_info=None,
+                returned_observation_sha256=None,
+            )
+        )
 
         arm_dofs = tuple(int(value) for value in env.robots[0]._ref_joint_vel_indexes)
         arm_qpos = tuple(int(value) for value in env.robots[0]._ref_joint_pos_indexes)
@@ -819,6 +1034,7 @@ def _run_arm(
                     last_qp_attempt = {
                         "local_action_index": local_index,
                         "source_action_index": source_index,
+                        "source_action": source_action.tolist(),
                         "inner_control_index": int(inner_index),
                         "physical_boundary": update_physical_boundary,
                         "valid": bool(result.valid),
@@ -913,6 +1129,12 @@ def _run_arm(
                     {
                         "local_action_index": local_index,
                         "source_action_index": source_index,
+                        # Serialize the immutable high-level VLA command on
+                        # every 100 Hz controller row.  The independent
+                        # consumer reconstructs the complete suffix array
+                        # from these rows instead of trusting only a reported
+                        # hash or the mutually paired arm commands.
+                        "source_action": source_action.tolist(),
                         "inner_control_index": int(inner_index),
                         "physical_boundary": update_physical_boundary,
                         "nominal_qdot_rad_s": nominal.tolist(),
@@ -1056,16 +1278,65 @@ def _run_arm(
                 )
 
             try:
-                env.step_grouped_actions_with_substep_callback(
-                    provider,
-                    callback,
-                    expected_inner_updates=5,
-                    expected_substeps_per_inner=5,
-                    expected_high_level_dt=0.05,
+                observation, reward, done, info = (
+                    env.step_grouped_actions_with_substep_callback(
+                        provider,
+                        callback,
+                        expected_inner_updates=5,
+                        expected_substeps_per_inner=5,
+                        expected_high_level_dt=0.05,
+                    )
                 )
             except _PsfContactObserved:
                 contact_terminated_early = True
                 break
+            failure_stage = "measure_native_task_goal"
+            if not isinstance(observation, Mapping):
+                raise FastRunnerError(
+                    "completed grouped action lacks a native observation"
+                )
+            if isinstance(reward, bool) or not isinstance(reward, (int, float)):
+                raise FastRunnerError("native task reward is not numeric")
+            reward_value = float(reward)
+            if not math.isfinite(reward_value):
+                raise FastRunnerError("native task reward is nonfinite")
+            if not isinstance(info, Mapping):
+                raise FastRunnerError("native task info is not an object")
+            info_record = _fingerprint(dict(info), evaluator, np)
+            goal = evaluator._goal_progress_snapshot(
+                env,
+                goal_atoms,
+                step=source_index,
+                previous_values=previous_goal_values,
+            )
+            if bool(done) is not bool(goal["all_satisfied"]):
+                raise FastRunnerError(
+                    "grouped-step done differs from the native BDDL goal conjunction"
+                )
+            observation_hash = _observation_sha256(observation, evaluator, np)
+            returned_observation_hashes.append(observation_hash)
+            goal_ledger.append(
+                dict(
+                    goal,
+                    snapshot_kind="completed_high_level_post_step",
+                    local_action_index=local_index,
+                    source_action_index=source_index,
+                    reward=reward_value,
+                    returned_done=bool(done),
+                    returned_info=info_record,
+                    returned_observation_sha256=observation_hash,
+                )
+            )
+            previous_goal_values = tuple(goal["values"])
+            reward_sum += reward_value
+            terminal_reward = reward_value
+            terminal_task_success = bool(goal["all_satisfied"])
+            terminal_goal_fraction = float(goal["fraction"])
+            if terminal_task_success and first_task_success_source_action_index is None:
+                first_task_success_source_action_index = source_index
+            ever_task_success = bool(ever_task_success or terminal_task_success)
+            # Preserve the registered paired exposure even if one arm reaches
+            # the native goal early. Task success is latched, not a stop rule.
             post_model, post_data = _raw_model_data(env.sim)
             post_forwarded = clone_forwarded_state(post_model, post_data)
             position_after = np.asarray(
@@ -1086,6 +1357,55 @@ def _run_arm(
                 }
             )
 
+        failure_stage = "synchronize_terminal_task_observation"
+        terminal_official_before_observables = _official_state(env.sim)
+        env.env._update_observables(force=True)
+        terminal_observation = env.env._get_observations()
+        terminal_official_after_observables = _official_state(env.sim)
+        if not np.array_equal(
+            terminal_official_before_observables,
+            terminal_official_after_observables,
+        ):
+            raise FastRunnerError(
+                "terminal observation synchronization changed integration state"
+            )
+        if not isinstance(terminal_observation, Mapping):
+            raise FastRunnerError("terminal native observation is unavailable")
+        terminal_observation_hash = _observation_sha256(
+            terminal_observation, evaluator, np
+        )
+        terminal_state_hash = evaluator.array_sha256(
+            env.sim.get_state().flatten()
+        )
+        terminal_official_state_raw_bytes_sha256 = _sha256(
+            terminal_official_after_observables.tobytes()
+        )
+        if contact_terminated_early:
+            terminal_goal = evaluator._goal_progress_snapshot(
+                env,
+                goal_atoms,
+                step=source_index,
+                previous_values=previous_goal_values,
+            )
+            terminal_task_success = bool(terminal_goal["all_satisfied"])
+            terminal_goal_fraction = float(terminal_goal["fraction"])
+            if terminal_task_success:
+                ever_task_success = True
+                if first_task_success_source_action_index is None:
+                    first_task_success_source_action_index = source_index
+            goal_ledger.append(
+                dict(
+                    terminal_goal,
+                    snapshot_kind="partial_action_terminal_state_diagnostic",
+                    local_action_index=local_index,
+                    source_action_index=source_index,
+                    reward=None,
+                    returned_done=None,
+                    returned_info=None,
+                    returned_observation_sha256=terminal_observation_hash,
+                )
+            )
+
         measurement = monitor.result()
         monitor_observed_physics_substeps = int(
             measurement.observed_physics_substeps
@@ -1093,6 +1413,12 @@ def _run_arm(
         physics_trace_row_count = len(physics_rows)
         physics_monitor_trace_counts_match = bool(
             monitor_observed_physics_substeps == physics_trace_row_count
+        )
+        exposure_complete = bool(
+            len(command_rows) == expected_filter_updates
+            and physics_trace_row_count == expected_physics_substeps
+            and monitor_observed_physics_substeps == expected_physics_substeps
+            and physics_monitor_trace_counts_match
         )
         first_link_contact = _first_link_contact_observation(measurement, resolved.link56_geom_ids)
         first_any_contact = _first_any_contact_observation(measurement)
@@ -1155,6 +1481,48 @@ def _run_arm(
             "fresh_adapter": True,
             "start_official_raw_bytes_sha256": start_official_sha256,
             "source_action_indexes": list(range(source_start_action, source_start_action + len(actions))),
+            "task": {
+                "source": "native_bddl_goal_predicates",
+                "goal_definition": goal_definition,
+                "expected_boundary_goal_values": (
+                    None
+                    if expected_boundary_values is None
+                    else list(expected_boundary_values)
+                ),
+                "boundary_goal_values_exact": (
+                    None
+                    if expected_boundary_values is None
+                    else tuple(boundary_goal["values"])
+                    == expected_boundary_values
+                ),
+                "boundary_goal_snapshot": boundary_goal,
+                "goal_progress_ledger": goal_ledger,
+                "registered_source_action_count": len(actions),
+                "completed_source_action_count": len(returned_observation_hashes),
+                "fixed_exposure_complete": exposure_complete,
+                "continue_fixed_exposure_after_success": True,
+                "initial_task_success_at_branch": bool(
+                    boundary_goal["all_satisfied"]
+                ),
+                "ever_task_success_at_or_after_branch": bool(
+                    ever_task_success
+                ),
+                "first_task_success_source_action_index": (
+                    first_task_success_source_action_index
+                ),
+                "terminal_task_success": bool(terminal_task_success),
+                "terminal_goal_fraction": float(terminal_goal_fraction),
+                "reward_sum": float(reward_sum),
+                "terminal_reward": terminal_reward,
+                "returned_observation_sha256_ledger": (
+                    returned_observation_hashes
+                ),
+                "terminal_simulator_state_sha256": terminal_state_hash,
+                "terminal_official_integration_state_raw_bytes_sha256": (
+                    terminal_official_state_raw_bytes_sha256
+                ),
+                "terminal_observation_sha256": terminal_observation_hash,
+            },
             "execution_cadence": execution_cadence,
             "qp_max_iterations_effective": int(qp.max_iter),
             "filter_update_count": len(command_rows),
@@ -1166,12 +1534,7 @@ def _run_arm(
             "physics_monitor_trace_counts_match": (
                 physics_monitor_trace_counts_match
             ),
-            "exposure_complete": bool(
-                len(command_rows) == 40
-                and physics_trace_row_count == 200
-                and monitor_observed_physics_substeps == 200
-                and physics_monitor_trace_counts_match
-            ),
+            "exposure_complete": exposure_complete,
             "contact_terminated_early": contact_terminated_early,
             "precontact_execution_valid": precontact_execution_valid,
             "qp_solve_count": qp_solve_count,
@@ -1312,6 +1675,37 @@ def _run_arm(
             "physics_trace": physics_rows,
             "activation_trace": activation_rows,
             "action_target_progress": action_progress_rows,
+            "task": {
+                "goal_definition": goal_definition,
+                "expected_boundary_goal_values": (
+                    None
+                    if expected_boundary_values is None
+                    else list(expected_boundary_values)
+                ),
+                "boundary_goal_snapshot": boundary_goal,
+                "goal_progress_ledger": goal_ledger,
+                "registered_source_action_count": len(actions),
+                "completed_source_action_count": len(returned_observation_hashes),
+                "fixed_exposure_complete": False,
+                "ever_task_success_at_or_after_branch": bool(
+                    ever_task_success
+                ),
+                "first_task_success_source_action_index": (
+                    first_task_success_source_action_index
+                ),
+                "terminal_task_success": bool(terminal_task_success),
+                "terminal_goal_fraction": float(terminal_goal_fraction),
+                "reward_sum": float(reward_sum),
+                "terminal_reward": terminal_reward,
+                "returned_observation_sha256_ledger": (
+                    returned_observation_hashes
+                ),
+                "terminal_simulator_state_sha256": terminal_state_hash,
+                "terminal_official_integration_state_raw_bytes_sha256": (
+                    terminal_official_state_raw_bytes_sha256
+                ),
+                "terminal_observation_sha256": terminal_observation_hash,
+            },
             "measurement": measurement_record,
         }
         raise FastArmExecutionFailure(
@@ -1371,16 +1765,12 @@ def main() -> int:
     provenance: Dict[str, Any] = {}
     assumption_evidence: Dict[str, Any] = {}
     arm_evidence: Dict[str, Any] = {}
+    selected_result_schema = FAST_RESULT_SCHEMA
+    selected_protocol_id: Any = None
+    full_episode_mode = False
     try:
         import numpy as np
         from main.poisson_fullbody.contracts import publish_hashed_json
-        from main.poisson_fullbody.fast_feasibility import (
-            CASE_ID,
-            RESULT_SCHEMA,
-            SOURCE_ARM,
-            classify_fast_feasibility,
-            validate_fast_feasibility_protocol,
-        )
         from main.poisson_fullbody.feasibility_protocol import load_feasibility_protocol
         from main.poisson_fullbody.field_bundle import build_static_field_bundle
         from main.poisson_fullbody.measurement import clone_forwarded_state, resolve_collision_geom_sets
@@ -1395,10 +1785,43 @@ def main() -> int:
 
         protocol_path = arguments.protocol if arguments.protocol.is_absolute() else root / arguments.protocol
         manifest_path = arguments.manifest if arguments.manifest.is_absolute() else root / arguments.manifest
-        protocol = _json(protocol_path.resolve(), "fast protocol")
-        derived = validate_fast_feasibility_protocol(protocol)
+        protocol = _json(protocol_path.resolve(), "feasibility protocol")
+        protocol_schema = protocol.get("schema_version")
+        selected_protocol_id = protocol.get("protocol_id")
+        if protocol_schema == FAST_PROTOCOL_SCHEMA:
+            selected_result_schema = FAST_RESULT_SCHEMA
+            from main.poisson_fullbody.fast_feasibility import (
+                CASE_ID,
+                RESULT_SCHEMA,
+                SOURCE_ARM,
+                classify_fast_feasibility,
+                validate_fast_feasibility_protocol,
+            )
+
+            validate_selected_protocol = validate_fast_feasibility_protocol
+            classify_selected_feasibility = classify_fast_feasibility
+        elif protocol_schema == FULL_EPISODE_PROTOCOL_SCHEMA:
+            full_episode_mode = True
+            selected_result_schema = FULL_EPISODE_RESULT_SCHEMA
+            from main.poisson_fullbody.full_episode_feasibility import (
+                CASE_ID,
+                METRICS_SCHEMA,
+                RESULT_SCHEMA,
+                SOURCE_ARM,
+                classify_full_episode_feasibility,
+                validate_full_episode_feasibility_protocol,
+            )
+
+            validate_selected_protocol = (
+                validate_full_episode_feasibility_protocol
+            )
+            classify_selected_feasibility = classify_full_episode_feasibility
+        else:
+            raise FastRunnerError("unsupported feasibility protocol schema")
+        selected_result_schema = RESULT_SCHEMA
+        derived = validate_selected_protocol(protocol)
         if arguments.case_id != CASE_ID:
-            raise FastRunnerError("fast runner is frozen to %s" % CASE_ID)
+            raise FastRunnerError("feasibility runner is frozen to %s" % CASE_ID)
         source = _git(root)
         allocation = _allocation()
         case, case_row_sha256 = _manifest_case(manifest_path.resolve(), arguments.case_id)
@@ -1431,7 +1854,55 @@ def main() -> int:
             or replay.executed_sequence_sha256 != historical["historical_executed_action_sequence_sha256"]
             or len(replay.actions) != historical["historical_executed_action_count"]
         ):
-            raise FastRunnerError("historical replay differs from frozen fast protocol")
+            raise FastRunnerError("historical replay differs from frozen protocol")
+        historical_aegis_reference: Dict[str, Any] = {}
+        if full_episode_mode:
+            selection_evidence = case.get("selection_evidence")
+            if not isinstance(selection_evidence, Mapping):
+                raise FastRunnerError("frozen case selection evidence is absent")
+            barrier_h_at_contact = float(
+                selection_evidence[
+                    "released_aegis_barrier_h_at_first_relevant_contact"
+                ]
+            )
+            barrier_h_at_car = float(
+                selection_evidence[
+                    "released_aegis_barrier_h_at_car_crossing"
+                ]
+            )
+            terminal_historical_step = replay.steps[-1]
+            historical_aegis_reference = {
+                "authority": (
+                    "frozen_manifest_selection_evidence_and_historical_replay"
+                ),
+                "diagnostic_only_not_a_new_acceptance_gate": True,
+                "aegis_collision": bool(replay.historical_car_collision),
+                "aegis_task_success": bool(replay.historical_task_success),
+                "literal_robot_contact_bodies": list(
+                    selection_evidence["literal_robot_contact_bodies"]
+                ),
+                "first_relevant_contact_step": int(
+                    selection_evidence["first_relevant_contact_step"]
+                ),
+                "car_collision_step": int(
+                    selection_evidence["collision_first_step"]
+                ),
+                "released_aegis_barrier_h_at_first_relevant_contact": (
+                    barrier_h_at_contact
+                ),
+                "released_aegis_barrier_h_at_car_crossing": barrier_h_at_car,
+                "released_aegis_barrier_h_values_positive": bool(
+                    barrier_h_at_contact > 0.0 and barrier_h_at_car > 0.0
+                ),
+                "terminal_recorded_action": {
+                    "source_action_index": int(terminal_historical_step.step),
+                    "done": bool(terminal_historical_step.done),
+                    "reward": float(terminal_historical_step.reward),
+                    "native_goal_values": list(
+                        terminal_historical_step.goal_values
+                    ),
+                },
+            }
         window_actions = replay.actions[derived["start_action"] : derived["end_action"] + 1]
         window_record = {
             "source_arm": SOURCE_ARM,
@@ -1439,8 +1910,25 @@ def main() -> int:
             "end_action_index_inclusive": derived["end_action"],
             "actions": [list(row) for row in window_actions],
         }
-        if _sha256(_canonical(window_record)) != historical["window_action_record_sha256"]:
-            raise FastRunnerError("frozen eight-action window hash differs")
+        action_record_hash_field = (
+            "suffix_action_record_sha256"
+            if full_episode_mode
+            else "window_action_record_sha256"
+        )
+        observed_action_record_sha256 = _sha256(_canonical(window_record))
+        if (
+            observed_action_record_sha256
+            != historical[action_record_hash_field]
+        ):
+            raise FastRunnerError("frozen action-window record hash differs")
+        observed_action_array_sha256 = _sha256(
+            _canonical([list(row) for row in window_actions])
+        )
+        if full_episode_mode and (
+            observed_action_array_sha256
+            != historical["suffix_action_array_sha256"]
+        ):
+            raise FastRunnerError("frozen suffix action-array hash differs")
         if any(any(float(value) != 0.0 for value in action[3:6]) for action in window_actions):
             raise FastRunnerError("translation-only adapter would discard nonzero rotation")
 
@@ -1456,8 +1944,21 @@ def main() -> int:
             "historical_result_payload_sha256": replay.result_payload_sha256,
             "historical_executed_action_sequence_sha256": replay.executed_sequence_sha256,
             "online_policy_query_count": 0,
-            "exploratory_execution": dict(protocol["exploratory_execution"]),
+            "exploratory_execution": dict(
+                protocol.get("exploratory_execution", protocol.get("execution", {}))
+            ),
         }
+        if full_episode_mode:
+            provenance.update(
+                {
+                    "suffix_action_record_sha256": (
+                        observed_action_record_sha256
+                    ),
+                    "suffix_action_array_sha256": (
+                        observed_action_array_sha256
+                    ),
+                }
+            )
         runtime = evaluator._runtime_imports(include_aegis=False)
         source_env, _, observation, goal_atoms, previous_goal = _prepare_environment(
             evaluator,
@@ -1571,6 +2072,22 @@ def main() -> int:
                     "settled static field became inadmissible at OSC prefix action %d"
                     % int(expected_step.step)
                 )
+        expected_boundary_goal_values = (
+            tuple(protocol["episode"]["expected_boundary_goal_values"])
+            if full_episode_mode
+            else None
+        )
+        if (
+            expected_boundary_goal_values is not None
+            and (
+                tuple(previous_goal) != expected_boundary_goal_values
+                or replay.steps[derived["start_action"] - 1].goal_values
+                != expected_boundary_goal_values
+            )
+        ):
+            raise FastRunnerError(
+                "exact OSC prefix native-goal values differ at action 179"
+            )
         flattened_B = np.asarray(source_env.sim.get_state().flatten(), dtype=np.float64).copy()
         observed_B_hash = evaluator.array_sha256(flattened_B)
         expected_B_hash = replay.steps[derived["start_action"] - 1].simulator_state_sha256
@@ -1634,6 +2151,9 @@ def main() -> int:
                 "maximum_nominal_cbf_residual_for_activation_m2_per_s"
             ],
             qp_max_iterations=derived["qp_max_iterations"],
+            expected_filter_updates=derived["expected_updates"],
+            expected_physics_substeps=derived["expected_substeps"],
+            expected_boundary_goal_values=expected_boundary_goal_values,
         )
         arm_evidence["adapter_only"] = adapter
         psf = _run_arm(
@@ -1653,6 +2173,9 @@ def main() -> int:
                 "maximum_nominal_cbf_residual_for_activation_m2_per_s"
             ],
             qp_max_iterations=derived["qp_max_iterations"],
+            expected_filter_updates=derived["expected_updates"],
+            expected_physics_substeps=derived["expected_substeps"],
+            expected_boundary_goal_values=expected_boundary_goal_values,
         )
         arm_evidence["adapter_plus_psf"] = psf
         exact_pair = _pair_exact(adapter, psf)
@@ -1701,7 +2224,7 @@ def main() -> int:
         active_motion = _active_interval_motion(
             psf["command_trace"], psf["physics_trace"], active_keys
         )
-        metrics = {
+        fast_metrics = {
             "exact_paired_start": exact_pair,
             "adapter_exposure_complete": adapter["exposure_complete"],
             "psf_exposure_complete": psf["exposure_complete"],
@@ -1821,8 +2344,195 @@ def main() -> int:
             "psf_minimum_nominal_cbf_residual_before_adapter_contact_m2_per_s": minimum_precontact_nominal_residual,
             "psf_maximum_activation_correction_norm_before_adapter_contact_rad_s": maximum_activation_correction,
         }
-        classification = classify_fast_feasibility(metrics, protocol)
-        candidate = {
+        first_material_correction_boundary = (
+            int(material_activation_rows[0]["physical_boundary"])
+            if material_activation_rows
+            else None
+        )
+        post_correction_motion = _post_correction_motion(
+            psf["command_trace"],
+            psf["physics_trace"],
+            first_correction_physical_boundary=first_activation_boundary,
+        )
+        if full_episode_mode:
+            adapter_task = adapter["task"]
+            psf_task = psf["task"]
+            adapter_first_any_boundary = adapter["literal_contact"][
+                "first_any_robot_physical_boundary"
+            ]
+            psf_clearance = psf["conservative_full_robot_clearance"]
+            psf_first_success = psf_task[
+                "first_task_success_source_action_index"
+            ]
+            psf_success_after_correction = bool(
+                first_material_correction_boundary is not None
+                and psf_first_success is not None
+                and (int(psf_first_success) + 1) * 25
+                > first_material_correction_boundary
+            )
+            shared_prefix_complete = bool(
+                len(prefix_obstacle_rows) == derived["start_action"] == 180
+                and observed_B_hash
+                == historical["post_action_179_flattened_state_sha256"]
+                and assumption_evidence["admissible"] is True
+            )
+            full_recorded_episode_complete = bool(
+                shared_prefix_complete
+                and len(replay.actions) == 237
+                and adapter["exposure_complete"] is True
+                and psf["exposure_complete"] is True
+                and adapter_task["completed_source_action_count"]
+                == derived["action_count"]
+                and psf_task["completed_source_action_count"]
+                == derived["action_count"]
+            )
+            metrics = {
+                "schema_version": (
+                    METRICS_SCHEMA
+                ),
+                "exact_paired_start": exact_pair,
+                "shared_prefix_complete": shared_prefix_complete,
+                "full_recorded_episode_complete": (
+                    full_recorded_episode_complete
+                ),
+                "adapter_exposure_complete": adapter["exposure_complete"],
+                "psf_exposure_complete": psf["exposure_complete"],
+                "adapter_physics_monitor_trace_counts_match": adapter[
+                    "physics_monitor_trace_counts_match"
+                ],
+                "psf_physics_monitor_trace_counts_match": psf[
+                    "physics_monitor_trace_counts_match"
+                ],
+                "adapter_filter_update_count": adapter["filter_update_count"],
+                "psf_filter_update_count": psf["filter_update_count"],
+                "adapter_physics_substep_count": adapter[
+                    "physics_substep_count"
+                ],
+                "psf_physics_substep_count": psf["physics_substep_count"],
+                "adapter_completed_suffix_action_count": adapter_task[
+                    "completed_source_action_count"
+                ],
+                "psf_completed_suffix_action_count": psf_task[
+                    "completed_source_action_count"
+                ],
+                "psf_qp_count_complete": (
+                    psf["qp_solve_count"] == derived["expected_updates"]
+                ),
+                "psf_qp_postchecks_complete": (
+                    psf["qp_postcheck_count"] == derived["expected_updates"]
+                ),
+                "psf_joint_limit_postchecks_complete": (
+                    psf["joint_limit_postcheck_count"]
+                    == derived["expected_updates"]
+                ),
+                "all_issued_commands_within_physical_bounds": bool(
+                    adapter["all_issued_commands_within_physical_bounds"]
+                    and psf["all_issued_commands_within_physical_bounds"]
+                ),
+                "both_nominal_commands_within_dynamic_joint_bounds": bool(
+                    adapter[
+                        "all_nominal_commands_within_dynamic_joint_bounds"
+                    ]
+                    and psf[
+                        "all_nominal_commands_within_dynamic_joint_bounds"
+                    ]
+                ),
+                "psf_invalid_field_query_count": psf[
+                    "invalid_field_query_count"
+                ],
+                "psf_all_post_state_field_queries_valid_and_positive": psf[
+                    "all_post_state_field_queries_valid_and_positive"
+                ],
+                "static_selected_obstacle_admissible": bool(
+                    assumption_evidence["admissible"]
+                    and adapter["static_precontact_admissible"]
+                    and psf["static_full_window_admissible"]
+                ),
+                "boundary_goal_unsatisfied": bool(
+                    adapter_task["boundary_goal_values_exact"] is True
+                    and psf_task["boundary_goal_values_exact"] is True
+                    and not adapter_task["initial_task_success_at_branch"]
+                    and not psf_task["initial_task_success_at_branch"]
+                ),
+                "adapter_link56_contact_present": adapter[
+                    "literal_contact"
+                ]["link56_present"],
+                "adapter_first_selected_obstacle_contact_is_link56": bool(
+                    adapter_contact_physical_boundary is not None
+                    and adapter_contact_physical_boundary
+                    == adapter_first_any_boundary
+                ),
+                "psf_link56_contact_present": psf["literal_contact"][
+                    "link56_present"
+                ],
+                "psf_any_robot_selected_obstacle_contact_present": psf[
+                    "literal_contact"
+                ]["any_robot_selected_obstacle_present"],
+                "psf_clearance_certified": bool(
+                    psf_clearance["available"]
+                    and psf_clearance[
+                        "minimum_full_surface_lower_bound_m"
+                    ]
+                    > 0.0
+                ),
+                "material_correction_before_adapter_contact": bool(
+                    first_material_correction_boundary is not None
+                    and adapter_contact_physical_boundary is not None
+                    and first_material_correction_boundary
+                    < int(adapter_contact_physical_boundary)
+                ),
+                "first_material_correction_physical_boundary": (
+                    first_activation_boundary
+                ),
+                "adapter_first_link56_contact_physical_boundary": (
+                    adapter_contact_boundary
+                ),
+                "material_correction_update_count": len(
+                    material_activation_rows
+                ),
+                "maximum_correction_norm_rad_s": post_correction_motion[
+                    "maximum_correction_norm_rad_s"
+                ],
+                "filter_correction_integral_rad": post_correction_motion[
+                    "filter_correction_integral_rad"
+                ],
+                "post_correction_measured_joint_motion_integral_rad": (
+                    post_correction_motion[
+                        "measured_joint_motion_integral_rad"
+                    ]
+                ),
+                "post_correction_cartesian_path_length_m": (
+                    post_correction_motion["cartesian_path_length_m"]
+                ),
+                "post_correction_executed_command_integral_rad": (
+                    post_correction_motion["executed_command_integral_rad"]
+                ),
+                "post_correction_zero_command_fraction": (
+                    post_correction_motion["zero_command_fraction"]
+                ),
+                "psf_task_success_ever": psf_task[
+                    "ever_task_success_at_or_after_branch"
+                ],
+                "psf_terminal_task_success": psf_task[
+                    "terminal_task_success"
+                ],
+                "psf_first_task_success_source_action_index": (
+                    psf_first_success
+                ),
+                "psf_task_success_after_material_correction": (
+                    psf_success_after_correction
+                ),
+                "adapter_task_success_ever": adapter_task[
+                    "ever_task_success_at_or_after_branch"
+                ],
+                "adapter_terminal_task_success": adapter_task[
+                    "terminal_task_success"
+                ],
+            }
+        else:
+            metrics = fast_metrics
+        classification = classify_selected_feasibility(metrics, protocol)
+        fast_candidate = {
             "schema_version": RESULT_SCHEMA,
             "status": "complete",
             "run_id": arguments.run_id,
@@ -1865,19 +2575,132 @@ def main() -> int:
                 "elapsed_seconds": time.time() - started,
             },
         }
+        if full_episode_mode:
+            episode_protocol = protocol["episode"]
+            episode = {
+                "prefix_start_action_index": episode_protocol[
+                    "shared_prefix_start_action_index"
+                ],
+                "prefix_end_action_index_inclusive": episode_protocol[
+                    "shared_prefix_end_action_index_inclusive"
+                ],
+                "prefix_action_count": derived["start_action"],
+                "suffix_start_action_index": derived["start_action"],
+                "suffix_end_action_index_inclusive": derived["end_action"],
+                "suffix_action_count": derived["action_count"],
+                "start_boundary": derived["start_boundary"],
+                "end_boundary": derived["end_boundary"],
+                "source_action_indexes": list(
+                    range(
+                        derived["start_action"],
+                        derived["end_action"] + 1,
+                    )
+                ),
+                "post_action_179_flattened_state_sha256": observed_B_hash,
+                "official_boundary_raw_bytes_sha256": _sha256(
+                    official_B.tobytes()
+                ),
+                "field_construction_boundary": 0,
+                "shared_osc_prefix": {
+                    "execution": (
+                        "exact_historical_actions_0_through_179_under_"
+                        "unchanged_OSC"
+                    ),
+                    "completed_action_count": len(prefix_obstacle_rows),
+                    "terminal_goal_values": list(previous_goal),
+                    "terminal_state_sha256": observed_B_hash,
+                    "settled_to_boundary_static_field_assumption": (
+                        assumption_evidence
+                    ),
+                },
+                "paired_joint_velocity_suffix": {
+                    "execution": (
+                        "same_recorded_actions_180_through_236_with_fixed_"
+                        "exposure_even_after_native_task_success"
+                    ),
+                    "action_record_sha256": observed_action_record_sha256,
+                    "action_array_sha256": observed_action_array_sha256,
+                    "controller_updates_per_arm": derived[
+                        "expected_updates"
+                    ],
+                    "physics_substeps_per_arm": derived[
+                        "expected_substeps"
+                    ],
+                },
+                "complete_recorded_episode_action_count": len(replay.actions),
+                "historical_aegis_reference": historical_aegis_reference,
+            }
+            candidate = {
+                "schema_version": RESULT_SCHEMA,
+                "status": "complete",
+                "protocol_id": selected_protocol_id,
+                "run_id": arguments.run_id,
+                "case_id": arguments.case_id,
+                "provenance": provenance,
+                "episode": episode,
+                "field": {
+                    "bundle_hashes": asdict(bundle.hashes),
+                    "diagnostics": asdict(bundle.diagnostics),
+                    "resolved_geometry": resolved.to_dict(),
+                    "full_robot_sampling": evidence,
+                },
+                "metrics": metrics,
+                "activation_evidence": {
+                    "threshold_m2_per_s": derived["thresholds"][
+                        "maximum_nominal_cbf_residual_for_activation_m2_per_s"
+                    ],
+                    "adapter_contact_physical_boundary": (
+                        adapter_contact_physical_boundary
+                    ),
+                    "first_material_correction": (
+                        material_activation_rows[0]
+                        if material_activation_rows
+                        else None
+                    ),
+                    "material_correction_count": len(
+                        material_activation_rows
+                    ),
+                    "post_correction_motion": post_correction_motion,
+                },
+                "classification": classification,
+                "arms": arm_evidence,
+                "claim_scope": protocol.get("result_contract", {}).get(
+                    "claim_scope",
+                    "one_recorded_hybrid_episode_empirical_feasibility_not_"
+                    "population_safety_not_realtime_certification",
+                ),
+                "partial_output_interpreted": False,
+                "timing": {
+                    "started_unix": started,
+                    "finished_unix": time.time(),
+                    "elapsed_seconds": time.time() - started,
+                },
+            }
+            outcome = classification["classification"]
+        else:
+            candidate = fast_candidate
+            outcome = classification["primary_outcome"]
         publish_hashed_json(result_path, candidate)
-        print(json.dumps({"status": "complete", "outcome": classification["primary_outcome"], "result": str(result_path)}, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "status": "complete",
+                    "outcome": outcome,
+                    "result": str(result_path),
+                },
+                sort_keys=True,
+            )
+        )
         return 0
     except Exception as error:
         try:
             from main.poisson_fullbody.contracts import publish_hashed_json
-            from main.poisson_fullbody.fast_feasibility import RESULT_SCHEMA
 
             assumption_invalid = isinstance(error, FastAssumptionInvalid)
             if isinstance(error, FastArmExecutionFailure):
                 arm_evidence[error.evidence.get("arm_name", "failed_arm")] = error.evidence
             failure = {
-                "schema_version": RESULT_SCHEMA,
+                "schema_version": selected_result_schema,
                 "status": "apparatus_failure",
                 "run_id": arguments.run_id,
                 "case_id": arguments.case_id,
@@ -1899,10 +2722,15 @@ def main() -> int:
                     "elapsed_seconds": time.time() - started,
                 },
             }
+            if full_episode_mode or (
+                selected_result_schema == FULL_EPISODE_RESULT_SCHEMA
+            ):
+                failure["protocol_id"] = selected_protocol_id
+                failure["classification"] = "INCONCLUSIVE_APPARATUS"
             publish_hashed_json(result_path, failure)
         except Exception as publication_error:
             print("failure artifact publication failed: %s" % publication_error, file=sys.stderr)
-        print("fast feasibility failed: %s" % error, file=sys.stderr)
+        print("feasibility experiment failed: %s" % error, file=sys.stderr)
         return 1
     finally:
         if source_env is not None:
