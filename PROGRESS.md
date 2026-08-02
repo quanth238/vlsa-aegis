@@ -937,3 +937,36 @@ a fresh live Slurm preflight. Until that protocol, immutable manifest order,
 and stopping rule exist on a clean commit, there is intentionally no screening
 submission command. The final local structural gate passes 729 tests with 137
 expected dependency/allocation-only skips.
+
+## P01 original-OSC e03 CAR-phase apparatus correction
+
+The report-aligned original-OSC canary now targets
+`vlsa-t1-spatial-i-t3-e03`: the complete historical AEGIS result supplies the
+unsafe control, while the live arm differs only by a link-5/link-6 post-OSC
+Poisson torque shield. Allocation-backed numeric job `34235` completed
+`COMPLETED|0:0` on clean commit
+`33bf9a4e4654d9c1c943a0eb7cca5a17b59aaab4`, passing 159 tests with zero
+failures, errors, or skips. Its result file SHA-256 is
+`049ed11e0509c22a6c4d891a43b7bc059b94147c51d5206011fa51767e65d221`.
+
+Producer `34236` then stopped before action zero with `FAILED|1:0`. Its complete
+apparatus-failure result has file SHA-256
+`d0fed4fac7749bc2d85d20725da2fded1c93bf3bfdc19450320cd43a0e373003`
+and payload SHA-256
+`8a0e0769bfa42be424d742fb5ae03b3b94efa82bb3cb55c12711736931566477`.
+The runner incorrectly compared the paper-CAR object observation with a
+separately re-forwarded post-integration MuJoCo clone. Those values represent
+adjacent simulator phases. No controller command or physics substep ran, so
+this immutable attempt has no Poisson safety or task outcome.
+
+The replacement contract leaves the treatment, threshold, contact authority,
+and success gates unchanged. Paper CAR remains the released Table-1
+observation-to-observation L1 displacement at completed 20 Hz endpoints. The
+observable is structurally bound to the same root body ID used by contact
+authority and exactly to its same-phase live `body_xpos`; forwarded
+post-integration pose is serialized only as a phase-labelled diagnostic. A new
+clean commit, zero-skip H100 numeric result, unused run root, terminal producer,
+and distinct complete consumer are required before interpretation. P01 remains
+`active`. The corrected apparatus passes the complete local gate (797 tests,
+167 expected dependency/allocation-only skips), and three independent
+adversarial audits report no remaining pre-submission blocker.

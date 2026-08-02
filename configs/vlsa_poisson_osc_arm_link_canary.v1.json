@@ -4,6 +4,7 @@
   "case": {
     "case_id": "vlsa-t1-spatial-i-t3-e03",
     "selected_obstacle_name": "wine_bottle_obstacle_1",
+    "selected_obstacle_root_body_name": "wine_bottle_obstacle_1_main",
     "protected_robot_body_names": [
       "robot0_link5",
       "robot0_link6"
@@ -43,6 +44,12 @@
     "contact_scope": "union_of_any_robot_collision_geom_vs_selected_historical_active_obstacle_and_literal_link5_link6_collision_geoms_vs_any_external_nonrobot_geom",
     "ordinary_env_step_modified": false,
     "gripper_control_modified": false
+  },
+  "paper_car_measurement": {
+    "metric": "SafeLIBERO_Table1_active_obstacle_L1_displacement_at_completed_20Hz_action_endpoints",
+    "position_source": "selected_obstacle_pos_native_observation",
+    "root_body_binding": "env_obj_body_id_equals_contact_authority_root_body_id",
+    "post_integration_forwarded_pose_role": "phase_diagnostic_only_not_paper_car_metric"
   },
   "shield": {
     "field_geometry": "static_simulator_oracle_selected_obstacle",

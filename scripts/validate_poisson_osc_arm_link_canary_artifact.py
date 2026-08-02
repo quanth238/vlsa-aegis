@@ -707,6 +707,227 @@ def _close(left: Any, right: Any, label: str, tolerance: float = 1e-12) -> None:
     )
 
 
+def _exact_float(left: Any, right: Any, label: str) -> None:
+    _require(
+        not isinstance(left, bool)
+        and isinstance(left, (int, float))
+        and not isinstance(right, bool)
+        and isinstance(right, (int, float))
+        and math.isfinite(float(left))
+        and math.isfinite(float(right))
+        and struct.pack(">d", float(left)) == struct.pack(">d", float(right)),
+        "%s differs" % label,
+    )
+
+
+def _strict_integer(value: Any, label: str) -> int:
+    _require(
+        isinstance(value, int) and not isinstance(value, bool),
+        "%s must be an integer" % label,
+    )
+    return int(value)
+
+
+def _validate_paper_car_cadence_and_historical_binding(
+    car_ledger: Sequence[Mapping[str, Any]],
+    *,
+    action_count: int,
+    historical_settled_position_sha256: str,
+) -> None:
+    """Require exact settled/20 Hz CAR rows and immutable settled pairing."""
+
+    _require(
+        isinstance(action_count, int)
+        and not isinstance(action_count, bool)
+        and action_count >= 0
+        and isinstance(car_ledger, Sequence)
+        and not isinstance(car_ledger, (str, bytes))
+        and len(car_ledger) == action_count + 1,
+        "paper CAR endpoint count differs",
+    )
+    _require(bool(car_ledger), "paper CAR settled row is absent")
+    settled = car_ledger[0]
+    _require(isinstance(settled, Mapping), "paper CAR settled row is invalid")
+    settled_index = settled.get("source_action_index")
+    _require(
+        isinstance(settled_index, int)
+        and not isinstance(settled_index, bool)
+        and settled_index == -1
+        and settled.get("snapshot_kind") == "settled_pre_action"
+        and settled.get("active_obstacle_position_observation_array_sha256")
+        == historical_settled_position_sha256,
+        "paper CAR settled row or historical binding differs",
+    )
+    _exact_float(
+        settled.get("l1_displacement_from_settled_m"),
+        0.0,
+        "paper CAR settled displacement",
+    )
+    for expected_index, row in enumerate(car_ledger[1:]):
+        _require(isinstance(row, Mapping), "paper CAR endpoint row is invalid")
+        observed_index = row.get("source_action_index")
+        _require(
+            isinstance(observed_index, int)
+            and not isinstance(observed_index, bool)
+            and observed_index == expected_index
+            and row.get("snapshot_kind") == "completed_high_level_endpoint",
+            "paper CAR endpoint cadence differs at row %d" % (expected_index + 1),
+        )
+
+
+def _require_resolved_body_name(
+    resolved: Mapping[str, Any],
+    *,
+    ids_field: str,
+    names_field: str,
+    expected_body_id: int,
+    expected_body_name: str,
+    label: str,
+) -> Dict[int, str]:
+    """Validate one parallel resolved ID/name ledger and its selected row."""
+
+    ids = resolved.get(ids_field)
+    names = resolved.get(names_field)
+    _require(
+        isinstance(ids, Sequence)
+        and not isinstance(ids, (str, bytes))
+        and isinstance(names, Sequence)
+        and not isinstance(names, (str, bytes))
+        and len(ids) > 0
+        and len(ids) == len(names),
+        "%s resolved body ID/name ledger differs" % label,
+    )
+    parsed_ids = []
+    parsed_names = []
+    for body_id, body_name in zip(ids, names):
+        _require(
+            not isinstance(body_id, bool)
+            and isinstance(body_id, int)
+            and isinstance(body_name, str)
+            and bool(body_name),
+            "%s resolved body ID/name row is malformed" % label,
+        )
+        parsed_ids.append(int(body_id))
+        parsed_names.append(str(body_name))
+    _require(
+        len(set(parsed_ids)) == len(parsed_ids),
+        "%s resolved body IDs are duplicated" % label,
+    )
+    name_by_id = dict(zip(parsed_ids, parsed_names))
+    _require(
+        name_by_id.get(int(expected_body_id)) == str(expected_body_name),
+        "%s selected root body name differs" % label,
+    )
+    return name_by_id
+
+
+def _validate_paper_car_endpoint_row(
+    row: Mapping[str, Any],
+    *,
+    index: int,
+    car_key: str,
+    obstacle_root_body_id: int,
+    settled_car_position: Any,
+    np: Any,
+) -> float:
+    """Independently reconstruct one exact paper-CAR observation endpoint."""
+
+    observed_position = np.asarray(
+        row.get("active_obstacle_position_observation_world_m"), dtype=np.float64
+    )
+    live_body_position = np.asarray(
+        row.get("active_obstacle_root_position_world_m"), dtype=np.float64
+    )
+    forwarded_body_position = np.asarray(
+        row.get(
+            "active_obstacle_root_position_post_integration_forwarded_world_m"
+        ),
+        dtype=np.float64,
+    )
+    forwarded_component_delta = np.asarray(
+        row.get("observation_post_integration_forwarded_component_delta_m"),
+        dtype=np.float64,
+    )
+    settled = np.asarray(settled_car_position, dtype=np.float64)
+    observed_hash = _float64_sha256(observed_position, np)
+    live_hash = _float64_sha256(live_body_position, np)
+    forwarded_hash = _float64_sha256(forwarded_body_position, np)
+    reconstructed_forwarded_delta = forwarded_body_position - observed_position
+    forwarded_delta_hash = _float64_sha256(forwarded_component_delta, np)
+    reconstructed_forwarded_delta_hash = _float64_sha256(
+        reconstructed_forwarded_delta, np
+    )
+    _require(
+        observed_position.shape == (3,)
+        and live_body_position.shape == (3,)
+        and forwarded_body_position.shape == (3,)
+        and forwarded_component_delta.shape == (3,)
+        and settled.shape == (3,)
+        and np.all(np.isfinite(observed_position))
+        and np.all(np.isfinite(live_body_position))
+        and np.all(np.isfinite(forwarded_body_position))
+        and np.all(np.isfinite(forwarded_component_delta))
+        and np.all(np.isfinite(settled))
+        and np.array_equal(observed_position, live_body_position)
+        and observed_hash == live_hash
+        and np.array_equal(forwarded_component_delta, reconstructed_forwarded_delta)
+        and forwarded_delta_hash == reconstructed_forwarded_delta_hash
+        and row.get("observation_body_xpos_bitwise_equal") is True
+        and row.get("paper_car_observation_key") == car_key,
+        "paper CAR same-phase observation/body authority differs at row %d" % index,
+    )
+    _require(
+        row.get("paper_car_position_source")
+        == "selected_obstacle_pos_native_observation"
+        and _strict_integer(
+            row.get("active_obstacle_root_body_id"),
+            "paper CAR row root body ID",
+        )
+        == int(obstacle_root_body_id)
+        and row.get("active_obstacle_root_position_phase")
+        == "live_solver_phase_preintegration_geometry"
+        and row.get("post_integration_forwarded_pose_role")
+        == "phase_diagnostic_only_not_paper_car_metric"
+        and row.get("active_obstacle_position_observation_array_sha256")
+        == observed_hash
+        and row.get("active_obstacle_root_position_array_sha256") == live_hash
+        and row.get(
+            "active_obstacle_root_position_post_integration_array_sha256"
+        )
+        == forwarded_hash,
+        "paper CAR phase or array identity differs at row %d" % index,
+    )
+    _require(
+        row.get(
+            "observation_post_integration_forwarded_component_delta_array_sha256"
+        )
+        == forwarded_delta_hash,
+        "paper CAR forwarded component-delta identity differs at row %d" % index,
+    )
+    _exact_float(
+        row.get("observation_live_solver_phase_l1_delta_m"),
+        float(np.sum(np.abs(observed_position - live_body_position))),
+        "paper CAR live-phase delta row %d" % index,
+    )
+    _exact_float(
+        row.get("observation_post_integration_forwarded_l1_delta_m"),
+        float(np.sum(np.abs(reconstructed_forwarded_delta))),
+        "paper CAR forwarded L1 diagnostic row %d" % index,
+    )
+    _exact_float(
+        row.get("observation_post_integration_forwarded_linf_delta_m"),
+        float(np.max(np.abs(reconstructed_forwarded_delta))),
+        "paper CAR forwarded Linf diagnostic row %d" % index,
+    )
+    displacement = float(np.sum(np.abs(observed_position - settled)))
+    _exact_float(
+        row.get("l1_displacement_from_settled_m"),
+        displacement,
+        "paper CAR row %d" % index,
+    )
+    return displacement
+
+
 def _validate_compact_constraint_trace(
     row: Mapping[str, Any], *, expected_sample_count: int, np: Any
 ) -> Mapping[str, Mapping[str, Any]]:
@@ -1908,6 +2129,71 @@ def validate(
     _require(isinstance(parity, Sequence), "parity trace is absent")
     _require(isinstance(goals, Sequence), "goal trace is absent")
     _require(isinstance(car_ledger, Sequence) and car_ledger, "paper CAR ledger is absent")
+    _require(
+        treatment.get("paper_car_endpoint_ledger_schema_version")
+        == "vlsa_poisson_paper_car_endpoint_ledger.v2",
+        "paper CAR ledger schema differs",
+    )
+    car_authority = apparatus.get("paper_car_authority")
+    resolved_car_geometry = apparatus.get("resolved_geometry")
+    resolved_obstacle_roots = (
+        list(resolved_car_geometry.get("obstacle_root_body_ids", ()))
+        if isinstance(resolved_car_geometry, Mapping)
+        else []
+    )
+    _require(isinstance(car_authority, Mapping), "paper CAR authority is absent")
+    observable_car_root_id = _strict_integer(
+        car_authority.get("observable_root_body_id"),
+        "paper CAR observable root body ID",
+    )
+    contact_car_root_id = _strict_integer(
+        car_authority.get("contact_authority_root_body_id"),
+        "paper CAR contact root body ID",
+    )
+    _require(
+        len(resolved_obstacle_roots) == 1,
+        "paper CAR resolved obstacle root count differs",
+    )
+    resolved_car_root_id = _strict_integer(
+        resolved_obstacle_roots[0], "paper CAR resolved obstacle root body ID"
+    )
+    _require(
+        car_authority.get("schema_version")
+        == "vlsa_poisson_paper_car_authority.v1"
+        and car_authority.get("metric")
+        == protocol["paper_car_measurement"]["metric"]
+        and car_authority.get("paper_car_observation_key")
+        == "%s_pos" % protocol["case"]["selected_obstacle_name"]
+        and car_authority.get("selected_obstacle_name")
+        == protocol["case"]["selected_obstacle_name"]
+        and observable_car_root_id == contact_car_root_id == resolved_car_root_id
+        and car_authority.get("observable_root_body_name")
+        == protocol["case"]["selected_obstacle_root_body_name"]
+        and car_authority.get("contact_authority_root_body_name")
+        == protocol["case"]["selected_obstacle_root_body_name"]
+        and car_authority.get("observable_and_contact_root_body_ids_equal") is True
+        and car_authority.get("position_source")
+        == protocol["paper_car_measurement"]["position_source"]
+        and car_authority.get("root_body_binding")
+        == protocol["paper_car_measurement"]["root_body_binding"]
+        and car_authority.get("post_integration_forwarded_pose_role")
+        == protocol["paper_car_measurement"][
+            "post_integration_forwarded_pose_role"
+        ]
+        and car_authority.get(
+            "historical_settled_active_obstacle_position_sha256"
+        )
+        == replay.settled_active_obstacle_position_sha256,
+        "paper CAR observation/root-body authority differs",
+    )
+    _require_resolved_body_name(
+        resolved_car_geometry,
+        ids_field="obstacle_body_ids",
+        names_field="obstacle_body_names",
+        expected_body_id=observable_car_root_id,
+        expected_body_name=protocol["case"]["selected_obstacle_root_body_name"],
+        label="paper CAR obstacle",
+    )
     protected_samples = apparatus["protected_sampling"]["samples"]
     _require(
         isinstance(protected_samples, Sequence)
@@ -2879,49 +3165,31 @@ def validate(
         "terminal condition differs",
     )
     _require(metrics.get("native_task_success") is task_success, "native task flag differs")
-    _require(
-        car_ledger[0].get("source_action_index") == -1
-        and float(car_ledger[0].get("l1_displacement_from_settled_m")) == 0.0
-        and len(car_ledger) == len(actions) + 1
-        and all(
-            row.get("source_action_index") == index
-            and row.get("snapshot_kind") == "completed_high_level_endpoint"
-            for index, row in enumerate(car_ledger[1:])
+    _validate_paper_car_cadence_and_historical_binding(
+        car_ledger,
+        action_count=len(actions),
+        historical_settled_position_sha256=(
+            replay.settled_active_obstacle_position_sha256
         ),
-        "paper CAR endpoint cadence differs",
     )
     car_key = "%s_pos" % protocol["case"]["selected_obstacle_name"]
     settled_car_position = np.asarray(
         car_ledger[0].get("active_obstacle_position_observation_world_m"),
         dtype=np.float64,
     )
-    reconstructed_car = []
-    for index, row in enumerate(car_ledger):
-        observed_position = np.asarray(
-            row.get("active_obstacle_position_observation_world_m"),
-            dtype=np.float64,
+    reconstructed_car = [
+        _validate_paper_car_endpoint_row(
+            row,
+            index=index,
+            car_key=car_key,
+            obstacle_root_body_id=observable_car_root_id,
+            settled_car_position=settled_car_position,
+            np=np,
         )
-        body_position = np.asarray(
-            row.get("active_obstacle_root_position_world_m"), dtype=np.float64
-        )
-        _require(
-            observed_position.shape == (3,)
-            and body_position.shape == (3,)
-            and np.all(np.isfinite(observed_position))
-            and np.array_equal(observed_position, body_position)
-            and row.get("observation_body_xpos_bitwise_equal") is True
-            and row.get("paper_car_observation_key") == car_key,
-            "paper CAR observation/body authority differs at row %d" % index,
-        )
-        displacement = float(np.sum(np.abs(observed_position - settled_car_position)))
-        _close(
-            row.get("l1_displacement_from_settled_m"),
-            displacement,
-            "paper CAR row %d" % index,
-        )
-        reconstructed_car.append(displacement)
+        for index, row in enumerate(car_ledger)
+    ]
     maximum_car = max(reconstructed_car)
-    _close(
+    _exact_float(
         metrics.get(
             "maximum_active_obstacle_l1_displacement_at_completed_action_endpoints_m"
         ),

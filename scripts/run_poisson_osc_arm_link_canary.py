@@ -66,6 +66,108 @@ def _canonical_sha256(value: Any) -> str:
     return fast._sha256(fast._canonical(value))
 
 
+def _paper_car_endpoint_row(
+    *,
+    source_action_index: int,
+    snapshot_kind: str,
+    observation_key: str,
+    obstacle_root_body_id: int,
+    observation_position: Any,
+    live_solver_phase_body_position: Any,
+    post_integration_forwarded_body_position: Any,
+    settled_observation_position: Any,
+    np: Any,
+) -> Dict[str, Any]:
+    """Bind the paper CAR observable without conflating MuJoCo phases.
+
+    SafeLIBERO's object-position observable is read from the live
+    ``body_xpos`` cache.  After ``mj_step`` that cache can describe the solver's
+    pre-integration geometry, while a separate integration-state clone followed
+    by ``mj_forward`` describes the just-completed post-integration state.  The
+    paper computes CAR from the native observation.  The observation is bound
+    exactly to the same-phase live cache; the forwarded position is retained
+    only as an explicitly phased diagnostic.  Root identity is enforced
+    separately through ``env.obj_body_id`` and the contact authority.
+    """
+
+    observed = np.asarray(observation_position, dtype=np.float64)
+    live = np.asarray(live_solver_phase_body_position, dtype=np.float64)
+    forwarded = np.asarray(
+        post_integration_forwarded_body_position, dtype=np.float64
+    )
+    settled = np.asarray(settled_observation_position, dtype=np.float64)
+    if any(value.shape != (3,) for value in (observed, live, forwarded, settled)):
+        raise OscCanaryRunnerError("paper CAR position must be a three-vector")
+    if not all(np.all(np.isfinite(value)) for value in (observed, live, forwarded, settled)):
+        raise OscCanaryRunnerError("paper CAR position must be finite")
+    observed_record = _compact_float64_array_record(observed, np)
+    live_record = _compact_float64_array_record(live, np)
+    forwarded_record = _compact_float64_array_record(forwarded, np)
+    observation_matches_live = bool(
+        np.array_equal(observed, live)
+        and observed_record["sha256"] == live_record["sha256"]
+    )
+    forwarded_delta = forwarded - observed
+    forwarded_delta_record = _compact_float64_array_record(forwarded_delta, np)
+    return {
+        "source_action_index": int(source_action_index),
+        "snapshot_kind": str(snapshot_kind),
+        "paper_car_observation_key": str(observation_key),
+        "paper_car_position_source": "selected_obstacle_pos_native_observation",
+        "active_obstacle_root_body_id": int(obstacle_root_body_id),
+        "active_obstacle_position_observation_world_m": observed.tolist(),
+        "active_obstacle_position_observation_array_sha256": observed_record[
+            "sha256"
+        ],
+        "active_obstacle_root_position_world_m": live.tolist(),
+        "active_obstacle_root_position_array_sha256": live_record["sha256"],
+        "active_obstacle_root_position_phase": (
+            "live_solver_phase_preintegration_geometry"
+        ),
+        "observation_body_xpos_bitwise_equal": observation_matches_live,
+        "observation_live_solver_phase_l1_delta_m": float(
+            np.sum(np.abs(observed - live))
+        ),
+        "active_obstacle_root_position_post_integration_forwarded_world_m": (
+            forwarded.tolist()
+        ),
+        "active_obstacle_root_position_post_integration_array_sha256": (
+            forwarded_record["sha256"]
+        ),
+        "post_integration_forwarded_pose_role": (
+            "phase_diagnostic_only_not_paper_car_metric"
+        ),
+        "observation_post_integration_forwarded_component_delta_m": (
+            forwarded_delta.tolist()
+        ),
+        "observation_post_integration_forwarded_component_delta_array_sha256": (
+            forwarded_delta_record["sha256"]
+        ),
+        "observation_post_integration_forwarded_l1_delta_m": float(
+            np.sum(np.abs(forwarded_delta))
+        ),
+        "observation_post_integration_forwarded_linf_delta_m": float(
+            np.max(np.abs(forwarded_delta))
+        ),
+        "l1_displacement_from_settled_m": float(
+            np.sum(np.abs(observed - settled))
+        ),
+    }
+
+
+def _require_paper_car_same_phase_binding(row: Mapping[str, Any]) -> None:
+    """Fail before physics unless the native observable and live cache match."""
+
+    if not (
+        row.get("observation_body_xpos_bitwise_equal") is True
+        and row.get("active_obstacle_position_observation_array_sha256")
+        == row.get("active_obstacle_root_position_array_sha256")
+    ):
+        raise OscCanaryRunnerError(
+            "paper CAR observation differs bitwise from same-phase live obstacle body xpos"
+        )
+
+
 _FLOAT64_ARRAY_HASH_FORMAT = (
     "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
 )
@@ -1640,33 +1742,81 @@ def main() -> int:
         paper_car_observation_key = "%s_pos" % obstacle_name
         if paper_car_observation_key not in observation:
             raise OscCanaryRunnerError("paper CAR obstacle observation is absent")
+        task_env = getattr(env, "env", None)
+        observable_body_ids = getattr(task_env, "obj_body_id", None)
+        if not isinstance(observable_body_ids, Mapping) or obstacle_name not in observable_body_ids:
+            raise OscCanaryRunnerError(
+                "paper CAR observable root-body mapping is absent"
+            )
+        observable_root_body_id = int(observable_body_ids[obstacle_name])
+        if observable_root_body_id != obstacle_root_body_id:
+            raise OscCanaryRunnerError(
+                "paper CAR observable and contact authority use different root bodies"
+            )
+        authority_body_names = authority.get("body_names")
+        if (
+            not isinstance(authority_body_names, Sequence)
+            or obstacle_root_body_id < 0
+            or obstacle_root_body_id >= len(authority_body_names)
+        ):
+            raise OscCanaryRunnerError("paper CAR root-body name authority is absent")
+        observable_root_body_name = str(authority_body_names[obstacle_root_body_id])
+        if observable_root_body_name != protocol["case"][
+            "selected_obstacle_root_body_name"
+        ]:
+            raise OscCanaryRunnerError("paper CAR root-body name differs")
+        paper_car_authority = {
+            "schema_version": "vlsa_poisson_paper_car_authority.v1",
+            "metric": protocol["paper_car_measurement"]["metric"],
+            "paper_car_observation_key": paper_car_observation_key,
+            "selected_obstacle_name": obstacle_name,
+            "observable_root_body_id": observable_root_body_id,
+            "observable_root_body_name": observable_root_body_name,
+            "contact_authority_root_body_id": obstacle_root_body_id,
+            "contact_authority_root_body_name": observable_root_body_name,
+            "observable_and_contact_root_body_ids_equal": True,
+            "position_source": protocol["paper_car_measurement"]["position_source"],
+            "root_body_binding": protocol["paper_car_measurement"]["root_body_binding"],
+            "post_integration_forwarded_pose_role": protocol[
+                "paper_car_measurement"
+            ]["post_integration_forwarded_pose_role"],
+            "historical_settled_active_obstacle_position_sha256": (
+                replay.settled_active_obstacle_position_sha256
+            ),
+        }
+        apparatus["paper_car_authority"] = dict(paper_car_authority)
         settled_paper_car_position = np.asarray(
             observation[paper_car_observation_key], dtype=np.float64
         ).copy()
-        settled_obstacle_root_position = np.asarray(
+        settled_obstacle_root_position_live = np.asarray(
+            raw_data.xpos[obstacle_root_body_id], dtype=np.float64
+        ).copy()
+        settled_obstacle_root_position_forwarded = np.asarray(
             forwarded.xpos[obstacle_root_body_id], dtype=np.float64
         ).copy()
-        if not np.array_equal(
-            settled_paper_car_position, settled_obstacle_root_position
+        settled_car_row = _paper_car_endpoint_row(
+            source_action_index=-1,
+            snapshot_kind="settled_pre_action",
+            observation_key=paper_car_observation_key,
+            obstacle_root_body_id=obstacle_root_body_id,
+            observation_position=settled_paper_car_position,
+            live_solver_phase_body_position=settled_obstacle_root_position_live,
+            post_integration_forwarded_body_position=(
+                settled_obstacle_root_position_forwarded
+            ),
+            settled_observation_position=settled_paper_car_position,
+            np=np,
+        )
+        partial["paper_car_settled_phase_diagnostic"] = dict(settled_car_row)
+        _require_paper_car_same_phase_binding(settled_car_row)
+        car_ledger: List[Dict[str, Any]] = [settled_car_row]
+        if (
+            car_ledger[0]["active_obstacle_position_observation_array_sha256"]
+            != replay.settled_active_obstacle_position_sha256
         ):
             raise OscCanaryRunnerError(
-                "settled paper CAR observation differs from obstacle body xpos"
+                "settled paper CAR observation differs from immutable historical pairing"
             )
-        car_ledger: List[Dict[str, Any]] = [
-            {
-                "source_action_index": -1,
-                "snapshot_kind": "settled_pre_action",
-                "paper_car_observation_key": paper_car_observation_key,
-                "active_obstacle_position_observation_world_m": (
-                    settled_paper_car_position.tolist()
-                ),
-                "active_obstacle_root_position_world_m": (
-                    settled_obstacle_root_position.tolist()
-                ),
-                "observation_body_xpos_bitwise_equal": True,
-                "l1_displacement_from_settled_m": 0.0,
-            }
-        ]
 
         for source_index in range(int(derived["maximum_action_count"])):
             pre_action_observation_sha256 = _observation_sha256(
@@ -2352,41 +2502,33 @@ def main() -> int:
                 }
             )
             endpoint_forwarded = clone_forwarded_state(raw_model, raw_data)
-            endpoint_root_position = np.asarray(
+            endpoint_root_position_live = np.asarray(
+                raw_data.xpos[obstacle_root_body_id], dtype=np.float64
+            ).copy()
+            endpoint_root_position_forwarded = np.asarray(
                 endpoint_forwarded.xpos[obstacle_root_body_id], dtype=np.float64
             ).copy()
             endpoint_paper_car_position = np.asarray(
                 observation[paper_car_observation_key], dtype=np.float64
             ).copy()
-            endpoint_matches_body = bool(
-                np.array_equal(endpoint_paper_car_position, endpoint_root_position)
+            endpoint_car_row = _paper_car_endpoint_row(
+                source_action_index=source_index,
+                snapshot_kind="completed_high_level_endpoint",
+                observation_key=paper_car_observation_key,
+                obstacle_root_body_id=obstacle_root_body_id,
+                observation_position=endpoint_paper_car_position,
+                live_solver_phase_body_position=endpoint_root_position_live,
+                post_integration_forwarded_body_position=(
+                    endpoint_root_position_forwarded
+                ),
+                settled_observation_position=settled_paper_car_position,
+                np=np,
             )
-            if not endpoint_matches_body:
-                raise OscCanaryRunnerError(
-                    "paper CAR observation differs from obstacle body xpos"
-                )
-            endpoint_displacement = float(
-                np.sum(
-                    np.abs(
-                        endpoint_paper_car_position - settled_paper_car_position
-                    )
-                )
+            partial["last_paper_car_endpoint_phase_diagnostic"] = dict(
+                endpoint_car_row
             )
-            car_ledger.append(
-                {
-                    "source_action_index": int(source_index),
-                    "snapshot_kind": "completed_high_level_endpoint",
-                    "paper_car_observation_key": paper_car_observation_key,
-                    "active_obstacle_position_observation_world_m": (
-                        endpoint_paper_car_position.tolist()
-                    ),
-                    "active_obstacle_root_position_world_m": (
-                        endpoint_root_position.tolist()
-                    ),
-                    "observation_body_xpos_bitwise_equal": endpoint_matches_body,
-                    "l1_displacement_from_settled_m": endpoint_displacement,
-                }
-            )
+            _require_paper_car_same_phase_binding(endpoint_car_row)
+            car_ledger.append(endpoint_car_row)
             video.append(observation, "completed_high_level_action", source_index)
             evaluator._update_eef_marker(
                 env, evaluator._eef_proxy(runtime, observation)
@@ -2762,6 +2904,7 @@ def main() -> int:
                 "full_robot_sampling": sample_evidence,
                 "full_robot_sampling_sha256": _canonical_sha256(sample_evidence),
                 "settled_obstacle": settled_obstacle,
+                "paper_car_authority": paper_car_authority,
             },
             "planner": planner_record,
             "treatment": {
@@ -2775,6 +2918,9 @@ def main() -> int:
                     first_material_goal_snapshot
                 ),
                 "paper_car_endpoint_ledger": car_ledger,
+                "paper_car_endpoint_ledger_schema_version": (
+                    "vlsa_poisson_paper_car_endpoint_ledger.v2"
+                ),
                 "physics_trace_schema_version": (
                     "vlsa_poisson_osc_arm_link_compact_physics_trace.v1"
                 ),

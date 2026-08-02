@@ -97,6 +97,10 @@ def validate_osc_arm_link_canary_protocol(
         raise OscArmLinkCanaryError("primary case differs")
     if case.get("selected_obstacle_name") != "wine_bottle_obstacle_1":
         raise OscArmLinkCanaryError("selected obstacle differs")
+    if case.get("selected_obstacle_root_body_name") != (
+        "wine_bottle_obstacle_1_main"
+    ):
+        raise OscArmLinkCanaryError("selected obstacle root body differs")
     if list(_sequence(case.get("protected_robot_body_names"), "protected bodies")) != [
         "robot0_link5",
         "robot0_link6",
@@ -166,6 +170,23 @@ def validate_osc_arm_link_canary_protocol(
         raise OscArmLinkCanaryError("replan cadence differs")
     if _integer(execution.get("model_action_horizon"), "model horizon", 1) != 10:
         raise OscArmLinkCanaryError("model horizon differs")
+
+    paper_car = _mapping(protocol.get("paper_car_measurement"), "paper_car_measurement")
+    required_paper_car = {
+        "metric": (
+            "SafeLIBERO_Table1_active_obstacle_L1_displacement_at_completed_"
+            "20Hz_action_endpoints"
+        ),
+        "position_source": "selected_obstacle_pos_native_observation",
+        "root_body_binding": (
+            "env_obj_body_id_equals_contact_authority_root_body_id"
+        ),
+        "post_integration_forwarded_pose_role": (
+            "phase_diagnostic_only_not_paper_car_metric"
+        ),
+    }
+    if dict(paper_car) != required_paper_car:
+        raise OscArmLinkCanaryError("paper CAR measurement contract differs")
 
     shield = _mapping(protocol.get("shield"), "shield")
     if shield.get("field_geometry") != "static_simulator_oracle_selected_obstacle":

@@ -1017,3 +1017,25 @@ conditional rescue among current unsafe live controls rather than population
 safety. An alternate colliding controller would confound the comparison, and a
 recorded collision window is only a stress test because it does not show that
 the current live policy generates the hazard.
+
+## ADR-0047: Keep paper CAR and post-integration geometry phase-distinct
+
+Accepted after original-OSC e03 producer `34236` stopped before action zero.
+SafeLIBERO defines Table-1 CAR from the selected obstacle's native position
+observation at the settled boundary and completed 20 Hz action endpoints. The
+observable is sourced from `obj_body_id[obstacle]`. MuJoCo contact and Poisson
+geometry use a copied integration state followed by `mj_forward`, which is the
+post-integration authority. Requiring those two phased positions to be bitwise
+equal was an invalid apparatus gate; adding a tolerance would not repair that
+semantic error.
+
+The corrected protocol therefore keeps observation-to-observation L1 as the
+only CAR metric. It requires the environment's observable root body ID to equal
+the contact-authority root body ID and requires the observation to equal the
+same-phase live body cache. The forwarded post-integration position, component
+difference, L1/L-infinity difference, and exact array hashes are retained as
+diagnostics and independently reconstructed, but cannot change CAR. This is an
+apparatus-only correction: actions, AEGIS, OSC, Poisson constraints, physics,
+contact monitoring, the 1 mm CAR threshold, useful-motion thresholds, and task
+success criteria do not change. The failed root remains immutable; a new
+source commit, numeric gate, run ID, producer, and consumer are mandatory.

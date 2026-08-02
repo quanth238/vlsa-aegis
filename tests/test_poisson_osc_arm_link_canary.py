@@ -80,6 +80,27 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             with self.assertRaises(OscArmLinkCanaryError):
                 validate_osc_arm_link_canary_protocol(protocol)
 
+    def test_protocol_rejects_paper_car_phase_or_source_drift(self):
+        from main.poisson_fullbody.osc_arm_link_canary import (
+            OscArmLinkCanaryError,
+            validate_osc_arm_link_canary_protocol,
+        )
+
+        for field, value in (
+            ("position_source", "post_integration_forwarded_body_xpos"),
+            ("root_body_binding", "name_only"),
+            ("post_integration_forwarded_pose_role", "paper_car_metric"),
+        ):
+            protocol = copy.deepcopy(self.protocol())
+            protocol["paper_car_measurement"][field] = value
+            with self.assertRaises(OscArmLinkCanaryError):
+                validate_osc_arm_link_canary_protocol(protocol)
+
+        protocol = copy.deepcopy(self.protocol())
+        protocol["case"]["selected_obstacle_root_body_name"] = "wrong_body"
+        with self.assertRaises(OscArmLinkCanaryError):
+            validate_osc_arm_link_canary_protocol(protocol)
+
     def test_positive_requires_contact_avoidance_motion_and_task_success(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
             classify_osc_arm_link_canary,
@@ -223,6 +244,310 @@ class OscArmLinkRunnerStructuralTests(unittest.TestCase):
         self.assertIn("_registered_contact_hook", self.source)
         self.assertIn("_RegisteredContactMonitor", self.source)
         self.assertIn("link56_vs_external_nonrobot", self.source)
+
+
+class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import numpy as np
+        except ImportError as error:
+            raise unittest.SkipTest("NumPy is required for paper CAR tests") from error
+        cls.np = np
+
+    def row(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _paper_car_endpoint_row,
+        )
+
+        np = self.np
+        observed = np.asarray([1.001, 2.0, 3.0], dtype=np.float64)
+        return _paper_car_endpoint_row(
+            source_action_index=0,
+            snapshot_kind="completed_high_level_endpoint",
+            observation_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            observation_position=observed,
+            live_solver_phase_body_position=observed.copy(),
+            post_integration_forwarded_body_position=np.asarray(
+                [1.002, 1.998, 3.003], dtype=np.float64
+            ),
+            settled_observation_position=np.asarray(
+                [1.0, 2.0, 3.0], dtype=np.float64
+            ),
+            np=np,
+        )
+
+    def validate(self, row):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_paper_car_endpoint_row,
+        )
+
+        return _validate_paper_car_endpoint_row(
+            row,
+            index=1,
+            car_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            settled_car_position=self.np.asarray(
+                [1.0, 2.0, 3.0], dtype=self.np.float64
+            ),
+            np=self.np,
+        )
+
+    def test_forwarded_cross_phase_offset_is_diagnostic_not_car(self):
+        row = self.row()
+        self.assertAlmostEqual(row["l1_displacement_from_settled_m"], 0.001)
+        self.assertAlmostEqual(
+            row["observation_post_integration_forwarded_l1_delta_m"], 0.006
+        )
+        self.assertAlmostEqual(self.validate(row), 0.001)
+
+    def test_same_phase_live_observable_mismatch_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            OscCanaryRunnerError,
+            _paper_car_endpoint_row,
+            _require_paper_car_same_phase_binding,
+        )
+
+        row = _paper_car_endpoint_row(
+            source_action_index=0,
+            snapshot_kind="completed_high_level_endpoint",
+            observation_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            observation_position=[1.0, 2.0, 3.0],
+            live_solver_phase_body_position=[1.0, 2.0, 3.000001],
+            post_integration_forwarded_body_position=[1.0, 2.0, 3.0],
+            settled_observation_position=[1.0, 2.0, 3.0],
+            np=self.np,
+        )
+        self.assertFalse(row["observation_body_xpos_bitwise_equal"])
+        with self.assertRaises(OscCanaryRunnerError):
+            _require_paper_car_same_phase_binding(row)
+
+    def test_signed_zero_is_not_bitwise_same_phase(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            OscCanaryRunnerError,
+            _paper_car_endpoint_row,
+            _require_paper_car_same_phase_binding,
+        )
+
+        row = _paper_car_endpoint_row(
+            source_action_index=-1,
+            snapshot_kind="settled_pre_action",
+            observation_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            observation_position=[0.0, 2.0, 3.0],
+            live_solver_phase_body_position=[-0.0, 2.0, 3.0],
+            post_integration_forwarded_body_position=[0.0, 2.0, 3.0],
+            settled_observation_position=[0.0, 2.0, 3.0],
+            np=self.np,
+        )
+        self.assertFalse(row["observation_body_xpos_bitwise_equal"])
+        self.assertNotEqual(
+            row["active_obstacle_position_observation_array_sha256"],
+            row["active_obstacle_root_position_array_sha256"],
+        )
+        with self.assertRaises(OscCanaryRunnerError):
+            _require_paper_car_same_phase_binding(row)
+
+    def test_consumer_rejects_phase_root_hash_or_delta_tampering(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        mutations = (
+            lambda row: row.__setitem__("active_obstacle_root_body_id", 31),
+            lambda row: row.__setitem__("active_obstacle_root_body_id", "32"),
+            lambda row: row.__setitem__(
+                "post_integration_forwarded_pose_role", "paper_car_metric"
+            ),
+            lambda row: row.__setitem__(
+                "active_obstacle_position_observation_array_sha256", "0" * 64
+            ),
+            lambda row: row.__setitem__(
+                "observation_post_integration_forwarded_l1_delta_m", 0.0
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                row = self.row()
+                mutate(row)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(row)
+
+    def test_consumer_rejects_rehashed_signed_zero_live_position(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _paper_car_endpoint_row,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _float64_sha256,
+        )
+
+        row = _paper_car_endpoint_row(
+            source_action_index=0,
+            snapshot_kind="completed_high_level_endpoint",
+            observation_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            observation_position=[0.0, 2.0, 3.0],
+            live_solver_phase_body_position=[0.0, 2.0, 3.0],
+            post_integration_forwarded_body_position=[0.0, 2.0, 3.0],
+            settled_observation_position=[0.0, 2.0, 3.0],
+            np=self.np,
+        )
+        row["active_obstacle_root_position_world_m"][0] = -0.0
+        row["active_obstacle_root_position_array_sha256"] = _float64_sha256(
+            row["active_obstacle_root_position_world_m"], self.np
+        )
+        with self.assertRaises(OscCanaryValidationError):
+            self.validate(row)
+
+    def test_consumer_rejects_signed_zero_scalar_and_component_delta(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _paper_car_endpoint_row,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _float64_sha256,
+            _validate_paper_car_endpoint_row,
+        )
+
+        scalar = self.row()
+        scalar["observation_live_solver_phase_l1_delta_m"] = -0.0
+        with self.assertRaises(OscCanaryValidationError):
+            self.validate(scalar)
+
+        component = _paper_car_endpoint_row(
+            source_action_index=0,
+            snapshot_kind="completed_high_level_endpoint",
+            observation_key="wine_bottle_obstacle_1_pos",
+            obstacle_root_body_id=32,
+            observation_position=[1.0, 2.0, 3.0],
+            live_solver_phase_body_position=[1.0, 2.0, 3.0],
+            post_integration_forwarded_body_position=[1.0, 2.0, 3.0],
+            settled_observation_position=[1.0, 2.0, 3.0],
+            np=self.np,
+        )
+        component[
+            "observation_post_integration_forwarded_component_delta_m"
+        ][0] = -0.0
+        component[
+            "observation_post_integration_forwarded_component_delta_array_sha256"
+        ] = _float64_sha256(
+            component[
+                "observation_post_integration_forwarded_component_delta_m"
+            ],
+            self.np,
+        )
+        with self.assertRaises(OscCanaryValidationError):
+            _validate_paper_car_endpoint_row(
+                component,
+                index=1,
+                car_key="wine_bottle_obstacle_1_pos",
+                obstacle_root_body_id=32,
+                settled_car_position=self.np.asarray(
+                    [1.0, 2.0, 3.0], dtype=self.np.float64
+                ),
+                np=self.np,
+            )
+
+    def test_consumer_rejects_string_authority_root_id(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _strict_integer,
+        )
+
+        with self.assertRaises(OscCanaryValidationError):
+            _strict_integer("32", "test root")
+
+    def test_consumer_requires_exact_root_id_name_pairing(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _require_resolved_body_name,
+        )
+
+        resolved = {
+            "obstacle_body_ids": [32, 33],
+            "obstacle_body_names": [
+                "wine_bottle_obstacle_1_main",
+                "wine_bottle_obstacle_1_child",
+            ],
+        }
+        mapping = _require_resolved_body_name(
+            resolved,
+            ids_field="obstacle_body_ids",
+            names_field="obstacle_body_names",
+            expected_body_id=32,
+            expected_body_name="wine_bottle_obstacle_1_main",
+            label="test",
+        )
+        self.assertEqual(mapping[32], "wine_bottle_obstacle_1_main")
+        resolved["obstacle_body_names"].reverse()
+        with self.assertRaises(OscCanaryValidationError):
+            _require_resolved_body_name(
+                resolved,
+                ids_field="obstacle_body_ids",
+                names_field="obstacle_body_names",
+                expected_body_id=32,
+                expected_body_name="wine_bottle_obstacle_1_main",
+                label="test",
+            )
+
+    def test_car_cadence_historical_hash_and_scalars_are_exact(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _validate_paper_car_cadence_and_historical_binding,
+            _validate_paper_car_endpoint_row,
+        )
+
+        settled = self.row()
+        settled["source_action_index"] = -1
+        settled["snapshot_kind"] = "settled_pre_action"
+        settled["l1_displacement_from_settled_m"] = 0.0
+        historical_hash = settled[
+            "active_obstacle_position_observation_array_sha256"
+        ]
+        endpoint = self.row()
+        ledger = [settled, endpoint]
+        _validate_paper_car_cadence_and_historical_binding(
+            ledger,
+            action_count=1,
+            historical_settled_position_sha256=historical_hash,
+        )
+        for mutate in (
+            lambda rows: rows[0].__setitem__("snapshot_kind", "wrong"),
+            lambda rows: rows[1].__setitem__("source_action_index", False),
+            lambda rows: rows[0].__setitem__(
+                "active_obstacle_position_observation_array_sha256", "0" * 64
+            ),
+            lambda rows: rows[0].__setitem__(
+                "l1_displacement_from_settled_m", self.np.nextafter(0.0, 1.0)
+            ),
+        ):
+            rows = copy.deepcopy(ledger)
+            mutate(rows)
+            with self.assertRaises(OscCanaryValidationError):
+                _validate_paper_car_cadence_and_historical_binding(
+                    rows,
+                    action_count=1,
+                    historical_settled_position_sha256=historical_hash,
+                )
+
+        tampered = self.row()
+        tampered["l1_displacement_from_settled_m"] = self.np.nextafter(
+            tampered["l1_displacement_from_settled_m"], self.np.inf
+        )
+        with self.assertRaises(OscCanaryValidationError):
+            _validate_paper_car_endpoint_row(
+                tampered,
+                index=1,
+                car_key="wine_bottle_obstacle_1_pos",
+                obstacle_root_body_id=32,
+                settled_car_position=self.np.asarray(
+                    [1.0, 2.0, 3.0], dtype=self.np.float64
+                ),
+                np=self.np,
+            )
 
 
 class OscArmLinkPartialActionLedgerTests(unittest.TestCase):
