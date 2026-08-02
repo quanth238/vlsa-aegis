@@ -1072,3 +1072,31 @@ scope, the 1 mm CAR threshold, useful-motion requirements, task success, or any
 positive/negative efficacy classification. All prior roots remain immutable;
 a new clean commit, numeric job, producer root, and independent consumer are
 required.
+
+## ADR-0049: Protect the full robot after the link-only treatment stops on a finger contact
+
+Accepted after terminal producer `34256` and independent consumer `34258`.
+The e03 link-5/link-6-only treatment stopped before transition 918 because an
+exact one-step candidate clone predicted `gripper0_leftfinger` contacting the
+selected wine bottle. This occurred before any material Poisson correction
+and before the historical link-5 contact at action 62. No live contact occurred,
+but the task remained incomplete, so the validated result is `STOP_ONLY`.
+
+Ignoring this finger contact or weakening the registered union would contradict
+both the user's zero-any-robot-obstacle-contact success criterion and the
+report's whole-body recommendation. Adding only the observed finger would make
+the result depend on which unprotected body happens to collide first. The next
+simplest valid treatment therefore uses all authoritative robot collision
+surfaces already built and hash-audited by the runner as Poisson-CBF query and
+Jacobian samples. The selected-obstacle model, original OSC controller, policy,
+AEGIS layer, action history before divergence, physics rate, hard no-slack QP,
+contact authority, CAR threshold, useful-motion gates, and native task-success
+gate remain unchanged.
+
+This decision does not reinterpret `34256` as an arm-link correction failure:
+the link event was not reached. It records a scope failure of the link-only
+integration and tests the full-body controller question next. Fixed or
+uncontrollable robot geometry must fail a preregistered controllability/safe-
+start check rather than be silently dropped. The immutable e03 root and its
+receipt remain unchanged; a new protocol identity, clean commit, numeric gate,
+unused run root, producer, and independent consumer are required.

@@ -1016,3 +1016,69 @@ experiment. The corrected implementation passes 20/20 targeted CAR/protocol
 tests, 172/172 relevant local tests with 74 expected dependency skips, and the
 complete local gate: 797 tests with 167 expected dependency/allocation-only
 skips.
+
+## P01 verified arm-link population scope
+
+The report-aligned manifest
+`manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl` has file SHA-256
+`af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2`.
+Its 109 unique case IDs equal exactly the `through_car` rows in the broader
+165-case literal physical-contact manifest, whose file SHA-256 is
+`80678be7bbef6be8027c4d276e3a0114b04409388df6ee74399d2e9f301a2935`.
+The broader manifest adds 15 link contacts first sampled after CAR and 41 in
+episodes that remain CAR-safe.
+
+The report's 109 must not be described as 109 clean positive-barrier misses.
+It contains 60 primary static positive-proxy cases, 47 settled-support-contact
+stress cases, and two nonpositive-barrier recovery cases. Through CAR, the
+literal link patterns are 74 link-5 only, 33 link-6 only, and two both; 47
+tasks succeed and 62 fail. Across the complete 165-case physical inventory,
+the patterns are 94 link-5 only, 56 link-6 only, and 15 both. Every local
+historical result passed independent file-hash, canonical-payload, executed-
+action, and direct-contact-pair reconstruction. Eight mixed-contact rows retain
+episode-level literal-link evidence but lack an exact first-link step. Fresh
+remote artifact-byte authorization remains case-specific; only e03 has it in
+the current chain.
+
+## P01 original-OSC e03 terminal result
+
+Clean commit `18e30f2bc91e3f02ce341d1fde24eba0ecb574c6` passed the
+complete local gate (797 tests, 167 expected skips). H100 numeric job `34255`
+then completed `COMPLETED|0:0`, passing 175/175 registered tests with zero
+skips, failures, or errors. Its immutable result file SHA-256 is
+`be4f68a19a10c154841e341c077920105a20c8b0ca09633b911cd1e16299ce2e`
+and its independently reconstructed payload SHA-256 is
+`9811e004e3162140a0dfdbe9e7c605495fe0d483a2ed93fb36b61ae402728164`.
+
+Producer `34256` completed `COMPLETED|0:0` in 6m24s. Its final result file
+SHA-256 is
+`6bc85c49bf81b1ad65338a01538957ffd3834ae562fdb74a706123405f44bb8d`
+and payload SHA-256 is
+`44d7c0e86ec9934ec4a7fae4779ad2aca26daaf546c38e3483b05edd920c5291`.
+Independent CPU consumer `34258` completed `COMPLETED|0:0`; its receipt file
+SHA-256 is
+`15157d25c88ffa91857083a1bc4ac62fb7fb74b36ed15ec9d3e151b6f286e56b`
+and payload SHA-256 is
+`87a3c2a58fc1d88436f70dab2f136ee18f09acd110ba928971acbefe1cd0d2e4`.
+The consumer reports `status=validated`, no apparatus failures, and the
+scientific classification `STOP_ONLY`.
+
+The treatment completed 36 actions and 917 physical 2 ms transitions, then
+stopped before transition 918 (action 36, substep 18). The exact candidate
+clone predicted a `gripper0_leftfinger` collision with
+`wine_bottle_obstacle_1_g6` at -21.791 micrometres. The live robot never made a
+registered contact and paper CAR remained at
+`2.0271284650874577e-12` m, but the protected Poisson set contained only links
+5 and 6. Consequently no protected-surface constraint requested a material
+correction, no QP was solved, and the fail-closed contact postcheck stopped the
+episode before the historical link-5 event at action 62. The task did not
+succeed.
+
+This is a valid negative for the current link-5/link-6-only integration: it
+achieves safety by stopping, not useful correction. It does not establish that
+Poisson cannot correct the historical arm-link event, because that event was
+never reached. It instead shows that the requested zero-any-robot-contact
+criterion requires the Poisson protected set to include the gripper/fingers
+as well. Per ADR-0049, the next treatment will use the already audited full-
+robot collision-surface set; the contact monitor will not be weakened. P01
+remains `active`.
