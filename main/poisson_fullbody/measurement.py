@@ -203,6 +203,163 @@ class ResolvedGeomSets:
         return asdict(self)
 
 
+def partition_robot_geoms_by_qvel_influence(
+    model_or_sim: Any,
+    resolved: ResolvedGeomSets,
+    robot_qvel_indices: Iterable[int],
+) -> Dict[str, Any]:
+    """Partition contact geoms into movable manipulator and fixed sets.
+
+    Contact authority intentionally remains every collision-enabled geom in
+    ``resolved.robot_geom_ids``.  Poisson-CBF rows, however, are meaningful
+    only for geoms whose world pose is structurally affected by at least one
+    authoritative robot-tree generalized velocity.  Influence is derived from
+    the compiled body/joint ancestry, never from a pose-specific Jacobian or a
+    geom-name heuristic.  This keeps rigid hand/finger children while
+    separating fixed mount and pedestal infrastructure.
+    The authoritative root must be world-mounted so no omitted external joint
+    can move the subtree.
+    """
+
+    candidate = getattr(model_or_sim, "model", model_or_sim)
+    model = getattr(candidate, "_model", candidate)
+    qvel_indices = _validated_ids(
+        robot_qvel_indices,
+        count=int(model.nv),
+        label="robot_qvel_indices",
+    )
+    if qvel_indices != tuple(sorted(qvel_indices)):
+        raise ValueError("robot_qvel_indices must be in ascending model order")
+    if not isinstance(resolved, ResolvedGeomSets):
+        raise TypeError("resolved must be a ResolvedGeomSets record")
+
+    body_ids = tuple(int(value) for value in resolved.robot_body_ids)
+    geom_ids = tuple(int(value) for value in resolved.robot_geom_ids)
+    if (
+        len(body_ids) != len(resolved.robot_body_names)
+        or len(geom_ids) != len(resolved.robot_geom_names)
+    ):
+        raise ValueError("resolved robot ID/name ledgers differ")
+    body_name_by_id = dict(zip(body_ids, resolved.robot_body_names))
+    geom_name_by_id = dict(zip(geom_ids, resolved.robot_geom_names))
+    robot_body_set = set(body_ids)
+    if any(
+        int(model.body_parentid[int(root_body_id)]) != 0
+        for root_body_id in resolved.robot_root_body_ids
+    ):
+        raise ValueError(
+            "robot roots must be world-mounted for complete qvel influence authority"
+        )
+    qvel_joint_body = {}
+    for qvel_index in qvel_indices:
+        joint_id = int(model.dof_jntid[qvel_index])
+        joint_body_id = int(model.jnt_bodyid[joint_id])
+        if joint_body_id not in robot_body_set:
+            raise ValueError(
+                "robot qvel %d is owned outside the resolved robot tree"
+                % qvel_index
+            )
+        qvel_joint_body[int(qvel_index)] = joint_body_id
+
+    ancestry_by_body: Dict[int, Tuple[int, ...]] = {}
+    parent_records: List[Dict[str, Any]] = []
+    for body_id in body_ids:
+        ancestry: List[int] = []
+        visited = set()
+        current = int(body_id)
+        while current != 0:
+            if current in visited or current < 0 or current >= int(model.nbody):
+                raise ValueError("compiled robot body ancestry is cyclic or invalid")
+            visited.add(current)
+            ancestry.append(current)
+            current = int(model.body_parentid[current])
+        ancestry_by_body[body_id] = tuple(ancestry)
+        parent_id = int(model.body_parentid[body_id])
+        parent_records.append(
+            {
+                "body_id": body_id,
+                "body_name": str(body_name_by_id[body_id]),
+                "parent_body_id": parent_id,
+                "parent_body_name": (
+                    "world"
+                    if parent_id == 0
+                    else _body_name(model, parent_id)
+                ),
+                "body_ancestry_ids": list(ancestry),
+            }
+        )
+
+    geom_records: List[Dict[str, Any]] = []
+    shield_geom_ids: List[int] = []
+    fixed_geom_ids: List[int] = []
+    for geom_id in geom_ids:
+        body_id = int(model.geom_bodyid[geom_id])
+        if body_id not in ancestry_by_body:
+            raise ValueError("resolved robot geom is outside the robot body ledger")
+        ancestry = set(ancestry_by_body[body_id])
+        influencing = [
+            qvel_index
+            for qvel_index in qvel_indices
+            if qvel_joint_body[qvel_index] in ancestry
+        ]
+        classification = (
+            "kinematically_movable_manipulator_surface"
+            if influencing
+            else "kinematically_fixed_robot_infrastructure"
+        )
+        if influencing:
+            shield_geom_ids.append(geom_id)
+        else:
+            fixed_geom_ids.append(geom_id)
+        geom_records.append(
+            {
+                "geom_id": geom_id,
+                "geom_name": str(geom_name_by_id[geom_id]),
+                "body_id": body_id,
+                "body_name": str(body_name_by_id[body_id]),
+                "body_ancestry_ids": list(ancestry_by_body[body_id]),
+                "influencing_robot_qvel_indices": influencing,
+                "classification": classification,
+            }
+        )
+
+    if not shield_geom_ids or not fixed_geom_ids:
+        raise ValueError(
+            "expected both movable manipulator and fixed robot geom partitions"
+        )
+    if not set(resolved.link56_geom_ids).issubset(shield_geom_ids):
+        raise ValueError("literal link-5/link-6 geoms are not movable shield geoms")
+    if (
+        set(shield_geom_ids) & set(fixed_geom_ids)
+        or (set(shield_geom_ids) | set(fixed_geom_ids)) != set(geom_ids)
+    ):
+        raise ValueError("robot geom influence partition is incomplete")
+
+    return {
+        "schema_version": "vlsa_poisson_robot_geom_influence_partition.v1",
+        "selection_rule": (
+            "geom_body_self_or_ancestor_owns_at_least_one_authoritative_"
+            "robot_tree_qvel"
+        ),
+        "contact_monitor_robot_geom_ids": list(geom_ids),
+        "shield_manipulator_geom_ids": shield_geom_ids,
+        "fixed_robot_infrastructure_geom_ids": fixed_geom_ids,
+        "robot_qvel_indices": list(qvel_indices),
+        "robot_qvel_joint_body_ids": [
+            qvel_joint_body[index] for index in qvel_indices
+        ],
+        "robot_body_parent_records": parent_records,
+        "geom_records": geom_records,
+        "all_contact_geoms_partitioned": True,
+        "all_fixed_geoms_have_zero_structural_qvel_influence": all(
+            not row["influencing_robot_qvel_indices"]
+            for row in geom_records
+            if row["classification"]
+            == "kinematically_fixed_robot_infrastructure"
+        ),
+    }
+
+
 def resolve_collision_geom_sets(
     model_or_sim: Any,
     *,
@@ -1689,5 +1846,6 @@ __all__ = [
     "clone_forwarded_state",
     "copy_integration_state",
     "descendant_body_ids",
+    "partition_robot_geoms_by_qvel_influence",
     "resolve_collision_geom_sets",
 ]

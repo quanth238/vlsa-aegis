@@ -6,13 +6,16 @@ unknown fields within each version.  The parameter-block digest can therefore
 be frozen before held-out evaluation and embedded in every manifest/result
 without relying on mutable filenames.
 
-The active v4 canary protects every collision-enabled surface in the
-authoritative robot body tree against one selected obstacle.  Link 5/6 samples
-remain in the field-bundle identity only; they are not the active shield-row
-population.  The v3 link-5/6 contract remains loadable solely so immutable
-historical artifacts retain their original validator.  ISSf is represented
-explicitly but disabled (epsilon0 = 0) until the runtime implements and tests
-that term.
+The active v5 canary protects every collision-enabled manipulator surface whose
+world pose is structurally affected by an authoritative robot-tree qvel through
+a joint on its self/ancestor chain.  Collision geoms with an empty influencing-
+qvel set are fixed infrastructure: they remain in all-robot contact monitoring
+but are excluded from CBF rows only after a settled contact-free, zero-authority
+certificate.  Link 5/6 samples remain in the field-bundle identity only; they
+are not the active shield-row population.  The immutable v4 full-subtree and v3
+link-5/6 contracts remain loadable solely so historical artifacts retain their
+original validators.  ISSf is represented explicitly but disabled (epsilon0 =
+0) until the runtime implements and tests that term.
 """
 
 from __future__ import annotations
@@ -26,7 +29,8 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v4"
+SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v5"
+PREVIOUS_SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v4"
 LEGACY_SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v3"
 PARAMETER_SECTIONS = (
     "workspace",
@@ -281,10 +285,15 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
         ),
     )
     schema_version = top["schema_version"]
-    if schema_version not in (SCHEMA_VERSION, LEGACY_SCHEMA_VERSION):
+    if schema_version not in (
+        SCHEMA_VERSION,
+        PREVIOUS_SCHEMA_VERSION,
+        LEGACY_SCHEMA_VERSION,
+    ):
         raise FeasibilityProtocolError(
-            "protocol.schema_version must equal {!r} or immutable legacy {!r}".format(
-                SCHEMA_VERSION, LEGACY_SCHEMA_VERSION
+            "protocol.schema_version must equal {!r} or immutable predecessor "
+            "{!r}/{!r}".format(
+                SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, LEGACY_SCHEMA_VERSION
             )
         )
     _string(top["protocol_id"], "protocol.protocol_id")
@@ -1161,6 +1170,20 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "claim_strength",
             "prohibited_generalization",
         )
+    elif schema_version == PREVIOUS_SCHEMA_VERSION:
+        scope_keys = (
+            "obstacle_scope",
+            "protected_robot_bodies",
+            "protected_robot_bodies_role",
+            "shield_robot_collision_surface_scope",
+            "shield_robot_qvel_scope",
+            "shield_decision_scope",
+            "nonarm_control_policy",
+            "unprotected_body_policy",
+            "population_scope",
+            "claim_strength",
+            "prohibited_generalization",
+        )
     else:
         scope_keys = (
             "obstacle_scope",
@@ -1170,6 +1193,8 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "shield_robot_qvel_scope",
             "shield_decision_scope",
             "nonarm_control_policy",
+            "fixed_infrastructure_exclusion_policy",
+            "all_robot_contact_monitor_scope",
             "unprotected_body_policy",
             "population_scope",
             "claim_strength",
@@ -1192,7 +1217,7 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "measure_contacts_but_exclude_from_link56_claim",
             "claim_scope.unprotected_body_policy",
         )
-    else:
+    elif schema_version == PREVIOUS_SCHEMA_VERSION:
         for field, expected in (
             (
                 "protected_robot_bodies_role",
@@ -1217,6 +1242,49 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             (
                 "unprotected_body_policy",
                 "no_authoritative_robot_collision_surface_excluded_against_selected_obstacle",
+            ),
+        ):
+            _literal(scope[field], expected, "claim_scope.%s" % field)
+    else:
+        for field, expected in (
+            (
+                "protected_robot_bodies_role",
+                "field_bundle_sample_seed_only_not_shield_constraint_scope",
+            ),
+            (
+                "shield_robot_collision_surface_scope",
+                "all_collision_enabled_geoms_structurally_affected_by_"
+                "authoritative_robot_tree_qvel_through_self_or_ancestor_joint",
+            ),
+            (
+                "shield_robot_qvel_scope",
+                "all_authoritative_robot_tree_qvels_structurally_affecting_"
+                "shield_samples",
+            ),
+            (
+                "shield_decision_scope",
+                "seven_registered_panda_arm_torque_controls_only",
+            ),
+            (
+                "nonarm_control_policy",
+                "nominal_nonarm_controls_unchanged_with_motion_included_in_"
+                "exact_affine_dynamics",
+            ),
+            (
+                "fixed_infrastructure_exclusion_policy",
+                "exclude_only_collision_geoms_with_empty_influencing_robot_"
+                "qvel_set_and_require_settled_contact_free_zero_authority_"
+                "certificate",
+            ),
+            (
+                "all_robot_contact_monitor_scope",
+                "all_collision_enabled_geoms_in_authoritative_robot_body_tree_"
+                "against_selected_obstacle_at_every_physics_substep",
+            ),
+            (
+                "unprotected_body_policy",
+                "no_kinematically_movable_manipulator_collision_surface_"
+                "excluded_against_selected_obstacle",
             ),
         ):
             _literal(scope[field], expected, "claim_scope.%s" % field)

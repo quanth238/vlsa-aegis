@@ -1150,3 +1150,74 @@ same check instead of requiring bit identity. This changes no physical bound,
 grid vertex, occupancy, Poisson tolerance, CBF constraint, or acceptance rule.
 Job `34274` is retained as failed implementation evidence and authorizes no
 rollout; a fresh clean commit and numeric run are required.
+
+## ADR-0052: Shield movable manipulator geometry and monitor the entire robot
+
+Accepted after the complete full-subtree e03 attempt exposed an apparatus
+mistake before action zero. Registered numeric job `34280` passed all 201 H100
+tests with zero skips. Producer `34282` then failed because 16 settled Poisson
+queries were invalid; reconstruction against the immutable full-surface ledger
+maps every reported index to `mount0_controller_box_col`. The first invalid
+index begins exactly after the arm, hand, and finger samples. No action, QP,
+contact outcome, CAR result, or task result exists from that root.
+
+The controller had conflated two different populations: geometry that can be
+moved by a robot generalized velocity and geometry that must be watched for
+contact. A CBF derivative is meaningful only for the first population. The
+next treatment therefore selects shield rows from compiled MuJoCo body/joint
+ancestry: a collision geom is shielded if a joint on its body or ancestor owns
+at least one authoritative robot-tree qvel. This includes every movable arm,
+hand, and finger surface, including literal links 5 and 6. A geom with an empty
+influencing-qvel set is kinematically fixed robot geometry; it is excluded from
+the QP only after exact-zero point-Jacobian and settled contact-free checks.
+Names and pose-specific Jacobian rank do not select the partition.
+The compiled authoritative robot root must be parented directly to the MuJoCo
+world; otherwise an external ancestor qvel could invalidate this influence
+certificate and the apparatus fails closed.
+
+Contact authority remains broader. Every collision-enabled geom in the
+authoritative robot subtree, including the stationary base, controller box,
+mount, and pedestal, stays in the every-substep selected-obstacle contact
+monitor and final zero-contact criterion. The full all-robot surface ledger is
+also retained for simulator-clearance measurement. Thus the correction neither
+ignores the observed mount nor permits contact to shift from link 5 to a finger.
+
+Runtime v5 and canary v3 change only this apparatus scope and its serialized
+evidence. The v4 workspace, 2 cm grid, obstacle representation, original OSC,
+seven arm-torque decisions, non-arm controls, Poisson/CBF/QP parameters,
+contact rules, 1 mm CAR threshold, useful-motion thresholds, and native task
+success criterion are unchanged. Positive feasibility still requires material
+pre-contact correction, zero registered contact, continued joint and end-
+effector motion, CAR avoidance, and full task success; stopping remains a
+negative. The first outcome case remains the preregistered clean e03 link-5
+case. Report-visible e05 and held-out link-6 e42 remain later frozen-parameter
+checks.
+
+The runtime-v5 file is field/admissibility and allocation-numeric authority for
+this post-OSC experiment; its legacy adapter, CBF-QP, and 100 Hz cadence blocks
+are not the active control law. The canary's execution and shield sections are
+the active authority: original OSC followed by a torque shield before every
+2 ms MuJoCo step, using the canary's solver values. This precedence is explicit
+in the canary protocol so unused runtime parameters cannot be mistaken for the
+executed controller.
+
+E03 also contains an earlier exact-clone finger hazard than its archived
+action-62 link-5 contact. Therefore a contact-free, task-successful e03 result
+is not automatically proof that a link-5/6 constraint caused the correction.
+The link-specific positive gate additionally requires the globally minimum
+nominal CBF row at the first material divergence to belong to literal link 5
+or 6. Merely having a weak negative link row while a finger drives the QP is
+not enough.
+A useful successful correction attributed only to another manipulator surface
+is retained as a separate non-link-attributed result, not promoted to evidence
+that Poisson solved the report's arm-link mechanism. The report-visible e05 and
+held-out link-6 e42 checks remain necessary for broader link-specific evidence.
+
+The preregistered identities are runtime-v5 raw/semantic/parameter SHA-256
+`f0b13698b2e175cdd4da3be25d6aea19e130c24455361592c2a3a49acfd42d56`,
+`54811752920c503ab4d4a983d154a42d95cacd71d6209d6dea558583c37f927f`,
+and `61ac3790e704aec03283624990c5874913907140b5cb0b8bd776e8fcae6d4eca`;
+the canary-v3 raw SHA-256 is
+`6404650bbd215bd465da04e46d1b82f9917a6f5c61e7127ee80863bdb5d48d3f`.
+The allocation numeric module list is part of this contract and must equal the
+15-module canary list exactly, including `tests.test_poisson_measurement`.

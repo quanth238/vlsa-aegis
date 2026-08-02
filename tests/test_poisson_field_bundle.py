@@ -55,7 +55,12 @@ class StaticFieldBundleTests(unittest.TestCase):
         cls.mujoco = mujoco
         cls.np = np
         cls.protocol, cls.protocol_hashes = load_feasibility_protocol(
-            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v4.json"
+            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v5.json"
+        )
+        cls.previous_protocol, cls.previous_protocol_hashes = (
+            load_feasibility_protocol(
+                ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v4.json"
+            )
         )
         cls.legacy_protocol, cls.legacy_protocol_hashes = (
             load_feasibility_protocol(
@@ -265,6 +270,27 @@ class StaticFieldBundleTests(unittest.TestCase):
         )
         self.np.testing.assert_array_equal(
             bundle.grid.spacing, self.np.full(3, 0.02)
+        )
+
+    def test_immutable_v4_full_subtree_workspace_remains_supported(self) -> None:
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        model, data, _, resolved = self._scene()
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.build_occupancy",
+            side_effect=self._sparse_free_occupancy,
+        ):
+            bundle = build_static_field_bundle(
+                model,
+                data,
+                resolved=resolved,
+                protocol=self.previous_protocol,
+                protocol_hashes=self.previous_protocol_hashes,
+            )
+
+        self.assertEqual(bundle.grid.vertex_shape, (116, 101, 111))
+        self.np.testing.assert_array_equal(
+            bundle.grid.lower, self.np.asarray([-1.3, -1.0, -0.2])
         )
 
     def test_schema_workspace_mismatch_is_rejected_before_geometry(self) -> None:

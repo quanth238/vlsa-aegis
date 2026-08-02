@@ -65,6 +65,13 @@ _REGISTERED_WORKSPACES = {
         "grid_shape_vertices": REGISTERED_FULL_ROBOT_GRID_SHAPE_VERTICES,
         "grid_spacing_m": (0.02, 0.02, 0.02),
     },
+    "vlsa_poisson_runtime_protocol.v5": {
+        "protocol_id": "vlsa-poisson-movable-manipulator-canary-parameters-v5",
+        "minimum_m": (-1.3, -1.0, -0.2),
+        "maximum_m": (1.0, 1.0, 2.0),
+        "grid_shape_vertices": REGISTERED_FULL_ROBOT_GRID_SHAPE_VERTICES,
+        "grid_spacing_m": (0.02, 0.02, 0.02),
+    },
 }
 
 

@@ -1130,3 +1130,62 @@ uses a frozen `1e-15` m bound-to-spacing consistency tolerance. The allocation
 test now uses that identical tolerance. No field geometry, safety margin,
 solver criterion, controller, or efficacy gate changed, and no rollout was
 submitted.
+
+Registered numeric job `34280` subsequently completed `COMPLETED|0:0`, passing
+201/201 tests with zero skips. Its immutable result file SHA-256 is
+`0141df17fe4f77321296a784774d57a2cbb531e42664dfe97114185e1a448515`
+and its independently reconstructed payload SHA-256 is
+`cdb58decef01cda9224687efa53e012ff75eca1560a05a2359f6b4f7802549ac`.
+Full-subtree producer `34282` then failed before action zero and retained a
+complete apparatus-only artifact, file SHA-256
+`67fd6c3c806f398c9a2ccaafae1ca272ae98a0a462595bdf9ed28dca284bf9c4`.
+All 16 reported invalid query indices map to
+`mount0_controller_box_col`; the first invalid index begins immediately after
+the movable arm/hand/finger portion of the immutable sample ledger. No policy,
+QP, contact, CAR, motion, or task outcome exists from `34282`.
+
+## P01 movable-manipulator e03 correction preregistered
+
+ADR-0052 separates control authority from contact authority. The v3 canary
+partitions all authoritative robot collision geoms using compiled body/joint
+ancestry. Every geom influenced by a robot-tree qvel is a Poisson-CBF sample;
+this includes all movable arm, hand, and finger surfaces. Kinematically fixed
+base/mount/pedestal geometry is omitted from QP rows only after a complete
+zero-influence, exact-zero point-Jacobian, settled-contact-free certificate.
+The compiled robot root must also be world-mounted; an external-joint ancestor
+is rejected rather than omitted from the influence authority.
+All robot geoms remain in the selected-obstacle contact monitor and the full
+all-robot surface ledger remains the simulator-clearance population.
+
+Runtime v5 preserves the v4 workspace, grid, field, safety, and admissibility
+values. It is explicitly field/admissibility and numeric-prerequisite authority
+only for this experiment. Active control comes from the v3 canary: original
+OSC plus a post-OSC torque shield before every 2 ms physics step. Runtime
+adapter/QP/cadence blocks are non-authoritative, removing the prior 100 Hz
+versus 500 Hz ambiguity without changing executed values.
+
+Because e03's link-only run exposed an earlier finger hazard, a successful
+full-manipulator correction is link-specific evidence only when the globally
+minimum nominal CBF row at the first material divergence belongs to literal
+link 5 or 6. A weak co-occurring link row is insufficient when another surface
+drives the QP. Otherwise the outcome is retained as
+`SAFE_TASK_SUCCESS_USEFUL_CORRECTION_NOT_LINK56_ATTRIBUTED`, which is useful
+whole-manipulator evidence but not a positive answer to the report's arm-link
+question. Positive link-specific feasibility still requires zero registered
+contact, CAR avoidance, continued nontrivial motion, and native task success.
+Report-visible e05 and held-out link-6 e42 remain frozen-parameter follow-ups.
+
+The frozen runtime-v5 raw file SHA-256 is
+`f0b13698b2e175cdd4da3be25d6aea19e130c24455361592c2a3a49acfd42d56`;
+its validated semantic and parameter-block SHA-256 values are
+`54811752920c503ab4d4a983d154a42d95cacd71d6209d6dea558583c37f927f`
+and `61ac3790e704aec03283624990c5874913907140b5cb0b8bd776e8fcae6d4eca`.
+The canary-v3 raw file SHA-256 is
+`6404650bbd215bd465da04e46d1b82f9917a6f5c61e7127ee80863bdb5d48d3f`.
+A final pre-submission audit found that the numeric Slurm module list omitted
+the newly required structural measurement tests. The list and its frozen
+contract now match all 15 required modules exactly. Focused verification passes
+94 tests with 35 expected local dependency/allocation skips, and the complete
+local gate passes 830 tests with 183 expected skips. This is implementation
+evidence only. A fresh same-clean-commit, zero-skip H100 numeric artifact and
+the complete independently consumed e03 rollout remain required.

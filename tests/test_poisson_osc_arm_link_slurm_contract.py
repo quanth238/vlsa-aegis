@@ -63,6 +63,7 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
                 "tests.test_poisson_field_bundle",
                 "tests.test_poisson_production_grid",
                 "tests.test_poisson_surface_sampling",
+                "tests.test_poisson_measurement",
                 "tests.test_poisson_jacobians",
                 "tests.test_poisson_cbf_qp",
                 "tests.test_poisson_prephysics_control_wrapper",
@@ -128,6 +129,16 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
                     "numeric prerequisite is not a direct registered numeric run result",
                     source,
                 )
+
+    def test_producer_and_consumer_use_immutable_v3_canary_protocol(self) -> None:
+        for name in (
+            "poisson_osc_arm_link_canary.sbatch",
+            "poisson_osc_arm_link_canary_validate.sbatch",
+        ):
+            with self.subTest(name=name):
+                source = self.source(name)
+                self.assertIn("vlsa_poisson_osc_arm_link_canary.v3.json", source)
+                self.assertNotIn("vlsa_poisson_osc_arm_link_canary.v2.json", source)
 
     def test_post_osc_slurm_scripts_parse_as_bash(self) -> None:
         for name in (

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import importlib.util
 import json
 import math
@@ -71,6 +72,7 @@ class FullRobotMeasurementTests(unittest.TestCase):
             StaticObstacleDriftInadmissible,
             clone_forwarded_state,
             copy_integration_state,
+            partition_robot_geoms_by_qvel_influence,
             resolve_collision_geom_sets,
         )
         from main.poisson_fullbody.robot_samples import BodySample
@@ -84,6 +86,9 @@ class FullRobotMeasurementTests(unittest.TestCase):
         self.StaticObstacleDriftInadmissible = StaticObstacleDriftInadmissible
         self.clone_forwarded_state = clone_forwarded_state
         self.copy_integration_state = copy_integration_state
+        self.partition_robot_geoms_by_qvel_influence = (
+            partition_robot_geoms_by_qvel_influence
+        )
         self.resolve_collision_geom_sets = resolve_collision_geom_sets
         self.BodySample = BodySample
 
@@ -176,6 +181,69 @@ class FullRobotMeasurementTests(unittest.TestCase):
         )
         return model, data, sim, ids, resolved, samples
 
+    def _build_structural_partition_model(self):
+        xml = r"""
+<mujoco model="robot_geom_influence_partition_test">
+  <option timestep="0.002" gravity="0 0 0"/>
+  <worldbody>
+    <body name="robot_root">
+      <geom name="fixed_mount_collision" type="box" size="0.03 0.03 0.03"
+            contype="1" conaffinity="1"/>
+      <body name="link5">
+        <joint name="arm_joint" type="hinge" axis="0 0 1"/>
+        <geom name="link5_collision" type="box" size="0.02 0.02 0.02"
+              mass="0.2" contype="1" conaffinity="1"/>
+        <body name="link6" pos="0 0 0.10">
+          <geom name="link6_collision" type="box" size="0.02 0.02 0.02"
+                mass="0.2" contype="1" conaffinity="1"/>
+          <body name="gripper" pos="0 0 0.10">
+            <joint name="finger_joint" type="hinge" axis="0 1 0"/>
+            <geom name="gripper_collision" type="box" size="0.02 0.02 0.02"
+                  mass="0.2" contype="1" conaffinity="1"/>
+          </body>
+        </body>
+      </body>
+    </body>
+    <body name="selected_obstacle" pos="0.5 0 0">
+      <joint name="obstacle_joint" type="slide" axis="1 0 0"/>
+      <geom name="selected_obstacle_collision" type="box"
+            size="0.02 0.02 0.02" mass="0.2"
+            contype="1" conaffinity="1"/>
+    </body>
+  </worldbody>
+</mujoco>
+"""
+        model = self.mujoco.MjModel.from_xml_string(xml)
+        body = self.mujoco.mjtObj.mjOBJ_BODY
+        geom = self.mujoco.mjtObj.mjOBJ_GEOM
+        joint = self.mujoco.mjtObj.mjOBJ_JOINT
+        ids = {
+            "robot_root": self._id(model, body, "robot_root"),
+            "link5": self._id(model, body, "link5"),
+            "link6": self._id(model, body, "link6"),
+            "gripper": self._id(model, body, "gripper"),
+            "obstacle": self._id(model, body, "selected_obstacle"),
+            "fixed_geom": self._id(model, geom, "fixed_mount_collision"),
+            "link5_geom": self._id(model, geom, "link5_collision"),
+            "link6_geom": self._id(model, geom, "link6_collision"),
+            "gripper_geom": self._id(model, geom, "gripper_collision"),
+            "arm_joint": self._id(model, joint, "arm_joint"),
+            "finger_joint": self._id(model, joint, "finger_joint"),
+            "obstacle_joint": self._id(model, joint, "obstacle_joint"),
+        }
+        resolved = self.resolve_collision_geom_sets(
+            model,
+            robot_root_body_ids=[ids["robot_root"]],
+            obstacle_root_body_ids=[ids["obstacle"]],
+            link56_body_ids=[ids["link5"], ids["link6"]],
+        )
+        qvel = {
+            "arm": int(model.jnt_dofadr[ids["arm_joint"]]),
+            "finger": int(model.jnt_dofadr[ids["finger_joint"]]),
+            "obstacle": int(model.jnt_dofadr[ids["obstacle_joint"]]),
+        }
+        return model, ids, resolved, qvel
+
     def _moving_obstacle_monitor(
         self,
         *,
@@ -245,6 +313,146 @@ class FullRobotMeasurementTests(unittest.TestCase):
                 for geom_id in resolved.robot_geom_ids
             ),
         )
+
+    def test_structural_partition_shields_movable_descendants_and_monitors_all(self):
+        model, ids, resolved, qvel = self._build_structural_partition_model()
+        partition = self.partition_robot_geoms_by_qvel_influence(
+            model,
+            resolved,
+            [qvel["arm"], qvel["finger"]],
+        )
+
+        self.assertEqual(
+            partition["schema_version"],
+            "vlsa_poisson_robot_geom_influence_partition.v1",
+        )
+        self.assertEqual(
+            set(partition["contact_monitor_robot_geom_ids"]),
+            set(resolved.robot_geom_ids),
+        )
+        self.assertEqual(
+            set(partition["shield_manipulator_geom_ids"]),
+            {
+                ids["link5_geom"],
+                ids["link6_geom"],
+                ids["gripper_geom"],
+            },
+        )
+        self.assertEqual(
+            partition["fixed_robot_infrastructure_geom_ids"],
+            [ids["fixed_geom"]],
+        )
+        self.assertTrue(partition["all_contact_geoms_partitioned"])
+        self.assertTrue(
+            partition["all_fixed_geoms_have_zero_structural_qvel_influence"]
+        )
+
+        records = {row["geom_id"]: row for row in partition["geom_records"]}
+        self.assertEqual(
+            records[ids["fixed_geom"]]["influencing_robot_qvel_indices"], []
+        )
+        self.assertEqual(
+            records[ids["link6_geom"]]["influencing_robot_qvel_indices"],
+            [qvel["arm"]],
+        )
+        self.assertEqual(
+            records[ids["gripper_geom"]]["influencing_robot_qvel_indices"],
+            [qvel["arm"], qvel["finger"]],
+        )
+
+    def test_structural_partition_is_identity_based_not_name_based(self):
+        model, _, resolved, qvel = self._build_structural_partition_model()
+        renamed = replace(
+            resolved,
+            robot_body_names=tuple(
+                "renamed_body_%d" % body_id for body_id in resolved.robot_body_ids
+            ),
+            robot_geom_names=tuple(
+                "renamed_geom_%d" % geom_id for geom_id in resolved.robot_geom_ids
+            ),
+            link56_geom_names=tuple(
+                "renamed_link_geom_%d" % geom_id
+                for geom_id in resolved.link56_geom_ids
+            ),
+        )
+        original = self.partition_robot_geoms_by_qvel_influence(
+            model, resolved, [qvel["arm"], qvel["finger"]]
+        )
+        changed = self.partition_robot_geoms_by_qvel_influence(
+            model, renamed, [qvel["arm"], qvel["finger"]]
+        )
+        self.assertEqual(
+            changed["shield_manipulator_geom_ids"],
+            original["shield_manipulator_geom_ids"],
+        )
+        self.assertEqual(
+            changed["fixed_robot_infrastructure_geom_ids"],
+            original["fixed_robot_infrastructure_geom_ids"],
+        )
+
+    def test_structural_partition_rejects_incomplete_or_nonrobot_authority(self):
+        model, _, resolved, qvel = self._build_structural_partition_model()
+        with self.assertRaisesRegex(ValueError, "link-5/link-6"):
+            self.partition_robot_geoms_by_qvel_influence(
+                model, resolved, [qvel["finger"]]
+            )
+        with self.assertRaisesRegex(ValueError, "outside the resolved robot tree"):
+            self.partition_robot_geoms_by_qvel_influence(
+                model, resolved, [qvel["obstacle"]]
+            )
+        with self.assertRaisesRegex(ValueError, "ascending model order"):
+            self.partition_robot_geoms_by_qvel_influence(
+                model, resolved, [qvel["finger"], qvel["arm"]]
+            )
+
+    def test_structural_partition_rejects_robot_root_moved_by_external_joint(self):
+        xml = r"""
+<mujoco model="non_world_mounted_robot_partition_test">
+  <option gravity="0 0 0"/>
+  <worldbody>
+    <body name="carrier">
+      <joint name="carrier_joint" type="slide" axis="1 0 0"/>
+      <geom type="sphere" size="0.01" mass="0.1" contype="0" conaffinity="0"/>
+      <body name="robot_root">
+        <geom name="fixed_robot_geom" type="box" size="0.01 0.01 0.01"
+              contype="1" conaffinity="1"/>
+        <body name="link5">
+          <joint name="arm_joint" type="hinge" axis="0 0 1"/>
+          <geom name="link5_geom" type="box" size="0.01 0.01 0.01"
+                mass="0.1" contype="1" conaffinity="1"/>
+          <body name="link6">
+            <geom name="link6_geom" type="box" size="0.01 0.01 0.01"
+                  mass="0.1" contype="1" conaffinity="1"/>
+          </body>
+        </body>
+      </body>
+    </body>
+    <body name="obstacle" pos="0.5 0 0">
+      <geom name="obstacle_geom" type="box" size="0.01 0.01 0.01"/>
+    </body>
+  </worldbody>
+</mujoco>
+"""
+        model = self.mujoco.MjModel.from_xml_string(xml)
+        body = self.mujoco.mjtObj.mjOBJ_BODY
+        joint = self.mujoco.mjtObj.mjOBJ_JOINT
+        robot_root = self._id(model, body, "robot_root")
+        link5 = self._id(model, body, "link5")
+        link6 = self._id(model, body, "link6")
+        obstacle = self._id(model, body, "obstacle")
+        arm_joint = self._id(model, joint, "arm_joint")
+        resolved = self.resolve_collision_geom_sets(
+            model,
+            robot_root_body_ids=[robot_root],
+            obstacle_root_body_ids=[obstacle],
+            link56_body_ids=[link5, link6],
+        )
+        with self.assertRaisesRegex(ValueError, "world-mounted"):
+            self.partition_robot_geoms_by_qvel_influence(
+                model,
+                resolved,
+                [int(model.jnt_dofadr[arm_joint])],
+            )
 
     def test_positive_clearance_and_settled_pose_drift_are_separate(self):
         model, data, sim, ids, resolved, samples = self._build(obstacle_x=0.50)

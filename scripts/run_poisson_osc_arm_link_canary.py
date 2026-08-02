@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Run one treatment-only SafeLIBERO post-OSC full-robot Poisson canary.
+"""Run one treatment-only SafeLIBERO post-OSC manipulator Poisson canary.
 
 The immutable completed AEGIS / OSC episode is the control; it is not rerun.
 The live treatment uses the same archived high-level actions until the first
 material Poisson torque correction.  It then consumes the remainder of that
 already-current pi0.5 chunk and only afterwards queries pi0.5 from its own
-observations.  Every collision-enabled surface in the authoritative robot
-tree is constrained against the selected obstacle immediately before each
-2 ms MuJoCo step.  Robot-tree velocities include the gripper, while only the
-seven original arm torques may change and every non-arm control stays nominal.
-Any invalid field, sensitivity, QP, or postcheck stops the run without a
+observations.  Every collision-enabled manipulator surface whose world pose is
+structurally affected by an authoritative robot-tree qvel is constrained
+against the selected obstacle immediately before each 2 ms MuJoCo step.  Fixed
+mount/pedestal infrastructure has no CBF row only after a zero-authority,
+settled-contact-free certificate, and every robot geom remains in exact contact
+monitoring.  Robot-tree velocities include the gripper, while only the seven
+original arm torques may change and every non-arm control stays nominal.  Any
+invalid field, sensitivity, QP, or postcheck stops the run without a
 pass-through fallback.
 """
 
@@ -319,6 +322,173 @@ def _compact_float64_array_record(value: Any, np: Any) -> Dict[str, Any]:
     }
 
 
+def _settled_field_query_diagnostics(
+    *,
+    samples: Sequence[Any],
+    world_points: Any,
+    queries: Sequence[Any],
+    field: Any,
+    sample_ledger_sha256: str,
+    np: Any,
+) -> Dict[str, Any]:
+    """Serialize every invalid settled query with typed, reproducible context."""
+
+    points = np.asarray(world_points, dtype=np.float64)
+    if points.shape != (len(samples), 3) or len(queries) != len(samples):
+        raise OscCanaryRunnerError("settled field-query diagnostic shape differs")
+    lower = np.asarray(field.lower, dtype=np.float64)
+    upper = np.asarray(field.upper, dtype=np.float64)
+    spacing = np.asarray(field.spacing, dtype=np.float64)
+    shape = tuple(int(value) for value in field.shape)
+    magnitude = max(
+        1.0,
+        float(np.max(np.abs(lower))),
+        float(np.max(np.abs(upper))),
+    )
+    bound_tolerance = 16.0 * float(np.finfo(np.float64).eps) * magnitude
+    maximum_index = np.asarray(shape, dtype=np.int64) - 1
+    invalid_rows: List[Dict[str, Any]] = []
+    reason_counts: Dict[str, int] = collections.Counter()
+    geom_counts: Dict[str, int] = collections.Counter()
+    for index, (sample, point, query) in enumerate(
+        zip(samples, points, queries)
+    ):
+        complete = bool(
+            query.valid
+            and query.value is not None
+            and query.gradient is not None
+            and query.outer_boundary_clearance_m is not None
+        )
+        if complete:
+            continue
+        reason = getattr(query.reason, "value", None)
+        if not isinstance(reason, str) or not reason:
+            reason = "incomplete_query_without_typed_reason"
+        reason_counts[reason] += 1
+        geom_key = "%d:%s" % (int(sample.geom_id), str(sample.geom_name))
+        geom_counts[geom_key] += 1
+        finite_point = bool(np.all(np.isfinite(point)))
+        grid_coordinate = (
+            (point - lower) / spacing
+            if finite_point
+            else np.full(3, np.nan, dtype=np.float64)
+        )
+        incident_per_axis: List[List[int]] = []
+        axes_on_internal_faces: List[int] = []
+        if finite_point:
+            for axis in range(3):
+                coordinate = float(grid_coordinate[axis])
+                nearest = int(round(coordinate))
+                scaled_tolerance = bound_tolerance / float(spacing[axis])
+                if abs(coordinate - nearest) <= scaled_tolerance:
+                    candidates = [
+                        value
+                        for value in (nearest - 1, nearest)
+                        if 0 <= value < int(maximum_index[axis])
+                    ]
+                    if len(candidates) > 1:
+                        axes_on_internal_faces.append(axis)
+                else:
+                    floor_value = int(math.floor(coordinate))
+                    candidates = (
+                        [floor_value]
+                        if 0 <= floor_value < int(maximum_index[axis])
+                        else []
+                    )
+                incident_per_axis.append(candidates)
+        else:
+            incident_per_axis = [[], [], []]
+        incident_cells: List[Dict[str, Any]] = []
+        if all(incident_per_axis):
+            for i in incident_per_axis[0]:
+                for j in incident_per_axis[1]:
+                    for k in incident_per_axis[2]:
+                        cell_values = np.asarray(
+                            field.values[i : i + 2, j : j + 2, k : k + 2],
+                            dtype=np.float64,
+                        )
+                        vertex_mask = np.asarray(
+                            field.valid_mask[i : i + 2, j : j + 2, k : k + 2]
+                        )
+                        incident_cells.append(
+                            {
+                                "cell_index": [int(i), int(j), int(k)],
+                                "valid_cell": bool(field.valid_cell_mask[i, j, k]),
+                                "all_vertices_valid": bool(
+                                    vertex_mask.shape == (2, 2, 2)
+                                    and np.all(vertex_mask)
+                                ),
+                                "all_values_finite": bool(
+                                    cell_values.shape == (2, 2, 2)
+                                    and np.all(np.isfinite(cell_values))
+                                ),
+                                "all_values_zero": bool(
+                                    cell_values.shape == (2, 2, 2)
+                                    and np.all(cell_values == 0.0)
+                                ),
+                            }
+                        )
+        direct_outer_clearance = None
+        if finite_point:
+            direct_outer_clearance = float(
+                np.min(np.concatenate((point - lower, upper - point)))
+            )
+        row = {
+            "sample_index": int(index),
+            "sample_id": int(sample.sample_id),
+            "sample_identity": sample.to_dict(),
+            "world_point_m": [float(value) for value in point],
+            "world_point_array_record": _compact_float64_array_record(point, np),
+            "reason": reason,
+            "query_valid": bool(query.valid),
+            "query_value_m2": (
+                None if query.value is None else float(query.value)
+            ),
+            "query_gradient_m": (
+                None
+                if query.gradient is None
+                else [float(value) for value in query.gradient]
+            ),
+            "query_cell_index": (
+                None
+                if query.cell_index is None
+                else [int(value) for value in query.cell_index]
+            ),
+            "query_local_coordinates": (
+                None
+                if query.local_coordinates is None
+                else [float(value) for value in query.local_coordinates]
+            ),
+            "query_outer_boundary_clearance_m": (
+                None
+                if query.outer_boundary_clearance_m is None
+                else float(query.outer_boundary_clearance_m)
+            ),
+            "unclamped_grid_coordinate": [
+                float(value) for value in grid_coordinate
+            ],
+            "axes_on_internal_faces": axes_on_internal_faces,
+            "incident_cells": incident_cells,
+            "direct_outer_boundary_clearance_m": direct_outer_clearance,
+        }
+        row["row_sha256"] = _canonical_sha256(row)
+        invalid_rows.append(row)
+    evidence = {
+        "schema_version": "vlsa_poisson_settled_field_query_diagnostics.v1",
+        "sample_count": len(samples),
+        "sample_ledger_sha256": str(sample_ledger_sha256),
+        "invalid_query_count": len(invalid_rows),
+        "all_invalid_queries_serialized": True,
+        "reason_counts": dict(sorted(reason_counts.items())),
+        "geom_counts": dict(sorted(geom_counts.items())),
+        "invalid_rows": invalid_rows,
+        "invalid_rows_sha256": _canonical_sha256(invalid_rows),
+        "partial_output_interpreted": False,
+    }
+    evidence["evidence_sha256"] = _canonical_sha256(evidence)
+    return evidence
+
+
 def _robot_tree_qvel_binding(
     model: Any,
     resolved: Any,
@@ -383,7 +553,7 @@ def _robot_tree_qvel_binding(
         )
     if len(qvel_indices) <= len(arm_qvel):
         raise OscCanaryRunnerError(
-            "full-robot shield does not include any non-arm robot velocity"
+            "movable-manipulator shield does not include any non-arm robot velocity"
         )
     return {
         "robot_qvel_indices": qvel_indices,
@@ -402,7 +572,7 @@ def _robot_tree_qvel_binding(
 def _minimum_constraint_attribution(
     nominal_residuals: Any, samples: Sequence[Any], np: Any
 ) -> Dict[str, Any]:
-    """Bind the first causal torque divergence to full-robot samples."""
+    """Bind the first causal torque divergence to movable-manipulator samples."""
 
     residuals = np.asarray(nominal_residuals, dtype=np.float64)
     if (
@@ -420,7 +590,7 @@ def _minimum_constraint_attribution(
     minimum_sample = samples[minimum_index].to_dict()
     return {
         "schema_version": "vlsa_poisson_constraint_attribution.v2",
-        "sample_scope": "all_authoritative_robot_collision_surfaces",
+        "sample_scope": "all_structurally_movable_manipulator_collision_surfaces",
         "selection_rule": "first_np_argmin_of_nominal_exact_clone_cbf_residual",
         "minimum_nominal_residual_m2_per_s": minimum,
         "minimum_sample_index": minimum_index,
@@ -1571,6 +1741,7 @@ def main() -> int:
         from main.poisson_fullbody.measurement import (
             FullRobotObstacleMonitor,
             clone_forwarded_state,
+            partition_robot_geoms_by_qvel_influence,
             resolve_collision_geom_sets,
         )
         from main.poisson_fullbody.osc_arm_link_canary import (
@@ -1788,6 +1959,13 @@ def main() -> int:
             obstacle_root_body_ids=(int(authority["active_obstacle_root_body_id"]),),
             link56_body_ids=link_ids,
         )
+        apparatus.update(
+            {
+                "controller": controller,
+                "arm_actuator_torque_units": torque_units,
+                "resolved_geometry": resolved.to_dict(),
+            }
+        )
         arm_actuators = tuple(controller["arm_actuator_indexes"])
         arm_qpos = tuple(controller["arm_qpos_indexes"])
         arm_qvel = tuple(controller["arm_qvel_indexes"])
@@ -1819,6 +1997,22 @@ def main() -> int:
             arm_actuator_ids=arm_actuators,
         )
         robot_qvel = tuple(robot_qvel_authority["robot_qvel_indices"])
+        robot_geom_influence_partition = (
+            partition_robot_geoms_by_qvel_influence(
+                raw_model,
+                resolved,
+                robot_qvel,
+            )
+        )
+        robot_geom_influence_partition_sha256 = _canonical_sha256(
+            robot_geom_influence_partition
+        )
+        apparatus["robot_geom_influence_partition"] = (
+            robot_geom_influence_partition
+        )
+        apparatus["robot_geom_influence_partition_sha256"] = (
+            robot_geom_influence_partition_sha256
+        )
         settled_official = fast._official_state(env.sim)
         bundle = build_static_field_bundle(
             raw_model,
@@ -1827,73 +2021,276 @@ def main() -> int:
             protocol=runtime_protocol,
             protocol_hashes=runtime_hashes,
         )
+        apparatus["field_bundle_hashes"] = asdict(bundle.hashes)
+        apparatus["field_diagnostics"] = asdict(bundle.diagnostics)
         if not np.array_equal(settled_official, fast._official_state(env.sim)):
             raise OscCanaryRunnerError("field construction changed simulator state")
         forwarded = clone_forwarded_state(raw_model, raw_data)
-        full_samples = build_robot_collision_samples(
+        epsilon_m = float(runtime_protocol["coverage"]["epsilon_m"])
+        movable_geom_ids = tuple(
+            int(value)
+            for value in robot_geom_influence_partition[
+                "shield_manipulator_geom_ids"
+            ]
+        )
+        fixed_geom_ids = tuple(
+            int(value)
+            for value in robot_geom_influence_partition[
+                "fixed_robot_infrastructure_geom_ids"
+            ]
+        )
+        all_robot_samples = build_robot_collision_samples(
             env.sim.model,
             forwarded,
             geom_ids=resolved.robot_geom_ids,
-            epsilon_m=float(runtime_protocol["coverage"]["epsilon_m"]),
+            epsilon_m=epsilon_m,
         )
-        sample_evidence = {
-            "sample_count": len(full_samples.samples),
-            "sample_ledger_sha256": full_samples.sample_ledger_sha256,
-            "samples": [sample.to_dict() for sample in full_samples.samples],
-            "geom_records": list(full_samples.geom_records),
-            "epsilon_m": full_samples.epsilon_m,
-            "maximum_surface_cover_radius_m": full_samples.maximum_surface_cover_radius_m,
-            "coverage_semantics": full_samples.coverage_semantics,
-            "roundtrip": validate_rigid_roundtrip(full_samples.samples, forwarded),
+        shield_samples = build_robot_collision_samples(
+            env.sim.model,
+            forwarded,
+            geom_ids=movable_geom_ids,
+            epsilon_m=epsilon_m,
+        )
+        fixed_samples = build_robot_collision_samples(
+            env.sim.model,
+            forwarded,
+            geom_ids=fixed_geom_ids,
+            epsilon_m=epsilon_m,
+        )
+
+        def surface_evidence(sample_set: Any) -> Dict[str, Any]:
+            return {
+                "sample_count": len(sample_set.samples),
+                "sample_ledger_sha256": sample_set.sample_ledger_sha256,
+                "samples": [sample.to_dict() for sample in sample_set.samples],
+                "geom_records": list(sample_set.geom_records),
+                "epsilon_m": sample_set.epsilon_m,
+                "maximum_surface_cover_radius_m": (
+                    sample_set.maximum_surface_cover_radius_m
+                ),
+                "coverage_semantics": sample_set.coverage_semantics,
+                "roundtrip": validate_rigid_roundtrip(
+                    sample_set.samples, forwarded
+                ),
+            }
+
+        all_robot_sample_evidence = surface_evidence(all_robot_samples)
+        movable_sample_evidence = surface_evidence(shield_samples)
+        fixed_sample_evidence = surface_evidence(fixed_samples)
+        geom_name_by_id = dict(
+            zip(resolved.robot_geom_ids, resolved.robot_geom_names)
+        )
+        for label, evidence, sample_set, geom_ids in (
+            (
+                "all-robot",
+                all_robot_sample_evidence,
+                all_robot_samples,
+                tuple(int(value) for value in resolved.robot_geom_ids),
+            ),
+            (
+                "movable-manipulator",
+                movable_sample_evidence,
+                shield_samples,
+                movable_geom_ids,
+            ),
+            (
+                "fixed-infrastructure",
+                fixed_sample_evidence,
+                fixed_samples,
+                fixed_geom_ids,
+            ),
+        ):
+            validate_robot_sample_evidence(
+                evidence,
+                resolved_geom_ids=geom_ids,
+                resolved_geom_names=tuple(
+                    str(geom_name_by_id[geom_id]) for geom_id in geom_ids
+                ),
+                resolved_body_ids=resolved.robot_body_ids,
+                roundtrip_field="roundtrip",
+            )
+            if _canonical_sha256(evidence["samples"]) != str(
+                sample_set.sample_ledger_sha256
+            ):
+                raise OscCanaryRunnerError(
+                    "serialized %s sample ledger differs from its hash" % label
+                )
+        apparatus.update(
+            {
+                "all_robot_sampling": all_robot_sample_evidence,
+                "all_robot_sampling_sha256": _canonical_sha256(
+                    all_robot_sample_evidence
+                ),
+                "movable_manipulator_sampling": movable_sample_evidence,
+                "movable_manipulator_sampling_sha256": _canonical_sha256(
+                    movable_sample_evidence
+                ),
+                "fixed_infrastructure_sampling": fixed_sample_evidence,
+                "fixed_infrastructure_sampling_sha256": _canonical_sha256(
+                    fixed_sample_evidence
+                ),
+            }
+        )
+
+        fixed_world_points, fixed_jacobians = evaluate_point_jacobians(
+            raw_model,
+            forwarded,
+            fixed_samples.samples,
+            robot_qvel,
+        )
+        fixed_jacobians = np.asarray(fixed_jacobians, dtype=np.float64)
+        expected_fixed_jacobian_shape = (
+            len(fixed_samples.samples),
+            3,
+            len(robot_qvel),
+        )
+        fixed_jacobians_exactly_zero = bool(
+            fixed_jacobians.shape == expected_fixed_jacobian_shape
+            and np.all(np.isfinite(fixed_jacobians))
+            and np.all(fixed_jacobians == 0.0)
+        )
+        maximum_abs_fixed_jacobian = (
+            None
+            if fixed_jacobians.shape != expected_fixed_jacobian_shape
+            or not np.all(np.isfinite(fixed_jacobians))
+            else float(np.max(np.abs(fixed_jacobians)))
+        )
+        fixed_jacobian_certificate_array = (
+            np.zeros(expected_fixed_jacobian_shape, dtype=np.float64)
+            if fixed_jacobians_exactly_zero
+            else fixed_jacobians
+        )
+        registered_contact_monitor = _RegisteredContactMonitor(env.sim, resolved)
+        settled_registered_contact = registered_contact_monitor.result()
+        fixed_geom_id_set = set(fixed_geom_ids)
+        fixed_settled_contact_records = [
+            row
+            for row in settled_registered_contact["settled_contact_records"]
+            if int(row["robot_geom_id"]) in fixed_geom_id_set
+        ]
+        fixed_sample_ids = [
+            int(sample.sample_id) for sample in fixed_samples.samples
+        ]
+        all_fixed_geoms_contact_monitored = bool(
+            fixed_geom_id_set
+            <= {
+                int(value)
+                for value in registered_contact_monitor.scope["robot_geom_ids"]
+            }
+        )
+        fixed_infrastructure_settled_certificate = {
+            "schema_version": (
+                "vlsa_poisson_fixed_infrastructure_settled_certificate.v1"
+            ),
+            "fixed_geom_ids": list(fixed_geom_ids),
+            "fixed_geom_ids_sha256": _canonical_sha256(list(fixed_geom_ids)),
+            "fixed_sample_ids": fixed_sample_ids,
+            "fixed_sample_ids_sha256": _canonical_sha256(fixed_sample_ids),
+            "fixed_sample_count": len(fixed_samples.samples),
+            "fixed_sample_ledger_sha256": fixed_samples.sample_ledger_sha256,
+            "fixed_world_points_array_record": _compact_float64_array_record(
+                fixed_world_points, np
+            ),
+            "fixed_point_jacobian_array_record": _compact_float64_array_record(
+                fixed_jacobian_certificate_array, np
+            ),
+            "structural_partition_sha256": (
+                robot_geom_influence_partition_sha256
+            ),
+            "all_fixed_geoms_zero_structural_qvel_influence": bool(
+                robot_geom_influence_partition[
+                    "all_fixed_geoms_have_zero_structural_qvel_influence"
+                ]
+            ),
+            "all_fixed_sample_jacobians_exactly_zero": (
+                fixed_jacobians_exactly_zero
+            ),
+            "maximum_abs_fixed_sample_jacobian": (
+                maximum_abs_fixed_jacobian
+            ),
+            "settled_registered_contact_count": len(
+                fixed_settled_contact_records
+            ),
+            "settled_contact_records": fixed_settled_contact_records,
+            "settled_contact_free": not fixed_settled_contact_records,
+            "all_fixed_geoms_contact_monitored": (
+                all_fixed_geoms_contact_monitored
+            ),
+            "contact_monitor_scope_identity_sha256": (
+                registered_contact_monitor.scope["identity_sha256"]
+            ),
         }
-        validate_robot_sample_evidence(
-            sample_evidence,
-            resolved_geom_ids=resolved.robot_geom_ids,
-            resolved_geom_names=resolved.robot_geom_names,
-            resolved_body_ids=resolved.robot_body_ids,
-            roundtrip_field="roundtrip",
+        apparatus["registered_contact_scope"] = registered_contact_monitor.scope
+        apparatus["fixed_infrastructure_settled_certificate"] = (
+            fixed_infrastructure_settled_certificate
         )
-        if _canonical_sha256(sample_evidence["samples"]) != str(
-            full_samples.sample_ledger_sha256
+        apparatus["fixed_infrastructure_settled_certificate_sha256"] = (
+            _canonical_sha256(fixed_infrastructure_settled_certificate)
+        )
+        if not (
+            fixed_infrastructure_settled_certificate[
+                "all_fixed_geoms_zero_structural_qvel_influence"
+            ]
+            and fixed_infrastructure_settled_certificate[
+                "all_fixed_sample_jacobians_exactly_zero"
+            ]
+            and fixed_infrastructure_settled_certificate[
+                "settled_contact_free"
+            ]
+            and fixed_infrastructure_settled_certificate[
+                "all_fixed_geoms_contact_monitored"
+            ]
         ):
             raise OscCanaryRunnerError(
-                "serialized full-robot sample ledger differs from its hash"
+                "fixed robot infrastructure lacks a zero-authority, "
+                "settled-contact-free certificate"
+            )
+        if registered_contact_monitor.settled_contact:
+            raise OscCanaryRunnerError(
+                "treatment begins in a registered forbidden contact"
             )
         settled_shield_points, settled_shield_jacobians = (
             evaluate_point_jacobians(
                 raw_model,
                 forwarded,
-                full_samples.samples,
+                shield_samples.samples,
                 robot_qvel,
             )
         )
         settled_shield_queries = [
             bundle.field.query(point) for point in settled_shield_points
         ]
-        invalid_settled_queries = [
-            index
-            for index, query in enumerate(settled_shield_queries)
-            if not query.valid
-            or query.value is None
-            or query.gradient is None
-            or query.outer_boundary_clearance_m is None
-        ]
-        if invalid_settled_queries:
+        settled_field_query_diagnostics = _settled_field_query_diagnostics(
+            samples=shield_samples.samples,
+            world_points=settled_shield_points,
+            queries=settled_shield_queries,
+            field=bundle.field,
+            sample_ledger_sha256=shield_samples.sample_ledger_sha256,
+            np=np,
+        )
+        apparatus["settled_field_query_diagnostics"] = (
+            settled_field_query_diagnostics
+        )
+        if settled_field_query_diagnostics["invalid_query_count"]:
             raise OscCanaryRunnerError(
-                "full-robot shield has invalid settled field queries at %r"
-                % invalid_settled_queries[:16]
+                "movable-manipulator shield has %d invalid settled field "
+                "queries: %r"
+                % (
+                    settled_field_query_diagnostics["invalid_query_count"],
+                    settled_field_query_diagnostics["reason_counts"],
+                )
             )
         settled_shield_h = np.asarray(
             [float(query.value) for query in settled_shield_queries],
             dtype=np.float64,
         )
         if (
-            settled_shield_h.shape != (len(full_samples.samples),)
+            settled_shield_h.shape != (len(shield_samples.samples),)
             or not np.all(np.isfinite(settled_shield_h))
             or np.any(settled_shield_h <= 0.0)
         ):
             raise OscCanaryRunnerError(
-                "full-robot shield does not begin with strictly positive h"
+                "movable-manipulator shield does not begin with strictly positive h"
             )
         settled_shield_points = np.asarray(
             settled_shield_points, dtype=np.float64
@@ -1939,8 +2336,8 @@ def main() -> int:
             )
         )
         if (
-            settled_shield_points.shape != (len(full_samples.samples), 3)
-            or settled_outer_clearance.shape != (len(full_samples.samples),)
+            settled_shield_points.shape != (len(shield_samples.samples), 3)
+            or settled_outer_clearance.shape != (len(shield_samples.samples),)
             or not np.all(np.isfinite(settled_shield_points))
             or not np.all(np.isfinite(settled_outer_clearance))
             or not np.allclose(
@@ -1952,15 +2349,17 @@ def main() -> int:
             or not all_outer_clearances_pass
         ):
             raise OscCanaryRunnerError(
-                "full-robot settled samples violate expanded-grid outer clearance"
+                "movable-manipulator settled samples violate expanded-grid outer clearance"
             )
         settled_zero_jacobian = np.all(
             settled_shield_jacobians == 0.0, axis=(1, 2)
         )
         settled_field_query_certificate = {
-            "schema_version": "vlsa_poisson_full_robot_settled_field_query.v1",
-            "sample_count": len(full_samples.samples),
-            "sample_ledger_sha256": full_samples.sample_ledger_sha256,
+            "schema_version": (
+                "vlsa_poisson_movable_manipulator_settled_field_query.v1"
+            ),
+            "sample_count": len(shield_samples.samples),
+            "sample_ledger_sha256": shield_samples.sample_ledger_sha256,
             "all_queries_valid": True,
             "all_h_strictly_positive": True,
             "minimum_h_m2": float(np.min(settled_shield_h)),
@@ -1992,17 +2391,32 @@ def main() -> int:
         ]
         shield_sampling_binding = {
             "schema_version": (
-                "vlsa_poisson_full_robot_shield_sampling_binding.v1"
+                "vlsa_poisson_movable_manipulator_shield_sampling_binding.v1"
             ),
             "scope": (
-                "all_authoritative_robot_collision_surfaces_vs_selected_obstacle"
+                "all_structurally_movable_manipulator_collision_surfaces_"
+                "vs_selected_obstacle"
             ),
-            "sample_source": "apparatus.full_robot_sampling.samples",
-            "sample_count": len(full_samples.samples),
-            "sample_ledger_sha256": full_samples.sample_ledger_sha256,
+            "sample_source": "apparatus.movable_manipulator_sampling.samples",
+            "sample_count": len(shield_samples.samples),
+            "sample_ledger_sha256": shield_samples.sample_ledger_sha256,
             "resolved_robot_geom_ids": resolved_robot_geom_ids,
             "resolved_robot_geom_ids_sha256": _canonical_sha256(
                 resolved_robot_geom_ids
+            ),
+            "shield_manipulator_geom_ids": list(movable_geom_ids),
+            "shield_manipulator_geom_ids_sha256": _canonical_sha256(
+                list(movable_geom_ids)
+            ),
+            "fixed_robot_infrastructure_geom_ids": list(fixed_geom_ids),
+            "fixed_robot_infrastructure_geom_ids_sha256": _canonical_sha256(
+                list(fixed_geom_ids)
+            ),
+            "robot_geom_influence_partition_sha256": (
+                robot_geom_influence_partition_sha256
+            ),
+            "all_robot_contact_monitor_scope_identity_sha256": (
+                registered_contact_monitor.scope["identity_sha256"]
             ),
             "robot_qvel_selection_rule": (
                 "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
@@ -2033,6 +2447,10 @@ def main() -> int:
                 - np.count_nonzero(settled_zero_jacobian)
             ),
         }
+        apparatus["shield_sampling_binding"] = shield_sampling_binding
+        apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
+            shield_sampling_binding
+        )
         protected_sample_payload = {
             "epsilon_m": float(bundle.protected_samples.epsilon_m),
             "maximum_surface_cover_radius_m": float(
@@ -2075,12 +2493,24 @@ def main() -> int:
             "field_obstacle_boxes": field_obstacle_boxes,
             "protected_sampling": protected_sample_payload,
         }
+        apparatus.update(
+            {
+                "field_obstacle_boxes": field_obstacle_boxes,
+                "protected_sampling": protected_sample_payload,
+                "serialized_field_certificate_sha256": _canonical_sha256(
+                    serialized_field_certificate
+                ),
+                "field_frame": protocol["shield"]["field_frame"],
+            }
+        )
         limits = runtime_protocol["admissibility"]
         monitor = FullRobotObstacleMonitor(
             env.sim,
             resolved,
-            full_samples.samples,
-            certified_coverage_radius_m=full_samples.maximum_surface_cover_radius_m,
+            all_robot_samples.samples,
+            certified_coverage_radius_m=(
+                all_robot_samples.maximum_surface_cover_radius_m
+            ),
             max_selected_geom_surface_drift_m=float(limits["max_selected_geom_surface_drift_m"]),
             max_selected_geom_translation_drift_m=float(limits["max_selected_geom_translation_drift_m"]),
             max_selected_geom_rotation_drift_rad=float(limits["max_selected_geom_rotation_drift_rad"]),
@@ -2094,11 +2524,6 @@ def main() -> int:
         )
         if monitor.settled_state.any_robot_obstacle_contact:
             raise OscCanaryRunnerError("treatment begins in robot-selected-obstacle contact")
-        registered_contact_monitor = _RegisteredContactMonitor(env.sim, resolved)
-        if registered_contact_monitor.settled_contact:
-            raise OscCanaryRunnerError(
-                "treatment begins in a registered forbidden contact"
-            )
         registered_contact_hook = _registered_contact_hook(
             registered_contact_monitor.scope
         )
@@ -2302,9 +2727,9 @@ def main() -> int:
                         "physics_substep_index": int(substep_index),
                         "physics_boundary_before_unexecuted_step": boundary,
                         "unexecuted_post_integration_boundary": boundary + 1,
-                        "sample_count": len(full_samples.samples),
+                        "sample_count": len(shield_samples.samples),
                         "sample_ledger_sha256": (
-                            full_samples.sample_ledger_sha256
+                            shield_samples.sample_ledger_sha256
                         ),
                         "robot_qvel_indices": list(robot_qvel),
                         "robot_qvel_indices_sha256": (
@@ -2325,7 +2750,7 @@ def main() -> int:
                 points, jacobians = evaluate_point_jacobians(
                     raw_model,
                     current,
-                    full_samples.samples,
+                    shield_samples.samples,
                     robot_qvel,
                 )
                 queries = [bundle.field.query(point) for point in points]
@@ -2380,7 +2805,7 @@ def main() -> int:
                 )
                 constraint_attribution = _minimum_constraint_attribution(
                     nominal_residuals,
-                    full_samples.samples,
+                    shield_samples.samples,
                     np,
                 )
                 nominal_contact = nominal_transition.selected_contact_data
@@ -2728,7 +3153,7 @@ def main() -> int:
                     "array_hash_format": _FLOAT64_ARRAY_HASH_FORMAT,
                     "sample_count": int(row["h"].size),
                     "sample_ledger_sha256": (
-                        full_samples.sample_ledger_sha256
+                        shield_samples.sample_ledger_sha256
                     ),
                     "robot_qvel_indices": list(robot_qvel),
                     "robot_qvel_indices_sha256": (
@@ -2761,7 +3186,7 @@ def main() -> int:
                         "physical_boundary": int(row["physical_boundary"]),
                         "sample_count": int(row["h"].size),
                         "sample_ledger_sha256": (
-                            full_samples.sample_ledger_sha256
+                            shield_samples.sample_ledger_sha256
                         ),
                         "robot_qvel_indices": list(robot_qvel),
                         "robot_qvel_indices_sha256": (
@@ -3324,6 +3749,15 @@ def main() -> int:
                 "constraint_attribution"
             ]
         )
+        literal_link56_body_names = {
+            str(value)
+            for value in protocol["case"]["literal_link56_body_names"]
+        }
+        first_material_link56_attributed = bool(
+            first_divergence_attribution is not None
+            and first_divergence_attribution["minimum_sample"]["body_name"]
+            in literal_link56_body_names
+        )
         metrics = {
             "allocation_numeric_prerequisite_verified": True,
             "historical_control_verified": True,
@@ -3333,20 +3767,53 @@ def main() -> int:
                 "verified"
             ],
             "original_osc_controller_verified": controller["original_osc_verified"],
-            "all_authoritative_robot_collision_surfaces_shielded": bool(
+            "all_structurally_movable_manipulator_collision_surfaces_shielded": bool(
                 shield_sampling_binding["sample_count"]
-                == sample_evidence["sample_count"]
+                == movable_sample_evidence["sample_count"]
                 and shield_sampling_binding["sample_ledger_sha256"]
-                == sample_evidence["sample_ledger_sha256"]
-                and shield_sampling_binding["resolved_robot_geom_ids"]
-                == [int(value) for value in resolved.robot_geom_ids]
+                == movable_sample_evidence["sample_ledger_sha256"]
+                and shield_sampling_binding["shield_manipulator_geom_ids"]
+                == list(movable_geom_ids)
+                and set(movable_geom_ids)
+                == {
+                    int(row["geom_id"])
+                    for row in movable_sample_evidence["geom_records"]
+                }
                 and all(
                     int(row["constraint_trace"]["sample_count"])
-                    == int(sample_evidence["sample_count"])
+                    == int(movable_sample_evidence["sample_count"])
                     and row["constraint_trace"]["sample_ledger_sha256"]
-                    == sample_evidence["sample_ledger_sha256"]
+                    == movable_sample_evidence["sample_ledger_sha256"]
                     for row in physics_trace
                 )
+            ),
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free": bool(
+                fixed_infrastructure_settled_certificate[
+                    "all_fixed_geoms_zero_structural_qvel_influence"
+                ]
+                and fixed_infrastructure_settled_certificate[
+                    "all_fixed_sample_jacobians_exactly_zero"
+                ]
+                and fixed_infrastructure_settled_certificate[
+                    "settled_contact_free"
+                ]
+                and fixed_infrastructure_settled_certificate[
+                    "all_fixed_geoms_contact_monitored"
+                ]
+                and apparatus[
+                    "fixed_infrastructure_settled_certificate_sha256"
+                ]
+                == _canonical_sha256(fixed_infrastructure_settled_certificate)
+            ),
+            "all_authoritative_robot_collision_surfaces_contact_monitored": bool(
+                registered_contact_monitor.scope["robot_geom_ids"]
+                == [int(value) for value in resolved.robot_geom_ids]
+                and registered_contact_measurement["scope_identity_sha256"]
+                == registered_contact_monitor.scope["identity_sha256"]
+                and robot_geom_influence_partition[
+                    "contact_monitor_robot_geom_ids"
+                ]
+                == [int(value) for value in resolved.robot_geom_ids]
             ),
             "robot_tree_qvel_scope_verified": bool(
                 robot_qvel_authority["arm_qvel_indices_included"] is True
@@ -3376,7 +3843,7 @@ def main() -> int:
             ),
             "link56_bundle_samples_field_seed_only": bool(
                 len(bundle.protected_samples.samples)
-                < len(full_samples.samples)
+                < len(shield_samples.samples)
                 and shield_sampling_binding["field_seed_sample_scope"]
                 == "link56_only_not_shield_scope"
             ),
@@ -3482,6 +3949,9 @@ def main() -> int:
                     "negative_nominal_residual_body_names"
                 ]
             ),
+            "first_material_correction_minimum_constraint_is_literal_link56": (
+                first_material_link56_attributed
+            ),
             "first_divergence_nominal_exact_cbf_residual_negative": bool(
                 first_divergence_row is not None
                 and float(
@@ -3548,10 +4018,7 @@ def main() -> int:
                 "direct_link56_selected_obstacle_contact_verified": direct_historical_contact,
             },
             "apparatus": {
-                "controller": controller,
-                "arm_actuator_torque_units": torque_units,
-                "resolved_geometry": resolved.to_dict(),
-                "registered_contact_scope": registered_contact_monitor.scope,
+                **apparatus,
                 "field_bundle_hashes": asdict(bundle.hashes),
                 "field_diagnostics": asdict(bundle.diagnostics),
                 "field_obstacle_boxes": field_obstacle_boxes,
@@ -3560,12 +4027,6 @@ def main() -> int:
                     serialized_field_certificate
                 ),
                 "field_frame": protocol["shield"]["field_frame"],
-                "full_robot_sampling": sample_evidence,
-                "full_robot_sampling_sha256": _canonical_sha256(sample_evidence),
-                "shield_sampling_binding": shield_sampling_binding,
-                "shield_sampling_binding_sha256": _canonical_sha256(
-                    shield_sampling_binding
-                ),
                 "settled_obstacle": settled_obstacle,
                 "paper_car_authority": paper_car_authority,
             },
@@ -3585,7 +4046,7 @@ def main() -> int:
                     "vlsa_poisson_paper_car_endpoint_ledger.v3"
                 ),
                 "physics_trace_schema_version": (
-                    "vlsa_poisson_osc_full_robot_compact_physics_trace.v2"
+                    "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
                 ),
                 "full_qp_certificate_scope": (
                     "first_byte_different_torque_row_only"

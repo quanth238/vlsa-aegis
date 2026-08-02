@@ -134,6 +134,7 @@ export VLSA_POISSON_RUN_PRODUCTION_GRID_VALIDATION=1
   --test-module tests.test_poisson_field_bundle \
   --test-module tests.test_poisson_production_grid \
   --test-module tests.test_poisson_surface_sampling \
+  --test-module tests.test_poisson_measurement \
   --test-module tests.test_poisson_jacobians \
   --test-module tests.test_poisson_cbf_qp \
   --test-module tests.test_poisson_prephysics_control_wrapper \

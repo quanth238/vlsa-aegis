@@ -166,6 +166,492 @@ def _validate_compact_array_identity(
         _exact_float(evidence.get("minimum"), float(np.min(array)), label + " minimum")
 
 
+def _compact_zero_float64_array_record(shape: Sequence[int]) -> Dict[str, Any]:
+    """Construct the canonical compact identity of an all-zero float64 array."""
+
+    dimensions = [int(value) for value in shape]
+    _require(
+        dimensions and all(value > 0 for value in dimensions),
+        "zero-array shape is invalid",
+    )
+    dtype = "<f8" if sys.byteorder == "little" else ">f8"
+    header = fast._canonical({"dtype": dtype, "shape": dimensions})
+    digest = hashlib.sha256()
+    digest.update(b"vlsa-table1-array-v1\0")
+    digest.update(header)
+    digest.update(b"\0")
+    digest.update(b"\0" * (8 * math.prod(dimensions)))
+    return {
+        "dtype": dtype,
+        "shape": dimensions,
+        "sha256": digest.hexdigest(),
+        "minimum": 0.0,
+    }
+
+
+def _validate_compact_array_header(
+    evidence: Any, *, expected_shape: Sequence[int], label: str
+) -> None:
+    """Validate compact array metadata when raw producer values are unavailable."""
+
+    expected_dtype = "<f8" if sys.byteorder == "little" else ">f8"
+    _require(
+        isinstance(evidence, Mapping)
+        and set(evidence) == {"dtype", "shape", "sha256", "minimum"}
+        and evidence.get("dtype") == expected_dtype
+        and evidence.get("shape") == [int(value) for value in expected_shape]
+        and bool(re.fullmatch(r"[0-9a-f]{64}", str(evidence.get("sha256", ""))))
+        and not isinstance(evidence.get("minimum"), bool)
+        and isinstance(evidence.get("minimum"), (int, float))
+        and math.isfinite(float(evidence.get("minimum"))),
+        "%s record differs" % label,
+    )
+
+
+def _validate_structural_robot_geom_partition(
+    *,
+    apparatus: Mapping[str, Any],
+    resolved_geometry: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Reconstruct the v3 movable/fixed robot-geometry partition.
+
+    This consumer deliberately does not trust the producer's classification
+    booleans.  It reconstructs each geom's influencing-qvel set from the
+    serialized qvel joint-body ownership and complete body-ancestry ledgers.
+    The clean producer commit remains authority for the compiled MuJoCo model,
+    while this check prevents an internally inconsistent, name-selected, or
+    contact-unmonitored partition from passing the independent consumer.
+
+    Expected v3 apparatus records are intentionally explicit:
+
+    * ``robot_geom_influence_partition`` is the exact output schema of
+      ``partition_robot_geoms_by_qvel_influence``;
+    * ``movable_manipulator_sampling`` and ``fixed_infrastructure_sampling``
+      are the stable, reindexed subsequences of ``all_robot_sampling.samples``
+      selected by the two reconstructed geom-ID sets; and
+    * ``fixed_infrastructure_settled_certificate`` binds the complementary
+      full-ledger sample IDs, an exact-zero settled Jacobian certificate, the
+      complete contact-monitor scope identity, and an empty settled contact
+      ledger.
+    """
+
+    partition = apparatus.get("robot_geom_influence_partition")
+    movable = apparatus.get("movable_manipulator_sampling")
+    fixed_sampling = apparatus.get("fixed_infrastructure_sampling")
+    fixed = apparatus.get("fixed_infrastructure_settled_certificate")
+    full = apparatus.get("all_robot_sampling")
+    binding = apparatus.get("shield_sampling_binding")
+    scope = apparatus.get("registered_contact_scope")
+    _require(isinstance(partition, Mapping), "robot geom influence partition is absent")
+    _require(isinstance(movable, Mapping), "movable manipulator sampling is absent")
+    _require(isinstance(fixed_sampling, Mapping), "fixed infrastructure sampling is absent")
+    _require(isinstance(fixed, Mapping), "fixed infrastructure certificate is absent")
+    _require(isinstance(full, Mapping), "all-robot sampling evidence is absent")
+    _require(isinstance(binding, Mapping), "shield sampling binding is absent")
+    _require(isinstance(scope, Mapping), "registered contact scope is absent")
+    partition_sha256 = _canonical_sha256(partition)
+    _require(
+        apparatus.get("robot_geom_influence_partition_sha256")
+        == partition_sha256,
+        "robot geom influence partition hash differs",
+    )
+    _require(
+        apparatus.get("movable_manipulator_sampling_sha256")
+        == _canonical_sha256(movable),
+        "movable manipulator sampling hash differs",
+    )
+    _require(
+        apparatus.get("fixed_infrastructure_sampling_sha256")
+        == _canonical_sha256(fixed_sampling),
+        "fixed infrastructure sampling hash differs",
+    )
+    _require(
+        apparatus.get("all_robot_sampling_sha256") == _canonical_sha256(full),
+        "all-robot sampling hash differs",
+    )
+    _require(
+        apparatus.get("fixed_infrastructure_settled_certificate_sha256")
+        == _canonical_sha256(fixed),
+        "fixed infrastructure certificate hash differs",
+    )
+
+    resolved_geom_ids = _strict_integer_list(
+        resolved_geometry.get("robot_geom_ids"), "resolved robot geom IDs"
+    )
+    resolved_geom_names = resolved_geometry.get("robot_geom_names")
+    resolved_body_ids = _strict_integer_list(
+        resolved_geometry.get("robot_body_ids"), "resolved robot body IDs"
+    )
+    resolved_root_body_ids = _strict_integer_list(
+        resolved_geometry.get("robot_root_body_ids"),
+        "resolved robot root body IDs",
+    )
+    resolved_body_names = resolved_geometry.get("robot_body_names")
+    link56_geom_ids = _strict_integer_list(
+        resolved_geometry.get("link56_geom_ids"), "resolved link56 geom IDs"
+    )
+    _require(
+        isinstance(resolved_geom_names, list)
+        and len(resolved_geom_names) == len(resolved_geom_ids)
+        and all(isinstance(value, str) and value for value in resolved_geom_names)
+        and isinstance(resolved_body_names, list)
+        and len(resolved_body_names) == len(resolved_body_ids)
+        and all(isinstance(value, str) and value for value in resolved_body_names),
+        "resolved robot ID/name ledgers differ",
+    )
+    _require(
+        resolved_root_body_ids == sorted(set(resolved_root_body_ids))
+        and set(resolved_root_body_ids).issubset(resolved_body_ids),
+        "resolved robot roots are outside the robot body ledger",
+    )
+    geom_name_by_id = dict(zip(resolved_geom_ids, resolved_geom_names))
+    body_name_by_id = dict(zip(resolved_body_ids, resolved_body_names))
+
+    expected_partition_fields = {
+        "schema_version",
+        "selection_rule",
+        "contact_monitor_robot_geom_ids",
+        "shield_manipulator_geom_ids",
+        "fixed_robot_infrastructure_geom_ids",
+        "robot_qvel_indices",
+        "robot_qvel_joint_body_ids",
+        "robot_body_parent_records",
+        "geom_records",
+        "all_contact_geoms_partitioned",
+        "all_fixed_geoms_have_zero_structural_qvel_influence",
+    }
+    _require(
+        set(partition) == expected_partition_fields
+        and partition.get("schema_version")
+        == "vlsa_poisson_robot_geom_influence_partition.v1"
+        and partition.get("selection_rule")
+        == (
+            "geom_body_self_or_ancestor_owns_at_least_one_authoritative_"
+            "robot_tree_qvel"
+        ),
+        "robot geom influence partition schema or selection rule differs",
+    )
+    monitored_geom_ids = _strict_integer_list(
+        partition.get("contact_monitor_robot_geom_ids"),
+        "partition contact-monitor robot geom IDs",
+    )
+    movable_geom_ids = _strict_integer_list(
+        partition.get("shield_manipulator_geom_ids"),
+        "partition movable manipulator geom IDs",
+    )
+    fixed_geom_ids = _strict_integer_list(
+        partition.get("fixed_robot_infrastructure_geom_ids"),
+        "partition fixed infrastructure geom IDs",
+    )
+    qvel_indices = _strict_integer_list(
+        partition.get("robot_qvel_indices"), "partition robot qvel indices"
+    )
+    qvel_joint_body_ids = _strict_integer_list(
+        partition.get("robot_qvel_joint_body_ids"),
+        "partition qvel joint-body IDs",
+    )
+    _require(
+        monitored_geom_ids == resolved_geom_ids
+        and movable_geom_ids == sorted(movable_geom_ids)
+        and fixed_geom_ids == sorted(fixed_geom_ids)
+        and not set(movable_geom_ids) & set(fixed_geom_ids)
+        and set(movable_geom_ids) | set(fixed_geom_ids) == set(resolved_geom_ids)
+        and set(link56_geom_ids).issubset(movable_geom_ids)
+        and qvel_indices
+        == _strict_integer_list(binding.get("robot_qvel_indices"), "bound robot qvel indices")
+        and len(qvel_joint_body_ids) == len(qvel_indices),
+        "robot geom influence partition is incomplete or link56 is unshielded",
+    )
+    qvel_records = binding.get("robot_qvel_records")
+    _require(
+        isinstance(qvel_records, list)
+        and len(qvel_records) == len(qvel_indices)
+        and [record.get("qvel_index") for record in qvel_records] == qvel_indices
+        and [record.get("joint_body_id") for record in qvel_records]
+        == qvel_joint_body_ids
+        and all(body_id in body_name_by_id for body_id in qvel_joint_body_ids),
+        "partition qvel joint-body ownership differs from shield authority",
+    )
+
+    parent_records = partition.get("robot_body_parent_records")
+    _require(
+        isinstance(parent_records, list)
+        and len(parent_records) == len(resolved_body_ids),
+        "robot body parent ledger differs",
+    )
+    ancestry_by_body: Dict[int, List[int]] = {}
+    parent_by_body: Dict[int, int] = {}
+    expected_parent_fields = {
+        "body_id",
+        "body_name",
+        "parent_body_id",
+        "parent_body_name",
+        "body_ancestry_ids",
+    }
+    for expected_body_id, record in zip(resolved_body_ids, parent_records):
+        _require(isinstance(record, Mapping), "robot body parent row is invalid")
+        ancestry = _strict_integer_list(
+            record.get("body_ancestry_ids"), "robot body ancestry"
+        )
+        parent_id = record.get("parent_body_id")
+        _require(
+            set(record) == expected_parent_fields
+            and record.get("body_id") == expected_body_id
+            and record.get("body_name") == body_name_by_id[expected_body_id]
+            and isinstance(parent_id, int)
+            and not isinstance(parent_id, bool)
+            and parent_id >= 0
+            and isinstance(record.get("parent_body_name"), str)
+            and bool(record.get("parent_body_name"))
+            and ancestry[0] == expected_body_id
+            and len(ancestry) == len(set(ancestry))
+            and parent_id == (ancestry[1] if len(ancestry) > 1 else 0)
+            and (parent_id != 0 or record.get("parent_body_name") == "world"),
+            "robot body ancestry row differs for body %d" % expected_body_id,
+        )
+        ancestry_by_body[expected_body_id] = ancestry
+        parent_by_body[expected_body_id] = int(parent_id)
+    for body_id, ancestry in ancestry_by_body.items():
+        for position, ancestor in enumerate(ancestry[:-1]):
+            if ancestor in parent_by_body:
+                _require(
+                    parent_by_body[ancestor] == ancestry[position + 1],
+                    "robot body ancestry chains disagree",
+                )
+    _require(
+        all(
+            parent_by_body[root_body_id] == 0
+            and ancestry_by_body[root_body_id] == [root_body_id]
+            for root_body_id in resolved_root_body_ids
+        ),
+        "resolved robot roots are not world-mounted",
+    )
+
+    geom_records = partition.get("geom_records")
+    _require(
+        isinstance(geom_records, list)
+        and len(geom_records) == len(resolved_geom_ids),
+        "robot geom influence record ledger differs",
+    )
+    expected_geom_record_fields = {
+        "geom_id",
+        "geom_name",
+        "body_id",
+        "body_name",
+        "body_ancestry_ids",
+        "influencing_robot_qvel_indices",
+        "classification",
+    }
+    reconstructed_movable: List[int] = []
+    reconstructed_fixed: List[int] = []
+    sample_body_by_geom: Dict[int, int] = {}
+    full_samples = full.get("samples")
+    _require(isinstance(full_samples, list) and full_samples, "full-robot samples are absent")
+    for sample in full_samples:
+        _require(isinstance(sample, Mapping), "full-robot sample row is invalid")
+        geom_id = sample.get("geom_id")
+        body_id = sample.get("body_id")
+        _require(
+            isinstance(geom_id, int)
+            and not isinstance(geom_id, bool)
+            and geom_id in geom_name_by_id
+            and isinstance(body_id, int)
+            and not isinstance(body_id, bool)
+            and body_id in body_name_by_id,
+            "full-robot sample identity is outside resolved geometry",
+        )
+        if geom_id in sample_body_by_geom:
+            _require(
+                sample_body_by_geom[geom_id] == body_id,
+                "one robot geom appears under multiple bodies",
+            )
+        sample_body_by_geom[int(geom_id)] = int(body_id)
+    _require(
+        set(sample_body_by_geom) == set(resolved_geom_ids),
+        "full-robot samples omit an authoritative geom",
+    )
+    for expected_geom_id, record in zip(resolved_geom_ids, geom_records):
+        _require(isinstance(record, Mapping), "robot geom influence row is invalid")
+        body_id = record.get("body_id")
+        influence = _strict_integer_list(
+            record.get("influencing_robot_qvel_indices"),
+            "geom influencing robot qvel indices",
+            nonempty=False,
+        )
+        _require(
+            set(record) == expected_geom_record_fields
+            and record.get("geom_id") == expected_geom_id
+            and record.get("geom_name") == geom_name_by_id[expected_geom_id]
+            and isinstance(body_id, int)
+            and not isinstance(body_id, bool)
+            and body_id == sample_body_by_geom[expected_geom_id]
+            and record.get("body_name") == body_name_by_id.get(body_id)
+            and record.get("body_ancestry_ids") == ancestry_by_body.get(body_id),
+            "robot geom influence identity differs for geom %d" % expected_geom_id,
+        )
+        expected_influence = [
+            qvel_index
+            for qvel_index, joint_body_id in zip(qvel_indices, qvel_joint_body_ids)
+            if joint_body_id in ancestry_by_body[int(body_id)]
+        ]
+        expected_classification = (
+            "kinematically_movable_manipulator_surface"
+            if expected_influence
+            else "kinematically_fixed_robot_infrastructure"
+        )
+        _require(
+            influence == expected_influence
+            and record.get("classification") == expected_classification,
+            "robot geom structural influence was not reconstructed for geom %d"
+            % expected_geom_id,
+        )
+        (reconstructed_movable if expected_influence else reconstructed_fixed).append(
+            expected_geom_id
+        )
+    _require(
+        reconstructed_movable == movable_geom_ids
+        and reconstructed_fixed == fixed_geom_ids
+        and partition.get("all_contact_geoms_partitioned") is True
+        and partition.get("all_fixed_geoms_have_zero_structural_qvel_influence")
+        is True,
+        "producer robot geom partition flags differ from reconstructed partition",
+    )
+
+    surface_fields = {
+        "sample_count",
+        "sample_ledger_sha256",
+        "samples",
+        "geom_records",
+        "epsilon_m",
+        "maximum_surface_cover_radius_m",
+        "coverage_semantics",
+        "roundtrip",
+    }
+
+    def validate_surface_subset(
+        evidence: Mapping[str, Any], geom_ids: Sequence[int], label: str
+    ) -> List[Mapping[str, Any]]:
+        expected_samples = []
+        geom_id_set = set(geom_ids)
+        for sample in full_samples:
+            if int(sample["geom_id"]) in geom_id_set:
+                row = dict(sample)
+                row["sample_id"] = len(expected_samples)
+                expected_samples.append(row)
+        samples = evidence.get("samples")
+        records = evidence.get("geom_records")
+        _require(
+            set(evidence) == surface_fields
+            and isinstance(samples, list)
+            and fast._canonical(samples) == fast._canonical(expected_samples)
+            and evidence.get("sample_count") == len(expected_samples)
+            and evidence.get("sample_ledger_sha256")
+            == _canonical_sha256(expected_samples)
+            and isinstance(records, list)
+            and [record.get("geom_id") for record in records] == list(geom_ids),
+            "%s samples are not the exact reindexed all-robot subsequence" % label,
+        )
+        return samples
+
+    _require(
+        full.get("sample_count") == len(full_samples)
+        and full.get("sample_ledger_sha256") == _canonical_sha256(full_samples),
+        "all-robot sample count or ledger hash differs",
+    )
+    expected_movable_samples = validate_surface_subset(
+        movable, movable_geom_ids, "movable manipulator"
+    )
+    expected_fixed_samples = validate_surface_subset(
+        fixed_sampling, fixed_geom_ids, "fixed infrastructure"
+    )
+
+    expected_fixed_fields = {
+        "schema_version",
+        "fixed_geom_ids",
+        "fixed_geom_ids_sha256",
+        "fixed_sample_ids",
+        "fixed_sample_ids_sha256",
+        "fixed_sample_count",
+        "fixed_sample_ledger_sha256",
+        "fixed_world_points_array_record",
+        "fixed_point_jacobian_array_record",
+        "structural_partition_sha256",
+        "all_fixed_geoms_zero_structural_qvel_influence",
+        "all_fixed_sample_jacobians_exactly_zero",
+        "maximum_abs_fixed_sample_jacobian",
+        "settled_registered_contact_count",
+        "settled_contact_records",
+        "settled_contact_free",
+        "all_fixed_geoms_contact_monitored",
+        "contact_monitor_scope_identity_sha256",
+    }
+    fixed_sample_ids = _strict_integer_list(
+        fixed.get("fixed_sample_ids"), "fixed infrastructure sample IDs"
+    )
+    expected_fixed_sample_ids = list(range(len(expected_fixed_samples)))
+    fixed_contacts = fixed.get("settled_contact_records")
+    scope_without_hash = dict(scope)
+    scope_identity_sha256 = scope_without_hash.pop("identity_sha256", None)
+    _require(
+        set(fixed) == expected_fixed_fields
+        and fixed.get("schema_version")
+        == "vlsa_poisson_fixed_infrastructure_settled_certificate.v1"
+        and fixed.get("structural_partition_sha256") == partition_sha256
+        and fixed.get("fixed_geom_ids") == fixed_geom_ids
+        and fixed.get("fixed_geom_ids_sha256") == _canonical_sha256(fixed_geom_ids)
+        and fixed_sample_ids == expected_fixed_sample_ids
+        and fixed.get("fixed_sample_ids_sha256")
+        == _canonical_sha256(fixed_sample_ids)
+        and fixed.get("fixed_sample_count") == len(fixed_sample_ids)
+        and fixed.get("fixed_sample_ledger_sha256")
+        == fixed_sampling.get("sample_ledger_sha256")
+        and fixed.get("all_fixed_geoms_zero_structural_qvel_influence") is True
+        and fixed.get("all_fixed_sample_jacobians_exactly_zero") is True
+        and not isinstance(fixed.get("maximum_abs_fixed_sample_jacobian"), bool)
+        and fixed.get("maximum_abs_fixed_sample_jacobian") == 0.0
+        and fixed_contacts == []
+        and fixed.get("settled_registered_contact_count") == 0
+        and fixed.get("settled_contact_free") is True
+        and fixed.get("all_fixed_geoms_contact_monitored") is True
+        and scope_identity_sha256 == _canonical_sha256(scope_without_hash)
+        and fixed.get("contact_monitor_scope_identity_sha256")
+        == scope_identity_sha256,
+        "fixed infrastructure zero-influence or settled contact-free certificate differs",
+    )
+    _validate_compact_array_header(
+        fixed.get("fixed_world_points_array_record"),
+        expected_shape=(len(expected_fixed_samples), 3),
+        label="fixed infrastructure world points",
+    )
+    expected_zero_jacobian_record = _compact_zero_float64_array_record(
+        (len(expected_fixed_samples), 3, len(qvel_indices))
+    )
+    _require(
+        fast._canonical(fixed.get("fixed_point_jacobian_array_record"))
+        == fast._canonical(expected_zero_jacobian_record),
+        "fixed infrastructure point Jacobian array is not exactly zero",
+    )
+    scope_robot_geom_ids = _strict_integer_list(
+        scope.get("robot_geom_ids"), "registered contact robot geom IDs"
+    )
+    _require(
+        scope_robot_geom_ids == resolved_geom_ids
+        and set(fixed_geom_ids).issubset(scope_robot_geom_ids)
+        and set(movable_geom_ids).issubset(scope_robot_geom_ids),
+        "registered contact scope omits authoritative robot geometry",
+    )
+    return {
+        "all_structurally_movable_manipulator_collision_surfaces_shielded": True,
+        "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free": True,
+        "all_authoritative_robot_collision_surfaces_contact_monitored": True,
+        "movable_geom_ids": movable_geom_ids,
+        "fixed_geom_ids": fixed_geom_ids,
+        "movable_sample_count": len(expected_movable_samples),
+        "fixed_sample_count": len(expected_fixed_samples),
+        "partition_sha256": partition_sha256,
+    }
+
+
 def _validate_shield_sampling_binding(
     *,
     apparatus: Mapping[str, Any],
@@ -174,16 +660,20 @@ def _validate_shield_sampling_binding(
     runtime_protocol: Mapping[str, Any],
     np: Any,
 ) -> Dict[str, Any]:
-    """Bind v2 shield constraints to all robot samples and robot-tree qvels."""
+    """Bind v3 shield constraints to movable samples and all robot qvels."""
 
-    full = apparatus.get("full_robot_sampling")
+    structural = _validate_structural_robot_geom_partition(
+        apparatus=apparatus,
+        resolved_geometry=resolved_geometry,
+    )
+    full = apparatus.get("movable_manipulator_sampling")
     binding = apparatus.get("shield_sampling_binding")
-    _require(isinstance(full, Mapping), "full-robot sampling evidence is absent")
-    _require(isinstance(binding, Mapping), "full-robot shield sampling binding is absent")
+    _require(isinstance(full, Mapping), "movable manipulator sampling evidence is absent")
+    _require(isinstance(binding, Mapping), "movable shield sampling binding is absent")
     _require(
         apparatus.get("shield_sampling_binding_sha256")
         == _canonical_sha256(binding),
-        "full-robot shield sampling binding hash differs",
+        "movable-manipulator shield sampling binding hash differs",
     )
     expected_fields = {
         "schema_version",
@@ -193,6 +683,12 @@ def _validate_shield_sampling_binding(
         "sample_ledger_sha256",
         "resolved_robot_geom_ids",
         "resolved_robot_geom_ids_sha256",
+        "shield_manipulator_geom_ids",
+        "shield_manipulator_geom_ids_sha256",
+        "fixed_robot_infrastructure_geom_ids",
+        "fixed_robot_infrastructure_geom_ids_sha256",
+        "robot_geom_influence_partition_sha256",
+        "all_robot_contact_monitor_scope_identity_sha256",
         "robot_qvel_selection_rule",
         "robot_qvel_indices",
         "robot_qvel_indices_sha256",
@@ -219,10 +715,14 @@ def _validate_shield_sampling_binding(
     _require(
         set(binding) == expected_fields
         and binding.get("schema_version")
-        == "vlsa_poisson_full_robot_shield_sampling_binding.v1"
+        == "vlsa_poisson_movable_manipulator_shield_sampling_binding.v1"
         and binding.get("scope")
-        == "all_authoritative_robot_collision_surfaces_vs_selected_obstacle"
-        and binding.get("sample_source") == "apparatus.full_robot_sampling.samples"
+        == (
+            "all_structurally_movable_manipulator_collision_surfaces_"
+            "vs_selected_obstacle"
+        )
+        and binding.get("sample_source")
+        == "apparatus.movable_manipulator_sampling.samples"
         and binding.get("robot_qvel_selection_rule")
         == "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
         and binding.get("nonarm_ctrl_policy")
@@ -233,11 +733,11 @@ def _validate_shield_sampling_binding(
         == "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
         and binding.get("field_seed_sample_scope")
         == "link56_only_not_shield_scope",
-        "full-robot shield sampling binding schema or semantics differ",
+        "movable shield sampling binding schema or semantics differ",
     )
 
     samples = full.get("samples")
-    _require(isinstance(samples, list) and samples, "full-robot shield samples are absent")
+    _require(isinstance(samples, list) and samples, "movable shield samples are absent")
     sample_count = len(samples)
     sample_hash = _canonical_sha256(samples)
     _require(
@@ -245,7 +745,7 @@ def _validate_shield_sampling_binding(
         and full.get("sample_count") == sample_count
         and binding.get("sample_ledger_sha256") == sample_hash
         and full.get("sample_ledger_sha256") == sample_hash,
-        "full-robot shield sample count or ledger hash differs",
+        "movable shield sample count or ledger hash differs",
     )
 
     resolved_geom_ids = _strict_integer_list(
@@ -261,7 +761,30 @@ def _validate_shield_sampling_binding(
         == _canonical_sha256(bound_geom_ids),
         "resolved robot geom ordering or hash differs",
     )
-    bound_geom_id_set = set(bound_geom_ids)
+    shield_geom_ids = _strict_integer_list(
+        binding.get("shield_manipulator_geom_ids"),
+        "bound movable manipulator geom IDs",
+    )
+    fixed_geom_ids = _strict_integer_list(
+        binding.get("fixed_robot_infrastructure_geom_ids"),
+        "bound fixed infrastructure geom IDs",
+    )
+    contact_scope = apparatus.get("registered_contact_scope")
+    _require(
+        shield_geom_ids == structural["movable_geom_ids"]
+        and fixed_geom_ids == structural["fixed_geom_ids"]
+        and binding.get("shield_manipulator_geom_ids_sha256")
+        == _canonical_sha256(shield_geom_ids)
+        and binding.get("fixed_robot_infrastructure_geom_ids_sha256")
+        == _canonical_sha256(fixed_geom_ids)
+        and binding.get("robot_geom_influence_partition_sha256")
+        == structural["partition_sha256"]
+        and isinstance(contact_scope, Mapping)
+        and binding.get("all_robot_contact_monitor_scope_identity_sha256")
+        == contact_scope.get("identity_sha256"),
+        "shield/fixed structural partition binding differs",
+    )
+    bound_geom_id_set = set(shield_geom_ids)
     sampled_geom_ids = []
     sampled_body_ids = []
     expected_sample_fields = {
@@ -274,7 +797,7 @@ def _validate_shield_sampling_binding(
         "source",
     }
     for index, sample in enumerate(samples):
-        _require(isinstance(sample, Mapping), "full-robot sample row is invalid")
+        _require(isinstance(sample, Mapping), "movable sample row is invalid")
         sample_id = sample.get("sample_id")
         geom_id = sample.get("geom_id")
         body_id = sample.get("body_id")
@@ -300,23 +823,23 @@ def _validate_shield_sampling_binding(
                 and math.isfinite(float(value))
                 for value in point
             ),
-            "full-robot sample geom differs at row %d" % index,
+            "movable sample geom differs at row %d" % index,
         )
         sampled_geom_ids.append(int(geom_id))
         _require(
             isinstance(body_id, int) and not isinstance(body_id, bool),
-            "full-robot sample body differs at row %d" % index,
+            "movable sample body differs at row %d" % index,
         )
         sampled_body_ids.append(int(body_id))
-    geom_order = {geom_id: index for index, geom_id in enumerate(bound_geom_ids)}
+    geom_order = {geom_id: index for index, geom_id in enumerate(shield_geom_ids)}
     _require(
         set(sampled_geom_ids) == bound_geom_id_set,
-        "full-robot shield samples omit a resolved robot geom",
+        "movable shield samples omit a structurally movable robot geom",
     )
     _require(
         [geom_order[geom_id] for geom_id in sampled_geom_ids]
         == sorted(geom_order[geom_id] for geom_id in sampled_geom_ids),
-        "full-robot shield sample rows differ from resolved-geom order",
+        "movable shield sample rows differ from structural geom order",
     )
 
     robot_body_ids = _strict_integer_list(
@@ -334,7 +857,7 @@ def _validate_shield_sampling_binding(
         _require(
             body_id in body_name_by_id
             and sample.get("body_name") == body_name_by_id[body_id],
-            "full-robot sample body identity differs at row %d" % index,
+            "movable sample body identity differs at row %d" % index,
         )
 
     qvel_indices = _strict_integer_list(
@@ -459,12 +982,12 @@ def _validate_shield_sampling_binding(
             "all_outer_boundary_clearances_pass",
         }
         and settled.get("schema_version")
-        == "vlsa_poisson_full_robot_settled_field_query.v1"
+        == "vlsa_poisson_movable_manipulator_settled_field_query.v1"
         and settled.get("sample_count") == sample_count
         and settled.get("sample_ledger_sha256") == sample_hash
         and settled.get("all_queries_valid") is True
         and settled.get("all_h_strictly_positive") is True,
-        "settled full-robot field-query certificate differs",
+        "settled movable-manipulator field-query certificate differs",
     )
     h_values = settled.get("h_m2")
     _require(
@@ -474,25 +997,25 @@ def _validate_shield_sampling_binding(
             isinstance(value, float) and math.isfinite(value) and value > 0.0
             for value in h_values
         ),
-        "settled full-robot h ledger is invalid",
+        "settled movable-manipulator h ledger is invalid",
     )
     h_array = np.asarray(h_values, dtype=np.float64)
     _exact_float(
         settled.get("minimum_h_m2"),
         float(np.min(h_array)),
-        "settled full-robot minimum h",
+        "settled movable-manipulator minimum h",
     )
     _validate_compact_array_identity(
         settled.get("h_array_record"),
         expected_shape=(sample_count,),
-        label="settled full-robot h",
+        label="settled movable-manipulator h",
         np=np,
         raw_array=h_array,
     )
     _validate_compact_array_identity(
         settled.get("world_points_array_record"),
         expected_shape=(sample_count, 3),
-        label="settled full-robot world points",
+        label="settled movable-manipulator world points",
         np=np,
         raw_array=settled.get("world_points_m"),
     )
@@ -505,13 +1028,13 @@ def _validate_shield_sampling_binding(
             isinstance(value, float) and math.isfinite(value)
             for value in outer_clearance_values
         ),
-        "settled full-robot outer-clearance ledger is invalid",
+        "settled movable-manipulator outer-clearance ledger is invalid",
     )
     outer_clearance = np.asarray(outer_clearance_values, dtype=np.float64)
     _validate_compact_array_identity(
         settled.get("outer_boundary_clearance_array_record"),
         expected_shape=(sample_count,),
-        label="settled full-robot outer clearance",
+        label="settled movable-manipulator outer clearance",
         np=np,
         raw_array=outer_clearance,
     )
@@ -581,7 +1104,7 @@ def _validate_shield_sampling_binding(
             )
         )
         and settled.get("all_outer_boundary_clearances_pass") is True,
-        "settled full-robot samples violate runtime outer-boundary clearance",
+        "settled movable-manipulator samples violate runtime outer-boundary clearance",
     )
     zero_count = binding.get("settled_zero_jacobian_sample_count")
     nonzero_count = binding.get("settled_nonzero_jacobian_sample_count")
@@ -593,7 +1116,7 @@ def _validate_shield_sampling_binding(
         and not isinstance(nonzero_count, bool)
         and nonzero_count > 0
         and zero_count + nonzero_count == sample_count,
-        "settled full-robot Jacobian row counts differ",
+        "settled movable-manipulator Jacobian row counts differ",
     )
     return {
         "samples": samples,
@@ -605,6 +1128,7 @@ def _validate_shield_sampling_binding(
         "decision_arm_actuator_ids": decision_actuators,
         "nonarm_ctrl_indices": nonarm_ctrl_indices,
         "nonarm_ctrl_indices_sha256": _canonical_sha256(nonarm_ctrl_indices),
+        "structural_partition": structural,
     }
 
 
@@ -632,18 +1156,18 @@ def _validate_field_sample_static_evidence(
         "resolved field/sample identities are empty",
     )
 
-    full = apparatus.get("full_robot_sampling")
-    _require(isinstance(full, Mapping), "full-robot sampling evidence is absent")
+    full = apparatus.get("all_robot_sampling")
+    _require(isinstance(full, Mapping), "all-robot sampling evidence is absent")
     _require(
-        apparatus.get("full_robot_sampling_sha256") == _canonical_sha256(full),
-        "full-robot sampling block hash differs",
+        apparatus.get("all_robot_sampling_sha256") == _canonical_sha256(full),
+        "all-robot sampling block hash differs",
     )
     full_counts, full_count = _validated_sample_rows(
         full,
         expected_geom_ids=robot_geom_ids,
         expected_body_ids=robot_body_ids,
         expected_hash=str(full.get("sample_ledger_sha256", "")),
-        label="full-robot",
+        label="all-robot",
     )
     from main.poisson_fullbody.surface_sampling import validate_robot_sample_evidence
 
@@ -655,11 +1179,11 @@ def _validate_field_sample_static_evidence(
         roundtrip_field="roundtrip",
     )
     records = full.get("geom_records")
-    _require(isinstance(records, list), "full-robot component ledger is absent")
+    _require(isinstance(records, list), "all-robot component ledger is absent")
     _require(
         {int(row.get("geom_id", -1)): int(row.get("sample_count", -1)) for row in records}
         == full_counts,
-        "full-robot component counts differ from raw samples",
+        "all-robot component counts differ from raw samples",
     )
 
     protected = apparatus.get("protected_sampling")
@@ -830,7 +1354,7 @@ def _validate_field_sample_static_evidence(
         "static admissibility flag differs from raw trace",
     )
     return {
-        "full_robot_sample_count": full_count,
+        "all_robot_sample_count": full_count,
         "protected_sample_count": protected_count,
         "static_row_count": len(static_rows),
         "static_admissible": admissible,
@@ -1700,7 +2224,7 @@ def _independent_constraint_attribution(
     *,
     np: Any,
 ) -> Dict[str, Any]:
-    """Reconstruct which full-robot samples made the nominal step unsafe."""
+    """Reconstruct which movable-manipulator samples made the nominal step unsafe."""
 
     residuals = np.asarray(nominal_residuals, dtype=np.float64)
     _require(
@@ -1717,7 +2241,9 @@ def _independent_constraint_attribution(
     negative_indices = np.flatnonzero(residuals < 0.0)
     return {
         "schema_version": "vlsa_poisson_constraint_attribution.v2",
-        "sample_scope": "all_authoritative_robot_collision_surfaces",
+        "sample_scope": (
+            "all_structurally_movable_manipulator_collision_surfaces"
+        ),
         "selection_rule": "first_np_argmin_of_nominal_exact_clone_cbf_residual",
         "minimum_nominal_residual_m2_per_s": minimum,
         "minimum_sample_index": minimum_index,
@@ -3015,11 +3541,15 @@ def validate(
         label="paper CAR obstacle",
     )
     shield_samples = shield_binding["samples"]
+    structural_partition = shield_binding["structural_partition"]
     _require(
         isinstance(shield_samples, Sequence)
-        and len(shield_samples) == int(field_audit["full_robot_sample_count"])
-        == int(shield_binding["sample_count"]),
-        "full-robot shield attribution ledger differs",
+        and len(shield_samples) == int(shield_binding["sample_count"])
+        == int(structural_partition["movable_sample_count"])
+        and int(field_audit["all_robot_sample_count"])
+        == int(structural_partition["movable_sample_count"])
+        + int(structural_partition["fixed_sample_count"]),
+        "movable-manipulator shield attribution ledger differs",
     )
     _require(
         treatment.get("physics_trace_schema_version")
@@ -3303,7 +3833,24 @@ def validate(
         < int(shield_binding["sample_count"])
     )
     _require(
-        metrics.get("all_authoritative_robot_collision_surfaces_shielded") is True
+        metrics.get(
+            "all_structurally_movable_manipulator_collision_surfaces_shielded"
+        )
+        is structural_partition[
+            "all_structurally_movable_manipulator_collision_surfaces_shielded"
+        ]
+        and metrics.get(
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
+        )
+        is structural_partition[
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
+        ]
+        and metrics.get(
+            "all_authoritative_robot_collision_surfaces_contact_monitored"
+        )
+        is structural_partition[
+            "all_authoritative_robot_collision_surfaces_contact_monitored"
+        ]
         and metrics.get("robot_tree_qvel_scope_verified") is True
         and metrics.get("seven_arm_torque_decision_verified") is True
         and metrics.get("nonarm_controls_unchanged")
@@ -3318,7 +3865,7 @@ def validate(
         and metrics.get("link56_bundle_samples_field_seed_only")
         is link56_seed_only
         and link56_seed_only,
-        "full-robot shield apparatus metrics differ from raw evidence",
+        "structural shield/contact apparatus metrics differ from raw evidence",
     )
     _require(
         int(metrics.get("solved_qp_count", -1)) == solved_qp_count
@@ -3384,6 +3931,35 @@ def validate(
         if not independently_validated_qp_audits
         else independently_validated_qp_audits[0]["constraint_attribution"]
     )
+    resolved_body_ids = _strict_integer_list(
+        apparatus["resolved_geometry"].get("robot_body_ids"),
+        "resolved robot body IDs",
+    )
+    resolved_body_names = apparatus["resolved_geometry"].get("robot_body_names")
+    link56_body_ids = _strict_integer_list(
+        apparatus["resolved_geometry"].get("link56_body_ids"),
+        "resolved literal link56 body IDs",
+    )
+    _require(
+        isinstance(resolved_body_names, list)
+        and len(resolved_body_names) == len(resolved_body_ids)
+        and set(link56_body_ids).issubset(resolved_body_ids),
+        "resolved robot body names differ",
+    )
+    body_name_by_id = dict(zip(resolved_body_ids, resolved_body_names))
+    literal_link56_body_names = {
+        str(body_name_by_id[body_id]) for body_id in link56_body_ids
+    }
+    _require(
+        literal_link56_body_names
+        == {str(value) for value in protocol["case"]["literal_link56_body_names"]},
+        "resolved literal link56 body-name authority differs",
+    )
+    first_material_minimum_is_link56 = bool(
+        divergence_attribution is not None
+        and divergence_attribution["minimum_sample"]["body_name"]
+        in literal_link56_body_names
+    )
     _require(
         metrics.get("first_divergence_minimum_constraint_body_name")
         == (
@@ -3402,7 +3978,11 @@ def validate(
             []
             if divergence_attribution is None
             else divergence_attribution["negative_nominal_residual_body_names"]
-        ),
+        )
+        and metrics.get(
+            "first_material_correction_minimum_constraint_is_literal_link56"
+        )
+        is first_material_minimum_is_link56,
         "first divergence protected-link body attribution differs",
     )
     if first_divergence_correction is None:

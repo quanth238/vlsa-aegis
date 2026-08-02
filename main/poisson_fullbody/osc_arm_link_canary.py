@@ -1,13 +1,16 @@
-"""Contract and outcome logic for the treatment-only full-robot canary.
+"""Contract and outcome logic for the movable-manipulator canary.
 
 The historical SafeLIBERO AEGIS rollout is the control authority.  The live
 arm keeps the released ``OSC_POSE`` controller and adds one sampled-data
 Poisson shield between robosuite's nominal arm torque and each 2 ms MuJoCo
-step.  The shield covers every collision-enabled surface in the authoritative
-robot tree against the selected obstacle, while only seven arm torques are
-decision variables and all non-arm controls remain nominal.  This is an
-empirical post-OSC adaptation of the Poisson-CBF idea; it is not the paper's
-formal joint-velocity guarantee.
+step.  The shield covers every collision-enabled manipulator surface whose
+world pose is structurally affected by an authoritative robot-tree qvel through
+a joint on its self/ancestor chain.  Fixed mount and pedestal infrastructure
+remain in all-robot contact monitoring but have no CBF row after a settled
+contact-free, zero-authority certificate.  Only seven arm torques are decision
+variables and all non-arm controls remain nominal.  This is an empirical post-
+OSC adaptation of the Poisson-CBF idea; it is not the paper's formal joint-
+velocity guarantee.
 """
 
 from __future__ import annotations
@@ -16,19 +19,20 @@ import math
 from typing import Any, Dict, Mapping, Sequence
 
 
-PROTOCOL_SCHEMA = "vlsa_poisson_osc_arm_link_canary_protocol.v2"
-RESULT_SCHEMA = "vlsa_poisson_osc_arm_link_canary_result.v2"
-VALIDATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_validation.v2"
-CLASSIFICATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_classification.v2"
-PROTOCOL_ID = "vlsa-poisson-post-osc-full-robot-treatment-only-v2"
+PROTOCOL_SCHEMA = "vlsa_poisson_osc_arm_link_canary_protocol.v3"
+RESULT_SCHEMA = "vlsa_poisson_osc_arm_link_canary_result.v3"
+VALIDATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_validation.v3"
+CLASSIFICATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_classification.v3"
+PROTOCOL_ID = "vlsa-poisson-post-osc-movable-manipulator-treatment-only-v3"
 PRIMARY_CASE_ID = "vlsa-t1-spatial-i-t3-e03"
 SOURCE_ARM = "pi05_plus_aegis_translational"
 TREATMENT_ARM = (
-    "pi05_plus_aegis_translational_plus_post_osc_full_robot_poisson"
+    "pi05_plus_aegis_translational_plus_post_osc_movable_manipulator_poisson"
 )
 
 CLASSIFICATIONS = (
     "SAFE_TASK_SUCCESS_USEFUL_CORRECTION",
+    "SAFE_TASK_SUCCESS_USEFUL_CORRECTION_NOT_LINK56_ATTRIBUTED",
     "CONTACT_REMAINS_OR_SHIFTED",
     "CONTACT_PREVENTED_TASK_FAILED",
     "STOP_ONLY",
@@ -209,7 +213,7 @@ def validate_osc_arm_link_canary_protocol(
     ):
         raise OscArmLinkCanaryError("field frame differs")
     if shield.get("protected_samples") != (
-        "all_authoritative_robot_collision_surface_samples"
+        "all_kinematically_movable_manipulator_collision_surface_samples"
     ):
         raise OscArmLinkCanaryError("protected sample scope differs")
     required_shield_scope = {
@@ -220,15 +224,26 @@ def validate_osc_arm_link_canary_protocol(
             "collision_enabled_geoms_in_authoritative_robot_body_tree_"
             "resolved_from_robot_root_body_id"
         ),
+        "shield_geometry_selection": (
+            "collision_geom_world_pose_structurally_affected_by_any_"
+            "authoritative_robot_tree_qvel_through_self_or_ancestor_joint"
+        ),
+        "fixed_infrastructure_policy": (
+            "exclude_only_empty_influencing_qvel_set_require_settled_"
+            "contact_free_zero_authority_certificate_and_keep_contact_monitored"
+        ),
+        "contact_monitor_population": (
+            "all_collision_enabled_geoms_in_authoritative_robot_body_tree"
+        ),
         "point_velocity_scope": (
-            "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_"
+            "all_authoritative_robot_tree_qvels_structurally_affecting_"
             "shield_samples"
         ),
         "decision_variable": "seven_registered_panda_arm_torque_deltas",
         "nonarm_control_policy": "nominal_nonarm_controls_unchanged",
         "sample_binding": (
-            "same_ordered_full_robot_surface_sample_ledger_for_field_queries_"
-            "jacobians_and_constraint_rows"
+            "same_ordered_movable_manipulator_surface_sample_ledger_for_"
+            "field_queries_jacobians_and_constraint_rows"
         ),
     }
     for field, expected in required_shield_scope.items():
@@ -316,7 +331,9 @@ def validate_osc_arm_link_canary_protocol(
         "historical_control_has_literal_link56_selected_obstacle_contact",
         "historical_control_task_success",
         "direct_unit_gain_hinge_torque_actuators_verified",
-        "all_authoritative_robot_collision_surfaces_shielded",
+        "all_structurally_movable_manipulator_collision_surfaces_shielded",
+        "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free",
+        "all_authoritative_robot_collision_surfaces_contact_monitored",
         "robot_tree_qvel_scope_verified",
         "seven_arm_torque_decision_verified",
         "nonarm_controls_unchanged",
@@ -328,6 +345,7 @@ def validate_osc_arm_link_canary_protocol(
         "exact_state_action_reward_goal_parity_before_first_material_correction",
         "material_correction_before_historical_sampled_link_contact_endpoint_with_action62_allowed_only_after_contact_free_prior_live_substeps",
         "genuine_negative_nominal_exact_cbf_residual_at_first_divergence",
+        "first_material_correction_minimum_constraint_is_literal_link56",
         "first_material_exact_candidate_cbf_residual_improves_over_exact_nominal_by_registered_threshold",
         "first_material_exact_candidate_next_qvel_differs_from_exact_nominal_by_registered_threshold",
         "native_task_incomplete_at_first_material_correction",
@@ -372,9 +390,31 @@ def validate_osc_arm_link_canary_protocol(
         _sha256(selection.get(field), "selection.%s" % field)
     runtime = _mapping(protocol.get("runtime"), "runtime")
     required_runtime = {
-        "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v4.json",
-        "schema_version": "vlsa_poisson_runtime_protocol.v4",
-        "protocol_id": "vlsa-poisson-full-robot-canary-parameters-v4",
+        "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v5.json",
+        "schema_version": "vlsa_poisson_runtime_protocol.v5",
+        "protocol_id": "vlsa-poisson-movable-manipulator-canary-parameters-v5",
+        "active_runtime_role": (
+            "static_field_geometry_admissibility_and_numeric_prerequisite_"
+            "only_not_active_control_law"
+        ),
+        "active_control_source": (
+            "this_canary_execution_and_shield_sections_plus_original_osc"
+        ),
+        "consumed_runtime_sections": [
+            "workspace",
+            "occupancy",
+            "coverage",
+            "safety",
+            "poisson",
+            "admissibility",
+            "differential_audit_for_numeric_prerequisite_only",
+        ],
+        "non_authoritative_runtime_control_sections": [
+            "adapter",
+            "cbf",
+            "qp",
+            "cadence",
+        ],
     }
     for field, expected in required_runtime.items():
         if runtime.get(field) != expected:
@@ -393,6 +433,7 @@ def validate_osc_arm_link_canary_protocol(
             "tests.test_poisson_field_bundle",
             "tests.test_poisson_production_grid",
             "tests.test_poisson_surface_sampling",
+            "tests.test_poisson_measurement",
             "tests.test_poisson_jacobians",
             "tests.test_poisson_cbf_qp",
             "tests.test_poisson_prephysics_control_wrapper",
@@ -417,9 +458,10 @@ def validate_osc_arm_link_canary_protocol(
             )
     if protocol.get("claim_scope") != (
         "one_case_simulator_oracle_historical_link5_contact_prevention_with_"
-        "all_authoritative_robot_collision_surfaces_against_selected_obstacle_"
-        "empirical_sampled_data_post_osc_poisson_cbf_adaptation_not_formal_"
-        "invariance_or_all_environment_safety"
+        "all_kinematically_movable_manipulator_collision_surfaces_shielded_"
+        "all_authoritative_robot_collision_surfaces_contact_monitored_against_"
+        "selected_obstacle_empirical_sampled_data_post_osc_poisson_cbf_"
+        "adaptation_not_formal_invariance_or_all_environment_safety"
     ):
         raise OscArmLinkCanaryError("claim scope differs")
     return {
@@ -444,7 +486,9 @@ def classify_osc_arm_link_canary(
         "historical_direct_link56_contact_verified",
         "historical_control_task_success",
         "direct_unit_gain_hinge_torque_actuators_verified",
-        "all_authoritative_robot_collision_surfaces_shielded",
+        "all_structurally_movable_manipulator_collision_surfaces_shielded",
+        "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free",
+        "all_authoritative_robot_collision_surfaces_contact_monitored",
         "robot_tree_qvel_scope_verified",
         "seven_arm_torque_decision_verified",
         "nonarm_controls_unchanged",
@@ -561,6 +605,14 @@ def classify_osc_arm_link_canary(
     elif metrics.get("native_task_success") is not True:
         classification = "CONTACT_PREVENTED_TASK_FAILED"
         feasible = False
+    elif (
+        metrics.get("first_material_correction_minimum_constraint_is_literal_link56")
+        is not True
+    ):
+        classification = (
+            "SAFE_TASK_SUCCESS_USEFUL_CORRECTION_NOT_LINK56_ATTRIBUTED"
+        )
+        feasible = False
     else:
         classification = "SAFE_TASK_SUCCESS_USEFUL_CORRECTION"
         feasible = True
@@ -572,9 +624,10 @@ def classify_osc_arm_link_canary(
         "apparatus_failures": apparatus_failures,
         "claim": (
             "one-case simulator-oracle historical link5 contact prevention "
-            "with every authoritative robot collision surface protected "
-            "against the selected obstacle via empirical sampled-data "
-            "post-OSC Poisson-CBF adaptation"
+            "with every kinematically movable manipulator collision surface "
+            "protected and every authoritative robot collision surface "
+            "contact-monitored against the selected obstacle via empirical "
+            "sampled-data post-OSC Poisson-CBF adaptation"
             if feasible
             else "no positive feasibility claim"
         ),

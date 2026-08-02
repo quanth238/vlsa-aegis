@@ -13,6 +13,7 @@ from main.poisson_fullbody.feasibility_protocol import (
     FeasibilityProtocolError,
     LEGACY_SCHEMA_VERSION,
     PARAMETER_SECTIONS,
+    PREVIOUS_SCHEMA_VERSION,
     SCHEMA_VERSION,
     bind_parameter_block,
     load_feasibility_protocol,
@@ -213,10 +214,12 @@ def valid_protocol():
                 "field_bundle_sample_seed_only_not_shield_constraint_scope"
             ),
             "shield_robot_collision_surface_scope": (
-                "all_collision_enabled_geoms_in_authoritative_robot_body_tree"
+                "all_collision_enabled_geoms_structurally_affected_by_"
+                "authoritative_robot_tree_qvel_through_self_or_ancestor_joint"
             ),
             "shield_robot_qvel_scope": (
-                "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_shield_samples"
+                "all_authoritative_robot_tree_qvels_structurally_affecting_"
+                "shield_samples"
             ),
             "shield_decision_scope": (
                 "seven_registered_panda_arm_torque_controls_only"
@@ -224,8 +227,18 @@ def valid_protocol():
             "nonarm_control_policy": (
                 "nominal_nonarm_controls_unchanged_with_motion_included_in_exact_affine_dynamics"
             ),
+            "fixed_infrastructure_exclusion_policy": (
+                "exclude_only_collision_geoms_with_empty_influencing_robot_"
+                "qvel_set_and_require_settled_contact_free_zero_authority_"
+                "certificate"
+            ),
+            "all_robot_contact_monitor_scope": (
+                "all_collision_enabled_geoms_in_authoritative_robot_body_tree_"
+                "against_selected_obstacle_at_every_physics_substep"
+            ),
             "unprotected_body_policy": (
-                "no_authoritative_robot_collision_surface_excluded_against_selected_obstacle"
+                "no_kinematically_movable_manipulator_collision_surface_"
+                "excluded_against_selected_obstacle"
             ),
             "population_scope": "outcome_conditioned_109_case_targeted_feasibility",
             "claim_strength": (
@@ -452,7 +465,7 @@ class FeasibilityProtocolTest(unittest.TestCase):
             "qpos restore tolerance",
         )
 
-    def test_claim_scope_freezes_full_robot_surfaces_and_seven_torque_decision(self):
+    def test_claim_scope_freezes_movable_surfaces_fixed_partition_and_monitor(self):
         self.assert_invalid(
             lambda value: value["claim_scope"].update(
                 {"protected_robot_bodies": ["robot0_link1", "robot0_link6"]}
@@ -471,6 +484,8 @@ class FeasibilityProtocolTest(unittest.TestCase):
             ("shield_robot_qvel_scope", "seven_arm_qvel_only"),
             ("shield_decision_scope", "all_robot_controls"),
             ("nonarm_control_policy", "zero_nonarm_controls"),
+            ("fixed_infrastructure_exclusion_policy", "exclude_by_name"),
+            ("all_robot_contact_monitor_scope", "shield_geoms_only"),
             ("unprotected_body_policy", "exclude_gripper"),
         ):
             self.assert_invalid(
@@ -479,6 +494,27 @@ class FeasibilityProtocolTest(unittest.TestCase):
                 ].update({field: replacement}),
                 field,
             )
+
+    def test_immutable_v4_runtime_remains_loadable(self):
+        previous_path = (
+            Path(__file__).resolve().parents[1]
+            / "configs"
+            / "vlsa_poisson_runtime_protocol.canary.v4.json"
+        )
+        previous, hashes = load_feasibility_protocol(previous_path)
+        self.assertEqual(previous["schema_version"], PREVIOUS_SCHEMA_VERSION)
+        self.assertEqual(
+            hashlib.sha256(previous_path.read_bytes()).hexdigest(),
+            "6d5b872e773b19338ef464f5a3b79d025663e7fa19e75e6d98429afe43289421",
+        )
+        self.assertEqual(
+            hashes.protocol_sha256,
+            "05babe3abb056181254e42c0b29e426aa854e8f3fbce6a141f226d087ec3fa69",
+        )
+        self.assertEqual(
+            hashes.parameter_block_sha256,
+            "9f6292cc3b3ec7d1b15b9dddff6bbdeafea769524b5cfa41f9db854ff356a218",
+        )
 
     def test_immutable_v3_runtime_remains_loadable(self):
         legacy_path = (

@@ -7,7 +7,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROTOCOL_PATH = ROOT / "configs" / "vlsa_poisson_osc_arm_link_canary.v2.json"
+PROTOCOL_PATH = ROOT / "configs" / "vlsa_poisson_osc_arm_link_canary.v3.json"
 
 
 class OscArmLinkProtocolTests(unittest.TestCase):
@@ -21,7 +21,9 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             "historical_direct_link56_contact_verified": True,
             "historical_control_task_success": True,
             "direct_unit_gain_hinge_torque_actuators_verified": True,
-            "all_authoritative_robot_collision_surfaces_shielded": True,
+            "all_structurally_movable_manipulator_collision_surfaces_shielded": True,
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free": True,
+            "all_authoritative_robot_collision_surfaces_contact_monitored": True,
             "robot_tree_qvel_scope_verified": True,
             "seven_arm_torque_decision_verified": True,
             "nonarm_controls_unchanged": True,
@@ -50,6 +52,7 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             "material_correction_present": True,
             "first_torque_divergence_is_material": True,
             "first_divergence_nominal_exact_cbf_residual_negative": True,
+            "first_material_correction_minimum_constraint_is_literal_link56": True,
             "first_material_exact_cbf_residual_improvement_m2_per_s": 1e-06,
             "first_material_exact_next_qvel_change_l2_rad_s": 1e-04,
             "material_correction_before_historical_contact": True,
@@ -70,6 +73,10 @@ class OscArmLinkProtocolTests(unittest.TestCase):
         )
 
         protocol = self.protocol()
+        self.assertEqual(
+            hashlib.sha256(PROTOCOL_PATH.read_bytes()).hexdigest(),
+            "6404650bbd215bd465da04e46d1b82f9917a6f5c61e7127ee80863bdb5d48d3f",
+        )
         derived = validate_osc_arm_link_canary_protocol(protocol)
         self.assertEqual(derived["historical_contact_action"], 62)
         self.assertEqual(derived["maximum_action_count"], 300)
@@ -107,7 +114,7 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             with self.assertRaises(OscArmLinkCanaryError):
                 validate_osc_arm_link_canary_protocol(protocol)
 
-    def test_protocol_freezes_full_robot_scope_and_link56_seed_role(self):
+    def test_protocol_freezes_movable_scope_fixed_partition_and_link56_seed_role(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
             OscArmLinkCanaryError,
             validate_osc_arm_link_canary_protocol,
@@ -120,11 +127,25 @@ class OscArmLinkProtocolTests(unittest.TestCase):
         )
         self.assertEqual(
             protocol["shield"]["protected_samples"],
-            "all_authoritative_robot_collision_surface_samples",
+            "all_kinematically_movable_manipulator_collision_surface_samples",
+        )
+        self.assertEqual(
+            protocol["shield"]["shield_geometry_selection"],
+            "collision_geom_world_pose_structurally_affected_by_any_"
+            "authoritative_robot_tree_qvel_through_self_or_ancestor_joint",
+        )
+        self.assertEqual(
+            protocol["shield"]["fixed_infrastructure_policy"],
+            "exclude_only_empty_influencing_qvel_set_require_settled_"
+            "contact_free_zero_authority_certificate_and_keep_contact_monitored",
+        )
+        self.assertEqual(
+            protocol["shield"]["contact_monitor_population"],
+            "all_collision_enabled_geoms_in_authoritative_robot_body_tree",
         )
         self.assertEqual(
             protocol["shield"]["point_velocity_scope"],
-            "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_shield_samples",
+            "all_authoritative_robot_tree_qvels_structurally_affecting_shield_samples",
         )
         self.assertEqual(
             protocol["shield"]["decision_variable"],
@@ -146,6 +167,15 @@ class OscArmLinkProtocolTests(unittest.TestCase):
                 "field_bundle_samples", "shield_constraint_population"
             ),
             lambda value: value["shield"].__setitem__(
+                "shield_geometry_selection", "pose_specific_nonzero_jacobian"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "fixed_infrastructure_policy", "exclude_by_name"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "contact_monitor_population", "shield_population_only"
+            ),
+            lambda value: value["shield"].__setitem__(
                 "point_velocity_scope", "seven_arm_qvel_only"
             ),
             lambda value: value["shield"].__setitem__(
@@ -158,7 +188,7 @@ class OscArmLinkProtocolTests(unittest.TestCase):
                 "rerun_baseline", True
             ),
             lambda value: value["runtime"].__setitem__(
-                "schema_version", "vlsa_poisson_runtime_protocol.v3"
+                "schema_version", "vlsa_poisson_runtime_protocol.v4"
             ),
         )
         for mutate in mutations:
@@ -167,13 +197,15 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             with self.assertRaises(OscArmLinkCanaryError):
                 validate_osc_arm_link_canary_protocol(candidate)
 
-    def test_positive_requires_every_full_robot_apparatus_gate(self):
+    def test_positive_requires_movable_coverage_fixed_certificate_and_monitor(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
             classify_osc_arm_link_canary,
         )
 
         for field in (
-            "all_authoritative_robot_collision_surfaces_shielded",
+            "all_structurally_movable_manipulator_collision_surfaces_shielded",
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free",
+            "all_authoritative_robot_collision_surfaces_contact_monitored",
             "robot_tree_qvel_scope_verified",
             "seven_arm_torque_decision_verified",
             "nonarm_controls_unchanged",
@@ -186,6 +218,13 @@ class OscArmLinkProtocolTests(unittest.TestCase):
                 classified["classification"], "INCONCLUSIVE_APPARATUS"
             )
             self.assertIn(field, classified["apparatus_failures"])
+
+    def test_immutable_v2_canary_protocol_file_is_unchanged(self):
+        path = ROOT / "configs" / "vlsa_poisson_osc_arm_link_canary.v2.json"
+        self.assertEqual(
+            hashlib.sha256(path.read_bytes()).hexdigest(),
+            "b987bc277a78f431adae80de784c95931d1114638709bf87a2cffe0ace1a4aca",
+        )
 
     def test_protocol_rejects_paper_car_phase_or_source_drift(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
@@ -221,6 +260,17 @@ class OscArmLinkProtocolTests(unittest.TestCase):
         self.assertTrue(result["feasible"])
         self.assertEqual(
             result["classification"], "SAFE_TASK_SUCCESS_USEFUL_CORRECTION"
+        )
+
+        metrics = self.passing_metrics()
+        metrics[
+            "first_material_correction_minimum_constraint_is_literal_link56"
+        ] = False
+        classified = classify_osc_arm_link_canary(metrics, self.protocol())
+        self.assertFalse(classified["feasible"])
+        self.assertEqual(
+            classified["classification"],
+            "SAFE_TASK_SUCCESS_USEFUL_CORRECTION_NOT_LINK56_ATTRIBUTED",
         )
 
         cases = (
@@ -969,36 +1019,10 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
             _canonical_sha256,
             _compact_float64_array_record,
         )
-
-        samples = [
-            {
-                "sample_id": 0,
-                "body_id": 1,
-                "body_name": "robot0_link5",
-                "geom_id": 10,
-                "geom_name": "robot0_link5_collision",
-                "point_body_local_m": [0.0, 0.0, 0.0],
-                "source": "collision_geom_surface",
-            },
-            {
-                "sample_id": 1,
-                "body_id": 1,
-                "body_name": "robot0_link5",
-                "geom_id": 10,
-                "geom_name": "robot0_link5_collision",
-                "point_body_local_m": [0.01, 0.0, 0.0],
-                "source": "collision_geom_surface",
-            },
-            {
-                "sample_id": 2,
-                "body_id": 2,
-                "body_name": "gripper0_leftfinger",
-                "geom_id": 20,
-                "geom_name": "gripper0_leftfinger_collision",
-                "point_body_local_m": [0.0, 0.01, 0.0],
-                "source": "collision_geom_surface",
-            },
-        ]
+        apparatus, resolved = (
+            OscArmLinkStructuralGeomPartitionConsumerTests().fixture()
+        )
+        samples = apparatus["movable_manipulator_sampling"]["samples"]
         qvel_indices = list(range(9))
         qvel_records = [
             {
@@ -1009,7 +1033,7 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
                     if index < 7
                     else "gripper0_finger_joint%d" % (index - 6)
                 ),
-                "joint_body_id": 1 if index < 7 else 2,
+                "joint_body_id": 2 if index < 7 else 3,
                 "joint_body_name": (
                     "robot0_link5" if index < 7 else "gripper0_leftfinger"
                 ),
@@ -1038,13 +1062,28 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
             64.0 * float(self.np.finfo(self.np.float64).eps)
         )
         binding = {
-            "schema_version": "vlsa_poisson_full_robot_shield_sampling_binding.v1",
-            "scope": "all_authoritative_robot_collision_surfaces_vs_selected_obstacle",
-            "sample_source": "apparatus.full_robot_sampling.samples",
+            "schema_version": (
+                "vlsa_poisson_movable_manipulator_shield_sampling_binding.v1"
+            ),
+            "scope": (
+                "all_structurally_movable_manipulator_collision_surfaces_"
+                "vs_selected_obstacle"
+            ),
+            "sample_source": "apparatus.movable_manipulator_sampling.samples",
             "sample_count": len(samples),
             "sample_ledger_sha256": sample_hash,
-            "resolved_robot_geom_ids": [10, 20],
-            "resolved_robot_geom_ids_sha256": _canonical_sha256([10, 20]),
+            "resolved_robot_geom_ids": [10, 20, 30],
+            "resolved_robot_geom_ids_sha256": _canonical_sha256([10, 20, 30]),
+            "shield_manipulator_geom_ids": [10, 20],
+            "shield_manipulator_geom_ids_sha256": _canonical_sha256([10, 20]),
+            "fixed_robot_infrastructure_geom_ids": [30],
+            "fixed_robot_infrastructure_geom_ids_sha256": _canonical_sha256([30]),
+            "robot_geom_influence_partition_sha256": apparatus[
+                "robot_geom_influence_partition_sha256"
+            ],
+            "all_robot_contact_monitor_scope_identity_sha256": apparatus[
+                "registered_contact_scope"
+            ]["identity_sha256"],
             "robot_qvel_selection_rule": (
                 "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
             ),
@@ -1073,7 +1112,9 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
             ),
             "field_seed_sample_scope": "link56_only_not_shield_scope",
             "settled_field_query_certificate": {
-                "schema_version": "vlsa_poisson_full_robot_settled_field_query.v1",
+                "schema_version": (
+                    "vlsa_poisson_movable_manipulator_settled_field_query.v1"
+                ),
                 "sample_count": len(samples),
                 "sample_ledger_sha256": sample_hash,
                 "all_queries_valid": True,
@@ -1101,20 +1142,8 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
             "settled_zero_jacobian_sample_count": 0,
             "settled_nonzero_jacobian_sample_count": len(samples),
         }
-        apparatus = {
-            "full_robot_sampling": {
-                "samples": samples,
-                "sample_count": len(samples),
-                "sample_ledger_sha256": sample_hash,
-            },
-            "shield_sampling_binding": binding,
-            "shield_sampling_binding_sha256": _canonical_sha256(binding),
-        }
-        resolved = {
-            "robot_geom_ids": [10, 20],
-            "robot_body_ids": [1, 2],
-            "robot_body_names": ["robot0_link5", "gripper0_leftfinger"],
-        }
+        apparatus["shield_sampling_binding"] = binding
+        apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(binding)
         controller = {
             "arm_qvel_indexes": list(range(7)),
             "arm_actuator_indexes": list(range(30, 37)),
@@ -1146,11 +1175,14 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
     def refresh_binding_hash(apparatus):
         from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
 
+        apparatus["movable_manipulator_sampling_sha256"] = _canonical_sha256(
+            apparatus["movable_manipulator_sampling"]
+        )
         apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
             apparatus["shield_sampling_binding"]
         )
 
-    def test_full_robot_binding_accepts_finger_samples_and_nonarm_qvels(self):
+    def test_movable_binding_accepts_finger_samples_and_nonarm_qvels(self):
         audit = self.validate(self.fixture())
         self.assertEqual(audit["sample_count"], 3)
         self.assertEqual(audit["velocity_dimension"], 9)
@@ -1164,9 +1196,9 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
 
         fixture = self.fixture()
         apparatus = fixture[0]
-        samples = apparatus["full_robot_sampling"]["samples"][:2]
+        samples = apparatus["movable_manipulator_sampling"]["samples"][:2]
         sample_hash = _canonical_sha256(samples)
-        apparatus["full_robot_sampling"].update(
+        apparatus["movable_manipulator_sampling"].update(
             samples=samples,
             sample_count=len(samples),
             sample_ledger_sha256=sample_hash,
@@ -1176,7 +1208,7 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
         )
         self.refresh_binding_hash(apparatus)
         with self.assertRaisesRegex(
-            OscCanaryValidationError, "omit a resolved robot geom"
+            OscCanaryValidationError, "exact reindexed all-robot subsequence"
         ):
             self.validate(fixture)
 
@@ -1188,7 +1220,7 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
 
         fixture = self.fixture()
         apparatus = fixture[0]
-        samples = apparatus["full_robot_sampling"]["samples"]
+        samples = apparatus["movable_manipulator_sampling"]["samples"]
         reordered = [
             copy.deepcopy(samples[2]),
             copy.deepcopy(samples[0]),
@@ -1197,7 +1229,7 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
         for sample_id, sample in enumerate(reordered):
             sample["sample_id"] = sample_id
         sample_hash = _canonical_sha256(reordered)
-        apparatus["full_robot_sampling"].update(
+        apparatus["movable_manipulator_sampling"].update(
             samples=reordered, sample_ledger_sha256=sample_hash
         )
         apparatus["shield_sampling_binding"].update(
@@ -1205,7 +1237,7 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
         )
         self.refresh_binding_hash(apparatus)
         with self.assertRaisesRegex(
-            OscCanaryValidationError, "resolved-geom order"
+            OscCanaryValidationError, "exact reindexed all-robot subsequence"
         ):
             self.validate(fixture)
 
@@ -1229,18 +1261,14 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
             binding["robot_qvel_records"]
         )
         self.refresh_binding_hash(apparatus)
-        with self.assertRaisesRegex(
-            OscCanaryValidationError, "qvel ordering or hash"
-        ):
+        with self.assertRaises(OscCanaryValidationError):
             self.validate(fixture)
 
         fixture = self.fixture()
         apparatus = fixture[0]
         apparatus["shield_sampling_binding"]["robot_qvel_records"].pop()
         self.refresh_binding_hash(apparatus)
-        with self.assertRaisesRegex(
-            OscCanaryValidationError, "qvel record count or hash"
-        ):
+        with self.assertRaises(OscCanaryValidationError):
             self.validate(fixture)
 
     def test_schema_qvel_hash_dimension_and_settled_h_tampering_are_rejected(self):
@@ -1304,6 +1332,436 @@ class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
         self.refresh_binding_hash(apparatus)
         with self.assertRaisesRegex(
             OscCanaryValidationError, "runtime outer-boundary clearance"
+        ):
+            self.validate(fixture)
+
+
+class OscArmLinkStructuralGeomPartitionConsumerTests(unittest.TestCase):
+    """Adversarial checks for the v3 movable/fixed consumer boundary."""
+
+    def fixture(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+            _compact_zero_float64_array_record,
+        )
+
+        qvel_indices = list(range(9))
+        qvel_joint_body_ids = [2] * 7 + [3, 3]
+        qvel_records = [
+            {
+                "qvel_index": qvel_index,
+                "joint_body_id": joint_body_id,
+            }
+            for qvel_index, joint_body_id in zip(
+                qvel_indices, qvel_joint_body_ids
+            )
+        ]
+        full_samples = [
+            {
+                "sample_id": 0,
+                "body_id": 2,
+                "body_name": "robot0_link5",
+                "geom_id": 10,
+                "geom_name": "robot0_link5_collision",
+                "point_body_local_m": [0.0, 0.0, 0.0],
+                "source": "collision_geom_surface",
+            },
+            {
+                "sample_id": 1,
+                "body_id": 2,
+                "body_name": "robot0_link5",
+                "geom_id": 10,
+                "geom_name": "robot0_link5_collision",
+                "point_body_local_m": [0.01, 0.0, 0.0],
+                "source": "collision_geom_surface",
+            },
+            {
+                "sample_id": 2,
+                "body_id": 3,
+                "body_name": "gripper0_leftfinger",
+                "geom_id": 20,
+                "geom_name": "gripper0_leftfinger_collision",
+                "point_body_local_m": [0.0, 0.01, 0.0],
+                "source": "collision_geom_surface",
+            },
+            {
+                "sample_id": 3,
+                "body_id": 1,
+                "body_name": "mount0_controller_box",
+                "geom_id": 30,
+                "geom_name": "mount0_controller_box_col",
+                "point_body_local_m": [-0.435, -0.2, -0.645],
+                "source": "collision_geom_surface",
+            },
+        ]
+        full_hash = _canonical_sha256(full_samples)
+        movable_samples = copy.deepcopy(full_samples[:3])
+        fixed_samples = [copy.deepcopy(full_samples[3])]
+        fixed_samples[0]["sample_id"] = 0
+
+        def surface_evidence(samples, geom_ids):
+            return {
+                "sample_count": len(samples),
+                "sample_ledger_sha256": _canonical_sha256(samples),
+                "samples": samples,
+                "geom_records": [{"geom_id": geom_id} for geom_id in geom_ids],
+                "epsilon_m": 0.05,
+                "maximum_surface_cover_radius_m": 0.04,
+                "coverage_semantics": "test_surface_coverage",
+                "roundtrip": {"passed": True},
+            }
+        partition = {
+            "schema_version": "vlsa_poisson_robot_geom_influence_partition.v1",
+            "selection_rule": (
+                "geom_body_self_or_ancestor_owns_at_least_one_authoritative_"
+                "robot_tree_qvel"
+            ),
+            "contact_monitor_robot_geom_ids": [10, 20, 30],
+            "shield_manipulator_geom_ids": [10, 20],
+            "fixed_robot_infrastructure_geom_ids": [30],
+            "robot_qvel_indices": qvel_indices,
+            "robot_qvel_joint_body_ids": qvel_joint_body_ids,
+            "robot_body_parent_records": [
+                {
+                    "body_id": 1,
+                    "body_name": "mount0_controller_box",
+                    "parent_body_id": 0,
+                    "parent_body_name": "world",
+                    "body_ancestry_ids": [1],
+                },
+                {
+                    "body_id": 2,
+                    "body_name": "robot0_link5",
+                    "parent_body_id": 1,
+                    "parent_body_name": "mount0_controller_box",
+                    "body_ancestry_ids": [2, 1],
+                },
+                {
+                    "body_id": 3,
+                    "body_name": "gripper0_leftfinger",
+                    "parent_body_id": 2,
+                    "parent_body_name": "robot0_link5",
+                    "body_ancestry_ids": [3, 2, 1],
+                },
+            ],
+            "geom_records": [
+                {
+                    "geom_id": 10,
+                    "geom_name": "robot0_link5_collision",
+                    "body_id": 2,
+                    "body_name": "robot0_link5",
+                    "body_ancestry_ids": [2, 1],
+                    "influencing_robot_qvel_indices": list(range(7)),
+                    "classification": (
+                        "kinematically_movable_manipulator_surface"
+                    ),
+                },
+                {
+                    "geom_id": 20,
+                    "geom_name": "gripper0_leftfinger_collision",
+                    "body_id": 3,
+                    "body_name": "gripper0_leftfinger",
+                    "body_ancestry_ids": [3, 2, 1],
+                    "influencing_robot_qvel_indices": qvel_indices,
+                    "classification": (
+                        "kinematically_movable_manipulator_surface"
+                    ),
+                },
+                {
+                    "geom_id": 30,
+                    "geom_name": "mount0_controller_box_col",
+                    "body_id": 1,
+                    "body_name": "mount0_controller_box",
+                    "body_ancestry_ids": [1],
+                    "influencing_robot_qvel_indices": [],
+                    "classification": (
+                        "kinematically_fixed_robot_infrastructure"
+                    ),
+                },
+            ],
+            "all_contact_geoms_partitioned": True,
+            "all_fixed_geoms_have_zero_structural_qvel_influence": True,
+        }
+        partition_hash = _canonical_sha256(partition)
+        all_robot = surface_evidence(full_samples, [10, 20, 30])
+        movable = surface_evidence(movable_samples, [10, 20])
+        fixed_sampling = surface_evidence(fixed_samples, [30])
+        scope_without_hash = {"robot_geom_ids": [10, 20, 30]}
+        scope = {
+            **scope_without_hash,
+            "identity_sha256": _canonical_sha256(scope_without_hash),
+        }
+        fixed = {
+            "schema_version": (
+                "vlsa_poisson_fixed_infrastructure_settled_certificate.v1"
+            ),
+            "structural_partition_sha256": partition_hash,
+            "fixed_geom_ids": [30],
+            "fixed_geom_ids_sha256": _canonical_sha256([30]),
+            "fixed_sample_ids": [0],
+            "fixed_sample_ids_sha256": _canonical_sha256([0]),
+            "fixed_sample_count": 1,
+            "fixed_sample_ledger_sha256": fixed_sampling["sample_ledger_sha256"],
+            "fixed_world_points_array_record": (
+                _compact_zero_float64_array_record((1, 3))
+            ),
+            "fixed_point_jacobian_array_record": (
+                _compact_zero_float64_array_record((1, 3, 9))
+            ),
+            "all_fixed_geoms_zero_structural_qvel_influence": True,
+            "all_fixed_sample_jacobians_exactly_zero": True,
+            "maximum_abs_fixed_sample_jacobian": 0.0,
+            "settled_registered_contact_count": 0,
+            "settled_contact_records": [],
+            "settled_contact_free": True,
+            "all_fixed_geoms_contact_monitored": True,
+            "contact_monitor_scope_identity_sha256": scope["identity_sha256"],
+        }
+        apparatus = {
+            "all_robot_sampling": all_robot,
+            "all_robot_sampling_sha256": _canonical_sha256(all_robot),
+            "shield_sampling_binding": {
+                "robot_qvel_indices": qvel_indices,
+                "robot_qvel_records": qvel_records,
+            },
+            "robot_geom_influence_partition": partition,
+            "robot_geom_influence_partition_sha256": partition_hash,
+            "movable_manipulator_sampling": movable,
+            "movable_manipulator_sampling_sha256": _canonical_sha256(movable),
+            "fixed_infrastructure_sampling": fixed_sampling,
+            "fixed_infrastructure_sampling_sha256": _canonical_sha256(
+                fixed_sampling
+            ),
+            "fixed_infrastructure_settled_certificate": fixed,
+            "fixed_infrastructure_settled_certificate_sha256": (
+                _canonical_sha256(fixed)
+            ),
+            "registered_contact_scope": scope,
+        }
+        resolved = {
+            "robot_root_body_ids": [1],
+            "robot_geom_ids": [10, 20, 30],
+            "robot_geom_names": [
+                "robot0_link5_collision",
+                "gripper0_leftfinger_collision",
+                "mount0_controller_box_col",
+            ],
+            "robot_body_ids": [1, 2, 3],
+            "robot_body_names": [
+                "mount0_controller_box",
+                "robot0_link5",
+                "gripper0_leftfinger",
+            ],
+            "link56_geom_ids": [10],
+            "collision_enabled_pairs": [[10, 100], [20, 100], [30, 100]],
+        }
+        return apparatus, resolved
+
+    @staticmethod
+    def refresh_hashes(apparatus):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+        )
+
+        partition = apparatus["robot_geom_influence_partition"]
+        movable = apparatus["movable_manipulator_sampling"]
+        fixed = apparatus["fixed_infrastructure_settled_certificate"]
+        partition_hash = _canonical_sha256(partition)
+        apparatus["robot_geom_influence_partition_sha256"] = partition_hash
+        fixed["structural_partition_sha256"] = partition_hash
+        apparatus["movable_manipulator_sampling_sha256"] = _canonical_sha256(
+            movable
+        )
+        apparatus["fixed_infrastructure_settled_certificate_sha256"] = (
+            _canonical_sha256(fixed)
+        )
+
+    @staticmethod
+    def validate(fixture):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_structural_robot_geom_partition,
+        )
+
+        apparatus, resolved = fixture
+        return _validate_structural_robot_geom_partition(
+            apparatus=apparatus, resolved_geometry=resolved
+        )
+
+    def test_complete_structural_partition_reconstructs_all_three_positive_gates(self):
+        audit = self.validate(self.fixture())
+        self.assertEqual(audit["movable_geom_ids"], [10, 20])
+        self.assertEqual(audit["fixed_geom_ids"], [30])
+        self.assertEqual(audit["movable_sample_count"], 3)
+        self.assertEqual(audit["fixed_sample_count"], 1)
+        for field in (
+            "all_structurally_movable_manipulator_collision_surfaces_shielded",
+            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free",
+            "all_authoritative_robot_collision_surfaces_contact_monitored",
+        ):
+            self.assertIs(audit[field], True)
+
+    def test_link_or_finger_reclassification_is_rejected_after_rehash(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        for geom_index, qvels in ((0, []), (1, list(range(7)))):
+            with self.subTest(geom_index=geom_index):
+                fixture = self.fixture()
+                apparatus = fixture[0]
+                record = apparatus["robot_geom_influence_partition"]["geom_records"][
+                    geom_index
+                ]
+                record["influencing_robot_qvel_indices"] = qvels
+                if not qvels:
+                    record["classification"] = (
+                        "kinematically_fixed_robot_infrastructure"
+                    )
+                self.refresh_hashes(apparatus)
+                with self.assertRaisesRegex(
+                    OscCanaryValidationError, "structural influence"
+                ):
+                    self.validate(fixture)
+
+    def test_partition_overlap_omission_or_link56_exclusion_is_rejected(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        mutations = (
+            lambda partition: partition["fixed_robot_infrastructure_geom_ids"].append(
+                20
+            ),
+            lambda partition: partition["contact_monitor_robot_geom_ids"].pop(),
+            lambda partition: (
+                partition["shield_manipulator_geom_ids"].remove(10),
+                partition["fixed_robot_infrastructure_geom_ids"].insert(0, 10),
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                fixture = self.fixture()
+                apparatus = fixture[0]
+                mutate(apparatus["robot_geom_influence_partition"])
+                self.refresh_hashes(apparatus)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(fixture)
+
+    def test_movable_samples_must_be_exact_reindexed_full_ledger_subsequence(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _canonical_sha256,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        movable = apparatus["movable_manipulator_sampling"]
+        movable["samples"].pop(2)
+        movable["geom_records"].pop(1)
+        movable["sample_count"] = len(movable["samples"])
+        movable["sample_ledger_sha256"] = _canonical_sha256(movable["samples"])
+        self.refresh_hashes(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "exact reindexed all-robot subsequence"
+        ):
+            self.validate(fixture)
+
+    def test_fixed_certificate_contact_jacobian_pair_and_monitor_mutations_fail(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        def contact_mutation(fixed):
+            fixed["settled_contact_records"] = [{"robot_geom_id": 30}]
+            fixed["settled_registered_contact_count"] = 1
+            fixed["settled_contact_free"] = False
+
+        mutations = (
+            lambda fixed: fixed.__setitem__(
+                "maximum_abs_fixed_sample_jacobian", 1e-12
+            ),
+            lambda fixed: fixed.__setitem__(
+                "all_fixed_sample_jacobians_exactly_zero", False
+            ),
+            contact_mutation,
+            lambda fixed: fixed.__setitem__(
+                "all_fixed_geoms_contact_monitored", False
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                fixture = self.fixture()
+                apparatus = fixture[0]
+                mutate(apparatus["fixed_infrastructure_settled_certificate"])
+                self.refresh_hashes(apparatus)
+                with self.assertRaisesRegex(
+                    OscCanaryValidationError,
+                    "fixed infrastructure zero-influence or settled contact-free",
+                ):
+                    self.validate(fixture)
+
+    def test_contact_scope_cannot_drop_fixed_infrastructure(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        scope = apparatus["registered_contact_scope"]
+        scope["robot_geom_ids"] = [10, 20]
+        scope_without_hash = dict(scope)
+        scope_without_hash.pop("identity_sha256")
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+        )
+
+        scope["identity_sha256"] = _canonical_sha256(scope_without_hash)
+        apparatus["fixed_infrastructure_settled_certificate"][
+            "contact_monitor_scope_identity_sha256"
+        ] = scope["identity_sha256"]
+        self.refresh_hashes(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "contact scope omits"
+        ):
+            self.validate(fixture)
+
+    def test_collusive_qvel_owner_mutation_is_rejected(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        apparatus["robot_geom_influence_partition"][
+            "robot_qvel_joint_body_ids"
+        ][0] = 1
+        apparatus["shield_sampling_binding"]["robot_qvel_records"][0][
+            "joint_body_id"
+        ] = 1
+        self.refresh_hashes(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "structural influence"
+        ):
+            self.validate(fixture)
+
+    def test_robot_root_with_external_parent_is_rejected_after_rehash(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        partition = apparatus["robot_geom_influence_partition"]
+        for record in partition["robot_body_parent_records"]:
+            record["body_ancestry_ids"].append(99)
+            if record["body_id"] == 1:
+                record["parent_body_id"] = 99
+                record["parent_body_name"] = "external_mobile_parent"
+        for record in partition["geom_records"]:
+            record["body_ancestry_ids"].append(99)
+        self.refresh_hashes(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "roots are not world-mounted"
         ):
             self.validate(fixture)
 
@@ -1398,9 +1856,7 @@ class OscArmLinkRobotTreeQvelAuthorityTests(unittest.TestCase):
         apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
             serialized
         )
-        with self.assertRaisesRegex(
-            OscCanaryValidationError, "qvel ordering or hash"
-        ):
+        with self.assertRaises(OscCanaryValidationError):
             binding_validator.validate(fixture)
 
         fixture = binding_validator.fixture()
@@ -1423,9 +1879,7 @@ class OscArmLinkRobotTreeQvelAuthorityTests(unittest.TestCase):
         apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
             serialized
         )
-        with self.assertRaisesRegex(
-            OscCanaryValidationError, "qvel record differs"
-        ):
+        with self.assertRaises(OscCanaryValidationError):
             binding_validator.validate(fixture)
 
 
@@ -1789,7 +2243,7 @@ class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
         )
         self.assertEqual(
             consumer["sample_scope"],
-            "all_authoritative_robot_collision_surfaces",
+            "all_structurally_movable_manipulator_collision_surfaces",
         )
         self.assertEqual(
             consumer["minimum_sample"]["body_name"], "gripper0_leftfinger"

@@ -1,10 +1,11 @@
 """Allocation-only cross-solver check on the active registered production grid.
 
 This test intentionally is not part of ordinary local numerical bring-up.  It
-allocates the exact v4 116 x 101 x 111 vertex grid and compares the registered
+allocates the exact v5 116 x 101 x 111 vertex grid and compares the registered
 red-black SOR solve with SciPy conjugate gradient.  The Slurm numerical gate
 sets the explicit opt-in environment variable and rejects every skip.  The
-legacy v3 101-cubed constructor path has a separate regression test.
+immutable v4 workspace and legacy v3 101-cubed constructor paths have separate
+regression tests.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ MAX_NEAR_OUTER_BOUNDARY_CLEARANCE_M = 2.5e-4
     "set VLSA_POISSON_RUN_PRODUCTION_GRID_VALIDATION=1 inside the allocation",
 )
 class ProductionGridCrossSolverTest(unittest.TestCase):
-    def test_registered_v4_sor_matches_scipy_cg_off_grid(self) -> None:
+    def test_registered_v5_sor_matches_scipy_cg_off_grid(self) -> None:
         import numpy as np
 
         from main.poisson_fullbody.feasibility_protocol import (
@@ -51,7 +52,7 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         from main.poisson_fullbody.voxel_grid import GridSpec, PoissonDomain
 
         protocol_path = (
-            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v4.json"
+            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v5.json"
         )
         protocol, protocol_hashes = load_feasibility_protocol(protocol_path)
         workspace = protocol["workspace"]

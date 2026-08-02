@@ -103,7 +103,7 @@ require_canonical_real_directory \
   "/mnt/data/quanth/slurm_logs"
 require_canonical_real_file \
   "post-OSC protocol" \
-  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v2.json"
+  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v3.json"
 require_canonical_real_file \
   "arm-contact manifest" \
   "${REMOTE_REPO}/manifests/vlsa_poisson_arm_contact_165.v1.jsonl"
@@ -177,7 +177,7 @@ done
 
 "${EVALUATION_PYTHON}" scripts/run_poisson_osc_arm_link_canary.py \
   --repo-root "${REMOTE_REPO}" \
-  --protocol configs/vlsa_poisson_osc_arm_link_canary.v2.json \
+  --protocol configs/vlsa_poisson_osc_arm_link_canary.v3.json \
   --manifest manifests/vlsa_poisson_arm_contact_165.v1.jsonl \
   --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
   --numeric-validation-result "${NUMERIC_VALIDATION_RESULT}" \
