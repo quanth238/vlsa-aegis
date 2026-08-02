@@ -70,7 +70,14 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         self.assertEqual(workspace["boundary_condition"], "homogeneous_dirichlet_h_zero")
 
         grid = GridSpec.from_bounds(lower, upper, vertex_shape)
-        np.testing.assert_array_equal(grid.spacing, spacing)
+        # ``GridSpec.from_bounds`` reconstructs spacing from binary64 bounds.
+        # For the 2.3 m x-span, division by 115 differs from the literal 0.02
+        # by one rounding unit.  Use the same frozen construction tolerance as
+        # the production field-bundle gate; this is not a PDE comparison
+        # tolerance or a change to the registered physical grid.
+        np.testing.assert_allclose(
+            grid.spacing, spacing, rtol=0.0, atol=1.0e-15
+        )
 
         # This synthetic allocation check isolates the production-size
         # operator and solver.  Every cell is in one free component, with the

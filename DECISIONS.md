@@ -1137,3 +1137,16 @@ resolved MuJoCo geometry; the clean exact source commit remains the compiled-
 model authority. The claim is one selected obstacle in one outcome-conditioned
 case, not all-environment or population safety. No scientific outcome exists
 until the same-commit H100 numeric gate, producer, and consumer all finish.
+
+## ADR-0051: Compare reconstructed grid spacing with the production construction tolerance
+
+Accepted after complete allocation-backed numeric artifact `34274`. All 201
+tests executed with zero skips; the only failure was bitwise equality between
+the declared 0.02 m spacing and `(1.0 - (-1.3)) / 115`. Binary64 arithmetic
+differed by `3.469446951953614e-18` m. The field constructor has always checked
+declared versus reconstructed spacing with zero relative tolerance and
+`1e-15` m absolute tolerance. The production-grid test now uses that exact
+same check instead of requiring bit identity. This changes no physical bound,
+grid vertex, occupancy, Poisson tolerance, CBF constraint, or acceptance rule.
+Job `34274` is retained as failed implementation evidence and authorizes no
+rollout; a fresh clean commit and numeric run are required.

@@ -1116,3 +1116,17 @@ zero registered contact, paper CAR safety, continued joint and end-effector
 motion, and native full-task success. `STOP_ONLY`, task failure, contact, or an
 apparatus stop is not feasibility. P01 remains `active` pending a clean
 same-commit numeric job, producer, and independent CPU consumer.
+
+Numeric attempt `34272` failed before tests because the newly fetched commit
+was not yet visible on its MIG worker; it produced no result. A separate
+compute-node diagnostic `34273` then proved the exact clean commit. Fresh
+numeric job `34274` ran all 201 registered tests with zero skips and retained a
+complete non-scientific artifact (file SHA-256
+`10b47f2264a0be74a16b943b33bd83d1704f3bee99b478b4870a2c001c24527e`).
+Its sole failure was an exact-array comparison between a 0.02 m declared
+spacing and the same spacing reconstructed from binary64 bounds; the maximum
+difference was `3.469446951953614e-18` m. The production constructor already
+uses a frozen `1e-15` m bound-to-spacing consistency tolerance. The allocation
+test now uses that identical tolerance. No field geometry, safety margin,
+solver criterion, controller, or efficacy gate changed, and no rollout was
+submitted.
