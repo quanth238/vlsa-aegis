@@ -410,6 +410,27 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
         np.testing.assert_array_equal(self.state(), before)
         self.assertEqual(float(self.data.ctrl[7]), 0.73)
 
+    def test_centered_binary64_roundtrip_is_not_bound_adaptation(self) -> None:
+        requested = 0.001
+        self.data.ctrl[1] = -3.141592653589793
+        before = self.state().copy()
+        snapshot = self.capture()
+        result = self.module.estimate_post_osc_torque_sensitivity(
+            self.sim,
+            snapshot=snapshot,
+            torque_epsilon_nm=requested,
+            agreement_atol=1e-12,
+            agreement_rtol=1e-10,
+            mujoco_module=self.mujoco,
+            numpy_module=self.np,
+        )
+        second = result.finite_difference_column_stencils[1]
+        realized = second["full_resolution"]["sample_deltas_nm"]
+        self.assertEqual(second["full_resolution"]["stencil"], "centered")
+        self.assertLess(max(abs(value) for value in realized), requested)
+        self.assertFalse(second["bound_adapted"])
+        self.np.testing.assert_array_equal(self.state(), before)
+
     def test_epsilon_and_half_epsilon_disagreement_fails_closed(self) -> None:
         self.model.nonlinear_torque_coefficient = 10.0
         self.data.ctrl[0] = 4.0

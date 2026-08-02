@@ -1315,3 +1315,28 @@ joint and end-effector motion, no stop or stall, and native full-task success.
 The next command chain is a fresh zero-skip H100 numeric allocation, followed
 by complete e05 and e42 producers and distinct CPU consumers on the same clean
 commit. Partial artifacts carry no result.
+
+## P01 e05 producer complete; corrected independent consumer pending
+
+The shared link-5/link-6 numeric prerequisite job `34347` completed
+`COMPLETED|0:0` with 258 tests and zero skips. Treatment producer `34349`
+then completed e05 `COMPLETED|0:0` in 14m06s on clean commit
+`a7e4a3c4e7881eec2424899aa56a79a0357f3cc0`. Its immutable final result has
+file SHA-256
+`be75f89181dab7519b286dcc95fb9a9ba4ce78d85453c70167f7ca6cc9c62f47`
+and payload SHA-256
+`46045585d704354709b0acfdfab56dfbb364004a046ce320266ae44c3b9db187`.
+Its scientific classification remains uninterpreted.
+
+CPU consumer `34353` exited `FAILED|1:0` after atomically publishing a complete
+rejected receipt, file SHA-256
+`956c37944ce1a5a375d7bb984ef97cdc87eec88580627b3b48160155adc9b5a0`.
+The rejection, `bound-adapted stencil flag differs at column 1`, is the
+validator-only binary64 semantic drift documented in ADR-0057: the producer
+correctly defines actuator-bound adaptation from the requested perturbation
+plan, while the old consumer inferred it from the rounded realized delta.
+The producer and rejected receipt remain immutable. The corrected independent
+consumer writes a distinct r2 receipt and must pass every remaining check
+before e05 can be interpreted or e42 can start. Focused tests pass 68 with 23
+expected local dependency skips, and the complete local gate passes 855 tests
+with 188 expected dependency/allocation-only skips. P01 remains active.

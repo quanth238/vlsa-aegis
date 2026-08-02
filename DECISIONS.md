@@ -1349,3 +1349,31 @@ also a failure. Both e05 and e42 must independently achieve zero contact,
 useful continued motion, CAR safety, and full task success under the same
 protected set and frozen parameters before a scoped pair-feasibility claim is
 allowed.
+
+## ADR-0057: Reconstruct bound adaptation from the requested stencil plan
+
+Accepted after immutable e05 producer `34349` completed on commit
+`a7e4a3c4e7881eec2424899aa56a79a0357f3cc0` and CPU consumer `34353`
+rejected it with `bound-adapted stencil flag differs at column 1`. The
+producer chooses centered or one-sided finite differences from requested
+epsilon and available actuator-bound room. It then records the exact binary64
+delta obtained by adding and subtracting that request. Its `bound_adapted`
+flag correctly describes the first operation, not floating-point roundoff in
+the second.
+
+The old consumer incorrectly inferred adaptation from the realized delta.
+For a centered request of `+/-0.001` Nm at a nominal `-10.0` Nm, ordinary
+binary64 cancellation yields realized magnitudes
+`0.0009999999999994458` Nm even though 70/90 Nm of actuator-bound room remains.
+The corrected consumer independently reconstructs the requested plan and
+derives the flag from its requested deltas; it still requires exact binary64
+equality for every realized candidate, delta, and denominator.
+
+This repair changes no producer byte, rollout, field, CBF row, QP command,
+threshold, contact rule, motion rule, task-success rule, or classification.
+The rejected receipt remains immutable. A corrected consumer on a new clean
+commit writes
+`validation_receipt_schema_v4_target_link_consumer_r2.json` and binds the
+unchanged producer job, commit, result hash, numeric prerequisite, case, and
+protocol. The producer remains scientifically uninterpreted unless that new
+consumer completes `COMPLETED|0:0` with zero discrepancies.

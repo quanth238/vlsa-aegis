@@ -1925,6 +1925,10 @@ def _reconstruct_finite_difference_resolution(
         "candidate_torques_nm": candidates,
         "sample_deltas_nm": tuple(exact_deltas),
         "denominator_nm": denominator,
+        "bound_adapted": bool(
+            stencil != "centered"
+            or max(abs(value) for value in requested_deltas) < requested
+        ),
     }
 
 
@@ -2141,11 +2145,7 @@ def _validate_solved_qp_certificate(
                 _require(left == 0.0 < right, "forward stencil differs")
             else:
                 _require(left < 0.0 == right, "backward stencil differs")
-        full_deltas = plan["full_resolution"]["sample_deltas_nm"]
-        expected_bound_adapted = bool(
-            expected_stencil != "centered"
-            or max(abs(float(value)) for value in full_deltas) < requested
-        )
+        expected_bound_adapted = bool(expected_full["bound_adapted"])
         _require(
             plan.get("bound_adapted") is expected_bound_adapted,
             "bound-adapted stencil flag differs at column %d" % column,

@@ -2452,6 +2452,22 @@ class OscArmLinkBinary64StencilArithmeticTests(unittest.TestCase):
         )
         self.assertGreater(abs(full["sample_deltas_nm"][0]), 0.001 + 1e-15)
 
+    def test_centered_roundtrip_below_request_is_not_bound_adapted(self):
+        requested = 0.001
+        full = self.reconstruct(
+            base=-10.0,
+            lower=-80.0,
+            upper=80.0,
+            requested=requested,
+            scale=1.0,
+        )
+        self.assertEqual(full["stencil"], "centered")
+        self.assertLess(
+            max(abs(value) for value in full["sample_deltas_nm"]),
+            requested,
+        )
+        self.assertFalse(full["bound_adapted"])
+
     def test_bound_adapted_one_sided_stencils_match_producer_rules(self):
         backward = self.reconstruct(
             base=1.0,
@@ -2676,6 +2692,52 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             abs(plan["full_resolution"]["sample_deltas_nm"][0]),
             requested + 1e-15,
         )
+        audit = self.validate(*values)
+        self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
+
+    def test_centered_roundtrip_below_requested_is_not_bound_adapted(self):
+        values = self.certificate()
+        row, _, _, torque_actuators, _, _ = values
+        column = 1
+        base = -10.0
+        low = -80.0
+        high = 80.0
+        requested = 0.001
+        command = list(row["command_torque_nm"])
+        nominal = list(row["nominal_torque_nm"])
+        command[column] = base
+        nominal[column] = base
+        row["command_torque_nm"] = command
+        row["nominal_torque_nm"] = nominal
+        row["shield_diagnostics"]["nominal_torque_nm"][column] = base
+        row["shield_diagnostics"]["torque_lower_nm"][column] = low
+        row["shield_diagnostics"]["torque_upper_nm"][column] = high
+        snapshot = row["sensitivity"]["snapshot"]
+        snapshot["nominal_arm_torque_nm"][column] = base
+        snapshot["arm_torque_lower_nm"][column] = low
+        snapshot["arm_torque_upper_nm"][column] = high
+        torque_actuators[column]["control_range"] = [low, high]
+        plan = row["sensitivity"]["finite_difference_column_stencils"][column]
+        plan.update(
+            {
+                "nominal_torque_nm": base,
+                "lower_bound_nm": low,
+                "upper_bound_nm": high,
+                "available_negative_delta_nm": base - low,
+                "available_positive_delta_nm": high - base,
+            }
+        )
+        for name, scale in (("full_resolution", 1.0), ("half_resolution", 0.5)):
+            signed = (-requested * scale, requested * scale)
+            exact = tuple(float((base + value) - base) for value in signed)
+            plan[name]["sample_deltas_nm"] = list(exact)
+            plan[name]["denominator_nm"] = float(exact[1] - exact[0])
+        self.assertEqual(plan["full_resolution"]["stencil"], "centered")
+        self.assertLess(
+            max(abs(value) for value in plan["full_resolution"]["sample_deltas_nm"]),
+            requested,
+        )
+        self.assertFalse(plan["bound_adapted"])
         audit = self.validate(*values)
         self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
 
