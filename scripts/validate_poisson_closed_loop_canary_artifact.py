@@ -1713,7 +1713,7 @@ def validate_payload(
     feedback = _feedback(audit, baseline_provider, psf_provider)
     _compare_mapping(audit, payload.get("closed_loop_feedback"), feedback, "closed_loop_feedback")
 
-    baseline_periodic_positive = _validate_periodic_clearance(audit, baseline, baseline_physics, "baseline", expectation)
+    _baseline_periodic_positive = _validate_periodic_clearance(audit, baseline, baseline_physics, "baseline", expectation)
     psf_periodic_positive = _validate_periodic_clearance(audit, psf, psf_physics, "psf", expectation)
     # This helper independently checks the static sampling certificate formula,
     # signed-contact clamp, and diagnostic minimum.  Its boolean is periodic
@@ -1727,7 +1727,10 @@ def validate_payload(
         contact_present=psf_contact["any_present"],
         minimum_contact_distance_m=psf_contact["minimum_contact_distance_m"],
     )
-    audit.check(baseline_periodic_positive or baseline_contact["any_present"], "baseline_periodic_clearance_invalid")
+    # Periodic full-surface clearance is diagnostic for both arms.  In
+    # particular, a nonpositive baseline sample cannot manufacture contact:
+    # selected-obstacle MuJoCo contacts observed at every 2 ms substep are the
+    # sole collision authority under this protocol.
 
     material_cutoff = baseline_contact["first_link_boundary"] if baseline_contact["first_link_boundary"] is not None else expectation["no_event_boundary"]
     material = narrow._material_activation(audit, psf_commands, psf, int(material_cutoff))

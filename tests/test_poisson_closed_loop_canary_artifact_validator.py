@@ -500,6 +500,48 @@ class FilesystemAndCadenceTests(unittest.TestCase):
         validator._validate_periodic_clearance(audit, arm, broken, "psf", expectation)
         self.assertIn("psf_clearance_stride_differs", audit.discrepancies)
 
+    def test_nonpositive_baseline_periodic_clearance_is_diagnostic_only(self):
+        audit = validator._Audit()
+        physics = [
+            {
+                "full_surface_clearance_observed_this_substep": (
+                    (index + 1) % 25 == 0
+                ),
+                "cumulative_full_robot_surface_clearance_lower_bound_m": -0.01,
+            }
+            for index in range(50)
+        ]
+        arm = {
+            "conservative_full_robot_clearance": {
+                "available": True,
+                "observation_stride_physics_substeps": 25,
+                "observation_count_including_branch": 3,
+                "continuous_every_substep_certificate": False,
+                "minimum_full_surface_lower_bound_m": -0.01,
+            }
+        }
+        diagnostic_positive = validator._validate_periodic_clearance(
+            audit,
+            arm,
+            physics,
+            "baseline",
+            {"clearance_stride": 25, "physics_substeps": 50},
+        )
+        self.assertFalse(diagnostic_positive)
+        self.assertEqual(audit.discrepancies, [])
+
+        metrics = positive_metrics()
+        metrics["baseline_link56_contact_present"] = False
+        metrics["baseline_first_selected_obstacle_contact_is_link56"] = False
+        classification = validator._independent_classification(
+            metrics, validator._protocol_expectations(PROTOCOL)
+        )
+        self.assertEqual(
+            classification["classification"],
+            "BASELINE_CONTACT_NOT_REPRODUCED",
+        )
+        self.assertFalse(classification["feasible"])
+
     def test_no_correction_motion_uses_producer_none_sentinel(self):
         audit = validator._Audit()
         motion = validator._post_correction_motion(
