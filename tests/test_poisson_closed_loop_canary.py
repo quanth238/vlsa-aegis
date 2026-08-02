@@ -12,14 +12,21 @@ import unittest
 from unittest import mock
 
 from main.poisson_fullbody.closed_loop_canary import (
+    BASELINE_ARM,
     CLASSIFICATIONS,
     ClosedLoopCanaryError,
+    PSF_ARM,
     classify_closed_loop_canary,
     validate_closed_loop_canary_protocol,
 )
 from scripts.run_poisson_closed_loop_canary import (
+    FIRST_QUERY_LIVE_AND_CACHE,
+    FIRST_QUERY_PAIRED_CACHE_REUSE,
+    PairedFirstQueryCache,
     _aegis_state_and_command_chain_valid,
+    _aegis_input_projection,
     _feedback_metrics,
+    _first_action_pair_metrics,
     _own_observation_chain_valid,
     _provider_contract,
 )
@@ -67,7 +74,13 @@ def _positive_metrics():
     }
 
 
-def _provider(action_count=57, query_count=12, arm="arm"):
+def _provider(action_count=57, query_count=12, arm=BASELINE_ARM):
+    first_query_execution = (
+        FIRST_QUERY_PAIRED_CACHE_REUSE
+        if arm == PSF_ARM
+        else FIRST_QUERY_LIVE_AND_CACHE
+    )
+    paired_source_arm = BASELINE_ARM if arm == PSF_ARM else None
     queries = []
     for query_offset in range(query_count):
         query_index = 36 + query_offset
@@ -76,8 +89,8 @@ def _provider(action_count=57, query_count=12, arm="arm"):
             [float(query_index), float(row), 2.0, 3.0, 4.0, 5.0, 6.0]
             for row in range(10)
         ]
-        queries.append(
-            {
+        cache_reuse = bool(arm == PSF_ARM and query_index == 36)
+        query = {
                 "arm": arm,
                 "query_index": query_index,
                 "local_action_index": local_index,
@@ -90,8 +103,27 @@ def _provider(action_count=57, query_count=12, arm="arm"):
                 "returned_actions_sha256": closed_loop_runner._array_sha256(
                     returned_actions
                 ),
+                "query_execution": (
+                    "paired_cache_reuse" if cache_reuse else "live_inference"
+                ),
+                "inference_performed": not cache_reuse,
+                "paired_cache_source_arm": (
+                    BASELINE_ARM if cache_reuse else None
+                ),
+                "paired_cache_source_query_index": 36 if cache_reuse else None,
+                "historical_returned_actions_sha256_diagnostic": (
+                    "historical-chunk" if query_index == 36 else None
+                ),
+                "matches_historical_returned_actions_sha256_diagnostic": (
+                    False if query_index == 36 else None
+                ),
+                "elapsed_seconds": None if cache_reuse else 0.01,
+                "server_timing": None if cache_reuse else {"model": 0.005},
             }
+        query["paired_cache_source_returned_actions_sha256"] = (
+            query["returned_actions_sha256"] if cache_reuse else None
         )
+        queries.append(query)
 
     actions = []
     for local_index in range(action_count):
@@ -123,7 +155,20 @@ def _provider(action_count=57, query_count=12, arm="arm"):
                     "z_before": [1.0, 0.0, 0.0],
                     "z_after": [1.0, 0.0, 0.0],
                     "context": {
+                        "p1": [0.1, 0.2, 0.3],
+                        "R1": [
+                            [1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0],
+                        ],
                         "q1_diag": [0.06, 0.12, 0.11],
+                        "p2": [0.4, 0.5, 0.6],
+                        "R2": [
+                            [1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0],
+                        ],
+                        "Q2_diag": [0.03, 0.04, 0.05],
                         "z_before": [1.0, 0.0, 0.0],
                         "z_after": [1.0, 0.0, 0.0],
                         "nominal_translational": [0.02] * 7,
@@ -134,8 +179,10 @@ def _provider(action_count=57, query_count=12, arm="arm"):
         )
     return {
         "arm": arm,
-        "source": "live_pi05_queries_from_this_arms_own_observations",
+        "source": "live_pi05_with_shared_current_q36_then_per_arm_own_observations",
         "recorded_suffix_actions_executed": False,
+        "first_query_execution": first_query_execution,
+        "paired_first_query_source_arm": paired_source_arm,
         "first_query_index": 36,
         "initial_aegis_z_fixed_from_historical_action_179": [1.0, 0.0, 0.0],
         "policy_queries": queries,
@@ -225,6 +272,24 @@ class ClosedLoopProtocolTests(unittest.TestCase):
                 False,
             ),
             (
+                "first query execution",
+                ("online_policy", "first_query_execution"),
+                "two_independent_live_queries",
+            ),
+            (
+                "PSF first query source",
+                ("online_policy", "psf_first_query_source"),
+                "second_live_inference",
+            ),
+            (
+                "historical chunk promoted to hard gate",
+                (
+                    "online_policy",
+                    "historical_first_query_bitwise_match_required",
+                ),
+                True,
+            ),
+            (
                 "AEGIS state",
                 ("execution", "aegis_state"),
                 "shared_mutable_state",
@@ -261,7 +326,8 @@ class ClosedLoopProtocolTests(unittest.TestCase):
     def test_protocol_rejects_disabled_preregistered_acceptance_requirements(self):
         required_true = (
             "require_baseline_link56_contact",
-            "require_both_native_task_success_ever",
+            "require_treatment_native_task_success_ever",
+            "baseline_native_task_success_is_diagnostic",
             "require_literal_contact_check_at_every_physics_substep",
             "require_live_own_observation_feedback_after_divergence",
             "require_material_correction_before_baseline_contact",
@@ -317,6 +383,15 @@ class ClosedLoopClassificationTests(unittest.TestCase):
         result = self.classify(metrics)
         self.assertEqual(result["classification"], "CONTACT_PREVENTED_TASK_FAILED")
         self.assertFalse(result["feasible"])
+
+    def test_unsafe_baseline_task_failure_does_not_reject_treatment_rescue(self):
+        metrics = _positive_metrics()
+        metrics["baseline_task_success_ever"] = False
+        result = self.classify(metrics)
+        self.assertEqual(
+            result["classification"], "SAFE_TASK_SUCCESS_USEFUL_CORRECTION"
+        )
+        self.assertTrue(result["feasible"])
 
     def test_stopping_instead_of_useful_motion_is_not_feasible(self):
         metrics = _positive_metrics()
@@ -468,10 +543,132 @@ class ClosedLoopEvidenceChainTests(unittest.TestCase):
                 )
 
     def test_provider_accepts_auditable_early_contact_prefix(self):
-        provider = _provider(action_count=1, query_count=1)
+        for arm in (BASELINE_ARM, PSF_ARM):
+            with self.subTest(arm=arm):
+                provider = _provider(action_count=1, query_count=1, arm=arm)
+                self.assertTrue(
+                    _provider_contract(
+                        provider, expected_actions=1, expected_queries=1
+                    )
+                )
+
+    def test_only_psf_query_36_may_reuse_the_paired_cache(self):
+        baseline = _provider(arm=BASELINE_ARM)
+        psf = _provider(arm=PSF_ARM)
         self.assertTrue(
-            _provider_contract(provider, expected_actions=1, expected_queries=1)
+            _provider_contract(baseline, expected_actions=57, expected_queries=12)
         )
+        self.assertTrue(
+            _provider_contract(psf, expected_actions=57, expected_queries=12)
+        )
+
+        baseline_cache = deepcopy(baseline)
+        baseline_cache["policy_queries"][0].update(
+            {
+                "query_execution": "paired_cache_reuse",
+                "inference_performed": False,
+                "paired_cache_source_arm": PSF_ARM,
+                "paired_cache_source_query_index": 36,
+                "paired_cache_source_returned_actions_sha256": (
+                    baseline_cache["policy_queries"][0][
+                        "returned_actions_sha256"
+                    ]
+                ),
+            }
+        )
+        self.assertFalse(
+            _provider_contract(
+                baseline_cache, expected_actions=57, expected_queries=12
+            )
+        )
+
+        psf_second_cache = deepcopy(psf)
+        psf_second_cache["policy_queries"][1].update(
+            {
+                "query_execution": "paired_cache_reuse",
+                "inference_performed": False,
+                "paired_cache_source_arm": BASELINE_ARM,
+                "paired_cache_source_query_index": 37,
+                "paired_cache_source_returned_actions_sha256": (
+                    psf_second_cache["policy_queries"][1][
+                        "returned_actions_sha256"
+                    ]
+                ),
+            }
+        )
+        self.assertFalse(
+            _provider_contract(
+                psf_second_cache, expected_actions=57, expected_queries=12
+            )
+        )
+
+        psf_live_q36 = deepcopy(psf)
+        psf_live_q36["policy_queries"][0].update(
+            {
+                "query_execution": "live_inference",
+                "inference_performed": True,
+                "paired_cache_source_arm": None,
+                "paired_cache_source_query_index": None,
+                "paired_cache_source_returned_actions_sha256": None,
+            }
+        )
+        self.assertFalse(
+            _provider_contract(
+                psf_live_q36, expected_actions=57, expected_queries=12
+            )
+        )
+
+    def test_paired_first_query_cache_is_exact_and_single_use(self):
+        actions = [
+            [36.0, float(index), 2.0, 3.0, 4.0, 5.0, 6.0]
+            for index in range(10)
+        ]
+        action_hash = closed_loop_runner._array_sha256(actions)
+        cache = PairedFirstQueryCache(first_query_index=36)
+        cache.store_live_query(
+            producer_arm=BASELINE_ARM,
+            query_index=36,
+            rng_seed=2026691256,
+            policy_input_fingerprint_sha256="same-branch-input",
+            returned_actions=actions,
+            returned_actions_sha256=action_hash,
+        )
+        reused = cache.reuse_once(
+            consumer_arm=PSF_ARM,
+            expected_producer_arm=BASELINE_ARM,
+            query_index=36,
+            rng_seed=2026691256,
+            policy_input_fingerprint_sha256="same-branch-input",
+        )
+        self.assertEqual(reused["returned_actions"], actions)
+        self.assertEqual(reused["returned_actions_sha256"], action_hash)
+        self.assertTrue(cache.record()["contract_valid"])
+        with self.assertRaises(closed_loop_runner.ClosedLoopRunnerError):
+            cache.reuse_once(
+                consumer_arm=PSF_ARM,
+                expected_producer_arm=BASELINE_ARM,
+                query_index=36,
+                rng_seed=2026691256,
+                policy_input_fingerprint_sha256="same-branch-input",
+            )
+
+        wrong_input = PairedFirstQueryCache(first_query_index=36)
+        wrong_input.store_live_query(
+            producer_arm=BASELINE_ARM,
+            query_index=36,
+            rng_seed=2026691256,
+            policy_input_fingerprint_sha256="baseline-input",
+            returned_actions=actions,
+            returned_actions_sha256=action_hash,
+        )
+        with self.assertRaises(closed_loop_runner.ClosedLoopRunnerError):
+            wrong_input.reuse_once(
+                consumer_arm=PSF_ARM,
+                expected_producer_arm=BASELINE_ARM,
+                query_index=36,
+                rng_seed=2026691256,
+                policy_input_fingerprint_sha256="different-input",
+            )
 
     def test_checkpoint_identity_reconstructs_registered_relative_paths(self):
         from scripts import validate_aegis_assets as assets
@@ -547,13 +744,16 @@ class ClosedLoopEvidenceChainTests(unittest.TestCase):
         self.assertFalse(_own_observation_chain_valid(stale_nonquery_action, arm))
 
     def test_feedback_preserves_first_query_then_uses_each_arm_after_divergence(self):
-        baseline = _provider(arm="baseline")
-        psf = _provider(arm="psf")
+        baseline = _provider(arm=BASELINE_ARM)
+        psf = _provider(arm=PSF_ARM)
         for provider in (baseline, psf):
             provider["policy_queries"][0][
                 "policy_input_fingerprint_sha256"
             ] = "shared-input"
             provider["policy_queries"][0]["returned_actions_sha256"] = "first-chunk"
+        psf["policy_queries"][0][
+            "paired_cache_source_returned_actions_sha256"
+        ] = "first-chunk"
         psf["high_level_action_trace"][1][
             "official_integration_state_raw_bytes_sha256"
         ] = "psf-diverged-state"
@@ -566,8 +766,16 @@ class ClosedLoopEvidenceChainTests(unittest.TestCase):
                 "query_index"
             ]
 
-        metrics = _feedback_metrics(baseline, psf, "first-chunk")
+        metrics = _feedback_metrics(baseline, psf, "historical-chunk")
         self.assertTrue(metrics["first_live_query_identical"])
+        self.assertTrue(metrics["only_psf_query_36_reused_paired_cache"])
+        self.assertEqual(metrics["baseline_paired_cache_reuse_query_indexes"], [])
+        self.assertEqual(metrics["psf_paired_cache_reuse_query_indexes"], [36])
+        self.assertFalse(
+            metrics[
+                "historical_first_live_query_action_chunk_matches_diagnostic"
+            ]
+        )
         self.assertEqual(metrics["first_divergent_action_input_local_index"], 1)
         self.assertEqual(metrics["scheduled_query_indexes_after_divergence"][0], 37)
         self.assertEqual(
@@ -575,6 +783,125 @@ class ClosedLoopEvidenceChainTests(unittest.TestCase):
             list(range(37, 48)),
         )
         self.assertTrue(metrics["post_divergence_own_observations_used"])
+
+    def test_historical_geometry_subset_excludes_live_nominal_action(self):
+        geometry = {
+            "p1": [0.1, 0.2, 0.3],
+            "R1": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            "q1_diag": [0.06, 0.12, 0.11],
+            "p2": [0.4, 0.5, 0.6],
+            "R2": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            "Q2_diag": [0.03, 0.04, 0.05],
+            "z_before": [1.0, 0.0, 0.0],
+        }
+        historical = {
+            "qp": {
+                "context": {
+                    **geometry,
+                    "nominal_translational": [0.1] * 7,
+                }
+            }
+        }
+        current = {
+            "aegis_qp": {
+                "context": {
+                    **geometry,
+                    "nominal_translational": [0.2] * 7,
+                }
+            }
+        }
+        historical_required = _aegis_input_projection(
+            historical, historical=True, include_nominal=False
+        )
+        current_required = _aegis_input_projection(
+            current, historical=False, include_nominal=False
+        )
+        self.assertEqual(historical_required, current_required)
+        self.assertNotIn("nominal_translational", historical_required)
+        self.assertNotEqual(
+            _aegis_input_projection(
+                historical, historical=True, include_nominal=True
+            ),
+            _aegis_input_projection(
+                current, historical=False, include_nominal=True
+            ),
+        )
+
+    def test_current_action_180_inputs_and_outputs_pair_ignoring_timing(self):
+        baseline = _provider(arm=BASELINE_ARM)
+        psf = _provider(arm=PSF_ARM)
+        baseline_context = baseline["high_level_action_trace"][0]["aegis_qp"][
+            "context"
+        ]
+        psf_context = psf["high_level_action_trace"][0]["aegis_qp"]["context"]
+        baseline_context["solver_stats"] = {"num_iters": 10, "solve_time": 0.1}
+        psf_context["solver_stats"] = {"num_iters": 10, "solve_time": 9.9}
+        metrics = _first_action_pair_metrics(baseline, psf)
+        self.assertTrue(
+            metrics["first_current_action_180_aegis_inputs_identical"]
+        )
+        self.assertTrue(
+            metrics["first_current_action_180_aegis_outputs_identical"]
+        )
+        self.assertTrue(
+            metrics["first_current_action_180_aegis_pair_contract_valid"]
+        )
+
+        changed_input = deepcopy(psf)
+        changed_input["high_level_action_trace"][0]["aegis_qp"]["context"][
+            "nominal_translational"
+        ][0] = 0.021
+        self.assertFalse(
+            _first_action_pair_metrics(baseline, changed_input)[
+                "first_current_action_180_aegis_inputs_identical"
+            ]
+        )
+
+        changed_output = deepcopy(psf)
+        changed_output["high_level_action_trace"][0]["aegis_qp"]["z_after"] = [
+            0.0,
+            1.0,
+            0.0,
+        ]
+        self.assertFalse(
+            _first_action_pair_metrics(baseline, changed_output)[
+                "first_current_action_180_aegis_outputs_identical"
+            ]
+        )
+
+    def test_historical_chunk_and_action_output_parity_are_diagnostic_only(self):
+        call_source = inspect.getsource(closed_loop_runner.LiveAegisPolicy.__call__)
+        main_source = inspect.getsource(closed_loop_runner.main)
+        self.assertNotIn(
+            "first live pi0.5 chunk does not reproduce historical query 36",
+            call_source,
+        )
+        self.assertNotIn(
+            "fresh action-180 AEGIS output differs from historical authority",
+            call_source,
+        )
+        self.assertNotIn(
+            "aegis_contract and first_live_aegis_action_matches_historical",
+            main_source,
+        )
+        self.assertIn(
+            "historical_action_180_full_output_matches_diagnostic",
+            main_source,
+        )
+        self.assertIn(
+            "first_current_action_180_aegis_pair_contract_valid",
+            main_source,
+        )
+
+    def test_live_provider_failure_stage_is_set_before_the_query(self):
+        source = inspect.getsource(closed_loop_runner.fast._run_arm)
+        call_index = source.index("action_value = live_action_provider(")
+        stage_index = source.rfind(
+            'failure_stage = "obtain_live_high_level_action"',
+            0,
+            call_index,
+        )
+        self.assertGreater(stage_index, 0)
 
     def test_aegis_z_state_and_executed_action_chain_are_exact(self):
         provider = _provider(action_count=2, query_count=1)

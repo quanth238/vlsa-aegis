@@ -984,6 +984,7 @@ def _run_arm(
             if live_action_provider is None:
                 action_value = frozen_action_value
             else:
+                failure_stage = "obtain_live_high_level_action"
                 if not isinstance(live_observation, Mapping):
                     raise FastRunnerError(
                         "closed-loop action provider lacks its current observation"

@@ -39,8 +39,14 @@ def positive_metrics():
         "literal_contact_checked_at_every_physics_substep": True,
         "released_eef_marker_update_contract_valid": True,
         "first_live_query_identical": True,
+        "only_psf_query_36_reused_paired_cache": True,
+        "historical_first_live_query_action_chunk_matches_diagnostic": False,
+        "first_current_action_180_aegis_inputs_identical": True,
+        "first_current_action_180_aegis_outputs_identical": True,
         "own_observation_chain_valid": True,
         "no_recorded_suffix_action_replay": True,
+        "first_live_aegis_action_matches_historical": False,
+        "historical_action_180_full_output_matches_diagnostic": False,
         "post_divergence_own_observations_used": True,
         "fresh_policy_query_after_material_correction": True,
         "baseline_link56_contact_present": True,
@@ -59,6 +65,62 @@ def positive_metrics():
     }
 
 
+def first_live_pair():
+    observation = {
+        "native_observation_sha256": "a" * 64,
+        "official_integration_state_raw_bytes_sha256": "b" * 64,
+        "agentview_policy_array_sha256": "c" * 64,
+        "wrist_policy_array_sha256": "d" * 64,
+        "policy_state_array_sha256": "e" * 64,
+        "policy_state": [0.0] * 8,
+        "prompt": "put the bowl on the plate",
+        "policy_input_fingerprint_sha256": "f" * 64,
+    }
+    chunk = [[0.01 * row] * 7 for row in range(10)]
+    query = {
+        **observation,
+        "query_index": 36,
+        "rng_seed": 2026691256,
+        "source_action_index": 180,
+        "local_action_index": 0,
+        "returned_actions": chunk,
+        "returned_actions_sha256": validator._array_sha256(chunk),
+        "elapsed_seconds": 1.0,
+    }
+    context = {
+        "p1": [0.0, 0.1, 0.2],
+        "R1": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        "q1_diag": [0.06, 0.12, 0.11],
+        "p2": [0.2, 0.3, 0.4],
+        "R2": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        "Q2_diag": [0.1, 0.1, 0.1],
+        "z_before": [1.0, 0.0, 0.0],
+        "nominal_translational": [0.1] * 7,
+        "executed_action": [0.2] * 7,
+        "solver_stats": {"solve_time": 0.01, "num_iters": 25},
+    }
+    action = {
+        "local_action_index": 0,
+        "source_action_index": 180,
+        "nominal_raw": chunk[0],
+        "nominal_translational": [0.1] * 7,
+        "aegis_executed": [0.2] * 7,
+        "aegis_correction_l2": 0.1,
+        "aegis_z_before": [1.0, 0.0, 0.0],
+        "aegis_z_after": [0.0, 1.0, 0.0],
+        "aegis_qp": {
+            "status": "solved",
+            "barrier_h": 0.1,
+            "constraint_lhs": 0.2,
+            "u_solution": [0.3] * 6,
+            "z_after": [0.0, 1.0, 0.0],
+            "context": context,
+        },
+    }
+    baseline = {"queries": [query], "actions": [action]}
+    return baseline, copy.deepcopy(baseline)
+
+
 class ProtocolAndHashTests(unittest.TestCase):
     def test_protocol_derives_the_frozen_live_suffix(self):
         expectation = validator._protocol_expectations(PROTOCOL)
@@ -73,7 +135,9 @@ class ProtocolAndHashTests(unittest.TestCase):
 
     def test_protocol_rejects_changed_first_live_chunk(self):
         candidate = copy.deepcopy(PROTOCOL)
-        candidate["source"]["first_live_query_expected_action_chunk_sha256"] = "0" * 64
+        candidate["source"][
+            "historical_first_live_query_action_chunk_sha256_diagnostic"
+        ] = "0" * 64
         with self.assertRaises(ArtifactContractError):
             validator._protocol_expectations(candidate)
 
@@ -146,6 +210,17 @@ class IndependentClassificationTests(unittest.TestCase):
         self.assertTrue(result["task_successful"])
         self.assertFalse(result["stop_only"])
 
+    def test_baseline_task_failure_does_not_block_psf_feasibility(self):
+        metrics = positive_metrics()
+        metrics["baseline_task_success_ever"] = False
+        result = self.classify(metrics)
+        self.assertEqual(
+            result["classification"],
+            "SAFE_TASK_SUCCESS_USEFUL_CORRECTION",
+        )
+        self.assertTrue(result["feasible"])
+        self.assertTrue(result["task_successful"])
+
     def test_stop_only_is_not_feasible(self):
         metrics = positive_metrics()
         metrics["post_correction_cartesian_path_length_m"] = 0.0
@@ -197,10 +272,186 @@ class IndependentClassificationTests(unittest.TestCase):
                 result = self.classify(metrics)
                 self.assertEqual(result["classification"], "INCONCLUSIVE_APPARATUS")
 
+    def test_historical_output_and_query_diagnostics_do_not_gate(self):
+        metrics = positive_metrics()
+        metrics[
+            "historical_first_live_query_action_chunk_matches_diagnostic"
+        ] = False
+        metrics["first_live_aegis_action_matches_historical"] = False
+        metrics[
+            "historical_action_180_full_output_matches_diagnostic"
+        ] = False
+        result = self.classify(metrics)
+        self.assertEqual(
+            result["classification"],
+            "SAFE_TASK_SUCCESS_USEFUL_CORRECTION",
+        )
+        self.assertTrue(result["feasible"])
+
     def test_validator_does_not_import_or_call_producer_classifier(self):
         source = inspect.getsource(validator)
         self.assertNotIn("classify_closed_loop_canary", source)
         self.assertIn("def _independent_classification", source)
+
+
+class PairedLiveAuthorityTests(unittest.TestCase):
+    def test_q36_is_inferred_once_then_reused_and_q37_plus_are_live(self):
+        cases = (
+            (
+                "baseline",
+                36,
+                {
+                    "query_execution": "live_inference",
+                    "inference_performed": True,
+                    "paired_cache_source_arm": None,
+                    "paired_cache_source_query_index": None,
+                    "paired_cache_source_returned_actions_sha256": None,
+                    "returned_actions_sha256": "current",
+                    "historical_returned_actions_sha256_diagnostic": validator.EXPECTED_FIRST_CHUNK_SHA256,
+                    "matches_historical_returned_actions_sha256_diagnostic": False,
+                },
+            ),
+            (
+                "psf",
+                36,
+                {
+                    "query_execution": "paired_cache_reuse",
+                    "inference_performed": False,
+                    "paired_cache_source_arm": "pi05_plus_aegis_joint_velocity_adapter",
+                    "paired_cache_source_query_index": 36,
+                    "paired_cache_source_returned_actions_sha256": "current",
+                    "returned_actions_sha256": "current",
+                    "historical_returned_actions_sha256_diagnostic": validator.EXPECTED_FIRST_CHUNK_SHA256,
+                    "matches_historical_returned_actions_sha256_diagnostic": False,
+                },
+            ),
+            (
+                "baseline",
+                37,
+                {
+                    "query_execution": "live_inference",
+                    "inference_performed": True,
+                    "paired_cache_source_arm": None,
+                    "paired_cache_source_query_index": None,
+                    "paired_cache_source_returned_actions_sha256": None,
+                    "historical_returned_actions_sha256_diagnostic": None,
+                    "matches_historical_returned_actions_sha256_diagnostic": None,
+                },
+            ),
+            (
+                "psf",
+                37,
+                {
+                    "query_execution": "live_inference",
+                    "inference_performed": True,
+                    "paired_cache_source_arm": None,
+                    "paired_cache_source_query_index": None,
+                    "paired_cache_source_returned_actions_sha256": None,
+                    "historical_returned_actions_sha256_diagnostic": None,
+                    "matches_historical_returned_actions_sha256_diagnostic": None,
+                },
+            ),
+        )
+        for label, index, query in cases:
+            with self.subTest(label=label, index=index):
+                audit = validator._Audit()
+                validator._validate_query_execution(audit, query, label, index)
+                self.assertEqual(audit.discrepancies, [])
+
+        attacks = (
+            ("baseline", 36, {"query_execution": "paired_cache_reuse"}),
+            ("psf", 36, {"query_execution": "live_inference"}),
+            (
+                "psf",
+                36,
+                {
+                    "query_execution": "paired_cache_reuse",
+                    "paired_cache_source_arm": "wrong-arm",
+                    "paired_cache_source_query_index": 36,
+                },
+            ),
+            ("psf", 37, {"query_execution": "paired_cache_reuse"}),
+        )
+        for label, index, query in attacks:
+            with self.subTest(attack=(label, index, query)):
+                audit = validator._Audit()
+                validator._validate_query_execution(audit, query, label, index)
+                self.assertTrue(audit.discrepancies)
+
+    def test_current_q36_and_action180_pair_is_authority_not_historical_hash(self):
+        baseline, psf = first_live_pair()
+        self.assertNotEqual(
+            baseline["queries"][0]["returned_actions_sha256"],
+            validator.EXPECTED_FIRST_CHUNK_SHA256,
+        )
+        audit = validator._Audit()
+        self.assertTrue(
+            validator._validate_first_live_pair(audit, baseline, psf)
+        )
+        self.assertEqual(audit.discrepancies, [])
+
+    def test_pair_ignores_timing_only(self):
+        baseline, psf = first_live_pair()
+        psf["queries"][0]["elapsed_seconds"] = 9.0
+        psf["actions"][0]["aegis_qp"]["context"]["solver_stats"][
+            "solve_time"
+        ] = 8.0
+        audit = validator._Audit()
+        self.assertTrue(
+            validator._validate_first_live_pair(audit, baseline, psf)
+        )
+        self.assertEqual(audit.discrepancies, [])
+
+    def test_frozen_aegis_projections_match_producer_contract(self):
+        baseline, psf = first_live_pair()
+        for historical, row in (
+            (False, baseline["actions"][0]),
+            (False, psf["actions"][0]),
+        ):
+            self.assertEqual(
+                validator._aegis_input_projection(
+                    row, historical=historical, include_nominal=True
+                ),
+                producer._aegis_input_projection(
+                    row, historical=historical, include_nominal=True
+                ),
+            )
+            self.assertEqual(
+                validator._aegis_output_projection(
+                    row, historical=historical
+                ),
+                producer._aegis_output_projection(
+                    row, historical=historical
+                ),
+            )
+        baseline_provider = {
+            "high_level_action_trace": baseline["actions"]
+        }
+        psf_provider = {"high_level_action_trace": psf["actions"]}
+        self.assertEqual(
+            validator._first_action_pair_metrics(baseline, psf),
+            producer._first_action_pair_metrics(
+                baseline_provider, psf_provider
+            ),
+        )
+
+    def test_pair_rejects_q36_nominal_context_output_or_executed_drift(self):
+        mutations = (
+            lambda value: value["queries"][0]["returned_actions"][0].__setitem__(0, 9.0),
+            lambda value: value["actions"][0].__setitem__("nominal_translational", [9.0] * 7),
+            lambda value: value["actions"][0]["aegis_qp"]["context"].__setitem__("p1", [9.0] * 3),
+            lambda value: value["actions"][0]["aegis_qp"].__setitem__("barrier_h", 9.0),
+            lambda value: value["actions"][0].__setitem__("aegis_executed", [9.0] * 7),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                baseline, psf = first_live_pair()
+                mutate(psf)
+                audit = validator._Audit()
+                self.assertFalse(
+                    validator._validate_first_live_pair(audit, baseline, psf)
+                )
+                self.assertTrue(audit.discrepancies)
 
 
 class FilesystemAndCadenceTests(unittest.TestCase):

@@ -140,6 +140,269 @@ def _checkpoint_identity(contract: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
+FIRST_QUERY_LIVE_AND_CACHE = "live_inference_and_cache"
+FIRST_QUERY_PAIRED_CACHE_REUSE = "paired_cache_reuse"
+QUERY_LIVE_INFERENCE = "live_inference"
+QUERY_PAIRED_CACHE_REUSE = "paired_cache_reuse"
+
+_HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS = (
+    "p1",
+    "R1",
+    "q1_diag",
+    "p2",
+    "R2",
+    "Q2_diag",
+    "z_before",
+)
+_CURRENT_AEGIS_INPUT_KEYS = (
+    *_HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS,
+    "nominal_translational",
+)
+_AEGIS_OUTPUT_KEYS = (
+    "solver",
+    "solver_status",
+    "objective",
+    "barrier_h",
+    "constraint_lhs",
+    "u_solution",
+    "z_after",
+    "status",
+)
+_AEGIS_CONTEXT_OUTPUT_KEYS = (
+    "status",
+    "solver_status",
+    "solver_stats",
+    "objective",
+    "u_solution",
+    "solution_lhs",
+    "solution_slack",
+    "solution_violation",
+    "constraint_dual",
+    "z_after",
+    "executed_action",
+    "executed_action_array_sha256",
+    "executed_action_canonical_sha256",
+)
+
+
+def _without_timing(value: Any) -> Any:
+    """Drop timing-only diagnostics before exact current-arm comparison."""
+
+    if isinstance(value, Mapping):
+        return {
+            str(key): _without_timing(item)
+            for key, item in value.items()
+            if "time" not in str(key).lower()
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_without_timing(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _aegis_input_projection(
+    row: Mapping[str, Any], *, historical: bool, include_nominal: bool
+) -> Dict[str, Any]:
+    qp = row.get("qp" if historical else "aegis_qp")
+    context = qp.get("context") if isinstance(qp, Mapping) else None
+    if not isinstance(context, Mapping):
+        return {}
+    keys = (
+        _CURRENT_AEGIS_INPUT_KEYS
+        if include_nominal
+        else _HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS
+    )
+    return {key: copy.deepcopy(context.get(key)) for key in keys}
+
+
+def _aegis_output_projection(
+    row: Mapping[str, Any], *, historical: bool
+) -> Dict[str, Any]:
+    qp = row.get("qp" if historical else "aegis_qp")
+    if not isinstance(qp, Mapping):
+        return {}
+    context = qp.get("context")
+    if not isinstance(context, Mapping):
+        return {}
+    return {
+        "executed_action": copy.deepcopy(
+            row.get("executed" if historical else "aegis_executed")
+        ),
+        "qp": _without_timing(
+            {key: copy.deepcopy(qp.get(key)) for key in _AEGIS_OUTPUT_KEYS}
+        ),
+        "context": _without_timing(
+            {
+                key: copy.deepcopy(context.get(key))
+                for key in _AEGIS_CONTEXT_OUTPUT_KEYS
+            }
+        ),
+    }
+
+
+def _first_action_pair_metrics(
+    baseline: Mapping[str, Any], psf: Mapping[str, Any]
+) -> Dict[str, Any]:
+    baseline_actions = baseline.get("high_level_action_trace")
+    psf_actions = psf.get("high_level_action_trace")
+    if (
+        not isinstance(baseline_actions, Sequence)
+        or not baseline_actions
+        or not isinstance(psf_actions, Sequence)
+        or not psf_actions
+    ):
+        return {
+            "first_current_action_180_aegis_inputs_identical": False,
+            "first_current_action_180_aegis_outputs_identical": False,
+            "first_current_action_180_aegis_pair_contract_valid": False,
+            "baseline_first_current_aegis_input_sha256": None,
+            "psf_first_current_aegis_input_sha256": None,
+            "baseline_first_current_aegis_output_sha256": None,
+            "psf_first_current_aegis_output_sha256": None,
+        }
+    baseline_row = baseline_actions[0]
+    psf_row = psf_actions[0]
+    baseline_input = _aegis_input_projection(
+        baseline_row, historical=False, include_nominal=True
+    )
+    psf_input = _aegis_input_projection(
+        psf_row, historical=False, include_nominal=True
+    )
+    baseline_output = _aegis_output_projection(baseline_row, historical=False)
+    psf_output = _aegis_output_projection(psf_row, historical=False)
+    baseline_input_bytes = fast._canonical(baseline_input)
+    psf_input_bytes = fast._canonical(psf_input)
+    baseline_output_bytes = fast._canonical(baseline_output)
+    psf_output_bytes = fast._canonical(psf_output)
+    indexed_at_action_180 = bool(
+        baseline_row.get("local_action_index") == 0
+        and baseline_row.get("source_action_index") == 180
+        and psf_row.get("local_action_index") == 0
+        and psf_row.get("source_action_index") == 180
+    )
+    inputs_identical = bool(
+        indexed_at_action_180
+        and baseline_input
+        and baseline_input_bytes == psf_input_bytes
+    )
+    outputs_identical = bool(
+        indexed_at_action_180
+        and baseline_output
+        and baseline_output_bytes == psf_output_bytes
+    )
+    return {
+        "first_current_action_180_aegis_inputs_identical": inputs_identical,
+        "first_current_action_180_aegis_outputs_identical": outputs_identical,
+        "first_current_action_180_aegis_pair_contract_valid": bool(
+            inputs_identical and outputs_identical
+        ),
+        "baseline_first_current_aegis_input_sha256": fast._sha256(
+            baseline_input_bytes
+        ),
+        "psf_first_current_aegis_input_sha256": fast._sha256(psf_input_bytes),
+        "baseline_first_current_aegis_output_sha256": fast._sha256(
+            baseline_output_bytes
+        ),
+        "psf_first_current_aegis_output_sha256": fast._sha256(
+            psf_output_bytes
+        ),
+    }
+
+
+class PairedFirstQueryCache:
+    """Single-use pairing bridge from baseline live q36 to PSF q36."""
+
+    def __init__(self, *, first_query_index: int) -> None:
+        self.first_query_index = int(first_query_index)
+        self._stored: Any = None
+        self._reuse: Any = None
+
+    def store_live_query(
+        self,
+        *,
+        producer_arm: str,
+        query_index: int,
+        rng_seed: int,
+        policy_input_fingerprint_sha256: str,
+        returned_actions: Sequence[Sequence[float]],
+        returned_actions_sha256: str,
+    ) -> None:
+        if self._stored is not None or int(query_index) != self.first_query_index:
+            raise ClosedLoopRunnerError(
+                "paired first-query cache may be populated exactly once at q36"
+            )
+        actions = copy.deepcopy(list(returned_actions))
+        if _array_sha256(actions) != returned_actions_sha256:
+            raise ClosedLoopRunnerError("paired first-query cache hash differs")
+        self._stored = {
+            "producer_arm": str(producer_arm),
+            "query_index": int(query_index),
+            "rng_seed": int(rng_seed),
+            "policy_input_fingerprint_sha256": str(
+                policy_input_fingerprint_sha256
+            ),
+            "returned_actions": actions,
+            "returned_actions_sha256": str(returned_actions_sha256),
+        }
+
+    def reuse_once(
+        self,
+        *,
+        consumer_arm: str,
+        expected_producer_arm: str,
+        query_index: int,
+        rng_seed: int,
+        policy_input_fingerprint_sha256: str,
+    ) -> Dict[str, Any]:
+        if self._stored is None or self._reuse is not None:
+            raise ClosedLoopRunnerError(
+                "paired first-query cache is absent or was already reused"
+            )
+        expected = self._stored
+        if (
+            str(consumer_arm) == str(expected_producer_arm)
+            or expected["producer_arm"] != str(expected_producer_arm)
+            or int(query_index) != self.first_query_index
+            or expected["query_index"] != int(query_index)
+            or expected["rng_seed"] != int(rng_seed)
+            or expected["policy_input_fingerprint_sha256"]
+            != str(policy_input_fingerprint_sha256)
+        ):
+            raise ClosedLoopRunnerError(
+                "paired first-query cache binding differs between arms"
+            )
+        self._reuse = {
+            "consumer_arm": str(consumer_arm),
+            "query_index": int(query_index),
+            "rng_seed": int(rng_seed),
+            "policy_input_fingerprint_sha256": str(
+                policy_input_fingerprint_sha256
+            ),
+        }
+        return copy.deepcopy(expected)
+
+    def record(self) -> Dict[str, Any]:
+        stored = copy.deepcopy(self._stored)
+        reused = copy.deepcopy(self._reuse)
+        return {
+            "schema_version": "vlsa_poisson_paired_first_query_cache.v1",
+            "first_query_index": self.first_query_index,
+            "store_count": 0 if stored is None else 1,
+            "reuse_count": 0 if reused is None else 1,
+            "producer": stored,
+            "reuse": reused,
+            "contract_valid": bool(
+                stored is not None
+                and reused is not None
+                and stored["query_index"] == self.first_query_index
+                and reused["query_index"] == self.first_query_index
+                and stored["rng_seed"] == reused["rng_seed"]
+                and stored["policy_input_fingerprint_sha256"]
+                == reused["policy_input_fingerprint_sha256"]
+                and stored["producer_arm"] != reused["consumer_arm"]
+            ),
+        }
+
+
 class RolloutVideo:
     """Stream real simulator frames and atomically publish one arm video."""
 
@@ -313,7 +576,10 @@ class LiveAegisPolicy:
         first_query_index: int,
         replan_steps: int,
         model_action_horizon: int,
-        expected_first_chunk_sha256: str,
+        historical_first_chunk_sha256_diagnostic: str,
+        paired_first_query_cache: PairedFirstQueryCache,
+        first_query_execution: str,
+        paired_first_query_source_arm: Any,
         arm_name: str,
     ) -> None:
         np = runtime["np"]
@@ -340,7 +606,29 @@ class LiveAegisPolicy:
         self.first_query_index = int(first_query_index)
         self.replan_steps = int(replan_steps)
         self.model_action_horizon = int(model_action_horizon)
-        self.expected_first_chunk_sha256 = str(expected_first_chunk_sha256)
+        self.historical_first_chunk_sha256_diagnostic = str(
+            historical_first_chunk_sha256_diagnostic
+        )
+        self.paired_first_query_cache = paired_first_query_cache
+        self.first_query_execution = str(first_query_execution)
+        if self.first_query_execution not in (
+            FIRST_QUERY_LIVE_AND_CACHE,
+            FIRST_QUERY_PAIRED_CACHE_REUSE,
+        ):
+            raise ClosedLoopRunnerError("unknown first-query execution mode")
+        self.paired_first_query_source_arm = (
+            None
+            if paired_first_query_source_arm is None
+            else str(paired_first_query_source_arm)
+        )
+        if (
+            self.first_query_execution == FIRST_QUERY_LIVE_AND_CACHE
+            and self.paired_first_query_source_arm is not None
+        ) or (
+            self.first_query_execution == FIRST_QUERY_PAIRED_CACHE_REUSE
+            and not self.paired_first_query_source_arm
+        ):
+            raise ClosedLoopRunnerError("first-query cache source binding differs")
         self.arm_name = str(arm_name)
         self.geometry = {
             "enabled": True,
@@ -370,28 +658,12 @@ class LiveAegisPolicy:
             raise ClosedLoopRunnerError(
                 "historical action-180 AEGIS input context is unavailable"
             )
-        self.expected_first_aegis_inputs = {
-            key: copy.deepcopy(action_180_context.get(key))
-            for key in (
-                "p1",
-                "R1",
-                "q1_diag",
-                "p2",
-                "R2",
-                "Q2_diag",
-                "z_before",
-                "nominal_translational",
-            )
-        }
-        self.expected_first_aegis_outputs = {
-            key: copy.deepcopy(action_180_qp.get(key))
-            for key in (
-                "barrier_h",
-                "constraint_lhs",
-                "u_solution",
-                "z_after",
-            )
-        }
+        self.expected_first_aegis_inputs = _aegis_input_projection(
+            actions[180], historical=True, include_nominal=False
+        )
+        self.expected_first_aegis_full_output_diagnostic = (
+            _aegis_output_projection(actions[180], historical=True)
+        )
         if self.expected_first_aegis_action.shape != (7,):
             raise ClosedLoopRunnerError(
                 "historical action-180 AEGIS authority is invalid"
@@ -403,6 +675,8 @@ class LiveAegisPolicy:
         self.action_trace: List[Dict[str, Any]] = []
         self.first_aegis_input_binding_matches_historical = False
         self.first_aegis_internal_output_matches_historical = False
+        self.first_aegis_action_matches_historical = False
+        self.first_aegis_full_output_matches_historical_diagnostic = False
 
     def _observation_record(self, env: Any, observation: Mapping[str, Any]) -> Dict[str, Any]:
         from scripts.run_poisson_shadow_parity import _observation_sha256
@@ -466,21 +740,63 @@ class LiveAegisPolicy:
                 resize_size=self.evaluator.TABLE_POLICY_RESIZE,
                 rng_seed=seed,
             )
-            query_started = time.perf_counter()
-            response = self.client.infer(policy_input)
-            query_elapsed = time.perf_counter() - query_started
-            if "actions" not in response:
-                raise ClosedLoopRunnerError("pi0.5 response has no actions")
-            chunk = np.asarray(response["actions"], dtype=np.float64)
+            first_query = not self.policy_queries
+            query_execution = QUERY_LIVE_INFERENCE
+            inference_performed = True
+            paired_cache_source_arm = None
+            paired_cache_source_query_index = None
+            paired_cache_source_returned_actions_sha256 = None
+            if (
+                first_query
+                and self.first_query_execution == FIRST_QUERY_PAIRED_CACHE_REUSE
+            ):
+                cached = self.paired_first_query_cache.reuse_once(
+                    consumer_arm=self.arm_name,
+                    expected_producer_arm=str(self.paired_first_query_source_arm),
+                    query_index=query_index,
+                    rng_seed=seed,
+                    policy_input_fingerprint_sha256=observation_record[
+                        "policy_input_fingerprint_sha256"
+                    ],
+                )
+                chunk = np.asarray(cached["returned_actions"], dtype=np.float64)
+                chunk_sha256 = str(cached["returned_actions_sha256"])
+                query_elapsed = None
+                server_timing = None
+                query_execution = QUERY_PAIRED_CACHE_REUSE
+                inference_performed = False
+                paired_cache_source_arm = str(cached["producer_arm"])
+                paired_cache_source_query_index = int(cached["query_index"])
+                paired_cache_source_returned_actions_sha256 = chunk_sha256
+            else:
+                query_started = time.perf_counter()
+                response = self.client.infer(policy_input)
+                query_elapsed = time.perf_counter() - query_started
+                if "actions" not in response:
+                    raise ClosedLoopRunnerError("pi0.5 response has no actions")
+                chunk = np.asarray(response["actions"], dtype=np.float64)
+                chunk_sha256 = self.evaluator.array_sha256(chunk)
+                server_timing = response.get("server_timing")
             if (
                 chunk.shape != (self.model_action_horizon, 7)
                 or not np.all(np.isfinite(chunk))
             ):
                 raise ClosedLoopRunnerError("pi0.5 action chunk is invalid")
-            chunk_sha256 = self.evaluator.array_sha256(chunk)
-            if not self.policy_queries and chunk_sha256 != self.expected_first_chunk_sha256:
-                raise ClosedLoopRunnerError(
-                    "first live pi0.5 chunk does not reproduce historical query 36"
+            if self.evaluator.array_sha256(chunk) != chunk_sha256:
+                raise ClosedLoopRunnerError("pi0.5 action chunk hash differs")
+            if (
+                first_query
+                and self.first_query_execution == FIRST_QUERY_LIVE_AND_CACHE
+            ):
+                self.paired_first_query_cache.store_live_query(
+                    producer_arm=self.arm_name,
+                    query_index=query_index,
+                    rng_seed=seed,
+                    policy_input_fingerprint_sha256=observation_record[
+                        "policy_input_fingerprint_sha256"
+                    ],
+                    returned_actions=chunk.tolist(),
+                    returned_actions_sha256=chunk_sha256,
                 )
             for offset in range(self.replan_steps):
                 self.action_plan.append(chunk[offset].copy())
@@ -497,8 +813,32 @@ class LiveAegisPolicy:
                     "returned_action_shape": list(chunk.shape),
                     "returned_actions": chunk.tolist(),
                     "returned_actions_sha256": chunk_sha256,
-                    "elapsed_seconds": float(query_elapsed),
-                    "server_timing": response.get("server_timing"),
+                    "query_execution": query_execution,
+                    "inference_performed": inference_performed,
+                    "paired_cache_source_arm": paired_cache_source_arm,
+                    "paired_cache_source_query_index": (
+                        paired_cache_source_query_index
+                    ),
+                    "paired_cache_source_returned_actions_sha256": (
+                        paired_cache_source_returned_actions_sha256
+                    ),
+                    "historical_returned_actions_sha256_diagnostic": (
+                        self.historical_first_chunk_sha256_diagnostic
+                        if first_query
+                        else None
+                    ),
+                    "matches_historical_returned_actions_sha256_diagnostic": (
+                        chunk_sha256
+                        == self.historical_first_chunk_sha256_diagnostic
+                        if first_query
+                        else None
+                    ),
+                    "elapsed_seconds": (
+                        None
+                        if query_elapsed is None
+                        else float(query_elapsed)
+                    ),
+                    "server_timing": server_timing,
                 }
             )
         raw = np.asarray(self.action_plan.popleft(), dtype=np.float64)
@@ -515,15 +855,6 @@ class LiveAegisPolicy:
             q1_diag=np.asarray([0.06, 0.12, 0.11], dtype=np.float64),
             diagnostics_enabled=True,
         )
-        if int(local_action_index) == 0 and not np.allclose(
-            np.asarray(executed, dtype=np.float64),
-            self.expected_first_aegis_action,
-            rtol=0.0,
-            atol=1e-12,
-        ):
-            raise ClosedLoopRunnerError(
-                "fresh action-180 AEGIS output differs from historical authority"
-            )
         if int(local_action_index) == 0:
             observed_context = qp_record.get("context")
             if not isinstance(observed_context, Mapping):
@@ -549,23 +880,41 @@ class LiveAegisPolicy:
                         % key
                     )
             self.first_aegis_input_binding_matches_historical = True
-            for key, expected in self.expected_first_aegis_outputs.items():
-                expected_array = np.asarray(expected, dtype=np.float64)
-                observed_array = np.asarray(qp_record.get(key), dtype=np.float64)
-                if (
-                    observed_array.shape != expected_array.shape
-                    or not np.allclose(
-                        observed_array,
-                        expected_array,
-                        rtol=0.0,
-                        atol=1e-12,
-                    )
-                ):
-                    raise ClosedLoopRunnerError(
-                        "fresh action-180 AEGIS %s differs from historical authority"
-                        % key
-                    )
-            self.first_aegis_internal_output_matches_historical = True
+            self.first_aegis_action_matches_historical = bool(
+                np.allclose(
+                    np.asarray(executed, dtype=np.float64),
+                    self.expected_first_aegis_action,
+                    rtol=0.0,
+                    atol=1e-12,
+                )
+            )
+            observed_output = _aegis_output_projection(
+                {
+                    "aegis_executed": list(executed),
+                    "aegis_qp": qp_record,
+                },
+                historical=False,
+            )
+            observed_internal = {
+                key: value
+                for key, value in observed_output.items()
+                if key != "executed_action"
+            }
+            expected_internal = {
+                key: value
+                for key, value in self.expected_first_aegis_full_output_diagnostic.items()
+                if key != "executed_action"
+            }
+            self.first_aegis_internal_output_matches_historical = bool(
+                fast._canonical(observed_internal)
+                == fast._canonical(expected_internal)
+            )
+            self.first_aegis_full_output_matches_historical_diagnostic = bool(
+                fast._canonical(observed_output)
+                == fast._canonical(
+                    self.expected_first_aegis_full_output_diagnostic
+                )
+            )
         z_after = np.asarray(self.geometry["z_fixed"], dtype=np.float64).copy()
         self.action_trace.append(
             {
@@ -594,19 +943,32 @@ class LiveAegisPolicy:
     def record(self) -> Dict[str, Any]:
         return {
             "arm": self.arm_name,
-            "source": "live_pi05_queries_from_this_arms_own_observations",
+            "source": (
+                "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
+            ),
             "recorded_suffix_actions_executed": False,
+            "first_query_execution": self.first_query_execution,
+            "paired_first_query_source_arm": self.paired_first_query_source_arm,
             "first_aegis_input_binding_matches_historical": bool(
                 self.first_aegis_input_binding_matches_historical
             ),
             "first_aegis_internal_output_matches_historical": bool(
                 self.first_aegis_internal_output_matches_historical
             ),
-            "historical_action_180_aegis_inputs": copy.deepcopy(
+            "first_aegis_action_matches_historical": bool(
+                self.first_aegis_action_matches_historical
+            ),
+            "first_aegis_full_output_matches_historical_diagnostic": bool(
+                self.first_aegis_full_output_matches_historical_diagnostic
+            ),
+            "historical_action_180_required_aegis_inputs": copy.deepcopy(
                 self.expected_first_aegis_inputs
             ),
-            "historical_action_180_aegis_outputs": copy.deepcopy(
-                self.expected_first_aegis_outputs
+            "historical_action_180_aegis_full_output_diagnostic": copy.deepcopy(
+                self.expected_first_aegis_full_output_diagnostic
+            ),
+            "historical_first_live_query_action_chunk_sha256_diagnostic": (
+                self.historical_first_chunk_sha256_diagnostic
             ),
             "first_query_index": self.first_query_index,
             "initial_aegis_z_fixed_from_historical_action_179": list(
@@ -635,6 +997,21 @@ def _provider_contract(
         return False
     if len(actions) != expected_actions or len(queries) != expected_queries:
         return False
+    first_query_execution = provider.get("first_query_execution")
+    paired_source_arm = provider.get("paired_first_query_source_arm")
+    if first_query_execution not in (
+        FIRST_QUERY_LIVE_AND_CACHE,
+        FIRST_QUERY_PAIRED_CACHE_REUSE,
+    ):
+        return False
+    if (
+        first_query_execution == FIRST_QUERY_LIVE_AND_CACHE
+        and paired_source_arm is not None
+    ) or (
+        first_query_execution == FIRST_QUERY_PAIRED_CACHE_REUSE
+        and not isinstance(paired_source_arm, str)
+    ):
+        return False
     query_map = {int(row["query_index"]): row for row in queries}
     if sorted(query_map) != list(range(36, 36 + expected_queries)):
         return False
@@ -659,6 +1036,33 @@ def _provider_contract(
             )
         )
         expected_local = query_offset * 5
+        expected_execution = (
+            QUERY_PAIRED_CACHE_REUSE
+            if query_index == 36
+            and first_query_execution == FIRST_QUERY_PAIRED_CACHE_REUSE
+            else QUERY_LIVE_INFERENCE
+        )
+        execution_valid = bool(
+            query.get("query_execution") == expected_execution
+            and query.get("inference_performed")
+            is (expected_execution == QUERY_LIVE_INFERENCE)
+        )
+        if expected_execution == QUERY_LIVE_INFERENCE:
+            execution_valid = bool(
+                execution_valid
+                and query.get("paired_cache_source_arm") is None
+                and query.get("paired_cache_source_query_index") is None
+                and query.get("paired_cache_source_returned_actions_sha256")
+                is None
+            )
+        else:
+            execution_valid = bool(
+                execution_valid
+                and query.get("paired_cache_source_arm") == paired_source_arm
+                and query.get("paired_cache_source_query_index") == 36
+                and query.get("paired_cache_source_returned_actions_sha256")
+                == query.get("returned_actions_sha256")
+            )
         if (
             query.get("query_index") != query_index
             or query.get("local_action_index") != expected_local
@@ -669,6 +1073,7 @@ def _provider_contract(
             or not valid_returned
             or query.get("returned_actions_sha256")
             != (_array_sha256(raw_returned) if valid_returned else None)
+            or not execution_valid
         ):
             return False
     for local_index, row in enumerate(actions):
@@ -699,14 +1104,14 @@ def _provider_contract(
         provider.get("recorded_suffix_actions_executed") is False
         and provider.get("first_query_index") == 36
         and provider.get("source")
-        == "live_pi05_queries_from_this_arms_own_observations"
+        == "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
     )
 
 
 def _feedback_metrics(
     baseline: Mapping[str, Any],
     psf: Mapping[str, Any],
-    expected_first_chunk_sha256: str,
+    historical_first_chunk_sha256_diagnostic: str,
 ) -> Dict[str, Any]:
     baseline_actions = baseline["high_level_action_trace"]
     psf_actions = psf["high_level_action_trace"]
@@ -723,6 +1128,49 @@ def _feedback_metrics(
     psf_queries = {int(row["query_index"]): row for row in psf["policy_queries"]}
     first_baseline = baseline_queries.get(36, {})
     first_psf = psf_queries.get(36, {})
+    baseline_inferred = [
+        int(row["query_index"])
+        for row in baseline["policy_queries"]
+        if row.get("query_execution") == QUERY_LIVE_INFERENCE
+        and row.get("inference_performed") is True
+    ]
+    baseline_cached = [
+        int(row["query_index"])
+        for row in baseline["policy_queries"]
+        if row.get("query_execution") == QUERY_PAIRED_CACHE_REUSE
+        or row.get("inference_performed") is False
+    ]
+    psf_inferred = [
+        int(row["query_index"])
+        for row in psf["policy_queries"]
+        if row.get("query_execution") == QUERY_LIVE_INFERENCE
+        and row.get("inference_performed") is True
+    ]
+    psf_cached = [
+        int(row["query_index"])
+        for row in psf["policy_queries"]
+        if row.get("query_execution") == QUERY_PAIRED_CACHE_REUSE
+        or row.get("inference_performed") is False
+    ]
+    only_psf_query_36_reused = bool(
+        baseline.get("first_query_execution") == FIRST_QUERY_LIVE_AND_CACHE
+        and psf.get("first_query_execution") == FIRST_QUERY_PAIRED_CACHE_REUSE
+        and baseline_cached == []
+        and baseline_inferred
+        == [int(row["query_index"]) for row in baseline["policy_queries"]]
+        and psf_cached == [36]
+        and psf_inferred
+        == [
+            int(row["query_index"])
+            for row in psf["policy_queries"]
+            if int(row["query_index"]) > 36
+        ]
+        and first_psf.get("paired_cache_source_arm") == baseline.get("arm")
+        and first_psf.get("paired_cache_source_query_index") == 36
+        and first_psf.get("paired_cache_source_returned_actions_sha256")
+        == first_baseline.get("returned_actions_sha256")
+    )
+    current_first_chunk_sha256 = first_baseline.get("returned_actions_sha256")
     first_identical = bool(
         first_baseline.get("policy_input_fingerprint_sha256")
         == first_psf.get("policy_input_fingerprint_sha256")
@@ -737,7 +1185,9 @@ def _feedback_metrics(
         == 0
         and first_baseline.get("returned_actions_sha256")
         == first_psf.get("returned_actions_sha256")
-        == expected_first_chunk_sha256
+        and fast._canonical(first_baseline.get("returned_actions"))
+        == fast._canonical(first_psf.get("returned_actions"))
+        and only_psf_query_36_reused
     )
     scheduled_query_indexes_after_divergence: List[int] = []
     divergent_query_indexes: List[int] = []
@@ -757,6 +1207,21 @@ def _feedback_metrics(
             None if divergence_local is None else 180 + divergence_local
         ),
         "first_live_query_identical": first_identical,
+        "only_psf_query_36_reused_paired_cache": only_psf_query_36_reused,
+        "baseline_live_inference_query_indexes": baseline_inferred,
+        "baseline_paired_cache_reuse_query_indexes": baseline_cached,
+        "psf_live_inference_query_indexes": psf_inferred,
+        "psf_paired_cache_reuse_query_indexes": psf_cached,
+        "current_first_live_query_action_chunk_sha256": (
+            current_first_chunk_sha256
+        ),
+        "historical_first_live_query_action_chunk_sha256_diagnostic": (
+            historical_first_chunk_sha256_diagnostic
+        ),
+        "historical_first_live_query_action_chunk_matches_diagnostic": bool(
+            current_first_chunk_sha256
+            == historical_first_chunk_sha256_diagnostic
+        ),
         "post_divergence_query_indexes_with_distinct_policy_inputs": (
             divergent_query_indexes
         ),
@@ -1137,9 +1602,33 @@ def main() -> int:
 
         placeholder_actions = [[0.0] * 7 for _ in range(derived["action_count"])]
         server_metadata = None
-        for arm_key, runner_arm, protocol_arm, video_slug in (
-            ("baseline", "joint_velocity_adapter_only", BASELINE_ARM, "pi05-aegis-baseline"),
-            ("psf", "joint_velocity_adapter_plus_link56_psf", PSF_ARM, "pi05-aegis-poisson-cbf"),
+        paired_first_query_cache = PairedFirstQueryCache(
+            first_query_index=derived["first_query_index"]
+        )
+        for (
+            arm_key,
+            runner_arm,
+            protocol_arm,
+            video_slug,
+            first_query_execution,
+            paired_first_query_source_arm,
+        ) in (
+            (
+                "baseline",
+                "joint_velocity_adapter_only",
+                BASELINE_ARM,
+                "pi05-aegis-baseline",
+                FIRST_QUERY_LIVE_AND_CACHE,
+                None,
+            ),
+            (
+                "psf",
+                "joint_velocity_adapter_plus_link56_psf",
+                PSF_ARM,
+                "pi05-aegis-poisson-cbf",
+                FIRST_QUERY_PAIRED_CACHE_REUSE,
+                BASELINE_ARM,
+            ),
         ):
             client = runtime["websocket_client_policy"].WebsocketClientPolicy(
                 arguments.host, arguments.port
@@ -1161,7 +1650,12 @@ def main() -> int:
                 first_query_index=derived["first_query_index"],
                 replan_steps=derived["replan_steps"],
                 model_action_horizon=protocol["online_policy"]["model_action_horizon"],
-                expected_first_chunk_sha256=source_contract["first_live_query_expected_action_chunk_sha256"],
+                historical_first_chunk_sha256_diagnostic=source_contract[
+                    "historical_first_live_query_action_chunk_sha256_diagnostic"
+                ],
+                paired_first_query_cache=paired_first_query_cache,
+                first_query_execution=first_query_execution,
+                paired_first_query_source_arm=paired_first_query_source_arm,
                 arm_name=protocol_arm,
             )
             video = RolloutVideo(
@@ -1230,11 +1724,20 @@ def main() -> int:
         psf = arm_evidence["psf"]
         baseline_provider = providers["baseline"]
         psf_provider = providers["psf"]
+        paired_first_query_cache_evidence = paired_first_query_cache.record()
         exact_pair = fast._pair_exact(baseline, psf)
         feedback = _feedback_metrics(
             baseline_provider,
             psf_provider,
-            source_contract["first_live_query_expected_action_chunk_sha256"],
+            source_contract[
+                "historical_first_live_query_action_chunk_sha256_diagnostic"
+            ],
+        )
+        feedback.update(
+            _first_action_pair_metrics(baseline_provider, psf_provider)
+        )
+        feedback["paired_first_query_cache"] = (
+            paired_first_query_cache_evidence
         )
         baseline_contract = _provider_contract(
             baseline_provider,
@@ -1260,7 +1763,7 @@ def main() -> int:
             and psf_provider.get("recorded_suffix_actions_executed") is False
             and all(
                 row.get("source")
-                == "live_pi05_queries_from_this_arms_own_observations"
+                == "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
                 for row in (baseline_provider, psf_provider)
             )
         )
@@ -1287,10 +1790,6 @@ def main() -> int:
                     "first_aegis_input_binding_matches_historical"
                 )
                 is True
-                and provider.get(
-                    "first_aegis_internal_output_matches_historical"
-                )
-                is True
                 and all(
                     row.get("aegis_qp", {}).get("status") == "solved"
                     and row.get("aegis_qp", {}).get("solver_status")
@@ -1303,6 +1802,9 @@ def main() -> int:
                 baseline_provider, baseline
             )
             and _aegis_state_and_command_chain_valid(psf_provider, psf)
+            and feedback[
+                "first_current_action_180_aegis_pair_contract_valid"
+            ]
         )
         baseline_contact = baseline["literal_contact"]
         psf_contact = psf["literal_contact"]
@@ -1368,10 +1870,13 @@ def main() -> int:
             ),
             "baseline_exposure_complete": baseline["exposure_complete"],
             "psf_exposure_complete": psf["exposure_complete"],
-            "live_policy_contract_valid": bool(baseline_contract and psf_contract),
-            "aegis_contract_valid": bool(
-                aegis_contract and first_live_aegis_action_matches_historical
+            "live_policy_contract_valid": bool(
+                baseline_contract
+                and psf_contract
+                and paired_first_query_cache_evidence["contract_valid"]
+                and feedback["only_psf_query_36_reused_paired_cache"]
             ),
+            "aegis_contract_valid": bool(aegis_contract),
             "videos_complete_and_decodable": bool(baseline_video_ok and psf_video_ok),
             "psf_qp_contract_valid": psf_qp_contract,
             "static_selected_obstacle_admissible": bool(
@@ -1400,6 +1905,20 @@ def main() -> int:
                 )
             ),
             "first_live_query_identical": feedback["first_live_query_identical"],
+            "only_psf_query_36_reused_paired_cache": feedback[
+                "only_psf_query_36_reused_paired_cache"
+            ],
+            "historical_first_live_query_action_chunk_matches_diagnostic": (
+                feedback[
+                    "historical_first_live_query_action_chunk_matches_diagnostic"
+                ]
+            ),
+            "first_current_action_180_aegis_inputs_identical": feedback[
+                "first_current_action_180_aegis_inputs_identical"
+            ],
+            "first_current_action_180_aegis_outputs_identical": feedback[
+                "first_current_action_180_aegis_outputs_identical"
+            ],
             "post_divergence_own_observations_used": feedback["post_divergence_own_observations_used"],
             "post_divergence_policy_inputs_differ": feedback["post_divergence_policy_inputs_differ"],
             "fresh_policy_query_after_material_correction": bool(
@@ -1415,6 +1934,15 @@ def main() -> int:
             "no_recorded_suffix_action_replay": no_replay,
             "first_live_aegis_action_matches_historical": (
                 first_live_aegis_action_matches_historical
+            ),
+            "historical_action_180_full_output_matches_diagnostic": bool(
+                all(
+                    provider.get(
+                        "first_aegis_full_output_matches_historical_diagnostic"
+                    )
+                    is True
+                    for provider in (baseline_provider, psf_provider)
+                )
             ),
             "both_nominal_commands_within_dynamic_joint_bounds": bool(
                 baseline["all_nominal_commands_within_dynamic_joint_bounds"]

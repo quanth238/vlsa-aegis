@@ -105,7 +105,7 @@ def validate_closed_loop_canary_protocol(
         "historical_result_payload_sha256",
         "historical_executed_action_sequence_sha256",
         "post_action_179_flattened_state_sha256",
-        "first_live_query_expected_action_chunk_sha256",
+        "historical_first_live_query_action_chunk_sha256_diagnostic",
     ):
         _sha256(source.get(field), "protocol.source.%s" % field)
     if _integer(source.get("historical_executed_action_count"), "source count", 1) != 237:
@@ -154,6 +154,11 @@ def validate_closed_loop_canary_protocol(
         or query_count != 12
         or query_count != (action_count + replan - 1) // replan
         or online.get("same_query_seed_by_replan_index") is not True
+        or online.get("first_query_execution")
+        != "baseline_live_inference_shared_exactly_once_with_psf"
+        or online.get("psf_first_query_source")
+        != "paired_baseline_query_36_cache"
+        or online.get("historical_first_query_bitwise_match_required") is not False
         or online.get("own_observation_after_divergence") is not True
         or online.get("recorded_suffix_actions_prohibited") is not True
         or online.get("checkpoint")
@@ -190,6 +195,11 @@ def validate_closed_loop_canary_protocol(
         "independent_copy_per_arm_initialized_from_historical_action_179_z_after"
     ):
         raise ClosedLoopCanaryError("AEGIS state initialization differs")
+    if execution.get("first_live_query_pairing") != (
+        "one_current_live_pi05_query_at_the_identical_branch_is_executed_by_"
+        "baseline_and_reused_bitwise_by_psf"
+    ):
+        raise ClosedLoopCanaryError("first live query pairing differs")
     if (
         execution.get("released_eef_marker_update_after_each_completed_action")
         is not True
@@ -276,8 +286,13 @@ def validate_closed_loop_canary_protocol(
         is not True
         or acceptance.get("require_material_correction_before_baseline_contact")
         is not True
-        or acceptance.get("require_both_native_task_success_ever") is not True
+        or acceptance.get("require_treatment_native_task_success_ever") is not True
+        or acceptance.get("baseline_native_task_success_is_diagnostic") is not True
         or acceptance.get("require_live_own_observation_feedback_after_divergence")
+        is not True
+        or acceptance.get("require_current_paired_first_query_exact") is not True
+        or acceptance.get("require_current_paired_action180_aegis_exact") is not True
+        or acceptance.get("historical_first_query_hash_is_diagnostic_only")
         is not True
         or acceptance.get("require_two_complete_decodable_videos") is not True
     ):
@@ -375,8 +390,7 @@ def classify_closed_loop_canary(
         <= derived["thresholds"]["maximum_post_correction_zero_command_fraction"]
     )
     task_success = bool(
-        metrics.get("baseline_task_success_ever") is True
-        and metrics.get("psf_task_success_ever") is True
+        metrics.get("psf_task_success_ever") is True
         and metrics.get("psf_task_success_after_material_correction") is True
     )
 

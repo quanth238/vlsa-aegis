@@ -816,10 +816,11 @@ that arm's own immediately preceding native observation. Both then apply a
 fresh released translational AEGIS QP and the same fresh joint-velocity
 adapter; only the treatment adds the link-5/link-6 Poisson-CBF rows.
 
-The first live query, action-180 AEGIS inputs, solver output, virtual-direction
-state, and executed action must reproduce the historical authority before a
-divergence is accepted. The adapter-only arm must reproduce the selected moka-
-pot link-5/6 contact. The treatment must have no selected-obstacle contact from
+The first live query must be identical across the paired arms. Historical
+action-180 obstacle geometry, end-effector proxy, and virtual-direction state
+remain branch authorities; the current live action and AEGIS output must match
+between arms. The adapter-only arm must reproduce the selected moka-pot
+link-5/6 contact. The treatment must have no selected-obstacle contact from
 any robot collision geom at any measured 2 ms substep, receive a material CBF-
 attributed correction before the baseline contact, make at least one fresh
 policy query after that correction, keep moving, and satisfy the native task.
@@ -833,5 +834,38 @@ the 20 Hz action boundary only and is diagnostic, not a continuous-clearance
 claim or acceptance gate. Each arm publishes a real-simulator branch-to-
 terminal suffix video; the 30 fps playback is not wall-clock timing. A distinct
 CPU-only consumer must independently validate the complete immutable result
-before any producer label is interpreted. No H100 producer has been submitted
-from this preregistration yet, and all prior roots remain immutable.
+before any producer label is interpreted. This paragraph records the contract
+as preregistered before the first H100 submission; the terminal apparatus
+outcome and replacement protocol are recorded below. All prior roots remain
+immutable.
+
+## P01 closed-loop q36 apparatus correction
+
+Producer job `34175` ran from clean commit
+`3eab3e57f1b11ebd0f2e16800e76174f4218e393` and terminated `FAILED|1:0`
+before either paired arm entered physics. Its immutable failure artifact has
+file SHA-256
+`9ce3dba7f6c8ddd2b1f2f67f6b2a41c8c43c3688469101c2c90a78cfa807ab24`
+and payload SHA-256
+`1be5780195e1b9dd3fadd609377845f7171e91abd45c02d907007be651947a36`.
+The sole failure was a bitwise mismatch between the current live pi0.5 query-36
+chunk and the July historical chunk. No controller command or MuJoCo substep
+ran, no scientific consumer was submitted, and the artifact provides no
+Poisson outcome.
+
+Bitwise equality to a policy response from a different server process is not
+needed for the paired feasibility question. The corrected protocol executes
+query 36 once from the exact shared branch observation and seed in the
+adapter-only arm, then reuses that exact current chunk for the Poisson arm.
+This makes the first five policy actions exactly paired without treating the
+historical response bytes as controller authority. The historical chunk hash
+is retained as a diagnostic. Historical branch state, obstacle geometry,
+end-effector proxy, and AEGIS virtual-direction state remain mandatory; the
+current action-180 AEGIS inputs and outputs must agree across arms. Queries
+37--47 remain fresh, separate, seeded live inferences from each arm's own
+observations. Baseline link-5 contact reproduction remains the empirical gate.
+Baseline task success remains a reported diagnostic; the treatment alone must
+achieve native task success after material correction, matching the stated
+feasibility question and allowing an unsafe-baseline-failure/treatment-rescue
+outcome.
+The failed root is immutable; any rerun must use a new commit and run ID.

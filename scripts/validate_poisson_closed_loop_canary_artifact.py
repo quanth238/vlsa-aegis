@@ -102,6 +102,10 @@ METRIC_KEYS = (
     "literal_contact_checked_at_every_physics_substep",
     "released_eef_marker_update_contract_valid",
     "first_live_query_identical",
+    "only_psf_query_36_reused_paired_cache",
+    "historical_first_live_query_action_chunk_matches_diagnostic",
+    "first_current_action_180_aegis_inputs_identical",
+    "first_current_action_180_aegis_outputs_identical",
     "post_divergence_own_observations_used",
     "post_divergence_policy_inputs_differ",
     "fresh_policy_query_after_material_correction",
@@ -109,6 +113,7 @@ METRIC_KEYS = (
     "own_observation_chain_valid",
     "no_recorded_suffix_action_replay",
     "first_live_aegis_action_matches_historical",
+    "historical_action_180_full_output_matches_diagnostic",
     "both_nominal_commands_within_dynamic_joint_bounds",
     "baseline_link56_contact_present",
     "baseline_first_selected_obstacle_contact_is_link56",
@@ -214,7 +219,7 @@ def _protocol_expectations(protocol: Mapping[str, Any]) -> Dict[str, Any]:
         "historical_result_payload_sha256": EXPECTED_HISTORICAL_PAYLOAD_SHA256,
         "historical_executed_action_sequence_sha256": EXPECTED_ACTION_SEQUENCE_SHA256,
         "post_action_179_flattened_state_sha256": EXPECTED_BOUNDARY_STATE_SHA256,
-        "first_live_query_expected_action_chunk_sha256": EXPECTED_FIRST_CHUNK_SHA256,
+        "historical_first_live_query_action_chunk_sha256_diagnostic": EXPECTED_FIRST_CHUNK_SHA256,
     }
     for field, expected in frozen.items():
         if source.get(field) != expected:
@@ -300,6 +305,144 @@ _OBSERVATION_FIELDS = (
     "prompt",
 )
 
+_HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS = (
+    "p1",
+    "R1",
+    "q1_diag",
+    "p2",
+    "R2",
+    "Q2_diag",
+    "z_before",
+)
+_CURRENT_AEGIS_INPUT_KEYS = (
+    *_HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS,
+    "nominal_translational",
+)
+_AEGIS_OUTPUT_KEYS = (
+    "solver",
+    "solver_status",
+    "objective",
+    "barrier_h",
+    "constraint_lhs",
+    "u_solution",
+    "z_after",
+    "status",
+)
+_AEGIS_CONTEXT_OUTPUT_KEYS = (
+    "status",
+    "solver_status",
+    "solver_stats",
+    "objective",
+    "u_solution",
+    "solution_lhs",
+    "solution_slack",
+    "solution_violation",
+    "constraint_dual",
+    "z_after",
+    "executed_action",
+    "executed_action_array_sha256",
+    "executed_action_canonical_sha256",
+)
+
+
+def _without_timing(value: Any) -> Any:
+    """Remove runtime-only timing leaves from a frozen comparison projection."""
+
+    if isinstance(value, Mapping):
+        return {
+            str(key): _without_timing(item)
+            for key, item in value.items()
+            if "time" not in str(key).lower()
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_without_timing(item) for item in value]
+    return value
+
+
+def _aegis_input_projection(
+    row: Mapping[str, Any], *, historical: bool, include_nominal: bool
+) -> Dict[str, Any]:
+    qp = row.get("qp" if historical else "aegis_qp")
+    context = qp.get("context") if isinstance(qp, Mapping) else None
+    if not isinstance(context, Mapping):
+        return {}
+    keys = (
+        _CURRENT_AEGIS_INPUT_KEYS
+        if include_nominal
+        else _HISTORICAL_REQUIRED_AEGIS_INPUT_KEYS
+    )
+    return {key: context.get(key) for key in keys}
+
+
+def _aegis_output_projection(
+    row: Mapping[str, Any], *, historical: bool
+) -> Dict[str, Any]:
+    qp = row.get("qp" if historical else "aegis_qp")
+    context = qp.get("context") if isinstance(qp, Mapping) else None
+    if not isinstance(qp, Mapping) or not isinstance(context, Mapping):
+        return {}
+    return {
+        "executed_action": row.get(
+            "executed" if historical else "aegis_executed"
+        ),
+        "qp": _without_timing(
+            {key: qp.get(key) for key in _AEGIS_OUTPUT_KEYS}
+        ),
+        "context": _without_timing(
+            {key: context.get(key) for key in _AEGIS_CONTEXT_OUTPUT_KEYS}
+        ),
+    }
+
+
+def _validate_query_execution(
+    audit: _Audit,
+    query: Mapping[str, Any],
+    label: str,
+    query_index: int,
+) -> None:
+    if label == "psf" and query_index == 36:
+        expected = (
+            "paired_cache_reuse",
+            False,
+            "pi05_plus_aegis_joint_velocity_adapter",
+            36,
+            query.get("returned_actions_sha256"),
+        )
+    else:
+        expected = ("live_inference", True, None, None, None)
+    observed = (
+        query.get("query_execution"),
+        query.get("inference_performed"),
+        query.get("paired_cache_source_arm"),
+        query.get("paired_cache_source_query_index"),
+        query.get("paired_cache_source_returned_actions_sha256"),
+    )
+    audit.check(
+        observed == expected,
+        "%s_query_%d_execution_provenance_differs" % (label, query_index),
+    )
+    diagnostic_hash = query.get(
+        "historical_returned_actions_sha256_diagnostic"
+    )
+    diagnostic_match = query.get(
+        "matches_historical_returned_actions_sha256_diagnostic"
+    )
+    if query_index == 36:
+        audit.check(
+            diagnostic_hash == EXPECTED_FIRST_CHUNK_SHA256,
+            "%s_query_36_historical_diagnostic_hash_differs" % label,
+        )
+        audit.check(
+            diagnostic_match
+            is (query.get("returned_actions_sha256") == EXPECTED_FIRST_CHUNK_SHA256),
+            "%s_query_36_historical_diagnostic_flag_differs" % label,
+        )
+    else:
+        audit.check(
+            diagnostic_hash is None and diagnostic_match is None,
+            "%s_query_%d_unexpected_historical_diagnostic" % (label, query_index),
+        )
+
 
 def _validate_observation_record(audit: _Audit, row: Mapping[str, Any], label: str) -> None:
     record: Dict[str, Any] = {}
@@ -344,10 +487,41 @@ def _validate_provider(
         if label == "baseline"
         else "pi05_plus_aegis_joint_velocity_adapter_plus_link56_psf"
     )
+    expected_first_query_execution = (
+        "live_inference_and_cache"
+        if label == "baseline"
+        else "paired_cache_reuse"
+    )
+    expected_paired_source_arm = (
+        None
+        if label == "baseline"
+        else "pi05_plus_aegis_joint_velocity_adapter"
+    )
     audit.check(len(actions) == expected_actions, "%s_action_count_differs" % label)
     audit.check(len(queries) == expected_queries, "%s_query_count_differs" % label)
-    audit.check(provider.get("source") == "live_pi05_queries_from_this_arms_own_observations", "%s_source_differs" % label)
+    audit.check(
+        provider.get("source")
+        == "live_pi05_with_shared_current_q36_then_per_arm_own_observations",
+        "%s_source_differs" % label,
+    )
     audit.check(provider.get("recorded_suffix_actions_executed") is False, "%s_recorded_action_replay" % label)
+    audit.check(
+        provider.get("first_query_execution")
+        == expected_first_query_execution,
+        "%s_first_query_execution_differs" % label,
+    )
+    audit.check(
+        provider.get("paired_first_query_source_arm")
+        == expected_paired_source_arm,
+        "%s_paired_first_query_source_differs" % label,
+    )
+    audit.check(
+        provider.get(
+            "historical_first_live_query_action_chunk_sha256_diagnostic"
+        )
+        == EXPECTED_FIRST_CHUNK_SHA256,
+        "%s_historical_query_hash_diagnostic_differs" % label,
+    )
     audit.check(provider.get("first_query_index") == 36, "%s_first_query_differs" % label)
     audit.check(provider.get("arm") == expected_arm, "%s_provider_arm_differs" % label)
 
@@ -378,6 +552,7 @@ def _validate_provider(
             ("returned_action_shape", [10, 7]),
         ):
             audit.check(query.get(field) == expected, "%s_query_%d_%s_differs" % (label, query_index, field))
+        _validate_query_execution(audit, query, label, query_index)
     audit.check(sorted(query_map) == list(range(36, 36 + expected_queries)), "%s_query_population_differs" % label)
 
     returned_observations = audit.sequence(
@@ -439,29 +614,113 @@ def _validate_provider(
         previous_z = after
         by_source[180 + local_index] = action
 
-    expected_inputs = {
-        key: historical_action_180["qp"]["context"][key]
-        for key in ("p1", "R1", "q1_diag", "p2", "R2", "Q2_diag", "z_before", "nominal_translational")
-    }
-    expected_outputs = {
-        key: historical_action_180["qp"][key]
-        for key in ("barrier_h", "constraint_lhs", "u_solution", "z_after")
-    }
-    audit.check(_same_numeric(provider.get("historical_action_180_aegis_inputs"), expected_inputs), "%s_historical_inputs_differ" % label)
-    audit.check(_same_numeric(provider.get("historical_action_180_aegis_outputs"), expected_outputs), "%s_historical_outputs_differ" % label)
-    audit.check(provider.get("first_aegis_input_binding_matches_historical") is True, "%s_first_input_binding_false" % label)
-    audit.check(provider.get("first_aegis_internal_output_matches_historical") is True, "%s_first_output_binding_false" % label)
+    # Historical action 180 remains branch/proxy authority only.  The nominal
+    # policy output and all AEGIS outputs are live-run diagnostics, because a
+    # fresh policy-server inference need not be bitwise identical to the old
+    # Table-1 server process.
+    expected_historical_inputs = _aegis_input_projection(
+        historical_action_180,
+        historical=True,
+        include_nominal=False,
+    )
+    historical_outputs_diagnostic = _aegis_output_projection(
+        historical_action_180,
+        historical=True,
+    )
+    stored_historical_inputs = audit.mapping(
+        provider.get("historical_action_180_required_aegis_inputs"),
+        "%s_historical_inputs" % label,
+    )
+    audit.check(
+        _canonical(stored_historical_inputs)
+        == _canonical(expected_historical_inputs),
+        "%s_historical_required_inputs_differs" % label,
+    )
+    # These records prove that the producer disclosed the old comparison; they
+    # are not used to accept the current live output.
+    stored_historical_outputs = provider.get(
+        "historical_action_180_aegis_full_output_diagnostic"
+    )
+    audit.check(
+        _canonical(stored_historical_outputs)
+        == _canonical(historical_outputs_diagnostic),
+        "%s_historical_output_diagnostic_differs" % label,
+    )
+    current_first_input = (
+        _aegis_input_projection(
+            actions[0], historical=False, include_nominal=False
+        )
+        if actions
+        else {}
+    )
+    current_first_output = (
+        _aegis_output_projection(actions[0], historical=False)
+        if actions
+        else {}
+    )
+    expected_input_match = bool(
+        current_first_input
+        and all(
+            _same_numeric(current_first_input.get(key), expected)
+            for key, expected in expected_historical_inputs.items()
+        )
+    )
+    expected_action_match = bool(
+        actions
+        and _same_numeric(
+            actions[0].get("aegis_executed"),
+            historical_action_180.get("executed"),
+        )
+    )
+    expected_internal_match = bool(
+        current_first_output
+        and _canonical(
+            {
+                key: value
+                for key, value in current_first_output.items()
+                if key != "executed_action"
+            }
+        )
+        == _canonical(
+            {
+                key: value
+                for key, value in historical_outputs_diagnostic.items()
+                if key != "executed_action"
+            }
+        )
+    )
+    expected_full_output_match = bool(
+        current_first_output
+        and _canonical(current_first_output)
+        == _canonical(historical_outputs_diagnostic)
+    )
+    for field, expected in (
+        ("first_aegis_input_binding_matches_historical", expected_input_match),
+        ("first_aegis_action_matches_historical", expected_action_match),
+        (
+            "first_aegis_internal_output_matches_historical",
+            expected_internal_match,
+        ),
+        (
+            "first_aegis_full_output_matches_historical_diagnostic",
+            expected_full_output_match,
+        ),
+    ):
+        audit.check(
+            provider.get(field) is expected,
+            "%s_%s_flag_differs" % (label, field),
+        )
+    # Only the seven historical branch/proxy inputs are authoritative.  The
+    # historical nominal and output/action comparisons above are diagnostics.
+    audit.check(expected_input_match, "%s_first_input_binding_false" % label)
     if actions:
-        audit.check(_same_numeric(actions[0].get("aegis_executed"), historical_action_180.get("executed")), "%s_action180_historical_differs" % label)
         first_qp = actions[0].get("aegis_qp", {})
         first_context = first_qp.get("context", {})
-        for key, expected in expected_inputs.items():
+        for key, expected in expected_historical_inputs.items():
             audit.check(
                 _same_numeric(first_context.get(key), expected),
                 "%s_action180_context_%s_historical_differs" % (label, key),
             )
-        for key in expected_outputs:
-            audit.check(_same_numeric(first_qp.get(key), expected_outputs[key]), "%s_action180_%s_historical_differs" % (label, key))
     commands = audit.sequence(arm.get("command_trace"), "%s_provider_commands" % label)
     for index, value in enumerate(commands):
         command = audit.mapping(value, "%s_provider_command_%d" % (label, index))
@@ -480,7 +739,287 @@ def _validate_provider(
     return {"provider": provider, "actions": actions, "queries": queries}
 
 
-def _feedback(audit: _Audit, baseline: Mapping[str, Any], psf: Mapping[str, Any]) -> Dict[str, Any]:
+def _live_provider_contract(
+    record: Mapping[str, Any],
+    *,
+    expected_actions: int,
+    policy_noise_seed: int,
+) -> bool:
+    """Independently reconstruct the producer's live-query/action contract."""
+
+    try:
+        provider = record["provider"]
+        actions = record["actions"]
+        queries = record["queries"]
+        expected_queries = (
+            0 if expected_actions == 0 else (expected_actions + 4) // 5
+        )
+        if len(actions) != expected_actions or len(queries) != expected_queries:
+            return False
+        first_execution = provider.get("first_query_execution")
+        paired_source = provider.get("paired_first_query_source_arm")
+        if first_execution not in (
+            "live_inference_and_cache",
+            "paired_cache_reuse",
+        ):
+            return False
+        if (
+            first_execution == "live_inference_and_cache"
+            and paired_source is not None
+        ) or (
+            first_execution == "paired_cache_reuse"
+            and not isinstance(paired_source, str)
+        ):
+            return False
+        query_map = {int(row["query_index"]): row for row in queries}
+        if sorted(query_map) != list(range(36, 36 + expected_queries)):
+            return False
+        for offset, query_index in enumerate(range(36, 36 + expected_queries)):
+            query = query_map[query_index]
+            returned = query.get("returned_actions")
+            valid_returned = bool(
+                isinstance(returned, Sequence)
+                and not isinstance(returned, (str, bytes))
+                and len(returned) == 10
+                and all(
+                    isinstance(row, Sequence)
+                    and not isinstance(row, (str, bytes))
+                    and len(row) == 7
+                    and all(
+                        not isinstance(value, bool)
+                        and isinstance(value, (int, float))
+                        and math.isfinite(float(value))
+                        for value in row
+                    )
+                    for row in returned
+                )
+            )
+            expected_execution = (
+                "paired_cache_reuse"
+                if query_index == 36
+                and first_execution == "paired_cache_reuse"
+                else "live_inference"
+            )
+            execution_valid = bool(
+                query.get("query_execution") == expected_execution
+                and query.get("inference_performed")
+                is (expected_execution == "live_inference")
+            )
+            if expected_execution == "live_inference":
+                execution_valid = bool(
+                    execution_valid
+                    and query.get("paired_cache_source_arm") is None
+                    and query.get("paired_cache_source_query_index") is None
+                    and query.get(
+                        "paired_cache_source_returned_actions_sha256"
+                    )
+                    is None
+                )
+            else:
+                execution_valid = bool(
+                    execution_valid
+                    and query.get("paired_cache_source_arm") == paired_source
+                    and query.get("paired_cache_source_query_index") == 36
+                    and query.get(
+                        "paired_cache_source_returned_actions_sha256"
+                    )
+                    == query.get("returned_actions_sha256")
+                )
+            if (
+                query.get("query_index") != query_index
+                or query.get("local_action_index") != offset * 5
+                or query.get("source_action_index") != 180 + offset * 5
+                or query.get("rng_seed") != policy_noise_seed + query_index
+                or query.get("returned_action_shape") != [10, 7]
+                or not valid_returned
+                or query.get("returned_actions_sha256")
+                != (_array_sha256(returned) if valid_returned else None)
+                or not execution_valid
+            ):
+                return False
+        for local_index, row in enumerate(actions):
+            query_index = 36 + local_index // 5
+            chunk_offset = local_index % 5
+            query = query_map.get(query_index)
+            returned = query.get("returned_actions") if query else None
+            if (
+                query is None
+                or row.get("local_action_index") != local_index
+                or row.get("source_action_index") != 180 + local_index
+                or row.get("query_index") != query_index
+                or row.get("query_chunk_offset") != chunk_offset
+                or not isinstance(returned, Sequence)
+                or chunk_offset >= len(returned)
+                or _canonical(row.get("nominal_raw"))
+                != _canonical(returned[chunk_offset])
+                or (
+                    chunk_offset == 0
+                    and row.get("native_observation_sha256")
+                    != query.get("native_observation_sha256")
+                )
+            ):
+                return False
+        return bool(
+            provider.get("recorded_suffix_actions_executed") is False
+            and provider.get("first_query_index") == 36
+            and provider.get("source")
+            == "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
+        )
+    except (KeyError, TypeError, ValueError, ArtifactContractError):
+        return False
+
+
+def _own_observation_chain_valid(
+    record: Mapping[str, Any], arm: Mapping[str, Any]
+) -> bool:
+    returned = arm.get("task", {}).get(
+        "returned_observation_sha256_ledger"
+    )
+    if not isinstance(returned, Sequence):
+        return False
+    for row in list(record["actions"]) + list(record["queries"]):
+        local_index = row.get("local_action_index")
+        if isinstance(local_index, bool) or not isinstance(local_index, int):
+            return False
+        if local_index == 0:
+            continue
+        preceding = local_index - 1
+        if (
+            preceding >= len(returned)
+            or row.get("native_observation_sha256") != returned[preceding]
+        ):
+            return False
+    return bool(record["queries"])
+
+
+def _aegis_state_and_command_chain_valid(
+    record: Mapping[str, Any], arm: Mapping[str, Any]
+) -> bool:
+    actions = record["actions"]
+    commands = arm.get("command_trace")
+    initial_z = record["provider"].get(
+        "initial_aegis_z_fixed_from_historical_action_179"
+    )
+    if (
+        not actions
+        or not isinstance(commands, Sequence)
+        or not isinstance(initial_z, Sequence)
+    ):
+        return False
+    previous_z = initial_z
+    by_source: Dict[int, Mapping[str, Any]] = {}
+    try:
+        for row in actions:
+            before = row.get("aegis_z_before")
+            after = row.get("aegis_z_after")
+            qp = row.get("aegis_qp")
+            context = qp.get("context") if isinstance(qp, Mapping) else None
+            if (
+                not _same_numeric(before, previous_z)
+                or len(before) != 3
+                or len(after) != 3
+                or not math.isclose(
+                    _norm(after), 1.0, rel_tol=0.0, abs_tol=1.0e-10
+                )
+                or not isinstance(context, Mapping)
+                or qp.get("status") != "solved"
+                or not _same_numeric(qp.get("z_before"), before)
+                or not _same_numeric(qp.get("z_after"), after)
+                or not _same_numeric(context.get("z_before"), before)
+                or not _same_numeric(context.get("z_after"), after)
+                or not _same_numeric(
+                    context.get("q1_diag"), [0.06, 0.12, 0.11]
+                )
+                or not _same_numeric(
+                    context.get("nominal_translational"),
+                    row.get("nominal_translational"),
+                )
+                or not _same_numeric(
+                    context.get("executed_action"),
+                    row.get("aegis_executed"),
+                )
+            ):
+                return False
+            previous_z = after
+            by_source[int(row["source_action_index"])] = row
+        for command in commands:
+            action = by_source.get(int(command["source_action_index"]))
+            if action is None or not _same_numeric(
+                command.get("source_action"), action.get("aegis_executed")
+            ):
+                return False
+    except (KeyError, TypeError, ValueError):
+        return False
+    return True
+
+
+def _first_action_pair_metrics(
+    baseline: Mapping[str, Any], psf: Mapping[str, Any]
+) -> Dict[str, Any]:
+    if not baseline["actions"] or not psf["actions"]:
+        return {
+            "first_current_action_180_aegis_inputs_identical": False,
+            "first_current_action_180_aegis_outputs_identical": False,
+            "first_current_action_180_aegis_pair_contract_valid": False,
+            "baseline_first_current_aegis_input_sha256": None,
+            "psf_first_current_aegis_input_sha256": None,
+            "baseline_first_current_aegis_output_sha256": None,
+            "psf_first_current_aegis_output_sha256": None,
+        }
+    baseline_row = baseline["actions"][0]
+    psf_row = psf["actions"][0]
+    baseline_input = _aegis_input_projection(
+        baseline_row, historical=False, include_nominal=True
+    )
+    psf_input = _aegis_input_projection(
+        psf_row, historical=False, include_nominal=True
+    )
+    baseline_output = _aegis_output_projection(
+        baseline_row, historical=False
+    )
+    psf_output = _aegis_output_projection(psf_row, historical=False)
+    baseline_input_bytes = _canonical(baseline_input)
+    psf_input_bytes = _canonical(psf_input)
+    baseline_output_bytes = _canonical(baseline_output)
+    psf_output_bytes = _canonical(psf_output)
+    indexed = bool(
+        baseline_row.get("local_action_index") == 0
+        and baseline_row.get("source_action_index") == 180
+        and psf_row.get("local_action_index") == 0
+        and psf_row.get("source_action_index") == 180
+    )
+    inputs_identical = bool(
+        indexed and baseline_input and baseline_input_bytes == psf_input_bytes
+    )
+    outputs_identical = bool(
+        indexed and baseline_output and baseline_output_bytes == psf_output_bytes
+    )
+    return {
+        "first_current_action_180_aegis_inputs_identical": inputs_identical,
+        "first_current_action_180_aegis_outputs_identical": outputs_identical,
+        "first_current_action_180_aegis_pair_contract_valid": bool(
+            inputs_identical and outputs_identical
+        ),
+        "baseline_first_current_aegis_input_sha256": hashlib.sha256(
+            baseline_input_bytes
+        ).hexdigest(),
+        "psf_first_current_aegis_input_sha256": hashlib.sha256(
+            psf_input_bytes
+        ).hexdigest(),
+        "baseline_first_current_aegis_output_sha256": hashlib.sha256(
+            baseline_output_bytes
+        ).hexdigest(),
+        "psf_first_current_aegis_output_sha256": hashlib.sha256(
+            psf_output_bytes
+        ).hexdigest(),
+    }
+
+
+def _feedback(
+    audit: _Audit,
+    baseline: Mapping[str, Any],
+    psf: Mapping[str, Any],
+) -> Dict[str, Any]:
     baseline_actions = baseline["actions"]
     psf_actions = psf["actions"]
     divergence = None
@@ -490,13 +1029,73 @@ def _feedback(audit: _Audit, baseline: Mapping[str, Any], psf: Mapping[str, Any]
             break
     bq = {int(row["query_index"]): row for row in baseline["queries"]}
     pq = {int(row["query_index"]): row for row in psf["queries"]}
+    first_baseline = bq.get(36, {})
+    first_psf = pq.get(36, {})
+    baseline_inferred = [
+        int(row["query_index"])
+        for row in baseline["queries"]
+        if row.get("query_execution") == "live_inference"
+        and row.get("inference_performed") is True
+    ]
+    baseline_cached = [
+        int(row["query_index"])
+        for row in baseline["queries"]
+        if row.get("query_execution") == "paired_cache_reuse"
+        or row.get("inference_performed") is False
+    ]
+    psf_inferred = [
+        int(row["query_index"])
+        for row in psf["queries"]
+        if row.get("query_execution") == "live_inference"
+        and row.get("inference_performed") is True
+    ]
+    psf_cached = [
+        int(row["query_index"])
+        for row in psf["queries"]
+        if row.get("query_execution") == "paired_cache_reuse"
+        or row.get("inference_performed") is False
+    ]
+    baseline_provider = baseline["provider"]
+    psf_provider = psf["provider"]
+    only_psf_query_36_reused = bool(
+        baseline_provider.get("first_query_execution")
+        == "live_inference_and_cache"
+        and psf_provider.get("first_query_execution") == "paired_cache_reuse"
+        and baseline_cached == []
+        and baseline_inferred
+        == [int(row["query_index"]) for row in baseline["queries"]]
+        and psf_cached == [36]
+        and psf_inferred
+        == [
+            int(row["query_index"])
+            for row in psf["queries"]
+            if int(row["query_index"]) > 36
+        ]
+        and first_psf.get("paired_cache_source_arm")
+        == baseline_provider.get("arm")
+        and first_psf.get("paired_cache_source_query_index") == 36
+        and first_psf.get("paired_cache_source_returned_actions_sha256")
+        == first_baseline.get("returned_actions_sha256")
+    )
     first_identical = bool(
         36 in bq
         and 36 in pq
-        and bq[36].get("policy_input_fingerprint_sha256") == pq[36].get("policy_input_fingerprint_sha256")
-        and bq[36].get("rng_seed") == pq[36].get("rng_seed") == 2026691256
-        and bq[36].get("source_action_index") == pq[36].get("source_action_index") == 180
-        and bq[36].get("returned_actions_sha256") == pq[36].get("returned_actions_sha256") == EXPECTED_FIRST_CHUNK_SHA256
+        and first_baseline.get("policy_input_fingerprint_sha256")
+        == first_psf.get("policy_input_fingerprint_sha256")
+        and first_baseline.get("rng_seed")
+        == first_psf.get("rng_seed")
+        == 2026691256
+        and first_baseline.get("source_action_index")
+        == first_psf.get("source_action_index")
+        == 180
+        and first_baseline.get("local_action_index")
+        == first_psf.get("local_action_index")
+        == 0
+        and first_baseline.get("returned_actions_sha256")
+        == first_psf.get("returned_actions_sha256")
+        and _canonical(first_baseline.get("returned_actions"))
+        == _canonical(first_psf.get("returned_actions"))
+        and only_psf_query_36_reused
     )
     scheduled: List[int] = []
     distinct: List[int] = []
@@ -508,17 +1107,123 @@ def _feedback(audit: _Audit, baseline: Mapping[str, Any], psf: Mapping[str, Any]
             scheduled.append(query_index)
             if bq[query_index].get("policy_input_fingerprint_sha256") != pq[query_index].get("policy_input_fingerprint_sha256"):
                 distinct.append(query_index)
+    current_first_chunk_sha256 = first_baseline.get(
+        "returned_actions_sha256"
+    )
+    cache_producer = {
+        "producer_arm": baseline_provider.get("arm"),
+        "query_index": 36,
+        "rng_seed": first_baseline.get("rng_seed"),
+        "policy_input_fingerprint_sha256": first_baseline.get(
+            "policy_input_fingerprint_sha256"
+        ),
+        "returned_actions": first_baseline.get("returned_actions"),
+        "returned_actions_sha256": current_first_chunk_sha256,
+    }
+    cache_reuse = {
+        "consumer_arm": psf_provider.get("arm"),
+        "query_index": 36,
+        "rng_seed": first_psf.get("rng_seed"),
+        "policy_input_fingerprint_sha256": first_psf.get(
+            "policy_input_fingerprint_sha256"
+        ),
+    }
+    cache_contract_valid = bool(
+        first_baseline
+        and first_psf
+        and cache_producer["query_index"] == cache_reuse["query_index"] == 36
+        and cache_producer["rng_seed"] == cache_reuse["rng_seed"]
+        and cache_producer["policy_input_fingerprint_sha256"]
+        == cache_reuse["policy_input_fingerprint_sha256"]
+        and cache_producer["producer_arm"] != cache_reuse["consumer_arm"]
+    )
     result = {
         "first_divergent_action_input_local_index": divergence,
         "first_divergent_action_input_source_index": None if divergence is None else 180 + divergence,
         "first_live_query_identical": first_identical,
+        "only_psf_query_36_reused_paired_cache": only_psf_query_36_reused,
+        "baseline_live_inference_query_indexes": baseline_inferred,
+        "baseline_paired_cache_reuse_query_indexes": baseline_cached,
+        "psf_live_inference_query_indexes": psf_inferred,
+        "psf_paired_cache_reuse_query_indexes": psf_cached,
+        "current_first_live_query_action_chunk_sha256": (
+            current_first_chunk_sha256
+        ),
+        "historical_first_live_query_action_chunk_sha256_diagnostic": (
+            EXPECTED_FIRST_CHUNK_SHA256
+        ),
+        "historical_first_live_query_action_chunk_matches_diagnostic": bool(
+            current_first_chunk_sha256 == EXPECTED_FIRST_CHUNK_SHA256
+        ),
         "scheduled_query_indexes_after_divergence": scheduled,
         "post_divergence_query_indexes_with_distinct_policy_inputs": distinct,
         "post_divergence_policy_inputs_differ": bool(distinct),
         "post_divergence_own_observations_used": bool(divergence is not None and scheduled),
     }
+    result.update(_first_action_pair_metrics(baseline, psf))
+    result["paired_first_query_cache"] = {
+        "schema_version": "vlsa_poisson_paired_first_query_cache.v1",
+        "first_query_index": 36,
+        "store_count": 1 if first_baseline else 0,
+        "reuse_count": 1 if first_psf else 0,
+        "producer": cache_producer if first_baseline else None,
+        "reuse": cache_reuse if first_psf else None,
+        "contract_valid": cache_contract_valid,
+    }
     audit.check(first_identical, "first_live_query_not_identical")
+    audit.check(
+        only_psf_query_36_reused,
+        "paired_query36_cache_execution_contract_differs",
+    )
     return result
+
+
+def _validate_first_live_pair(
+    audit: _Audit,
+    baseline: Mapping[str, Any],
+    psf: Mapping[str, Any],
+) -> bool:
+    """Use the paired live q36/action-180 result as current-run authority."""
+
+    if not baseline["queries"] or not psf["queries"] or not baseline["actions"] or not psf["actions"]:
+        audit.check(False, "paired_q36_or_action180_missing")
+        return False
+    baseline_query = baseline["queries"][0]
+    psf_query = psf["queries"][0]
+    audit.check(
+        _canonical(baseline_query.get("returned_actions"))
+        == _canonical(psf_query.get("returned_actions")),
+        "paired_q36_action_chunk_differs",
+    )
+    for field in _OBSERVATION_FIELDS + (
+        "policy_input_fingerprint_sha256",
+        "rng_seed",
+        "source_action_index",
+        "local_action_index",
+    ):
+        audit.check(
+            _canonical(baseline_query.get(field))
+            == _canonical(psf_query.get(field)),
+            "paired_q36_%s_differs" % field,
+        )
+    baseline_action = baseline["actions"][0]
+    psf_action = psf["actions"][0]
+    for field in ("nominal_raw", "nominal_translational", "aegis_executed"):
+        audit.check(
+            _canonical(baseline_action.get(field))
+            == _canonical(psf_action.get(field)),
+            "paired_action180_%s_differs" % field,
+        )
+    pair_metrics = _first_action_pair_metrics(baseline, psf)
+    audit.check(
+        pair_metrics["first_current_action_180_aegis_inputs_identical"],
+        "paired_action180_aegis_inputs_differ",
+    )
+    audit.check(
+        pair_metrics["first_current_action_180_aegis_outputs_identical"],
+        "paired_action180_aegis_outputs_differ",
+    )
+    return not any(item.startswith("paired_q36") or item.startswith("paired_action180") for item in audit.discrepancies)
 
 
 def _safe_child(root: Path, relative: Any, label: str) -> Path:
@@ -792,8 +1497,7 @@ def _independent_classification(metrics: Mapping[str, Any], expectation: Mapping
         and float(metrics.get("post_correction_zero_command_fraction", 1.0)) <= thresholds["maximum_post_correction_zero_command_fraction"]
     )
     task_success = bool(
-        metrics.get("baseline_task_success_ever") is True
-        and metrics.get("psf_task_success_ever") is True
+        metrics.get("psf_task_success_ever") is True
         and metrics.get("psf_task_success_after_material_correction") is True
     )
     psf_contact = metrics.get("psf_any_robot_selected_obstacle_contact_present") is True
@@ -1003,6 +1707,9 @@ def validate_payload(
     providers = audit.mapping(payload.get("providers"), "providers")
     baseline_provider = _validate_provider(audit, providers.get("baseline"), baseline, "baseline", expectation, historical_value, expected_actions=57)
     psf_provider = _validate_provider(audit, providers.get("psf"), psf, "psf", expectation, historical_value, expected_actions=expected_psf_actions)
+    paired_first_live_action = _validate_first_live_pair(
+        audit, baseline_provider, psf_provider
+    )
     feedback = _feedback(audit, baseline_provider, psf_provider)
     _compare_mapping(audit, payload.get("closed_loop_feedback"), feedback, "closed_loop_feedback")
 
@@ -1080,26 +1787,92 @@ def validate_payload(
         and psf.get("qp_postcheck_count") == len(psf_commands_raw)
         and psf.get("joint_limit_postcheck_count") == len(psf_commands_raw)
     )
+    baseline_live_provider_valid = _live_provider_contract(
+        baseline_provider,
+        expected_actions=expectation["action_count"],
+        policy_noise_seed=2026691220,
+    )
+    psf_live_provider_valid = _live_provider_contract(
+        psf_provider,
+        expected_actions=expected_psf_actions,
+        policy_noise_seed=2026691220,
+    )
+    live_policy_contract_valid = bool(
+        baseline_live_provider_valid
+        and psf_live_provider_valid
+        and feedback["paired_first_query_cache"]["contract_valid"]
+        and feedback["only_psf_query_36_reused_paired_cache"]
+    )
+    aegis_contract_valid = bool(
+        paired_first_live_action
+        and feedback[
+            "first_current_action_180_aegis_pair_contract_valid"
+        ]
+        and all(
+            record["actions"]
+            and record["provider"].get(
+                "first_aegis_input_binding_matches_historical"
+            )
+            is True
+            and all(
+                row.get("aegis_qp", {}).get("status") == "solved"
+                and row.get("aegis_qp", {}).get("solver_status")
+                in ("optimal", "optimal_inaccurate")
+                for row in record["actions"]
+            )
+            for record in (baseline_provider, psf_provider)
+        )
+        and _aegis_state_and_command_chain_valid(
+            baseline_provider, baseline
+        )
+        and _aegis_state_and_command_chain_valid(psf_provider, psf)
+    )
     reconstructed_metrics = {
         "exact_paired_start": exact_pair,
         "shared_prefix_complete": shared_prefix_complete,
         "baseline_exposure_complete": baseline.get("exposure_complete") is True,
         "psf_exposure_complete": psf.get("exposure_complete") is True,
-        "live_policy_contract_valid": not any(item.startswith("baseline_provider") or item.startswith("psf_provider") or "query_" in item and (item.startswith("baseline_") or item.startswith("psf_")) for item in audit.discrepancies),
-        "aegis_contract_valid": not any("aegis" in item or "_z_" in item or "qp_" in item and item.startswith(("baseline_action", "psf_action")) for item in audit.discrepancies),
+        "live_policy_contract_valid": live_policy_contract_valid,
+        "aegis_contract_valid": aegis_contract_valid,
         "videos_complete_and_decodable": bool(baseline_video_ok and psf_video_ok),
         "psf_qp_contract_valid": psf_qp_contract,
         "static_selected_obstacle_admissible": bool(static.get("admissible") is True and baseline.get("static_precontact_admissible") is True and psf.get("static_precontact_admissible") is True),
         "literal_contact_checked_at_every_physics_substep": literal_every_substep,
         "released_eef_marker_update_contract_valid": marker_contract,
         "first_live_query_identical": feedback["first_live_query_identical"],
+        "only_psf_query_36_reused_paired_cache": feedback[
+            "only_psf_query_36_reused_paired_cache"
+        ],
+        "historical_first_live_query_action_chunk_matches_diagnostic": (
+            feedback[
+                "historical_first_live_query_action_chunk_matches_diagnostic"
+            ]
+        ),
+        "first_current_action_180_aegis_inputs_identical": feedback[
+            "first_current_action_180_aegis_inputs_identical"
+        ],
+        "first_current_action_180_aegis_outputs_identical": feedback[
+            "first_current_action_180_aegis_outputs_identical"
+        ],
         "post_divergence_own_observations_used": feedback["post_divergence_own_observations_used"],
         "post_divergence_policy_inputs_differ": feedback["post_divergence_policy_inputs_differ"],
         "fresh_policy_query_after_material_correction": bool(fresh_queries),
         "fresh_policy_query_indexes_after_material_correction": fresh_queries,
-        "own_observation_chain_valid": not any("stale_observation" in item for item in audit.discrepancies),
+        "own_observation_chain_valid": bool(
+            _own_observation_chain_valid(baseline_provider, baseline)
+            and _own_observation_chain_valid(psf_provider, psf)
+        ),
         "no_recorded_suffix_action_replay": bool(baseline_provider["provider"].get("recorded_suffix_actions_executed") is False and psf_provider["provider"].get("recorded_suffix_actions_executed") is False),
         "first_live_aegis_action_matches_historical": bool(baseline_provider["actions"] and psf_provider["actions"] and _same_numeric(baseline_provider["actions"][0].get("aegis_executed"), historical_value["actions"][180]["executed"]) and _same_numeric(psf_provider["actions"][0].get("aegis_executed"), historical_value["actions"][180]["executed"])),
+        "historical_action_180_full_output_matches_diagnostic": bool(
+            all(
+                record["provider"].get(
+                    "first_aegis_full_output_matches_historical_diagnostic"
+                )
+                is True
+                for record in (baseline_provider, psf_provider)
+            )
+        ),
         "both_nominal_commands_within_dynamic_joint_bounds": bool(baseline.get("all_nominal_commands_within_dynamic_joint_bounds") is True and psf.get("all_nominal_commands_within_dynamic_joint_bounds") is True),
         "baseline_link56_contact_present": baseline_contact["link_present"],
         "baseline_first_selected_obstacle_contact_is_link56": bool(baseline_contact["first_link_boundary"] is not None and baseline_contact["first_link_boundary"] == baseline_contact["first_any_boundary"]),

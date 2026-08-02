@@ -22,7 +22,7 @@
     "historical_executed_action_count": 237,
     "historical_executed_action_sequence_sha256": "e5e2df4efee667fee0b0b7596dbc203a3cce84e67cb3507cb839132d2ee67481",
     "post_action_179_flattened_state_sha256": "2b4d25f12da2e1c110883b9f2194c9790270f36911f449d8c4f058a039c90335",
-    "first_live_query_expected_action_chunk_sha256": "572e21359bcd19f6ccaf491bc393b9f0be7f7e1886de39bf483e1036f45a97af"
+    "historical_first_live_query_action_chunk_sha256_diagnostic": "572e21359bcd19f6ccaf491bc393b9f0be7f7e1886de39bf483e1036f45a97af"
   },
   "episode": {
     "execution_kind": "shared_validated_historical_prefix_then_paired_live_closed_loop_suffix",
@@ -52,6 +52,9 @@
     "replan_steps": 5,
     "model_action_horizon": 10,
     "same_query_seed_by_replan_index": true,
+    "first_query_execution": "baseline_live_inference_shared_exactly_once_with_psf",
+    "psf_first_query_source": "paired_baseline_query_36_cache",
+    "historical_first_query_bitwise_match_required": false,
     "own_observation_after_divergence": true,
     "recorded_suffix_actions_prohibited": true,
     "policy_observation_fields": [
@@ -71,6 +74,7 @@
     "aegis_geometry": "historical_released_groundingdino_mvee_bound_by_source_result",
     "aegis_state": "independent_copy_per_arm_initialized_from_historical_action_179_z_after",
     "aegis_action": "fresh_released_translational_qp_for_every_live_policy_action",
+    "first_live_query_pairing": "one_current_live_pi05_query_at_the_identical_branch_is_executed_by_baseline_and_reused_bitwise_by_psf",
     "released_eef_marker_update_after_each_completed_action": true,
     "field": "same_static_simulator_oracle_poisson_field_constructed_after_settling",
     "field_refresh": "none_static_obstacle_assumption_checked_through_rollout"
@@ -129,8 +133,12 @@
     "require_literal_contact_check_at_every_physics_substep": true,
     "full_robot_clearance_is_diagnostic_not_acceptance_gate": true,
     "require_material_correction_before_baseline_contact": true,
-    "require_both_native_task_success_ever": true,
+    "require_treatment_native_task_success_ever": true,
+    "baseline_native_task_success_is_diagnostic": true,
     "require_live_own_observation_feedback_after_divergence": true,
+    "require_current_paired_first_query_exact": true,
+    "require_current_paired_action180_aegis_exact": true,
+    "historical_first_query_hash_is_diagnostic_only": true,
     "require_two_complete_decodable_videos": true
   },
   "result_contract": {

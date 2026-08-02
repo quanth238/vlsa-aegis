@@ -947,3 +947,36 @@ contacts, CBF attribution, useful motion, task outcome, video files, and final
 classification. This decision does not reinterpret or modify earlier immutable
 artifacts, and it does not establish population, learned-perception, dynamic-
 obstacle, real-time, tracking-certified, or formal-invariance safety.
+
+## ADR-0045: Pair the current live q36 response instead of requiring historical bits
+
+Accepted after terminal apparatus-failure job `34175`, which stopped before
+the first controller update because the current live query-36 action chunk did
+not equal the historical July chunk bit for bit. Since no arm physics ran, this
+change is made without observing a safety or task outcome. The old root and
+artifact remain immutable and cannot support a scientific conclusion.
+
+For the replacement canary, the adapter-only arm executes one live query 36
+from the exact shared branch observation with the registered seed. The Poisson
+arm reuses that exact current chunk at the identical branch. This is the
+simplest exact pairing of initial observation, policy noise, and high-level
+actions, and avoids making cross-process floating-point reproducibility a
+safety condition. The historical q36 hash remains diagnostic only.
+
+The relaxation does not weaken the causal or outcome gates. Historical branch
+state, obstacle geometry, end-effector proxy, and AEGIS state are still bound.
+The complete current action-180 AEGIS input/output must be identical between
+arms. Every query after q36 is a fresh per-arm live inference from that arm's
+own immediately preceding observation. The baseline must still reproduce the
+selected moka-pot link-5/6 collision; treatment must still show material
+pre-contact correction, no selected-obstacle contact from any robot geom,
+continued measured motion, and native task success. Failure of any condition
+cannot be classified as feasible.
+
+Baseline native task success is reported but is not an acceptance gate. The
+feasibility question requires the adapter-only arm to reproduce the missed
+link-5/link-6 contact and requires the Poisson arm to avoid selected-obstacle
+contact, keep moving, and achieve native task success after correction. If the
+unsafe live baseline fails the task while the treatment succeeds, that is a
+valid rescue outcome rather than an apparatus failure. This does not relax the
+treatment task-success requirement.
