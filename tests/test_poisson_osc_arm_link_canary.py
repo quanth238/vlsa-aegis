@@ -1,3 +1,4 @@
+import ast
 import copy
 import hashlib
 import json
@@ -425,6 +426,51 @@ class OscArmLinkRunnerStructuralTests(unittest.TestCase):
         self.assertIn("_registered_contact_hook", self.source)
         self.assertIn("_RegisteredContactMonitor", self.source)
         self.assertIn("link56_vs_external_nonrobot", self.source)
+
+    def test_direct_local_validator_calls_use_declared_keywords(self):
+        validator_path = (
+            ROOT / "scripts" / "validate_poisson_osc_arm_link_canary_artifact.py"
+        )
+        module = ast.parse(validator_path.read_text(encoding="utf-8"))
+        definitions = {
+            node.name: node
+            for node in module.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and (node.name.startswith("_validate") or node.name == "validate")
+        }
+        failures = []
+        for call in (
+            node for node in ast.walk(module) if isinstance(node, ast.Call)
+        ):
+            if not isinstance(call.func, ast.Name):
+                continue
+            definition = definitions.get(call.func.id)
+            if definition is None:
+                continue
+            allowed = {
+                argument.arg
+                for argument in (
+                    list(definition.args.args)
+                    + list(definition.args.kwonlyargs)
+                )
+            }
+            if definition.args.kwarg is not None:
+                continue
+            unexpected = sorted(
+                {
+                    keyword.arg
+                    for keyword in call.keywords
+                    if keyword.arg is not None and keyword.arg not in allowed
+                }
+            )
+            if any(keyword.arg is None for keyword in call.keywords):
+                unexpected.append("**expanded-keywords")
+            if unexpected:
+                failures.append(
+                    "%s:%d unexpected %s"
+                    % (call.func.id, call.lineno, ", ".join(unexpected))
+                )
+        self.assertEqual(failures, [])
 
 
 class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
@@ -1929,7 +1975,13 @@ class OscArmLinkMethodStopBindingTests(unittest.TestCase):
         record["record_payload_sha256"] = _canonical_sha256(record)
         return record
 
-    def validate(self, record, *, terminal_kind="safety_method_stop_before_physics"):
+    def validate(
+        self,
+        record,
+        *,
+        terminal_kind="safety_method_stop_before_physics",
+        phase_correct_callback_required=False,
+    ):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
             _canonical_sha256,
             _validate_safety_method_stop,
@@ -1945,10 +1997,42 @@ class OscArmLinkMethodStopBindingTests(unittest.TestCase):
             robot_qvel_indices=list(range(9)),
             robot_qvel_indices_sha256=_canonical_sha256(list(range(9))),
             velocity_dimension=9,
+            phase_correct_callback_required=phase_correct_callback_required,
         )
 
     def test_method_stop_binds_unexecuted_candidate_boundary_and_full_scope(self):
         self.assertTrue(self.validate(self.fixture()))
+
+    def test_v4_method_stop_requires_exact_callback_endpoint(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _canonical_sha256,
+        )
+
+        def rehash(record):
+            record.pop("record_payload_sha256", None)
+            record["record_payload_sha256"] = _canonical_sha256(record)
+
+        record = self.fixture()
+        record["callback_endpoint_action_inner_substep"] = [2, 0, 3]
+        rehash(record)
+        self.assertTrue(
+            self.validate(record, phase_correct_callback_required=True)
+        )
+
+        for endpoint in (None, [2, 0, 4]):
+            with self.subTest(endpoint=endpoint):
+                candidate = self.fixture()
+                if endpoint is not None:
+                    candidate[
+                        "callback_endpoint_action_inner_substep"
+                    ] = endpoint
+                rehash(candidate)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(
+                        candidate,
+                        phase_correct_callback_required=True,
+                    )
 
     def test_method_stop_rejects_schema_hash_boundary_or_qvel_tampering(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
@@ -2376,6 +2460,46 @@ class OscArmLinkRegisteredContactScopeTests(unittest.TestCase):
         }
         return scope, measurement, physics, resolved
 
+    def v4_fixture(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+
+        scope, measurement, physics, resolved = self.fixture()
+        record = physics[0]["registered_forbidden_contacts"][0]
+        record.pop("record_sha256")
+        record.update(
+            {
+                "schema_version": (
+                    "vlsa_poisson_registered_forbidden_contact.v2"
+                ),
+                "controller_update_index": 0,
+                "physics_substep_within_controller_update": 0,
+                "callback_endpoint_action_inner_substep": [0, 0, 0],
+            }
+        )
+        record["record_sha256"] = _canonical_sha256(record)
+        physics[0].update(
+            {
+                "source_action_index": 0,
+                "physics_substep_index": 0,
+                "controller_update_index": 0,
+                "physics_substep_within_controller_update": 0,
+                "callback_endpoint_action_inner_substep": [0, 0, 0],
+            }
+        )
+        measurement.update(
+            {
+                "schema_version": (
+                    "vlsa_poisson_registered_contact_measurement.v2"
+                ),
+                "callback_cadence": {
+                    "controller_updates_per_action": 5,
+                    "physics_substeps_per_controller_update": 5,
+                    "physics_substeps_per_action": 25,
+                },
+            }
+        )
+        return scope, measurement, physics, resolved
+
     def test_shifted_link_contact_is_independently_reconstructed(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
             _validate_registered_contact_evidence,
@@ -2408,6 +2532,42 @@ class OscArmLinkRegisteredContactScopeTests(unittest.TestCase):
                 measurement=measurement,
                 physics=physics,
                 resolved_geometry=resolved,
+            )
+
+    def test_v4_target_link_flag_enforces_phase_correct_contact_cadence(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_registered_contact_evidence,
+        )
+
+        scope, measurement, physics, resolved = self.v4_fixture()
+        audit = _validate_registered_contact_evidence(
+            scope=scope,
+            measurement=measurement,
+            physics=physics,
+            resolved_geometry=resolved,
+            target_link_v4=True,
+        )
+        self.assertTrue(audit["rollout_contact"])
+
+    def test_v4_wrong_contact_callback_endpoint_fails_closed(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _validate_registered_contact_evidence,
+        )
+
+        scope, measurement, physics, resolved = self.v4_fixture()
+        record = physics[0]["registered_forbidden_contacts"][0]
+        record["callback_endpoint_action_inner_substep"] = [0, 0, 1]
+        record.pop("record_sha256")
+        record["record_sha256"] = _canonical_sha256(record)
+        with self.assertRaises(OscCanaryValidationError):
+            _validate_registered_contact_evidence(
+                scope=scope,
+                measurement=measurement,
+                physics=physics,
+                resolved_geometry=resolved,
+                target_link_v4=True,
             )
 
 

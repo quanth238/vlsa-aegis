@@ -1354,3 +1354,16 @@ producer remain immutable. The next corrected consumer writes a distinct r3
 receipt; no e42 job or scientific interpretation is authorized before it
 passes. The complete local gate passes 859 tests with 188 expected
 dependency/allocation-only skips.
+
+Seven-dimensional consumer `34362` traversed the solved-QP audit and then
+retained a third rejected receipt, file SHA-256
+`231fb8279998a94f28aad7ab1d35b36300f4661807e2676e8c594d27c03127a1`.
+It failed with a Python `TypeError` before registered-contact validation: the
+caller supplied a stale keyword to a function whose v4 phase control is named
+`target_link_v4`. ADR-0059 removes that single invalid keyword, adds a
+whole-validator AST call/signature audit, exercises v4 contact cadence, and
+requires phase-correct evidence for any v4 method stop. Static audit found no
+other local call/signature mismatch or downstream inherited 9D trap. The
+producer and all three rejected receipts remain immutable; a distinct r4
+consumer must pass before interpretation. The complete local gate passes 863
+tests with 188 expected dependency/allocation-only skips.

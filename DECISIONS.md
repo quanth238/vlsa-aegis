@@ -1405,3 +1405,29 @@ classification changes. Consumers `34353` and `34356` and their receipts stay
 immutable. The next clean consumer writes
 `validation_receipt_schema_v4_target_link_consumer_r3.json` and must validate
 the unchanged producer before e05 can be interpreted.
+
+## ADR-0059: Remove the stale contact-validator keyword and bind stop phase
+
+Accepted after consumer `34362` passed the repaired stencil and 7D solved-QP
+checks, then raised `_validate_registered_contact_evidence() got an unexpected
+keyword argument 'phase_correct_callback_required'`. The contact validator's
+declared v4 switch is `target_link_v4`; that path already enforces the v2
+contact-record schema, exact action/controller/local-substep arithmetic, the
+5-by-5/25 callback cadence, and record-to-physics-row phase equality. The
+extra keyword could never be consumed and caused a pre-validation interface
+failure.
+
+The repair removes only that invalid call keyword. A dependency-light AST
+audit now checks every direct call to a top-level local validator against its
+declared keyword interface. V4 contact fixtures prove the existing
+`target_link_v4` path accepts the exact endpoint and rejects a rehashed wrong
+endpoint. The similarly named option genuinely belongs to the safety-method
+stop validator, so its main v4 call now requires the typed prephysics callback
+endpoint; omitted or wrong stop endpoints fail.
+
+No producer, rollout, field, QP, contact definition, acceptance threshold,
+motion rule, task rule, or classification changes. Static review found no
+other call/signature mismatch and no later 9D-only assumption. The next clean
+consumer writes
+`validation_receipt_schema_v4_target_link_consumer_r4.json`; e05 remains
+uninterpreted until that consumer completes successfully.

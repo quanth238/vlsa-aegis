@@ -115,9 +115,9 @@ if [[ "$(dirname -- "${RUN_ROOT}")" != "${REGISTERED_RESULT_ROOT}" ]] || \
 fi
 require_canonical_real_directory "post-OSC run root" "${RUN_ROOT}"
 # Keep all earlier consumer receipts immutable when a validator-only repair is
-# required after the producer has completed.  The r3 name identifies this
+# required after the producer has completed.  The r4 name identifies this
 # corrected consumer attempt without changing the producer artifact.
-OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link_consumer_r3.json"
+OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link_consumer_r4.json"
 [[ ! -e "${OUTPUT}" && ! -L "${OUTPUT}" ]] || { echo "validation output exists" >&2; exit 2; }
 
 cd "${REMOTE_REPO}"

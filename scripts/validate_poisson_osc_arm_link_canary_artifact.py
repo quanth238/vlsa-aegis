@@ -6082,7 +6082,6 @@ def validate(
         physics_substeps_per_controller_update=(
             physics_substeps_per_controller_update
         ),
-        phase_correct_callback_required=target_link_v4,
         target_link_v4=target_link_v4,
     )
     registered_contact = bool(registered_contact_audit["rollout_contact"])
@@ -6399,6 +6398,7 @@ def validate(
         physics_substeps_per_controller_update=(
             physics_substeps_per_controller_update
         ),
+        phase_correct_callback_required=target_link_v4,
     )
     _require(
         partial_action_audit.get("present")
