@@ -1367,3 +1367,47 @@ other local call/signature mismatch or downstream inherited 9D trap. The
 producer and all three rejected receipts remain immutable; a distinct r4
 consumer must pass before interpretation. The complete local gate passes 863
 tests with 188 expected dependency/allocation-only skips.
+
+## P01 shared-link direct-pair terminal result
+
+The fixed treatment was identical in both tasks: the controller always
+protected `[robot0_link5, robot0_link6]`. Historical target-link labels were
+consumer-only evidence and never selected controller samples, Jacobians, or QP
+rows. This is confirmed by the crossed first-correction attribution: e05's
+archived link-5 case first corrected a live link-6 row, while e42's archived
+link-6 case first corrected a live link-5 row.
+
+E05 producer `34349` was accepted by CPU consumer `34368` on clean consumer
+commit `b143919a8b98185a483770606f5541327c7ea880`. Its r4 receipt is a regular
+nonsymlink file with SHA-256
+`8dfd223ecff9c210baa0c2a5eaf6388473942efee0d26fd97deae5c9d9b2a801`,
+reports `status=validated`, zero apparatus failures, and `STOP_ONLY`. A link-6
+row caused a 0.816280 Nm material correction at action 27. The treatment then
+moved 0.135022 m at the end effector and 0.566934 rad in joint-motion integral,
+solved 24 QPs, produced no registered or shifted contact, and passed paper CAR.
+At action 99 it stopped before physics because its two finite-difference
+sensitivity resolutions disagreed (maximum scaled error 669.43428). Native
+task success is false.
+
+Held-out e42 producer `34369` completed `COMPLETED|0:0` in 10m29s on the same
+producer commit and frozen parameters. CPU consumer `34374` completed
+`COMPLETED|0:0` on clean commit `b143919a8b98185a483770606f5541327c7ea880`.
+Its r4 receipt has SHA-256
+`1dde6ab90e6eec7aeff1f80a2becb9a5f0bd633446740d86e86b72bc067b12fa`,
+reports `status=validated`, zero apparatus failures, and `STOP_ONLY`. A link-5
+row caused a 5.410408 Nm material correction at action 60. The treatment then
+moved 0.317204 m at the end effector and 0.932874 rad in joint-motion integral,
+solved 167 QPs, produced no registered or shifted contact, and passed paper
+CAR. At action 99 its hard safety QP became primal infeasible and stopped before
+physics. Native task success is false.
+
+The independently reconstructed pair classification is
+`PAIR_NOT_FEASIBLE`: both executed prefixes contain useful safety corrections,
+but neither treatment completes the task and both ultimately obtain safety by
+stopping. This is a negative for the present hard-QP/finite-difference
+integration, not a general impossibility result for Poisson Safety Functions.
+The next scoped research step is robust or analytic sensitivity computation
+plus a feasibility-preserving QP/reference-governor design, followed by the
+same fixed-link pair with unchanged no-stop, no-contact, useful-motion, CAR,
+and native-task-success criteria. P01 remains active for that broader method
+development; the direct feasibility question is now answered.

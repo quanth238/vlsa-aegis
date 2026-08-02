@@ -1431,3 +1431,29 @@ other call/signature mismatch and no later 9D-only assumption. The next clean
 consumer writes
 `validation_receipt_schema_v4_target_link_consumer_r4.json`; e05 remains
 uninterpreted until that consumer completes successfully.
+
+## ADR-0060: Record the shared-link pair as a stop-only negative
+
+Accepted after independent r4 consumers `34368` and `34374` completed
+`COMPLETED|0:0` with zero apparatus failures. Both treatments used the exact
+same `[robot0_link5, robot0_link6]` protected set and frozen runtime parameter
+SHA-256 `61ac3790e704aec03283624990c5874913907140b5cb0b8bd776e8fcae6d4eca`.
+The historical target link was never a controller input. The crossed live
+attribution—link 6 first in archived link-5 case e05 and link 5 first in
+archived link-6 case e42—is accepted as direct evidence of task-independent
+geometric selection.
+
+Both cases had a protected-link-attributed material correction, directed CBF
+residual improvement, no registered or shifted contact, paper-CAR safety, and
+continued end-effector and joint motion. Neither is feasible: e05 stopped at
+action 99 on a two-resolution finite-difference sensitivity disagreement, and
+e42 stopped at action 99 when the hard QP became primal infeasible. Native task
+success is false in both. The pair classification is therefore
+`PAIR_NOT_FEASIBLE`; no scoped link-5/link-6 feasibility claim is allowed.
+
+This outcome rejects only the present hard-QP and finite-difference
+integration. It does not reject the Poisson Safety Function hypothesis. The
+next design may change sensitivity evaluation and QP feasibility handling,
+but must keep the same general protected set, exact broad contact monitoring,
+and strict rejection of stopping, stalling, shifted contact, CAR failure, or
+task failure. No expansion to task-specific link selection is authorized.
