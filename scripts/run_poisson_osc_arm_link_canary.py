@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Run one treatment-only SafeLIBERO post-OSC manipulator Poisson canary.
+"""Run one treatment-only SafeLIBERO post-OSC Poisson canary.
 
 The immutable completed AEGIS / OSC episode is the control; it is not rerun.
 The live treatment uses the same archived high-level actions until the first
 material Poisson torque correction.  It then consumes the remainder of that
 already-current pi0.5 chunk and only afterwards queries pi0.5 from its own
-observations.  Every collision-enabled manipulator surface whose world pose is
-structurally affected by an authoritative robot-tree qvel is constrained
-against the selected obstacle immediately before each 2 ms MuJoCo step.  Fixed
-mount/pedestal infrastructure has no CBF row only after a zero-authority,
-settled-contact-free certificate, and every robot geom remains in exact contact
-monitoring.  Robot-tree velocities include the gripper, while only the seven
-original arm torques may change and every non-arm control stays nominal.  Any
-invalid field, sensitivity, QP, or postcheck stops the run without a
-pass-through fallback.
+observations.  The v4 experiment constrains the exact ordered link-5/link-6
+surface ledger used to construct the static field before each 2 ms MuJoCo
+step.  Every robot geom remains monitored against the selected obstacle and
+literal link-5/link-6 geoms remain monitored against every external nonrobot
+geom.  Only the seven original arm torques may change and every non-arm control
+stays nominal.  Any invalid field, sensitivity, QP, or postcheck stops the run
+without a pass-through fallback.  The completed whole-manipulator v3 contract
+remains supported as immutable historical apparatus.
 """
 
 from __future__ import annotations
@@ -21,6 +20,7 @@ from __future__ import annotations
 import argparse
 import collections
 import copy
+import gzip
 import hashlib
 import inspect
 import importlib.metadata
@@ -569,8 +569,99 @@ def _robot_tree_qvel_binding(
     }
 
 
+def _protected_link_arm_qvel_binding(
+    *,
+    arm_qvel_indices: Sequence[int],
+    arm_actuator_ids: Sequence[int],
+    full_robot_qvel_authority: Mapping[str, Any],
+    full_robot_influence_partition: Mapping[str, Any],
+    resolved_protected_link_geom_ids: Sequence[int],
+) -> Dict[str, Any]:
+    """Bind v4 protected-surface rows to every influencing arm qvel."""
+
+    arm_qvel = [int(value) for value in arm_qvel_indices]
+    arm_actuators = [int(value) for value in arm_actuator_ids]
+    protected_geoms = {int(value) for value in resolved_protected_link_geom_ids}
+    full_records = full_robot_qvel_authority.get("robot_qvel_records")
+    geom_records = full_robot_influence_partition.get("geom_records")
+    if not (
+        len(arm_qvel) == 7
+        and len(set(arm_qvel)) == 7
+        and arm_qvel == sorted(arm_qvel)
+        and len(arm_actuators) == 7
+        and len(set(arm_actuators)) == 7
+        and protected_geoms
+        and isinstance(full_records, Sequence)
+        and isinstance(geom_records, Sequence)
+    ):
+        raise OscCanaryRunnerError(
+            "v4 protected-link arm-qvel binding inputs are invalid"
+        )
+    protected_records = [
+        row
+        for row in geom_records
+        if isinstance(row, Mapping)
+        and int(row.get("geom_id", -1)) in protected_geoms
+    ]
+    if {int(row["geom_id"]) for row in protected_records} != protected_geoms:
+        raise OscCanaryRunnerError(
+            "v4 structural influence ledger does not cover every configured "
+            "protected-link geom"
+        )
+    influencing = sorted(
+        {
+            int(qvel_index)
+            for row in protected_records
+            for qvel_index in row.get("influencing_robot_qvel_indices", ())
+        }
+    )
+    if not influencing or not set(influencing) <= set(arm_qvel):
+        raise OscCanaryRunnerError(
+            "v4 arm qvel rows omit a configured protected-link velocity influence"
+        )
+    records_by_index = {
+        int(row["qvel_index"]): dict(row)
+        for row in full_records
+        if isinstance(row, Mapping)
+    }
+    if not set(arm_qvel) <= set(records_by_index):
+        raise OscCanaryRunnerError(
+            "v4 arm qvels are outside the authoritative robot-tree ledger"
+        )
+    records = [records_by_index[index] for index in arm_qvel]
+    return {
+        "schema_version": "vlsa_poisson_protected_link_arm_qvel_binding.v1",
+        "robot_qvel_indices": arm_qvel,
+        "robot_qvel_indices_sha256": _canonical_sha256(arm_qvel),
+        "robot_qvel_records": records,
+        "robot_qvel_records_sha256": _canonical_sha256(records),
+        "velocity_dimension": len(arm_qvel),
+        "arm_qvel_indices": arm_qvel,
+        "arm_qvel_indices_included": True,
+        "decision_arm_actuator_ids": arm_actuators,
+        "decision_dimension": 7,
+        "nonarm_robot_qvel_included": False,
+        "resolved_protected_link_geom_ids": sorted(protected_geoms),
+        "structurally_influencing_protected_link_qvel_indices": influencing,
+        "structurally_influencing_protected_link_qvel_indices_sha256": (
+            _canonical_sha256(influencing)
+        ),
+        "all_structural_protected_link_qvel_influences_included": True,
+        "omitted_robot_tree_qvels_proven_noninfluential_for_protected_link": sorted(
+            set(int(value) for value in full_robot_qvel_authority[
+                "robot_qvel_indices"
+            ])
+            - set(arm_qvel)
+        ),
+    }
+
+
 def _minimum_constraint_attribution(
-    nominal_residuals: Any, samples: Sequence[Any], np: Any
+    nominal_residuals: Any,
+    samples: Sequence[Any],
+    np: Any,
+    *,
+    sample_scope: str = "all_structurally_movable_manipulator_collision_surfaces",
 ) -> Dict[str, Any]:
     """Bind the first causal torque divergence to movable-manipulator samples."""
 
@@ -590,7 +681,7 @@ def _minimum_constraint_attribution(
     minimum_sample = samples[minimum_index].to_dict()
     return {
         "schema_version": "vlsa_poisson_constraint_attribution.v2",
-        "sample_scope": "all_structurally_movable_manipulator_collision_surfaces",
+        "sample_scope": str(sample_scope),
         "selection_rule": "first_np_argmin_of_nominal_exact_clone_cbf_residual",
         "minimum_nominal_residual_m2_per_s": minimum,
         "minimum_sample_index": minimum_index,
@@ -666,7 +757,7 @@ def _compact_shield_diagnostics(
     }
 
 
-def _historical_link_contact_verified(
+def _historical_v3_link_contact_verified(
     case: Mapping[str, Any], historical: Mapping[str, Any]
 ) -> bool:
     pairs = case.get("direct_link_active_obstacle_pairs")
@@ -699,6 +790,311 @@ def _historical_link_contact_verified(
         and case.get("first_link_step_is_timing_resolved") is True
         and telemetry.get("first_contact_step") == 62
     )
+
+
+def _remote_artifact_path(
+    historical_root: Path,
+    verified: Sequence[Mapping[str, Any]],
+    basename: str,
+) -> Path:
+    """Resolve one already byte-verified remote artifact without ambiguity."""
+
+    matches = [
+        row
+        for row in verified
+        if Path(str(row.get("relative_path", ""))).name == basename
+    ]
+    if len(matches) != 1:
+        raise OscCanaryRunnerError(
+            "verified remote artifact set has no unique %s" % basename
+        )
+    target = historical_root.resolve()
+    for part in Path(str(matches[0]["relative_path"])).parts:
+        target = target / part
+        if target.is_symlink():
+            raise OscCanaryRunnerError(
+                "verified remote artifact became a symlink"
+            )
+    if (
+        not target.is_file()
+        or target.is_symlink()
+        or fast._file_sha256(target) != matches[0].get("sha256")
+    ):
+        raise OscCanaryRunnerError(
+            "verified remote artifact changed after receipt validation"
+        )
+    return target
+
+
+def _pair_body_names(row: Mapping[str, Any]) -> Tuple[str, str]:
+    lineage1 = row.get("body_lineage1")
+    lineage2 = row.get("body_lineage2")
+    if not (
+        isinstance(lineage1, Sequence)
+        and not isinstance(lineage1, (str, bytes))
+        and lineage1
+        and isinstance(lineage2, Sequence)
+        and not isinstance(lineage2, (str, bytes))
+        and lineage2
+    ):
+        raise OscCanaryRunnerError(
+            "historical detailed contact pair lacks body lineages"
+        )
+    return str(lineage1[0]), str(lineage2[0])
+
+
+def _target_pair_body(
+    row: Mapping[str, Any],
+    *,
+    obstacle_root_body_name: str,
+    literal_link56_body_names: Sequence[str],
+) -> Optional[str]:
+    body1, body2 = _pair_body_names(row)
+    link56 = {str(value) for value in literal_link56_body_names}
+    if body1 == obstacle_root_body_name and body2 in link56:
+        return body2
+    if body2 == obstacle_root_body_name and body1 in link56:
+        return body1
+    return None
+
+
+def _historical_target_link_contact_evidence(
+    *,
+    case: Mapping[str, Any],
+    historical: Mapping[str, Any],
+    detailed_contact_path: Path,
+    target_link_body_names: Sequence[str],
+    literal_link56_body_names: Sequence[str],
+    expected_contact_action: int,
+    expected_obstacle_root_body_name: str,
+) -> Dict[str, Any]:
+    """Prove the configured target is the first historical link contact.
+
+    The compact result proves the episode-level contact population and sampled
+    first-contact action.  The immutable detailed gzip is the timing authority
+    for which literal link body is present at that exact action.
+    """
+
+    target_links = tuple(str(value) for value in target_link_body_names)
+    literal_links = tuple(str(value) for value in literal_link56_body_names)
+    if (
+        not target_links
+        or len(target_links) != len(set(target_links))
+        or not set(target_links) <= set(literal_links)
+    ):
+        raise OscCanaryRunnerError(
+            "v4 historical target links must be a nonempty unique subset of "
+            "the broad link5/link6 monitor set"
+        )
+    target_link_set = set(target_links)
+    pairs = case.get("direct_link_active_obstacle_pairs")
+    telemetry = historical.get("contact_telemetry")
+    unique_pairs = (
+        telemetry.get("unique_contact_pairs")
+        if isinstance(telemetry, Mapping)
+        else None
+    )
+    raw_pairs = {
+        (str(row.get("geom1")), str(row.get("geom2")))
+        for row in unique_pairs or ()
+        if isinstance(row, Mapping)
+    }
+    target_manifest_pairs = [
+        row
+        for row in pairs or ()
+        if isinstance(row, Mapping)
+        and row.get("active_obstacle_name") == case.get("active_obstacle_name")
+        and row.get("active_obstacle_actual_body_name")
+        == expected_obstacle_root_body_name
+        and row.get("actual_link_body_name") in target_link_set
+    ]
+    compact_verified = bool(
+        isinstance(pairs, Sequence)
+        and target_manifest_pairs
+        and {
+            str(row.get("actual_link_body_name"))
+            for row in target_manifest_pairs
+        }
+        == target_link_set
+        and all(
+            (
+                (
+                    str(row.get("active_obstacle_geom_name")),
+                    str(row.get("link_geom_name")),
+                )
+                in raw_pairs
+                or (
+                    str(row.get("link_geom_name")),
+                    str(row.get("active_obstacle_geom_name")),
+                )
+                in raw_pairs
+            )
+            for row in target_manifest_pairs
+        )
+        and case.get("first_sampled_link_contact_control_step")
+        == int(expected_contact_action)
+        and case.get("first_link_step_is_timing_resolved") is True
+        and isinstance(telemetry, Mapping)
+        and telemetry.get("first_contact_step") == int(expected_contact_action)
+    )
+    if not compact_verified:
+        raise OscCanaryRunnerError(
+            "historical compact target-link contact binding differs"
+        )
+
+    try:
+        with gzip.open(detailed_contact_path, "rt", encoding="utf-8") as stream:
+            detailed = json.load(stream)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise OscCanaryRunnerError(
+            "historical detailed contact artifact is unreadable"
+        ) from error
+    snapshots = detailed.get("snapshots") if isinstance(detailed, Mapping) else None
+    if not (
+        isinstance(detailed, Mapping)
+        and detailed.get("schema_version")
+        == "vlsa_table1_active_obstacle_contacts.v3"
+        and detailed.get("case_id") == case.get("case_id")
+        and detailed.get("active_obstacle_name") == case.get("active_obstacle_name")
+        and isinstance(snapshots, Sequence)
+        and not isinstance(snapshots, (str, bytes))
+    ):
+        raise OscCanaryRunnerError(
+            "historical detailed contact artifact authority differs"
+        )
+
+    target_steps_by_body: Dict[str, List[int]] = {
+        name: [] for name in target_links
+    }
+    exact_snapshot: Optional[Mapping[str, Any]] = None
+    exact_link56_bodies: List[str] = []
+    exact_robot_pair_link56_bodies: List[str] = []
+    exact_nonpositive_target_distances_m: List[float] = []
+    for snapshot in snapshots:
+        if not isinstance(snapshot, Mapping):
+            raise OscCanaryRunnerError(
+                "historical detailed contact snapshot is invalid"
+            )
+        step = snapshot.get("step")
+        robot_pairs = snapshot.get("robot_pairs")
+        events = snapshot.get("events")
+        if (
+            isinstance(step, bool)
+            or not isinstance(step, int)
+            or not isinstance(robot_pairs, Sequence)
+            or isinstance(robot_pairs, (str, bytes))
+            or not isinstance(events, Sequence)
+            or isinstance(events, (str, bytes))
+        ):
+            raise OscCanaryRunnerError(
+                "historical detailed contact snapshot schema differs"
+            )
+        bodies = [
+            body
+            for row in robot_pairs
+            if isinstance(row, Mapping)
+            for body in (
+                _target_pair_body(
+                    row,
+                    obstacle_root_body_name=expected_obstacle_root_body_name,
+                    literal_link56_body_names=literal_links,
+                ),
+            )
+            if body is not None
+        ]
+        nonpositive_bodies: List[str] = []
+        nonpositive_distances: List[float] = []
+        for event in events:
+            if not isinstance(event, Mapping):
+                raise OscCanaryRunnerError(
+                    "historical detailed contact event is invalid"
+                )
+            obstacle = event.get("obstacle")
+            other = event.get("other")
+            distance = event.get("distance")
+            if not (
+                isinstance(obstacle, Mapping)
+                and isinstance(other, Mapping)
+                and isinstance(distance, (int, float))
+                and not isinstance(distance, bool)
+                and math.isfinite(float(distance))
+            ):
+                raise OscCanaryRunnerError(
+                    "historical detailed contact event authority differs"
+                )
+            body_name = str(other.get("body_name"))
+            if (
+                obstacle.get("body_name") == expected_obstacle_root_body_name
+                and other.get("classification") == "robot"
+                and body_name in literal_links
+                and float(distance) <= 0.0
+            ):
+                nonpositive_bodies.append(body_name)
+                nonpositive_distances.append(float(distance))
+        for target_link in target_links:
+            if target_link in nonpositive_bodies:
+                target_steps_by_body[target_link].append(int(step))
+        if int(step) == int(expected_contact_action):
+            if exact_snapshot is not None:
+                raise OscCanaryRunnerError(
+                    "historical detailed contact action is duplicated"
+                )
+            exact_snapshot = snapshot
+            exact_link56_bodies = sorted(set(nonpositive_bodies))
+            exact_robot_pair_link56_bodies = sorted(set(bodies))
+            exact_nonpositive_target_distances_m = [
+                value
+                for body, value in zip(
+                    nonpositive_bodies, nonpositive_distances
+                )
+                if body in target_link_set
+            ]
+    if not (
+        exact_snapshot is not None
+        and all(target_steps_by_body.values())
+        and all(
+            min(steps) == int(expected_contact_action)
+            for steps in target_steps_by_body.values()
+        )
+        and target_link_set <= set(exact_link56_bodies)
+        and target_link_set <= set(exact_robot_pair_link56_bodies)
+        and exact_nonpositive_target_distances_m
+        and all(value <= 0.0 for value in exact_nonpositive_target_distances_m)
+    ):
+        raise OscCanaryRunnerError(
+            "historical detailed contact does not attribute the first action "
+            "exactly to the configured target link"
+        )
+    return {
+        "schema_version": (
+            "vlsa_poisson_historical_target_link_contact_evidence.v1"
+        ),
+        "case_id": str(case.get("case_id")),
+        "selected_obstacle_name": str(case.get("active_obstacle_name")),
+        "selected_obstacle_root_body_name": expected_obstacle_root_body_name,
+        "target_link_body_names": list(target_links),
+        "first_target_link_contact_source_action_by_body": {
+            name: int(min(target_steps_by_body[name]))
+            for name in target_links
+        },
+        "configured_historical_contact_source_action": int(
+            expected_contact_action
+        ),
+        "exact_action_link56_contact_body_names": exact_link56_bodies,
+        "exact_action_robot_pair_link56_body_names": (
+            exact_robot_pair_link56_bodies
+        ),
+        "exact_action_target_link_nonpositive_contact_distances_m": (
+            exact_nonpositive_target_distances_m
+        ),
+        "manifest_target_pair_count": len(target_manifest_pairs),
+        "detailed_contact_file_sha256": fast._file_sha256(
+            detailed_contact_path
+        ),
+        "compact_result_binding_verified": True,
+        "detailed_timing_and_target_attribution_verified": True,
+        "verified": True,
+    }
 
 
 def _source_case(case: Mapping[str, Any]) -> Dict[str, Any]:
@@ -1442,6 +1838,9 @@ def _registered_contact_records(
     physical_boundary: Optional[int] = None,
     source_action_index: Optional[int] = None,
     physics_substep_index: Optional[int] = None,
+    controller_update_index: Optional[int] = None,
+    physics_substep_within_controller_update: Optional[int] = None,
+    callback_endpoint_action_inner_substep: Optional[Sequence[int]] = None,
 ) -> List[Dict[str, Any]]:
     """Return compact typed records for nonpositive contacts in the union."""
 
@@ -1486,7 +1885,11 @@ def _registered_contact_records(
             executed_transition_start_boundary = int(physical_boundary)
             observed_state_boundary = int(physical_boundary) + 1
         record = {
-            "schema_version": "vlsa_poisson_registered_forbidden_contact.v1",
+            "schema_version": (
+                "vlsa_poisson_registered_forbidden_contact.v2"
+                if callback_endpoint_action_inner_substep is not None
+                else "vlsa_poisson_registered_forbidden_contact.v1"
+            ),
             "source_phase": str(source_phase),
             "contact_index": int(contact_index),
             "physical_boundary": physical_boundary,
@@ -1514,6 +1917,19 @@ def _registered_contact_records(
                 link_external_contact and external_geom_id not in selected
             ),
         }
+        if callback_endpoint_action_inner_substep is not None:
+            record.update(
+                {
+                    "controller_update_index": controller_update_index,
+                    "physics_substep_within_controller_update": (
+                        physics_substep_within_controller_update
+                    ),
+                    "callback_endpoint_action_inner_substep": [
+                        int(value)
+                        for value in callback_endpoint_action_inner_substep
+                    ],
+                }
+            )
         record["record_sha256"] = _canonical_sha256(record)
         output.append(record)
     return output
@@ -1522,10 +1938,57 @@ def _registered_contact_records(
 class _RegisteredContactMonitor:
     """Observe the registered union at every completed 2 ms transition."""
 
-    def __init__(self, sim: Any, resolved: Any) -> None:
+    def __init__(
+        self,
+        sim: Any,
+        resolved: Any,
+        *,
+        physics_substeps_per_action: int = 25,
+        controller_updates_per_action: Optional[int] = None,
+        physics_substeps_per_controller_update: Optional[int] = None,
+    ) -> None:
         from main.poisson_fullbody.measurement import clone_forwarded_state
 
         self._model = getattr(sim.model, "_model", sim.model)
+        if (
+            isinstance(physics_substeps_per_action, bool)
+            or not isinstance(physics_substeps_per_action, int)
+            or physics_substeps_per_action <= 0
+        ):
+            raise OscCanaryRunnerError(
+                "registered contact-monitor cadence is invalid"
+            )
+        self._physics_substeps_per_action = int(
+            physics_substeps_per_action
+        )
+        self._typed_callback_cadence = bool(
+            controller_updates_per_action is not None
+            or physics_substeps_per_controller_update is not None
+        )
+        if self._typed_callback_cadence:
+            if (
+                isinstance(controller_updates_per_action, bool)
+                or not isinstance(controller_updates_per_action, int)
+                or isinstance(physics_substeps_per_controller_update, bool)
+                or not isinstance(physics_substeps_per_controller_update, int)
+                or controller_updates_per_action <= 0
+                or physics_substeps_per_controller_update <= 0
+                or controller_updates_per_action
+                * physics_substeps_per_controller_update
+                != self._physics_substeps_per_action
+            ):
+                raise OscCanaryRunnerError(
+                    "registered contact-monitor typed cadence is invalid"
+                )
+            self._controller_updates_per_action = int(
+                controller_updates_per_action
+            )
+            self._physics_substeps_per_controller_update = int(
+                physics_substeps_per_controller_update
+            )
+        else:
+            self._controller_updates_per_action = None
+            self._physics_substeps_per_controller_update = None
         data = getattr(sim.data, "_data", sim.data)
         self.scope = _registered_contact_scope(self._model, resolved)
         settled = clone_forwarded_state(self._model, data)
@@ -1560,7 +2023,10 @@ class _RegisteredContactMonitor:
     ) -> Mapping[str, Any]:
         from main.poisson_fullbody.measurement import clone_forwarded_state
 
-        expected = source_action_index * 25 + physics_substep_index
+        expected = (
+            source_action_index * self._physics_substeps_per_action
+            + physics_substep_index
+        )
         if expected != self._observations:
             raise OscCanaryRunnerError(
                 "registered contact monitor gap/duplicate at physical boundary %d"
@@ -1572,6 +2038,24 @@ class _RegisteredContactMonitor:
             "source_action_index": source_action_index,
             "physics_substep_index": physics_substep_index,
         }
+        if self._typed_callback_cadence:
+            inner = int(physics_substep_index) // int(
+                self._physics_substeps_per_controller_update
+            )
+            local_substep = int(physics_substep_index) % int(
+                self._physics_substeps_per_controller_update
+            )
+            common.update(
+                {
+                    "controller_update_index": inner,
+                    "physics_substep_within_controller_update": local_substep,
+                    "callback_endpoint_action_inner_substep": [
+                        int(source_action_index),
+                        inner,
+                        local_substep,
+                    ],
+                }
+            )
         records = _registered_contact_records(
             self._model,
             data,
@@ -1598,7 +2082,11 @@ class _RegisteredContactMonitor:
             }
         )
         self._last_snapshot = {
-            "schema_version": "vlsa_poisson_registered_contact_substep.v1",
+            "schema_version": (
+                "vlsa_poisson_registered_contact_substep.v2"
+                if self._typed_callback_cadence
+                else "vlsa_poisson_registered_contact_substep.v1"
+            ),
             "physical_boundary": expected,
             "executed_transition_start_boundary": expected,
             "observed_state_boundary": expected + 1,
@@ -1608,6 +2096,20 @@ class _RegisteredContactMonitor:
             "contact_categories": categories,
             "contacts": records,
         }
+        if self._typed_callback_cadence:
+            self._last_snapshot.update(
+                {
+                    "controller_update_index": common[
+                        "controller_update_index"
+                    ],
+                    "physics_substep_within_controller_update": common[
+                        "physics_substep_within_controller_update"
+                    ],
+                    "callback_endpoint_action_inner_substep": common[
+                        "callback_endpoint_action_inner_substep"
+                    ],
+                }
+            )
         self._observations += 1
         return self._last_snapshot
 
@@ -1620,8 +2122,12 @@ class _RegisteredContactMonitor:
                 for category in record["contact_categories"]
             }
         )
-        return {
-            "schema_version": "vlsa_poisson_registered_contact_measurement.v1",
+        result = {
+            "schema_version": (
+                "vlsa_poisson_registered_contact_measurement.v2"
+                if self._typed_callback_cadence
+                else "vlsa_poisson_registered_contact_measurement.v1"
+            ),
             "scope_identity_sha256": self.scope["identity_sha256"],
             "observed_physics_substeps": self._observations,
             "settled_forbidden_contact": bool(self._settled_records),
@@ -1640,6 +2146,19 @@ class _RegisteredContactMonitor:
                 record["link56_nonselected_external_contact"] for record in records
             ),
         }
+        if self._typed_callback_cadence:
+            result["callback_cadence"] = {
+                "controller_updates_per_action": (
+                    self._controller_updates_per_action
+                ),
+                "physics_substeps_per_controller_update": (
+                    self._physics_substeps_per_controller_update
+                ),
+                "physics_substeps_per_action": (
+                    self._physics_substeps_per_action
+                ),
+            }
+        return result
 
 
 def _registered_contact_hook(scope: Mapping[str, Any]) -> Any:
@@ -1731,6 +2250,8 @@ def main() -> int:
     provenance: Dict[str, Any] = {}
     apparatus: Dict[str, Any] = {}
     partial: Dict[str, Any] = {}
+    result_schema: Optional[str] = None
+    is_target_link_v4 = False
     try:
         import numpy as np
         import main.evaluate_safelibero_aegis as evaluator
@@ -1744,13 +2265,7 @@ def main() -> int:
             partition_robot_geoms_by_qvel_influence,
             resolve_collision_geom_sets,
         )
-        from main.poisson_fullbody.osc_arm_link_canary import (
-            PRIMARY_CASE_ID,
-            RESULT_SCHEMA,
-            SOURCE_ARM,
-            classify_osc_arm_link_canary,
-            validate_osc_arm_link_canary_protocol,
-        )
+        from main.poisson_fullbody import osc_arm_link_canary as canary_contract
         from main.poisson_fullbody.osc_numeric_prerequisite import (
             validate_numeric_prerequisite_artifact,
         )
@@ -1775,10 +2290,6 @@ def main() -> int:
             _prepare_environment,
         )
 
-        if arguments.case_id != PRIMARY_CASE_ID:
-            raise OscCanaryRunnerError(
-                "runner is preregistered only for %s" % PRIMARY_CASE_ID
-            )
         output = fast._new_output(arguments.output_root.resolve(), arguments.run_id)
         result_path = output / "result.json"
         protocol_path = (
@@ -1792,7 +2303,50 @@ def main() -> int:
             else root / arguments.manifest
         ).resolve()
         protocol = fast._json(protocol_path, "post-OSC canary protocol")
-        derived = validate_osc_arm_link_canary_protocol(protocol)
+        is_target_link_v4 = bool(
+            protocol.get("schema_version")
+            == canary_contract.TARGET_LINK_PROTOCOL_SCHEMA
+        )
+        if is_target_link_v4:
+            result_schema = canary_contract.TARGET_LINK_RESULT_SCHEMA
+            derived = canary_contract.validate_osc_target_link_canary_protocol(
+                protocol
+            )
+            classifier = canary_contract.classify_osc_target_link_canary
+            source_arm = getattr(
+                canary_contract,
+                "TARGET_LINK_SOURCE_ARM",
+                canary_contract.SOURCE_ARM,
+            )
+        else:
+            derived = canary_contract.validate_osc_arm_link_canary_protocol(
+                protocol
+            )
+            result_schema = canary_contract.RESULT_SCHEMA
+            classifier = canary_contract.classify_osc_arm_link_canary
+            source_arm = canary_contract.SOURCE_ARM
+        expected_case_id = (
+            str(derived["case_id"])
+            if is_target_link_v4
+            else canary_contract.PRIMARY_CASE_ID
+        )
+        if arguments.case_id != expected_case_id:
+            raise OscCanaryRunnerError(
+                "runner case %s differs from validated protocol case %s"
+                % (arguments.case_id, expected_case_id)
+            )
+        physics_substeps_per_action = int(
+            derived.get(
+                "expected_substeps_per_action",
+                protocol["execution"]["physics_substeps_per_action"],
+            )
+        )
+        if physics_substeps_per_action != int(
+            protocol["execution"]["physics_substeps_per_action"]
+        ):
+            raise OscCanaryRunnerError(
+                "validated protocol and execution physics cadences differ"
+            )
         selection = protocol["selection"]
         study_protocol_path = (root / selection["study_protocol_relative_path"]).resolve()
         manifest_receipt_path = (
@@ -1844,7 +2398,7 @@ def main() -> int:
         replay = load_historical_action_replay(
             historical_path,
             expected_case_id=arguments.case_id,
-            expected_arm=SOURCE_ARM,
+            expected_arm=source_arm,
         )
         historical = fast._json(historical_path, "historical AEGIS result")
         source_contract = protocol["historical_control"]
@@ -1858,9 +2412,48 @@ def main() -> int:
             and replay.historical_car_collision is True
         ):
             raise OscCanaryRunnerError("historical control binding differs")
-        direct_historical_contact = _historical_link_contact_verified(case, historical)
+        historical_target_link_contact_evidence: Optional[Dict[str, Any]] = None
+        if is_target_link_v4:
+            if source_contract.get("archived_direct_target_link_contact") is not True:
+                raise OscCanaryRunnerError(
+                    "v4 historical target-link contact flag is disabled"
+                )
+            detailed_contact_path = _remote_artifact_path(
+                arguments.historical_result_root.resolve(),
+                verified_remote_artifacts,
+                "active_obstacle_contacts.json.gz",
+            )
+            historical_target_link_contact_evidence = (
+                _historical_target_link_contact_evidence(
+                    case=case,
+                    historical=historical,
+                    detailed_contact_path=detailed_contact_path,
+                    target_link_body_names=derived["target_link_body_names"],
+                    literal_link56_body_names=protocol["case"][
+                        "literal_link56_body_names"
+                    ],
+                    expected_contact_action=int(
+                        derived["historical_contact_action"]
+                    ),
+                    expected_obstacle_root_body_name=protocol["case"][
+                        "selected_obstacle_root_body_name"
+                    ],
+                )
+            )
+            direct_historical_contact = bool(
+                historical_target_link_contact_evidence.get("verified") is True
+            )
+            apparatus["historical_target_link_contact_evidence"] = (
+                historical_target_link_contact_evidence
+            )
+        else:
+            direct_historical_contact = _historical_v3_link_contact_verified(
+                case, historical
+            )
         if not direct_historical_contact:
-            raise OscCanaryRunnerError("historical direct link-5 contact is not verified")
+            raise OscCanaryRunnerError(
+                "historical direct configured link contact is not verified"
+            )
 
         runtime_path = root / protocol["runtime"]["relative_path"]
         if fast._file_sha256(runtime_path) != protocol["runtime"]["raw_file_sha256"]:
@@ -1871,6 +2464,59 @@ def main() -> int:
         )
         if runtime_hashes.parameter_block_sha256 != protocol["runtime"]["parameter_block_sha256"]:
             raise OscCanaryRunnerError("runtime parameter block differs")
+        active_cadence = runtime_protocol.get("cadence", {}).get("active", {})
+        controller_updates_per_action = int(
+            active_cadence.get("filter_updates_per_high_level_action", -1)
+        )
+        physics_substeps_per_controller_update = int(
+            active_cadence.get("physics_substeps_per_filter_update", -1)
+        )
+        if (
+            controller_updates_per_action <= 0
+            or physics_substeps_per_controller_update <= 0
+            or controller_updates_per_action
+            * physics_substeps_per_controller_update
+            != physics_substeps_per_action
+        ):
+            raise OscCanaryRunnerError(
+                "frozen runtime does not provide a phase-complete controller/"
+                "physics callback cadence"
+            )
+
+        def callback_endpoint(
+            source_action_index: int, flat_physics_substep_index: int
+        ) -> List[int]:
+            flat_index = int(flat_physics_substep_index)
+            if flat_index < 0 or flat_index >= physics_substeps_per_action:
+                raise OscCanaryRunnerError(
+                    "flat physics callback index is outside one high-level action"
+                )
+            return [
+                int(source_action_index),
+                flat_index // physics_substeps_per_controller_update,
+                flat_index % physics_substeps_per_controller_update,
+            ]
+
+        apparatus["callback_cadence"] = {
+            "schema_version": "vlsa_poisson_callback_cadence.v1",
+            "high_level_actions_hz": int(
+                protocol["execution"]["high_level_frequency_hz"]
+            ),
+            "controller_updates_per_high_level_action": (
+                controller_updates_per_action
+            ),
+            "physics_substeps_per_controller_update": (
+                physics_substeps_per_controller_update
+            ),
+            "physics_substeps_per_high_level_action": (
+                physics_substeps_per_action
+            ),
+            "typed_endpoint_order": [
+                "source_action_index",
+                "controller_update_index",
+                "physics_substep_within_controller_update",
+            ],
+        }
         checkpoint = _checkpoint_identity(protocol["online_policy"])
         source = fast._git(root)
         if source.get("status_short"):
@@ -1948,22 +2594,160 @@ def main() -> int:
             raise OscCanaryRunnerError("selected obstacle differs after settling")
         authority = evaluator._contact_model_authority(env, obstacle_name)
         robot_root = fast._body_id(env.sim.model, env.robots[0].robot_model.root_body)
-        link_ids = tuple(
+        literal_link56_ids = tuple(
             fast._body_id(env.sim.model, name)
             for name in protocol["case"]["literal_link56_body_names"]
         )
+        target_link_body_names = tuple(
+            str(value)
+            for value in (
+                derived["target_link_body_names"]
+                if is_target_link_v4
+                else protocol["case"]["literal_link56_body_names"]
+            )
+        )
+        protected_link_body_names = tuple(
+            str(value)
+            for value in (
+                derived.get("protected_link_body_names", ())
+                if is_target_link_v4
+                else protocol["case"]["literal_link56_body_names"]
+            )
+        )
+        target_link_ids = tuple(
+            fast._body_id(env.sim.model, name)
+            for name in target_link_body_names
+        )
+        protected_link_ids = tuple(
+            fast._body_id(env.sim.model, name)
+            for name in protected_link_body_names
+        )
+        if (
+            not target_link_ids
+            or len(target_link_ids) != len(set(target_link_ids))
+            or not protected_link_ids
+            or len(protected_link_ids) != len(set(protected_link_ids))
+            or not set(target_link_ids) <= set(protected_link_ids)
+            or not set(protected_link_ids) <= set(literal_link56_ids)
+        ):
+            raise OscCanaryRunnerError(
+                "configured target and protected bodies do not form nonempty "
+                "target <= protected <= broad-monitor body sets"
+            )
         raw_model, raw_data = fast._raw_model_data(env.sim)
         resolved = resolve_collision_geom_sets(
             raw_model,
             robot_root_body_ids=(robot_root,),
             obstacle_root_body_ids=(int(authority["active_obstacle_root_body_id"]),),
-            link56_body_ids=link_ids,
+            link56_body_ids=literal_link56_ids,
         )
+        target_resolved = resolve_collision_geom_sets(
+            raw_model,
+            robot_root_body_ids=(robot_root,),
+            obstacle_root_body_ids=(int(authority["active_obstacle_root_body_id"]),),
+            link56_body_ids=target_link_ids,
+        )
+        protected_resolved = resolve_collision_geom_sets(
+            raw_model,
+            robot_root_body_ids=(robot_root,),
+            obstacle_root_body_ids=(int(authority["active_obstacle_root_body_id"]),),
+            link56_body_ids=protected_link_ids,
+        )
+        resolution_shared_fields = (
+            "robot_root_body_ids",
+            "robot_body_ids",
+            "obstacle_root_body_ids",
+            "obstacle_body_ids",
+            "robot_geom_ids",
+            "obstacle_geom_ids",
+            "collision_enabled_pairs",
+            "robot_body_names",
+            "obstacle_body_names",
+            "robot_geom_names",
+            "obstacle_geom_names",
+        )
+        if any(
+            getattr(candidate, field) != getattr(resolved, field)
+            for candidate in (target_resolved, protected_resolved)
+            for field in resolution_shared_fields
+        ):
+            raise OscCanaryRunnerError(
+                "target/protected resolution changed broad robot/obstacle authority"
+            )
+        target_link_geom_ids = tuple(
+            int(value) for value in target_resolved.link56_geom_ids
+        )
+        target_link_geom_names = tuple(
+            str(value) for value in target_resolved.link56_geom_names
+        )
+        protected_link_geom_ids = tuple(
+            int(value) for value in protected_resolved.link56_geom_ids
+        )
+        protected_link_geom_names = tuple(
+            str(value) for value in protected_resolved.link56_geom_names
+        )
+        if (
+            target_resolved.link56_body_ids != target_link_ids
+            or not target_link_geom_ids
+            or protected_resolved.link56_body_ids != protected_link_ids
+            or not protected_link_geom_ids
+            or not set(target_link_geom_ids) <= set(protected_link_geom_ids)
+            or not set(protected_link_geom_ids) <= set(resolved.link56_geom_ids)
+            or any(
+                int(raw_model.geom_bodyid[geom_id]) not in set(target_link_ids)
+                for geom_id in target_link_geom_ids
+            )
+            or any(
+                int(raw_model.geom_bodyid[geom_id]) not in set(protected_link_ids)
+                for geom_id in protected_link_geom_ids
+            )
+        ):
+            raise OscCanaryRunnerError(
+                "target/protected resolution is not exact direct-attached "
+                "collision geometry of its configured bodies"
+            )
+        target_resolved_geometry = {
+            "schema_version": "vlsa_poisson_target_link_resolved_geometry.v1",
+            "target_link_body_ids": list(target_link_ids),
+            "target_link_body_names": list(target_link_body_names),
+            "target_link_geom_ids": list(target_link_geom_ids),
+            "target_link_geom_names": list(target_link_geom_names),
+            "geometry_selection": (
+                "collision_enabled_geoms_directly_attached_to_exact_configured_"
+                "target_link_bodies_no_descendants"
+            ),
+            "broad_robot_obstacle_authority_unchanged": True,
+            "target_link_geoms_subset_of_broad_literal_link56_geoms": True,
+        }
+        protected_resolved_geometry = {
+            "schema_version": (
+                "vlsa_poisson_protected_link_resolved_geometry.v1"
+            ),
+            "protected_link_body_ids": list(protected_link_ids),
+            "protected_link_body_names": list(protected_link_body_names),
+            "protected_link_geom_ids": list(protected_link_geom_ids),
+            "protected_link_geom_names": list(protected_link_geom_names),
+            "geometry_selection": (
+                "collision_enabled_geoms_directly_attached_to_exact_configured_"
+                "protected_link_bodies_no_descendants"
+            ),
+            "broad_robot_obstacle_authority_unchanged": True,
+            "target_link_geoms_subset_of_protected_link_geoms": True,
+            "protected_link_geoms_subset_of_broad_literal_link56_geoms": True,
+        }
         apparatus.update(
             {
                 "controller": controller,
                 "arm_actuator_torque_units": torque_units,
                 "resolved_geometry": resolved.to_dict(),
+                "target_link_resolved_geometry": target_resolved_geometry,
+                "target_link_resolved_geometry_sha256": _canonical_sha256(
+                    target_resolved_geometry
+                ),
+                "protected_link_resolved_geometry": protected_resolved_geometry,
+                "protected_link_resolved_geometry_sha256": _canonical_sha256(
+                    protected_resolved_geometry
+                ),
             }
         )
         arm_actuators = tuple(controller["arm_actuator_indexes"])
@@ -1990,22 +2774,74 @@ def main() -> int:
         )
         if not nonarm_ctrl_indices:
             raise OscCanaryRunnerError("compiled model has no non-arm controls")
-        robot_qvel_authority = _robot_tree_qvel_binding(
+        full_robot_qvel_authority = _robot_tree_qvel_binding(
             raw_model,
             resolved,
             arm_qvel_indices=arm_qvel,
             arm_actuator_ids=arm_actuators,
         )
-        robot_qvel = tuple(robot_qvel_authority["robot_qvel_indices"])
-        robot_geom_influence_partition = (
+        full_robot_qvel = tuple(
+            full_robot_qvel_authority["robot_qvel_indices"]
+        )
+        full_robot_geom_influence_partition = (
             partition_robot_geoms_by_qvel_influence(
                 raw_model,
                 resolved,
-                robot_qvel,
+                full_robot_qvel,
             )
         )
+        if is_target_link_v4:
+            robot_qvel_authority = _protected_link_arm_qvel_binding(
+                arm_qvel_indices=arm_qvel,
+                arm_actuator_ids=arm_actuators,
+                full_robot_qvel_authority=full_robot_qvel_authority,
+                full_robot_influence_partition=(
+                    full_robot_geom_influence_partition
+                ),
+                resolved_protected_link_geom_ids=protected_link_geom_ids,
+            )
+            robot_qvel = tuple(robot_qvel_authority["robot_qvel_indices"])
+            robot_geom_influence_partition = (
+                partition_robot_geoms_by_qvel_influence(
+                    raw_model,
+                    resolved,
+                    robot_qvel,
+                )
+            )
+            active_protected_link_influences = {
+                int(row["geom_id"]): tuple(
+                    int(value)
+                    for value in row["influencing_robot_qvel_indices"]
+                )
+                for row in robot_geom_influence_partition["geom_records"]
+                if int(row["geom_id"]) in set(protected_link_geom_ids)
+            }
+            full_protected_link_influences = {
+                int(row["geom_id"]): tuple(
+                    int(value)
+                    for value in row["influencing_robot_qvel_indices"]
+                )
+                for row in full_robot_geom_influence_partition["geom_records"]
+                if int(row["geom_id"]) in set(protected_link_geom_ids)
+            }
+            if active_protected_link_influences != full_protected_link_influences:
+                raise OscCanaryRunnerError(
+                    "v4 arm-qvel Jacobian columns omit a configured protected-link "
+                    "velocity influence"
+                )
+        else:
+            robot_qvel_authority = full_robot_qvel_authority
+            robot_qvel = full_robot_qvel
+            robot_geom_influence_partition = (
+                full_robot_geom_influence_partition
+            )
         robot_geom_influence_partition_sha256 = _canonical_sha256(
             robot_geom_influence_partition
+        )
+        apparatus["full_robot_qvel_authority"] = full_robot_qvel_authority
+        apparatus["active_shield_qvel_authority"] = robot_qvel_authority
+        apparatus["full_robot_geom_influence_partition"] = (
+            full_robot_geom_influence_partition
         )
         apparatus["robot_geom_influence_partition"] = (
             robot_geom_influence_partition
@@ -2014,12 +2850,19 @@ def main() -> int:
             robot_geom_influence_partition_sha256
         )
         settled_official = fast._official_state(env.sim)
+        field_bundle_kwargs: Dict[str, Any] = {
+            "resolved": protected_resolved if is_target_link_v4 else resolved,
+            "protocol": runtime_protocol,
+            "protocol_hashes": runtime_hashes,
+        }
+        if is_target_link_v4:
+            field_bundle_kwargs["protected_body_names"] = (
+                protected_link_body_names
+            )
         bundle = build_static_field_bundle(
             raw_model,
             raw_data,
-            resolved=resolved,
-            protocol=runtime_protocol,
-            protocol_hashes=runtime_hashes,
+            **field_bundle_kwargs,
         )
         apparatus["field_bundle_hashes"] = asdict(bundle.hashes)
         apparatus["field_diagnostics"] = asdict(bundle.diagnostics)
@@ -2027,11 +2870,17 @@ def main() -> int:
             raise OscCanaryRunnerError("field construction changed simulator state")
         forwarded = clone_forwarded_state(raw_model, raw_data)
         epsilon_m = float(runtime_protocol["coverage"]["epsilon_m"])
-        movable_geom_ids = tuple(
+        structurally_movable_geom_ids = tuple(
             int(value)
             for value in robot_geom_influence_partition[
                 "shield_manipulator_geom_ids"
             ]
+        )
+        link56_geom_ids = tuple(int(value) for value in resolved.link56_geom_ids)
+        movable_geom_ids = (
+            protected_link_geom_ids
+            if is_target_link_v4
+            else structurally_movable_geom_ids
         )
         fixed_geom_ids = tuple(
             int(value)
@@ -2077,6 +2926,29 @@ def main() -> int:
         all_robot_sample_evidence = surface_evidence(all_robot_samples)
         movable_sample_evidence = surface_evidence(shield_samples)
         fixed_sample_evidence = surface_evidence(fixed_samples)
+        shield_sample_payload = [
+            sample.to_dict() for sample in shield_samples.samples
+        ]
+        field_protected_sample_payload = [
+            sample.to_dict() for sample in bundle.protected_samples.samples
+        ]
+        field_protected_geom_ids = [
+            int(component.geom_id)
+            for component in bundle.protected_samples.components
+        ]
+        protected_link_shield_ledger_exact = bool(
+            is_target_link_v4
+            and movable_geom_ids == protected_link_geom_ids
+            and field_protected_geom_ids == list(protected_link_geom_ids)
+            and shield_sample_payload == field_protected_sample_payload
+            and _canonical_sha256(shield_sample_payload)
+            == shield_samples.sample_ledger_sha256
+        )
+        if is_target_link_v4 and not protected_link_shield_ledger_exact:
+            raise OscCanaryRunnerError(
+                "v4 shield rows differ from the exact ordered field-bundle "
+                "configured protected-link sample ledger"
+            )
         geom_name_by_id = dict(
             zip(resolved.robot_geom_ids, resolved.robot_geom_names)
         )
@@ -2125,6 +2997,14 @@ def main() -> int:
                 "movable_manipulator_sampling_sha256": _canonical_sha256(
                     movable_sample_evidence
                 ),
+                "protected_link_shield_sampling": (
+                    movable_sample_evidence if is_target_link_v4 else None
+                ),
+                "protected_link_shield_sampling_sha256": (
+                    _canonical_sha256(movable_sample_evidence)
+                    if is_target_link_v4
+                    else None
+                ),
                 "fixed_infrastructure_sampling": fixed_sample_evidence,
                 "fixed_infrastructure_sampling_sha256": _canonical_sha256(
                     fixed_sample_evidence
@@ -2160,7 +3040,19 @@ def main() -> int:
             if fixed_jacobians_exactly_zero
             else fixed_jacobians
         )
-        registered_contact_monitor = _RegisteredContactMonitor(env.sim, resolved)
+        registered_contact_monitor = _RegisteredContactMonitor(
+            env.sim,
+            resolved,
+            physics_substeps_per_action=physics_substeps_per_action,
+            controller_updates_per_action=(
+                controller_updates_per_action if is_target_link_v4 else None
+            ),
+            physics_substeps_per_controller_update=(
+                physics_substeps_per_controller_update
+                if is_target_link_v4
+                else None
+            ),
+        )
         settled_registered_contact = registered_contact_monitor.result()
         fixed_geom_id_set = set(fixed_geom_ids)
         fixed_settled_contact_records = [
@@ -2391,13 +3283,45 @@ def main() -> int:
         ]
         shield_sampling_binding = {
             "schema_version": (
-                "vlsa_poisson_movable_manipulator_shield_sampling_binding.v1"
+                "vlsa_poisson_protected_link_shield_sampling_binding.v1"
+                if is_target_link_v4
+                else (
+                    "vlsa_poisson_movable_manipulator_shield_sampling_binding.v1"
+                )
             ),
             "scope": (
-                "all_structurally_movable_manipulator_collision_surfaces_"
-                "vs_selected_obstacle"
+                str(protocol["shield"]["binding_scope"])
+                if is_target_link_v4
+                else (
+                    "all_structurally_movable_manipulator_collision_surfaces_"
+                    "vs_selected_obstacle"
+                )
             ),
-            "sample_source": "apparatus.movable_manipulator_sampling.samples",
+            "sample_source": (
+                "apparatus.protected_sampling.samples"
+                if is_target_link_v4
+                else "apparatus.movable_manipulator_sampling.samples"
+            ),
+            "protected_samples_contract": (
+                str(protocol["shield"]["protected_samples"])
+                if is_target_link_v4
+                else None
+            ),
+            "field_bundle_samples_contract": (
+                str(protocol["shield"]["field_bundle_samples"])
+                if is_target_link_v4
+                else None
+            ),
+            "shield_body_authority": (
+                str(protocol["shield"]["shield_body_authority"])
+                if is_target_link_v4
+                else None
+            ),
+            "shield_geometry_selection": (
+                str(protocol["shield"]["shield_geometry_selection"])
+                if is_target_link_v4
+                else None
+            ),
             "sample_count": len(shield_samples.samples),
             "sample_ledger_sha256": shield_samples.sample_ledger_sha256,
             "resolved_robot_geom_ids": resolved_robot_geom_ids,
@@ -2407,6 +3331,45 @@ def main() -> int:
             "shield_manipulator_geom_ids": list(movable_geom_ids),
             "shield_manipulator_geom_ids_sha256": _canonical_sha256(
                 list(movable_geom_ids)
+            ),
+            "protected_link_body_ids": (
+                list(protected_link_ids) if is_target_link_v4 else None
+            ),
+            "protected_link_body_names": (
+                list(protected_link_body_names) if is_target_link_v4 else None
+            ),
+            "shield_protected_link_geom_ids": (
+                list(protected_link_geom_ids) if is_target_link_v4 else None
+            ),
+            "shield_protected_link_geom_ids_sha256": (
+                _canonical_sha256(list(protected_link_geom_ids))
+                if is_target_link_v4
+                else None
+            ),
+            "evaluation_target_link_body_names": (
+                list(target_link_body_names) if is_target_link_v4 else None
+            ),
+            "evaluation_target_link_geom_ids": (
+                list(target_link_geom_ids) if is_target_link_v4 else None
+            ),
+            "resolved_link56_geom_ids": list(link56_geom_ids),
+            "resolved_link56_geom_ids_sha256": _canonical_sha256(
+                list(link56_geom_ids)
+            ),
+            "field_bundle_protected_sample_count": len(
+                bundle.protected_samples.samples
+            ),
+            "field_bundle_protected_body_ids": list(
+                bundle.protected_body_ids
+            ),
+            "field_bundle_protected_body_names": list(
+                bundle.protected_body_names
+            ),
+            "field_bundle_protected_samples_sha256": (
+                bundle.hashes.protected_samples_sha256
+            ),
+            "exact_ordered_field_bundle_protected_sample_ledger": bool(
+                protected_link_shield_ledger_exact
             ),
             "fixed_robot_infrastructure_geom_ids": list(fixed_geom_ids),
             "fixed_robot_infrastructure_geom_ids_sha256": _canonical_sha256(
@@ -2419,9 +3382,21 @@ def main() -> int:
                 registered_contact_monitor.scope["identity_sha256"]
             ),
             "robot_qvel_selection_rule": (
-                "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
+                str(protocol["shield"]["point_velocity_scope"])
+                if is_target_link_v4
+                else (
+                    "ascending_dof_index_whose_dof_joint_body_is_in_"
+                    "resolved_robot_body_ids"
+                )
             ),
-            **robot_qvel_authority,
+            **(
+                {}
+                if is_target_link_v4
+                else robot_qvel_authority
+            ),
+            "protected_link_qvel_authority": (
+                dict(robot_qvel_authority) if is_target_link_v4 else None
+            ),
             "nonarm_ctrl_policy": (
                 "unchanged_byte_exact_in_all_cloned_and_live_transitions"
             ),
@@ -2435,7 +3410,11 @@ def main() -> int:
             ),
             "nonarm_ctrl_count": len(nonarm_ctrl_indices),
             "live_nonarm_ctrl_array_hash_format": _FLOAT64_ARRAY_HASH_FORMAT,
-            "field_seed_sample_scope": "link56_only_not_shield_scope",
+            "field_seed_sample_scope": (
+                str(protocol["shield"]["field_bundle_samples"])
+                if is_target_link_v4
+                else "link56_only_not_shield_scope"
+            ),
             "settled_field_query_certificate": (
                 settled_field_query_certificate
             ),
@@ -2519,8 +3498,10 @@ def main() -> int:
             require_settled_static_motion=False,
             terminate_on_static_drift=False,
             near_contact_tolerance_m=float(runtime_protocol["safety"]["contact_margin_m"]),
-            inner_updates_per_high_level_action=1,
-            physics_substeps_per_inner_update=25,
+            inner_updates_per_high_level_action=controller_updates_per_action,
+            physics_substeps_per_inner_update=(
+                physics_substeps_per_controller_update
+            ),
         )
         if monitor.settled_state.any_robot_obstacle_contact:
             raise OscCanaryRunnerError("treatment begins in robot-selected-obstacle contact")
@@ -2717,7 +3698,10 @@ def main() -> int:
                 nonlocal method_stop_record
                 nonlocal nominal_pass_through_exact, shield_failure_count
                 nonlocal shield_decision_count
-                boundary = source_index * 25 + int(substep_index)
+                boundary = (
+                    source_index * physics_substeps_per_action
+                    + int(substep_index)
+                )
 
                 def method_stop(reason: str, **details: Any) -> None:
                     nonlocal method_stop_record
@@ -2725,6 +3709,9 @@ def main() -> int:
                         "schema_version": "vlsa_poisson_safety_method_stop.v2",
                         "source_action_index": source_index,
                         "physics_substep_index": int(substep_index),
+                        "callback_endpoint_action_inner_substep": (
+                            callback_endpoint(source_index, int(substep_index))
+                        ),
                         "physics_boundary_before_unexecuted_step": boundary,
                         "unexecuted_post_integration_boundary": boundary + 1,
                         "sample_count": len(shield_samples.samples),
@@ -2807,6 +3794,13 @@ def main() -> int:
                     nominal_residuals,
                     shield_samples.samples,
                     np,
+                    sample_scope=(
+                        str(protocol["shield"]["binding_scope"])
+                        if is_target_link_v4
+                        else (
+                            "all_structurally_movable_manipulator_collision_surfaces"
+                        )
+                    ),
                 )
                 nominal_contact = nominal_transition.selected_contact_data
                 if not isinstance(nominal_contact, Mapping):
@@ -2946,10 +3940,11 @@ def main() -> int:
                 command_byte_identical_to_nominal = bool(
                     command.tobytes(order="C") == nominal_array.tobytes(order="C")
                 )
-                if (
+                is_first_byte_divergence = bool(
                     not command_byte_identical_to_nominal
                     and first_torque_divergence_boundary is None
-                ):
+                )
+                if is_first_byte_divergence:
                     first_torque_divergence_boundary = boundary
                     first_torque_divergence_action = source_index
                     first_torque_divergence_correction_l2_nm = correction
@@ -2957,15 +3952,12 @@ def main() -> int:
                         action_index=source_index,
                         physical_boundary=boundary,
                     )
-                retain_full_constraint_qp_certificate = bool(
-                    boundary == first_torque_divergence_boundary
-                    and not command_byte_identical_to_nominal
-                )
-                if (
+                is_first_material_correction = bool(
                     first_material_boundary is None
                     and correction
                     >= float(protocol["acceptance"]["material_torque_correction_l2_nm"])
-                ):
+                )
+                if is_first_material_correction:
                     official_before_goal = fast._official_state(env.sim)
                     goal_at_correction = evaluator._goal_progress_snapshot(
                         env,
@@ -2984,6 +3976,18 @@ def main() -> int:
                     )
                     first_material_boundary = boundary
                     first_material_action = source_index
+                full_constraint_qp_certificate_roles: List[str] = []
+                if is_first_byte_divergence:
+                    full_constraint_qp_certificate_roles.append(
+                        "first_byte_divergence"
+                    )
+                if is_target_link_v4 and is_first_material_correction:
+                    full_constraint_qp_certificate_roles.append(
+                        "first_material_correction"
+                    )
+                retain_full_constraint_qp_certificate = bool(
+                    full_constraint_qp_certificate_roles
+                )
                 predicted_shield_qvel = np.asarray(
                     candidate_transition.next_qvel[
                         np.asarray(robot_qvel, dtype=np.int64)
@@ -3053,6 +4057,9 @@ def main() -> int:
                     "retain_full_constraint_qp_certificate": (
                         retain_full_constraint_qp_certificate
                     ),
+                    "full_constraint_qp_certificate_roles": (
+                        full_constraint_qp_certificate_roles
+                    ),
                 }
                 return command
 
@@ -3085,9 +4092,18 @@ def main() -> int:
                 monitor.observe_post_integration(
                     sim,
                     high_level_index=source_index,
-                    inner_control_index=0,
-                    physics_substep_index=int(substep_index),
-                    measure_full_surface_clearance=(int(substep_index) == 24),
+                    inner_control_index=(
+                        int(substep_index)
+                        // physics_substeps_per_controller_update
+                    ),
+                    physics_substep_index=(
+                        int(substep_index)
+                        % physics_substeps_per_controller_update
+                    ),
+                    measure_full_surface_clearance=(
+                        int(substep_index)
+                        == physics_substeps_per_action - 1
+                    ),
                 )
                 measurement = monitor.result()
                 registered_contact_snapshot = (
@@ -3177,13 +4193,24 @@ def main() -> int:
                         and not row["command_byte_identical_to_nominal"]
                     ):
                         raise OscCanaryRunnerError(
-                            "first divergence lacks a solved full QP certificate"
+                            "registered divergence/material row lacks a solved "
+                            "full QP certificate"
                         )
                     full_certificate = {
                         "schema_version": (
-                            "vlsa_poisson_first_divergence_full_qp_certificate.v2"
+                            "vlsa_poisson_divergence_or_material_full_qp_"
+                            "certificate.v4"
+                            if is_target_link_v4
+                            else (
+                                "vlsa_poisson_first_divergence_full_qp_"
+                                "certificate.v2"
+                            )
                         ),
                         "physical_boundary": int(row["physical_boundary"]),
+                        "source_action_index": int(source_index),
+                        "callback_endpoint_action_inner_substep": (
+                            callback_endpoint(source_index, int(substep_index))
+                        ),
                         "sample_count": int(row["h"].size),
                         "sample_ledger_sha256": (
                             shield_samples.sample_ledger_sha256
@@ -3208,6 +4235,10 @@ def main() -> int:
                         "sensitivity": row["sensitivity"],
                         "shield_diagnostics": row["shield_diagnostics"],
                     }
+                    if is_target_link_v4:
+                        full_certificate["certificate_roles"] = list(
+                            row["full_constraint_qp_certificate_roles"]
+                        )
                     full_certificate_sha256 = _canonical_sha256(full_certificate)
                 residual_ok = bool(
                     minimum_actual_residual
@@ -3232,6 +4263,17 @@ def main() -> int:
                         "post_integration_boundary": int(row["physical_boundary"]) + 1,
                         "source_action_index": int(source_index),
                         "physics_substep_index": int(substep_index),
+                        "controller_update_index": (
+                            int(substep_index)
+                            // physics_substeps_per_controller_update
+                        ),
+                        "physics_substep_within_controller_update": (
+                            int(substep_index)
+                            % physics_substeps_per_controller_update
+                        ),
+                        "callback_endpoint_action_inner_substep": (
+                            callback_endpoint(source_index, int(substep_index))
+                        ),
                         "shield_status": str(row["shield_status"]),
                         "nominal_torque_nm": row["nominal_torque"].tolist(),
                         "command_torque_nm": row["command_torque"].tolist(),
@@ -3345,7 +4387,7 @@ def main() -> int:
                     high_level_action,
                     intervention,
                     poststep_callback=poststep,
-                    expected_substeps=25,
+                    expected_substeps=physics_substeps_per_action,
                 )
             except TreatmentContactObserved:
                 action_had_contact = True
@@ -3377,7 +4419,8 @@ def main() -> int:
                         "multiple partial high-level actions were recorded"
                     )
                 completed_partial_substeps = (
-                    len(physics_trace) - source_index * 25
+                    len(physics_trace)
+                    - source_index * physics_substeps_per_action
                 )
                 planner_row = planner.action_trace[-1]
                 executed_action_sha256 = evaluator.array_sha256(high_level_action)
@@ -3392,10 +4435,18 @@ def main() -> int:
                         "partial action is not bound to its planner row"
                     )
                 if action_had_contact:
-                    valid_partial_count = 1 <= completed_partial_substeps <= 25
+                    valid_partial_count = (
+                        1
+                        <= completed_partial_substeps
+                        <= physics_substeps_per_action
+                    )
                     terminal_observation_kind = "post_contact_observable_refresh"
                 else:
-                    valid_partial_count = 0 <= completed_partial_substeps < 25
+                    valid_partial_count = (
+                        0
+                        <= completed_partial_substeps
+                        < physics_substeps_per_action
+                    )
                     terminal_observation_kind = (
                         "post_method_stop_observable_refresh"
                     )
@@ -3424,7 +4475,9 @@ def main() -> int:
                     "completed_physics_substeps": int(
                         completed_partial_substeps
                     ),
-                    "physics_boundary_start": int(source_index * 25),
+                    "physics_boundary_start": int(
+                        source_index * physics_substeps_per_action
+                    ),
                     "physics_boundary_end_exclusive": len(physics_trace),
                     "terminal_observation_kind": terminal_observation_kind,
                     "terminal_observation_sha256": _observation_sha256(
@@ -3453,7 +4506,7 @@ def main() -> int:
                 break
             if action_method_stopped:
                 break
-            if len(pending) != 25:
+            if len(pending) != physics_substeps_per_action:
                 raise OscCanaryRunnerError("shield did not run at every 2 ms substep")
             observation = observation_after
             state_hash = evaluator.array_sha256(env.sim.get_state().flatten())
@@ -3514,7 +4567,7 @@ def main() -> int:
                     "executed_high_level_action_sha256": evaluator.array_sha256(
                         high_level_action
                     ),
-                    "completed_physics_substeps": 25,
+                    "completed_physics_substeps": physics_substeps_per_action,
                     "state_sha256": state_hash,
                     "observation_sha256": observation_hash,
                     "task_success": goal_all,
@@ -3581,8 +4634,14 @@ def main() -> int:
         static_trace_sha256 = _canonical_sha256(static_rows)
         motion = _post_correction_motion(physics_trace, first_material_boundary)
         completed_actions = len(action_trace)
-        partial_action_substeps = len(physics_trace) - completed_actions * 25
-        expected_executed_substeps = completed_actions * 25 + partial_action_substeps
+        partial_action_substeps = (
+            len(physics_trace)
+            - completed_actions * physics_substeps_per_action
+        )
+        expected_executed_substeps = (
+            completed_actions * physics_substeps_per_action
+            + partial_action_substeps
+        )
         solved_qp_count = sum(
             row["shield_status"] == "solved" for row in physics_trace
         )
@@ -3590,6 +4649,137 @@ def main() -> int:
             isinstance(row.get("full_constraint_qp_certificate"), Mapping)
             for row in physics_trace
         )
+        full_qp_certificate_role_counts = {
+            role: sum(
+                role
+                in row.get("full_constraint_qp_certificate", {}).get(
+                    "certificate_roles", ()
+                )
+                for row in physics_trace
+                if isinstance(row.get("full_constraint_qp_certificate"), Mapping)
+            )
+            for role in (
+                "first_byte_divergence",
+                "first_material_correction",
+            )
+        }
+        if is_target_link_v4:
+            phase_endpoint_ledger_exact = all(
+                int(row["physical_boundary"])
+                == int(row["source_action_index"])
+                * physics_substeps_per_action
+                + int(row["physics_substep_index"])
+                and int(row["controller_update_index"])
+                == int(row["physics_substep_index"])
+                // physics_substeps_per_controller_update
+                and int(row["physics_substep_within_controller_update"])
+                == int(row["physics_substep_index"])
+                % physics_substeps_per_controller_update
+                and row["callback_endpoint_action_inner_substep"]
+                == callback_endpoint(
+                    int(row["source_action_index"]),
+                    int(row["physics_substep_index"]),
+                )
+                and all(
+                    contact.get(
+                        "callback_endpoint_action_inner_substep"
+                    )
+                    == row["callback_endpoint_action_inner_substep"]
+                    and contact.get("controller_update_index")
+                    == row["controller_update_index"]
+                    and contact.get(
+                        "physics_substep_within_controller_update"
+                    )
+                    == row["physics_substep_within_controller_update"]
+                    for contact in row["registered_forbidden_contacts"]
+                )
+                for row in physics_trace
+            )
+            if not phase_endpoint_ledger_exact:
+                raise OscCanaryRunnerError(
+                    "v4 physics/contact trace differs from the frozen typed "
+                    "callback cadence"
+                )
+            certificate_rows = [
+                row
+                for row in physics_trace
+                if isinstance(row.get("full_constraint_qp_certificate"), Mapping)
+            ]
+            expected_certificate_boundaries = {
+                int(value)
+                for value in (
+                    first_torque_divergence_boundary,
+                    first_material_boundary,
+                )
+                if value is not None
+            }
+            if not (
+                {
+                    int(row["physical_boundary"])
+                    for row in certificate_rows
+                }
+                == expected_certificate_boundaries
+                and full_qp_certificate_count
+                == len(expected_certificate_boundaries)
+                and full_qp_certificate_role_counts[
+                    "first_byte_divergence"
+                ]
+                == int(first_torque_divergence_boundary is not None)
+                and full_qp_certificate_role_counts[
+                    "first_material_correction"
+                ]
+                == int(first_material_boundary is not None)
+                and all(
+                    row["full_constraint_qp_certificate"]["schema_version"]
+                    == (
+                        "vlsa_poisson_divergence_or_material_full_qp_"
+                        "certificate.v4"
+                    )
+                    and row["full_constraint_qp_certificate"][
+                        "physical_boundary"
+                    ]
+                    == int(row["physical_boundary"])
+                    and row["full_constraint_qp_certificate"][
+                        "source_action_index"
+                    ]
+                    == int(row["source_action_index"])
+                    and row["full_constraint_qp_certificate"][
+                        "callback_endpoint_action_inner_substep"
+                    ]
+                    == row["callback_endpoint_action_inner_substep"]
+                    and row["callback_endpoint_action_inner_substep"]
+                    == callback_endpoint(
+                        int(row["source_action_index"]),
+                        int(row["physics_substep_index"]),
+                    )
+                    and set(
+                        row["full_constraint_qp_certificate"][
+                            "certificate_roles"
+                        ]
+                    )
+                    <= {
+                        "first_byte_divergence",
+                        "first_material_correction",
+                    }
+                    and len(
+                        row["full_constraint_qp_certificate"][
+                            "certificate_roles"
+                        ]
+                    )
+                    == len(
+                        set(
+                            row["full_constraint_qp_certificate"][
+                                "certificate_roles"
+                            ]
+                        )
+                    )
+                    for row in certificate_rows
+                )
+            ):
+                raise OscCanaryRunnerError(
+                    "v4 full QP certificates do not exactly cover the deduplicated "
+                    "first-byte-divergence and first-material rows"
+                )
         video_record = video.close()
         video = None
         static_admissible = fast._static_admissible(static_rows, runtime_protocol)
@@ -3602,15 +4792,20 @@ def main() -> int:
                 protocol["acceptance"]["paper_car_l1_displacement_threshold_m"]
             )
         )
-        all_shield_valid = bool(
-            method_stop_record is None
-            and shield_failure_count == 0
-            and shield_decision_count == len(physics_trace)
+        executed_shield_rows_valid = bool(
+            shield_decision_count == len(physics_trace)
             and len(physics_trace) == expected_executed_substeps
             and all(
                 row["shield_status"]
                 in ("nominal_safe_exact_clone", "nominal_safe", "solved")
                 for row in physics_trace
+            )
+        )
+        all_shield_valid = bool(
+            executed_shield_rows_valid
+            and (
+                is_target_link_v4
+                or (method_stop_record is None and shield_failure_count == 0)
             )
         )
         complete_terminal = bool(
@@ -3637,12 +4832,15 @@ def main() -> int:
             )
         )
         contact_free_before_divergence = bool(
-            first_torque_divergence_boundary is not None
-            and all(
+            all(
                 row["registered_forbidden_contact_seen"] is False
                 for row in physics_trace
                 if int(row["physical_boundary"])
-                < int(first_torque_divergence_boundary)
+                < (
+                    int(first_torque_divergence_boundary)
+                    if first_torque_divergence_boundary is not None
+                    else len(physics_trace)
+                )
             )
         )
         predivergence_torque_commands_exact = bool(
@@ -3654,20 +4852,46 @@ def main() -> int:
                 < int(first_torque_divergence_boundary)
             )
         )
-        action62_same_action_exception_parity = bool(
-            first_torque_divergence_action is not None
-            and (
-                int(first_torque_divergence_action)
-                < int(derived["historical_contact_action"])
+        historical_prior_endpoint_action = int(
+            derived.get(
+                "historical_prior_endpoint_action",
+                int(derived["historical_contact_action"]) - 1,
+            )
+        )
+        historical_prior_endpoint_parity_exact = bool(
+            any(
+                int(row["source_action_index"])
+                == historical_prior_endpoint_action
+                and row["historical_match"] is True
+                for row in parity_trace
+            )
+        )
+        historical_prior_endpoint_contact_free = bool(
+            any(
+                int(row["source_action_index"])
+                == historical_prior_endpoint_action
+                for row in action_trace
+            )
+            and all(
+                row["registered_forbidden_contact_seen"] is False
+                for row in physics_trace
+                if int(row["source_action_index"])
+                <= historical_prior_endpoint_action
+            )
+        )
+        timing_action = (
+            first_material_action
+            if is_target_link_v4
+            else first_torque_divergence_action
+        )
+        historical_same_action_exception_parity = bool(
+            timing_action is None
+            or (
+                int(timing_action) < int(derived["historical_contact_action"])
                 or (
-                    int(first_torque_divergence_action)
-                    == int(derived["historical_contact_action"])
-                    and any(
-                        int(row["source_action_index"])
-                        == int(derived["historical_contact_action"]) - 1
-                        and row["historical_match"] is True
-                        for row in parity_trace
-                    )
+                    int(timing_action) == int(derived["historical_contact_action"])
+                    and historical_prior_endpoint_parity_exact
+                    and historical_prior_endpoint_contact_free
                 )
             )
         )
@@ -3678,21 +4902,6 @@ def main() -> int:
             and first_torque_divergence_correction_l2_nm
             >= float(protocol["acceptance"]["material_torque_correction_l2_nm"])
         )
-        material_before = bool(
-            first_material_action is not None
-            and first_divergence_is_material
-            and (
-                int(first_material_action) < int(derived["historical_contact_action"])
-                or (
-                    int(first_material_action)
-                    == int(derived["historical_contact_action"])
-                    and contact_free_before_material
-                    and contact_free_before_divergence
-                    and predivergence_torque_commands_exact
-                    and action62_same_action_exception_parity
-                )
-            )
-        )
         first_material_row = next(
             (
                 row
@@ -3701,6 +4910,81 @@ def main() -> int:
                 and int(row["physical_boundary"]) == int(first_material_boundary)
             ),
             None,
+        )
+        first_material_callback_endpoint = (
+            None
+            if first_material_row is None
+            else list(
+                first_material_row[
+                    "callback_endpoint_action_inner_substep"
+                ]
+            )
+        )
+        if first_material_row is not None:
+            reconstructed_first_material_callback_endpoint = callback_endpoint(
+                int(first_material_row["source_action_index"]),
+                int(first_material_row["physics_substep_index"]),
+            )
+            if not (
+                first_material_callback_endpoint
+                == reconstructed_first_material_callback_endpoint
+                and int(first_material_row["controller_update_index"])
+                == reconstructed_first_material_callback_endpoint[1]
+                and int(
+                    first_material_row[
+                        "physics_substep_within_controller_update"
+                    ]
+                )
+                == reconstructed_first_material_callback_endpoint[2]
+                and int(first_material_row["physical_boundary"])
+                == reconstructed_first_material_callback_endpoint[0]
+                * physics_substeps_per_action
+                + int(first_material_row["physics_substep_index"])
+            ):
+                raise OscCanaryRunnerError(
+                    "first-material typed callback endpoint is inconsistent with "
+                    "the frozen controller/physics cadence"
+                )
+        same_source_action_correction_is_prephysics_callback_zero = bool(
+            first_material_row is not None
+            and first_material_action is not None
+            and int(first_material_action)
+            == int(derived["historical_contact_action"])
+            and first_material_callback_endpoint
+            == [
+                int(derived["historical_contact_action"]),
+                *[
+                    int(value)
+                    for value in derived.get(
+                        "same_source_action_contact_exception_callback_suffix",
+                        (0, 0),
+                    )
+                ],
+            ]
+            and int(first_material_row["physical_boundary"])
+            == int(derived["historical_contact_action"])
+            * physics_substeps_per_action
+        )
+        material_before = bool(
+            first_material_action is not None
+            and (is_target_link_v4 or first_divergence_is_material)
+            and (
+                int(first_material_action) < int(derived["historical_contact_action"])
+                or (
+                    int(first_material_action)
+                    == int(derived["historical_contact_action"])
+                    and same_source_action_correction_is_prephysics_callback_zero
+                    and contact_free_before_material
+                    and historical_same_action_exception_parity
+                    and (
+                        is_target_link_v4
+                        or (
+                            contact_free_before_divergence
+                            and predivergence_torque_commands_exact
+                        )
+                    )
+                )
+            )
         )
         first_material_residual_improvement = (
             None
@@ -3713,6 +4997,11 @@ def main() -> int:
                     "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
                 ]
             )
+        )
+        first_material_correction_l2_nm = (
+            None
+            if first_material_row is None
+            else float(first_material_row["torque_correction_l2_nm"])
         )
         first_material_next_qvel_change = (
             None
@@ -3749,26 +5038,286 @@ def main() -> int:
                 "constraint_attribution"
             ]
         )
+        first_material_certificate = (
+            None
+            if first_material_row is None
+            else first_material_row.get("full_constraint_qp_certificate")
+        )
+        if is_target_link_v4 and first_material_row is not None:
+            if not (
+                isinstance(first_material_certificate, Mapping)
+                and first_material_certificate.get("schema_version")
+                == (
+                    "vlsa_poisson_divergence_or_material_full_qp_"
+                    "certificate.v4"
+                )
+                and "first_material_correction"
+                in first_material_certificate.get("certificate_roles", ())
+                and isinstance(
+                    first_material_certificate.get("constraint_attribution"),
+                    Mapping,
+                )
+            ):
+                raise OscCanaryRunnerError(
+                    "first material correction lacks its registered full target-link "
+                    "QP certificate"
+                )
+        first_material_attribution = (
+            first_material_certificate["constraint_attribution"]
+            if is_target_link_v4
+            and isinstance(first_material_certificate, Mapping)
+            else first_divergence_attribution
+        )
         literal_link56_body_names = {
             str(value)
             for value in protocol["case"]["literal_link56_body_names"]
         }
         first_material_link56_attributed = bool(
-            first_divergence_attribution is not None
-            and first_divergence_attribution["minimum_sample"]["body_name"]
+            first_material_attribution is not None
+            and first_material_attribution["minimum_sample"]["body_name"]
             in literal_link56_body_names
         )
+        protected_link_body_name_set = {
+            str(value) for value in protected_link_body_names
+        }
+        first_material_protected_link_attributed = bool(
+            first_material_attribution is not None
+            and first_material_attribution["minimum_sample"]["body_name"]
+            in protected_link_body_name_set
+        )
+        target_link_body_name_set = {
+            str(value)
+            for value in (
+                derived["target_link_body_names"]
+                if is_target_link_v4
+                else protocol["case"]["literal_link56_body_names"]
+            )
+        }
+        first_divergence_target_link_attributed = bool(
+            first_divergence_attribution is not None
+            and first_divergence_attribution["minimum_sample"]["body_name"]
+            in target_link_body_name_set
+        )
+        first_material_target_link_attributed = bool(
+            first_material_attribution is not None
+            and first_material_attribution["minimum_sample"]["body_name"]
+            in target_link_body_name_set
+        )
+        first_material_protected_row_diagnostics = None
+        if is_target_link_v4 and first_material_row is not None:
+            material_certificate = first_material_row[
+                "full_constraint_qp_certificate"
+            ]
+            material_nominal_residuals = (
+                np.asarray(
+                    material_certificate[
+                        "nominal_exact_clone_hdot_m2_per_s"
+                    ],
+                    dtype=np.float64,
+                )
+                + float(shield_cfg["alpha_gain_per_s"])
+                * np.asarray(
+                    material_certificate["poisson_h_m2"],
+                    dtype=np.float64,
+                )
+                - float(shield_cfg["margin_m2_per_s"])
+            )
+            if material_nominal_residuals.shape != (
+                len(shield_samples.samples),
+            ) or not np.all(np.isfinite(material_nominal_residuals)):
+                raise OscCanaryRunnerError(
+                    "first-material protected-row residual reconstruction differs"
+                )
+            reconstructed_minimum_index = int(
+                np.argmin(material_nominal_residuals)
+            )
+            if not (
+                first_material_attribution is not None
+                and int(first_material_attribution["minimum_sample_index"])
+                == reconstructed_minimum_index
+                and first_material_attribution["minimum_sample"]
+                == shield_samples.samples[
+                    reconstructed_minimum_index
+                ].to_dict()
+            ):
+                raise OscCanaryRunnerError(
+                    "first-material minimum protected-row attribution differs"
+                )
+            active_indices = np.flatnonzero(material_nominal_residuals < 0.0)
+            first_material_protected_row_diagnostics = {
+                "schema_version": (
+                    "vlsa_poisson_first_material_protected_rows.v1"
+                ),
+                "sample_scope": protocol["shield"]["binding_scope"],
+                "minimum_row": {
+                    "sample_index": reconstructed_minimum_index,
+                    "sample": shield_samples.samples[
+                        reconstructed_minimum_index
+                    ].to_dict(),
+                    "nominal_exact_cbf_residual_m2_per_s": float(
+                        np.min(material_nominal_residuals)
+                    ),
+                },
+                "negative_nominal_exact_cbf_rows": [
+                    {
+                        "sample_index": int(index),
+                        "sample_id": int(shield_samples.samples[int(index)].sample_id),
+                        "body_name": str(
+                            shield_samples.samples[int(index)].body_name
+                        ),
+                        "geom_name": str(
+                            shield_samples.samples[int(index)].geom_name
+                        ),
+                        "nominal_exact_cbf_residual_m2_per_s": float(
+                            material_nominal_residuals[int(index)]
+                        ),
+                    }
+                    for index in active_indices
+                ],
+                "negative_nominal_exact_cbf_row_count": int(
+                    active_indices.size
+                ),
+            }
+        nonstopping_motion_after_correction = bool(
+            first_material_boundary is not None
+            and float(motion["joint_motion_integral_rad"])
+            >= float(
+                protocol["acceptance"][
+                    "minimum_post_correction_joint_motion_integral_rad"
+                ]
+            )
+            and float(motion["eef_path_length_m"])
+            >= float(
+                protocol["acceptance"][
+                    "minimum_post_correction_eef_path_length_m"
+                ]
+            )
+        )
+        treatment_stalled_after_correction = bool(
+            first_material_boundary is not None
+            and not nonstopping_motion_after_correction
+        )
+        material_correction_metric_l2_nm = (
+            first_material_correction_l2_nm
+            if is_target_link_v4
+            else first_torque_divergence_correction_l2_nm
+        )
+        reconstructed_strict_material_before = bool(
+            first_material_action is not None
+            and (
+                int(first_material_action) < int(derived["historical_contact_action"])
+                or (
+                    int(first_material_action)
+                    == int(derived["historical_contact_action"])
+                    and same_source_action_correction_is_prephysics_callback_zero
+                    and historical_prior_endpoint_parity_exact
+                    and historical_prior_endpoint_contact_free
+                    and contact_free_before_material
+                )
+            )
+        )
+        strict_same_action_timing_rule_enforced = bool(
+            is_target_link_v4
+            and material_before is reconstructed_strict_material_before
+            and (
+                first_material_row is not None
+                or (
+                    first_material_action is None
+                    and first_material_boundary is None
+                    and first_material_callback_endpoint is None
+                    and material_before is False
+                )
+            )
+        )
+        first_material_timing_certificate = {
+            "schema_version": (
+                "vlsa_poisson_first_material_historical_contact_timing.v1"
+            ),
+            "historical_target_contact_source_action": int(
+                derived["historical_contact_action"]
+            ),
+            "historical_within_action_contact_substep_known": False,
+            "historical_prior_completed_action_endpoint": (
+                historical_prior_endpoint_action
+            ),
+            "historical_prior_completed_endpoint_parity_exact": (
+                historical_prior_endpoint_parity_exact
+            ),
+            "historical_prior_completed_endpoint_contact_free": (
+                historical_prior_endpoint_contact_free
+            ),
+            "first_material_callback_endpoint_action_inner_substep": (
+                first_material_callback_endpoint
+            ),
+            "same_source_action_correction_is_prephysics_callback_zero": (
+                same_source_action_correction_is_prephysics_callback_zero
+            ),
+            "all_earlier_live_substeps_registered_contact_free": (
+                contact_free_before_material
+            ),
+            "correction_strictly_before_historical_target_contact": (
+                material_before
+            ),
+            "independently_reconstructible_strict_before_result": (
+                reconstructed_strict_material_before
+            ),
+            "strict_same_action_timing_rule_enforced": (
+                strict_same_action_timing_rule_enforced
+            ),
+            "same_source_action_positive_rule": (
+                "only_callback_endpoint_action_0_0_with_exact_contact_free_"
+                "prior_completed_endpoint"
+            ),
+            "registered_same_source_action_callback_suffix": list(
+                derived.get(
+                    "same_source_action_contact_exception_callback_suffix",
+                    (0, 0),
+                )
+            ),
+        }
         metrics = {
             "allocation_numeric_prerequisite_verified": True,
+            "allowed_case_registry_verified": bool(
+                is_target_link_v4
+                and arguments.case_id == derived["case_id"]
+                and protocol["case"]["target_link_body_names"]
+                == list(derived["target_link_body_names"])
+                and protocol["shield"]["protected_link_body_names"]
+                == list(derived["protected_link_body_names"])
+            ),
             "historical_control_verified": True,
             "historical_direct_link56_contact_verified": direct_historical_contact,
+            "historical_direct_target_link_contact_verified": bool(
+                direct_historical_contact
+                and (
+                    not is_target_link_v4
+                    or (
+                        historical_target_link_contact_evidence is not None
+                        and historical_target_link_contact_evidence.get("verified")
+                        is True
+                    )
+                )
+            ),
+            "historical_control_car_failure": bool(
+                replay.historical_car_collision is True
+            ),
             "historical_control_task_success": replay.historical_task_success,
+            "archived_baseline_not_rerun": bool(
+                source_contract.get("rerun_baseline") is False
+                and provenance["historical_control_rerun"] is False
+            ),
+            "frozen_runtime_parameter_hash_verified": bool(
+                is_target_link_v4
+                and runtime_hashes.parameter_block_sha256
+                == derived["frozen_runtime_parameter_sha256"]
+            ),
             "direct_unit_gain_hinge_torque_actuators_verified": torque_units[
                 "verified"
             ],
             "original_osc_controller_verified": controller["original_osc_verified"],
             "all_structurally_movable_manipulator_collision_surfaces_shielded": bool(
-                shield_sampling_binding["sample_count"]
+                not is_target_link_v4
+                and shield_sampling_binding["sample_count"]
                 == movable_sample_evidence["sample_count"]
                 and shield_sampling_binding["sample_ledger_sha256"]
                 == movable_sample_evidence["sample_ledger_sha256"]
@@ -3786,6 +5335,62 @@ def main() -> int:
                     == movable_sample_evidence["sample_ledger_sha256"]
                     for row in physics_trace
                 )
+            ),
+            "protected_link_shield_sampling_exact": bool(
+                is_target_link_v4
+                and protected_link_shield_ledger_exact
+                and shield_sampling_binding["schema_version"]
+                == "vlsa_poisson_protected_link_shield_sampling_binding.v1"
+                and shield_sampling_binding["scope"]
+                == protocol["shield"]["binding_scope"]
+                and shield_sampling_binding["sample_source"]
+                == "apparatus.protected_sampling.samples"
+                and shield_sampling_binding["sample_count"]
+                == len(bundle.protected_samples.samples)
+                and shield_sampling_binding["sample_ledger_sha256"]
+                == movable_sample_evidence["sample_ledger_sha256"]
+                and shield_sampling_binding["protected_link_body_ids"]
+                == list(protected_link_ids)
+                and shield_sampling_binding["protected_link_body_names"]
+                == list(protected_link_body_names)
+                and shield_sampling_binding["field_bundle_protected_body_ids"]
+                == list(protected_link_ids)
+                and shield_sampling_binding["field_bundle_protected_body_names"]
+                == list(protected_link_body_names)
+                and shield_sampling_binding["shield_protected_link_geom_ids"]
+                == list(protected_link_geom_ids)
+                and shield_sampling_binding["shield_manipulator_geom_ids"]
+                == list(protected_link_geom_ids)
+                and shield_sampling_binding[
+                    "exact_ordered_field_bundle_protected_sample_ledger"
+                ]
+                is True
+            ),
+            "link56_shield_sampling_exact": bool(
+                is_target_link_v4 and protected_link_shield_ledger_exact
+            ),
+            "literal_link56_collision_surfaces_only_shielded": bool(
+                is_target_link_v4
+                and set(link56_geom_ids)
+                == {
+                    int(row["geom_id"])
+                    for row in movable_sample_evidence["geom_records"]
+                }
+                and shield_sampling_binding["shield_manipulator_geom_ids"]
+                == list(link56_geom_ids)
+            ),
+            "literal_link56_surface_coverage_complete": bool(
+                is_target_link_v4
+                and field_protected_geom_ids == list(link56_geom_ids)
+                and float(bundle.protected_samples.maximum_surface_cover_radius_m)
+                < float(bundle.protected_samples.epsilon_m)
+            ),
+            "protected_link_surface_coverage_complete": bool(
+                is_target_link_v4
+                and protected_link_shield_ledger_exact
+                and field_protected_geom_ids == list(protected_link_geom_ids)
+                and float(bundle.protected_samples.maximum_surface_cover_radius_m)
+                < float(bundle.protected_samples.epsilon_m)
             ),
             "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free": bool(
                 fixed_infrastructure_settled_certificate[
@@ -3815,6 +5420,17 @@ def main() -> int:
                 ]
                 == [int(value) for value in resolved.robot_geom_ids]
             ),
+            "literal_link56_external_nonrobot_contacts_monitored": bool(
+                registered_contact_monitor.scope["link56_geom_ids"]
+                == sorted(link56_geom_ids)
+                and registered_contact_monitor.scope[
+                    "external_nonrobot_geom_ids"
+                ]
+                and registered_contact_measurement[
+                    "scope_identity_sha256"
+                ]
+                == registered_contact_monitor.scope["identity_sha256"]
+            ),
             "robot_tree_qvel_scope_verified": bool(
                 robot_qvel_authority["arm_qvel_indices_included"] is True
                 and robot_qvel_authority["nonarm_robot_qvel_included"] is True
@@ -3825,6 +5441,38 @@ def main() -> int:
                     == list(robot_qvel)
                     for row in physics_trace
                 )
+            ),
+            "link56_structural_qvel_scope_verified": bool(
+                is_target_link_v4
+                and robot_qvel_authority.get(
+                    "all_structural_protected_link_qvel_influences_included"
+                )
+                is True
+                and robot_qvel_authority["robot_qvel_indices"]
+                == list(arm_qvel)
+                and len(robot_qvel) == 7
+            ),
+            "protected_link_arm_qvel_scope_verified": bool(
+                is_target_link_v4
+                and robot_qvel_authority.get(
+                    "all_structural_protected_link_qvel_influences_included"
+                )
+                is True
+                and robot_qvel_authority["resolved_protected_link_geom_ids"]
+                == sorted(protected_link_geom_ids)
+                and robot_qvel_authority["robot_qvel_indices"]
+                == list(arm_qvel)
+                and len(robot_qvel) == 7
+            ),
+            "link56_arm_qvel_scope_verified": bool(
+                is_target_link_v4
+                and robot_qvel_authority.get(
+                    "all_structural_protected_link_qvel_influences_included"
+                )
+                is True
+                and robot_qvel_authority["robot_qvel_indices"]
+                == list(arm_qvel)
+                and len(robot_qvel) == 7
             ),
             "seven_arm_torque_decision_verified": bool(
                 len(arm_actuators) == 7
@@ -3842,7 +5490,8 @@ def main() -> int:
                 )
             ),
             "link56_bundle_samples_field_seed_only": bool(
-                len(bundle.protected_samples.samples)
+                not is_target_link_v4
+                and len(bundle.protected_samples.samples)
                 < len(shield_samples.samples)
                 and shield_sampling_binding["field_seed_sample_scope"]
                 == "link56_only_not_shield_scope"
@@ -3851,6 +5500,31 @@ def main() -> int:
             "every_executed_substep_shielded": bool(
                 shield_decision_count == len(physics_trace)
                 and len(physics_trace) == expected_executed_substeps
+            ),
+            "every_executed_substep_protected_link_shielded": bool(
+                is_target_link_v4
+                and phase_endpoint_ledger_exact
+                and shield_decision_count == len(physics_trace)
+                and len(physics_trace) == expected_executed_substeps
+                and all(
+                    int(row["constraint_trace"]["sample_count"])
+                    == len(bundle.protected_samples.samples)
+                    and row["constraint_trace"]["sample_ledger_sha256"]
+                    == shield_samples.sample_ledger_sha256
+                    for row in physics_trace
+                )
+            ),
+            "every_executed_substep_link56_shielded": bool(
+                is_target_link_v4
+                and shield_decision_count == len(physics_trace)
+                and len(physics_trace) == expected_executed_substeps
+                and all(
+                    int(row["constraint_trace"]["sample_count"])
+                    == len(bundle.protected_samples.samples)
+                    and row["constraint_trace"]["sample_ledger_sha256"]
+                    == shield_samples.sample_ledger_sha256
+                    for row in physics_trace
+                )
             ),
             "every_executed_substep_contact_monitored": bool(
                 measurement.observed_physics_substeps == len(physics_trace)
@@ -3865,6 +5539,15 @@ def main() -> int:
                     for row in physics_trace
                 )
             ),
+            "complete_exposure_verified": bool(
+                complete_terminal
+                and shield_decision_count == len(physics_trace)
+                and measurement.observed_physics_substeps == len(physics_trace)
+                and registered_contact_measurement[
+                    "observed_physics_substeps"
+                ]
+                == len(physics_trace)
+            ),
             "nominal_pass_through_bitwise_exact": nominal_pass_through_exact,
             "pre_correction_historical_parity_exact": bool(
                 len(parity_trace)
@@ -3874,11 +5557,29 @@ def main() -> int:
                     else int(first_torque_divergence_action)
                 )
             ),
+            "predivergence_archived_state_action_observation_reward_goal_parity_exact": bool(
+                len(parity_trace)
+                == (
+                    completed_actions
+                    if first_torque_divergence_action is None
+                    else int(first_torque_divergence_action)
+                )
+                and all(row["historical_match"] is True for row in parity_trace)
+            ),
             "all_predivergence_torque_commands_byte_identical_nominal": (
                 predivergence_torque_commands_exact
             ),
             "action62_same_action_exception_has_action61_endpoint_parity_exact": (
-                action62_same_action_exception_parity
+                historical_same_action_exception_parity
+            ),
+            "historical_contact_same_action_exception_has_prior_endpoint_parity_exact": (
+                historical_same_action_exception_parity
+            ),
+            "historical_contact_same_source_action_exception_has_exact_prior_completed_endpoint_parity": (
+                historical_same_action_exception_parity
+            ),
+            "historical_contact_same_source_action_exception_requires_exact_callback_action_0_0_and_exact_contact_free_prior_completed_endpoint": (
+                strict_same_action_timing_rule_enforced
             ),
             "all_live_substeps_before_first_divergence_contact_free": (
                 contact_free_before_divergence
@@ -3889,6 +5590,13 @@ def main() -> int:
             "cached_current_chunk_then_fresh_own_observation_policy": planner_record[
                 "hybrid_contract_valid"
             ],
+            "first_any_byte_different_torque_registered_as_divergence": bool(
+                first_torque_divergence_boundary is not None
+                and planner_record["divergence_physical_boundary"]
+                == first_torque_divergence_boundary
+                and planner_record["divergence_source_action_index"]
+                == first_torque_divergence_action
+            ),
             "all_shield_decisions_valid": all_shield_valid,
             "safety_method_stop_before_physics": method_stop_record is not None,
             "all_actual_cbf_residual_postchecks_pass": actual_residual_pass,
@@ -3922,6 +5630,12 @@ def main() -> int:
                 measurement.link56_obstacle_contact
             ),
             "material_correction_present": first_material_boundary is not None,
+            "nonstopping_motion_after_correction": (
+                nonstopping_motion_after_correction
+            ),
+            "treatment_stalled_after_correction": (
+                treatment_stalled_after_correction
+            ),
             "first_torque_divergence_is_material": first_divergence_is_material,
             "first_torque_divergence_physical_boundary": (
                 first_torque_divergence_boundary
@@ -3952,6 +5666,35 @@ def main() -> int:
             "first_material_correction_minimum_constraint_is_literal_link56": (
                 first_material_link56_attributed
             ),
+            "first_material_correction_minimum_constraint_is_target_link": (
+                first_material_target_link_attributed
+            ),
+            "first_material_correction_minimum_constraint_is_protected_link": (
+                first_material_protected_link_attributed
+            ),
+            "first_material_correction_protected_link_attributed": (
+                first_material_protected_link_attributed
+            ),
+            "first_material_correction_target_link_attributed": (
+                first_material_target_link_attributed
+            ),
+            "first_material_correction_minimum_constraint_body_name": (
+                None
+                if first_material_attribution is None
+                else first_material_attribution["minimum_sample"]["body_name"]
+            ),
+            "first_material_correction_near_minimum_constraint_body_names": (
+                []
+                if first_material_attribution is None
+                else first_material_attribution["near_minimum_body_names"]
+            ),
+            "first_material_correction_negative_nominal_constraint_body_names": (
+                []
+                if first_material_attribution is None
+                else first_material_attribution[
+                    "negative_nominal_residual_body_names"
+                ]
+            ),
             "first_divergence_nominal_exact_cbf_residual_negative": bool(
                 first_divergence_row is not None
                 and float(
@@ -3961,27 +5704,78 @@ def main() -> int:
                 )
                 < 0.0
             ),
+            "first_divergence_nominal_exact_target_link_cbf_residual_negative": bool(
+                first_divergence_row is not None
+                and first_divergence_target_link_attributed
+                and float(
+                    first_divergence_row[
+                        "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
+                    ]
+                )
+                < 0.0
+            ),
+            "first_material_nominal_exact_target_link_cbf_residual_negative": bool(
+                first_material_row is not None
+                and first_material_target_link_attributed
+                and float(
+                    first_material_row[
+                        "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
+                    ]
+                )
+                < 0.0
+            ),
+            "first_material_nominal_exact_protected_link_cbf_residual_negative": bool(
+                first_material_row is not None
+                and first_material_protected_link_attributed
+                and float(
+                    first_material_row[
+                        "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
+                    ]
+                )
+                < 0.0
+            ),
             "first_material_exact_cbf_residual_improvement_m2_per_s": (
-                first_material_residual_improvement
+                0.0
+                if is_target_link_v4
+                and first_material_residual_improvement is None
+                else first_material_residual_improvement
             ),
             "first_material_exact_next_qvel_change_l2_rad_s": (
-                first_material_next_qvel_change
+                0.0
+                if is_target_link_v4
+                and first_material_next_qvel_change is None
+                else first_material_next_qvel_change
             ),
             "task_incomplete_at_first_material_correction": (
-                task_incomplete_at_first_material
+                bool(task_incomplete_at_first_material)
+                if is_target_link_v4
+                else task_incomplete_at_first_material
             ),
             "material_correction_before_historical_contact": material_before,
+            "first_material_correction_before_historical_target_link_contact": (
+                material_before
+            ),
             "live_substeps_before_material_correction_contact_free": (
                 contact_free_before_material
             ),
             "historical_contact_timing_semantics": (
-                "post_action_62_sampled_endpoint;_internal_2ms_historical_contact_"
-                "boundary_unknown"
+                "post_action_%d_sampled_endpoint;_internal_2ms_historical_"
+                "contact_boundary_unknown"
+                % int(derived["historical_contact_action"])
             ),
             "first_material_correction_physical_boundary": first_material_boundary,
             "first_material_correction_source_action_index": first_material_action,
+            "first_material_correction_callback_endpoint_action_inner_substep": (
+                first_material_callback_endpoint
+            ),
+            "same_source_action_correction_is_prephysics_callback_zero": (
+                same_source_action_correction_is_prephysics_callback_zero
+            ),
             "historical_first_link_contact_source_action_index": int(
                 derived["historical_contact_action"]
+            ),
+            "historical_prior_completed_action_endpoint_index": (
+                historical_prior_endpoint_action
             ),
             "native_task_success": native_task_success,
             "treatment_paper_car_avoided": treatment_paper_car_avoided,
@@ -3992,8 +5786,19 @@ def main() -> int:
             "executed_physics_substep_count": len(physics_trace),
             "shield_decision_count": shield_decision_count,
             "solved_qp_count": int(solved_qp_count),
+            "material_torque_correction_l2_nm": float(
+                0.0
+                if material_correction_metric_l2_nm is None
+                else material_correction_metric_l2_nm
+            ),
             "first_divergence_full_qp_certificate_count": int(
                 full_qp_certificate_count
+            ),
+            "deduplicated_divergence_or_material_full_qp_certificate_count": int(
+                full_qp_certificate_count
+            ),
+            "full_qp_certificate_role_counts": dict(
+                full_qp_certificate_role_counts
             ),
             "post_correction_joint_motion_integral_rad": motion[
                 "joint_motion_integral_rad"
@@ -4003,19 +5808,44 @@ def main() -> int:
                 "zero_torque_delta_fraction"
             ],
         }
-        classification = classify_osc_arm_link_canary(metrics, protocol)
+        classification = classifier(metrics, protocol)
         candidate = {
-            "schema_version": RESULT_SCHEMA,
+            "schema_version": result_schema,
             "status": "complete",
             "scientific_result": True,
             "protocol_id": protocol["protocol_id"],
             "case_id": arguments.case_id,
+            "protected_link_body_names": (
+                list(protected_link_body_names)
+                if is_target_link_v4
+                else None
+            ),
+            "historical_target_link_body_names": (
+                list(target_link_body_names) if is_target_link_v4 else None
+            ),
             "run_id": arguments.run_id,
             "provenance": provenance,
             "historical_control": {
                 **replay.provenance(),
                 "rerun": False,
                 "direct_link56_selected_obstacle_contact_verified": direct_historical_contact,
+                "direct_target_link_selected_obstacle_contact_verified": bool(
+                    direct_historical_contact
+                    and is_target_link_v4
+                    and historical_target_link_contact_evidence is not None
+                    and historical_target_link_contact_evidence.get("verified")
+                    is True
+                ),
+                "archived_direct_target_link_contact": bool(
+                    direct_historical_contact
+                    and is_target_link_v4
+                    and historical_target_link_contact_evidence is not None
+                    and historical_target_link_contact_evidence.get("verified")
+                    is True
+                ),
+                "historical_target_link_contact_evidence": (
+                    historical_target_link_contact_evidence
+                ),
             },
             "apparatus": {
                 **apparatus,
@@ -4041,6 +5871,15 @@ def main() -> int:
                 "first_material_correction_goal_snapshot": (
                     first_material_goal_snapshot
                 ),
+                "first_material_constraint_attribution": (
+                    first_material_attribution
+                ),
+                "first_material_protected_row_diagnostics": (
+                    first_material_protected_row_diagnostics
+                ),
+                "first_material_timing_certificate": (
+                    first_material_timing_certificate
+                ),
                 "paper_car_endpoint_ledger": car_ledger,
                 "paper_car_endpoint_ledger_schema_version": (
                     "vlsa_poisson_paper_car_endpoint_ledger.v3"
@@ -4049,7 +5888,12 @@ def main() -> int:
                     "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
                 ),
                 "full_qp_certificate_scope": (
-                    "first_byte_different_torque_row_only"
+                    (
+                        "first_byte_divergence_and_first_material_correction_"
+                        "rows_deduplicated"
+                    )
+                    if is_target_link_v4
+                    else "first_byte_different_torque_row_only"
                 ),
                 "physics_trace": physics_trace,
                 "measurement": measurement.to_dict(),
@@ -4105,12 +5949,20 @@ def main() -> int:
         if result_path is not None and not result_path.exists():
             try:
                 from main.poisson_fullbody.contracts import publish_hashed_json
-                from main.poisson_fullbody.osc_arm_link_canary import RESULT_SCHEMA
+                from main.poisson_fullbody import (
+                    osc_arm_link_canary as canary_contract,
+                )
+
+                failure_result_schema = (
+                    result_schema
+                    if result_schema is not None
+                    else canary_contract.RESULT_SCHEMA
+                )
 
                 publish_hashed_json(
                     result_path,
                     {
-                        "schema_version": RESULT_SCHEMA,
+                        "schema_version": failure_result_schema,
                         "status": "apparatus_failure",
                         "scientific_result": False,
                         "run_id": arguments.run_id,

@@ -23,6 +23,8 @@ EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 : "${RESULT_ROOT:?RESULT_ROOT is required}"
 : "${HISTORICAL_RESULT_ROOT:?HISTORICAL_RESULT_ROOT is required}"
 : "${RUN_ID:?RUN_ID is required}"
+: "${CASE_ID:?CASE_ID is required}"
+: "${PROTOCOL_RELATIVE_PATH:?PROTOCOL_RELATIVE_PATH is required}"
 : "${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}"
 : "${NUMERIC_VALIDATION_RESULT:?NUMERIC_VALIDATION_RESULT is required}"
 : "${EXPECTED_NUMERIC_JOB_ID:?EXPECTED_NUMERIC_JOB_ID is required}"
@@ -37,6 +39,8 @@ if [[ "${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}" ]] || \
   exit 2
 fi
 if [[ ! "${RUN_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || \
+   [[ ! "${CASE_ID}" =~ ^vlsa-t1-[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || \
+   [[ ! "${PROTOCOL_RELATIVE_PATH}" =~ ^configs/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$ ]] || \
    [[ ! "${EXPECTED_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
    [[ ! "${SLURM_JOB_ID}" =~ ^[0-9]+$ ]] || \
    [[ ! "${EXPECTED_NUMERIC_JOB_ID}" =~ ^[0-9]+$ ]] || \
@@ -103,7 +107,7 @@ require_canonical_real_directory \
   "/mnt/data/quanth/slurm_logs"
 require_canonical_real_file \
   "post-OSC protocol" \
-  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v3.json"
+  "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}"
 require_canonical_real_file \
   "arm-contact manifest" \
   "${REMOTE_REPO}/manifests/vlsa_poisson_arm_contact_165.v1.jsonl"
@@ -177,13 +181,13 @@ done
 
 "${EVALUATION_PYTHON}" scripts/run_poisson_osc_arm_link_canary.py \
   --repo-root "${REMOTE_REPO}" \
-  --protocol configs/vlsa_poisson_osc_arm_link_canary.v3.json \
+  --protocol "${PROTOCOL_RELATIVE_PATH}" \
   --manifest manifests/vlsa_poisson_arm_contact_165.v1.jsonl \
   --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
   --numeric-validation-result "${NUMERIC_VALIDATION_RESULT}" \
   --expected-numeric-job-id "${EXPECTED_NUMERIC_JOB_ID}" \
   --output-root "${RESULT_ROOT}" \
   --run-id "${RUN_ID}" \
-  --case-id vlsa-t1-spatial-i-t3-e03 \
+  --case-id "${CASE_ID}" \
   --host 127.0.0.1 \
   --port "${POLICY_PORT}"

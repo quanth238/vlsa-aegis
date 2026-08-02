@@ -1270,8 +1270,48 @@ The next implementation gate is now frozen to two complete treatment-only
 cases with immutable archived AEGIS controls: report-visible link-5 case
 `vlsa-t1-goal-ii-t0-e05` and pure-link-6 case
 `vlsa-t1-goal-ii-t3-e42`. Both archived controls collide, fail CAR, and finish
-the task. The new protocol will constrain target link rows only, retain exact
-whole-robot selected-obstacle and link-5/6 external-contact monitoring, and
-require target-attributed correction, zero shifted contact, CAR pass, useful
-motion, no stop or stall, and native full-task success. Parameters freeze
-after e05 before e42. P01 remains active.
+the task. ADR-0056 supersedes the preliminary target-only design: the same
+link-5/link-6 surface set is shielded in both cases, while the case target is
+historical evaluation evidence only. Exact whole-robot selected-obstacle and
+link-5/6 external-contact monitoring remains active. A positive result still
+requires protected-link-attributed correction, zero shifted contact, CAR pass,
+useful motion, no stop or stall, and native full-task success. Parameters
+freeze after e05 before e42. P01 remains active.
+
+## P01 shared-link direct pair preregistered
+
+The direct v4 treatment is implementation-complete and has no H100 outcome
+yet. Both e05 and e42 pass the identical protected-body set
+`[robot0_link5, robot0_link6]` into one data-driven field, surface-sampling,
+Jacobian, and hard-QP path. No runner or consumer branch contains either
+frozen case ID. `case.target_link_body_names` binds only the archived contact
+that the treatment must eliminate; it cannot select controller geometry.
+
+The shield is recomputed before each of the 25 two-millisecond physics steps
+per policy action (500 Hz). The serialized 5-by-5 indices are phase labels for
+timing validation, not a 100 Hz held-command implementation. If the first
+material correction occurs in the same source action as the archived contact,
+it is timely only at exact prephysics callback `[action, 0, 0]` with exact,
+contact-free prior-action parity.
+
+The e05 protocol raw/canonical SHA-256 values are
+`f5569ee5f3e5d45ae7d18cb02309e1f962a9801646c70a0356c362c0b43d5cc1`
+and `0f7460a6b32a10843af46dcb12f6573c62639290bc737b025cf2ac237df86933`.
+The e42 values are
+`f6c6216758bee2c04ae57e727b46708377815bd9f59fecae9183a1b24f19996e`
+and `269b18e8fee26b9eea06fcb3e84ab8f1686af8fe281f4b15230f6ba0d923942b`.
+The independently reverified remote-source receipts have SHA-256 values
+`8b8d6d1d808a7101f477f20a746af79d7d2aa6967b5c01732a7c2f9290eb7056`
+for e05 and
+`47c69fc89ec015517104140a583c90f03c10ee615b09fb92b014eccf802f8d33`
+for e42.
+
+The focused integration gate passes 75 tests with 18 expected local
+dependency/allocation skips. The complete local `./init.sh` gate passes 853
+tests with 187 expected skips. A positive case requires a material correction
+caused by a negative protected-link CBF row before archived contact, zero
+registered or shifted contact, paper CAR displacement at most 1 mm, continued
+joint and end-effector motion, no stop or stall, and native full-task success.
+The next command chain is a fresh zero-skip H100 numeric allocation, followed
+by complete e05 and e42 producers and distinct CPU consumers on the same clean
+commit. Partial artifacts carry no result.

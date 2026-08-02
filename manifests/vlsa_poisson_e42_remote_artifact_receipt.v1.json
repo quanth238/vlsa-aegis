@@ -1,0 +1,32 @@
+{
+  "schema_version": "vlsa_poisson_remote_source_artifact_receipt.v1",
+  "case_id": "vlsa-t1-goal-ii-t3-e42",
+  "verified_at_utc": "2026-08-02T18:57:29Z",
+  "remote_login_host": "login-restricted-0",
+  "historical_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a",
+  "verification": "read_only_sha256sum_and_regular_nonsymlink_boundary",
+  "artifacts": [
+    {
+      "relative_path": "tasks/task-15/results/aegis/vlsa-t1-goal-ii-t3-e42/result.json",
+      "byte_count": 1427753,
+      "sha256": "6f880d8aba0cc1f8c0d822f59c05f67c7cf18853711fb8bd995a104cb63b8d1e",
+      "regular_file": true,
+      "symlink": false
+    },
+    {
+      "relative_path": "tasks/task-15/results/aegis/vlsa-t1-goal-ii-t3-e42/episode.mp4",
+      "byte_count": 358831,
+      "sha256": "6fec7648266e27f76748a341ae079f8609fccb5930ef1a1296308f51b107cfa8",
+      "regular_file": true,
+      "symlink": false
+    },
+    {
+      "relative_path": "tasks/task-15/results/aegis/vlsa-t1-goal-ii-t3-e42/active_obstacle_contacts.json.gz",
+      "byte_count": 1327575,
+      "sha256": "31873c149063bcb29d2e507fe06eaf58cb978f69dcc204e0051c7988be56e94f",
+      "regular_file": true,
+      "symlink": false
+    }
+  ],
+  "scope": "remote_byte_reverification_for_pure_link6_e42"
+}

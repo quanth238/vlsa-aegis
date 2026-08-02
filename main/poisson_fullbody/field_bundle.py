@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 import hashlib
 import json
 import math
-from typing import Any, Dict, Mapping, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from main.poisson_fullbody.feasibility_protocol import (
     ProtocolHashes,
@@ -107,7 +107,7 @@ class SurfaceComponentCertificate:
 
 @dataclass(frozen=True)
 class ProtectedSurfaceSamples:
-    """Immutable link-5/6 samples and their strict-open coverage metadata."""
+    """Immutable protected-body samples and strict-open coverage metadata."""
 
     samples: Tuple[BodySample, ...]
     components: Tuple[SurfaceComponentCertificate, ...]
@@ -232,8 +232,8 @@ class StaticFieldBundle:
 
     protocol_id: str
     protocol_hashes: ProtocolHashes
-    protected_body_ids: Tuple[int, int]
-    protected_body_names: Tuple[str, str]
+    protected_body_ids: Tuple[int, ...]
+    protected_body_names: Tuple[str, ...]
     obstacle_boxes: Tuple[OrientedBox, ...]
     grid: GridSpec
     occupancy: OccupancyResult
@@ -324,11 +324,52 @@ def _authoritative_model_and_forwarded_data(model: Any, data: Any) -> Tuple[Any,
     return raw_model, forwarded
 
 
+def _effective_protected_body_names(
+    snapshot: Mapping[str, Any],
+    protected_body_names: Optional[Sequence[str]],
+) -> Tuple[str, ...]:
+    """Resolve a registered-order protected subset without changing protocol identity."""
+
+    declared = tuple(snapshot["claim_scope"]["protected_robot_bodies"])
+    if declared != REGISTERED_PROTECTED_BODY_NAMES:
+        raise StaticFieldBundleError("protected-body protocol scope mismatch")
+    if protected_body_names is None:
+        return declared
+    if isinstance(protected_body_names, (str, bytes)) or not isinstance(
+        protected_body_names, Sequence
+    ):
+        raise TypeError("protected_body_names must be an array of body names")
+    requested = tuple(protected_body_names)
+    if not requested:
+        raise StaticFieldBundleError("protected_body_names must not be empty")
+    if any(not isinstance(value, str) for value in requested):
+        raise TypeError("protected_body_names must contain only strings")
+    if len(requested) != len(set(requested)):
+        raise StaticFieldBundleError("protected_body_names must not contain duplicates")
+    unexpected = tuple(
+        value for value in requested if value not in REGISTERED_PROTECTED_BODY_NAMES
+    )
+    if unexpected:
+        raise StaticFieldBundleError(
+            "protected_body_names contains unregistered bodies: {!r}".format(
+                unexpected
+            )
+        )
+    registered_order = tuple(
+        value for value in REGISTERED_PROTECTED_BODY_NAMES if value in requested
+    )
+    if requested != registered_order:
+        raise StaticFieldBundleError(
+            "protected_body_names must preserve registered body order"
+        )
+    return requested
+
+
 def _validated_resolution(
     model: Any,
     resolved: ResolvedGeomSets,
     expected_body_names: Sequence[str],
-) -> Tuple[int, int]:
+) -> Tuple[int, ...]:
     mujoco, _ = _modules()
     if not isinstance(resolved, ResolvedGeomSets):
         raise TypeError("resolved must be a ResolvedGeomSets record")
@@ -343,10 +384,8 @@ def _validated_resolution(
             "resolved selected-obstacle geometry does not match this MuJoCo model"
         )
     protected_ids = tuple(int(value) for value in resolved.link56_body_ids)
-    if len(protected_ids) != 2:
-        raise StaticFieldBundleError(
-            "the registered field-seed scope requires exactly two bodies"
-        )
+    if not protected_ids:
+        raise StaticFieldBundleError("the effective protected-body scope is empty")
     observed_names = []
     for body_id in protected_ids:
         name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
@@ -355,9 +394,13 @@ def _validated_resolution(
         observed_names.append(str(name))
     if tuple(observed_names) != tuple(expected_body_names):
         raise StaticFieldBundleError(
-            "resolved protected bodies do not equal robot0_link5/robot0_link6"
+            "resolved protected bodies do not exactly match effective scope; "
+            "expected={} observed={}".format(
+                "/".join(str(value) for value in expected_body_names),
+                "/".join(observed_names),
+            )
         )
-    return protected_ids  # type: ignore[return-value]
+    return protected_ids
 
 
 def _selected_obstacle_boxes(
@@ -691,11 +734,15 @@ def build_static_field_bundle(
     resolved: ResolvedGeomSets,
     protocol: Mapping[str, Any],
     protocol_hashes: ProtocolHashes,
+    protected_body_names: Optional[Sequence[str]] = None,
 ) -> StaticFieldBundle:
-    """Construct a registered static link-5/6-seeded Poisson certificate.
+    """Construct a registered static protected-body Poisson certificate.
 
     The live ``data`` object is never forwarded or modified.  Geometry and
     robot samples are read from an integration-state clone after ``mj_forward``.
+    By default the runtime protocol's registered link-5/link-6 scope is used.
+    ``protected_body_names`` may select a nonempty registered-order subset only
+    when the supplied resolution has exactly the same literal body scope.
     Any unsupported, incomplete, inconsistent, or numerically uncertified
     input raises :class:`StaticFieldBundleError`; no partial bundle is exposed.
     """
@@ -703,8 +750,10 @@ def build_static_field_bundle(
     snapshot, observed_hashes = _validated_protocol_snapshot(
         protocol, protocol_hashes
     )
+    protected_names = _effective_protected_body_names(
+        snapshot, protected_body_names
+    )
     raw_model, forwarded_data = _authoritative_model_and_forwarded_data(model, data)
-    protected_names = tuple(snapshot["claim_scope"]["protected_robot_bodies"])
     protected_ids = _validated_resolution(raw_model, resolved, protected_names)
     boxes = _selected_obstacle_boxes(raw_model, forwarded_data, resolved)
 
@@ -878,7 +927,7 @@ def build_static_field_bundle(
         protocol_id=str(snapshot["protocol_id"]),
         protocol_hashes=observed_hashes,
         protected_body_ids=protected_ids,
-        protected_body_names=REGISTERED_PROTECTED_BODY_NAMES,
+        protected_body_names=protected_names,
         obstacle_boxes=boxes,
         grid=grid,
         occupancy=occupancy,

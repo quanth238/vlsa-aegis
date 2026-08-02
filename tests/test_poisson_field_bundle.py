@@ -80,6 +80,7 @@ class StaticFieldBundleTests(unittest.TestCase):
         link6_name="robot0_link6",
         link5_type="box",
         obstacle_type="box",
+        resolved_link_keys=("link5", "link6"),
     ):
         from main.poisson_fullbody.measurement import resolve_collision_geom_sets
 
@@ -103,7 +104,7 @@ class StaticFieldBundleTests(unittest.TestCase):
             model,
             robot_root_body_ids=(ids["robot_root"],),
             obstacle_root_body_ids=(ids["obstacle"],),
-            link56_body_ids=(ids["link5"], ids["link6"]),
+            link56_body_ids=tuple(ids[key] for key in resolved_link_keys),
         )
         return model, data, ids, resolved
 
@@ -247,6 +248,150 @@ class StaticFieldBundleTests(unittest.TestCase):
                 array.flat[0] = array.flat[0]
         with self.assertRaises(FrozenInstanceError):
             bundle.protected_samples.samples[0].body_name = "changed"
+
+    def test_explicit_link5_and_link6_subsets_are_exact(self) -> None:
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        for key, body_name in (
+            ("link5", "robot0_link5"),
+            ("link6", "robot0_link6"),
+        ):
+            with self.subTest(body_name=body_name):
+                model, data, ids, resolved = self._scene(
+                    resolved_link_keys=(key,)
+                )
+                with mock.patch(
+                    "main.poisson_fullbody.field_bundle.build_occupancy",
+                    side_effect=self._sparse_free_occupancy,
+                ):
+                    bundle = build_static_field_bundle(
+                        model,
+                        data,
+                        resolved=resolved,
+                        protocol=self.protocol,
+                        protocol_hashes=self.protocol_hashes,
+                        protected_body_names=(body_name,),
+                    )
+
+                self.assertEqual(bundle.protected_body_ids, (ids[key],))
+                self.assertEqual(bundle.protected_body_names, (body_name,))
+                self.assertEqual(
+                    {row.body_name for row in bundle.protected_samples.components},
+                    {body_name},
+                )
+                self.assertEqual(
+                    {row.body_name for row in bundle.protected_samples.samples},
+                    {body_name},
+                )
+                self.assertEqual(
+                    {row.geom_id for row in bundle.protected_samples.components},
+                    set(resolved.link56_geom_ids),
+                )
+                for value in vars(bundle.hashes).values():
+                    self.assertRegex(value, r"^[0-9a-f]{64}$")
+
+    def test_default_and_explicit_registered_pair_are_identical(self) -> None:
+        from main.poisson_fullbody.field_bundle import (
+            REGISTERED_PROTECTED_BODY_NAMES,
+            build_static_field_bundle,
+        )
+
+        model, data, _, resolved = self._scene()
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.build_occupancy",
+            side_effect=self._sparse_free_occupancy,
+        ):
+            default = build_static_field_bundle(
+                model,
+                data,
+                resolved=resolved,
+                protocol=self.protocol,
+                protocol_hashes=self.protocol_hashes,
+            )
+            explicit = build_static_field_bundle(
+                model,
+                data,
+                resolved=resolved,
+                protocol=self.protocol,
+                protocol_hashes=self.protocol_hashes,
+                protected_body_names=REGISTERED_PROTECTED_BODY_NAMES,
+            )
+
+        self.assertEqual(default.protected_body_ids, explicit.protected_body_ids)
+        self.assertEqual(
+            default.protected_body_names, REGISTERED_PROTECTED_BODY_NAMES
+        )
+        self.assertEqual(default.protected_body_names, explicit.protected_body_names)
+        self.assertEqual(default.protected_samples, explicit.protected_samples)
+        self.assertEqual(default.diagnostics, explicit.diagnostics)
+        self.assertEqual(default.hashes, explicit.hashes)
+        self.np.testing.assert_array_equal(
+            default.field.values, explicit.field.values
+        )
+
+    def test_explicit_subset_rejects_empty_duplicate_order_and_unknown(self) -> None:
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        model, data, _, resolved = self._scene()
+        invalid = (
+            (),
+            ("robot0_link5", "robot0_link5"),
+            ("robot0_link6", "robot0_link5"),
+            ("robot0_link4",),
+            ("robot0_link5", 6),
+            "robot0_link5",
+        )
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.clone_forwarded_state"
+        ) as clone:
+            for protected_body_names in invalid:
+                with self.subTest(protected_body_names=protected_body_names):
+                    with self.assertRaises((TypeError, ValueError)):
+                        build_static_field_bundle(
+                            model,
+                            data,
+                            resolved=resolved,
+                            protocol=self.protocol,
+                            protocol_hashes=self.protocol_hashes,
+                            protected_body_names=protected_body_names,
+                        )
+        clone.assert_not_called()
+
+    def test_effective_names_must_exactly_match_resolved_literal_bodies(self) -> None:
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        mismatch_cases = (
+            (("link5", "link6"), ("robot0_link5",)),
+            (("link5",), ("robot0_link6",)),
+            (("link6",), ("robot0_link5", "robot0_link6")),
+            (("link5",), None),
+        )
+        for resolved_link_keys, protected_body_names in mismatch_cases:
+            with self.subTest(
+                resolved_link_keys=resolved_link_keys,
+                protected_body_names=protected_body_names,
+            ):
+                model, data, _, resolved = self._scene(
+                    resolved_link_keys=resolved_link_keys
+                )
+                kwargs = {}
+                if protected_body_names is not None:
+                    kwargs["protected_body_names"] = protected_body_names
+                with mock.patch(
+                    "main.poisson_fullbody.field_bundle.build_occupancy"
+                ) as occupancy:
+                    with self.assertRaisesRegex(
+                        ValueError, "exactly match effective scope"
+                    ):
+                        build_static_field_bundle(
+                            model,
+                            data,
+                            resolved=resolved,
+                            protocol=self.protocol,
+                            protocol_hashes=self.protocol_hashes,
+                            **kwargs,
+                        )
+                occupancy.assert_not_called()
 
     def test_legacy_v3_exact_101_cubed_bundle_remains_supported(self) -> None:
         from main.poisson_fullbody.field_bundle import build_static_field_bundle

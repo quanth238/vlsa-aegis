@@ -70,6 +70,7 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
                 "tests.test_poisson_post_osc_torque_sensitivity",
                 "tests.test_poisson_post_osc_torque_shield",
                 "tests.test_poisson_osc_arm_link_canary",
+                "tests.test_poisson_osc_target_link_protocol",
                 "tests.test_poisson_osc_numeric_prerequisite",
                 "tests.test_poisson_osc_arm_link_slurm_contract",
                 "tests.test_poisson_numeric_validation_runner",
@@ -144,19 +145,25 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3_stencil_roundtrip.json"',
+            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link.json"',
+            source,
+        )
+        self.assertIn('--expected-case-id "${CASE_ID}"', source)
+        self.assertIn(
+            '--expected-protocol-relative-path "${PROTOCOL_RELATIVE_PATH}"',
             source,
         )
 
-    def test_producer_and_consumer_use_immutable_v3_canary_protocol(self) -> None:
+    def test_producer_and_consumer_require_explicit_case_protocol_binding(self) -> None:
         for name in (
             "poisson_osc_arm_link_canary.sbatch",
             "poisson_osc_arm_link_canary_validate.sbatch",
         ):
             with self.subTest(name=name):
                 source = self.source(name)
-                self.assertIn("vlsa_poisson_osc_arm_link_canary.v3.json", source)
-                self.assertNotIn("vlsa_poisson_osc_arm_link_canary.v2.json", source)
+                self.assertIn('"${PROTOCOL_RELATIVE_PATH}"', source)
+                self.assertIn('"${CASE_ID}"', source)
+                self.assertNotIn("vlsa_poisson_osc_arm_link_canary.v3.json", source)
 
     def test_post_osc_slurm_scripts_parse_as_bash(self) -> None:
         for name in (

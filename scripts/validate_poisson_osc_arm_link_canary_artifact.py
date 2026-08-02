@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import importlib
 import importlib.metadata
@@ -1132,6 +1133,459 @@ def _validate_shield_sampling_binding(
     }
 
 
+def _validate_protected_link_shield_sampling_binding(
+    *,
+    apparatus: Mapping[str, Any],
+    resolved_geometry: Mapping[str, Any],
+    target_resolved_geometry: Mapping[str, Any],
+    protected_resolved_geometry: Mapping[str, Any],
+    expected_target_link_body_names: Sequence[str],
+    expected_protected_link_body_names: Sequence[str],
+    shield_contract: Mapping[str, Any],
+    controller: Mapping[str, Any],
+    np: Any,
+) -> Dict[str, Any]:
+    """Bind every v4 QP row to the shared configured protected-link ledger."""
+
+    binding = apparatus.get("shield_sampling_binding")
+    protected = apparatus.get("protected_sampling")
+    scope = apparatus.get("registered_contact_scope")
+    _require(
+        isinstance(binding, Mapping), "protected-link shield binding is absent"
+    )
+    _require(isinstance(protected, Mapping), "protected field sampling is absent")
+    _require(isinstance(scope, Mapping), "registered contact scope is absent")
+    _require(
+        apparatus.get("shield_sampling_binding_sha256")
+        == _canonical_sha256(binding),
+        "protected-link shield binding hash differs",
+    )
+    samples = binding.get("samples")
+    if samples is None:
+        samples = protected.get("samples")
+    protected_samples = protected.get("samples")
+    _require(
+        binding.get("schema_version")
+        == "vlsa_poisson_protected_link_shield_sampling_binding.v1"
+        and binding.get("scope") == shield_contract.get("binding_scope")
+        and binding.get("sample_source") == "apparatus.protected_sampling.samples"
+        and binding.get("protected_samples_contract")
+        == shield_contract.get("protected_samples")
+        and binding.get("field_bundle_samples_contract")
+        == shield_contract.get("field_bundle_samples")
+        and binding.get("shield_body_authority")
+        == shield_contract.get("shield_body_authority")
+        and binding.get("shield_geometry_selection")
+        == shield_contract.get("shield_geometry_selection")
+        and isinstance(samples, list)
+        and samples
+        and isinstance(protected_samples, list)
+        and fast._canonical(samples) == fast._canonical(protected_samples),
+        "protected-link shield source or ordered sample payload differs",
+    )
+    sample_count = len(samples)
+    sample_hash = _canonical_sha256(samples)
+    _require(
+        binding.get("sample_count") == sample_count
+        and binding.get("sample_ledger_sha256") == sample_hash
+        and binding.get("field_bundle_protected_sample_count") == sample_count
+        and binding.get("field_bundle_protected_samples_sha256")
+        == _canonical_sha256(protected)
+        and binding.get("exact_ordered_field_bundle_protected_sample_ledger")
+        is True,
+        "protected-link shield count or ledger hash differs",
+    )
+    _require(
+        binding.get("field_seed_sample_scope")
+        == shield_contract.get("field_bundle_samples"),
+        "protected-link field seed scope differs from the protocol",
+    )
+
+    broad_link56_geom_ids = _strict_integer_list(
+        resolved_geometry.get("link56_geom_ids"), "resolved link5/link6 geom IDs"
+    )
+    target_body_ids = _strict_integer_list(
+        target_resolved_geometry.get("target_link_body_ids"),
+        "resolved target-link body IDs",
+    )
+    target_body_names = target_resolved_geometry.get("target_link_body_names")
+    target_geom_ids = _strict_integer_list(
+        target_resolved_geometry.get("target_link_geom_ids"),
+        "resolved target-link geom IDs",
+    )
+    target_geom_names = target_resolved_geometry.get("target_link_geom_names")
+    protected_body_ids = _strict_integer_list(
+        protected_resolved_geometry.get("protected_link_body_ids"),
+        "resolved protected-link body IDs",
+    )
+    protected_body_names = protected_resolved_geometry.get(
+        "protected_link_body_names"
+    )
+    protected_geom_ids = _strict_integer_list(
+        protected_resolved_geometry.get("protected_link_geom_ids"),
+        "resolved protected-link geom IDs",
+    )
+    protected_geom_names = protected_resolved_geometry.get(
+        "protected_link_geom_names"
+    )
+    broad_robot_body_ids = _strict_integer_list(
+        resolved_geometry.get("robot_body_ids"), "broad resolved robot body IDs"
+    )
+    broad_robot_body_names = resolved_geometry.get("robot_body_names")
+    broad_robot_geom_ids = _strict_integer_list(
+        resolved_geometry.get("robot_geom_ids"), "broad resolved robot geom IDs"
+    )
+    broad_robot_geom_names = resolved_geometry.get("robot_geom_names")
+    _require(
+        isinstance(broad_robot_body_names, list)
+        and len(broad_robot_body_names) == len(broad_robot_body_ids)
+        and isinstance(broad_robot_geom_names, list)
+        and len(broad_robot_geom_names) == len(broad_robot_geom_ids),
+        "broad resolved robot name ledgers differ",
+    )
+    broad_body_name_by_id = dict(
+        zip(broad_robot_body_ids, broad_robot_body_names)
+    )
+    broad_geom_name_by_id = dict(
+        zip(broad_robot_geom_ids, broad_robot_geom_names)
+    )
+    _require(
+        target_resolved_geometry.get("schema_version")
+        == "vlsa_poisson_target_link_resolved_geometry.v1"
+        and apparatus.get("target_link_resolved_geometry_sha256")
+        == _canonical_sha256(target_resolved_geometry)
+        and target_body_names == [str(value) for value in expected_target_link_body_names]
+        and isinstance(target_geom_names, list)
+        and len(target_geom_names) == len(target_geom_ids)
+        and len(target_body_ids) == len(target_body_names)
+        and len(target_body_ids) == len(set(target_body_ids))
+        and len(target_body_names) == len(set(target_body_names))
+        and bool(target_body_ids)
+        and bool(target_geom_ids)
+        and set(target_geom_ids).issubset(broad_link56_geom_ids)
+        and [broad_body_name_by_id.get(value) for value in target_body_ids]
+        == target_body_names
+        and [broad_geom_name_by_id.get(value) for value in target_geom_ids]
+        == target_geom_names
+        and target_resolved_geometry.get("geometry_selection")
+        == (
+            "collision_enabled_geoms_directly_attached_to_exact_configured_"
+            "target_link_bodies_no_descendants"
+        )
+        and target_resolved_geometry.get(
+            "broad_robot_obstacle_authority_unchanged"
+        )
+        is True
+        and target_resolved_geometry.get(
+            "target_link_geoms_subset_of_broad_literal_link56_geoms"
+        )
+        is True,
+        "configured target-link resolved geometry differs",
+    )
+    _require(
+        protected_resolved_geometry.get("schema_version")
+        == "vlsa_poisson_protected_link_resolved_geometry.v1"
+        and apparatus.get("protected_link_resolved_geometry_sha256")
+        == _canonical_sha256(protected_resolved_geometry)
+        and protected_body_names
+        == [str(value) for value in expected_protected_link_body_names]
+        and isinstance(protected_geom_names, list)
+        and len(protected_geom_names) == len(protected_geom_ids)
+        and len(protected_body_ids) == len(protected_body_names) == 2
+        and len(set(protected_body_ids)) == len(protected_body_ids)
+        and len(set(protected_body_names)) == len(protected_body_names)
+        and bool(protected_geom_ids)
+        and protected_geom_ids == broad_link56_geom_ids
+        and set(target_body_ids).issubset(protected_body_ids)
+        and set(target_geom_ids).issubset(protected_geom_ids)
+        and [broad_body_name_by_id.get(value) for value in protected_body_ids]
+        == protected_body_names
+        and [broad_geom_name_by_id.get(value) for value in protected_geom_ids]
+        == protected_geom_names
+        and protected_resolved_geometry.get("geometry_selection")
+        == (
+            "collision_enabled_geoms_directly_attached_to_exact_configured_"
+            "protected_link_bodies_no_descendants"
+        )
+        and protected_resolved_geometry.get(
+            "broad_robot_obstacle_authority_unchanged"
+        )
+        is True
+        and protected_resolved_geometry.get(
+            "target_link_geoms_subset_of_protected_link_geoms"
+        )
+        is True
+        and protected_resolved_geometry.get(
+            "protected_link_geoms_subset_of_broad_literal_link56_geoms"
+        )
+        is True,
+        "shared protected-link resolved geometry differs",
+    )
+    shield_geom_ids = _strict_integer_list(
+        binding.get("shield_manipulator_geom_ids"),
+        "bound protected-link shield geom IDs",
+    )
+    _require(
+        shield_geom_ids == protected_geom_ids
+        and _strict_integer_list(
+            binding.get("shield_protected_link_geom_ids"),
+            "bound protected-link geom IDs",
+        )
+        == protected_geom_ids
+        and binding.get("protected_link_body_ids") == protected_body_ids
+        and binding.get("protected_link_body_names") == protected_body_names
+        and binding.get("field_bundle_protected_body_ids")
+        == protected_body_ids
+        and binding.get("field_bundle_protected_body_names")
+        == protected_body_names
+        and binding.get("evaluation_target_link_body_names")
+        == target_body_names
+        and binding.get("evaluation_target_link_geom_ids") == target_geom_ids
+        and _strict_integer_list(
+            binding.get("resolved_link56_geom_ids"),
+            "bound broad resolved link5/link6 geom IDs",
+        )
+        == broad_link56_geom_ids
+        and binding.get("resolved_link56_geom_ids_sha256")
+        == _canonical_sha256(broad_link56_geom_ids)
+        and binding.get("shield_protected_link_geom_ids_sha256")
+        == _canonical_sha256(protected_geom_ids)
+        and binding.get("shield_manipulator_geom_ids_sha256")
+        == _canonical_sha256(shield_geom_ids),
+        "shield geom ledger is not exactly the shared protected-link ledger",
+    )
+    sampled_geom_ids = [int(row.get("geom_id", -1)) for row in samples]
+    geom_order = {
+        geom_id: index for index, geom_id in enumerate(protected_geom_ids)
+    }
+    _require(
+        set(sampled_geom_ids) == set(protected_geom_ids)
+        and all(geom_id in geom_order for geom_id in sampled_geom_ids)
+        and [geom_order[geom_id] for geom_id in sampled_geom_ids]
+        == sorted(geom_order[geom_id] for geom_id in sampled_geom_ids),
+        "protected field samples do not cover exactly the ordered shared-link geoms",
+    )
+    robot_geom_ids = _strict_integer_list(
+        resolved_geometry.get("robot_geom_ids"), "resolved robot geom IDs"
+    )
+    scope_robot_geom_ids = _strict_integer_list(
+        scope.get("robot_geom_ids"), "registered whole-robot contact geom IDs"
+    )
+    _require(
+        scope_robot_geom_ids == robot_geom_ids
+        and binding.get("all_robot_contact_monitor_scope_identity_sha256")
+        == scope.get("identity_sha256"),
+        "protected-link shield is not paired with the broad contact monitor",
+    )
+
+    qvel_authority = binding.get("protected_link_qvel_authority")
+    _require(
+        isinstance(qvel_authority, Mapping)
+        and qvel_authority.get("schema_version")
+        == "vlsa_poisson_protected_link_arm_qvel_binding.v1"
+        and fast._canonical(apparatus.get("active_shield_qvel_authority"))
+        == fast._canonical(qvel_authority),
+        "protected-link active qvel authority differs",
+    )
+    qvel_indices = _strict_integer_list(
+        qvel_authority.get("robot_qvel_indices"),
+        "protected-link shield qvel indices",
+    )
+    qvel_records = qvel_authority.get("robot_qvel_records")
+    full_qvel_authority = apparatus.get("full_robot_qvel_authority")
+    _require(
+        isinstance(full_qvel_authority, Mapping),
+        "full robot-tree qvel authority is absent",
+    )
+    full_qvel_indices = _strict_integer_list(
+        full_qvel_authority.get("robot_qvel_indices"),
+        "full robot-tree qvel indices",
+    )
+    full_qvel_records = full_qvel_authority.get("robot_qvel_records")
+    _require(
+        qvel_indices == sorted(qvel_indices)
+        and len(qvel_indices) == len(set(qvel_indices))
+        and qvel_authority.get("robot_qvel_indices_sha256")
+        == _canonical_sha256(qvel_indices)
+        and isinstance(qvel_records, list)
+        and len(qvel_records) == len(qvel_indices)
+        and qvel_authority.get("robot_qvel_records_sha256")
+        == _canonical_sha256(qvel_records)
+        and [row.get("qvel_index") for row in qvel_records] == qvel_indices,
+        "protected-link shield velocity authority differs",
+    )
+    _require(
+        full_qvel_indices == sorted(full_qvel_indices)
+        and len(full_qvel_indices) == len(set(full_qvel_indices))
+        and set(qvel_indices).issubset(full_qvel_indices)
+        and full_qvel_authority.get("robot_qvel_indices_sha256")
+        == _canonical_sha256(full_qvel_indices)
+        and isinstance(full_qvel_records, list)
+        and len(full_qvel_records) == len(full_qvel_indices)
+        and full_qvel_authority.get("robot_qvel_records_sha256")
+        == _canonical_sha256(full_qvel_records)
+        and [row.get("qvel_index") for row in full_qvel_records]
+        == full_qvel_indices
+        and [
+            row
+            for row in full_qvel_records
+            if int(row.get("qvel_index", -1)) in set(qvel_indices)
+        ]
+        == qvel_records,
+        "protected-link qvel rows differ from the full robot-tree ledger",
+    )
+    arm_qvel_indices = _strict_integer_list(
+        qvel_authority.get("arm_qvel_indices"),
+        "protected-link shield arm qvel indices",
+    )
+    controller_arm_qvel = _strict_integer_list(
+        controller.get("arm_qvel_indexes"), "controller arm qvel indices"
+    )
+    decision_actuators = _strict_integer_list(
+        qvel_authority.get("decision_arm_actuator_ids"),
+        "decision arm actuator IDs",
+    )
+    controller_actuators = _strict_integer_list(
+        controller.get("arm_actuator_indexes"), "controller arm actuator IDs"
+    )
+    model_actuator_count = binding.get("model_actuator_count")
+    nonarm_ctrl_indices = _strict_integer_list(
+        binding.get("nonarm_ctrl_indices"), "non-arm control indices"
+    )
+    expected_nonarm_ctrl_indices = [
+        index
+        for index in range(int(model_actuator_count))
+        if index not in set(decision_actuators)
+    ]
+    _require(
+        isinstance(model_actuator_count, int)
+        and not isinstance(model_actuator_count, bool)
+        and int(model_actuator_count) > 7
+        and qvel_authority.get("velocity_dimension") == len(qvel_indices)
+        and arm_qvel_indices == controller_arm_qvel
+        and len(arm_qvel_indices) == len(set(arm_qvel_indices)) == 7
+        and set(arm_qvel_indices).issubset(qvel_indices)
+        and decision_actuators == controller_actuators
+        and len(decision_actuators) == len(set(decision_actuators)) == 7
+        and qvel_authority.get("decision_dimension") == 7
+        and nonarm_ctrl_indices == expected_nonarm_ctrl_indices
+        and binding.get("nonarm_ctrl_indices_sha256")
+        == _canonical_sha256(nonarm_ctrl_indices)
+        and binding.get("nonarm_ctrl_count") == len(nonarm_ctrl_indices)
+        and binding.get("nonarm_ctrl_policy")
+        == "unchanged_byte_exact_in_all_cloned_and_live_transitions",
+        "protected-link shield decision/control authority differs",
+    )
+    influencing_qvel_indices = _strict_integer_list(
+        qvel_authority.get(
+            "structurally_influencing_protected_link_qvel_indices"
+        ),
+        "structurally influencing protected-link qvel indices",
+    )
+    omitted_qvel_indices = _strict_integer_list(
+        qvel_authority.get(
+            "omitted_robot_tree_qvels_proven_noninfluential_for_protected_link"
+        ),
+        "omitted noninfluential robot-tree qvel indices",
+    )
+    expected_omitted_qvel_indices = sorted(
+        set(full_qvel_indices) - set(qvel_indices)
+    )
+    _require(
+        binding.get("robot_qvel_selection_rule")
+        == shield_contract.get("point_velocity_scope")
+        and qvel_authority.get("resolved_protected_link_geom_ids")
+        == protected_geom_ids
+        and influencing_qvel_indices
+        and set(influencing_qvel_indices).issubset(arm_qvel_indices)
+        and qvel_authority.get(
+            "structurally_influencing_protected_link_qvel_indices_sha256"
+        )
+        == _canonical_sha256(influencing_qvel_indices)
+        and qvel_authority.get(
+            "all_structural_protected_link_qvel_influences_included"
+        )
+        is True
+        and qvel_authority.get("nonarm_robot_qvel_included") is False,
+        "protected-link structural qvel authority differs",
+    )
+    _require(
+        full_qvel_authority.get("arm_qvel_indices") == arm_qvel_indices
+        and full_qvel_authority.get("decision_arm_actuator_ids")
+        == decision_actuators
+        and full_qvel_authority.get("nonarm_robot_qvel_included") is True
+        and omitted_qvel_indices == expected_omitted_qvel_indices
+        and set(omitted_qvel_indices).isdisjoint(influencing_qvel_indices),
+        "omitted protected-link qvel provenance differs",
+    )
+
+    settled = binding.get("settled_field_query_certificate")
+    _require(
+        isinstance(settled, Mapping),
+        "settled protected-link field query is absent",
+    )
+    h_values = settled.get("h_m2")
+    _require(
+        settled.get("sample_count") == sample_count
+        and settled.get("sample_ledger_sha256") == sample_hash
+        and settled.get("all_queries_valid") is True
+        and settled.get("all_h_strictly_positive") is True
+        and isinstance(h_values, list)
+        and len(h_values) == sample_count
+        and all(
+            isinstance(value, float) and math.isfinite(value) and value > 0.0
+            for value in h_values
+        ),
+        "settled protected-link field-query certificate differs",
+    )
+    _validate_compact_array_identity(
+        settled.get("h_array_record"),
+        expected_shape=(sample_count,),
+        label="settled protected-link h",
+        np=np,
+        raw_array=h_values,
+    )
+    _validate_compact_array_identity(
+        settled.get("world_points_array_record"),
+        expected_shape=(sample_count, 3),
+        label="settled protected-link world points",
+        np=np,
+        raw_array=settled.get("world_points_m"),
+    )
+    outer_clearance = settled.get("outer_boundary_clearance_m")
+    _require(
+        isinstance(outer_clearance, list)
+        and len(outer_clearance) == sample_count
+        and all(math.isfinite(float(value)) for value in outer_clearance)
+        and settled.get("all_outer_boundary_clearances_pass") is True,
+        "settled protected-link field boundary certificate differs",
+    )
+    _validate_compact_array_identity(
+        settled.get("outer_boundary_clearance_array_record"),
+        expected_shape=(sample_count,),
+        label="settled protected-link outer clearance",
+        np=np,
+        raw_array=outer_clearance,
+    )
+    return {
+        "samples": samples,
+        "sample_count": sample_count,
+        "sample_ledger_sha256": sample_hash,
+        "robot_qvel_indices": qvel_indices,
+        "velocity_dimension": len(qvel_indices),
+        "arm_qvel_indices": arm_qvel_indices,
+        "decision_arm_actuator_ids": decision_actuators,
+        "nonarm_ctrl_indices": nonarm_ctrl_indices,
+        "nonarm_ctrl_indices_sha256": _canonical_sha256(nonarm_ctrl_indices),
+        "shield_geom_ids": shield_geom_ids,
+        "target_body_ids": target_body_ids,
+        "target_body_names": target_body_names,
+        "protected_body_ids": protected_body_ids,
+        "protected_body_names": protected_body_names,
+        "exact_protected_field_ledger": True,
+    }
+
+
 def _validate_field_sample_static_evidence(
     *,
     apparatus: Mapping[str, Any],
@@ -1140,6 +1594,9 @@ def _validate_field_sample_static_evidence(
     runtime_protocol: Mapping[str, Any],
     runtime_protocol_sha256: str,
     runtime_parameter_block_sha256: str,
+    target_link_v4: bool,
+    expected_target_link_body_names: Sequence[str],
+    expected_protected_link_body_names: Sequence[str],
 ) -> Dict[str, Any]:
     """Reconstruct field identities and admissibility from serialized rows."""
 
@@ -1147,14 +1604,60 @@ def _validate_field_sample_static_evidence(
     _require(isinstance(resolved, Mapping), "resolved geometry is absent")
     robot_geom_ids = [int(value) for value in resolved.get("robot_geom_ids", ())]
     robot_body_ids = [int(value) for value in resolved.get("robot_body_ids", ())]
-    link_geom_ids = [int(value) for value in resolved.get("link56_geom_ids", ())]
-    link_body_ids = [int(value) for value in resolved.get("link56_body_ids", ())]
+    broad_link_geom_ids = [int(value) for value in resolved.get("link56_geom_ids", ())]
+    broad_link_body_ids = [int(value) for value in resolved.get("link56_body_ids", ())]
     obstacle_geom_ids = [int(value) for value in resolved.get("obstacle_geom_ids", ())]
     _require(
-        robot_geom_ids and robot_body_ids and link_geom_ids and link_body_ids
+        robot_geom_ids and robot_body_ids and broad_link_geom_ids and broad_link_body_ids
         and obstacle_geom_ids,
         "resolved field/sample identities are empty",
     )
+    if target_link_v4:
+        target_resolved = apparatus.get("target_link_resolved_geometry")
+        protected_resolved = apparatus.get("protected_link_resolved_geometry")
+        _require(
+            isinstance(target_resolved, Mapping)
+            and isinstance(protected_resolved, Mapping),
+            "target/protected resolved geometry is absent",
+        )
+        target_geom_ids = _strict_integer_list(
+            target_resolved.get("target_link_geom_ids"),
+            "field evaluation target-link geom IDs",
+        )
+        target_body_ids = _strict_integer_list(
+            target_resolved.get("target_link_body_ids"),
+            "field evaluation target-link body IDs",
+        )
+        link_geom_ids = _strict_integer_list(
+            protected_resolved.get("protected_link_geom_ids"),
+            "field protected-link geom IDs",
+        )
+        link_body_ids = _strict_integer_list(
+            protected_resolved.get("protected_link_body_ids"),
+            "field protected-link body IDs",
+        )
+        _require(
+            target_resolved.get("schema_version")
+            == "vlsa_poisson_target_link_resolved_geometry.v1"
+            and apparatus.get("target_link_resolved_geometry_sha256")
+            == _canonical_sha256(target_resolved)
+            and target_resolved.get("target_link_body_names")
+            == [str(value) for value in expected_target_link_body_names]
+            and protected_resolved.get("schema_version")
+            == "vlsa_poisson_protected_link_resolved_geometry.v1"
+            and apparatus.get("protected_link_resolved_geometry_sha256")
+            == _canonical_sha256(protected_resolved)
+            and protected_resolved.get("protected_link_body_names")
+            == [str(value) for value in expected_protected_link_body_names]
+            and link_geom_ids == broad_link_geom_ids
+            and link_body_ids == broad_link_body_ids
+            and set(target_geom_ids).issubset(link_geom_ids)
+            and set(target_body_ids).issubset(link_body_ids),
+            "field shield geometry is not the shared protected-link set",
+        )
+    else:
+        link_geom_ids = broad_link_geom_ids
+        link_body_ids = broad_link_body_ids
 
     full = apparatus.get("all_robot_sampling")
     _require(isinstance(full, Mapping), "all-robot sampling evidence is absent")
@@ -1791,6 +2294,227 @@ def _bound_file(root: Path, relative: str, expected_sha256: str) -> Path:
     return current
 
 
+def _validate_historical_target_contact_gzip(
+    path: Path,
+    *,
+    expected_payload_sha256: str,
+    expected_case_id: str,
+    expected_obstacle_name: str,
+    expected_obstacle_root_body_name: str,
+    expected_contact_action: int,
+    expected_target_body_names: Sequence[str],
+    literal_link56_body_names: Sequence[str],
+) -> Dict[str, Any]:
+    """Prove the frozen AEGIS contact directly from its detailed gzip.
+
+    The manifest and compact historical result are useful indexes, but neither
+    independently proves which robot body participated at one action.  This
+    consumer therefore authenticates and reconstructs the complete detailed
+    contact payload, then finds the first nonpositive-distance robot contact
+    for every configured evaluation target link.
+    """
+
+    compressed = path.read_bytes()
+    try:
+        raw = gzip.decompress(compressed)
+    except Exception as error:
+        raise OscCanaryValidationError(
+            "historical detailed contact gzip is invalid: %s" % error
+        ) from error
+    _require(
+        hashlib.sha256(raw).hexdigest() == expected_payload_sha256,
+        "historical detailed contact payload hash differs",
+    )
+    try:
+        payload = json.loads(raw)
+    except Exception as error:
+        raise OscCanaryValidationError(
+            "historical detailed contact payload is invalid JSON: %s" % error
+        ) from error
+    _require(
+        isinstance(payload, Mapping)
+        and fast._canonical(payload) == raw
+        and payload.get("schema_version")
+        == "vlsa_table1_active_obstacle_contacts.v3"
+        and payload.get("case_id") == expected_case_id
+        and payload.get("active_obstacle_name") == expected_obstacle_name,
+        "historical detailed contact payload authority differs",
+    )
+    snapshots = payload.get("snapshots")
+    _require(isinstance(snapshots, list) and snapshots, "contact snapshots are absent")
+    target_body_names = [str(value) for value in expected_target_body_names]
+    target_body_set = set(target_body_names)
+    target_events_by_body: Dict[str, List[Dict[str, Any]]] = {
+        name: [] for name in target_body_names
+    }
+    configured_action_link56_events: List[Dict[str, Any]] = []
+    configured_action_robot_pair_link56_bodies: List[str] = []
+    literal_link56 = {str(value) for value in literal_link56_body_names}
+    _require(
+        len(literal_link56) == 2
+        and all(bool(value) for value in literal_link56)
+        and target_body_names
+        and len(target_body_names) == len(target_body_set)
+        and target_body_set.issubset(literal_link56),
+        "protocol-declared link5/link6 body authority differs",
+    )
+    action_snapshot_count = 0
+    for snapshot_index, snapshot in enumerate(snapshots):
+        _require(isinstance(snapshot, Mapping), "contact snapshot is malformed")
+        step = snapshot.get("step")
+        _require(
+            isinstance(step, int)
+            and not isinstance(step, bool)
+            and snapshot.get("status") == "available"
+            and snapshot.get("active_obstacle_name") == expected_obstacle_name
+            and snapshot.get("role_authority", {}).get("status") == "complete",
+            "contact snapshot authority differs at row %d" % snapshot_index,
+        )
+        if int(step) == int(expected_contact_action):
+            action_snapshot_count += 1
+        events = snapshot.get("events")
+        robot_pairs = snapshot.get("robot_pairs")
+        _require(
+            isinstance(events, list) and isinstance(robot_pairs, list),
+            "contact event or robot-pair ledger is absent",
+        )
+        if int(step) == int(expected_contact_action):
+            for pair_index, pair in enumerate(robot_pairs):
+                _require(
+                    isinstance(pair, Mapping),
+                    "configured contact robot-pair row is malformed",
+                )
+                lineage1 = pair.get("body_lineage1")
+                lineage2 = pair.get("body_lineage2")
+                _require(
+                    isinstance(lineage1, list)
+                    and lineage1
+                    and isinstance(lineage2, list)
+                    and lineage2,
+                    "configured contact robot-pair lineage is absent at row %d"
+                    % pair_index,
+                )
+                root1 = str(lineage1[0])
+                root2 = str(lineage2[0])
+                if root1 == expected_obstacle_root_body_name and root2 in literal_link56:
+                    configured_action_robot_pair_link56_bodies.append(root2)
+                elif root2 == expected_obstacle_root_body_name and root1 in literal_link56:
+                    configured_action_robot_pair_link56_bodies.append(root1)
+        for event_index, event in enumerate(events):
+            _require(isinstance(event, Mapping), "contact event is malformed")
+            unhashed = dict(event)
+            declared_event_hash = unhashed.pop("event_sha256", None)
+            _require(
+                declared_event_hash == _canonical_sha256(unhashed)
+                and event.get("step") == step,
+                "contact event hash or step differs at snapshot %d event %d"
+                % (snapshot_index, event_index),
+            )
+            obstacle = event.get("obstacle")
+            other = event.get("other")
+            if not isinstance(obstacle, Mapping) or not isinstance(other, Mapping):
+                continue
+            distance = event.get("distance")
+            literal_robot_contact = bool(
+                other.get("classification") == "robot"
+                and isinstance(distance, (int, float))
+                and not isinstance(distance, bool)
+                and math.isfinite(float(distance))
+                and float(distance) <= 0.0
+            )
+            if literal_robot_contact and other.get("body_name") in literal_link56:
+                _require(
+                    obstacle.get("body_name") == expected_obstacle_root_body_name,
+                    "literal link5/link6 event obstacle root differs",
+                )
+                contact_row = {
+                    "step": int(step),
+                    "snapshot_index": snapshot_index,
+                    "event_index": event_index,
+                    "distance_m": float(distance),
+                    "robot_body_name": str(other["body_name"]),
+                    "robot_geom_name": str(other.get("geom_name")),
+                    "obstacle_body_name": str(obstacle.get("body_name")),
+                    "obstacle_geom_name": str(obstacle.get("geom_name")),
+                    "event_sha256": str(declared_event_hash),
+                }
+                if int(step) == int(expected_contact_action):
+                    configured_action_link56_events.append(contact_row)
+                if other.get("body_name") in target_body_set:
+                    target_events_by_body[str(other["body_name"])].append(
+                        contact_row
+                    )
+    _require(
+        action_snapshot_count == 1,
+        "configured historical contact action is absent or duplicated",
+    )
+    _require(
+        all(target_events_by_body.values()),
+        "a configured target link has no literal historical contact",
+    )
+    first_target_action_by_body = {
+        name: min(int(row["step"]) for row in target_events_by_body[name])
+        for name in target_body_names
+    }
+    action_target_events = [
+        row
+        for row in configured_action_link56_events
+        if str(row["robot_body_name"]) in target_body_set
+    ]
+    _require(
+        all(
+            value == int(expected_contact_action)
+            for value in first_target_action_by_body.values()
+        )
+        and {str(row["robot_body_name"]) for row in action_target_events}
+        == target_body_set,
+        "configured action is not the first literal contact for every target link",
+    )
+    configured_action_link56_bodies = sorted(
+        {str(row["robot_body_name"]) for row in configured_action_link56_events}
+    )
+    configured_action_robot_pair_link56_bodies = sorted(
+        set(configured_action_robot_pair_link56_bodies)
+    )
+    _require(
+        target_body_set.issubset(configured_action_link56_bodies)
+        and target_body_set.issubset(
+            configured_action_robot_pair_link56_bodies
+        ),
+        "configured action omits a target from the literal link5/link6 contacts",
+    )
+    return {
+        "schema_version": "vlsa_poisson_historical_target_contact_audit.v1",
+        "detailed_contact_file_sha256": fast._file_sha256(path),
+        "detailed_contact_payload_sha256": hashlib.sha256(raw).hexdigest(),
+        "snapshot_count": len(snapshots),
+        "target_link_body_names": target_body_names,
+        "first_target_link_contact_source_action_by_body": (
+            first_target_action_by_body
+        ),
+        "configured_action_literal_target_contact_count": len(action_target_events),
+        "configured_action_target_nonpositive_distances_m": [
+            float(row["distance_m"]) for row in action_target_events
+        ],
+        "configured_action_literal_link56_body_names": (
+            configured_action_link56_bodies
+        ),
+        "configured_action_robot_pair_link56_body_names": (
+            configured_action_robot_pair_link56_bodies
+        ),
+        "configured_action_target_geom_pairs": [
+            {
+                "target_link_body_name": row["robot_body_name"],
+                "target_link_geom_name": row["robot_geom_name"],
+                "obstacle_root_body_name": row["obstacle_body_name"],
+                "obstacle_geom_name": row["obstacle_geom_name"],
+            }
+            for row in action_target_events
+        ],
+        "configured_action_event_sha256": _canonical_sha256(action_target_events),
+    }
+
+
 def _motion(rows: Sequence[Mapping[str, Any]], first: Any) -> Dict[str, float]:
     import numpy as np
 
@@ -2304,6 +3028,9 @@ def _independent_constraint_attribution(
     shield_samples: Sequence[Mapping[str, Any]],
     *,
     np: Any,
+    sample_scope: str = (
+        "all_structurally_movable_manipulator_collision_surfaces"
+    ),
 ) -> Dict[str, Any]:
     """Reconstruct which movable-manipulator samples made the nominal step unsafe."""
 
@@ -2322,9 +3049,7 @@ def _independent_constraint_attribution(
     negative_indices = np.flatnonzero(residuals < 0.0)
     return {
         "schema_version": "vlsa_poisson_constraint_attribution.v2",
-        "sample_scope": (
-            "all_structurally_movable_manipulator_collision_surfaces"
-        ),
+        "sample_scope": str(sample_scope),
         "selection_rule": "first_np_argmin_of_nominal_exact_clone_cbf_residual",
         "minimum_nominal_residual_m2_per_s": minimum,
         "minimum_sample_index": minimum_index,
@@ -2360,17 +3085,36 @@ def _validate_first_divergence_full_certificate(
     robot_qvel_indices: Sequence[int],
     robot_qvel_indices_sha256: str,
     velocity_dimension: int,
+    expected_certificate_roles: Sequence[str],
     np: Any,
 ) -> Dict[str, Any]:
-    """Reconstruct raw residuals and the QP only for the causal divergence."""
+    """Reconstruct raw residuals and the QP at a registered causal row."""
 
     certificate = row.get("full_constraint_qp_certificate")
     _require(isinstance(certificate, Mapping), "first divergence certificate is absent")
+    target_link_v4 = bool(
+        protocol.get("schema_version")
+        == "vlsa_poisson_osc_target_link_canary_protocol.v4"
+    )
+    expected_schema = (
+        "vlsa_poisson_divergence_or_material_full_qp_certificate.v4"
+        if target_link_v4
+        else "vlsa_poisson_first_divergence_full_qp_certificate.v2"
+    )
+    expected_roles = [str(value) for value in expected_certificate_roles]
     _require(
-        certificate.get("schema_version")
-        == "vlsa_poisson_first_divergence_full_qp_certificate.v2"
+        certificate.get("schema_version") == expected_schema
+        and (
+            certificate.get("certificate_roles") == expected_roles
+            if target_link_v4
+            else "certificate_roles" not in certificate
+        )
         and int(certificate.get("physical_boundary", -1))
         == int(row.get("physical_boundary", -2))
+        and int(certificate.get("source_action_index", -1))
+        == int(row.get("source_action_index", -2))
+        and certificate.get("callback_endpoint_action_inner_substep")
+        == row.get("callback_endpoint_action_inner_substep")
         and int(certificate.get("sample_count", -1))
         == int(row["constraint_trace"]["sample_count"])
         and certificate.get("sample_ledger_sha256") == sample_ledger_sha256
@@ -2487,6 +3231,11 @@ def _validate_first_divergence_full_certificate(
         residuals["nominal_exact_clone_minimum_cbf_residual_m2_per_s"],
         shield_samples,
         np=np,
+        sample_scope=(
+            str(protocol["shield"]["binding_scope"])
+            if target_link_v4
+            else "all_structurally_movable_manipulator_collision_surfaces"
+        ),
     )
     _require(
         fast._canonical(certificate.get("constraint_attribution"))
@@ -2523,6 +3272,9 @@ def _validate_first_divergence_full_certificate(
     return {
         **qp_audit,
         "constraint_attribution": independent_attribution,
+        "nominal_exact_cbf_residuals_m2_per_s": residuals[
+            "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
+        ].tolist(),
     }
 
 
@@ -2532,6 +3284,9 @@ def _validate_registered_contact_evidence(
     measurement: Any,
     physics: Sequence[Mapping[str, Any]],
     resolved_geometry: Mapping[str, Any],
+    physics_substeps_per_action: int = 25,
+    physics_substeps_per_controller_update: int = 5,
+    target_link_v4: bool = False,
 ) -> Dict[str, Any]:
     """Reconstruct every forbidden category from serialized authoritative IDs."""
 
@@ -2630,7 +3385,11 @@ def _validate_registered_contact_evidence(
         )
         _require(
             record.get("schema_version")
-            == "vlsa_poisson_registered_forbidden_contact.v1"
+            == (
+                "vlsa_poisson_registered_forbidden_contact.v1"
+                if settled or not target_link_v4
+                else "vlsa_poisson_registered_forbidden_contact.v2"
+            )
             and geom1 in identity
             and geom2 in identity
             and geom1 != geom2
@@ -2683,6 +3442,13 @@ def _validate_registered_contact_evidence(
             )
         else:
             boundary = int(record.get("physical_boundary", -1))
+            flat_substep = boundary % int(physics_substeps_per_action)
+            expected_controller_update = (
+                flat_substep // int(physics_substeps_per_controller_update)
+            )
+            expected_local_substep = (
+                flat_substep % int(physics_substeps_per_controller_update)
+            )
             _require(
                 record.get("source_phase")
                 in (
@@ -2692,8 +3458,32 @@ def _validate_registered_contact_evidence(
                 and 0 <= boundary < len(physics)
                 and record.get("executed_transition_start_boundary") == boundary
                 and record.get("observed_state_boundary") == boundary + 1
-                and int(record.get("source_action_index", -1)) == boundary // 25
-                and int(record.get("physics_substep_index", -1)) == boundary % 25,
+                and int(record.get("source_action_index", -1))
+                == boundary // int(physics_substeps_per_action)
+                and int(record.get("physics_substep_index", -1))
+                == flat_substep
+                and (
+                    not target_link_v4
+                    or (
+                        int(record.get("controller_update_index", -1))
+                        == expected_controller_update
+                        and int(
+                            record.get(
+                                "physics_substep_within_controller_update",
+                                -1,
+                            )
+                        )
+                        == expected_local_substep
+                        and record.get(
+                            "callback_endpoint_action_inner_substep"
+                        )
+                        == [
+                            boundary // int(physics_substeps_per_action),
+                            expected_controller_update,
+                            expected_local_substep,
+                        ]
+                    )
+                ),
                 "rollout registered contact cadence differs",
             )
         return dict(record)
@@ -2701,11 +3491,32 @@ def _validate_registered_contact_evidence(
     _require(
         isinstance(measurement, Mapping)
         and measurement.get("schema_version")
-        == "vlsa_poisson_registered_contact_measurement.v1"
+        == (
+            "vlsa_poisson_registered_contact_measurement.v2"
+            if target_link_v4
+            else "vlsa_poisson_registered_contact_measurement.v1"
+        )
         and measurement.get("scope_identity_sha256") == identity_sha256
         and int(measurement.get("observed_physics_substeps", -1)) == len(physics),
         "registered contact measurement header differs",
     )
+    if target_link_v4:
+        _require(
+            measurement.get("callback_cadence")
+            == {
+                "controller_updates_per_action": (
+                    int(physics_substeps_per_action)
+                    // int(physics_substeps_per_controller_update)
+                ),
+                "physics_substeps_per_controller_update": int(
+                    physics_substeps_per_controller_update
+                ),
+                "physics_substeps_per_action": int(
+                    physics_substeps_per_action
+                ),
+            },
+            "registered contact measurement callback cadence differs",
+        )
     settled_records = measurement.get("settled_contact_records")
     rollout_records = measurement.get("rollout_contact_records")
     _require(
@@ -2729,6 +3540,28 @@ def _validate_registered_contact_evidence(
             "physics row lacks registered contact monitoring",
         )
         validated = [validate_record(record, settled=False) for record in records]
+        if target_link_v4:
+            _require(
+                all(
+                    int(record.get("physical_boundary", -1)) == boundary
+                    and record.get("source_action_index")
+                    == row.get("source_action_index")
+                    and record.get("physics_substep_index")
+                    == row.get("physics_substep_index")
+                    and record.get("controller_update_index")
+                    == row.get("controller_update_index")
+                    and record.get(
+                        "physics_substep_within_controller_update"
+                    )
+                    == row.get("physics_substep_within_controller_update")
+                    and record.get(
+                        "callback_endpoint_action_inner_substep"
+                    )
+                    == row.get("callback_endpoint_action_inner_substep")
+                    for record in validated
+                ),
+                "embedded registered contact phase differs from its physics row",
+            )
         flattened_trace.extend(validated)
         categories = sorted(
             {
@@ -2805,6 +3638,7 @@ def _validate_partial_action_ledger(
     planner_actions: Sequence[Mapping[str, Any]],
     partial_action_record: Any,
     physics_substep_count: int,
+    physics_substeps_per_action: int = 25,
 ) -> Dict[str, Any]:
     """Validate the sole planner row allowed beyond completed actions."""
 
@@ -2851,11 +3685,14 @@ def _validate_partial_action_ledger(
     source_index = len(actions)
     planner_row = planner_actions[-1]
     completed = int(partial_action_record.get("completed_physics_substeps", -1))
-    expected_completed = int(physics_substep_count) - source_index * 25
+    expected_completed = (
+        int(physics_substep_count)
+        - source_index * int(physics_substeps_per_action)
+    )
     valid_count = (
-        1 <= completed <= 25
+        1 <= completed <= int(physics_substeps_per_action)
         if terminal_kind == "literal_registered_forbidden_contact"
-        else 0 <= completed < 25
+        else 0 <= completed < int(physics_substeps_per_action)
     )
     action_bytes, action_hash = _float64_vector7_bytes_and_sha256(
         partial_action_record.get("executed_high_level_action")
@@ -2897,7 +3734,7 @@ def _validate_partial_action_ledger(
         and completed == expected_completed
         and valid_count
         and int(partial_action_record.get("physics_boundary_start", -1))
-        == source_index * 25
+        == source_index * int(physics_substeps_per_action)
         and int(partial_action_record.get("physics_boundary_end_exclusive", -1))
         == int(physics_substep_count),
         "partial action planner/physics binding differs",
@@ -2957,6 +3794,9 @@ def _validate_safety_method_stop(
     robot_qvel_indices: Sequence[int],
     robot_qvel_indices_sha256: str,
     velocity_dimension: int,
+    physics_substeps_per_action: int = 25,
+    physics_substeps_per_controller_update: int = 5,
+    phase_correct_callback_required: bool = False,
 ) -> bool:
     """Bind a pre-physics stop to its unexecuted full-robot candidate boundary."""
 
@@ -2978,6 +3818,8 @@ def _validate_safety_method_stop(
         "velocity_dimension",
         "record_payload_sha256",
     }
+    if phase_correct_callback_required:
+        required_fields.add("callback_endpoint_action_inner_substep")
     _require(
         required_fields.issubset(record)
         and record.get("schema_version") == "vlsa_poisson_safety_method_stop.v2",
@@ -2997,16 +3839,33 @@ def _validate_safety_method_stop(
             isinstance(value, int) and not isinstance(value, bool) and value >= 0,
             "method-stop %s is invalid" % label,
         )
-    expected_substep = int(physics_substep_count) - int(action_count) * 25
+    expected_substep = (
+        int(physics_substep_count)
+        - int(action_count) * int(physics_substeps_per_action)
+    )
+    expected_callback_endpoint = [
+        int(source_action),
+        int(substep) // int(physics_substeps_per_controller_update),
+        int(substep) % int(physics_substeps_per_controller_update),
+    ]
     _require(
         int(source_action) == int(action_count)
-        and 0 <= expected_substep < 25
+        and 0 <= expected_substep < int(physics_substeps_per_action)
         and int(substep) == expected_substep
         and int(boundary) == int(physics_substep_count)
-        == int(source_action) * 25 + int(substep)
+        == int(source_action) * int(physics_substeps_per_action) + int(substep)
         and int(post_boundary) == int(boundary) + 1,
         "method-stop candidate boundary arithmetic differs",
     )
+    if (
+        phase_correct_callback_required
+        or "callback_endpoint_action_inner_substep" in record
+    ):
+        _require(
+            record.get("callback_endpoint_action_inner_substep")
+            == expected_callback_endpoint,
+            "method-stop phase-correct callback endpoint differs",
+        )
     bound_qvel_indices = _strict_integer_list(
         record.get("robot_qvel_indices"), "method-stop robot qvel indices"
     )
@@ -3043,6 +3902,8 @@ def validate(
     historical_result_root: Path,
     numeric_validation_result: Path,
     *,
+    expected_case_id: str,
+    expected_protocol_relative_path: str,
     expected_numeric_job_id: str,
     expected_producer_job_id: str,
     expected_producer_commit: str,
@@ -3050,17 +3911,38 @@ def validate(
     expected_consumer_commit: str,
 ) -> Dict[str, Any]:
     from main.poisson_fullbody.contracts import load_hashed_json
-    from main.poisson_fullbody.osc_arm_link_canary import (
-        RESULT_SCHEMA,
-        classify_osc_arm_link_canary,
-        validate_osc_arm_link_canary_protocol,
-    )
+    from main.poisson_fullbody import osc_arm_link_canary as canary_contract
     from main.poisson_fullbody.osc_numeric_prerequisite import (
         validate_numeric_prerequisite_artifact,
     )
 
     protocol = fast._json(protocol_path, "post-OSC canary protocol")
-    derived = validate_osc_arm_link_canary_protocol(protocol)
+    target_link_v4 = bool(
+        protocol.get("schema_version")
+        == "vlsa_poisson_osc_target_link_canary_protocol.v4"
+    )
+    if target_link_v4:
+        result_schema = canary_contract.TARGET_LINK_RESULT_SCHEMA
+        validate_protocol = canary_contract.validate_osc_target_link_canary_protocol
+        classify_canary = canary_contract.classify_osc_target_link_canary
+    else:
+        result_schema = canary_contract.RESULT_SCHEMA
+        validate_protocol = canary_contract.validate_osc_arm_link_canary_protocol
+        classify_canary = canary_contract.classify_osc_arm_link_canary
+    derived = validate_protocol(protocol)
+    _require(
+        bool(re.fullmatch(r"vlsa-t1-[A-Za-z0-9][A-Za-z0-9._-]{0,127}", expected_case_id)),
+        "expected case ID is malformed",
+    )
+    _require(
+        bool(
+            re.fullmatch(
+                r"configs/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json",
+                expected_protocol_relative_path,
+            )
+        ),
+        "expected protocol relative path is malformed",
+    )
     for value, label in (
         (expected_numeric_job_id, "numeric job ID"),
         (expected_producer_job_id, "producer job ID"),
@@ -3092,6 +3974,14 @@ def validate(
         "consumer Slurm job ID differs",
     )
     repo_root = protocol_path.resolve().parents[1]
+    _require(
+        protocol_path.resolve()
+        == (repo_root / expected_protocol_relative_path).resolve()
+        and protocol_path.resolve().relative_to(repo_root).as_posix()
+        == expected_protocol_relative_path
+        and protocol.get("case", {}).get("case_id") == expected_case_id,
+        "case or protocol path differs from the explicit Slurm registration",
+    )
     consumer_source = fast._git(repo_root)
     _require(
         consumer_source.get("commit") == expected_consumer_commit,
@@ -3201,10 +4091,23 @@ def validate(
             "detailed_contact_gzip_sha256"
         ],
     }
+    historical_relative = Path(str(historical_binding["relative_path"]))
+    expected_remote_relative = {
+        "result.json": historical_relative.as_posix(),
+        "episode.mp4": (historical_relative.parent / "episode.mp4").as_posix(),
+        "active_obstacle_contacts.json.gz": (
+            historical_relative.parent / "active_obstacle_contacts.json.gz"
+        ).as_posix(),
+    }
+    remote_targets: Dict[str, Path] = {}
     for remote_row in remote_rows:
         _require(isinstance(remote_row, Mapping), "remote receipt row is invalid")
         basename = Path(str(remote_row.get("relative_path", ""))).name
         _require(basename in expected_remote, "remote receipt filename differs")
+        _require(
+            str(remote_row.get("relative_path")) == expected_remote_relative[basename],
+            "remote receipt path differs from the bound historical case directory",
+        )
         target = _bound_file(
             historical_result_root,
             str(remote_row["relative_path"]),
@@ -3216,13 +4119,120 @@ def validate(
             and int(remote_row.get("byte_count", -1)) == int(target.stat().st_size),
             "remote artifact regular-file receipt differs",
         )
+        _require(basename not in remote_targets, "remote artifact filename is duplicated")
+        remote_targets[basename] = target
+    _require(
+        set(remote_targets) == set(expected_remote),
+        "remote source-artifact receipt is incomplete",
+    )
+    target_link_body_names = protocol["case"].get("target_link_body_names")
+    if target_link_body_names is None and not target_link_v4:
+        target_link_body_names = [
+            protocol["case"].get("historical_direct_contact_body")
+        ]
+    _require(
+        isinstance(target_link_body_names, list)
+        and target_link_body_names
+        and len(target_link_body_names) == len(set(target_link_body_names))
+        and all(
+            isinstance(value, str) and bool(value)
+            for value in target_link_body_names
+        )
+        and (
+            not target_link_v4
+            or target_link_body_names
+            == list(derived["target_link_body_names"])
+        ),
+        "configured target-link authority differs",
+    )
+    target_link_body_names = [str(value) for value in target_link_body_names]
+    target_link_body_name_set = set(target_link_body_names)
+    _require(
+        target_link_body_name_set.issubset(
+            set(case.get("literal_link_contact_bodies", ()))
+        ),
+        "a configured target link is absent from the frozen contact manifest",
+    )
+    protected_link_body_names = (
+        list(derived.get("protected_link_body_names", ()))
+        if target_link_v4
+        else list(protocol["case"]["literal_link56_body_names"])
+    )
+    _require(
+        len(protected_link_body_names) == 2
+        and len(set(protected_link_body_names)) == 2
+        and all(
+            isinstance(value, str) and bool(value)
+            for value in protected_link_body_names
+        )
+        and target_link_body_name_set.issubset(protected_link_body_names)
+        and set(protected_link_body_names)
+        == set(protocol["case"]["literal_link56_body_names"])
+        and (
+            not target_link_v4
+            or protocol["shield"].get("protected_link_body_names")
+            == protected_link_body_names
+        ),
+        "shared protected-link body authority differs",
+    )
+    historical_target_contact_audit = _validate_historical_target_contact_gzip(
+        remote_targets["active_obstacle_contacts.json.gz"],
+        expected_payload_sha256=str(auxiliary["detailed_contact_payload_sha256"]),
+        expected_case_id=expected_case_id,
+        expected_obstacle_name=str(protocol["case"]["selected_obstacle_name"]),
+        expected_obstacle_root_body_name=str(
+            protocol["case"]["selected_obstacle_root_body_name"]
+        ),
+        expected_contact_action=int(derived["historical_contact_action"]),
+        expected_target_body_names=target_link_body_names,
+        literal_link56_body_names=protocol["case"][
+            "literal_link56_body_names"
+        ],
+    )
+    manifest_direct_pairs = case.get("direct_link_active_obstacle_pairs")
+    detailed_geom_pairs = {
+        (
+            str(row["target_link_body_name"]),
+            str(row["target_link_geom_name"]),
+            str(row["obstacle_root_body_name"]),
+            str(row["obstacle_geom_name"]),
+        )
+        for row in historical_target_contact_audit[
+            "configured_action_target_geom_pairs"
+        ]
+    }
+    manifest_target_pairs = {
+        (
+            str(row.get("actual_link_body_name")),
+            str(row.get("link_geom_name")),
+            str(row.get("active_obstacle_actual_body_name")),
+            str(row.get("active_obstacle_geom_name")),
+        )
+        for row in manifest_direct_pairs or ()
+        if isinstance(row, Mapping)
+        and row.get("actual_link_body_name") in target_link_body_name_set
+    }
+    _require(
+        int(case.get("first_sampled_link_contact_control_step", -1))
+        == int(derived["historical_contact_action"])
+        and case.get("first_link_step_is_timing_resolved") is True
+        and case.get("only_link56_selected_obstacle_robot_contact") is True
+        and case.get("direct_link_active_obstacle_pairs_sha256")
+        == _canonical_sha256(manifest_direct_pairs)
+        and detailed_geom_pairs
+        and detailed_geom_pairs.issubset(manifest_target_pairs),
+        "detailed target contact does not match the frozen manifest action/pair",
+    )
     result = load_hashed_json(result_path)
-    _require(result.get("schema_version") == RESULT_SCHEMA, "result schema differs")
+    _require(result.get("schema_version") == result_schema, "result schema differs")
     _require(result.get("status") == "complete", "partial or failed result rejected")
     _require(result.get("scientific_result") is True, "result is not scientific")
     _require(result.get("partial_output_interpreted") is False, "partial-output flag differs")
     _require(result.get("protocol_id") == protocol["protocol_id"], "protocol ID differs")
-    _require(result.get("case_id") == protocol["case"]["case_id"], "case differs")
+    _require(
+        result.get("case_id") == protocol["case"]["case_id"] == expected_case_id,
+        "case differs",
+    )
     _require(result.get("claim_scope") == protocol["claim_scope"], "claim scope differs")
     provenance = result.get("provenance")
     _require(isinstance(provenance, Mapping), "provenance is absent")
@@ -3315,6 +4325,48 @@ def validate(
         (apparatus, "apparatus"),
     ):
         _require(isinstance(value, Mapping), "%s is absent" % label)
+    active_cadence = runtime_protocol.get("cadence", {}).get("active", {})
+    _require(
+        isinstance(active_cadence, Mapping),
+        "active callback cadence is absent from the frozen runtime",
+    )
+    controller_updates_per_action = _strict_integer(
+        active_cadence.get("filter_updates_per_high_level_action"),
+        "controller updates per high-level action",
+    )
+    physics_substeps_per_controller_update = _strict_integer(
+        active_cadence.get("physics_substeps_per_filter_update"),
+        "physics substeps per controller update",
+    )
+    physics_substeps_per_action = (
+        controller_updates_per_action
+        * physics_substeps_per_controller_update
+    )
+    callback_cadence = apparatus.get("callback_cadence")
+    _require(
+        controller_updates_per_action == 5
+        and physics_substeps_per_controller_update == 5
+        and physics_substeps_per_action == 25
+        and isinstance(callback_cadence, Mapping)
+        and callback_cadence.get("schema_version")
+        == "vlsa_poisson_callback_cadence.v1"
+        and callback_cadence.get("high_level_actions_hz")
+        == int(protocol["execution"]["high_level_frequency_hz"])
+        == int(runtime_protocol["cadence"]["high_level_frequency_hz"])
+        and callback_cadence.get("controller_updates_per_high_level_action")
+        == controller_updates_per_action
+        and callback_cadence.get("physics_substeps_per_controller_update")
+        == physics_substeps_per_controller_update
+        and callback_cadence.get("physics_substeps_per_high_level_action")
+        == physics_substeps_per_action
+        and callback_cadence.get("typed_endpoint_order")
+        == [
+            "source_action_index",
+            "controller_update_index",
+            "physics_substep_within_controller_update",
+        ],
+        "serialized callback cadence differs from the frozen 5x5 runtime",
+    )
     field_audit = _validate_field_sample_static_evidence(
         apparatus=apparatus,
         treatment=treatment,
@@ -3322,6 +4374,9 @@ def validate(
         runtime_protocol=runtime_protocol,
         runtime_protocol_sha256=runtime_hashes.protocol_sha256,
         runtime_parameter_block_sha256=runtime_hashes.parameter_block_sha256,
+        target_link_v4=target_link_v4,
+        expected_target_link_body_names=target_link_body_names,
+        expected_protected_link_body_names=protected_link_body_names,
     )
     _require(
         metrics.get("contact_scope") == protocol["execution"]["contact_scope"],
@@ -3340,36 +4395,103 @@ def validate(
         for row in historical_unique_pairs or ()
         if isinstance(row, Mapping)
     }
+    direct_contact_bodies = {
+        str(row.get("actual_link_body_name"))
+        for row in direct_pairs or ()
+        if isinstance(row, Mapping)
+        and row.get("actual_link_body_name") in target_link_body_name_set
+        and (
+            (
+                str(row.get("active_obstacle_geom_name")),
+                str(row.get("link_geom_name")),
+            )
+            in historical_geom_pairs
+            or (
+                str(row.get("link_geom_name")),
+                str(row.get("active_obstacle_geom_name")),
+            )
+            in historical_geom_pairs
+        )
+    }
     direct_historical_contact = bool(
         isinstance(direct_pairs, Sequence)
         and direct_pairs
-        and any(
-            isinstance(row, Mapping)
-            and row.get("actual_link_body_name") == "robot0_link5"
-            and (
-                (
-                    str(row.get("active_obstacle_geom_name")),
-                    str(row.get("link_geom_name")),
-                )
-                in historical_geom_pairs
-                or (
-                    str(row.get("link_geom_name")),
-                    str(row.get("active_obstacle_geom_name")),
-                )
-                in historical_geom_pairs
-            )
-            for row in direct_pairs
-        )
+        and direct_contact_bodies == target_link_body_name_set
         and historical_telemetry.get("first_contact_step")
         == int(derived["historical_contact_action"])
+        and all(
+            value == int(derived["historical_contact_action"])
+            for value in historical_target_contact_audit[
+                "first_target_link_contact_source_action_by_body"
+            ].values()
+        )
     )
-    _require(
-        direct_historical_contact
-        and historical.get("direct_link56_selected_obstacle_contact_verified")
-        is True
-        and metrics.get("historical_direct_link56_contact_verified") is True,
-        "historical direct contact is absent",
-    )
+    if target_link_v4:
+        producer_target_evidence = apparatus.get(
+            "historical_target_link_contact_evidence"
+        )
+        _require(
+            direct_historical_contact
+            and historical.get("archived_direct_target_link_contact") is True
+            and isinstance(producer_target_evidence, Mapping)
+            and producer_target_evidence.get("schema_version")
+            == "vlsa_poisson_historical_target_link_contact_evidence.v1"
+            and producer_target_evidence.get("case_id") == expected_case_id
+            and producer_target_evidence.get("selected_obstacle_name")
+            == protocol["case"]["selected_obstacle_name"]
+            and producer_target_evidence.get("selected_obstacle_root_body_name")
+            == protocol["case"]["selected_obstacle_root_body_name"]
+            and producer_target_evidence.get("target_link_body_names")
+            == target_link_body_names
+            and producer_target_evidence.get(
+                "first_target_link_contact_source_action_by_body"
+            )
+            == historical_target_contact_audit[
+                "first_target_link_contact_source_action_by_body"
+            ]
+            and producer_target_evidence.get(
+                "configured_historical_contact_source_action"
+            )
+            == int(derived["historical_contact_action"])
+            and producer_target_evidence.get(
+                "exact_action_link56_contact_body_names"
+            )
+            == historical_target_contact_audit[
+                "configured_action_literal_link56_body_names"
+            ]
+            and producer_target_evidence.get(
+                "exact_action_robot_pair_link56_body_names"
+            )
+            == historical_target_contact_audit[
+                "configured_action_robot_pair_link56_body_names"
+            ]
+            and producer_target_evidence.get(
+                "exact_action_target_link_nonpositive_contact_distances_m"
+            )
+            == historical_target_contact_audit[
+                "configured_action_target_nonpositive_distances_m"
+            ]
+            and producer_target_evidence.get("detailed_contact_file_sha256")
+            == historical_target_contact_audit["detailed_contact_file_sha256"]
+            and producer_target_evidence.get("compact_result_binding_verified")
+            is True
+            and producer_target_evidence.get(
+                "detailed_timing_and_target_attribution_verified"
+            )
+            is True
+            and producer_target_evidence.get("verified") is True
+            and metrics.get("historical_direct_target_link_contact_verified")
+            is True,
+            "historical direct target-link contact is absent",
+        )
+    else:
+        _require(
+            direct_historical_contact
+            and historical.get("direct_link56_selected_obstacle_contact_verified")
+            is True
+            and metrics.get("historical_direct_link56_contact_verified") is True,
+            "historical direct contact is absent",
+        )
     _require(
         replay.historical_task_success is True
         and historical.get("historical_task_success") is True
@@ -3411,13 +4533,28 @@ def validate(
     )
     import numpy as np
 
-    shield_binding = _validate_shield_sampling_binding(
-        apparatus=apparatus,
-        resolved_geometry=apparatus["resolved_geometry"],
-        controller=controller,
-        runtime_protocol=runtime_protocol,
-        np=np,
-    )
+    if target_link_v4:
+        shield_binding = _validate_protected_link_shield_sampling_binding(
+            apparatus=apparatus,
+            resolved_geometry=apparatus["resolved_geometry"],
+            target_resolved_geometry=apparatus["target_link_resolved_geometry"],
+            protected_resolved_geometry=apparatus[
+                "protected_link_resolved_geometry"
+            ],
+            expected_target_link_body_names=target_link_body_names,
+            expected_protected_link_body_names=protected_link_body_names,
+            shield_contract=protocol["shield"],
+            controller=controller,
+            np=np,
+        )
+    else:
+        shield_binding = _validate_shield_sampling_binding(
+            apparatus=apparatus,
+            resolved_geometry=apparatus["resolved_geometry"],
+            controller=controller,
+            runtime_protocol=runtime_protocol,
+            np=np,
+        )
     torque_units = apparatus.get("arm_actuator_torque_units")
     _require(
         apparatus.get("field_frame")
@@ -3622,31 +4759,66 @@ def validate(
         label="paper CAR obstacle",
     )
     shield_samples = shield_binding["samples"]
-    structural_partition = shield_binding["structural_partition"]
-    _require(
-        isinstance(shield_samples, Sequence)
-        and len(shield_samples) == int(shield_binding["sample_count"])
-        == int(structural_partition["movable_sample_count"])
-        and int(field_audit["all_robot_sample_count"])
-        == int(structural_partition["movable_sample_count"])
-        + int(structural_partition["fixed_sample_count"]),
-        "movable-manipulator shield attribution ledger differs",
-    )
-    _require(
-        treatment.get("physics_trace_schema_version")
-        == "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
-        and treatment.get("full_qp_certificate_scope")
-        == "first_byte_different_torque_row_only",
-        "compact physics trace contract differs",
-    )
+    if target_link_v4:
+        structural_partition = None
+        _require(
+            isinstance(shield_samples, Sequence)
+            and len(shield_samples) == int(shield_binding["sample_count"])
+            == int(field_audit["protected_sample_count"])
+            and shield_binding["exact_protected_field_ledger"] is True
+            and metrics.get("protected_link_shield_sampling_exact") is True,
+            "configured protected-link shield attribution ledger differs",
+        )
+        _require(
+            treatment.get("physics_trace_schema_version")
+            == "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
+            and treatment.get("full_qp_certificate_scope")
+            == (
+                "first_byte_divergence_and_first_material_correction_rows_"
+                "deduplicated"
+            ),
+            "target-link compact physics trace contract differs",
+        )
+    else:
+        structural_partition = shield_binding["structural_partition"]
+        _require(
+            isinstance(shield_samples, Sequence)
+            and len(shield_samples) == int(shield_binding["sample_count"])
+            == int(structural_partition["movable_sample_count"])
+            and int(field_audit["all_robot_sample_count"])
+            == int(structural_partition["movable_sample_count"])
+            + int(structural_partition["fixed_sample_count"]),
+            "movable-manipulator shield attribution ledger differs",
+        )
+        _require(
+            treatment.get("physics_trace_schema_version")
+            == "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
+            and treatment.get("full_qp_certificate_scope")
+            == "first_byte_different_torque_row_only",
+            "compact physics trace contract differs",
+        )
     _require(
         [int(row["physical_boundary"]) for row in physics] == list(range(len(physics))),
         "physics boundaries are incomplete or duplicated",
     )
     _require(
         all(
-            int(row["source_action_index"]) == int(row["physical_boundary"]) // 25
-            and int(row["physics_substep_index"]) == int(row["physical_boundary"]) % 25
+            int(row["source_action_index"])
+            == int(row["physical_boundary"]) // physics_substeps_per_action
+            and int(row["physics_substep_index"])
+            == int(row["physical_boundary"]) % physics_substeps_per_action
+            and int(row["controller_update_index"])
+            == int(row["physics_substep_index"])
+            // physics_substeps_per_controller_update
+            and int(row["physics_substep_within_controller_update"])
+            == int(row["physics_substep_index"])
+            % physics_substeps_per_controller_update
+            and row.get("callback_endpoint_action_inner_substep")
+            == [
+                int(row["source_action_index"]),
+                int(row["controller_update_index"]),
+                int(row["physics_substep_within_controller_update"]),
+            ]
             for row in physics
         ),
         "physics/action cadence differs",
@@ -3671,7 +4843,9 @@ def validate(
     )
     solved_qp_count = 0
     independently_validated_qp_audits: List[Dict[str, Any]] = []
+    independently_validated_qp_audits_by_boundary: Dict[int, Dict[str, Any]] = {}
     first_byte_divergence_seen = False
+    first_material_certificate_seen = False
     shield_qvel_indices = list(shield_binding["robot_qvel_indices"])
     shield_velocity_dimension = int(shield_binding["velocity_dimension"])
     nonarm_ctrl_indices = list(shield_binding["nonarm_ctrl_indices"])
@@ -3857,38 +5031,60 @@ def validate(
         is_first_byte_divergence = bool(
             not byte_equal and not first_byte_divergence_seen
         )
+        is_material_correction = bool(
+            float(row["torque_correction_l2_nm"])
+            >= float(derived["acceptance"]["material_torque_correction_l2_nm"])
+        )
+        is_first_material_correction = bool(
+            is_material_correction and not first_material_certificate_seen
+        )
+        certificate_roles = []
         if is_first_byte_divergence:
+            certificate_roles.append("first_byte_divergence")
+        if target_link_v4 and is_first_material_correction:
+            certificate_roles.append("first_material_correction")
+        if certificate_roles:
             _require(
                 row.get("shield_status") == "solved",
-                "first byte-different torque is not a solved QP",
+                "registered certificate row is not a solved QP",
             )
-            independently_validated_qp_audits.append(
-                _validate_first_divergence_full_certificate(
-                    row,
-                    compact_arrays=compact_arrays,
-                    compact_diagnostics=compact_diagnostics,
-                    protocol=protocol,
-                    controller=controller,
-                    torque_actuators=torque_actuators,
-                    shield_samples=shield_samples,
-                    sample_ledger_sha256=str(
-                        shield_binding["sample_ledger_sha256"]
-                    ),
-                    robot_qvel_indices=shield_qvel_indices,
-                    robot_qvel_indices_sha256=_canonical_sha256(
-                        shield_qvel_indices
-                    ),
-                    velocity_dimension=shield_velocity_dimension,
-                    np=np,
-                )
+            audit = _validate_first_divergence_full_certificate(
+                row,
+                compact_arrays=compact_arrays,
+                compact_diagnostics=compact_diagnostics,
+                protocol=protocol,
+                controller=controller,
+                torque_actuators=torque_actuators,
+                shield_samples=shield_samples,
+                sample_ledger_sha256=str(
+                    shield_binding["sample_ledger_sha256"]
+                ),
+                robot_qvel_indices=shield_qvel_indices,
+                robot_qvel_indices_sha256=_canonical_sha256(
+                    shield_qvel_indices
+                ),
+                velocity_dimension=shield_velocity_dimension,
+                expected_certificate_roles=certificate_roles,
+                np=np,
             )
+            audit = {
+                **audit,
+                "physical_boundary": int(row["physical_boundary"]),
+                "certificate_roles": certificate_roles,
+            }
+            independently_validated_qp_audits.append(audit)
+            independently_validated_qp_audits_by_boundary[
+                int(row["physical_boundary"])
+            ] = audit
             first_byte_divergence_seen = True
         else:
             _require(
                 row.get("full_constraint_qp_certificate") is None
                 and row.get("full_constraint_qp_certificate_sha256") is None,
-                "full QP certificate appears outside the first divergence",
+                "full QP certificate appears outside a registered audit row",
             )
+        if is_first_material_correction:
+            first_material_certificate_seen = True
         residual_scalars = (
             "minimum_actual_cbf_residual_m2_per_s",
             "candidate_exact_clone_minimum_cbf_residual_m2_per_s",
@@ -3909,45 +5105,61 @@ def validate(
             >= -float(protocol["shield"]["actual_cbf_residual_tolerance_m2_per_s"]),
             "compact CBF residual minimum failed at physics row %d" % index,
         )
-    link56_seed_only = bool(
-        int(field_audit["protected_sample_count"])
-        < int(shield_binding["sample_count"])
+    nonarm_controls_unchanged = all(
+        row.get("nominal_non_arm_ctrl_preserved") is True
+        and row.get("candidate_non_arm_ctrl_preserved") is True
+        and row.get("live_nonarm_ctrl_byte_identical") is True
+        and row.get("live_nonarm_ctrl_before_array_record")
+        == row.get("live_nonarm_ctrl_after_array_record")
+        for row in physics
     )
-    _require(
-        metrics.get(
-            "all_structurally_movable_manipulator_collision_surfaces_shielded"
+    if target_link_v4:
+        _require(
+            metrics.get("protected_link_shield_sampling_exact") is True
+            and shield_binding["exact_protected_field_ledger"] is True
+            and metrics.get(
+                "all_authoritative_robot_collision_surfaces_contact_monitored"
+            )
+            is True
+            and metrics.get("seven_arm_torque_decision_verified") is True
+            and metrics.get("nonarm_controls_unchanged")
+            is nonarm_controls_unchanged
+            and nonarm_controls_unchanged,
+            "protected-link shield/contact apparatus metrics differ from raw evidence",
         )
-        is structural_partition[
-            "all_structurally_movable_manipulator_collision_surfaces_shielded"
-        ]
-        and metrics.get(
-            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
+    else:
+        link56_seed_only = bool(
+            int(field_audit["protected_sample_count"])
+            < int(shield_binding["sample_count"])
         )
-        is structural_partition[
-            "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
-        ]
-        and metrics.get(
-            "all_authoritative_robot_collision_surfaces_contact_monitored"
+        _require(
+            metrics.get(
+                "all_structurally_movable_manipulator_collision_surfaces_shielded"
+            )
+            is structural_partition[
+                "all_structurally_movable_manipulator_collision_surfaces_shielded"
+            ]
+            and metrics.get(
+                "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
+            )
+            is structural_partition[
+                "excluded_fixed_infrastructure_zero_qvel_influence_and_settled_contact_free"
+            ]
+            and metrics.get(
+                "all_authoritative_robot_collision_surfaces_contact_monitored"
+            )
+            is structural_partition[
+                "all_authoritative_robot_collision_surfaces_contact_monitored"
+            ]
+            and metrics.get("robot_tree_qvel_scope_verified") is True
+            and metrics.get("seven_arm_torque_decision_verified") is True
+            and metrics.get("nonarm_controls_unchanged")
+            is nonarm_controls_unchanged
+            and metrics.get("link56_bundle_samples_field_seed_only")
+            is link56_seed_only
+            and link56_seed_only,
+            "structural shield/contact apparatus metrics differ from raw evidence",
         )
-        is structural_partition[
-            "all_authoritative_robot_collision_surfaces_contact_monitored"
-        ]
-        and metrics.get("robot_tree_qvel_scope_verified") is True
-        and metrics.get("seven_arm_torque_decision_verified") is True
-        and metrics.get("nonarm_controls_unchanged")
-        is all(
-            row.get("nominal_non_arm_ctrl_preserved") is True
-            and row.get("candidate_non_arm_ctrl_preserved") is True
-            and row.get("live_nonarm_ctrl_byte_identical") is True
-            and row.get("live_nonarm_ctrl_before_array_record")
-            == row.get("live_nonarm_ctrl_after_array_record")
-            for row in physics
-        )
-        and metrics.get("link56_bundle_samples_field_seed_only")
-        is link56_seed_only
-        and link56_seed_only,
-        "structural shield/contact apparatus metrics differ from raw evidence",
-    )
     _require(
         int(metrics.get("solved_qp_count", -1)) == solved_qp_count
         and int(metrics.get("first_divergence_full_qp_certificate_count", -1))
@@ -3973,7 +5185,11 @@ def validate(
         if first_material_rows
         else None
     )
-    first_action = None if first_material is None else first_material // 25
+    first_action = (
+        None
+        if first_material is None
+        else first_material // physics_substeps_per_action
+    )
     divergence_rows = [
         row
         for row in physics
@@ -3985,7 +5201,9 @@ def validate(
         else None
     )
     first_divergence_action = (
-        None if first_divergence is None else first_divergence // 25
+        None
+        if first_divergence is None
+        else first_divergence // physics_substeps_per_action
     )
     first_divergence_correction = (
         None
@@ -4007,11 +5225,108 @@ def validate(
         is first_divergence_is_material,
         "first byte-different torque divergence differs",
     )
+    divergence_audit = (
+        None
+        if first_divergence is None
+        else independently_validated_qp_audits_by_boundary.get(first_divergence)
+    )
+    first_material_audit = (
+        None
+        if first_material is None
+        else independently_validated_qp_audits_by_boundary.get(first_material)
+    )
+    _require(
+        (first_divergence is None or divergence_audit is not None)
+        and (
+            not target_link_v4
+            or first_material is None
+            or first_material_audit is not None
+        ),
+        "registered divergence/material full QP certificate is absent",
+    )
     divergence_attribution = (
         None
-        if not independently_validated_qp_audits
-        else independently_validated_qp_audits[0]["constraint_attribution"]
+        if divergence_audit is None
+        else divergence_audit["constraint_attribution"]
     )
+    material_attribution = (
+        divergence_attribution
+        if not target_link_v4
+        else (
+            None
+            if first_material_audit is None
+            else first_material_audit["constraint_attribution"]
+        )
+    )
+    if target_link_v4:
+        _require(
+            fast._canonical(
+                treatment.get("first_material_constraint_attribution")
+            )
+            == fast._canonical(material_attribution),
+            "serialized first-material constraint attribution differs",
+        )
+        protected_row_diagnostics = treatment.get(
+            "first_material_protected_row_diagnostics"
+        )
+        if first_material_audit is None:
+            _require(
+                protected_row_diagnostics is None,
+                "protected-row diagnostics appear without a material correction",
+            )
+        else:
+            protected_residuals = np.asarray(
+                first_material_audit[
+                    "nominal_exact_cbf_residuals_m2_per_s"
+                ],
+                dtype=np.float64,
+            )
+            _require(
+                protected_residuals.shape == (len(shield_samples),)
+                and np.all(np.isfinite(protected_residuals)),
+                "first-material protected residual vector differs",
+            )
+            minimum_index = int(np.argmin(protected_residuals))
+            negative_indices = np.flatnonzero(protected_residuals < 0.0)
+            expected_protected_row_diagnostics = {
+                "schema_version": (
+                    "vlsa_poisson_first_material_protected_rows.v1"
+                ),
+                "sample_scope": protocol["shield"]["binding_scope"],
+                "minimum_row": {
+                    "sample_index": minimum_index,
+                    "sample": dict(shield_samples[minimum_index]),
+                    "nominal_exact_cbf_residual_m2_per_s": float(
+                        protected_residuals[minimum_index]
+                    ),
+                },
+                "negative_nominal_exact_cbf_rows": [
+                    {
+                        "sample_index": int(index),
+                        "sample_id": int(
+                            shield_samples[int(index)]["sample_id"]
+                        ),
+                        "body_name": str(
+                            shield_samples[int(index)]["body_name"]
+                        ),
+                        "geom_name": str(
+                            shield_samples[int(index)]["geom_name"]
+                        ),
+                        "nominal_exact_cbf_residual_m2_per_s": float(
+                            protected_residuals[int(index)]
+                        ),
+                    }
+                    for index in negative_indices
+                ],
+                "negative_nominal_exact_cbf_row_count": int(
+                    negative_indices.size
+                ),
+            }
+            _require(
+                fast._canonical(protected_row_diagnostics)
+                == fast._canonical(expected_protected_row_diagnostics),
+                "first-material protected-row diagnostics differ",
+            )
     resolved_body_ids = _strict_integer_list(
         apparatus["resolved_geometry"].get("robot_body_ids"),
         "resolved robot body IDs",
@@ -4037,9 +5352,26 @@ def validate(
         "resolved literal link56 body-name authority differs",
     )
     first_material_minimum_is_link56 = bool(
-        divergence_attribution is not None
-        and divergence_attribution["minimum_sample"]["body_name"]
+        material_attribution is not None
+        and material_attribution["minimum_sample"]["body_name"]
         in literal_link56_body_names
+    )
+    first_material_minimum_is_target_link = bool(
+        material_attribution is not None
+        and material_attribution["minimum_sample"]["body_name"]
+        in target_link_body_name_set
+    )
+    protected_link_body_name_set = set(protected_link_body_names)
+    first_material_minimum_is_protected_link = bool(
+        material_attribution is not None
+        and material_attribution["minimum_sample"]["body_name"]
+        in protected_link_body_name_set
+        and set(material_attribution["near_minimum_body_names"]).issubset(
+            protected_link_body_name_set
+        )
+        and set(
+            material_attribution["negative_nominal_residual_body_names"]
+        ).issubset(protected_link_body_name_set)
     )
     _require(
         metrics.get("first_divergence_minimum_constraint_body_name")
@@ -4060,10 +5392,59 @@ def validate(
             if divergence_attribution is None
             else divergence_attribution["negative_nominal_residual_body_names"]
         )
-        and metrics.get(
-            "first_material_correction_minimum_constraint_is_literal_link56"
-        )
-        is first_material_minimum_is_link56,
+        and (
+            metrics.get(
+                "first_material_correction_minimum_constraint_is_target_link"
+            )
+            is first_material_minimum_is_target_link
+            and metrics.get(
+                "first_material_correction_minimum_constraint_is_protected_link"
+            )
+            is first_material_minimum_is_protected_link
+            and metrics.get(
+                "first_material_correction_target_link_attributed"
+            )
+            is first_material_minimum_is_target_link
+            and metrics.get(
+                "first_material_correction_protected_link_attributed"
+            )
+            is first_material_minimum_is_protected_link
+            and metrics.get(
+                "first_material_correction_minimum_constraint_is_literal_link56"
+            )
+            is first_material_minimum_is_link56
+            and metrics.get(
+                "first_material_correction_minimum_constraint_body_name"
+            )
+            == (
+                None
+                if material_attribution is None
+                else material_attribution["minimum_sample"]["body_name"]
+            )
+            and metrics.get(
+                "first_material_correction_near_minimum_constraint_body_names"
+            )
+            == (
+                []
+                if material_attribution is None
+                else material_attribution["near_minimum_body_names"]
+            )
+            and metrics.get(
+                "first_material_correction_negative_nominal_constraint_body_names"
+            )
+            == (
+                []
+                if material_attribution is None
+                else material_attribution[
+                    "negative_nominal_residual_body_names"
+                ]
+            )
+            if target_link_v4
+            else metrics.get(
+                "first_material_correction_minimum_constraint_is_literal_link56"
+            )
+            is first_material_minimum_is_link56
+        ),
         "first divergence protected-link body attribution differs",
     )
     if first_divergence_correction is None:
@@ -4120,13 +5501,31 @@ def validate(
         "material-correction flag differs",
     )
     if first_material_residual_improvement is None:
-        _require(
-            metrics.get("first_material_exact_cbf_residual_improvement_m2_per_s")
-            is None
-            and metrics.get("first_material_exact_next_qvel_change_l2_rad_s")
-            is None,
-            "absent directed safety improvement differs",
-        )
+        if target_link_v4:
+            _close(
+                metrics.get(
+                    "first_material_exact_cbf_residual_improvement_m2_per_s"
+                ),
+                0.0,
+                "absent first material exact CBF residual improvement",
+            )
+            _close(
+                metrics.get("first_material_exact_next_qvel_change_l2_rad_s"),
+                0.0,
+                "absent first material exact next-qvel change",
+            )
+        else:
+            _require(
+                metrics.get(
+                    "first_material_exact_cbf_residual_improvement_m2_per_s"
+                )
+                is None
+                and metrics.get(
+                    "first_material_exact_next_qvel_change_l2_rad_s"
+                )
+                is None,
+                "absent directed safety improvement differs",
+            )
     else:
         _close(
             metrics.get(
@@ -4149,13 +5548,40 @@ def validate(
         )
         < 0.0
     )
+    first_material_nominal_negative = bool(
+        first_material_rows
+        and float(
+            first_material_rows[0][
+                "nominal_exact_clone_minimum_cbf_residual_m2_per_s"
+            ]
+        )
+        < 0.0
+    )
     _require(
         metrics.get("first_divergence_nominal_exact_cbf_residual_negative")
         is nominal_negative,
         "first divergence nominal residual sign differs",
     )
+    if target_link_v4:
+        _require(
+            metrics.get(
+                "first_material_nominal_exact_protected_link_cbf_residual_negative"
+            )
+            is bool(
+                first_material_nominal_negative
+                and first_material_minimum_is_protected_link
+            )
+            and metrics.get(
+                "first_material_nominal_exact_target_link_cbf_residual_negative"
+            )
+            is bool(
+                first_material_nominal_negative
+                and first_material_minimum_is_target_link
+            ),
+            "first-material protected/target nominal residual signs differ",
+        )
     correction_goal = treatment.get("first_material_correction_goal_snapshot")
-    expected_task_incomplete = None
+    expected_task_incomplete = False if target_link_v4 else None
     if first_material is not None:
         _require(isinstance(correction_goal, Mapping), "correction-time goal snapshot is absent")
         _require(
@@ -4193,38 +5619,13 @@ def validate(
             if int(row["physical_boundary"]) < first_divergence
         )
     )
-    action62_exception = bool(
-        first_divergence_action is not None
-        and (
-            first_divergence_action < int(derived["historical_contact_action"])
-            or (
-                first_divergence_action == int(derived["historical_contact_action"])
-                and len(parity) == int(derived["historical_contact_action"])
-            )
+    v4_predivergence_contact_free = bool(
+        all(
+            row.get("registered_forbidden_contact_seen") is False
+            for row in physics
+            if first_divergence is None
+            or int(row["physical_boundary"]) < int(first_divergence)
         )
-    )
-    expected_before = bool(
-        first_action is not None
-        and first_divergence_is_material
-        and (
-            first_action < int(derived["historical_contact_action"])
-            or (
-                first_action == int(derived["historical_contact_action"])
-                and prior_live_contact_free
-                and prefix_contact_free
-                and predivergence_exact
-                and action62_exception
-            )
-        )
-    )
-    _require(
-        metrics.get("material_correction_before_historical_contact") is expected_before,
-        "correction/contact ordering differs",
-    )
-    _require(
-        metrics.get("live_substeps_before_material_correction_contact_free")
-        is prior_live_contact_free,
-        "live pre-correction contact-free flag differs",
     )
     expected_parity_count = (
         len(actions) if first_divergence_action is None else first_divergence_action
@@ -4268,15 +5669,215 @@ def validate(
             and tuple(goal_row.get("values", ())) == historical_step.goal_values,
             "historical action/state/reward/goal parity differs at action %d" % index,
         )
+
+    historical_contact_action = int(derived["historical_contact_action"])
+    historical_same_action_exception = bool(
+        first_divergence_action is not None
+        and (
+            first_divergence_action < historical_contact_action
+            or (
+                first_divergence_action == historical_contact_action
+                and len(parity) == historical_contact_action
+            )
+        )
+    )
+    prior_endpoint_parity_exact = False
+    if target_link_v4:
+        historical_prior_endpoint_action = int(
+            derived["historical_prior_endpoint_action"]
+        )
+        _require(
+            historical_prior_endpoint_action == historical_contact_action - 1,
+            "configured historical prior endpoint is not immediately before contact",
+        )
+        prior_rows = [
+            row
+            for row in parity
+            if int(row.get("source_action_index", -1))
+            == historical_prior_endpoint_action
+        ]
+        prior_endpoint_parity_exact = bool(
+            len(prior_rows) == 1
+            and prior_rows[0].get("historical_match") is True
+        )
+    prior_endpoint_contact_free = bool(
+        target_link_v4
+        and any(
+            int(row.get("source_action_index", -1))
+            == int(derived["historical_prior_endpoint_action"])
+            for row in actions
+        )
+        and all(
+            row.get("registered_forbidden_contact_seen") is False
+            for row in physics
+            if int(row["source_action_index"])
+            <= int(derived["historical_prior_endpoint_action"])
+        )
+    )
+    same_action_live_substeps_before_material_contact_free = bool(
+        first_material is not None
+        and first_action == historical_contact_action
+        and all(
+            row.get("registered_forbidden_contact_seen") is False
+            for row in physics
+            if int(row["source_action_index"]) == historical_contact_action
+            and int(row["physical_boundary"]) < int(first_material)
+        )
+    )
+    first_material_is_same_action_initial_callback = bool(
+        first_material_rows
+        and first_action == historical_contact_action
+        and int(first_material_rows[0]["physical_boundary"])
+        == historical_contact_action * physics_substeps_per_action
+        and int(first_material_rows[0]["physics_substep_index"]) == 0
+    )
+    if target_link_v4:
+        expected_before = bool(
+            first_action is not None
+            and (
+                first_action < historical_contact_action
+                or (
+                    first_action == historical_contact_action
+                    and first_material_is_same_action_initial_callback
+                    and prior_endpoint_parity_exact
+                    and prior_endpoint_contact_free
+                    and prior_live_contact_free
+                    and same_action_live_substeps_before_material_contact_free
+                )
+            )
+        )
+    else:
+        expected_before = bool(
+            first_action is not None
+            and first_divergence_is_material
+            and (
+                first_action < historical_contact_action
+                or (
+                    first_action == historical_contact_action
+                    and prior_live_contact_free
+                    and prefix_contact_free
+                    and predivergence_exact
+                    and historical_same_action_exception
+                )
+            )
+        )
+    if target_link_v4:
+        first_material_callback_endpoint = (
+            None
+            if not first_material_rows
+            else [
+                int(first_material_rows[0]["source_action_index"]),
+                int(first_material_rows[0]["physics_substep_index"])
+                // physics_substeps_per_controller_update,
+                int(first_material_rows[0]["physics_substep_index"])
+                % physics_substeps_per_controller_update,
+            ]
+        )
+        timing_certificate = treatment.get("first_material_timing_certificate")
+        _require(
+            isinstance(timing_certificate, Mapping)
+            and timing_certificate.get("schema_version")
+            == "vlsa_poisson_first_material_historical_contact_timing.v1"
+            and timing_certificate.get("historical_target_contact_source_action")
+            == historical_contact_action
+            and timing_certificate.get(
+                "historical_within_action_contact_substep_known"
+            )
+            is False
+            and timing_certificate.get(
+                "historical_prior_completed_action_endpoint"
+            )
+            == int(derived["historical_prior_endpoint_action"])
+            and timing_certificate.get(
+                "historical_prior_completed_endpoint_parity_exact"
+            )
+            is prior_endpoint_parity_exact
+            and timing_certificate.get(
+                "historical_prior_completed_endpoint_contact_free"
+            )
+            is prior_endpoint_contact_free
+            and timing_certificate.get(
+                "first_material_callback_endpoint_action_inner_substep"
+            )
+            == first_material_callback_endpoint
+            and timing_certificate.get(
+                "same_source_action_correction_is_prephysics_callback_zero"
+            )
+            is first_material_is_same_action_initial_callback
+            and timing_certificate.get(
+                "all_earlier_live_substeps_registered_contact_free"
+            )
+            is prior_live_contact_free
+            and timing_certificate.get(
+                "correction_strictly_before_historical_target_contact"
+            )
+            is expected_before
+            and timing_certificate.get(
+                "independently_reconstructible_strict_before_result"
+            )
+            is expected_before
+            and timing_certificate.get(
+                "strict_same_action_timing_rule_enforced"
+            )
+            is True
+            and timing_certificate.get("same_source_action_positive_rule")
+            == (
+                "only_callback_endpoint_action_0_0_with_exact_contact_free_"
+                "prior_completed_endpoint"
+            )
+            and timing_certificate.get(
+                "registered_same_source_action_callback_suffix"
+            )
+            == list(
+                derived[
+                    "same_source_action_contact_exception_callback_suffix"
+                ]
+            )
+            and metrics.get(
+                "first_material_correction_callback_endpoint_action_inner_substep"
+            )
+            == first_material_callback_endpoint
+            and metrics.get(
+                "same_source_action_correction_is_prephysics_callback_zero"
+            )
+            is first_material_is_same_action_initial_callback,
+            "first-material historical-contact timing certificate differs",
+        )
+    _require(
+        metrics.get("material_correction_before_historical_contact")
+        is expected_before,
+        "correction/contact ordering differs",
+    )
+    _require(
+        metrics.get("live_substeps_before_material_correction_contact_free")
+        is prior_live_contact_free,
+        "live pre-correction contact-free flag differs",
+    )
+    # This apparatus flag certifies that the exact rule and its timing inputs
+    # were serialized and audited; it is not the scientific before-contact
+    # outcome.  A coherent late/no-material/stop record therefore remains an
+    # interpretable negative rather than an apparatus rejection.
+    v4_same_source_action_exception_valid = True
     _require(
         metrics.get("all_predivergence_torque_commands_byte_identical_nominal")
         is predivergence_exact
         and metrics.get("all_live_substeps_before_first_divergence_contact_free")
-        is prefix_contact_free
-        and metrics.get(
-            "action62_same_action_exception_has_action61_endpoint_parity_exact"
+        is (
+            v4_predivergence_contact_free if target_link_v4 else prefix_contact_free
         )
-        is action62_exception,
+        and (
+            metrics.get(
+                "historical_contact_same_source_action_exception_requires_"
+                "exact_callback_action_0_0_and_exact_contact_free_prior_"
+                "completed_endpoint"
+            )
+            is v4_same_source_action_exception_valid
+            if target_link_v4
+            else metrics.get(
+                "action62_same_action_exception_has_action61_endpoint_parity_exact"
+            )
+            is historical_same_action_exception
+        ),
         "predivergence authority differs",
     )
 
@@ -4395,6 +5996,12 @@ def validate(
         measurement=treatment.get("registered_contact_measurement"),
         physics=physics,
         resolved_geometry=resolved_geometry,
+        physics_substeps_per_action=physics_substeps_per_action,
+        physics_substeps_per_controller_update=(
+            physics_substeps_per_controller_update
+        ),
+        phase_correct_callback_required=target_link_v4,
+        target_link_v4=target_link_v4,
     )
     registered_contact = bool(registered_contact_audit["rollout_contact"])
     _require(
@@ -4453,6 +6060,7 @@ def validate(
         planner_actions=planner_actions,
         partial_action_record=partial_action_record,
         physics_substep_count=len(physics),
+        physics_substeps_per_action=physics_substeps_per_action,
     )
     if terminal_kind == "literal_registered_forbidden_contact":
         _require(
@@ -4705,6 +6313,10 @@ def validate(
         robot_qvel_indices=shield_qvel_indices,
         robot_qvel_indices_sha256=_canonical_sha256(shield_qvel_indices),
         velocity_dimension=shield_velocity_dimension,
+        physics_substeps_per_action=physics_substeps_per_action,
+        physics_substeps_per_controller_update=(
+            physics_substeps_per_controller_update
+        ),
     )
     _require(
         partial_action_audit.get("present")
@@ -4716,7 +6328,8 @@ def validate(
     )
     _require(
         metrics.get("safety_method_stop_before_physics") is method_stopped
-        and metrics.get("all_shield_decisions_valid") is (not method_stopped),
+        and metrics.get("all_shield_decisions_valid")
+        is (True if target_link_v4 else not method_stopped),
         "safety method-stop evidence differs",
     )
     task_success = bool(
@@ -4731,24 +6344,30 @@ def validate(
             terminal_kind == "native_task_success"
             and task_success
             and not registered_contact
-            and len(physics) == len(actions) * 25
+            and len(physics)
+            == len(actions) * physics_substeps_per_action
         )
         or (
             terminal_kind == "literal_registered_forbidden_contact"
             and registered_contact
-            and 1 <= len(physics) - len(actions) * 25 <= 25
+            and 1
+            <= len(physics) - len(actions) * physics_substeps_per_action
+            <= physics_substeps_per_action
         )
         or (
             terminal_kind == "maximum_action_count"
             and not registered_contact
             and not task_success
             and len(actions) == int(derived["maximum_action_count"])
-            and len(physics) == len(actions) * 25
+            and len(physics)
+            == len(actions) * physics_substeps_per_action
         )
         or (
             method_stopped
             and not registered_contact
-            and len(actions) * 25 <= len(physics) < (len(actions) + 1) * 25
+            and len(actions) * physics_substeps_per_action
+            <= len(physics)
+            < (len(actions) + 1) * physics_substeps_per_action
         )
     )
     _require(
@@ -4808,14 +6427,234 @@ def validate(
         and video.get("two_dimensional_safety_overlay") is False,
         "video contract differs",
     )
-    independent = classify_osc_arm_link_canary(dict(metrics), protocol)
+    if target_link_v4:
+        historical_outcome = case.get("historical_outcome")
+        historical_metrics = historical_value.get("metrics")
+        _require(
+            isinstance(historical_outcome, Mapping)
+            and isinstance(historical_metrics, Mapping)
+            and historical_outcome.get("paper_car_failure") is True
+            and historical_metrics.get("paper_collision") is True,
+            "archived control CAR failure differs",
+        )
+        constraint_exposure_exact = bool(
+            int(metrics.get("shield_decision_count", -1)) == len(physics)
+            and all(
+                int(row.get("constraint_trace", {}).get("sample_count", -1))
+                == int(shield_binding["sample_count"])
+                and row.get("constraint_trace", {}).get("sample_ledger_sha256")
+                == shield_binding["sample_ledger_sha256"]
+                for row in physics
+            )
+        )
+        broad_contact_monitor_exact = bool(
+            registered_contact_audit["settled_contact"] is False
+            and metrics.get(
+                "every_executed_substep_registered_contact_scope_monitored"
+            )
+            is True
+            and metrics.get("every_executed_substep_contact_monitored") is True
+        )
+        nominal_passthrough_exact = all(
+            row.get("shield_status") != "nominal_safe_exact_clone"
+            or row.get("command_byte_identical_to_nominal") is True
+            for row in physics
+        )
+        predivergence_parity_exact = bool(
+            len(parity) == expected_parity_count
+            and all(row.get("historical_match") is True for row in parity)
+        )
+        cached_then_fresh_exact = bool(planner.get("hybrid_contract_valid") is True)
+        first_divergence_registered = bool(
+            first_divergence is not None
+            and divergence == first_divergence_action
+            and planner.get("divergence_physical_boundary") == first_divergence
+        )
+        video_complete = bool(
+            video.get("decoded_successfully") is True
+            and int(video.get("frame_count", -1)) >= len(actions) + 1
+        )
+        reconstructed_apparatus = {
+            "allocation_numeric_prerequisite_verified": True,
+            "allowed_case_registry_verified": True,
+            "historical_control_verified": True,
+            "historical_direct_target_link_contact_verified": direct_historical_contact,
+            "historical_control_car_failure": True,
+            "historical_control_task_success": replay.historical_task_success is True,
+            "archived_baseline_not_rerun": (
+                provenance.get("historical_control_rerun") is False
+                and historical.get("rerun") is False
+            ),
+            "frozen_runtime_parameter_hash_verified": (
+                runtime_hashes.parameter_block_sha256
+                == derived["frozen_runtime_parameter_sha256"]
+            ),
+            "protected_link_shield_sampling_exact": (
+                shield_binding["exact_protected_field_ledger"] is True
+            ),
+            "all_authoritative_robot_collision_surfaces_contact_monitored": (
+                broad_contact_monitor_exact
+            ),
+            "literal_link56_external_nonrobot_contacts_monitored": (
+                broad_contact_monitor_exact
+            ),
+            "protected_link_arm_qvel_scope_verified": (
+                shield_qvel_indices == list(shield_binding["arm_qvel_indices"])
+                and len(shield_qvel_indices) == 7
+            ),
+            "direct_unit_gain_hinge_torque_actuators_verified": (
+                torque_units_verified
+            ),
+            "seven_arm_torque_decision_verified": len(torque_actuators) == 7,
+            "nonarm_controls_unchanged": nonarm_controls_unchanged,
+            "original_osc_controller_verified": True,
+            "static_field_admissible": field_audit["static_admissible"] is True,
+            "every_executed_substep_protected_link_shielded": (
+                constraint_exposure_exact
+            ),
+            "every_executed_substep_contact_monitored": broad_contact_monitor_exact,
+            "complete_exposure_verified": (
+                constraint_exposure_exact and broad_contact_monitor_exact
+            ),
+            "nominal_pass_through_bitwise_exact": nominal_passthrough_exact,
+            "no_policy_query_before_divergence": (
+                planner.get("no_policy_query_before_divergence") is True
+            ),
+            "cached_current_chunk_then_fresh_own_observation_policy": (
+                cached_then_fresh_exact
+            ),
+            "all_predivergence_torque_commands_byte_identical_nominal": (
+                predivergence_exact
+            ),
+            "predivergence_archived_state_action_observation_reward_goal_parity_exact": (
+                predivergence_parity_exact
+            ),
+            "historical_contact_same_source_action_exception_requires_exact_callback_action_0_0_and_exact_contact_free_prior_completed_endpoint": (
+                v4_same_source_action_exception_valid
+            ),
+            "all_live_substeps_before_first_divergence_contact_free": (
+                v4_predivergence_contact_free
+            ),
+            "all_shield_decisions_valid": True,
+            "all_actual_cbf_residual_postchecks_pass": all(
+                row.get("actual_cbf_residual_postcheck_pass") is True
+                for row in physics
+            ),
+            "complete_terminal_condition_reached": complete_terminal,
+            "video_complete": video_complete,
+        }
+        for name, expected in reconstructed_apparatus.items():
+            _require(
+                metrics.get(name) is expected,
+                "v4 apparatus metric %s differs from independent reconstruction"
+                % name,
+            )
+
+        material_correction_l2 = (
+            0.0
+            if not first_material_rows
+            else float(first_material_rows[0]["torque_correction_l2_nm"])
+        )
+        residual_improvement = (
+            0.0
+            if first_material_residual_improvement is None
+            else float(first_material_residual_improvement)
+        )
+        next_qvel_change = (
+            0.0
+            if first_material_next_qvel_change is None
+            else float(first_material_next_qvel_change)
+        )
+        nonstopping_motion = bool(
+            first_material is not None
+            and motion["joint"]
+            >= float(
+                derived["acceptance"][
+                    "minimum_post_correction_joint_motion_integral_rad"
+                ]
+            )
+            and motion["eef"]
+            >= float(
+                derived["acceptance"][
+                    "minimum_post_correction_eef_path_length_m"
+                ]
+            )
+        )
+        stalled_after_correction = bool(
+            first_material is not None and not nonstopping_motion
+        )
+        reconstructed_outcomes = {
+            "any_robot_selected_obstacle_contact": registered_contact_audit[
+                "any_robot_selected_obstacle_contact"
+            ],
+            "any_link56_external_nonrobot_contact": registered_contact_audit[
+                "any_link56_external_nonrobot_contact"
+            ],
+            "any_registered_forbidden_contact": registered_contact,
+            "safety_method_stop_before_physics": method_stopped,
+            "treatment_stalled_after_correction": stalled_after_correction,
+            "material_correction_present": first_material is not None,
+            "first_any_byte_different_torque_registered_as_divergence": (
+                first_divergence_registered
+            ),
+            "first_material_correction_protected_link_attributed": (
+                first_material_minimum_is_protected_link
+            ),
+            "first_material_nominal_exact_protected_link_cbf_residual_negative": (
+                first_material_nominal_negative
+                and first_material_minimum_is_protected_link
+            ),
+            # Historical-target participation is diagnostic only.  The
+            # registered causal gate is any row in the shared protected set.
+            "first_material_correction_target_link_attributed": (
+                first_material_minimum_is_target_link
+            ),
+            "first_material_nominal_exact_target_link_cbf_residual_negative": (
+                first_material_nominal_negative
+                and first_material_minimum_is_target_link
+            ),
+            "first_material_correction_before_historical_target_link_contact": (
+                expected_before
+            ),
+            "task_incomplete_at_first_material_correction": bool(
+                expected_task_incomplete
+            ),
+            "treatment_paper_car_avoided": expected_car_safe,
+            "nonstopping_motion_after_correction": nonstopping_motion,
+            "native_task_success": task_success,
+        }
+        for name, expected in reconstructed_outcomes.items():
+            _require(
+                metrics.get(name) is expected,
+                "v4 outcome metric %s differs from independent reconstruction"
+                % name,
+            )
+        reconstructed_numbers = {
+            "material_torque_correction_l2_nm": material_correction_l2,
+            "first_material_exact_cbf_residual_improvement_m2_per_s": (
+                residual_improvement
+            ),
+            "first_material_exact_next_qvel_change_l2_rad_s": next_qvel_change,
+            "post_correction_joint_motion_integral_rad": motion["joint"],
+            "post_correction_eef_path_length_m": motion["eef"],
+        }
+        for name, expected in reconstructed_numbers.items():
+            _close(metrics.get(name), expected, "v4 outcome metric %s" % name)
+
+    independent = classify_canary(dict(metrics), protocol)
     _require(
         not independent.get("feasible")
         or (
-            first_divergence_is_material
-            and len(independently_validated_qp_audits) == 1
+            (
+                first_material is not None
+                and first_material_minimum_is_protected_link
+                and first_material_audit is not None
+                if target_link_v4
+                else first_divergence_is_material
+            )
+            and bool(independently_validated_qp_audits)
         ),
-        "positive feasibility lacks a material independently validated first divergence",
+        "positive feasibility lacks a protected-link-attributed material QP audit",
     )
     _require(
         metrics.get("allocation_numeric_prerequisite_verified") is True,
@@ -4829,6 +6668,8 @@ def validate(
         "status": "validated",
         "producer_status": "complete",
         "case_id": result["case_id"],
+        "protocol_relative_path": expected_protocol_relative_path,
+        "protocol_file_sha256": fast._file_sha256(protocol_path),
         "run_id": result["run_id"],
         "result_file_sha256": fast._file_sha256(result_path),
         "classification": independent,
@@ -4839,9 +6680,13 @@ def validate(
             independently_validated_qp_audits
         ),
         "independent_kkt_validation_scope": (
-            "first_byte_different_torque_row_only"
+            "first_byte_divergence_and_first_material_correction_rows_deduplicated"
+            if target_link_v4
+            else "first_byte_different_torque_row_only"
         ),
         "first_divergence_constraint_attribution": divergence_attribution,
+        "first_material_constraint_attribution": material_attribution,
+        "historical_target_contact_audit": historical_target_contact_audit,
         "partial_action_audit": partial_action_audit,
         "field_sample_static_audit": field_audit,
         "first_material_correction_physical_boundary": first_material,
@@ -4860,12 +6705,13 @@ def validate(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--result", type=Path, required=True)
-    parser.add_argument("--historical-result-root", type=Path, required=True)
+    parser.add_argument("--expected-case-id", required=True)
     parser.add_argument(
-        "--protocol",
-        type=Path,
+        "--expected-protocol-relative-path",
         default=Path("configs/vlsa_poisson_osc_arm_link_canary.v3.json"),
     )
+    parser.add_argument("--historical-result-root", type=Path, required=True)
+    parser.add_argument("--protocol", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--numeric-validation-result", type=Path, required=True)
     parser.add_argument("--expected-numeric-job-id", required=True)
@@ -4874,12 +6720,27 @@ def main() -> int:
     parser.add_argument("--expected-consumer-job-id", required=True)
     parser.add_argument("--expected-consumer-commit", required=True)
     arguments = parser.parse_args()
+    expected_protocol_relative_path = str(
+        arguments.expected_protocol_relative_path
+    )
     from main.poisson_fullbody.contracts import publish_hashed_json
-    from main.poisson_fullbody.osc_arm_link_canary import VALIDATION_SCHEMA
+    from main.poisson_fullbody import osc_arm_link_canary as canary_contract
+
+    protocol_header = fast._json(
+        arguments.protocol.resolve(), "post-OSC canary protocol"
+    )
+    validation_schema = (
+        canary_contract.TARGET_LINK_VALIDATION_SCHEMA
+        if protocol_header.get("schema_version")
+        == "vlsa_poisson_osc_target_link_canary_protocol.v4"
+        else canary_contract.VALIDATION_SCHEMA
+    )
 
     candidate: Dict[str, Any] = {
-        "schema_version": VALIDATION_SCHEMA,
+        "schema_version": validation_schema,
         "status": "rejected",
+        "expected_case_id": arguments.expected_case_id,
+        "expected_protocol_relative_path": expected_protocol_relative_path,
         "partial_output_interpreted": False,
     }
     try:
@@ -4889,6 +6750,8 @@ def main() -> int:
                 arguments.protocol.resolve(),
                 arguments.historical_result_root.resolve(),
                 arguments.numeric_validation_result,
+                expected_case_id=arguments.expected_case_id,
+                expected_protocol_relative_path=expected_protocol_relative_path,
                 expected_numeric_job_id=arguments.expected_numeric_job_id,
                 expected_producer_job_id=arguments.expected_producer_job_id,
                 expected_producer_commit=arguments.expected_producer_commit,

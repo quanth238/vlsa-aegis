@@ -19,6 +19,8 @@ EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${RESULT:?RESULT is required}"
 : "${HISTORICAL_RESULT_ROOT:?HISTORICAL_RESULT_ROOT is required}"
+: "${CASE_ID:?CASE_ID is required}"
+: "${PROTOCOL_RELATIVE_PATH:?PROTOCOL_RELATIVE_PATH is required}"
 : "${EXPECTED_PRODUCER_GIT_COMMIT:?EXPECTED_PRODUCER_GIT_COMMIT is required}"
 : "${EXPECTED_CONSUMER_GIT_COMMIT:?EXPECTED_CONSUMER_GIT_COMMIT is required}"
 : "${EXPECTED_PRODUCER_JOB_ID:?EXPECTED_PRODUCER_JOB_ID is required}"
@@ -28,6 +30,8 @@ EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 : "${SLURM_CPUS_PER_TASK:?SLURM_CPUS_PER_TASK is required}"
 if [[ "${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}" ]] || \
    [[ "${HISTORICAL_RESULT_ROOT}" != "${REGISTERED_HISTORICAL_ROOT}" ]] || \
+   [[ ! "${CASE_ID}" =~ ^vlsa-t1-[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || \
+   [[ ! "${PROTOCOL_RELATIVE_PATH}" =~ ^configs/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$ ]] || \
    [[ ! "${EXPECTED_PRODUCER_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
    [[ ! "${EXPECTED_CONSUMER_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
    [[ ! "${EXPECTED_PRODUCER_JOB_ID}" =~ ^[0-9]+$ ]] || \
@@ -88,7 +92,7 @@ require_canonical_real_directory \
 require_canonical_real_file "complete result" "${RESULT}"
 require_canonical_real_file \
   "post-OSC protocol" \
-  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v3.json"
+  "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}"
 require_canonical_real_file \
   "post-OSC validator" \
   "${REMOTE_REPO}/scripts/validate_poisson_osc_arm_link_canary_artifact.py"
@@ -110,7 +114,7 @@ if [[ "$(dirname -- "${RUN_ROOT}")" != "${REGISTERED_RESULT_ROOT}" ]] || \
   exit 2
 fi
 require_canonical_real_directory "post-OSC run root" "${RUN_ROOT}"
-OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3_stencil_roundtrip.json"
+OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link.json"
 [[ ! -e "${OUTPUT}" && ! -L "${OUTPUT}" ]] || { echo "validation output exists" >&2; exit 2; }
 
 cd "${REMOTE_REPO}"
@@ -127,10 +131,12 @@ export PYTHONPATH="${REMOTE_REPO}:${REMOTE_REPO}/main"
 
 "${EVALUATION_PYTHON}" scripts/validate_poisson_osc_arm_link_canary_artifact.py \
   --result "${RESULT}" \
+  --expected-case-id "${CASE_ID}" \
+  --expected-protocol-relative-path "${PROTOCOL_RELATIVE_PATH}" \
   --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
   --numeric-validation-result "${NUMERIC_VALIDATION_RESULT}" \
   --expected-numeric-job-id "${EXPECTED_NUMERIC_JOB_ID}" \
-  --protocol "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v3.json" \
+  --protocol "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}" \
   --expected-producer-job-id "${EXPECTED_PRODUCER_JOB_ID}" \
   --expected-producer-commit "${EXPECTED_PRODUCER_GIT_COMMIT}" \
   --expected-consumer-job-id "${SLURM_JOB_ID}" \

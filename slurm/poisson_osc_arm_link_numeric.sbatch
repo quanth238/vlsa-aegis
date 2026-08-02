@@ -141,6 +141,7 @@ export VLSA_POISSON_RUN_PRODUCTION_GRID_VALIDATION=1
   --test-module tests.test_poisson_post_osc_torque_sensitivity \
   --test-module tests.test_poisson_post_osc_torque_shield \
   --test-module tests.test_poisson_osc_arm_link_canary \
+  --test-module tests.test_poisson_osc_target_link_protocol \
   --test-module tests.test_poisson_osc_numeric_prerequisite \
   --test-module tests.test_poisson_osc_arm_link_slurm_contract \
   --test-module tests.test_poisson_numeric_validation_runner

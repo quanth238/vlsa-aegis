@@ -1319,3 +1319,33 @@ pass, no stop or stall, continued joint and end-effector motion, and native
 BDDL task success. Parameters are frozen after e05 and before e42. Both cases
 must pass for the scoped link-5/link-6 conclusion; one pass is only a
 case-specific result.
+
+## ADR-0056: Protect the same link-5/link-6 set in every direct-pair case
+
+Accepted before any e05 or e42 treatment outcome was run. The target-only
+draft in ADR-0055 would have selected link 5 for e05 and link 6 for e42 using
+historical failure labels. That is useful for ablation but does not test a
+reusable link-aware controller. The v4 treatment instead shields the identical
+literal link-5 and link-6 collision-surface set in both cases. The case-specific
+target link remains immutable evidence identifying the archived collision to
+eliminate; it is not controller input and cannot select field samples,
+Jacobians, or QP rows.
+
+The common shield still uses simulator-oracle geometry for the selected
+obstacle, the original OSC controller, seven arm-torque corrections, unchanged
+non-arm controls, and the frozen Poisson/CBF/QP numerics. It recomputes before
+all 25 physics steps per policy action. A correction may be triggered by either
+protected link; the independent consumer must prove a negative protected-link
+nominal CBF residual and directed candidate improvement. Target-link
+participation is retained as a diagnostic, not a feasibility gate.
+
+Contact evaluation remains broader than the shield: every authoritative robot
+collision surface is monitored against the selected obstacle, and literal
+link 5/6 surfaces are monitored against every external non-robot collision
+surface. Contact remaining on the target, moving to the other protected link,
+or moving to another robot surface against the selected obstacle is therefore
+a failure. Stopping, stalling, paper CAR failure, or native task failure is
+also a failure. Both e05 and e42 must independently achieve zero contact,
+useful continued motion, CAR safety, and full task success under the same
+protected set and frozen parameters before a scoped pair-feasibility claim is
+allowed.
