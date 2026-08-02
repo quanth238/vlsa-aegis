@@ -436,7 +436,12 @@ def classify_closed_loop_canary(
         "baseline_reproduced": baseline_reproduced,
         "contact_prevented": contact_prevented,
         "useful_correction": useful_motion,
-        "stop_only": bool(contact_prevented and not useful_motion),
+        # Stop-only is meaningful only after the unsafe baseline contact is
+        # reproduced. If it is absent, causal safety attribution is
+        # unavailable rather than a stopped-robot observation.
+        "stop_only": bool(
+            baseline_reproduced and contact_prevented and not useful_motion
+        ),
         "task_successful": task_success,
     }
 

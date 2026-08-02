@@ -257,6 +257,7 @@ class IndependentClassificationTests(unittest.TestCase):
         result = self.classify(metrics)
         self.assertEqual(result["classification"], "BASELINE_CONTACT_NOT_REPRODUCED")
         self.assertFalse(result["feasible"])
+        self.assertFalse(result["stop_only"])
 
     def test_feedback_or_video_failure_is_inconclusive(self):
         for field in (
@@ -541,6 +542,7 @@ class FilesystemAndCadenceTests(unittest.TestCase):
             "BASELINE_CONTACT_NOT_REPRODUCED",
         )
         self.assertFalse(classification["feasible"])
+        self.assertFalse(classification["stop_only"])
 
     def test_no_correction_motion_uses_producer_none_sentinel(self):
         audit = validator._Audit()

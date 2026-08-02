@@ -980,3 +980,40 @@ contact, keep moving, and achieve native task success after correction. If the
 unsafe live baseline fails the task while the treatment succeeds, that is a
 valid rescue outcome rather than an apparatus failure. This does not relax the
 treatment task-success requirement.
+
+## ADR-0046: Treat the live no-contact baseline as a valid negative
+
+Accepted after complete H100 producer `34185` and zero-discrepancy CPU consumer
+`34191`. The paired current live policy did not reproduce the historical
+link-5/moka-pot contact in the adapter-only arm. Therefore the run is
+`BASELINE_CONTACT_NOT_REPRODUCED` and cannot establish collision prevention,
+even though the Poisson arm applied substantial correction, continued moving,
+and completed the native task. Historical contact cannot substitute for the
+missing current paired counterfactual.
+
+The first consumer rejection was an apparatus issue, not a scientific
+negative. Periodic full-surface clearance is a conservative sampled diagnostic
+and may be nonpositive without MuJoCo contact. The validator continues to
+reconstruct its cadence, finiteness, cumulative-minimum semantics, and record
+binding, but does not promote positivity to an acceptance gate. Exact selected-
+obstacle contact observed at every 2 ms post-integration state remains the
+collision authority.
+
+The secondary `stop_only` predicate is also meaningful only when the unsafe
+baseline contact is reproduced. With no baseline contact, failure to meet the
+pre-contact-attribution predicate means "not attributable," not "the robot
+stopped." Future classifiers therefore require baseline reproduction before
+setting `stop_only=true`. This clarification does not change the immutable
+run's primary label or `feasible=false`; its zero zero-command fraction and
+0.6597 m post-correction path remain the direct motion evidence.
+
+The next live safety test must not choose a replacement case based on Poisson
+outcomes. The recommended design is a preregistered control-only eligibility
+screen over the immutable 109-case arm-link manifest: freeze a hash-derived
+case order, branch/horizon, seeds, literal-contact eligibility, and a stopping
+rule; publish every adapter-only control; then apply PSF to the first eligible
+current live collision case (or preferably the first three). This estimates
+conditional rescue among current unsafe live controls rather than population
+safety. An alternate colliding controller would confound the comparison, and a
+recorded collision window is only a stress test because it does not show that
+the current live policy generates the hazard.

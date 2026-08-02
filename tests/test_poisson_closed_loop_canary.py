@@ -409,6 +409,7 @@ class ClosedLoopClassificationTests(unittest.TestCase):
             result["classification"], "BASELINE_CONTACT_NOT_REPRODUCED"
         )
         self.assertFalse(result["feasible"])
+        self.assertFalse(result["stop_only"])
 
     def test_apparatus_or_feedback_failures_are_inconclusive(self):
         for field in (

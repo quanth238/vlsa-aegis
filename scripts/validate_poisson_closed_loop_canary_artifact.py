@@ -1531,7 +1531,9 @@ def _independent_classification(metrics: Mapping[str, Any], expectation: Mapping
         "baseline_reproduced": baseline_reproduced,
         "contact_prevented": contact_prevented,
         "useful_correction": useful,
-        "stop_only": bool(contact_prevented and not useful),
+        "stop_only": bool(
+            baseline_reproduced and contact_prevented and not useful
+        ),
         "task_successful": task_success,
     }
 

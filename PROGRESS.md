@@ -869,3 +869,71 @@ achieve native task success after material correction, matching the stated
 feasibility question and allowing an unsafe-baseline-failure/treatment-rescue
 outcome.
 The failed root is immutable; any rerun must use a new commit and run ID.
+
+## P01 closed-loop suffix terminal result
+
+H100 producer job `34185` completed `COMPLETED|0:0` in 12m17s on
+`worker-mig-3g40gb-0` from clean commit
+`a15aa5f8a5e0c7c783a2dc7450eb83a65eae4133`. Immutable run
+`vlsa-poisson-link56-closed-loop-20260802b` has result file SHA-256
+`9467811a975d92dce6e3a3d9fb10f32d6bc73e453c0302e24eb351db69df8d9d`
+and payload SHA-256
+`50a07b75f5f95f897a386333f513c9fb4a604b65f7ab33aff15e7a84feb3e3c7`.
+The exact current q36 response was executed once and paired across arms; all
+q37--47 queries used the respective arm's own observation.
+
+CPU consumer `34187` exposed no result because its wrapper deleted a rejected
+summary; this observability defect was fixed without changing physics.
+Consumer `34189` then preserved a single rejection
+(`baseline_periodic_clearance_invalid`). That check contradicted the frozen
+protocol: the sampled conservative clearance is diagnostic, while exact
+MuJoCo contact at every 2 ms substep is authoritative. Removing only that
+accidental diagnostic gate produced consumer job `34191`, which completed
+`COMPLETED|0:0` from commit
+`bd6890f3ee4ecfa61f7be899c12df46709ca3a5e`. Receipt SHA-256
+`d0e7e0d30d282f93d70c53ead31c48dd21df4ba800daf6c4355a34134e2a0ab1`
+reports `artifact_valid=true`, zero discrepancies, a complete pair, and
+`BASELINE_CONTACT_NOT_REPRODUCED`.
+
+The live adapter-only arm completed all 57 suffix actions, 285 controller
+updates, and 1,425 contact-observed physics substeps without any robot--moka-
+pot contact. It achieved the task at action 182 but did not retain it at the
+terminal fixed-exposure boundary. The Poisson arm also had zero selected-
+obstacle contact, solved and independently postchecked all 285 QPs with zero
+invalid field queries, achieved the task at action 182, and retained terminal
+success. From the first correction at boundary 4500 it executed 0.4020 rad of
+filter correction, 1.6420 rad of measured joint motion, and 0.6597 m of
+Cartesian path with a zero-command fraction of 0.0. Thus it demonstrably did
+not stop, but the absent paired baseline collision prevents attributing contact
+avoidance to that correction.
+
+This is a valid negative for the live collision-prevention canary, not a
+Poisson failure. The prior recorded-suffix experiment remains positive
+one-case controller-feasibility evidence; this live-feedback experiment adds
+compatibility evidence (active correction, motion, and task success) but no
+causal safety evidence. P01 remains `active`. The producer/consumer v1
+`stop_only=true` secondary flag is not applicable when the baseline collision
+is absent; future classification now requires baseline reproduction before
+emitting stop-only, without changing this immutable run's label or feasibility.
+
+Post-validation trajectory audit identifies the controller/feedback handoff as
+the dominant observed reason. The shared action-179 state is exact and the five
+actually executed q36 actions differ only slightly from historical AEGIS
+(mean L2 0.001744, maximum 0.003120). Once those Cartesian commands pass
+through a fresh joint-velocity adapter, however, the end effector is already
+9.8 mm from the historical OSC trajectory after action 180 and the bowl is
+76.7 mm away by action 182. Query 37 therefore sees a different state; all
+q37--47 chunk hashes differ, their 52 executed action vectors have mean L2
+2.125 from historical, and every gripper sign is opposite. At the historical
+contact action 187 the live adapter baseline's end effector and bowl are 19.6
+mm and 22.7 mm from their historical poses. This evidence does not isolate the
+small q36 server difference from the controller handoff, but it strongly rules
+out interpreting the missing live contact as Poisson prevention.
+
+Handoff: no further H100 physics is authorized from this result. The next code
+gate is to implement and preregister the control-only 109-case eligibility
+screen described in ADR-0046, then run the exact local gate `./init.sh` before
+a fresh live Slurm preflight. Until that protocol, immutable manifest order,
+and stopping rule exist on a clean commit, there is intentionally no screening
+submission command. The final local structural gate passes 729 tests with 137
+expected dependency/allocation-only skips.
