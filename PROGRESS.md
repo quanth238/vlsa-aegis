@@ -1246,3 +1246,32 @@ focused validator and Slurm suite passes 49 tests with six expected local
 dependency skips; all three dependency-free binary64 arithmetic tests execute.
 The complete local gate passes 835 tests with 183 expected dependency and
 allocation-only skips.
+
+## P01 accepted e03 negative and direct report-case handoff
+
+CPU-only consumer `34322` completed `COMPLETED|0:0` on `worker-2` from clean
+consumer commit `6fbe89b29db7135ddaea789178b32b908b9fc69f`. Its canonical
+nonsymlink receipt has file SHA-256
+`3fc05c7f80e234af76e3fe0c1466e5acc2fc3a142c99caefe4b844fa8e1bc5b0`,
+binds producer `34309` and numeric job `34307`, reports zero apparatus
+failures, and validates classification `STOP_ONLY`.
+
+E03 is not feasible under the user's criterion. It completed 49 actions and
+1,246 physics substeps, then stopped before physics when the 8,321-row
+full-manipulator QP became primal infeasible at action 49. It stayed contact-
+free and CAR-safe and accumulated 0.423588 m end-effector path plus 2.909481
+rad joint-motion integral, but native task success is false. Its first
+material correction was driven by `gripper0_right_gripper` at action 3 rather
+than by link 5/6, and execution ended before the archived action-62 link
+contact. This is a full-manipulator hard-QP stop negative, not a conclusion
+about the simpler link-aware hypothesis.
+
+The next implementation gate is now frozen to two complete treatment-only
+cases with immutable archived AEGIS controls: report-visible link-5 case
+`vlsa-t1-goal-ii-t0-e05` and pure-link-6 case
+`vlsa-t1-goal-ii-t3-e42`. Both archived controls collide, fail CAR, and finish
+the task. The new protocol will constrain target link rows only, retain exact
+whole-robot selected-obstacle and link-5/6 external-contact monitoring, and
+require target-attributed correction, zero shifted contact, CAR pass, useful
+motion, no stop or stall, and native full-task success. Parameters freeze
+after e05 before e42. P01 remains active.

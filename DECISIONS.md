@@ -1276,3 +1276,46 @@ immutable output is
 `validation_receipt_schema_v3_stencil_roundtrip.json`. No producer byte,
 physics, sensitivity matrix, QP, safety threshold, classification, or task
 criterion changes.
+
+## ADR-0055: Treat e03 as a full-manipulator stop negative and test the report links directly
+
+Accepted after CPU-only consumer `34322` completed `COMPLETED|0:0` and
+independently validated immutable producer `34309`. The accepted receipt is
+`validation_receipt_schema_v3_stencil_roundtrip.json`, file SHA-256
+`3fc05c7f80e234af76e3fe0c1466e5acc2fc3a142c99caefe4b844fa8e1bc5b0`.
+It reports `status=validated`, zero apparatus failures, and scientific
+classification `STOP_ONLY`.
+
+E03 completed 49 actions and 1,246 physics substeps before the 8,321-row hard
+full-manipulator QP became primal infeasible at source action 49, boundary
+1,246, and stopped before physics. The treatment had no registered contact,
+kept paper CAR displacement to `2.0271284650874577e-12` m, and moved 0.423588 m
+in end-effector path and 2.909481 rad in joint-motion integral. Those facts do
+not make it feasible: the task never succeeded and the method stopped before
+the archived action-62 link event. Its first material correction occurred at
+action 3, boundary 87, with 4.270997 Nm magnitude, and the unique minimum
+nominal constraint belonged to `gripper0_right_gripper`, not link 5 or 6.
+Thus e03 is a negative for this full-manipulator hard-QP integration and is not
+evidence that a link-aware Poisson-CBF either solves or fails the report's
+literal link-5/link-6 mechanism.
+
+The direct feasibility experiment therefore uses the smallest report-aligned
+pair: `vlsa-t1-goal-ii-t0-e05` for first link-5 contact and
+`vlsa-t1-goal-ii-t3-e42` for pure link-6 contact. Both have positive recorded
+AEGIS proxy barriers, no settled relevant contact, CAR failure immediately
+after literal link contact, and archived AEGIS task success. The original
+pi0.5+AEGIS controls remain immutable and are not rerun. Each live treatment
+must reproduce the archived state and nominal command history exactly until
+its first Poisson correction, then continue closed loop from its own
+observations with the same indexed policy-noise schedule.
+
+For this minimal link hypothesis, only the target link-5/link-6 surfaces form
+CBF rows; every robot geometry versus the selected obstacle and link 5/6
+versus every external non-robot body remain exact contact monitors. A shifted
+collision therefore fails rather than being hidden. Positive feasibility in a
+case requires target-link-attributed material correction before archived
+contact, directed residual improvement, zero registered contact, paper CAR
+pass, no stop or stall, continued joint and end-effector motion, and native
+BDDL task success. Parameters are frozen after e05 and before e42. Both cases
+must pass for the scoped link-5/link-6 conclusion; one pass is only a
+case-specific result.
