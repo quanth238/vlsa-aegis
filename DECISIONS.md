@@ -1020,6 +1020,10 @@ the current live policy generates the hazard.
 
 ## ADR-0047: Keep paper CAR and post-integration geometry phase-distinct
 
+Superseded by ADR-0048. The forwarded-pose distinction was correct, but the
+later claim that the returned observation was the same sample as live
+`body_xpos` was falsified by allocation execution.
+
 Accepted after original-OSC e03 producer `34236` stopped before action zero.
 SafeLIBERO defines Table-1 CAR from the selected obstacle's native position
 observation at the settled boundary and completed 20 Hz action endpoints. The
@@ -1039,3 +1043,32 @@ apparatus-only correction: actions, AEGIS, OSC, Poisson constraints, physics,
 contact monitoring, the 1 mm CAR threshold, useful-motion thresholds, and task
 success criteria do not change. The failed root remains immutable; a new
 source commit, numeric gate, run ID, producer, and consumer are mandatory.
+
+## ADR-0048: Bind paper CAR to the native observable cache
+
+Accepted after original-OSC producer `34249` stopped before action zero.
+SafeLIBERO's object-position sensor directly copies
+`body_xpos[obj_body_id[obj_name]]`, but robosuite samples that Observable at
+20 Hz from inside a 500 Hz physics loop. The observation returned at the action
+endpoint is the cached sensor value. A later direct `body_xpos` read is not
+guaranteed to be the same sample, even when both refer to the same body.
+Therefore neither bitwise equality nor a numerical tolerance between those
+different samples is a valid authority gate.
+
+Table-1 CAR remains the native returned observation's L1 displacement from its
+native settled observation. The producer must bind that value byte-for-byte to
+both the registered `Observable.obs` and robosuite `_obs_cache` entry. It also
+requires the registered observable to be active, enabled, sampled at 20 Hz,
+created by the `obj_pos` sensor whose closure binds the exact selected object
+and task environment, and mapped through `obj_body_id` to the same exact root
+ID/name used by resolved collision geometry and contact authority. The
+immutable historical settled-observation hash remains mandatory.
+
+Live and separately forwarded root poses, exact hashes, and deltas are retained
+only as phase diagnostics. They cannot change CAR, object identity, or result
+classification. No cross-phase tolerance is introduced. This correction does
+not change policy actions, AEGIS, OSC, the Poisson shield, physics, contact
+scope, the 1 mm CAR threshold, useful-motion requirements, task success, or any
+positive/negative efficacy classification. All prior roots remain immutable;
+a new clean commit, numeric job, producer root, and independent consumer are
+required.

@@ -181,6 +181,12 @@ def validate_osc_arm_link_canary_protocol(
         "root_body_binding": (
             "env_obj_body_id_equals_contact_authority_root_body_id"
         ),
+        "native_observable_binding": (
+            "returned_observation_equals_observable_value_and_observation_cache"
+        ),
+        "live_root_position_role": (
+            "phase_diagnostic_only_not_authority_or_paper_car_metric"
+        ),
         "post_integration_forwarded_pose_role": (
             "phase_diagnostic_only_not_paper_car_metric"
         ),

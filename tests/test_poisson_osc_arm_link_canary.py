@@ -1,6 +1,7 @@
 import copy
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 
@@ -89,6 +90,8 @@ class OscArmLinkProtocolTests(unittest.TestCase):
         for field, value in (
             ("position_source", "post_integration_forwarded_body_xpos"),
             ("root_body_binding", "name_only"),
+            ("native_observable_binding", "live_body_xpos_tolerance"),
+            ("live_root_position_role", "paper_car_authority"),
             ("post_integration_forwarded_pose_role", "paper_car_metric"),
         ):
             protocol = copy.deepcopy(self.protocol())
@@ -255,6 +258,76 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             raise unittest.SkipTest("NumPy is required for paper CAR tests") from error
         cls.np = np
 
+    def native_observable_fixture(self, *, sensor_object_name=None):
+        obstacle_name = "wine_bottle_obstacle_1"
+        bound_name = sensor_object_name or obstacle_name
+        task_env = SimpleNamespace()
+        task_env.value = self.np.asarray([1.0, 2.0, 3.0], dtype=self.np.float64)
+
+        def make_sensor(self, obj_name):
+            def obj_pos(obs_cache):
+                del obs_cache
+                return self.value if obj_name else self.value
+
+            return obj_pos
+
+        sensor = make_sensor(task_env, bound_name)
+        sensor.__modality__ = "object"
+
+        class FakeObservable:
+            name = "%s_pos" % obstacle_name
+            modality = "object"
+            _sampling_timestep = 0.05
+            _sensor = sensor
+            obs = task_env.value.copy()
+
+            @staticmethod
+            def is_enabled():
+                return True
+
+            @staticmethod
+            def is_active():
+                return True
+
+        key = "%s_pos" % obstacle_name
+        task_env._observables = {key: FakeObservable()}
+        task_env._obs_cache = {key: task_env.value.copy()}
+        return task_env, key, obstacle_name
+
+    def test_native_observable_identity_and_cache_are_bound(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _native_object_observable_values,
+        )
+
+        task_env, key, obstacle_name = self.native_observable_fixture()
+        record, observable, cache = _native_object_observable_values(
+            task_env,
+            observation_key=key,
+            obstacle_name=obstacle_name,
+            np=self.np,
+        )
+        self.assertTrue(record["all_checks_passed"])
+        self.assertTrue(record["checks"]["sensor_nonlocal_environment_matches"])
+        self.assertTrue(self.np.array_equal(observable, task_env.value))
+        self.assertTrue(self.np.array_equal(cache, task_env.value))
+
+    def test_native_observable_wrong_closure_object_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            OscCanaryRunnerError,
+            _native_object_observable_values,
+        )
+
+        task_env, key, obstacle_name = self.native_observable_fixture(
+            sensor_object_name="wrong_object"
+        )
+        with self.assertRaises(OscCanaryRunnerError):
+            _native_object_observable_values(
+                task_env,
+                observation_key=key,
+                obstacle_name=obstacle_name,
+                np=self.np,
+            )
+
     def row(self):
         from scripts.run_poisson_osc_arm_link_canary import (
             _paper_car_endpoint_row,
@@ -268,7 +341,9 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             observation_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
             observation_position=observed,
-            live_solver_phase_body_position=observed.copy(),
+            observable_value_position=observed.copy(),
+            observation_cache_position=observed.copy(),
+            live_body_position_diagnostic=observed.copy(),
             post_integration_forwarded_body_position=np.asarray(
                 [1.002, 1.998, 3.003], dtype=np.float64
             ),
@@ -288,9 +363,7 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             index=1,
             car_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
-            settled_car_position=self.np.asarray(
-                [1.0, 2.0, 3.0], dtype=self.np.float64
-            ),
+            settled_car_position=[1.0, 2.0, 3.0],
             np=self.np,
         )
 
@@ -302,11 +375,11 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
         )
         self.assertAlmostEqual(self.validate(row), 0.001)
 
-    def test_same_phase_live_observable_mismatch_is_rejected(self):
+    def test_native_observable_cache_mismatch_is_rejected(self):
         from scripts.run_poisson_osc_arm_link_canary import (
             OscCanaryRunnerError,
             _paper_car_endpoint_row,
-            _require_paper_car_same_phase_binding,
+            _require_paper_car_native_cache_binding,
         )
 
         row = _paper_car_endpoint_row(
@@ -315,20 +388,25 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             observation_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
             observation_position=[1.0, 2.0, 3.0],
-            live_solver_phase_body_position=[1.0, 2.0, 3.000001],
+            observable_value_position=[1.0, 2.0, 3.0],
+            observation_cache_position=[1.0, 2.0, 3.000001],
+            live_body_position_diagnostic=[1.0, 2.0, 3.0],
             post_integration_forwarded_body_position=[1.0, 2.0, 3.0],
             settled_observation_position=[1.0, 2.0, 3.0],
             np=self.np,
         )
-        self.assertFalse(row["observation_body_xpos_bitwise_equal"])
+        self.assertFalse(row["observation_cache_value_bitwise_equal"])
+        self.assertFalse(row["native_observable_cache_binding_exact"])
         with self.assertRaises(OscCanaryRunnerError):
-            _require_paper_car_same_phase_binding(row)
+            _require_paper_car_native_cache_binding(row)
 
-    def test_signed_zero_is_not_bitwise_same_phase(self):
+    def test_live_phase_offset_is_diagnostic_not_observable_authority(self):
         from scripts.run_poisson_osc_arm_link_canary import (
-            OscCanaryRunnerError,
             _paper_car_endpoint_row,
-            _require_paper_car_same_phase_binding,
+            _require_paper_car_native_cache_binding,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_paper_car_endpoint_row,
         )
 
         row = _paper_car_endpoint_row(
@@ -337,18 +415,113 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             observation_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
             observation_position=[0.0, 2.0, 3.0],
-            live_solver_phase_body_position=[-0.0, 2.0, 3.0],
+            observable_value_position=[0.0, 2.0, 3.0],
+            observation_cache_position=[0.0, 2.0, 3.0],
+            live_body_position_diagnostic=[
+                -0.0,
+                2.0,
+                3.0 + 1.0e-13,
+            ],
             post_integration_forwarded_body_position=[0.0, 2.0, 3.0],
             settled_observation_position=[0.0, 2.0, 3.0],
             np=self.np,
         )
-        self.assertFalse(row["observation_body_xpos_bitwise_equal"])
+        self.assertTrue(row["native_observable_cache_binding_exact"])
         self.assertNotEqual(
             row["active_obstacle_position_observation_array_sha256"],
             row["active_obstacle_root_position_array_sha256"],
         )
+        _require_paper_car_native_cache_binding(row)
+        self.assertAlmostEqual(
+            _validate_paper_car_endpoint_row(
+                row,
+                index=0,
+                car_key="wine_bottle_obstacle_1_pos",
+                obstacle_root_body_id=32,
+                settled_car_position=[0.0, 2.0, 3.0],
+                np=self.np,
+            ),
+            0.0,
+        )
+
+    def test_runner_rejects_non_native_float64_positions(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            OscCanaryRunnerError,
+            _paper_car_endpoint_row,
+        )
+
+        positions = self.np.asarray([1.0, 2.0, 3.0], dtype=self.np.float64)
         with self.assertRaises(OscCanaryRunnerError):
-            _require_paper_car_same_phase_binding(row)
+            _paper_car_endpoint_row(
+                source_action_index=0,
+                snapshot_kind="completed_high_level_endpoint",
+                observation_key="wine_bottle_obstacle_1_pos",
+                obstacle_root_body_id=32,
+                observation_position=positions.astype(self.np.float32),
+                observable_value_position=positions.copy(),
+                observation_cache_position=positions.copy(),
+                live_body_position_diagnostic=positions.copy(),
+                post_integration_forwarded_body_position=positions.copy(),
+                settled_observation_position=positions.copy(),
+                np=self.np,
+            )
+
+    def test_consumer_rejects_coercible_or_nonfloat_json_vectors(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fields = (
+            "active_obstacle_position_observation_world_m",
+            "native_observable_value_world_m",
+            "native_observation_cache_value_world_m",
+            "active_obstacle_root_position_world_m",
+            "active_obstacle_root_position_post_integration_forwarded_world_m",
+            "observation_post_integration_forwarded_component_delta_m",
+        )
+        for field in fields:
+            for replacement in ("1.0", True, 1):
+                with self.subTest(field=field, replacement=replacement):
+                    row = self.row()
+                    row[field][0] = replacement
+                    with self.assertRaises(OscCanaryValidationError):
+                        self.validate(row)
+
+    def test_consumer_rejects_nonfloat_settled_vector(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _validate_paper_car_endpoint_row,
+        )
+
+        with self.assertRaises(OscCanaryValidationError):
+            _validate_paper_car_endpoint_row(
+                self.row(),
+                index=1,
+                car_key="wine_bottle_obstacle_1_pos",
+                obstacle_root_body_id=32,
+                settled_car_position=["1.0", 2.0, 3.0],
+                np=self.np,
+            )
+
+    def test_consumer_rejects_native_dtype_or_shape_metadata_tampering(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        mutations = (
+            ("active_obstacle_position_observation_dtype", "<f4"),
+            ("native_observable_value_dtype", "<f4"),
+            ("native_observation_cache_value_dtype", "<f4"),
+            ("active_obstacle_position_observation_shape", [1, 3]),
+            ("native_observable_value_shape", [1, 3]),
+            ("native_observation_cache_value_shape", [1, 3]),
+        )
+        for field, value in mutations:
+            with self.subTest(field=field):
+                row = self.row()
+                row[field] = value
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(row)
 
     def test_consumer_rejects_phase_root_hash_or_delta_tampering(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
@@ -363,6 +536,12 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             ),
             lambda row: row.__setitem__(
                 "active_obstacle_position_observation_array_sha256", "0" * 64
+            ),
+            lambda row: row.__setitem__(
+                "native_observable_cache_binding_exact", False
+            ),
+            lambda row: row.__setitem__(
+                "native_observation_cache_value_array_sha256", "0" * 64
             ),
             lambda row: row.__setitem__(
                 "observation_post_integration_forwarded_l1_delta_m", 0.0
@@ -390,7 +569,9 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             observation_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
             observation_position=[0.0, 2.0, 3.0],
-            live_solver_phase_body_position=[0.0, 2.0, 3.0],
+            observable_value_position=[0.0, 2.0, 3.0],
+            observation_cache_position=[0.0, 2.0, 3.0],
+            live_body_position_diagnostic=[0.0, 2.0, 3.0],
             post_integration_forwarded_body_position=[0.0, 2.0, 3.0],
             settled_observation_position=[0.0, 2.0, 3.0],
             np=self.np,
@@ -413,7 +594,7 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
         )
 
         scalar = self.row()
-        scalar["observation_live_solver_phase_l1_delta_m"] = -0.0
+        scalar["observation_live_root_l1_delta_m"] = -0.0
         with self.assertRaises(OscCanaryValidationError):
             self.validate(scalar)
 
@@ -423,7 +604,9 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
             observation_key="wine_bottle_obstacle_1_pos",
             obstacle_root_body_id=32,
             observation_position=[1.0, 2.0, 3.0],
-            live_solver_phase_body_position=[1.0, 2.0, 3.0],
+            observable_value_position=[1.0, 2.0, 3.0],
+            observation_cache_position=[1.0, 2.0, 3.0],
+            live_body_position_diagnostic=[1.0, 2.0, 3.0],
             post_integration_forwarded_body_position=[1.0, 2.0, 3.0],
             settled_observation_position=[1.0, 2.0, 3.0],
             np=self.np,
@@ -445,9 +628,7 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
                 index=1,
                 car_key="wine_bottle_obstacle_1_pos",
                 obstacle_root_body_id=32,
-                settled_car_position=self.np.asarray(
-                    [1.0, 2.0, 3.0], dtype=self.np.float64
-                ),
+                settled_car_position=[1.0, 2.0, 3.0],
                 np=self.np,
             )
 
@@ -543,9 +724,7 @@ class OscArmLinkPaperCarPhaseTests(unittest.TestCase):
                 index=1,
                 car_key="wine_bottle_obstacle_1_pos",
                 obstacle_root_body_id=32,
-                settled_car_position=self.np.asarray(
-                    [1.0, 2.0, 3.0], dtype=self.np.float64
-                ),
+                settled_car_position=[1.0, 2.0, 3.0],
                 np=self.np,
             )
 

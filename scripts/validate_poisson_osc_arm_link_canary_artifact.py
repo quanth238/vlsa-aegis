@@ -728,6 +728,25 @@ def _strict_integer(value: Any, label: str) -> int:
     return int(value)
 
 
+def _strict_serialized_float64_vector3(value: Any, label: str, np: Any) -> Any:
+    """Parse one producer JSON float64 vector without coercing other types."""
+
+    _require(
+        isinstance(value, list)
+        and len(value) == 3
+        and all(isinstance(item, float) and math.isfinite(item) for item in value),
+        "%s must be a three-float JSON array" % label,
+    )
+    array = np.asarray(value, dtype=np.float64)
+    _require(
+        array.shape == (3,)
+        and array.dtype == np.dtype(np.float64)
+        and np.all(np.isfinite(array)),
+        "%s float64 reconstruction differs" % label,
+    )
+    return array
+
+
 def _validate_paper_car_cadence_and_historical_binding(
     car_ledger: Sequence[Mapping[str, Any]],
     *,
@@ -832,49 +851,102 @@ def _validate_paper_car_endpoint_row(
 ) -> float:
     """Independently reconstruct one exact paper-CAR observation endpoint."""
 
-    observed_position = np.asarray(
-        row.get("active_obstacle_position_observation_world_m"), dtype=np.float64
+    observed_position = _strict_serialized_float64_vector3(
+        row.get("active_obstacle_position_observation_world_m"),
+        "paper CAR returned observation row %d" % index,
+        np,
     )
-    live_body_position = np.asarray(
-        row.get("active_obstacle_root_position_world_m"), dtype=np.float64
+    observable_value = _strict_serialized_float64_vector3(
+        row.get("native_observable_value_world_m"),
+        "paper CAR Observable.obs row %d" % index,
+        np,
     )
-    forwarded_body_position = np.asarray(
+    observation_cache_value = _strict_serialized_float64_vector3(
+        row.get("native_observation_cache_value_world_m"),
+        "paper CAR observation cache row %d" % index,
+        np,
+    )
+    live_body_position = _strict_serialized_float64_vector3(
+        row.get("active_obstacle_root_position_world_m"),
+        "paper CAR live-root diagnostic row %d" % index,
+        np,
+    )
+    forwarded_body_position = _strict_serialized_float64_vector3(
         row.get(
             "active_obstacle_root_position_post_integration_forwarded_world_m"
         ),
-        dtype=np.float64,
+        "paper CAR forwarded diagnostic row %d" % index,
+        np,
     )
-    forwarded_component_delta = np.asarray(
+    forwarded_component_delta = _strict_serialized_float64_vector3(
         row.get("observation_post_integration_forwarded_component_delta_m"),
-        dtype=np.float64,
+        "paper CAR forwarded delta row %d" % index,
+        np,
     )
-    settled = np.asarray(settled_car_position, dtype=np.float64)
+    settled = _strict_serialized_float64_vector3(
+        settled_car_position,
+        "paper CAR settled observation",
+        np,
+    )
     observed_hash = _float64_sha256(observed_position, np)
+    observable_hash = _float64_sha256(observable_value, np)
+    cache_hash = _float64_sha256(observation_cache_value, np)
     live_hash = _float64_sha256(live_body_position, np)
     forwarded_hash = _float64_sha256(forwarded_body_position, np)
+    reconstructed_observable_equal = bool(
+        np.array_equal(observed_position, observable_value)
+        and observed_hash == observable_hash
+    )
+    reconstructed_cache_equal = bool(
+        np.array_equal(observed_position, observation_cache_value)
+        and observed_hash == cache_hash
+    )
+    reconstructed_live_delta = live_body_position - observed_position
+    reconstructed_live_l1_delta = float(
+        np.sum(np.abs(reconstructed_live_delta))
+    )
+    reconstructed_live_linf_delta = float(
+        np.max(np.abs(reconstructed_live_delta))
+    )
     reconstructed_forwarded_delta = forwarded_body_position - observed_position
     forwarded_delta_hash = _float64_sha256(forwarded_component_delta, np)
     reconstructed_forwarded_delta_hash = _float64_sha256(
         reconstructed_forwarded_delta, np
     )
     _require(
-        observed_position.shape == (3,)
+        row.get("active_obstacle_position_observation_dtype")
+        == np.dtype(np.float64).str
+        and row.get("native_observable_value_dtype") == np.dtype(np.float64).str
+        and row.get("native_observation_cache_value_dtype")
+        == np.dtype(np.float64).str
+        and row.get("active_obstacle_position_observation_shape") == [3]
+        and row.get("native_observable_value_shape") == [3]
+        and row.get("native_observation_cache_value_shape") == [3]
+        and observed_position.shape == (3,)
+        and observable_value.shape == (3,)
+        and observation_cache_value.shape == (3,)
         and live_body_position.shape == (3,)
         and forwarded_body_position.shape == (3,)
         and forwarded_component_delta.shape == (3,)
         and settled.shape == (3,)
         and np.all(np.isfinite(observed_position))
+        and np.all(np.isfinite(observable_value))
+        and np.all(np.isfinite(observation_cache_value))
         and np.all(np.isfinite(live_body_position))
         and np.all(np.isfinite(forwarded_body_position))
         and np.all(np.isfinite(forwarded_component_delta))
         and np.all(np.isfinite(settled))
-        and np.array_equal(observed_position, live_body_position)
-        and observed_hash == live_hash
         and np.array_equal(forwarded_component_delta, reconstructed_forwarded_delta)
         and forwarded_delta_hash == reconstructed_forwarded_delta_hash
-        and row.get("observation_body_xpos_bitwise_equal") is True
+        and row.get("observation_observable_value_bitwise_equal")
+        is reconstructed_observable_equal
+        and row.get("observation_cache_value_bitwise_equal")
+        is reconstructed_cache_equal
+        and row.get("native_observable_cache_binding_exact") is True
+        and reconstructed_observable_equal
+        and reconstructed_cache_equal
         and row.get("paper_car_observation_key") == car_key,
-        "paper CAR same-phase observation/body authority differs at row %d" % index,
+        "paper CAR native observable/cache binding differs at row %d" % index,
     )
     _require(
         row.get("paper_car_position_source")
@@ -885,11 +957,15 @@ def _validate_paper_car_endpoint_row(
         )
         == int(obstacle_root_body_id)
         and row.get("active_obstacle_root_position_phase")
-        == "live_solver_phase_preintegration_geometry"
+        == "live_body_xpos_after_cached_observation_return"
+        and row.get("live_root_position_role")
+        == "phase_diagnostic_only_not_authority_or_paper_car_metric"
         and row.get("post_integration_forwarded_pose_role")
         == "phase_diagnostic_only_not_paper_car_metric"
         and row.get("active_obstacle_position_observation_array_sha256")
         == observed_hash
+        and row.get("native_observable_value_array_sha256") == observable_hash
+        and row.get("native_observation_cache_value_array_sha256") == cache_hash
         and row.get("active_obstacle_root_position_array_sha256") == live_hash
         and row.get(
             "active_obstacle_root_position_post_integration_array_sha256"
@@ -905,9 +981,14 @@ def _validate_paper_car_endpoint_row(
         "paper CAR forwarded component-delta identity differs at row %d" % index,
     )
     _exact_float(
-        row.get("observation_live_solver_phase_l1_delta_m"),
-        float(np.sum(np.abs(observed_position - live_body_position))),
-        "paper CAR live-phase delta row %d" % index,
+        row.get("observation_live_root_l1_delta_m"),
+        reconstructed_live_l1_delta,
+        "paper CAR live-root L1 delta row %d" % index,
+    )
+    _exact_float(
+        row.get("observation_live_root_linf_delta_m"),
+        reconstructed_live_linf_delta,
+        "paper CAR live-root Linf delta row %d" % index,
     )
     _exact_float(
         row.get("observation_post_integration_forwarded_l1_delta_m"),
@@ -2131,7 +2212,7 @@ def validate(
     _require(isinstance(car_ledger, Sequence) and car_ledger, "paper CAR ledger is absent")
     _require(
         treatment.get("paper_car_endpoint_ledger_schema_version")
-        == "vlsa_poisson_paper_car_endpoint_ledger.v2",
+        == "vlsa_poisson_paper_car_endpoint_ledger.v3",
         "paper CAR ledger schema differs",
     )
     car_authority = apparatus.get("paper_car_authority")
@@ -2159,7 +2240,7 @@ def validate(
     )
     _require(
         car_authority.get("schema_version")
-        == "vlsa_poisson_paper_car_authority.v1"
+        == "vlsa_poisson_paper_car_authority.v2"
         and car_authority.get("metric")
         == protocol["paper_car_measurement"]["metric"]
         and car_authority.get("paper_car_observation_key")
@@ -2176,6 +2257,10 @@ def validate(
         == protocol["paper_car_measurement"]["position_source"]
         and car_authority.get("root_body_binding")
         == protocol["paper_car_measurement"]["root_body_binding"]
+        and car_authority.get("native_observable_binding")
+        == protocol["paper_car_measurement"]["native_observable_binding"]
+        and car_authority.get("live_root_position_role")
+        == protocol["paper_car_measurement"]["live_root_position_role"]
         and car_authority.get("post_integration_forwarded_pose_role")
         == protocol["paper_car_measurement"][
             "post_integration_forwarded_pose_role"
@@ -2185,6 +2270,38 @@ def validate(
         )
         == replay.settled_active_obstacle_position_sha256,
         "paper CAR observation/root-body authority differs",
+    )
+    native_observable = car_authority.get("native_observable")
+    expected_observable_checks = {
+        "observable_name_matches_key": True,
+        "observable_enabled": True,
+        "observable_active": True,
+        "observable_modality_is_object": True,
+        "observable_sampling_timestep_is_20hz": True,
+        "sensor_function_is_obj_pos": True,
+        "sensor_nonlocal_object_name_matches": True,
+        "sensor_nonlocal_environment_matches": True,
+    }
+    _require(
+        isinstance(native_observable, Mapping)
+        and native_observable.get("schema_version")
+        == "vlsa_poisson_native_object_observable.v1"
+        and native_observable.get("observation_key")
+        == "%s_pos" % protocol["case"]["selected_obstacle_name"]
+        and native_observable.get("observable_name")
+        == native_observable.get("observation_key")
+        and native_observable.get("observable_modality") == "object"
+        and native_observable.get("sensor_function_name") == "obj_pos"
+        and native_observable.get("sensor_nonlocal_object_name")
+        == protocol["case"]["selected_obstacle_name"]
+        and native_observable.get("checks") == expected_observable_checks
+        and native_observable.get("all_checks_passed") is True,
+        "paper CAR native observable identity differs",
+    )
+    _exact_float(
+        native_observable.get("sampling_timestep_s"),
+        0.05,
+        "paper CAR native observable sampling timestep",
     )
     _require_resolved_body_name(
         resolved_car_geometry,
@@ -3173,9 +3290,8 @@ def validate(
         ),
     )
     car_key = "%s_pos" % protocol["case"]["selected_obstacle_name"]
-    settled_car_position = np.asarray(
-        car_ledger[0].get("active_obstacle_position_observation_world_m"),
-        dtype=np.float64,
+    settled_car_position = car_ledger[0].get(
+        "active_obstacle_position_observation_world_m"
     )
     reconstructed_car = [
         _validate_paper_car_endpoint_row(

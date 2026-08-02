@@ -73,40 +73,59 @@ def _paper_car_endpoint_row(
     observation_key: str,
     obstacle_root_body_id: int,
     observation_position: Any,
-    live_solver_phase_body_position: Any,
+    observable_value_position: Any,
+    observation_cache_position: Any,
+    live_body_position_diagnostic: Any,
     post_integration_forwarded_body_position: Any,
     settled_observation_position: Any,
     np: Any,
 ) -> Dict[str, Any]:
-    """Bind the paper CAR observable without conflating MuJoCo phases.
+    """Bind Table-1 CAR to robosuite's native cached observable.
 
-    SafeLIBERO's object-position observable is read from the live
-    ``body_xpos`` cache.  After ``mj_step`` that cache can describe the solver's
-    pre-integration geometry, while a separate integration-state clone followed
-    by ``mj_forward`` describes the just-completed post-integration state.  The
-    paper computes CAR from the native observation.  The observation is bound
-    exactly to the same-phase live cache; the forwarded position is retained
-    only as an explicitly phased diagnostic.  Root identity is enforced
-    separately through ``env.obj_body_id`` and the contact authority.
+    Robosuite updates a 20 Hz object observable from inside its 500 Hz physics
+    loop and returns that cached value at the completed action endpoint.  The
+    returned observation, ``Observable.obs``, and ``_obs_cache`` must therefore
+    agree byte-for-byte.  A later live ``body_xpos`` read and a separately
+    forwarded pose are retained as phase diagnostics only; neither defines CAR
+    or object identity.  Root identity is enforced separately through
+    ``env.obj_body_id``, the observable closure, and contact authority.
     """
 
-    observed = np.asarray(observation_position, dtype=np.float64)
-    live = np.asarray(live_solver_phase_body_position, dtype=np.float64)
-    forwarded = np.asarray(
-        post_integration_forwarded_body_position, dtype=np.float64
+    observed = np.asarray(observation_position)
+    observable_value = np.asarray(observable_value_position)
+    observation_cache = np.asarray(observation_cache_position)
+    live = np.asarray(live_body_position_diagnostic)
+    forwarded = np.asarray(post_integration_forwarded_body_position)
+    settled = np.asarray(settled_observation_position)
+    values = (
+        observed,
+        observable_value,
+        observation_cache,
+        live,
+        forwarded,
+        settled,
     )
-    settled = np.asarray(settled_observation_position, dtype=np.float64)
-    if any(value.shape != (3,) for value in (observed, live, forwarded, settled)):
+    if any(value.shape != (3,) for value in values):
         raise OscCanaryRunnerError("paper CAR position must be a three-vector")
-    if not all(np.all(np.isfinite(value)) for value in (observed, live, forwarded, settled)):
+    expected_dtype = np.dtype(np.float64)
+    if any(value.dtype != expected_dtype for value in values):
+        raise OscCanaryRunnerError("paper CAR position must retain native float64 bytes")
+    if not all(np.all(np.isfinite(value)) for value in values):
         raise OscCanaryRunnerError("paper CAR position must be finite")
     observed_record = _compact_float64_array_record(observed, np)
+    observable_record = _compact_float64_array_record(observable_value, np)
+    cache_record = _compact_float64_array_record(observation_cache, np)
     live_record = _compact_float64_array_record(live, np)
     forwarded_record = _compact_float64_array_record(forwarded, np)
-    observation_matches_live = bool(
-        np.array_equal(observed, live)
-        and observed_record["sha256"] == live_record["sha256"]
+    observation_matches_observable = bool(
+        np.array_equal(observed, observable_value)
+        and observed_record["sha256"] == observable_record["sha256"]
     )
+    observation_matches_cache = bool(
+        np.array_equal(observed, observation_cache)
+        and observed_record["sha256"] == cache_record["sha256"]
+    )
+    live_delta = live - observed
     forwarded_delta = forwarded - observed
     forwarded_delta_record = _compact_float64_array_record(forwarded_delta, np)
     return {
@@ -116,17 +135,39 @@ def _paper_car_endpoint_row(
         "paper_car_position_source": "selected_obstacle_pos_native_observation",
         "active_obstacle_root_body_id": int(obstacle_root_body_id),
         "active_obstacle_position_observation_world_m": observed.tolist(),
+        "active_obstacle_position_observation_dtype": observed.dtype.str,
+        "active_obstacle_position_observation_shape": [3],
         "active_obstacle_position_observation_array_sha256": observed_record[
             "sha256"
         ],
+        "native_observable_value_world_m": observable_value.tolist(),
+        "native_observable_value_dtype": observable_value.dtype.str,
+        "native_observable_value_shape": [3],
+        "native_observable_value_array_sha256": observable_record["sha256"],
+        "native_observation_cache_value_world_m": observation_cache.tolist(),
+        "native_observation_cache_value_dtype": observation_cache.dtype.str,
+        "native_observation_cache_value_shape": [3],
+        "native_observation_cache_value_array_sha256": cache_record["sha256"],
+        "observation_observable_value_bitwise_equal": (
+            observation_matches_observable
+        ),
+        "observation_cache_value_bitwise_equal": observation_matches_cache,
+        "native_observable_cache_binding_exact": bool(
+            observation_matches_observable and observation_matches_cache
+        ),
         "active_obstacle_root_position_world_m": live.tolist(),
         "active_obstacle_root_position_array_sha256": live_record["sha256"],
         "active_obstacle_root_position_phase": (
-            "live_solver_phase_preintegration_geometry"
+            "live_body_xpos_after_cached_observation_return"
         ),
-        "observation_body_xpos_bitwise_equal": observation_matches_live,
-        "observation_live_solver_phase_l1_delta_m": float(
-            np.sum(np.abs(observed - live))
+        "live_root_position_role": (
+            "phase_diagnostic_only_not_authority_or_paper_car_metric"
+        ),
+        "observation_live_root_l1_delta_m": float(
+            np.sum(np.abs(live_delta))
+        ),
+        "observation_live_root_linf_delta_m": float(
+            np.max(np.abs(live_delta))
         ),
         "active_obstacle_root_position_post_integration_forwarded_world_m": (
             forwarded.tolist()
@@ -155,17 +196,96 @@ def _paper_car_endpoint_row(
     }
 
 
-def _require_paper_car_same_phase_binding(row: Mapping[str, Any]) -> None:
-    """Fail before physics unless the native observable and live cache match."""
+def _require_paper_car_native_cache_binding(row: Mapping[str, Any]) -> None:
+    """Fail before physics unless all native observable caches match exactly."""
 
     if not (
-        row.get("observation_body_xpos_bitwise_equal") is True
+        row.get("observation_observable_value_bitwise_equal") is True
+        and row.get("observation_cache_value_bitwise_equal") is True
+        and row.get("native_observable_cache_binding_exact") is True
         and row.get("active_obstacle_position_observation_array_sha256")
-        == row.get("active_obstacle_root_position_array_sha256")
+        == row.get("native_observable_value_array_sha256")
+        == row.get("native_observation_cache_value_array_sha256")
     ):
         raise OscCanaryRunnerError(
-            "paper CAR observation differs bitwise from same-phase live obstacle body xpos"
+            "paper CAR returned observation differs from its native observable cache"
         )
+
+
+def _native_object_observable_values(
+    task_env: Any,
+    *,
+    observation_key: str,
+    obstacle_name: str,
+    np: Any,
+) -> Tuple[Dict[str, Any], Any, Any]:
+    """Resolve the exact robosuite observable and its current cache value."""
+
+    observables = getattr(task_env, "_observables", None)
+    observation_cache = getattr(task_env, "_obs_cache", None)
+    if (
+        not isinstance(observables, Mapping)
+        or observation_key not in observables
+        or not isinstance(observation_cache, Mapping)
+        or observation_key not in observation_cache
+    ):
+        raise OscCanaryRunnerError("paper CAR native observable cache is absent")
+    observable = observables[observation_key]
+    sensor = getattr(observable, "_sensor", None)
+    if not callable(sensor):
+        raise OscCanaryRunnerError("paper CAR native observable sensor is absent")
+    try:
+        closure = inspect.getclosurevars(sensor).nonlocals
+        enabled = bool(observable.is_enabled())
+        active = bool(observable.is_active())
+        sampling_timestep_s = float(observable._sampling_timestep)
+        observable_value = np.asarray(observable.obs).copy()
+        cache_value = np.asarray(observation_cache[observation_key]).copy()
+    except Exception as error:
+        raise OscCanaryRunnerError(
+            "paper CAR native observable cannot be inspected: %s" % error
+        ) from error
+    checks = {
+        "observable_name_matches_key": str(getattr(observable, "name", ""))
+        == observation_key,
+        "observable_enabled": enabled,
+        "observable_active": active,
+        "observable_modality_is_object": str(getattr(observable, "modality", ""))
+        == "object",
+        "observable_sampling_timestep_is_20hz": math.isclose(
+            sampling_timestep_s, 0.05, rel_tol=0.0, abs_tol=1.0e-15
+        ),
+        "sensor_function_is_obj_pos": str(getattr(sensor, "__name__", ""))
+        == "obj_pos",
+        "sensor_nonlocal_object_name_matches": closure.get("obj_name")
+        == obstacle_name,
+        "sensor_nonlocal_environment_matches": closure.get("self") is task_env,
+    }
+    if (
+        observable_value.shape != (3,)
+        or cache_value.shape != (3,)
+        or observable_value.dtype != np.dtype(np.float64)
+        or cache_value.dtype != np.dtype(np.float64)
+        or not np.all(np.isfinite(observable_value))
+        or not np.all(np.isfinite(cache_value))
+        or not all(checks.values())
+    ):
+        raise OscCanaryRunnerError("paper CAR native observable binding differs")
+    return (
+        {
+            "schema_version": "vlsa_poisson_native_object_observable.v1",
+            "observation_key": observation_key,
+            "observable_name": str(observable.name),
+            "observable_modality": str(observable.modality),
+            "sampling_timestep_s": sampling_timestep_s,
+            "sensor_function_name": str(sensor.__name__),
+            "sensor_nonlocal_object_name": str(closure.get("obj_name")),
+            "checks": checks,
+            "all_checks_passed": True,
+        },
+        observable_value,
+        cache_value,
+    )
 
 
 _FLOAT64_ARRAY_HASH_FORMAT = (
@@ -1765,8 +1885,18 @@ def main() -> int:
             "selected_obstacle_root_body_name"
         ]:
             raise OscCanaryRunnerError("paper CAR root-body name differs")
+        (
+            native_observable_record,
+            settled_native_observable_value,
+            settled_native_observation_cache_value,
+        ) = _native_object_observable_values(
+            task_env,
+            observation_key=paper_car_observation_key,
+            obstacle_name=obstacle_name,
+            np=np,
+        )
         paper_car_authority = {
-            "schema_version": "vlsa_poisson_paper_car_authority.v1",
+            "schema_version": "vlsa_poisson_paper_car_authority.v2",
             "metric": protocol["paper_car_measurement"]["metric"],
             "paper_car_observation_key": paper_car_observation_key,
             "selected_obstacle_name": obstacle_name,
@@ -1777,16 +1907,23 @@ def main() -> int:
             "observable_and_contact_root_body_ids_equal": True,
             "position_source": protocol["paper_car_measurement"]["position_source"],
             "root_body_binding": protocol["paper_car_measurement"]["root_body_binding"],
+            "native_observable_binding": protocol["paper_car_measurement"][
+                "native_observable_binding"
+            ],
+            "live_root_position_role": protocol["paper_car_measurement"][
+                "live_root_position_role"
+            ],
             "post_integration_forwarded_pose_role": protocol[
                 "paper_car_measurement"
             ]["post_integration_forwarded_pose_role"],
             "historical_settled_active_obstacle_position_sha256": (
                 replay.settled_active_obstacle_position_sha256
             ),
+            "native_observable": native_observable_record,
         }
         apparatus["paper_car_authority"] = dict(paper_car_authority)
         settled_paper_car_position = np.asarray(
-            observation[paper_car_observation_key], dtype=np.float64
+            observation[paper_car_observation_key]
         ).copy()
         settled_obstacle_root_position_live = np.asarray(
             raw_data.xpos[obstacle_root_body_id], dtype=np.float64
@@ -1800,7 +1937,11 @@ def main() -> int:
             observation_key=paper_car_observation_key,
             obstacle_root_body_id=obstacle_root_body_id,
             observation_position=settled_paper_car_position,
-            live_solver_phase_body_position=settled_obstacle_root_position_live,
+            observable_value_position=settled_native_observable_value,
+            observation_cache_position=(
+                settled_native_observation_cache_value
+            ),
+            live_body_position_diagnostic=settled_obstacle_root_position_live,
             post_integration_forwarded_body_position=(
                 settled_obstacle_root_position_forwarded
             ),
@@ -1808,7 +1949,7 @@ def main() -> int:
             np=np,
         )
         partial["paper_car_settled_phase_diagnostic"] = dict(settled_car_row)
-        _require_paper_car_same_phase_binding(settled_car_row)
+        _require_paper_car_native_cache_binding(settled_car_row)
         car_ledger: List[Dict[str, Any]] = [settled_car_row]
         if (
             car_ledger[0]["active_obstacle_position_observation_array_sha256"]
@@ -2509,15 +2650,33 @@ def main() -> int:
                 endpoint_forwarded.xpos[obstacle_root_body_id], dtype=np.float64
             ).copy()
             endpoint_paper_car_position = np.asarray(
-                observation[paper_car_observation_key], dtype=np.float64
+                observation[paper_car_observation_key]
             ).copy()
+            (
+                endpoint_native_observable_record,
+                endpoint_native_observable_value,
+                endpoint_native_observation_cache_value,
+            ) = _native_object_observable_values(
+                task_env,
+                observation_key=paper_car_observation_key,
+                obstacle_name=obstacle_name,
+                np=np,
+            )
+            if endpoint_native_observable_record != native_observable_record:
+                raise OscCanaryRunnerError(
+                    "paper CAR native observable identity changed"
+                )
             endpoint_car_row = _paper_car_endpoint_row(
                 source_action_index=source_index,
                 snapshot_kind="completed_high_level_endpoint",
                 observation_key=paper_car_observation_key,
                 obstacle_root_body_id=obstacle_root_body_id,
                 observation_position=endpoint_paper_car_position,
-                live_solver_phase_body_position=endpoint_root_position_live,
+                observable_value_position=endpoint_native_observable_value,
+                observation_cache_position=(
+                    endpoint_native_observation_cache_value
+                ),
+                live_body_position_diagnostic=endpoint_root_position_live,
                 post_integration_forwarded_body_position=(
                     endpoint_root_position_forwarded
                 ),
@@ -2527,7 +2686,7 @@ def main() -> int:
             partial["last_paper_car_endpoint_phase_diagnostic"] = dict(
                 endpoint_car_row
             )
-            _require_paper_car_same_phase_binding(endpoint_car_row)
+            _require_paper_car_native_cache_binding(endpoint_car_row)
             car_ledger.append(endpoint_car_row)
             video.append(observation, "completed_high_level_action", source_index)
             evaluator._update_eef_marker(
@@ -2919,7 +3078,7 @@ def main() -> int:
                 ),
                 "paper_car_endpoint_ledger": car_ledger,
                 "paper_car_endpoint_ledger_schema_version": (
-                    "vlsa_poisson_paper_car_endpoint_ledger.v2"
+                    "vlsa_poisson_paper_car_endpoint_ledger.v3"
                 ),
                 "physics_trace_schema_version": (
                     "vlsa_poisson_osc_arm_link_compact_physics_trace.v1"

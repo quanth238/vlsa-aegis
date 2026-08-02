@@ -969,4 +969,50 @@ clean commit, zero-skip H100 numeric result, unused run root, terminal producer,
 and distinct complete consumer are required before interpretation. P01 remains
 `active`. The corrected apparatus passes the complete local gate (797 tests,
 167 expected dependency/allocation-only skips), and three independent
-adversarial audits report no remaining pre-submission blocker.
+adversarial audits reported no pre-submission blocker. Allocation execution
+subsequently falsified the assumed same-phase live-position binding; this
+contract is superseded below and produced no Poisson outcome.
+
+## P01 original-OSC e03 native-observable correction
+
+Generic numeric job `34245` completed `COMPLETED|0:0` but used the wrong module
+set and cannot authorize this canary. Producer `34247` correctly rejected it
+before action zero. The immutable failure result has file SHA-256
+`b4105ccd5c75430fe48dd237878ade137311f764b8d4dbdff8a3a4a29ebc6a15`
+and payload SHA-256
+`f5d121586a676be2a483af53e5ffb85aacef98149d9c9760593fcb17d9646b22`.
+
+The registered post-OSC numeric job `34248` then completed `COMPLETED|0:0`
+on clean commit `7ba1ca237023e71a80267a63108072551637d0da`, passing
+169/169 tests with zero skips, failures, or errors. Its file SHA-256 is
+`0df9f8bb8eb10c5d75dc0523a8cadb6e3800f2bee8208a663d44bcbd841eae0b`
+and its independently reconstructed payload SHA-256 is
+`b26b8c1426e8f8ea4c17962bb1e376b6effb61eab9cc26625e63185e4baa5d10`.
+
+Producer `34249` nevertheless stopped before action zero with `FAILED|1:0`.
+Its complete apparatus result has file SHA-256
+`95c2a6534a3d09db0e0e3cd4ad24895d1d251d100b28be5585ed404eea2a093e`
+and payload SHA-256
+`35f2a6436120ca8594bdff70f0a5daf40861f229abae0829d6577851a5efd074`.
+The native settled bottle observation and a later live `body_xpos` differed by
+only `1.0291767438275201e-13` m L1, while the root ID, root name, and immutable
+historical observation hash all matched exactly. Robosuite samples this object
+observable at 20 Hz inside the 500 Hz physics loop and returns the cached value;
+the later live pose is not the same sample. Thus `34249` is another apparatus
+false negative, not a wrong-object observation and not a Poisson-CBF result.
+
+The replacement contract follows ADR-0048. CAR remains exact native
+observation-to-observation L1 at completed 20 Hz endpoints. Every returned CAR
+value must equal both `Observable.obs` and `_obs_cache[key]` byte-for-byte; the
+observable closure must bind the selected object and task environment; and its
+`obj_body_id`, contact-authority root ID, resolved root ID, and MuJoCo body name
+must agree exactly. Later live and forwarded positions remain reconstructed
+diagnostics and cannot accept or reject CAR. No tolerance is used. Actions,
+AEGIS, OSC, Poisson constraints, contact monitoring, motion gates, the 1 mm CAR
+threshold, and native task-success acceptance are unchanged. P01 remains
+`active` pending a fresh clean H100 chain and independent consumer. The final
+scoped audit found no outcome-changing blocker for the clean-commit one-case
+experiment. The corrected implementation passes 20/20 targeted CAR/protocol
+tests, 172/172 relevant local tests with 74 expected dependency skips, and the
+complete local gate: 797 tests with 167 expected dependency/allocation-only
+skips.
