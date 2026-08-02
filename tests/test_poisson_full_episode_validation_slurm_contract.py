@@ -25,7 +25,8 @@ class PoissonFullEpisodeValidationSlurmContractTest(unittest.TestCase):
         for variable in (
             "REMOTE_REPO",
             "FULL_EPISODE_RESULT",
-            "EXPECTED_GIT_COMMIT",
+            "EXPECTED_PRODUCER_GIT_COMMIT",
+            "EXPECTED_CONSUMER_GIT_COMMIT",
             "EXPECTED_PRODUCER_JOB_ID",
             "SLURM_JOB_ID",
             "SLURM_JOB_NODELIST",
@@ -47,6 +48,16 @@ class PoissonFullEpisodeValidationSlurmContractTest(unittest.TestCase):
             self.source,
         )
         self.assertIn('--expected-job-id "${EXPECTED_PRODUCER_JOB_ID}"', self.source)
+        self.assertIn(
+            '--expected-commit "${EXPECTED_PRODUCER_GIT_COMMIT}"', self.source
+        )
+        self.assertIn(
+            '--consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}"', self.source
+        )
+        self.assertIn(
+            'git rev-parse HEAD)" != "${EXPECTED_CONSUMER_GIT_COMMIT}"',
+            self.source,
+        )
         self.assertIn('if [[ -n "$(git status --short)" ]]', self.source)
 
 

@@ -17,7 +17,8 @@ EVALUATION_PYTHON="${EVALUATION_PYTHON:-${REGISTERED_EVALUATION_PYTHON}}"
 
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${FULL_EPISODE_RESULT:?FULL_EPISODE_RESULT is required}"
-: "${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}"
+: "${EXPECTED_PRODUCER_GIT_COMMIT:?EXPECTED_PRODUCER_GIT_COMMIT is required}"
+: "${EXPECTED_CONSUMER_GIT_COMMIT:?EXPECTED_CONSUMER_GIT_COMMIT is required}"
 : "${EXPECTED_PRODUCER_JOB_ID:?EXPECTED_PRODUCER_JOB_ID is required}"
 : "${SLURM_JOB_ID:?independent consumer must run inside Slurm}"
 : "${SLURM_JOB_NODELIST:?SLURM_JOB_NODELIST is required}"
@@ -27,10 +28,13 @@ if [[ "${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}" ]]; then
   echo "REMOTE_REPO differs from the registered feasibility checkout" >&2
   exit 2
 fi
-if [[ ! "${EXPECTED_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "EXPECTED_GIT_COMMIT must be one lowercase 40-character commit" >&2
-  exit 2
-fi
+for commit_variable in EXPECTED_PRODUCER_GIT_COMMIT EXPECTED_CONSUMER_GIT_COMMIT; do
+  commit_value="${!commit_variable}"
+  if [[ ! "${commit_value}" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "${commit_variable} must be one lowercase 40-character commit" >&2
+    exit 2
+  fi
+done
 if [[ ! "${EXPECTED_PRODUCER_JOB_ID}" =~ ^[0-9]+$ ]]; then
   echo "EXPECTED_PRODUCER_JOB_ID must identify one exact Slurm job" >&2
   exit 2
@@ -102,8 +106,8 @@ if [[ -n "$(git status --short)" ]]; then
   echo "independent consumer requires a clean source tree" >&2
   exit 2
 fi
-if [[ "$(git rev-parse HEAD)" != "${EXPECTED_GIT_COMMIT}" ]]; then
-  echo "independent consumer source commit differs from EXPECTED_GIT_COMMIT" >&2
+if [[ "$(git rev-parse HEAD)" != "${EXPECTED_CONSUMER_GIT_COMMIT}" ]]; then
+  echo "independent consumer source commit differs from EXPECTED_CONSUMER_GIT_COMMIT" >&2
   exit 2
 fi
 require_canonical_real_file \
@@ -118,5 +122,6 @@ exec "${EVALUATION_PYTHON}" \
   scripts/validate_poisson_full_episode_feasibility_artifact.py \
   --result "${FULL_EPISODE_RESULT}" \
   --protocol "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}" \
-  --expected-commit "${EXPECTED_GIT_COMMIT}" \
+  --expected-commit "${EXPECTED_PRODUCER_GIT_COMMIT}" \
+  --consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}" \
   --expected-job-id "${EXPECTED_PRODUCER_JOB_ID}"

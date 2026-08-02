@@ -858,3 +858,24 @@ envelope from a second raw pose/velocity stream; those flags remain bound to
 the exact producer commit and runtime protocol. This is an accepted limitation
 for the requested lean feasibility test, not authority for a publication-grade
 dynamic-obstacle or population claim.
+
+## ADR-0042: Repair the independent activation-row namespace without rerunning physics
+
+Accepted after terminal producer job `34120` and failed CPU consumer job
+`34137`. The immutable producer stores the first material correction as an
+`activation_trace` row. Consumer v1 independently reconstructed the correct
+update but compared that stored row to the associated `command_trace` row;
+their schemas are intentionally different, so the otherwise complete artifact
+was rejected with the sole discrepancy
+`activation_first_material_row_differs`.
+
+The accepted repair associates each reconstructed material command with its
+key-matched activation row and compares like with like. Command-trace authority
+for QP arithmetic remains unchanged. The launcher separately binds the expected
+producer commit and the clean consumer commit, and the consumer records its own
+commit in the terminal summary. This is an apparatus-only correction: no
+producer code, result bytes, physical replay, protocol, threshold,
+classification, or acceptance rule may change. Job `34137` cannot authorize a
+scientific conclusion; a new clean CPU-only consumer must return zero exit and
+zero discrepancies against the original result SHA-256
+`2601fa9087a19bfaea5e2ec3c3af86df41f5cffac07d1df3653c83feef755111`.

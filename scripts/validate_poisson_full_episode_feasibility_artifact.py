@@ -2008,7 +2008,7 @@ def validate_payload(
     )
     audit.check(
         _canonical(activation.get("first_material_correction"))
-        == _canonical(material[0]["raw"] if material else None),
+        == _canonical(material[0]["activation_raw"] if material else None),
         "activation_first_material_row_differs",
     )
     audit.check(
@@ -2103,21 +2103,32 @@ def main() -> int:
     parser.add_argument("--result", required=True, type=Path)
     parser.add_argument("--protocol", required=True, type=Path)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--consumer-commit", required=True)
     parser.add_argument("--expected-job-id")
     arguments = parser.parse_args()
     try:
+        if not isinstance(arguments.consumer_commit, str) or not all(
+            character in "0123456789abcdef"
+            for character in arguments.consumer_commit
+        ) or len(arguments.consumer_commit) != 40:
+            raise ArtifactContractError(
+                "consumer commit must be one lowercase 40-character SHA"
+            )
         summary = validate_artifact(
             arguments.result,
             arguments.protocol,
             expected_commit=arguments.expected_commit,
             expected_job_id=arguments.expected_job_id,
         )
+        summary = dict(summary)
+        summary["consumer_source_commit"] = arguments.consumer_commit
     except (ArtifactContractError, OSError, ValueError, TypeError) as error:
         summary = {
             "schema_version": SUMMARY_SCHEMA,
             "status": "rejected",
             "artifact_valid": False,
             "discrepancies": ["artifact_load_failed:%s" % error],
+            "consumer_source_commit": arguments.consumer_commit,
         }
     print(json.dumps(summary, sort_keys=True, separators=(",", ":"), allow_nan=False))
     return 0 if summary.get("artifact_valid") is True else 2

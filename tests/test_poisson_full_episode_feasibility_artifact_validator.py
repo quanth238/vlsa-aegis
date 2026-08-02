@@ -369,6 +369,38 @@ class FullEpisodeArtifactValidatorTest(unittest.TestCase):
         self.assertEqual(validator._expected_d_sim(0.012, -0.004), -0.004)
         self.assertEqual(validator._expected_d_sim(-0.002, -0.004), -0.004)
 
+    def test_material_activation_preserves_matched_activation_trace_namespace(self):
+        audit = validator._Audit()
+        command_raw = {"record_kind": "command_trace"}
+        activation_raw = {
+            "source_action_index": 180,
+            "inner_control_index": 0,
+            "physical_boundary": 4500,
+            "filter_correction_l2_rad_s": 0.25,
+            "nominal_within_dynamic_joint_bounds": True,
+            "argmin_protected_sample": {"body_name": "robot0_link5"},
+        }
+        material = validator.narrow._material_activation(
+            audit,
+            [
+                {
+                    "source": 180,
+                    "inner": 0,
+                    "boundary": 4500,
+                    "nominal_residual": -0.01,
+                    "correction": 0.25,
+                    "nominal_bounds": True,
+                    "raw": command_raw,
+                }
+            ],
+            {"activation_trace": [activation_raw]},
+            4677,
+        )
+        self.assertEqual(audit.discrepancies, [])
+        self.assertEqual(material[0]["raw"], command_raw)
+        self.assertEqual(material[0]["activation_raw"], activation_raw)
+        self.assertNotEqual(material[0]["raw"], material[0]["activation_raw"])
+
     def test_protocol_derives_complete_suffix_population(self):
         observed = validator._protocol_expectations(protocol())
         self.assertEqual(observed["action_count"], 57)
@@ -632,7 +664,11 @@ class FullEpisodeArtifactValidatorTest(unittest.TestCase):
             "fixed_exposure_complete": True,
         }
         material = [
-            {"boundary": 4500 + index * 5, "raw": {"synthetic": True}}
+            {
+                "boundary": 4500 + index * 5,
+                "raw": {"record_kind": "command_trace"},
+                "activation_raw": {"synthetic": True},
+            }
             for index in range(32)
         ]
         commands = [{} for _ in range(285)]

@@ -727,3 +727,35 @@ reconstruction from serialized raw MuJoCo obstacle poses and velocities. The
 clean source commit and runtime hashes bind that simple calculation, but the
 experiment must not be described as independently remeasuring obstacle
 staticity.
+
+## P01 full-episode producer and consumer row-namespace repair
+
+H100 producer job `34120` completed `COMPLETED|0:0` in 2h21m34s from clean
+commit `0e51fc023a37bf218ed5e8bad740096fcbc7b21a`. It atomically published the
+immutable 13,836,352-byte `result.json`; file SHA-256 is
+`2601fa9087a19bfaea5e2ec3c3af86df41f5cffac07d1df3653c83feef755111`
+and payload SHA-256 is
+`f9f42e94e472f4051e185bf5fa373d8534c7103c56a65222b4904602749e3f2c`.
+No producer output was interpreted while the job was nonterminal.
+
+The first CPU-only consumer, job `34137`, terminated `FAILED|2:0` after five
+seconds and is retained as apparatus evidence only. Its sole discrepancy was
+`activation_first_material_row_differs`. The producer correctly serialized
+`activation_evidence.first_material_correction` from `activation_trace`; the
+consumer incorrectly compared it to the differently shaped `command_trace`
+row for the same independently reconstructed update. This is a row-namespace
+comparison bug, not a changed safety threshold or a physics outcome.
+
+The repair preserves the independently reconstructed command row for QP
+arithmetic and carries the separately matched activation row as
+`activation_raw` for the serialized activation-evidence comparison. The CPU
+launcher now binds the immutable producer commit separately from the clean
+consumer checkout commit, permitting a later validator to audit the unchanged
+producer artifact without rerunning or rewriting physics. No protocol,
+threshold, producer, classifier, result, or acceptance condition changed.
+Scientific interpretation remains pending a zero-exit clean consumer with zero
+discrepancies. The corrected consumer passes 55 focused contracts with one
+expected local dependency skip and the full 673-test repository gate with 136
+expected allocation-only skips. A separate read-only fail-open audit concludes
+that the key-matched namespace repair cannot create materiality or change the
+classification and recommends rerunning only the CPU consumer.

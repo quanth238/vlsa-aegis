@@ -1263,7 +1263,15 @@ def _material_activation(
             sample.get("body_name") in ("robot0_link5", "robot0_link6"),
             "activation_argmin_outside_link56",
         )
-    return material
+    # Preserve both namespaces explicitly. ``raw`` is the authoritative
+    # command-trace row used for the independent QP reconstruction, whereas
+    # ``activation_raw`` is the matched producer activation-trace row.  They
+    # intentionally have different schemas and must never be compared as if
+    # they were the same serialized record.
+    return [
+        dict(command, activation_raw=activation_row)
+        for command, activation_row in zip(material, trace_material)
+    ]
 
 
 def _active_motion(
