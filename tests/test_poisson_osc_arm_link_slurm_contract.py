@@ -144,7 +144,7 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3.json"',
+            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3_stencil_roundtrip.json"',
             source,
         )
 

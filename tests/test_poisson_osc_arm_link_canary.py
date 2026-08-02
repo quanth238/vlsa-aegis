@@ -2411,6 +2411,83 @@ class OscArmLinkRegisteredContactScopeTests(unittest.TestCase):
             )
 
 
+class OscArmLinkBinary64StencilArithmeticTests(unittest.TestCase):
+    def reconstruct(self, *, base, lower, upper, requested, scale):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _reconstruct_finite_difference_resolution,
+        )
+
+        return _reconstruct_finite_difference_resolution(
+            base=base,
+            lower=lower,
+            upper=upper,
+            requested=requested,
+            scale=scale,
+        )
+
+    def test_e03_column_one_roundtrip_is_exact(self):
+        base = -16.64331415205294
+        full = self.reconstruct(
+            base=base,
+            lower=-80.0,
+            upper=80.0,
+            requested=0.001,
+            scale=1.0,
+        )
+        half = self.reconstruct(
+            base=base,
+            lower=-80.0,
+            upper=80.0,
+            requested=0.001,
+            scale=0.5,
+        )
+        self.assertEqual(full["stencil"], "centered")
+        self.assertEqual(
+            full["sample_deltas_nm"],
+            (-0.0010000000000012221, 0.0010000000000012221),
+        )
+        self.assertEqual(
+            half["sample_deltas_nm"],
+            (-0.0004999999999988347, 0.0004999999999988347),
+        )
+        self.assertGreater(abs(full["sample_deltas_nm"][0]), 0.001 + 1e-15)
+
+    def test_bound_adapted_one_sided_stencils_match_producer_rules(self):
+        backward = self.reconstruct(
+            base=1.0,
+            lower=-1.0,
+            upper=1.0,
+            requested=0.02,
+            scale=1.0,
+        )
+        forward = self.reconstruct(
+            base=-1.0,
+            lower=-1.0,
+            upper=1.0,
+            requested=0.02,
+            scale=0.5,
+        )
+        self.assertEqual(backward["stencil"], "backward")
+        self.assertEqual(backward["sample_deltas_nm"], (-0.020000000000000018, 0.0))
+        self.assertEqual(forward["stencil"], "forward")
+        self.assertEqual(forward["sample_deltas_nm"], (0.0, 0.010000000000000009))
+
+    def test_invalid_or_unresolved_reconstruction_fails_closed(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        for values in (
+            {"base": 2.0, "lower": -1.0, "upper": 1.0, "requested": 0.1, "scale": 1.0},
+            {"base": 0.0, "lower": -1.0, "upper": 1.0, "requested": 0.0, "scale": 1.0},
+            {"base": 0.0, "lower": -1.0, "upper": 1.0, "requested": 0.1, "scale": 0.0},
+        ):
+            with self.subTest(values=values), self.assertRaises(
+                OscCanaryValidationError
+            ):
+                self.reconstruct(**values)
+
+
 class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2557,6 +2634,62 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
         values = self.certificate()
         audit = self.validate(*values)
         self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
+
+    def test_exact_binary64_stencil_roundtrip_from_e03_passes(self):
+        values = self.certificate()
+        row, _, _, torque_actuators, _, _ = values
+        column = 1
+        base = -16.64331415205294
+        low = -80.0
+        high = 80.0
+        requested = 0.001
+        command = list(row["command_torque_nm"])
+        nominal = list(row["nominal_torque_nm"])
+        command[column] = base
+        nominal[column] = base
+        row["command_torque_nm"] = command
+        row["nominal_torque_nm"] = nominal
+        row["shield_diagnostics"]["nominal_torque_nm"][column] = base
+        row["shield_diagnostics"]["torque_lower_nm"][column] = low
+        row["shield_diagnostics"]["torque_upper_nm"][column] = high
+        snapshot = row["sensitivity"]["snapshot"]
+        snapshot["nominal_arm_torque_nm"][column] = base
+        snapshot["arm_torque_lower_nm"][column] = low
+        snapshot["arm_torque_upper_nm"][column] = high
+        torque_actuators[column]["control_range"] = [low, high]
+        plan = row["sensitivity"]["finite_difference_column_stencils"][column]
+        plan.update(
+            {
+                "nominal_torque_nm": base,
+                "lower_bound_nm": low,
+                "upper_bound_nm": high,
+                "available_negative_delta_nm": base - low,
+                "available_positive_delta_nm": high - base,
+            }
+        )
+        for name, scale in (("full_resolution", 1.0), ("half_resolution", 0.5)):
+            signed = (-requested * scale, requested * scale)
+            exact = tuple(float((base + value) - base) for value in signed)
+            plan[name]["sample_deltas_nm"] = list(exact)
+            plan[name]["denominator_nm"] = float(exact[1] - exact[0])
+        self.assertGreater(
+            abs(plan["full_resolution"]["sample_deltas_nm"][0]),
+            requested + 1e-15,
+        )
+        audit = self.validate(*values)
+        self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
+
+    def test_rehashed_stencil_delta_not_from_exact_roundtrip_is_rejected(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        values = self.certificate()
+        plan = values[0]["sensitivity"]["finite_difference_column_stencils"][1]
+        plan["full_resolution"]["sample_deltas_nm"] = [-0.0010000000000005, 0.001]
+        plan["full_resolution"]["denominator_nm"] = 0.0020000000000005
+        with self.assertRaises(OscCanaryValidationError):
+            self.validate(*values)
 
     def test_feasible_but_nonminimum_command_is_rejected(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (

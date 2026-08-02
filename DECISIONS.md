@@ -1251,3 +1251,28 @@ did not use it: the registered Slurm launcher passed the immutable v3 protocol
 path explicitly. That producer-side default is outside this consumer-only
 repair and is not executed by the validator; changing it is deferred so the
 repaired consumer commit does not alter the producer runner source.
+
+## ADR-0054: Reconstruct exact binary64 stencil deltas instead of imposing a fixed envelope
+
+Accepted after corrected-schema consumer `34313` reached the first-divergence
+QP certificate and rejected column 1 with `stencil perturbation violates
+bounds`. The immutable evidence has nominal torque
+`-16.64331415205294` Nm and requested perturbation `0.001` Nm. The producer's
+registered no-clipping arithmetic computes `candidate = nominal + requested`
+and serializes `candidate - nominal`, yielding exact binary64 deltas
+`+/-0.0010000000000012221` Nm. The consumer instead required magnitude at most
+`requested + 1e-15`, rejecting the valid value by `2.22e-16` Nm. Receipt
+`validation_receipt_schema_v3.json` remains immutable at file SHA-256
+`c9907f4c4347eaa10fcdb95fea972e718792a4af3ee46de21d4a84528e5f6cf8`
+and authorizes no scientific interpretation.
+
+The repaired consumer now independently reconstructs the selected centered or
+one-sided requested deltas, the exact binary64 candidate torques, and the exact
+serialized subtraction for both resolutions. It requires exact tuple equality
+and separately requires every reconstructed candidate to lie inside the
+registered actuator bounds. This removes an arbitrary scale-dependent
+tolerance while becoming stricter against fabricated perturbations. The next
+immutable output is
+`validation_receipt_schema_v3_stencil_roundtrip.json`. No producer byte,
+physics, sensitivity matrix, QP, safety threshold, classification, or task
+criterion changes.

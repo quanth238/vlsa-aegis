@@ -1362,6 +1362,69 @@ def _validate_field_sample_static_evidence(
     }
 
 
+def _reconstruct_finite_difference_resolution(
+    *,
+    base: float,
+    lower: float,
+    upper: float,
+    requested: float,
+    scale: float,
+) -> Dict[str, Any]:
+    """Reconstruct the producer's exact no-clipping binary64 stencil."""
+
+    _require(
+        all(math.isfinite(value) for value in (base, lower, upper, requested, scale))
+        and lower <= base <= upper
+        and requested > 0.0
+        and 0.0 < scale <= 1.0,
+        "finite-difference reconstruction inputs are invalid",
+    )
+    negative_room = float(base - lower)
+    positive_room = float(upper - base)
+    if requested <= negative_room and requested <= positive_room:
+        stencil = "centered"
+        signed_full = (-requested, requested)
+    elif min(requested, positive_room) >= min(requested, negative_room):
+        stencil = "forward"
+        signed_full = (0.0, min(requested, positive_room))
+    else:
+        stencil = "backward"
+        signed_full = (-min(requested, negative_room), 0.0)
+
+    requested_deltas = tuple(float(value * scale) for value in signed_full)
+    candidates = tuple(float(base + value) for value in requested_deltas)
+    exact_deltas = []
+    for requested_delta, candidate in zip(requested_deltas, candidates):
+        _require(
+            math.isfinite(candidate) and lower <= candidate <= upper,
+            "reconstructed stencil candidate violates actuator bounds",
+        )
+        if requested_delta == 0.0:
+            exact_deltas.append(0.0)
+            continue
+        actual_delta = float(candidate - base)
+        _require(
+            math.isfinite(actual_delta)
+            and actual_delta != 0.0
+            and math.copysign(1.0, actual_delta)
+            == math.copysign(1.0, requested_delta),
+            "reconstructed stencil has no signed binary64 resolution",
+        )
+        exact_deltas.append(actual_delta)
+    denominator = float(exact_deltas[1] - exact_deltas[0])
+    _require(
+        math.isfinite(denominator) and denominator > 0.0,
+        "reconstructed stencil denominator is nonpositive",
+    )
+    return {
+        "stencil": stencil,
+        "requested_deltas_nm": requested_deltas,
+        "candidate_torques_nm": candidates,
+        "sample_deltas_nm": tuple(exact_deltas),
+        "denominator_nm": denominator,
+    }
+
+
 def _validate_solved_qp_certificate(
     row: Mapping[str, Any],
     *,
@@ -1507,11 +1570,14 @@ def _validate_solved_qp_certificate(
         requested = float(epsilon[column])
         negative_room = base - low
         positive_room = high - base
-        expected_stencil = (
-            "centered"
-            if requested <= negative_room and requested <= positive_room
-            else ("forward" if min(requested, positive_room) >= min(requested, negative_room) else "backward")
+        expected_full = _reconstruct_finite_difference_resolution(
+            base=base,
+            lower=low,
+            upper=high,
+            requested=requested,
+            scale=1.0,
         )
+        expected_stencil = str(expected_full["stencil"])
         _require(
             int(plan.get("column_index", -1)) == column
             and float(plan.get("nominal_torque_nm")) == base
@@ -1536,6 +1602,17 @@ def _validate_solved_qp_certificate(
             )
             left, right = (float(deltas[0]), float(deltas[1]))
             denominator = right - left
+            expected_resolution = _reconstruct_finite_difference_resolution(
+                base=base,
+                lower=low,
+                upper=high,
+                requested=requested,
+                scale=scale,
+            )
+            expected_exact_deltas = tuple(
+                float(value)
+                for value in expected_resolution["sample_deltas_nm"]
+            )
             _require(
                 math.isfinite(left)
                 and math.isfinite(right)
@@ -1546,9 +1623,13 @@ def _validate_solved_qp_certificate(
                     rel_tol=0.0,
                     abs_tol=0.0,
                 )
-                and low <= base + left <= high
-                and low <= base + right <= high
-                and max(abs(left), abs(right)) <= requested * scale + 1e-15,
+                and all(
+                    struct.pack("<d", observed)
+                    == struct.pack("<d", expected)
+                    for observed, expected in zip(
+                        (left, right), expected_exact_deltas
+                    )
+                ),
                 "stencil perturbation violates bounds at column %d" % column,
             )
             if expected_stencil == "centered":

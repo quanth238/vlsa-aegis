@@ -110,7 +110,7 @@ if [[ "$(dirname -- "${RUN_ROOT}")" != "${REGISTERED_RESULT_ROOT}" ]] || \
   exit 2
 fi
 require_canonical_real_directory "post-OSC run root" "${RUN_ROOT}"
-OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3.json"
+OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3_stencil_roundtrip.json"
 [[ ! -e "${OUTPUT}" && ! -L "${OUTPUT}" ]] || { echo "validation output exists" >&2; exit 2; }
 
 cd "${REMOTE_REPO}"

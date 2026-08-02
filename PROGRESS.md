@@ -1220,3 +1220,29 @@ dependency skips, and the complete local gate passes 832 tests with 183
 expected dependency/allocation-only skips. P01 remains active pending the
 corrected CPU consumer; no physics rerun is authorized or needed for this
 apparatus-only correction.
+
+Corrected-schema consumer `34313` ran from clean commit
+`998543338d63aac8b582896cf920d5faea97cd4f`, preserved producer `34309`, and
+reached a deeper independent QP check. It exited `FAILED|1:0` with a complete
+rejected receipt, file SHA-256
+`c9907f4c4347eaa10fcdb95fea972e718792a4af3ee46de21d4a84528e5f6cf8`
+and payload SHA-256
+`d43e3772a209d78c6442074603d1292c0beef048d581c1b5bbb172ab86e02780`.
+The failure is a consumer-only binary64 false negative: an exact producer
+stencil delta `0.0010000000000012221` Nm exceeded the consumer's fixed
+`0.001 + 1e-15` magnitude envelope by `2.22e-16` Nm.
+
+ADR-0054 replaces that envelope with exact independent reconstruction of the
+producer's no-clipping candidate and subtraction arithmetic, checks the
+reconstructed candidate against actuator bounds, and rejects any delta not
+equal to that exact result. Three dependency-free tests execute locally and
+cover the exact e03 signature, centered and one-sided producer rules, and
+invalid-input rejection. The full QP mutation class remains an expected local
+dependency skip and will be exercised by the allocation-backed consumer. The
+new consumer writes a third immutable receipt name; the two prior rejected
+receipts remain unchanged. P01 remains active and the producer's preliminary
+classification remains uninterpreted pending a zero-exit consumer. The final
+focused validator and Slurm suite passes 49 tests with six expected local
+dependency skips; all three dependency-free binary64 arithmetic tests execute.
+The complete local gate passes 835 tests with 183 expected dependency and
+allocation-only skips.
