@@ -71,6 +71,8 @@ class SampledDataPostOscTorqueShieldTest(unittest.TestCase):
         )
         self.assertTrue(result.valid, result)
         self.assertEqual(result.status, TorqueShieldStatus.SOLVED)
+        self.assertNotIn("velocity_dimension", result.diagnostics)
+        self.assertNotIn("torque_dimension", result.diagnostics)
         expected = np.zeros(7)
         expected[0] = 0.2
         np.testing.assert_allclose(result.delta_torque, expected, atol=2e-6)

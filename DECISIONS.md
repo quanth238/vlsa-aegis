@@ -1377,3 +1377,31 @@ commit writes
 unchanged producer job, commit, result hash, numeric prerequisite, case, and
 protocol. The producer remains scientifically uninterpreted unless that new
 consumer completes `COMPLETED|0:0` with zero discrepancies.
+
+## ADR-0058: Bind the shield's exact default-7D diagnostic representation
+
+Accepted after corrected-stencil consumer `34356` reached the solved-QP
+diagnostic binding and rejected the immutable e05 producer. The v4 shared-link
+controller uses exactly the seven Panda arm qvels. The bound producer shield
+serializes `velocity_dimension` and `torque_dimension` only for a nondefault
+velocity dimension; both keys are intentionally absent when the velocity and
+torque dimensions are seven. The old consumer inherited the earlier
+full-manipulator path and required both keys unconditionally, so every valid
+v4 solved certificate necessarily failed.
+
+The corrected consumer requires both dimension keys absent for the default
+7D representation. For any nondefault velocity dimension, it requires both
+keys present and exactly equal to the observed velocity dimension and seven
+torque decisions. It rejects even explicitly inserted correct-looking 7D
+keys, preserving exact producer provenance. Field-specific checks now report
+the exact diagnostic mismatch. A complete synthetic 7D solved certificate
+with `(N,7)` CBF gradients and a `7x7` torque sensitivity must pass the full
+independent minimum-norm QP/KKT audit; incompatible shapes and dimension
+metadata remain fail-closed.
+
+No producer byte, physics, Poisson field, CBF row, torque command, acceptance
+threshold, contact monitor, motion criterion, task criterion, or scientific
+classification changes. Consumers `34353` and `34356` and their receipts stay
+immutable. The next clean consumer writes
+`validation_receipt_schema_v4_target_link_consumer_r3.json` and must validate
+the unchanged producer before e05 can be interpreted.

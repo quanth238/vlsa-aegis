@@ -1340,3 +1340,17 @@ consumer writes a distinct r2 receipt and must pass every remaining check
 before e05 can be interpreted or e42 can start. Focused tests pass 68 with 23
 expected local dependency skips, and the complete local gate passes 855 tests
 with 188 expected dependency/allocation-only skips. P01 remains active.
+
+Corrected-stencil consumer `34356` reached the next independent solved-QP
+check and retained a second rejected receipt, file SHA-256
+`5d1f2cd63414fa1c0124ff109c7492f1eab9baff9422618049e4a4ee630b051f`.
+Its rejection, `shield diagnostics are not bound to registered inputs`, is a
+second validator-only v4 fixture mismatch: the shared-link treatment uses the
+producer's default seven-dimensional arm-velocity space, for which the shield
+intentionally omits redundant dimension keys; the old consumer required those
+keys unconditionally. ADR-0058 binds that exact producer convention and adds
+a complete 7D independent QP/KKT regression. The two rejected receipts and
+producer remain immutable. The next corrected consumer writes a distinct r3
+receipt; no e42 job or scientific interpretation is authorized before it
+passes. The complete local gate passes 859 tests with 188 expected
+dependency/allocation-only skips.

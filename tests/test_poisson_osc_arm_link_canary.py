@@ -2504,6 +2504,92 @@ class OscArmLinkBinary64StencilArithmeticTests(unittest.TestCase):
                 self.reconstruct(**values)
 
 
+class OscArmLinkShieldDiagnosticInputBindingTests(unittest.TestCase):
+    def fixture(self):
+        protocol = json.loads(PROTOCOL_PATH.read_text(encoding="utf-8"))
+        return protocol, {
+            "schema": "vlsa_poisson_post_osc_torque_shield.v1",
+            "constraint_equation": (
+                "a@(v_nom_next+S@delta_tau)+alpha*h>=margin"
+            ),
+            "sensitivity_already_includes_dt_and_contact_effects": True,
+            "dt_seconds": 0.002,
+            "alpha": protocol["shield"]["alpha_gain_per_s"],
+            "margin": protocol["shield"]["margin_m2_per_s"],
+            "sensitivity_max_absolute_error": 0.0,
+        }
+
+    def validate(self, diagnostics, *, velocity_dimension=7):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_shield_diagnostic_input_binding,
+        )
+
+        protocol, _ = self.fixture()
+        _validate_shield_diagnostic_input_binding(
+            diagnostics,
+            velocity_dimension=velocity_dimension,
+            protocol=protocol,
+            sensitivity_max_absolute_error=0.0,
+        )
+
+    def test_7d_omitted_default_dimensions_pass(self):
+        _, diagnostics = self.fixture()
+        self.assertNotIn("velocity_dimension", diagnostics)
+        self.assertNotIn("torque_dimension", diagnostics)
+        self.validate(diagnostics)
+
+    def test_7d_wrong_explicit_dimensions_fail_closed(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        for field, value in (
+            ("velocity_dimension", 7),
+            ("velocity_dimension", 8),
+            ("velocity_dimension", True),
+            ("torque_dimension", 7),
+            ("torque_dimension", 8),
+            ("torque_dimension", True),
+        ):
+            with self.subTest(field=field, value=value):
+                _, diagnostics = self.fixture()
+                diagnostics[field] = value
+                with self.assertRaises(OscCanaryValidationError) as raised:
+                    self.validate(diagnostics)
+                self.assertIn(field, str(raised.exception))
+
+    def test_omitted_dimensions_do_not_default_for_nondefault_velocity(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        _, diagnostics = self.fixture()
+        with self.assertRaises(OscCanaryValidationError) as raised:
+            self.validate(diagnostics, velocity_dimension=8)
+        self.assertIn("velocity_dimension is absent", str(raised.exception))
+
+    def test_each_registered_scalar_reports_its_field(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        for field in (
+            "schema",
+            "constraint_equation",
+            "sensitivity_already_includes_dt_and_contact_effects",
+            "dt_seconds",
+            "alpha",
+            "margin",
+            "sensitivity_max_absolute_error",
+        ):
+            with self.subTest(field=field):
+                _, diagnostics = self.fixture()
+                diagnostics[field] = None
+                with self.assertRaises(OscCanaryValidationError) as raised:
+                    self.validate(diagnostics)
+                self.assertIn(field, str(raised.exception))
+
+
 class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2516,7 +2602,7 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             ) from error
         cls.np = np
 
-    def certificate(self):
+    def certificate(self, velocity_dimension=9):
         np = self.np
         protocol = json.loads(PROTOCOL_PATH.read_text(encoding="utf-8"))
         controller = {
@@ -2525,7 +2611,6 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             "arm_qvel_indexes": list(range(7)),
         }
         nominal = np.zeros(7)
-        velocity_dimension = 9
         robot_qvel_indices = list(range(velocity_dimension))
         nominal_next = np.zeros(velocity_dimension)
         nominal_next[0] = -1.0
@@ -2556,7 +2641,8 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                     "difference_formula": "(v_next(delta_1)-v_next(delta_0))/(delta_1-delta_0)",
                 }
             )
-        generic_sensitivity = np.vstack((np.eye(7), np.zeros((2, 7))))
+        generic_sensitivity = np.zeros((velocity_dimension, 7))
+        generic_sensitivity[:7, :] = np.eye(7)
         sensitivity = {
             "output_qvel_indices": robot_qvel_indices,
             "torque_to_next_output_qvel_sensitivity": generic_sensitivity.tolist(),
@@ -2585,30 +2671,36 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                 "timestep_seconds": 0.002,
             },
         }
+        shield_diagnostics = {
+            "schema": "vlsa_poisson_post_osc_torque_shield.v1",
+            "constraint_equation": "a@(v_nom_next+S@delta_tau)+alpha*h>=margin",
+            "sensitivity_already_includes_dt_and_contact_effects": True,
+            "dt_seconds": 0.002,
+            "alpha": protocol["shield"]["alpha_gain_per_s"],
+            "margin": protocol["shield"]["margin_m2_per_s"],
+            "sensitivity_max_absolute_error": 0.0,
+            "nominal_torque_nm": nominal.tolist(),
+            "torque_lower_nm": [-10.0] * 7,
+            "torque_upper_nm": [10.0] * 7,
+            "nominal_next_qvel_rad_s": nominal_next.tolist(),
+        }
+        if velocity_dimension != 7:
+            shield_diagnostics.update(
+                {
+                    "velocity_dimension": velocity_dimension,
+                    "torque_dimension": 7,
+                }
+            )
+        gradient_row = np.zeros(velocity_dimension)
+        gradient_row[0] = 1.0
         row = {
             "sensitivity": sensitivity,
             "nominal_torque_nm": nominal.tolist(),
             "command_torque_nm": command.tolist(),
             "nominal_predicted_next_shield_qvel_rad_s": nominal_next.tolist(),
             "poisson_h_m2": [0.1],
-            "joint_gradient_rows_m2_per_rad": [
-                [1.0, 0, 0, 0, 0, 0, 0, 0, 0]
-            ],
-            "shield_diagnostics": {
-                "schema": "vlsa_poisson_post_osc_torque_shield.v1",
-                "constraint_equation": "a@(v_nom_next+S@delta_tau)+alpha*h>=margin",
-                "sensitivity_already_includes_dt_and_contact_effects": True,
-                "dt_seconds": 0.002,
-                "alpha": protocol["shield"]["alpha_gain_per_s"],
-                "margin": protocol["shield"]["margin_m2_per_s"],
-                "sensitivity_max_absolute_error": 0.0,
-                "nominal_torque_nm": nominal.tolist(),
-                "torque_lower_nm": [-10.0] * 7,
-                "torque_upper_nm": [10.0] * 7,
-                "nominal_next_qvel_rad_s": nominal_next.tolist(),
-                "velocity_dimension": velocity_dimension,
-                "torque_dimension": 7,
-            },
+            "joint_gradient_rows_m2_per_rad": [gradient_row.tolist()],
+            "shield_diagnostics": shield_diagnostics,
         }
         torque_actuators = [
             {"actuator_id": index, "control_range": [-10.0, 10.0]}
@@ -2648,6 +2740,24 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
 
     def test_exact_minimum_norm_certificate_passes(self):
         values = self.certificate()
+        audit = self.validate(*values)
+        self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
+
+    def test_default_7d_certificate_omits_dimensions_and_passes_full_audit(self):
+        values = self.certificate(velocity_dimension=7)
+        row = values[0]
+        self.assertNotIn("velocity_dimension", row["shield_diagnostics"])
+        self.assertNotIn("torque_dimension", row["shield_diagnostics"])
+        self.assertEqual(
+            self.np.asarray(row["joint_gradient_rows_m2_per_rad"]).shape,
+            (1, 7),
+        )
+        self.assertEqual(
+            self.np.asarray(
+                row["sensitivity"]["full_epsilon_sensitivity"]
+            ).shape,
+            (7, 7),
+        )
         audit = self.validate(*values)
         self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
 

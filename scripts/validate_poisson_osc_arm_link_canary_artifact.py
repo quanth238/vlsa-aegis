@@ -1932,6 +1932,100 @@ def _reconstruct_finite_difference_resolution(
     }
 
 
+def _validate_shield_diagnostic_input_binding(
+    diagnostics: Mapping[str, Any],
+    *,
+    velocity_dimension: int,
+    protocol: Mapping[str, Any],
+    sensitivity_max_absolute_error: float,
+) -> None:
+    """Bind producer diagnostics, including its omitted 7D defaults."""
+
+    _require(
+        diagnostics.get("schema")
+        == "vlsa_poisson_post_osc_torque_shield.v1",
+        "shield diagnostic schema differs",
+    )
+    _require(
+        diagnostics.get("constraint_equation")
+        == "a@(v_nom_next+S@delta_tau)+alpha*h>=margin",
+        "shield diagnostic constraint_equation differs",
+    )
+    _require(
+        diagnostics.get("sensitivity_already_includes_dt_and_contact_effects")
+        is True,
+        "shield diagnostic sensitivity_already_includes_dt_and_contact_effects differs",
+    )
+
+    for field, expected in (
+        ("dt_seconds", 0.002),
+        ("alpha", float(protocol["shield"]["alpha_gain_per_s"])),
+        ("margin", float(protocol["shield"]["margin_m2_per_s"])),
+    ):
+        _exact_float(
+            diagnostics.get(field),
+            expected,
+            "shield diagnostic %s" % field,
+        )
+
+    observed_sensitivity_error = diagnostics.get(
+        "sensitivity_max_absolute_error"
+    )
+    _require(
+        not isinstance(observed_sensitivity_error, bool)
+        and isinstance(observed_sensitivity_error, (int, float))
+        and math.isfinite(float(observed_sensitivity_error))
+        and math.isclose(
+            float(observed_sensitivity_error),
+            float(sensitivity_max_absolute_error),
+            rel_tol=0.0,
+            abs_tol=1e-15,
+        ),
+        "shield diagnostic sensitivity_max_absolute_error differs",
+    )
+
+    _require(
+        isinstance(velocity_dimension, int)
+        and not isinstance(velocity_dimension, bool)
+        and velocity_dimension > 0,
+        "registered shield velocity dimension is invalid",
+    )
+    if velocity_dimension == 7:
+        _require(
+            "velocity_dimension" not in diagnostics,
+            "shield diagnostic velocity_dimension must be omitted for the 7D default",
+        )
+        _require(
+            "torque_dimension" not in diagnostics,
+            "shield diagnostic torque_dimension must be omitted for the 7D default",
+        )
+        observed_velocity_dimension = 7
+        observed_torque_dimension = 7
+    else:
+        _require(
+            "velocity_dimension" in diagnostics,
+            "shield diagnostic velocity_dimension is absent",
+        )
+        _require(
+            "torque_dimension" in diagnostics,
+            "shield diagnostic torque_dimension is absent",
+        )
+        observed_velocity_dimension = diagnostics.get("velocity_dimension")
+        observed_torque_dimension = diagnostics.get("torque_dimension")
+    _require(
+        isinstance(observed_velocity_dimension, int)
+        and not isinstance(observed_velocity_dimension, bool)
+        and observed_velocity_dimension == velocity_dimension,
+        "shield diagnostic velocity_dimension differs",
+    )
+    _require(
+        isinstance(observed_torque_dimension, int)
+        and not isinstance(observed_torque_dimension, bool)
+        and observed_torque_dimension == 7,
+        "shield diagnostic torque_dimension differs",
+    )
+
+
 def _validate_solved_qp_certificate(
     row: Mapping[str, Any],
     *,
@@ -2160,23 +2254,11 @@ def _validate_solved_qp_certificate(
             np.array_equal(np.asarray(diagnostics.get(field), dtype=np.float64), observed),
             "shield diagnostic %s differs" % field,
         )
-    _require(
-        diagnostics.get("schema") == "vlsa_poisson_post_osc_torque_shield.v1"
-        and diagnostics.get("constraint_equation")
-        == "a@(v_nom_next+S@delta_tau)+alpha*h>=margin"
-        and diagnostics.get("sensitivity_already_includes_dt_and_contact_effects") is True
-        and diagnostics.get("velocity_dimension") == int(velocity_dimension)
-        and diagnostics.get("torque_dimension") == 7
-        and float(diagnostics.get("dt_seconds")) == 0.002
-        and float(diagnostics.get("alpha")) == float(protocol["shield"]["alpha_gain_per_s"])
-        and float(diagnostics.get("margin")) == float(protocol["shield"]["margin_m2_per_s"])
-        and math.isclose(
-            float(diagnostics.get("sensitivity_max_absolute_error")),
-            max_absolute,
-            rel_tol=0.0,
-            abs_tol=1e-15,
-        ),
-        "shield diagnostics are not bound to registered inputs",
+    _validate_shield_diagnostic_input_binding(
+        diagnostics,
+        velocity_dimension=int(velocity_dimension),
+        protocol=protocol,
+        sensitivity_max_absolute_error=max_absolute,
     )
 
     h = np.asarray(row.get("poisson_h_m2"), dtype=np.float64)

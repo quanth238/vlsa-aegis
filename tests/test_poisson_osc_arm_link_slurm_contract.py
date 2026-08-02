@@ -145,7 +145,7 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link_consumer_r2.json"',
+            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v4_target_link_consumer_r3.json"',
             source,
         )
         self.assertIn('--expected-case-id "${CASE_ID}"', source)
