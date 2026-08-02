@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 import importlib
 import importlib.util
 import json
@@ -36,15 +37,15 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
 
         class FakeModel:
             def __init__(self) -> None:
-                self.nq = 7
-                self.nv = 7
+                self.nq = 8
+                self.nv = 8
                 self.nu = 8
                 self.opt = SimpleNamespace(timestep=0.002)
                 self.actuator_ctrlrange = np.column_stack(
                     (np.full(8, -4.0), np.full(8, 4.0))
                 )
                 self.actuator_ctrllimited = np.ones(8, dtype=np.int32)
-                self.mass = np.diag(np.arange(1.0, 8.0))
+                self.mass = np.diag(np.arange(1.0, 9.0))
                 self.nonlinear_torque_coefficient = 0.0
                 self.force_contact = False
                 self.produce_nan = False
@@ -60,11 +61,11 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
                 self.actuator_moment = np.zeros(
                     (model.nu, model.nv), dtype=np.float64
                 )
-                self.actuator_moment[:7, :] = np.eye(7)
+                self.actuator_moment[:7, :7] = np.eye(7)
                 self.ncon = 0
 
         counters = {"forward": 0, "step": 0}
-        state_size = 1 + 7 + 7 + 7 + 8
+        state_size = 1 + 8 + 8 + 8 + 8
 
         def get_state(model, data, output, specification):
             del model, specification
@@ -95,7 +96,7 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
             counters["forward"] += 1
             data.qM[:] = model.mass
             data.actuator_moment[:] = 0.0
-            data.actuator_moment[:7, :] = np.eye(7)
+            data.actuator_moment[:7, :7] = np.eye(7)
             # This deliberately alters an integration-state field.  The helper
             # must restore the exact snapshot after refreshing derived fields.
             data.qacc_warmstart[:] += 100.0
@@ -103,7 +104,10 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
         def step(model, data):
             counters["step"] += 1
             torque = data.ctrl[:7]
-            generalized = torque + model.nonlinear_torque_coefficient * torque**3
+            generalized = np.zeros(model.nv, dtype=np.float64)
+            generalized[:7] = (
+                torque + model.nonlinear_torque_coefficient * torque**3
+            )
             acceleration = np.linalg.solve(model.mass, generalized)
             data.qvel[:] += model.opt.timestep * acceleration
             data.qpos[:] += model.opt.timestep * data.qvel
@@ -120,9 +124,9 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
         self.model = FakeModel()
         self.data = FakeData(self.model)
         self.data.time = 0.25
-        self.data.qpos[:] = np.linspace(0.1, 0.7, 7)
-        self.data.qvel[:] = np.linspace(-0.3, 0.3, 7)
-        self.data.qacc_warmstart[:] = np.linspace(1.0, 2.0, 7)
+        self.data.qpos[:] = np.linspace(0.1, 0.8, 8)
+        self.data.qvel[:] = np.linspace(-0.3, 0.4, 8)
+        self.data.qacc_warmstart[:] = np.linspace(1.0, 2.0, 8)
         self.data.ctrl[:] = np.array(
             [0.2, -0.4, 0.6, -0.8, 1.0, -1.2, 1.4, 0.73]
         )
@@ -204,7 +208,7 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
             mujoco_module=self.mujoco,
             numpy_module=np,
         )
-        expected_qvel = before[1 + 7 : 1 + 7 + 7] + 0.002 * (
+        expected_qvel = before[1 + 8 : 1 + 8 + 7] + 0.002 * (
             candidate / np.arange(1.0, 8.0)
         )
         np.testing.assert_allclose(transition.next_arm_qvel, expected_qvel)
@@ -233,9 +237,24 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
             expected_sensitivity,
             atol=1e-14,
         )
-        expected_nominal = self.data.qvel + expected_sensitivity @ self.data.ctrl[:7]
+        expected_nominal = (
+            self.data.qvel[:7] + expected_sensitivity @ self.data.ctrl[:7]
+        )
         np.testing.assert_allclose(
             result.nominal_next_arm_qvel_rad_s, expected_nominal, atol=1e-14
+        )
+        self.assertEqual(result.output_qvel_indices, tuple(range(7)))
+        np.testing.assert_array_equal(
+            result.nominal_next_output_qvel_rad_s,
+            result.nominal_next_arm_qvel_rad_s,
+        )
+        np.testing.assert_array_equal(
+            result.torque_to_next_output_qvel_sensitivity,
+            result.torque_to_next_arm_qvel_sensitivity,
+        )
+        self.assertEqual(
+            result.nominal_next_output_qvel_rad_s.tobytes(order="C"),
+            result.nominal_next_arm_qvel_rad_s.tobytes(order="C"),
         )
         self.assertEqual(self.counters["step"], 29)
         self.assertTrue(result.analytic_free_dynamics_diagnostic["available"])
@@ -253,6 +272,83 @@ class PostOscTorqueSensitivityTest(unittest.TestCase):
             )
         )
         json.dumps(result.finite_difference_column_stencils, allow_nan=False)
+
+    def test_ordered_output_subspace_returns_m_by_seven_coupled_map(self) -> None:
+        np = self.np
+        # The eighth qvel models an unactuated finger joint dynamically coupled
+        # to arm joint zero.  Its sensitivity is therefore a real output of the
+        # seven arm-torque perturbations, not a fabricated zero row.
+        self.model.mass[0, 7] = 0.25
+        self.model.mass[7, 0] = 0.25
+        output_order = [7, 2, 0, 5, 1, 6, 3, 4]
+        caller_owned_order = list(output_order)
+        snapshot = self.capture()
+        result = self.module.estimate_post_osc_torque_sensitivity(
+            self.sim,
+            snapshot=snapshot,
+            torque_epsilon_nm=0.01,
+            agreement_atol=1e-12,
+            agreement_rtol=1e-10,
+            output_qvel_indices=caller_owned_order,
+            mujoco_module=self.mujoco,
+            numpy_module=np,
+        )
+        expected_full = 0.002 * np.linalg.solve(
+            self.model.mass,
+            np.vstack((np.eye(7), np.zeros((1, 7)))),
+        )
+        expected = expected_full[np.asarray(output_order)]
+        self.assertEqual(result.output_qvel_indices, tuple(output_order))
+        self.assertEqual(
+            result.torque_to_next_output_qvel_sensitivity.shape, (8, 7)
+        )
+        np.testing.assert_allclose(
+            result.torque_to_next_output_qvel_sensitivity,
+            expected,
+            atol=1e-14,
+        )
+        np.testing.assert_allclose(
+            result.nominal_next_output_qvel_rad_s,
+            result.nominal_transition.next_qvel[np.asarray(output_order)],
+            atol=0.0,
+        )
+        self.assertIsNone(result.nominal_next_arm_qvel_rad_s)
+        self.assertIsNone(result.torque_to_next_arm_qvel_sensitivity)
+        self.assertLess(abs(float(expected[0, 0])), 1.0)
+        self.assertGreater(abs(float(expected[0, 0])), 0.0)
+        self.assertEqual(
+            result.analytic_free_dynamics_diagnostic["matrix"],
+            expected.tolist(),
+        )
+
+        # Mutating the caller's list after return cannot tamper with the bound
+        # output order recorded in the frozen result.
+        caller_owned_order.reverse()
+        self.assertEqual(result.output_qvel_indices, tuple(output_order))
+        with self.assertRaisesRegex(FrozenInstanceError, "cannot assign"):
+            result.output_qvel_indices = tuple(reversed(output_order))
+
+    def test_output_qvel_index_tamper_is_rejected_before_any_clone_step(self) -> None:
+        snapshot = self.capture()
+        invalid_orders = (
+            ([], "nonempty"),
+            ([0, 0], "duplicate"),
+            ([8], "out-of-range"),
+            ([True], "integer"),
+            ([0.0], "integer"),
+        )
+        for values, message in invalid_orders:
+            with self.subTest(values=values):
+                with self.assertRaisesRegex((TypeError, ValueError), message):
+                    self.module.estimate_post_osc_torque_sensitivity(
+                        self.model,
+                        snapshot=snapshot,
+                        torque_epsilon_nm=0.01,
+                        output_qvel_indices=values,
+                        mujoco_module=self.mujoco,
+                        numpy_module=self.np,
+                    )
+        self.assertEqual(self.counters["step"], 0)
 
     def test_upper_bound_uses_backward_two_resolution_stencil(self) -> None:
         np = self.np

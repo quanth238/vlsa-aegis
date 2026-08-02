@@ -81,7 +81,13 @@ class OneSubstepTransition:
 
 @dataclass(frozen=True)
 class PostOscTorqueSensitivity:
-    """Validated local map from seven arm torques to next arm velocity."""
+    """Validated local map from seven arm torques to ordered output velocity.
+
+    The two legacy ``*_arm_*`` fields remain byte-compatible for the default
+    arm-qvel output order.  They are ``None`` when an explicit, different
+    output subspace is requested; callers must then consume the generic
+    ``*_output_*`` fields together with ``output_qvel_indices``.
+    """
 
     nominal_next_arm_qvel_rad_s: Any
     torque_to_next_arm_qvel_sensitivity: Any
@@ -95,6 +101,9 @@ class PostOscTorqueSensitivity:
     nominal_transition: OneSubstepTransition
     analytic_free_dynamics_diagnostic: Mapping[str, Any]
     finite_difference_column_stencils: Tuple[Mapping[str, Any], ...]
+    output_qvel_indices: Tuple[int, ...] = ()
+    nominal_next_output_qvel_rad_s: Optional[Any] = None
+    torque_to_next_output_qvel_sensitivity: Optional[Any] = None
 
 
 def _modules(
@@ -173,6 +182,25 @@ def _validated_ids(
         raise ValueError("%s must contain exactly seven indexes" % label)
     if len(set(output)) != ARM_DOF:
         raise ValueError("%s must not contain duplicate indexes" % label)
+    return tuple(output)
+
+
+def _validated_output_qvel_indices(
+    values: Sequence[int], *, count: int
+) -> Tuple[int, ...]:
+    output = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, Integral):
+            raise TypeError("output_qvel_indices must contain integer indexes")
+        if value < 0 or value >= count:
+            raise ValueError(
+                "output_qvel_indices contains an out-of-range index: %r" % value
+            )
+        output.append(int(value))
+    if not output:
+        raise ValueError("output_qvel_indices must be nonempty")
+    if len(set(output)) != len(output):
+        raise ValueError("output_qvel_indices must not contain duplicate indexes")
     return tuple(output)
 
 
@@ -590,10 +618,12 @@ def _planned_sensitivity(
     plans: Sequence[Mapping[str, Any]],
     resolution: str,
     nominal_transition: OneSubstepTransition,
+    output_qvel_indices: Sequence[int],
     mujoco: Any,
     np: Any,
 ) -> Any:
-    sensitivity = np.empty((ARM_DOF, ARM_DOF), dtype=np.float64)
+    output_ids = np.asarray(output_qvel_indices, dtype=np.int64)
+    sensitivity = np.empty((output_ids.size, ARM_DOF), dtype=np.float64)
     nominal = np.asarray(snapshot.nominal_arm_torque_nm, dtype=np.float64)
     resolution_key = "%s_resolution" % resolution
     for column, plan in enumerate(plans):
@@ -621,7 +651,8 @@ def _planned_sensitivity(
             )
         denominator = float(resolution_plan["denominator_nm"])
         sensitivity[:, column] = (
-            transitions[1].next_arm_qvel - transitions[0].next_arm_qvel
+            transitions[1].next_qvel[output_ids]
+            - transitions[0].next_qvel[output_ids]
         ) / denominator
     if not np.all(np.isfinite(sensitivity)):
         raise TorqueSensitivityError(
@@ -635,6 +666,7 @@ def _analytic_diagnostic(
     snapshot: PostOscIntegrationSnapshot,
     nominal_transition: OneSubstepTransition,
     measured_sensitivity: Any,
+    output_qvel_indices: Sequence[int],
     mujoco: Any,
     np: Any,
 ) -> Dict[str, Any]:
@@ -655,7 +687,7 @@ def _analytic_diagnostic(
         if moments.shape != (snapshot.model_nu, snapshot.model_nv):
             raise ValueError("actuator_moment has an unexpected shape")
         actuator_ids = np.asarray(snapshot.arm_actuator_ids, dtype=np.int64)
-        qvel_ids = np.asarray(snapshot.arm_qvel_indices, dtype=np.int64)
+        qvel_ids = np.asarray(output_qvel_indices, dtype=np.int64)
         force_map = moments[actuator_ids, :].T
         analytic_full = snapshot.timestep_seconds * np.linalg.solve(mass, force_map)
         analytic = analytic_full[qvel_ids, :]
@@ -687,15 +719,30 @@ def estimate_post_osc_torque_sensitivity(
     torque_epsilon_nm: Any,
     agreement_atol: float = 1e-7,
     agreement_rtol: float = 1e-3,
+    output_qvel_indices: Optional[Sequence[int]] = None,
     mujoco_module: Optional[Any] = None,
     numpy_module: Optional[Any] = None,
 ) -> PostOscTorqueSensitivity:
-    """Return a validated 7x7 exact one-substep local torque sensitivity."""
+    """Return an exact local map from seven torques to ``M`` velocities.
+
+    With no explicit output indexes, ``M=7`` and the historical arm-qvel
+    result is unchanged.  Otherwise the output rows follow the caller's exact
+    ordered, unique MuJoCo qvel indexes and the sensitivity has shape
+    ``(M, 7)``.
+    """
 
     mujoco, np = _modules(mujoco_module, numpy_module)
     model = _raw_model(model_or_sim)
     _require_official_objects(model, None, mujoco)
     _validate_snapshot(model, snapshot, mujoco)
+    selected_output_indices = _validated_output_qvel_indices(
+        (
+            snapshot.arm_qvel_indices
+            if output_qvel_indices is None
+            else output_qvel_indices
+        ),
+        count=snapshot.model_nv,
+    )
     epsilon = _epsilon_vector(torque_epsilon_nm, np)
     atol = _finite_nonnegative(agreement_atol, "agreement_atol")
     rtol = _finite_nonnegative(agreement_rtol, "agreement_rtol")
@@ -728,6 +775,7 @@ def estimate_post_osc_torque_sensitivity(
         plans,
         "full",
         nominal_transition,
+        selected_output_indices,
         mujoco,
         np,
     )
@@ -737,6 +785,7 @@ def estimate_post_osc_torque_sensitivity(
         plans,
         "half",
         nominal_transition,
+        selected_output_indices,
         mujoco,
         np,
     )
@@ -760,13 +809,29 @@ def estimate_post_osc_torque_sensitivity(
             )
 
     diagnostic = _analytic_diagnostic(
-        model, snapshot, nominal_transition, half, mujoco, np
+        model,
+        snapshot,
+        nominal_transition,
+        half,
+        selected_output_indices,
+        mujoco,
+        np,
     )
+    output_ids = np.asarray(selected_output_indices, dtype=np.int64)
+    nominal_output = _readonly_copy(
+        nominal_transition.next_qvel[output_ids], np
+    )
+    sensitivity_output = _readonly_copy(half, np)
+    default_arm_output = selected_output_indices == snapshot.arm_qvel_indices
     return PostOscTorqueSensitivity(
-        nominal_next_arm_qvel_rad_s=_readonly_copy(
-            nominal_transition.next_arm_qvel, np
+        nominal_next_arm_qvel_rad_s=(
+            _readonly_copy(nominal_transition.next_arm_qvel, np)
+            if default_arm_output
+            else None
         ),
-        torque_to_next_arm_qvel_sensitivity=_readonly_copy(half, np),
+        torque_to_next_arm_qvel_sensitivity=(
+            _readonly_copy(half, np) if default_arm_output else None
+        ),
         full_epsilon_sensitivity=_readonly_copy(full, np),
         half_epsilon_sensitivity=_readonly_copy(half, np),
         torque_epsilon_nm=_readonly_copy(epsilon, np),
@@ -777,6 +842,9 @@ def estimate_post_osc_torque_sensitivity(
         nominal_transition=nominal_transition,
         analytic_free_dynamics_diagnostic=diagnostic,
         finite_difference_column_stencils=plans,
+        output_qvel_indices=selected_output_indices,
+        nominal_next_output_qvel_rad_s=nominal_output,
+        torque_to_next_output_qvel_sensitivity=sensitivity_output,
     )
 
 

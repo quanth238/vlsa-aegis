@@ -1082,3 +1082,37 @@ criterion requires the Poisson protected set to include the gripper/fingers
 as well. Per ADR-0049, the next treatment will use the already audited full-
 robot collision-surface set; the contact monitor will not be weakened. P01
 remains `active`.
+
+## P01 report-aligned full-robot e03 treatment ready for H100
+
+Reinspection of `vlsa_aegis_short_report_20260730.pdf` confirms the intended
+next experiment: use simulator-ground-truth obstacle geometry to protect the
+whole robot before studying learned perception. The prior e03 result is only a
+scope negative. Its link-5/link-6-only field never corrected the arm event; an
+unprotected finger reached the selected bottle first and forced a stop.
+
+The replacement parameter-freeze treatment keeps the historical AEGIS result,
+policy, original OSC, action schedule, CAR authority, selected obstacle, and
+task criterion fixed. It applies Poisson constraints to every collision-enabled
+surface in the authoritative robot tree. The CBF derivative contains every
+robot-tree qvel DOF, but the optimizer may change exactly the seven Panda arm
+torques; all non-arm controls are recorded and required to remain byte-exact.
+Link-5/link-6 samples seed the field bundle only and are no longer the shield
+row population. Contact rejection remains the union of any robot surface versus
+the selected obstacle and literal link 5/6 versus any external non-robot body.
+
+Runtime v4 expands the registered 2 cm grid to `116 x 101 x 111` over
+`[-1.3,-1,-0.2]`--`[1,1,2]` so the settled full robot fits with the frozen
+51 mm outer-boundary clearance. The grid change is apparatus-derived, before
+outcome observation, and is not outcome tuning. Protocol file SHA-256 is
+`b987bc277a78f431adae80de784c95931d1114638709bf87a2cffe0ace1a4aca`;
+runtime file SHA-256 is
+`6d5b872e773b19338ef464f5a3b79d025663e7fa19e75e6d98429afe43289421`.
+
+The focused local contract passes 96 tests with 44 expected local dependency
+or allocation skips. The complete local gate passes 814 tests with 178 expected
+skips. A positive H100 outcome still requires material pre-contact correction,
+zero registered contact, paper CAR safety, continued joint and end-effector
+motion, and native full-task success. `STOP_ONLY`, task failure, contact, or an
+apparatus stop is not feasibility. P01 remains `active` pending a clean
+same-commit numeric job, producer, and independent CPU consumer.

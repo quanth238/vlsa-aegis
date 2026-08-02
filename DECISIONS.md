@@ -1100,3 +1100,40 @@ uncontrollable robot geometry must fail a preregistered controllability/safe-
 start check rather than be silently dropped. The immutable e03 root and its
 receipt remain unchanged; a new protocol identity, clean commit, numeric gate,
 unused run root, producer, and independent consumer are required.
+
+## ADR-0050: Freeze a full-robot original-OSC treatment before H100 outcome observation
+
+Accepted after re-reading the visual SafeLIBERO analysis and auditing the
+terminal e03 `STOP_ONLY` artifact. The report's relevant limitation is
+unprotected upstream robot geometry, and its first recommended experiment uses
+simulator-ground-truth whole-body geometry before learned perception. The e03
+case is therefore parameter-freeze evidence, not held-out evaluation. If the
+apparatus passes, report-visible link-5 and independently selected link-6 cases
+will be evaluated later with these parameters frozen.
+
+The new shield constrains every collision-enabled geometry in the authoritative
+robot body tree against the one selected obstacle. Point derivatives use every
+qvel DOF owned by that tree. The decision remains exactly seven original Panda
+arm torque deltas after OSC; gripper and other non-arm controls are measured
+exogenous motion and must remain byte-identical. Link-5/link-6 surface samples
+remain only the Poisson field-bundle seed. Zero-gain rows may remain only when
+already safe; an unsafe uncontrollable row stops before physics and cannot be a
+positive result.
+
+Runtime v4 uses the smallest registered 2 cm rectangular grid that gives the
+settled full-robot samples the existing 51 mm outer-boundary clearance:
+`116 x 101 x 111` over `[-1.3,-1,-0.2]`--`[1,1,2]`. Every settled sample must
+serialize its world point and independently pass that clearance gate. This is
+an apparatus correction made without observing a treatment outcome, not a
+safety-margin or controller-threshold change.
+
+Feasibility requires all of the following in one complete e03 rollout:
+material CBF-attributed correction before historical contact, no selected-
+obstacle contact from any robot surface, no shifted link-5/link-6 external
+contact, CAR below 1 mm, continued nontrivial joint and end-effector motion,
+and native task success. Safety by stopping is a negative. The independent CPU
+consumer can verify evidence only relative to the producer's serialized
+resolved MuJoCo geometry; the clean exact source commit remains the compiled-
+model authority. The claim is one selected obstacle in one outcome-conditioned
+case, not all-environment or population safety. No scientific outcome exists
+until the same-commit H100 numeric gate, producer, and consumer all finish.

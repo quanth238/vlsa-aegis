@@ -1,14 +1,16 @@
-"""Fail-closed contract for the static link-5/6 Poisson-CBF pilot.
+"""Fail-closed contract for the static Poisson-CBF runtime.
 
 This module validates the *runtime numerical protocol*, not the case manifest.
-It intentionally accepts one explicit versioned shape and rejects unknown
-fields.  The parameter-block digest can therefore be frozen before held-out
-evaluation and embedded in every manifest/result without relying on mutable
-filenames.
+It accepts one active shape plus the immutable preceding shape, and rejects
+unknown fields within each version.  The parameter-block digest can therefore
+be frozen before held-out evaluation and embedded in every manifest/result
+without relying on mutable filenames.
 
-The canary contract is deliberately narrower than the mathematical full-body PSF
-claim: it covers only the selected obstacle and ``robot0_link5`` /
-``robot0_link6`` with a discrete, static Poisson field.  ISSf is represented
+The active v4 canary protects every collision-enabled surface in the
+authoritative robot body tree against one selected obstacle.  Link 5/6 samples
+remain in the field-bundle identity only; they are not the active shield-row
+population.  The v3 link-5/6 contract remains loadable solely so immutable
+historical artifacts retain their original validator.  ISSf is represented
 explicitly but disabled (epsilon0 = 0) until the runtime implements and tests
 that term.
 """
@@ -24,7 +26,8 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 
-SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v3"
+SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v4"
+LEGACY_SCHEMA_VERSION = "vlsa_poisson_runtime_protocol.v3"
 PARAMETER_SECTIONS = (
     "workspace",
     "occupancy",
@@ -277,7 +280,13 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
             "parameter_selection",
         ),
     )
-    _literal(top["schema_version"], SCHEMA_VERSION, "protocol.schema_version")
+    schema_version = top["schema_version"]
+    if schema_version not in (SCHEMA_VERSION, LEGACY_SCHEMA_VERSION):
+        raise FeasibilityProtocolError(
+            "protocol.schema_version must equal {!r} or immutable legacy {!r}".format(
+                SCHEMA_VERSION, LEGACY_SCHEMA_VERSION
+            )
+        )
     _string(top["protocol_id"], "protocol.protocol_id")
 
     workspace = _object(
@@ -1143,18 +1152,30 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
         "differential_audit.failure_policy",
     )
 
-    scope = _object(
-        top["claim_scope"],
-        "protocol.claim_scope",
-        (
+    if schema_version == LEGACY_SCHEMA_VERSION:
+        scope_keys = (
             "obstacle_scope",
             "protected_robot_bodies",
             "unprotected_body_policy",
             "population_scope",
             "claim_strength",
             "prohibited_generalization",
-        ),
-    )
+        )
+    else:
+        scope_keys = (
+            "obstacle_scope",
+            "protected_robot_bodies",
+            "protected_robot_bodies_role",
+            "shield_robot_collision_surface_scope",
+            "shield_robot_qvel_scope",
+            "shield_decision_scope",
+            "nonarm_control_policy",
+            "unprotected_body_policy",
+            "population_scope",
+            "claim_strength",
+            "prohibited_generalization",
+        )
+    scope = _object(top["claim_scope"], "protocol.claim_scope", scope_keys)
     _literal(
         scope["obstacle_scope"],
         "one_selected_obstacle_collision_geometry_only",
@@ -1165,11 +1186,40 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
         ("robot0_link5", "robot0_link6"),
         "claim_scope.protected_robot_bodies",
     )
-    _literal(
-        scope["unprotected_body_policy"],
-        "measure_contacts_but_exclude_from_link56_claim",
-        "claim_scope.unprotected_body_policy",
-    )
+    if schema_version == LEGACY_SCHEMA_VERSION:
+        _literal(
+            scope["unprotected_body_policy"],
+            "measure_contacts_but_exclude_from_link56_claim",
+            "claim_scope.unprotected_body_policy",
+        )
+    else:
+        for field, expected in (
+            (
+                "protected_robot_bodies_role",
+                "field_bundle_sample_seed_only_not_shield_constraint_scope",
+            ),
+            (
+                "shield_robot_collision_surface_scope",
+                "all_collision_enabled_geoms_in_authoritative_robot_body_tree",
+            ),
+            (
+                "shield_robot_qvel_scope",
+                "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_shield_samples",
+            ),
+            (
+                "shield_decision_scope",
+                "seven_registered_panda_arm_torque_controls_only",
+            ),
+            (
+                "nonarm_control_policy",
+                "nominal_nonarm_controls_unchanged_with_motion_included_in_exact_affine_dynamics",
+            ),
+            (
+                "unprotected_body_policy",
+                "no_authoritative_robot_collision_surface_excluded_against_selected_obstacle",
+            ),
+        ):
+            _literal(scope[field], expected, "claim_scope.%s" % field)
     _literal(
         scope["population_scope"],
         "outcome_conditioned_109_case_targeted_feasibility",
@@ -1182,7 +1232,11 @@ def _validate_semantics(protocol: Mapping[str, Any]) -> None:
     )
     _literal(
         scope["prohibited_generalization"],
-        "not_all_obstacles_not_all_links_not_unbiased_safelibero",
+        (
+            "not_all_obstacles_not_all_links_not_unbiased_safelibero"
+            if schema_version == LEGACY_SCHEMA_VERSION
+            else "not_all_obstacles_not_unbiased_safelibero"
+        ),
         "claim_scope.prohibited_generalization",
     )
 

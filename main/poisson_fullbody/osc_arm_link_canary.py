@@ -1,10 +1,13 @@
-"""Contract and outcome logic for the treatment-only post-OSC arm-link canary.
+"""Contract and outcome logic for the treatment-only full-robot canary.
 
 The historical SafeLIBERO AEGIS rollout is the control authority.  The live
 arm keeps the released ``OSC_POSE`` controller and adds one sampled-data
 Poisson shield between robosuite's nominal arm torque and each 2 ms MuJoCo
-step.  This is an empirical post-OSC adaptation of the Poisson-CBF idea; it is
-not the paper's formal joint-velocity guarantee.
+step.  The shield covers every collision-enabled surface in the authoritative
+robot tree against the selected obstacle, while only seven arm torques are
+decision variables and all non-arm controls remain nominal.  This is an
+empirical post-OSC adaptation of the Poisson-CBF idea; it is not the paper's
+formal joint-velocity guarantee.
 """
 
 from __future__ import annotations
@@ -13,14 +16,16 @@ import math
 from typing import Any, Dict, Mapping, Sequence
 
 
-PROTOCOL_SCHEMA = "vlsa_poisson_osc_arm_link_canary_protocol.v1"
-RESULT_SCHEMA = "vlsa_poisson_osc_arm_link_canary_result.v1"
-VALIDATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_validation.v1"
-CLASSIFICATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_classification.v1"
-PROTOCOL_ID = "vlsa-poisson-post-osc-link56-treatment-only-v1"
+PROTOCOL_SCHEMA = "vlsa_poisson_osc_arm_link_canary_protocol.v2"
+RESULT_SCHEMA = "vlsa_poisson_osc_arm_link_canary_result.v2"
+VALIDATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_validation.v2"
+CLASSIFICATION_SCHEMA = "vlsa_poisson_osc_arm_link_canary_classification.v2"
+PROTOCOL_ID = "vlsa-poisson-post-osc-full-robot-treatment-only-v2"
 PRIMARY_CASE_ID = "vlsa-t1-spatial-i-t3-e03"
 SOURCE_ARM = "pi05_plus_aegis_translational"
-TREATMENT_ARM = "pi05_plus_aegis_translational_plus_post_osc_link56_poisson"
+TREATMENT_ARM = (
+    "pi05_plus_aegis_translational_plus_post_osc_full_robot_poisson"
+)
 
 CLASSIFICATIONS = (
     "SAFE_TASK_SUCCESS_USEFUL_CORRECTION",
@@ -101,11 +106,11 @@ def validate_osc_arm_link_canary_protocol(
         "wine_bottle_obstacle_1_main"
     ):
         raise OscArmLinkCanaryError("selected obstacle root body differs")
-    if list(_sequence(case.get("protected_robot_body_names"), "protected bodies")) != [
+    if list(_sequence(case.get("literal_link56_body_names"), "literal link56 bodies")) != [
         "robot0_link5",
         "robot0_link6",
     ]:
-        raise OscArmLinkCanaryError("protected body set differs")
+        raise OscArmLinkCanaryError("literal link56 body set differs")
     historical_contact_action = _integer(
         case.get("historical_first_link_contact_source_action"),
         "historical link contact action",
@@ -115,6 +120,8 @@ def validate_osc_arm_link_canary_protocol(
         raise OscArmLinkCanaryError("historical link-contact boundary differs")
     if case.get("historical_direct_contact_body") != "robot0_link5":
         raise OscArmLinkCanaryError("historical protected contact body differs")
+    if case.get("selection_split") != "parameter_freeze":
+        raise OscArmLinkCanaryError("primary case must remain parameter-freeze evidence")
 
     source = _mapping(protocol.get("historical_control"), "historical_control")
     if source.get("source_arm") != SOURCE_ARM:
@@ -201,8 +208,32 @@ def validate_osc_arm_link_canary_protocol(
         "world_frame_frozen_at_post_settling_selected_obstacle_pose"
     ):
         raise OscArmLinkCanaryError("field frame differs")
-    if shield.get("protected_samples") != "robot0_link5_and_robot0_link6_surfaces":
+    if shield.get("protected_samples") != (
+        "all_authoritative_robot_collision_surface_samples"
+    ):
         raise OscArmLinkCanaryError("protected sample scope differs")
+    required_shield_scope = {
+        "field_bundle_samples": (
+            "robot0_link5_and_robot0_link6_surfaces_field_seed_only"
+        ),
+        "robot_geometry_authority": (
+            "collision_enabled_geoms_in_authoritative_robot_body_tree_"
+            "resolved_from_robot_root_body_id"
+        ),
+        "point_velocity_scope": (
+            "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_"
+            "shield_samples"
+        ),
+        "decision_variable": "seven_registered_panda_arm_torque_deltas",
+        "nonarm_control_policy": "nominal_nonarm_controls_unchanged",
+        "sample_binding": (
+            "same_ordered_full_robot_surface_sample_ledger_for_field_queries_"
+            "jacobians_and_constraint_rows"
+        ),
+    }
+    for field, expected in required_shield_scope.items():
+        if shield.get(field) != expected:
+            raise OscArmLinkCanaryError("shield.%s differs" % field)
     if shield.get("hard_constraints") is not True or shield.get("slack") is not False:
         raise OscArmLinkCanaryError("shield must remain hard and slack-free")
     if shield.get("failure_policy") != "stop_before_physics_and_retain_artifact":
@@ -285,6 +316,11 @@ def validate_osc_arm_link_canary_protocol(
         "historical_control_has_literal_link56_selected_obstacle_contact",
         "historical_control_task_success",
         "direct_unit_gain_hinge_torque_actuators_verified",
+        "all_authoritative_robot_collision_surfaces_shielded",
+        "robot_tree_qvel_scope_verified",
+        "seven_arm_torque_decision_verified",
+        "nonarm_controls_unchanged",
+        "link56_bundle_samples_field_seed_only",
         "first_any_byte_different_torque_is_registered_divergence_and_material",
         "all_predivergence_torque_commands_byte_identical_nominal",
         "action62_same_action_exception_has_action61_endpoint_parity_exact",
@@ -335,6 +371,14 @@ def validate_osc_arm_link_canary_protocol(
     ):
         _sha256(selection.get(field), "selection.%s" % field)
     runtime = _mapping(protocol.get("runtime"), "runtime")
+    required_runtime = {
+        "relative_path": "configs/vlsa_poisson_runtime_protocol.canary.v4.json",
+        "schema_version": "vlsa_poisson_runtime_protocol.v4",
+        "protocol_id": "vlsa-poisson-full-robot-canary-parameters-v4",
+    }
+    for field, expected in required_runtime.items():
+        if runtime.get(field) != expected:
+            raise OscArmLinkCanaryError("runtime.%s differs" % field)
     for field in ("raw_file_sha256", "semantic_sha256", "parameter_block_sha256"):
         _sha256(runtime.get(field), "runtime.%s" % field)
     numeric_prerequisite = _mapping(
@@ -373,9 +417,9 @@ def validate_osc_arm_link_canary_protocol(
             )
     if protocol.get("claim_scope") != (
         "one_case_simulator_oracle_historical_link5_contact_prevention_with_"
-        "registered_no_shift_union_monitor_empirical_sampled_data_post_osc_"
-        "poisson_cbf_adaptation_not_formal_velocity_level_invariance_or_all_"
-        "environment_safety"
+        "all_authoritative_robot_collision_surfaces_against_selected_obstacle_"
+        "empirical_sampled_data_post_osc_poisson_cbf_adaptation_not_formal_"
+        "invariance_or_all_environment_safety"
     ):
         raise OscArmLinkCanaryError("claim scope differs")
     return {
@@ -400,6 +444,11 @@ def classify_osc_arm_link_canary(
         "historical_direct_link56_contact_verified",
         "historical_control_task_success",
         "direct_unit_gain_hinge_torque_actuators_verified",
+        "all_authoritative_robot_collision_surfaces_shielded",
+        "robot_tree_qvel_scope_verified",
+        "seven_arm_torque_decision_verified",
+        "nonarm_controls_unchanged",
+        "link56_bundle_samples_field_seed_only",
         "original_osc_controller_verified",
         "static_field_admissible",
         "every_executed_substep_shielded",
@@ -522,8 +571,10 @@ def classify_osc_arm_link_canary(
         "all_positive_requirements_met": bool(feasible),
         "apparatus_failures": apparatus_failures,
         "claim": (
-            "one-case simulator-oracle historical link5 contact prevention via "
-            "empirical sampled-data post-OSC Poisson-CBF adaptation"
+            "one-case simulator-oracle historical link5 contact prevention "
+            "with every authoritative robot collision surface protected "
+            "against the selected obstacle via empirical sampled-data "
+            "post-OSC Poisson-CBF adaptation"
             if feasible
             else "no positive feasibility claim"
         ),

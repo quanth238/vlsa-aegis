@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -10,6 +11,7 @@ import unittest
 
 from main.poisson_fullbody.feasibility_protocol import (
     FeasibilityProtocolError,
+    LEGACY_SCHEMA_VERSION,
     PARAMETER_SECTIONS,
     SCHEMA_VERSION,
     bind_parameter_block,
@@ -207,15 +209,30 @@ def valid_protocol():
         "claim_scope": {
             "obstacle_scope": "one_selected_obstacle_collision_geometry_only",
             "protected_robot_bodies": ["robot0_link5", "robot0_link6"],
+            "protected_robot_bodies_role": (
+                "field_bundle_sample_seed_only_not_shield_constraint_scope"
+            ),
+            "shield_robot_collision_surface_scope": (
+                "all_collision_enabled_geoms_in_authoritative_robot_body_tree"
+            ),
+            "shield_robot_qvel_scope": (
+                "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_shield_samples"
+            ),
+            "shield_decision_scope": (
+                "seven_registered_panda_arm_torque_controls_only"
+            ),
+            "nonarm_control_policy": (
+                "nominal_nonarm_controls_unchanged_with_motion_included_in_exact_affine_dynamics"
+            ),
             "unprotected_body_policy": (
-                "measure_contacts_but_exclude_from_link56_claim"
+                "no_authoritative_robot_collision_surface_excluded_against_selected_obstacle"
             ),
             "population_scope": "outcome_conditioned_109_case_targeted_feasibility",
             "claim_strength": (
                 "empirical_discrete_C0_static_field_feasibility_not_formal_guarantee"
             ),
             "prohibited_generalization": (
-                "not_all_obstacles_not_all_links_not_unbiased_safelibero"
+                "not_all_obstacles_not_unbiased_safelibero"
             ),
         },
         "parameter_selection": {
@@ -435,7 +452,7 @@ class FeasibilityProtocolTest(unittest.TestCase):
             "qpos restore tolerance",
         )
 
-    def test_claim_scope_cannot_expand_beyond_selected_obstacle_link56(self):
+    def test_claim_scope_freezes_full_robot_surfaces_and_seven_torque_decision(self):
         self.assert_invalid(
             lambda value: value["claim_scope"].update(
                 {"protected_robot_bodies": ["robot0_link1", "robot0_link6"]}
@@ -447,6 +464,41 @@ class FeasibilityProtocolTest(unittest.TestCase):
                 {"obstacle_scope": "all_scene_obstacles"}
             ),
             "one_selected_obstacle",
+        )
+        for field, replacement in (
+            ("protected_robot_bodies_role", "shield_rows"),
+            ("shield_robot_collision_surface_scope", "link56_only"),
+            ("shield_robot_qvel_scope", "seven_arm_qvel_only"),
+            ("shield_decision_scope", "all_robot_controls"),
+            ("nonarm_control_policy", "zero_nonarm_controls"),
+            ("unprotected_body_policy", "exclude_gripper"),
+        ):
+            self.assert_invalid(
+                lambda value, field=field, replacement=replacement: value[
+                    "claim_scope"
+                ].update({field: replacement}),
+                field,
+            )
+
+    def test_immutable_v3_runtime_remains_loadable(self):
+        legacy_path = (
+            Path(__file__).resolve().parents[1]
+            / "configs"
+            / "vlsa_poisson_runtime_protocol.canary.v3.json"
+        )
+        legacy, hashes = load_feasibility_protocol(legacy_path)
+        self.assertEqual(legacy["schema_version"], LEGACY_SCHEMA_VERSION)
+        self.assertEqual(
+            hashlib.sha256(legacy_path.read_bytes()).hexdigest(),
+            "396de850fb7f03b9ee038b2fec05f90ef1cb0230c5d40a81a43177162193726a",
+        )
+        self.assertEqual(
+            hashes.protocol_sha256,
+            "2125989269a2ffeeb8d3408d56e4aaa74e1dc5816256d8210bf9ee686c5f5a30",
+        )
+        self.assertEqual(
+            hashes.parameter_block_sha256,
+            "11de833ab8b1586948e7eb039c449a66a0c1a4107fa3232b236ad1ecb9ceeabe",
         )
 
     def test_parameter_selection_forbids_heldout_tuning(self):

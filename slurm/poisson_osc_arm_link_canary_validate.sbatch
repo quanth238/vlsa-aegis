@@ -86,7 +86,7 @@ require_canonical_real_directory \
 require_canonical_real_file "complete result" "${RESULT}"
 require_canonical_real_file \
   "post-OSC protocol" \
-  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v1.json"
+  "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v2.json"
 require_canonical_real_file \
   "post-OSC validator" \
   "${REMOTE_REPO}/scripts/validate_poisson_osc_arm_link_canary_artifact.py"
@@ -127,7 +127,7 @@ export PYTHONPATH="${REMOTE_REPO}:${REMOTE_REPO}/main"
   --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
   --numeric-validation-result "${NUMERIC_VALIDATION_RESULT}" \
   --expected-numeric-job-id "${EXPECTED_NUMERIC_JOB_ID}" \
-  --protocol "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v1.json" \
+  --protocol "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v2.json" \
   --expected-producer-job-id "${EXPECTED_PRODUCER_JOB_ID}" \
   --expected-producer-commit "${EXPECTED_GIT_COMMIT}" \
   --expected-consumer-job-id "${SLURM_JOB_ID}" \

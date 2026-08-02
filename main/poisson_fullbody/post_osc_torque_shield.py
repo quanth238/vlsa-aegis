@@ -1,11 +1,11 @@
 """Minimal sampled-data Poisson-CBF shield for a nominal OSC torque.
 
 This module is deliberately independent of robosuite, MuJoCo, and the policy.
-The caller supplies the nominal seven-arm-joint torque and the velocity reached
-by an exact nominal one-step clone.  It also supplies a local sensitivity
-``S = d(v_next) / d(tau)`` that already includes the controller interval and
-any local contact effects.  Consequently ``S`` is *not* multiplied by ``dt``
-again here.
+The caller supplies the nominal seven-arm-joint torque and an ordered
+``M``-dimensional velocity reached by an exact nominal one-step clone.  It also
+supplies a local sensitivity ``S = d(v_next) / d(tau)`` with shape ``(M, 7)``
+that already includes the controller interval and any local contact effects.
+Consequently ``S`` is *not* multiplied by ``dt`` again here.
 
 For Poisson samples ``h`` and joint rows ``a = grad(h)^T J``, the shield solves
 
@@ -112,9 +112,14 @@ def evaluate_torque_shield_residuals(
     np, _, _ = _numeric_modules()
     nominal = _finite_vector(nominal_torque, 7, "nominal_torque", np)
     candidate = _finite_vector(candidate_torque, 7, "candidate_torque", np)
-    nominal_velocity = _finite_vector(
-        nominal_next_qvel, 7, "nominal_next_qvel", np
-    )
+    nominal_velocity = np.asarray(nominal_next_qvel, dtype=np.float64)
+    if (
+        nominal_velocity.ndim != 1
+        or nominal_velocity.size == 0
+        or not np.all(np.isfinite(nominal_velocity))
+    ):
+        raise ValueError("nominal_next_qvel must be a nonempty finite vector")
+    velocity_dimension = int(nominal_velocity.size)
     lower = _finite_vector(torque_lower, 7, "torque_lower", np)
     upper = _finite_vector(torque_upper, 7, "torque_upper", np)
     h_array = np.asarray(h, dtype=np.float64)
@@ -122,10 +127,12 @@ def evaluate_torque_shield_residuals(
     sensitivity = np.asarray(torque_to_next_qvel_sensitivity, dtype=np.float64)
     if h_array.ndim != 1 or h_array.size == 0:
         raise ValueError("h must be a nonempty finite vector")
-    if rows.shape != (h_array.size, 7):
-        raise ValueError("joint_gradient_rows must have shape (N, 7)")
-    if sensitivity.shape != (7, 7):
-        raise ValueError("torque_to_next_qvel_sensitivity must have shape (7, 7)")
+    if rows.shape != (h_array.size, velocity_dimension):
+        raise ValueError("joint_gradient_rows must have shape (N, M)")
+    if sensitivity.shape != (velocity_dimension, 7):
+        raise ValueError(
+            "torque_to_next_qvel_sensitivity must have shape (M, 7)"
+        )
     if not (
         np.all(np.isfinite(h_array))
         and np.all(np.isfinite(rows))
@@ -282,9 +289,16 @@ class SampledDataPostOscTorqueShield:
         np, osqp, sparse = _numeric_modules()
         try:
             nominal = _finite_vector(nominal_torque, 7, "nominal_torque", np)
-            current_velocity = _finite_vector(current_qvel, 7, "current_qvel", np)
-            nominal_velocity = _finite_vector(
-                nominal_next_qvel, 7, "nominal_next_qvel", np
+            nominal_velocity = np.asarray(nominal_next_qvel, dtype=np.float64)
+            if (
+                nominal_velocity.ndim != 1
+                or nominal_velocity.size == 0
+                or not np.all(np.isfinite(nominal_velocity))
+            ):
+                raise ValueError("nominal_next_qvel must be a nonempty finite vector")
+            velocity_dimension = int(nominal_velocity.size)
+            current_velocity = _finite_vector(
+                current_qvel, velocity_dimension, "current_qvel", np
             )
             lower_torque = _finite_vector(torque_lower, 7, "torque_lower", np)
             upper_torque = _finite_vector(torque_upper, 7, "torque_upper", np)
@@ -295,11 +309,11 @@ class SampledDataPostOscTorqueShield:
             )
             if h_array.ndim != 1 or h_array.size == 0:
                 raise ValueError("h must be a nonempty finite vector")
-            if rows.shape != (h_array.size, 7):
-                raise ValueError("joint_gradient_rows must have shape (N, 7)")
-            if sensitivity.shape != (7, 7):
+            if rows.shape != (h_array.size, velocity_dimension):
+                raise ValueError("joint_gradient_rows must have shape (N, M)")
+            if sensitivity.shape != (velocity_dimension, 7):
                 raise ValueError(
-                    "torque_to_next_qvel_sensitivity must have shape (7, 7)"
+                    "torque_to_next_qvel_sensitivity must have shape (M, 7)"
                 )
             if not (
                 np.all(np.isfinite(h_array))
@@ -347,7 +361,9 @@ class SampledDataPostOscTorqueShield:
         largest_singular = float(singular_values[0])
         smallest_singular = float(singular_values[-1])
         numerical_rank_threshold = (
-            np.finfo(np.float64).eps * 7.0 * largest_singular
+            np.finfo(np.float64).eps
+            * float(max(velocity_dimension, 7))
+            * largest_singular
         )
         condition_number = (
             largest_singular / smallest_singular
@@ -370,7 +386,7 @@ class SampledDataPostOscTorqueShield:
             )
         # Full-matrix rank is not the control authority for this QP.  A
         # contact constraint only needs its own row ``a @ S`` to be
-        # controllable.  Rejecting a rank-deficient 7x7 S would discard valid
+        # controllable.  Rejecting a rank-deficient Mx7 S would discard valid
         # corrections in directions unaffected by the deficient mode (and
         # would even reject an already-safe nominal command).  Preserve the
         # condition number as an audit diagnostic; the exact per-row gain
@@ -421,6 +437,13 @@ class SampledDataPostOscTorqueShield:
             ),
             **conditioning,
         }
+        if velocity_dimension != 7:
+            base_diagnostics.update(
+                {
+                    "velocity_dimension": velocity_dimension,
+                    "torque_dimension": 7,
+                }
+            )
         try:
             nominal_postcheck = evaluate_torque_shield_residuals(
                 nominal_torque=nominal,

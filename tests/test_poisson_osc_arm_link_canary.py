@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -6,7 +7,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROTOCOL_PATH = ROOT / "configs" / "vlsa_poisson_osc_arm_link_canary.v1.json"
+PROTOCOL_PATH = ROOT / "configs" / "vlsa_poisson_osc_arm_link_canary.v2.json"
 
 
 class OscArmLinkProtocolTests(unittest.TestCase):
@@ -20,6 +21,11 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             "historical_direct_link56_contact_verified": True,
             "historical_control_task_success": True,
             "direct_unit_gain_hinge_torque_actuators_verified": True,
+            "all_authoritative_robot_collision_surfaces_shielded": True,
+            "robot_tree_qvel_scope_verified": True,
+            "seven_arm_torque_decision_verified": True,
+            "nonarm_controls_unchanged": True,
+            "link56_bundle_samples_field_seed_only": True,
             "original_osc_controller_verified": True,
             "static_field_admissible": True,
             "every_executed_substep_shielded": True,
@@ -59,11 +65,31 @@ class OscArmLinkProtocolTests(unittest.TestCase):
         from main.poisson_fullbody.osc_arm_link_canary import (
             validate_osc_arm_link_canary_protocol,
         )
+        from main.poisson_fullbody.feasibility_protocol import (
+            load_feasibility_protocol,
+        )
 
-        derived = validate_osc_arm_link_canary_protocol(self.protocol())
+        protocol = self.protocol()
+        derived = validate_osc_arm_link_canary_protocol(protocol)
         self.assertEqual(derived["historical_contact_action"], 62)
         self.assertEqual(derived["maximum_action_count"], 300)
         self.assertEqual(derived["expected_substeps_per_action"], 25)
+        runtime_path = ROOT / protocol["runtime"]["relative_path"]
+        runtime, runtime_hashes = load_feasibility_protocol(runtime_path)
+        self.assertEqual(runtime["schema_version"], protocol["runtime"]["schema_version"])
+        self.assertEqual(runtime["protocol_id"], protocol["runtime"]["protocol_id"])
+        self.assertEqual(
+            hashlib.sha256(runtime_path.read_bytes()).hexdigest(),
+            protocol["runtime"]["raw_file_sha256"],
+        )
+        self.assertEqual(
+            runtime_hashes.protocol_sha256,
+            protocol["runtime"]["semantic_sha256"],
+        )
+        self.assertEqual(
+            runtime_hashes.parameter_block_sha256,
+            protocol["runtime"]["parameter_block_sha256"],
+        )
 
     def test_protocol_rejects_controller_or_baseline_rerun_drift(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
@@ -80,6 +106,86 @@ class OscArmLinkProtocolTests(unittest.TestCase):
             mutate(protocol)
             with self.assertRaises(OscArmLinkCanaryError):
                 validate_osc_arm_link_canary_protocol(protocol)
+
+    def test_protocol_freezes_full_robot_scope_and_link56_seed_role(self):
+        from main.poisson_fullbody.osc_arm_link_canary import (
+            OscArmLinkCanaryError,
+            validate_osc_arm_link_canary_protocol,
+        )
+
+        protocol = self.protocol()
+        self.assertEqual(
+            protocol["case"]["literal_link56_body_names"],
+            ["robot0_link5", "robot0_link6"],
+        )
+        self.assertEqual(
+            protocol["shield"]["protected_samples"],
+            "all_authoritative_robot_collision_surface_samples",
+        )
+        self.assertEqual(
+            protocol["shield"]["point_velocity_scope"],
+            "all_qvel_dofs_in_authoritative_robot_body_tree_affecting_shield_samples",
+        )
+        self.assertEqual(
+            protocol["shield"]["decision_variable"],
+            "seven_registered_panda_arm_torque_deltas",
+        )
+        self.assertEqual(
+            protocol["shield"]["nonarm_control_policy"],
+            "nominal_nonarm_controls_unchanged",
+        )
+
+        mutations = (
+            lambda value: value["case"].__setitem__(
+                "literal_link56_body_names", ["robot0_link5"]
+            ),
+            lambda value: value["shield"].__setitem__(
+                "protected_samples", "robot0_link5_and_robot0_link6_surfaces"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "field_bundle_samples", "shield_constraint_population"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "point_velocity_scope", "seven_arm_qvel_only"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "decision_variable", "all_robot_controls"
+            ),
+            lambda value: value["shield"].__setitem__(
+                "nonarm_control_policy", "zeroed"
+            ),
+            lambda value: value["historical_control"].__setitem__(
+                "rerun_baseline", True
+            ),
+            lambda value: value["runtime"].__setitem__(
+                "schema_version", "vlsa_poisson_runtime_protocol.v3"
+            ),
+        )
+        for mutate in mutations:
+            candidate = copy.deepcopy(protocol)
+            mutate(candidate)
+            with self.assertRaises(OscArmLinkCanaryError):
+                validate_osc_arm_link_canary_protocol(candidate)
+
+    def test_positive_requires_every_full_robot_apparatus_gate(self):
+        from main.poisson_fullbody.osc_arm_link_canary import (
+            classify_osc_arm_link_canary,
+        )
+
+        for field in (
+            "all_authoritative_robot_collision_surfaces_shielded",
+            "robot_tree_qvel_scope_verified",
+            "seven_arm_torque_decision_verified",
+            "nonarm_controls_unchanged",
+            "link56_bundle_samples_field_seed_only",
+        ):
+            metrics = self.passing_metrics()
+            metrics[field] = False
+            classified = classify_osc_arm_link_canary(metrics, self.protocol())
+            self.assertEqual(
+                classified["classification"], "INCONCLUSIVE_APPARATUS"
+            )
+            self.assertIn(field, classified["apparatus_failures"])
 
     def test_protocol_rejects_paper_car_phase_or_source_drift(self):
         from main.poisson_fullbody.osc_arm_link_canary import (
@@ -847,6 +953,651 @@ class OscArmLinkPartialActionLedgerTests(unittest.TestCase):
         self.assertFalse(audit["present"])
 
 
+class OscArmLinkShieldSamplingBindingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import numpy as np
+        except ImportError as error:
+            raise unittest.SkipTest(
+                "NumPy is required for shield-binding tests"
+            ) from error
+        cls.np = np
+
+    def fixture(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _canonical_sha256,
+            _compact_float64_array_record,
+        )
+
+        samples = [
+            {
+                "sample_id": 0,
+                "body_id": 1,
+                "body_name": "robot0_link5",
+                "geom_id": 10,
+                "geom_name": "robot0_link5_collision",
+                "point_body_local_m": [0.0, 0.0, 0.0],
+                "source": "collision_geom_surface",
+            },
+            {
+                "sample_id": 1,
+                "body_id": 1,
+                "body_name": "robot0_link5",
+                "geom_id": 10,
+                "geom_name": "robot0_link5_collision",
+                "point_body_local_m": [0.01, 0.0, 0.0],
+                "source": "collision_geom_surface",
+            },
+            {
+                "sample_id": 2,
+                "body_id": 2,
+                "body_name": "gripper0_leftfinger",
+                "geom_id": 20,
+                "geom_name": "gripper0_leftfinger_collision",
+                "point_body_local_m": [0.0, 0.01, 0.0],
+                "source": "collision_geom_surface",
+            },
+        ]
+        qvel_indices = list(range(9))
+        qvel_records = [
+            {
+                "qvel_index": index,
+                "joint_id": index,
+                "joint_name": (
+                    "robot0_joint%d" % (index + 1)
+                    if index < 7
+                    else "gripper0_finger_joint%d" % (index - 6)
+                ),
+                "joint_body_id": 1 if index < 7 else 2,
+                "joint_body_name": (
+                    "robot0_link5" if index < 7 else "gripper0_leftfinger"
+                ),
+            }
+            for index in qvel_indices
+        ]
+        sample_hash = _canonical_sha256(samples)
+        h = self.np.asarray([0.1, 0.2, 0.3], dtype=self.np.float64)
+        world_points = self.np.asarray(
+            [[0.0, 0.0, 0.0], [0.01, 0.0, 0.0], [0.0, 0.01, 0.0]],
+            dtype=self.np.float64,
+        )
+        workspace_lower = self.np.asarray([-1.0, -1.0, -1.0])
+        workspace_upper = self.np.asarray([1.0, 1.0, 1.0])
+        outer_clearance = self.np.min(
+            self.np.concatenate(
+                (
+                    world_points - workspace_lower[None, :],
+                    workspace_upper[None, :] - world_points,
+                ),
+                axis=1,
+            ),
+            axis=1,
+        )
+        comparison_tolerance = (
+            64.0 * float(self.np.finfo(self.np.float64).eps)
+        )
+        binding = {
+            "schema_version": "vlsa_poisson_full_robot_shield_sampling_binding.v1",
+            "scope": "all_authoritative_robot_collision_surfaces_vs_selected_obstacle",
+            "sample_source": "apparatus.full_robot_sampling.samples",
+            "sample_count": len(samples),
+            "sample_ledger_sha256": sample_hash,
+            "resolved_robot_geom_ids": [10, 20],
+            "resolved_robot_geom_ids_sha256": _canonical_sha256([10, 20]),
+            "robot_qvel_selection_rule": (
+                "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
+            ),
+            "robot_qvel_indices": qvel_indices,
+            "robot_qvel_indices_sha256": _canonical_sha256(qvel_indices),
+            "robot_qvel_records": qvel_records,
+            "robot_qvel_records_sha256": _canonical_sha256(qvel_records),
+            "velocity_dimension": len(qvel_indices),
+            "arm_qvel_indices": list(range(7)),
+            "arm_qvel_indices_included": True,
+            "decision_arm_actuator_ids": list(range(30, 37)),
+            "decision_dimension": 7,
+            "nonarm_robot_qvel_included": True,
+            "nonarm_ctrl_policy": (
+                "unchanged_byte_exact_in_all_cloned_and_live_transitions"
+            ),
+            "model_actuator_count": 37,
+            "nonarm_ctrl_selection_rule": (
+                "ascending_actuator_index_excluding_decision_arm_actuator_ids"
+            ),
+            "nonarm_ctrl_indices": list(range(30)),
+            "nonarm_ctrl_indices_sha256": _canonical_sha256(list(range(30))),
+            "nonarm_ctrl_count": 30,
+            "live_nonarm_ctrl_array_hash_format": (
+                "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
+            ),
+            "field_seed_sample_scope": "link56_only_not_shield_scope",
+            "settled_field_query_certificate": {
+                "schema_version": "vlsa_poisson_full_robot_settled_field_query.v1",
+                "sample_count": len(samples),
+                "sample_ledger_sha256": sample_hash,
+                "all_queries_valid": True,
+                "all_h_strictly_positive": True,
+                "minimum_h_m2": float(self.np.min(h)),
+                "h_m2": h.tolist(),
+                "h_array_record": _compact_float64_array_record(h, self.np),
+                "world_points_m": world_points.tolist(),
+                "world_points_array_record": _compact_float64_array_record(
+                    world_points, self.np
+                ),
+                "outer_boundary_clearance_m": outer_clearance.tolist(),
+                "outer_boundary_clearance_array_record": (
+                    _compact_float64_array_record(outer_clearance, self.np)
+                ),
+                "required_outer_boundary_clearance_m": 0.5,
+                "minimum_outer_boundary_clearance_m": float(
+                    self.np.min(outer_clearance)
+                ),
+                "outer_boundary_clearance_comparison_tolerance_m": (
+                    comparison_tolerance
+                ),
+                "all_outer_boundary_clearances_pass": True,
+            },
+            "settled_zero_jacobian_sample_count": 0,
+            "settled_nonzero_jacobian_sample_count": len(samples),
+        }
+        apparatus = {
+            "full_robot_sampling": {
+                "samples": samples,
+                "sample_count": len(samples),
+                "sample_ledger_sha256": sample_hash,
+            },
+            "shield_sampling_binding": binding,
+            "shield_sampling_binding_sha256": _canonical_sha256(binding),
+        }
+        resolved = {
+            "robot_geom_ids": [10, 20],
+            "robot_body_ids": [1, 2],
+            "robot_body_names": ["robot0_link5", "gripper0_leftfinger"],
+        }
+        controller = {
+            "arm_qvel_indexes": list(range(7)),
+            "arm_actuator_indexes": list(range(30, 37)),
+        }
+        runtime_protocol = {
+            "workspace": {
+                "minimum_m": workspace_lower.tolist(),
+                "maximum_m": workspace_upper.tolist(),
+            },
+            "occupancy": {"outer_boundary_clearance_m": 0.5},
+        }
+        return apparatus, resolved, controller, runtime_protocol
+
+    def validate(self, fixture):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _validate_shield_sampling_binding,
+        )
+
+        apparatus, resolved, controller, runtime_protocol = fixture
+        return _validate_shield_sampling_binding(
+            apparatus=apparatus,
+            resolved_geometry=resolved,
+            controller=controller,
+            runtime_protocol=runtime_protocol,
+            np=self.np,
+        )
+
+    @staticmethod
+    def refresh_binding_hash(apparatus):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+
+        apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
+            apparatus["shield_sampling_binding"]
+        )
+
+    def test_full_robot_binding_accepts_finger_samples_and_nonarm_qvels(self):
+        audit = self.validate(self.fixture())
+        self.assertEqual(audit["sample_count"], 3)
+        self.assertEqual(audit["velocity_dimension"], 9)
+        self.assertEqual(audit["arm_qvel_indices"], list(range(7)))
+
+    def test_link_only_sample_substitution_is_rejected_even_when_rehashed(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        samples = apparatus["full_robot_sampling"]["samples"][:2]
+        sample_hash = _canonical_sha256(samples)
+        apparatus["full_robot_sampling"].update(
+            samples=samples,
+            sample_count=len(samples),
+            sample_ledger_sha256=sample_hash,
+        )
+        apparatus["shield_sampling_binding"].update(
+            sample_count=len(samples), sample_ledger_sha256=sample_hash
+        )
+        self.refresh_binding_hash(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "omit a resolved robot geom"
+        ):
+            self.validate(fixture)
+
+    def test_reordered_finger_sample_rows_are_rejected_even_when_rehashed(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        samples = apparatus["full_robot_sampling"]["samples"]
+        reordered = [
+            copy.deepcopy(samples[2]),
+            copy.deepcopy(samples[0]),
+            copy.deepcopy(samples[1]),
+        ]
+        for sample_id, sample in enumerate(reordered):
+            sample["sample_id"] = sample_id
+        sample_hash = _canonical_sha256(reordered)
+        apparatus["full_robot_sampling"].update(
+            samples=reordered, sample_ledger_sha256=sample_hash
+        )
+        apparatus["shield_sampling_binding"].update(
+            sample_ledger_sha256=sample_hash
+        )
+        self.refresh_binding_hash(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "resolved-geom order"
+        ):
+            self.validate(fixture)
+
+    def test_qvel_reorder_or_omitted_finger_record_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        binding = apparatus["shield_sampling_binding"]
+        binding["robot_qvel_indices"][-2:] = [8, 7]
+        binding["robot_qvel_records"][-2:] = list(
+            reversed(binding["robot_qvel_records"][-2:])
+        )
+        binding["robot_qvel_indices_sha256"] = _canonical_sha256(
+            binding["robot_qvel_indices"]
+        )
+        binding["robot_qvel_records_sha256"] = _canonical_sha256(
+            binding["robot_qvel_records"]
+        )
+        self.refresh_binding_hash(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "qvel ordering or hash"
+        ):
+            self.validate(fixture)
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        apparatus["shield_sampling_binding"]["robot_qvel_records"].pop()
+        self.refresh_binding_hash(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "qvel record count or hash"
+        ):
+            self.validate(fixture)
+
+    def test_schema_qvel_hash_dimension_and_settled_h_tampering_are_rejected(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        mutations = (
+            lambda binding: binding.__setitem__("schema_version", "v0"),
+            lambda binding: binding.__setitem__("robot_qvel_indices_sha256", "0" * 64),
+            lambda binding: binding.__setitem__("velocity_dimension", 7),
+            lambda binding: binding["settled_field_query_certificate"].__setitem__(
+                "minimum_h_m2", 0.2
+            ),
+            lambda binding: binding["settled_field_query_certificate"][
+                "h_array_record"
+            ].__setitem__("sha256", "0" * 64),
+            lambda binding: binding["settled_field_query_certificate"].__setitem__(
+                "required_outer_boundary_clearance_m", 0.6
+            ),
+            lambda binding: binding["settled_field_query_certificate"][
+                "outer_boundary_clearance_array_record"
+            ].__setitem__("sha256", "0" * 64),
+            lambda binding: binding["settled_field_query_certificate"].__setitem__(
+                "all_outer_boundary_clearances_pass", False
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                fixture = self.fixture()
+                apparatus = fixture[0]
+                mutate(apparatus["shield_sampling_binding"])
+                self.refresh_binding_hash(apparatus)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(fixture)
+
+    def test_rehashed_outer_clearance_not_matching_world_points_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _compact_float64_array_record,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        fixture = self.fixture()
+        apparatus = fixture[0]
+        settled = apparatus["shield_sampling_binding"][
+            "settled_field_query_certificate"
+        ]
+        fabricated = self.np.asarray(
+            settled["outer_boundary_clearance_m"], dtype=self.np.float64
+        )
+        fabricated[0] += 0.1
+        settled["outer_boundary_clearance_m"] = fabricated.tolist()
+        settled["outer_boundary_clearance_array_record"] = (
+            _compact_float64_array_record(fabricated, self.np)
+        )
+        settled["minimum_outer_boundary_clearance_m"] = float(
+            self.np.min(fabricated)
+        )
+        self.refresh_binding_hash(apparatus)
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "runtime outer-boundary clearance"
+        ):
+            self.validate(fixture)
+
+
+class OscArmLinkRobotTreeQvelAuthorityTests(unittest.TestCase):
+    def fixture(self):
+        model = SimpleNamespace(
+            nv=10,
+            dof_jntid=list(range(10)),
+            jnt_bodyid=[1, 1, 1, 1, 1, 1, 1, 2, 3, 99],
+        )
+        resolved = SimpleNamespace(robot_body_ids=(1, 2, 3))
+        fake_mujoco = SimpleNamespace(
+            mjtObj=SimpleNamespace(mjOBJ_JOINT=0, mjOBJ_BODY=1),
+            mj_id2name=lambda unused_model, object_type, object_id: (
+                "joint_%d" % object_id
+                if object_type == 0
+                else "body_%d" % object_id
+            ),
+        )
+        return model, resolved, fake_mujoco
+
+    def bind(self, *, arm_qvel_indices=None, arm_actuator_ids=None):
+        from unittest import mock
+
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _robot_tree_qvel_binding,
+        )
+
+        model, resolved, fake_mujoco = self.fixture()
+        with mock.patch.dict("sys.modules", {"mujoco": fake_mujoco}):
+            return _robot_tree_qvel_binding(
+                model,
+                resolved,
+                arm_qvel_indices=(
+                    list(range(7))
+                    if arm_qvel_indices is None
+                    else arm_qvel_indices
+                ),
+                arm_actuator_ids=(
+                    list(range(7))
+                    if arm_actuator_ids is None
+                    else arm_actuator_ids
+                ),
+            )
+
+    def test_model_authority_selects_every_robot_dof_in_ascending_order(self):
+        binding = self.bind()
+        self.assertEqual(binding["robot_qvel_indices"], list(range(9)))
+        self.assertEqual(
+            [row["qvel_index"] for row in binding["robot_qvel_records"]],
+            list(range(9)),
+        )
+        self.assertNotIn(9, binding["robot_qvel_indices"])
+        self.assertEqual(binding["robot_qvel_records"][-1]["joint_body_id"], 3)
+
+    def test_omitted_duplicated_or_nonrobot_arm_dof_cannot_bind(self):
+        from scripts.run_poisson_osc_arm_link_canary import OscCanaryRunnerError
+
+        adversarial_arm_qvel = (
+            list(range(6)),
+            [0, 1, 2, 3, 4, 5, 5],
+            [0, 1, 2, 3, 4, 5, 9],
+        )
+        for arm_qvel_indices in adversarial_arm_qvel:
+            with self.subTest(arm_qvel_indices=arm_qvel_indices):
+                with self.assertRaises(OscCanaryRunnerError):
+                    self.bind(arm_qvel_indices=arm_qvel_indices)
+
+    def test_nonrobot_dof_is_excluded_and_serialized_reorder_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import _canonical_sha256
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        binding = self.bind()
+        self.assertNotIn(9, binding["robot_qvel_indices"])
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            self.skipTest("numpy is unavailable in the local structural environment")
+
+        binding_validator = OscArmLinkShieldSamplingBindingTests()
+        binding_validator.np = np
+        fixture = binding_validator.fixture()
+        apparatus = fixture[0]
+        serialized = apparatus["shield_sampling_binding"]
+        serialized["robot_qvel_indices"][-2:] = [8, 7]
+        serialized["robot_qvel_indices_sha256"] = _canonical_sha256(
+            serialized["robot_qvel_indices"]
+        )
+        apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
+            serialized
+        )
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "qvel ordering or hash"
+        ):
+            binding_validator.validate(fixture)
+
+        fixture = binding_validator.fixture()
+        apparatus = fixture[0]
+        serialized = apparatus["shield_sampling_binding"]
+        serialized["robot_qvel_indices"][-1] = 9
+        serialized["robot_qvel_records"][-1].update(
+            qvel_index=9,
+            joint_id=9,
+            joint_name="object_free_joint",
+            joint_body_id=99,
+            joint_body_name="object_body",
+        )
+        serialized["robot_qvel_indices_sha256"] = _canonical_sha256(
+            serialized["robot_qvel_indices"]
+        )
+        serialized["robot_qvel_records_sha256"] = _canonical_sha256(
+            serialized["robot_qvel_records"]
+        )
+        apparatus["shield_sampling_binding_sha256"] = _canonical_sha256(
+            serialized
+        )
+        with self.assertRaisesRegex(
+            OscCanaryValidationError, "qvel record differs"
+        ):
+            binding_validator.validate(fixture)
+
+
+class OscArmLinkMethodStopBindingTests(unittest.TestCase):
+    def fixture(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+        )
+
+        qvel_indices = list(range(9))
+        record = {
+            "schema_version": "vlsa_poisson_safety_method_stop.v2",
+            "source_action_index": 2,
+            "physics_substep_index": 3,
+            "physics_boundary_before_unexecuted_step": 53,
+            "unexecuted_post_integration_boundary": 54,
+            "reason": "candidate_clone_cbf_residual_stop_before_physics",
+            "sample_count": 3,
+            "sample_ledger_sha256": "a" * 64,
+            "robot_qvel_indices": qvel_indices,
+            "robot_qvel_indices_sha256": _canonical_sha256(qvel_indices),
+            "velocity_dimension": len(qvel_indices),
+            "candidate_minimum_cbf_residual_m2_per_s": -0.01,
+        }
+        record["record_payload_sha256"] = _canonical_sha256(record)
+        return record
+
+    def validate(self, record, *, terminal_kind="safety_method_stop_before_physics"):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+            _validate_safety_method_stop,
+        )
+
+        return _validate_safety_method_stop(
+            record,
+            terminal_kind=terminal_kind,
+            action_count=2,
+            physics_substep_count=53,
+            sample_count=3,
+            sample_ledger_sha256="a" * 64,
+            robot_qvel_indices=list(range(9)),
+            robot_qvel_indices_sha256=_canonical_sha256(list(range(9))),
+            velocity_dimension=9,
+        )
+
+    def test_method_stop_binds_unexecuted_candidate_boundary_and_full_scope(self):
+        self.assertTrue(self.validate(self.fixture()))
+
+    def test_method_stop_rejects_schema_hash_boundary_or_qvel_tampering(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _canonical_sha256,
+        )
+
+        def rehash(record):
+            record.pop("record_payload_sha256", None)
+            record["record_payload_sha256"] = _canonical_sha256(record)
+
+        mutations = (
+            lambda record: record.__setitem__("schema_version", "v1"),
+            lambda record: record.__setitem__(
+                "physics_boundary_before_unexecuted_step", 52
+            ),
+            lambda record: record.__setitem__("sample_ledger_sha256", "b" * 64),
+            lambda record: record.__setitem__(
+                "robot_qvel_indices", list(range(7)) + [8, 7]
+            ),
+            lambda record: record.__setitem__("velocity_dimension", 7),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                record = self.fixture()
+                mutate(record)
+                if record["robot_qvel_indices"] != list(range(9)):
+                    record["robot_qvel_indices_sha256"] = _canonical_sha256(
+                        record["robot_qvel_indices"]
+                    )
+                rehash(record)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(record)
+
+        stale_hash = self.fixture()
+        stale_hash["reason"] = "different_stop_before_physics"
+        with self.assertRaises(OscCanaryValidationError):
+            self.validate(stale_hash)
+
+    def test_nonmethod_terminal_rejects_stale_method_stop_record(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        with self.assertRaises(OscCanaryValidationError):
+            self.validate(self.fixture(), terminal_kind="native_task_success")
+
+
+class OscArmLinkLiveNonarmControlEvidenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import numpy as np
+        except ImportError as error:
+            raise unittest.SkipTest(
+                "NumPy is required for live non-arm control tests"
+            ) from error
+        cls.np = np
+
+    def fixture(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _canonical_sha256,
+            _compact_float64_array_record,
+        )
+
+        values = self.np.asarray([0.25, -0.5], dtype=self.np.float64)
+        record = _compact_float64_array_record(values, self.np)
+        indices = [7, 8]
+        return {
+            "live_nonarm_ctrl_count": 2,
+            "live_nonarm_ctrl_indices_sha256": _canonical_sha256(indices),
+            "live_nonarm_ctrl_before_array_record": copy.deepcopy(record),
+            "live_nonarm_ctrl_after_array_record": copy.deepcopy(record),
+            "live_nonarm_ctrl_byte_identical": True,
+        }
+
+    def validate(self, row):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
+            _validate_live_nonarm_ctrl_evidence,
+        )
+
+        return _validate_live_nonarm_ctrl_evidence(
+            row,
+            expected_nonarm_ctrl_indices=[7, 8],
+            expected_nonarm_ctrl_indices_sha256=_canonical_sha256([7, 8]),
+            np=self.np,
+        )
+
+    def test_live_nonarm_before_after_identity_passes(self):
+        self.assertIsNone(self.validate(self.fixture()))
+
+    def test_live_nonarm_changed_hash_flag_shape_or_authority_is_rejected(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _compact_float64_array_record,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+        )
+
+        mutations = (
+            lambda row: row.__setitem__(
+                "live_nonarm_ctrl_after_array_record",
+                _compact_float64_array_record(
+                    self.np.asarray([0.25, -0.4], dtype=self.np.float64),
+                    self.np,
+                ),
+            ),
+            lambda row: row.__setitem__("live_nonarm_ctrl_byte_identical", False),
+            lambda row: row.__setitem__(
+                "live_nonarm_ctrl_indices_sha256", "0" * 64
+            ),
+            lambda row: row.__setitem__("live_nonarm_ctrl_count", 1),
+            lambda row: row["live_nonarm_ctrl_after_array_record"].__setitem__(
+                "shape", [1]
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                row = self.fixture()
+                mutate(row)
+                with self.assertRaises(OscCanaryValidationError):
+                    self.validate(row)
+
+
 class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -858,25 +1609,34 @@ class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
 
     def trace_row(self):
         from scripts.run_poisson_osc_arm_link_canary import (
+            _canonical_sha256,
             _compact_float64_array_record,
         )
 
         np = self.np
         count = 3
+        robot_qvel_indices = list(range(9))
+        sample_ledger_sha256 = "a" * 64
         values = {
             "poisson_h_m2": np.asarray([0.1, 0.2, 0.3]),
-            "joint_gradient_rows_m2_per_rad": np.arange(21).reshape(3, 7),
+            "joint_gradient_rows_m2_per_rad": np.arange(27).reshape(3, 9),
             "actual_hdot_m2_per_s": np.asarray([-0.3, 0.0, 0.2]),
             "candidate_exact_clone_hdot_m2_per_s": np.asarray([-0.2, 0.1, 0.3]),
             "nominal_exact_clone_hdot_m2_per_s": np.asarray([-0.4, 0.0, 0.1]),
         }
         return {
             "constraint_trace": {
-                "schema_version": "vlsa_poisson_compact_constraint_trace.v1",
+                "schema_version": "vlsa_poisson_compact_constraint_trace.v2",
                 "array_hash_format": (
                     "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
                 ),
                 "sample_count": count,
+                "sample_ledger_sha256": sample_ledger_sha256,
+                "robot_qvel_indices": robot_qvel_indices,
+                "robot_qvel_indices_sha256": _canonical_sha256(
+                    robot_qvel_indices
+                ),
+                "velocity_dimension": len(robot_qvel_indices),
                 "arrays": {
                     name: _compact_float64_array_record(value, np)
                     for name, value in values.items()
@@ -886,17 +1646,25 @@ class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
 
     def test_compact_trace_accepts_hashes_shapes_and_minima(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            _canonical_sha256,
             _validate_compact_constraint_trace,
         )
 
         arrays = _validate_compact_constraint_trace(
-            self.trace_row(), expected_sample_count=3, np=self.np
+            self.trace_row(),
+            expected_sample_count=3,
+            expected_sample_ledger_sha256="a" * 64,
+            expected_robot_qvel_indices=list(range(9)),
+            expected_robot_qvel_indices_sha256=_canonical_sha256(list(range(9))),
+            expected_velocity_dimension=9,
+            np=self.np,
         )
-        self.assertEqual(arrays["joint_gradient_rows_m2_per_rad"]["shape"], [3, 7])
+        self.assertEqual(arrays["joint_gradient_rows_m2_per_rad"]["shape"], [3, 9])
 
     def test_compact_trace_rejects_hash_tampering(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
             OscCanaryValidationError,
+            _canonical_sha256,
             _validate_compact_constraint_trace,
         )
 
@@ -904,13 +1672,86 @@ class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
         row["constraint_trace"]["arrays"]["poisson_h_m2"]["sha256"] = "bad"
         with self.assertRaises(OscCanaryValidationError):
             _validate_compact_constraint_trace(
-                row, expected_sample_count=3, np=self.np
+                row,
+                expected_sample_count=3,
+                expected_sample_ledger_sha256="a" * 64,
+                expected_robot_qvel_indices=list(range(9)),
+                expected_robot_qvel_indices_sha256=_canonical_sha256(
+                    list(range(9))
+                ),
+                expected_velocity_dimension=9,
+                np=self.np,
+            )
+
+    def test_compact_trace_rejects_stale_schema_qvel_reorder_or_dimension(self):
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _canonical_sha256,
+            _validate_compact_constraint_trace,
+        )
+
+        def validate(row):
+            return _validate_compact_constraint_trace(
+                row,
+                expected_sample_count=3,
+                expected_sample_ledger_sha256="a" * 64,
+                expected_robot_qvel_indices=list(range(9)),
+                expected_robot_qvel_indices_sha256=_canonical_sha256(
+                    list(range(9))
+                ),
+                expected_velocity_dimension=9,
+                np=self.np,
+            )
+
+        stale = self.trace_row()
+        stale["constraint_trace"]["schema_version"] = (
+            "vlsa_poisson_compact_constraint_trace.v1"
+        )
+        with self.assertRaises(OscCanaryValidationError):
+            validate(stale)
+
+        reordered = self.trace_row()
+        reordered_indices = list(range(7)) + [8, 7]
+        reordered["constraint_trace"]["robot_qvel_indices"] = reordered_indices
+        reordered["constraint_trace"]["robot_qvel_indices_sha256"] = (
+            _canonical_sha256(reordered_indices)
+        )
+        with self.assertRaises(OscCanaryValidationError):
+            validate(reordered)
+
+        downgraded = self.trace_row()
+        downgraded["constraint_trace"]["velocity_dimension"] = 7
+        with self.assertRaises(OscCanaryValidationError):
+            validate(downgraded)
+
+    def test_compact_trace_rejects_link_only_gradient_width(self):
+        from scripts.run_poisson_osc_arm_link_canary import (
+            _compact_float64_array_record,
+        )
+        from scripts.validate_poisson_osc_arm_link_canary_artifact import (
+            OscCanaryValidationError,
+            _canonical_sha256,
+            _validate_compact_constraint_trace,
+        )
+
+        row = self.trace_row()
+        row["constraint_trace"]["arrays"][
+            "joint_gradient_rows_m2_per_rad"
+        ] = _compact_float64_array_record(self.np.zeros((3, 7)), self.np)
+        with self.assertRaises(OscCanaryValidationError):
+            _validate_compact_constraint_trace(
+                row,
+                expected_sample_count=3,
+                expected_sample_ledger_sha256="a" * 64,
+                expected_robot_qvel_indices=list(range(9)),
+                expected_robot_qvel_indices_sha256=_canonical_sha256(
+                    list(range(9))
+                ),
+                expected_velocity_dimension=9,
+                np=self.np,
             )
 
     def test_first_divergence_constraint_body_is_independently_attributed(self):
-        from scripts.run_poisson_osc_arm_link_canary import (
-            _minimum_constraint_attribution,
-        )
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
             _independent_constraint_attribution,
         )
@@ -934,19 +1775,28 @@ class OscArmLinkCompactConstraintTraceTests(unittest.TestCase):
                     "source": "collision_geom_surface",
                 }
 
-        samples = [Sample(0, "robot0_link5"), Sample(1, "robot0_link6")]
-        residuals = self.np.asarray([-0.2, -0.1], dtype=self.np.float64)
-        producer = _minimum_constraint_attribution(residuals, samples, self.np)
+        samples = [
+            Sample(0, "robot0_link5"),
+            Sample(1, "robot0_link6"),
+            Sample(2, "gripper0_leftfinger"),
+        ]
+        residuals = self.np.asarray([-0.2, -0.1, -0.3], dtype=self.np.float64)
         consumer = _independent_constraint_attribution(
             residuals, [sample.to_dict() for sample in samples], np=self.np
         )
-        self.assertEqual(producer, consumer)
         self.assertEqual(
-            producer["minimum_sample"]["body_name"], "robot0_link5"
+            consumer["schema_version"], "vlsa_poisson_constraint_attribution.v2"
         )
         self.assertEqual(
-            producer["negative_nominal_residual_body_names"],
-            ["robot0_link5", "robot0_link6"],
+            consumer["sample_scope"],
+            "all_authoritative_robot_collision_surfaces",
+        )
+        self.assertEqual(
+            consumer["minimum_sample"]["body_name"], "gripper0_leftfinger"
+        )
+        self.assertEqual(
+            consumer["negative_nominal_residual_body_names"],
+            ["gripper0_leftfinger", "robot0_link5", "robot0_link6"],
         )
 
 
@@ -989,6 +1839,8 @@ class OscArmLinkRegisteredContactScopeTests(unittest.TestCase):
             "source_phase": "post_integration_recomputed",
             "contact_index": 0,
             "physical_boundary": 0,
+            "executed_transition_start_boundary": 0,
+            "observed_state_boundary": 1,
             "source_action_index": 0,
             "physics_substep_index": 0,
             "geom1_id": 1,
@@ -1104,7 +1956,9 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             "arm_qvel_indexes": list(range(7)),
         }
         nominal = np.zeros(7)
-        nominal_next = np.zeros(7)
+        velocity_dimension = 9
+        robot_qvel_indices = list(range(velocity_dimension))
+        nominal_next = np.zeros(velocity_dimension)
         nominal_next[0] = -1.0
         command = np.zeros(7)
         command[0] = 0.5
@@ -1133,16 +1987,18 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                     "difference_formula": "(v_next(delta_1)-v_next(delta_0))/(delta_1-delta_0)",
                 }
             )
+        generic_sensitivity = np.vstack((np.eye(7), np.zeros((2, 7))))
         sensitivity = {
-            "torque_to_next_arm_qvel_sensitivity": np.eye(7).tolist(),
-            "full_epsilon_sensitivity": np.eye(7).tolist(),
-            "half_epsilon_sensitivity": np.eye(7).tolist(),
+            "output_qvel_indices": robot_qvel_indices,
+            "torque_to_next_output_qvel_sensitivity": generic_sensitivity.tolist(),
+            "full_epsilon_sensitivity": generic_sensitivity.tolist(),
+            "half_epsilon_sensitivity": generic_sensitivity.tolist(),
             "torque_epsilon_nm": [0.001] * 7,
             "maximum_epsilon_agreement_absolute_error": 0.0,
             "maximum_epsilon_agreement_scaled_error": 0.0,
             "agreement_atol": protocol["shield"]["sensitivity_agreement_atol"],
             "agreement_rtol": protocol["shield"]["sensitivity_agreement_rtol"],
-            "nominal_next_arm_qvel_rad_s": nominal_next.tolist(),
+            "nominal_next_output_qvel_rad_s": nominal_next.tolist(),
             "nominal_next_integration_state_sha256": "a" * 64,
             "nominal_next_time_seconds": 0.002,
             "non_arm_ctrl_preserved": True,
@@ -1153,6 +2009,7 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                 "arm_actuator_ids": list(range(7)),
                 "arm_qpos_indices": list(range(7)),
                 "arm_qvel_indices": list(range(7)),
+                "output_qvel_indices": robot_qvel_indices,
                 "arm_torque_lower_nm": [-10.0] * 7,
                 "arm_torque_upper_nm": [10.0] * 7,
                 "nominal_arm_torque_nm": nominal.tolist(),
@@ -1163,9 +2020,11 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             "sensitivity": sensitivity,
             "nominal_torque_nm": nominal.tolist(),
             "command_torque_nm": command.tolist(),
-            "nominal_predicted_next_qvel_rad_s": nominal_next.tolist(),
+            "nominal_predicted_next_shield_qvel_rad_s": nominal_next.tolist(),
             "poisson_h_m2": [0.1],
-            "joint_gradient_rows_m2_per_rad": [[1.0, 0, 0, 0, 0, 0, 0]],
+            "joint_gradient_rows_m2_per_rad": [
+                [1.0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ],
             "shield_diagnostics": {
                 "schema": "vlsa_poisson_post_osc_torque_shield.v1",
                 "constraint_equation": "a@(v_nom_next+S@delta_tau)+alpha*h>=margin",
@@ -1178,15 +2037,32 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                 "torque_lower_nm": [-10.0] * 7,
                 "torque_upper_nm": [10.0] * 7,
                 "nominal_next_qvel_rad_s": nominal_next.tolist(),
+                "velocity_dimension": velocity_dimension,
+                "torque_dimension": 7,
             },
         }
         torque_actuators = [
             {"actuator_id": index, "control_range": [-10.0, 10.0]}
             for index in range(7)
         ]
-        return row, protocol, controller, torque_actuators
+        return (
+            row,
+            protocol,
+            controller,
+            torque_actuators,
+            robot_qvel_indices,
+            velocity_dimension,
+        )
 
-    def validate(self, row, protocol, controller, torque_actuators):
+    def validate(
+        self,
+        row,
+        protocol,
+        controller,
+        torque_actuators,
+        robot_qvel_indices,
+        velocity_dimension,
+    ):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
             _validate_solved_qp_certificate,
         )
@@ -1196,12 +2072,14 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             protocol=protocol,
             controller=controller,
             torque_actuators=torque_actuators,
+            robot_qvel_indices=robot_qvel_indices,
+            velocity_dimension=velocity_dimension,
             np=self.np,
         )
 
     def test_exact_minimum_norm_certificate_passes(self):
-        row, protocol, controller, torque_actuators = self.certificate()
-        audit = self.validate(row, protocol, controller, torque_actuators)
+        values = self.certificate()
+        audit = self.validate(*values)
         self.assertAlmostEqual(audit["correction_l2_nm"], 0.5)
 
     def test_feasible_but_nonminimum_command_is_rejected(self):
@@ -1209,10 +2087,11 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
             OscCanaryValidationError,
         )
 
-        row, protocol, controller, torque_actuators = self.certificate()
+        values = self.certificate()
+        row = values[0]
         row["command_torque_nm"][0] = 0.6
         with self.assertRaises(OscCanaryValidationError):
-            self.validate(row, protocol, controller, torque_actuators)
+            self.validate(*values)
 
     def test_mutated_stencil_or_sensitivity_is_rejected(self):
         from scripts.validate_poisson_osc_arm_link_canary_artifact import (
@@ -1221,7 +2100,8 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
 
         for mutation in ("stencil", "matrix"):
             with self.subTest(mutation=mutation):
-                row, protocol, controller, torque_actuators = self.certificate()
+                values = self.certificate()
+                row = values[0]
                 if mutation == "stencil":
                     row["sensitivity"]["finite_difference_column_stencils"][0][
                         "full_resolution"
@@ -1229,7 +2109,7 @@ class OscArmLinkIndependentQpMutationTests(unittest.TestCase):
                 else:
                     row["sensitivity"]["half_epsilon_sensitivity"][0][0] = 2.0
                 with self.assertRaises(OscCanaryValidationError):
-                    self.validate(row, protocol, controller, torque_actuators)
+                    self.validate(*values)
 
 
 if __name__ == "__main__":

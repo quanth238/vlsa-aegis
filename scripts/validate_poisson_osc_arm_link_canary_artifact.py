@@ -119,6 +119,495 @@ def _validated_sample_rows(
     return counts, len(rows)
 
 
+def _strict_integer_list(value: Any, label: str, *, nonempty: bool = True) -> List[int]:
+    """Parse an ordered JSON integer ledger without accepting bools or coercions."""
+
+    _require(isinstance(value, list), "%s must be a JSON list" % label)
+    output: List[int] = []
+    for index, item in enumerate(value):
+        _require(
+            isinstance(item, int) and not isinstance(item, bool) and item >= 0,
+            "%s row %d is not a nonnegative integer" % (label, index),
+        )
+        output.append(int(item))
+    _require(not nonempty or bool(output), "%s is empty" % label)
+    return output
+
+
+def _validate_compact_array_identity(
+    evidence: Any,
+    *,
+    expected_shape: Sequence[int],
+    label: str,
+    np: Any,
+    raw_array: Any = None,
+) -> None:
+    """Validate one compact float64 record, optionally against raw values."""
+
+    _require(isinstance(evidence, Mapping), "%s record is absent" % label)
+    _require(
+        set(evidence) == {"dtype", "shape", "sha256", "minimum"}
+        and evidence.get("dtype") == np.dtype(np.float64).str
+        and evidence.get("shape") == [int(value) for value in expected_shape]
+        and bool(re.fullmatch(r"[0-9a-f]{64}", str(evidence.get("sha256", ""))))
+        and not isinstance(evidence.get("minimum"), bool)
+        and isinstance(evidence.get("minimum"), (int, float))
+        and math.isfinite(float(evidence.get("minimum"))),
+        "%s record differs" % label,
+    )
+    if raw_array is not None:
+        array = np.asarray(raw_array, dtype=np.float64)
+        _require(
+            array.shape == tuple(int(value) for value in expected_shape)
+            and np.all(np.isfinite(array))
+            and evidence.get("sha256") == _float64_sha256(array, np),
+            "%s raw-array identity differs" % label,
+        )
+        _exact_float(evidence.get("minimum"), float(np.min(array)), label + " minimum")
+
+
+def _validate_shield_sampling_binding(
+    *,
+    apparatus: Mapping[str, Any],
+    resolved_geometry: Mapping[str, Any],
+    controller: Mapping[str, Any],
+    runtime_protocol: Mapping[str, Any],
+    np: Any,
+) -> Dict[str, Any]:
+    """Bind v2 shield constraints to all robot samples and robot-tree qvels."""
+
+    full = apparatus.get("full_robot_sampling")
+    binding = apparatus.get("shield_sampling_binding")
+    _require(isinstance(full, Mapping), "full-robot sampling evidence is absent")
+    _require(isinstance(binding, Mapping), "full-robot shield sampling binding is absent")
+    _require(
+        apparatus.get("shield_sampling_binding_sha256")
+        == _canonical_sha256(binding),
+        "full-robot shield sampling binding hash differs",
+    )
+    expected_fields = {
+        "schema_version",
+        "scope",
+        "sample_source",
+        "sample_count",
+        "sample_ledger_sha256",
+        "resolved_robot_geom_ids",
+        "resolved_robot_geom_ids_sha256",
+        "robot_qvel_selection_rule",
+        "robot_qvel_indices",
+        "robot_qvel_indices_sha256",
+        "robot_qvel_records",
+        "robot_qvel_records_sha256",
+        "velocity_dimension",
+        "arm_qvel_indices",
+        "arm_qvel_indices_included",
+        "decision_arm_actuator_ids",
+        "decision_dimension",
+        "nonarm_robot_qvel_included",
+        "nonarm_ctrl_policy",
+        "model_actuator_count",
+        "nonarm_ctrl_selection_rule",
+        "nonarm_ctrl_indices",
+        "nonarm_ctrl_indices_sha256",
+        "nonarm_ctrl_count",
+        "live_nonarm_ctrl_array_hash_format",
+        "field_seed_sample_scope",
+        "settled_field_query_certificate",
+        "settled_zero_jacobian_sample_count",
+        "settled_nonzero_jacobian_sample_count",
+    }
+    _require(
+        set(binding) == expected_fields
+        and binding.get("schema_version")
+        == "vlsa_poisson_full_robot_shield_sampling_binding.v1"
+        and binding.get("scope")
+        == "all_authoritative_robot_collision_surfaces_vs_selected_obstacle"
+        and binding.get("sample_source") == "apparatus.full_robot_sampling.samples"
+        and binding.get("robot_qvel_selection_rule")
+        == "ascending_dof_index_whose_dof_joint_body_is_in_resolved_robot_body_ids"
+        and binding.get("nonarm_ctrl_policy")
+        == "unchanged_byte_exact_in_all_cloned_and_live_transitions"
+        and binding.get("nonarm_ctrl_selection_rule")
+        == "ascending_actuator_index_excluding_decision_arm_actuator_ids"
+        and binding.get("live_nonarm_ctrl_array_hash_format")
+        == "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
+        and binding.get("field_seed_sample_scope")
+        == "link56_only_not_shield_scope",
+        "full-robot shield sampling binding schema or semantics differ",
+    )
+
+    samples = full.get("samples")
+    _require(isinstance(samples, list) and samples, "full-robot shield samples are absent")
+    sample_count = len(samples)
+    sample_hash = _canonical_sha256(samples)
+    _require(
+        binding.get("sample_count") == sample_count
+        and full.get("sample_count") == sample_count
+        and binding.get("sample_ledger_sha256") == sample_hash
+        and full.get("sample_ledger_sha256") == sample_hash,
+        "full-robot shield sample count or ledger hash differs",
+    )
+
+    resolved_geom_ids = _strict_integer_list(
+        resolved_geometry.get("robot_geom_ids"), "resolved robot geom IDs"
+    )
+    bound_geom_ids = _strict_integer_list(
+        binding.get("resolved_robot_geom_ids"), "bound robot geom IDs"
+    )
+    _require(
+        bound_geom_ids == resolved_geom_ids
+        and len(set(bound_geom_ids)) == len(bound_geom_ids)
+        and binding.get("resolved_robot_geom_ids_sha256")
+        == _canonical_sha256(bound_geom_ids),
+        "resolved robot geom ordering or hash differs",
+    )
+    bound_geom_id_set = set(bound_geom_ids)
+    sampled_geom_ids = []
+    sampled_body_ids = []
+    expected_sample_fields = {
+        "sample_id",
+        "body_id",
+        "body_name",
+        "geom_id",
+        "geom_name",
+        "point_body_local_m",
+        "source",
+    }
+    for index, sample in enumerate(samples):
+        _require(isinstance(sample, Mapping), "full-robot sample row is invalid")
+        sample_id = sample.get("sample_id")
+        geom_id = sample.get("geom_id")
+        body_id = sample.get("body_id")
+        point = sample.get("point_body_local_m")
+        _require(
+            set(sample) == expected_sample_fields
+            and isinstance(sample_id, int)
+            and not isinstance(sample_id, bool)
+            and sample_id == index
+            and isinstance(geom_id, int)
+            and not isinstance(geom_id, bool)
+            and geom_id in bound_geom_id_set
+            and isinstance(sample.get("geom_name"), str)
+            and bool(sample.get("geom_name"))
+            and isinstance(sample.get("body_name"), str)
+            and bool(sample.get("body_name"))
+            and sample.get("source") == "collision_geom_surface"
+            and isinstance(point, list)
+            and len(point) == 3
+            and all(
+                not isinstance(value, bool)
+                and isinstance(value, (int, float))
+                and math.isfinite(float(value))
+                for value in point
+            ),
+            "full-robot sample geom differs at row %d" % index,
+        )
+        sampled_geom_ids.append(int(geom_id))
+        _require(
+            isinstance(body_id, int) and not isinstance(body_id, bool),
+            "full-robot sample body differs at row %d" % index,
+        )
+        sampled_body_ids.append(int(body_id))
+    geom_order = {geom_id: index for index, geom_id in enumerate(bound_geom_ids)}
+    _require(
+        set(sampled_geom_ids) == bound_geom_id_set,
+        "full-robot shield samples omit a resolved robot geom",
+    )
+    _require(
+        [geom_order[geom_id] for geom_id in sampled_geom_ids]
+        == sorted(geom_order[geom_id] for geom_id in sampled_geom_ids),
+        "full-robot shield sample rows differ from resolved-geom order",
+    )
+
+    robot_body_ids = _strict_integer_list(
+        resolved_geometry.get("robot_body_ids"), "resolved robot body IDs"
+    )
+    robot_body_names = resolved_geometry.get("robot_body_names")
+    _require(
+        isinstance(robot_body_names, list)
+        and len(robot_body_names) == len(robot_body_ids)
+        and all(isinstance(value, str) and value for value in robot_body_names),
+        "resolved robot body names differ",
+    )
+    body_name_by_id = dict(zip(robot_body_ids, robot_body_names))
+    for index, (body_id, sample) in enumerate(zip(sampled_body_ids, samples)):
+        _require(
+            body_id in body_name_by_id
+            and sample.get("body_name") == body_name_by_id[body_id],
+            "full-robot sample body identity differs at row %d" % index,
+        )
+
+    qvel_indices = _strict_integer_list(
+        binding.get("robot_qvel_indices"), "robot-tree qvel indices"
+    )
+    _require(
+        qvel_indices == sorted(qvel_indices)
+        and len(set(qvel_indices)) == len(qvel_indices)
+        and binding.get("robot_qvel_indices_sha256")
+        == _canonical_sha256(qvel_indices),
+        "robot-tree qvel ordering or hash differs",
+    )
+    qvel_records = binding.get("robot_qvel_records")
+    _require(
+        isinstance(qvel_records, list)
+        and len(qvel_records) == len(qvel_indices)
+        and binding.get("robot_qvel_records_sha256")
+        == _canonical_sha256(qvel_records),
+        "robot-tree qvel record count or hash differs",
+    )
+    expected_record_fields = {
+        "qvel_index",
+        "joint_id",
+        "joint_name",
+        "joint_body_id",
+        "joint_body_name",
+    }
+    for index, (qvel_index, record) in enumerate(zip(qvel_indices, qvel_records)):
+        _require(
+            isinstance(record, Mapping)
+            and set(record) == expected_record_fields
+            and record.get("qvel_index") == qvel_index
+            and isinstance(record.get("joint_id"), int)
+            and not isinstance(record.get("joint_id"), bool)
+            and int(record["joint_id"]) >= 0
+            and isinstance(record.get("joint_name"), str)
+            and bool(record.get("joint_name"))
+            and isinstance(record.get("joint_body_id"), int)
+            and not isinstance(record.get("joint_body_id"), bool)
+            and record.get("joint_body_id") in body_name_by_id
+            and record.get("joint_body_name")
+            == body_name_by_id.get(record.get("joint_body_id")),
+            "robot-tree qvel record differs at row %d" % index,
+        )
+
+    velocity_dimension = len(qvel_indices)
+    arm_qvel_indices = _strict_integer_list(
+        binding.get("arm_qvel_indices"), "bound arm qvel indices"
+    )
+    controller_arm_qvel = _strict_integer_list(
+        controller.get("arm_qvel_indexes"), "controller arm qvel indices"
+    )
+    decision_actuators = _strict_integer_list(
+        binding.get("decision_arm_actuator_ids"), "decision arm actuator IDs"
+    )
+    controller_actuators = _strict_integer_list(
+        controller.get("arm_actuator_indexes"), "controller arm actuator IDs"
+    )
+    model_actuator_count = binding.get("model_actuator_count")
+    _require(
+        isinstance(model_actuator_count, int)
+        and not isinstance(model_actuator_count, bool)
+        and model_actuator_count > 7,
+        "producer model actuator-count authority differs",
+    )
+    nonarm_ctrl_indices = _strict_integer_list(
+        binding.get("nonarm_ctrl_indices"), "non-arm control indices"
+    )
+    expected_nonarm_ctrl_indices = [
+        index
+        for index in range(int(model_actuator_count))
+        if index not in set(decision_actuators)
+    ]
+    _require(
+        binding.get("velocity_dimension") == velocity_dimension
+        and velocity_dimension > 7
+        and arm_qvel_indices == controller_arm_qvel
+        and len(arm_qvel_indices) == 7
+        and len(set(arm_qvel_indices)) == 7
+        and set(arm_qvel_indices).issubset(qvel_indices)
+        and binding.get("arm_qvel_indices_included") is True
+        and decision_actuators == controller_actuators
+        and len(decision_actuators) == 7
+        and len(set(decision_actuators)) == 7
+        and all(
+            0 <= actuator_id < int(model_actuator_count)
+            for actuator_id in decision_actuators
+        )
+        and binding.get("decision_dimension") == 7
+        and binding.get("nonarm_robot_qvel_included") is True
+        and bool(set(qvel_indices) - set(arm_qvel_indices)),
+        "full-robot velocity or seven-arm decision binding differs",
+    )
+    _require(
+        nonarm_ctrl_indices == expected_nonarm_ctrl_indices
+        and binding.get("nonarm_ctrl_count") == len(nonarm_ctrl_indices)
+        and binding.get("nonarm_ctrl_indices_sha256")
+        == _canonical_sha256(nonarm_ctrl_indices),
+        "producer non-arm control complement authority differs",
+    )
+
+    settled = binding.get("settled_field_query_certificate")
+    _require(
+        isinstance(settled, Mapping)
+        and set(settled)
+        == {
+            "schema_version",
+            "sample_count",
+            "sample_ledger_sha256",
+            "all_queries_valid",
+            "all_h_strictly_positive",
+            "minimum_h_m2",
+            "h_m2",
+            "h_array_record",
+            "world_points_m",
+            "world_points_array_record",
+            "outer_boundary_clearance_m",
+            "outer_boundary_clearance_array_record",
+            "required_outer_boundary_clearance_m",
+            "minimum_outer_boundary_clearance_m",
+            "outer_boundary_clearance_comparison_tolerance_m",
+            "all_outer_boundary_clearances_pass",
+        }
+        and settled.get("schema_version")
+        == "vlsa_poisson_full_robot_settled_field_query.v1"
+        and settled.get("sample_count") == sample_count
+        and settled.get("sample_ledger_sha256") == sample_hash
+        and settled.get("all_queries_valid") is True
+        and settled.get("all_h_strictly_positive") is True,
+        "settled full-robot field-query certificate differs",
+    )
+    h_values = settled.get("h_m2")
+    _require(
+        isinstance(h_values, list)
+        and len(h_values) == sample_count
+        and all(
+            isinstance(value, float) and math.isfinite(value) and value > 0.0
+            for value in h_values
+        ),
+        "settled full-robot h ledger is invalid",
+    )
+    h_array = np.asarray(h_values, dtype=np.float64)
+    _exact_float(
+        settled.get("minimum_h_m2"),
+        float(np.min(h_array)),
+        "settled full-robot minimum h",
+    )
+    _validate_compact_array_identity(
+        settled.get("h_array_record"),
+        expected_shape=(sample_count,),
+        label="settled full-robot h",
+        np=np,
+        raw_array=h_array,
+    )
+    _validate_compact_array_identity(
+        settled.get("world_points_array_record"),
+        expected_shape=(sample_count, 3),
+        label="settled full-robot world points",
+        np=np,
+        raw_array=settled.get("world_points_m"),
+    )
+    world_points = np.asarray(settled.get("world_points_m"), dtype=np.float64)
+    outer_clearance_values = settled.get("outer_boundary_clearance_m")
+    _require(
+        isinstance(outer_clearance_values, list)
+        and len(outer_clearance_values) == sample_count
+        and all(
+            isinstance(value, float) and math.isfinite(value)
+            for value in outer_clearance_values
+        ),
+        "settled full-robot outer-clearance ledger is invalid",
+    )
+    outer_clearance = np.asarray(outer_clearance_values, dtype=np.float64)
+    _validate_compact_array_identity(
+        settled.get("outer_boundary_clearance_array_record"),
+        expected_shape=(sample_count,),
+        label="settled full-robot outer clearance",
+        np=np,
+        raw_array=outer_clearance,
+    )
+    workspace = runtime_protocol.get("workspace")
+    occupancy = runtime_protocol.get("occupancy")
+    _require(
+        isinstance(workspace, Mapping) and isinstance(occupancy, Mapping),
+        "runtime workspace/occupancy authority is absent",
+    )
+    workspace_lower = np.asarray(workspace.get("minimum_m"), dtype=np.float64)
+    workspace_upper = np.asarray(workspace.get("maximum_m"), dtype=np.float64)
+    _require(
+        workspace_lower.shape == workspace_upper.shape == (3,)
+        and np.all(np.isfinite(workspace_lower))
+        and np.all(np.isfinite(workspace_upper))
+        and np.all(workspace_upper > workspace_lower),
+        "runtime workspace authority differs",
+    )
+    direct_outer_clearance = np.min(
+        np.concatenate(
+            (
+                world_points - workspace_lower[None, :],
+                workspace_upper[None, :] - world_points,
+            ),
+            axis=1,
+        ),
+        axis=1,
+    )
+    required_outer_clearance = float(
+        occupancy.get("outer_boundary_clearance_m")
+    )
+    workspace_scale = max(
+        1.0,
+        float(np.max(np.abs(workspace_lower))),
+        float(np.max(np.abs(workspace_upper))),
+    )
+    comparison_tolerance = (
+        64.0 * float(np.finfo(np.float64).eps) * workspace_scale
+    )
+    _exact_float(
+        settled.get("required_outer_boundary_clearance_m"),
+        required_outer_clearance,
+        "settled required outer clearance",
+    )
+    _exact_float(
+        settled.get("outer_boundary_clearance_comparison_tolerance_m"),
+        comparison_tolerance,
+        "settled outer-clearance comparison tolerance",
+    )
+    _exact_float(
+        settled.get("minimum_outer_boundary_clearance_m"),
+        float(np.min(outer_clearance)),
+        "settled minimum outer clearance",
+    )
+    _require(
+        np.allclose(
+            outer_clearance,
+            direct_outer_clearance,
+            rtol=0.0,
+            atol=1.0e-12,
+        )
+        and settled.get("all_outer_boundary_clearances_pass")
+        is bool(
+            np.all(
+                outer_clearance + comparison_tolerance
+                >= required_outer_clearance
+            )
+        )
+        and settled.get("all_outer_boundary_clearances_pass") is True,
+        "settled full-robot samples violate runtime outer-boundary clearance",
+    )
+    zero_count = binding.get("settled_zero_jacobian_sample_count")
+    nonzero_count = binding.get("settled_nonzero_jacobian_sample_count")
+    _require(
+        isinstance(zero_count, int)
+        and not isinstance(zero_count, bool)
+        and zero_count >= 0
+        and isinstance(nonzero_count, int)
+        and not isinstance(nonzero_count, bool)
+        and nonzero_count > 0
+        and zero_count + nonzero_count == sample_count,
+        "settled full-robot Jacobian row counts differ",
+    )
+    return {
+        "samples": samples,
+        "sample_count": sample_count,
+        "sample_ledger_sha256": sample_hash,
+        "robot_qvel_indices": qvel_indices,
+        "velocity_dimension": velocity_dimension,
+        "arm_qvel_indices": arm_qvel_indices,
+        "decision_arm_actuator_ids": decision_actuators,
+        "nonarm_ctrl_indices": nonarm_ctrl_indices,
+        "nonarm_ctrl_indices_sha256": _canonical_sha256(nonarm_ctrl_indices),
+    }
+
+
 def _validate_field_sample_static_evidence(
     *,
     apparatus: Mapping[str, Any],
@@ -355,6 +844,8 @@ def _validate_solved_qp_certificate(
     protocol: Mapping[str, Any],
     controller: Mapping[str, Any],
     torque_actuators: Sequence[Mapping[str, Any]],
+    robot_qvel_indices: Sequence[int],
+    velocity_dimension: int,
     np: Any,
 ) -> Dict[str, float]:
     """Independently reconstruct the solved torque QP and its KKT optimum."""
@@ -373,11 +864,11 @@ def _validate_solved_qp_certificate(
     full = np.asarray(sensitivity.get("full_epsilon_sensitivity"), dtype=np.float64)
     half = np.asarray(sensitivity.get("half_epsilon_sensitivity"), dtype=np.float64)
     selected = np.asarray(
-        sensitivity.get("torque_to_next_arm_qvel_sensitivity"), dtype=np.float64
+        sensitivity.get("torque_to_next_output_qvel_sensitivity"), dtype=np.float64
     )
     epsilon = np.asarray(sensitivity.get("torque_epsilon_nm"), dtype=np.float64)
     _require(
-        full.shape == half.shape == selected.shape == (7, 7)
+        full.shape == half.shape == selected.shape == (int(velocity_dimension), 7)
         and epsilon.shape == (7,)
         and np.all(np.isfinite(full))
         and np.all(np.isfinite(half))
@@ -423,7 +914,7 @@ def _validate_solved_qp_certificate(
     command_torque = np.asarray(row.get("command_torque_nm"), dtype=np.float64)
     delta = command_torque - nominal_torque
     nominal_next = np.asarray(
-        row.get("nominal_predicted_next_qvel_rad_s"), dtype=np.float64
+        row.get("nominal_predicted_next_shield_qvel_rad_s"), dtype=np.float64
     )
     range_by_actuator = {
         int(actuator["actuator_id"]): actuator["control_range"]
@@ -438,7 +929,8 @@ def _validate_solved_qp_certificate(
     )
     _require(
         lower_torque.shape == upper_torque.shape == nominal_torque.shape
-        == command_torque.shape == nominal_next.shape == (7,)
+        == command_torque.shape == (7,)
+        and nominal_next.shape == (int(velocity_dimension),)
         and np.all(np.isfinite(lower_torque))
         and np.all(np.isfinite(upper_torque))
         and expected_control_ranges.shape == (7, 2)
@@ -449,15 +941,22 @@ def _validate_solved_qp_certificate(
             nominal_torque,
         )
         and np.array_equal(
-            np.asarray(sensitivity.get("nominal_next_arm_qvel_rad_s"), dtype=np.float64),
+            np.asarray(
+                sensitivity.get("nominal_next_output_qvel_rad_s"),
+                dtype=np.float64,
+            ),
             nominal_next,
         )
+        and tuple(sensitivity.get("output_qvel_indices", ()))
+        == tuple(robot_qvel_indices)
         and tuple(snapshot.get("arm_actuator_ids", ()))
         == tuple(controller.get("arm_actuator_indexes", ()))
         and tuple(snapshot.get("arm_qpos_indices", ()))
         == tuple(controller.get("arm_qpos_indexes", ()))
         and tuple(snapshot.get("arm_qvel_indices", ()))
         == tuple(controller.get("arm_qvel_indexes", ()))
+        and tuple(snapshot.get("output_qvel_indices", ()))
+        == tuple(robot_qvel_indices)
         and float(snapshot.get("timestep_seconds")) == 0.002
         and sensitivity.get("non_arm_ctrl_preserved") is True
         and math.isfinite(float(sensitivity.get("nominal_next_time_seconds")))
@@ -558,6 +1057,8 @@ def _validate_solved_qp_certificate(
         and diagnostics.get("constraint_equation")
         == "a@(v_nom_next+S@delta_tau)+alpha*h>=margin"
         and diagnostics.get("sensitivity_already_includes_dt_and_contact_effects") is True
+        and diagnostics.get("velocity_dimension") == int(velocity_dimension)
+        and diagnostics.get("torque_dimension") == 7
         and float(diagnostics.get("dt_seconds")) == 0.002
         and float(diagnostics.get("alpha")) == float(protocol["shield"]["alpha_gain_per_s"])
         and float(diagnostics.get("margin")) == float(protocol["shield"]["margin_m2_per_s"])
@@ -577,7 +1078,7 @@ def _validate_solved_qp_certificate(
     _require(
         h.ndim == 1
         and h.size > 0
-        and gradient_rows.shape == (h.size, 7),
+        and gradient_rows.shape == (h.size, int(velocity_dimension)),
         "solved CBF rows are invalid",
     )
     gain_rows = gradient_rows @ selected
@@ -693,7 +1194,9 @@ def _motion(rows: Sequence[Mapping[str, Any]], first: Any) -> Dict[str, float]:
     selected = [row for row in rows if int(row["physical_boundary"]) >= int(first)]
     if not selected:
         return {"joint": 0.0, "eef": 0.0, "zero": 1.0}
-    joint = sum(float(row["measured_qvel_l2_rad_s"]) * 0.002 for row in selected)
+    joint = sum(
+        float(row["measured_arm_qvel_l2_rad_s"]) * 0.002 for row in selected
+    )
     positions = [np.asarray(row["eef_position_world_m"], dtype=np.float64) for row in selected]
     eef = sum(float(np.linalg.norm(right - left)) for left, right in zip(positions, positions[1:]))
     zero = sum(float(row["torque_correction_l2_nm"]) < 1e-12 for row in selected) / len(selected)
@@ -1010,24 +1513,59 @@ def _validate_paper_car_endpoint_row(
 
 
 def _validate_compact_constraint_trace(
-    row: Mapping[str, Any], *, expected_sample_count: int, np: Any
+    row: Mapping[str, Any],
+    *,
+    expected_sample_count: int,
+    expected_sample_ledger_sha256: str,
+    expected_robot_qvel_indices: Sequence[int],
+    expected_robot_qvel_indices_sha256: str,
+    expected_velocity_dimension: int,
+    np: Any,
 ) -> Mapping[str, Mapping[str, Any]]:
     """Validate the bounded per-substep ledger without inventing raw arrays."""
 
     trace = row.get("constraint_trace")
     _require(isinstance(trace, Mapping), "compact constraint trace is absent")
     _require(
+        set(trace)
+        == {
+            "schema_version",
+            "array_hash_format",
+            "sample_count",
+            "sample_ledger_sha256",
+            "robot_qvel_indices",
+            "robot_qvel_indices_sha256",
+            "velocity_dimension",
+            "arrays",
+        }
+        and
         trace.get("schema_version")
-        == "vlsa_poisson_compact_constraint_trace.v1"
+        == "vlsa_poisson_compact_constraint_trace.v2"
         and trace.get("array_hash_format")
         == "sha256_vlsa-table1-array-v1_header_and_c_order_float64_bytes"
         and int(trace.get("sample_count", -1)) == int(expected_sample_count),
         "compact constraint trace identity differs",
     )
+    trace_qvel_indices = _strict_integer_list(
+        trace.get("robot_qvel_indices"), "compact robot qvel indices"
+    )
+    _require(
+        trace.get("sample_ledger_sha256") == expected_sample_ledger_sha256
+        and trace_qvel_indices == [int(value) for value in expected_robot_qvel_indices]
+        and trace.get("robot_qvel_indices_sha256")
+        == expected_robot_qvel_indices_sha256
+        == _canonical_sha256(trace_qvel_indices)
+        and trace.get("velocity_dimension") == int(expected_velocity_dimension)
+        == len(trace_qvel_indices),
+        "compact constraint sample/qvel binding differs",
+    )
     arrays = trace.get("arrays")
     expected_shapes = {
         "poisson_h_m2": [int(expected_sample_count)],
-        "joint_gradient_rows_m2_per_rad": [int(expected_sample_count), 7],
+        "joint_gradient_rows_m2_per_rad": [
+            int(expected_sample_count),
+            int(expected_velocity_dimension),
+        ],
         "actual_hdot_m2_per_s": [int(expected_sample_count)],
         "candidate_exact_clone_hdot_m2_per_s": [int(expected_sample_count)],
         "nominal_exact_clone_hdot_m2_per_s": [int(expected_sample_count)],
@@ -1054,6 +1592,44 @@ def _validate_compact_constraint_trace(
         "compact Poisson minimum is nonpositive",
     )
     return arrays
+
+
+def _validate_live_nonarm_ctrl_evidence(
+    row: Mapping[str, Any],
+    *,
+    expected_nonarm_ctrl_indices: Sequence[int],
+    expected_nonarm_ctrl_indices_sha256: str,
+    np: Any,
+) -> None:
+    """Validate live, not cloned, non-arm controls around one MuJoCo step."""
+
+    count = len(expected_nonarm_ctrl_indices)
+    _require(count > 0, "non-arm live-control authority is empty")
+    before = row.get("live_nonarm_ctrl_before_array_record")
+    after = row.get("live_nonarm_ctrl_after_array_record")
+    _validate_compact_array_identity(
+        before,
+        expected_shape=(count,),
+        label="live non-arm ctrl before",
+        np=np,
+    )
+    _validate_compact_array_identity(
+        after,
+        expected_shape=(count,),
+        label="live non-arm ctrl after",
+        np=np,
+    )
+    _require(
+        row.get("live_nonarm_ctrl_count") == count
+        and row.get("live_nonarm_ctrl_indices_sha256")
+        == expected_nonarm_ctrl_indices_sha256
+        == _canonical_sha256(
+            [int(value) for value in expected_nonarm_ctrl_indices]
+        )
+        and before == after
+        and row.get("live_nonarm_ctrl_byte_identical") is True,
+        "live non-arm controls changed across the executed transition",
+    )
 
 
 def _validate_compact_shield_diagnostics(
@@ -1120,17 +1696,17 @@ def _validate_compact_shield_diagnostics(
 
 def _independent_constraint_attribution(
     nominal_residuals: Any,
-    protected_samples: Sequence[Mapping[str, Any]],
+    shield_samples: Sequence[Mapping[str, Any]],
     *,
     np: Any,
 ) -> Dict[str, Any]:
-    """Reconstruct which protected-link samples made the nominal step unsafe."""
+    """Reconstruct which full-robot samples made the nominal step unsafe."""
 
     residuals = np.asarray(nominal_residuals, dtype=np.float64)
     _require(
         residuals.ndim == 1
         and residuals.size > 0
-        and residuals.size == len(protected_samples)
+        and residuals.size == len(shield_samples)
         and np.all(np.isfinite(residuals)),
         "constraint attribution inputs differ",
     )
@@ -1140,23 +1716,24 @@ def _independent_constraint_attribution(
     near_indices = np.flatnonzero(np.abs(residuals - minimum) <= tolerance)
     negative_indices = np.flatnonzero(residuals < 0.0)
     return {
-        "schema_version": "vlsa_poisson_constraint_attribution.v1",
+        "schema_version": "vlsa_poisson_constraint_attribution.v2",
+        "sample_scope": "all_authoritative_robot_collision_surfaces",
         "selection_rule": "first_np_argmin_of_nominal_exact_clone_cbf_residual",
         "minimum_nominal_residual_m2_per_s": minimum,
         "minimum_sample_index": minimum_index,
-        "minimum_sample": dict(protected_samples[minimum_index]),
+        "minimum_sample": dict(shield_samples[minimum_index]),
         "near_minimum_absolute_tolerance_m2_per_s": tolerance,
         "near_minimum_sample_indices": [int(value) for value in near_indices],
         "near_minimum_body_names": sorted(
             {
-                str(protected_samples[int(value)]["body_name"])
+                str(shield_samples[int(value)]["body_name"])
                 for value in near_indices
             }
         ),
         "negative_nominal_residual_sample_count": int(negative_indices.size),
         "negative_nominal_residual_body_names": sorted(
             {
-                str(protected_samples[int(value)]["body_name"])
+                str(shield_samples[int(value)]["body_name"])
                 for value in negative_indices
             }
         ),
@@ -1171,7 +1748,11 @@ def _validate_first_divergence_full_certificate(
     protocol: Mapping[str, Any],
     controller: Mapping[str, Any],
     torque_actuators: Sequence[Mapping[str, Any]],
-    protected_samples: Sequence[Mapping[str, Any]],
+    shield_samples: Sequence[Mapping[str, Any]],
+    sample_ledger_sha256: str,
+    robot_qvel_indices: Sequence[int],
+    robot_qvel_indices_sha256: str,
+    velocity_dimension: int,
     np: Any,
 ) -> Dict[str, Any]:
     """Reconstruct raw residuals and the QP only for the causal divergence."""
@@ -1180,11 +1761,17 @@ def _validate_first_divergence_full_certificate(
     _require(isinstance(certificate, Mapping), "first divergence certificate is absent")
     _require(
         certificate.get("schema_version")
-        == "vlsa_poisson_first_divergence_full_qp_certificate.v1"
+        == "vlsa_poisson_first_divergence_full_qp_certificate.v2"
         and int(certificate.get("physical_boundary", -1))
         == int(row.get("physical_boundary", -2))
         and int(certificate.get("sample_count", -1))
         == int(row["constraint_trace"]["sample_count"])
+        and certificate.get("sample_ledger_sha256") == sample_ledger_sha256
+        and certificate.get("robot_qvel_indices")
+        == [int(value) for value in robot_qvel_indices]
+        and certificate.get("robot_qvel_indices_sha256")
+        == robot_qvel_indices_sha256
+        and certificate.get("velocity_dimension") == int(velocity_dimension)
         and row.get("full_constraint_qp_certificate_sha256")
         == _canonical_sha256(certificate),
         "first divergence certificate identity differs",
@@ -1202,7 +1789,10 @@ def _validate_first_divergence_full_certificate(
     }
     expected_shapes = {
         "poisson_h_m2": (sample_count,),
-        "joint_gradient_rows_m2_per_rad": (sample_count, 7),
+        "joint_gradient_rows_m2_per_rad": (
+            sample_count,
+            int(velocity_dimension),
+        ),
         "actual_hdot_m2_per_s": (sample_count,),
         "candidate_exact_clone_hdot_m2_per_s": (sample_count,),
         "nominal_exact_clone_hdot_m2_per_s": (sample_count,),
@@ -1232,15 +1822,22 @@ def _validate_first_divergence_full_certificate(
     )
     h = arrays["poisson_h_m2"]
     gradients = arrays["joint_gradient_rows_m2_per_rad"]
-    measured = np.asarray(row.get("measured_qvel_rad_s"), dtype=np.float64)
+    measured = np.asarray(
+        row.get("measured_shield_qvel_rad_s"), dtype=np.float64
+    )
     candidate_qvel = np.asarray(
-        row.get("predicted_next_qvel_rad_s"), dtype=np.float64
+        row.get("predicted_next_shield_qvel_rad_s"), dtype=np.float64
     )
     nominal_qvel = np.asarray(
-        row.get("nominal_predicted_next_qvel_rad_s"), dtype=np.float64
+        row.get("nominal_predicted_next_shield_qvel_rad_s"), dtype=np.float64
     )
     _require(
-        np.allclose(
+        measured.shape == candidate_qvel.shape == nominal_qvel.shape
+        == (int(velocity_dimension),)
+        and np.all(np.isfinite(measured))
+        and np.all(np.isfinite(candidate_qvel))
+        and np.all(np.isfinite(nominal_qvel))
+        and np.allclose(
             arrays["actual_hdot_m2_per_s"],
             gradients @ measured,
             rtol=0.0,
@@ -1281,13 +1878,13 @@ def _validate_first_divergence_full_certificate(
         _close(row.get(field), float(np.min(values)), "full divergence %s" % field)
     independent_attribution = _independent_constraint_attribution(
         residuals["nominal_exact_clone_minimum_cbf_residual_m2_per_s"],
-        protected_samples,
+        shield_samples,
         np=np,
     )
     _require(
         fast._canonical(certificate.get("constraint_attribution"))
         == fast._canonical(independent_attribution),
-        "first divergence protected-link constraint attribution differs",
+        "first divergence full-robot constraint attribution differs",
     )
     tolerance = float(
         protocol["shield"]["actual_cbf_residual_tolerance_m2_per_s"]
@@ -1312,6 +1909,8 @@ def _validate_first_divergence_full_certificate(
         protocol=protocol,
         controller=controller,
         torque_actuators=torque_actuators,
+        robot_qvel_indices=robot_qvel_indices,
+        velocity_dimension=velocity_dimension,
         np=np,
     )
     return {
@@ -1469,6 +2068,8 @@ def _validate_registered_contact_evidence(
             _require(
                 record.get("source_phase") == "settled_forwarded"
                 and record.get("physical_boundary") is None
+                and record.get("executed_transition_start_boundary") is None
+                and record.get("observed_state_boundary") == 0
                 and record.get("source_action_index") is None
                 and record.get("physics_substep_index") is None,
                 "settled registered contact cadence differs",
@@ -1482,6 +2083,8 @@ def _validate_registered_contact_evidence(
                     "post_integration_recomputed",
                 )
                 and 0 <= boundary < len(physics)
+                and record.get("executed_transition_start_boundary") == boundary
+                and record.get("observed_state_boundary") == boundary + 1
                 and int(record.get("source_action_index", -1)) == boundary // 25
                 and int(record.get("physics_substep_index", -1)) == boundary % 25,
                 "rollout registered contact cadence differs",
@@ -1734,6 +2337,97 @@ def _validate_partial_action_ledger(
             "terminal_forbidden_contact_records_sha256"
         ],
     }
+
+
+def _validate_safety_method_stop(
+    record: Any,
+    *,
+    terminal_kind: str,
+    action_count: int,
+    physics_substep_count: int,
+    sample_count: int,
+    sample_ledger_sha256: str,
+    robot_qvel_indices: Sequence[int],
+    robot_qvel_indices_sha256: str,
+    velocity_dimension: int,
+) -> bool:
+    """Bind a pre-physics stop to its unexecuted full-robot candidate boundary."""
+
+    if terminal_kind != "safety_method_stop_before_physics":
+        _require(record is None, "non-method terminal contains a method-stop record")
+        return False
+    _require(isinstance(record, Mapping), "method-stop record is absent")
+    required_fields = {
+        "schema_version",
+        "source_action_index",
+        "physics_substep_index",
+        "physics_boundary_before_unexecuted_step",
+        "unexecuted_post_integration_boundary",
+        "reason",
+        "sample_count",
+        "sample_ledger_sha256",
+        "robot_qvel_indices",
+        "robot_qvel_indices_sha256",
+        "velocity_dimension",
+        "record_payload_sha256",
+    }
+    _require(
+        required_fields.issubset(record)
+        and record.get("schema_version") == "vlsa_poisson_safety_method_stop.v2",
+        "method-stop v2 schema or full-robot binding is absent",
+    )
+    source_action = record.get("source_action_index")
+    substep = record.get("physics_substep_index")
+    boundary = record.get("physics_boundary_before_unexecuted_step")
+    post_boundary = record.get("unexecuted_post_integration_boundary")
+    for value, label in (
+        (source_action, "source action"),
+        (substep, "physics substep"),
+        (boundary, "candidate boundary"),
+        (post_boundary, "post-integration boundary"),
+    ):
+        _require(
+            isinstance(value, int) and not isinstance(value, bool) and value >= 0,
+            "method-stop %s is invalid" % label,
+        )
+    expected_substep = int(physics_substep_count) - int(action_count) * 25
+    _require(
+        int(source_action) == int(action_count)
+        and 0 <= expected_substep < 25
+        and int(substep) == expected_substep
+        and int(boundary) == int(physics_substep_count)
+        == int(source_action) * 25 + int(substep)
+        and int(post_boundary) == int(boundary) + 1,
+        "method-stop candidate boundary arithmetic differs",
+    )
+    bound_qvel_indices = _strict_integer_list(
+        record.get("robot_qvel_indices"), "method-stop robot qvel indices"
+    )
+    _require(
+        record.get("sample_count") == int(sample_count)
+        and record.get("sample_ledger_sha256") == sample_ledger_sha256
+        and bound_qvel_indices == [int(value) for value in robot_qvel_indices]
+        and record.get("robot_qvel_indices_sha256")
+        == robot_qvel_indices_sha256
+        == _canonical_sha256(bound_qvel_indices)
+        and record.get("velocity_dimension") == int(velocity_dimension)
+        == len(bound_qvel_indices),
+        "method-stop full-robot sample/qvel binding differs",
+    )
+    _require(
+        isinstance(record.get("reason"), str)
+        and record["reason"].endswith("stop_before_physics"),
+        "method-stop reason differs",
+    )
+    unhashed = dict(record)
+    payload_hash = unhashed.pop("record_payload_sha256", None)
+    _require(
+        isinstance(payload_hash, str)
+        and bool(re.fullmatch(r"[0-9a-f]{64}", payload_hash))
+        and payload_hash == _canonical_sha256(unhashed),
+        "method-stop payload hash differs",
+    )
+    return True
 
 
 def validate(
@@ -2108,6 +2802,15 @@ def validate(
         == controller["controller_implementation_file_sha256"],
         "consumer-installed OSC implementation differs from producer",
     )
+    import numpy as np
+
+    shield_binding = _validate_shield_sampling_binding(
+        apparatus=apparatus,
+        resolved_geometry=apparatus["resolved_geometry"],
+        controller=controller,
+        runtime_protocol=runtime_protocol,
+        np=np,
+    )
     torque_units = apparatus.get("arm_actuator_torque_units")
     _require(
         apparatus.get("field_frame")
@@ -2311,15 +3014,16 @@ def validate(
         expected_body_name=protocol["case"]["selected_obstacle_root_body_name"],
         label="paper CAR obstacle",
     )
-    protected_samples = apparatus["protected_sampling"]["samples"]
+    shield_samples = shield_binding["samples"]
     _require(
-        isinstance(protected_samples, Sequence)
-        and len(protected_samples) == int(field_audit["protected_sample_count"]),
-        "protected sample attribution ledger differs",
+        isinstance(shield_samples, Sequence)
+        and len(shield_samples) == int(field_audit["full_robot_sample_count"])
+        == int(shield_binding["sample_count"]),
+        "full-robot shield attribution ledger differs",
     )
     _require(
         treatment.get("physics_trace_schema_version")
-        == "vlsa_poisson_osc_arm_link_compact_physics_trace.v1"
+        == "vlsa_poisson_osc_full_robot_compact_physics_trace.v2"
         and treatment.get("full_qp_certificate_scope")
         == "first_byte_different_torque_row_only",
         "compact physics trace contract differs",
@@ -2354,49 +3058,118 @@ def validate(
         ),
         "exact nonlinear candidate pre-physics postcheck failed",
     )
-    import numpy as np
-
     solved_qp_count = 0
     independently_validated_qp_audits: List[Dict[str, Any]] = []
     first_byte_divergence_seen = False
+    shield_qvel_indices = list(shield_binding["robot_qvel_indices"])
+    shield_velocity_dimension = int(shield_binding["velocity_dimension"])
+    nonarm_ctrl_indices = list(shield_binding["nonarm_ctrl_indices"])
+    nonarm_ctrl_indices_sha256 = str(
+        shield_binding["nonarm_ctrl_indices_sha256"]
+    )
+    shield_qvel_index_to_position = {
+        qvel_index: position
+        for position, qvel_index in enumerate(shield_qvel_indices)
+    }
+    arm_positions = [
+        shield_qvel_index_to_position[qvel_index]
+        for qvel_index in shield_binding["arm_qvel_indices"]
+    ]
     for index, row in enumerate(physics):
+        _require(
+            not {
+                "measured_qvel_rad_s",
+                "measured_qvel_l2_rad_s",
+                "predicted_next_qvel_rad_s",
+                "nominal_predicted_next_qvel_rad_s",
+                "prediction_error_l2_rad_s",
+                "candidate_exact_clone_matches_live_qvel",
+            }.intersection(row),
+            "stale ambiguous v1 qvel fields appear at physics row %d" % index,
+        )
         compact_arrays = _validate_compact_constraint_trace(
             row,
-            expected_sample_count=int(field_audit["protected_sample_count"]),
+            expected_sample_count=int(shield_binding["sample_count"]),
+            expected_sample_ledger_sha256=str(
+                shield_binding["sample_ledger_sha256"]
+            ),
+            expected_robot_qvel_indices=shield_qvel_indices,
+            expected_robot_qvel_indices_sha256=_canonical_sha256(
+                shield_qvel_indices
+            ),
+            expected_velocity_dimension=shield_velocity_dimension,
             np=np,
         )
         compact_diagnostics = _validate_compact_shield_diagnostics(
             row,
-            expected_sample_count=int(field_audit["protected_sample_count"]),
+            expected_sample_count=int(shield_binding["sample_count"]),
+        )
+        _validate_live_nonarm_ctrl_evidence(
+            row,
+            expected_nonarm_ctrl_indices=nonarm_ctrl_indices,
+            expected_nonarm_ctrl_indices_sha256=nonarm_ctrl_indices_sha256,
+            np=np,
         )
         nominal_torque = np.asarray(row.get("nominal_torque_nm"), dtype=np.float64)
         command_torque = np.asarray(row.get("command_torque_nm"), dtype=np.float64)
         torque_delta = np.asarray(row.get("torque_delta_nm"), dtype=np.float64)
-        measured_qvel = np.asarray(row.get("measured_qvel_rad_s"), dtype=np.float64)
-        candidate_qvel = np.asarray(
-            row.get("predicted_next_qvel_rad_s"), dtype=np.float64
+        measured_arm_qvel = np.asarray(
+            row.get("measured_arm_qvel_rad_s"), dtype=np.float64
         )
-        nominal_qvel = np.asarray(
-            row.get("nominal_predicted_next_qvel_rad_s"), dtype=np.float64
+        measured_shield_qvel = np.asarray(
+            row.get("measured_shield_qvel_rad_s"), dtype=np.float64
+        )
+        candidate_arm_qvel = np.asarray(
+            row.get("predicted_next_arm_qvel_rad_s"), dtype=np.float64
+        )
+        nominal_arm_qvel = np.asarray(
+            row.get("nominal_predicted_next_arm_qvel_rad_s"), dtype=np.float64
+        )
+        candidate_shield_qvel = np.asarray(
+            row.get("predicted_next_shield_qvel_rad_s"), dtype=np.float64
+        )
+        nominal_shield_qvel = np.asarray(
+            row.get("nominal_predicted_next_shield_qvel_rad_s"), dtype=np.float64
         )
         _require(
             nominal_torque.shape == (7,)
             and command_torque.shape == (7,)
             and torque_delta.shape == (7,)
-            and measured_qvel.shape == (7,)
-            and candidate_qvel.shape == (7,)
-            and nominal_qvel.shape == (7,),
+            and measured_arm_qvel.shape == (7,)
+            and candidate_arm_qvel.shape == (7,)
+            and nominal_arm_qvel.shape == (7,)
+            and measured_shield_qvel.shape == (shield_velocity_dimension,)
+            and candidate_shield_qvel.shape == (shield_velocity_dimension,)
+            and nominal_shield_qvel.shape == (shield_velocity_dimension,),
             "compact physics vectors are invalid at physics row %d" % index,
         )
         for array in (
             nominal_torque,
             command_torque,
             torque_delta,
-            measured_qvel,
-            candidate_qvel,
-            nominal_qvel,
+            measured_arm_qvel,
+            candidate_arm_qvel,
+            nominal_arm_qvel,
+            measured_shield_qvel,
+            candidate_shield_qvel,
+            nominal_shield_qvel,
         ):
             _require(np.all(np.isfinite(array)), "non-finite physics array at row %d" % index)
+        _require(
+            np.array_equal(measured_arm_qvel, measured_shield_qvel[arm_positions])
+            and np.array_equal(
+                candidate_arm_qvel, candidate_shield_qvel[arm_positions]
+            )
+            and np.array_equal(
+                nominal_arm_qvel, nominal_shield_qvel[arm_positions]
+            ),
+            "arm and full-robot qvel projections differ at row %d" % index,
+        )
+        _require(
+            row.get("nominal_non_arm_ctrl_preserved") is True
+            and row.get("candidate_non_arm_ctrl_preserved") is True,
+            "non-arm controls changed at physics row %d" % index,
+        )
         reconstructed_delta = command_torque - nominal_torque
         _require(
             np.allclose(reconstructed_delta, torque_delta, rtol=0.0, atol=1e-12),
@@ -2408,14 +3181,14 @@ def validate(
             "torque correction row %d" % index,
         )
         _close(
-            row.get("measured_qvel_l2_rad_s"),
-            float(np.linalg.norm(measured_qvel)),
-            "qvel norm row %d" % index,
+            row.get("measured_arm_qvel_l2_rad_s"),
+            float(np.linalg.norm(measured_arm_qvel)),
+            "arm qvel norm row %d" % index,
         )
         _close(
-            row.get("prediction_error_l2_rad_s"),
-            float(np.linalg.norm(measured_qvel - candidate_qvel)),
-            "prediction error row %d" % index,
+            row.get("shield_prediction_error_l2_rad_s"),
+            float(np.linalg.norm(measured_shield_qvel - candidate_shield_qvel)),
+            "shield prediction error row %d" % index,
         )
         byte_equal = bool(
             command_torque.tobytes(order="C")
@@ -2432,10 +3205,15 @@ def validate(
         _require(
             bool(
                 np.allclose(
-                    measured_qvel, candidate_qvel, rtol=0.0, atol=1e-10
+                    measured_shield_qvel,
+                    candidate_shield_qvel,
+                    rtol=0.0,
+                    atol=1e-10,
                 )
             )
-            is bool(row.get("candidate_exact_clone_matches_live_qvel")),
+            is bool(
+                row.get("candidate_exact_clone_matches_live_shield_qvel")
+            ),
             "candidate/live equality flag differs at row %d" % index,
         )
         candidate_contact = row.get("candidate_exact_clone_contact")
@@ -2481,7 +3259,15 @@ def validate(
                     protocol=protocol,
                     controller=controller,
                     torque_actuators=torque_actuators,
-                    protected_samples=protected_samples,
+                    shield_samples=shield_samples,
+                    sample_ledger_sha256=str(
+                        shield_binding["sample_ledger_sha256"]
+                    ),
+                    robot_qvel_indices=shield_qvel_indices,
+                    robot_qvel_indices_sha256=_canonical_sha256(
+                        shield_qvel_indices
+                    ),
+                    velocity_dimension=shield_velocity_dimension,
                     np=np,
                 )
             )
@@ -2512,6 +3298,28 @@ def validate(
             >= -float(protocol["shield"]["actual_cbf_residual_tolerance_m2_per_s"]),
             "compact CBF residual minimum failed at physics row %d" % index,
         )
+    link56_seed_only = bool(
+        int(field_audit["protected_sample_count"])
+        < int(shield_binding["sample_count"])
+    )
+    _require(
+        metrics.get("all_authoritative_robot_collision_surfaces_shielded") is True
+        and metrics.get("robot_tree_qvel_scope_verified") is True
+        and metrics.get("seven_arm_torque_decision_verified") is True
+        and metrics.get("nonarm_controls_unchanged")
+        is all(
+            row.get("nominal_non_arm_ctrl_preserved") is True
+            and row.get("candidate_non_arm_ctrl_preserved") is True
+            and row.get("live_nonarm_ctrl_byte_identical") is True
+            and row.get("live_nonarm_ctrl_before_array_record")
+            == row.get("live_nonarm_ctrl_after_array_record")
+            for row in physics
+        )
+        and metrics.get("link56_bundle_samples_field_seed_only")
+        is link56_seed_only
+        and link56_seed_only,
+        "full-robot shield apparatus metrics differ from raw evidence",
+    )
     _require(
         int(metrics.get("solved_qp_count", -1)) == solved_qp_count
         and int(metrics.get("first_divergence_full_qp_certificate_count", -1))
@@ -2521,7 +3329,7 @@ def validate(
     _require(
         all(
             row.get("actual_cbf_residual_postcheck_pass") is True
-            and row.get("candidate_exact_clone_matches_live_qvel") is True
+            and row.get("candidate_exact_clone_matches_live_shield_qvel") is True
             for row in physics
         ),
         "actual CBF residual postcheck failed",
@@ -2626,11 +3434,13 @@ def validate(
         else float(
             np.linalg.norm(
                 np.asarray(
-                    first_material_rows[0]["predicted_next_qvel_rad_s"],
+                    first_material_rows[0]["predicted_next_arm_qvel_rad_s"],
                     dtype=np.float64,
                 )
                 - np.asarray(
-                    first_material_rows[0]["nominal_predicted_next_qvel_rad_s"],
+                    first_material_rows[0][
+                        "nominal_predicted_next_arm_qvel_rad_s"
+                    ],
                     dtype=np.float64,
                 )
             )
@@ -3224,13 +4034,16 @@ def validate(
         "goal/action terminal cadence differs",
     )
     method_stop = treatment.get("safety_method_stop")
-    method_stopped = bool(
-        terminal_kind == "safety_method_stop_before_physics"
-        and isinstance(method_stop, Mapping)
-        and int(method_stop.get("source_action_index", -1)) == len(actions)
-        and int(method_stop.get("physics_boundary_before_unexecuted_step", -1))
-        == len(physics)
-        and str(method_stop.get("reason", "")).endswith("stop_before_physics")
+    method_stopped = _validate_safety_method_stop(
+        method_stop,
+        terminal_kind=terminal_kind,
+        action_count=len(actions),
+        physics_substep_count=len(physics),
+        sample_count=int(shield_binding["sample_count"]),
+        sample_ledger_sha256=str(shield_binding["sample_ledger_sha256"]),
+        robot_qvel_indices=shield_qvel_indices,
+        robot_qvel_indices_sha256=_canonical_sha256(shield_qvel_indices),
+        velocity_dimension=shield_velocity_dimension,
     )
     _require(
         partial_action_audit.get("present")
@@ -3390,7 +4203,7 @@ def main() -> int:
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=Path("configs/vlsa_poisson_osc_arm_link_canary.v1.json"),
+        default=Path("configs/vlsa_poisson_osc_arm_link_canary.v2.json"),
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--numeric-validation-result", type=Path, required=True)

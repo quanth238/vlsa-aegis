@@ -1,9 +1,10 @@
-"""Allocation-only cross-solver check on the registered production grid.
+"""Allocation-only cross-solver check on the active registered production grid.
 
 This test intentionally is not part of ordinary local numerical bring-up.  It
-allocates the exact 101 x 101 x 101 vertex grid and compares the registered
+allocates the exact v4 116 x 101 x 111 vertex grid and compares the registered
 red-black SOR solve with SciPy conjugate gradient.  The Slurm numerical gate
-sets the explicit opt-in environment variable and rejects every skip.
+sets the explicit opt-in environment variable and rejects every skip.  The
+legacy v3 101-cubed constructor path has a separate regression test.
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ MAX_NEAR_OUTER_BOUNDARY_CLEARANCE_M = 2.5e-4
     "set VLSA_POISSON_RUN_PRODUCTION_GRID_VALIDATION=1 inside the allocation",
 )
 class ProductionGridCrossSolverTest(unittest.TestCase):
-    def test_registered_101_cubed_sor_matches_scipy_cg_off_grid(self) -> None:
+    def test_registered_v4_sor_matches_scipy_cg_off_grid(self) -> None:
         import numpy as np
 
         from main.poisson_fullbody.feasibility_protocol import (
@@ -50,7 +51,7 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         from main.poisson_fullbody.voxel_grid import GridSpec, PoissonDomain
 
         protocol_path = (
-            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v3.json"
+            ROOT / "configs/vlsa_poisson_runtime_protocol.canary.v4.json"
         )
         protocol, protocol_hashes = load_feasibility_protocol(protocol_path)
         workspace = protocol["workspace"]
@@ -60,9 +61,9 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         spacing = np.asarray(workspace["grid_spacing_m"], dtype=np.float64)
         lower = np.asarray(workspace["minimum_m"], dtype=np.float64)
         upper = np.asarray(workspace["maximum_m"], dtype=np.float64)
-        self.assertEqual(vertex_shape, (101, 101, 101))
+        self.assertEqual(vertex_shape, (116, 101, 111))
         np.testing.assert_array_equal(spacing, np.full(3, 0.02))
-        np.testing.assert_array_equal(lower, np.asarray([-1.0, -1.0, 0.0]))
+        np.testing.assert_array_equal(lower, np.asarray([-1.3, -1.0, -0.2]))
         np.testing.assert_array_equal(upper, np.asarray([1.0, 1.0, 2.0]))
         self.assertEqual(poisson["solver"], "red_black_sor")
         self.assertEqual(poisson["equation"], "minus_laplacian_h_equals_forcing")
@@ -102,7 +103,7 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         )
         timings["system_build_seconds"] = time.perf_counter() - started
         self.assertEqual(system.shape, vertex_shape)
-        self.assertEqual(system.unknown_count, 99 ** 3)
+        self.assertEqual(system.unknown_count, 114 * 99 * 109)
 
         started = time.perf_counter()
         sor = solve_poisson_sor(
@@ -146,17 +147,22 @@ class ProductionGridCrossSolverTest(unittest.TestCase):
         # no integer component.  The first eight points lie within 0.25 mm of
         # an outer face/corner, where h approaches the zero boundary and a
         # relative-only comparison would be ill-conditioned.
+        maximum_grid_coordinate = np.asarray(vertex_shape, dtype=np.float64) - 1.0
         query_grid_coordinates = np.asarray(
             [
                 [0.001, 37.375, 62.625],
-                [99.999, 51.250, 17.625],
+                [maximum_grid_coordinate[0] - 0.001, 51.250, 17.625],
                 [41.125, 0.002, 70.875],
-                [58.625, 99.998, 24.125],
+                [58.625, maximum_grid_coordinate[1] - 0.002, 24.125],
                 [27.375, 63.625, 0.003],
-                [74.125, 35.375, 99.997],
+                [74.125, 35.375, maximum_grid_coordinate[2] - 0.003],
                 [0.005, 0.007, 0.011],
-                [99.991, 99.987, 99.983],
-                [47.125, 52.375, 50.625],
+                [
+                    maximum_grid_coordinate[0] - 0.009,
+                    maximum_grid_coordinate[1] - 0.013,
+                    maximum_grid_coordinate[2] - 0.017,
+                ],
+                [55.125, 52.375, 50.625],
                 [12.125, 83.375, 44.625],
             ],
             dtype=np.float64,

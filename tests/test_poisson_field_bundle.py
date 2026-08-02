@@ -55,7 +55,12 @@ class StaticFieldBundleTests(unittest.TestCase):
         cls.mujoco = mujoco
         cls.np = np
         cls.protocol, cls.protocol_hashes = load_feasibility_protocol(
-            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v3.json"
+            ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v4.json"
+        )
+        cls.legacy_protocol, cls.legacy_protocol_hashes = (
+            load_feasibility_protocol(
+                ROOT / "configs" / "vlsa_poisson_runtime_protocol.canary.v3.json"
+            )
         )
 
     def _id(self, model, object_type, name):
@@ -98,7 +103,7 @@ class StaticFieldBundleTests(unittest.TestCase):
         return model, data, ids, resolved
 
     def _sparse_free_occupancy(self, grid, boxes, epsilon):
-        """Keep a small robot corridor free so the 101^3 contract stays cheap."""
+        """Keep the same small world-space robot corridor free on either grid."""
 
         from main.poisson_fullbody.voxel_grid import OccupancyResult
 
@@ -110,7 +115,17 @@ class StaticFieldBundleTests(unittest.TestCase):
         raw[tuple(int(value) for value in index)] = True
         buffered = np.ones(grid.cell_shape, dtype=bool)
         # Covers both protected box surfaces with several free-cell layers.
-        buffered[28:43, 48:62, 23:48] = False
+        corridor_lower = np.asarray([-0.44, -0.04, 0.46], dtype=np.float64)
+        corridor_upper = np.asarray([-0.14, 0.24, 0.96], dtype=np.float64)
+        start = np.floor((corridor_lower - grid.lower) / grid.spacing).astype(int)
+        stop = np.ceil((corridor_upper - grid.lower) / grid.spacing).astype(int)
+        start = np.maximum(start, 0)
+        stop = np.minimum(stop, np.asarray(grid.cell_shape))
+        buffered[
+            int(start[0]) : int(stop[0]),
+            int(start[1]) : int(stop[1]),
+            int(start[2]) : int(stop[2]),
+        ] = False
         return OccupancyResult(
             grid=grid,
             raw_cells=raw,
@@ -149,7 +164,7 @@ class StaticFieldBundleTests(unittest.TestCase):
                 protocol_hashes=self.protocol_hashes,
             )
 
-        self.assertEqual(bundle.grid.vertex_shape, (101, 101, 101))
+        self.assertEqual(bundle.grid.vertex_shape, (116, 101, 111))
         self.assertEqual(bundle.protected_body_ids, (ids["link5"], ids["link6"]))
         self.assertEqual(
             bundle.protected_body_names, ("robot0_link5", "robot0_link6")
@@ -227,6 +242,58 @@ class StaticFieldBundleTests(unittest.TestCase):
                 array.flat[0] = array.flat[0]
         with self.assertRaises(FrozenInstanceError):
             bundle.protected_samples.samples[0].body_name = "changed"
+
+    def test_legacy_v3_exact_101_cubed_bundle_remains_supported(self) -> None:
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        model, data, _, resolved = self._scene()
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.build_occupancy",
+            side_effect=self._sparse_free_occupancy,
+        ):
+            bundle = build_static_field_bundle(
+                model,
+                data,
+                resolved=resolved,
+                protocol=self.legacy_protocol,
+                protocol_hashes=self.legacy_protocol_hashes,
+            )
+
+        self.assertEqual(bundle.grid.vertex_shape, (101, 101, 101))
+        self.np.testing.assert_array_equal(
+            bundle.grid.lower, self.np.asarray([-1.0, -1.0, 0.0])
+        )
+        self.np.testing.assert_array_equal(
+            bundle.grid.spacing, self.np.full(3, 0.02)
+        )
+
+    def test_schema_workspace_mismatch_is_rejected_before_geometry(self) -> None:
+        from main.poisson_fullbody.feasibility_protocol import (
+            bind_parameter_block,
+            validate_feasibility_protocol,
+        )
+        from main.poisson_fullbody.field_bundle import build_static_field_bundle
+
+        changed = copy.deepcopy(self.protocol)
+        changed["workspace"]["grid_shape_vertices"][0] = 115
+        changed["workspace"]["maximum_m"][0] = 0.98
+        changed = bind_parameter_block(changed)
+        changed_hashes = validate_feasibility_protocol(changed)
+        model, data, _, resolved = self._scene()
+        with mock.patch(
+            "main.poisson_fullbody.field_bundle.clone_forwarded_state"
+        ) as clone:
+            with self.assertRaisesRegex(
+                ValueError, "workspace does not match its registered schema"
+            ):
+                build_static_field_bundle(
+                    model,
+                    data,
+                    resolved=resolved,
+                    protocol=changed,
+                    protocol_hashes=changed_hashes,
+                )
+        clone.assert_not_called()
 
     def test_protocol_identity_mismatch_fails_before_geometry(self) -> None:
         from main.poisson_fullbody.feasibility_protocol import ProtocolHashes

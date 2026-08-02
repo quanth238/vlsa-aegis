@@ -47,7 +47,25 @@ from main.poisson_fullbody.voxel_grid import (
 
 
 REGISTERED_GRID_SHAPE_VERTICES = (101, 101, 101)
+REGISTERED_FULL_ROBOT_GRID_SHAPE_VERTICES = (116, 101, 111)
 REGISTERED_PROTECTED_BODY_NAMES = ("robot0_link5", "robot0_link6")
+
+_REGISTERED_WORKSPACES = {
+    "vlsa_poisson_runtime_protocol.v3": {
+        "protocol_id": "vlsa-poisson-link56-canary-parameters-v3",
+        "minimum_m": (-1.0, -1.0, 0.0),
+        "maximum_m": (1.0, 1.0, 2.0),
+        "grid_shape_vertices": REGISTERED_GRID_SHAPE_VERTICES,
+        "grid_spacing_m": (0.02, 0.02, 0.02),
+    },
+    "vlsa_poisson_runtime_protocol.v4": {
+        "protocol_id": "vlsa-poisson-full-robot-canary-parameters-v4",
+        "minimum_m": (-1.3, -1.0, -0.2),
+        "maximum_m": (1.0, 1.0, 2.0),
+        "grid_shape_vertices": REGISTERED_FULL_ROBOT_GRID_SHAPE_VERTICES,
+        "grid_spacing_m": (0.02, 0.02, 0.02),
+    },
+}
 
 
 class StaticFieldBundleError(ValueError):
@@ -239,14 +257,42 @@ def _validated_protocol_snapshot(
         raise StaticFieldBundleError(
             "validated runtime protocol hashes do not match the supplied identity"
         )
-    if tuple(snapshot["workspace"]["grid_shape_vertices"]) != (
-        REGISTERED_GRID_SHAPE_VERTICES
-    ):
-        raise StaticFieldBundleError("the static v1 constructor requires a 101^3 grid")
+    schema_version = snapshot.get("schema_version")
+    registered_workspace = _REGISTERED_WORKSPACES.get(schema_version)
+    if registered_workspace is None:
+        raise StaticFieldBundleError(
+            "the static field constructor does not support this runtime schema"
+        )
+    if snapshot.get("protocol_id") != registered_workspace["protocol_id"]:
+        raise StaticFieldBundleError(
+            "runtime protocol ID does not match its registered workspace"
+        )
+    workspace = snapshot["workspace"]
+    observed_workspace = {
+        "minimum_m": tuple(float(value) for value in workspace["minimum_m"]),
+        "maximum_m": tuple(float(value) for value in workspace["maximum_m"]),
+        "grid_shape_vertices": tuple(
+            int(value) for value in workspace["grid_shape_vertices"]
+        ),
+        "grid_spacing_m": tuple(
+            float(value) for value in workspace["grid_spacing_m"]
+        ),
+    }
+    expected_workspace = {
+        key: value
+        for key, value in registered_workspace.items()
+        if key != "protocol_id"
+    }
+    if observed_workspace != expected_workspace:
+        raise StaticFieldBundleError(
+            "runtime workspace does not match its registered schema"
+        )
     if float(snapshot["poisson"]["forcing_value"]) != 1.0:
-        raise StaticFieldBundleError("the static v1 field requires forcing +1")
+        raise StaticFieldBundleError("the registered static field requires forcing +1")
     if float(snapshot["poisson"]["boundary_value"]) != 0.0:
-        raise StaticFieldBundleError("the static v1 field requires zero boundary data")
+        raise StaticFieldBundleError(
+            "the registered static field requires zero boundary data"
+        )
     if tuple(snapshot["claim_scope"]["protected_robot_bodies"]) != (
         REGISTERED_PROTECTED_BODY_NAMES
     ):
@@ -291,7 +337,9 @@ def _validated_resolution(
         )
     protected_ids = tuple(int(value) for value in resolved.link56_body_ids)
     if len(protected_ids) != 2:
-        raise StaticFieldBundleError("the static v1 scope requires exactly two bodies")
+        raise StaticFieldBundleError(
+            "the registered field-seed scope requires exactly two bodies"
+        )
     observed_names = []
     for body_id in protected_ids:
         name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
@@ -637,7 +685,7 @@ def build_static_field_bundle(
     protocol: Mapping[str, Any],
     protocol_hashes: ProtocolHashes,
 ) -> StaticFieldBundle:
-    """Construct the registered 101^3 static link-5/6 Poisson certificate.
+    """Construct a registered static link-5/6-seeded Poisson certificate.
 
     The live ``data`` object is never forwarded or modified.  Geometry and
     robot samples are read from an integration-state clone after ``mj_forward``.
@@ -672,7 +720,8 @@ def build_static_field_bundle(
     )
     _, np = _modules()
     declared_spacing = np.asarray(workspace["grid_spacing_m"], dtype=np.float64)
-    if grid.vertex_shape != REGISTERED_GRID_SHAPE_VERTICES or not np.allclose(
+    declared_shape = tuple(int(value) for value in workspace["grid_shape_vertices"])
+    if grid.vertex_shape != declared_shape or not np.allclose(
         grid.spacing, declared_spacing, rtol=0.0, atol=1.0e-15
     ):
         raise StaticFieldBundleError("registered grid construction mismatch")
@@ -842,6 +891,7 @@ construct_static_field_bundle = build_static_field_bundle
 __all__ = [
     "ImmutableTrilinearPoissonField",
     "ProtectedSurfaceSamples",
+    "REGISTERED_FULL_ROBOT_GRID_SHAPE_VERTICES",
     "REGISTERED_GRID_SHAPE_VERTICES",
     "REGISTERED_PROTECTED_BODY_NAMES",
     "StaticFieldBundle",

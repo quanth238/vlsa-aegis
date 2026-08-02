@@ -97,6 +97,89 @@ class SampledDataPostOscTorqueShieldTest(unittest.TestCase):
             ]
         )
 
+    def test_exogenous_finger_velocity_in_m_greater_than_seven_is_corrected(self) -> None:
+        np = self.np
+        from main.poisson_fullbody.post_osc_torque_shield import TorqueShieldStatus
+
+        current = np.zeros(8)
+        nominal_next = np.zeros(8)
+        nominal_next[7] = -0.2
+        rows = np.zeros((1, 8))
+        rows[0, 7] = 1.0
+        sensitivity = np.zeros((8, 7))
+        sensitivity[:7, :] = np.eye(7)
+        sensitivity[7, 0] = 0.5
+        result = self.solve(
+            nominal_torque=np.zeros(7),
+            current_qvel=current,
+            nominal_next_qvel=nominal_next,
+            h=np.array([0.0]),
+            joint_gradient_rows=rows,
+            torque_to_next_qvel_sensitivity=sensitivity,
+        )
+        self.assertTrue(result.valid, result)
+        self.assertEqual(result.status, TorqueShieldStatus.SOLVED)
+        self.assertAlmostEqual(float(result.delta_torque[0]), 0.4, places=6)
+        self.assertEqual(result.diagnostics["velocity_dimension"], 8)
+        self.assertEqual(result.diagnostics["torque_dimension"], 7)
+        self.assertGreaterEqual(
+            result.diagnostics["postcheck"]["raw_cbf_residuals"][0],
+            -1e-7,
+        )
+
+    def test_m_greater_than_seven_safe_zero_gain_row_passes_nominal(self) -> None:
+        np = self.np
+        from main.poisson_fullbody.post_osc_torque_shield import TorqueShieldStatus
+
+        rows = np.zeros((1, 8))
+        rows[0, 7] = 1.0
+        sensitivity = np.vstack((np.eye(7), np.zeros((1, 7))))
+        result = self.solve(
+            current_qvel=np.zeros(8),
+            nominal_next_qvel=np.array([0, 0, 0, 0, 0, 0, 0, 0.2]),
+            h=np.array([0.0]),
+            joint_gradient_rows=rows,
+            torque_to_next_qvel_sensitivity=sensitivity,
+        )
+        self.assertTrue(result.valid, result)
+        self.assertEqual(result.status, TorqueShieldStatus.NOMINAL_SAFE)
+        self.assertEqual(
+            result.diagnostics["postcheck"]["zero_gain_constraint_count"], 1
+        )
+        self.assertFalse(result.diagnostics["postcheck"]["zero_gain_violation"])
+
+    def test_m_greater_than_seven_violated_zero_gain_row_fails_closed(self) -> None:
+        np = self.np
+        from main.poisson_fullbody.post_osc_torque_shield import TorqueShieldStatus
+
+        rows = np.zeros((1, 8))
+        rows[0, 7] = 1.0
+        sensitivity = np.vstack((np.eye(7), np.zeros((1, 7))))
+        result = self.solve(
+            current_qvel=np.zeros(8),
+            nominal_next_qvel=np.array([0, 0, 0, 0, 0, 0, 0, -0.2]),
+            h=np.array([0.0]),
+            joint_gradient_rows=rows,
+            torque_to_next_qvel_sensitivity=sensitivity,
+        )
+        self.assertFalse(result.valid)
+        self.assertEqual(result.status, TorqueShieldStatus.UNCONTROLLABLE_CONSTRAINT)
+        self.assertEqual(result.diagnostics["constraint_indexes"], [0])
+
+    def test_velocity_subspace_dimension_mismatch_is_typed_invalid_input(self) -> None:
+        np = self.np
+        from main.poisson_fullbody.post_osc_torque_shield import TorqueShieldStatus
+
+        result = self.solve(
+            current_qvel=np.zeros(8),
+            nominal_next_qvel=np.zeros(8),
+            joint_gradient_rows=np.zeros((1, 7)),
+            torque_to_next_qvel_sensitivity=np.zeros((8, 7)),
+        )
+        self.assertFalse(result.valid)
+        self.assertEqual(result.status, TorqueShieldStatus.INVALID_INPUT)
+        self.assertIn("(N, M)", result.diagnostics["error"])
+
     def test_actuator_bound_can_make_hard_qp_infeasible(self) -> None:
         np = self.np
         from main.poisson_fullbody.post_osc_torque_shield import TorqueShieldStatus
