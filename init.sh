@@ -20,11 +20,13 @@ for optional_file in \
   analysis/validate_aegis_failure_diagnostics.py \
   manifests/build_vlsa_table1_population.py \
   scripts/build_poisson_link56_manifest.py \
+  scripts/build_poisson_arm_contact_manifest.py \
   scripts/run_poisson_active_canary.py \
   scripts/run_poisson_closed_loop_canary.py \
   scripts/run_poisson_fast_feasibility.py \
   scripts/run_poisson_numeric_validation.py \
   scripts/run_poisson_one_step_counterfactual.py \
+  scripts/run_poisson_osc_arm_link_canary.py \
   scripts/run_poisson_shadow_identification.py \
   scripts/run_poisson_shadow_parity.py \
   scripts/validate_aegis_assets.py \
@@ -32,6 +34,7 @@ for optional_file in \
   scripts/validate_poisson_full_episode_feasibility_artifact.py \
   scripts/validate_poisson_closed_loop_canary_artifact.py \
   scripts/validate_poisson_one_step_counterfactual_artifact.py \
+  scripts/validate_poisson_osc_arm_link_canary_artifact.py \
   scripts/validate_poisson_shadow_identification_artifact.py \
   scripts/validate_poisson_run_artifacts.py \
   scripts/validate_poisson_runtime_prerequisites.py

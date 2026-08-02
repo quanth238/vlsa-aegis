@@ -17,7 +17,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from main.poisson_fullbody.contracts import canonical_json_bytes, sha256_bytes
 from main.poisson_fullbody.poisson_field import QueryInvalidReason, TrilinearPoissonField
-from main.poisson_fullbody.robot_samples import BodySample
+from main.poisson_fullbody.robot_samples import BodySample, body_world_pose
 
 
 PROTECTED_SAMPLE_DIFFERENTIAL_SCHEMA = (
@@ -115,21 +115,139 @@ def evaluate_point_jacobians(
     samples: Iterable[BodySample],
     arm_dof_indices: Sequence[int],
 ) -> Tuple[Any, Any]:
-    np = _modules()[1]
-    points: List[Any] = []
-    jacobians: List[Any] = []
-    for sample in samples:
-        point, jacobian = point_translational_jacobian(
-            model, data, sample, arm_dof_indices
-        )
-        points.append(point)
-        jacobians.append(jacobian)
-    if not points:
+    """Evaluate many rigid-body points with one MuJoCo call per body.
+
+    MuJoCo's body-frame Jacobian gives the linear and angular velocity at the
+    body origin.  Every sample rigidly attached to that body then satisfies
+
+    ``J_point = J_origin + cross(J_angular, point - origin)``.
+
+    Computing that relation in a batch avoids one ``mj_jac`` traversal per
+    surface sample.  Input and output sample ordering is unchanged, and this
+    routine only reads the live simulator state.
+    """
+
+    mujoco, np = _modules()
+    raw_model, raw_data = _raw_model_data(model, data)
+
+    if isinstance(arm_dof_indices, (str, bytes)):
+        raise ValueError("arm_dof_indices must be a non-empty integer sequence")
+    try:
+        raw_indexes = list(arm_dof_indices)
+    except TypeError as error:
+        raise ValueError(
+            "arm_dof_indices must be a non-empty integer sequence"
+        ) from error
+    if not raw_indexes or any(
+        isinstance(value, (bool, np.bool_))
+        or not isinstance(value, (int, np.integer))
+        for value in raw_indexes
+    ):
+        raise ValueError("arm_dof_indices must be a non-empty integer sequence")
+    indexes = np.asarray(raw_indexes, dtype=np.int64)
+    if len(set(int(value) for value in indexes)) != len(indexes):
+        raise ValueError("arm_dof_indices must contain unique DOFs")
+
+    try:
+        nv = int(raw_model.nv)
+        nbody = int(raw_model.nbody)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ValueError(
+            "model must expose valid MuJoCo nv and nbody values"
+        ) from error
+    if nv < 0 or nbody <= 0:
+        raise ValueError("model must expose valid MuJoCo nv and nbody values")
+    if np.any(indexes < 0) or np.any(indexes >= nv):
+        raise ValueError("arm DOF index is outside model.nv")
+    try:
+        data_qvel = np.asarray(getattr(data, "qvel", raw_data.qvel))
+        position_source = getattr(data, "body_xpos", None)
+        rotation_source = getattr(data, "body_xmat", None)
+        if position_source is None:
+            position_source = raw_data.xpos
+        if rotation_source is None:
+            rotation_source = raw_data.xmat
+        data_xpos = np.asarray(position_source)
+        data_xmat = np.asarray(rotation_source)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise ValueError("data must expose MuJoCo qvel, xpos, and xmat") from error
+    if (
+        data_qvel.shape != (nv,)
+        or data_xpos.shape != (nbody, 3)
+        or data_xmat.shape not in ((nbody, 9), (nbody, 3, 3))
+    ):
+        raise ValueError("model and data dimensions are inconsistent")
+
+    try:
+        records = list(samples)
+    except TypeError as error:
+        raise ValueError(
+            "samples must be an iterable of BodySample records"
+        ) from error
+    if any(not isinstance(sample, BodySample) for sample in records):
+        raise ValueError("samples must contain only BodySample records")
+    sample_ids = [int(sample.sample_id) for sample in records]
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ValueError("body sample IDs must be unique")
+    if any(
+        int(sample.body_id) < 0 or int(sample.body_id) >= nbody
+        for sample in records
+    ):
+        raise ValueError("sample body_id is outside model.nbody")
+
+    dof_count = int(indexes.size)
+    if not records:
         return (
             np.empty((0, 3), dtype=np.float64),
-            np.empty((0, 3, 7), dtype=np.float64),
+            np.empty((0, 3, dof_count), dtype=np.float64),
         )
-    return np.stack(points, axis=0), np.stack(jacobians, axis=0)
+
+    points = np.empty((len(records), 3), dtype=np.float64)
+    jacobians = np.empty((len(records), 3, dof_count), dtype=np.float64)
+    samples_by_body: Dict[int, List[int]] = {}
+    for sample_index, sample in enumerate(records):
+        samples_by_body.setdefault(int(sample.body_id), []).append(sample_index)
+
+    for body_id, sample_indexes in samples_by_body.items():
+        body_position, body_rotation = body_world_pose(data, body_id)
+        local_points = np.asarray(
+            [records[index].point_body_local_m for index in sample_indexes],
+            dtype=np.float64,
+        )
+        if local_points.shape != (len(sample_indexes), 3) or not np.all(
+            np.isfinite(local_points)
+        ):
+            raise ValueError("sample body-local points must be finite 3-vectors")
+
+        world_offsets = local_points @ body_rotation.T
+        body_points = body_position[None, :] + world_offsets
+        body_linear = np.zeros((3, nv), dtype=np.float64)
+        body_angular = np.zeros((3, nv), dtype=np.float64)
+        mujoco.mj_jacBody(
+            raw_model,
+            raw_data,
+            body_linear,
+            body_angular,
+            body_id,
+        )
+        selected_linear = body_linear[:, indexes]
+        selected_angular = body_angular[:, indexes]
+        # np.cross operates over (sample, dof, xyz), then transpose back to
+        # the public (sample, xyz, dof) Jacobian layout.
+        offset_velocity = np.cross(
+            selected_angular.T[None, :, :],
+            world_offsets[:, None, :],
+        ).transpose(0, 2, 1)
+        body_jacobians = selected_linear[None, :, :] + offset_velocity
+        if not (
+            np.all(np.isfinite(body_points))
+            and np.all(np.isfinite(body_jacobians))
+        ):
+            raise ValueError("MuJoCo returned a non-finite point Jacobian")
+        points[sample_indexes, :] = body_points
+        jacobians[sample_indexes, :, :] = body_jacobians
+
+    return points, jacobians
 
 
 def finite_difference_point_jacobian(

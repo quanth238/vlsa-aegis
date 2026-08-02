@@ -1,0 +1,149 @@
+{
+  "schema_version": "vlsa_poisson_arm_contact_study_protocol.v1",
+  "protocol_id": "vlsa-poisson-physical-link56-contact-study-v1",
+  "purpose": "separate_the_report_through_car_link56_population_from_the_complete_physical_link56_contact_population_and_preregister_controller_preserving_poisson_canaries",
+  "source": {
+    "table1_run_id": "vlsa-table1-contact-authority-population-20260718a",
+    "table1_manifest_relative_path": "manifests/vlsa_table1_population.jsonl",
+    "table1_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_manifest_rows": 1600,
+    "case_audit_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+    "failure_case_ledger_relative_path": "publication-attempts/job-28940/failure-analysis/cases.jsonl",
+    "failure_case_ledger_sha256": "2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780",
+    "population_summary_relative_path": "publication-attempts/job-28940/population-summary.json",
+    "population_summary_sha256": "c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330",
+    "accepted_result_payloads_sha256": "28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285",
+    "accepted_aegis_payload_bindings_sha256": "e291b5c7e47cc48bc0a9c8cfee8629b0ce7eae4c158cfdc5255606680672fb4c",
+    "report_link56_manifest_relative_path": "manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl",
+    "report_link56_manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
+    "historical_result_relative_glob": "tasks/task-*/results/aegis/*/result.json",
+    "historical_result_schema_version": "vlsa_table1_episode_result.v1",
+    "historical_source_git_commit": "1592aa59361f431ba96c6ddcbebcb596f6c20853"
+  },
+  "populations": {
+    "full_episode_physical_link56_contact": {
+      "expected_cases": 165,
+      "expected_case_ids_sha256": "e8a82d59d95dbaf915eb646d86e714183c1bf1d61664a0f526dc9f5445343717",
+      "selection": "full_episode_unique_contact_pair_has_actual_body_link5_or_link6_directly_paired_with_active_obstacle",
+      "sample_phase": "post_env_step_control_endpoint",
+      "phase_counts": {
+        "through_car": 109,
+        "post_car": 15,
+        "car_safe": 41
+      },
+      "suite_counts": {
+        "safelibero_spatial": 33,
+        "safelibero_goal": 64,
+        "safelibero_object": 28,
+        "safelibero_long": 40
+      },
+      "link_pattern_counts": {
+        "link5_only": 94,
+        "link6_only": 56,
+        "link5_and_link6": 15
+      },
+      "task_success_cases": 81,
+      "task_failure_cases": 84,
+      "only_link56_robot_contact_cases": 157,
+      "mixed_robot_contact_cases": 8
+    },
+    "report_through_car_link56_contact": {
+      "expected_cases": 109,
+      "selection": "literal_link56_contact_observed_by_or_through_the_first_car_crossing",
+      "relationship": "exact_subset_of_full_episode_physical_link56_contact"
+    },
+    "clean_task_success_canary_population": {
+      "expected_cases": 40,
+      "expected_case_ids_sha256": "b2fc7242b9e76fd6075eb4ecf265891f49d3c7ea380ba02fff136dd99a33d71a",
+      "selection": [
+        "only_link5_or_link6_among_selected_obstacle_robot_contact_bodies",
+        "no_settled_collision_relevant_contact",
+        "positive_precontrol_aegis_barrier_at_first_sampled_link_contact_endpoint",
+        "historical_aegis_task_success"
+      ],
+      "phase_counts": {
+        "through_car": 28,
+        "post_car": 7,
+        "car_safe": 5
+      },
+      "suite_counts": {
+        "safelibero_spatial": 4,
+        "safelibero_goal": 36,
+        "safelibero_object": 0,
+        "safelibero_long": 0
+      },
+      "link_pattern_counts": {
+        "link5_only": 24,
+        "link6_only": 11,
+        "link5_and_link6": 5
+      }
+    }
+  },
+  "representative_cases": [
+    {
+      "case_id": "vlsa-t1-spatial-i-t3-e03",
+      "role": "primary_report_scope_link5_canary",
+      "expected_phase": "through_car",
+      "expected_first_link_body": "robot0_link5",
+      "expected_body_evidence": "case_audit_robot_contact_bodies_through_car",
+      "historical_task_success": true
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e42",
+      "role": "clean_link6_only_task_success_canary",
+      "expected_phase": "through_car",
+      "expected_first_link_body": "robot0_link6",
+      "expected_body_evidence": "case_audit_robot_contact_bodies_through_car",
+      "historical_task_success": true
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t0-e15",
+      "role": "clean_initialization_report_linked_task_recovery_followup",
+      "expected_phase": "through_car",
+      "expected_first_link_body": "robot0_link5",
+      "expected_body_evidence": "case_audit_robot_contact_bodies_through_car",
+      "historical_task_success": false
+    }
+  ],
+  "treatment": {
+    "name": "aegis_plus_post_osc_sampled_data_poisson_torque_shield",
+    "historical_control": "complete_immutable_baseline_outcome_and_archived_executed_action_prefix_no_pi05_or_baseline_physics_rerun",
+    "controller": "released_osc_pose_unchanged",
+    "intervention_point": "after_nominal_osc_arm_torque_before_each_2ms_mujoco_step",
+    "protected_bodies": [
+      "robot0_link5",
+      "robot0_link6"
+    ],
+    "obstacle_geometry": "static_selected_obstacle_exact_mujoco_collision_geometry",
+    "obstacle_field_frame": "world_frame_frozen_at_post_settling_selected_obstacle_pose",
+    "claim_label": "empirical_sampled_data_post_osc_poisson_cbf_adaptation",
+    "prohibited_claim": "formal_reproduction_of_the_papers_joint_velocity_forward_invariance_guarantee"
+  },
+  "acceptance": {
+    "require_dormant_prefix_state_and_action_parity": true,
+    "require_material_poisson_torque_correction_before_historical_link_contact": true,
+    "require_no_selected_obstacle_contact_from_any_robot_geom_at_every_2ms_substep": true,
+    "require_no_slack_clipping_fallback_or_cached_safe_command": true,
+    "require_post_correction_joint_and_cartesian_motion": true,
+    "require_quantitative_directed_cbf_improvement": true,
+    "require_task_incomplete_at_first_material_correction": true,
+    "require_paper_car_avoidance_through_terminal_treatment": true,
+    "require_native_task_success_after_correction": true,
+    "require_complete_registered_exposure": true,
+    "require_independent_complete_artifact_validation": true,
+    "positive_classification": "SAFE_TASK_SUCCESS_USEFUL_CORRECTION"
+  },
+  "disclosure": {
+    "outcome_conditioned": true,
+    "population_kind": "post_hoc_physical_contact_mechanism_population",
+    "not_an_unbiased_benchmark": true,
+    "car_is_displacement_not_contact": true,
+    "full_episode_unique_pairs_have_no_event_timing": true,
+    "historical_contact_sampling_does_not_resolve_internal_2ms_substeps": true,
+    "historical_link_contact_does_not_by_itself_prove_task_failure_causation": true,
+    "task_recovery_followup_prefers_no_settled_relevant_contact": true,
+    "artifact_hashes_bound_through_complete_results_but_bytes_not_reverified_locally": true,
+    "remote_artifact_byte_reverification_required_before_treatment": true,
+    "comparison_semantics": "archival_control_live_treatment_paired_counterfactual_same_settled_state_and_actions_until_first_torque_correction_then_same_pi05_aegis_noise_schedule_on_treatment_observations"
+  }
+}

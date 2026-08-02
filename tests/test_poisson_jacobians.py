@@ -5,6 +5,7 @@ import copy
 import json
 import struct
 import unittest
+from unittest import mock
 
 
 DEPENDENCIES_PRESENT = all(
@@ -197,6 +198,199 @@ class PointJacobianTest(unittest.TestCase):
         )
         expected = float(self.np.array([1.0, -2.0, 0.5]) @ jacobian @ self.data.qvel)
         self.assertAlmostEqual(value, expected, places=12)
+
+    def test_batched_point_jacobians_match_official_mujoco_for_mixed_bodies_and_dofs(
+        self,
+    ) -> None:
+        from main.poisson_fullbody.jacobians import (
+            evaluate_point_jacobians,
+            mujoco_integration_state_sha256,
+        )
+        from main.poisson_fullbody.robot_samples import BodySample
+
+        mujoco = self.mujoco
+        np = self.np
+        link5_id = int(
+            mujoco.mj_name2id(
+                self.model, mujoco.mjtObj.mjOBJ_BODY, "link5"
+            )
+        )
+        link7_id = int(
+            mujoco.mj_name2id(
+                self.model, mujoco.mjtObj.mjOBJ_BODY, "link7"
+            )
+        )
+        g5_id = int(
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "g5")
+        )
+        g7_id = int(
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "g7")
+        )
+        # Interleave bodies deliberately: output must retain sample order even
+        # though computation is grouped by owning rigid body.
+        samples = [
+            BodySample(10, link7_id, "link7", g7_id, "g7", (0.08, 0.02, 0.01)),
+            BodySample(11, link5_id, "link5", g5_id, "g5", (0.03, -0.01, 0.02)),
+            BodySample(12, link7_id, "link7", g7_id, "g7", (-0.02, 0.04, -0.01)),
+            BodySample(13, link5_id, "link5", g5_id, "g5", (0.07, 0.015, 0.0)),
+        ]
+        selected_dofs = [6, 0, 4]
+        self.assertFalse(
+            np.allclose(self.data.xmat[link5_id].reshape(3, 3), np.eye(3))
+        )
+        self.assertFalse(
+            np.allclose(self.data.xmat[link7_id].reshape(3, 3), np.eye(3))
+        )
+        expected_points = []
+        expected_jacobians = []
+        for sample in samples:
+            point = sample.world_point(self.data)
+            jacp = np.zeros((3, int(self.model.nv)), dtype=np.float64)
+            jacr = np.zeros((3, int(self.model.nv)), dtype=np.float64)
+            mujoco.mj_jac(
+                self.model,
+                self.data,
+                jacp,
+                jacr,
+                point,
+                int(sample.body_id),
+            )
+            expected_points.append(point)
+            expected_jacobians.append(jacp[:, selected_dofs])
+
+        state_before = mujoco_integration_state_sha256(self.model, self.data)
+        xpos_before = self.data.xpos.copy()
+        xmat_before = self.data.xmat.copy()
+        observed_points, observed_jacobians = evaluate_point_jacobians(
+            self.model, self.data, samples, selected_dofs
+        )
+        self.assertEqual(
+            mujoco_integration_state_sha256(self.model, self.data), state_before
+        )
+        np.testing.assert_array_equal(self.data.xpos, xpos_before)
+        np.testing.assert_array_equal(self.data.xmat, xmat_before)
+        np.testing.assert_allclose(
+            observed_points,
+            np.stack(expected_points),
+            rtol=0.0,
+            atol=2.0e-16,
+        )
+        np.testing.assert_allclose(
+            observed_jacobians,
+            np.stack(expected_jacobians),
+            rtol=2.0e-14,
+            atol=2.0e-15,
+        )
+
+    def test_batched_point_jacobians_call_mujoco_once_per_unique_body(self) -> None:
+        from main.poisson_fullbody.jacobians import evaluate_point_jacobians
+        from main.poisson_fullbody.robot_samples import BodySample
+
+        mujoco = self.mujoco
+        link5_id = int(
+            mujoco.mj_name2id(
+                self.model, mujoco.mjtObj.mjOBJ_BODY, "link5"
+            )
+        )
+        link7_id = int(
+            mujoco.mj_name2id(
+                self.model, mujoco.mjtObj.mjOBJ_BODY, "link7"
+            )
+        )
+        g5_id = int(
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "g5")
+        )
+        g7_id = int(
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, "g7")
+        )
+        samples = [
+            BodySample(20, link7_id, "link7", g7_id, "g7", (0.08, 0.02, 0.01)),
+            BodySample(21, link5_id, "link5", g5_id, "g5", (0.03, 0.0, 0.0)),
+            BodySample(22, link7_id, "link7", g7_id, "g7", (0.0, -0.02, 0.01)),
+            BodySample(23, link5_id, "link5", g5_id, "g5", (-0.01, 0.01, 0.0)),
+            BodySample(24, link7_id, "link7", g7_id, "g7", (0.02, 0.0, -0.01)),
+        ]
+        body_calls = []
+        original_mj_jac_body = mujoco.mj_jacBody
+
+        def counted_mj_jac_body(*arguments):
+            body_calls.append(int(arguments[-1]))
+            return original_mj_jac_body(*arguments)
+
+        with mock.patch.object(
+            mujoco, "mj_jacBody", side_effect=counted_mj_jac_body
+        ), mock.patch.object(
+            mujoco,
+            "mj_jac",
+            side_effect=AssertionError("per-sample mj_jac must not be called"),
+        ):
+            points, jacobians = evaluate_point_jacobians(
+                self.model, self.data, samples, [0, 2, 4, 6]
+            )
+
+        self.assertEqual(body_calls, [link7_id, link5_id])
+        self.assertEqual(points.shape, (5, 3))
+        self.assertEqual(jacobians.shape, (5, 3, 4))
+
+    def test_batched_point_jacobians_reject_invalid_inputs(self) -> None:
+        from main.poisson_fullbody.jacobians import evaluate_point_jacobians
+        from main.poisson_fullbody.robot_samples import BodySample
+
+        invalid_body = BodySample(
+            30,
+            int(self.model.nbody),
+            "invalid",
+            0,
+            "invalid_geom",
+            (0.0, 0.0, 0.0),
+        )
+        negative_body = BodySample(
+            31,
+            0,
+            "mutated_invalid",
+            0,
+            "invalid_geom",
+            (0.0, 0.0, 0.0),
+        )
+        object.__setattr__(negative_body, "body_id", -1)
+        duplicate_id = BodySample(
+            int(self.sample.sample_id),
+            int(self.sample.body_id),
+            self.sample.body_name,
+            int(self.sample.geom_id),
+            self.sample.geom_name,
+            (0.0, 0.0, 0.0),
+        )
+        invalid_dofs = (
+            [],
+            [True],
+            [0.0],
+            [0, 0],
+            [-1],
+            [int(self.model.nv)],
+            "0",
+        )
+        for dofs in invalid_dofs:
+            with self.subTest(dofs=dofs), self.assertRaises(ValueError):
+                evaluate_point_jacobians(
+                    self.model, self.data, [self.sample], dofs
+                )
+        with self.assertRaisesRegex(ValueError, "BodySample"):
+            evaluate_point_jacobians(self.model, self.data, [object()], [0])
+        with self.assertRaisesRegex(ValueError, "sample IDs"):
+            evaluate_point_jacobians(
+                self.model, self.data, [self.sample, duplicate_id], [0]
+            )
+        with self.assertRaisesRegex(ValueError, "model.nbody"):
+            evaluate_point_jacobians(self.model, self.data, [invalid_body], [0])
+        with self.assertRaisesRegex(ValueError, "model.nbody"):
+            evaluate_point_jacobians(self.model, self.data, [negative_body], [0])
+
+        empty_points, empty_jacobians = evaluate_point_jacobians(
+            self.model, self.data, [], [6, 1]
+        )
+        self.assertEqual(empty_points.shape, (0, 3))
+        self.assertEqual(empty_jacobians.shape, (0, 3, 2))
 
     def test_exhaustive_differential_audit_is_json_native_and_state_preserving(self):
         from main.poisson_fullbody.jacobians import (

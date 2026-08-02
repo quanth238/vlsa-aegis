@@ -156,6 +156,280 @@ class ControlEnv:
             )
         return observations, reward, done, info
 
+    def step_with_arm_control_intervention(
+        self,
+        action,
+        intervention,
+        *,
+        poststep_callback=None,
+        expected_substeps=None,
+        integration_state_guard=None,
+        update_observables=True,
+        collect_observations=True,
+    ):
+        """Execute one action with an opt-in pre-physics arm-control filter.
+
+        The ordinary :meth:`step` path is unchanged.  This method mirrors the
+        robosuite 1.4.1 control loop, but exposes the seven arm actuator
+        controls after ``_pre_action`` has produced them and immediately before
+        each MuJoCo step.  ``intervention(sim, substep_index,
+        nominal_arm_ctrl)`` must return exactly seven finite actuator controls
+        within the compiled MuJoCo limits.  No clipping is performed.
+
+        Only the seven arm actuator slots may change.  The complete nominal
+        control vector is restored after the callback (including when the
+        callback raises), and the validated return value is then written only
+        to the arm slots.  This keeps gripper and other actuator controls
+        bitwise identical to the values produced by robosuite.
+
+        When the live simulator exposes the official MuJoCo model and data,
+        the callback is also guarded by the complete ``mjSTATE_INTEGRATION``.
+        Any non-control state mutation is restored exactly and rejected before
+        physics.  ``integration_state_guard`` is an injection point for
+        dependency-light tests; a guard implements ``capture()``,
+        ``restore(state)``, and ``equal(first, second)``.
+        """
+        if not callable(intervention):
+            raise TypeError("intervention must be callable")
+        if poststep_callback is not None and not callable(poststep_callback):
+            raise TypeError("poststep_callback must be callable or None")
+        if collect_observations and not update_observables:
+            raise ValueError(
+                "collect_observations requires update_observables"
+            )
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        if expected_substeps is not None:
+            if (
+                isinstance(expected_substeps, bool)
+                or not isinstance(expected_substeps, int)
+                or expected_substeps <= 0
+            ):
+                raise ValueError("expected_substeps must be a positive integer")
+            if substeps != expected_substeps:
+                raise ValueError(
+                    "controller cadence gives %d physics substeps, expected %d"
+                    % (substeps, expected_substeps)
+                )
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+
+        robots = getattr(self.env, "robots", None)
+        if not isinstance(robots, (list, tuple)) or not robots:
+            raise ValueError("environment does not expose a robot")
+        arm_actuator_indexes = np.asarray(
+            getattr(robots[0], "_ref_joint_actuator_indexes", None),
+            dtype=np.int64,
+        )
+        if arm_actuator_indexes.shape != (7,):
+            raise ValueError(
+                "robot does not expose seven ordered arm actuator indexes"
+            )
+        model = self.env.sim.model
+        actuator_count = int(getattr(model, "nu", -1))
+        if (
+            actuator_count <= 0
+            or np.any(arm_actuator_indexes < 0)
+            or np.any(arm_actuator_indexes >= actuator_count)
+            or len(np.unique(arm_actuator_indexes)) != 7
+        ):
+            raise ValueError("robot arm actuator indexes are invalid")
+        limited = np.asarray(
+            getattr(model, "actuator_ctrllimited", None), dtype=bool
+        )
+        if limited.shape != (actuator_count,) or not np.all(
+            limited[arm_actuator_indexes]
+        ):
+            raise ValueError("all arm actuators must have compiled control limits")
+        compiled_limits = np.asarray(
+            model.actuator_ctrlrange[arm_actuator_indexes], dtype=np.float64
+        )
+        if (
+            compiled_limits.shape != (7, 2)
+            or not np.all(np.isfinite(compiled_limits))
+            or np.any(compiled_limits[:, 0] >= compiled_limits[:, 1])
+        ):
+            raise ValueError("compiled arm actuator limits are invalid")
+        ctrl = np.asarray(self.env.sim.data.ctrl)
+        if ctrl.shape != (actuator_count,):
+            raise ValueError("MuJoCo control vector has unexpected shape")
+
+        if integration_state_guard is None:
+            integration_state_guard = self._official_integration_state_guard(
+                self.env.sim
+            )
+        if integration_state_guard is not None:
+            for method_name in ("capture", "restore", "equal"):
+                if not callable(
+                    getattr(integration_state_guard, method_name, None)
+                ):
+                    raise TypeError(
+                        "integration_state_guard must implement capture, restore, and equal"
+                    )
+
+        initial_timestep = self.env.timestep
+        completed_physics_substeps = 0
+        self.env.timestep += 1
+        policy_step = True
+        for substep_index in range(substeps):
+            try:
+                self.env.sim.forward()
+                self.env._pre_action(action, policy_step)
+                nominal_full_ctrl = np.asarray(self.env.sim.data.ctrl).copy()
+                if (
+                    nominal_full_ctrl.shape != (actuator_count,)
+                    or not np.all(np.isfinite(nominal_full_ctrl))
+                ):
+                    raise ValueError(
+                        "robosuite produced an invalid nominal control"
+                    )
+                nominal_arm_ctrl = nominal_full_ctrl[
+                    arm_actuator_indexes
+                ].copy()
+                integration_state_before = (
+                    integration_state_guard.capture()
+                    if integration_state_guard is not None
+                    else None
+                )
+                integration_state_mutated = False
+                try:
+                    filtered_arm_ctrl = np.asarray(
+                        intervention(
+                            self.env.sim,
+                            substep_index,
+                            nominal_arm_ctrl.copy(),
+                        ),
+                        dtype=np.float64,
+                    ).copy()
+                finally:
+                    # The intervention receives the live simulator for
+                    # read-only state access. Restore every nominal ctrl slot
+                    # before comparing the rest of the integration state, so
+                    # direct ctrl writes are ignored rather than executed.
+                    self.env.sim.data.ctrl[...] = nominal_full_ctrl
+                    if integration_state_guard is not None:
+                        try:
+                            integration_state_after = (
+                                integration_state_guard.capture()
+                            )
+                        except BaseException:
+                            integration_state_guard.restore(
+                                integration_state_before
+                            )
+                            raise
+                        if not integration_state_guard.equal(
+                            integration_state_before,
+                            integration_state_after,
+                        ):
+                            integration_state_guard.restore(
+                                integration_state_before
+                            )
+                            integration_state_mutated = True
+                if integration_state_mutated:
+                    raise ValueError(
+                        "intervention mutated MuJoCo integration state"
+                    )
+                if filtered_arm_ctrl.shape != (7,) or not np.all(
+                    np.isfinite(filtered_arm_ctrl)
+                ):
+                    raise ValueError(
+                        "intervention must return seven finite arm actuator controls"
+                    )
+                if np.any(filtered_arm_ctrl < compiled_limits[:, 0]) or np.any(
+                    filtered_arm_ctrl > compiled_limits[:, 1]
+                ):
+                    raise ValueError(
+                        "intervention arm controls exceed compiled actuator limits"
+                    )
+            except BaseException:
+                # Match ordinary bookkeeping during _pre_action, but do not
+                # record an executed high-level step when the first physics
+                # substep was rejected before integration. A later failure
+                # retains the increment because part of the action executed.
+                if completed_physics_substeps == 0:
+                    self.env.timestep = initial_timestep
+                raise
+            self.env.sim.data.ctrl[arm_actuator_indexes] = filtered_arm_ctrl
+            self.env.sim.step()
+            completed_physics_substeps += 1
+            if poststep_callback is not None:
+                poststep_callback(self.env.sim, substep_index)
+            if update_observables:
+                self.env._update_observables()
+            policy_step = False
+
+        self.env.cur_time += self.env.control_timestep
+        reward, done, info = self.env._post_action(action)
+        done = self.env._check_success()
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = None
+        if collect_observations:
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
+        return observations, reward, done, info
+
+    @staticmethod
+    def _official_integration_state_guard(sim):
+        """Return an exact official-state guard when MuJoCo is available."""
+
+        try:
+            import mujoco
+        except ImportError:  # pragma: no cover - allocation dependency
+            return None
+        model_candidate = getattr(sim, "model", None)
+        data_candidate = getattr(sim, "data", None)
+        model = getattr(model_candidate, "_model", model_candidate)
+        data = getattr(data_candidate, "_data", data_candidate)
+        if not isinstance(model, mujoco.MjModel) or not isinstance(
+            data, mujoco.MjData
+        ):
+            raise TypeError(
+                "simulator does not expose official MuJoCo model/data for state guarding"
+            )
+        specification = int(mujoco.mjtState.mjSTATE_INTEGRATION)
+        state_size = int(mujoco.mj_stateSize(model, specification))
+        if state_size <= 0:
+            raise ValueError("official MuJoCo integration state is empty")
+
+        class OfficialIntegrationStateGuard:
+            def capture(self):
+                state = np.empty(state_size, dtype=np.float64)
+                mujoco.mj_getState(model, data, state, specification)
+                if not np.all(np.isfinite(state)):
+                    raise ValueError(
+                        "official MuJoCo integration state is non-finite"
+                    )
+                return state
+
+            def restore(self, state):
+                state = np.asarray(state, dtype=np.float64)
+                if state.shape != (state_size,) or not np.all(
+                    np.isfinite(state)
+                ):
+                    raise ValueError(
+                        "cannot restore invalid MuJoCo integration state"
+                    )
+                # Refresh derived arrays after state restoration, then write
+                # the official state once more so forward cannot change a bit
+                # of the integration-state checkpoint.
+                mujoco.mj_setState(model, data, state.copy(), specification)
+                mujoco.mj_forward(model, data)
+                mujoco.mj_setState(model, data, state.copy(), specification)
+
+            def equal(self, first, second):
+                first = np.asarray(first, dtype=np.float64)
+                second = np.asarray(second, dtype=np.float64)
+                return (
+                    first.shape == (state_size,)
+                    and second.shape == (state_size,)
+                    and first.tobytes(order="C") == second.tobytes(order="C")
+                )
+
+        return OfficialIntegrationStateGuard()
+
     def step_grouped_actions_with_substep_callback(
         self,
         action_provider,

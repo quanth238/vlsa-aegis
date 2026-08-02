@@ -1,0 +1,36 @@
+{
+  "accepted_aegis_payload_bindings_sha256": "e291b5c7e47cc48bc0a9c8cfee8629b0ce7eae4c158cfdc5255606680672fb4c",
+  "accepted_result_payloads_sha256": "28822a58683cc54dab915e6f6bc56005bdd51f779138509c71a7c1aae2969285",
+  "all_case_ids_sha256": "e8a82d59d95dbaf915eb646d86e714183c1bf1d61664a0f526dc9f5445343717",
+  "case_audit_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+  "clean_case_ids_sha256": "b2fc7242b9e76fd6075eb4ecf265891f49d3c7ea380ba02fff136dd99a33d71a",
+  "clean_cases": 40,
+  "config_sha256": "2c940ed62876c7133011de8a21c0b12b6469f6543d6535074da7d608a9730221",
+  "failure_ledger_sha256": "2280c3f1dc7e25755f650e7af0deb140263edec0679e3395db13a539b5a6a780",
+  "first_case_id": "vlsa-t1-spatial-i-t1-e00",
+  "last_case_id": "vlsa-t1-long-ii-t0-e38",
+  "link_pattern_counts": {
+    "link5_and_link6": 15,
+    "link5_only": 94,
+    "link6_only": 56
+  },
+  "manifest_rows": 165,
+  "manifest_schema_version": "vlsa_poisson_physical_link56_case.v1",
+  "manifest_sha256": "80678be7bbef6be8027c4d276e3a0114b04409388df6ee74399d2e9f301a2935",
+  "phase_counts": {
+    "car_safe": 41,
+    "post_car": 15,
+    "through_car": 109
+  },
+  "population_summary_sha256": "c2702d40d53436b89e48a5e68d743a76403d076a5c5539fa6c74a850af698330",
+  "protocol_id": "vlsa-poisson-physical-link56-contact-study-v1",
+  "report_manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
+  "schema_version": "vlsa_poisson_physical_link56_manifest_receipt.v1",
+  "source_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "suite_counts": {
+    "safelibero_goal": 64,
+    "safelibero_long": 40,
+    "safelibero_object": 28,
+    "safelibero_spatial": 33
+  }
+}
