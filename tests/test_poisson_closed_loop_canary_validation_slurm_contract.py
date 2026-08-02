@@ -71,11 +71,61 @@ class PoissonClosedLoopValidationSlurmContractTest(unittest.TestCase):
                 self.assertIn(argument, self.source)
         self.assertIn('>"${PARTIAL_PATH}"', self.source)
         self.assertIn('mv -- "${PARTIAL_PATH}" "${RECEIPT_PATH}"', self.source)
-        self.assertIn("validation receipt target already exists", self.source)
+        self.assertIn("validation output target already exists", self.source)
         self.assertIn('value.get("artifact_valid") is not True', self.source)
         self.assertLess(
             self.source.index('>"${PARTIAL_PATH}"'),
             self.source.index('mv -- "${PARTIAL_PATH}" "${RECEIPT_PATH}"'),
+        )
+
+    def test_typed_validator_rejection_is_preserved_without_success_receipt(self):
+        self.assertIn(
+            'REJECTION_PATH="${RUN_ROOT}/validation_rejection.${SLURM_JOB_ID}.json"',
+            self.source,
+        )
+        self.assertIn('if (( VALIDATOR_STATUS != 0 )); then', self.source)
+        for typed_check in (
+            'value.get("status") != "rejected"',
+            'value.get("artifact_valid") is not False',
+            'value.get("partial_output_interpreted") is not False',
+            'not isinstance(discrepancies, list)',
+            'not all(isinstance(item, str) and item for item in discrepancies)',
+        ):
+            with self.subTest(typed_check=typed_check):
+                self.assertIn(typed_check, self.source)
+        self.assertIn(
+            'ln -- "${PARTIAL_PATH}" "${REJECTION_PATH}"', self.source
+        )
+        self.assertIn('rm -f -- "${PARTIAL_PATH}"', self.source)
+        self.assertIn('exit "${VALIDATOR_STATUS}"', self.source)
+        rejection_branch = self.source[
+            self.source.index('if (( VALIDATOR_STATUS != 0 )); then') :
+            self.source.index(
+                "# The validator exits zero for both positive",
+            )
+        ]
+        self.assertNotIn("${RECEIPT_PATH}", rejection_branch)
+        self.assertLess(
+            self.source.index(
+                'ln -- "${PARTIAL_PATH}" "${REJECTION_PATH}"'
+            ),
+            self.source.index('exit "${VALIDATOR_STATUS}"'),
+        )
+
+    def test_rejection_publication_is_job_specific_and_never_overwrites(self):
+        self.assertIn(
+            'if [[ ! "${SLURM_JOB_ID}" =~ ^[0-9]+$ ]]', self.source
+        )
+        self.assertIn(
+            'for target in "${RECEIPT_PATH}" "${PARTIAL_PATH}" "${REJECTION_PATH}"',
+            self.source,
+        )
+        self.assertIn(
+            'if [[ -e "${REJECTION_PATH}" || -L "${REJECTION_PATH}" ]]',
+            self.source,
+        )
+        self.assertNotIn(
+            'mv -- "${PARTIAL_PATH}" "${REJECTION_PATH}"', self.source
         )
 
 

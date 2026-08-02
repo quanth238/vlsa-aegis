@@ -10,7 +10,8 @@
 
 # Submit only after the exact producer is terminal, normally with
 # --dependency=afterok:<producer-job-id>. This independent consumer requests
-# no GPU. It publishes one receipt only after complete validation succeeds.
+# no GPU. It publishes one receipt only after complete validation succeeds. A
+# complete validator rejection is preserved separately for failure diagnosis.
 
 set -euo pipefail
 
@@ -59,6 +60,10 @@ do
 done
 if [[ ! "${EXPECTED_PRODUCER_JOB_ID}" =~ ^[0-9]+$ ]]; then
   echo "EXPECTED_PRODUCER_JOB_ID must identify one exact Slurm job" >&2
+  exit 2
+fi
+if [[ ! "${SLURM_JOB_ID}" =~ ^[0-9]+$ ]]; then
+  echo "SLURM_JOB_ID must identify one exact Slurm job" >&2
   exit 2
 fi
 if [[ ! "${EXPECTED_PRODUCER_HOST}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
@@ -140,9 +145,10 @@ require_canonical_real_directory "closed-loop run root" "${RUN_ROOT}"
 
 RECEIPT_PATH="${RUN_ROOT}/validation_receipt.json"
 PARTIAL_PATH="${RUN_ROOT}/validation_receipt.partial.${SLURM_JOB_ID}"
-for target in "${RECEIPT_PATH}" "${PARTIAL_PATH}"; do
+REJECTION_PATH="${RUN_ROOT}/validation_rejection.${SLURM_JOB_ID}.json"
+for target in "${RECEIPT_PATH}" "${PARTIAL_PATH}" "${REJECTION_PATH}"; do
   if [[ -e "${target}" || -L "${target}" ]]; then
-    echo "validation receipt target already exists: ${target}" >&2
+    echo "validation output target already exists: ${target}" >&2
     exit 2
   fi
 done
@@ -168,18 +174,65 @@ cleanup_partial() {
 }
 trap cleanup_partial EXIT INT TERM
 
-"${EVALUATION_PYTHON}" \
-  scripts/validate_poisson_closed_loop_canary_artifact.py \
-  --repo-root "${REMOTE_REPO}" \
-  --result "${CLOSED_LOOP_RESULT}" \
-  --protocol "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}" \
-  --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
-  --expected-producer-commit "${EXPECTED_PRODUCER_GIT_COMMIT}" \
-  --consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}" \
-  --expected-producer-job-id "${EXPECTED_PRODUCER_JOB_ID}" \
-  --expected-producer-host "${EXPECTED_PRODUCER_HOST}" \
-  --expected-producer-device "${EXPECTED_PRODUCER_DEVICE}" \
-  >"${PARTIAL_PATH}"
+if "${EVALUATION_PYTHON}" \
+    scripts/validate_poisson_closed_loop_canary_artifact.py \
+    --repo-root "${REMOTE_REPO}" \
+    --result "${CLOSED_LOOP_RESULT}" \
+    --protocol "${REMOTE_REPO}/${PROTOCOL_RELATIVE_PATH}" \
+    --historical-result-root "${HISTORICAL_RESULT_ROOT}" \
+    --expected-producer-commit "${EXPECTED_PRODUCER_GIT_COMMIT}" \
+    --consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}" \
+    --expected-producer-job-id "${EXPECTED_PRODUCER_JOB_ID}" \
+    --expected-producer-host "${EXPECTED_PRODUCER_HOST}" \
+    --expected-producer-device "${EXPECTED_PRODUCER_DEVICE}" \
+    >"${PARTIAL_PATH}"; then
+  VALIDATOR_STATUS=0
+else
+  VALIDATOR_STATUS="$?"
+fi
+
+if (( VALIDATOR_STATUS != 0 )); then
+  # Preserve only a complete, typed summary emitted by the validator itself.
+  # Syntax errors, truncated stdout, and failures before summary production
+  # remain ordinary nonzero jobs with no published rejection artifact.
+  "${EVALUATION_PYTHON}" - "${PARTIAL_PATH}" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+value = json.loads(path.read_text(encoding="utf-8"))
+if not isinstance(value, dict):
+    raise SystemExit("closed-loop rejection summary must be an object")
+if value.get("schema_version") != "vlsa_poisson_closed_loop_canary_consumer.v1":
+    raise SystemExit("closed-loop rejection summary schema differs")
+if value.get("status") != "rejected" or value.get("artifact_valid") is not False:
+    raise SystemExit("closed-loop rejection summary is not a rejection")
+if value.get("partial_output_interpreted") is not False:
+    raise SystemExit("closed-loop rejection summary interpreted partial output")
+discrepancies = value.get("discrepancies")
+if (
+    not isinstance(discrepancies, list)
+    or not discrepancies
+    or not all(isinstance(item, str) and item for item in discrepancies)
+):
+    raise SystemExit("closed-loop rejection summary has no typed discrepancy")
+PY
+
+  if [[ -e "${REJECTION_PATH}" || -L "${REJECTION_PATH}" ]]; then
+    echo "validation rejection appeared before atomic publication" >&2
+    exit 2
+  fi
+  # A hard-link publication cannot replace an existing target and exposes only
+  # the already-complete file. Removing the private name leaves one immutable
+  # job-specific rejection artifact.
+  ln -- "${PARTIAL_PATH}" "${REJECTION_PATH}"
+  rm -f -- "${PARTIAL_PATH}"
+  trap - EXIT INT TERM
+  require_canonical_real_file "validation rejection" "${REJECTION_PATH}"
+  cat -- "${REJECTION_PATH}"
+  exit "${VALIDATOR_STATUS}"
+fi
 
 # The validator exits zero for both positive and valid-negative scientific
 # outcomes. Before publication, require its complete typed success summary.
