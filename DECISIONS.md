@@ -879,3 +879,31 @@ classification, or acceptance rule may change. Job `34137` cannot authorize a
 scientific conclusion; a new clean CPU-only consumer must return zero exit and
 zero discrepancies against the original result SHA-256
 `2601fa9087a19bfaea5e2ec3c3af86df41f5cffac07d1df3653c83feef755111`.
+
+## ADR-0043: Accept one-case full-task Poisson-CBF feasibility
+
+Accepted from immutable producer job `34120` and corrected independent consumer
+job `34139`. The consumer is bound to producer commit
+`0e51fc023a37bf218ed5e8bad740096fcbc7b21a`, clean consumer commit
+`1acd7ef233055f59344ef0418b066047c511c9fc`, exact result SHA-256
+`2601fa9087a19bfaea5e2ec3c3af86df41f5cffac07d1df3653c83feef755111`,
+and exact protocol SHA-256
+`e9a386bea18ef2f6f39dfbb062af7837359816bf20dd42ff7eaeec9981ed06a5`.
+It returns `artifact_valid=true`, zero discrepancies, and classification
+`SAFE_TASK_SUCCESS_USEFUL_CORRECTION`.
+
+The adapter-only arm reproduces link-5/moka-pot contact at boundary 4677 and
+still finishes the task. The link-5/link-6 Poisson-CBF arm has no selected-
+obstacle contact from any robot geometry, retains a +24.82 mm conservative
+full-robot clearance lower bound, and also finishes the task after completing
+the complete fixed suffix. It starts material correction at boundary 4500,
+continues through all 285 updates and 1,425 physics substeps, has zero zero-
+command updates, and traverses 0.5948 m after correction. This satisfies the
+registered useful-correction criterion and rejects a stop-only explanation.
+
+The accepted research claim is only one-case, offline, static simulator-oracle
+controller feasibility with an open-loop recorded suffix after the exact paired
+branch. It is not evidence for closed-loop VLA recovery, population safety,
+learned perception, dynamic obstacles, real-time execution, tracking-certified
+invariance, or formal continuous-time safety. The broader P01 gate remains
+active.

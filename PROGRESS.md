@@ -674,7 +674,7 @@ python3 scripts/validate_poisson_fast_feasibility_artifact.py \
   --expected-job-id 33907
 ```
 
-## P01 full recorded-episode feasibility protocol (implementation pending H100)
+## P01 full recorded-episode feasibility protocol and result
 
 The next test asks the narrower result's unresolved question: can the same
 link-5/link-6 3D Poisson-CBF correction prevent the arm-link collision and
@@ -712,8 +712,8 @@ Implementation lives in
 and an independent trace consumer. A literal PSF contact terminates that arm as
 a valid scientific negative: continuing from `h <= 0` would require an unsafe
 fallback and cannot support the requested feasibility claim. No-contact claims
-must complete the entire suffix. H100 evidence is not yet recorded in this
-section; P01 remains `active`.
+must complete the entire suffix. Terminal H100 evidence is recorded below;
+P01 remains `active` for broader claims beyond this one-case experiment.
 
 The consumer independently binds the exact suffix actions at every controller
 update, QP arithmetic, command-to-physics trace, all-robot contact records,
@@ -759,3 +759,47 @@ expected local dependency skip and the full 673-test repository gate with 136
 expected allocation-only skips. A separate read-only fail-open audit concludes
 that the key-matched namespace repair cannot create materiality or change the
 classification and recommends rerunning only the CPU consumer.
+
+## P01 accepted full-episode feasibility outcome
+
+Corrected CPU-only consumer job `34139` ran from clean consumer commit
+`1acd7ef233055f59344ef0418b066047c511c9fc`, remained bound to producer commit
+`0e51fc023a37bf218ed5e8bad740096fcbc7b21a` and producer job `34120`, and
+completed `COMPLETED|0:0` in seven seconds. Its terminal summary has SHA-256
+`f8b3ca7feba5e116e2d24ed09612ccf143f918cb7e4fb02d9567fc5497f68b63`,
+reports `artifact_valid=true`, zero discrepancies, and independently assigns
+`SAFE_TASK_SUCCESS_USEFUL_CORRECTION`. The rejected consumer job `34137` and
+its SHA-256
+`fe3f7613167a7a97ada6e32da55a2c27aa20873af79db1444a249e0403825971`
+remain preserved and do not authorize this outcome.
+
+Both arms start from the exact paired boundary, execute all 57 suffix actions,
+285 controller updates, and 1,425 physics substeps, and achieve the native BDDL
+goal first at source action 182 and terminally after action 236. The adapter-only
+baseline reproduces link-5 contact with the selected moka pot at physical
+boundary 4677 and reaches `D_sim=-50.64` mm. The Poisson-CBF arm begins material
+correction at boundary 4500, 177 physics substeps (354 ms) before that baseline
+contact, uses 32 material correction updates, and has no selected-obstacle
+contact from any robot geometry. Its conservative full-robot clearance lower
+bound and `D_sim` are both +24.82 mm. All 285 QPs, independent residual checks,
+and joint-limit checks pass.
+
+The PSF does not obtain safety by stopping. From first correction through the
+terminal boundary it executes all 285 updates and 1,425 substeps, with zero
+zero-command updates, 0.3484 rad correction integral, 0.5625 rad/s maximum
+correction norm, 1.4167 rad issued-command integral, 1.3262 rad measured joint-
+motion integral, and 0.5948 m Cartesian path. Relative to adapter-only over the
+suffix, it retains 88.87% of executed-command integral, 93.17% of measured
+joint-motion integral, and 74.02% of Cartesian target progress. The accepted
+answer to the registered feasibility question is therefore yes: useful
+link-aware correction prevents the observed arm-link collision while preserving
+full task success in this case.
+
+The claim remains narrow. This is one static simulator-oracle case, with a
+shared historical OSC prefix and open-loop recorded actions after the paired
+branch. It is not a closed-loop VLA population result, learned-perception or
+dynamic-obstacle evaluation, tracking-certified invariance result, or real-time
+deployment claim. Full-window tracking error is diagnostic only (0.0958 rad/s
+RMSE, 1.7405 rad/s maximum absolute error). The static-envelope independent-
+reconstruction limitation from ADR-0041 is unchanged; P01 remains `active` for
+those broader research gates.
