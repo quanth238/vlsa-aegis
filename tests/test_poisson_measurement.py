@@ -535,6 +535,48 @@ class FullRobotMeasurementTests(unittest.TestCase):
         )
         self.assertLessEqual(result.D_sim_min_m, 0.0)
 
+    def test_sparse_clearance_diagnostic_keeps_every_substep_contact_observation(self):
+        model, data, sim, _, resolved, samples = self._build(obstacle_x=0.50)
+        monitor = self.FullRobotObstacleMonitor(
+            sim,
+            resolved,
+            samples,
+            certified_coverage_radius_m=0.02,
+            max_selected_geom_surface_drift_m=1e-6,
+        )
+        self.assertEqual(monitor.sample_clearance_observation_count, 1)
+
+        self.mujoco.mj_step(model, data)
+        monitor.observe_post_integration(
+            sim,
+            high_level_index=0,
+            inner_control_index=0,
+            physics_substep_index=0,
+            measure_full_surface_clearance=False,
+        )
+        self.assertEqual(monitor.result().observed_physics_substeps, 1)
+        self.assertEqual(monitor.sample_clearance_observation_count, 1)
+
+        self.mujoco.mj_step(model, data)
+        monitor.observe_post_integration(
+            sim,
+            high_level_index=0,
+            inner_control_index=0,
+            physics_substep_index=1,
+            measure_full_surface_clearance=True,
+        )
+        self.assertEqual(monitor.result().observed_physics_substeps, 2)
+        self.assertEqual(monitor.sample_clearance_observation_count, 2)
+
+        with self.assertRaisesRegex(TypeError, "must be Boolean"):
+            monitor.observe_post_integration(
+                sim,
+                high_level_index=0,
+                inner_control_index=0,
+                physics_substep_index=2,
+                measure_full_surface_clearance=1,
+            )
+
     def test_live_solver_transient_contact_enters_union_when_post_state_is_clear(self):
         model = self.mujoco.MjModel.from_xml_string(
             r"""

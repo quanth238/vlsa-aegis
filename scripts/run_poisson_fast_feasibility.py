@@ -681,6 +681,10 @@ def _run_arm(
     expected_filter_updates: int = 40,
     expected_physics_substeps: int = 200,
     expected_boundary_goal_values: Any = None,
+    live_action_provider: Any = None,
+    rollout_frame_observer: Any = None,
+    initial_live_observation: Any = None,
+    full_clearance_observation_stride: int = 1,
 ) -> Dict[str, Any]:
     import numpy as np
     from main.poisson_fullbody.cbf_qp import HardCbfQp, joint_velocity_bounds
@@ -712,6 +716,14 @@ def _run_arm(
     ):
         raise FastRunnerError(
             "expected exposure does not match the supplied high-level actions"
+        )
+    if (
+        isinstance(full_clearance_observation_stride, bool)
+        or not isinstance(full_clearance_observation_stride, int)
+        or full_clearance_observation_stride <= 0
+    ):
+        raise FastRunnerError(
+            "full-clearance observation stride must be a positive integer"
         )
     expected_boundary_values = None
     if expected_boundary_goal_values is not None:
@@ -768,6 +780,7 @@ def _run_arm(
     reward_sum = 0.0
     terminal_reward: Any = None
     returned_observation_hashes: List[str] = []
+    released_eef_marker_update_count = 0
     terminal_observation_hash: Any = None
     terminal_state_hash: Any = None
     terminal_official_state_raw_bytes_sha256: Any = None
@@ -882,6 +895,44 @@ def _run_arm(
             )
         )
 
+        # A live closed-loop caller needs the observation produced by the
+        # restored arm, not the historical observation that led to the frozen
+        # replay action.  Observable refresh is required to be read-only with
+        # respect to the complete MuJoCo integration state.  The ordinary
+        # fixed-action feasibility path does not execute this additional code.
+        live_observation = None
+        if live_action_provider is not None:
+            if initial_live_observation is None:
+                official_before_observables = _official_state(env.sim)
+                env.env._update_observables(force=True)
+                live_observation = env.env._get_observations()
+                official_after_observables = _official_state(env.sim)
+                if not np.array_equal(
+                    official_before_observables,
+                    official_after_observables,
+                ):
+                    raise FastRunnerError(
+                        "initial closed-loop observation refresh changed integration state"
+                    )
+            else:
+                # The released evaluator queries action 180 from the cached
+                # observation returned by action 179.  Re-rendering after the
+                # visual marker model is synchronized can change pixels even
+                # though physics is identical, so the caller may provide that
+                # exact cached branch observation.
+                live_observation = initial_live_observation
+            if not isinstance(live_observation, Mapping):
+                raise FastRunnerError(
+                    "initial closed-loop native observation is unavailable"
+                )
+            if rollout_frame_observer is not None:
+                rollout_frame_observer(
+                    live_observation,
+                    snapshot_kind="branch_boundary_pre_action",
+                    local_action_index=None,
+                    source_action_index=source_start_action - 1,
+                )
+
         arm_dofs = tuple(int(value) for value in env.robots[0]._ref_joint_vel_indexes)
         arm_qpos = tuple(int(value) for value in env.robots[0]._ref_joint_pos_indexes)
         if len(arm_dofs) != 7 or len(arm_qpos) != 7:
@@ -928,8 +979,21 @@ def _run_arm(
         start_official_sha256 = _sha256(_official_state(env.sim).tobytes())
         static_rows = [_obstacle_state(model, data, bundle, resolved.obstacle_body_ids)]
 
-        for local_index, action_value in enumerate(actions):
+        for local_index, frozen_action_value in enumerate(actions):
             source_index = source_start_action + local_index
+            if live_action_provider is None:
+                action_value = frozen_action_value
+            else:
+                if not isinstance(live_observation, Mapping):
+                    raise FastRunnerError(
+                        "closed-loop action provider lacks its current observation"
+                    )
+                action_value = live_action_provider(
+                    env=env,
+                    observation=live_observation,
+                    local_action_index=local_index,
+                    source_action_index=source_index,
+                )
             source_action = np.asarray(action_value, dtype=np.float64)
             if source_action.shape != (7,) or not np.all(np.isfinite(source_action)):
                 raise FastRunnerError("frozen source action is invalid")
@@ -1180,11 +1244,19 @@ def _run_arm(
                 measured = np.asarray(env.sim.data.qvel[list(arm_dofs)], dtype=np.float64)
                 measured_motion_integral += float(np.linalg.norm(measured)) * PHYSICS_DT_S
                 error = measured - pending["executed"]
+                clearance_observed_this_substep = bool(
+                    (observation_index + 1) % full_clearance_observation_stride
+                    == 0
+                    or final_endpoint
+                )
                 monitor.observe_post_integration(
                     sim,
                     high_level_index=local_index,
                     inner_control_index=int(inner_index),
                     physics_substep_index=int(physics_index),
+                    measure_full_surface_clearance=(
+                        clearance_observed_this_substep
+                    ),
                 )
                 current_measurement = monitor.result()
                 current_clearance = float(
@@ -1204,6 +1276,9 @@ def _run_arm(
                             "issued_qvel_rad_s": pending["executed"].tolist(),
                             "tracking_error_rad_s": error.tolist(),
                             "literal_contact_observed": True,
+                            "full_surface_clearance_observed_this_substep": (
+                                clearance_observed_this_substep
+                            ),
                             "cumulative_full_robot_surface_clearance_lower_bound_m": current_clearance,
                             "post_state_minimum_h_m2": None,
                             "selected_obstacle": None,
@@ -1274,6 +1349,9 @@ def _run_arm(
                             )
                         ),
                         "literal_contact_observed": False,
+                        "full_surface_clearance_observed_this_substep": (
+                            clearance_observed_this_substep
+                        ),
                     }
                 )
 
@@ -1314,6 +1392,7 @@ def _run_arm(
                     "grouped-step done differs from the native BDDL goal conjunction"
                 )
             observation_hash = _observation_sha256(observation, evaluator, np)
+            live_observation = observation
             returned_observation_hashes.append(observation_hash)
             goal_ledger.append(
                 dict(
@@ -1335,6 +1414,22 @@ def _run_arm(
             if terminal_task_success and first_task_success_source_action_index is None:
                 first_task_success_source_action_index = source_index
             ever_task_success = bool(ever_task_success or terminal_task_success)
+            if rollout_frame_observer is not None:
+                rollout_frame_observer(
+                    observation,
+                    snapshot_kind="completed_high_level_post_step",
+                    local_action_index=local_index,
+                    source_action_index=source_index,
+                )
+            if live_action_provider is not None:
+                # Preserve the released AEGIS evaluator's visualization-model
+                # update after every completed env.step.  The returned
+                # observation remains the policy input for the next action,
+                # while the marker model advances before the next render.
+                evaluator._update_eef_marker(
+                    env, evaluator._eef_proxy(runtime, observation)
+                )
+                released_eef_marker_update_count += 1
             # Preserve the registered paired exposure even if one arm reaches
             # the native goal early. Task success is latched, not a stop rule.
             post_model, post_data = _raw_model_data(env.sim)
@@ -1405,6 +1500,13 @@ def _run_arm(
                     returned_observation_sha256=terminal_observation_hash,
                 )
             )
+            if rollout_frame_observer is not None:
+                rollout_frame_observer(
+                    terminal_observation,
+                    snapshot_kind="partial_action_terminal_state",
+                    local_action_index=local_index,
+                    source_action_index=source_index,
+                )
 
         measurement = monitor.result()
         monitor_observed_physics_substeps = int(
@@ -1478,6 +1580,12 @@ def _run_arm(
             "arm_name": arm_name,
             "restore": restore,
             "visual_marker_model_sync": marker_sync,
+            "released_eef_marker_update_count": int(
+                released_eef_marker_update_count
+            ),
+            "released_eef_marker_update_semantics": (
+                "one_model_update_after_each_completed_high_level_env_step"
+            ),
             "fresh_adapter": True,
             "start_official_raw_bytes_sha256": start_official_sha256,
             "source_action_indexes": list(range(source_start_action, source_start_action + len(actions))),
@@ -1590,10 +1698,28 @@ def _run_arm(
                 "minimum_full_surface_lower_bound_m": float(
                     measurement.sample_clearance.full_surface_clearance_lower_bound_m
                 ),
+                "observation_stride_physics_substeps": int(
+                    full_clearance_observation_stride
+                ),
+                "observation_count_including_branch": int(
+                    monitor.sample_clearance_observation_count
+                ),
+                "continuous_every_substep_certificate": bool(
+                    full_clearance_observation_stride == 1
+                ),
                 "semantics": (
-                    "cumulative_minimum_full_robot_sample_to_selected_obstacle_"
-                    "obb_minus_certified_full_robot_surface_cover_radius;_a_"
-                    "positive_value_conservatively_implies_positive_link56_clearance"
+                    (
+                        "cumulative_minimum_full_robot_sample_to_selected_obstacle_"
+                        "obb_minus_certified_full_robot_surface_cover_radius;_a_"
+                        "positive_value_conservatively_implies_positive_link56_clearance"
+                    )
+                    if full_clearance_observation_stride == 1
+                    else (
+                        "cumulative_minimum_over_registered_diagnostic_observation_"
+                        "states_of_full_robot_sample_to_selected_obstacle_obb_minus_"
+                        "certified_full_robot_surface_cover_radius;_when_stride_is_"
+                        "greater_than_one_this_is_not_a_continuous_rollout_certificate"
+                    )
                 ),
             },
             "tracking_full_window": _tracking(physics_rows),

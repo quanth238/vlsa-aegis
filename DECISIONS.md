@@ -907,3 +907,43 @@ branch. It is not evidence for closed-loop VLA recovery, population safety,
 learned perception, dynamic obstacles, real-time execution, tracking-certified
 invariance, or formal continuous-time safety. The broader P01 gate remains
 active.
+
+## ADR-0044: Use a paired live-policy suffix for the closed-loop canary
+
+Accepted for the requested simplest valid test of full-body Poisson-CBF under
+closed-loop policy feedback. The exact historical AEGIS/OSC prefix through
+action 179 remains shared because it is already validated and precedes the
+known arm-link collision. At boundary 4500, the canary restores two identical,
+fresh joint-velocity arms. The control path is live pi0.5, fresh released AEGIS,
+and the translational joint-velocity adapter. The treatment path is identical
+except for link-5/link-6 static Poisson-CBF constraints.
+
+Global policy queries 36--47 retain the original indexed noise seeds. Query 36
+and the complete action-180 AEGIS state must reproduce the historical source.
+After physical divergence, each arm must construct every scheduled query from
+its own latest native observation; recorded suffix actions are prohibited.
+Independent AEGIS virtual-direction state is initialized from historical action
+179 and never shared between arms. Both arms preserve the released end-effector
+marker update cadence after completed simulator actions.
+
+The positive result is deliberately empirical and one-case. The adapter-only
+arm must reproduce the selected-obstacle link-5/6 collision. The Poisson arm
+must have no selected-obstacle contact from any robot geom over every 2 ms
+physics callback, receive a material CBF-attributed correction before the
+baseline contact, execute a fresh policy query after correction, continue
+nontrivial joint and Cartesian motion, and achieve the native BDDL task. A
+treatment contact is a complete scientific negative even though that arm stops
+at contact; no-contact requires the full suffix. Task success is benchmark-
+latched, while terminal success is a disclosed diagnostic because the fixed
+post-success exposure intentionally continues past ordinary benchmark stopping.
+
+To keep this first closed-loop test proportional, exact MuJoCo contacts remain
+measured at 500 Hz but the expensive full-robot surface-clearance calculation
+is sampled at 20 Hz and is diagnostic only. Therefore the result cannot claim a
+continuous clearance certificate. Videos cover only the branch-to-terminal
+live suffix and are not real-time playback. Producer output remains preliminary
+until a separate CPU-only Slurm consumer reconstructs the policy/action chains,
+contacts, CBF attribution, useful motion, task outcome, video files, and final
+classification. This decision does not reinterpret or modify earlier immutable
+artifacts, and it does not establish population, learned-perception, dynamic-
+obstacle, real-time, tracking-certified, or formal-invariance safety.

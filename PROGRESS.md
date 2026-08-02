@@ -803,3 +803,35 @@ deployment claim. Full-window tracking error is diagnostic only (0.0958 rad/s
 RMSE, 1.7405 rad/s maximum absolute error). The static-envelope independent-
 reconstruction limitation from ADR-0041 is unchanged; P01 remains `active` for
 those broader research gates.
+
+## P01 closed-loop suffix canary preregistration
+
+The accepted open-loop result answers the controller-feasibility question but
+does not test whether pi0.5 can react to the trajectory changed by Poisson-CBF.
+The next canary keeps the exact validated AEGIS/OSC prefix through action 179,
+branches at physical boundary 4500, and runs two matched live suffix arms over
+actions 180--236. Both arms query pi0.5 at global query indices 36--47 with the
+registered seeds. After the states diverge, every query is constructed from
+that arm's own immediately preceding native observation. Both then apply a
+fresh released translational AEGIS QP and the same fresh joint-velocity
+adapter; only the treatment adds the link-5/link-6 Poisson-CBF rows.
+
+The first live query, action-180 AEGIS inputs, solver output, virtual-direction
+state, and executed action must reproduce the historical authority before a
+divergence is accepted. The adapter-only arm must reproduce the selected moka-
+pot link-5/6 contact. The treatment must have no selected-obstacle contact from
+any robot collision geom at any measured 2 ms substep, receive a material CBF-
+attributed correction before the baseline contact, make at least one fresh
+policy query after that correction, keep moving, and satisfy the native task.
+Task success is latched as in the SafeLIBERO benchmark; terminal persistence is
+reported separately because the fixed post-success exposure deliberately
+continues to the known collision window.
+
+This lean canary uses exact MuJoCo contact reconstruction at every 500 Hz
+physics substep. The expensive 12,469-point whole-robot clearance sweep runs at
+the 20 Hz action boundary only and is diagnostic, not a continuous-clearance
+claim or acceptance gate. Each arm publishes a real-simulator branch-to-
+terminal suffix video; the 30 fps playback is not wall-clock timing. A distinct
+CPU-only consumer must independently validate the complete immutable result
+before any producer label is interpreted. No H100 producer has been submitted
+from this preregistration yet, and all prior roots remain immutable.

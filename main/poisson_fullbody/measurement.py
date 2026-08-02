@@ -778,6 +778,7 @@ class FullRobotObstacleMonitor:
         self._sample_minimum_record: Optional[
             Tuple[Optional[int], int, int]
         ] = None
+        self._sample_clearance_observation_count = 0
 
         # The live data can contain post-integrated qpos with stale kinematics
         # and solver-phase contacts.  Even the settled snapshot therefore uses
@@ -787,6 +788,7 @@ class FullRobotObstacleMonitor:
         settled_motion = self._measure_settled_obstacle_motion(settled_data)
         self._observe_raw_distance(settled_data, None)
         self._observe_sample_clearance(settled_data, None)
+        self._sample_clearance_observation_count += 1
         settled_candidates = self._contact_records(
             settled_data,
             source_phase="settled_post_integration_recomputed",
@@ -1344,11 +1346,22 @@ class FullRobotObstacleMonitor:
         high_level_index: int,
         inner_control_index: int,
         physics_substep_index: int,
+        measure_full_surface_clearance: bool = True,
     ) -> None:
-        """Observe exactly one state after its MuJoCo integration substep."""
+        """Observe exactly one state after its MuJoCo integration substep.
+
+        Contact is always reconstructed from both the live solver phase and a
+        forwarded post-integration clone.  Callers performing an empirical
+        contact canary may sample the much more expensive whole-robot surface
+        clearance diagnostic less often by passing
+        ``measure_full_surface_clearance=False``.  The default preserves the
+        original every-substep clearance contract.
+        """
 
         if self._require_settled_static_motion:
             self.require_settled_obstacle_motion_admissible()
+        if not isinstance(measure_full_surface_clearance, bool):
+            raise TypeError("measure_full_surface_clearance must be Boolean")
         self._validate_index(
             high_level_index, inner_control_index, physics_substep_index
         )
@@ -1380,8 +1393,10 @@ class FullRobotObstacleMonitor:
             self._model, data, reusable_clone=self._forwarded_clone
         )
         self._forwarded_clone = forwarded
-        self._observe_raw_distance(forwarded, observation_index)
-        self._observe_sample_clearance(forwarded, observation_index)
+        if measure_full_surface_clearance:
+            self._observe_raw_distance(forwarded, observation_index)
+            self._observe_sample_clearance(forwarded, observation_index)
+            self._sample_clearance_observation_count += 1
         post_candidates = self._contact_records(
             forwarded,
             source_phase="post_integration_recomputed",
@@ -1408,6 +1423,16 @@ class FullRobotObstacleMonitor:
                 "observation %d (%s); terminate before another physics substep"
                 % (observation_index, self._first_static_drift_reason)
             )
+
+    @property
+    def sample_clearance_observation_count(self) -> int:
+        """Number of states receiving the expensive full-surface diagnostic.
+
+        The settled construction state is included.  Contact observation
+        count remains available separately in ``result().observed_physics_substeps``.
+        """
+
+        return int(self._sample_clearance_observation_count)
 
     def _raw_advisory_result(self) -> RawGeomDistanceAdvisory:
         if self._raw_minimum_record is None:
