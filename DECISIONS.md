@@ -1221,3 +1221,33 @@ the canary-v3 raw SHA-256 is
 `6404650bbd215bd465da04e46d1b82f9917a6f5c61e7127ee80863bdb5d48d3f`.
 The allocation numeric module list is part of this contract and must equal the
 15-module canary list exactly, including `tests.test_poisson_measurement`.
+
+## ADR-0053: Repair the v3 consumer trace identity without rerunning physics
+
+Accepted after immutable producer `34309` completed on clean commit
+`91c9c310bb5da75685f2f2b9853c05ce65d4fb31` and CPU consumer `34311`
+rejected it before trace interpretation. The producer correctly serialized
+`vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3`; the consumer
+still required the superseded
+`vlsa_poisson_osc_full_robot_compact_physics_trace.v2` label. The producer
+result remains unchanged at file SHA-256
+`aad9bfebc43e24faa0455040dc9c2037e9bab7818564537e4f77f2c0aefa52f9`.
+The rejected receipt remains unchanged at file SHA-256
+`9d1e46d799564527490ce8f4f6a165dc058567a171a5e1c3e707ab0f069dd3e5`.
+It authorizes no scientific interpretation.
+
+The repair changes only the consumer's expected trace-schema literal and its
+default v3 protocol path. The Slurm launcher now binds the immutable producer
+commit separately from the clean repaired-consumer commit, as already allowed
+by ADR-0042, and writes `validation_receipt_schema_v3.json` so the rejected
+receipt cannot be overwritten. No producer byte, simulator replay, Poisson
+field, CBF/QP parameter, contact rule, task criterion, classification rule, or
+acceptance threshold changes. A fresh CPU-only consumer must independently
+validate the original producer before its preliminary classification can be
+reported.
+
+The producer runner also contains an unused CLI default naming v2. Job `34309`
+did not use it: the registered Slurm launcher passed the immutable v3 protocol
+path explicitly. That producer-side default is outside this consumer-only
+repair and is not executed by the validator; changing it is deferred so the
+repaired consumer commit does not alter the producer runner source.

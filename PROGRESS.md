@@ -1189,3 +1189,34 @@ contract now match all 15 required modules exactly. Focused verification passes
 local gate passes 830 tests with 183 expected skips. This is implementation
 evidence only. A fresh same-clean-commit, zero-skip H100 numeric artifact and
 the complete independently consumed e03 rollout remain required.
+
+## P01 e03 producer complete; consumer schema repair pending
+
+Fresh numeric job `34307` completed `COMPLETED|0:0` on the exact clean source
+commit, passing 233/233 tests across all 15 registered modules with zero skips,
+failures, or errors. Its immutable result file SHA-256 is
+`c164e4937538fc932159ca083d8da1572ecdc9fc0cf4aae4dde3285b25881d91`
+and payload SHA-256 is
+`3440357057963a6d2f53a43f95f0b2efc9278946962e4316292fde20a77cd826`.
+The production `116 x 101 x 111` field cross-check passed.
+
+Producer `34309` then completed `COMPLETED|0:0` in 21m51s and atomically
+published the complete e03 result, file SHA-256
+`aad9bfebc43e24faa0455040dc9c2037e9bab7818564537e4f77f2c0aefa52f9`
+and payload SHA-256
+`e8a5361e39bbc4f5ac170c71c1a96be4b47663dec34af4748ef06494681f6a2a`.
+Its producer-side classification is explicitly preliminary and cannot yet be
+used as the research outcome.
+
+CPU consumer `34311` exited `FAILED|1:0` after publishing a complete rejected
+receipt, file SHA-256
+`9d1e46d799564527490ce8f4f6a165dc058567a171a5e1c3e707ab0f069dd3e5`.
+The rejection is `compact physics trace contract differs`: the producer emits
+the registered movable-manipulator v3 trace label while the consumer retained
+the superseded full-robot v2 literal. ADR-0053 repairs only that consumer
+identity, separates immutable producer and clean consumer commit bindings, and
+uses a new receipt filename. Focused tests pass 46 with six expected local
+dependency skips, and the complete local gate passes 832 tests with 183
+expected dependency/allocation-only skips. P01 remains active pending the
+corrected CPU consumer; no physics rerun is authorized or needed for this
+apparatus-only correction.

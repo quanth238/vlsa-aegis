@@ -19,7 +19,8 @@ EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${RESULT:?RESULT is required}"
 : "${HISTORICAL_RESULT_ROOT:?HISTORICAL_RESULT_ROOT is required}"
-: "${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}"
+: "${EXPECTED_PRODUCER_GIT_COMMIT:?EXPECTED_PRODUCER_GIT_COMMIT is required}"
+: "${EXPECTED_CONSUMER_GIT_COMMIT:?EXPECTED_CONSUMER_GIT_COMMIT is required}"
 : "${EXPECTED_PRODUCER_JOB_ID:?EXPECTED_PRODUCER_JOB_ID is required}"
 : "${NUMERIC_VALIDATION_RESULT:?NUMERIC_VALIDATION_RESULT is required}"
 : "${EXPECTED_NUMERIC_JOB_ID:?EXPECTED_NUMERIC_JOB_ID is required}"
@@ -27,7 +28,8 @@ EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
 : "${SLURM_CPUS_PER_TASK:?SLURM_CPUS_PER_TASK is required}"
 if [[ "${REMOTE_REPO}" != "${REGISTERED_REMOTE_REPO}" ]] || \
    [[ "${HISTORICAL_RESULT_ROOT}" != "${REGISTERED_HISTORICAL_ROOT}" ]] || \
-   [[ ! "${EXPECTED_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
+   [[ ! "${EXPECTED_PRODUCER_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
+   [[ ! "${EXPECTED_CONSUMER_GIT_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || \
    [[ ! "${EXPECTED_PRODUCER_JOB_ID}" =~ ^[0-9]+$ ]] || \
    [[ ! "${EXPECTED_NUMERIC_JOB_ID}" =~ ^[0-9]+$ ]] || \
    [[ ! "${SLURM_JOB_ID}" =~ ^[0-9]+$ ]] || \
@@ -108,11 +110,12 @@ if [[ "$(dirname -- "${RUN_ROOT}")" != "${REGISTERED_RESULT_ROOT}" ]] || \
   exit 2
 fi
 require_canonical_real_directory "post-OSC run root" "${RUN_ROOT}"
-OUTPUT="${RUN_ROOT}/validation_receipt.json"
+OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3.json"
 [[ ! -e "${OUTPUT}" && ! -L "${OUTPUT}" ]] || { echo "validation output exists" >&2; exit 2; }
 
 cd "${REMOTE_REPO}"
-if [[ -n "$(git status --short)" ]] || [[ "$(git rev-parse HEAD)" != "${EXPECTED_GIT_COMMIT}" ]]; then
+if [[ -n "$(git status --short)" ]] || \
+   [[ "$(git rev-parse HEAD)" != "${EXPECTED_CONSUMER_GIT_COMMIT}" ]]; then
   echo "validator requires the exact clean source commit" >&2
   exit 2
 fi
@@ -129,7 +132,7 @@ export PYTHONPATH="${REMOTE_REPO}:${REMOTE_REPO}/main"
   --expected-numeric-job-id "${EXPECTED_NUMERIC_JOB_ID}" \
   --protocol "${REMOTE_REPO}/configs/vlsa_poisson_osc_arm_link_canary.v3.json" \
   --expected-producer-job-id "${EXPECTED_PRODUCER_JOB_ID}" \
-  --expected-producer-commit "${EXPECTED_GIT_COMMIT}" \
+  --expected-producer-commit "${EXPECTED_PRODUCER_GIT_COMMIT}" \
   --expected-consumer-job-id "${SLURM_JOB_ID}" \
-  --expected-consumer-commit "${EXPECTED_GIT_COMMIT}" \
+  --expected-consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}" \
   --output "${OUTPUT}"

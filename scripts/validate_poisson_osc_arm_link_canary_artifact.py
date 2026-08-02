@@ -3553,7 +3553,7 @@ def validate(
     )
     _require(
         treatment.get("physics_trace_schema_version")
-        == "vlsa_poisson_osc_full_robot_compact_physics_trace.v2"
+        == "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
         and treatment.get("full_qp_certificate_scope")
         == "first_byte_different_torque_row_only",
         "compact physics trace contract differs",
@@ -4783,7 +4783,7 @@ def main() -> int:
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=Path("configs/vlsa_poisson_osc_arm_link_canary.v2.json"),
+        default=Path("configs/vlsa_poisson_osc_arm_link_canary.v3.json"),
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--numeric-validation-result", type=Path, required=True)

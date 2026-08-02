@@ -368,6 +368,28 @@ class OscArmLinkRunnerStructuralTests(unittest.TestCase):
         self.assertIn('${EXPECTED_PRODUCER_JOB_ID}', batch)
         self.assertIn('${EXPECTED_NUMERIC_JOB_ID}', batch)
         self.assertIn('${SLURM_JOB_ID}', batch)
+        self.assertIn('${EXPECTED_PRODUCER_GIT_COMMIT}', batch)
+        self.assertIn('${EXPECTED_CONSUMER_GIT_COMMIT}', batch)
+        self.assertNotIn('${EXPECTED_GIT_COMMIT}', batch)
+
+    def test_consumer_accepts_the_exact_movable_manipulator_v3_trace_schema(self):
+        runner = (
+            ROOT / "scripts" / "run_poisson_osc_arm_link_canary.py"
+        ).read_text(encoding="utf-8")
+        validator = (
+            ROOT / "scripts" / "validate_poisson_osc_arm_link_canary_artifact.py"
+        ).read_text(encoding="utf-8")
+        schema = "vlsa_poisson_osc_movable_manipulator_compact_physics_trace.v3"
+        self.assertIn(schema, runner)
+        self.assertIn(schema, validator)
+        self.assertNotIn(
+            "vlsa_poisson_osc_full_robot_compact_physics_trace.v2",
+            validator,
+        )
+        self.assertIn(
+            'default=Path("configs/vlsa_poisson_osc_arm_link_canary.v3.json")',
+            validator,
+        )
 
     def test_consumer_reconstructs_field_samples_qp_and_policy_chain(self):
         validator = (

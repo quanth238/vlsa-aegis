@@ -130,6 +130,24 @@ class OscArmLinkSlurmContractTests(unittest.TestCase):
                     source,
                 )
 
+    def test_consumer_can_bind_immutable_producer_and_repaired_consumer_commits(self) -> None:
+        source = self.source("poisson_osc_arm_link_canary_validate.sbatch")
+        self.assertIn("EXPECTED_PRODUCER_GIT_COMMIT", source)
+        self.assertIn("EXPECTED_CONSUMER_GIT_COMMIT", source)
+        self.assertNotIn("EXPECTED_GIT_COMMIT", source)
+        self.assertIn(
+            '--expected-producer-commit "${EXPECTED_PRODUCER_GIT_COMMIT}"',
+            source,
+        )
+        self.assertIn(
+            '--expected-consumer-commit "${EXPECTED_CONSUMER_GIT_COMMIT}"',
+            source,
+        )
+        self.assertIn(
+            'OUTPUT="${RUN_ROOT}/validation_receipt_schema_v3.json"',
+            source,
+        )
+
     def test_producer_and_consumer_use_immutable_v3_canary_protocol(self) -> None:
         for name in (
             "poisson_osc_arm_link_canary.sbatch",
