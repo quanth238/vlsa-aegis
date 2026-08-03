@@ -174,6 +174,13 @@ class _Evaluator:
 
     @staticmethod
     def array_sha256(value):
+        # Keep this dependency-free fixture on the same numeric float64
+        # representation whether the host happens to have NumPy installed or
+        # not.  Passing the private fake array directly to real NumPy creates
+        # an object-dtype array whose pointer bytes are intentionally not the
+        # released Table-1 numeric array hash.
+        if isinstance(value, _Array):
+            value = value.tolist()
         return runner._array_sha256(value)
 
     @staticmethod
