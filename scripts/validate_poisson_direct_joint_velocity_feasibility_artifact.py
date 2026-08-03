@@ -184,6 +184,10 @@ def _is_sha256(value: Any) -> bool:
     return isinstance(value, str) and bool(re.fullmatch(r"[0-9a-f]{64}", value))
 
 
+def _is_git_commit(value: Any) -> bool:
+    return isinstance(value, str) and bool(re.fullmatch(r"[0-9a-f]{40}", value))
+
+
 def _close(left: float, right: float, tolerance: float = FLOAT_TOLERANCE) -> bool:
     return math.isclose(float(left), float(right), rel_tol=0.0, abs_tol=tolerance)
 
@@ -1995,6 +1999,10 @@ def _validate_pairing(
     pairing = audit.mapping(payload.get("pairing"), "pairing")
     initial_hash = pairing.get("settled_state_sha256")
     audit.check(_is_sha256(initial_hash), "pair_initial_state_hash_invalid")
+    audit.check(
+        _is_sha256(pairing.get("historical_table1_settled_state_sha256")),
+        "historical_table1_settled_state_hash_invalid",
+    )
     adapter_hash = adapter.get("start_official_raw_bytes_sha256")
     treatment_hash = treatment.get("start_official_raw_bytes_sha256")
     state_exact = bool(
@@ -2397,13 +2405,13 @@ def validate_payload(
     provenance = audit.mapping(payload.get("provenance"), "provenance")
     source = audit.mapping(provenance.get("source"), "provenance_source")
     allocation = audit.mapping(provenance.get("allocation"), "provenance_allocation")
-    audit.check(source.get("dirty") is False, "source_dirty")
-    audit.check(_is_sha256(source.get("commit")), "source_commit_invalid")
+    audit.check(source.get("dirty", False) is False, "source_dirty")
+    audit.check(_is_git_commit(source.get("commit")), "source_commit_invalid")
     if expected_commit is not None:
         audit.check(source.get("commit") == expected_commit, "source_commit_differs")
     if expected_job_id is not None:
         audit.check(
-            str(allocation.get("job_id")) == str(expected_job_id),
+            str(allocation.get("slurm_job_id")) == str(expected_job_id),
             "allocation_job_id_differs",
         )
 

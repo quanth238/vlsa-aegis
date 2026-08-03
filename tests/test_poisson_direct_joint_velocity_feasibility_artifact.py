@@ -31,6 +31,10 @@ VALIDATOR = (
     / "scripts/validate_poisson_direct_joint_velocity_feasibility_artifact.py"
 )
 SHA = "1" * 64
+GIT_COMMIT = "1" * 40
+RESTORE_SHA = "3" * 64
+RAW_START_SHA = "4" * 64
+HISTORICAL_TABLE1_SHA = "5" * 64
 
 
 def validate_payload(payload, **kwargs):
@@ -74,8 +78,8 @@ def _restore():
         "target_controller": "JOINT_VELOCITY",
         "official_integration_state_sha256": SHA,
         "target_official_integration_state_sha256": SHA,
-        "settled_state_sha256": SHA,
-        "target_state_sha256": SHA,
+        "settled_state_sha256": RESTORE_SHA,
+        "target_state_sha256": RESTORE_SHA,
         "exact_flattened_state": True,
         "controller": {
             "controller_name": "JOINT_VELOCITY",
@@ -322,7 +326,7 @@ def _arm(psf_enabled):
             else "joint_velocity_adapter_only"
         ),
         "restore": _restore(),
-        "start_official_raw_bytes_sha256": SHA,
+        "start_official_raw_bytes_sha256": RAW_START_SHA,
         "execution_cadence": {
             "control_timestep_s": 0.01,
             "wrapper_model_timestep_s": 0.002,
@@ -593,8 +597,8 @@ def _fixture():
         "case_id": "fixture-case",
         "partial_output_interpreted": False,
         "provenance": {
-            "source": {"commit": SHA, "dirty": False},
-            "allocation": {"job_id": "123"},
+            "source": {"commit": GIT_COMMIT},
+            "allocation": {"slurm_job_id": "123"},
         },
         "controller_contract": _controller_contract(),
         "field": {
@@ -613,7 +617,8 @@ def _fixture():
             },
         },
         "pairing": {
-            "settled_state_sha256": SHA,
+            "settled_state_sha256": RESTORE_SHA,
+            "historical_table1_settled_state_sha256": HISTORICAL_TABLE1_SHA,
             "same_initial_state": True,
             "same_first_policy_query": True,
             "first_query_cache": {
@@ -867,12 +872,51 @@ def _terminal_fixture(kind):
 
 class DirectJointVelocityArtifactValidatorTests(unittest.TestCase):
     def test_valid_fixture_is_useful_safe_task_success(self):
-        result = validate_payload(_fixture(), inspect_source=False)
+        result = validate_payload(
+            _fixture(),
+            inspect_source=False,
+            expected_commit=GIT_COMMIT,
+            expected_job_id="123",
+        )
         self.assertTrue(result["artifact_valid"], result["discrepancies"])
         self.assertTrue(result["feasible"])
         self.assertEqual(
             result["outcome"], "SAFE_TASK_SUCCESS_USEFUL_CORRECTION"
         )
+
+    def test_pairing_accepts_distinct_hash_domains(self):
+        payload = _fixture()
+        self.assertNotEqual(
+            payload["pairing"]["historical_table1_settled_state_sha256"],
+            payload["pairing"]["settled_state_sha256"],
+        )
+        self.assertNotEqual(
+            payload["pairing"]["settled_state_sha256"],
+            payload["arms"]["adapter_only"][
+                "start_official_raw_bytes_sha256"
+            ],
+        )
+        result = validate_payload(payload, inspect_source=False)
+        self.assertTrue(result["artifact_valid"], result["discrepancies"])
+
+    def test_provenance_mutations_are_rejected(self):
+        wrong_commit = _fixture()
+        result = validate_payload(
+            wrong_commit,
+            inspect_source=False,
+            expected_commit="2" * 40,
+            expected_job_id="123",
+        )
+        self.assertIn("source_commit_differs", result["discrepancies"])
+
+        wrong_job = _fixture()
+        result = validate_payload(
+            wrong_job,
+            inspect_source=False,
+            expected_commit=GIT_COMMIT,
+            expected_job_id="456",
+        )
+        self.assertIn("allocation_job_id_differs", result["discrepancies"])
 
     def test_real_case_binding_rejects_shortened_frozen_horizon(self):
         payload = _fixture()
@@ -1076,6 +1120,14 @@ class DirectJointVelocityArtifactValidatorTests(unittest.TestCase):
         payload = _fixture()
         payload["arms"]["adapter_plus_psf"][
             "start_official_raw_bytes_sha256"
+        ] = "2" * 64
+        result = validate_payload(payload, inspect_source=False)
+        self.assertFalse(result["artifact_valid"])
+        self.assertIn("pair_initial_state_differs", result["discrepancies"])
+
+        payload = _fixture()
+        payload["arms"]["adapter_plus_psf"]["restore"][
+            "settled_state_sha256"
         ] = "2" * 64
         result = validate_payload(payload, inspect_source=False)
         self.assertFalse(result["artifact_valid"])

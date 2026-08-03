@@ -205,7 +205,7 @@ def _metric_inputs(
     first_query_cache: Mapping[str, Any],
     videos: Mapping[str, Mapping[str, Any]],
     protected_body_names: Sequence[str],
-    settled_state_hash: str,
+    pair_settled_state_hash: str,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     action_count = int(derived["horizon_action_count"])
     query_count = (action_count + 4) // 5
@@ -322,8 +322,10 @@ def _metric_inputs(
     )
     exact_settled_pair = bool(
         fast._pair_exact(baseline, treatment)
-        and baseline["restore"]["settled_state_sha256"] == settled_state_hash
-        and treatment["restore"]["settled_state_sha256"] == settled_state_hash
+        and baseline["restore"]["settled_state_sha256"]
+        == pair_settled_state_hash
+        and treatment["restore"]["settled_state_sha256"]
+        == pair_settled_state_hash
     )
     first_query_paired = bool(
         first_query_cache.get("contract_valid") is True
@@ -640,9 +642,9 @@ def main() -> int:
         settled_state = np.asarray(
             source_env.sim.get_state().flatten(), dtype=np.float64
         ).copy()
-        settled_state_hash = evaluator.array_sha256(settled_state)
+        historical_settled_state_hash = evaluator.array_sha256(settled_state)
         if (
-            settled_state_hash
+            historical_settled_state_hash
             != case["historical_aegis_result"]["pairing"][
                 "settled_simulator_state_sha256"
             ]
@@ -921,6 +923,9 @@ def main() -> int:
                     raise finalization_error
 
         cache_record = paired_cache.record()
+        pair_settled_state_hash = str(
+            arms["baseline"]["restore"]["settled_state_sha256"]
+        )
         metrics, post_motion = _metric_inputs(
             protocol=protocol,
             derived=derived,
@@ -930,7 +935,7 @@ def main() -> int:
             first_query_cache=cache_record,
             videos=videos,
             protected_body_names=protected_body_names,
-            settled_state_hash=settled_state_hash,
+            pair_settled_state_hash=pair_settled_state_hash,
         )
         classification = classify_direct_joint_velocity(metrics, protocol)
         protected_sample_rows = [
@@ -1057,7 +1062,10 @@ def main() -> int:
             },
             "policy_server": server_metadata,
             "pairing": {
-                "settled_state_sha256": settled_state_hash,
+                "settled_state_sha256": pair_settled_state_hash,
+                "historical_table1_settled_state_sha256": (
+                    historical_settled_state_hash
+                ),
                 "first_query_cache": cache_record,
                 "same_initial_state": metrics["exact_settled_pair_start"],
                 "same_first_policy_query": metrics[

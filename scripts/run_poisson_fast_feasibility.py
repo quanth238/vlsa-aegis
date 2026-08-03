@@ -384,6 +384,21 @@ def _static_admissible(rows: Sequence[Mapping[str, float]], protocol: Mapping[st
     )
 
 
+def _psf_static_assumption_crossed(
+    *,
+    psf_enabled: bool,
+    any_contact_seen: bool,
+    row: Mapping[str, float],
+    protocol: Mapping[str, Any],
+) -> bool:
+    """The frozen-field assumption constrains only the arm using that field."""
+    return bool(
+        psf_enabled
+        and not any_contact_seen
+        and not _static_admissible([row], protocol)
+    )
+
+
 def _tracking(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     import numpy as np
 
@@ -1441,7 +1456,12 @@ def _run_arm(
                 forwarded = clone_forwarded_state(model, data)
                 static = _obstacle_state(model, forwarded, bundle, resolved.obstacle_body_ids)
                 static_rows.append(static)
-                if not any_contact_seen and not _static_admissible([static], runtime_protocol):
+                if _psf_static_assumption_crossed(
+                    psf_enabled=psf_enabled,
+                    any_contact_seen=any_contact_seen,
+                    row=static,
+                    protocol=runtime_protocol,
+                ):
                     failure_stage = "selected_obstacle_static_assumption_crossed"
                     raise FastRunnerError(
                         "selected obstacle left the frozen-field static envelope before contact"

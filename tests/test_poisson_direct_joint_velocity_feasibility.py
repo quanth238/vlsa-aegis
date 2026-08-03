@@ -241,6 +241,21 @@ class DirectJointVelocityProtocolTests(unittest.TestCase):
             ):
                 _validate_manifest_case_identity(case, changed)
 
+    def test_table1_and_joint_velocity_pair_hash_domains_are_not_compared(self):
+        source = (
+            ROOT / "scripts/run_poisson_direct_joint_velocity_feasibility.py"
+        ).read_text(encoding="utf-8")
+        metric_inputs = source[
+            source.index("def _metric_inputs(") : source.index("def main(")
+        ]
+        self.assertIn("fast._pair_exact(baseline, treatment)", metric_inputs)
+        self.assertIn("pair_settled_state_hash", metric_inputs)
+        self.assertNotIn("historical_settled_state_hash", metric_inputs)
+        self.assertIn(
+            '"historical_table1_settled_state_sha256"',
+            source,
+        )
+
 
 class DirectJointVelocityClassificationTests(unittest.TestCase):
     @classmethod

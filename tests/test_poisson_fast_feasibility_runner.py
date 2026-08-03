@@ -7,6 +7,7 @@ import unittest
 from scripts.run_poisson_fast_feasibility import (
     _contact_physical_boundary,
     _first_contact_boundary,
+    _psf_static_assumption_crossed,
     _run_arm,
 )
 
@@ -54,6 +55,54 @@ class FastFeasibilityRunnerContractTests(unittest.TestCase):
         self.assertIn("PHYSICS_DT_S", self.source)
         self.assertIn('"execution_cadence": execution_cadence', self.source)
         self.assertIn('"physics_monitor_trace_counts_match"', self.source)
+
+    def test_static_field_admissibility_only_aborts_the_psf_arm(self):
+        protocol = {
+            "admissibility": {
+                "max_selected_geom_translation_drift_m": 1.0e-6,
+                "max_selected_geom_rotation_drift_rad": 1.0e-6,
+                "max_selected_geom_surface_drift_m": 1.0e-6,
+                "max_selected_body_linear_speed_m_s": 1.0e-6,
+                "max_selected_body_angular_speed_rad_s": 1.0e-6,
+            }
+        }
+        crossed = {
+            "translation_drift_m": 2.0e-6,
+            "rotation_drift_rad": 0.0,
+            "surface_drift_m": 2.0e-6,
+            "maximum_body_linear_speed_m_s": 0.0,
+            "maximum_body_angular_speed_rad_s": 0.0,
+        }
+        self.assertFalse(
+            _psf_static_assumption_crossed(
+                psf_enabled=False,
+                any_contact_seen=False,
+                row=crossed,
+                protocol=protocol,
+            )
+        )
+        self.assertTrue(
+            _psf_static_assumption_crossed(
+                psf_enabled=True,
+                any_contact_seen=False,
+                row=crossed,
+                protocol=protocol,
+            )
+        )
+        self.assertFalse(
+            _psf_static_assumption_crossed(
+                psf_enabled=True,
+                any_contact_seen=True,
+                row=crossed,
+                protocol=protocol,
+            )
+        )
+        run_arm = self.source[
+            self.source.index("def _run_arm(") : self.source.index("def _pair_exact(")
+        ]
+        append = run_arm.index("static_rows.append(static)")
+        check = run_arm.index("if _psf_static_assumption_crossed(")
+        self.assertLess(append, check)
 
     def test_exposure_counts_are_reusable_parameters_with_window_defaults(self):
         parameters = inspect.signature(_run_arm).parameters
