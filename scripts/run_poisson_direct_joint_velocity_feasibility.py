@@ -47,6 +47,52 @@ def _manifest_case(path: Path, case_id: str) -> Tuple[Dict[str, Any], str]:
     return matches[0]
 
 
+def _validate_manifest_case_identity(
+    case: Mapping[str, Any], case_contract: Mapping[str, Any]
+) -> None:
+    """Bind the frozen protocol to the immutable manifest's real schema."""
+
+    manifest_bindings = {
+        "active_obstacle_name": "selected_obstacle_name",
+        "bddl_path": "bddl_path",
+        "bddl_sha256": "bddl_sha256",
+        "initial_states_path": "initial_states_path",
+        "initial_states_sha256": "initial_states_sha256",
+        "environment_seed": "environment_seed",
+        "episode_index": "episode_index",
+        "logical_task_index": "logical_task_index",
+        "resolved_task_index": "resolved_task_index",
+        "task_name": "task_name",
+        "suite": "suite",
+        "safety_level": "safety_level",
+        "policy_noise_seed": "policy_noise_seed",
+        "policy_noise_schedule_id": "policy_noise_schedule_id",
+    }
+    if any(
+        case.get(manifest_key) != case_contract.get(protocol_key)
+        for manifest_key, protocol_key in manifest_bindings.items()
+    ):
+        raise DirectJointVelocityRunnerError(
+            "manifest case identity differs from the frozen protocol"
+        )
+    historical = case.get("historical_aegis_result")
+    pairing = (
+        historical.get("pairing") if isinstance(historical, Mapping) else None
+    )
+    nested_pairing_keys = (
+        "policy_noise_schedule_sha256",
+        "settled_simulator_state_sha256",
+        "initial_observation_sha256",
+        "initial_state_sha256",
+    )
+    if not isinstance(pairing, Mapping) or any(
+        pairing.get(key) != case_contract.get(key) for key in nested_pairing_keys
+    ):
+        raise DirectJointVelocityRunnerError(
+            "manifest historical pairing differs from the frozen protocol"
+        )
+
+
 def _controller_is_direct_joint_velocity(arm: Mapping[str, Any]) -> bool:
     restore = arm.get("restore")
     controller = restore.get("controller") if isinstance(restore, Mapping) else None
@@ -509,32 +555,7 @@ def main() -> int:
             raise DirectJointVelocityRunnerError("CLI and protocol case IDs differ")
         case, case_row_sha256 = _manifest_case(manifest_path, arguments.case_id)
         case_contract = protocol["case"]
-        manifest_bindings = {
-            "active_obstacle_name": "selected_obstacle_name",
-            "bddl_path": "bddl_path",
-            "bddl_sha256": "bddl_sha256",
-            "initial_states_path": "initial_states_path",
-            "initial_states_sha256": "initial_states_sha256",
-            "environment_seed": "environment_seed",
-            "episode_index": "episode_index",
-            "logical_task_index": "logical_task_index",
-            "resolved_task_index": "resolved_task_index",
-            "task_name": "task_name",
-            "suite": "suite",
-            "safety_level": "safety_level",
-            "policy_noise_seed": "policy_noise_seed",
-            "policy_noise_schedule_id": "policy_noise_schedule_id",
-            "policy_noise_schedule_sha256": (
-                "policy_noise_schedule_sha256"
-            ),
-        }
-        if any(
-            case.get(manifest_key) != case_contract.get(protocol_key)
-            for manifest_key, protocol_key in manifest_bindings.items()
-        ):
-            raise DirectJointVelocityRunnerError(
-                "manifest case identity differs from the frozen protocol"
-            )
+        _validate_manifest_case_identity(case, case_contract)
         if (
             fast._file_sha256(manifest_path)
             != protocol["selection_binding"]["manifest_sha256"]

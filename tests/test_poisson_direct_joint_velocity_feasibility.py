@@ -16,11 +16,17 @@ from main.poisson_fullbody.direct_joint_velocity_feasibility import (
     classify_direct_joint_velocity,
     validate_direct_joint_velocity_protocol,
 )
+from scripts.run_poisson_direct_joint_velocity_feasibility import (
+    DirectJointVelocityRunnerError,
+    _manifest_case,
+    _validate_manifest_case_identity,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 E05_PATH = ROOT / "configs/vlsa_poisson_direct_joint_velocity_e05.v1.json"
 E42_PATH = ROOT / "configs/vlsa_poisson_direct_joint_velocity_e42.v1.json"
+MANIFEST_PATH = ROOT / "manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl"
 
 
 def _load(path: Path):
@@ -80,6 +86,12 @@ class DirectJointVelocityProtocolTests(unittest.TestCase):
             self.assertEqual(
                 derived["runtime_semantic_sha256"],
                 "2125989269a2ffeeb8d3408d56e4aaa74e1dc5816256d8210bf9ee686c5f5a30",
+            )
+
+        for protocol in (self.e05, self.e42):
+            self.assertEqual(
+                protocol["online_policy"]["checkpoint_receipt_schema_version"],
+                "vlsa_table1_pi05_hash_receipt.v1",
             )
 
         self.assertEqual(
@@ -175,6 +187,11 @@ class DirectJointVelocityProtocolTests(unittest.TestCase):
     def test_protocol_rejects_runtime_or_selection_rebinding(self):
         changes = (
             (
+                "online_policy",
+                "checkpoint_receipt_schema_version",
+                "wrong.receipt.schema",
+            ),
+            (
                 "runtime_binding",
                 "file_sha256",
                 "0" * 64,
@@ -201,6 +218,28 @@ class DirectJointVelocityProtocolTests(unittest.TestCase):
                 changed[section][key] = value
                 with self.assertRaises(DirectJointVelocityFeasibilityError):
                     validate_direct_joint_velocity_protocol(changed)
+
+    def test_real_manifest_schema_matches_both_frozen_case_contracts(self):
+        for protocol in (self.e05, self.e42):
+            case, observed_row_sha256 = _manifest_case(
+                MANIFEST_PATH, protocol["case"]["case_id"]
+            )
+            _validate_manifest_case_identity(case, protocol["case"])
+            self.assertEqual(len(observed_row_sha256), 64)
+            self.assertEqual(
+                case["historical_aegis_result"]["pairing"][
+                    "manifest_row_sha256"
+                ],
+                protocol["selection_binding"]["source_manifest_row_sha256"],
+            )
+
+            changed = deepcopy(protocol["case"])
+            changed["policy_noise_schedule_sha256"] = "0" * 64
+            with self.assertRaisesRegex(
+                DirectJointVelocityRunnerError,
+                "manifest historical pairing differs",
+            ):
+                _validate_manifest_case_identity(case, changed)
 
 
 class DirectJointVelocityClassificationTests(unittest.TestCase):

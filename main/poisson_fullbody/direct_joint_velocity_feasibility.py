@@ -374,6 +374,8 @@ def validate_direct_joint_velocity_protocol(
         != "7c81971fafcdbc677b0e8fd25b3bffd3d624abe4635323784f1918abdcef6f15"
         or online.get("checkpoint_receipt")
         != "/mnt/data/quanth/experiments/vlsa-aegis-table1/checkpoint-receipts/vlsa-table1-pi05-hash-contact-authority-20260718a.json"
+        or online.get("checkpoint_receipt_schema_version")
+        != "vlsa_table1_pi05_hash_receipt.v1"
         or online.get("checkpoint_receipt_sha256")
         != "423c10b3435b84dfb694c309c7d2684cc9457c4616878043618847e9e75df7b9"
         or online.get("model_action_horizon") != 10
