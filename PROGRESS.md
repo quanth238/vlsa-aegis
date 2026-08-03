@@ -1411,3 +1411,26 @@ plus a feasibility-preserving QP/reference-governor design, followed by the
 same fixed-link pair with unchanged no-stop, no-contact, useful-motion, CAR,
 and native-task-success criteria. P01 remains active for that broader method
 development; the direct feasibility question is now answered.
+
+## P01 paper-aligned direct joint-velocity follow-up
+
+ADR-0061 removes the non-paper post-OSC torque-sensitivity and torque-shield
+path that produced the two STOP_ONLY results. The replacement implements the
+paper's kinematic decision variable directly: both arms use the same live
+pi0.5 + released translational AEGIS + joint-velocity adapter, while treatment
+alone adds hard Poisson-CBF rows for the identical
+`[robot0_link5, robot0_link6]` surface union. It starts from action zero after
+the registered 20 settling actions, uses each arm's own observations after the
+bitwise-shared first live policy query, and runs the archived complete horizon
+(237 actions for e05; 120 for e42).
+
+Stopping cannot pass. Positive evidence requires matched baseline arm-link
+contact, material treatment correction before that contact, no selected-
+obstacle or shifted protected-link external contact, paper CAR safety, valid
+joint-velocity tracking, continued joint and end-effector motion through task
+success, and native terminal BDDL success. A QP refusal is a typed negative,
+not a zero-command fallback. The 170 focused regressions pass, and the complete
+local `./init.sh` gate passes 915 tests with 188 expected dependency/allocation
+skips. No new H100 outcome exists yet. Cluster SSH most recently returned
+`No route to host`, so no direct-joint-velocity producer has been submitted or
+disturbed.

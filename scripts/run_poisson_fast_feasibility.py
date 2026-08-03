@@ -57,6 +57,10 @@ class _PsfContactObserved(RuntimeError):
     """Private clean terminal after a literal PSF-arm contact is recorded."""
 
 
+class _PsfMethodStop(RuntimeError):
+    """Private clean terminal when the hard joint-velocity QP has no command."""
+
+
 def _canonical(value: Any) -> bytes:
     return json.dumps(
         value,
@@ -490,6 +494,8 @@ def _post_correction_motion(
     physics_rows: Sequence[Mapping[str, Any]],
     *,
     first_correction_physical_boundary: Any,
+    end_physical_boundary_exclusive: Any = None,
+    zero_command_norm_threshold_rad_s: float = 1e-8,
 ) -> Dict[str, Any]:
     """Measure useful execution from the first material correction onward.
 
@@ -500,6 +506,22 @@ def _post_correction_motion(
 
     import numpy as np
 
+    if (
+        isinstance(zero_command_norm_threshold_rad_s, bool)
+        or not math.isfinite(float(zero_command_norm_threshold_rad_s))
+        or float(zero_command_norm_threshold_rad_s) < 0.0
+    ):
+        raise FastRunnerError(
+            "zero-command norm threshold must be finite and nonnegative"
+        )
+    if end_physical_boundary_exclusive is not None and (
+        isinstance(end_physical_boundary_exclusive, bool)
+        or not isinstance(end_physical_boundary_exclusive, int)
+    ):
+        raise FastRunnerError(
+            "post-correction end boundary must be an integer or absent"
+        )
+
     commands = (
         []
         if first_correction_physical_boundary is None
@@ -508,6 +530,11 @@ def _post_correction_motion(
             for row in command_rows
             if int(row["physical_boundary"])
             >= int(first_correction_physical_boundary)
+            and (
+                end_physical_boundary_exclusive is None
+                or int(row["physical_boundary"])
+                < int(end_physical_boundary_exclusive)
+            )
         ]
     )
     keys = {
@@ -547,7 +574,7 @@ def _post_correction_motion(
                 np.asarray(row["executed_qdot_rad_s"], dtype=np.float64)
             )
         )
-        <= 1e-8
+        <= float(zero_command_norm_threshold_rad_s)
         for row in commands
     )
     cartesian_path = 0.0
@@ -685,6 +712,9 @@ def _run_arm(
     rollout_frame_observer: Any = None,
     initial_live_observation: Any = None,
     full_clearance_observation_stride: int = 1,
+    monitor_registered_forbidden_contacts: bool = False,
+    record_paper_car: bool = False,
+    record_qp_failure_as_method_stop: bool = False,
 ) -> Dict[str, Any]:
     import numpy as np
     from main.poisson_fullbody.cbf_qp import HardCbfQp, joint_velocity_bounds
@@ -725,6 +755,29 @@ def _run_arm(
         raise FastRunnerError(
             "full-clearance observation stride must be a positive integer"
         )
+    if not isinstance(monitor_registered_forbidden_contacts, bool):
+        raise FastRunnerError(
+            "registered forbidden-contact monitoring flag must be Boolean"
+        )
+    if monitor_registered_forbidden_contacts and source_start_action != 0:
+        raise FastRunnerError(
+            "registered forbidden-contact monitoring currently requires an "
+            "action-0 rollout"
+        )
+    if not isinstance(record_paper_car, bool):
+        raise FastRunnerError("paper-CAR recording flag must be Boolean")
+    if record_paper_car and (
+        source_start_action != 0 or live_action_provider is None
+    ):
+        raise FastRunnerError(
+            "paper-CAR endpoint recording requires a live action-0 rollout"
+        )
+    if not isinstance(record_qp_failure_as_method_stop, bool):
+        raise FastRunnerError("method-stop recording flag must be Boolean")
+    if record_qp_failure_as_method_stop and not arm_name.endswith("psf"):
+        raise FastRunnerError(
+            "method-stop recording is defined only for the PSF treatment"
+        )
     expected_boundary_values = None
     if expected_boundary_goal_values is not None:
         if (
@@ -740,6 +793,7 @@ def _run_arm(
     psf_enabled = arm_name.endswith("psf")
     env = None
     monitor = None
+    registered_contact_monitor = None
     failure_stage = "build_joint_velocity_environment"
     command_rows: List[Dict[str, Any]] = []
     physics_rows: List[Dict[str, Any]] = []
@@ -767,6 +821,8 @@ def _run_arm(
     maximum_safe_command = 0.0
     minimum_nominal_residual = float("inf")
     contact_terminated_early = False
+    method_terminated_early = False
+    method_stop_record: Any = None
     pending: Dict[str, Any] = {}
     execution_cadence: Dict[str, float] = {}
     goal_definition: Dict[str, Any] = {}
@@ -784,6 +840,11 @@ def _run_arm(
     terminal_observation_hash: Any = None
     terminal_state_hash: Any = None
     terminal_official_state_raw_bytes_sha256: Any = None
+    paper_car_obstacle_name: Any = None
+    paper_car_initial_position: Any = None
+    paper_car_endpoint_rows: List[Dict[str, Any]] = []
+    paper_car_maximum_displacement_m = 0.0
+    paper_car_first_collision_source_action: Any = None
     qp = None
     try:
         failure_stage = "build_joint_velocity_environment"
@@ -925,6 +986,21 @@ def _run_arm(
                 raise FastRunnerError(
                     "initial closed-loop native observation is unavailable"
                 )
+            if record_paper_car:
+                paper_car_obstacle_name, _ = evaluator._active_obstacle(
+                    env, live_observation
+                )
+                paper_car_initial_position = np.asarray(
+                    live_observation["%s_pos" % paper_car_obstacle_name],
+                    dtype=np.float64,
+                ).copy()
+                if (
+                    paper_car_initial_position.shape != (3,)
+                    or not np.all(np.isfinite(paper_car_initial_position))
+                ):
+                    raise FastRunnerError(
+                        "initial paper-CAR obstacle position is invalid"
+                    )
             if rollout_frame_observer is not None:
                 rollout_frame_observer(
                     live_observation,
@@ -974,6 +1050,26 @@ def _run_arm(
         )
         if monitor.settled_state.any_robot_obstacle_contact:
             raise FastRunnerError("boundary B already has robot-selected-obstacle contact")
+        if monitor_registered_forbidden_contacts:
+            # This neutral measurement-only monitor observes any robot geom
+            # against the selected obstacle plus literal link 5/6 against
+            # every external non-robot geom. It has no controller dependency.
+            # The action-0 restriction keeps cadence absolute.
+            from main.poisson_fullbody.registered_contact_monitor import (
+                RegisteredContactMonitor,
+            )
+
+            registered_contact_monitor = RegisteredContactMonitor(
+                env.sim,
+                resolved,
+                physics_substeps_per_action=25,
+                controller_updates_per_action=5,
+                physics_substeps_per_controller_update=5,
+            )
+            if registered_contact_monitor.settled_contact:
+                raise FastRunnerError(
+                    "settled action-0 state already has a registered forbidden contact"
+                )
 
         model, data = _raw_model_data(env.sim)
         start_official_sha256 = _sha256(_official_state(env.sim).tobytes())
@@ -1010,7 +1106,7 @@ def _run_arm(
                 nonlocal minimum_nominal_residual
                 nonlocal nominal_dynamic_bound_check_count
                 nonlocal nominal_dynamic_bound_violation_count
-                nonlocal last_qp_attempt, failure_stage
+                nonlocal last_qp_attempt, method_stop_record, failure_stage
 
                 failure_stage = "compute_fresh_adapter_target_or_nominal"
                 position_now, rotation_now, eef_jacobian = _eef_kinematics(env, site_id, arm_dofs)
@@ -1084,6 +1180,27 @@ def _run_arm(
                     h = np.asarray([float(query.value) for query in queries], dtype=np.float64)
                     gradients = np.asarray([query.gradient for query in queries], dtype=np.float64)
                     if np.any(h <= 0.0):
+                        if record_qp_failure_as_method_stop:
+                            last_qp_attempt = {
+                                "local_action_index": local_index,
+                                "source_action_index": source_index,
+                                "source_action": source_action.tolist(),
+                                "inner_control_index": int(inner_index),
+                                "physical_boundary": update_physical_boundary,
+                                "valid": False,
+                                "reason": (
+                                    "protected_sample_nonpositive_before_hard_qp"
+                                ),
+                                "diagnostics": {
+                                    "minimum_h_m2": float(np.min(h)),
+                                    "nonpositive_sample_count": int(
+                                        np.count_nonzero(h <= 0.0)
+                                    ),
+                                    "qp_executed": False,
+                                },
+                            }
+                            method_stop_record = dict(last_qp_attempt)
+                            raise _PsfMethodStop()
                         raise FastRunnerError("PSF protected sample left strict h>0 before physics")
                     result = qp.solve_from_field(
                         nominal,
@@ -1107,7 +1224,13 @@ def _run_arm(
                         "diagnostics": dict(result.diagnostics),
                     }
                     if not result.valid or result.qdot_safe is None:
-                        raise FastRunnerError("hard PSF QP failed before physics: %s" % result.reason)
+                        if record_qp_failure_as_method_stop:
+                            method_stop_record = dict(last_qp_attempt)
+                            raise _PsfMethodStop()
+                        raise FastRunnerError(
+                            "hard PSF QP failed before physics: %s"
+                            % result.reason
+                        )
                     qp_solve_count += 1
                     executed = np.asarray(result.qdot_safe, dtype=np.float64)
                     rows = np.einsum("ni,nij->nj", gradients, jacobians)
@@ -1259,12 +1382,29 @@ def _run_arm(
                         clearance_observed_this_substep
                     ),
                 )
+                registered_contact_snapshot = None
+                if registered_contact_monitor is not None:
+                    registered_contact_snapshot = (
+                        registered_contact_monitor.observe_post_integration(
+                            sim,
+                            source_action_index=source_index,
+                            physics_substep_index=(
+                                int(inner_index) * 5 + int(physics_index)
+                            ),
+                        )
+                    )
                 current_measurement = monitor.result()
                 current_clearance = float(
                     current_measurement.sample_clearance.full_surface_clearance_lower_bound_m
                 )
                 any_contact_seen = bool(current_measurement.any_robot_obstacle_contact)
-                if psf_enabled and any_contact_seen:
+                registered_forbidden_contact_seen = bool(
+                    registered_contact_snapshot is not None
+                    and registered_contact_snapshot["literal_contact"]
+                )
+                if psf_enabled and (
+                    any_contact_seen or registered_forbidden_contact_seen
+                ):
                     physics_rows.append(
                         {
                             "observation_index": observation_index,
@@ -1277,6 +1417,18 @@ def _run_arm(
                             "issued_qvel_rad_s": pending["executed"].tolist(),
                             "tracking_error_rad_s": error.tolist(),
                             "literal_contact_observed": True,
+                            "registered_forbidden_contact_observed": (
+                                registered_forbidden_contact_seen
+                            ),
+                            "registered_contact_categories": (
+                                []
+                                if registered_contact_snapshot is None
+                                else list(
+                                    registered_contact_snapshot[
+                                        "contact_categories"
+                                    ]
+                                )
+                            ),
                             "full_surface_clearance_observed_this_substep": (
                                 clearance_observed_this_substep
                             ),
@@ -1350,6 +1502,18 @@ def _run_arm(
                             )
                         ),
                         "literal_contact_observed": False,
+                        "registered_forbidden_contact_observed": (
+                            registered_forbidden_contact_seen
+                        ),
+                        "registered_contact_categories": (
+                            []
+                            if registered_contact_snapshot is None
+                            else list(
+                                registered_contact_snapshot[
+                                    "contact_categories"
+                                ]
+                            )
+                        ),
                         "full_surface_clearance_observed_this_substep": (
                             clearance_observed_this_substep
                         ),
@@ -1368,6 +1532,9 @@ def _run_arm(
                 )
             except _PsfContactObserved:
                 contact_terminated_early = True
+                break
+            except _PsfMethodStop:
+                method_terminated_early = True
                 break
             failure_stage = "measure_native_task_goal"
             if not isinstance(observation, Mapping):
@@ -1395,6 +1562,63 @@ def _run_arm(
             observation_hash = _observation_sha256(observation, evaluator, np)
             live_observation = observation
             returned_observation_hashes.append(observation_hash)
+            if record_paper_car:
+                if (
+                    paper_car_obstacle_name is None
+                    or paper_car_initial_position is None
+                ):
+                    raise FastRunnerError(
+                        "paper-CAR initial position authority is unavailable"
+                    )
+                current_car_position = np.asarray(
+                    observation["%s_pos" % paper_car_obstacle_name],
+                    dtype=np.float64,
+                )
+                if (
+                    current_car_position.shape != (3,)
+                    or not np.all(np.isfinite(current_car_position))
+                ):
+                    raise FastRunnerError(
+                        "paper-CAR endpoint obstacle position is invalid"
+                    )
+                paper_car_displacement = float(
+                    np.sum(
+                        np.abs(
+                            current_car_position - paper_car_initial_position
+                        )
+                    )
+                )
+                paper_car_maximum_displacement_m = max(
+                    paper_car_maximum_displacement_m,
+                    paper_car_displacement,
+                )
+                if (
+                    paper_car_first_collision_source_action is None
+                    and paper_car_displacement
+                    > float(evaluator.PAPER_COLLISION_THRESHOLD_M)
+                ):
+                    paper_car_first_collision_source_action = source_index
+                paper_car_endpoint_rows.append(
+                    {
+                        "local_action_index": local_index,
+                        "source_action_index": source_index,
+                        "returned_observation_sha256": observation_hash,
+                        "active_obstacle_name": paper_car_obstacle_name,
+                        "active_obstacle_position_m": (
+                            current_car_position.tolist()
+                        ),
+                        "l1_displacement_from_settled_m": (
+                            paper_car_displacement
+                        ),
+                        "paper_collision_threshold_m": float(
+                            evaluator.PAPER_COLLISION_THRESHOLD_M
+                        ),
+                        "paper_collision": bool(
+                            paper_car_displacement
+                            > float(evaluator.PAPER_COLLISION_THRESHOLD_M)
+                        ),
+                    }
+                )
             goal_ledger.append(
                 dict(
                     goal,
@@ -1477,6 +1701,21 @@ def _run_arm(
             terminal_official_after_observables.tobytes()
         )
         if contact_terminated_early:
+            terminal_goal_snapshot_kind = (
+                "partial_action_terminal_state_diagnostic"
+            )
+            terminal_frame_snapshot_kind = "partial_action_terminal_state"
+        elif method_terminated_early:
+            terminal_goal_snapshot_kind = (
+                "method_stop_prephysics_terminal_state_diagnostic"
+            )
+            terminal_frame_snapshot_kind = (
+                "method_stop_prephysics_terminal_state"
+            )
+        else:
+            terminal_goal_snapshot_kind = None
+            terminal_frame_snapshot_kind = None
+        if contact_terminated_early or method_terminated_early:
             terminal_goal = evaluator._goal_progress_snapshot(
                 env,
                 goal_atoms,
@@ -1492,7 +1731,7 @@ def _run_arm(
             goal_ledger.append(
                 dict(
                     terminal_goal,
-                    snapshot_kind="partial_action_terminal_state_diagnostic",
+                    snapshot_kind=terminal_goal_snapshot_kind,
                     local_action_index=local_index,
                     source_action_index=source_index,
                     reward=None,
@@ -1504,12 +1743,17 @@ def _run_arm(
             if rollout_frame_observer is not None:
                 rollout_frame_observer(
                     terminal_observation,
-                    snapshot_kind="partial_action_terminal_state",
+                    snapshot_kind=terminal_frame_snapshot_kind,
                     local_action_index=local_index,
                     source_action_index=source_index,
                 )
 
         measurement = monitor.result()
+        registered_contact_measurement = (
+            None
+            if registered_contact_monitor is None
+            else registered_contact_monitor.result()
+        )
         monitor_observed_physics_substeps = int(
             measurement.observed_physics_substeps
         )
@@ -1645,6 +1889,8 @@ def _run_arm(
             ),
             "exposure_complete": exposure_complete,
             "contact_terminated_early": contact_terminated_early,
+            "method_terminated_early": method_terminated_early,
+            "method_stop": method_stop_record,
             "precontact_execution_valid": precontact_execution_valid,
             "qp_solve_count": qp_solve_count,
             "qp_postcheck_count": qp_postcheck_count,
@@ -1679,7 +1925,9 @@ def _run_arm(
                 )
             ),
             "minimum_safe_cbf_residual_m2_per_s": (
-                minimum_safe_residual if psf_enabled else None
+                minimum_safe_residual
+                if psf_enabled and qp_solve_count > 0
+                else None
             ),
             "literal_contact": {
                 "link56_present": bool(measurement.link56_obstacle_contact),
@@ -1729,7 +1977,9 @@ def _run_arm(
             "static_precontact_admissible": precontact_static_admissible,
             "precontact_field_queries_valid_and_positive": precontact_field_valid,
             "minimum_nominal_cbf_residual_m2_per_s": (
-                minimum_nominal_residual if psf_enabled else None
+                minimum_nominal_residual
+                if psf_enabled and qp_solve_count > 0
+                else None
             ),
             "activation_trace": activation_rows,
             "motion": {
@@ -1749,16 +1999,54 @@ def _run_arm(
             "command_trace": command_rows,
             "physics_trace": physics_rows,
             "measurement": measurement.to_dict(),
+            "registered_forbidden_contact": registered_contact_measurement,
+            "paper_car": {
+                "enabled": bool(record_paper_car),
+                "active_obstacle_name": paper_car_obstacle_name,
+                "initial_active_obstacle_position_m": (
+                    None
+                    if paper_car_initial_position is None
+                    else paper_car_initial_position.tolist()
+                ),
+                "endpoint_ledger": paper_car_endpoint_rows,
+                "expected_endpoint_count": (
+                    expected_action_count if record_paper_car else 0
+                ),
+                "endpoint_ledger_complete": bool(
+                    not record_paper_car
+                    or len(paper_car_endpoint_rows) == expected_action_count
+                ),
+                "maximum_active_obstacle_l1_displacement_m": (
+                    float(paper_car_maximum_displacement_m)
+                ),
+                "collision_first_source_action_index": (
+                    paper_car_first_collision_source_action
+                ),
+                "paper_collision_threshold_m": float(
+                    evaluator.PAPER_COLLISION_THRESHOLD_M
+                ),
+                "paper_collision_avoidance": bool(
+                    not record_paper_car
+                    or paper_car_maximum_displacement_m
+                    <= float(evaluator.PAPER_COLLISION_THRESHOLD_M)
+                ),
+            },
         }
     except FastArmExecutionFailure:
         raise
     except Exception as error:
         measurement_record = None
+        registered_contact_record = None
         if monitor is not None:
             try:
                 measurement_record = monitor.result().to_dict()
             except Exception:
                 measurement_record = None
+        if registered_contact_monitor is not None:
+            try:
+                registered_contact_record = registered_contact_monitor.result()
+            except Exception:
+                registered_contact_record = None
         failure_monitor_observation_count = (
             measurement_record.get("observed_physics_substeps")
             if isinstance(measurement_record, Mapping)
@@ -1834,6 +2122,31 @@ def _run_arm(
                 "terminal_observation_sha256": terminal_observation_hash,
             },
             "measurement": measurement_record,
+            "registered_forbidden_contact": registered_contact_record,
+            "paper_car": {
+                "enabled": bool(record_paper_car),
+                "active_obstacle_name": paper_car_obstacle_name,
+                "initial_active_obstacle_position_m": (
+                    None
+                    if paper_car_initial_position is None
+                    else paper_car_initial_position.tolist()
+                ),
+                "endpoint_ledger": paper_car_endpoint_rows,
+                "expected_endpoint_count": (
+                    expected_action_count if record_paper_car else 0
+                ),
+                "endpoint_ledger_complete": False,
+                "maximum_active_obstacle_l1_displacement_m": (
+                    float(paper_car_maximum_displacement_m)
+                ),
+                "collision_first_source_action_index": (
+                    paper_car_first_collision_source_action
+                ),
+                "paper_collision_threshold_m": float(
+                    evaluator.PAPER_COLLISION_THRESHOLD_M
+                ),
+                "paper_collision_avoidance": False,
+            },
         }
         raise FastArmExecutionFailure(
             "%s failed during %s: %s" % (arm_name, failure_stage, error),

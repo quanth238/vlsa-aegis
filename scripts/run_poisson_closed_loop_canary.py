@@ -581,28 +581,100 @@ class LiveAegisPolicy:
         first_query_execution: str,
         paired_first_query_source_arm: Any,
         arm_name: str,
+        source_start_action: int = 180,
     ) -> None:
         np = runtime["np"]
         perception = historical_result.get("perception")
         actions = historical_result.get("actions")
         if not isinstance(perception, Mapping) or perception.get("status") != "ready":
             raise ClosedLoopRunnerError("historical AEGIS geometry is unavailable")
-        if not isinstance(actions, Sequence) or len(actions) != 237:
+        if (
+            not isinstance(actions, Sequence)
+            or isinstance(actions, (str, bytes))
+            or not actions
+        ):
             raise ClosedLoopRunnerError("historical AEGIS action ledger differs")
-        action_179 = actions[179]
-        qp_179 = action_179.get("qp") if isinstance(action_179, Mapping) else None
-        if not isinstance(qp_179, Mapping) or qp_179.get("status") != "solved":
-            raise ClosedLoopRunnerError("historical action-179 AEGIS state is absent")
-        z_after = np.asarray(qp_179.get("z_after"), dtype=np.float64)
-        if z_after.shape != (3,) or not np.all(np.isfinite(z_after)):
-            raise ClosedLoopRunnerError("historical action-179 z_after is invalid")
-        if not math.isclose(float(np.linalg.norm(z_after)), 1.0, rel_tol=0.0, abs_tol=1e-10):
-            raise ClosedLoopRunnerError("historical action-179 z_after is not unit")
+        if (
+            isinstance(source_start_action, bool)
+            or not isinstance(source_start_action, int)
+            or source_start_action < 0
+            or source_start_action >= len(actions)
+        ):
+            raise ClosedLoopRunnerError(
+                "source start action is outside the historical AEGIS ledger"
+            )
+        first_action = actions[source_start_action]
+        first_qp = (
+            first_action.get("qp")
+            if isinstance(first_action, Mapping)
+            else None
+        )
+        first_context = (
+            first_qp.get("context")
+            if isinstance(first_qp, Mapping)
+            else None
+        )
+        if not isinstance(first_context, Mapping):
+            raise ClosedLoopRunnerError(
+                "historical action-%d AEGIS input context is unavailable"
+                % source_start_action
+            )
+        if source_start_action == 0:
+            z_source_action_index = 0
+            z_source_field = "z_before"
+            z_source_qp = first_qp
+        else:
+            z_source_action_index = source_start_action - 1
+            z_source_field = "z_after"
+            preceding_action = actions[z_source_action_index]
+            z_source_qp = (
+                preceding_action.get("qp")
+                if isinstance(preceding_action, Mapping)
+                else None
+            )
+        if (
+            not isinstance(z_source_qp, Mapping)
+            or z_source_qp.get("status") != "solved"
+        ):
+            raise ClosedLoopRunnerError(
+                "historical action-%d AEGIS state is absent"
+                % z_source_action_index
+            )
+        initial_z = np.asarray(
+            z_source_qp.get(z_source_field), dtype=np.float64
+        )
+        if initial_z.shape != (3,) or not np.all(np.isfinite(initial_z)):
+            raise ClosedLoopRunnerError(
+                "historical action-%d %s is invalid"
+                % (z_source_action_index, z_source_field)
+            )
+        if not math.isclose(
+            float(np.linalg.norm(initial_z)),
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1e-10,
+        ):
+            raise ClosedLoopRunnerError(
+                "historical action-%d %s is not unit"
+                % (z_source_action_index, z_source_field)
+            )
+        q1_diag = np.asarray(
+            first_context.get("q1_diag"), dtype=np.float64
+        )
+        if q1_diag.shape != (3,) or not np.all(np.isfinite(q1_diag)):
+            raise ClosedLoopRunnerError(
+                "historical action-%d q1_diag is invalid"
+                % source_start_action
+            )
         self.evaluator = evaluator
         self.runtime = runtime
         self.client = client
         self.case = case
         self.task_description = str(task_description)
+        self.source_start_action = int(source_start_action)
+        self.historical_action_count = len(actions)
+        self.initial_z_source_action_index = int(z_source_action_index)
+        self.initial_z_source_field = str(z_source_field)
         self.first_query_index = int(first_query_index)
         self.replan_steps = int(replan_steps)
         self.model_action_horizon = int(model_action_horizon)
@@ -635,7 +707,7 @@ class LiveAegisPolicy:
             "p2": np.asarray(perception.get("mvee_center"), dtype=np.float64).copy(),
             "R2": np.asarray(perception.get("mvee_rotation"), dtype=np.float64).copy(),
             "Q2_diag": np.asarray(perception.get("mvee_semiaxes"), dtype=np.float64).copy(),
-            "z_fixed": z_after.copy(),
+            "z_fixed": initial_z.copy(),
         }
         if (
             self.geometry["p2"].shape != (3,)
@@ -644,29 +716,21 @@ class LiveAegisPolicy:
             or not all(np.all(np.isfinite(value)) for value in self.geometry.values() if not isinstance(value, bool))
         ):
             raise ClosedLoopRunnerError("historical AEGIS MVEE geometry is invalid")
-        self.initial_z_fixed = z_after.tolist()
+        self.initial_z_fixed = initial_z.tolist()
+        self.q1_diag = q1_diag.copy()
         self.expected_first_aegis_action = np.asarray(
-            actions[180].get("executed"), dtype=np.float64
+            first_action.get("executed"), dtype=np.float64
         )
-        action_180_qp = actions[180].get("qp")
-        action_180_context = (
-            action_180_qp.get("context")
-            if isinstance(action_180_qp, Mapping)
-            else None
-        )
-        if not isinstance(action_180_context, Mapping):
-            raise ClosedLoopRunnerError(
-                "historical action-180 AEGIS input context is unavailable"
-            )
         self.expected_first_aegis_inputs = _aegis_input_projection(
-            actions[180], historical=True, include_nominal=False
+            first_action, historical=True, include_nominal=False
         )
         self.expected_first_aegis_full_output_diagnostic = (
-            _aegis_output_projection(actions[180], historical=True)
+            _aegis_output_projection(first_action, historical=True)
         )
         if self.expected_first_aegis_action.shape != (7,):
             raise ClosedLoopRunnerError(
-                "historical action-180 AEGIS authority is invalid"
+                "historical action-%d AEGIS authority is invalid"
+                % source_start_action
             )
         self.action_plan: collections.deque = collections.deque()
         self.action_plan_query_indexes: collections.deque = collections.deque()
@@ -724,9 +788,12 @@ class LiveAegisPolicy:
         source_action_index: int,
     ) -> Sequence[float]:
         np = self.runtime["np"]
-        expected_source = 180 + int(local_action_index)
+        expected_source = self.source_start_action + int(local_action_index)
         if int(source_action_index) != expected_source:
-            raise ClosedLoopRunnerError("live source-action cadence differs")
+            raise ClosedLoopRunnerError(
+                "live source-action cadence differs: expected %d, observed %d"
+                % (expected_source, int(source_action_index))
+            )
         observation_record = self._observation_record(env, observation)
         if not self.action_plan:
             query_index = self.first_query_index + len(self.policy_queries)
@@ -852,14 +919,15 @@ class LiveAegisPolicy:
             nominal_translational=nominal,
             proxy=proxy,
             geometry=self.geometry,
-            q1_diag=np.asarray([0.06, 0.12, 0.11], dtype=np.float64),
+            q1_diag=self.q1_diag.copy(),
             diagnostics_enabled=True,
         )
         if int(local_action_index) == 0:
             observed_context = qp_record.get("context")
             if not isinstance(observed_context, Mapping):
                 raise ClosedLoopRunnerError(
-                    "fresh action-180 AEGIS input context is unavailable"
+                    "fresh action-%d AEGIS input context is unavailable"
+                    % self.source_start_action
                 )
             for key, expected in self.expected_first_aegis_inputs.items():
                 expected_array = np.asarray(expected, dtype=np.float64)
@@ -876,8 +944,8 @@ class LiveAegisPolicy:
                     )
                 ):
                     raise ClosedLoopRunnerError(
-                        "fresh action-180 AEGIS %s differs from historical authority"
-                        % key
+                        "fresh action-%d AEGIS %s differs from historical authority"
+                        % (self.source_start_action, key)
                     )
             self.first_aegis_input_binding_matches_historical = True
             self.first_aegis_action_matches_historical = bool(
@@ -941,11 +1009,19 @@ class LiveAegisPolicy:
         return list(executed)
 
     def record(self) -> Dict[str, Any]:
-        return {
+        source = (
+            "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
+            if self.source_start_action == 180 and self.first_query_index == 36
+            else (
+                "live_pi05_with_shared_current_q%d_then_per_arm_own_observations"
+                % self.first_query_index
+            )
+        )
+        record = {
             "arm": self.arm_name,
-            "source": (
-                "live_pi05_with_shared_current_q36_then_per_arm_own_observations"
-            ),
+            "source": source,
+            "source_start_action": self.source_start_action,
+            "historical_action_count": self.historical_action_count,
             "recorded_suffix_actions_executed": False,
             "first_query_execution": self.first_query_execution,
             "paired_first_query_source_arm": self.paired_first_query_source_arm,
@@ -961,18 +1037,24 @@ class LiveAegisPolicy:
             "first_aegis_full_output_matches_historical_diagnostic": bool(
                 self.first_aegis_full_output_matches_historical_diagnostic
             ),
-            "historical_action_180_required_aegis_inputs": copy.deepcopy(
+            "historical_first_action_index": self.source_start_action,
+            "historical_first_action_required_aegis_inputs": copy.deepcopy(
                 self.expected_first_aegis_inputs
             ),
-            "historical_action_180_aegis_full_output_diagnostic": copy.deepcopy(
+            "historical_first_action_aegis_full_output_diagnostic": copy.deepcopy(
                 self.expected_first_aegis_full_output_diagnostic
             ),
             "historical_first_live_query_action_chunk_sha256_diagnostic": (
                 self.historical_first_chunk_sha256_diagnostic
             ),
             "first_query_index": self.first_query_index,
-            "initial_aegis_z_fixed_from_historical_action_179": list(
-                self.initial_z_fixed
+            "initial_aegis_z_fixed": list(self.initial_z_fixed),
+            "initial_aegis_z_source": {
+                "historical_action_index": self.initial_z_source_action_index,
+                "qp_field": self.initial_z_source_field,
+            },
+            "aegis_q1_diag_from_historical_first_action_context": (
+                self.q1_diag.tolist()
             ),
             "policy_queries": list(self.policy_queries),
             "high_level_action_trace": list(self.action_trace),
@@ -982,6 +1064,21 @@ class LiveAegisPolicy:
                 )
             ),
         }
+        if self.source_start_action == 180:
+            record.update(
+                {
+                    "historical_action_180_required_aegis_inputs": copy.deepcopy(
+                        self.expected_first_aegis_inputs
+                    ),
+                    "historical_action_180_aegis_full_output_diagnostic": copy.deepcopy(
+                        self.expected_first_aegis_full_output_diagnostic
+                    ),
+                    "initial_aegis_z_fixed_from_historical_action_179": list(
+                        self.initial_z_fixed
+                    ),
+                }
+            )
+        return record
 
 
 def _provider_contract(

@@ -1457,3 +1457,35 @@ next design may change sensitivity evaluation and QP feasibility handling,
 but must keep the same general protected set, exact broad contact monitoring,
 and strict rejection of stopping, stalling, shifted contact, CAR failure, or
 task failure. No expansion to task-specific link selection is authorized.
+
+## ADR-0061: Replace the torque-domain shield with the paper's direct joint-velocity CBF
+
+Accepted before observing either new rollout. The STOP_ONLY pair in ADR-0060
+used a local post-OSC torque correction and finite-difference torque-to-motion
+sensitivity. Those mechanisms are not part of the Poisson Safety Function
+paper's kinematic formulation and caused the two terminal stops. The new
+feasibility path removes that layer. Both paired arms use the same live pi0.5,
+released translational AEGIS feedback, and damped-least-squares adapter into
+Robosuite `JOINT_VELOCITY`. The treatment's only additional control operation
+is the hard minimum-change CBF-QP over the seven arm joint velocities,
+`grad(h) J qdot + alpha h >= 0`, at 100 Hz.
+
+The treatment always constrains the union of the literal link-5 and link-6
+collision surfaces. The historical target-link label is evaluation evidence
+only and never selects samples or QP rows. Contact measurement remains wider:
+any robot geometry against the selected obstacle and either protected link
+against any external non-robot geometry are checked after every 2 ms physics
+transition. The field is static simulator-oracle geometry, so this remains a
+two-case controller-feasibility test rather than a perception, moving-obstacle,
+population, or formal-safety claim.
+
+At a strictly safe settled state, zero joint velocity is recorded only as a
+constructive proof that the hard kinematic QP has a feasible point. It is never
+executed as fallback and never earns acceptance. QP refusal is `METHOD_STOP`;
+insufficient post-correction motion is `STOP_ONLY`. A case is positive only if
+the matched adapter baseline reproduces the registered link-5/6 contact, the
+treatment makes a material correction before that contact, completes the full
+registered horizon without original or shifted contact, passes paper CAR,
+tracks its issued velocities, continues measured joint and end-effector
+motion, and achieves native BDDL task success after correction and terminally.
+The pair is feasible only if both e05 and e42 independently pass.
