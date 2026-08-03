@@ -1489,3 +1489,42 @@ registered horizon without original or shifted contact, passes paper CAR,
 tracks its issued velocities, continues measured joint and end-effector
 motion, and achieves native BDDL task success after correction and terminally.
 The pair is feasible only if both e05 and e42 independently pass.
+
+## ADR-0062: Preserve native OSC and move the Poisson field with the obstacle
+
+Accepted after direct-joint-velocity e05 job `34462` produced a complete
+apparatus/method failure. Its baseline completed the full horizon but did not
+reproduce native OSC task success or the verified collision and had poor
+joint-velocity tracking. Its Poisson arm then stopped when the movable obstacle
+left a field incorrectly frozen at the settled pose, before any material
+correction. Those are failures of the integration assumptions, so tuning the
+tracking threshold or static-envelope tolerance cannot answer the feasibility
+question.
+
+The replacement retains released 20 Hz `OSC_POSE` execution exactly whenever
+the filter is inactive. Its predictor uses
+`qdot_pred=(I-GJ)qdot_measured+G v`, so measured joint motion cannot be silently
+treated as zero. With damped `G`, this is a registered affine predictor rather
+than an exact null-space projection. A hard minimum-change QP may alter only the
+six native
+pose-reference channels; it preserves the gripper byte and has no zero, cached,
+or stop-command fallback. Every byte-different action immediately starts the
+closed-loop treatment policy, while the material-correction threshold is used
+only for scientific acceptance. Exact historical state/reward/done/goal parity
+is required before that divergence.
+
+The field is constructed once and attached to the selected obstacle's measured
+rigid frame. Each action transforms link-5/link-6 samples into that frame and
+uses the measured rigid twist in the time-varying condition
+`grad(h) J qdot + partial_t(h) + alpha h >= 0`. Both cases always protect the
+same link union; task identity and archived target-link labels never select a
+constraint. Contact monitoring remains broader than control: any robot contact
+with the selected obstacle and either protected link contacting any external
+non-robot geometry is failure.
+
+This is a minimal empirical native-controller feasibility test, not a formal
+invariance claim. Positive evidence requires a material pre-contact correction,
+zero original or shifted contact, paper-CAR safety, at least 1 cm of
+post-correction end-effector motion, at most 75% zero pose actions, and native
+full-task success. Infeasibility, stopping, stalling, contact shift, or task
+failure remains negative.

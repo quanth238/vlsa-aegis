@@ -1,0 +1,64 @@
+{
+  "schema_version": "vlsa_poisson_osc_reference_governor_protocol.v1",
+  "protocol_id": "vlsa-poisson-native-osc-moving-rigid-link56-v1",
+  "allowed_case_ids": [
+    "vlsa-t1-goal-ii-t0-e05",
+    "vlsa-t1-goal-ii-t3-e42"
+  ],
+  "protected_robot_body_names": [
+    "robot0_link5",
+    "robot0_link6"
+  ],
+  "task_conditioned_link_selection": false,
+  "controller": {
+    "executor": "released_native_OSC_POSE_20Hz",
+    "filter_location": "after_first_native_forward_before_OSC_set_goal",
+    "zero_correction_behavior": "source_action_byte_exact_passthrough",
+    "reference_governor_subspace": "six_OSC_pose_reference_channels",
+    "joint_velocity_predictor": "measured_qdot_plus_DLS_of_commanded_minus_measured_EEF_twist",
+    "damped_least_squares_lambda": 0.05
+  },
+  "field": {
+    "runtime_protocol_path": "configs/vlsa_poisson_runtime_protocol.canary.v3.json",
+    "frame": "selected_obstacle_rigid_body_attached",
+    "update": "transform_queries_and_include_measured_rigid_twist_each_20Hz_action",
+    "rebuild_or_inflate_field": false,
+    "alpha_per_s": 5.0,
+    "margin_m2_per_s": 0.0
+  },
+  "qp": {
+    "hard_cbf_constraints": true,
+    "slack": false,
+    "objective": "minimum_normalized_OSC_pose_action_change",
+    "eps_abs": 1e-7,
+    "eps_rel": 1e-7,
+    "max_iterations": 10000,
+    "postcheck_tolerance": 5e-7,
+    "material_action_correction_l2": 1e-6,
+    "zero_or_cached_command_fallback": false
+  },
+  "policy": {
+    "before_first_byte_divergence": "archived_successful_AEGIS_actions",
+    "remainder_of_current_chunk": "archived_pi05_chunk_reprocessed_by_AEGIS",
+    "after_current_chunk": "fresh_pi05_plus_AEGIS_from_treatment_observation",
+    "replan_steps": 5,
+    "model_action_horizon": 10
+  },
+  "acceptance": {
+    "paper_car_displacement_threshold_m": 0.001,
+    "minimum_post_correction_eef_path_m": 0.01,
+    "maximum_post_correction_zero_pose_action_fraction": 0.75,
+    "require_material_correction_before_historical_contact": true,
+    "require_no_any_robot_selected_obstacle_contact": true,
+    "require_no_link56_external_nonrobot_contact": true,
+    "require_paper_car_avoidance": true,
+    "require_useful_motion": true,
+    "require_native_task_success_after_correction": true,
+    "stop_stall_shifted_contact_or_task_failure_is_failure": true
+  },
+  "result": {
+    "schema_version": "vlsa_poisson_osc_reference_governor_result.v1",
+    "atomic_final_only": true,
+    "claim_scope": "two_case_simulator_oracle_native_OSC_reference_governor_feasibility_not_population_or_formal_safety"
+  }
+}

@@ -371,6 +371,156 @@ class ControlEnv:
             )
         return observations, reward, done, info
 
+    def step_with_action_reference_intervention(
+        self,
+        action,
+        intervention,
+        *,
+        poststep_callback=None,
+        expected_substeps=None,
+        integration_state_guard=None,
+        update_observables=True,
+        collect_observations=True,
+    ):
+        """Execute native OSC after one identity-preserving action filter.
+
+        The callback runs once, after the ordinary first ``sim.forward()`` and
+        immediately before robosuite receives the high-level action.  It may
+        read the forwarded state and must return one complete normalized
+        action.  When it returns the input byte-for-byte, the subsequent
+        ``_pre_action`` calls and MuJoCo transitions are the released native
+        OSC path; no controller is replaced and no extra forward is added.
+
+        As with :meth:`step_with_arm_control_intervention`, the official
+        integration-state guard rejects callback state mutation before any
+        physics.  The ordinary :meth:`step` delegation remains unchanged.
+        """
+        if not callable(intervention):
+            raise TypeError("intervention must be callable")
+        if poststep_callback is not None and not callable(poststep_callback):
+            raise TypeError("poststep_callback must be callable or None")
+        if collect_observations and not update_observables:
+            raise ValueError("collect_observations requires update_observables")
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        if expected_substeps is not None:
+            if (
+                isinstance(expected_substeps, bool)
+                or not isinstance(expected_substeps, int)
+                or expected_substeps <= 0
+            ):
+                raise ValueError("expected_substeps must be a positive integer")
+            if substeps != expected_substeps:
+                raise ValueError(
+                    "controller cadence gives %d physics substeps, expected %d"
+                    % (substeps, expected_substeps)
+                )
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+        action_dim = int(self.env.action_dim)
+        nominal_action = np.asarray(action, dtype=np.float64).copy()
+        if (
+            nominal_action.shape != (action_dim,)
+            or not np.all(np.isfinite(nominal_action))
+            or np.any(nominal_action < -1.0)
+            or np.any(nominal_action > 1.0)
+        ):
+            raise ValueError(
+                "nominal action must be finite, normalized, and match action_dim"
+            )
+
+        if integration_state_guard is None:
+            integration_state_guard = self._official_integration_state_guard(
+                self.env.sim
+            )
+        if integration_state_guard is not None:
+            for method_name in ("capture", "restore", "equal"):
+                if not callable(getattr(integration_state_guard, method_name, None)):
+                    raise TypeError(
+                        "integration_state_guard must implement capture, restore, and equal"
+                    )
+
+        initial_timestep = self.env.timestep
+        completed_physics_substeps = 0
+        filtered_action = None
+        self.env.timestep += 1
+        policy_step = True
+        for substep_index in range(substeps):
+            try:
+                self.env.sim.forward()
+                if policy_step:
+                    integration_state_before = (
+                        integration_state_guard.capture()
+                        if integration_state_guard is not None
+                        else None
+                    )
+                    integration_state_mutated = False
+                    try:
+                        filtered_action = np.asarray(
+                            intervention(
+                                self.env.sim,
+                                nominal_action.copy(),
+                            ),
+                            dtype=np.float64,
+                        ).copy()
+                    finally:
+                        if integration_state_guard is not None:
+                            try:
+                                integration_state_after = (
+                                    integration_state_guard.capture()
+                                )
+                            except BaseException:
+                                integration_state_guard.restore(
+                                    integration_state_before
+                                )
+                                raise
+                            if not integration_state_guard.equal(
+                                integration_state_before,
+                                integration_state_after,
+                            ):
+                                integration_state_guard.restore(
+                                    integration_state_before
+                                )
+                                integration_state_mutated = True
+                    if integration_state_mutated:
+                        raise ValueError(
+                            "intervention mutated MuJoCo integration state"
+                        )
+                    if (
+                        filtered_action.shape != (action_dim,)
+                        or not np.all(np.isfinite(filtered_action))
+                        or np.any(filtered_action < -1.0)
+                        or np.any(filtered_action > 1.0)
+                    ):
+                        raise ValueError(
+                            "intervention must return one finite normalized action"
+                        )
+                self.env._pre_action(filtered_action, policy_step)
+            except BaseException:
+                if completed_physics_substeps == 0:
+                    self.env.timestep = initial_timestep
+                raise
+            self.env.sim.step()
+            completed_physics_substeps += 1
+            if poststep_callback is not None:
+                poststep_callback(self.env.sim, substep_index)
+            if update_observables:
+                self.env._update_observables()
+            policy_step = False
+
+        self.env.cur_time += self.env.control_timestep
+        reward, done, info = self.env._post_action(filtered_action)
+        done = self.env._check_success()
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = None
+        if collect_observations:
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
+        return observations, reward, done, info
+
     @staticmethod
     def _official_integration_state_guard(sim):
         """Return an exact official-state guard when MuJoCo is available."""

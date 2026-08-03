@@ -1434,3 +1434,38 @@ local `./init.sh` gate passes 915 tests with 188 expected dependency/allocation
 skips. No new H100 outcome exists yet. Cluster SSH most recently returned
 `No route to host`, so no direct-joint-velocity producer has been submitted or
 disturbed.
+
+## P01 direct-joint-velocity result and native-OSC refinement
+
+Direct-joint-velocity e05 job `34462` is terminal `FAILED|2:0` with a complete
+immutable artifact (file SHA-256
+`7604bdcd7efb437dc3197e1f7b8858b2bd69c9d8624450e2da59630645b479d3`).
+It is an apparatus/method negative, not a Poisson safety result. The adapter
+baseline completed all 237 actions but did not reproduce the archived native
+OSC task success or link-5/6 contact, and its full-window tracking error reached
+0.9743 rad/s. The treatment stopped after 59 actions when the movable moka pot
+left the frozen-field envelope; its last nominal command was CBF-feasible and
+the filter had made no material correction. This falsifies replacing native
+OSC with the direct-joint-velocity adapter and treating the obstacle as static.
+
+ADR-0062 therefore keeps released `OSC_POSE` as the executor and adds only an
+identity-when-inactive six-channel pose-reference governor. Its registered
+affine predictor includes measured joint motion instead of assuming the arm is
+instantaneously at rest.
+The same
+`[robot0_link5, robot0_link6]` surface union is used for e05 and e42. The
+Poisson field is attached to the measured rigid obstacle pose, with measured
+linear/angular twist included through `partial h / partial t`. Archived native
+AEGIS actions are replayed only until the first byte-different filtered action;
+all earlier steps must exactly match the historical state, reward, done, and
+BDDL goal trajectory. Thereafter the treatment uses its own observations.
+
+The experiment is deliberately outcome-driven: any selected-obstacle contact,
+shifted link-5/6 contact, paper-CAR failure, method refusal, task failure, less
+than 1 cm post-correction end-effector travel, or more than 75% zero pose
+actions is negative. Only material correction before the archived contact,
+continued native motion, and full BDDL task success can pass. The task-space
+Jacobian map is an empirical reference governor, not a formal direct-qdot CBF
+guarantee. Focused tests pass 18 with seven expected local dependency skips;
+the complete local gate passes 942 tests with 195 expected dependency skips.
+P01 remains active.
