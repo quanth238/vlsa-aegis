@@ -93,6 +93,29 @@ class OscReferenceGovernorNumericTests(unittest.TestCase):
             control_dt_seconds=0.05,
         )
 
+    def filter_target(
+        self,
+        nominal,
+        current,
+        rows,
+        lower,
+        measured_qdot=None,
+        current_is_nominal=False,
+    ):
+        if measured_qdot is None:
+            measured_qdot = np.zeros(7, dtype=np.float64)
+        return self.governor.filter_reference_target(
+            nominal,
+            current_reference_pose_action=current,
+            eef_jacobian=self.jacobian,
+            measured_arm_qvel_rad_per_s=measured_qdot,
+            cbf_rows_qdot=np.asarray(rows, dtype=np.float64),
+            cbf_lower_m2_per_s=np.asarray(lower, dtype=np.float64),
+            osc_output_scale=self.scale,
+            response_horizon_seconds=0.05,
+            current_reference_is_nominal_global_target=current_is_nominal,
+        )
+
     def test_safe_nominal_action_is_byte_exact_and_skips_solver(self):
         source = np.asarray([0.25, -0.1, 0.0, 0.0, 0.0, 0.0, -1.0])
         result = self.filter(source, [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]], [-1.0])
@@ -143,6 +166,110 @@ class OscReferenceGovernorNumericTests(unittest.TestCase):
             "cbf_not_controllable_in_osc_pose_subspace",
         )
         self.assertLess(result.nominal_qdot_rad_per_s[6], 0.0)
+
+    def test_target_update_is_anchored_at_measured_motion(self):
+        nominal = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.003])
+        measured = np.asarray([-0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        result = self.filter_target(
+            nominal,
+            np.zeros(6),
+            [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
+            [0.0],
+            measured_qdot=measured,
+        )
+        self.assertTrue(result.valid, result.diagnostics)
+        self.assertEqual(result.reason, "solved_target_update")
+        self.assertAlmostEqual(result.nominal_qdot_rad_per_s[0], -0.2)
+        self.assertGreaterEqual(result.safe_qdot_rad_per_s[0], -5.0e-7)
+        self.assertGreater(result.action[0], 0.0)
+        self.assertEqual(result.action[6:7].tobytes(), nominal[6:7].tobytes())
+
+    def test_safe_nominal_target_is_byte_exact(self):
+        nominal = np.asarray([0.2, -0.1, 0.0, 0.0, 0.0, 0.0, 1.002])
+        current = nominal[:6].copy()
+        measured = np.asarray([0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        result = self.filter_target(
+            nominal,
+            current,
+            [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]],
+            [0.0],
+            measured_qdot=measured,
+        )
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reason, "nominal_target_safe_exact_passthrough")
+        self.assertEqual(result.action.tobytes(), nominal.tobytes())
+        self.assertFalse(result.diagnostics["solver_attempted"])
+        self.assertAlmostEqual(result.nominal_qdot_rad_per_s[0], 0.3)
+
+    def test_target_change_prediction_uses_installed_goal_as_anchor(self):
+        nominal = np.asarray([0.2, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0])
+        current = np.asarray([-0.1, 0.0, 0.0, 0.0, 0.0, 0.0])
+        result = self.filter_target(
+            nominal,
+            current,
+            np.empty((0, 7)),
+            np.empty(0),
+        )
+        expected = (
+            0.3
+            * self.scale[0]
+            / 0.05
+            / (1.0 + self.governor.damping * self.governor.damping)
+        )
+        self.assertAlmostEqual(result.nominal_qdot_rad_per_s[0], expected)
+
+    def test_uncontrollable_target_update_fails_without_command(self):
+        nominal = np.asarray([0.0] * 6 + [-1.0])
+        measured = np.asarray([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.2])
+        result = self.filter_target(
+            nominal,
+            np.zeros(6),
+            [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]],
+            [0.0],
+            measured_qdot=measured,
+        )
+        self.assertFalse(result.valid)
+        self.assertEqual(
+            result.reason,
+            "cbf_not_controllable_by_OSC_target_update",
+        )
+        self.assertIsNone(result.action)
+
+    def test_distant_installed_nominal_target_is_held_without_clipping(self):
+        nominal = np.asarray([1.2, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0])
+        result = self.filter_target(
+            nominal,
+            nominal[:6],
+            np.empty((0, 7)),
+            np.empty(0),
+            current_is_nominal=True,
+        )
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reason, "nominal_target_safe_exact_hold")
+        self.assertIsNone(result.action)
+        self.assertTrue(result.diagnostics["hold_current_reference_exact"])
+        self.assertEqual(
+            result.diagnostics["current_reference_pose_action"][0],
+            1.2,
+        )
+
+    def test_distant_new_nominal_target_is_bounded_without_anchor_alias(self):
+        nominal = np.asarray([1.2, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0])
+        result = self.filter_target(
+            nominal,
+            np.zeros(6),
+            np.empty((0, 7)),
+            np.empty(0),
+        )
+        self.assertTrue(result.valid, result.diagnostics)
+        self.assertEqual(result.reason, "solved_target_update")
+        self.assertAlmostEqual(result.action[0], 1.0)
+        self.assertFalse(result.diagnostics["material_correction"])
+        self.assertFalse(result.diagnostics["cbf_driven_correction"])
+        self.assertEqual(
+            result.diagnostics["current_reference_pose_action"][0],
+            0.0,
+        )
 
 
 if __name__ == "__main__":

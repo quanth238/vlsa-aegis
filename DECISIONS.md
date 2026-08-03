@@ -1546,3 +1546,41 @@ original seven input bytes exactly; if correction is required, it optimizes the
 effective bounded pose command while preserving the raw gripper byte. This is
 a baseline-compatibility repair only. It changes no link set, field, CBF,
 contact, CAR, useful-motion, no-stop, or task-success criterion.
+
+## ADR-0064: Refresh the native OSC reference from measured state at 100 Hz
+
+Accepted after complete e05 job `34557` and exact replay job `34568`. The
+one-shot 20 Hz governor made useful corrections and avoided contact, but its
+predicted safe joint-velocity reversal was not realized. The arm entered a
+typed conservative `invalid_cell` region before task success. Exact replay
+showed this was neither an outer-grid error nor an independent numerical
+failure, so field expansion, invalid-row omission, smoothing, and extrapolation
+are rejected.
+
+The replacement keeps the released `OSC_POSE` torque controller and changes
+only its six pose-reference channels. At physics substeps 0, 5, 10, 15, and 20
+of each 50 ms policy action, it re-queries all shared link-5/link-6 samples and
+Jacobians, obstacle pose/twist, and measured arm velocity. Its empirical affine
+model is
+`qdot(candidate)=qdot_measured+G S(candidate-current)/0.05`. The 50 ms response
+horizon is deliberately not described as instantaneous 100 Hz tracking; the
+filter is merely recomputed every 10 ms, while 2 ms simulator contact, CAR,
+motion, and native BDDL success remain authoritative.
+
+Remaining global OSC targets are represented without clipping. If the
+currently installed target is also the safe nominal target, it is held with no
+new goal. Otherwise a new target must lie in the native `[-1,1]` reference
+range. The QP has no slack and no zero, stop, cached, or skipped-row fallback.
+Policy divergence is the first actually non-native reference behavior, not
+solver entry; CBF-material correction remains a separate scientific event.
+Useful-motion exposure is evaluated at all five 100 Hz intervals. Historical
+pre-contact timing is conservative: the first material physical boundary must
+be strictly before the start of the first action whose endpoint sampled
+contact.
+
+Both cases still use the identical `[robot0_link5, robot0_link6]` union. E05
+must first avoid original and shifted contact, continue useful motion, pass CAR,
+and complete the full task. Stopping, method refusal, contact shift, or task
+failure is negative. E42 is not run unless e05 passes. This is a direct
+two-case empirical feasibility test, not a formal invariance or population
+claim.

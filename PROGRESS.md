@@ -1491,3 +1491,42 @@ The runner also requires the live OSC pose input limits to be exactly `[-1,1]`
 before using that clipping model. Focused tests pass 22 with ten expected local
 dependency skips, and the full local gate passes 946 tests with 198 expected
 dependency skips.
+
+## P01 e05 simulation result and measured-state 100 Hz refinement
+
+Native-OSC e05 job `34557` published a complete immutable result from clean
+commit `1f831c803b3564793664527ae0c8209f2f4e9aca` before an OSMesa teardown
+abort made Slurm report `FAILED|6:0`. The result file SHA-256 is
+`d918834aadd601aad2c0bac4d202e3b1d679ebf51e25e17c5320a393314da4a5`.
+This is a complete method negative, not a partial result: the filter first
+changed the native reference at action 19, executed 161 complete actions and
+4,025 physics substeps, made 28 material corrections, avoided every registered
+or shifted contact and paper CAR, and moved the end effector 1.094658 m after
+correction. It nevertheless failed before action-161 physics and never achieved
+the task. At the last valid update, the QP predicted a safe reversal while the
+measured arm velocity still moved toward the obstacle. This falsifies the
+one-shot 20 Hz realization model, not the Poisson field.
+
+Read-only exact replay job `34568` completed `COMPLETED|0:0` and reconstructed
+all 161 executed actions. The six failed queries are typed `invalid_cell`, all
+on `robot0_link5_collision` samples 1037, 1046, 1062, 1072, 1086, and 1099.
+They remain about 0.80 m inside the outer grid and lie 72.82--73.43 mm from the
+selected moka-pot OBB union. The five closest valid samples have positive
+`h=0.000146--0.000526 m^2`. The failure is therefore a real entry into the
+conservative obstacle-domain boundary under stale realized motion; enlarging
+the grid, skipping invalid rows, smoothing, or extrapolating would hide rather
+than solve it.
+
+ADR-0064 registers the smallest controller refinement before another H100
+outcome. The released 20 Hz native OSC executor is retained, but link-5/link-6
+samples, measured joint velocity, obstacle motion, and the hard reference QP
+are refreshed at 100 Hz. Installed and nominal global targets use unbounded
+remaining-target coordinates, so a distant installed target is held exactly
+instead of clipped; every newly installed reference remains within the native
+`[-1,1]` range. Policy divergence begins only when applied reference behavior
+actually differs from the native interval. The same fixed
+`[robot0_link5, robot0_link6]` set and strict no-contact, no-stop, useful-motion,
+CAR, and full-task criteria remain. E05 is the only next rollout; e42 remains
+blocked unless e05 literally returns `SAFE_TASK_SUCCESS_USEFUL_CORRECTION`.
+The focused controller suite passes 32 tests with 21 expected local dependency
+skips; the complete `./init.sh` gate passes 961 tests with 209 expected skips.

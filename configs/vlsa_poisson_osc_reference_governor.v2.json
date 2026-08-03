@@ -1,0 +1,73 @@
+{
+  "schema_version": "vlsa_poisson_osc_reference_governor_protocol.v2",
+  "protocol_id": "vlsa-poisson-native-osc-moving-rigid-link56-v2",
+  "allowed_case_ids": [
+    "vlsa-t1-goal-ii-t0-e05",
+    "vlsa-t1-goal-ii-t3-e42"
+  ],
+  "protected_robot_body_names": [
+    "robot0_link5",
+    "robot0_link6"
+  ],
+  "task_conditioned_link_selection": false,
+  "controller": {
+    "executor": "released_native_OSC_POSE_20Hz",
+    "safety_update_frequency_hz": 100,
+    "safety_update_physics_substeps": [0, 5, 10, 15, 20],
+    "zero_correction_behavior": "retain_native_global_target_and_source_action_bytes",
+    "reference_governor_subspace": "six_OSC_pose_reference_channels",
+    "native_pose_input_bounds": [-1.0, 1.0],
+    "target_coordinates": "unbounded_remaining_global_OSC_target_relative_to_live_EEF",
+    "distant_installed_target_behavior": "hold_exactly_without_clipping",
+    "new_target_behavior": "bounded_native_relative_reference_update",
+    "policy_divergence_trigger": "first_applied_reference_behavior_different_from_native_interval",
+    "joint_velocity_predictor": "measured_qdot_plus_DLS_response_to_OSC_target_change",
+    "damped_least_squares_lambda": 0.05,
+    "response_horizon_seconds": 0.05
+  },
+  "field": {
+    "runtime_protocol_path": "configs/vlsa_poisson_runtime_protocol.canary.v3.json",
+    "frame": "selected_obstacle_rigid_body_attached",
+    "update": "requery_samples_jacobians_field_and_obstacle_twist_at_100Hz",
+    "rebuild_or_inflate_field": false,
+    "invalid_query_policy": "fail_closed_without_smoothing_or_extrapolation",
+    "alpha_per_s": 5.0,
+    "margin_m2_per_s": 0.0
+  },
+  "qp": {
+    "hard_cbf_constraints": true,
+    "slack": false,
+    "objective": "minimum_normalized_change_from_remaining_native_OSC_target",
+    "eps_abs": 1e-7,
+    "eps_rel": 1e-7,
+    "max_iterations": 10000,
+    "postcheck_tolerance": 5e-7,
+    "material_action_correction_l2": 1e-6,
+    "zero_or_cached_command_fallback": false
+  },
+  "policy": {
+    "before_first_byte_divergence": "archived_successful_AEGIS_actions",
+    "remainder_of_current_chunk": "archived_pi05_chunk_reprocessed_by_AEGIS",
+    "after_current_chunk": "fresh_pi05_plus_AEGIS_from_treatment_observation",
+    "replan_steps": 5,
+    "model_action_horizon": 10
+  },
+  "acceptance": {
+    "paper_car_displacement_threshold_m": 0.001,
+    "minimum_post_correction_eef_path_m": 0.01,
+    "maximum_post_correction_zero_pose_reference_interval_fraction": 0.75,
+    "require_material_correction_before_historical_contact": true,
+    "historical_precontact_timing_rule": "first_material_physical_boundary_strictly_before_start_of_first_contact_sampled_action",
+    "require_no_any_robot_selected_obstacle_contact": true,
+    "require_no_link56_external_nonrobot_contact": true,
+    "require_paper_car_avoidance": true,
+    "require_useful_motion": true,
+    "require_native_task_success_after_correction": true,
+    "stop_stall_shifted_contact_or_task_failure_is_failure": true
+  },
+  "result": {
+    "schema_version": "vlsa_poisson_osc_reference_governor_result.v2",
+    "atomic_final_only": true,
+    "claim_scope": "two_case_simulator_oracle_100Hz_native_OSC_reference_governor_feasibility_not_population_or_formal_safety"
+  }
+}

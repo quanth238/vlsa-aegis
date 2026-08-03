@@ -82,6 +82,88 @@ class RigidObstacleFieldTests(unittest.TestCase):
         )
         self.assertAlmostEqual(query.partial_time_m2_per_s, 0.0)
 
+    def test_preserves_underlying_invalid_query_metadata(self):
+        from main.poisson_fullbody.rigid_obstacle_field import (
+            query_rigid_obstacle_field,
+        )
+        from main.poisson_fullbody.poisson_field import (
+            FieldQuery,
+            QueryInvalidReason,
+        )
+
+        class InvalidField:
+            @staticmethod
+            def query(point):
+                del point
+                return FieldQuery(
+                    valid=False,
+                    value=None,
+                    gradient=None,
+                    reason=QueryInvalidReason.INVALID_CELL,
+                    cell_index=(4, 5, 6),
+                    local_coordinates=(0.25, 0.5, 0.75),
+                    outer_boundary_clearance_m=0.8,
+                )
+
+        pose = self.RigidPose([0.0, 0.0, 0.0], np.eye(3))
+        twist = self.RigidTwist([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        query = query_rigid_obstacle_field(
+            InvalidField(),
+            [0.1, 0.2, 0.3],
+            reference_pose=pose,
+            current_pose=pose,
+            current_twist=twist,
+        )
+
+        self.assertFalse(query.valid)
+        self.assertIs(query.reason, QueryInvalidReason.INVALID_CELL)
+        self.assertEqual(query.cell_index, (4, 5, 6))
+        self.assertEqual(query.local_coordinates, (0.25, 0.5, 0.75))
+        self.assertEqual(query.outer_boundary_clearance_m, 0.8)
+        self.assertIsNone(query.value_m2)
+        self.assertIsNone(query.gradient_world_m)
+        self.assertIsNone(query.partial_time_m2_per_s)
+        self.assertIsNone(query.obstacle_point_velocity_world_m_per_s)
+
+    def test_preserves_valid_query_metadata_without_changing_numerics(self):
+        from main.poisson_fullbody.rigid_obstacle_field import (
+            query_rigid_obstacle_field,
+        )
+
+        class ValidQuery:
+            valid = True
+            value = 2.5
+            gradient = np.asarray([1.0, 0.0, 0.0])
+            reason = None
+            cell_index = (7, 8, 9)
+            local_coordinates = (0.1, 0.2, 0.3)
+            outer_boundary_clearance_m = 0.6
+
+        class ValidField:
+            @staticmethod
+            def query(point):
+                del point
+                return ValidQuery()
+
+        pose = self.RigidPose([0.0, 0.0, 0.0], np.eye(3))
+        twist = self.RigidTwist([0.25, 0.0, 0.0], [0.0, 0.0, 0.0])
+        query = query_rigid_obstacle_field(
+            ValidField(),
+            [0.1, 0.2, 0.3],
+            reference_pose=pose,
+            current_pose=pose,
+            current_twist=twist,
+        )
+
+        self.assertTrue(query.valid)
+        self.assertEqual(query.value_m2, 2.5)
+        np.testing.assert_array_equal(query.gradient_world_m, [1.0, 0.0, 0.0])
+        self.assertEqual(query.partial_time_m2_per_s, -0.25)
+        self.assertIsNone(query.reason)
+        self.assertEqual(query.cell_index, (7, 8, 9))
+        self.assertEqual(query.local_coordinates, (0.1, 0.2, 0.3))
+        self.assertEqual(query.outer_boundary_clearance_m, 0.6)
+
     def test_dynamic_cbf_lower_bound_has_correct_obstacle_motion_sign(self):
         from main.poisson_fullbody.rigid_obstacle_field import dynamic_cbf_rows
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the lean native-OSC moving-obstacle link-5/link-6 experiment.
+"""Run the measured-state native-OSC link-5/link-6 experiment.
 
 The archived successful AEGIS rollout is the immutable collision control.  The
 live treatment executes those exact actions under the released ``OSC_POSE``
@@ -7,10 +7,11 @@ controller until the first byte-different Poisson-CBF output.  It then finishes
 the task from its own observations.  Both registered cases always protect the
 same link-5/link-6 surface union; historical link labels never select rows.
 
-Unlike the superseded direct joint-velocity pilot, this runner does not replace
-OSC when the filter is inactive.  Unlike the superseded frozen-field pilot, it
-attaches the field to the measured rigid obstacle pose and includes obstacle
-twist in the time-varying CBF inequality.
+Unlike the superseded one-shot reference governor, this runner does not assume
+that the torque-controlled arm instantly realizes one predicted joint velocity
+for a complete 50 ms policy interval.  It preserves the native global OSC
+target while safe, then re-queries measured state and may update that target at
+100 Hz.  The field remains attached to the measured rigid obstacle pose.
 """
 
 from __future__ import annotations
@@ -61,7 +62,7 @@ def _load_protocol(path: Path, case_id: str) -> Dict[str, Any]:
         raise ReferenceGovernorRunnerError("reference-governor protocol keys differ")
     if (
         value["schema_version"]
-        != "vlsa_poisson_osc_reference_governor_protocol.v1"
+        != "vlsa_poisson_osc_reference_governor_protocol.v2"
         or case_id not in value["allowed_case_ids"]
         or value["allowed_case_ids"]
         != ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t3-e42"]
@@ -72,20 +73,127 @@ def _load_protocol(path: Path, case_id: str) -> Dict[str, Any]:
         raise ReferenceGovernorRunnerError("case or shared protected-link scope differs")
     if not (
         value["controller"]["executor"] == "released_native_OSC_POSE_20Hz"
+        and value["controller"]["safety_update_frequency_hz"] == 100
+        and value["controller"]["safety_update_physics_substeps"]
+        == [0, 5, 10, 15, 20]
         and value["controller"]["zero_correction_behavior"]
-        == "source_action_byte_exact_passthrough"
+        == "retain_native_global_target_and_source_action_bytes"
         and value["controller"]["native_pose_input_bounds"] == [-1.0, 1.0]
+        and value["controller"]["target_coordinates"]
+        == "unbounded_remaining_global_OSC_target_relative_to_live_EEF"
+        and value["controller"]["distant_installed_target_behavior"]
+        == "hold_exactly_without_clipping"
+        and value["controller"]["new_target_behavior"]
+        == "bounded_native_relative_reference_update"
+        and value["controller"]["policy_divergence_trigger"]
+        == "first_applied_reference_behavior_different_from_native_interval"
         and value["controller"]["joint_velocity_predictor"]
-        == "measured_qdot_plus_DLS_of_commanded_minus_measured_EEF_twist"
+        == "measured_qdot_plus_DLS_response_to_OSC_target_change"
+        and value["controller"]["response_horizon_seconds"] == 0.05
         and value["field"]["frame"]
         == "selected_obstacle_rigid_body_attached"
+        and value["field"]["update"]
+        == "requery_samples_jacobians_field_and_obstacle_twist_at_100Hz"
+        and value["field"]["invalid_query_policy"]
+        == "fail_closed_without_smoothing_or_extrapolation"
         and value["field"]["rebuild_or_inflate_field"] is False
         and value["qp"]["hard_cbf_constraints"] is True
         and value["qp"]["slack"] is False
         and value["qp"]["zero_or_cached_command_fallback"] is False
+        and value["acceptance"]["historical_precontact_timing_rule"]
+        == "first_material_physical_boundary_strictly_before_start_of_first_contact_sampled_action"
     ):
         raise ReferenceGovernorRunnerError("registered method semantics differ")
     return value
+
+
+def _nominal_global_osc_target(controller: Any, source_action: Any) -> Tuple[Any, Any]:
+    """Reconstruct the native absolute target without installing it."""
+
+    import math
+    import numpy as np
+    from robosuite.utils.control_utils import (
+        set_goal_orientation,
+        set_goal_position,
+    )
+
+    source = np.asarray(source_action, dtype=np.float64)
+    if source.shape != (7,) or not np.all(np.isfinite(source)):
+        raise ReferenceGovernorRunnerError("source OSC action is invalid")
+    controller.update()
+    scaled = np.asarray(controller.scale_action(source[:6]), dtype=np.float64)
+    if scaled.shape != (6,) or not np.all(np.isfinite(scaled)):
+        raise ReferenceGovernorRunnerError("native scaled OSC action is invalid")
+    target_position = set_goal_position(
+        scaled[:3],
+        np.asarray(controller.ee_pos, dtype=np.float64),
+        position_limit=controller.position_limits,
+    )
+    if any(not math.isclose(float(value), 0.0) for value in scaled[3:]):
+        target_orientation = set_goal_orientation(
+            scaled[3:],
+            np.asarray(controller.ee_ori_mat, dtype=np.float64),
+            orientation_limit=controller.orientation_limits,
+        )
+    else:
+        # Native OSC deliberately retains its previous orientation target when
+        # all three rotational action channels are zero.
+        target_orientation = np.asarray(
+            controller.goal_ori,
+            dtype=np.float64,
+        ).copy()
+    return (
+        np.asarray(target_position, dtype=np.float64).copy(),
+        np.asarray(target_orientation, dtype=np.float64).copy(),
+    )
+
+
+def _osc_target_as_action(
+    controller: Any,
+    target_position: Any,
+    target_orientation: Any,
+    output_scale: Any,
+) -> Tuple[Any, Dict[str, Any]]:
+    """Encode an absolute OSC target relative to the current measured EEF."""
+
+    import numpy as np
+    from robosuite.utils import transform_utils as transforms
+
+    controller.update()
+    scale = np.asarray(output_scale, dtype=np.float64)
+    position = np.asarray(target_position, dtype=np.float64)
+    orientation = np.asarray(target_orientation, dtype=np.float64)
+    current_position = np.asarray(controller.ee_pos, dtype=np.float64)
+    current_orientation = np.asarray(controller.ee_ori_mat, dtype=np.float64)
+    if (
+        scale.shape != (6,)
+        or position.shape != (3,)
+        or orientation.shape != (3, 3)
+        or current_position.shape != (3,)
+        or current_orientation.shape != (3, 3)
+        or not np.all(np.isfinite(scale))
+        or not np.all(np.isfinite(position))
+        or not np.all(np.isfinite(orientation))
+        or not np.all(np.isfinite(current_position))
+        or not np.all(np.isfinite(current_orientation))
+    ):
+        raise ReferenceGovernorRunnerError("OSC target encoding inputs are invalid")
+    rotation_error = orientation @ current_orientation.T
+    rotation_quaternion = transforms.mat2quat(rotation_error)
+    rotation_delta = transforms.quat2axisangle(rotation_quaternion)
+    raw = np.concatenate(
+        ((position - current_position) / scale[:3], rotation_delta / scale[3:])
+    )
+    bounded = np.clip(raw, -1.0, 1.0)
+    return raw, {
+        "raw_remaining_target_action": raw.tolist(),
+        "bounded_remaining_target_action": bounded.tolist(),
+        "target_outside_one_native_action_range": bool(
+            not np.array_equal(raw, bounded)
+        ),
+        "target_position_world_m": position.tolist(),
+        "current_eef_position_world_m": current_position.tolist(),
+    }
 
 
 def _root_pose_twist(model: Any, data: Any, body_id: int) -> Tuple[Any, Any]:
@@ -153,7 +261,7 @@ def main() -> int:
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=Path("configs/vlsa_poisson_osc_reference_governor.v1.json"),
+        default=Path("configs/vlsa_poisson_osc_reference_governor.v2.json"),
     )
     parser.add_argument(
         "--manifest",
@@ -182,6 +290,7 @@ def main() -> int:
     provenance: Dict[str, Any] = {}
     apparatus: Dict[str, Any] = {}
     treatment: Dict[str, Any] = {}
+    complete_result_published = False
     try:
         import mujoco
         import numpy as np
@@ -286,9 +395,9 @@ def main() -> int:
         )
         if tuple(previous_goal) != (False,):
             raise ReferenceGovernorRunnerError("task is already complete after settling")
-        if not hasattr(env, "step_with_action_reference_intervention"):
+        if not hasattr(env, "step_with_osc_reference_updates"):
             raise ReferenceGovernorRunnerError(
-                "native OSC action-reference intervention wrapper is absent"
+                "native 100 Hz OSC reference-update wrapper is absent"
             )
         settled_state = np.asarray(
             env.sim.get_state().flatten(), dtype=np.float64
@@ -299,7 +408,45 @@ def main() -> int:
         controller_record = osc_support._controller_record(env)
         if controller_record.get("original_osc_verified") is not True:
             raise ReferenceGovernorRunnerError("released native OSC is not active")
-        controller_scale = osc_output_scale(env.robots[0].controller)
+        controller = env.robots[0].controller
+        reference_update_contract = {
+            "use_delta": bool(getattr(controller, "use_delta", False)),
+            "impedance_mode": str(
+                getattr(controller, "impedance_mode", "")
+            ),
+            "position_limits_absent": getattr(
+                controller, "position_limits", None
+            )
+            is None,
+            "orientation_limits_absent": getattr(
+                controller, "orientation_limits", None
+            )
+            is None,
+            "position_interpolator_absent": getattr(
+                controller, "interpolator_pos", None
+            )
+            is None,
+            "orientation_interpolator_absent": getattr(
+                controller, "interpolator_ori", None
+            )
+            is None,
+        }
+        reference_update_contract["verified"] = bool(
+            reference_update_contract["use_delta"]
+            and reference_update_contract["impedance_mode"] == "fixed"
+            and reference_update_contract["position_limits_absent"]
+            and reference_update_contract["orientation_limits_absent"]
+            and reference_update_contract["position_interpolator_absent"]
+            and reference_update_contract["orientation_interpolator_absent"]
+        )
+        if reference_update_contract["verified"] is not True:
+            raise ReferenceGovernorRunnerError(
+                "native OSC reference-update contract differs"
+            )
+        controller_record["reference_update_contract"] = (
+            reference_update_contract
+        )
+        controller_scale = osc_output_scale(controller)
 
         obstacle_name, _ = evaluator._active_obstacle(env, observation)
         if obstacle_name != case["active_obstacle_name"]:
@@ -403,7 +550,10 @@ def main() -> int:
         eef_path: List[List[float]] = []
         car_ledger: List[Dict[str, Any]] = []
         first_material_action: Optional[int] = None
+        first_material_physical_boundary: Optional[int] = None
         first_byte_divergence_action: Optional[int] = None
+        first_byte_divergence_physical_boundary: Optional[int] = None
+        reference_updates_active = False
         material_correction_count = 0
         maximum_action_correction = 0.0
         nominal_identity_before_correction = True
@@ -415,8 +565,8 @@ def main() -> int:
         task_success = False
         task_success_action: Optional[int] = None
         maximum_car_displacement = 0.0
-        zero_pose_action_count_after_correction = 0
-        pose_action_count_after_correction = 0
+        zero_pose_reference_interval_count_after_correction = 0
+        pose_reference_interval_count_after_correction = 0
         terminal_kind = "maximum_action_count"
 
         maximum_actions = int(runtime_case["max_steps"])
@@ -434,14 +584,37 @@ def main() -> int:
             )
             if nominal_action.shape != (7,) or not np.all(np.isfinite(nominal_action)):
                 raise ReferenceGovernorRunnerError("planner action is invalid")
-            decision: Dict[str, Any] = {}
+            decision: Dict[str, Any] = {
+                "source_action_index": int(source_index),
+                "source_action": nominal_action.tolist(),
+                "update_trace": [],
+                "minimum_h_m2": None,
+                "maximum_abs_partial_h_per_s": 0.0,
+                "correction_l2_normalized_action": 0.0,
+                "material_correction": False,
+                "native_interval_identity": True,
+            }
+            nominal_target_position: Optional[Any] = None
+            nominal_target_orientation: Optional[Any] = None
 
-            def filter_reference(sim: Any, source_action: Any) -> Any:
+            def filter_reference(
+                sim: Any,
+                substep_index: int,
+                current_action: Any,
+            ) -> Any:
                 nonlocal first_material_action
+                nonlocal first_material_physical_boundary
                 nonlocal first_byte_divergence_action
+                nonlocal first_byte_divergence_physical_boundary
                 nonlocal material_correction_count
                 nonlocal maximum_action_correction
                 nonlocal nominal_identity_before_correction
+                nonlocal nominal_target_position
+                nonlocal nominal_target_orientation
+                nonlocal reference_updates_active
+                nonlocal zero_pose_reference_interval_count_after_correction
+                nonlocal pose_reference_interval_count_after_correction
+                physical_boundary = source_index * 25 + int(substep_index)
                 current_pose, current_twist = _root_pose_twist(
                     raw_model, raw_data, obstacle_root_body_id
                 )
@@ -458,9 +631,60 @@ def main() -> int:
                     current_pose=current_pose,
                     current_twist=current_twist,
                 )
-                if not queries or any(not row.valid for row in queries):
+                invalid_queries = [
+                    (index, row)
+                    for index, row in enumerate(queries)
+                    if not row.valid
+                ]
+                if not queries or invalid_queries:
+                    invalid_rows = []
+                    for sample_index, query in invalid_queries:
+                        sample = bundle.protected_samples.samples[sample_index]
+                        reason = getattr(query.reason, "value", None)
+                        invalid_rows.append(
+                            {
+                                "sample_index": int(sample_index),
+                                "sample_identity": sample.to_dict(),
+                                "reason": (
+                                    str(reason)
+                                    if isinstance(reason, str)
+                                    else "untyped_invalid_query"
+                                ),
+                                "point_world_m": points[sample_index].tolist(),
+                                "reference_point_world_m": (
+                                    query.reference_point_world_m.tolist()
+                                ),
+                                "cell_index": (
+                                    None
+                                    if query.cell_index is None
+                                    else [int(value) for value in query.cell_index]
+                                ),
+                                "local_coordinates": (
+                                    None
+                                    if query.local_coordinates is None
+                                    else [
+                                        float(value)
+                                        for value in query.local_coordinates
+                                    ]
+                                ),
+                                "outer_boundary_clearance_m": (
+                                    None
+                                    if query.outer_boundary_clearance_m is None
+                                    else float(query.outer_boundary_clearance_m)
+                                ),
+                            }
+                        )
+                    decision["failed_update"] = {
+                        "source_action_index": int(source_index),
+                        "physics_substep_index": int(substep_index),
+                        "physical_boundary": int(physical_boundary),
+                        "invalid_query_count": len(invalid_rows),
+                        "invalid_queries": invalid_rows,
+                    }
+                    reasons = sorted({row["reason"] for row in invalid_rows})
                     raise ReferenceGovernorMethodFailure(
-                        "moving rigid Poisson query is invalid"
+                        "moving rigid Poisson query is invalid: %s"
+                        % ",".join(reasons or ["empty_query_batch"])
                     )
                 h = np.asarray([row.value_m2 for row in queries], dtype=np.float64)
                 gradients = np.asarray(
@@ -487,8 +711,51 @@ def main() -> int:
                 eef_position, _, eef_jacobian = fast._eef_kinematics(
                     env, site_id, arm_qvel_indices
                 )
-                result = governor.filter_action(
-                    source_action,
+                controller = env.robots[0].controller
+                if substep_index == 0:
+                    (
+                        nominal_target_position,
+                        nominal_target_orientation,
+                    ) = _nominal_global_osc_target(controller, nominal_action)
+                if (
+                    nominal_target_position is None
+                    or nominal_target_orientation is None
+                ):
+                    raise ReferenceGovernorRunnerError(
+                        "nominal global OSC target is absent"
+                    )
+                current_target_pose, current_target_diagnostics = (
+                    _osc_target_as_action(
+                        controller,
+                        np.asarray(controller.goal_pos, dtype=np.float64),
+                        np.asarray(controller.goal_ori, dtype=np.float64),
+                        controller_scale,
+                    )
+                )
+                nominal_target_pose, nominal_target_diagnostics = (
+                    _osc_target_as_action(
+                        controller,
+                        nominal_target_position,
+                        nominal_target_orientation,
+                        controller_scale,
+                    )
+                )
+                current_reference_is_nominal = bool(
+                    np.array_equal(
+                        np.asarray(controller.goal_pos, dtype=np.float64),
+                        np.asarray(nominal_target_position, dtype=np.float64),
+                    )
+                    and np.array_equal(
+                        np.asarray(controller.goal_ori, dtype=np.float64),
+                        np.asarray(nominal_target_orientation, dtype=np.float64),
+                    )
+                )
+                nominal_target_action = np.concatenate(
+                    (nominal_target_pose, nominal_action[6:7])
+                )
+                result = governor.filter_reference_target(
+                    nominal_target_action,
+                    current_reference_pose_action=current_target_pose,
                     eef_jacobian=eef_jacobian,
                     measured_arm_qvel_rad_per_s=np.asarray(
                         raw_data.qvel,
@@ -496,50 +763,129 @@ def main() -> int:
                     )[list(arm_qvel_indices)],
                     cbf_rows_qdot=cbf_rows,
                     cbf_lower_m2_per_s=cbf_lower,
-                    qdot_lower_rad_per_s=None,
-                    qdot_upper_rad_per_s=None,
                     osc_output_scale=controller_scale,
-                    control_dt_seconds=float(env.env.control_timestep),
+                    response_horizon_seconds=float(
+                        protocol["controller"]["response_horizon_seconds"]
+                    ),
+                    current_reference_is_nominal_global_target=(
+                        current_reference_is_nominal
+                    ),
                 )
-                decision.update(
-                    {
+                hold_current_reference = bool(
+                    result.diagnostics.get(
+                        "hold_current_reference_exact", False
+                    )
+                )
+                if not result.valid or (
+                    result.action is None and not hold_current_reference
+                ):
+                    decision["failed_update"] = {
                         "source_action_index": int(source_index),
-                        "source_action": np.asarray(source_action).tolist(),
-                        "minimum_h_m2": float(np.min(h)),
-                        "maximum_abs_partial_h_per_s": float(
-                            np.max(np.abs(partial_time))
-                        ),
-                        "obstacle_root_position_world_m": (
-                            current_pose.position_world_m.tolist()
-                        ),
-                        "obstacle_linear_velocity_world_m_per_s": (
-                            current_twist.linear_world_m_per_s.tolist()
-                        ),
-                        "obstacle_angular_velocity_world_rad_per_s": (
-                            current_twist.angular_world_rad_per_s.tolist()
-                        ),
+                        "physics_substep_index": int(substep_index),
+                        "physical_boundary": int(physical_boundary),
                         "governor_reason": result.reason,
                         "governor_diagnostics": dict(result.diagnostics),
                     }
-                )
-                if not result.valid or result.action is None:
                     raise ReferenceGovernorMethodFailure(result.reason)
-                filtered = np.asarray(result.action, dtype=np.float64)
-                byte_identical = bool(
-                    filtered.tobytes(order="C")
-                    == np.asarray(source_action, dtype=np.float64).tobytes(order="C")
+                filtered_target = (
+                    None
+                    if result.action is None
+                    else np.asarray(result.action, dtype=np.float64)
                 )
                 correction = float(
                     result.diagnostics["correction_l2_normalized_action"]
                 )
                 material = bool(result.diagnostics["material_correction"])
-                decision.update(
-                    {
-                        "filtered_action": filtered.tolist(),
-                        "action_byte_identical_to_source": byte_identical,
-                        "correction_l2_normalized_action": correction,
-                        "material_correction": material,
-                    }
+                solver_attempted = bool(result.diagnostics["solver_attempted"])
+                was_active = bool(reference_updates_active)
+                if hold_current_reference:
+                    proposed = (
+                        nominal_action.copy() if substep_index == 0 else None
+                    )
+                elif not solver_attempted and substep_index == 0:
+                    proposed = nominal_action.copy()
+                else:
+                    proposed = filtered_target.copy()
+                behavior_differs_from_native = bool(
+                    (
+                        substep_index == 0
+                        and proposed is not None
+                        and not np.array_equal(proposed, nominal_action)
+                    )
+                    or (substep_index > 0 and proposed is not None)
+                )
+                if behavior_differs_from_native:
+                    reference_updates_active = True
+                if proposed is not None and not np.array_equal(
+                    proposed[6:7], nominal_action[6:7]
+                ):
+                    raise ReferenceGovernorRunnerError(
+                        "100 Hz reference update changed the gripper byte"
+                    )
+                update_row = {
+                    "source_action_index": int(source_index),
+                    "physics_substep_index": int(substep_index),
+                    "physical_boundary": int(physical_boundary),
+                    "minimum_h_m2": float(np.min(h)),
+                    "maximum_abs_partial_h_per_s": float(
+                        np.max(np.abs(partial_time))
+                    ),
+                    "obstacle_root_position_world_m": (
+                        current_pose.position_world_m.tolist()
+                    ),
+                    "obstacle_linear_velocity_world_m_per_s": (
+                        current_twist.linear_world_m_per_s.tolist()
+                    ),
+                    "obstacle_angular_velocity_world_rad_per_s": (
+                        current_twist.angular_world_rad_per_s.tolist()
+                    ),
+                    "current_target": current_target_diagnostics,
+                    "nominal_target": nominal_target_diagnostics,
+                    "governor_reason": result.reason,
+                    "governor_diagnostics": dict(result.diagnostics),
+                    "current_reference_is_nominal_global_target": bool(
+                        current_reference_is_nominal
+                    ),
+                    "behavior_differs_from_native_interval": bool(
+                        behavior_differs_from_native
+                    ),
+                    "reference_update_applied": bool(proposed is not None),
+                    "reference_goal_held": bool(proposed is None),
+                    "applied_action": (
+                        None if proposed is None else proposed.tolist()
+                    ),
+                    "correction_l2_normalized_action": correction,
+                    "material_correction": material,
+                }
+                decision["update_trace"].append(update_row)
+                decision["minimum_h_m2"] = (
+                    float(np.min(h))
+                    if decision["minimum_h_m2"] is None
+                    else min(decision["minimum_h_m2"], float(np.min(h)))
+                )
+                decision["maximum_abs_partial_h_per_s"] = max(
+                    float(decision["maximum_abs_partial_h_per_s"]),
+                    float(np.max(np.abs(partial_time))),
+                )
+                decision["correction_l2_normalized_action"] = max(
+                    float(decision["correction_l2_normalized_action"]),
+                    correction,
+                )
+                decision["material_correction"] = bool(
+                    decision["material_correction"] or material
+                )
+                decision["native_interval_identity"] = bool(
+                    decision["native_interval_identity"]
+                    and not was_active
+                    and not behavior_differs_from_native
+                )
+                decision["filtered_action"] = (
+                    np.asarray(current_action, dtype=np.float64).tolist()
+                    if proposed is None
+                    else proposed.tolist()
+                )
+                decision["action_byte_identical_to_source"] = bool(
+                    decision["native_interval_identity"]
                 )
                 maximum_action_correction = max(
                     maximum_action_correction, correction
@@ -547,20 +893,36 @@ def main() -> int:
                 if first_material_action is None:
                     nominal_identity_before_correction = bool(
                         nominal_identity_before_correction
-                        and (material or byte_identical)
+                        and (material or decision["native_interval_identity"])
                     )
-                if not byte_identical and first_byte_divergence_action is None:
+                if (
+                    behavior_differs_from_native
+                    and first_byte_divergence_action is None
+                ):
                     first_byte_divergence_action = int(source_index)
+                    first_byte_divergence_physical_boundary = int(
+                        physical_boundary
+                    )
                     planner.mark_divergence(
                         action_index=source_index,
-                        physical_boundary=source_index * 25,
+                        physical_boundary=physical_boundary,
                     )
                 if material:
                     material_correction_count += 1
                     if first_material_action is None:
                         first_material_action = int(source_index)
+                        first_material_physical_boundary = int(physical_boundary)
                         eef_path.append(eef_position.tolist())
-                return filtered
+                if first_material_action is not None:
+                    applied_for_interval = (
+                        np.asarray(current_action, dtype=np.float64)
+                        if proposed is None
+                        else proposed
+                    )
+                    pose_reference_interval_count_after_correction += 1
+                    if float(np.linalg.norm(applied_for_interval[:6])) <= 1.0e-8:
+                        zero_pose_reference_interval_count_after_correction += 1
+                return proposed
 
             def observe_poststep(sim: Any, substep_index: int) -> None:
                 nonlocal observed_physics_substeps
@@ -584,7 +946,7 @@ def main() -> int:
 
             try:
                 observation_after, reward, done, info = (
-                    env.step_with_action_reference_intervention(
+                    env.step_with_osc_reference_updates(
                         nominal_action,
                         filter_reference,
                         poststep_callback=observe_poststep,
@@ -597,7 +959,9 @@ def main() -> int:
                     "reason": str(error),
                     "decision": dict(decision),
                 }
-                terminal_kind = "reference_governor_method_failure_before_physics"
+                terminal_kind = (
+                    "reference_governor_method_failure_before_next_physics"
+                )
                 break
             except RegisteredContactObserved:
                 terminal_kind = "registered_original_or_shifted_contact"
@@ -663,14 +1027,6 @@ def main() -> int:
                     "threshold_crossed": bool(car_displacement > car_threshold),
                 }
             )
-            if first_material_action is not None:
-                pose_action_count_after_correction += 1
-                if float(
-                    np.linalg.norm(
-                        np.asarray(decision["filtered_action"], dtype=np.float64)[:6]
-                    )
-                ) <= 1.0e-8:
-                    zero_pose_action_count_after_correction += 1
             task_success = goal_all_satisfied
             if task_success:
                 task_success_action = int(source_index)
@@ -683,29 +1039,46 @@ def main() -> int:
         eef_path_length = _path_length(eef_path)
         zero_fraction = (
             1.0
-            if pose_action_count_after_correction == 0
+            if pose_reference_interval_count_after_correction == 0
             else float(
-                zero_pose_action_count_after_correction
-                / pose_action_count_after_correction
+                zero_pose_reference_interval_count_after_correction
+                / pose_reference_interval_count_after_correction
             )
         )
         acceptance = protocol["acceptance"]
         historical_contact_action = int(
             case["first_sampled_link_contact_control_step"]
         )
+        conservative_precontact_physical_boundary = (
+            historical_contact_action * 25
+        )
         metrics = {
             "historical_control_task_success": True,
             "historical_control_link56_contact": True,
             "historical_control_paper_car_failure": True,
             "historical_contact_source_action": historical_contact_action,
+            "historical_contact_sample_phase": (
+                "post_env_step_control_endpoint"
+            ),
+            "conservative_precontact_physical_boundary": int(
+                conservative_precontact_physical_boundary
+            ),
             "material_correction_present": bool(first_material_action is not None),
             "first_byte_divergence_source_action": first_byte_divergence_action,
+            "first_byte_divergence_physical_boundary": (
+                first_byte_divergence_physical_boundary
+            ),
             "first_material_correction_source_action": first_material_action,
+            "first_material_correction_physical_boundary": (
+                first_material_physical_boundary
+            ),
             "material_correction_before_historical_contact": bool(
-                first_material_action is not None
-                and first_material_action <= historical_contact_action
+                first_material_physical_boundary is not None
+                and first_material_physical_boundary
+                < conservative_precontact_physical_boundary
             ),
             "material_correction_count": int(material_correction_count),
+            "safety_reference_update_frequency_hz": 100,
             "maximum_action_correction_l2": float(maximum_action_correction),
             "native_identity_before_first_correction": bool(
                 nominal_identity_before_correction
@@ -736,14 +1109,22 @@ def main() -> int:
                 maximum_car_displacement
             ),
             "post_correction_eef_path_length_m": float(eef_path_length),
-            "post_correction_zero_pose_action_fraction": float(zero_fraction),
+            "post_correction_pose_reference_interval_count": int(
+                pose_reference_interval_count_after_correction
+            ),
+            "post_correction_zero_pose_reference_interval_count": int(
+                zero_pose_reference_interval_count_after_correction
+            ),
+            "post_correction_zero_pose_reference_interval_fraction": float(
+                zero_fraction
+            ),
             "useful_post_correction_motion": bool(
                 eef_path_length
                 >= float(acceptance["minimum_post_correction_eef_path_m"])
                 and zero_fraction
                 <= float(
                     acceptance[
-                        "maximum_post_correction_zero_pose_action_fraction"
+                        "maximum_post_correction_zero_pose_reference_interval_fraction"
                     ]
                 )
             ),
@@ -784,6 +1165,30 @@ def main() -> int:
                 "h(x,t)=h_ref(p_ref+R_ref R_t^T(x-p_t)); "
                 "partial_t_h=-grad_world_dot(v+omega_cross_radius)"
             ),
+            "reference_update_semantics": {
+                "policy_frequency_hz": 20,
+                "safety_frequency_hz": 100,
+                "physics_frequency_hz": 500,
+                "update_physics_substeps": [0, 5, 10, 15, 20],
+                "prediction": (
+                    "qdot_candidate=qdot_measured+G*S*"
+                    "(target_candidate-target_installed)/0.05"
+                ),
+                "nominal_target": "same_global_native_OSC_target",
+                "target_coordinates": (
+                    "unbounded_remaining_global_target_relative_to_live_EEF"
+                ),
+                "new_reference_bounds": [-1.0, 1.0],
+                "distant_installed_target": (
+                    "held_exactly_without_clipping_or_reissuing"
+                ),
+                "inactive_behavior": (
+                    "source_action_at_substep_zero_then_hold_native_goal"
+                ),
+                "policy_divergence": (
+                    "first_applied_reference_behavior_different_from_native"
+                ),
+            },
             "contact_scope": contact_monitor.scope,
         }
         treatment = {
@@ -818,6 +1223,10 @@ def main() -> int:
                 "link56_contact": True,
                 "paper_car_failure": True,
                 "first_link56_contact_source_action": historical_contact_action,
+                "contact_sample_phase": "post_env_step_control_endpoint",
+                "conservative_precontact_physical_boundary": int(
+                    conservative_precontact_physical_boundary
+                ),
             },
             "treatment": treatment,
             "classification": {
@@ -834,6 +1243,7 @@ def main() -> int:
             },
         }
         publish_hashed_json(result_path, candidate)
+        complete_result_published = True
         print(
             json.dumps(
                 {
@@ -868,7 +1278,7 @@ def main() -> int:
                     result_path,
                     {
                         "schema_version": (
-                            "vlsa_poisson_osc_reference_governor_result.v1"
+                            "vlsa_poisson_osc_reference_governor_result.v2"
                         ),
                         "status": "apparatus_failure",
                         "run_id": arguments.run_id,
@@ -898,7 +1308,11 @@ def main() -> int:
         print("OSC reference-governor run failed: %s" % error, file=sys.stderr)
         return 2
     finally:
-        if env is not None:
+        # On the process-isolated H100 worker, explicit OSMesa teardown after
+        # a complete artifact caused job 34557 to abort inside free().  Let the
+        # operating system release renderer resources on the successful exit;
+        # failure paths still close eagerly while Python can report errors.
+        if env is not None and not complete_result_published:
             env.close()
 
 

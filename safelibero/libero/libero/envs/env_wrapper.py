@@ -518,6 +518,171 @@ class ControlEnv:
             )
         return observations, reward, done, info
 
+    def step_with_osc_reference_updates(
+        self,
+        action,
+        reference_update,
+        *,
+        poststep_callback=None,
+        expected_substeps=None,
+        integration_state_guard=None,
+        update_observables=True,
+        collect_observations=True,
+    ):
+        """Execute one native OSC action with five 100 Hz reference updates.
+
+        This is an opt-in sampled-data path for the released 20 Hz
+        ``OSC_POSE`` executor.  It calls ``reference_update(sim,
+        substep_index, current_action)`` after ``sim.forward()`` at physics
+        substeps ``(0, 5, 10, 15, 20)``.  The callback must return one finite
+        full action at substep zero.  At later update points it may return
+        ``None`` to retain the current OSC goal, or a finite full action to
+        install a new six-channel OSC goal.  A mid-interval goal update calls
+        the existing controller's ``set_goal`` directly, then executes the
+        ordinary ``_pre_action(..., False)`` path.  It never creates another
+        policy step or modifies policy buffers.
+
+        The full action is retained for every native ``_pre_action`` call, so
+        gripper values are passed through byte-for-byte.  As in the one-shot
+        reference wrapper, callbacks may read but may not mutate MuJoCo
+        integration state.  The ordinary :meth:`step` path and the one-shot
+        reference wrapper remain unchanged.
+        """
+        if not callable(reference_update):
+            raise TypeError("reference_update must be callable")
+        if poststep_callback is not None and not callable(poststep_callback):
+            raise TypeError("poststep_callback must be callable or None")
+        if collect_observations and not update_observables:
+            raise ValueError("collect_observations requires update_observables")
+        substeps = int(self.env.control_timestep / self.env.model_timestep)
+        update_substeps = (0, 5, 10, 15, 20)
+        if substeps != 25:
+            raise ValueError(
+                "100 Hz OSC reference updates require 25 physics substeps"
+            )
+        if expected_substeps is not None:
+            if (
+                isinstance(expected_substeps, bool)
+                or not isinstance(expected_substeps, int)
+                or expected_substeps <= 0
+            ):
+                raise ValueError("expected_substeps must be a positive integer")
+            if expected_substeps != 25:
+                raise ValueError(
+                    "100 Hz OSC reference updates require expected_substeps=25"
+                )
+        if self.env.done:
+            raise ValueError("executing action in terminated episode")
+        action_dim = int(self.env.action_dim)
+        if action_dim != 7:
+            raise ValueError("OSC reference updates require a seven-channel action")
+        nominal_action = np.asarray(action, dtype=np.float64).copy()
+        if nominal_action.shape != (action_dim,) or not np.all(
+            np.isfinite(nominal_action)
+        ):
+            raise ValueError("nominal action must be finite and match action_dim")
+        robots = getattr(self.env, "robots", None)
+        if not isinstance(robots, (list, tuple)) or len(robots) != 1:
+            raise ValueError("OSC reference updates require exactly one robot")
+        controller = getattr(robots[0], "controller", None)
+        if not callable(getattr(controller, "set_goal", None)):
+            raise ValueError("robot controller does not expose set_goal")
+
+        if integration_state_guard is None:
+            integration_state_guard = self._official_integration_state_guard(
+                self.env.sim
+            )
+        if integration_state_guard is not None:
+            for method_name in ("capture", "restore", "equal"):
+                if not callable(getattr(integration_state_guard, method_name, None)):
+                    raise TypeError(
+                        "integration_state_guard must implement capture, restore, and equal"
+                    )
+
+        def checked_update(substep_index, current_action):
+            integration_state_before = (
+                integration_state_guard.capture()
+                if integration_state_guard is not None
+                else None
+            )
+            integration_state_mutated = False
+            try:
+                proposed = reference_update(
+                    self.env.sim,
+                    substep_index,
+                    current_action.copy(),
+                )
+            finally:
+                if integration_state_guard is not None:
+                    try:
+                        integration_state_after = integration_state_guard.capture()
+                    except BaseException:
+                        integration_state_guard.restore(integration_state_before)
+                        raise
+                    if not integration_state_guard.equal(
+                        integration_state_before, integration_state_after
+                    ):
+                        integration_state_guard.restore(integration_state_before)
+                        integration_state_mutated = True
+            if integration_state_mutated:
+                raise ValueError("reference_update mutated MuJoCo integration state")
+            if proposed is None:
+                if substep_index == 0:
+                    raise ValueError(
+                        "reference_update must return one finite action at substep zero"
+                    )
+                return None
+            proposed = np.asarray(proposed, dtype=np.float64).copy()
+            if proposed.shape != (action_dim,) or not np.all(np.isfinite(proposed)):
+                raise ValueError("reference_update must return one finite action or None")
+            return proposed
+
+        initial_timestep = self.env.timestep
+        completed_physics_substeps = 0
+        active_action = None
+        self.env.timestep += 1
+        for substep_index in range(substeps):
+            try:
+                self.env.sim.forward()
+                if substep_index in update_substeps:
+                    proposed_action = checked_update(
+                        substep_index,
+                        nominal_action if active_action is None else active_action,
+                    )
+                    if substep_index == 0:
+                        active_action = proposed_action
+                    elif proposed_action is not None:
+                        active_action = proposed_action
+                        # Do not run a new policy step.  Updating only the OSC
+                        # pose reference leaves gripper handling to the
+                        # ordinary policy_step=False control path below.
+                        controller.set_goal(active_action[:6].copy())
+                self.env._pre_action(active_action, substep_index == 0)
+            except BaseException:
+                if completed_physics_substeps == 0:
+                    self.env.timestep = initial_timestep
+                raise
+            self.env.sim.step()
+            completed_physics_substeps += 1
+            if poststep_callback is not None:
+                poststep_callback(self.env.sim, substep_index)
+            if update_observables:
+                self.env._update_observables()
+
+        self.env.cur_time += self.env.control_timestep
+        reward, done, info = self.env._post_action(active_action)
+        done = self.env._check_success()
+        if self.env.viewer is not None and self.env.renderer != "mujoco":
+            self.env.viewer.update()
+        observations = None
+        if collect_observations:
+            observations = (
+                self.env.viewer._get_observations()
+                if self.env.viewer_get_obs
+                else self.env._get_observations()
+            )
+        return observations, reward, done, info
+
     @staticmethod
     def _official_integration_state_guard(sim):
         """Return an exact official-state guard when MuJoCo is available."""

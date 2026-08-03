@@ -17,7 +17,7 @@ REGISTERED_HISTORICAL_ROOT="/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-
 REGISTERED_CHECKPOINT="/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero"
 REGISTERED_OPENPI_PYTHON="/mnt/data/quanth/venvs/openpi/bin/python"
 REGISTERED_EVALUATION_PYTHON="/mnt/data/quanth/venvs/safety_vla/main/bin/python"
-REGISTERED_PROTOCOL="configs/vlsa_poisson_osc_reference_governor.v1.json"
+REGISTERED_PROTOCOL="configs/vlsa_poisson_osc_reference_governor.v2.json"
 
 : "${REMOTE_REPO:?REMOTE_REPO is required}"
 : "${RESULT_ROOT:?RESULT_ROOT is required}"
@@ -104,6 +104,7 @@ export PYTHONPATH="${REMOTE_REPO}/openpi/src:${REMOTE_REPO}/openpi/packages/open
   tests.test_poisson_rigid_obstacle_field \
   tests.test_poisson_osc_reference_governor \
   tests.test_poisson_action_reference_wrapper \
+  tests.test_poisson_osc_reference_update_wrapper \
   tests.test_poisson_osc_reference_governor_runner
 
 POLICY_PORT=$((20000 + 10#${SLURM_JOB_ID} % 30000))

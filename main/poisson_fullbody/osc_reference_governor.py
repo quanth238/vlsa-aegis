@@ -465,6 +465,341 @@ class OscPoseReferenceGovernor:
             },
         )
 
+    def filter_reference_target(
+        self,
+        nominal_reference_action: Sequence[float],
+        *,
+        current_reference_pose_action: Sequence[float],
+        eef_jacobian: Any,
+        measured_arm_qvel_rad_per_s: Sequence[float],
+        cbf_rows_qdot: Any,
+        cbf_lower_m2_per_s: Any,
+        osc_output_scale: Sequence[float],
+        response_horizon_seconds: float,
+        current_reference_is_nominal_global_target: bool,
+        pose_weight_diagonal: Optional[Sequence[float]] = None,
+    ) -> OscGovernorResult:
+        """Govern one OSC target update around measured joint motion.
+
+        The earlier one-shot model treated a desired OSC pose rate as if the
+        torque-controlled arm realized it immediately for the complete 50 ms
+        policy interval.  The e05 simulation falsified that assumption: the
+        predicted safe joint velocity reversed while measured motion continued
+        toward the obstacle.  This update model instead anchors the affine map
+        at the *measured* joint velocity and models only the effect of changing
+        the currently installed OSC target::
+
+            qdot(candidate) = qdot_measured
+                              + G S (candidate - current) / dt
+
+        ``nominal_reference_action`` and ``current_reference_pose_action``
+        encode the unbounded remaining nominal and installed global OSC
+        targets relative to the current end-effector pose.  Keeping the
+        installed coordinate unbounded is essential: clipping it would make a
+        distant held goal look like a newly issued one-step goal.  A newly
+        installed target is bounded to the native action range, while an
+        already installed nominal target may be held exactly without issuing
+        another reference.  The QP has no slack and returns no stop, zero, or
+        cached command when infeasible.
+        """
+
+        np, osqp, sparse = _numeric_modules()
+        source = _finite_vector(
+            nominal_reference_action,
+            7,
+            "nominal_reference_action",
+        )
+        nominal_pose = source[:6].copy()
+        current_pose = _finite_vector(
+            current_reference_pose_action,
+            6,
+            "current_reference_pose_action",
+        )
+        if not isinstance(current_reference_is_nominal_global_target, bool):
+            raise ValueError(
+                "current_reference_is_nominal_global_target must be boolean"
+            )
+        scale = _finite_vector(osc_output_scale, 6, "osc_output_scale")
+        dt = float(response_horizon_seconds)
+        if np.any(scale <= 0.0) or not math.isfinite(dt) or dt <= 0.0:
+            raise ValueError("OSC scale and response interval must be positive")
+
+        mapping = damped_twist_to_joint_map(eef_jacobian, self.damping)
+        measured_qdot = _finite_vector(
+            measured_arm_qvel_rad_per_s,
+            7,
+            "measured_arm_qvel_rad_per_s",
+        )
+        response_map = mapping * (scale / dt)[None, :]
+        affine_offset = measured_qdot - response_map @ current_pose
+        nominal_qdot = affine_offset + response_map @ nominal_pose
+
+        rows = np.asarray(cbf_rows_qdot, dtype=np.float64)
+        lower = np.asarray(cbf_lower_m2_per_s, dtype=np.float64)
+        if rows.ndim != 2 or rows.shape[1] != 7:
+            raise ValueError("cbf_rows_qdot must have shape (N, 7)")
+        if lower.shape != (rows.shape[0],):
+            raise ValueError("cbf_lower_m2_per_s must have shape (N,)")
+        if not np.all(np.isfinite(rows)) or not np.all(np.isfinite(lower)):
+            raise ValueError("CBF rows and bounds must be finite")
+
+        nominal_residual = rows @ nominal_qdot - lower
+        nominal_minimum = (
+            float(np.min(nominal_residual)) if rows.shape[0] else None
+        )
+        nominal_feasible = bool(
+            not rows.shape[0]
+            or nominal_minimum >= -self.postcheck_tolerance
+        )
+        common = {
+            "prediction_model": (
+                "measured_qdot_plus_DLS_response_to_OSC_target_change"
+            ),
+            "nominal_feasible": nominal_feasible,
+            "nominal_minimum_cbf_residual_m2_per_s": nominal_minimum,
+            "nominal_reference_pose_action": nominal_pose.tolist(),
+            "current_reference_pose_action": current_pose.tolist(),
+            "nominal_reference_within_native_action_bounds": bool(
+                np.all(nominal_pose >= -1.0)
+                and np.all(nominal_pose <= 1.0)
+            ),
+            "current_reference_is_nominal_global_target": bool(
+                current_reference_is_nominal_global_target
+            ),
+            "nominal_qdot_rad_per_s": nominal_qdot.tolist(),
+            "measured_arm_qvel_rad_per_s": measured_qdot.tolist(),
+            "target_change_affine_offset_rad_per_s": affine_offset.tolist(),
+            "damping": self.damping,
+            "response_horizon_seconds": dt,
+            "osc_output_scale": scale.tolist(),
+            "sample_count": int(rows.shape[0]),
+        }
+        if nominal_feasible and current_reference_is_nominal_global_target:
+            return OscGovernorResult(
+                valid=True,
+                reason="nominal_target_safe_exact_hold",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=nominal_qdot.copy(),
+                diagnostics={
+                    **common,
+                    "solver_attempted": False,
+                    "hold_current_reference_exact": True,
+                    "correction_l2_normalized_action": 0.0,
+                    "material_correction": False,
+                },
+            )
+        if (
+            nominal_feasible
+            and np.all(nominal_pose >= -1.0)
+            and np.all(nominal_pose <= 1.0)
+        ):
+            returned = source.copy()
+            return OscGovernorResult(
+                valid=True,
+                reason="nominal_target_safe_exact_passthrough",
+                action=returned,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=nominal_qdot.copy(),
+                diagnostics={
+                    **common,
+                    "solver_attempted": False,
+                    "hold_current_reference_exact": False,
+                    "action_byte_identical_to_nominal_target": bool(
+                        returned.tobytes(order="C")
+                        == source.tobytes(order="C")
+                    ),
+                    "correction_l2_normalized_action": 0.0,
+                    "material_correction": False,
+                },
+            )
+
+        pose_map = rows @ response_map
+        pose_lower = lower - rows @ affine_offset
+        row_scale = (
+            np.max(np.abs(pose_map), axis=1)
+            if pose_map.shape[0]
+            else np.empty(0, dtype=np.float64)
+        )
+        zero_rows = row_scale == 0.0
+        impossible = zero_rows & (pose_lower > 0.0)
+        if np.any(impossible):
+            return OscGovernorResult(
+                valid=False,
+                reason="cbf_not_controllable_by_OSC_target_update",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=None,
+                diagnostics={
+                    **common,
+                    "solver_attempted": False,
+                    "uncontrollable_constraint_indexes": (
+                        np.flatnonzero(impossible).astype(int).tolist()
+                    ),
+                },
+            )
+
+        keep = ~zero_rows
+        scaled_pose_rows = pose_map[keep] / row_scale[keep, None]
+        scaled_pose_lower = pose_lower[keep] / row_scale[keep]
+        identity = np.eye(6, dtype=np.float64)
+        constraint = np.vstack((scaled_pose_rows, identity))
+        constraint_lower = np.concatenate(
+            (scaled_pose_lower, np.full(6, -1.0, dtype=np.float64))
+        )
+        constraint_upper = np.concatenate(
+            (
+                np.full(scaled_pose_rows.shape[0], np.inf, dtype=np.float64),
+                np.full(6, 1.0, dtype=np.float64),
+            )
+        )
+        weights = (
+            np.ones(6, dtype=np.float64)
+            if pose_weight_diagonal is None
+            else _finite_vector(
+                pose_weight_diagonal,
+                6,
+                "pose_weight_diagonal",
+            )
+        )
+        if np.any(weights <= 0.0):
+            raise ValueError("pose weights must be positive")
+
+        solver = osqp.OSQP()
+        try:
+            solver.setup(
+                P=sparse.diags(weights, format="csc"),
+                q=-weights * nominal_pose,
+                A=sparse.csc_matrix(constraint),
+                l=constraint_lower,
+                u=constraint_upper,
+                verbose=False,
+                eps_abs=self.eps_abs,
+                eps_rel=self.eps_rel,
+                max_iter=self.max_iter,
+                polishing=True,
+                warm_starting=True,
+                adaptive_rho=True,
+            )
+            solved = solver.solve()
+        except Exception as error:
+            return OscGovernorResult(
+                valid=False,
+                reason="qp_solver_exception",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=None,
+                diagnostics={
+                    **common,
+                    "solver_attempted": True,
+                    "error_type": type(error).__name__,
+                    "error": str(error),
+                },
+            )
+        status = str(getattr(solved.info, "status", "unknown")).lower()
+        if status not in ("solved", "solved inaccurate") or solved.x is None:
+            return OscGovernorResult(
+                valid=False,
+                reason="qp_not_solved",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=None,
+                diagnostics={
+                    **common,
+                    "solver_attempted": True,
+                    "solver_status": status,
+                    "solver_iterations": int(getattr(solved.info, "iter", -1)),
+                },
+            )
+
+        candidate_pose = np.asarray(solved.x, dtype=np.float64)
+        if candidate_pose.shape != (6,) or not np.all(np.isfinite(candidate_pose)):
+            return OscGovernorResult(
+                valid=False,
+                reason="invalid_qp_solution",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=None,
+                diagnostics={**common, "solver_attempted": True},
+            )
+        action_bound_violation = max(
+            float(np.max(np.maximum(-1.0 - candidate_pose, 0.0))),
+            float(np.max(np.maximum(candidate_pose - 1.0, 0.0))),
+        )
+        safe_pose = np.clip(candidate_pose, -1.0, 1.0)
+        safe_qdot = affine_offset + response_map @ safe_pose
+        safe_residual = rows @ safe_qdot - lower
+        minimum_safe = (
+            float(np.min(safe_residual)) if rows.shape[0] else None
+        )
+        if (
+            minimum_safe is not None
+            and minimum_safe < -self.postcheck_tolerance
+        ) or action_bound_violation > self.postcheck_tolerance:
+            return OscGovernorResult(
+                valid=False,
+                reason="qp_postcheck_failed",
+                action=None,
+                nominal_qdot_rad_per_s=nominal_qdot,
+                safe_qdot_rad_per_s=None,
+                diagnostics={
+                    **common,
+                    "solver_attempted": True,
+                    "solver_status": status,
+                    "minimum_safe_cbf_residual_m2_per_s": minimum_safe,
+                    "safe_action_bound_violation": action_bound_violation,
+                },
+            )
+
+        returned = np.concatenate((safe_pose, source[6:7]))
+        correction = safe_pose - nominal_pose
+        correction_norm = float(np.linalg.norm(correction))
+        nominal_translation = nominal_pose[:3]
+        safe_translation = safe_pose[:3]
+        nominal_translation_norm_sq = float(
+            nominal_translation @ nominal_translation
+        )
+        progress_ratio = (
+            None
+            if nominal_translation_norm_sq == 0.0
+            else float(
+                safe_translation @ nominal_translation
+                / nominal_translation_norm_sq
+            )
+        )
+        return OscGovernorResult(
+            valid=True,
+            reason="solved_target_update",
+            action=returned,
+            nominal_qdot_rad_per_s=nominal_qdot,
+            safe_qdot_rad_per_s=safe_qdot,
+            diagnostics={
+                **common,
+                "solver_attempted": True,
+                "solver_status": status,
+                "solver_iterations": int(getattr(solved.info, "iter", -1)),
+                "solve_time_seconds": float(
+                    getattr(solved.info, "solve_time", 0.0)
+                ),
+                "safe_reference_pose_action": safe_pose.tolist(),
+                "hold_current_reference_exact": False,
+                "safe_qdot_rad_per_s": safe_qdot.tolist(),
+                "minimum_safe_cbf_residual_m2_per_s": minimum_safe,
+                "safe_action_bound_violation": action_bound_violation,
+                "correction_l2_normalized_action": correction_norm,
+                "material_correction": bool(
+                    not nominal_feasible
+                    and correction_norm >= self.material_action_correction
+                ),
+                "cbf_driven_correction": bool(not nominal_feasible),
+                "translation_progress_ratio_along_nominal": progress_ratio,
+                "gripper_command_byte_preserved": bool(
+                    returned[6:7].tobytes(order="C")
+                    == source[6:7].tobytes(order="C")
+                ),
+            },
+        )
+
 
 __all__ = [
     "OscGovernorResult",

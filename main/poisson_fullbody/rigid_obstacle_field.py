@@ -107,6 +107,10 @@ class RigidFieldQuery:
     partial_time_m2_per_s: Any
     reference_point_world_m: Any
     obstacle_point_velocity_world_m_per_s: Any
+    reason: Any
+    cell_index: Any
+    local_coordinates: Any
+    outer_boundary_clearance_m: Any
 
 
 def map_world_point_to_reference(
@@ -156,6 +160,14 @@ def query_rigid_obstacle_field(
     raw_valid = bool(getattr(raw, "valid", False))
     raw_value = getattr(raw, "value", None)
     raw_gradient = getattr(raw, "gradient", None)
+    raw_reason = getattr(raw, "reason", None)
+    raw_cell_index = getattr(raw, "cell_index", None)
+    raw_local_coordinates = getattr(raw, "local_coordinates", None)
+    raw_outer_boundary_clearance = getattr(
+        raw,
+        "outer_boundary_clearance_m",
+        None,
+    )
     if not raw_valid or raw_value is None or raw_gradient is None:
         return RigidFieldQuery(
             valid=False,
@@ -164,6 +176,10 @@ def query_rigid_obstacle_field(
             partial_time_m2_per_s=None,
             reference_point_world_m=reference_point,
             obstacle_point_velocity_world_m_per_s=None,
+            reason=raw_reason,
+            cell_index=raw_cell_index,
+            local_coordinates=raw_local_coordinates,
+            outer_boundary_clearance_m=raw_outer_boundary_clearance,
         )
     value = float(raw_value)
     gradient_reference = _vector(raw_gradient, 3, "field gradient")
@@ -187,6 +203,10 @@ def query_rigid_obstacle_field(
         partial_time_m2_per_s=partial_time,
         reference_point_world_m=reference_point,
         obstacle_point_velocity_world_m_per_s=obstacle_point_velocity,
+        reason=raw_reason,
+        cell_index=raw_cell_index,
+        local_coordinates=raw_local_coordinates,
+        outer_boundary_clearance_m=raw_outer_boundary_clearance,
     )
 
 
