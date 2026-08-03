@@ -160,6 +160,7 @@ class _Evaluator:
     def __init__(self, first_context):
         self.first_context = deepcopy(first_context)
         self.observed_q1_diag = None
+        self.observed_proxy = None
 
     @staticmethod
     def query_seed(seed, query_index):
@@ -201,7 +202,11 @@ class _Evaluator:
         q1_diag,
         diagnostics_enabled,
     ):
-        del proxy, geometry
+        del geometry
+        self.observed_proxy = {
+            key: value.tolist() if hasattr(value, "tolist") else deepcopy(value)
+            for key, value in proxy.items()
+        }
         self.observed_q1_diag = q1_diag.copy()
         if diagnostics_enabled is not True:
             raise AssertionError("diagnostic AEGIS execution must remain enabled")
@@ -303,6 +308,40 @@ class LiveAegisPolicyGeneralizationTests(unittest.TestCase):
         self.assertEqual(
             provider.evaluator.observed_q1_diag.tolist(),
             [0.2, 0.2, 0.2],
+        )
+        self.assertEqual(
+            provider.evaluator.observed_proxy["p1"],
+            [0.1, 0.2, 0.3],
+        )
+        self.assertEqual(
+            provider.record()["first_aegis_proxy_source"],
+            "released_pre_settle_proxy_from_historical_action0_context",
+        )
+        self.assertGreater(
+            provider.record()["first_fresh_proxy_diagnostic"][
+                "p1_l2_difference_m"
+            ],
+            0.0,
+        )
+        provider(
+            env=object(),
+            observation={},
+            local_action_index=1,
+            source_action_index=1,
+        )
+        self.assertEqual(
+            provider.evaluator.observed_proxy["p1"],
+            [0.0, 0.0, 0.0],
+        )
+        self.assertEqual(
+            [
+                row["aegis_proxy_source"]
+                for row in provider.record()["high_level_action_trace"]
+            ],
+            [
+                "released_pre_settle_proxy_from_historical_action0_context",
+                "current_observation_proxy",
+            ],
         )
         self.assertEqual(
             provider.record()[

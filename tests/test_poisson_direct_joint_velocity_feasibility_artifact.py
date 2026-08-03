@@ -442,8 +442,37 @@ def _fixture():
     )
     policy_fingerprint = "2" * 64
     first_action = [0.01, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0]
+    released_proxy_diagnostic = {
+        "fresh_settled_p1": [0.0, 0.0, 0.0],
+        "fresh_settled_R1": [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        "released_pre_settle_p1": [0.001, 0.0, 0.0],
+        "released_pre_settle_R1": [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        "p1_l2_difference_m": 0.001,
+    }
     baseline_provider = {
         "source_start_action": 0,
+        "first_aegis_proxy_source": (
+            "released_pre_settle_proxy_from_historical_action0_context"
+        ),
+        "first_fresh_proxy_diagnostic": copy.deepcopy(
+            released_proxy_diagnostic
+        ),
+        "historical_first_action_required_aegis_inputs": {
+            "p1": copy.deepcopy(
+                released_proxy_diagnostic["released_pre_settle_p1"]
+            ),
+            "R1": copy.deepcopy(
+                released_proxy_diagnostic["released_pre_settle_R1"]
+            ),
+        },
         "first_aegis_input_binding_matches_historical": True,
         "recorded_suffix_actions_executed": False,
         "policy_queries": [
@@ -467,14 +496,47 @@ def _fixture():
                 "query_index": index // 5,
                 "query_chunk_offset": index % 5,
                 "native_observation_sha256": SHA,
+                "aegis_proxy_source": (
+                    "released_pre_settle_proxy_from_historical_action0_context"
+                    if index == 0
+                    else "current_observation_proxy"
+                ),
                 "aegis_executed": list(first_action),
-                "aegis_qp": {"status": "solved"},
+                "aegis_qp": {
+                    "status": "solved",
+                    "context": {
+                        "p1": copy.deepcopy(
+                            released_proxy_diagnostic[
+                                "released_pre_settle_p1"
+                            ]
+                        ),
+                        "R1": copy.deepcopy(
+                            released_proxy_diagnostic[
+                                "released_pre_settle_R1"
+                            ]
+                        ),
+                    },
+                },
             }
             for index in range(2)
         ],
     }
     treatment_provider = {
         "source_start_action": 0,
+        "first_aegis_proxy_source": (
+            "released_pre_settle_proxy_from_historical_action0_context"
+        ),
+        "first_fresh_proxy_diagnostic": copy.deepcopy(
+            released_proxy_diagnostic
+        ),
+        "historical_first_action_required_aegis_inputs": {
+            "p1": copy.deepcopy(
+                released_proxy_diagnostic["released_pre_settle_p1"]
+            ),
+            "R1": copy.deepcopy(
+                released_proxy_diagnostic["released_pre_settle_R1"]
+            ),
+        },
         "first_aegis_input_binding_matches_historical": True,
         "recorded_suffix_actions_executed": False,
         "policy_queries": [
@@ -498,8 +560,27 @@ def _fixture():
                 "query_index": index // 5,
                 "query_chunk_offset": index % 5,
                 "native_observation_sha256": SHA,
+                "aegis_proxy_source": (
+                    "released_pre_settle_proxy_from_historical_action0_context"
+                    if index == 0
+                    else "current_observation_proxy"
+                ),
                 "aegis_executed": list(first_action),
-                "aegis_qp": {"status": "solved"},
+                "aegis_qp": {
+                    "status": "solved",
+                    "context": {
+                        "p1": copy.deepcopy(
+                            released_proxy_diagnostic[
+                                "released_pre_settle_p1"
+                            ]
+                        ),
+                        "R1": copy.deepcopy(
+                            released_proxy_diagnostic[
+                                "released_pre_settle_R1"
+                            ]
+                        ),
+                    },
+                },
             }
             for index in range(2)
         ],
@@ -895,6 +976,54 @@ class DirectJointVelocityArtifactValidatorTests(unittest.TestCase):
         self.assertFalse(result["artifact_valid"])
         self.assertIn(
             "controller_contract_fallback_policy_differs",
+            result["discrepancies"],
+        )
+
+    def test_released_action_zero_proxy_source_mutation_is_rejected(self):
+        payload = _fixture()
+        payload["providers"]["adapter_plus_psf"][
+            "first_aegis_proxy_source"
+        ] = "current_observation_proxy"
+        result = validate_payload(payload, inspect_source=False)
+        self.assertFalse(result["artifact_valid"])
+        self.assertIn(
+            "provider_adapter_plus_psf_released_action0_proxy_source_differs",
+            result["discrepancies"],
+        )
+
+    def test_released_action_zero_proxy_offset_mutation_is_rejected(self):
+        payload = _fixture()
+        payload["providers"]["adapter_only"][
+            "first_fresh_proxy_diagnostic"
+        ]["p1_l2_difference_m"] = 0.002
+        result = validate_payload(payload, inspect_source=False)
+        self.assertFalse(result["artifact_valid"])
+        self.assertIn(
+            "provider_adapter_only_p1_difference_reconstruction_failed",
+            result["discrepancies"],
+        )
+
+    def test_released_action_zero_rotation_mutation_is_rejected(self):
+        payload = _fixture()
+        payload["providers"]["adapter_only"][
+            "first_fresh_proxy_diagnostic"
+        ]["released_pre_settle_R1"][0][0] = 9.0
+        result = validate_payload(payload, inspect_source=False)
+        self.assertFalse(result["artifact_valid"])
+        self.assertIn(
+            "provider_adapter_only_released_proxy_not_historical_authority",
+            result["discrepancies"],
+        )
+
+    def test_post_action_zero_proxy_source_mutation_is_rejected(self):
+        payload = _fixture()
+        payload["providers"]["adapter_plus_psf"][
+            "high_level_action_trace"
+        ][1]["aegis_proxy_source"] = "wrong_source"
+        result = validate_payload(payload, inspect_source=False)
+        self.assertFalse(result["artifact_valid"])
+        self.assertIn(
+            "provider_adapter_plus_psf_proxy_source_trace_differs",
             result["discrepancies"],
         )
 

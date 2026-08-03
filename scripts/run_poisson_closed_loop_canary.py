@@ -724,6 +724,12 @@ class LiveAegisPolicy:
         self.expected_first_aegis_inputs = _aegis_input_projection(
             first_action, historical=True, include_nominal=False
         )
+        self.first_aegis_proxy_source = (
+            "released_pre_settle_proxy_from_historical_action0_context"
+            if self.source_start_action == 0
+            else "current_observation_proxy"
+        )
+        self.first_fresh_proxy_diagnostic: Any = None
         self.expected_first_aegis_full_output_diagnostic = (
             _aegis_output_projection(first_action, historical=True)
         )
@@ -912,7 +918,45 @@ class LiveAegisPolicy:
         query_index = int(self.action_plan_query_indexes.popleft())
         chunk_offset = int(self.action_plan_offsets.popleft())
         nominal = self.evaluator.translational_action(raw)
-        proxy = self.evaluator._eef_proxy(self.runtime, observation)
+        fresh_proxy = self.evaluator._eef_proxy(self.runtime, observation)
+        proxy = fresh_proxy
+        proxy_source = "current_observation_proxy"
+        if int(local_action_index) == 0 and self.source_start_action == 0:
+            # The released Table-1 evaluator captures the EEF proxy before its
+            # 20 settling actions and keeps that value for action zero. Both
+            # paired arms must reproduce that baseline behavior identically.
+            historical_p1 = np.asarray(
+                self.expected_first_aegis_inputs["p1"], dtype=np.float64
+            )
+            historical_R1 = np.asarray(
+                self.expected_first_aegis_inputs["R1"], dtype=np.float64
+            )
+            fresh_p1 = np.asarray(fresh_proxy["p1"], dtype=np.float64)
+            fresh_R1 = np.asarray(fresh_proxy["R1"], dtype=np.float64)
+            if (
+                historical_p1.shape != (3,)
+                or historical_R1.shape != (3, 3)
+                or fresh_p1.shape != (3,)
+                or fresh_R1.shape != (3, 3)
+                or not all(
+                    np.all(np.isfinite(value))
+                    for value in (historical_p1, historical_R1, fresh_p1, fresh_R1)
+                )
+            ):
+                raise ClosedLoopRunnerError(
+                    "released action-0 AEGIS proxy is invalid"
+                )
+            proxy = {"p1": historical_p1.copy(), "R1": historical_R1.copy()}
+            proxy_source = self.first_aegis_proxy_source
+            self.first_fresh_proxy_diagnostic = {
+                "fresh_settled_p1": fresh_p1.tolist(),
+                "fresh_settled_R1": fresh_R1.tolist(),
+                "released_pre_settle_p1": historical_p1.tolist(),
+                "released_pre_settle_R1": historical_R1.tolist(),
+                "p1_l2_difference_m": float(
+                    np.linalg.norm(fresh_p1 - historical_p1)
+                ),
+            }
         z_before = np.asarray(self.geometry["z_fixed"], dtype=np.float64).copy()
         executed, qp_record = self.evaluator._aegis_action(
             self.runtime,
@@ -994,6 +1038,7 @@ class LiveAegisPolicy:
                 **observation_record,
                 "nominal_raw": raw.tolist(),
                 "nominal_translational": list(nominal),
+                "aegis_proxy_source": proxy_source,
                 "aegis_executed": list(executed),
                 "aegis_correction_l2": float(
                     np.linalg.norm(
@@ -1025,6 +1070,10 @@ class LiveAegisPolicy:
             "recorded_suffix_actions_executed": False,
             "first_query_execution": self.first_query_execution,
             "paired_first_query_source_arm": self.paired_first_query_source_arm,
+            "first_aegis_proxy_source": self.first_aegis_proxy_source,
+            "first_fresh_proxy_diagnostic": copy.deepcopy(
+                self.first_fresh_proxy_diagnostic
+            ),
             "first_aegis_input_binding_matches_historical": bool(
                 self.first_aegis_input_binding_matches_historical
             ),

@@ -198,6 +198,39 @@ def _vector(
     return tuple(audit.number(item, "%s_%d" % (label, index)) for index, item in enumerate(rows))
 
 
+def _matrix(
+    audit: _Audit,
+    value: Any,
+    row_count: int,
+    column_count: int,
+    label: str,
+) -> Tuple[Tuple[float, ...], ...]:
+    rows = audit.sequence(value, label)
+    audit.check(len(rows) == row_count, "%s_row_count_differs" % label)
+    if len(rows) != row_count:
+        return tuple(
+            tuple(0.0 for _ in range(column_count))
+            for _ in range(row_count)
+        )
+    return tuple(
+        _vector(
+            audit,
+            row,
+            column_count,
+            "%s_%d" % (label, row_index),
+        )
+        for row_index, row in enumerate(rows)
+    )
+
+
+def _nested_close(left: Any, right: Any, tolerance: float = 1.0e-12) -> bool:
+    if isinstance(left, tuple) and isinstance(right, tuple):
+        return len(left) == len(right) and all(
+            _nested_close(a, b, tolerance) for a, b in zip(left, right)
+        )
+    return _close(float(left), float(right), tolerance)
+
+
 def _norm(value: Sequence[float]) -> float:
     return math.sqrt(sum(float(item) * float(item) for item in value))
 
@@ -434,6 +467,7 @@ def _validate_providers(audit: _Audit, value: Any) -> Mapping[str, Any]:
         not _scan_forbidden_artifact_semantics(declared_imports, path="runtime_imports"),
         "provider_forbidden_import_present",
     )
+    proxy_bindings = []
     for arm_key in ("adapter_only", "adapter_plus_psf"):
         provider = audit.mapping(
             providers.get(arm_key), "provider_%s" % arm_key
@@ -447,6 +481,73 @@ def _validate_providers(audit: _Audit, value: Any) -> Mapping[str, Any]:
             "provider_%s_used_recorded_actions" % arm_key,
         )
         audit.check(
+            provider.get("first_aegis_proxy_source")
+            == "released_pre_settle_proxy_from_historical_action0_context",
+            "provider_%s_released_action0_proxy_source_differs" % arm_key,
+        )
+        proxy_diagnostic = audit.mapping(
+            provider.get("first_fresh_proxy_diagnostic"),
+            "provider_%s_first_fresh_proxy_diagnostic" % arm_key,
+        )
+        fresh_p1 = _vector(
+            audit,
+            proxy_diagnostic.get("fresh_settled_p1"),
+            3,
+            "provider_%s_fresh_settled_p1" % arm_key,
+        )
+        released_p1 = _vector(
+            audit,
+            proxy_diagnostic.get("released_pre_settle_p1"),
+            3,
+            "provider_%s_released_pre_settle_p1" % arm_key,
+        )
+        fresh_R1 = _matrix(
+            audit,
+            proxy_diagnostic.get("fresh_settled_R1"),
+            3,
+            3,
+            "provider_%s_fresh_settled_R1" % arm_key,
+        )
+        released_R1 = _matrix(
+            audit,
+            proxy_diagnostic.get("released_pre_settle_R1"),
+            3,
+            3,
+            "provider_%s_released_pre_settle_R1" % arm_key,
+        )
+        reported_difference = audit.number(
+            proxy_diagnostic.get("p1_l2_difference_m"),
+            "provider_%s_p1_l2_difference_m" % arm_key,
+        )
+        reconstructed_difference = _distance(fresh_p1, released_p1)
+        audit.check(
+            reported_difference >= 0.0
+            and _close(reported_difference, reconstructed_difference, 1.0e-12),
+            "provider_%s_p1_difference_reconstruction_failed" % arm_key,
+        )
+        historical_inputs = audit.mapping(
+            provider.get("historical_first_action_required_aegis_inputs"),
+            "provider_%s_historical_first_aegis_inputs" % arm_key,
+        )
+        historical_p1 = _vector(
+            audit,
+            historical_inputs.get("p1"),
+            3,
+            "provider_%s_historical_first_p1" % arm_key,
+        )
+        historical_R1 = _matrix(
+            audit,
+            historical_inputs.get("R1"),
+            3,
+            3,
+            "provider_%s_historical_first_R1" % arm_key,
+        )
+        audit.check(
+            _nested_close(released_p1, historical_p1)
+            and _nested_close(released_R1, historical_R1),
+            "provider_%s_released_proxy_not_historical_authority" % arm_key,
+        )
+        audit.check(
             isinstance(provider.get("policy_queries"), Sequence)
             and not isinstance(provider.get("policy_queries"), (str, bytes)),
             "provider_%s_policy_queries_invalid" % arm_key,
@@ -458,6 +559,68 @@ def _validate_providers(audit: _Audit, value: Any) -> Mapping[str, Any]:
             ),
             "provider_%s_action_trace_invalid" % arm_key,
         )
+        actions = audit.sequence(
+            provider.get("high_level_action_trace"),
+            "provider_%s_proxy_action_trace" % arm_key,
+        )
+        proxy_source_trace_valid = bool(actions)
+        for action_index, action_value in enumerate(actions):
+            action = audit.mapping(
+                action_value,
+                "provider_%s_proxy_action_%d" % (arm_key, action_index),
+            )
+            expected_source = (
+                "released_pre_settle_proxy_from_historical_action0_context"
+                if action_index == 0
+                else "current_observation_proxy"
+            )
+            proxy_source_trace_valid = bool(
+                proxy_source_trace_valid
+                and action.get("aegis_proxy_source") == expected_source
+            )
+        audit.check(
+            proxy_source_trace_valid,
+            "provider_%s_proxy_source_trace_differs" % arm_key,
+        )
+        first_action = (
+            audit.mapping(actions[0], "provider_%s_first_proxy_action" % arm_key)
+            if actions
+            else {}
+        )
+        first_qp = audit.mapping(
+            first_action.get("aegis_qp"),
+            "provider_%s_first_proxy_qp" % arm_key,
+        )
+        first_context = audit.mapping(
+            first_qp.get("context"),
+            "provider_%s_first_proxy_context" % arm_key,
+        )
+        context_p1 = _vector(
+            audit,
+            first_context.get("p1"),
+            3,
+            "provider_%s_first_proxy_context_p1" % arm_key,
+        )
+        context_R1 = _matrix(
+            audit,
+            first_context.get("R1"),
+            3,
+            3,
+            "provider_%s_first_proxy_context_R1" % arm_key,
+        )
+        audit.check(
+            _nested_close(context_p1, released_p1)
+            and _nested_close(context_R1, released_R1),
+            "provider_%s_action0_context_not_released_proxy" % arm_key,
+        )
+        proxy_bindings.append(
+            (fresh_p1, fresh_R1, released_p1, released_R1)
+        )
+    audit.check(
+        len(proxy_bindings) == 2
+        and _nested_close(proxy_bindings[0], proxy_bindings[1]),
+        "paired_action0_proxy_diagnostics_differ",
+    )
     return implementation
 
 
