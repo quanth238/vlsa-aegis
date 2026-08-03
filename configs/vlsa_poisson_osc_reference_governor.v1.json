@@ -15,6 +15,7 @@
     "filter_location": "after_first_native_forward_before_OSC_set_goal",
     "zero_correction_behavior": "source_action_byte_exact_passthrough",
     "reference_governor_subspace": "six_OSC_pose_reference_channels",
+    "native_pose_input_bounds": [-1.0, 1.0],
     "joint_velocity_predictor": "measured_qdot_plus_DLS_of_commanded_minus_measured_EEF_twist",
     "damped_least_squares_lambda": 0.05
   },

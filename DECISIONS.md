@@ -1505,9 +1505,9 @@ The replacement retains released 20 Hz `OSC_POSE` execution exactly whenever
 the filter is inactive. Its predictor uses
 `qdot_pred=(I-GJ)qdot_measured+G v`, so measured joint motion cannot be silently
 treated as zero. With damped `G`, this is a registered affine predictor rather
-than an exact null-space projection. A hard minimum-change QP may alter only the
-six native
-pose-reference channels; it preserves the gripper byte and has no zero, cached,
+than an exact null-space projection. A hard minimum-change QP may alter only
+the six native pose-reference channels; it preserves the gripper byte and has
+no zero, cached,
 or stop-command fallback. Every byte-different action immediately starts the
 closed-loop treatment policy, while the material-correction threshold is used
 only for scientific acceptance. Exact historical state/reward/done/goal parity
@@ -1528,3 +1528,21 @@ zero original or shifted contact, paper-CAR safety, at least 1 cm of
 post-correction end-effector motion, at most 75% zero pose actions, and native
 full-task success. Infeasibility, stopping, stalling, contact shift, or task
 failure remains negative.
+
+## ADR-0063: Preserve Robosuite's native high-level action interface
+
+Accepted after job `34543` passed the H100 numeric gate but rejected the first
+archived action before physics because its gripper value was
+`-1.0033712812594175`. The released environment accepts finite high-level
+actions and clips inside the native arm controller and gripper path. Requiring
+all seven upstream values in `[-1,1]` inside the additive intervention wrapper
+was therefore an incompatible new precondition.
+
+The wrapper now checks only finite shape, matching the native entry point. For
+motion prediction, the governor applies the native `[-1,1]` clip to the six OSC
+pose channels and first requires the live controller to expose those exact
+input bounds. If the clipped nominal command is safe, it still returns the
+original seven input bytes exactly; if correction is required, it optimizes the
+effective bounded pose command while preserving the raw gripper byte. This is
+a baseline-compatibility repair only. It changes no link set, field, CBF,
+contact, CAR, useful-motion, no-stop, or task-success criterion.

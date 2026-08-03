@@ -386,8 +386,9 @@ class ControlEnv:
 
         The callback runs once, after the ordinary first ``sim.forward()`` and
         immediately before robosuite receives the high-level action.  It may
-        read the forwarded state and must return one complete normalized
-        action.  When it returns the input byte-for-byte, the subsequent
+        read the forwarded state and must return one complete finite action.
+        Native controller and gripper clipping semantics remain downstream.
+        When it returns the input byte-for-byte, the subsequent
         ``_pre_action`` calls and MuJoCo transitions are the released native
         OSC path; no controller is replaced and no extra forward is added.
 
@@ -421,11 +422,9 @@ class ControlEnv:
         if (
             nominal_action.shape != (action_dim,)
             or not np.all(np.isfinite(nominal_action))
-            or np.any(nominal_action < -1.0)
-            or np.any(nominal_action > 1.0)
         ):
             raise ValueError(
-                "nominal action must be finite, normalized, and match action_dim"
+                "nominal action must be finite and match action_dim"
             )
 
         if integration_state_guard is None:
@@ -488,11 +487,9 @@ class ControlEnv:
                     if (
                         filtered_action.shape != (action_dim,)
                         or not np.all(np.isfinite(filtered_action))
-                        or np.any(filtered_action < -1.0)
-                        or np.any(filtered_action > 1.0)
                     ):
                         raise ValueError(
-                            "intervention must return one finite normalized action"
+                            "intervention must return one finite action"
                         )
                 self.env._pre_action(filtered_action, policy_step)
             except BaseException:

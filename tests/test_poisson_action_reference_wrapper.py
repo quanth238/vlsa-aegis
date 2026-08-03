@@ -77,6 +77,17 @@ class ActionReferenceWrapperTests(unittest.TestCase):
         for received in wrapper.env.received_actions:
             self.assertEqual(_float_bits(received), _float_bits(filtered))
 
+    def test_finite_out_of_range_gripper_preserves_native_clipping_path(self):
+        wrapper, _, _ = self.wrapper(substeps=2)
+        source = np.asarray([0.2, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0033712812594175])
+        wrapper.step_with_action_reference_intervention(
+            source,
+            lambda sim, nominal: nominal,
+            expected_substeps=2,
+        )
+        for received in wrapper.env.received_actions:
+            self.assertEqual(_float_bits(received), _float_bits(source))
+
     def test_state_mutation_or_invalid_action_fails_before_physics(self):
         wrapper, _, guard = self.wrapper(substeps=1)
         source = np.zeros(7)
@@ -97,10 +108,10 @@ class ActionReferenceWrapperTests(unittest.TestCase):
         self.assertEqual(_float_bits(wrapper.env.sim.data.qpos), _float_bits(initial))
 
         wrapper, _, _ = self.wrapper(substeps=1)
-        with self.assertRaisesRegex(ValueError, "finite normalized action"):
+        with self.assertRaisesRegex(ValueError, "finite action"):
             wrapper.step_with_action_reference_intervention(
                 source,
-                lambda sim, nominal: np.asarray([0.0] * 6 + [1.01]),
+                lambda sim, nominal: np.asarray([0.0] * 6 + [float("nan")]),
                 expected_substeps=1,
             )
         self.assertEqual(wrapper.env.sim.physics_steps, 0)

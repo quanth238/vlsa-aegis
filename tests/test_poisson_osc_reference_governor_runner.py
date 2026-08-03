@@ -36,6 +36,10 @@ class OscReferenceGovernorRunnerTests(unittest.TestCase):
             "measured_qdot_plus_DLS_of_commanded_minus_measured_EEF_twist",
         )
         self.assertEqual(
+            value["controller"]["native_pose_input_bounds"],
+            [-1.0, 1.0],
+        )
+        self.assertEqual(
             value["policy"]["before_first_byte_divergence"],
             "archived_successful_AEGIS_actions",
         )

@@ -1451,8 +1451,7 @@ OSC with the direct-joint-velocity adapter and treating the obstacle as static.
 ADR-0062 therefore keeps released `OSC_POSE` as the executor and adds only an
 identity-when-inactive six-channel pose-reference governor. Its registered
 affine predictor includes measured joint motion instead of assuming the arm is
-instantaneously at rest.
-The same
+instantaneously at rest. The same
 `[robot0_link5, robot0_link6]` surface union is used for e05 and e42. The
 Poisson field is attached to the measured rigid obstacle pose, with measured
 linear/angular twist included through `partial h / partial t`. Archived native
@@ -1469,3 +1468,26 @@ Jacobian map is an empirical reference governor, not a formal direct-qdot CBF
 guarantee. Focused tests pass 18 with seven expected local dependency skips;
 the complete local gate passes 942 tests with 195 expected dependency skips.
 P01 remains active.
+
+## P01 native-OSC e05 apparatus correction
+
+First native-OSC job `34543` passed all 18 allocation-backed governor tests,
+then stopped before action-zero physics. Its complete immutable apparatus file
+has SHA-256
+`040db4b214fdb710b0415c76cab4e521277c59e3edb938d6de30a6e3debab55e`.
+The archived native action was finite, but its gripper channel was
+`-1.0033712812594175`; the added wrapper incorrectly required every channel to
+lie in `[-1,1]`. Released Robosuite accepts this action and applies its own
+controller/gripper clipping, so the rejection changed the baseline interface.
+No treatment action, physics, correction, contact, CAR, motion, or task outcome
+exists from this root.
+
+ADR-0063 removes only that extra wrapper range check. The opt-in path now
+requires the same finite action shape as native execution. The governor models
+Robosuite's pose-channel clipping when predicting motion, returns the original
+bytes on a safe pass-through, and preserves the raw gripper byte. A corrected
+run must use a new immutable root and clean commit; `34543` is never reused.
+The runner also requires the live OSC pose input limits to be exactly `[-1,1]`
+before using that clipping model. Focused tests pass 22 with ten expected local
+dependency skips, and the full local gate passes 946 tests with 198 expected
+dependency skips.

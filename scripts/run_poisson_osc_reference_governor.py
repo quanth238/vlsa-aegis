@@ -74,6 +74,7 @@ def _load_protocol(path: Path, case_id: str) -> Dict[str, Any]:
         value["controller"]["executor"] == "released_native_OSC_POSE_20Hz"
         and value["controller"]["zero_correction_behavior"]
         == "source_action_byte_exact_passthrough"
+        and value["controller"]["native_pose_input_bounds"] == [-1.0, 1.0]
         and value["controller"]["joint_velocity_predictor"]
         == "measured_qdot_plus_DLS_of_commanded_minus_measured_EEF_twist"
         and value["field"]["frame"]

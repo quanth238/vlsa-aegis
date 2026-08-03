@@ -74,12 +74,13 @@ def osc_pose_velocity_from_action(
 ) -> Any:
     """Convert normalized OSC pose channels to a six-dimensional pose rate."""
 
+    np = _numpy()
     pose_action = _finite_vector(action, 6, "OSC pose action")
     scale = _finite_vector(output_scale, 6, "OSC output scale")
     dt = float(control_dt_seconds)
     if np_any_nonpositive(scale) or not math.isfinite(dt) or dt <= 0.0:
         raise ValueError("OSC scale and control interval must be positive")
-    return pose_action * scale / dt
+    return np.clip(pose_action, -1.0, 1.0) * scale / dt
 
 
 def np_any_nonpositive(value: Any) -> bool:
@@ -90,9 +91,25 @@ def np_any_nonpositive(value: Any) -> bool:
 
 
 def osc_output_scale(controller: Any) -> Any:
-    """Read the live Robosuite symmetric six-channel OSC output scale."""
+    """Read live OSC scaling after binding its native input clip to +/-1."""
 
     np = _numpy()
+    try:
+        input_min = np.broadcast_to(
+            np.asarray(getattr(controller, "input_min", None), dtype=np.float64),
+            (6,),
+        )
+        input_max = np.broadcast_to(
+            np.asarray(getattr(controller, "input_max", None), dtype=np.float64),
+            (6,),
+        )
+    except ValueError as error:
+        raise ValueError("live OSC input limits must broadcast to six channels") from error
+    if not (
+        np.array_equal(input_min, np.full(6, -1.0))
+        and np.array_equal(input_max, np.full(6, 1.0))
+    ):
+        raise ValueError("live OSC input limits must be exactly [-1, 1]")
     output_min = np.asarray(getattr(controller, "output_min", None), dtype=np.float64)
     output_max = np.asarray(getattr(controller, "output_max", None), dtype=np.float64)
     if (
@@ -165,8 +182,7 @@ class OscPoseReferenceGovernor:
 
         np, osqp, sparse = _numeric_modules()
         source = _finite_vector(source_action, 7, "source_action")
-        if np.any(source[:6] < -1.0) or np.any(source[:6] > 1.0):
-            raise ValueError("source OSC pose action must already lie within [-1, 1]")
+        effective_source_pose = np.clip(source[:6], -1.0, 1.0)
         scale = _finite_vector(osc_output_scale, 6, "osc_output_scale")
         dt = float(control_dt_seconds)
         if np.any(scale <= 0.0) or not math.isfinite(dt) or dt <= 0.0:
@@ -181,7 +197,7 @@ class OscPoseReferenceGovernor:
             np.asarray(eef_jacobian, dtype=np.float64) @ measured_qdot
         )
         qdot_affine_offset = measured_qdot - mapping @ measured_eef_twist
-        nominal_twist = source[:6] * scale / dt
+        nominal_twist = effective_source_pose * scale / dt
         nominal_qdot = qdot_affine_offset + mapping @ nominal_twist
         rows = np.asarray(cbf_rows_qdot, dtype=np.float64)
         lower = np.asarray(cbf_lower_m2_per_s, dtype=np.float64)
@@ -232,6 +248,11 @@ class OscPoseReferenceGovernor:
             "nominal_minimum_cbf_residual_m2_per_s": nominal_minimum,
             "nominal_joint_bound_violation_rad_per_s": nominal_bound_violation,
             "nominal_pose_velocity": nominal_twist.tolist(),
+            "source_pose_action": source[:6].tolist(),
+            "native_clipped_source_pose_action": effective_source_pose.tolist(),
+            "source_pose_was_clipped_by_native": bool(
+                not np.array_equal(source[:6], effective_source_pose)
+            ),
             "nominal_qdot_rad_per_s": nominal_qdot.tolist(),
             "measured_arm_qvel_rad_per_s": measured_qdot.tolist(),
             "measured_eef_twist": measured_eef_twist.tolist(),
@@ -403,7 +424,7 @@ class OscPoseReferenceGovernor:
             )
         safe_pose_action = np.clip(safe_twist * dt / scale, -1.0, 1.0)
         returned = np.concatenate((safe_pose_action, source[6:7]))
-        correction = returned[:6] - source[:6]
+        correction = returned[:6] - effective_source_pose
         correction_norm = float(np.linalg.norm(correction))
         nominal_translation = nominal_twist[:3]
         safe_translation = safe_twist[:3]

@@ -1,5 +1,6 @@
 import inspect
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 
@@ -31,6 +32,35 @@ class OscReferenceGovernorStructuralTests(unittest.TestCase):
         self.assertNotIn("zeros_like(source", source)
         self.assertNotIn("zero_velocity_fallback", source)
         self.assertIn("action=None", source)
+
+
+@unittest.skipIf(np is None, "NumPy is an opt-in Poisson dependency")
+class OscReferenceGovernorLiveControllerTests(unittest.TestCase):
+    def test_live_native_input_clip_and_output_scale_are_bound(self):
+        from main.poisson_fullbody.osc_reference_governor import osc_output_scale
+
+        controller = SimpleNamespace(
+            input_min=-1.0,
+            input_max=1.0,
+            output_min=-np.asarray([0.05, 0.05, 0.05, 0.5, 0.5, 0.5]),
+            output_max=np.asarray([0.05, 0.05, 0.05, 0.5, 0.5, 0.5]),
+        )
+        np.testing.assert_array_equal(
+            osc_output_scale(controller),
+            controller.output_max,
+        )
+
+    def test_non_native_input_clip_is_rejected(self):
+        from main.poisson_fullbody.osc_reference_governor import osc_output_scale
+
+        controller = SimpleNamespace(
+            input_min=-2.0,
+            input_max=2.0,
+            output_min=-np.ones(6),
+            output_max=np.ones(6),
+        )
+        with self.assertRaisesRegex(ValueError, "exactly"):
+            osc_output_scale(controller)
 
 
 @unittest.skipIf(
@@ -70,6 +100,17 @@ class OscReferenceGovernorNumericTests(unittest.TestCase):
         self.assertEqual(result.reason, "nominal_safe_exact_passthrough")
         self.assertEqual(result.action.tobytes(), source.tobytes())
         self.assertFalse(result.diagnostics["solver_attempted"])
+
+    def test_safe_native_clipped_source_is_still_byte_exact(self):
+        source = np.asarray([1.2, -1.1, 0.0, 0.0, 0.0, 0.0, -1.003])
+        result = self.filter(source, np.empty((0, 7)), np.empty(0))
+        self.assertTrue(result.valid)
+        self.assertEqual(result.action.tobytes(), source.tobytes())
+        self.assertTrue(result.diagnostics["source_pose_was_clipped_by_native"])
+        np.testing.assert_array_equal(
+            result.diagnostics["native_clipped_source_pose_action"],
+            [1.0, -1.0, 0.0, 0.0, 0.0, 0.0],
+        )
 
     def test_correction_changes_pose_but_preserves_gripper(self):
         source = np.asarray([-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.75])
