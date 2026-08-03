@@ -222,6 +222,7 @@ class RegisteredContactMonitor:
         resolved: Any,
         *,
         physics_substeps_per_action: int = 25,
+        start_physical_boundary: int = 0,
         controller_updates_per_action: Optional[int] = None,
         physics_substeps_per_controller_update: Optional[int] = None,
     ) -> None:
@@ -235,6 +236,16 @@ class RegisteredContactMonitor:
                 "registered contact-monitor cadence is invalid"
             )
         self._physics_substeps_per_action = int(physics_substeps_per_action)
+        if (
+            isinstance(start_physical_boundary, bool)
+            or not isinstance(start_physical_boundary, int)
+            or start_physical_boundary < 0
+            or start_physical_boundary % self._physics_substeps_per_action != 0
+        ):
+            raise RegisteredContactMonitorError(
+                "registered contact-monitor start boundary is invalid"
+            )
+        self._start_physical_boundary = int(start_physical_boundary)
         self._typed_callback_cadence = bool(
             controller_updates_per_action is not None
             or physics_substeps_per_controller_update is not None
@@ -299,7 +310,7 @@ class RegisteredContactMonitor:
             source_action_index * self._physics_substeps_per_action
             + physics_substep_index
         )
-        if expected != self._observations:
+        if expected != self._start_physical_boundary + self._observations:
             raise RegisteredContactMonitorError(
                 "registered contact monitor gap/duplicate at physical boundary %d"
                 % expected
@@ -432,4 +443,8 @@ class RegisteredContactMonitor:
                 ),
                 "physics_substeps_per_action": self._physics_substeps_per_action,
             }
+            if self._start_physical_boundary:
+                result["callback_cadence"]["start_physical_boundary"] = (
+                    self._start_physical_boundary
+                )
         return result

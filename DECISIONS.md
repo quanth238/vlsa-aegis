@@ -1584,3 +1584,41 @@ and complete the full task. Stopping, method refusal, contact shift, or task
 failure is negative. E42 is not run unless e05 passes. This is a direct
 two-case empirical feasibility test, not a formal invariance or population
 claim.
+
+## ADR-0065: Trigger the proven direct-qdot controller instead of filtering through OSC
+
+Accepted after comparing the validated full-episode suffix result
+(`34120/34139`) with direct-from-action-zero job `34462` and native-OSC
+governor job `34557`. The positive result directly optimized and executed the
+same bounded joint velocity after a pre-contact branch. The two negative paths
+changed one of those conditions: the first replaced the task controller too
+early, while the second relied on an OSC pose-to-joint-velocity realization
+model that the measured arm falsified. A more elaborate 100 Hz OSC governor
+would still retain that surrogate risk and is not the next critical-path run.
+
+The replacement preserves native OSC exactly until a controller-aligned online
+event. At each high-level boundary, a fresh translation-only adapter constructs
+the bounded first joint-velocity command that would actually be issued after a
+switch. A hard Poisson-CBF QP is solved only when its minimum nominal residual
+crosses the registered negative threshold. The first state with both that
+crossing and a material solved correction is latched. The trigger contains no
+fixed action, case identity, historical collision time, or target-link label.
+Both e05 and e42 always constrain the union of link-5 and link-6 surfaces.
+
+At the trigger state, adapter-only and adapter-plus-PSF joint-velocity arms are
+restored from the same complete MuJoCo state and execute the same frozen
+remaining action suffix. This is the minimal causal controller-feasibility
+test; closed-loop policy recovery is deferred. A positive result requires the
+baseline link contact, treatment correction before it, zero original or
+shifted treatment contact, complete exposure, paper CAR safety, continued
+joint/end-effector motion, and native task success after correction and at the
+terminal boundary. Stopping, stalling, or a typed QP/field refusal is a valid
+`STOP_OR_METHOD_FAILURE` negative and can never pass. Missing or inconsistent
+evidence remains apparatus failure.
+
+The first run is e05. E42 is held out and mechanically blocked until a distinct
+CPU consumer validates e05 as `SAFE_TASK_SUCCESS_USEFUL_CORRECTION`. Even a
+positive pair supports only targeted offline static simulator-oracle
+controller feasibility, not closed-loop VLA, population safety, learned
+perception, dynamic-obstacle, real-time, tracking-certified, or formal
+invariance claims.

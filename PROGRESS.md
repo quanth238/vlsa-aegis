@@ -1530,3 +1530,44 @@ CAR, and full-task criteria remain. E05 is the only next rollout; e42 remains
 blocked unless e05 literally returns `SAFE_TASK_SUCCESS_USEFUL_CORRECTION`.
 The focused controller suite passes 32 tests with 21 expected local dependency
 skips; the complete `./init.sh` gate passes 961 tests with 209 expected skips.
+
+## P01 controller-aligned event-triggered rescue refinement
+
+Review of the accepted full-episode video/result and the later failures changes
+the next experiment. Jobs `34120/34139` succeeded because the hard CBF-QP
+optimized the bounded seven-joint velocity that the simulator then executed,
+and because native OSC was preserved through action 179. Job `34462` showed
+that replacing OSC from action zero changes the task controller and does not
+reproduce the collision. Job `34557` showed that optimizing an OSC
+pose-to-velocity surrogate can predict a safe reversal that the arm does not
+realize. The unrun 100 Hz OSC governor at commit `fdcccd7` therefore remains
+preserved but is no longer the next H100 experiment.
+
+ADR-0065 registers the smaller controller-aligned test. Native OSC is replayed
+exactly until the first online state where a fresh, bounded direct-qdot preview
+has an unsafe link-5/link-6 CBF residual and a material solved hard-QP
+correction. No action index, case identity, historical contact time, or
+task-conditioned link label enters the trigger. The complete trigger state is
+then restored into paired adapter-only and adapter-plus-PSF 100 Hz
+joint-velocity arms, which consume the same remaining recorded suffix. This
+keeps the successful controller mechanism and removes the hand-chosen action
+180 branch.
+
+The method and outcome contract are implemented in
+`configs/vlsa_poisson_triggered_rescue.v1.json`,
+`main/poisson_fullbody/triggered_rescue.py`, and
+`scripts/run_poisson_triggered_rescue.py`. A compact independent consumer
+reconstructs the native prefix, first trigger, exact suffix pair, raw broad
+contact, CAR, post-correction motion, and native task outcome without importing
+the producer classifier. A typed QP/field refusal is now correctly classified
+as `STOP_OR_METHOD_FAILURE`, not apparatus noise; malformed evidence remains
+`INCONCLUSIVE_APPARATUS`. The producer uses one H100 and no policy server; one
+separate CPU job validates the final artifact. E42 is launcher-blocked unless
+e05 has a validated `SAFE_TASK_SUCCESS_USEFUL_CORRECTION` receipt.
+
+Focused method, runner, contact-monitor, validator, and Slurm contracts pass
+locally. The complete `./init.sh` gate passes 992 tests with 209 expected
+dependency/allocation-only skips. The concise research plan is recorded in
+`docs/poisson_triggered_rescue_icra_direction.md`. No H100 result exists for
+this new trigger yet, so P01 remains active and no feasibility conclusion has
+changed.

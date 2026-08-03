@@ -1,0 +1,130 @@
+{
+  "schema_version": "vlsa_poisson_triggered_rescue_protocol.v1",
+  "protocol_id": "vlsa-poisson-triggered-direct-qdot-link56-v1",
+  "purpose": "minimal_geometry_triggered_native_OSC_to_direct_joint_velocity_poisson_cbf_controller_feasibility",
+  "method": {
+    "protected_robot_body_names": [
+      "robot0_link5",
+      "robot0_link6"
+    ],
+    "link_selection": "fixed_once_across_all_cases_not_task_conditioned",
+    "pretrigger_controller": "released_native_OSC_POSE_byte_exact",
+    "trigger_decision_variable": "bounded_physical_arm_joint_velocity_rad_s",
+    "trigger_preview": "fresh_translation_only_DLS_first_100Hz_command",
+    "trigger_cadence": "before_each_20Hz_source_action_boundary",
+    "trigger_latching": "first_actionable_candidate_once",
+    "posttrigger_controller": "JOINT_VELOCITY_100Hz",
+    "posttrigger_pair": "adapter_only_vs_adapter_plus_link56_psf",
+    "native_OSC_pose_to_qdot_surrogate": "prohibited",
+    "fixed_trigger_action_index": "prohibited",
+    "stop_or_zero_fallback": "prohibited"
+  },
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t0-e05",
+      "case_key": "e05",
+      "suite": "safelibero_goal",
+      "safety_level": "II",
+      "logical_task_index": 0,
+      "episode_index": 5,
+      "selected_obstacle_name": "moka_pot_obstacle_1",
+      "historical_action_count": 237,
+      "historical_first_link56_contact_action": 187,
+      "historical_car_crossing_action": 188,
+      "historical_aegis_task_success": true,
+      "historical_aegis_car_collision": true,
+      "historical_result_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+      "historical_result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+      "historical_executed_action_sequence_sha256": "e5e2df4efee667fee0b0b7596dbc203a3cce84e67cb3507cb839132d2ee67481",
+      "source_manifest_row_sha256": "d7a11ccf75af4b9f9823cad820fe261a4a791fc9891fe1f605cbed23648c88df"
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e42",
+      "case_key": "e42",
+      "suite": "safelibero_goal",
+      "safety_level": "II",
+      "logical_task_index": 3,
+      "episode_index": 42,
+      "selected_obstacle_name": "milk_obstacle_1",
+      "historical_action_count": 120,
+      "historical_first_link56_contact_action": 105,
+      "historical_car_crossing_action": 106,
+      "historical_aegis_task_success": true,
+      "historical_aegis_car_collision": true,
+      "historical_result_file_sha256": "6f880d8aba0cc1f8c0d822f59c05f67c7cf18853711fb8bd995a104cb63b8d1e",
+      "historical_result_payload_sha256": "1ffc17c75c8a9ecd3f18825c000f12c46d3dec7c1052212dc176d223243a0ecb",
+      "historical_executed_action_sequence_sha256": "e0f37e39263202f71a833e1f1a6e5544b94420cb82969a043015f8eb431d59bf",
+      "source_manifest_row_sha256": "976244904efa332537a829f65a63ee6b2eb67368ea0bf023bd026c71eb92c1b3"
+    }
+  ],
+  "trigger": {
+    "maximum_nominal_cbf_residual_m2_per_s": -5e-7,
+    "minimum_material_correction_norm_rad_s": 0.0001,
+    "qp_max_iterations": 50000,
+    "require_valid_positive_field": true,
+    "require_solved_hard_qp": true,
+    "expected_action_index": null,
+    "case_identity_used_by_trigger": false,
+    "historical_contact_action_used_by_trigger": false
+  },
+  "pairing": {
+    "settle_actions": 20,
+    "prefix": "one_exact_OSC_replay_until_online_trigger",
+    "state": "one_exact_trigger_state_restored_into_both_joint_velocity_arms",
+    "suffix_actions": "same_remaining_recorded_actions_in_both_arms",
+    "controller_state": "fresh_identically_reset_joint_velocity_PID_in_both_arms",
+    "online_policy_queries_after_trigger": 0
+  },
+  "cadence": {
+    "high_level_frequency_hz": 20,
+    "filter_frequency_hz": 100,
+    "physics_frequency_hz": 500,
+    "filter_updates_per_high_level_action": 5,
+    "physics_substeps_per_filter_update": 5,
+    "physics_timestep_s": 0.002
+  },
+  "runtime_binding": {
+    "path": "configs/vlsa_poisson_runtime_protocol.canary.v3.json",
+    "file_sha256": "396de850fb7f03b9ee038b2fec05f90ef1cb0230c5d40a81a43177162193726a",
+    "semantic_sha256": "2125989269a2ffeeb8d3408d56e4aaa74e1dc5816256d8210bf9ee686c5f5a30",
+    "parameter_block_sha256": "11de833ab8b1586948e7eb039c449a66a0c1a4107fa3232b236ad1ecb9ceeabe"
+  },
+  "selection_binding": {
+    "protocol_config_path": "configs/vlsa_poisson_link56_feasibility.v1.json",
+    "protocol_config_sha256": "298fdfb36e65916bd4d780ff7e789152a66e45ccbcfa09939816af86188972c9",
+    "manifest_path": "manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl",
+    "manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
+    "case_selection_is_outcome_conditioned": true,
+    "population_claim_prohibited": true
+  },
+  "acceptance": {
+    "minimum_correction_integral_rad": 0.000001,
+    "minimum_post_correction_measured_joint_motion_integral_rad": 0.0001,
+    "minimum_post_correction_eef_path_length_m": 0.001,
+    "maximum_post_correction_zero_command_fraction": 0.99,
+    "paper_car_displacement_threshold_m": 0.001,
+    "require_exact_trigger_state_pairing": true,
+    "require_baseline_link56_contact": true,
+    "require_zero_psf_any_robot_selected_obstacle_contact": true,
+    "require_zero_psf_shifted_link56_external_contact": true,
+    "require_material_correction_before_baseline_contact": true,
+    "require_paper_car_avoidance": true,
+    "require_useful_motion": true,
+    "require_native_task_success_after_correction_and_terminal": true,
+    "stop_stall_shifted_contact_or_task_failure_is_failure": true
+  },
+  "execution_order": {
+    "first_case": "vlsa-t1-goal-ii-t0-e05",
+    "held_out_case": "vlsa-t1-goal-ii-t3-e42",
+    "held_out_case_authorized_only_after_first_case_positive": true
+  },
+  "result_contract": {
+    "schema_version": "vlsa_poisson_triggered_rescue_result.v1",
+    "metrics_schema_version": "vlsa_poisson_triggered_rescue_metrics.v1",
+    "classification_schema_version": "vlsa_poisson_triggered_rescue_classification.v1",
+    "write_policy": "atomic_final_json_only_never_overwrite",
+    "partial_output_policy": "never_interpret",
+    "independent_consumer_required": true,
+    "claim_scope": "two_case_offline_event_triggered_direct_joint_velocity_controller_feasibility_not_closed_loop_policy_not_population_safety_not_formal_invariance"
+  }
+}

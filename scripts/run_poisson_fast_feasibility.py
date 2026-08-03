@@ -729,6 +729,8 @@ def _run_arm(
     full_clearance_observation_stride: int = 1,
     monitor_registered_forbidden_contacts: bool = False,
     record_paper_car: bool = False,
+    paper_car_reference_position: Any = None,
+    paper_car_obstacle_name_override: Any = None,
     record_qp_failure_as_method_stop: bool = False,
 ) -> Dict[str, Any]:
     import numpy as np
@@ -774,18 +776,30 @@ def _run_arm(
         raise FastRunnerError(
             "registered forbidden-contact monitoring flag must be Boolean"
         )
-    if monitor_registered_forbidden_contacts and source_start_action != 0:
-        raise FastRunnerError(
-            "registered forbidden-contact monitoring currently requires an "
-            "action-0 rollout"
-        )
     if not isinstance(record_paper_car, bool):
         raise FastRunnerError("paper-CAR recording flag must be Boolean")
-    if record_paper_car and (
-        source_start_action != 0 or live_action_provider is None
+    external_paper_car_reference = bool(
+        paper_car_reference_position is not None
+        or paper_car_obstacle_name_override is not None
+    )
+    if external_paper_car_reference and not record_paper_car:
+        raise FastRunnerError(
+            "paper-CAR reference inputs require endpoint recording"
+        )
+    if record_paper_car and external_paper_car_reference and (
+        paper_car_reference_position is None
+        or not isinstance(paper_car_obstacle_name_override, str)
+        or not paper_car_obstacle_name_override
+    ):
+        raise FastRunnerError("external paper-CAR authority is incomplete")
+    if (
+        record_paper_car
+        and not external_paper_car_reference
+        and (source_start_action != 0 or live_action_provider is None)
     ):
         raise FastRunnerError(
-            "paper-CAR endpoint recording requires a live action-0 rollout"
+            "paper-CAR endpoint recording requires either the settled external "
+            "reference or a live action-0 rollout"
         )
     if not isinstance(record_qp_failure_as_method_stop, bool):
         raise FastRunnerError("method-stop recording flag must be Boolean")
@@ -971,6 +985,20 @@ def _run_arm(
             )
         )
 
+        if record_paper_car and external_paper_car_reference:
+            paper_car_obstacle_name = str(paper_car_obstacle_name_override)
+            paper_car_initial_position = np.asarray(
+                paper_car_reference_position,
+                dtype=np.float64,
+            ).copy()
+            if (
+                paper_car_initial_position.shape != (3,)
+                or not np.all(np.isfinite(paper_car_initial_position))
+            ):
+                raise FastRunnerError(
+                    "external paper-CAR reference position is invalid"
+                )
+
         # A live closed-loop caller needs the observation produced by the
         # restored arm, not the historical observation that led to the frozen
         # replay action.  Observable refresh is required to be read-only with
@@ -1001,7 +1029,7 @@ def _run_arm(
                 raise FastRunnerError(
                     "initial closed-loop native observation is unavailable"
                 )
-            if record_paper_car:
+            if record_paper_car and paper_car_initial_position is None:
                 paper_car_obstacle_name, _ = evaluator._active_obstacle(
                     env, live_observation
                 )
@@ -1068,8 +1096,9 @@ def _run_arm(
         if monitor_registered_forbidden_contacts:
             # This neutral measurement-only monitor observes any robot geom
             # against the selected obstacle plus literal link 5/6 against
-            # every external non-robot geom. It has no controller dependency.
-            # The action-0 restriction keeps cadence absolute.
+            # every external non-robot geom. It has no controller dependency,
+            # and its source-action argument keeps physical boundaries absolute
+            # for both action-0 and event-triggered suffix rollouts.
             from main.poisson_fullbody.registered_contact_monitor import (
                 RegisteredContactMonitor,
             )
@@ -1078,12 +1107,13 @@ def _run_arm(
                 env.sim,
                 resolved,
                 physics_substeps_per_action=25,
+                start_physical_boundary=source_start_action * 25,
                 controller_updates_per_action=5,
                 physics_substeps_per_controller_update=5,
             )
             if registered_contact_monitor.settled_contact:
                 raise FastRunnerError(
-                    "settled action-0 state already has a registered forbidden contact"
+                    "branch state already has a registered forbidden contact"
                 )
 
         model, data = _raw_model_data(env.sim)
@@ -1191,6 +1221,22 @@ def _run_arm(
                     invalid = [query for query in queries if not query.valid or query.value is None or query.gradient is None]
                     invalid_field_queries += len(invalid)
                     if invalid:
+                        if record_qp_failure_as_method_stop:
+                            last_qp_attempt = {
+                                "local_action_index": local_index,
+                                "source_action_index": source_index,
+                                "source_action": source_action.tolist(),
+                                "inner_control_index": int(inner_index),
+                                "physical_boundary": update_physical_boundary,
+                                "valid": False,
+                                "reason": "protected_sample_field_query_invalid",
+                                "diagnostics": {
+                                    "invalid_field_query_count": len(invalid),
+                                    "qp_executed": False,
+                                },
+                            }
+                            method_stop_record = dict(last_qp_attempt)
+                            raise _PsfMethodStop()
                         raise FastRunnerError("PSF field query invalid before physics")
                     h = np.asarray([float(query.value) for query in queries], dtype=np.float64)
                     gradients = np.asarray([query.gradient for query in queries], dtype=np.float64)

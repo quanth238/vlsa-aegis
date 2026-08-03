@@ -16,6 +16,41 @@ class _Contact:
 
 
 class RegisteredContactMonitorTests(unittest.TestCase):
+    def test_suffix_monitor_preserves_absolute_physical_boundaries(self):
+        resolved = SimpleNamespace(
+            robot_geom_ids=(1,),
+            obstacle_geom_ids=(2,),
+            link56_geom_ids=(1,),
+        )
+        with mock.patch.object(
+            monitor_module, "registered_contact_scope", return_value={"identity_sha256": "a" * 64}
+        ), mock.patch.object(
+            monitor_module, "clone_forwarded_state", return_value=object()
+        ), mock.patch.object(
+            monitor_module, "registered_contact_records", return_value=[]
+        ):
+            sim = SimpleNamespace(
+                model=SimpleNamespace(_model=object()),
+                data=SimpleNamespace(_data=object()),
+            )
+            monitor = monitor_module.RegisteredContactMonitor(
+                sim,
+                resolved,
+                start_physical_boundary=4500,
+                controller_updates_per_action=5,
+                physics_substeps_per_controller_update=5,
+            )
+            snapshot = monitor.observe_post_integration(
+                sim,
+                source_action_index=180,
+                physics_substep_index=0,
+            )
+            self.assertEqual(snapshot["physical_boundary"], 4500)
+            self.assertEqual(
+                monitor.result()["callback_cadence"]["start_physical_boundary"],
+                4500,
+            )
+
     def setUp(self) -> None:
         self.model = SimpleNamespace(
             ngeom=6,
