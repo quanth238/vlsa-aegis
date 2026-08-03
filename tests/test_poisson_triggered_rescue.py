@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 from pathlib import Path
 import unittest
@@ -16,6 +17,7 @@ from main.poisson_fullbody.triggered_rescue import (
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTOCOL_PATH = ROOT / "configs/vlsa_poisson_triggered_rescue.v1.json"
+MANIFEST_PATH = ROOT / "manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl"
 E05 = "vlsa-t1-goal-ii-t0-e05"
 E42 = "vlsa-t1-goal-ii-t3-e42"
 
@@ -68,6 +70,18 @@ class TriggeredRescueProtocolTests(unittest.TestCase):
         serialized = json.dumps(value, sort_keys=True)
         self.assertNotIn("branch_action_index", serialized)
         self.assertNotIn("native_OSC_pose_to_qdot_predictor", serialized)
+
+    def test_case_row_hashes_match_the_registered_manifest(self):
+        expected = {
+            row["case_id"]: row["source_manifest_row_sha256"]
+            for row in protocol()["cases"]
+        }
+        observed = {}
+        for raw in MANIFEST_PATH.read_bytes().splitlines():
+            row = json.loads(raw)
+            if row.get("case_id") in expected:
+                observed[row["case_id"]] = hashlib.sha256(raw).hexdigest()
+        self.assertEqual(observed, expected)
 
     def test_task_conditioned_link_selection_is_rejected(self):
         value = copy.deepcopy(protocol())

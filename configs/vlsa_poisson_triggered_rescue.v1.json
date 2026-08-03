@@ -36,7 +36,7 @@
       "historical_result_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
       "historical_result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
       "historical_executed_action_sequence_sha256": "e5e2df4efee667fee0b0b7596dbc203a3cce84e67cb3507cb839132d2ee67481",
-      "source_manifest_row_sha256": "d7a11ccf75af4b9f9823cad820fe261a4a791fc9891fe1f605cbed23648c88df"
+      "source_manifest_row_sha256": "ee42bf1e8587acf2fd4fe73cb05d7974de836a37f53acc8035e0995b1d1fca9e"
     },
     {
       "case_id": "vlsa-t1-goal-ii-t3-e42",
@@ -54,7 +54,7 @@
       "historical_result_file_sha256": "6f880d8aba0cc1f8c0d822f59c05f67c7cf18853711fb8bd995a104cb63b8d1e",
       "historical_result_payload_sha256": "1ffc17c75c8a9ecd3f18825c000f12c46d3dec7c1052212dc176d223243a0ecb",
       "historical_executed_action_sequence_sha256": "e0f37e39263202f71a833e1f1a6e5544b94420cb82969a043015f8eb431d59bf",
-      "source_manifest_row_sha256": "976244904efa332537a829f65a63ee6b2eb67368ea0bf023bd026c71eb92c1b3"
+      "source_manifest_row_sha256": "30d2c73aa914f4ec373840964bfde2370ed5dfd329fd6eb86129f68bd4718eb9"
     }
   ],
   "trigger": {
