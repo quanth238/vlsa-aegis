@@ -79,6 +79,11 @@ H100 result (2026-08-07):
   while released AEGIS reports positive end-effector barrier
   `h=0.00931204`. The unchanged robot travels another `0.172512 m` at the
   end effector and first satisfies the native task goal at action 236.
+- Slurm visualization job `36767` completed on `worker-1` H100 in 22 seconds
+  from clean commit `fbd5df6bb3f0b336f8bee9892aecf1731b252368`. It restored
+  the same primary initial state, settled 20 actions, framed all seven live
+  bounds in a MuJoCo camera, and published visualization payload SHA-256
+  `676adc159496b7d8fadc78fd3799776c71ed59025be9ad1de272e59379a42993`.
 
 This validates the whole-arm bound construction and multi-constraint QP
 implementation/timing, and independently confirms that original
