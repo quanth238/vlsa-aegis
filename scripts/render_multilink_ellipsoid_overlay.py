@@ -116,6 +116,17 @@ def _segments(points: Sequence[tuple[float, float] | None]) -> Iterable[list[tup
         yield current
 
 
+def _rotate_projection_180(
+    points: Sequence[tuple[float, float] | None], width: int, height: int
+) -> list[tuple[float, float] | None]:
+    return [
+        None
+        if point is None
+        else (float(width - 1) - point[0], float(height - 1) - point[1])
+        for point in points
+    ]
+
+
 def _frame_arm_camera(env: Any, ellipsoids: Sequence[Any], camera_name: str) -> dict[str, Any]:
     import numpy as np
     from scipy.spatial.transform import Rotation
@@ -200,7 +211,11 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
         camera_name = "backview"
         camera_record = _frame_arm_camera(env, ellipsoids, camera_name)
         observation = env.env._get_observations()
-        image = np.asarray(observation["backview_image"], dtype=np.uint8)
+        image = np.ascontiguousarray(
+            np.asarray(observation["backview_image"], dtype=np.uint8)[
+                ::-1, ::-1
+            ]
+        )
         if image.shape != (768, 768, 3):
             raise ValueError("arm-view simulator image shape differs")
 
@@ -222,6 +237,9 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
             visible_points = 0
             for loop in _wire_loops(ellipsoid):
                 projected = _project(loop, world_to_camera, intrinsic, image.shape[0])
+                projected = _rotate_projection_180(
+                    projected, image.shape[1], image.shape[0]
+                )
                 visible_points += sum(point is not None for point in projected)
                 for segment in _segments(projected):
                     draw.line(segment, fill=color, width=2, joint="curve")
@@ -230,6 +248,9 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
                 world_to_camera,
                 intrinsic,
                 image.shape[0],
+            )
+            center = _rotate_projection_180(
+                center, image.shape[1], image.shape[0]
             )[0]
             if center is None:
                 raise ValueError("link ellipsoid center is behind the camera")
@@ -279,6 +300,7 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
             "simulator": "SafeLIBERO MuJoCo settled primary initial state",
             "settle_actions": TABLE_SETTLE_ACTIONS,
             "camera": camera_record,
+            "display_transform": "rotate_180_matching_released_aegis_camera_preprocessing",
             "image_size": [image.shape[1], image.shape[0]],
             "base_image": {
                 "path": base_path.name,
