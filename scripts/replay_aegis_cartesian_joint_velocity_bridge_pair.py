@@ -78,7 +78,6 @@ def _build_joint_environment(
         for key in (
             "manifest_row_sha256",
             "initial_state_sha256",
-            "initial_observation_sha256",
             "settled_simulator_state_sha256",
             "settled_active_obstacle_position_sha256",
             "policy_noise_schedule_sha256",
@@ -119,21 +118,49 @@ def _build_joint_environment(
     for key in (
         "manifest_row_sha256",
         "initial_state_sha256",
-        "initial_observation_sha256",
         "settled_simulator_state_sha256",
         "settled_active_obstacle_position_sha256",
         "policy_noise_schedule_sha256",
     ):
         _require(joint_pairing[key] == archived["pairing"][key], "joint pairing differs: %s" % key)
+    _require(
+        joint_pairing["initial_observation_contract"]["state_array_sha256"]
+        == archived["pairing"]["initial_observation_contract"]["state_array_sha256"],
+        "joint-controller proprioceptive state differs",
+    )
+    observation_contract_differences = sorted(
+        key
+        for key, value in joint_pairing["initial_observation_contract"].items()
+        if value != archived["pairing"]["initial_observation_contract"].get(key)
+    )
+    action_relevant_pairing = {
+        "manifest_row_sha256": joint_pairing["manifest_row_sha256"],
+        "initial_state_sha256": joint_pairing["initial_state_sha256"],
+        "settled_simulator_state_sha256": joint_pairing["settled_simulator_state_sha256"],
+        "settled_active_obstacle_position_sha256": joint_pairing[
+            "settled_active_obstacle_position_sha256"
+        ],
+        "state_array_sha256": joint_pairing["initial_observation_contract"][
+            "state_array_sha256"
+        ],
+        "archived_executed_sequence_sha256": archived["action_invariance_ledger"][
+            "executed_sequence_sha256"
+        ],
+        "controller_config_sha256": _sha256(_canonical(config["controller"])),
+        "control_frequency_hz": int(config["pairing"]["control_frequency_hz"]),
+        "action_horizon": int(config["pairing"]["action_horizon"]),
+    }
     return joint_env, task, observation, joint_initial_state, {
         "schema_version": "vlsa_aegis_cartesian_joint_velocity_bridge_pairing.v1",
         "archived_pairing_fields_verified": True,
         "settled_simulator_state_sha256": array_sha256(transplanted),
         "settled_state_transplanted_from_original_osc": True,
-        "controller_config_sha256": _sha256(_canonical(config["controller"])),
+        "controller_config_sha256": action_relevant_pairing["controller_config_sha256"],
         "control_frequency_hz": int(config["pairing"]["control_frequency_hz"]),
         "action_horizon": int(config["pairing"]["action_horizon"]),
-        "pairing_payload_sha256": _sha256(_canonical(joint_pairing)),
+        "archived_observation_contract_difference_fields": observation_contract_differences,
+        "rerendered_images_are_not_policy_inputs": True,
+        "pairing_payload_sha256": _sha256(_canonical(action_relevant_pairing)),
     }
 
 

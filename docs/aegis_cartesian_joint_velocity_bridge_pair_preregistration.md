@@ -18,6 +18,11 @@ released AEGIS `env.step` inputs. They use the same 20 Hz control frequency,
 The only paired difference is whether the three link constraints are applied
 to the physical joint velocity that is sent to the controller.
 
+The controller transplant requires exact simulator state, proprioception,
+active-obstacle pose, and archived action-ledger identity. Camera rerenders
+are retained for video but are not action inputs in this replay, so their
+encoding hashes are diagnostic rather than a pairing gate.
+
 The bridge clips archived XYZ to `[-1, 1]`, interprets the released
 translational protocol as zero angular velocity, and maps an action unit to
 `0.2 m/s` before damped resolved-rate inversion. The scale is frozen before
