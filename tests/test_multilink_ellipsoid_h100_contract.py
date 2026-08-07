@@ -48,6 +48,16 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("--archived \"$ARCHIVED_TABLE1_RESULT\"", source)
         self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
 
+    def test_replay_verifier_is_allocation_backed(self) -> None:
+        source = (ROOT / "slurm/validate_distal_three_ellipsoid_replay.sbatch").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("validate_distal_three_ellipsoid_replay.py", source)
+        self.assertIn("--producer-commit \"$PRODUCER_COMMIT\"", source)
+        self.assertIn("--validator-commit \"$VALIDATOR_COMMIT\"", source)
+
 
 if __name__ == "__main__":
     unittest.main()
