@@ -305,7 +305,8 @@ Accepted by direct user instruction. `E02` excludes links 1 through 4 and
 uses exactly three independent ellipsoids: one each for `robot0_link5`,
 `robot0_link6`, and `robot0_link7`. These are not grouped multi-body
 ellipsoids. Each bound is fitted from that rigid link's compiled MuJoCo
-collision-mesh vertices, inflated just enough to contain every vertex, and
+collision-mesh vertices using a Khachiyan minimum-volume fit, inflated just
+enough to contain every vertex, and
 retains the ordinary analytical rigid-link Jacobian used by the QP.
 
 The obstacle remains the frozen released-AEGIS MVEE, and the QP receives

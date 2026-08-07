@@ -10,9 +10,10 @@ must preserve the archived AEGIS action ledger and completed Table-1 artifact.
 ## Geometry and constraints
 
 For each protected rigid link, transform every vertex of every participating
-compiled MuJoCo collision mesh into the world frame. Use the covariance
-eigenvectors and aspect ratio, then inflate all three semiaxes by the exact
-maximum Mahalanobis radius plus `1e-9` relative numerical padding. Validation
+compiled MuJoCo collision mesh into the world frame. Fit a Khachiyan
+minimum-volume enclosing ellipsoid with tolerance `1e-4` and at most 20,000
+iterations, then inflate all three semiaxes by the exact maximum Mahalanobis
+radius plus `1e-9` relative numerical padding. Validation
 must independently re-evaluate every recorded vertex and require maximum
 normalized quadratic at most one and at least `0.999999`, proving both
 containment and contact with the fitted surface.

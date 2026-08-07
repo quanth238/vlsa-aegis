@@ -216,6 +216,10 @@ def render(
                 relative_padding=float(
                     config["robot_geometry"]["relative_numerical_padding"]
                 ),
+                tolerance=float(config["robot_geometry"]["khachiyan_tolerance"]),
+                max_iterations=int(
+                    config["robot_geometry"]["khachiyan_max_iterations"]
+                ),
                 include_source_points=True,
             )
         else:

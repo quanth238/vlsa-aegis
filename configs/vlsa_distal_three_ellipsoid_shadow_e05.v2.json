@@ -32,7 +32,9 @@
   ],
   "protocol_id": "vlsa-distal-three-ellipsoid-shadow-e05-v2",
   "robot_geometry": {
-    "fit": "covariance_shape_exact_farthest_vertex_inflation",
+    "fit": "khachiyan_mvee_exact_vertex_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
     "relative_numerical_padding": 1e-09,
     "source": "compiled_mujoco_collision_mesh_vertices"
   },

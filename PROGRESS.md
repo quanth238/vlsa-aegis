@@ -4,7 +4,7 @@
 
 Per user correction, `E02-distal-three-ellipsoid-shadow` now targets exactly
 link 5, link 6, and link 7; it does not claim whole-arm coverage. The local
-implementation fits one close, certified ellipsoid to each compiled collision
+implementation fits one close, certified MVEE to each compiled collision
 mesh and passes exactly three analytic rigid-link constraints to the same
 read-only OSQP. Allocation-backed visualization and primary-case timing are
 still pending.
@@ -12,6 +12,11 @@ still pending.
 Visualization attempt `36771` stopped before environment construction because
 the new experiment parent directory did not exist. It produced no simulation
 or geometry evidence; the wrapper now creates that bounded parent first.
+
+H100 visualization `36772` then completed, but visual inspection rejected the
+covariance-shaped L5 envelope as too loose despite correct vertex containment.
+That image is diagnostic only. The active fit is now Khachiyan MVEE followed
+by exact farthest-vertex inflation; it requires a fresh H100 render.
 
 ## Multi-link ellipsoid research branch (2026-08-07)
 

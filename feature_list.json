@@ -67,7 +67,7 @@
       "depends_on": ["E01-multilink-ellipsoid-shadow"],
       "evidence": [
         "User narrowed the protected set to exactly robot0_link5, robot0_link6, and robot0_link7; links 1-4 are excluded",
-        "Implementation fits one independently certified covariance ellipsoid to each compiled collision mesh and supplies exactly three rigid-link Jacobian rows to the read-only QP",
+        "Implementation fits one independently certified minimum-volume enclosing ellipsoid to each compiled collision mesh and supplies exactly three rigid-link Jacobian rows to the read-only QP",
         "Allocation-backed geometry visualization, raw-case validation, and QP timing remain pending"
       ]
     },

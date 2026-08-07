@@ -72,9 +72,9 @@ class MultilinkEllipsoidGeometryTests(unittest.TestCase):
         self.assertTrue(certificate["verified"])
         self.assertEqual(certificate["maximum_normalized_quadratic"], 1.0)
 
-    def test_covariance_link_fit_contains_every_mesh_vertex(self) -> None:
+    def test_mvee_link_fit_contains_every_mesh_vertex(self) -> None:
         from main.multilink_ellipsoid.geometry import (
-            covariance_enclosing_ellipsoid,
+            minimum_volume_enclosing_ellipsoid,
         )
 
         np = self.np
@@ -87,7 +87,7 @@ class MultilinkEllipsoidGeometryTests(unittest.TestCase):
             ],
             dtype=np.float64,
         )
-        ellipsoid = covariance_enclosing_ellipsoid(
+        ellipsoid = minimum_volume_enclosing_ellipsoid(
             points,
             body_id=5,
             body_name="robot0_link5",

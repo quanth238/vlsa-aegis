@@ -2,7 +2,7 @@
 
 The ordinary AEGIS path never imports this module.  The opt-in observer uses
 one ellipsoid per participating collision geom.  The distal three-envelope
-variant fits a tight, certified ellipsoid around each live link-5/link-6/link-7
+variant fits a tight, certified MVEE around each live link-5/link-6/link-7
 collision mesh instead of using its broad-phase bounding sphere.
 """
 
@@ -132,7 +132,7 @@ class Ellipsoid:
         }
 
 
-def covariance_enclosing_ellipsoid(
+def minimum_volume_enclosing_ellipsoid(
     points_world: Any,
     *,
     body_name: str,
@@ -142,15 +142,17 @@ def covariance_enclosing_ellipsoid(
     source_body_names: Sequence[str],
     source_geom_names: Sequence[str],
     relative_padding: float = 1.0e-9,
+    tolerance: float = 1.0e-4,
+    max_iterations: int = 20000,
     certificate_metadata: Mapping[str, Any] | None = None,
     include_source_points: bool = False,
 ) -> Ellipsoid:
-    """Fit a surface-following ellipsoid and certify vertex containment.
+    """Fit a surface-following MVEE and certify exact vertex containment.
 
-    The covariance eigenvectors determine the orientation and aspect ratio.
-    A single exact Mahalanobis inflation then places the farthest source
-    vertex on the surface.  Because an ellipsoid is convex, containing every
-    compiled mesh vertex also contains their convex hull.
+    Khachiyan's algorithm estimates the minimum-volume enclosing ellipsoid.
+    A final exact Mahalanobis inflation places the farthest source vertex on
+    the surface. Because an ellipsoid is convex, containing every compiled
+    mesh vertex also contains their convex hull.
     """
 
     np = _numpy()
@@ -165,20 +167,56 @@ def covariance_enclosing_ellipsoid(
     padding = float(relative_padding)
     if not math.isfinite(padding) or padding < 0.0 or padding > 1.0e-3:
         raise ValueError("relative_padding must be finite and in [0, 1e-3]")
-    center = np.mean(points, axis=0)
-    centered = points - center
-    covariance = centered.T @ centered / float(points.shape[0])
-    eigenvalues, rotation = np.linalg.eigh(covariance)
-    order = np.argsort(eigenvalues)[::-1]
+    fit_tolerance = float(tolerance)
+    if not math.isfinite(fit_tolerance) or fit_tolerance <= 0.0:
+        raise ValueError("MVEE tolerance must be finite and positive")
+    if isinstance(max_iterations, bool) or int(max_iterations) < 1:
+        raise ValueError("MVEE max_iterations must be a positive integer")
+    offset = np.mean(points, axis=0)
+    shifted = points - offset
+    if int(np.linalg.matrix_rank(shifted, tol=1.0e-12)) != 3:
+        raise ValueError("collision vertices are degenerate")
+    count, dimension = shifted.shape
+    homogeneous = np.vstack((shifted.T, np.ones(count, dtype=np.float64)))
+    weights = np.full(count, 1.0 / float(count), dtype=np.float64)
+    update_error = math.inf
+    converged = False
+    iterations = 0
+    for iterations in range(1, int(max_iterations) + 1):
+        moment = (homogeneous * weights) @ homogeneous.T
+        inverse = np.linalg.inv(moment)
+        leverage = np.sum(homogeneous * (inverse @ homogeneous), axis=0)
+        maximum_index = int(np.argmax(leverage))
+        maximum = float(leverage[maximum_index])
+        numerator = maximum - float(dimension + 1)
+        denominator = float(dimension + 1) * (maximum - 1.0)
+        step = 0.0 if numerator <= 0.0 else numerator / denominator
+        updated = (1.0 - step) * weights
+        updated[maximum_index] += step
+        update_error = float(np.linalg.norm(updated - weights))
+        weights = updated
+        if update_error <= fit_tolerance:
+            converged = True
+            break
+    if not converged:
+        raise ValueError("MVEE fit did not converge within max_iterations")
+    shifted_center = shifted.T @ weights
+    center = shifted_center + offset
+    covariance = (
+        shifted.T @ (weights[:, None] * shifted)
+        - np.outer(shifted_center, shifted_center)
+    )
+    shape = np.linalg.inv(covariance) / float(dimension)
+    eigenvalues, rotation = np.linalg.eigh(shape)
+    order = np.argsort(eigenvalues)
     eigenvalues = eigenvalues[order]
     rotation = rotation[:, order]
     if float(np.linalg.det(rotation)) < 0.0:
         rotation[:, -1] *= -1.0
-    largest = float(eigenvalues[0])
-    if largest <= 0.0 or float(eigenvalues[-1]) <= max(1.0e-16, largest * 1.0e-12):
-        raise ValueError("collision vertices are degenerate")
-    base_semiaxes = np.sqrt(eigenvalues)
-    local = centered @ rotation
+    if float(eigenvalues[0]) <= 0.0 or not np.all(np.isfinite(eigenvalues)):
+        raise ValueError("MVEE shape matrix is not positive definite")
+    base_semiaxes = 1.0 / np.sqrt(eigenvalues)
+    local = (points - center) @ rotation
     raw_quadratic = np.sum((local / base_semiaxes) ** 2, axis=1)
     raw_maximum = float(np.max(raw_quadratic))
     scale = math.sqrt(raw_maximum) * (1.0 + padding)
@@ -191,7 +229,12 @@ def covariance_enclosing_ellipsoid(
     certificate: dict[str, Any] = {
         "verified": True,
         "proof": "all_compiled_mesh_vertices_inside_convex_ellipsoid",
-        "fit_method": "covariance_shape_exact_farthest_vertex_inflation",
+        "fit_method": "khachiyan_mvee_exact_vertex_inflation",
+        "khachiyan_tolerance": fit_tolerance,
+        "khachiyan_max_iterations": int(max_iterations),
+        "khachiyan_iterations": iterations,
+        "khachiyan_final_update_l2": update_error,
+        "khachiyan_converged": converged,
         "source_vertex_count": int(points.shape[0]),
         "source_vertices_float64_sha256": hashlib.sha256(
             little_endian.tobytes(order="C")
@@ -217,7 +260,7 @@ def covariance_enclosing_ellipsoid(
         body_name=str(body_name),
         geom_id=int(geom_id),
         geom_name=str(geom_name),
-        bound_source="compiled_mesh_vertex_covariance_enclosure",
+        bound_source="compiled_mesh_vertex_mvee_enclosure",
         source_body_names=tuple(source_body_names),
         source_geom_names=tuple(source_geom_names),
         enclosure_certificate=certificate,

@@ -103,7 +103,7 @@ def _eef_path_after_contact(result: Mapping[str, Any]) -> float:
 
 
 def _hand_check_bound(record: Mapping[str, Any]) -> dict[str, Any]:
-    if record.get("bound_source") == "compiled_mesh_vertex_covariance_enclosure":
+    if record.get("bound_source") == "compiled_mesh_vertex_mvee_enclosure":
         import numpy as np
 
         certificate = record.get("enclosure_certificate")
@@ -112,6 +112,12 @@ def _hand_check_bound(record: Mapping[str, Any]) -> dict[str, Any]:
             certificate.get("verified") is True
             and certificate.get("convex_hull_contained") is True,
             "mesh enclosure certificate is not verified",
+        )
+        _require(
+            certificate.get("fit_method")
+            == "khachiyan_mvee_exact_vertex_inflation"
+            and certificate.get("khachiyan_converged") is True,
+            "mesh MVEE did not converge under the registered fit",
         )
         points = np.asarray(certificate.get("source_vertices_world_m"), dtype=np.float64)
         center = np.asarray(record["center_m"], dtype=np.float64)

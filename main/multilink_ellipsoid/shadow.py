@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 from .barrier import build_pair_constraint
 from .geometry import (
     Ellipsoid,
-    covariance_enclosing_ellipsoid,
+    minimum_volume_enclosing_ellipsoid,
     primitive_bounding_radii,
     primitive_enclosure_certificate,
 )
@@ -106,8 +106,10 @@ def load_shadow_config(path: Path) -> dict[str, Any]:
         geometry = config["robot_geometry"]
         expected_geometry = {
             "source": "compiled_mujoco_collision_mesh_vertices",
-            "fit": "covariance_shape_exact_farthest_vertex_inflation",
+            "fit": "khachiyan_mvee_exact_vertex_inflation",
             "relative_numerical_padding": 1.0e-9,
+            "khachiyan_tolerance": 1.0e-4,
+            "khachiyan_max_iterations": 20000,
         }
         if geometry != expected_geometry:
             raise ValueError("three-ellipsoid robot geometry contract differs")
@@ -370,6 +372,8 @@ def _mesh_link_ellipsoids(
     protected_names: Sequence[str],
     *,
     relative_padding: float = 1.0e-9,
+    tolerance: float = 1.0e-4,
+    max_iterations: int = 20000,
     include_source_points: bool = False,
 ) -> list[Ellipsoid]:
     """Fit one tight certified collision-mesh ellipsoid per rigid link."""
@@ -444,7 +448,7 @@ def _mesh_link_ellipsoids(
         names = geom_names[body_name]
         ids = geom_ids[body_name]
         output.append(
-            covariance_enclosing_ellipsoid(
+            minimum_volume_enclosing_ellipsoid(
                 points,
                 body_id=body_ids[body_name],
                 body_name=body_name,
@@ -453,6 +457,8 @@ def _mesh_link_ellipsoids(
                 source_body_names=(body_name,),
                 source_geom_names=tuple(names),
                 relative_padding=relative_padding,
+                tolerance=tolerance,
+                max_iterations=max_iterations,
                 certificate_metadata={"source_meshes": mesh_records[body_name]},
                 include_source_points=include_source_points,
             )
@@ -533,6 +539,8 @@ class MultilinkEllipsoidShadow:
                 env,
                 self.config["protected_body_names"],
                 relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
                 include_source_points=True,
             )
             return {
@@ -540,7 +548,7 @@ class MultilinkEllipsoidShadow:
                 "link_ellipsoid_count": len(links),
                 "link_ellipsoids": [item.to_record() for item in links],
                 "coverage_semantics": (
-                    "one_surface_fitted_covariance_ellipsoid_each_for_compiled_"
+                    "one_surface_fitted_mvee_each_for_compiled_"
                     "collision_mesh_vertices_on_robot0_link5_link6_link7"
                 ),
             }
@@ -574,6 +582,8 @@ class MultilinkEllipsoidShadow:
                 env,
                 self.config["protected_body_names"],
                 relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
             )
         else:
             links = _link_ellipsoids(env, self.config["protected_body_names"])
