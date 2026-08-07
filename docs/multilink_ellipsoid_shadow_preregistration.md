@@ -56,3 +56,34 @@ executes it in this gate.
 
 Passing this gate does not establish that executing the QP prevents collision
 or preserves task success. Those are dependent active-control experiments.
+
+## Validated result
+
+Slurm job `36757` ran on one H100 from clean commit `4822fd4`. Receipt SHA-256
+`390683dae335f05ebcec8c339bb5fb8fc577a1a7129002c0139a333c9cdb22bb`
+has status `validated`.
+
+The live collision model contained seven mesh geoms, one per protected link.
+The independent hand check reproduced each enclosing sphere directly from its
+MuJoCo `geom_rbound`:
+
+| Link | Collision geom | Radius (m) | Formula check |
+|---|---|---:|---|
+| 1 | `robot0_link1_collision` | 0.175118 | passed |
+| 2 | `robot0_link2_collision` | 0.171559 | passed |
+| 3 | `robot0_link3_collision` | 0.164639 | passed |
+| 4 | `robot0_link4_collision` | 0.165694 | passed |
+| 5 | `robot0_link5_collision` | 0.193834 | passed |
+| 6 | `robot0_link6_collision` | 0.132899 | passed |
+| 7 | `robot0_link7_collision` | 0.090883 | passed |
+
+All 237 steps supplied exactly seven rows to one simultaneous QP. Of those,
+182 solved and 55 were retained as primal infeasible. Total QP wall time was
+1.478 ms mean, 1.931 ms p95, and 2.009 ms maximum; solver-only time was
+0.0747 ms mean and 0.0967 ms p95.
+
+The exact archived action ledger was preserved. Raw MuJoCo contact began at
+action 187 on link 5 at `-0.0010594 m`, link 6 also contacted, and released
+AEGIS still reported positive end-effector barrier `h=0.00931204`. The robot
+continued 0.172512 m of end-effector travel and completed the native task at
+action 236.

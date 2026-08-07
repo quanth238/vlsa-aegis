@@ -2,7 +2,7 @@
 
 ## Multi-link ellipsoid research branch (2026-08-07)
 
-`E01-multilink-ellipsoid-shadow` is active on branch
+`E01-multilink-ellipsoid-shadow` is passing on branch
 `codex/multilink-ellipsoid-qp`, based exactly on clean AEGIS reproduction
 commit `1592aa59361f431ba96c6ddcbebcb596f6c20853`. The historical Table-1
 population is not modified, resumed, or reinterpreted on this branch.
@@ -48,9 +48,44 @@ Implementation evidence before H100 execution:
   185 tests with 22 dependency-optional skips in 205.773 seconds. The OSQP
   test remains mandatory inside the H100 allocation before simulation.
 
-No learned steering or KKT/VI model is authorized in `E01`. The next exact
-command is the clean-commit H100 Slurm submission recorded after live cluster
-preflight.
+No learned steering or KKT/VI model is authorized in `E01`. No further
+experiment is authorized on this gate; active execution requires a new `E02`
+preregistration that addresses the observed hard-QP infeasibility.
+
+H100 result (2026-08-07):
+
+- Slurm job `36757` completed on `worker-1` in `00:02:59` from clean commit
+  `4822fd416d7e979f6b51e15428ddd6db1b5b5985`. The allocation-side numerical
+  preflight passed all 7 tests, including the coupled OSQP test.
+- Validation receipt SHA-256
+  `390683dae335f05ebcec8c339bb5fb8fc577a1a7129002c0139a333c9cdb22bb`
+  has status `validated`. The candidate preserved the archived initial state,
+  policy-noise schedule, and exact executed-action ledger.
+- The live model exposed exactly one collision mesh on each of link 1 through
+  link 7. Independent validation recomputed every bound from the recorded
+  MuJoCo type, size, and `geom_rbound`; all seven bounds passed. Because all
+  were meshes, each conservative ellipsoid is the corresponding
+  `geom_rbound` sphere, with radii `0.175118`, `0.171559`, `0.164639`,
+  `0.165694`, `0.193834`, `0.132899`, and `0.090883` m.
+- Every one of 237 actions supplied exactly 7 joint-space barrier rows to one
+  simultaneous QP. OSQP solved 182; the other 55 were explicitly reported as
+  primal infeasible, beginning at action 182 as link 5 approached the
+  obstacle. No failed solve was dropped.
+- Total QP wall time was mean `1.478 ms`, median `1.282 ms`, p95 `1.931 ms`,
+  maximum `2.009 ms`. Solver-only time was mean `0.0747 ms`, median
+  `0.0651 ms`, p95 `0.0967 ms`, maximum `0.801 ms`.
+- Raw MuJoCo evidence still records direct link-5/link-6 collision, first
+  robot contact at action 187 with minimum contact distance `-0.0010594 m`,
+  while released AEGIS reports positive end-effector barrier
+  `h=0.00931204`. The unchanged robot travels another `0.172512 m` at the
+  end effector and first satisfies the native task goal at action 236.
+
+This validates the whole-arm bound construction and multi-constraint QP
+implementation/timing, and independently confirms that original
+end-effector-only AEGIS misses the physical upstream-link collision while
+useful task motion continues. It does not show that executing the proposed QP
+is safe or task-preserving. The 55 infeasible hard QPs are the principal risk
+for `E02`; KKT/VI learning cannot repair an infeasible oracle target.
 
 ## Objective
 

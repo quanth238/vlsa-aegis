@@ -52,9 +52,14 @@
     },
     {
       "id": "E01-multilink-ellipsoid-shadow",
-      "status": "active",
+      "status": "passing",
       "depends_on": ["A03-one-case-paired-canary"],
-      "evidence": []
+      "evidence": [
+        "Slurm job 36757 completed the source-bound primary AEGIS case on worker-1 H100 from clean commit 4822fd416d7e979f6b51e15428ddd6db1b5b5985",
+        "Independent validation receipt SHA-256 390683dae335f05ebcec8c339bb5fb8fc577a1a7129002c0139a333c9cdb22bb has status validated and proves exact archived action-ledger invariance, direct link-5/link-6 contact, and native task success",
+        "All seven live link1-link7 mesh collision geoms passed independent geom_rbound enclosure checks and every one of 237 steps supplied exactly seven rows to one QP; 182 solved and 55 explicit primal-infeasible outcomes were retained",
+        "QP total wall time mean 0.0014781134683544304 s, p95 0.0019307670000000001 s, max 0.00200877 s; solver-only mean 0.00007471857383966246 s"
+      ]
     },
     {
       "id": "E02-multilink-ellipsoid-active-control",

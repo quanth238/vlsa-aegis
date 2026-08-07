@@ -281,3 +281,20 @@ receipt. QP setup, solve, solver-reported, and total observer times are all
 retained. Infeasibility is a reportable result, never silently dropped. The
 only claim available from this gate is oracle geometry/QP implementation and
 timing evidence; active safety requires the dependent `E02` gate.
+
+## ADR-0027: Accept certified mesh bounds and retain hard-QP infeasibility
+
+Accepted after validated Slurm job `36757`. The live Panda collision model has
+one mesh geom on each of links 1 through 7. For this gate, each mesh remains
+inside MuJoCo's compiled broad-phase `geom_rbound` sphere. The independent
+validator recomputes every recorded sphere semiaxis from that authority and
+requires all seven rows to enter the same QP at every action. We do not infer a
+tighter mesh ellipsoid from `geom_size` without a separate mesh-vertex-bound
+certificate.
+
+The conservative geometry produced 182 solved and 55 primal-infeasible hard
+QPs under the preregistered `+/-0.5 rad/s` limits. This is a valid, retained
+oracle outcome, not an apparatus failure and not evidence for active safety.
+Any `E02` active-control gate must first preregister either tighter certified
+mesh ellipsoids, an explicitly penalized slack hierarchy, or both. A KKT/VI
+network cannot be trained against silently discarded infeasible targets.
