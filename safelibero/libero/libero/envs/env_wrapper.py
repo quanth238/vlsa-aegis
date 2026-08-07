@@ -39,13 +39,15 @@ class ControlEnv:
         camera_segmentations=None,
         renderer="mujoco",
         renderer_config=None,
+        controller_configs=None,
         **kwargs,
     ):
         assert os.path.exists(
             bddl_file_name
         ), f"[error] {bddl_file_name} does not exist!"
 
-        controller_configs = suite.load_controller_config(default_controller=controller)
+        if controller_configs is None:
+            controller_configs = suite.load_controller_config(default_controller=controller)
 
         problem_info = BDDLUtils.get_problem_info(bddl_file_name)
         # Check if we're using a multi-armed environment and use env_configuration argument if so

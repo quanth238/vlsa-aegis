@@ -1227,6 +1227,9 @@ def _build_environment(
     case: Mapping[str, Any],
     *,
     render_resolution: int,
+    controller_configs: Mapping[str, Any] | None = None,
+    control_frequency_hz: int | None = None,
+    ignore_done: bool | None = None,
 ) -> tuple[Any, Any, Any, Any]:
     suite_name = normalize_suite_name(str(case["suite"]))
     benchmark_dict = runtime["benchmark"].get_benchmark_dict()
@@ -1263,6 +1266,12 @@ def _build_environment(
         "camera_widths": render_resolution,
         "camera_depths": True,
     }
+    if controller_configs is not None:
+        env_args["controller_configs"] = dict(controller_configs)
+    if control_frequency_hz is not None:
+        env_args["control_freq"] = int(control_frequency_hz)
+    if ignore_done is not None:
+        env_args["ignore_done"] = bool(ignore_done)
     # Match the released evaluator before constructing OffScreenRenderEnv.
     # LIBERO performs a temporary randomized placement in the constructor,
     # before we restore the frozen episode state, so this process-level seed
