@@ -32,6 +32,12 @@ Only XYZ may change. Rotation remains zero and the archived AEGIS gripper
 command is preserved exactly. A failed or infeasible QP is retained as a
 method failure; it is never passed through silently.
 
+When the nominal action already satisfies all three inequalities, its unique
+minimum-intervention optimum is the nominal action itself. The implementation
+still times and postchecks OSQP, then executes the nominal XYZ exactly instead
+of its sub-tolerance floating-point displacement. A material intervention is
+registered above `1e-6` action L2.
+
 ## Frozen success definition
 
 The primary problem is solved only if all of the following hold within the

@@ -40,6 +40,13 @@ executable XYZ action while preserving zero rotation and the archived gripper
 command. Its frozen pass condition requires no L5/L6/L7 contact, paper CAR,
 and native task success within the same 237-action nominal horizon.
 
+Preliminary active run `36781` passed those outcome checks, but OSQP emitted
+sub-`1e-8` displacement from the exact nominal optimum on feasible steps. The
+final replay snaps only those verified-feasible solutions to the exact AEGIS
+XYZ and uses `1e-6` L2 as the material-intervention threshold. This is a
+numerical identity correction; the CBF parameters and unsafe-step solution
+remain unchanged.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch

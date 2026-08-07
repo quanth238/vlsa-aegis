@@ -111,6 +111,7 @@ def load_active_config(path: Path) -> dict[str, Any]:
         "max_iter",
         "residual_tolerance",
         "bound_tolerance_action",
+        "material_correction_tolerance",
     }
     if not isinstance(optimizer, dict) or set(optimizer) != optimizer_keys:
         raise ValueError("active multi-CBF optimizer keys differ")
@@ -122,6 +123,7 @@ def load_active_config(path: Path) -> dict[str, Any]:
         "eps_rel",
         "residual_tolerance",
         "bound_tolerance_action",
+        "material_correction_tolerance",
     )
     for key in positive:
         value = optimizer[key]
@@ -302,8 +304,15 @@ class DistalThreeEllipsoidMultiCbf:
         closest_index = int(np.argmin([item.h_opt_m for item in constraints]))
         safe_action = None
         correction_l2 = None
+        nominal_feasible_exact_snap = False
         if result.valid and result.qdot_safe is not None:
             safe_xyz = np.asarray(result.qdot_safe, dtype=np.float64)
+            if not violated:
+                # The unique exact optimum is the nominal action whenever it
+                # already satisfies every inequality.  Do not execute OSQP's
+                # harmless floating-point displacement from that optimum.
+                safe_xyz = nominal_xyz.copy()
+                nominal_feasible_exact_snap = True
             output = action.copy()
             output[:3] = safe_xyz
             output[3:6] = 0.0
@@ -340,14 +349,25 @@ class DistalThreeEllipsoidMultiCbf:
             "qp": {
                 "valid": bool(result.valid),
                 "reason": result.reason,
-                "safe_xyz_action": (
+                "solver_safe_xyz_action": (
                     None if result.qdot_safe is None else result.qdot_safe.tolist()
                 ),
+                "executed_safe_xyz_action": (
+                    None if safe_action is None else safe_action[:3]
+                ),
+                "nominal_feasible_exact_snap": nominal_feasible_exact_snap,
                 "diagnostics": dict(result.diagnostics),
             },
             "executed_action": safe_action,
             "active_correction_l2": correction_l2,
-            "modified": bool(correction_l2 is not None and correction_l2 > 1.0e-12),
+            "material_correction_tolerance": float(
+                optimizer["material_correction_tolerance"]
+            ),
+            "modified": bool(
+                correction_l2 is not None
+                and correction_l2
+                > float(optimizer["material_correction_tolerance"])
+            ),
             "D_opt": {
                 "value_m": float(optimizer["optimizer_clearance_m"]),
                 "semantics": "optimizer_support_gap_buffer",

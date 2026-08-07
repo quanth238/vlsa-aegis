@@ -18,6 +18,7 @@
     "eps_abs": 1e-07,
     "eps_rel": 1e-07,
     "max_iter": 10000,
+    "material_correction_tolerance": 1e-06,
     "optimizer_clearance_m": 0.01,
     "residual_tolerance": 5e-07,
     "resolved_rate_damping": 0.05
