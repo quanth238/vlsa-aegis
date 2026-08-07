@@ -360,3 +360,23 @@ failure: action 186 predicted positive L5 barrier recovery (`+0.044412 m/s`)
 while the next simulator state moved inward (`-0.143104 m/s`). This reinforces
 the decision: retain the negative outcome and change the execution model in a
 new preregistration, not the QP solver or KKT implementation.
+
+## ADR-0031: Retain the direct joint-velocity pilot as baseline-incompetent
+
+Accepted after paired H100 producer job `36802` and independent validator job
+`36806`. The `pi05_droid` checkpoint directly drove all seven SafeLIBERO
+joint velocities, and the active arm executed one simultaneous QP containing
+the three independent L5/L6/L7 ellipsoid constraints. Pairing is exact until
+the first material safety intervention at action 71, and every QP in both
+225-action arms is valid.
+
+Neither arm contacted the protected links or crossed the paper CAR threshold,
+but neither arm ever satisfied the native task goal. Most decisively, the
+unfiltered baseline never issued a close-gripper command. This makes the
+baseline incompetent for the requested task, so the collision-free result is
+not evidence that the three-constraint filter solves the original
+task-completing AEGIS failure. We retain the videos, timings, raw evidence,
+and negative interpretation without tuning the checkpoint or safety
+parameters after outcome inspection. Any learned joint-space replacement
+requires a new preregistration and a competent paired baseline before safety
+efficacy or KKT/VI training can be considered.

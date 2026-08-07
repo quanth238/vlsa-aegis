@@ -1,5 +1,60 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Direct joint-velocity baseline versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
+
+The preregistered paired pilot replaced the policy/control interface with the
+published `pi05_droid` checkpoint's direct seven-joint-velocity output, while
+keeping the active safety arm to exactly three independent L5/L6/L7
+ellipsoid constraints. Both arms restored the same primary-case simulator
+state and ran the frozen 225-action, 15 Hz horizon. The first policy chunks,
+nominal actions, and simulator states are exactly paired through the first
+material intervention at action 71.
+
+Producer H100 job `36802` completed on `worker-1` from clean commit
+`9c3191a8d851d9ea18306257222307b995d07928`. Result file SHA-256 is
+`e8469841fc55258d894e34493ce7809f2a2b95d3726c9c94b624e7ae9a8c2242`;
+canonical payload SHA-256 is
+`bda99a32fb7bacae15881b6e25cf09cc9740e7bf7170da58848ca176a1f4c118`.
+The 12.43 GB checkpoint tree is bound by SHA-256
+`9bef87f85aa1961e2756b89e2779500dd8433ff67ea88f219fba5702da2ecacb`.
+
+The unfiltered baseline had no robot contact and no paper CAR, but it also
+never closed the gripper in 225 actions and never satisfied the native
+`on(akita_black_bowl_1, plate_1)` goal. The active arm made 43 material
+joint-velocity corrections, briefly closed the gripper for two actions, and
+also had no contact or CAR, but its maximum and final native goal fraction
+remained zero. Thus `baseline_competent=false` and
+`safe_problem_solved=false`: this pilot validates the direct joint-space
+control and multi-constraint plumbing, but cannot establish safety efficacy
+on the original task-completing collision case.
+
+All 225 three-row QPs in each arm were valid. The active arm reduced the
+worst predicted post-step optimizer gap from the baseline shadow's
+`-0.033406 m` to `-0.003117 m`. Active QP time was mean `1.706 ms`, p95
+`2.322 ms`, maximum `3.800 ms`; total filter time was mean `2.602 ms`, p95
+`3.963 ms`, maximum `5.359 ms`. The baseline video SHA-256 is
+`c0f557ca88d3c7bf7f9e922c0f39f802e11531181a864d7ea7a7f7a76fcae61a`;
+the active video SHA-256 is
+`bab5ae351e41d3af96e34100e76f8192a8769fdee260c4a55d7d9b95f9027033`.
+
+Independent H100 validator job `36806` completed on `worker-1` from clean
+commit `71b85da6f0a7c1bf8e7b212f25cc74bbd74faf4a`. It rehashed the result and
+checkpoint, decoded 226 frames per video, checked all 450 action records,
+recomputed raw contact/CAR/task summaries, and verified every QP residual.
+Validation file SHA-256 is
+`e63fd013e80735b111c899b908bb12dbe3cb97389fcc72362874bb60b1a592f8`;
+receipt payload SHA-256 is
+`f297c1888f886742add6c3492410d660f952ab1751973964926a5a7cd83d1dd7`.
+
+The unresolved risk is policy/domain competence, not QP execution: the
+zero-shot DROID checkpoint is not a competent SafeLIBERO policy for this
+case. No KKT/VI training or further H100 experiment is authorized by this
+negative pilot. The exact read-only handoff command is:
+
+```bash
+jq '{baseline_competent, safe_problem_solved, interpretation}' /mnt/data/quanth/experiments/vlsa-pi05-droid-joint-velocity-pair/vlsa-pi05-droid-jv-pair-e05-20260807a/result.json
+```
+
 ## Distal three-ellipsoid refinement (active, 2026-08-07)
 
 Per user correction, `E02-distal-three-ellipsoid-shadow` now targets exactly

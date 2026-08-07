@@ -70,7 +70,8 @@
         "Implementation fits one independently certified minimum-volume enclosing ellipsoid to each compiled collision mesh and supplies exactly three rigid-link Jacobian rows to the read-only QP",
         "H100 visualization 36773 accepted the separate surface-following L5/L6/L7 bounds; exact shadow replay 36775 and independent verifier 36776 passed all 237 three-row QPs and detected L5/L6 nominal violation at action 186 before raw contact at 187",
         "Active exact-action H100 counterfactual 36782 solved all 237 three-row QPs and made 28 material interventions, but only delayed L5 contact to action 189, failed paper CAR at 189, and lost native task success; primary_problem_solved=false",
-        "H100 video replay 36788 reproduced all 237 accepted safe actions with zero end-effector, obstacle-displacement, and raw-contact trace error; its action-186 audit shows predicted L5 recovery +0.044412 m/s versus observed inward motion -0.143104 m/s"
+        "H100 video replay 36788 reproduced all 237 accepted safe actions with zero end-effector, obstacle-displacement, and raw-contact trace error; its action-186 audit shows predicted L5 recovery +0.044412 m/s versus observed inward motion -0.143104 m/s",
+        "Direct joint-velocity paired H100 pilot 36802 and independent verifier 36806 passed all 225 three-row QPs per arm; both arms were contact/CAR-free, but zero-shot pi05_droid never completed the native task (the unfiltered baseline never closed the gripper), so the retained interpretation is baseline_incompetent_no_safety_efficacy_claim"
       ]
     },
     {
