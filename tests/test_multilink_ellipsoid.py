@@ -42,7 +42,10 @@ class MultilinkEllipsoidGeometryTests(unittest.TestCase):
             self.assertLessEqual(float(np.sum((point / radii) ** 2)), 1.0 + 1e-12)
 
     def test_capsule_support_is_enclosed_in_every_direction(self) -> None:
-        from main.multilink_ellipsoid.geometry import primitive_bounding_radii
+        from main.multilink_ellipsoid.geometry import (
+            primitive_bounding_radii,
+            primitive_enclosure_certificate,
+        )
 
         np = self.np
         radius = 0.04
@@ -59,6 +62,15 @@ class MultilinkEllipsoidGeometryTests(unittest.TestCase):
             )
             capsule_support = radius + half_length * z_component
             self.assertGreaterEqual(ellipsoid_support + 1e-12, capsule_support)
+        certificate = primitive_enclosure_certificate(
+            "capsule",
+            [radius, half_length, 0.0],
+            radius + half_length,
+            radii,
+            source,
+        )
+        self.assertTrue(certificate["verified"])
+        self.assertEqual(certificate["maximum_normalized_quadratic"], 1.0)
 
     def test_analytic_twist_derivative_matches_central_difference(self) -> None:
         from main.multilink_ellipsoid.barrier import support_gap, twist_coefficients
@@ -128,6 +140,10 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         self.assertIn("multilink_ellipsoid_shadow_config: Mapping", source)
         self.assertIn("observation, reward, done, info = env.step(executed)", source)
         self.assertIn("minimum_robot_contact_distance_m", source)
+        qp_source = (ROOT / "main/multilink_ellipsoid/qp.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"input_constraint_count"', qp_source)
 
     def test_config_is_canonical_json_object(self) -> None:
         path = ROOT / "configs/vlsa_multilink_ellipsoid_shadow_e05.v1.json"

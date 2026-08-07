@@ -13,7 +13,11 @@ import time
 from typing import Any, Mapping, Sequence
 
 from .barrier import build_pair_constraint
-from .geometry import Ellipsoid, primitive_bounding_radii
+from .geometry import (
+    Ellipsoid,
+    primitive_bounding_radii,
+    primitive_enclosure_certificate,
+)
 from .qp import MultiConstraintQp
 
 
@@ -304,6 +308,14 @@ def _link_ellipsoids(env: Any, protected_names: Sequence[str]) -> list[Ellipsoid
             np.asarray(model.geom_size[geom_id], dtype=np.float64),
             rbound,
         )
+        source_size = np.asarray(model.geom_size[geom_id], dtype=np.float64)
+        certificate = primitive_enclosure_certificate(
+            kind,
+            source_size,
+            rbound,
+            semiaxes,
+            source,
+        )
         output.append(
             Ellipsoid(
                 center=np.asarray(data.geom_xpos[geom_id], dtype=np.float64),
@@ -315,6 +327,9 @@ def _link_ellipsoids(env: Any, protected_names: Sequence[str]) -> list[Ellipsoid
                 geom_name=geom_name,
                 bound_source=source,
                 source_rbound_m=rbound,
+                source_geom_kind=kind,
+                source_geom_size_m=source_size,
+                enclosure_certificate=certificate,
             )
         )
         observed_bodies.add(body_name)

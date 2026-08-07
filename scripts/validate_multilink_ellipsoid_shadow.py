@@ -102,6 +102,50 @@ def _eef_path_after_contact(result: Mapping[str, Any]) -> float:
     return total
 
 
+def _hand_check_bound(record: Mapping[str, Any]) -> dict[str, Any]:
+    kind = str(record["source_geom_kind"])
+    size = [float(value) for value in record["source_geom_size_m"]]
+    rbound = float(record["source_rbound_m"])
+    observed = [float(value) for value in record["semiaxes_m"]]
+    source = str(record["bound_source"])
+    if source.startswith("mujoco_geom_rbound_sphere"):
+        expected = [rbound, rbound, rbound]
+    elif kind == "sphere" and source == "exact_mujoco_sphere":
+        expected = [size[0], size[0], size[0]]
+    elif kind == "ellipsoid" and source == "exact_mujoco_ellipsoid":
+        expected = size
+    elif kind == "capsule" and source == "closed_form_capsule_enclosing_ellipsoid":
+        radial = math.sqrt(size[0] * (size[0] + size[1]))
+        expected = [radial, radial, size[0] + size[1]]
+    elif kind == "cylinder" and source == "loewner_cylinder_enclosing_ellipsoid":
+        expected = [math.sqrt(1.5) * size[0], math.sqrt(1.5) * size[0], math.sqrt(3.0) * size[1]]
+    elif kind == "box" and source == "loewner_box_enclosing_ellipsoid":
+        expected = [math.sqrt(3.0) * value for value in size]
+    else:
+        raise ValidationError("unrecognized live arm-geom enclosure formula")
+    _require(
+        all(abs(first - second) <= 1.0e-12 for first, second in zip(observed, expected)),
+        "live arm-geom ellipsoid semiaxes fail independent formula check",
+    )
+    certificate = record.get("enclosure_certificate")
+    _require(
+        isinstance(certificate, dict)
+        and certificate.get("verified") is True
+        and certificate.get("maximum_normalized_quadratic") == 1.0,
+        "live arm-geom enclosure certificate is missing",
+    )
+    return {
+        "body_name": record["body_name"],
+        "geom_name": record["geom_name"],
+        "geom_kind": kind,
+        "geom_size_m": size,
+        "geom_rbound_m": rbound,
+        "ellipsoid_semiaxes_m": observed,
+        "bound_source": source,
+        "formula_check": "passed",
+    }
+
+
 def _git_identity(root: Path, expected_commit: str) -> dict[str, Any]:
     def run(*arguments: str) -> str:
         return subprocess.check_output(
@@ -184,11 +228,17 @@ def validate(
     steps = shadow.get("steps")
     _require(isinstance(steps, list) and len(steps) == EXPECTED_ACTION_COUNT, "shadow step records are incomplete")
     expected_bodies = {"robot0_link%d" % index for index in range(1, 8)}
+    geometry_rows = shadow["geometry"]["link_ellipsoids"]
+    hand_checked_bounds = [_hand_check_bound(item) for item in geometry_rows]
+    ellipsoid_count = int(shadow["geometry"]["link_ellipsoid_count"])
+    _require(ellipsoid_count == len(hand_checked_bounds), "ellipsoid count differs from live geometry")
     observed_bodies: set[str] = set()
     qp_reasons: dict[str, int] = {}
     for index, step in enumerate(steps):
         _require(step.get("step") == index, "shadow step indexes are not contiguous")
-        _require(step.get("constraint_count", 0) > 1, "QP is not multi-constraint")
+        _require(step.get("constraint_count") == ellipsoid_count, "QP did not receive every live ellipsoid constraint")
+        _require(step["qp"]["diagnostics"].get("input_constraint_count") == ellipsoid_count, "solver diagnostics do not prove one simultaneous multi-constraint QP")
+        _require(all(len(item["cbf_row_m_per_rad"]) == 7 for item in step["constraints"]), "joint-space constraint row is not seven-dimensional")
         _require(step["D_opt"]["semantics"] == "optimizer_support_gap_buffer", "D_opt semantics differ")
         _require(step["D_sim"]["available"] is True, "raw simulator verification is unavailable")
         _require(isinstance(step["D_sim"]["value"], dict), "raw simulator verification is malformed")
@@ -204,9 +254,7 @@ def validate(
     _require(first_contact_d_sim["robot_contact_count"] > 0, "D_sim misses the first raw robot contact")
     _require(first_contact_d_sim["minimum_robot_contact_distance_m"] <= 0.0, "D_sim first-contact distance is not nonpositive")
     _require(expected_bodies.issubset(observed_bodies), "whole-arm link1-link7 coverage is incomplete")
-    geometry_bodies = {
-        item["body_name"] for item in shadow["geometry"]["link_ellipsoids"]
-    }
+    geometry_bodies = {item["body_name"] for item in geometry_rows}
     _require(expected_bodies.issubset(geometry_bodies), "initial geometry omits a protected arm link")
     _require(shadow["config"]["config_file_sha256"] == config["config_file_sha256"], "shadow config file identity differs")
     allocation = shadow.get("allocation")
@@ -251,6 +299,7 @@ def validate(
         "whole_arm_ellipsoid_qp": {
             "protected_body_names": sorted(expected_bodies),
             "ellipsoid_count": shadow["geometry"]["link_ellipsoid_count"],
+            "hand_checked_live_bounds": hand_checked_bounds,
             "constraint_count_min": shadow["constraint_count_min"],
             "constraint_count_max": shadow["constraint_count_max"],
             "qp_reason_counts": dict(sorted(qp_reasons.items())),

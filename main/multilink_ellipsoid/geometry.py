@@ -55,6 +55,9 @@ class Ellipsoid:
     geom_name: str = ""
     bound_source: str = "unspecified"
     source_rbound_m: float | None = None
+    source_geom_kind: str | None = None
+    source_geom_size_m: Any | None = None
+    enclosure_certificate: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         np = _numpy()
@@ -67,9 +70,19 @@ class Ellipsoid:
             radius = float(self.source_rbound_m)
             if not math.isfinite(radius) or radius <= 0.0:
                 raise ValueError("source_rbound_m must be finite and positive")
+        source_size = self.source_geom_size_m
+        if source_size is not None:
+            source_size = _finite_vector(source_size, 3, "source_geom_size_m")
+        certificate = self.enclosure_certificate
+        if certificate is not None:
+            if certificate.get("verified") is not True:
+                raise ValueError("ellipsoid enclosure certificate must be verified")
+            certificate = dict(certificate)
         object.__setattr__(self, "center", center)
         object.__setattr__(self, "rotation", rotation)
         object.__setattr__(self, "semiaxes_m", semiaxes)
+        object.__setattr__(self, "source_geom_size_m", source_size)
+        object.__setattr__(self, "enclosure_certificate", certificate)
 
     def shape_matrix(self) -> Any:
         np = _numpy()
@@ -95,6 +108,13 @@ class Ellipsoid:
             "geom_name": self.geom_name,
             "bound_source": self.bound_source,
             "source_rbound_m": self.source_rbound_m,
+            "source_geom_kind": self.source_geom_kind,
+            "source_geom_size_m": (
+                None
+                if self.source_geom_size_m is None
+                else self.source_geom_size_m.tolist()
+            ),
+            "enclosure_certificate": self.enclosure_certificate,
         }
 
 
@@ -151,6 +171,53 @@ def primitive_bounding_radii(
         radii = np.repeat(rbound, 3)
         source = "mujoco_geom_rbound_sphere_invalid_primitive_fallback"
     return np.asarray(radii, dtype=np.float64), source
+
+
+def primitive_enclosure_certificate(
+    geom_kind: str,
+    geom_size: Sequence[float],
+    geom_rbound_m: float,
+    semiaxes_m: Sequence[float],
+    bound_source: str,
+) -> dict[str, Any]:
+    """Certify the closed-form enclosure used for one compiled geom."""
+
+    np = _numpy()
+    size = _finite_vector(geom_size, 3, "geom_size")
+    radii = _finite_vector(semiaxes_m, 3, "semiaxes_m")
+    expected, expected_source = primitive_bounding_radii(
+        geom_kind, size, geom_rbound_m
+    )
+    if bound_source != expected_source or not np.allclose(
+        radii, expected, rtol=0.0, atol=1.0e-12
+    ):
+        raise ValueError("ellipsoid semiaxes differ from the certified primitive bound")
+    proof_by_source = {
+        "exact_mujoco_sphere": "sphere_support_equals_recorded_semiaxis",
+        "exact_mujoco_ellipsoid": "principal_semiaxes_equal_compiled_geom_size",
+        "closed_form_capsule_enclosing_ellipsoid": (
+            "support_squared_slack_is_radius_times_half_length_times_"
+            "one_minus_abs_direction_z_squared"
+        ),
+        "loewner_cylinder_enclosing_ellipsoid": (
+            "boundary_max_is_two_thirds_radial_plus_one_third_axial"
+        ),
+        "loewner_box_enclosing_ellipsoid": (
+            "corner_max_is_one_third_per_principal_coordinate"
+        ),
+        "mujoco_geom_rbound_sphere_fallback": (
+            "compiled_mujoco_broadphase_rbound_sphere"
+        ),
+        "mujoco_geom_rbound_sphere_invalid_primitive_fallback": (
+            "compiled_mujoco_broadphase_rbound_sphere"
+        ),
+    }
+    return {
+        "verified": True,
+        "proof": proof_by_source[bound_source],
+        "maximum_normalized_quadratic": 1.0,
+        "semiaxes_formula_match_tolerance_m": 1.0e-12,
+    }
 
 
 def ellipsoid_record_hash_payload(ellipsoids: Sequence[Ellipsoid]) -> list[Mapping[str, Any]]:
