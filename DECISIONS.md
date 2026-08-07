@@ -313,3 +313,10 @@ The obstacle remains the frozen released-AEGIS MVEE, and the QP receives
 exactly three simultaneous constraints. This gate remains read-only until its
 H100 visualization, containment certificate, action-invariance check, and
 runtime receipt pass. Links 1 through 4 are deliberately outside the claim.
+
+The validation rollout replays the immutable archived AEGIS `env.step` inputs
+instead of asking the GPU policy to resample them. This is required after
+attempt `36774` reproduced the settled simulator and policy-noise seed contract
+but returned a different first policy chunk before the shadow observer ran.
+Exact replay preserves the executed-action horizon while independently
+recomputing MuJoCo contacts, task progress, three-link constraints, and timing.

@@ -18,6 +18,20 @@ covariance-shaped L5 envelope as too loose despite correct vertex containment.
 That image is diagnostic only. The active fit is now Khachiyan MVEE followed
 by exact farthest-vertex inflation; it requires a fresh H100 render.
 
+H100 visualization `36773` completed from clean commit `36681ca`; its MVEE
+payload SHA-256 is
+`4d86c6a88aaa11bcf04de94b8c30fc421fe8a3042767025e44261f1337447b5a`.
+Visual inspection accepts the separate L5, L6, and L7 surface fit.
+
+Full-policy attempt `36774` completed 300 actions but failed the pairing gate:
+the first GPU policy chunk already differed from the immutable archived chunk,
+so the robot timed out rather than succeeding. The shadow never changes an
+executed action, and this attempt is not scientific comparison evidence. The
+replacement validation replays all 237 immutable archived `env.step` inputs,
+requires stepwise simulator-state/contact/goal equality, and recomputes only
+the read-only three-link QP. The rigid-link MVEEs are now fitted once and
+cached in body coordinates rather than refitted at every action.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch

@@ -31,6 +31,9 @@ E01. `D_opt=0.01 m` remains distinct from raw-contact `D_sim`.
   executed actions, physical link-5/link-6 contact, and native task success.
 - Every action must record exactly three constraints, every infeasible QP must
   remain explicit, and setup/solve/total runtime must be reported.
+- Validation must replay the immutable archived `env.step` inputs and match
+  stepwise reward, done, end-effector pose, obstacle displacement, robot
+  contact, native success at action 236, and first contact at action 187.
 
 Passing this shadow gate does not authorize executing the proposed correction
 or training a KKT/VI model.

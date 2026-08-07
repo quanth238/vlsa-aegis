@@ -506,6 +506,7 @@ class MultilinkEllipsoidShadow:
             raise ValueError("shadow configuration was not validated")
         self.config = dict(config)
         self.obstacle = obstacle
+        self._distal_templates: list[dict[str, Any]] | None = None
         optimizer = config["optimizer"]
         self.qp = MultiConstraintQp(
             eps_abs=float(optimizer["eps_abs"]),
@@ -514,6 +515,78 @@ class MultilinkEllipsoidShadow:
             residual_tolerance=float(optimizer["residual_tolerance"]),
             bound_tolerance=float(optimizer["bound_tolerance_rad_s"]),
         )
+
+    def _distal_links(
+        self,
+        env: Any,
+        *,
+        include_source_points: bool = False,
+    ) -> list[Ellipsoid]:
+        """Fit once in a rigid-link frame, then update only the world pose."""
+
+        np = _numpy()
+        geometry = self.config["robot_geometry"]
+        model, data = _raw_model_data(env.sim)
+        if self._distal_templates is None:
+            links = _mesh_link_ellipsoids(
+                env,
+                self.config["protected_body_names"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
+                include_source_points=True,
+            )
+            templates: list[dict[str, Any]] = []
+            for link in links:
+                body_rotation = np.asarray(
+                    data.xmat[int(link.body_id)], dtype=np.float64
+                ).reshape(3, 3)
+                body_position = np.asarray(
+                    data.xpos[int(link.body_id)], dtype=np.float64
+                )
+                templates.append(
+                    {
+                        "body_id": int(link.body_id),
+                        "body_name": link.body_name,
+                        "geom_id": int(link.geom_id),
+                        "geom_name": link.geom_name,
+                        "center_body_m": body_rotation.T
+                        @ (link.center - body_position),
+                        "rotation_body": body_rotation.T @ link.rotation,
+                        "semiaxes_m": link.semiaxes_m.copy(),
+                        "bound_source": link.bound_source,
+                        "source_body_names": link.source_body_names,
+                        "source_geom_names": link.source_geom_names,
+                    }
+                )
+            self._distal_templates = templates
+            if include_source_points:
+                return links
+        output: list[Ellipsoid] = []
+        for template in self._distal_templates or []:
+            body_id = int(template["body_id"])
+            body_rotation = np.asarray(
+                data.xmat[body_id], dtype=np.float64
+            ).reshape(3, 3)
+            body_position = np.asarray(data.xpos[body_id], dtype=np.float64)
+            output.append(
+                Ellipsoid(
+                    center=body_position
+                    + body_rotation @ template["center_body_m"],
+                    rotation=body_rotation @ template["rotation_body"],
+                    semiaxes_m=template["semiaxes_m"],
+                    body_id=body_id,
+                    body_name=str(template["body_name"]),
+                    geom_id=int(template["geom_id"]),
+                    geom_name=str(template["geom_name"]),
+                    bound_source=str(template["bound_source"]),
+                    source_body_names=tuple(template["source_body_names"]),
+                    source_geom_names=tuple(template["source_geom_names"]),
+                )
+            )
+        if len(output) != 3:
+            raise ValueError("cached distal geometry does not contain three links")
+        return output
 
     @classmethod
     def from_aegis_geometry(
@@ -534,15 +607,7 @@ class MultilinkEllipsoidShadow:
 
     def geometry_record(self, env: Any) -> dict[str, Any]:
         if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
-            geometry = self.config["robot_geometry"]
-            links = _mesh_link_ellipsoids(
-                env,
-                self.config["protected_body_names"],
-                relative_padding=float(geometry["relative_numerical_padding"]),
-                tolerance=float(geometry["khachiyan_tolerance"]),
-                max_iterations=int(geometry["khachiyan_max_iterations"]),
-                include_source_points=True,
-            )
+            links = self._distal_links(env, include_source_points=True)
             return {
                 "obstacle": self.obstacle.to_record(),
                 "link_ellipsoid_count": len(links),
@@ -577,14 +642,7 @@ class MultilinkEllipsoidShadow:
         )
         geometry_started = time.perf_counter_ns()
         if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
-            geometry = self.config["robot_geometry"]
-            links = _mesh_link_ellipsoids(
-                env,
-                self.config["protected_body_names"],
-                relative_padding=float(geometry["relative_numerical_padding"]),
-                tolerance=float(geometry["khachiyan_tolerance"]),
-                max_iterations=int(geometry["khachiyan_max_iterations"]),
-            )
+            links = self._distal_links(env)
         else:
             links = _link_ellipsoids(env, self.config["protected_body_names"])
         constraints = []

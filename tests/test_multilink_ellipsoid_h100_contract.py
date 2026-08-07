@@ -36,6 +36,18 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertNotIn("mv \"$ARCHIVED_TABLE1_RESULT\"", source)
         self.assertIn("vlsa-aegis-distal-three-ellipsoid", source)
 
+    def test_exact_action_replay_is_single_h100_and_read_only(self) -> None:
+        source = (ROOT / "slurm/distal_three_ellipsoid_replay_e05.sbatch").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --cpus-per-task=8", source)
+        self.assertIn("#SBATCH --mem=64G", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("replay_distal_three_ellipsoid_shadow.py", source)
+        self.assertIn("--archived \"$ARCHIVED_TABLE1_RESULT\"", source)
+        self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
+
 
 if __name__ == "__main__":
     unittest.main()
