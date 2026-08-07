@@ -199,6 +199,61 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         )
         self.assertTrue(config["simulator_verification"]["distinct_from_D_opt"])
 
+    def test_rollout_multicbf_config_uses_three_discrete_constraints(self) -> None:
+        from main.multilink_ellipsoid.rollout import load_rollout_config
+
+        config = load_rollout_config(
+            ROOT
+            / "configs/vlsa_distal_three_ellipsoid_rollout_multicbf_e05.v1.json"
+        )
+        self.assertEqual(
+            config["protected_body_names"],
+            ["robot0_link5", "robot0_link6", "robot0_link7"],
+        )
+        self.assertEqual(config["finite_difference"]["action_dimensions"], [0, 1, 2])
+        self.assertEqual(
+            config["verification"]["candidate_scales_toward_stop"],
+            [1.0, 0.5, 0.25, 0.125, 0.0],
+        )
+        self.assertEqual(config["optimizer"]["next_step_minimum_h_opt_m"], 0.0)
+        self.assertTrue(config["simulator_verification"]["distinct_from_D_opt"])
+
+    @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
+    def test_discrete_clearance_rows_recover_coupled_linear_transition(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.rollout import (
+            discrete_qp_lower_bounds,
+            finite_difference_clearance_jacobian,
+        )
+
+        nominal = np.array([0.2, -0.1, 0.4])
+        expected = np.array(
+            [[0.03, -0.02, 0.01], [-0.01, 0.04, 0.02], [0.02, 0.01, -0.05]]
+        )
+        base = np.array([0.004, 0.006, 0.008])
+        plus_xyz = []
+        minus_xyz = []
+        plus_h = []
+        minus_h = []
+        for dimension in range(3):
+            plus = nominal.copy()
+            minus = nominal.copy()
+            plus[dimension] += 0.05
+            minus[dimension] -= 0.05
+            plus_xyz.append(plus)
+            minus_xyz.append(minus)
+            plus_h.append(base + expected @ (plus - nominal))
+            minus_h.append(base + expected @ (minus - nominal))
+        observed = finite_difference_clearance_jacobian(
+            plus_h, minus_h, plus_xyz, minus_xyz
+        )
+        np.testing.assert_allclose(observed, expected, rtol=0.0, atol=1.0e-14)
+        lower = discrete_qp_lower_bounds(
+            base, observed, nominal, minimum_next_clearance=0.0
+        )
+        np.testing.assert_allclose(lower, -base + expected @ nominal)
+
     @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
     def test_resolved_rate_action_map_has_expected_linear_contract(self) -> None:
         import numpy as np

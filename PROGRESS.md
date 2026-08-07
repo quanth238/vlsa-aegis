@@ -1,5 +1,22 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Cloned-step discrete L5--L7 multi-CBF (preregistered, 2026-08-07)
+
+The next active `E02` subexperiment retains the accepted negative continuous
+three-row QP and tests the same L5/L6/L7 ellipsoids with a discrete transition
+model. At every archived action it estimates a `3 x 3` next-clearance Jacobian
+from one nominal and six centrally perturbed cloned `env.step` calls, solves
+one three-row XYZ QP, and executes only a candidate whose exact cloned next
+step keeps all buffered clearances nonnegative within `1e-6 m`. Fixed fallback
+scales move the QP candidate toward stop; failure to verify is retained rather
+than passed through.
+
+The implementation and frozen configuration are local only. The full primary
+next state must match the accepted clone within `1e-10`, and the ordinary
+AEGIS and accepted continuous multi-CBF paths remain unchanged. H100 execution,
+runtime, raw contacts, CAR, task outcome, and an independent replay validator
+are pending. No learned controller is authorized by this preregistration.
+
 ## AEGIS Cartesian-to-joint bridge versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
 
 The preregistered repair retained the task-competent released AEGIS Cartesian

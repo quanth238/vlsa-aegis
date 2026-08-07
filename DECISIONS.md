@@ -408,3 +408,23 @@ The next controller experiment therefore requires a new preregistration with
 a task-competent Cartesian policy queried on live observations and competence
 established in the unfiltered joint-controller arm before applying L5--L7
 multi-CBF. KKT/VI learning remains gated on that oracle comparison.
+
+## ADR-0033: Test a cloned-step discrete L5--L7 multi-CBF before learning
+
+Accepted by direct user instruction. The accepted continuous XYZ multi-CBF
+remains frozen as the first comparison. A new opt-in arm replaces only its
+resolved-rate derivative with seven cloned SafeLIBERO transitions per action:
+one nominal transition and clipped central perturbations in the three XYZ
+dimensions. Their three next-step L5/L6/L7 buffered clearances define one
+simultaneous three-row QP. The candidate is then executed in the clone and may
+be reduced by the frozen scales `0.5, 0.25, 0.125, 0` toward stop until an exact
+next-step check passes.
+
+Every probe begins from a synchronized copy of the complete MuJoCo and
+stateful OSC/gripper transition state. The primary `env.step` must reproduce
+the accepted clone state and clearances within the preregistered tolerance.
+No unverified action is executed. `D_opt=0.01 m`, the accepted L5/L6/L7 MVEEs,
+the frozen obstacle MVEE, archived rotation/gripper commands, and the 237-step
+nominal ledger remain unchanged. The experiment measures oracle ability and
+runtime on the primary case only; it is not claimed to be deployable in real
+time and does not authorize KKT/VI or universal-formula training.

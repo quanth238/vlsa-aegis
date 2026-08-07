@@ -82,6 +82,22 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("IMAGEIO_FFMPEG_EXE", source)
         self.assertNotIn(">\"$ACCEPTED_RESULT\"", source)
 
+    def test_rollout_multicbf_is_single_h100_and_uses_cloned_steps(self) -> None:
+        source = (
+            ROOT / "slurm/distal_three_ellipsoid_rollout_multicbf_e05.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --cpus-per-task=8", source)
+        self.assertIn("#SBATCH --mem=64G", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("tests.test_multilink_ellipsoid", source)
+        self.assertIn("replay_distal_three_ellipsoid_rollout_multicbf.py", source)
+        self.assertIn(
+            "vlsa_distal_three_ellipsoid_rollout_multicbf_e05.v1.json", source
+        )
+        self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
+        self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
+
 
 if __name__ == "__main__":
     unittest.main()

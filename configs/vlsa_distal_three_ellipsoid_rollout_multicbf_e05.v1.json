@@ -1,0 +1,75 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "exact_archived_aegis_action_counterfactual_testing_three_discrete_next_step_link_constraints_with_cloned_simulator_verification_not_population_efficacy",
+  "control_effect": "modify_archived_aegis_xyz_after_cloned_step_verification",
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.05,
+    "scheme": "clipped_central_difference"
+  },
+  "nominal_action_source": "immutable_archived_released_aegis_env_step_input",
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "optimizer": {
+    "action_limit": 1.0,
+    "action_weight_diagonal": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "bound_tolerance_action": 5e-08,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "material_correction_tolerance": 1e-06,
+    "max_iter": 10000,
+    "next_step_minimum_h_opt_m": 0.0,
+    "optimizer_clearance_m": 0.01,
+    "residual_tolerance": 5e-07
+  },
+  "output_action_contract": {
+    "gripper": "preserve_archived_aegis_command",
+    "rotation": "zero_translational_protocol",
+    "xyz": "three_row_finite_difference_qp_then_exact_cloned_step_verification"
+  },
+  "protected_body_names": [
+    "robot0_link5",
+    "robot0_link6",
+    "robot0_link7"
+  ],
+  "protocol_id": "vlsa-distal-three-ellipsoid-rollout-multicbf-e05-v1",
+  "robot_geometry": {
+    "fit": "khachiyan_mvee_exact_vertex_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "relative_numerical_padding": 1e-09,
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_distal_three_ellipsoid_rollout_multicbf.v1",
+  "simulator_verification": {
+    "D_sim": "raw_mujoco_nonpositive_contact_distance_and_active_obstacle_displacement",
+    "distinct_from_D_opt": true
+  },
+  "success_definition": {
+    "clone_fidelity": "every_executed_next_state_matches_its_verified_clone",
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_link_contact": "none_for_robot0_link5_link6_link7",
+    "task": "native_goal_satisfied_within_archived_237_action_horizon"
+  },
+  "verification": {
+    "candidate_scales_toward_stop": [
+      1.0,
+      0.5,
+      0.25,
+      0.125,
+      0.0
+    ],
+    "clearance_tolerance_m": 1e-06,
+    "clone_state_tolerance": 1e-10,
+    "repeat_nominal_on_first_step": true
+  }
+}
