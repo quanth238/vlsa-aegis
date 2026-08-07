@@ -1,5 +1,14 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Distal three-ellipsoid refinement (active, 2026-08-07)
+
+Per user correction, `E02-distal-three-ellipsoid-shadow` now targets exactly
+link 5, link 6, and link 7; it does not claim whole-arm coverage. The local
+implementation fits one close, certified ellipsoid to each compiled collision
+mesh and passes exactly three analytic rigid-link constraints to the same
+read-only OSQP. Allocation-backed visualization and primary-case timing are
+still pending.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch

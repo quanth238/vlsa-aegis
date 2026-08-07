@@ -9,7 +9,7 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero}
 DINO_CONFIG=${DINO_CONFIG:-/mnt/data/quanth/cache/uv/archive-v0/hHOpLbugg_lAlUaF/groundingdino/config/GroundingDINO_SwinT_OGC.py}
 DINO_CHECKPOINT=${DINO_CHECKPOINT:-/mnt/data/quanth/cache/aegis/groundingdino/groundingdino_swint_ogc.pth}
-EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-multilink-ellipsoid}
+EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-distal-three-ellipsoid}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 
 die() {
@@ -136,13 +136,13 @@ curl --fail --silent --show-error \
   --groundingdino-device cpu \
   --failure-diagnostics \
   --multilink-ellipsoid-shadow-config \
-  "$REMOTE_REPO/configs/vlsa_multilink_ellipsoid_shadow_e05.v1.json"
+  "$REMOTE_REPO/configs/vlsa_distal_three_ellipsoid_shadow_e05.v2.json"
 
 candidate=$RESULTS_ROOT/aegis/vlsa-t1-goal-ii-t0-e05/result.json
 "$AEGIS_PYTHON" "$REMOTE_REPO/scripts/validate_multilink_ellipsoid_shadow.py" \
   --candidate "$candidate" \
   --archived "$ARCHIVED_TABLE1_RESULT" \
-  --config "$REMOTE_REPO/configs/vlsa_multilink_ellipsoid_shadow_e05.v1.json" \
+  --config "$REMOTE_REPO/configs/vlsa_distal_three_ellipsoid_shadow_e05.v2.json" \
   --repo-root "$REMOTE_REPO" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --output "$RUN_ROOT/validation.json"

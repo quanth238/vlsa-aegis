@@ -1,0 +1,44 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "read_only_surface_fitted_link5_link6_link7_ellipsoids_and_three_constraint_qp_timing_only_not_active_safety_efficacy",
+  "control_effect": "read_only_no_executed_action_change",
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "optimizer": {
+    "alpha_s_inv": 10.0,
+    "bound_tolerance_rad_s": 5e-08,
+    "eef_preservation_weight": 10.0,
+    "eef_weight_diagonal": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "joint_velocity_limit_rad_s": 0.5,
+    "max_iter": 10000,
+    "optimizer_clearance_m": 0.01,
+    "residual_tolerance": 5e-07,
+    "resolved_rate_damping": 0.05
+  },
+  "protected_body_names": [
+    "robot0_link5",
+    "robot0_link6",
+    "robot0_link7"
+  ],
+  "protocol_id": "vlsa-distal-three-ellipsoid-shadow-e05-v2",
+  "robot_geometry": {
+    "fit": "covariance_shape_exact_farthest_vertex_inflation",
+    "relative_numerical_padding": 1e-09,
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_distal_three_ellipsoid_shadow.v2",
+  "simulator_verification": {
+    "D_sim": "raw_mujoco_nonpositive_contact_distance_and_active_obstacle_displacement",
+    "distinct_from_D_opt": true
+  }
+}

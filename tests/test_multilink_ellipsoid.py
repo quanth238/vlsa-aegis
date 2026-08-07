@@ -72,6 +72,39 @@ class MultilinkEllipsoidGeometryTests(unittest.TestCase):
         self.assertTrue(certificate["verified"])
         self.assertEqual(certificate["maximum_normalized_quadratic"], 1.0)
 
+    def test_covariance_link_fit_contains_every_mesh_vertex(self) -> None:
+        from main.multilink_ellipsoid.geometry import (
+            covariance_enclosing_ellipsoid,
+        )
+
+        np = self.np
+        points = np.asarray(
+            [
+                [x, y, z]
+                for x in (-0.31, 0.29)
+                for y in (-0.055, 0.045)
+                for z in (-0.04, 0.06)
+            ],
+            dtype=np.float64,
+        )
+        ellipsoid = covariance_enclosing_ellipsoid(
+            points,
+            body_id=5,
+            body_name="robot0_link5",
+            geom_id=15,
+            geom_name="robot0_link5_collision",
+            source_body_names=("robot0_link5",),
+            source_geom_names=("robot0_link5_collision",),
+        )
+        local = (points - ellipsoid.center) @ ellipsoid.rotation
+        normalized = np.sum((local / ellipsoid.semiaxes_m) ** 2, axis=1)
+        self.assertLessEqual(float(np.max(normalized)), 1.0 + 1.0e-12)
+        self.assertGreater(float(np.max(normalized)), 0.99999999)
+        self.assertEqual(
+            ellipsoid.enclosure_certificate["source_vertex_count"], len(points)
+        )
+        self.assertTrue(ellipsoid.enclosure_certificate["convex_hull_contained"])
+
     def test_analytic_twist_derivative_matches_central_difference(self) -> None:
         from main.multilink_ellipsoid.barrier import support_gap, twist_coefficients
 
@@ -130,6 +163,21 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         self.assertTrue(config["simulator_verification"]["distinct_from_D_opt"])
         self.assertEqual(config["optimizer"]["optimizer_clearance_m"], 0.01)
         self.assertEqual(len(config["config_file_sha256"]), 64)
+
+    def test_three_ellipsoid_config_targets_only_links_5_6_7(self) -> None:
+        from main.multilink_ellipsoid.shadow import load_shadow_config
+
+        config = load_shadow_config(
+            ROOT / "configs/vlsa_distal_three_ellipsoid_shadow_e05.v2.json"
+        )
+        self.assertEqual(
+            config["protected_body_names"],
+            ["robot0_link5", "robot0_link6", "robot0_link7"],
+        )
+        self.assertEqual(
+            config["robot_geometry"]["source"],
+            "compiled_mujoco_collision_mesh_vertices",
+        )
 
     def test_evaluator_shadow_is_opt_in_and_read_only(self) -> None:
         source = (ROOT / "main/evaluate_safelibero_aegis.py").read_text(

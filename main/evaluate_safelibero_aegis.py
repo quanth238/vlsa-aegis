@@ -4060,7 +4060,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--multilink-ellipsoid-shadow-config",
         type=Path,
         help=(
-            "opt-in read-only whole-arm ellipsoid QP config; requires "
+            "opt-in read-only multi-link ellipsoid QP config; requires "
             "--mode aegis and --failure-diagnostics"
         ),
     )

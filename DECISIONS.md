@@ -298,3 +298,17 @@ oracle outcome, not an apparatus failure and not evidence for active safety.
 Any `E02` active-control gate must first preregister either tighter certified
 mesh ellipsoids, an explicitly penalized slack hierarchy, or both. A KKT/VI
 network cannot be trained against silently discarded infeasible targets.
+
+## ADR-0028: Narrow the next geometry gate to surface-fitted links 5, 6, and 7
+
+Accepted by direct user instruction. `E02` excludes links 1 through 4 and
+uses exactly three independent ellipsoids: one each for `robot0_link5`,
+`robot0_link6`, and `robot0_link7`. These are not grouped multi-body
+ellipsoids. Each bound is fitted from that rigid link's compiled MuJoCo
+collision-mesh vertices, inflated just enough to contain every vertex, and
+retains the ordinary analytical rigid-link Jacobian used by the QP.
+
+The obstacle remains the frozen released-AEGIS MVEE, and the QP receives
+exactly three simultaneous constraints. This gate remains read-only until its
+H100 visualization, containment certificate, action-invariance check, and
+runtime receipt pass. Links 1 through 4 are deliberately outside the claim.

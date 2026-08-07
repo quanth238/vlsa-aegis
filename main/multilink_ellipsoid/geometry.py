@@ -1,13 +1,15 @@
 """Conservative ellipsoid bounds for MuJoCo collision geometry.
 
 The ordinary AEGIS path never imports this module.  The opt-in observer uses
-one ellipsoid per participating collision geom, so articulated links remain
-separate instead of being hidden inside one giant whole-robot primitive.
+one ellipsoid per participating collision geom.  The distal three-envelope
+variant fits a tight, certified ellipsoid around each live link-5/link-6/link-7
+collision mesh instead of using its broad-phase bounding sphere.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import math
 from typing import Any, Mapping, Sequence, Tuple
 
@@ -57,6 +59,8 @@ class Ellipsoid:
     source_rbound_m: float | None = None
     source_geom_kind: str | None = None
     source_geom_size_m: Any | None = None
+    source_body_names: tuple[str, ...] = ()
+    source_geom_names: tuple[str, ...] = ()
     enclosure_certificate: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
@@ -78,10 +82,18 @@ class Ellipsoid:
             if certificate.get("verified") is not True:
                 raise ValueError("ellipsoid enclosure certificate must be verified")
             certificate = dict(certificate)
+        source_bodies = tuple(str(value) for value in self.source_body_names)
+        source_geoms = tuple(str(value) for value in self.source_geom_names)
+        if any(not value for value in source_bodies):
+            raise ValueError("source_body_names must not contain empty names")
+        if any(not value for value in source_geoms):
+            raise ValueError("source_geom_names must not contain empty names")
         object.__setattr__(self, "center", center)
         object.__setattr__(self, "rotation", rotation)
         object.__setattr__(self, "semiaxes_m", semiaxes)
         object.__setattr__(self, "source_geom_size_m", source_size)
+        object.__setattr__(self, "source_body_names", source_bodies)
+        object.__setattr__(self, "source_geom_names", source_geoms)
         object.__setattr__(self, "enclosure_certificate", certificate)
 
     def shape_matrix(self) -> Any:
@@ -114,8 +126,102 @@ class Ellipsoid:
                 if self.source_geom_size_m is None
                 else self.source_geom_size_m.tolist()
             ),
+            "source_body_names": list(self.source_body_names),
+            "source_geom_names": list(self.source_geom_names),
             "enclosure_certificate": self.enclosure_certificate,
         }
+
+
+def covariance_enclosing_ellipsoid(
+    points_world: Any,
+    *,
+    body_name: str,
+    geom_name: str,
+    body_id: int = -1,
+    geom_id: int = -1,
+    source_body_names: Sequence[str],
+    source_geom_names: Sequence[str],
+    relative_padding: float = 1.0e-9,
+    certificate_metadata: Mapping[str, Any] | None = None,
+    include_source_points: bool = False,
+) -> Ellipsoid:
+    """Fit a surface-following ellipsoid and certify vertex containment.
+
+    The covariance eigenvectors determine the orientation and aspect ratio.
+    A single exact Mahalanobis inflation then places the farthest source
+    vertex on the surface.  Because an ellipsoid is convex, containing every
+    compiled mesh vertex also contains their convex hull.
+    """
+
+    np = _numpy()
+    points = np.asarray(points_world, dtype=np.float64)
+    if (
+        points.ndim != 2
+        or points.shape[1] != 3
+        or points.shape[0] < 4
+        or not np.all(np.isfinite(points))
+    ):
+        raise ValueError("source points must be a finite Nx3 array with N >= 4")
+    padding = float(relative_padding)
+    if not math.isfinite(padding) or padding < 0.0 or padding > 1.0e-3:
+        raise ValueError("relative_padding must be finite and in [0, 1e-3]")
+    center = np.mean(points, axis=0)
+    centered = points - center
+    covariance = centered.T @ centered / float(points.shape[0])
+    eigenvalues, rotation = np.linalg.eigh(covariance)
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[order]
+    rotation = rotation[:, order]
+    if float(np.linalg.det(rotation)) < 0.0:
+        rotation[:, -1] *= -1.0
+    largest = float(eigenvalues[0])
+    if largest <= 0.0 or float(eigenvalues[-1]) <= max(1.0e-16, largest * 1.0e-12):
+        raise ValueError("collision vertices are degenerate")
+    base_semiaxes = np.sqrt(eigenvalues)
+    local = centered @ rotation
+    raw_quadratic = np.sum((local / base_semiaxes) ** 2, axis=1)
+    raw_maximum = float(np.max(raw_quadratic))
+    scale = math.sqrt(raw_maximum) * (1.0 + padding)
+    semiaxes = base_semiaxes * scale
+    normalized = np.sum((local / semiaxes) ** 2, axis=1)
+    normalized_maximum = float(np.max(normalized))
+    if normalized_maximum > 1.0 + 1.0e-12:
+        raise ValueError("fitted ellipsoid does not enclose every source vertex")
+    little_endian = np.ascontiguousarray(points, dtype="<f8")
+    certificate: dict[str, Any] = {
+        "verified": True,
+        "proof": "all_compiled_mesh_vertices_inside_convex_ellipsoid",
+        "fit_method": "covariance_shape_exact_farthest_vertex_inflation",
+        "source_vertex_count": int(points.shape[0]),
+        "source_vertices_float64_sha256": hashlib.sha256(
+            little_endian.tobytes(order="C")
+        ).hexdigest(),
+        "raw_maximum_mahalanobis_quadratic": raw_maximum,
+        "maximum_normalized_quadratic": normalized_maximum,
+        "maximum_containment_violation": max(0.0, normalized_maximum - 1.0),
+        "relative_numerical_padding": padding,
+        "near_surface_vertex_count": int(np.count_nonzero(normalized >= 0.95)),
+        "convex_hull_contained": True,
+    }
+    if certificate_metadata is not None:
+        certificate["source_meshes"] = [
+            dict(value) for value in certificate_metadata.get("source_meshes", [])
+        ]
+    if include_source_points:
+        certificate["source_vertices_world_m"] = points.tolist()
+    return Ellipsoid(
+        center=center,
+        rotation=rotation,
+        semiaxes_m=semiaxes,
+        body_id=int(body_id),
+        body_name=str(body_name),
+        geom_id=int(geom_id),
+        geom_name=str(geom_name),
+        bound_source="compiled_mesh_vertex_covariance_enclosure",
+        source_body_names=tuple(source_body_names),
+        source_geom_names=tuple(source_geom_names),
+        enclosure_certificate=certificate,
+    )
 
 
 def primitive_bounding_radii(

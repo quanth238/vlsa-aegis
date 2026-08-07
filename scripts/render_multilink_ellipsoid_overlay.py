@@ -15,10 +15,6 @@ from typing import Any, Iterable, Mapping, Sequence
 
 CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 COLORS = (
-    (0, 188, 212, 235),
-    (33, 150, 243, 235),
-    (103, 58, 183, 235),
-    (233, 30, 99, 235),
     (244, 67, 54, 245),
     (255, 152, 0, 245),
     (205, 220, 57, 245),
@@ -158,7 +154,7 @@ def _frame_arm_camera(env: Any, ellipsoids: Sequence[Any], camera_name: str) -> 
     env.env._update_observables(force=True)
     return {
         "source_camera_name": camera_name,
-        "semantics": "simulation_camera_repositioned_to_frame_all_link1_link7_bounds",
+        "semantics": "simulation_camera_repositioned_to_frame_all_configured_bounds",
         "position_world_m": position.tolist(),
         "target_world_m": target.tolist(),
         "quaternion_wxyz": quaternion_wxyz.tolist(),
@@ -167,7 +163,12 @@ def _frame_arm_camera(env: Any, ellipsoids: Sequence[Any], camera_name: str) -> 
     }
 
 
-def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
+def render(
+    repo_root: Path,
+    manifest: Path,
+    config_path: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
     import numpy as np
     from PIL import Image, ImageDraw, ImageFont
     from robosuite.utils.camera_utils import (
@@ -184,8 +185,11 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
         validate_case_row,
     )
     from main.multilink_ellipsoid.shadow import (
+        DISTAL_ELLIPSOID_SCHEMA,
         _link_ellipsoids,
+        _mesh_link_ellipsoids,
         allocation_record,
+        load_shadow_config,
     )
 
     rows = read_jsonl(manifest)
@@ -203,10 +207,21 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
             render_resolution=768,
         )
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
-        protected = ["robot0_link%d" % index for index in range(1, 8)]
-        ellipsoids = _link_ellipsoids(env, protected)
-        if len(ellipsoids) != 7:
-            raise ValueError("expected exactly seven live arm ellipsoids")
+        config = load_shadow_config(config_path)
+        protected = config["protected_body_names"]
+        if config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
+            ellipsoids = _mesh_link_ellipsoids(
+                env,
+                protected,
+                relative_padding=float(
+                    config["robot_geometry"]["relative_numerical_padding"]
+                ),
+                include_source_points=True,
+            )
+        else:
+            ellipsoids = _link_ellipsoids(env, protected)
+        if len(ellipsoids) != 3:
+            raise ValueError("expected exactly three live link-5/link-6/link-7 ellipsoids")
 
         camera_name = "backview"
         camera_record = _frame_arm_camera(env, ellipsoids, camera_name)
@@ -231,7 +246,8 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
         link_records: list[dict[str, Any]] = []
         combined = Image.new("RGBA", (image.shape[1], image.shape[0]), (0, 0, 0, 0))
         font = ImageFont.load_default()
-        for index, (ellipsoid, color) in enumerate(zip(ellipsoids, COLORS), start=1):
+        for ellipsoid, color in zip(ellipsoids, COLORS):
+            index = int(ellipsoid.body_name.rsplit("link", 1)[1])
             layer = Image.new("RGBA", combined.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(layer)
             visible_points = 0
@@ -295,6 +311,11 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
         record = {
             "schema_version": "vlsa_multilink_ellipsoid_visualization.v1",
             "case_id": CASE_ID,
+            "config": {
+                "path": str(config_path),
+                "schema_version": config["schema_version"],
+                "payload_sha256": config["config_payload_sha256"],
+            },
             "source": _git_identity(repo_root),
             "allocation": allocation_record(),
             "simulator": "SafeLIBERO MuJoCo settled primary initial state",
@@ -332,6 +353,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=root / "manifests/vlsa_table1_population.jsonl",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=root / "configs/vlsa_distal_three_ellipsoid_shadow_e05.v2.json",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser
 
@@ -341,6 +367,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     record = render(
         args.repo_root.resolve(),
         args.manifest.resolve(),
+        args.config.resolve(),
         args.output_dir.resolve(),
     )
     print(

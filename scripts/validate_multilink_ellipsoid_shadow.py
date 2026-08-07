@@ -103,6 +103,62 @@ def _eef_path_after_contact(result: Mapping[str, Any]) -> float:
 
 
 def _hand_check_bound(record: Mapping[str, Any]) -> dict[str, Any]:
+    if record.get("bound_source") == "compiled_mesh_vertex_covariance_enclosure":
+        import numpy as np
+
+        certificate = record.get("enclosure_certificate")
+        _require(isinstance(certificate, dict), "mesh enclosure certificate is missing")
+        _require(
+            certificate.get("verified") is True
+            and certificate.get("convex_hull_contained") is True,
+            "mesh enclosure certificate is not verified",
+        )
+        points = np.asarray(certificate.get("source_vertices_world_m"), dtype=np.float64)
+        center = np.asarray(record["center_m"], dtype=np.float64)
+        rotation = np.asarray(record["rotation"], dtype=np.float64)
+        semiaxes = np.asarray(record["semiaxes_m"], dtype=np.float64)
+        _require(
+            points.ndim == 2
+            and points.shape[1] == 3
+            and len(points) >= 4
+            and np.all(np.isfinite(points)),
+            "recorded collision-mesh vertices are malformed",
+        )
+        observed_hash = hashlib.sha256(
+            np.ascontiguousarray(points, dtype="<f8").tobytes(order="C")
+        ).hexdigest()
+        _require(
+            observed_hash == certificate.get("source_vertices_float64_sha256"),
+            "recorded collision-mesh vertex hash differs",
+        )
+        local = (points - center) @ rotation
+        normalized = np.sum((local / semiaxes) ** 2, axis=1)
+        maximum = float(np.max(normalized))
+        _require(maximum <= 1.0 + 1.0e-12, "surface-fitted ellipsoid misses a mesh vertex")
+        _require(maximum >= 0.999999, "surface-fitted ellipsoid is not close to its source surface")
+        _require(
+            abs(maximum - float(certificate["maximum_normalized_quadratic"]))
+            <= 1.0e-12,
+            "mesh containment certificate was not independently reproduced",
+        )
+        meshes = certificate.get("source_meshes")
+        _require(isinstance(meshes, list) and meshes, "source mesh metadata is missing")
+        _require(
+            all(item.get("vertices_within_geom_rbound") is True for item in meshes),
+            "source mesh exceeds its compiled MuJoCo rbound",
+        )
+        return {
+            "body_name": record["body_name"],
+            "geom_name": record["geom_name"],
+            "source_body_names": record["source_body_names"],
+            "source_geom_names": record["source_geom_names"],
+            "source_vertex_count": len(points),
+            "ellipsoid_semiaxes_m": semiaxes.tolist(),
+            "maximum_normalized_vertex_quadratic": maximum,
+            "near_surface_vertex_count": certificate["near_surface_vertex_count"],
+            "bound_source": record["bound_source"],
+            "formula_check": "passed",
+        }
     kind = str(record["source_geom_kind"])
     size = [float(value) for value in record["source_geom_size_m"]]
     rbound = float(record["source_rbound_m"])
@@ -227,7 +283,7 @@ def validate(
     _require(shadow.get("status") in ("complete", "qp_failures_present"), "shadow did not terminate explicitly")
     steps = shadow.get("steps")
     _require(isinstance(steps, list) and len(steps) == EXPECTED_ACTION_COUNT, "shadow step records are incomplete")
-    expected_bodies = {"robot0_link%d" % index for index in range(1, 8)}
+    expected_bodies = set(config["protected_body_names"])
     geometry_rows = shadow["geometry"]["link_ellipsoids"]
     hand_checked_bounds = [_hand_check_bound(item) for item in geometry_rows]
     ellipsoid_count = int(shadow["geometry"]["link_ellipsoid_count"])
@@ -253,7 +309,7 @@ def validate(
     first_contact_d_sim = steps[EXPECTED_FIRST_ROBOT_CONTACT_STEP]["D_sim"]["value"]
     _require(first_contact_d_sim["robot_contact_count"] > 0, "D_sim misses the first raw robot contact")
     _require(first_contact_d_sim["minimum_robot_contact_distance_m"] <= 0.0, "D_sim first-contact distance is not nonpositive")
-    _require(expected_bodies.issubset(observed_bodies), "whole-arm link1-link7 coverage is incomplete")
+    _require(expected_bodies.issubset(observed_bodies), "configured link coverage is incomplete")
     geometry_bodies = {item["body_name"] for item in geometry_rows}
     _require(expected_bodies.issubset(geometry_bodies), "initial geometry omits a protected arm link")
     _require(shadow["config"]["config_file_sha256"] == config["config_file_sha256"], "shadow config file identity differs")
@@ -296,7 +352,7 @@ def validate(
             "native_task_success": True,
             "native_task_success_step": EXPECTED_TASK_SUCCESS_STEP,
         },
-        "whole_arm_ellipsoid_qp": {
+        "configured_arm_ellipsoid_qp": {
             "protected_body_names": sorted(expected_bodies),
             "ellipsoid_count": shadow["geometry"]["link_ellipsoid_count"],
             "hand_checked_live_bounds": hand_checked_bounds,

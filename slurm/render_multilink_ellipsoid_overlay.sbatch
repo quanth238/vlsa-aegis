@@ -48,4 +48,5 @@ cd "$REMOTE_REPO"
 exec "$AEGIS_PYTHON" scripts/render_multilink_ellipsoid_overlay.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
+  --config "$REMOTE_REPO/configs/vlsa_distal_three_ellipsoid_shadow_e05.v2.json" \
   --output-dir "$OUTPUT_DIR"

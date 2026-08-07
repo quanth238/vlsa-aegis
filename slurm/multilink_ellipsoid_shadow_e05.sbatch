@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=vlsa-multilink-ellipsoid-e05
+#SBATCH --job-name=vlsa-distal-3ellipsoid-e05
 #SBATCH --partition=main
 #SBATCH --account=normal
 #SBATCH --qos=normal

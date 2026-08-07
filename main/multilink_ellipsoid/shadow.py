@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 from .barrier import build_pair_constraint
 from .geometry import (
     Ellipsoid,
+    covariance_enclosing_ellipsoid,
     primitive_bounding_radii,
     primitive_enclosure_certificate,
 )
@@ -22,7 +23,9 @@ from .qp import MultiConstraintQp
 
 
 SHADOW_SCHEMA = "vlsa_multilink_ellipsoid_shadow.v1"
+DISTAL_ELLIPSOID_SCHEMA = "vlsa_distal_three_ellipsoid_shadow.v2"
 STEP_SCHEMA = "vlsa_multilink_ellipsoid_shadow_step.v1"
+DISTAL_ELLIPSOID_STEP_SCHEMA = "vlsa_distal_three_ellipsoid_shadow_step.v2"
 _BODY_PATTERN = re.compile(r"^robot0_link[1-7]$")
 _GEOM_KIND_FALLBACK = {
     0: "plane",
@@ -66,27 +69,48 @@ def load_shadow_config(path: Path) -> dict[str, Any]:
         config = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ValueError("multi-link ellipsoid shadow config is invalid JSON") from error
-    if not isinstance(config, dict) or config.get("schema_version") != SHADOW_SCHEMA:
+    if not isinstance(config, dict) or config.get("schema_version") not in (
+        SHADOW_SCHEMA,
+        DISTAL_ELLIPSOID_SCHEMA,
+    ):
         raise ValueError("multi-link ellipsoid shadow config schema differs")
+    schema = config["schema_version"]
     required = {
         "schema_version",
         "protocol_id",
         "case_ids",
         "control_effect",
-        "protected_body_names",
         "obstacle_geometry",
         "optimizer",
         "simulator_verification",
         "claim_scope",
     }
+    required.add("protected_body_names")
+    if schema == DISTAL_ELLIPSOID_SCHEMA:
+        required.add("robot_geometry")
     if set(config) != required:
         raise ValueError("multi-link ellipsoid shadow config keys differ")
     if config["control_effect"] != "read_only_no_executed_action_change":
         raise ValueError("shadow configuration must be read-only")
-    bodies = config["protected_body_names"]
     expected = ["robot0_link%d" % index for index in range(1, 8)]
-    if bodies != expected or any(_BODY_PATTERN.fullmatch(name) is None for name in bodies):
-        raise ValueError("protected bodies must be the ordered Panda link1-link7 set")
+    bodies = config["protected_body_names"]
+    expected_bodies = expected if schema == SHADOW_SCHEMA else expected[4:]
+    if bodies != expected_bodies or any(
+        not isinstance(name, str) or _BODY_PATTERN.fullmatch(name) is None
+        for name in bodies
+    ):
+        raise ValueError(
+            "protected bodies must be ordered link1-link7 for v1 or link5-link7 for v2"
+        )
+    if schema == DISTAL_ELLIPSOID_SCHEMA:
+        geometry = config["robot_geometry"]
+        expected_geometry = {
+            "source": "compiled_mujoco_collision_mesh_vertices",
+            "fit": "covariance_shape_exact_farthest_vertex_inflation",
+            "relative_numerical_padding": 1.0e-9,
+        }
+        if geometry != expected_geometry:
+            raise ValueError("three-ellipsoid robot geometry contract differs")
     if config["obstacle_geometry"] != "released_aegis_frozen_perception_mvee":
         raise ValueError("shadow obstacle geometry must remain the released AEGIS MVEE")
     case_ids = config["case_ids"]
@@ -341,6 +365,103 @@ def _link_ellipsoids(env: Any, protected_names: Sequence[str]) -> list[Ellipsoid
     return output
 
 
+def _mesh_link_ellipsoids(
+    env: Any,
+    protected_names: Sequence[str],
+    *,
+    relative_padding: float = 1.0e-9,
+    include_source_points: bool = False,
+) -> list[Ellipsoid]:
+    """Fit one tight certified collision-mesh ellipsoid per rigid link."""
+
+    np = _numpy()
+    model, data = _raw_model_data(env.sim)
+    protected = set(protected_names)
+    point_sets: dict[str, list[Any]] = {name: [] for name in protected_names}
+    mesh_records: dict[str, list[dict[str, Any]]] = {
+        name: [] for name in protected_names
+    }
+    geom_names: dict[str, list[str]] = {name: [] for name in protected_names}
+    body_ids: dict[str, int] = {}
+    geom_ids: dict[str, list[int]] = {name: [] for name in protected_names}
+    geom_bodyid = np.asarray(model.geom_bodyid, dtype=np.int64)
+    geom_contype = np.asarray(model.geom_contype, dtype=np.int64)
+    geom_conaffinity = np.asarray(model.geom_conaffinity, dtype=np.int64)
+    for geom_id in range(int(model.ngeom)):
+        body_id = int(geom_bodyid[geom_id])
+        body_name = _name(env.sim.model, "body", body_id)
+        if body_name not in protected:
+            continue
+        if int(geom_contype[geom_id]) == 0 and int(geom_conaffinity[geom_id]) == 0:
+            continue
+        kind = _geom_kind(int(model.geom_type[geom_id]))
+        if kind != "mesh":
+            raise ValueError(
+                "surface-fitted distal ellipsoid requires mesh geometry; %s is %s"
+                % (body_name, kind)
+            )
+        mesh_id = int(model.geom_dataid[geom_id])
+        if mesh_id < 0:
+            raise ValueError("collision mesh lacks compiled mesh data")
+        vertex_address = int(model.mesh_vertadr[mesh_id])
+        vertex_count = int(model.mesh_vertnum[mesh_id])
+        if vertex_count < 4:
+            raise ValueError("collision mesh has fewer than four vertices")
+        local = np.asarray(
+            model.mesh_vert[vertex_address : vertex_address + vertex_count],
+            dtype=np.float64,
+        )
+        rotation = np.asarray(data.geom_xmat[geom_id], dtype=np.float64).reshape(3, 3)
+        position = np.asarray(data.geom_xpos[geom_id], dtype=np.float64)
+        points = local @ rotation.T + position
+        rbound = float(model.geom_rbound[geom_id])
+        maximum_radius = float(np.max(np.linalg.norm(points - position, axis=1)))
+        if maximum_radius > rbound + 1.0e-8:
+            raise ValueError("compiled collision mesh vertices exceed geom_rbound")
+        geom_name = _name(env.sim.model, "geom", geom_id) or "unnamed_geom_%d" % geom_id
+        point_sets[body_name].append(points)
+        geom_names[body_name].append(geom_name)
+        geom_ids[body_name].append(geom_id)
+        body_ids[body_name] = body_id
+        mesh_records[body_name].append(
+            {
+                "body_name": body_name,
+                "geom_id": geom_id,
+                "geom_name": geom_name,
+                "mesh_id": mesh_id,
+                "compiled_vertex_count": vertex_count,
+                "maximum_vertex_radius_m": maximum_radius,
+                "geom_rbound_m": rbound,
+                "vertices_within_geom_rbound": True,
+            }
+        )
+    missing = [name for name in protected_names if not point_sets[name]]
+    if missing:
+        raise ValueError("distal links lack collision mesh vertices: %s" % missing)
+    output: list[Ellipsoid] = []
+    for body_name in protected_names:
+        points = np.concatenate(point_sets[body_name], axis=0)
+        names = geom_names[body_name]
+        ids = geom_ids[body_name]
+        output.append(
+            covariance_enclosing_ellipsoid(
+                points,
+                body_id=body_ids[body_name],
+                body_name=body_name,
+                geom_id=ids[0] if len(ids) == 1 else -1,
+                geom_name="+".join(names),
+                source_body_names=(body_name,),
+                source_geom_names=tuple(names),
+                relative_padding=relative_padding,
+                certificate_metadata={"source_meshes": mesh_records[body_name]},
+                include_source_points=include_source_points,
+            )
+        )
+    if len(output) != 3:
+        raise ValueError("distal fit must produce exactly link-5/link-6/link-7 ellipsoids")
+    return output
+
+
 def _resolved_rate_nominal(
     executed_action: Sequence[float],
     eef_jacobian: Any,
@@ -369,10 +490,13 @@ def _resolved_rate_nominal(
 
 
 class MultilinkEllipsoidShadow:
-    """Evaluate, but never execute, the whole-arm multi-constraint QP."""
+    """Evaluate, but never execute, the configured multi-constraint QP."""
 
     def __init__(self, config: Mapping[str, Any], obstacle: Ellipsoid) -> None:
-        if config.get("schema_version") != SHADOW_SCHEMA:
+        if config.get("schema_version") not in (
+            SHADOW_SCHEMA,
+            DISTAL_ELLIPSOID_SCHEMA,
+        ):
             raise ValueError("shadow configuration was not validated")
         self.config = dict(config)
         self.obstacle = obstacle
@@ -403,6 +527,23 @@ class MultilinkEllipsoidShadow:
         return cls(config, obstacle)
 
     def geometry_record(self, env: Any) -> dict[str, Any]:
+        if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
+            geometry = self.config["robot_geometry"]
+            links = _mesh_link_ellipsoids(
+                env,
+                self.config["protected_body_names"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                include_source_points=True,
+            )
+            return {
+                "obstacle": self.obstacle.to_record(),
+                "link_ellipsoid_count": len(links),
+                "link_ellipsoids": [item.to_record() for item in links],
+                "coverage_semantics": (
+                    "one_surface_fitted_covariance_ellipsoid_each_for_compiled_"
+                    "collision_mesh_vertices_on_robot0_link5_link6_link7"
+                ),
+            }
         links = _link_ellipsoids(env, self.config["protected_body_names"])
         return {
             "obstacle": self.obstacle.to_record(),
@@ -427,7 +568,15 @@ class MultilinkEllipsoidShadow:
             joint_velocity_limit=float(optimizer["joint_velocity_limit_rad_s"]),
         )
         geometry_started = time.perf_counter_ns()
-        links = _link_ellipsoids(env, self.config["protected_body_names"])
+        if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
+            geometry = self.config["robot_geometry"]
+            links = _mesh_link_ellipsoids(
+                env,
+                self.config["protected_body_names"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+            )
+        else:
+            links = _link_ellipsoids(env, self.config["protected_body_names"])
         constraints = []
         for link in links:
             jac_position, jac_rotation = _geom_jacobians(env, link, arm_dofs)
@@ -438,9 +587,14 @@ class MultilinkEllipsoidShadow:
                     jac_position,
                     jac_rotation,
                     alpha=float(optimizer["alpha_s_inv"]),
-                    optimizer_clearance_m=float(optimizer["optimizer_clearance_m"]),
+                    optimizer_clearance_m=float(
+                        optimizer["optimizer_clearance_m"]
+                    ),
                 )
             )
+        derivative_record = {
+            "source": "analytic_rigid_link_twist_mapped_through_mujoco_jacobian"
+        }
         geometry_finished = time.perf_counter_ns()
         rows = np.stack([item.row for item in constraints], axis=0)
         lower = np.asarray([item.lower for item in constraints], dtype=np.float64)
@@ -464,13 +618,18 @@ class MultilinkEllipsoidShadow:
             if float(item.row @ nominal - item.lower) < 0.0
         ]
         record = {
-            "schema_version": STEP_SCHEMA,
+            "schema_version": (
+                DISTAL_ELLIPSOID_STEP_SCHEMA
+                if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA
+                else STEP_SCHEMA
+            ),
             "step": int(step),
             "control_effect": "read_only_no_executed_action_change",
             "arm_dof_indices": list(arm_dofs),
             "nominal": nominal_record,
             "constraint_count": len(constraints),
             "constraints": [item.to_record() for item in constraints],
+            "constraint_derivative": derivative_record,
             "closest_constraint_index": closest_index,
             "closest_body_name": constraints[closest_index].body_name,
             "minimum_h_opt_m": float(constraints[closest_index].h_opt_m),

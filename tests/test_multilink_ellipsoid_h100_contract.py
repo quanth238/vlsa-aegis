@@ -25,6 +25,7 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("/mnt/data/quanth/venvs/safety_vla/main/bin/python", source)
         self.assertIn("trap cleanup EXIT", source)
         self.assertIn("tests.test_multilink_ellipsoid", source)
+        self.assertIn("vlsa_distal_three_ellipsoid_shadow_e05.v2.json", source)
 
     def test_table1_result_is_read_only_validator_input(self) -> None:
         source = (ROOT / "slurm/run_multilink_ellipsoid_shadow_e05.sh").read_text(
@@ -33,7 +34,7 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("--archived \"$ARCHIVED_TABLE1_RESULT\"", source)
         self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
         self.assertNotIn("mv \"$ARCHIVED_TABLE1_RESULT\"", source)
-        self.assertIn("vlsa-aegis-multilink-ellipsoid", source)
+        self.assertIn("vlsa-aegis-distal-three-ellipsoid", source)
 
 
 if __name__ == "__main__":
