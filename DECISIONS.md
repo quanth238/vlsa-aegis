@@ -335,3 +335,20 @@ is a controlled counterfactual for the safety layer, not closed-loop policy
 efficacy. The QP may change only XYZ; rotation remains zero and the gripper
 command is exact. Raw protected-link contact, paper CAR, and native goal state
 jointly determine whether the primary report problem is solved.
+
+## ADR-0030: Retain the negative Cartesian multi-CBF outcome
+
+Accepted after clean H100 job `36782`. The exact-action controller solves all
+three L5/L6/L7 inequalities at every action, but direct L5 contact and paper
+CAR occur at action 189 and the native task does not complete. This is a
+scientific controller failure, not an apparatus failure: source, initial
+state, archived nominal ledger, geometry, solver status, and raw simulator
+contacts are all complete.
+
+We do not tune `alpha`, `D_opt`, ellipsoid size, or a fallback after observing
+this result. The outcome shows that satisfying the continuous resolved-rate
+linearization in the executable XYZ action is insufficient for discrete
+SafeLIBERO OSC contact avoidance in this case. A later experiment must
+preregister direct joint-space execution or nonlinear discrete-time
+rollout/step reduction; KKT/VI learning is not a remedy for this model-to-
+execution mismatch.

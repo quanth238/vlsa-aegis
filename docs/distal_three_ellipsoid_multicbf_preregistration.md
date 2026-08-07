@@ -52,3 +52,14 @@ same 237-action nominal horizon:
 
 This exact-action counterfactual isolates the new safety filter. It is not a
 closed-loop policy claim and not population efficacy evidence.
+
+## H100 result
+
+Final exact-nominal replay job `36782` returned
+`primary_problem_solved=false`. All 237 three-row QPs solved, and 28 actions
+received material XYZ corrections beginning at action 182. Nevertheless,
+raw link-5 contact and paper CAR both occur at action 189, and the native task
+does not complete within the frozen 237-action horizon. The QP therefore
+delays but does not solve the report failure under this executable Cartesian
+mapping. Result payload SHA-256 is
+`950628aaaa1f63ede455abdc044add2fa08a189468452c0444840f36a81e15b8`.

@@ -47,6 +47,33 @@ XYZ and uses `1e-6` L2 as the material-intervention threshold. This is a
 numerical identity correction; the CBF parameters and unsafe-step solution
 remain unchanged.
 
+Authoritative H100 replay `36782` completed on `worker-1` in `00:01:41` from
+clean commit `ad05dac8ea3f51fff69f6857d1a819ffbe1be2b1`. Result file SHA-256
+is `d28e29c06820817157d01c27d3f5fd366825992bcc75234086b36a868d9d80f0`;
+payload SHA-256 is
+`950628aaaa1f63ede455abdc044add2fa08a189468452c0444840f36a81e15b8`.
+All 237 QPs solved with exactly three rows. The controller preserved the exact
+archived action on 209 steps and made 28 material interventions, starting at
+action 182. QP total wall time was mean `1.736 ms`, p95 `2.297 ms`, maximum
+`4.831 ms`; solver-only mean was `0.0862 ms`.
+
+The preregistered outcome is negative: `primary_problem_solved=false`. Direct
+`robot0_link5_collision` contact begins at action 189 and persists through
+193, with minimum raw MuJoCo distance `-0.0008023 m`. Paper CAR also first
+fails at 189, maximum active-obstacle displacement reaches `0.0266153 m`, and
+the native task never succeeds within the 237-action horizon. Relative to
+released AEGIS, the filter delays link contact by two actions and CAR by one,
+but does not prevent either and loses task success. Every solved action-space
+constraint passed its QP residual check (minimum raw residual about
+`-5.6e-17`), so the remaining gap is between the high-level resolved-rate
+linearization and discrete OSC/simulator motion, not an ignored QP failure.
+
+No gain, clearance, geometry, or fallback is tuned after this outcome. The
+next controller experiment requires a new preregistration, most directly for
+joint-space execution or discrete-time nonlinear rollout/step reduction.
+Local rehash reproduced the result payload identity exactly, and the final
+`./init.sh` gate passes 192 tests with 24 dependency-optional skips.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch
