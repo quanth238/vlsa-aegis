@@ -20,7 +20,7 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-distal-three-ellipsoid-multicbf-video}
 ACCEPTED_RESULT=${ACCEPTED_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-distal-three-ellipsoid-multicbf/vlsa-distal-three-ellipsoid-multicbf-e05-20260807b/result.json}
 EXPECTED_RESULT_SHA256=${EXPECTED_RESULT_SHA256:-d28e29c06820817157d01c27d3f5fd366825992bcc75234086b36a868d9d80f0}
-IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/cache/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
+IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
 
 case "$RUN_ID" in
   ""|*[!A-Za-z0-9._-]*) printf 'unsafe RUN_ID\n' >&2; exit 1 ;;
