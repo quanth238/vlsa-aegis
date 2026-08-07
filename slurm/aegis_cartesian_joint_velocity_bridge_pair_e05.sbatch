@@ -17,7 +17,7 @@ REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-table-repro}
 EXPECTED_COMMIT=${EXPECTED_COMMIT:?EXPECTED_COMMIT is required}
 RUN_ROOT=${RUN_ROOT:?RUN_ROOT is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
-MANIFEST=${MANIFEST:-$REMOTE_REPO/manifests/vlsa_poisson_link56_aegis_car_109.v1.jsonl}
+MANIFEST=${MANIFEST:-$REMOTE_REPO/manifests/vlsa_table1_population.jsonl}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_aegis_cartesian_joint_velocity_bridge_pair_e05.v1.json}
 
@@ -38,8 +38,20 @@ mkdir -p "$(dirname "$RUN_ROOT")"
 mkdir "$RUN_ROOT"
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONUNBUFFERED=1
+export MUJOCO_GL=osmesa
+export PYOPENGL_PLATFORM=osmesa
 export IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
+export LIBERO_CONFIG_PATH=$RUN_ROOT/libero-config
+mkdir "$LIBERO_CONFIG_PATH"
+safelibero_root=$REMOTE_REPO/safelibero/libero/libero
+{
+  printf 'benchmark_root: %s\n' "$safelibero_root"
+  printf 'bddl_files: %s\n' "$safelibero_root/bddl_files"
+  printf 'init_states: %s\n' "$safelibero_root/init_files"
+  printf 'datasets: %s\n' "$REMOTE_REPO/safelibero/libero/datasets"
+  printf 'assets: %s\n' "$safelibero_root/assets"
+} >"$LIBERO_CONFIG_PATH/config.yaml"
 
 cd "$REMOTE_REPO"
 {
