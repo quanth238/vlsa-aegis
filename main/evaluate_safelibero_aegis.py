@@ -593,6 +593,7 @@ def _scientific_resume_is_valid(
     output_root: Path,
     expected_label_record: Mapping[str, Any] | None,
     require_failure_diagnostics: bool = False,
+    require_multilink_ellipsoid_shadow: bool = False,
 ) -> bool:
     """Conservatively recognize a complete, video-backed terminal result."""
 
@@ -601,6 +602,14 @@ def _scientific_resume_is_valid(
         required=require_failure_diagnostics,
     ):
         return False
+    if require_multilink_ellipsoid_shadow:
+        shadow = result.get("multilink_ellipsoid_shadow")
+        if (
+            not isinstance(shadow, Mapping)
+            or shadow.get("status") != "complete"
+            or shadow.get("all_qps_valid") is not True
+        ):
+            return False
     if (
         result.get("schema_version") != RESULT_SCHEMA
         or result.get("protocol_id") != case.get("protocol_id")
@@ -2986,11 +2995,18 @@ def evaluate_case(
     groundingdino_device: str,
     overwrite: bool,
     failure_diagnostics_enabled: bool = False,
+    multilink_ellipsoid_shadow_config: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute one manifest case and atomically publish its result."""
 
     if mode not in {"pi05", "aegis"}:
         raise ProtocolError(f"unsupported mode: {mode}")
+    shadow_enabled = multilink_ellipsoid_shadow_config is not None
+    if shadow_enabled and (mode != "aegis" or not failure_diagnostics_enabled):
+        raise ProtocolError(
+            "the multi-link ellipsoid shadow requires AEGIS mode and "
+            "--failure-diagnostics"
+        )
     if (
         resize_size != TABLE_POLICY_RESIZE
         or render_resolution != TABLE_RENDER_RESOLUTION
@@ -3022,6 +3038,7 @@ def evaluate_case(
             output_root=output_root,
             expected_label_record=current_label_record,
             require_failure_diagnostics=failure_diagnostics_enabled,
+            require_multilink_ellipsoid_shadow=shadow_enabled,
         ):
             return existing
     prior_attempt_artifacts = _archive_prior_case_artifacts(case_dir)
@@ -3040,6 +3057,9 @@ def evaluate_case(
     geometry_diagnostic_state: dict[str, Any] | None = None
     contact_diagnostic_snapshots: list[dict[str, Any]] = []
     contact_model_authority: dict[str, Any] | None = None
+    multilink_shadow: Any = None
+    multilink_shadow_records: list[dict[str, Any]] = []
+    multilink_shadow_failure: dict[str, Any] | None = None
     result: dict[str, Any] = {
         "schema_version": RESULT_SCHEMA,
         "protocol_id": case.get("protocol_id"),
@@ -3088,6 +3108,24 @@ def evaluate_case(
             "mode": mode,
             "control_effect": "read_only_observation",
         }
+    if shadow_enabled:
+        shadow_config = dict(multilink_ellipsoid_shadow_config or {})
+        if case_id not in shadow_config.get("case_ids", []):
+            raise ProtocolError(
+                f"{case_id}: case is absent from the multi-link shadow config"
+            )
+        result["multilink_ellipsoid_shadow"] = {
+            "schema_version": "vlsa_multilink_ellipsoid_shadow_result.v1",
+            "status": "initializing",
+            "control_effect": "read_only_no_executed_action_change",
+            "config": shadow_config,
+            "steps": multilink_shadow_records,
+        }
+        from main.multilink_ellipsoid.shadow import allocation_record
+
+        result["multilink_ellipsoid_shadow"]["allocation"] = (
+            allocation_record()
+        )
     if prior_attempt_artifacts:
         result["prior_attempt_artifacts"] = prior_attempt_artifacts
     try:
@@ -3257,6 +3295,30 @@ def evaluate_case(
                         "corrected_execution": TRANSLATIONAL_FAIL_OPEN,
                         "upstream_released_execution": (
                             UPSTREAM_EMPTY_PERCEPTION_FALLBACK
+                        ),
+                    }
+                if shadow_enabled and geometry["enabled"]:
+                    from main.multilink_ellipsoid.shadow import (
+                        MultilinkEllipsoidShadow,
+                    )
+
+                    multilink_shadow = (
+                        MultilinkEllipsoidShadow.from_aegis_geometry(
+                            shadow_config,
+                            geometry,
+                        )
+                    )
+                    result["multilink_ellipsoid_shadow"]["geometry"] = (
+                        multilink_shadow.geometry_record(env)
+                    )
+                    result["multilink_ellipsoid_shadow"]["status"] = (
+                        "running"
+                    )
+                elif shadow_enabled:
+                    multilink_shadow_failure = {
+                        "type": "ShadowGeometryUnavailable",
+                        "message": (
+                            "released AEGIS obstacle geometry was not enabled"
                         ),
                     }
         else:
@@ -3456,6 +3518,23 @@ def evaluate_case(
                 modification_l2_max, correction_l2
             )
 
+            shadow_step_record: dict[str, Any] | None = None
+            if multilink_shadow is not None:
+                try:
+                    shadow_step_record = multilink_shadow.evaluate(
+                        env,
+                        executed,
+                        step=step,
+                    )
+                    multilink_shadow_records.append(shadow_step_record)
+                except Exception as error:
+                    multilink_shadow_failure = {
+                        "type": type(error).__name__,
+                        "message": str(error),
+                        "step": int(step),
+                    }
+                    multilink_shadow = None
+
             env_step_input = (
                 list(executed)
                 if failure_diagnostics_enabled
@@ -3524,6 +3603,36 @@ def evaluate_case(
                     if pair not in contact_pairs:
                         contact_pairs.append(pair)
 
+            if shadow_step_record is not None:
+                robot_contact_distances = [
+                    float(event["distance"])
+                    for event in detailed_contacts["events"]
+                    if event.get("other", {}).get("classification")
+                    == "robot"
+                ]
+                shadow_step_record["D_sim"] = {
+                    "available": detailed_contacts["status"]
+                    == "available",
+                    "value": {
+                        "minimum_robot_contact_distance_m": (
+                            min(robot_contact_distances)
+                            if robot_contact_distances
+                            else None
+                        ),
+                        "active_obstacle_l1_displacement_m": displacement,
+                        "robot_contact_count": len(
+                            robot_contact_distances
+                        ),
+                    },
+                    "semantics": shadow_config[
+                        "simulator_verification"
+                    ]["D_sim"],
+                    "source": (
+                        "post_step_raw_simulator_evidence_not_optimizer_"
+                        "geometry"
+                    ),
+                }
+
             action_record = {
                 "step": step,
                 "nominal_raw": _finite_list(nominal_raw[:7]),
@@ -3540,6 +3649,10 @@ def evaluate_case(
                 "obstacle_l1_displacement_m": displacement,
                 "robot_obstacle_contact": bool(contacts["pairs"]),
             }
+            if shadow_enabled:
+                action_record["multilink_ellipsoid_shadow"] = (
+                    shadow_step_record
+                )
             if failure_diagnostics_enabled:
                 action_record["env_step_input"] = env_step_input
             executed_actions.append(action_record)
@@ -3664,6 +3777,22 @@ def evaluate_case(
                 },
             }
         )
+        if shadow_enabled:
+            from main.multilink_ellipsoid.shadow import (
+                summarize_shadow_records,
+            )
+
+            shadow_summary = summarize_shadow_records(
+                multilink_shadow_records
+            )
+            result["multilink_ellipsoid_shadow"].update(shadow_summary)
+            if multilink_shadow_failure is not None:
+                result["multilink_ellipsoid_shadow"].update(
+                    {
+                        "status": "observer_failure",
+                        "failure": multilink_shadow_failure,
+                    }
+                )
         if hard_method_failure is not None:
             result["method_failure"] = hard_method_failure
         elif degraded_method_failure is not None:
@@ -3927,6 +4056,14 @@ def build_parser() -> argparse.ArgumentParser:
             "nominal and executed action bytes remain unchanged"
         ),
     )
+    parser.add_argument(
+        "--multilink-ellipsoid-shadow-config",
+        type=Path,
+        help=(
+            "opt-in read-only whole-arm ellipsoid QP config; requires "
+            "--mode aegis and --failure-diagnostics"
+        ),
+    )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--repo-root", type=Path, default=root)
     return parser
@@ -3934,6 +4071,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    shadow_config = None
+    if args.multilink_ellipsoid_shadow_config is not None:
+        from main.multilink_ellipsoid.shadow import load_shadow_config
+
+        shadow_config = load_shadow_config(
+            args.multilink_ellipsoid_shadow_config.resolve()
+        )
     rows = read_jsonl(args.manifest.resolve())
     selected = select_cases(
         rows,
@@ -4000,6 +4144,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             groundingdino_device=args.groundingdino_device,
             overwrite=args.overwrite,
             failure_diagnostics_enabled=args.failure_diagnostics,
+            multilink_ellipsoid_shadow_config=shadow_config,
         )
         status_counts[str(result["status"])] += 1
         print(

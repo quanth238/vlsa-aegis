@@ -1,18 +1,70 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Multi-link ellipsoid research branch (2026-08-07)
+
+`E01-multilink-ellipsoid-shadow` is active on branch
+`codex/multilink-ellipsoid-qp`, based exactly on clean AEGIS reproduction
+commit `1592aa59361f431ba96c6ddcbebcb596f6c20853`. The historical Table-1
+population is not modified, resumed, or reinterpreted on this branch.
+
+Read-only raw-artifact verification for primary case
+`vlsa-t1-goal-ii-t0-e05` established the preregistered target:
+
+- archived AEGIS `result.json` file SHA-256 is
+  `273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b`;
+- the released one-constraint OSQP is solved at action 187 with positive
+  end-effector proxy barrier `h=0.009312042732980995`, while raw MuJoCo
+  evidence records direct `robot0_link5_collision` contact with the active
+  moka pot at that action and a link-6 pair later in the episode;
+- paper CAR crosses at action 188, AEGIS executes 237 actions total, and the
+  native SafeLIBERO goal first becomes satisfied at action 236. Thus the
+  robot executes 49 actions after the paper collision and completes the task.
+
+Implementation evidence before H100 execution:
+
+- the ordinary evaluator remains unchanged unless
+  `--multilink-ellipsoid-shadow-config` is supplied together with AEGIS mode
+  and failure diagnostics;
+- the observer constructs one certified enclosing ellipsoid for every
+  contact-participating collision geom on `robot0_link1` through
+  `robot0_link7`. Primitive sphere, ellipsoid, capsule, cylinder, and box
+  bounds use closed-form enclosures; mesh/unknown geometry uses MuJoCo's
+  conservative `geom_rbound` sphere;
+- every link ellipsoid is paired with the same frozen obstacle MVEE used by
+  released AEGIS. Analytical world-twist derivatives are mapped through live
+  MuJoCo Jacobians into one joint-space constraint per pair;
+- the exact OSQP minimizes a positive-definite end-effector-preserving
+  seven-joint velocity metric subject to all pair constraints and physical
+  velocity bounds. It records setup, solve, OSQP, and total wall time, and
+  retains infeasible/failed outcomes explicitly;
+- `D_opt=0.01 m` is only the optimizer support-gap buffer. `D_sim` remains
+  raw MuJoCo contact and active-obstacle displacement evidence; neither is
+  substituted for the other;
+- the shadow QP never changes the action passed to `env.step`. The H100
+  validator requires exact nominal, executed, virtual-direction, policy-noise,
+  and returned-action ledger equality with the immutable archived AEGIS case;
+- focused geometry/contract tests pass: 10 tests ran with the allocation-only
+  OSQP dependency test skipped locally. The complete `./init.sh` gate passes
+  185 tests with 22 dependency-optional skips in 205.773 seconds. The OSQP
+  test remains mandatory inside the H100 allocation before simulation.
+
+No learned steering or KKT/VI model is authorized in `E01`. The next exact
+command is the clean-commit H100 Slurm submission recorded after live cluster
+preflight.
+
 ## Objective
 
 Reproduce the translational-action portion of AEGIS Table 1 from the authors'
 release, retain videos for every SafeLIBERO rollout, and explain both collision
 and task failures without silently excluding apparatus failures.
 
-## Current gate
+## Historical Table-1 gate (frozen branch context)
 
-`A04-population` is active. The apparatus, capture, and action-invariant
-paired-canary gates passed in dependency order. The population implementation
-has passed local and independent review for a fresh canary, but no population
-job is authorized until that exact-source canary validates live simulator
-artifacts.
+`A04-population` was active on the original reproduction branch. It is pending
+and out of scope on this research branch so that `E01` is the only active
+gate. The apparatus, capture, and action-invariant paired-canary gates passed
+in dependency order; the text below is retained as historical context and is
+not a new interpretation of completed Table-1 artifacts.
 
 Local implementation evidence on 2026-07-18:
 

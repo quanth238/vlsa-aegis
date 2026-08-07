@@ -248,3 +248,36 @@ remains valid historical integration evidence for `A03`, but it cannot
 authorize a population from the new source. The final clean release therefore
 requires a new source-bound checkpoint receipt and the same four-rollout
 ordinal-100 action-invariance canary before any population submission.
+
+## ADR-0025: Start multi-link geometry as an opt-in read-only AEGIS observer
+
+Accepted. Branch `codex/multilink-ellipsoid-qp` starts from clean current
+AEGIS reproduction commit `1592aa59361f431ba96c6ddcbebcb596f6c20853`.
+Completed Table-1 artifacts are immutable inputs. The first gate reruns only
+primary case `vlsa-t1-goal-ii-t0-e05` and requires exact action-ledger equality
+with archived AEGIS while evaluating the new geometry and QP before each
+unchanged `env.step` call. This separates the questions "does the geometry see
+the arm?" and "how expensive is the coupled QP?" from active-control efficacy.
+
+Every contact-participating collision geom on Panda link 1 through link 7 has
+its own conservative enclosing ellipsoid. This is a task-independent whole-arm
+set; the historical collision link is not an input. The obstacle remains the
+released frozen AEGIS perception MVEE. The correction variable is a physical
+seven-joint velocity, derived from the executed translational AEGIS action only
+as a read-only resolved-rate nominal. No neural model is trained.
+
+## ADR-0026: Preregister optimizer clearance, simulator evidence, and timing
+
+Accepted. The first shadow uses `alpha=10 s^-1`, `D_opt=0.01 m`, physical
+joint-velocity bounds of `+/-0.5 rad/s`, resolved-rate damping `0.05`, and an
+end-effector-preservation metric `I + 10 J_ee^T J_ee`. OSQP tolerances and all
+parameters are frozen in
+`configs/vlsa_multilink_ellipsoid_shadow_e05.v1.json` before H100 execution.
+
+`D_opt` is the support-gap buffer used by the optimizer. `D_sim` is raw MuJoCo
+nonpositive contact distance plus the separately reported active-obstacle
+displacement. They remain distinct in every step record and validation
+receipt. QP setup, solve, solver-reported, and total observer times are all
+retained. Infeasibility is a reportable result, never silently dropped. The
+only claim available from this gate is oracle geometry/QP implementation and
+timing evidence; active safety requires the dependent `E02` gate.

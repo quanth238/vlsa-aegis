@@ -32,9 +32,11 @@
     },
     {
       "id": "A04-population",
-      "status": "active",
+      "status": "pending",
       "depends_on": ["A03-one-case-paired-canary"],
-      "evidence": []
+      "evidence": [
+        "Frozen out of scope on the multi-link ellipsoid research branch; completed Table-1 artifacts remain external read-only evidence and are not reinterpreted here"
+      ]
     },
     {
       "id": "A05-analysis",
@@ -46,6 +48,24 @@
       "id": "A06-openvla",
       "status": "pending",
       "depends_on": ["A05-analysis"],
+      "evidence": []
+    },
+    {
+      "id": "E01-multilink-ellipsoid-shadow",
+      "status": "active",
+      "depends_on": ["A03-one-case-paired-canary"],
+      "evidence": []
+    },
+    {
+      "id": "E02-multilink-ellipsoid-active-control",
+      "status": "pending",
+      "depends_on": ["E01-multilink-ellipsoid-shadow"],
+      "evidence": []
+    },
+    {
+      "id": "E03-kkt-vi-operator",
+      "status": "pending",
+      "depends_on": ["E02-multilink-ellipsoid-active-control"],
       "evidence": []
     }
   ]
