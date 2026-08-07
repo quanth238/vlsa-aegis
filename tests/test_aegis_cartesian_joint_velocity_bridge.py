@@ -71,6 +71,15 @@ class AegisCartesianJointVelocityBridgeTests(unittest.TestCase):
         self.assertIn("replay_aegis_cartesian_joint_velocity_bridge_pair.py", text)
         self.assertNotIn("serve_policy", text)
 
+    def test_independent_validator_is_allocation_backed(self) -> None:
+        text = (
+            ROOT / "slurm/validate_aegis_cartesian_joint_velocity_bridge_pair.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", text)
+        self.assertIn("validate_aegis_cartesian_joint_velocity_bridge_pair.py", text)
+        self.assertIn('--producer-commit "$PRODUCER_COMMIT"', text)
+        self.assertIn('--validator-commit "$VALIDATOR_COMMIT"', text)
+
 
 if __name__ == "__main__":
     unittest.main()
