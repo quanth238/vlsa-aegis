@@ -58,6 +58,18 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("--producer-commit \"$PRODUCER_COMMIT\"", source)
         self.assertIn("--validator-commit \"$VALIDATOR_COMMIT\"", source)
 
+    def test_active_multicbf_replay_is_h100_allocation_backed(self) -> None:
+        source = (
+            ROOT / "slurm/distal_three_ellipsoid_multicbf_e05.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("tests.test_multilink_ellipsoid", source)
+        self.assertIn("replay_distal_three_ellipsoid_multicbf.py", source)
+        self.assertIn("vlsa_distal_three_ellipsoid_multicbf_e05.v1.json", source)
+        self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
+        self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
+
 
 if __name__ == "__main__":
     unittest.main()

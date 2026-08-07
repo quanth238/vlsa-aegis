@@ -1,0 +1,53 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "exact_archived_aegis_action_counterfactual_for_l5_l6_l7_contact_car_and_native_task_outcome_not_population_efficacy",
+  "control_effect": "modify_archived_aegis_xyz_before_env_step",
+  "nominal_action_source": "immutable_archived_released_aegis_env_step_input",
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "optimizer": {
+    "action_limit": 1.0,
+    "action_weight_diagonal": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "alpha_s_inv": 10.0,
+    "bound_tolerance_action": 5e-08,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "optimizer_clearance_m": 0.01,
+    "residual_tolerance": 5e-07,
+    "resolved_rate_damping": 0.05
+  },
+  "output_action_contract": {
+    "gripper": "preserve_archived_aegis_command",
+    "rotation": "zero_translational_protocol",
+    "xyz": "jointly_filtered_by_three_link_cbf_qp"
+  },
+  "protected_body_names": [
+    "robot0_link5",
+    "robot0_link6",
+    "robot0_link7"
+  ],
+  "protocol_id": "vlsa-distal-three-ellipsoid-multicbf-e05-v1",
+  "robot_geometry": {
+    "fit": "khachiyan_mvee_exact_vertex_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "relative_numerical_padding": 1e-09,
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_distal_three_ellipsoid_multicbf.v1",
+  "simulator_verification": {
+    "D_sim": "raw_mujoco_nonpositive_contact_distance_and_active_obstacle_displacement",
+    "distinct_from_D_opt": true
+  },
+  "success_definition": {
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_link_contact": "none_for_robot0_link5_link6_link7",
+    "task": "native_goal_satisfied_within_archived_237_action_horizon"
+  }
+}

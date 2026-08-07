@@ -179,6 +179,44 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             "compiled_mujoco_collision_mesh_vertices",
         )
 
+    def test_active_multicbf_config_filters_only_xyz_for_links_5_6_7(self) -> None:
+        from main.multilink_ellipsoid.active import load_active_config
+
+        config = load_active_config(
+            ROOT / "configs/vlsa_distal_three_ellipsoid_multicbf_e05.v1.json"
+        )
+        self.assertEqual(
+            config["protected_body_names"],
+            ["robot0_link5", "robot0_link6", "robot0_link7"],
+        )
+        self.assertEqual(
+            config["control_effect"],
+            "modify_archived_aegis_xyz_before_env_step",
+        )
+        self.assertEqual(
+            config["output_action_contract"]["gripper"],
+            "preserve_archived_aegis_command",
+        )
+        self.assertTrue(config["simulator_verification"]["distinct_from_D_opt"])
+
+    @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
+    def test_resolved_rate_action_map_has_expected_linear_contract(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.active import resolved_rate_action_map
+
+        jacobian = np.zeros((6, 7), dtype=np.float64)
+        jacobian[:, :6] = np.eye(6)
+        mapping = resolved_rate_action_map(jacobian, damping=0.1)
+        self.assertEqual(mapping.shape, (7, 3))
+        np.testing.assert_allclose(
+            mapping[:3],
+            np.eye(3) / 1.01,
+            rtol=0.0,
+            atol=1.0e-12,
+        )
+        np.testing.assert_array_equal(mapping[3:], np.zeros((4, 3)))
+
     def test_evaluator_shadow_is_opt_in_and_read_only(self) -> None:
         source = (ROOT / "main/evaluate_safelibero_aegis.py").read_text(
             encoding="utf-8"

@@ -320,3 +320,18 @@ attempt `36774` reproduced the settled simulator and policy-noise seed contract
 but returned a different first policy chunk before the shadow observer ran.
 Exact replay preserves the executed-action horizon while independently
 recomputing MuJoCo contacts, task progress, three-link constraints, and timing.
+
+## ADR-0029: Execute the first multi-CBF counterfactual in AEGIS XYZ space
+
+Accepted. SafeLIBERO exposes a translational OSC action rather than direct
+joint-velocity control. The first active experiment therefore maps executable
+XYZ through the live damped resolved-rate kinematics, maps each L5/L6/L7
+barrier row back to that XYZ variable, and solves all three inequalities in
+one QP. This avoids claiming that an arbitrary joint-velocity solution was
+executed when the simulator accepts only Cartesian actions.
+
+The nominal sequence is the immutable released-AEGIS `env.step` ledger. This
+is a controlled counterfactual for the safety layer, not closed-loop policy
+efficacy. The QP may change only XYZ; rotation remains zero and the gripper
+command is exact. Raw protected-link contact, paper CAR, and native goal state
+jointly determine whether the primary report problem is solved.

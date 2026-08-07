@@ -32,6 +32,14 @@ requires stepwise simulator-state/contact/goal equality, and recomputes only
 the read-only three-link QP. The rigid-link MVEEs are now fitted once and
 cached in body coordinates rather than refitted at every action.
 
+Exact shadow replay `36775` and independent H100 verifier `36776` passed. All
+237 immutable actions supplied exactly three valid QP constraints; the shadow
+first identified L5/L6 nominal violation at action 186, one action before raw
+link contact. The current active subgate now applies those constraints to the
+executable XYZ action while preserving zero rotation and the archived gripper
+command. Its frozen pass condition requires no L5/L6/L7 contact, paper CAR,
+and native task success within the same 237-action nominal horizon.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch
