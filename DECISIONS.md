@@ -380,3 +380,31 @@ and negative interpretation without tuning the checkpoint or safety
 parameters after outcome inspection. Any learned joint-space replacement
 requires a new preregistration and a competent paired baseline before safety
 efficacy or KKT/VI training can be considered.
+
+## ADR-0032: Retain the AEGIS Cartesian-to-joint bridge as controller-incompetent
+
+Accepted after paired H100 producer job `36824` and independent validator job
+`36826`. The bridge starts from the exact archived AEGIS OSC-settled simulator
+state, converts every immutable AEGIS XYZ action to live seven-joint velocity,
+preserves every archived gripper command, and in the active arm executes one
+simultaneous QP containing the separate L5, L6, and L7 ellipsoid constraints.
+The two arms have identical pre-step simulator states and nominal joint
+velocities through their first material difference at action 200; every one
+of the 474 QPs is valid.
+
+This replacement does not preserve the task or the original collision
+mechanism. Neither arm completes the SafeLIBERO goal. Both push the obstacle
+with the hand/gripper beginning at action 159 and displace it by about 0.245 m,
+while neither records L5/L6/L7 contact. Consequently the single late L5--L7
+intervention cannot answer whether the filter prevents the released AEGIS
+link-5/link-6 failure. The retained interpretation is
+`bridge_incompetent_no_safety_efficacy_claim`, not a safety success.
+
+We do not tune the frozen Cartesian scale, damping, QP parameters, or
+ellipsoids after inspecting this outcome. An archived Cartesian ledger is
+feedback-dependent: once a different low-level controller changes the state,
+later open-loop commands no longer represent what the policy would choose.
+The next controller experiment therefore requires a new preregistration with
+a task-competent Cartesian policy queried on live observations and competence
+established in the unfiltered joint-controller arm before applying L5--L7
+multi-CBF. KKT/VI learning remains gated on that oracle comparison.

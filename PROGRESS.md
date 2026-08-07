@@ -1,5 +1,60 @@
 # AEGIS SafeLIBERO table reproduction
 
+## AEGIS Cartesian-to-joint bridge versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
+
+The preregistered repair retained the task-competent released AEGIS Cartesian
+action ledger and replaced only the low-level execution interface. Each
+archived XYZ command is converted at the live state to a seven-joint velocity
+with a damped least-squares Jacobian bridge; the bridge-only arm executes that
+nominal velocity, while the active arm executes the solution of one QP with
+the three separate L5/L6/L7 ellipsoid constraints. Both arms restore the exact
+archived OSC-settled MuJoCo state, use the same 237 actions and gripper
+commands, and are exactly paired through the first material QP intervention
+at action 200.
+
+Producer H100 job `36824` completed on `worker-1` in `00:03:32` from clean
+commit `25f91ebf224348a1d692bb0fb0d3cbc0be6af61f`. Result file SHA-256 is
+`8b1b5e077a2eddeef9c06757faa0d4d6e9ed651cf5dd5b2f71156b2582628e14`;
+canonical payload SHA-256 is
+`1ad2097a173cae9364abd7b3af900c367476668e5e90278cf48de36d103cb961`.
+Independent H100 validator job `36826` completed on `worker-1` from clean
+commit `fe3f04a4f92417cd201ab067af7eb126149b4980`, decoded both 238-frame
+videos, checked all 474 action records, recomputed raw simulator outcomes,
+and verified every three-row QP residual. Validation file SHA-256 is
+`a95c2fdbe2d4fe2b9d6f80452d517377581fc6a404219b8b9c0f4fb90886bf5b`;
+receipt payload SHA-256 is
+`4abfbe076541503256b03a34a1f7a529af6097cbf98c66727b0a6ab25bfd3af4`.
+
+The competence gate fails. Neither arm satisfies the native task. Both first
+cross paper CAR at action 157 and first contact the obstacle at action 159,
+but the contacting geoms are `gripper0_finger1_collision` and
+`gripper0_hand_collision`; no protected L5/L6/L7 contact occurs. Maximum
+active-obstacle displacement is `0.244348 m` for bridge-only and `0.245901 m`
+for active multi-CBF. The collision mechanism therefore changed before the
+safety comparison: replaying feedback-dependent Cartesian actions open-loop
+through a different joint controller does not preserve AEGIS task competence.
+
+All 237 QPs per arm are valid, with minimum independently checked raw residual
+about `-2.78e-17 m/s`. The active filter intervenes once at action 200. Its QP
+time is mean `1.972 ms`, p95 `2.550 ms`, maximum `5.048 ms`; total filter time
+is mean `2.884 ms`, p95 `3.783 ms`, maximum `6.273 ms`. Bridge-only video
+SHA-256 is
+`ab0f07e06a6eee733f3bd759f0b8165f24974aed5ca789f82bee1806c161ce9d`;
+active video SHA-256 is
+`5226a081152e121c96a0a4a79bec6882e32150e6d4fa67c6020723cfbcb2c992`.
+
+The retained interpretation is
+`bridge_incompetent_no_safety_efficacy_claim`; `safe_problem_solved=false`.
+No bridge scale, QP gain, clearance, or geometry is tuned after this result.
+The unresolved risk is closed-loop policy/controller compatibility: the next
+experiment must be newly preregistered and query a task-competent Cartesian
+policy on the joint-controller arm's live observations before any L5--L7
+safety claim or KKT/VI training. The exact read-only handoff command is:
+
+```bash
+jq '{status, interpretation, baseline, active}' /mnt/data/quanth/experiments/vlsa-aegis-cartesian-joint-velocity-bridge/vlsa-aegis-cartesian-jv-bridge-e05-20260807c/validation.json
+```
+
 ## Direct joint-velocity baseline versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
 
 The preregistered paired pilot replaced the policy/control interface with the
