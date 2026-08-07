@@ -1,0 +1,89 @@
+{
+  "arms": [
+    "aegis_cartesian_joint_velocity_bridge",
+    "aegis_cartesian_joint_velocity_l5_l7_multicbf"
+  ],
+  "bridge": {
+    "cartesian_action_limit": 1.0,
+    "cartesian_delta_m_per_action_unit": 0.05,
+    "cartesian_velocity_m_per_s_per_action_unit": 0.2,
+    "calibration_source": "frozen_archived_aegis_primary_trajectory_pre_run_isotropic_rounding_of_0.216249_m_per_s_per_unit",
+    "max_task_velocity_m_per_s": 0.5,
+    "resolved_rate_damping": 0.05,
+    "rotation": "zero_angular_velocity_translational_protocol"
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_primary_case_archived_task_competent_aegis_cartesian_to_direct_joint_velocity_bridge_pilot_not_population_efficacy",
+  "controller": {
+    "input_max": 1.0,
+    "input_min": -1.0,
+    "interpolation": null,
+    "kp": 3.0,
+    "output_max": 1.0,
+    "output_min": -1.0,
+    "ramp_ratio": 0.2,
+    "type": "JOINT_VELOCITY",
+    "velocity_limits": [
+      -1.0,
+      1.0
+    ]
+  },
+  "nominal_action_source": "immutable_archived_released_aegis_env_step_input",
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "optimizer": {
+    "alpha_s_inv": 10.0,
+    "bound_tolerance_rad_s": 5e-08,
+    "eef_preservation_weight": 10.0,
+    "eef_weight_diagonal": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "joint_position_margin_rad": 0.02,
+    "joint_velocity_limit_rad_s": 1.0,
+    "material_correction_tolerance_rad_s": 1e-06,
+    "max_iter": 10000,
+    "optimizer_clearance_m": 0.01,
+    "residual_tolerance": 5e-07
+  },
+  "output_action_contract": {
+    "arm": "execute_physical_joint_velocity_qp_variable_directly",
+    "gripper": "preserve_archived_aegis_command_exactly"
+  },
+  "pairing": {
+    "action_horizon": 237,
+    "control_frequency_hz": 20,
+    "settle_actions": 20,
+    "source": "same_immutable_archived_aegis_action_ledger_for_both_arms"
+  },
+  "protected_body_names": [
+    "robot0_link5",
+    "robot0_link6",
+    "robot0_link7"
+  ],
+  "protocol_id": "vlsa-aegis-cartesian-joint-velocity-bridge-pair-e05-v1",
+  "robot_geometry": {
+    "fit": "khachiyan_mvee_exact_vertex_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "relative_numerical_padding": 1e-09,
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_aegis_cartesian_joint_velocity_bridge_pair.v1",
+  "simulator_verification": {
+    "D_sim": "raw_mujoco_nonpositive_contact_distance_and_active_obstacle_displacement",
+    "distinct_from_D_opt": true
+  },
+  "success_definition": {
+    "active": "native_goal_success_without_l5_l6_l7_contact_or_paper_car",
+    "bridge_competence": "native_goal_success_and_reproduction_of_the_primary_protected_link_contact_and_paper_car_failure",
+    "paper_car_threshold_m": 0.001
+  }
+}

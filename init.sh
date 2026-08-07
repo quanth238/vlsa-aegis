@@ -22,7 +22,9 @@ for optional_file in \
   scripts/validate_aegis_assets.py \
   scripts/validate_aegis_run_artifacts.py \
   scripts/evaluate_pi05_droid_joint_velocity_pair.py \
-  scripts/validate_pi05_droid_joint_velocity_pair.py
+  scripts/validate_pi05_droid_joint_velocity_pair.py \
+  scripts/replay_aegis_cartesian_joint_velocity_bridge_pair.py \
+  scripts/validate_aegis_cartesian_joint_velocity_bridge_pair.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
