@@ -27,6 +27,7 @@ gpu_line=$(nvidia-smi --query-gpu=name --format=csv,noheader,nounits)
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || exit 1
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || exit 1
 [[ ! -e "$OUTPUT_DIR" ]] || { printf 'output already exists\n' >&2; exit 1; }
+mkdir -p "$(dirname "$OUTPUT_DIR")"
 
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONUNBUFFERED=1

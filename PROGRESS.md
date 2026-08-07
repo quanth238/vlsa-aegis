@@ -9,6 +9,10 @@ mesh and passes exactly three analytic rigid-link constraints to the same
 read-only OSQP. Allocation-backed visualization and primary-case timing are
 still pending.
 
+Visualization attempt `36771` stopped before environment construction because
+the new experiment parent directory did not exist. It produced no simulation
+or geometry evidence; the wrapper now creates that bounded parent first.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch
