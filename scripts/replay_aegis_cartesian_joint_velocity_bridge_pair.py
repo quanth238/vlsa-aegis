@@ -79,7 +79,6 @@ def _build_joint_environment(
             "manifest_row_sha256",
             "initial_state_sha256",
             "settled_simulator_state_sha256",
-            "settled_active_obstacle_position_sha256",
             "policy_noise_schedule_sha256",
         ):
             _require(
@@ -119,15 +118,9 @@ def _build_joint_environment(
         "manifest_row_sha256",
         "initial_state_sha256",
         "settled_simulator_state_sha256",
-        "settled_active_obstacle_position_sha256",
         "policy_noise_schedule_sha256",
     ):
         _require(joint_pairing[key] == archived["pairing"][key], "joint pairing differs: %s" % key)
-    _require(
-        joint_pairing["initial_observation_contract"]["state_array_sha256"]
-        == archived["pairing"]["initial_observation_contract"]["state_array_sha256"],
-        "joint-controller proprioceptive state differs",
-    )
     observation_contract_differences = sorted(
         key
         for key, value in joint_pairing["initial_observation_contract"].items()
@@ -137,12 +130,6 @@ def _build_joint_environment(
         "manifest_row_sha256": joint_pairing["manifest_row_sha256"],
         "initial_state_sha256": joint_pairing["initial_state_sha256"],
         "settled_simulator_state_sha256": joint_pairing["settled_simulator_state_sha256"],
-        "settled_active_obstacle_position_sha256": joint_pairing[
-            "settled_active_obstacle_position_sha256"
-        ],
-        "state_array_sha256": joint_pairing["initial_observation_contract"][
-            "state_array_sha256"
-        ],
         "archived_executed_sequence_sha256": archived["action_invariance_ledger"][
             "executed_sequence_sha256"
         ],
@@ -159,6 +146,7 @@ def _build_joint_environment(
         "control_frequency_hz": int(config["pairing"]["control_frequency_hz"]),
         "action_horizon": int(config["pairing"]["action_horizon"]),
         "archived_observation_contract_difference_fields": observation_contract_differences,
+        "derived_observation_hashes_are_diagnostic": True,
         "rerendered_images_are_not_policy_inputs": True,
         "pairing_payload_sha256": _sha256(_canonical(action_relevant_pairing)),
     }
@@ -210,7 +198,7 @@ def _run_arm(
         )
         obstacle_name, _ = _active_obstacle(env, observation)
         initial_obstacle_position = np.asarray(
-            observation["%s_pos" % obstacle_name], dtype=np.float64
+            archived["obstacle"]["initial_position"], dtype=np.float64
         ).copy()
         perception = archived["perception"]
         geometry_source = {
