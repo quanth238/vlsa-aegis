@@ -70,6 +70,18 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
         self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
 
+    def test_active_multicbf_video_replays_accepted_ledger_on_h100(self) -> None:
+        source = (
+            ROOT / "slurm/render_distal_three_ellipsoid_multicbf_video.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("render_distal_three_ellipsoid_multicbf_video.py", source)
+        self.assertIn("$ACCEPTED_RESULT", source)
+        self.assertIn("$EXPECTED_RESULT_SHA256", source)
+        self.assertIn("IMAGEIO_FFMPEG_EXE", source)
+        self.assertNotIn(">\"$ACCEPTED_RESULT\"", source)
+
 
 if __name__ == "__main__":
     unittest.main()
