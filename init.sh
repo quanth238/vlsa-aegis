@@ -20,7 +20,9 @@ for optional_file in \
   analysis/validate_aegis_failure_diagnostics.py \
   manifests/build_vlsa_table1_population.py \
   scripts/validate_aegis_assets.py \
-  scripts/validate_aegis_run_artifacts.py
+  scripts/validate_aegis_run_artifacts.py \
+  scripts/evaluate_pi05_droid_joint_velocity_pair.py \
+  scripts/validate_pi05_droid_joint_velocity_pair.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")

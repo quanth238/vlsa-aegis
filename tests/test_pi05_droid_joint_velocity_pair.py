@@ -70,6 +70,16 @@ class Pi05DroidJointVelocityPairTests(unittest.TestCase):
         self.assertIn("direct_l5_l6_l7_joint_velocity_multicbf", source)
         self.assertIn("first_policy_chunks_equal", source)
 
+    def test_independent_validator_is_allocation_backed(self) -> None:
+        source = (
+            ROOT / "slurm/validate_pi05_droid_joint_velocity_pair.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-3", source)
+        self.assertIn("validate_pi05_droid_joint_velocity_pair.py", source)
+        self.assertIn('--producer-commit "$PRODUCER_COMMIT"', source)
+        self.assertIn('--validator-commit "$VALIDATOR_COMMIT"', source)
+
 
 if __name__ == "__main__":
     unittest.main()
