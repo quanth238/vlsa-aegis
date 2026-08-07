@@ -116,6 +116,46 @@ def _segments(points: Sequence[tuple[float, float] | None]) -> Iterable[list[tup
         yield current
 
 
+def _frame_arm_camera(env: Any, ellipsoids: Sequence[Any], camera_name: str) -> dict[str, Any]:
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+
+    centers = np.stack([item.center for item in ellipsoids], axis=0)
+    target = np.mean(centers, axis=0)
+    span = max(
+        float(np.linalg.norm(item.center - target) + np.max(item.semiaxes_m))
+        for item in ellipsoids
+    )
+    camera_id = int(env.sim.model.camera_name2id(camera_name))
+    fovy = float(env.sim.model.cam_fovy[camera_id])
+    distance = 1.45 * span / math.tan(math.radians(fovy) * 0.5)
+    view_direction = np.asarray([1.0, -1.0, 0.55], dtype=np.float64)
+    view_direction /= np.linalg.norm(view_direction)
+    position = target + distance * view_direction
+    forward = target - position
+    forward /= np.linalg.norm(forward)
+    world_up = np.asarray([0.0, 0.0, 1.0])
+    right = np.cross(forward, world_up)
+    right /= np.linalg.norm(right)
+    camera_up = np.cross(right, forward)
+    rotation = np.column_stack((right, camera_up, -forward))
+    quaternion_xyzw = Rotation.from_matrix(rotation).as_quat()
+    quaternion_wxyz = quaternion_xyzw[[3, 0, 1, 2]]
+    env.sim.model.cam_pos[camera_id] = position
+    env.sim.model.cam_quat[camera_id] = quaternion_wxyz
+    env.sim.forward()
+    env.env._update_observables(force=True)
+    return {
+        "source_camera_name": camera_name,
+        "semantics": "simulation_camera_repositioned_to_frame_all_link1_link7_bounds",
+        "position_world_m": position.tolist(),
+        "target_world_m": target.tolist(),
+        "quaternion_wxyz": quaternion_wxyz.tolist(),
+        "fovy_degrees": fovy,
+        "bounding_span_m": span,
+    }
+
+
 def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
     import numpy as np
     from PIL import Image, ImageDraw, ImageFont
@@ -152,21 +192,25 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
             render_resolution=768,
         )
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
-        image = np.asarray(observation["agentview_image"], dtype=np.uint8)
-        if image.shape != (768, 768, 3):
-            raise ValueError("agent-view simulator image shape differs")
         protected = ["robot0_link%d" % index for index in range(1, 8)]
         ellipsoids = _link_ellipsoids(env, protected)
         if len(ellipsoids) != 7:
             raise ValueError("expected exactly seven live arm ellipsoids")
 
+        camera_name = "backview"
+        camera_record = _frame_arm_camera(env, ellipsoids, camera_name)
+        observation = env.env._get_observations()
+        image = np.asarray(observation["backview_image"], dtype=np.uint8)
+        if image.shape != (768, 768, 3):
+            raise ValueError("arm-view simulator image shape differs")
+
         intrinsic = get_camera_intrinsic_matrix(
-            env.sim, "agentview", image.shape[0], image.shape[1]
+            env.sim, camera_name, image.shape[0], image.shape[1]
         )
-        camera_to_world = get_camera_extrinsic_matrix(env.sim, "agentview")
+        camera_to_world = get_camera_extrinsic_matrix(env.sim, camera_name)
         world_to_camera = np.linalg.inv(camera_to_world)
         output_dir.mkdir(parents=True, exist_ok=False)
-        base_path = output_dir / "libero-agentview.jpg"
+        base_path = output_dir / "libero-armview.jpg"
         Image.fromarray(image).save(base_path, quality=88, optimize=True)
 
         link_records: list[dict[str, Any]] = []
@@ -191,6 +235,8 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
                 raise ValueError("link ellipsoid center is behind the camera")
             label = "L%d" % index
             x, y = center
+            if not (0.0 <= x < image.shape[1] and 0.0 <= y < image.shape[0]):
+                raise ValueError("%s center is outside the framed camera" % ellipsoid.body_name)
             draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=color)
             draw.text(
                 (x + 7, y - 7),
@@ -232,7 +278,7 @@ def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
             "allocation": allocation_record(),
             "simulator": "SafeLIBERO MuJoCo settled primary initial state",
             "settle_actions": TABLE_SETTLE_ACTIONS,
-            "camera": "agentview",
+            "camera": camera_record,
             "image_size": [image.shape[1], image.shape[0]],
             "base_image": {
                 "path": base_path.name,
@@ -275,8 +321,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.manifest.resolve(),
         args.output_dir.resolve(),
     )
-    print(json.dumps({"status": "rendered", "payload_sha256": record["payload_sha256"]}, sort_keys=True))
-    return 0
+    print(
+        json.dumps(
+            {
+                "status": "rendered",
+                "payload_sha256": record["payload_sha256"],
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+    # The legacy OSMesa stack can double-free its already-closed context during
+    # interpreter teardown. All simulator and artifact cleanup has completed;
+    # bypass only that process-global C-extension destructor path.
+    os._exit(0)
 
 
 if __name__ == "__main__":
