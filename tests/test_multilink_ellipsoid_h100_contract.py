@@ -70,6 +70,12 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
         self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
 
+        runner = (
+            ROOT / "scripts/replay_distal_three_ellipsoid_rollout_multicbf.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"terminal_filter_record"', runner)
+        self.assertIn("None if not filter_records else filter_records[-1]", runner)
+
     def test_active_multicbf_video_replays_accepted_ledger_on_h100(self) -> None:
         source = (
             ROOT / "slurm/render_distal_three_ellipsoid_multicbf_video.sbatch"

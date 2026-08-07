@@ -390,6 +390,12 @@ def replay(
                 "native_task_success_step": native_success_step,
             },
             "rollout_multicbf_summary": rollout_summary,
+            # Successful filter records are already bound to their executed
+            # actions above. Retain the final record separately so a terminal
+            # no-action method failure is never reduced to a summary string.
+            "terminal_filter_record": (
+                None if not filter_records else filter_records[-1]
+            ),
             "primary_problem_solved": problem_solved,
             "failure": failure,
             "replay_wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,

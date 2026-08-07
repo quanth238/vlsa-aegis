@@ -11,11 +11,25 @@ step keeps all buffered clearances nonnegative within `1e-6 m`. Fixed fallback
 scales move the QP candidate toward stop; failure to verify is retained rather
 than passed through.
 
-The implementation and frozen configuration are local only. The full primary
-next state must match the accepted clone within `1e-10`, and the ordinary
-AEGIS and accepted continuous multi-CBF paths remain unchanged. H100 execution,
-runtime, raw contacts, CAR, task outcome, and an independent replay validator
-are pending. No learned controller is authorized by this preregistration.
+The full primary next state must match the accepted clone within `1e-10`, and
+the ordinary AEGIS and accepted continuous multi-CBF paths remain unchanged.
+Clean H100 rerun `36873` reconfirmed that comparison: all 237 three-row QPs
+were valid, with 28 interventions and mean QP total time `1.690 ms`, but L5
+contact and paper CAR both occurred at action 189 and the task did not finish.
+Result file SHA-256 is
+`bf25c0210a5b55e1ae7caa97ff3a4d7113a73a3f6b1c58c5728c3a618d4e139e`;
+payload SHA-256 is
+`bc257a906121e48a5a09f972ebd21c4e48ff098d483db7db8cc7c480b4bef27c`.
+
+Preliminary cloned-step H100 job `36874` exactly matched every one of its 185
+executed primary transitions to the accepted clone and had no robot contact,
+no paper CAR, and maximum obstacle displacement `2.275e-11 m`. It stopped
+without executing action 185 because the valid three-row QP candidate and all
+preregistered scales toward stop failed exact next-step verification. The
+controller result is retained, but its artifact omitted the detailed terminal
+filter record and is evidence-incomplete. The replacement changes only that
+serialization, not a controller parameter. Independent validation remains
+pending. No learned controller is authorized by this preregistration.
 
 ## AEGIS Cartesian-to-joint bridge versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
 
