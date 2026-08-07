@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""Render live SafeLIBERO arm ellipsoid bounds into the agent-view camera."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+from typing import Any, Iterable, Mapping, Sequence
+
+
+CASE_ID = "vlsa-t1-goal-ii-t0-e05"
+COLORS = (
+    (0, 188, 212, 235),
+    (33, 150, 243, 235),
+    (103, 58, 183, 235),
+    (233, 30, 99, 235),
+    (244, 67, 54, 245),
+    (255, 152, 0, 245),
+    (205, 220, 57, 245),
+)
+
+
+def _canonical(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _git_identity(root: Path) -> dict[str, Any]:
+    def run(*arguments: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(root)] + list(arguments),
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+        ).strip()
+
+    status = run("status", "--short")
+    if status:
+        raise ValueError("visualization source tree must be clean")
+    return {"commit": run("rev-parse", "HEAD"), "dirty": False}
+
+
+def _wire_loops(ellipsoid: Any, samples: int = 144) -> Iterable[Any]:
+    import numpy as np
+
+    angles = np.linspace(0.0, 2.0 * math.pi, samples, endpoint=True)
+    for latitude in (-60.0, -30.0, 0.0, 30.0, 60.0):
+        phi = math.radians(latitude)
+        local = np.stack(
+            (
+                ellipsoid.semiaxes_m[0] * math.cos(phi) * np.cos(angles),
+                ellipsoid.semiaxes_m[1] * math.cos(phi) * np.sin(angles),
+                np.full_like(angles, ellipsoid.semiaxes_m[2] * math.sin(phi)),
+            ),
+            axis=1,
+        )
+        yield ellipsoid.center + local @ ellipsoid.rotation.T
+    for longitude in range(0, 180, 30):
+        theta = math.radians(longitude)
+        local = np.stack(
+            (
+                ellipsoid.semiaxes_m[0] * np.cos(angles) * math.cos(theta),
+                ellipsoid.semiaxes_m[1] * np.cos(angles) * math.sin(theta),
+                ellipsoid.semiaxes_m[2] * np.sin(angles),
+            ),
+            axis=1,
+        )
+        yield ellipsoid.center + local @ ellipsoid.rotation.T
+
+
+def _project(points_world: Any, world_to_camera: Any, intrinsic: Any, height: int) -> list[tuple[float, float] | None]:
+    import numpy as np
+
+    points = np.asarray(points_world, dtype=np.float64)
+    homogeneous = np.concatenate((points, np.ones((len(points), 1))), axis=1)
+    camera = (world_to_camera @ homogeneous.T).T[:, :3]
+    pixels = (intrinsic @ camera.T).T
+    output: list[tuple[float, float] | None] = []
+    for point_camera, pixel in zip(camera, pixels):
+        if point_camera[2] <= 1.0e-8 or not np.all(np.isfinite(pixel)):
+            output.append(None)
+            continue
+        u = float(pixel[0] / pixel[2])
+        v_bottom = float(pixel[1] / pixel[2])
+        output.append((u, float(height - 1) - v_bottom))
+    return output
+
+
+def _segments(points: Sequence[tuple[float, float] | None]) -> Iterable[list[tuple[float, float]]]:
+    current: list[tuple[float, float]] = []
+    for point in points:
+        if point is None:
+            if len(current) > 1:
+                yield current
+            current = []
+        else:
+            current.append(point)
+    if len(current) > 1:
+        yield current
+
+
+def render(repo_root: Path, manifest: Path, output_dir: Path) -> dict[str, Any]:
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+    from robosuite.utils.camera_utils import (
+        get_camera_extrinsic_matrix,
+        get_camera_intrinsic_matrix,
+    )
+
+    from main.evaluate_safelibero_aegis import (
+        TABLE_SETTLE_ACTIONS,
+        _build_environment,
+        _runtime_imports,
+        _settle,
+        read_jsonl,
+        validate_case_row,
+    )
+    from main.multilink_ellipsoid.shadow import (
+        _link_ellipsoids,
+        allocation_record,
+    )
+
+    rows = read_jsonl(manifest)
+    matches = [row for row in rows if row.get("case_id") == CASE_ID]
+    if len(matches) != 1:
+        raise ValueError("primary visualization case is not unique")
+    case = matches[0]
+    validate_case_row(case, repo_root)
+    runtime = _runtime_imports(include_aegis=False)
+    env = None
+    try:
+        env, _, observation, _ = _build_environment(
+            runtime,
+            case,
+            render_resolution=768,
+        )
+        observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
+        image = np.asarray(observation["agentview_image"], dtype=np.uint8)
+        if image.shape != (768, 768, 3):
+            raise ValueError("agent-view simulator image shape differs")
+        protected = ["robot0_link%d" % index for index in range(1, 8)]
+        ellipsoids = _link_ellipsoids(env, protected)
+        if len(ellipsoids) != 7:
+            raise ValueError("expected exactly seven live arm ellipsoids")
+
+        intrinsic = get_camera_intrinsic_matrix(
+            env.sim, "agentview", image.shape[0], image.shape[1]
+        )
+        camera_to_world = get_camera_extrinsic_matrix(env.sim, "agentview")
+        world_to_camera = np.linalg.inv(camera_to_world)
+        output_dir.mkdir(parents=True, exist_ok=False)
+        base_path = output_dir / "libero-agentview.jpg"
+        Image.fromarray(image).save(base_path, quality=88, optimize=True)
+
+        link_records: list[dict[str, Any]] = []
+        combined = Image.new("RGBA", (image.shape[1], image.shape[0]), (0, 0, 0, 0))
+        font = ImageFont.load_default()
+        for index, (ellipsoid, color) in enumerate(zip(ellipsoids, COLORS), start=1):
+            layer = Image.new("RGBA", combined.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(layer)
+            visible_points = 0
+            for loop in _wire_loops(ellipsoid):
+                projected = _project(loop, world_to_camera, intrinsic, image.shape[0])
+                visible_points += sum(point is not None for point in projected)
+                for segment in _segments(projected):
+                    draw.line(segment, fill=color, width=2, joint="curve")
+            center = _project(
+                np.asarray([ellipsoid.center]),
+                world_to_camera,
+                intrinsic,
+                image.shape[0],
+            )[0]
+            if center is None:
+                raise ValueError("link ellipsoid center is behind the camera")
+            label = "L%d" % index
+            x, y = center
+            draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=color)
+            draw.text(
+                (x + 7, y - 7),
+                label,
+                font=font,
+                fill=(255, 255, 255, 255),
+                stroke_width=2,
+                stroke_fill=(0, 0, 0, 230),
+            )
+            if visible_points < 100:
+                raise ValueError("too few projected points for %s" % ellipsoid.body_name)
+            layer_path = output_dir / ("link-%d.png" % index)
+            layer.save(layer_path, optimize=True)
+            combined = Image.alpha_composite(combined, layer)
+            record = ellipsoid.to_record()
+            record.update(
+                {
+                    "link_index": index,
+                    "color_rgba": list(color),
+                    "projected_center_px": [float(x), float(y)],
+                    "visible_wire_points": visible_points,
+                    "overlay_path": layer_path.name,
+                    "overlay_sha256": _sha256_path(layer_path),
+                }
+            )
+            link_records.append(record)
+
+        combined_path = output_dir / "ellipsoid-overlay.png"
+        combined.save(combined_path, optimize=True)
+        preview = Image.alpha_composite(
+            Image.fromarray(image).convert("RGBA"), combined
+        ).convert("RGB")
+        preview_path = output_dir / "libero-arm-ellipsoids.jpg"
+        preview.save(preview_path, quality=90, optimize=True)
+        record = {
+            "schema_version": "vlsa_multilink_ellipsoid_visualization.v1",
+            "case_id": CASE_ID,
+            "source": _git_identity(repo_root),
+            "allocation": allocation_record(),
+            "simulator": "SafeLIBERO MuJoCo settled primary initial state",
+            "settle_actions": TABLE_SETTLE_ACTIONS,
+            "camera": "agentview",
+            "image_size": [image.shape[1], image.shape[0]],
+            "base_image": {
+                "path": base_path.name,
+                "sha256": _sha256_path(base_path),
+            },
+            "combined_preview": {
+                "path": preview_path.name,
+                "sha256": _sha256_path(preview_path),
+            },
+            "links": link_records,
+        }
+        record["payload_sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
+        metadata_path = output_dir / "visualization.json"
+        temporary = output_dir / (".visualization.%d.tmp" % os.getpid())
+        temporary.write_bytes(json.dumps(record, indent=2, sort_keys=True, allow_nan=False).encode("utf-8") + b"\n")
+        os.replace(str(temporary), str(metadata_path))
+        return record
+    finally:
+        if env is not None:
+            env.close()
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    root = Path(__file__).resolve().parents[1]
+    parser.add_argument("--repo-root", type=Path, default=root)
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=root / "manifests/vlsa_table1_population.jsonl",
+    )
+    parser.add_argument("--output-dir", type=Path, required=True)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    record = render(
+        args.repo_root.resolve(),
+        args.manifest.resolve(),
+        args.output_dir.resolve(),
+    )
+    print(json.dumps({"status": "rendered", "payload_sha256": record["payload_sha256"]}, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

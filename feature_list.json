@@ -63,9 +63,11 @@
     },
     {
       "id": "E02-multilink-ellipsoid-active-control",
-      "status": "pending",
+      "status": "active",
       "depends_on": ["E01-multilink-ellipsoid-shadow"],
-      "evidence": []
+      "evidence": [
+        "Design gate only: no active-control rollout is authorized before tighter mesh-bound or slack-hierarchy preregistration"
+      ]
     },
     {
       "id": "E03-kkt-vi-operator",
