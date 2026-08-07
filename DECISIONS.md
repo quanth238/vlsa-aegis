@@ -428,3 +428,34 @@ the frozen obstacle MVEE, archived rotation/gripper commands, and the 237-step
 nominal ledger remain unchanged. The experiment measures oracle ability and
 runtime on the primary case only; it is not claimed to be deployable in real
 time and does not authorize KKT/VI or universal-formula training.
+
+## ADR-0034: Retain the cloned-step multi-CBF as safe refusal, not task success
+
+Accepted after authoritative H100 job `36875`. The discrete controller used
+exactly three L5/L6/L7 next-clearance constraints, all 186 QPs were valid, and
+each of the 185 executed primary transitions reproduced its accepted cloned
+transition with zero state error. It produced no robot contact, no paper CAR,
+and negligible obstacle displacement, but it stopped before executing action
+185 and never completed the native task. Therefore
+`primary_problem_solved=false`; collision avoidance obtained by terminating
+the task is not counted as a safety-method success.
+
+The terminal evidence distinguishes the remaining failure from the original
+continuous resolved-rate mismatch. The finite-difference QP predicted its
+large correction would put L5 exactly on the buffered boundary, while exact
+simulation put it `3.697 mm` inside. More importantly, even the predefined
+zero-XYZ stop action ended `6.852 mm` inside the buffered boundary on the next
+step. Thus exact one-step verification correctly vetoed every action, but the
+state had already left the one-step viable set for the frozen `D_opt=10 mm`
+requirement. Three ellipsoid rows are present and jointly solved; adding a
+neural approximation of this same QP would not create a feasible action.
+
+We do not reduce `D_opt`, weaken the exact verification tolerance, or add an
+unregistered retreat after observing this outcome. A follow-up must be newly
+preregistered and address anticipation, for example a multi-step viability
+margin or direct simulator-in-the-loop nonlinear search begun before the
+one-step stopping boundary. The observed mean complete-filter time of
+`131.895 ms` also exceeds the 20 Hz control period, although the QP itself
+remains fast at mean `1.182 ms`. KKT/VI or universal-formula learning remains
+gated because it can only approximate a controller after the oracle target is
+both feasible and task competent.

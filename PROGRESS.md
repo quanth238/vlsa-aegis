@@ -1,6 +1,6 @@
 # AEGIS SafeLIBERO table reproduction
 
-## Cloned-step discrete L5--L7 multi-CBF (preregistered, 2026-08-07)
+## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 
 The next active `E02` subexperiment retains the accepted negative continuous
 three-row QP and tests the same L5/L6/L7 ellipsoids with a discrete transition
@@ -21,6 +21,12 @@ Result file SHA-256 is
 payload SHA-256 is
 `bc257a906121e48a5a09f972ebd21c4e48ff098d483db7db8cc7c480b4bef27c`.
 
+Initial submission `36870` failed before simulation or artifact creation
+because worker-0 exposed an empty GPU-name query despite its H100 GRES record.
+Allocation diagnostics `36871` and `36872` isolated the live node issue;
+scientific jobs were then restricted to worker-1/worker-2. This is retained as
+an apparatus failure and did not change an experiment setting.
+
 Preliminary cloned-step H100 job `36874` exactly matched every one of its 185
 executed primary transitions to the accepted clone and had no robot contact,
 no paper CAR, and maximum obstacle displacement `2.275e-11 m`. It stopped
@@ -28,8 +34,33 @@ without executing action 185 because the valid three-row QP candidate and all
 preregistered scales toward stop failed exact next-step verification. The
 controller result is retained, but its artifact omitted the detailed terminal
 filter record and is evidence-incomplete. The replacement changes only that
-serialization, not a controller parameter. Independent validation remains
-pending. No learned controller is authorized by this preregistration.
+serialization, not a controller parameter.
+
+Authoritative H100 job `36875` reproduced that outcome on `worker-1` from
+clean commit `5821bfb49ecf284c8ae61b75c23ba83343c7efa4`. Result file SHA-256
+is `5f03bc323949fc9f13a3169b28fbe11ce7fe83669ce5b5807dc6cf6f79ecf3d4`;
+payload SHA-256 is
+`b656837a543699850e746dedf4f5f445b0a323a18ebccfdf452c5d7e8931b687`.
+All 186 attempted QPs contained exactly three valid constraints. All 185
+executed transitions exactly matched their accepted clones (maximum state
+error zero), with no robot contact, no paper CAR, and maximum obstacle motion
+`2.275e-11 m`; however, the task was unfinished when the controller refused
+action 185.
+
+At the terminal step, nominal next L5 buffered clearance was `-8.487 mm`.
+The QP predicted its large corrected action would reach exactly `0 mm`, but
+the exact cloned step measured `-3.697 mm`. Scaling that action to zero made
+the exact L5 result progressively worse, ending at `-6.852 mm`; therefore no
+preregistered candidate was executable. This is a valid method failure, not a
+collision-free task success: the one-step oracle acts as a reliable veto but
+reaches the viability boundary too late to preserve useful motion.
+
+The run used 1,493 cloned simulator steps. QP total wall time was mean
+`1.182 ms`, p95 `1.483 ms`, maximum `2.319 ms`; complete filtering was mean
+`131.895 ms`, p95 `169.939 ms`, maximum `208.820 ms`, exceeding the `50 ms`
+period of the 20 Hz controller. The strict primary problem remains unsolved,
+`E02` remains active, independent validation remains pending, and no learned
+controller is authorized by this negative one-case oracle result.
 
 ## AEGIS Cartesian-to-joint bridge versus L5--L7 multi-CBF (completed pilot, 2026-08-07)
 
