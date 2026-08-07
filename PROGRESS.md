@@ -74,6 +74,22 @@ joint-space execution or discrete-time nonlinear rollout/step reduction.
 Local rehash reproduced the result payload identity exactly, and the final
 `./init.sh` gate passes 192 tests with 24 dependency-optional skips.
 
+H100 job `36788` then replayed the accepted 237-action ledger on `worker-1`
+and produced an annotated 20 fps MP4 with a four-times-slow interval around
+actions 178--196. Its receipt verified all pairing fields plus exact
+end-effector, obstacle-displacement, raw-contact, CAR, and task traces; all
+three maximum replay errors are zero. Video SHA-256 is
+`dc7df3d03b5e893b0566e97a57c90be9593775948f8984aa27c90a98b0e17df0`;
+receipt SHA-256 is
+`5bc7dd8a97b8f0b23e2dc88b1c4ac74f68e49924ac611021e59e29e472027883`.
+
+The stepwise audit confirms a resolved-rate/discrete-transition mismatch. At
+action 185 the L5 row predicts next `h_opt` near `+2.220 mm`, while the next
+MuJoCo state is `-4.441 mm`. At action 186 the QP predicts recovery at
+`+44.412 mm/s`, but the observed finite-difference rate is `-143.104 mm/s`.
+The detailed record is in
+`docs/distal_three_ellipsoid_multicbf_failure_audit.md`.
+
 ## Multi-link ellipsoid research branch (2026-08-07)
 
 `E01-multilink-ellipsoid-shadow` is passing on branch

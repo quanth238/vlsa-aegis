@@ -352,3 +352,11 @@ SafeLIBERO OSC contact avoidance in this case. A later experiment must
 preregister direct joint-space execution or nonlinear discrete-time
 rollout/step reduction; KKT/VI learning is not a remedy for this model-to-
 execution mismatch.
+
+H100 video replay `36788` independently re-executed the accepted safe-action
+ledger and matched the recorded end-effector, obstacle, and raw-contact traces
+with zero error. A finite-difference audit identifies the concrete certificate
+failure: action 186 predicted positive L5 barrier recovery (`+0.044412 m/s`)
+while the next simulator state moved inward (`-0.143104 m/s`). This reinforces
+the decision: retain the negative outcome and change the execution model in a
+new preregistration, not the QP solver or KKT implementation.
