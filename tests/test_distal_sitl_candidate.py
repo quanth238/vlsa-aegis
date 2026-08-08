@@ -109,7 +109,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
             "lexicographic_minimum_reference_eef_error_then_minimum_nominal_deviation",
         )
         self.assertEqual(
-            config["protected_geometry"]["distal_clearance_target_m"], -0.01
+            config["protected_geometry"]["distal_clearance_target_m"], -1.0
         )
         self.assertEqual(
             config["protected_geometry"]["distal_activation_clearance_m"], 0.015

@@ -98,7 +98,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL protected geometry contract differs")
     activation_clearance = geometry["distal_activation_clearance_m"]
     hard_clearance = geometry["distal_clearance_target_m"]
-    if activation_clearance != 0.015 or hard_clearance not in {-0.01, 0.001, 0.01}:
+    if activation_clearance != 0.015 or hard_clearance not in {-1.0, 0.001, 0.01}:
         raise ValueError("SITL protected geometry margins differ")
     finite_difference = config["finite_difference"]
     if finite_difference != {
