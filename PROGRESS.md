@@ -21,6 +21,13 @@ instead of the smaller first-step residual. The retained run root contains an
 apparatus-failure receipt and no result or video. The repair postpones type
 annotation evaluation and corrects only that synthetic expected value; no
 experiment setting changed.
+Retry `37019` passed both allocation preflights and loaded pi0.5, but stopped
+before its first action because the nominal chunk no longer matched the
+immutable Table 1 chunk byte-for-byte. This is retained as a second apparatus
+failure, not accepted as a different live baseline. The repair restores the
+ordinary `sample_actions` implementation as a separate untouched method and
+moves all projection logic into a distinct opt-in compiled sampler selected
+only when the reserved guidance envelope is present.
 
 ## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 

@@ -124,7 +124,11 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         )
         self.assertIn("project_action_xyz_halfspaces", sampler)
         self.assertIn("x_next = project_action_xyz_halfspaces", sampler)
-        self.assertIn("flow_guidance_rows is not None", sampler)
+        self.assertIn("def sample_actions_with_flow_guidance", sampler)
+        default_sampler = sampler.split(
+            "def sample_actions(\n", 1
+        )[1].split("def sample_actions_with_flow_guidance", 1)[0]
+        self.assertNotIn("flow_guidance", default_sampler)
 
         runner = (
             ROOT / "scripts/evaluate_predictive_flow_guidance_e05.py"

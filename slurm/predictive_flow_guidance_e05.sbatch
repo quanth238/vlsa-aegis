@@ -140,7 +140,7 @@ curl --fail --silent --show-error \
   die "pi0.5-LIBERO policy healthz failed"
 }
 
-exec "$AEGIS_PYTHON" scripts/evaluate_predictive_flow_guidance_e05.py \
+"$AEGIS_PYTHON" scripts/evaluate_predictive_flow_guidance_e05.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
   --archived "$ARCHIVED_TABLE1_RESULT" \

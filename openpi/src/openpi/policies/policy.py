@@ -62,6 +62,9 @@ class Policy(BasePolicy):
         else:
             # JAX model setup
             self._sample_actions = nnx_utils.module_jit(model.sample_actions)
+            self._sample_actions_with_flow_guidance = nnx_utils.module_jit(
+                model.sample_actions_with_flow_guidance
+            )
             self._rng = rng or jax.random.key(0)
 
     @override
@@ -114,9 +117,16 @@ class Policy(BasePolicy):
                 prepared_guidance["normalized_lower"]
             )
         start_time = time.monotonic()
+        sample_actions = (
+            self._sample_actions
+            if prepared_guidance is None
+            else self._sample_actions_with_flow_guidance
+        )
         outputs = {
             "state": inputs["state"],
-            "actions": self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs),
+            "actions": sample_actions(
+                sample_rng_or_pytorch_device, observation, **sample_kwargs
+            ),
         }
         model_time = time.monotonic() - start_time
         if self._is_pytorch_model:
