@@ -1,5 +1,24 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Fixed 8 mm margin test (preregistered, 2026-08-09)
+
+At the user's requested ordering, active gate `E02` first tests the unchanged
+frozen AEGIS obstacle MVEE with one fixed early-warning intervention:
+`h_corrected = h_AEGIS - 0.008 m` on all eight registered L5--L7/EE rows.
+Equivalently, the existing oracle-affine QP now requires every unmodified
+proxy clearance to be at least `8 mm`.  The action-192 state, robot/EE
+ellipsoids, 87 candidates, affine fit, QP, OSC transition, and exact raw
+substep verification remain unchanged.  The result passes only if the QP is
+valid and its exact clone has zero L5--L7 contact, at most `0.1 mm` obstacle
+motion, and all minimum-substep proxy clearances at least `8 mm`.
+
+This intervention does not validate the known incomplete obstacle MVEE.  It
+only asks whether a fixed margin can make the current QP act at this one
+false-safe state.  The exact MuJoCo moka-pot obstacle-box test follows only
+after this result is frozen.  Full scope is in
+`docs/distal_oracle_affine_margin8mm_preregistration.md`.  No H100 outcome has
+run yet.
+
 ## Conservative obstacle-primitive oracle follow-up (preregistered, 2026-08-09)
 
 Active gate `E02` now performs the bounded follow-up authorized by the user.

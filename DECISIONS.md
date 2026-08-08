@@ -1,5 +1,21 @@
 # Reproduction decisions
 
+## ADR-0055: Test the fixed 8 mm warning margin before exact obstacle boxes
+
+Accepted by direct user instruction.  Before using privileged MuJoCo obstacle
+geometry, retain the accepted L5--L7/EE ellipsoids and frozen released-AEGIS
+obstacle MVEE, then replace the zero clearance target by `8 mm` on all eight
+QP rows.  This is exactly `h_corrected = h_AEGIS - 8 mm`; it does not resize
+or reinterpret any ellipsoid.
+
+The test is passed only by a valid QP action whose complete cloned OSC
+transition is raw-contact-free, moves the obstacle by at most `0.1 mm`, and
+maintains the registered `8 mm` proxy margin.  Because job `37137` already
+proved that the frozen obstacle MVEE misses the physical contact surface, even
+a pass is only a single-state activation heuristic.  The exact MuJoCo
+obstacle-box oracle remains the second, privileged geometry test and will be
+run after this margin outcome is frozen.
+
 ## ADR-0054: Use exact source boxes before declaring conservative late activation
 
 Accepted from validated job `37163`.  The live primitive union repaired contact

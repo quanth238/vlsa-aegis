@@ -35,6 +35,10 @@ from .shadow import (
 
 ORACLE_AFFINE_SCHEMA = "vlsa_distal_oracle_affine_e05.v1"
 ORACLE_AFFINE_RESULT_SCHEMA = "vlsa_distal_oracle_affine_e05_result.v1"
+MARGIN8_AFFINE_SCHEMA = "vlsa_distal_oracle_affine_margin8mm_e05.v1"
+MARGIN8_AFFINE_RESULT_SCHEMA = (
+    "vlsa_distal_oracle_affine_margin8mm_e05_result.v1"
+)
 CONSTRAINT_ORDER = (
     "L5_part_0",
     "L5_part_1",
@@ -85,8 +89,19 @@ def load_oracle_affine_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("oracle-affine config keys differ")
-    if config["schema_version"] != ORACLE_AFFINE_SCHEMA:
+    if config["schema_version"] not in (
+        ORACLE_AFFINE_SCHEMA,
+        MARGIN8_AFFINE_SCHEMA,
+    ):
         raise ValueError("oracle-affine schema differs")
+    margin_test = config["schema_version"] == MARGIN8_AFFINE_SCHEMA
+    expected_protocol = (
+        "vlsa-distal-oracle-affine-margin8mm-e05-v1"
+        if margin_test
+        else "vlsa-distal-oracle-affine-e05-v1"
+    )
+    if config["protocol_id"] != expected_protocol:
+        raise ValueError("oracle-affine protocol differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("oracle-affine audit must select only primary E05")
     if config["nominal_action_source"] != "immutable_job_37109_executed_sitl_action":
@@ -127,7 +142,7 @@ def load_oracle_affine_config(path: Path) -> dict[str, Any]:
     }:
         raise ValueError("oracle-affine candidate set differs")
     if config["affine_model"] != {
-        "clearance_target_m": 0.0,
+        "clearance_target_m": 0.008 if margin_test else 0.0,
         "fit": "nominal_anchored_least_squares",
         "one_sided_error_padding_m": 1.0e-6,
         "trust_region_linf_action": 0.5,
@@ -825,6 +840,19 @@ def run_oracle_affine_audit(
         "qp_exact_raw_safe": qp_raw_safe,
         "qp_exact_proxy_safe": qp_proxy_safe,
     }
+    if config.get("schema_version") == MARGIN8_AFFINE_SCHEMA:
+        nominal_minimum = np.asarray(
+            nominal_transition["minimum_substep_clearance_m"],
+            dtype=np.float64,
+        )
+        decision["margin_intervention"] = {
+            "formula": "h_corrected_equals_h_aegis_minus_0.008_m",
+            "clearance_margin_m": 0.008,
+            "nominal_declared_unsafe": bool(np.any(nominal_minimum < target)),
+            "qp_action_raw_safe": qp_raw_safe,
+            "qp_action_margin_safe": qp_proxy_safe,
+            "test_pass": bool(qp_result.valid and qp_raw_safe and qp_proxy_safe),
+        }
     decision["research_direction_go"] = bool(
         decision["geometry_contact_witness_pass"]
         and decision["local_jointly_raw_and_proxy_safe_candidate_exists"]

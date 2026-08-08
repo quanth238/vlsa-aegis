@@ -30,6 +30,37 @@ class DistalOracleAffineTests(unittest.TestCase):
         self.assertEqual(config["affine_model"]["clearance_target_m"], 0.0)
         self.assertEqual(config["affine_model"]["trust_region_linf_action"], 0.5)
 
+    def test_margin8_config_changes_only_registered_clearance_target(self):
+        from main.multilink_ellipsoid.oracle_affine import (
+            MARGIN8_AFFINE_SCHEMA,
+            load_oracle_affine_config,
+        )
+
+        base = load_oracle_affine_config(
+            ROOT / "configs/vlsa_distal_oracle_affine_e05.v1.json"
+        )
+        margin = load_oracle_affine_config(
+            ROOT / "configs/vlsa_distal_oracle_affine_margin8mm_e05.v1.json"
+        )
+        self.assertEqual(margin["schema_version"], MARGIN8_AFFINE_SCHEMA)
+        self.assertEqual(margin["affine_model"]["clearance_target_m"], 0.008)
+        ignored = {
+            "schema_version",
+            "protocol_id",
+            "claim_scope",
+            "config_file_sha256",
+            "config_payload_sha256",
+        }
+        for key in base:
+            if key in ignored or key == "affine_model":
+                continue
+            self.assertEqual(margin[key], base[key])
+        base_model = dict(base["affine_model"])
+        margin_model = dict(margin["affine_model"])
+        base_model.pop("clearance_target_m")
+        margin_model.pop("clearance_target_m")
+        self.assertEqual(margin_model, base_model)
+
     @unittest.skipUnless(HAS_NUMPY, "NumPy is allocation dependency")
     def test_candidate_set_is_deterministic_unique_and_bounded(self):
         from main.multilink_ellipsoid.oracle_affine import (
@@ -123,6 +154,16 @@ class DistalOracleAffineTests(unittest.TestCase):
         self.assertIn("validate_distal_oracle_affine_e05.py", source)
         self.assertIn("FALSE_SAFE_RESULT", source)
         self.assertIn("d79a28585e74cece", source)
+
+    def test_margin8_allocation_and_validator_are_explicit(self):
+        source = (
+            ROOT / "slurm/distal_oracle_affine_margin8mm_e05.sbatch"
+        ).read_text()
+        self.assertIn("--gres=gpu:1", source)
+        self.assertIn("H100", source)
+        self.assertIn("status --porcelain=v1 --untracked-files=all", source)
+        self.assertIn("vlsa_distal_oracle_affine_margin8mm_e05.v1.json", source)
+        self.assertIn("validate_distal_oracle_affine_margin8mm_e05.py", source)
 
     def test_substep_hook_and_stop_reason_are_explicit(self):
         source = (

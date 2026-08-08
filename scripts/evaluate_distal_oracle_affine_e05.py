@@ -50,6 +50,8 @@ def evaluate(
         validate_case_row,
     )
     from main.multilink_ellipsoid.oracle_affine import (
+        MARGIN8_AFFINE_RESULT_SCHEMA,
+        MARGIN8_AFFINE_SCHEMA,
         ORACLE_AFFINE_RESULT_SCHEMA,
         load_oracle_affine_config,
         run_oracle_affine_audit,
@@ -313,7 +315,11 @@ def evaluate(
         )
         result = {
             "schema_version": (
-                ORACLE_AFFINE_RESULT_SCHEMA
+                (
+                    MARGIN8_AFFINE_RESULT_SCHEMA
+                    if audit_config["schema_version"] == MARGIN8_AFFINE_SCHEMA
+                    else ORACLE_AFFINE_RESULT_SCHEMA
+                )
                 if obstacle_primitive_config is None
                 else OBSTACLE_PRIMITIVE_RESULT_SCHEMA
             ),
@@ -390,6 +396,13 @@ def evaluate(
             "oracle_affine_audit": audit,
             "research_direction_go": bool(
                 audit["decision"]["research_direction_go"]
+            ),
+            "margin8mm_test_pass": (
+                None
+                if audit_config["schema_version"] != MARGIN8_AFFINE_SCHEMA
+                else bool(
+                    audit["decision"]["margin_intervention"]["test_pass"]
+                )
             ),
             "stop_reason": audit["decision"]["stop_reason"],
             "wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,
