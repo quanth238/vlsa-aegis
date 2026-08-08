@@ -77,6 +77,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL nominal action source differs")
     geometry = config["protected_geometry"]
     if geometry != {
+        "distal_activation_clearance_m": 0.015,
         "distal_clearance_target_m": 0.01,
         "distal_constraint_count": 7,
         "end_effector_constraint_count": 1,
@@ -317,14 +318,20 @@ class DistalSitlCandidateFilter:
                 raise ValueError("SITL nominal repeated clone is not deterministic")
         base_h = np.asarray(base["next_h_opt_m"], dtype=np.float64)
         target = self.targets(base_h)
+        preferred_target = target.copy()
+        preferred_target[:7] = float(
+            self.config["protected_geometry"]["distal_activation_clearance_m"]
+        )
         nominal_safe = bool(np.all(base_h >= target - tolerance))
+        nominal_preferred = bool(np.all(base_h >= preferred_target - tolerance))
+        activation = not nominal_preferred
         probe_records = []
         rows = None
         lower = None
         qp_result = None
         qp_xyz = None
         candidates = []
-        if not nominal_safe:
+        if activation:
             perturbation = float(self.config["finite_difference"]["perturbation_action"])
             plus_xyz = []
             minus_xyz = []
@@ -351,7 +358,7 @@ class DistalSitlCandidateFilter:
                     }
                 )
             rows = finite_difference_rows(plus_h, minus_h, plus_xyz, minus_xyz)
-            lower = target - base_h + rows @ nominal[:3]
+            lower = preferred_target - base_h + rows @ nominal[:3]
             qp_result = self.qp.solve(
                 nominal[:3],
                 np.eye(3),
@@ -370,21 +377,28 @@ class DistalSitlCandidateFilter:
                 "candidate_xyz": nominal[:3].tolist(),
                 "verified_next_clearance_m": base_h.tolist(),
                 "verified_safe": nominal_safe,
+                "preferred_safe": nominal_preferred,
                 "objective_l2_from_nominal": 0.0,
                 "next_state_sha256": base["next_state_sha256"],
                 "env_step_wall_seconds": float(base["env_step_wall_seconds"]),
             }
         ]
         safe_options = []
+        preferred_options = []
         if nominal_safe:
             safe_options.append((0.0, "nominal_released_aegis", nominal, base))
-        else:
+        if nominal_preferred:
+            preferred_options.append((0.0, "nominal_released_aegis", nominal, base))
+        if activation:
             for source, xyz in candidates:
                 candidate_action = nominal.copy()
                 candidate_action[:3] = xyz
                 transition = self.probe.transition(env, candidate_action)
                 clearances = np.asarray(transition["next_h_opt_m"], dtype=np.float64)
                 safe = bool(np.all(clearances >= target - tolerance))
+                preferred = bool(
+                    np.all(clearances >= preferred_target - tolerance)
+                )
                 objective = float(np.linalg.norm(xyz - nominal[:3]))
                 attempts.append(
                     {
@@ -392,6 +406,7 @@ class DistalSitlCandidateFilter:
                         "candidate_xyz": xyz.tolist(),
                         "verified_next_clearance_m": clearances.tolist(),
                         "verified_safe": safe,
+                        "preferred_safe": preferred,
                         "objective_l2_from_nominal": objective,
                         "next_state_sha256": transition["next_state_sha256"],
                         "env_step_wall_seconds": float(transition["env_step_wall_seconds"]),
@@ -399,12 +414,17 @@ class DistalSitlCandidateFilter:
                 )
                 if safe:
                     safe_options.append((objective, source, candidate_action, transition))
+                if preferred:
+                    preferred_options.append(
+                        (objective, source, candidate_action, transition)
+                    )
         accepted = None
         accepted_transition = None
         accepted_source = None
-        if safe_options:
-            safe_options.sort(key=lambda item: (item[0], item[1]))
-            _, accepted_source, accepted, accepted_transition = safe_options[0]
+        selectable = preferred_options if preferred_options else safe_options
+        if selectable:
+            selectable.sort(key=lambda item: (item[0], item[1]))
+            _, accepted_source, accepted, accepted_transition = selectable[0]
         record = {
             "schema_version": SITL_CANDIDATE_STEP_SCHEMA,
             "step": int(step),
@@ -420,18 +440,21 @@ class DistalSitlCandidateFilter:
                 "released_AEGIS_EE_proxy",
             ],
             "clearance_target_m": target.tolist(),
+            "activation_clearance_target_m": preferred_target.tolist(),
             "nominal_released_aegis_action": action.tolist(),
             "nominal_next_clearance_m": base_h.tolist(),
             "nominal_safe": nominal_safe,
+            "nominal_preferred": nominal_preferred,
+            "activation": activation,
             "finite_difference": {
-                "used": not nominal_safe,
-                "probe_count": 0 if nominal_safe else 6,
+                "used": activation,
+                "probe_count": 6 if activation else 0,
                 "probes": probe_records,
                 "rows_m_per_normalized_xyz": None if rows is None else rows.tolist(),
                 "lower": None if lower is None else lower.tolist(),
             },
             "qp": {
-                "used": not nominal_safe,
+                "used": activation,
                 "valid": None if qp_result is None else bool(qp_result.valid),
                 "reason": None if qp_result is None else qp_result.reason,
                 "candidate_xyz": None if qp_xyz is None else qp_xyz.tolist(),

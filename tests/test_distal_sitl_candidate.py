@@ -14,6 +14,9 @@ class DistalSitlCandidateTests(unittest.TestCase):
         )
         self.assertEqual(config["protected_geometry"]["distal_constraint_count"], 7)
         self.assertEqual(config["protected_geometry"]["end_effector_constraint_count"], 1)
+        self.assertEqual(
+            config["protected_geometry"]["distal_activation_clearance_m"], 0.015
+        )
         self.assertEqual(config["protected_geometry"]["distal_clearance_target_m"], 0.01)
         self.assertEqual(
             config["protected_geometry"]["end_effector_target"],
@@ -27,7 +30,10 @@ class DistalSitlCandidateTests(unittest.TestCase):
 
         instance = object.__new__(DistalSitlCandidateFilter)
         instance.config = {
-            "protected_geometry": {"distal_clearance_target_m": 0.01}
+            "protected_geometry": {
+                "distal_clearance_target_m": 0.01,
+                "distal_activation_clearance_m": 0.015,
+            }
         }
         nominal = np.asarray([0.1] * 7 + [-0.003])
         target = instance.targets(nominal)
