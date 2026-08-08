@@ -113,6 +113,8 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("maximum_absolute_raw_action_difference", source)
         self.assertIn("allocation_job_37054_split_jit_equivalence_gate", source)
         self.assertIn("first_five_gripper_signs_equal", source)
+        self.assertIn("compared_executed_prefix_length", source)
+        self.assertIn("archived_initial_prefix", source)
 
 
 if __name__ == "__main__":

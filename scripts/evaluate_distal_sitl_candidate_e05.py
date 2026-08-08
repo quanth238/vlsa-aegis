@@ -271,20 +271,24 @@ def evaluate(
                     )
                     returned_hash = array_sha256(returned)
                     if query_index == 0:
-                        archived_initial = np.asarray(
+                        paired_prefix_length = int(case.get("replan_steps", 5))
+                        archived_initial_prefix = np.asarray(
                             [
                                 archived_actions[item]["nominal_raw"]
-                                for item in range(int(case["model_action_horizon"]))
+                                for item in range(paired_prefix_length)
                             ],
                             dtype=np.float64,
                         )
-                        difference = np.abs(returned - archived_initial)
+                        difference = np.abs(
+                            returned[:paired_prefix_length]
+                            - archived_initial_prefix
+                        )
                         per_dimension_maximum = np.max(difference, axis=0)
                         maximum_raw_difference = float(np.max(difference))
                         first_five_gripper_signs_equal = bool(
                             np.array_equal(
                                 np.sign(returned[:5, 6]),
-                                np.sign(archived_initial[:5, 6]),
+                                np.sign(archived_initial_prefix[:5, 6]),
                             )
                         )
                         pairing["initial_policy_action_chunk_sha256"] = returned_hash
@@ -297,6 +301,8 @@ def evaluate(
                             ),
                             "maximum_absolute_raw_action_difference": maximum_raw_difference,
                             "per_dimension_maximum_absolute_difference": per_dimension_maximum.tolist(),
+                            "compared_executed_prefix_length": paired_prefix_length,
+                            "unexecuted_suffix_elementwise_comparison": "unavailable_archived_raw_values",
                             "calibrated_raw_tolerance": 0.005,
                             "first_five_gripper_signs_equal": first_five_gripper_signs_equal,
                             "accepted": bool(
