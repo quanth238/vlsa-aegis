@@ -946,3 +946,12 @@ This is explicitly a post-hoc controller adaptation, not EmbodiSteer's
 denoising-time whole-body guidance.  Acceptance requires one and only one EE
 row per executed action, zero L5--L7 geometry/rows, optimizer-row feasibility,
 raw MuJoCo contact/CAR reporting, QP timing, and decodable upright videos.
+
+H100 attempt `37077` passed allocation tests and sampler equivalence, then
+failed before action zero because the fresh 10 Hz arm's re-rendered RGB bytes
+did not equal the archived Table-1 capture.  Its flattened simulator state did
+match exactly.  The run is retained as an apparatus failure.  The corrected
+source gate keeps exact simulator-state equality and additionally requires
+the active obstacle position to match the archived numeric position within
+`1e-9 m`; it records both camera hashes but does not require render bytes from
+fresh contexts to match when the archived MVEE is reused numerically.

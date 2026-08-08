@@ -120,6 +120,14 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
                 and geometry["l5_l6_l7_constraints_built"] is False,
                 "AEGIS-EE geometry isolation differs",
             )
+            binding = geometry["source_binding"]
+            _require(
+                binding["settled_simulator_state_sha256_match"] is True
+                and binding["camera_bytes_expected_to_match"] is False
+                and float(binding["active_obstacle_position_max_error_m"])
+                <= float(binding["active_obstacle_position_tolerance_m"]),
+                "AEGIS-EE archived geometry source binding differs",
+            )
             _require(
                 arm["aegis_ee_qp_timing"]["qp_count"] == arm["action_count"],
                 "AEGIS-EE QP count differs",

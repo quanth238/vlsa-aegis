@@ -748,3 +748,12 @@ whether changing the downstream controller representation helps the original
 AEGIS constraint.  It is not a claim of an exact EmbodiSteer implementation,
 native joint-space barrier, full-body protection, or matched paper baseline.
 Raw simulator contacts and task state remain authoritative over QP clearance.
+
+H100 attempt `37077` showed that exact physical-state equality does not imply
+byte-identical RGB after that state is transplanted into a fresh 10 Hz render
+context.  Requiring the new rendering to equal the old perception input was
+therefore the wrong provenance check: the new run does not refit perception;
+it consumes the archived numeric MVEE.  The revised fail-closed binding keeps
+the exact 170-value simulator-state hash and checks the active obstacle world
+position against the archived Table-1 value within `1e-9 m`.  Old and current
+camera hashes are both retained, with mismatch expected rather than hidden.

@@ -67,6 +67,12 @@ class AegisEEStaticIsolationTest(unittest.TestCase):
             guidance["released_aegis"]["formulation"],
             "released_table1_six_variable_translational_cbf_qp",
         )
+        self.assertEqual(
+            guidance["released_aegis"]["source_table1_artifact"][
+                "active_obstacle_position_tolerance_m"
+            ],
+            1e-9,
+        )
 
 
 @unittest.skipIf(np is None, "NumPy is available in the H100 evaluation environment")

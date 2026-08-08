@@ -827,12 +827,26 @@ def _run_arm(
                 == source_artifact["settled_simulator_state_sha256"],
                 "AEGIS-EE frozen MVEE settled state differs",
             )
+            archived_obstacle_position = np.asarray(
+                source_artifact["active_obstacle_initial_position_m"],
+                dtype=np.float64,
+            )
+            observed_obstacle_position = np.asarray(
+                observation["%s_pos" % obstacle_name], dtype=np.float64
+            )
+            obstacle_position_error = float(
+                np.max(
+                    np.abs(
+                        observed_obstacle_position - archived_obstacle_position
+                    )
+                )
+            )
             _require(
-                pairing["initial_observation_contract"][
-                    "agentview_array_sha256"
-                ]
-                == source_artifact["settled_agentview_array_sha256"],
-                "AEGIS-EE frozen MVEE settled camera differs",
+                obstacle_position_error
+                <= float(
+                    source_artifact["active_obstacle_position_tolerance_m"]
+                ),
+                "AEGIS-EE frozen MVEE obstacle pose differs",
             )
             safety_filter = ReleasedAegisEEFilter(
                 runtime=runtime,
@@ -840,6 +854,24 @@ def _run_arm(
                 initial_proxy=reference["released_stale_proxy"],
             )
             geometry_record = safety_filter.geometry_record()
+            geometry_record["source_binding"] = {
+                "archived_table1_result_file_sha256": source_artifact[
+                    "file_sha256"
+                ],
+                "settled_simulator_state_sha256_match": True,
+                "active_obstacle_position_max_error_m": obstacle_position_error,
+                "active_obstacle_position_tolerance_m": float(
+                    source_artifact["active_obstacle_position_tolerance_m"]
+                ),
+                "archived_perception_agentview_array_sha256": source_artifact[
+                    "settled_agentview_array_sha256"
+                ],
+                "current_rerendered_agentview_array_sha256": pairing[
+                    "initial_observation_contract"
+                ]["agentview_array_sha256"],
+                "camera_bytes_expected_to_match": False,
+                "camera_bytes_reason": "archived_MVEE_is_reused_numerically_and_current_10Hz_arm_rerenders_the_exact_state_in_a_fresh_context",
+            }
             if joint:
                 joint_contract = _arm_joint_contract(
                     env, float(config["joint_denoising"]["joint_limit_margin_rad"])

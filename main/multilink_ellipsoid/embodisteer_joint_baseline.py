@@ -179,6 +179,12 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         }:
             raise ValueError("AEGIS-EE direct-joint adapter differs")
         if released["source_table1_artifact"] != {
+            "active_obstacle_initial_position_m": [
+                -0.060000286232933644,
+                0.14002376109395798,
+                1.005775853852426,
+            ],
+            "active_obstacle_position_tolerance_m": 1e-09,
             "case_id": "vlsa-t1-goal-ii-t0-e05",
             "file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
             "result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
