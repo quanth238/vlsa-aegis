@@ -13,6 +13,14 @@ verification before execution. One relinearization is allowed.
 
 Implementation, default-sampler regression, clean commit, and the primary
 paired H100 result are pending. The completed Table 1 tree remains read-only.
+Initial H100 submission `37014` stopped during allocation-side unit preflight,
+before policy startup or simulation: the Python-3.8 evaluation runtime could
+not evaluate an existing `int | None` annotation while dynamically loading
+the server helper, and a synthetic test expected the later-step residual
+instead of the smaller first-step residual. The retained run root contains an
+apparatus-failure receipt and no result or video. The repair postpones type
+annotation evaluation and corrects only that synthetic expected value; no
+experiment setting changed.
 
 ## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 

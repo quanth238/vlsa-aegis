@@ -289,7 +289,7 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         )
         self.assertTrue(verification["safe"])
         self.assertAlmostEqual(
-            verification["minimum_trajectory_cbf_residual_m"], 0.0315
+            verification["minimum_trajectory_cbf_residual_m"], 0.031
         )
 
     @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
