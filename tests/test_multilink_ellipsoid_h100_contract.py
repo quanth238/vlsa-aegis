@@ -144,6 +144,30 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("identify_osc_clearance_model", runner)
         self.assertIn("exact_trajectory_verification", runner)
         self.assertIn("initial_policy_action_chunk_sha256", runner)
+        self.assertIn('pixelformat="yuv420p"', runner)
+        self.assertIn('"-movflags", "+faststart"', runner)
+
+    def test_predictive_video_replays_ledger_and_verifies_decoded_pixels(self) -> None:
+        source = (
+            ROOT / "slurm/render_predictive_flow_guidance_video.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-0,worker-3", source)
+        self.assertIn("render_predictive_flow_guidance_video.py", source)
+        self.assertIn("$ACCEPTED_RESULT", source)
+        self.assertIn("$EXPECTED_RESULT_SHA256", source)
+        self.assertIn("IMAGEIO_FFMPEG_EXE", source)
+        self.assertNotIn('>"$ACCEPTED_RESULT"', source)
+
+        renderer = (
+            ROOT / "scripts/render_predictive_flow_guidance_video.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('pixelformat="yuv420p"', renderer)
+        self.assertIn("decoded video visual fidelity differs", renderer)
+        self.assertIn("main_next_state_sha256", renderer)
+        self.assertIn("policy-query clearance trace differs", renderer)
+        self.assertIn("geometry.ellipsoids(env)", renderer)
+        self.assertIn("obstacle MVEE", renderer)
 
 
 if __name__ == "__main__":

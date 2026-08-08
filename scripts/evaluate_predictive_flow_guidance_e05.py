@@ -242,6 +242,8 @@ def evaluate(
             fps=TABLE_VIDEO_FPS,
             codec="libx264",
             macro_block_size=None,
+            pixelformat="yuv420p",
+            output_params=["-crf", "18", "-movflags", "+faststart"],
         )
         trajectory = config["trajectory_model"]
         flow = config["flow_guidance"]
@@ -635,6 +637,7 @@ def evaluate(
                 "file_sha256": _file_sha256(video_final),
                 "frames_written": frames_written,
                 "fps": TABLE_VIDEO_FPS,
+                "codec": "libx264_yuv420p_crf18_faststart",
             },
             "primary_problem_solved": problem_solved,
             "failure": failure,
