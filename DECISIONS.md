@@ -859,3 +859,18 @@ as population evidence, or as whole-arm safety. The next research question is
 whether the privileged reference and expensive cloned search can be replaced
 by a causal proposal model while retaining the exact simulator verification
 gate.
+
+## ADR-0050: Replace the damaged recording with an exact single-context replay
+
+The striped job-`37115` MP4 is retained as immutable provenance but rejected
+as visual evidence. Re-encoding cannot recover pixels corrupted during source
+rendering. The replacement must therefore replay the already accepted action
+ledger in exactly one freshly rendered MuJoCo environment on H100, without
+the probe/reference environments used by the online candidate search.
+
+The replacement is accepted only if its simulator trace exactly reproduces
+the successful result and both source and decoded frames pass explicit
+striping, degeneracy, frame-count, and codec-fidelity gates. This changes no
+executed action or scientific outcome. Until that allocation-backed receipt
+exists, the clean replacement video remains pending rather than inferred from
+local rendering.

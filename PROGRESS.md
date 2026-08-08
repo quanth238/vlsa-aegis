@@ -1099,3 +1099,24 @@ feature `E02` therefore remains active.
 
 The exact next audit command is:
 `jq '{primary_problem_solved,raw_simulation_evidence,filter_summary,goal:.goal_progress.summary,oracle_reference_tracking,claim_scope}' /mnt/data/quanth/experiments/vlsa-distal-sitl-minimal-replay-e05/sitl-minimal-replay-20260808h/result.json`.
+
+## Clean single-context replay for the successful L5--L7 video
+
+The original job `37115` MP4/JPG are rejected as presentation artifacts
+because their source frames contain vertical OSMesa striping. The scientific
+result remains accepted from exact simulator state, contact, task, and
+obstacle-motion evidence; the damaged video is not repaired or overwritten.
+
+Commit `f347f92` adds a visualization-only replay that keeps exactly one
+rendered MuJoCo environment alive, replays the immutable 193 accepted actions,
+and fails unless every simulator-state hash, reward, done flag, native goal,
+end-effector position, obstacle displacement, and raw contact event matches
+the accepted result. It also rejects source or decoded frames with excessive
+adjacent-pixel variation and verifies decoded MP4 fidelity. Actions 182--192
+are slowed for inspection.
+
+No H100 job has been submitted yet. At 22:34--22:36 Asia/Ho_Chi_Minh on
+2026-08-08, the Ruijie VPN connected successfully but the VinUni login node
+`10.254.152.76:22` repeatedly timed out. Local simulation was not used. The
+exact next command after connectivity returns is:
+`ssh vinuni 'cd /home/quanth/working_space/vlsa-aegis-table-repro && git fetch origin codex/multilink-ellipsoid-qp && git merge --ff-only FETCH_HEAD && git status --short && git rev-parse HEAD'`.
