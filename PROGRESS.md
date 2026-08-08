@@ -71,6 +71,24 @@ finished near `y=0.515 m` and the bowl pose remained unchanged. The immutable
 baseline instead moved the bowl by step 75, contacted L5/L6 beginning at step
 187, and completed the native goal at step 236.
 
+The original job-`37024` MP4 is not accepted as visual evidence: although its
+container opened and frame zero was readable, later decoded frames were
+corrupted. H100 exact-ledger visualization job `37031` repaired the evidence
+without changing or rerunning the controller. It replayed all 300 accepted
+actions from the read-only result (SHA-256
+`739adbca0287193bac477b737a7131e6fa9ed55c452ba9e7eea1113e5e4649c1`),
+matched the recorded simulator state and end-effector traces with zero maximum
+error, and overlaid the live L5/L6/L7/end-effector ellipsoids plus the frozen
+obstacle MVEE. The replacement H.264/yuv420p MP4 has 301 decoded frames and
+SHA-256 `34fcbb4e2ca83cdce203a8c553d2963d5fb5a4e2af8a30667e311b6e1d7e9b77`;
+six distributed decoded samples have maximum mean absolute source-pixel error
+`2.612/255`. The JPG SHA-256 is
+`23a5f037bba9265f63e5cf1d27fa7a76a48b7de373a4c26f1444c4a44ef0677c`.
+Preceding job `37029` produced the same verified bytes but ended `FAILED`
+during legacy OSMesa process teardown, so it is retained as an apparatus
+failure; the renderer now exits only after closing artifacts and atomically
+writing the receipt, and clean retry `37031` ended `COMPLETED (0:0)`.
+
 This result shows that cloned OSC dynamics and exact horizon verification fix
 the earlier certificate-to-`env.step` mismatch for the actions they accept.
 It does not show that predictive full-body guidance solves the original

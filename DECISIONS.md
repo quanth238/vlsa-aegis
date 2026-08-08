@@ -510,3 +510,20 @@ margin, shorten the horizon, remove the explicitly requested end-effector
 constraint, or tune activation after observing the outcome. Any follow-up is
 a new preregistered experiment and must recover a task-competent paired
 baseline before KKT/VI or neural approximation training is reconsidered.
+
+## ADR-0037: Require decoded-pixel verification for simulation videos
+
+Accepted after auditing the job-`37024` MP4. A readable container, plausible
+frame count, and valid first frame are insufficient evidence: that file became
+visually corrupted after frame zero. It is retained only for provenance and
+must not be presented as simulation evidence.
+
+Replacement videos are reconstructed on H100 from the immutable accepted
+action ledger. Acceptance requires exact replay of recorded primary states,
+end-effector coordinates, obstacle motion, contact, CAR, and task outcome;
+visible L5/L6/L7/end-effector and obstacle ellipsoid overlays; successful
+decoding of every expected frame; and distributed decoded-pixel comparison
+against the in-memory source frames. H100 job `37031` satisfied this contract
+and completed normally. A renderer receipt written before a nonzero Slurm exit
+is not sufficient: prior attempt `37029` is an apparatus failure even though
+its bytes happened to pass the content checks.
