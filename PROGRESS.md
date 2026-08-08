@@ -68,6 +68,37 @@ equivalence: raw error at most `0.005` action units, translation at most
 All measured values remain recorded; this is not a task- or collision-outcome
 tuning decision.
 
+Clean H100 job `37055` completed both barrier-free arms and the original
+shape/count validator from commit `600cefc`. The Cartesian arm executed 300
+actions, never moved the bowl or satisfied the goal, first moved the obstacle
+beyond the paper CAR threshold at step 19, and contacted link 7 at step 236.
+The joint arm also never moved the bowl or satisfied the goal and recorded no
+contact or CAR. This pair is not accepted as an EmbodiSteer-fidelity result.
+The audit found that SafeLIBERO's `JOINT_POSITION` input is a bounded delta,
+but v1 encoded each absolute `Q_0` target through only `0.05 rad`: 220/300
+steps saturated, mean post-step target error was `0.240 rad`, and maximum was
+`0.963 rad`. The rendered/policy camera stream also developed visible
+high-frequency corruption after initially valid frames; a shape-only decoder
+check incorrectly passed it.
+
+The v1 artifacts remain immutable evidence of these apparatus failures. The
+Cartesian MP4/JPG are visually valid. The joint MP4/JPG are rejected despite
+having 301 decodable frames and must not be presented as simulation evidence.
+The result file, payload, Cartesian MP4, and rejected joint MP4 SHA-256 values
+are `b58504c3df32854d555db1cb5cb0dda6824b60154be89bfcf30d4b4be8b8a92b`,
+`9bc55a0194ad19a5a4b6a3632d0601f5be46bd9a522e2491fd1dc465d083870e`,
+`2bc0256ad56ad7f9fd9a0c5fbc7cf1d84ca05bf71e2a0d5a1a56de55a57b1b4d`,
+and `afb293d529ec153f1024e228a9e10cb0fe347459e4c96ce55adb62656d760bf5`.
+
+Protocol v2 changes only the execution and evidence apparatus before a new
+outcome: it uses the delta controller's full `6 rad` encoding range so every
+bounded Panda `Q_0` configuration is represented as the exact absolute target,
+runs EE and Joint in fresh evaluation processes under the same H100 allocation,
+and rejects any source or decoded frame whose horizontal/vertical adjacent
+pixel MAD exceeds `8`. All ellipsoids, SDFs, barriers, and QPs remain disabled.
+Acceptance additionally requires zero joint-target encoding saturation and
+reports target-tracking error explicitly.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

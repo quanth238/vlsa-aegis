@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping, Sequence, Tuple
 
 
 SCHEMA = "vlsa_embodisteer_joint_baselines.v1"
+SCHEMA_V2 = "vlsa_embodisteer_joint_baselines.v2"
 CONTROL_SCHEMA = "crfs_embodisteer_joint_denoising.v1"
 
 
@@ -62,7 +63,7 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("EmbodiSteer joint-baseline config keys differ")
-    if config["schema_version"] != SCHEMA:
+    if config["schema_version"] not in {SCHEMA, SCHEMA_V2}:
         raise ValueError("EmbodiSteer joint-baseline schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("EmbodiSteer joint-baseline case differs")
@@ -103,6 +104,18 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         "impedance_mode"
     ) != "fixed":
         raise ValueError("Joint baseline controller differs")
+    if config["schema_version"] == SCHEMA:
+        if "joint_target_encoding" in protocol or float(controller["output_max"]) != 0.05:
+            raise ValueError("v1 joint delta adapter differs")
+    else:
+        if protocol.get("joint_target_encoding") != {
+            "formula": "env_action=(q_target-q_current)/controller_output_max",
+            "maximum_panda_joint_range_rad": 5.8,
+            "purpose": "encode_absolute_Q0_target_without_delta_saturation",
+        }:
+            raise ValueError("v2 absolute joint-target adapter differs")
+        if float(controller["output_max"]) != 6.0 or float(controller["output_min"]) != -6.0:
+            raise ValueError("v2 absolute joint-target range differs")
     expected_joint = {
         "action_representation_adaptation": "libero_incremental_delta_pose_as_sequential_joint_configuration_trajectory",
         "cartesian_rotation_scale_rad_per_action_unit": 0.5,

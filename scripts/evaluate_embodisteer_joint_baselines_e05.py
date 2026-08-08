@@ -17,6 +17,7 @@ import math
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 from typing import Any, Mapping, Sequence
 
@@ -122,6 +123,29 @@ def _response_actions(response: Mapping[str, Any]) -> Any:
         "pi0.5 action chunk differs",
     )
     return actions
+
+
+def _frame_quality(frame: Any) -> dict[str, Any]:
+    """Reject the high-frequency renderer corruption seen in the v1 joint arm."""
+
+    import numpy as np
+
+    value = np.asarray(frame)
+    _require(
+        value.shape == (1024, 1024, 3) and value.dtype == np.uint8,
+        "agent-view frame contract differs",
+    )
+    numeric = value.astype(np.float32)
+    horizontal = float(np.mean(np.abs(np.diff(numeric, axis=1))))
+    vertical = float(np.mean(np.abs(np.diff(numeric, axis=0))))
+    threshold = 8.0
+    return {
+        "horizontal_adjacent_mad": horizontal,
+        "vertical_adjacent_mad": vertical,
+        "maximum_adjacent_mad": max(horizontal, vertical),
+        "threshold": threshold,
+        "passing": max(horizontal, vertical) <= threshold,
+    }
 
 
 def _protected_events(events: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
@@ -660,6 +684,8 @@ def _run_arm(
             output_params=["-pix_fmt", "yuv420p", "-movflags", "+faststart", "-crf", "18"],
         )
         frame = _processed_image(observation, "agentview_image")
+        initial_frame_quality = _frame_quality(frame)
+        _require(initial_frame_quality["passing"], "initial agent-view frame is corrupted")
         writer.append_data(frame)
         frames += 1
 
@@ -742,7 +768,11 @@ def _run_arm(
             pre_qpos, pre_qvel = _joint_state(env)
             if joint:
                 target = np.asarray(planned["joint_target"], dtype=np.float64)
-                normalized_delta = (target - np.asarray(pre_qpos)) / 0.05
+                output_scale = float(
+                    config["action_protocol"]["joint_controller"]["output_max"]
+                )
+                _require(output_scale > 0.0, "joint target encoding scale differs")
+                normalized_delta = (target - np.asarray(pre_qpos)) / output_scale
                 arm_action = np.clip(normalized_delta, -1.0, 1.0)
                 gripper = float(planned["gripper"])
                 env_action = np.concatenate((arm_action, [gripper]))
@@ -831,12 +861,46 @@ def _run_arm(
                 }
             )
             frame = _processed_image(observation, "agentview_image")
+            frame_quality = _frame_quality(frame)
+            _require(
+                frame_quality["passing"],
+                "agent-view renderer corruption at step %d: %s"
+                % (step, json.dumps(frame_quality, sort_keys=True)),
+            )
+            actions[-1]["agentview_frame_quality"] = frame_quality
             writer.append_data(frame)
             frames += 1
             if first_success is not None:
                 break
 
         goal_summary = _goal_progress_summary(initial_goal, actions)
+        joint_target_execution = None
+        if joint:
+            tracking_errors = np.asarray(
+                [
+                    np.linalg.norm(
+                        np.asarray(action["post_joint_position_rad"])
+                        - np.asarray(action["action_source"]["joint_target_rad"])
+                    )
+                    for action in actions
+                ],
+                dtype=np.float64,
+            )
+            saturation_counts = np.asarray(
+                [action["action_source"]["saturated_joint_count"] for action in actions],
+                dtype=np.int64,
+            )
+            joint_target_execution = {
+                "target_tracking_error_l2_rad_mean": float(np.mean(tracking_errors)),
+                "target_tracking_error_l2_rad_maximum": float(np.max(tracking_errors)),
+                "steps_with_delta_encoding_saturation": int(
+                    np.count_nonzero(saturation_counts)
+                ),
+                "maximum_saturated_joint_count": int(np.max(saturation_counts)),
+                "controller_output_scale_rad": float(
+                    config["action_protocol"]["joint_controller"]["output_max"]
+                ),
+            }
         evidence = {
             "native_task_success": first_success is not None,
             "native_task_success_step": first_success,
@@ -877,6 +941,21 @@ def _run_arm(
                 "summary": goal_summary,
             },
             "raw_simulation_evidence": evidence,
+            "joint_target_execution": joint_target_execution,
+            "visual_integrity": {
+                "initial_frame": initial_frame_quality,
+                "all_frames_passing": all(
+                    action["agentview_frame_quality"]["passing"]
+                    for action in actions
+                ),
+                "maximum_adjacent_mad": max(
+                    [initial_frame_quality["maximum_adjacent_mad"]]
+                    + [
+                        action["agentview_frame_quality"]["maximum_adjacent_mad"]
+                        for action in actions
+                    ]
+                ),
+            },
             "wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,
         }
         runtime["imageio"].imwrite(str(final_jpg), frame)
@@ -905,6 +984,84 @@ def _run_arm(
     return result
 
 
+def evaluate_worker(
+    *,
+    arm: str,
+    repo_root: Path,
+    manifest_path: Path,
+    config_path: Path,
+    expected_commit: str,
+    host: str,
+    port: int,
+    artifact_root: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    """Run one arm in a fresh process to isolate MuJoCo render contexts."""
+
+    from main.evaluate_safelibero_aegis import (
+        _runtime_imports,
+        _server_identity,
+        read_jsonl,
+        validate_case_row,
+    )
+    from main.multilink_ellipsoid.embodisteer_joint_baseline import (
+        load_joint_baseline_config,
+    )
+    from main.multilink_ellipsoid.shadow import allocation_record
+
+    _require(not output_path.exists(), "worker result already exists")
+    rows = read_jsonl(manifest_path)
+    matches = [row for row in rows if row.get("case_id") == CASE_ID]
+    _require(len(matches) == 1, "primary worker manifest row is not unique")
+    case = matches[0]
+    validate_case_row(case, repo_root)
+    config = load_joint_baseline_config(config_path)
+    _require(arm in config["arms"], "worker arm differs")
+    source = _git_identity(repo_root, expected_commit)
+    allocation = allocation_record()
+    runtime = _runtime_imports(include_aegis=False)
+    client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, port)
+    server = _server_identity(client)
+    reference = _reference_state(
+        runtime, case, int(config["pairing"]["settle_actions"])
+    )
+    sampler_preflight = None
+    if arm == config["arms"][0]:
+        sampler_preflight = _flow_step_equivalence_preflight(
+            runtime=runtime,
+            client=client,
+            case=case,
+            config=config,
+            reference=reference,
+        )
+    arm_result = _run_arm(
+        arm=arm,
+        runtime=runtime,
+        client=client,
+        case=case,
+        config=config,
+        reference=reference,
+        output_root=artifact_root,
+    )
+    wrapper = {
+        "schema_version": "vlsa_embodisteer_joint_baseline_worker.v1",
+        "status": "complete",
+        "arm": arm,
+        "source": source,
+        "allocation": allocation,
+        "config_payload_sha256": config["config_payload_sha256"],
+        "policy_server": server,
+        "reference_settled_state_sha256": reference["pairing"][
+            "settled_simulator_state_sha256"
+        ],
+        "sampler_regression_preflight": sampler_preflight,
+        "arm_result": arm_result,
+    }
+    wrapper["result_payload_sha256"] = _sha256(_canonical(wrapper))
+    _atomic_write(output_path, wrapper)
+    return wrapper
+
+
 def evaluate(
     *,
     repo_root: Path,
@@ -916,12 +1073,7 @@ def evaluate(
     port: int,
     output_path: Path,
 ) -> dict[str, Any]:
-    from main.evaluate_safelibero_aegis import (
-        _runtime_imports,
-        _server_identity,
-        read_jsonl,
-        validate_case_row,
-    )
+    from main.evaluate_safelibero_aegis import read_jsonl, validate_case_row
     from main.multilink_ellipsoid.embodisteer_joint_baseline import (
         load_joint_baseline_config,
     )
@@ -937,38 +1089,56 @@ def evaluate(
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
     checkpoint = _checkpoint_tree_record(checkpoint_path)
-    runtime = _runtime_imports(include_aegis=False)
-    client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, port)
-    server = _server_identity(client)
-    reference = _reference_state(
-        runtime, case, int(config["pairing"]["settle_actions"])
-    )
-    sampler_preflight = _flow_step_equivalence_preflight(
-        runtime=runtime,
-        client=client,
-        case=case,
-        config=config,
-        reference=reference,
-    )
     output_root = output_path.parent
-    cartesian = _run_arm(
-        arm=config["arms"][0],
-        runtime=runtime,
-        client=client,
-        case=case,
-        config=config,
-        reference=reference,
-        output_root=output_root,
-    )
-    joint = _run_arm(
-        arm=config["arms"][1],
-        runtime=runtime,
-        client=client,
-        case=case,
-        config=config,
-        reference=reference,
-        output_root=output_root,
-    )
+    worker_root = output_root / "workers"
+    worker_outputs = []
+    script_path = Path(__file__).resolve()
+    for arm in config["arms"]:
+        worker_output = worker_root / (arm + ".json")
+        command = [
+            sys.executable,
+            str(script_path),
+            "--repo-root",
+            str(repo_root),
+            "--manifest",
+            str(manifest_path),
+            "--config",
+            str(config_path),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--expected-commit",
+            expected_commit,
+            "--host",
+            host,
+            "--port",
+            str(port),
+            "--output",
+            str(worker_output),
+            "--artifact-root",
+            str(output_root),
+            "--worker-arm",
+            arm,
+        ]
+        subprocess.run(command, check=True)
+        worker_outputs.append(
+            json.loads(worker_output.read_text(encoding="utf-8"))
+        )
+    for worker, arm in zip(worker_outputs, config["arms"]):
+        _require(worker["status"] == "complete" and worker["arm"] == arm, "worker differs")
+        _require(worker["source"] == source, "worker source differs")
+        _require(
+            worker["allocation"]["slurm_job_id"] == allocation["slurm_job_id"],
+            "worker allocation differs",
+        )
+        _require(
+            worker["config_payload_sha256"] == config["config_payload_sha256"],
+            "worker config differs",
+        )
+    cartesian = worker_outputs[0]["arm_result"]
+    joint = worker_outputs[1]["arm_result"]
+    sampler_preflight = worker_outputs[0]["sampler_regression_preflight"]
+    _require(sampler_preflight["status"] == "passing", "worker sampler preflight differs")
+    server = worker_outputs[0]["policy_server"]
     _require(
         cartesian["pairing"]["settled_simulator_state_sha256"]
         == joint["pairing"]["settled_simulator_state_sha256"],
@@ -994,6 +1164,14 @@ def evaluate(
         "config": config,
         "checkpoint": checkpoint,
         "policy_server": server,
+        "fresh_process_workers": {
+            "enabled": True,
+            "reason": "prevent_cross_arm_MuJoCo_OSMesa_context_corruption",
+            "worker_results": [
+                str((worker_root / (arm + ".json")).relative_to(output_root))
+                for arm in config["arms"]
+            ],
+        },
         "sampler_regression_preflight": sampler_preflight,
         "paper_fidelity": {
             "same_frozen_cartesian_checkpoint": True,
@@ -1042,18 +1220,36 @@ def main() -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    result = evaluate(
-        repo_root=args.repo_root.resolve(),
-        manifest_path=args.manifest.resolve(),
-        config_path=args.config.resolve(),
-        checkpoint_path=args.checkpoint.resolve(),
-        expected_commit=args.expected_commit,
-        host=args.host,
-        port=args.port,
-        output_path=args.output.resolve(),
+    parser.add_argument(
+        "--worker-arm",
+        choices=("cartesian_ee_no_guidance", "joint_denoising_no_guidance"),
     )
-    print(json.dumps(result["comparison"], sort_keys=True, indent=2))
+    parser.add_argument("--artifact-root", type=Path)
+    args = parser.parse_args()
+    common = {
+        "repo_root": args.repo_root.resolve(),
+        "manifest_path": args.manifest.resolve(),
+        "config_path": args.config.resolve(),
+        "expected_commit": args.expected_commit,
+        "host": args.host,
+        "port": args.port,
+        "output_path": args.output.resolve(),
+    }
+    if args.worker_arm is not None:
+        _require(args.artifact_root is not None, "worker artifact root is required")
+        result = evaluate_worker(
+            arm=args.worker_arm,
+            artifact_root=args.artifact_root.resolve(),
+            **common,
+        )
+        print(json.dumps({"arm": result["arm"], "status": result["status"]}))
+    else:
+        _require(args.artifact_root is None, "artifact root is worker-only")
+        result = evaluate(
+            checkpoint_path=args.checkpoint.resolve(),
+            **common,
+        )
+        print(json.dumps(result["comparison"], sort_keys=True, indent=2))
     return 0
 
 

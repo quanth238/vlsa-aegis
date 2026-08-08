@@ -1,0 +1,88 @@
+{
+  "action_protocol": {
+    "cartesian_controller": "OSC_POSE",
+    "control_frequency_hz": 20,
+    "execute_actions_per_query": 5,
+    "joint_controller": {
+      "damping_ratio": 1.0,
+      "impedance_mode": "fixed",
+      "input_max": 1.0,
+      "input_min": -1.0,
+      "interpolation": null,
+      "kp": 50.0,
+      "output_max": 6.0,
+      "output_min": -6.0,
+      "qpos_limits": null,
+      "ramp_ratio": 0.2,
+      "type": "JOINT_POSITION"
+    },
+    "joint_target_encoding": {
+      "formula": "env_action=(q_target-q_current)/controller_output_max",
+      "maximum_panda_joint_range_rad": 5.8,
+      "purpose": "encode_absolute_Q0_target_without_delta_saturation"
+    },
+    "max_actions": 300,
+    "model_action_horizon": 10
+  },
+  "arms": [
+    "cartesian_ee_no_guidance",
+    "joint_denoising_no_guidance"
+  ],
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_primary_case_barrier_free_embodisteer_baseline_fidelity_pilot_with_absolute_joint_target_adapter_not_safety_efficacy_or_full_paper_reproduction",
+  "collision_guidance": {
+    "barrier_projection_enabled": false,
+    "ellipsoid_constraints_enabled": false,
+    "qp_enabled": false,
+    "reason": "isolate_cartesian_policy_to_joint_denoising_fidelity_before_geometry"
+  },
+  "joint_denoising": {
+    "action_representation_adaptation": "libero_incremental_delta_pose_as_sequential_joint_configuration_trajectory",
+    "cartesian_rotation_scale_rad_per_action_unit": 0.5,
+    "cartesian_translation_scale_m_per_action_unit": 0.05,
+    "flow_euler_steps": 10,
+    "jacobian_damping_lambda_pinv": 0.001,
+    "joint_limit_margin_rad": 0.02,
+    "joint_update_clip_rad": 0.5,
+    "noise_initialization_scale_alpha": 0.1,
+    "pose_dimensions": 6
+  },
+  "nominal_policy": {
+    "checkpoint": "pi05_libero",
+    "frozen": true,
+    "same_checkpoint_both_arms": true
+  },
+  "pairing": {
+    "same_initial_state": true,
+    "same_policy_noise_seed_by_query_index": true,
+    "same_task_and_obstacle_scene": true,
+    "sampler_regression_tolerances": {
+      "executed_first_five_gripper_signs_must_match": true,
+      "raw_action_units": 0.005,
+      "rotation_rad": 0.001,
+      "translation_m": 0.0001
+    },
+    "settle_actions": 20
+  },
+  "paper_reference": {
+    "arxiv": "2606.12965v1",
+    "baseline_definition": "appendix_B4_EE_and_Joint",
+    "code_status_at_preregistration": "project_page_says_code_coming_soon",
+    "joint_denoising_equations": [
+      "3",
+      "4",
+      "8",
+      "9",
+      "10"
+    ]
+  },
+  "protocol_id": "vlsa-embodisteer-joint-baselines-e05-v2",
+  "schema_version": "vlsa_embodisteer_joint_baselines.v2",
+  "success_definition": {
+    "competence_gate": "joint_arm_preserves_useful_task_progress_relative_to_cartesian_arm_without_any_collision_guidance",
+    "report_raw_contact_and_car": true,
+    "task_authority": "native_safelibero_goal"
+  }
+}

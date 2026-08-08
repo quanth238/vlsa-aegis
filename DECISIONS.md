@@ -625,3 +625,29 @@ and identical first-five gripper signs. The frozen gate is `0.1 mm`,
 `0.001 rad`, `0.005` raw action units, and exact gripper-sign equality. This
 calibrates numerical equivalence only; it does not change any task, geometry,
 controller, or safety parameter.
+
+## ADR-0041: Reject v1 Joint execution and correct the absolute-target adapter
+
+Accepted after auditing clean H100 job `37055`. EmbodiSteer returns the joint
+configuration chunk `Q_0`; those samples must be supplied as position targets.
+SafeLIBERO's `JOINT_POSITION` controller instead interprets each normalized
+input as a delta from the current joint state. The v1 adapter used a
+`0.05 rad` output range and clipped `(q_target-q_current)/0.05`, causing
+saturation in 220 of 300 actions and up to `0.963 rad` post-step target error.
+That is not a faithful direct-joint baseline, regardless of its no-contact
+outcome.
+
+Protocol v2 keeps the same `Q_0`, checkpoint, controller gains, control
+frequency, action horizon, obstacle scene, and no-guidance condition. It sets
+the delta encoding range to `6 rad`, larger than the maximum Panda joint range,
+so normalization represents every bounded absolute target without clipping.
+Zero encoding saturation is an acceptance condition; physical PD tracking
+error remains measured rather than assumed.
+
+The v1 joint video is also rejected. All 301 frames decoded, but source pixels
+became visibly corrupted, proving that shape/count validation is insufficient.
+V2 executes each arm in a fresh process to isolate MuJoCo/OSMesa contexts and
+checks adjacent-pixel variation on every source and decoded frame. The
+threshold is fixed before v2 execution from valid Cartesian frames near
+`2/255` and corrupted joint frames above `17/255`; acceptance requires at most
+`8/255`. Neither correction authorizes L5/L6 geometry or safety guidance.

@@ -69,12 +69,27 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         )
         _require(arm["action_count"] == len(arm["actions"]), "action count differs")
         _require(0 < arm["action_count"] <= 300, "action horizon differs")
+        _require(
+            arm["visual_integrity"]["all_frames_passing"] is True,
+            "%s source frames failed visual integrity" % arm_name,
+        )
         settled_hashes.add(arm["pairing"]["settled_simulator_state_sha256"])
         for query in arm["policy_queries"]:
             _require(query["collision_geometry_queried"] is False, "query used geometry")
             _require(query["barrier_qp_solved"] is False, "query solved barrier QP")
             if arm_name == "joint_denoising_no_guidance":
                 _require(len(query["flow_steps"]) == 10, "joint flow horizon differs")
+        if (
+            config["schema_version"] == "vlsa_embodisteer_joint_baselines.v2"
+            and arm_name == "joint_denoising_no_guidance"
+        ):
+            _require(
+                arm["joint_target_execution"][
+                    "steps_with_delta_encoding_saturation"
+                ]
+                == 0,
+                "v2 absolute joint targets saturated",
+            )
         evidence = arm["raw_simulation_evidence"]
         observed_protected = next(
             (
@@ -99,24 +114,45 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         _require(_file_sha256(jpg_path) == arm["final_jpg"]["sha256"], "JPG hash differs")
         decoded = 0
         last_shape = None
+        maximum_decoded_adjacent_mad = 0.0
         reader = imageio.get_reader(str(video_path))
         try:
             for frame in reader:
                 value = np.asarray(frame)
                 _require(value.ndim == 3 and value.shape[2] == 3, "decoded frame differs")
+                numeric = value.astype(np.float32)
+                adjacent = max(
+                    float(np.mean(np.abs(np.diff(numeric, axis=1)))),
+                    float(np.mean(np.abs(np.diff(numeric, axis=0)))),
+                )
+                maximum_decoded_adjacent_mad = max(
+                    maximum_decoded_adjacent_mad, adjacent
+                )
                 decoded += 1
                 last_shape = list(value.shape)
         finally:
             reader.close()
         _require(decoded == arm["video"]["frames"], "decoded frame count differs")
+        _require(
+            maximum_decoded_adjacent_mad <= 8.0,
+            "decoded video has high-frequency pixel corruption",
+        )
         jpg = np.asarray(imageio.imread(str(jpg_path)))
         _require(jpg.ndim == 3 and jpg.shape[2] == 3, "decoded JPG differs")
+        jpg_numeric = jpg.astype(np.float32)
+        jpg_adjacent = max(
+            float(np.mean(np.abs(np.diff(jpg_numeric, axis=1)))),
+            float(np.mean(np.abs(np.diff(jpg_numeric, axis=0)))),
+        )
+        _require(jpg_adjacent <= 8.0, "JPG has high-frequency pixel corruption")
         video_receipts[arm_name] = {
             "video_sha256": arm["video"]["sha256"],
             "decoded_frames": decoded,
             "decoded_frame_shape": last_shape,
+            "maximum_decoded_adjacent_mad": maximum_decoded_adjacent_mad,
             "jpg_sha256": arm["final_jpg"]["sha256"],
             "jpg_shape": list(jpg.shape),
+            "jpg_adjacent_mad": jpg_adjacent,
         }
     _require(len(settled_hashes) == 1, "paired settled states differ")
     receipt = {

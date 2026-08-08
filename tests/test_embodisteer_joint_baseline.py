@@ -21,9 +21,11 @@ from main.multilink_ellipsoid.embodisteer_joint_baseline import (  # noqa: E402
     matrix_to_rotation_vector,
     rotation_vector_to_matrix,
 )
+from scripts.evaluate_embodisteer_joint_baselines_e05 import _frame_quality  # noqa: E402
 
 
 CONFIG = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v1.json"
+CONFIG_V2 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v2.json"
 
 
 def _linear_kinematics(configuration):
@@ -48,6 +50,18 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
             config["arms"],
             ["cartesian_ee_no_guidance", "joint_denoising_no_guidance"],
         )
+
+    def test_v2_encodes_absolute_joint_targets_without_delta_saturation(self):
+        config = load_joint_baseline_config(CONFIG_V2)
+
+        controller = config["action_protocol"]["joint_controller"]
+        self.assertEqual(controller["output_min"], -6.0)
+        self.assertEqual(controller["output_max"], 6.0)
+        self.assertEqual(
+            config["action_protocol"]["joint_target_encoding"]["purpose"],
+            "encode_absolute_Q0_target_without_delta_saturation",
+        )
+        self.assertFalse(config["collision_guidance"]["ellipsoid_constraints_enabled"])
         self.assertEqual(config["nominal_policy"]["checkpoint"], "pi05_libero")
         self.assertTrue(config["nominal_policy"]["same_checkpoint_both_arms"])
         self.assertFalse(config["collision_guidance"]["barrier_projection_enabled"])
@@ -161,6 +175,15 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
             rtol=0.0,
         )
         self.assertEqual(diagnostics["total_clipped_joint_dimensions"], 0)
+
+    def test_frame_quality_rejects_vertical_renderer_stripes(self):
+        smooth = np.full((1024, 1024, 3), 127, dtype=np.uint8)
+        striped = smooth.copy()
+        striped[:, ::2, :] = 0
+        striped[:, 1::2, :] = 255
+
+        self.assertTrue(_frame_quality(smooth)["passing"])
+        self.assertFalse(_frame_quality(striped)["passing"])
 
 
 if __name__ == "__main__":
