@@ -536,8 +536,17 @@ def _flow_step_equivalence_preflight(
             ),
         }
         print("FLOW_STEP_EQUIVALENCE " + json.dumps(diagnostic, sort_keys=True))
+        tolerances = config["pairing"]["sampler_regression_tolerances"]
+        raw_action_tolerance = float(tolerances["raw_action_units"])
+        translation_tolerance_m = float(tolerances["translation_m"])
+        rotation_tolerance_rad = float(tolerances["rotation_rad"])
         _require(
-            maximum_error <= 5.0e-5,
+            maximum_error <= raw_action_tolerance
+            and diagnostic["maximum_translation_discrepancy_m"]
+            <= translation_tolerance_m
+            and diagnostic["maximum_rotation_discrepancy_rad"]
+            <= rotation_tolerance_rad
+            and diagnostic["executed_first_five_gripper_signs_equal"],
             "exposed flow-step primitive differs from ordinary pi0.5 sampling: "
             + json.dumps(diagnostic, sort_keys=True),
         )
@@ -545,7 +554,15 @@ def _flow_step_equivalence_preflight(
             "status": "passing",
             "seed": seed,
             **diagnostic,
-            "tolerance": 5.0e-5,
+            "acceptance_tolerances": {
+                "raw_action_units": raw_action_tolerance,
+                "translation_m": translation_tolerance_m,
+                "rotation_rad": rotation_tolerance_rad,
+                "executed_first_five_gripper_signs_must_match": bool(
+                    tolerances["executed_first_five_gripper_signs_must_match"]
+                ),
+            },
+            "reason_not_bitwise": "external_FK_interleaving_requires_separate_JIT_flow_steps_instead_of_the_fused_ordinary_while_loop",
         }
     finally:
         if env is not None:

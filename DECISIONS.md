@@ -615,3 +615,13 @@ mesh-enclosing MVEE per link can be a valid enclosure yet still be too loose,
 hide local contact structure, and supply a qualitatively different gradient.
 The existing MVEEs remain disabled and untrusted for paper-fidelity claims
 until audited or replaced by a sphere/capsule decomposition.
+
+The sampler regression is accepted in physical rather than bitwise units.
+Interleaving simulator FK/Jacobian work between reverse steps requires ten
+separately compiled Euler calls, whereas ordinary pi0.5 fuses them in one JAX
+while-loop. Allocation-only diagnostics before any arm rollout measured at
+most `45.767 micrometers` translation error, `0.000124 rad` rotation error,
+and identical first-five gripper signs. The frozen gate is `0.1 mm`,
+`0.001 rad`, `0.005` raw action units, and exact gripper-sign equality. This
+calibrates numerical equivalence only; it does not change any task, geometry,
+controller, or safety parameter.

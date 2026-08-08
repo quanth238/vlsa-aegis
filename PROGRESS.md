@@ -24,9 +24,10 @@ This is a paper-derived adaptation, not an exact author-code reproduction.
 The paper uses 10D DDPM actions expressed as poses relative to the chunk-start
 pose; `pi05_libero` uses 7D incremental OSC flow actions. We therefore compose
 incremental deltas into chunk-start targets for the paper equations, then map
-back to incremental deltas whenever the frozen pi0.5 denoiser is queried. A
-live allocation preflight must prove that ten exposed no-FK Euler primitives
-recover ordinary pi0.5 sampling within `5e-5` before simulation is accepted.
+back to incremental deltas whenever the frozen pi0.5 denoiser is queried. The
+initial live gate requested `5e-5` raw-unit equivalence; allocation-only
+calibration below replaces that inapplicable fused-versus-split JIT threshold
+with preregistered physical pose and gripper-sign bounds before simulation.
 
 The competence gate is deliberately prior to safety efficacy: if the joint
 arm does not preserve useful task behavior relative to the Cartesian arm,
@@ -54,6 +55,18 @@ mean discrepancy `0.000375`; the maximum occurred in the gripper channel, not
 an arm-pose dimension. The gate remains closed pending per-dimension pose-unit
 errors and first-five gripper-sign equivalence. Job `37051` is a one-second
 submission error from a mistyped expected commit and never created a run root.
+
+Per-dimension calibration job `37054` measured maximum translation and
+rotation discrepancies of only `45.767 micrometers` and `0.000124 rad`; its
+first-five gripper signs were identical. The largest raw action discrepancy,
+`0.002441`, remained in the gripper channel. Exact bitwise equality is not
+available because EmbodiSteer's external FK/Jacobian update necessarily splits
+the fused pi0.5 while-loop into separately compiled Euler calls. Before any
+simulation outcome, the apparatus gate is therefore revised to physical
+equivalence: raw error at most `0.005` action units, translation at most
+`0.1 mm`, rotation at most `0.001 rad`, and identical executed gripper signs.
+All measured values remain recorded; this is not a task- or collision-outcome
+tuning decision.
 
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 

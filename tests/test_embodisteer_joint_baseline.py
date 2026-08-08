@@ -53,6 +53,15 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
         self.assertFalse(config["collision_guidance"]["barrier_projection_enabled"])
         self.assertFalse(config["collision_guidance"]["ellipsoid_constraints_enabled"])
         self.assertFalse(config["collision_guidance"]["qp_enabled"])
+        self.assertEqual(
+            config["pairing"]["sampler_regression_tolerances"],
+            {
+                "executed_first_five_gripper_signs_must_match": True,
+                "raw_action_units": 0.005,
+                "rotation_rad": 0.001,
+                "translation_m": 0.0001,
+            },
+        )
 
     def test_damped_pseudoinverse_is_finite_and_has_paper_shape(self):
         jacobian = np.zeros((6, 7))

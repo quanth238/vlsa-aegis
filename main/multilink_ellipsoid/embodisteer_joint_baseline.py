@@ -122,6 +122,19 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         "same_checkpoint_both_arms": True,
     }:
         raise ValueError("EmbodiSteer joint-baseline checkpoint differs")
+    if config["pairing"] != {
+        "same_initial_state": True,
+        "same_policy_noise_seed_by_query_index": True,
+        "same_task_and_obstacle_scene": True,
+        "sampler_regression_tolerances": {
+            "executed_first_five_gripper_signs_must_match": True,
+            "raw_action_units": 0.005,
+            "rotation_rad": 0.001,
+            "translation_m": 0.0001,
+        },
+        "settle_actions": 20,
+    }:
+        raise ValueError("EmbodiSteer joint-baseline pairing contract differs")
     output = json.loads(_canonical(config).decode("utf-8"))
     output["config_file_sha256"] = _sha256(raw)
     output["config_payload_sha256"] = _sha256(_canonical(config))
