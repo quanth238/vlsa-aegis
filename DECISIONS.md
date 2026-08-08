@@ -1,5 +1,25 @@
 # Reproduction decisions
 
+## ADR-0052: Repair the obstacle label before learning transition corrections
+
+Accepted from the preregistered H100 outcome.  Job `37137` rejects the proposed
+Physics NN when its target is the current AEGIS obstacle-MVEE support gap.  An
+exact internal-substep trace reproduced 15 raw L6 contacts, but the certified
+robot slab covered every contact point while the frozen perception MVEE covered
+none.  The proxy gap therefore stayed positive, the oracle-affine QP treated
+the colliding nominal action as safely feasible, and exact execution collided
+again.  A learned map that accurately reproduces these proxy labels cannot
+repair missing obstacle geometry.
+
+Five registered local Cartesian candidates were raw-safe and proxy-safe, so
+the experiment does not show uncontrollable dynamics.  It localizes the next
+gate to the safety label: use a conservative union of obstacle collision-mesh
+primitives, or explicitly learn a raw signed-distance/contact-risk residual
+that covers the missing surface.  Re-run the unchanged oracle mechanism audit
+and require geometry authority before any training, held-out evaluation, or
+neural-versus-QP claim.  Do not add more L5--L7 robot ellipsoids to address this
+specific failure; their registered L6 slab already covered the contact.
+
 ## ADR-0051: Test geometry authority and an oracle affine barrier before learning
 
 Accepted by direct user instruction before outcome review.  The next bounded

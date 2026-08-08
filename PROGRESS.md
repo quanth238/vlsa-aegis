@@ -33,7 +33,8 @@ action, and that proposal receives another complete substep trace.  This is an
 oracle upper bound on the proposed action-affine Physics NN, not training,
 generalization evidence, or a safety certificate.  The complete protocol is
 frozen in `docs/distal_oracle_affine_preregistration.md` and
-`configs/vlsa_distal_oracle_affine_e05.v1.json`; no H100 outcome has run yet.
+`configs/vlsa_distal_oracle_affine_e05.v1.json`; both were committed before
+the scientific outcome below.
 
 Initial H100 submission `37135` passed its allocation unit gate but stopped
 before the registered transition because the primary replay was constructed at
@@ -43,6 +44,43 @@ failure receipt.  The repair restores `TABLE_RENDER_RESOLUTION` for the primary
 environment while retaining 32 pixels only for the image-disabled clone; no
 state, action, geometry, candidate, margin, model, solver, or decision setting
 changes.
+
+Submission `37136` was rejected in zero seconds by the clean-source gate due
+to a mistyped expected full commit hash and created no run root.  Clean H100
+job `37137` then completed the registered experiment on worker-1 in 41 seconds
+from commit `73682dc5f649e57ec0f8f4103f5f0975ddd32278`.  Its independent structural
+validator passed payload, source/allocation, false-safe binding, substep-trace,
+affine-dimension, and decision-consistency checks.
+
+The result is a structural NO-GO for learning the current proxy-clearance map.
+The nominal action reproduced 15 direct L6 contact states over internal
+substeps and `1.557 mm` maximum within-step obstacle motion, while all eight
+minimum-substep proxy gaps remained positive; the smallest was `1.725 mm`.
+Every contact point was inside the certified L6 robot slab (minimum normalized
+quadratic `0.903--0.910`) but outside the frozen obstacle MVEE (quadratic
+`1.247--1.268`).  Accordingly, the center-direction proxy support gap remained
+falsely positive at `5.763--6.679 mm` throughout contact.
+
+The oracle-affine QP was valid and took `1.257 ms`, but the nominal already
+satisfied all proxy rows.  It changed XYZ by only `1.416e-9` in L2 and exact
+execution repeated all 15 contacts and `1.557 mm` obstacle motion.  This is not
+a lack of control authority: five of the 60 registered trust-region candidates
+were jointly raw-safe and proxy-safe.  It is a label/geometry failure.  The
+current Physics NN must not be trained to predict the same non-authoritative
+AEGIS obstacle-MVEE support gaps.  The next bounded gate is a certified
+conservative obstacle representation (multiple mesh-bound primitives) or a raw
+signed-distance/contact-risk target, followed by this same oracle audit before
+training.
+
+Result, validation, and allocation-test file SHA-256 values are
+`6a5f9842f04b57a42b3232aab6cc135da4ddfa8584bf869a46918c6d98fdbc58`,
+`1c710822bdb19429d34ababf6c2dfe00315a7f09ae1abc7fe43d44df6f1adbbb`,
+and `a89543cd2a54c4907eb567b1be995d2e97a261c47e962eba9e2866d050d57ef5`;
+the canonical result-payload SHA-256 is
+`39001fcf5d3d686f5fc5be0527a7f4133ac0dc040b4268e770f326ee0cf7a749`.
+Gate `E02` remains active; no neural training is authorized.
+Exact next evidence command:
+`jq '{research_direction_go,stop_reason,decision:.oracle_affine_audit.decision,nominal:.oracle_affine_audit.nominal_substep_transition,affine:.oracle_affine_audit.affine_model,qp:.oracle_affine_audit.oracle_affine_qp}' /mnt/data/quanth/experiments/vlsa-distal-oracle-affine-e05/oracle-affine-20260809c/result.json`.
 
 ## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
 
