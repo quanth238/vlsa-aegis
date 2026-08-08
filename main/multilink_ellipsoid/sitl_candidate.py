@@ -122,16 +122,24 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     if not isinstance(optimizer["max_iter"], int) or optimizer["max_iter"] < 1:
         raise ValueError("optimizer.max_iter must be a positive integer")
     search = config["candidate_search"]
-    if search != {
+    selection_objective = search.get("selection_objective")
+    search_without_objective = dict(search)
+    search_without_objective.pop("selection_objective", None)
+    if search_without_objective != {
         "correction_extrapolation_factors": [1.0, 1.5, 2.0, 3.0],
         "include_global_lattice": True,
         "include_reverse_nominal": True,
         "include_stop": True,
         "lattice_values": [-1.0, 0.0, 1.0],
         "local_offset_magnitudes": [0.25, 0.5],
-        "selection_objective": (
+    } or selection_objective not in {
+        (
             "lexicographic_maximum_minimum_distal_clearance_then_"
             "minimum_nominal_deviation"
+        ),
+        (
+            "lexicographic_minimum_nominal_deviation_then_"
+            "maximum_minimum_distal_clearance"
         ),
     }:
         raise ValueError("SITL candidate search contract differs")
@@ -439,7 +447,12 @@ class DistalSitlCandidateFilter:
         accepted_source = None
         selectable = preferred_options if preferred_options else safe_options
         if selectable:
-            selectable.sort(key=lambda item: (-item[0], item[1], item[2]))
+            if self.config["candidate_search"]["selection_objective"].startswith(
+                "lexicographic_minimum_nominal_deviation"
+            ):
+                selectable.sort(key=lambda item: (item[1], -item[0], item[2]))
+            else:
+                selectable.sort(key=lambda item: (-item[0], item[1], item[2]))
             _, _, accepted_source, accepted, accepted_transition = selectable[0]
         record = {
             "schema_version": SITL_CANDIDATE_STEP_SCHEMA,
@@ -462,6 +475,9 @@ class DistalSitlCandidateFilter:
             "nominal_safe": nominal_safe,
             "nominal_preferred": nominal_preferred,
             "activation": activation,
+            "selection_objective": self.config["candidate_search"][
+                "selection_objective"
+            ],
             "finite_difference": {
                 "used": activation,
                 "probe_count": 6 if activation else 0,

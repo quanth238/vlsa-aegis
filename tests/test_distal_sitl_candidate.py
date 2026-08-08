@@ -49,6 +49,10 @@ class DistalSitlCandidateTests(unittest.TestCase):
             config["nominal_action_source"],
             "immutable_released_aegis_until_first_sitl_intervention_then_live_pi05_libero_recovery_with_released_aegis_ee_qp",
         )
+        self.assertEqual(
+            config["candidate_search"]["selection_objective"],
+            "lexicographic_minimum_nominal_deviation_then_maximum_minimum_distal_clearance",
+        )
         self.assertIn("successful_aegis_prefix", config["claim_scope"])
 
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
