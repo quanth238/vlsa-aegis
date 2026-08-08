@@ -874,3 +874,9 @@ striping, degeneracy, frame-count, and codec-fidelity gates. This changes no
 executed action or scientific outcome. Until that allocation-backed receipt
 exists, the clean replacement video remains pending rather than inferred from
 local rendering.
+
+H100 job `37120` supplied that receipt. It reproduced all 193 accepted actions
+with exact state/contact/task equivalence and passed both source and decoded
+pixel-integrity gates. The clean single-context MP4 is therefore accepted as
+the presentation artifact for the successful oracle run; the original striped
+job-`37115` MP4 remains provenance only.

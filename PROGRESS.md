@@ -1120,3 +1120,21 @@ No H100 job has been submitted yet. At 22:34--22:36 Asia/Ho_Chi_Minh on
 `10.254.152.76:22` repeatedly timed out. Local simulation was not used. The
 exact next command after connectivity returns is:
 `ssh vinuni 'cd /home/quanth/working_space/vlsa-aegis-table-repro && git fetch origin codex/multilink-ellipsoid-qp && git merge --ff-only FETCH_HEAD && git status --short && git rev-parse HEAD'`.
+
+Connectivity returned and clean H100 job `37120` completed on `worker-1` in
+`00:01:32` from commit `fd066a8f37a6ed11c1d1b25e4eac4fea71c23f6b`.
+The replacement contains 194 source frames and 238 encoded/decoded frames at
+20 fps, with five-times slow motion over actions 182--192. All replayed state,
+EEF, obstacle, reward, terminal, goal, and contact traces matched exactly;
+task success remained step 192 with no robot contact, no protected-link
+contact, and no CAR.
+
+The striping gate passed with maximum source adjacent-pixel MAD `2.1594` and
+maximum sampled decoded MAD `2.8474`, both well below the preregistered limits.
+The verified MP4, intervention JPG, final JPG, and receipt SHA-256 values are
+`0dc5ec52e34d2b92690ad8b8d9ef5a7a1fdfb4b2b059e6d9fb319c52c2a8157b`,
+`15a3d133b98ffbecdf095a8da814a657c02de9e70e01073d1fee71311b626bb8`,
+`3693c6b753c36593bd4f3ef52084e17edbfeec29666af71ab81165f8c25aceee`,
+and `5b8435545a67c8f25313e989c8469ae70d5984677a21571215f09d2ee73ee813`.
+The exact next audit command is:
+`jq '{status,allocation,trace_equivalence,visual_integrity,video,preview,final_jpg}' /mnt/data/quanth/experiments/vlsa-distal-sitl-success-video-e05/sitl-success-video-20260808a/video-receipt.json`.
