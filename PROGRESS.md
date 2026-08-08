@@ -19,6 +19,26 @@ after this result is frozen.  Full scope is in
 `docs/distal_oracle_affine_margin8mm_preregistration.md`.  No H100 outcome has
 run yet.
 
+Clean H100 job `37175` completed on worker-1 in 41 seconds from commit
+`01bc8f42c25a718b028ca0800a686710db4ef99e`; the independent validator passed.
+The fixed margin correctly declared the nominal unsafe, but the test failed
+before execution because the QP was primal infeasible.  At the common
+interval-start state, `L5_part_1` and `L6_part_0` were already only
+`1.725/5.608 mm` clear, below `8 mm`; no registered action can change that
+past state.  No local candidate was proxy-margin-safe although raw-safe local
+candidates existed.  The QP therefore executed no proposal and demonstrated
+no collision avoidance.
+
+Rows 1 and 3 respectively required `6.539/2.649 mm` affine improvement but
+could supply at most `0.068/0.121 mm` within the frozen action box.  The
+result/validation/preflight SHA-256 values are
+`8493d3cdd81ffb4b09cfe2c71af23e3f63d489bb34acbb7603877a011c1ca170`,
+`8d39234a399fd85fd1896aa3ae28f23e78c7dff1e9565f75ef28b576c44ac1a9`,
+and `8f70b475421add0cbc1ab4969d09e18c8fc88a0d3c499d44daa3936b5e5d7f96`;
+payload SHA-256 is
+`3088c8222add6a2d6fe3964edd39f84293f1dd9e25958897d1bca6cfd4832764`.
+The exact MuJoCo obstacle-box oracle remains next, as requested.
+
 ## Conservative obstacle-primitive oracle follow-up (preregistered, 2026-08-09)
 
 Active gate `E02` now performs the bounded follow-up authorized by the user.

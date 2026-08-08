@@ -16,6 +16,13 @@ a pass is only a single-state activation heuristic.  The exact MuJoCo
 obstacle-box oracle remains the second, privileged geometry test and will be
 run after this margin outcome is frozen.
 
+Validated H100 job `37175` rejects the margin at the registered action-192
+state.  It labels the nominal unsafe, but two rows begin below `8 mm`, no local
+candidate can satisfy the minimum-substep margin, and OSQP returns primal
+infeasible.  Since no QP proposal exists, collision avoidance is not
+demonstrated.  This is retained as a late-activation result; the value is not
+tuned after inspection.  The second exact-obstacle-box test may now proceed.
+
 ## ADR-0054: Use exact source boxes before declaring conservative late activation
 
 Accepted from validated job `37163`.  The live primitive union repaired contact
