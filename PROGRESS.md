@@ -120,6 +120,13 @@ raw/processed JPGs, the complete action and joint-state prefix, and the
 initial/failure MuJoCo camera poses before terminating as apparatus failure.
 All collision geometry, CBF rows, and QPs remain disabled.
 
+Initial v3 submission `37059` passed allocation tests and the sampler gate,
+then stopped before action zero because the installed native MuJoCo model does
+not expose the legacy wrapper method `camera_name2id`. Its immutable run is an
+apparatus failure with no baseline outcome. The compatibility repair uses
+native `mujoco.mj_name2id` when the wrapper method is absent and changes no
+control, policy, pairing, geometry, or acceptance parameter.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

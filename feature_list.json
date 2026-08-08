@@ -93,7 +93,8 @@
       "Clean H100 job 37055 completed paired barrier-free EE and Joint arms, but the pair is rejected for EmbodiSteer fidelity: v1 saturated the delta joint adapter on 220/300 steps with mean/max target error 0.240/0.963 rad, and the joint camera stream became visibly corrupted despite passing the old shape/count decoder test.",
       "Preregistered v2 retains the same frozen checkpoint, state/noise pairing, Q0 sampler, obstacle scene, and zero guidance, but encodes absolute joint targets through a 6 rad delta-controller range, requires zero encoding saturation, runs arms in fresh processes, and fails closed on source or decoded adjacent-pixel MAD above 8/255.",
       "H100 job 37058 produced no accepted pair: the v2 Cartesian worker completed, but the fresh-process Joint camera flipped at action 10 and failed the adjacent-pixel gate at action 11, so the run is retained as apparatus failure rather than an EmbodiSteer outcome.",
-      "Preregistered v3 retains zero geometry/guidance and the absolute joint-target adapter, but follows the paper's 10 Hz control rate and executes all ten actions available from pi0.5; it adds a 180-degree orientation gate plus atomic frame/action/joint/camera failure traces and remains explicitly distinct from the paper's 16-action obstacle-free Joint population."
+      "Preregistered v3 retains zero geometry/guidance and the absolute joint-target adapter, but follows the paper's 10 Hz control rate and executes all ten actions available from pi0.5; it adds a 180-degree orientation gate plus atomic frame/action/joint/camera failure traces and remains explicitly distinct from the paper's 16-action obstacle-free Joint population.",
+      "Initial v3 H100 submission 37059 stopped before action zero because native MuJoCo lacks the legacy camera_name2id wrapper method; the compatibility-only fallback uses mujoco.mj_name2id and changes no scientific setting."
       ]
     },
     {

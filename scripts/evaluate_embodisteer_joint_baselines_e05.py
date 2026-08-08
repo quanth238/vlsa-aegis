@@ -201,7 +201,17 @@ def _camera_state(env: Any, name: str) -> dict[str, Any]:
     from main.multilink_ellipsoid.shadow import _raw_model_data
 
     model, data = _raw_model_data(env.sim)
-    camera_id = int(model.camera_name2id(name))
+    wrapper_model = env.sim.model
+    legacy_lookup = getattr(wrapper_model, "camera_name2id", None)
+    if callable(legacy_lookup):
+        camera_id = int(legacy_lookup(name))
+    else:
+        import mujoco
+
+        camera_id = int(
+            mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, name)
+        )
+    _require(camera_id >= 0, "agent-view camera is unavailable")
     position = np.asarray(data.cam_xpos[camera_id], dtype=np.float64)
     rotation = np.asarray(data.cam_xmat[camera_id], dtype=np.float64).reshape(3, 3)
     return {
