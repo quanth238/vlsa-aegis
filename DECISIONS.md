@@ -1,5 +1,21 @@
 # Reproduction decisions
 
+## ADR-0058: Apply the warning margin only to distal rows and run live closed loop
+
+Accepted by direct user instruction after job `37183`.  Retain live
+pi0.5-LIBERO, the released five-action replanning schedule, and the original
+released AEGIS EE QP.  Use the exact 15 live MuJoCo obstacle boxes as the
+privileged geometry oracle, require `8 mm` for each of the seven L5--L7 rows,
+and apply zero added margin to the released EE row.
+
+Measure the minimum clearance over every internal OSC/MuJoCo state and veto
+raw distal contact or more than `0.1 mm` within-step obstacle motion before
+execution.  Select the exactly verified candidate closest to the nominal
+action, continue policy feedback until task success or the registered horizon,
+and fail explicitly if no candidate exists.  This tests single-case method
+ability without turning simulator geometry into a deployable or formal safety
+claim.
+
 ## ADR-0057: Enlarge exact boxes with an isotropic shell and trigger predictively
 
 Accepted by direct user instruction after job `37180`.  Use an `8 mm`

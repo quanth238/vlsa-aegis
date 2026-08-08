@@ -1,0 +1,75 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "candidate_search": {
+    "correction_extrapolation_factors": [
+      1.0,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "include_global_lattice": true,
+    "include_reverse_nominal": true,
+    "include_stop": true,
+    "lattice_values": [
+      -1.0,
+      0.0,
+      1.0
+    ],
+    "local_offset_magnitudes": [
+      0.25,
+      0.5
+    ],
+    "selection_objective": "lexicographic_minimum_nominal_deviation_then_maximum_minimum_distal_clearance"
+  },
+  "claim_scope": "single_primary_case_live_pi05_closed_loop_exact_mujoco_obstacle_oracle_with_8mm_L5_L7_warning_and_zero_margin_released_EE_target_not_deployable_perception_not_population_or_formal_safety_claim",
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.1,
+    "scheme": "clipped_central_difference"
+  },
+  "nominal_action_source": "live_pi05_libero_then_released_aegis_ee_qp_replanned_every_five_steps",
+  "obstacle_geometry": {
+    "clearance_evaluation": "minimum_over_interval_start_and_every_internal_mujoco_step",
+    "distal_warning_margin_m": 0.008,
+    "end_effector_warning_margin_m": 0.0,
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "exact_box_config_payload_sha256": "d3e0ab883eb3b3de160417fc9547012db9154dae7015ff80bc739219b728013b",
+    "obstacle_source": "privileged_live_mujoco_15_exact_oriented_boxes",
+    "raw_candidate_veto": "zero_L5_L6_L7_contact_and_at_most_0.1mm_obstacle_motion"
+  },
+  "optimizer": {
+    "action_limit": 1.0,
+    "bound_tolerance_action": 5e-08,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "residual_tolerance": 5e-07
+  },
+  "protected_geometry": {
+    "distal_activation_clearance_m": 0.008,
+    "distal_clearance_target_m": 0.008,
+    "distal_constraint_count": 7,
+    "end_effector_constraint_count": 1,
+    "end_effector_target": "zero_margin_exact_box_clearance_after_released_aegis_qp",
+    "source": "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
+  },
+  "protocol_id": "vlsa-distal-exact-box-closed-loop-e05-v1",
+  "schema_version": "vlsa_distal_exact_box_closed_loop_e05.v1",
+  "success_definition": {
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_link_contact": "none_for_robot0_link5_link6_link7",
+    "task": "native_goal_satisfied_within_registered_goal_suite_horizon",
+    "transition_verification": "every_executed_transition_exactly_matches_its_accepted_cloned_OSC_step"
+  },
+  "verification": {
+    "clearance_tolerance_m": 1e-06,
+    "clone_state_tolerance": 1e-10,
+    "repeat_nominal_on_first_step": true
+  }
+}

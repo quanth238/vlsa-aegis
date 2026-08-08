@@ -22,6 +22,7 @@ PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/c
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-sitl-live-e05}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 HEURISTIC_CONFIG=${HEURISTIC_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_sitl_live_e05.v1.json}
+OBSTACLE_CONFIG=${OBSTACLE_CONFIG:-}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
@@ -34,6 +35,9 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -d "$PI05_CHECKPOINT" && ! -L "$PI05_CHECKPOINT" ]] || die "pi0.5 checkpoint is missing"
 [[ -f "$ARCHIVED_TABLE1_RESULT" && ! -L "$ARCHIVED_TABLE1_RESULT" ]] || die "archived Table-1 result is missing"
 [[ -f "$HEURISTIC_CONFIG" && ! -L "$HEURISTIC_CONFIG" ]] || die "SITL heuristic config is missing"
+if [[ -n "$OBSTACLE_CONFIG" ]]; then
+  [[ -f "$OBSTACLE_CONFIG" && ! -L "$OBSTACLE_CONFIG" ]] || die "SITL obstacle config is missing"
+fi
 [[ "$(sha256sum "$ARCHIVED_TABLE1_RESULT" | awk '{print $1}')" == 273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b ]] || die "archived Table-1 result hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source tree is dirty"
@@ -93,6 +97,7 @@ safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest \
   tests.test_multilink_ellipsoid \
+  tests.test_distal_obstacle_primitives \
   tests.test_distal_sitl_candidate -v \
   >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
 
@@ -117,13 +122,23 @@ for _ in $(seq 1 600); do
 done
 curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/null || die "pi0.5-LIBERO policy healthz failed"
 
-"$AEGIS_PYTHON" scripts/evaluate_distal_sitl_candidate_e05.py \
-  --repo-root "$REMOTE_REPO" \
-  --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
-  --archived "$ARCHIVED_TABLE1_RESULT" \
-  --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
-  --heuristic-config "$HEURISTIC_CONFIG" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" \
-  --host 127.0.0.1 \
-  --port "$POLICY_PORT" \
+evaluation_args=(
+  --repo-root "$REMOTE_REPO"
+  --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl"
+  --archived "$ARCHIVED_TABLE1_RESULT"
+  --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json"
+  --heuristic-config "$HEURISTIC_CONFIG"
+  --expected-commit "$EXPECTED_GIT_COMMIT"
+  --host 127.0.0.1
+  --port "$POLICY_PORT"
   --output "$RUN_ROOT/result.json"
+)
+if [[ -n "$OBSTACLE_CONFIG" ]]; then
+  evaluation_args+=(--obstacle-config "$OBSTACLE_CONFIG")
+fi
+"$AEGIS_PYTHON" scripts/evaluate_distal_sitl_candidate_e05.py "${evaluation_args[@]}"
+if [[ -n "$OBSTACLE_CONFIG" ]]; then
+  "$AEGIS_PYTHON" scripts/validate_distal_exact_box_closed_loop_e05.py \
+    --candidate "$RUN_ROOT/result.json" \
+    --output "$RUN_ROOT/validation.json"
+fi

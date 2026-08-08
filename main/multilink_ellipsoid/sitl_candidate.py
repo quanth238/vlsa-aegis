@@ -29,6 +29,7 @@ from .shadow import (
 
 
 SITL_CANDIDATE_SCHEMA = "vlsa_distal_sitl_candidate_e05.v1"
+EXACT_BOX_CLOSED_LOOP_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05.v1"
 SITL_CANDIDATE_STEP_SCHEMA = "vlsa_distal_sitl_candidate_step_e05.v1"
 _PROTECTED_BODY_NAMES = ("robot0_link5", "robot0_link6", "robot0_link7")
 
@@ -66,9 +67,17 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         "verification",
         "success_definition",
     }
-    if not isinstance(config, dict) or set(config) != required:
+    exact_box_closed_loop = bool(
+        isinstance(config, dict)
+        and config.get("schema_version") == EXACT_BOX_CLOSED_LOOP_SCHEMA
+    )
+    expected_keys = required | ({"obstacle_geometry"} if exact_box_closed_loop else set())
+    if not isinstance(config, dict) or set(config) != expected_keys:
         raise ValueError("SITL candidate config keys differ")
-    if config["schema_version"] != SITL_CANDIDATE_SCHEMA:
+    if config["schema_version"] not in {
+        SITL_CANDIDATE_SCHEMA,
+        EXACT_BOX_CLOSED_LOOP_SCHEMA,
+    }:
         raise ValueError("SITL candidate schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("SITL candidate must select only the primary case")
@@ -96,13 +105,45 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL protected geometry contract differs")
     activation_clearance = geometry["distal_activation_clearance_m"]
     hard_clearance = geometry["distal_clearance_target_m"]
-    if activation_clearance != 0.015 or hard_clearance not in {-1.0, 0.001, 0.01}:
+    accepted_clearances = {-1.0, 0.001, 0.008, 0.01}
+    if (
+        activation_clearance not in {0.008, 0.015}
+        or hard_clearance not in accepted_clearances
+    ):
         raise ValueError("SITL protected geometry margins differ")
     if geometry["end_effector_target"] not in {
         "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
         "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
+        "zero_margin_exact_box_clearance_after_released_aegis_qp",
     }:
         raise ValueError("SITL end-effector target differs")
+    if exact_box_closed_loop:
+        if config["protocol_id"] != "vlsa-distal-exact-box-closed-loop-e05-v1":
+            raise ValueError("exact-box closed-loop protocol differs")
+        if activation_clearance != 0.008 or hard_clearance != 0.008:
+            raise ValueError("exact-box distal warning margin must be 8 mm")
+        if geometry["end_effector_target"] != (
+            "zero_margin_exact_box_clearance_after_released_aegis_qp"
+        ):
+            raise ValueError("exact-box closed-loop EE target must remain zero margin")
+        if config["obstacle_geometry"] != {
+            "clearance_evaluation": (
+                "minimum_over_interval_start_and_every_internal_mujoco_step"
+            ),
+            "distal_warning_margin_m": 0.008,
+            "end_effector_warning_margin_m": 0.0,
+            "exact_box_config_file_sha256": (
+                "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f"
+            ),
+            "exact_box_config_payload_sha256": (
+                "d3e0ab883eb3b3de160417fc9547012db9154dae7015ff80bc739219b728013b"
+            ),
+            "obstacle_source": "privileged_live_mujoco_15_exact_oriented_boxes",
+            "raw_candidate_veto": (
+                "zero_L5_L6_L7_contact_and_at_most_0.1mm_obstacle_motion"
+            ),
+        }:
+            raise ValueError("exact-box closed-loop obstacle contract differs")
     finite_difference = config["finite_difference"]
     if finite_difference != {
         "action_dimensions": [0, 1, 2],
@@ -391,8 +432,12 @@ class DistalSitlCandidateFilter:
         geometry: MultilinkEllipsoidShadow,
         probe_env: Any,
         active_obstacle_name: str,
+        obstacle_primitive_union: Optional[Any] = None,
     ) -> None:
-        if config.get("schema_version") != SITL_CANDIDATE_SCHEMA:
+        if config.get("schema_version") not in {
+            SITL_CANDIDATE_SCHEMA,
+            EXACT_BOX_CLOSED_LOOP_SCHEMA,
+        }:
             raise ValueError("SITL candidate configuration was not validated")
         if geometry.config.get("schema_version") != DISTAL_SLABBED_SCHEMA:
             raise ValueError("SITL candidate filter requires accepted v4 slab geometry")
@@ -406,12 +451,57 @@ class DistalSitlCandidateFilter:
             residual_tolerance=float(optimizer["residual_tolerance"]),
             bound_tolerance=float(optimizer["bound_tolerance_action"]),
         )
-        self.probe = SlabbedEightConstraintProbe(
-            probe_env,
-            geometry,
-            clearance_m=0.0,
-            active_obstacle_name=active_obstacle_name,
-        )
+        if obstacle_primitive_union is None:
+            self.probe = SlabbedEightConstraintProbe(
+                probe_env,
+                geometry,
+                clearance_m=0.0,
+                active_obstacle_name=active_obstacle_name,
+            )
+        else:
+            from .oracle_affine import SubstepEightConstraintProbe
+
+            class _ExactBoxSubstepAdapter(SubstepEightConstraintProbe):
+                def transition(adapter_self, main_env: Any, action: Sequence[float]) -> dict[str, Any]:
+                    record = super(_ExactBoxSubstepAdapter, adapter_self).transition(
+                        main_env, action
+                    )
+                    vector = _dynamic_state_vector(adapter_self.probe_env)
+                    record["next_h_opt_m"] = list(
+                        record["minimum_substep_clearance_m"]
+                    )
+                    record["next_minimum_h_opt_m"] = float(
+                        min(record["minimum_substep_clearance_m"])
+                    )
+                    record["next_state_vector"] = vector
+                    record["raw_protected_contact"] = {
+                        "active_obstacle_name": str(active_obstacle_name),
+                        "nonpositive_protected_contact_count": int(
+                            record["raw_protected_contact_count"]
+                        ),
+                        "minimum_contact_distance_m": (
+                            None
+                            if not record["raw_protected_contact_events"]
+                            else min(
+                                float(item["distance_m"])
+                                for item in record["raw_protected_contact_events"]
+                            )
+                        ),
+                        "events": list(record["raw_protected_contact_events"]),
+                    }
+                    record["active_obstacle_step_l1_displacement_m"] = float(
+                        record["maximum_within_step_obstacle_l1_displacement_m"]
+                    )
+                    return record
+
+            self.probe = _ExactBoxSubstepAdapter(
+                probe_env,
+                geometry,
+                active_obstacle_name=active_obstacle_name,
+                quadratic_tolerance=1.0e-6,
+                contact_distance_threshold_m=0.0,
+                obstacle_primitive_union=obstacle_primitive_union,
+            )
         self._pending: Optional[dict[str, Any]] = None
 
     def targets(self, nominal_next_clearance: Any) -> Any:
@@ -420,13 +510,14 @@ class DistalSitlCandidateFilter:
         nominal = np.asarray(nominal_next_clearance, dtype=np.float64)
         if nominal.shape != (8,) or not np.all(np.isfinite(nominal)):
             raise ValueError("nominal eight-row clearance vector is invalid")
-        end_effector_target = (
-            -1.0
-            if geometry["end_effector_target"].startswith(
-                "released_aegis_nominal_qp_then_raw_simulator"
-            )
-            else float(nominal[-1])
-        )
+        if geometry["end_effector_target"].startswith(
+            "released_aegis_nominal_qp_then_raw_simulator"
+        ):
+            end_effector_target = -1.0
+        elif geometry["end_effector_target"].startswith("zero_margin_exact_box"):
+            end_effector_target = 0.0
+        else:
+            end_effector_target = float(nominal[-1])
         return np.asarray(
             [float(geometry["distal_clearance_target_m"])] * 7
             + [end_effector_target],
@@ -499,9 +590,12 @@ class DistalSitlCandidateFilter:
             base["raw_protected_contact"]["nonpositive_protected_contact_count"]
             == 0
         )
-        raw_simulator_veto = self.config["protected_geometry"][
-            "end_effector_target"
-        ].startswith("released_aegis_nominal_qp_then_raw_simulator")
+        raw_simulator_veto = bool(
+            "obstacle_geometry" in self.config
+            or self.config["protected_geometry"]["end_effector_target"].startswith(
+                "released_aegis_nominal_qp_then_raw_simulator"
+            )
+        )
         nominal_displacement_safe = bool(
             not raw_simulator_veto
             or base["active_obstacle_step_l1_displacement_m"] <= 1.0e-4
@@ -795,7 +889,12 @@ class DistalSitlCandidateFilter:
             self._pending = {
                 "record": record,
                 "state_vector": np.asarray(accepted_transition["next_state_vector"], dtype=np.float64).copy(),
-                "clearances": np.asarray(accepted_transition["next_h_opt_m"], dtype=np.float64).copy(),
+                "clearances": np.asarray(
+                    accepted_transition.get(
+                        "endpoint_clearance_m", accepted_transition["next_h_opt_m"]
+                    ),
+                    dtype=np.float64,
+                ).copy(),
             }
         return None if accepted is None else accepted.tolist(), record
 

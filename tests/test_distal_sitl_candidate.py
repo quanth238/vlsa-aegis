@@ -78,6 +78,49 @@ class DistalSitlCandidateTests(unittest.TestCase):
         )
         self.assertIn("live_closed_loop", config["claim_scope"])
 
+    def test_exact_box_closed_loop_applies_margin_only_to_distal_rows(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.sitl_candidate import (
+            DistalSitlCandidateFilter,
+            EXACT_BOX_CLOSED_LOOP_SCHEMA,
+            load_sitl_candidate_config,
+        )
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_exact_box_closed_loop_e05.v1.json"
+        )
+        self.assertEqual(config["schema_version"], EXACT_BOX_CLOSED_LOOP_SCHEMA)
+        self.assertEqual(
+            config["obstacle_geometry"]["distal_warning_margin_m"], 0.008
+        )
+        self.assertEqual(
+            config["obstacle_geometry"]["end_effector_warning_margin_m"], 0.0
+        )
+        instance = object.__new__(DistalSitlCandidateFilter)
+        instance.config = config
+        target = instance.targets(np.asarray([0.1] * 7 + [0.023]))
+        np.testing.assert_allclose(target[:7], 0.008)
+        self.assertEqual(float(target[-1]), 0.0)
+
+    def test_exact_box_closed_loop_uses_substep_clearance_and_raw_veto(self) -> None:
+        source = (
+            ROOT / "main/multilink_ellipsoid/sitl_candidate.py"
+        ).read_text()
+        self.assertIn('record["minimum_substep_clearance_m"]', source)
+        self.assertIn('"obstacle_geometry" in self.config', source)
+
+        runner = (
+            ROOT / "scripts/evaluate_distal_sitl_candidate_e05.py"
+        ).read_text()
+        self.assertIn("ExactObstacleBoxUnion", runner)
+        self.assertIn("--obstacle-config", runner)
+        validator = (
+            ROOT / "scripts/validate_distal_exact_box_closed_loop_e05.py"
+        ).read_text()
+        self.assertIn("distal_only_target_vector", validator)
+        self.assertIn("accepted_exact_substep_clearance", validator)
+
     def test_hybrid_config_switches_only_after_distal_intervention(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
 
@@ -197,6 +240,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("vlsa_distal_sitl_live_e05.v1.json", source)
         self.assertIn("HEURISTIC_CONFIG", source)
         self.assertIn("--host 127.0.0.1", source)
+        self.assertIn("OBSTACLE_CONFIG", source)
 
     def test_hybrid_runner_switches_to_corresponding_live_query(self) -> None:
         source = (

@@ -1,5 +1,22 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Distal-only 8 mm exact-box closed loop (preregistered, 2026-08-09)
+
+Active gate `E02` now follows the user's requested correction to job `37183`:
+apply `8 mm` only to the seven accepted L5--L7 slabs and retain zero added
+margin on the released AEGIS EE proxy.  The live nominal remains pi0.5-LIBERO
+followed by the released AEGIS EE QP, replanned every five actions.  The
+additional verifier uses the exact 15 MuJoCo moka-pot boxes, so its fixed
+target vector is `[0.008 m x 7, 0.0 m]`.
+
+Each nominal, finite-difference, QP, and fallback candidate is evaluated over
+the interval start and every internal MuJoCo step of a cloned full OSC
+transition.  Execution additionally requires zero raw L5--L7 contact and no
+more than `0.1 mm` within-step obstacle motion.  The live policy then continues
+closed-loop to native goal success or the registered horizon.  Full scope is
+in `docs/distal_exact_box_closed_loop_preregistration.md`.  No outcome has run
+yet; Table 1 remains immutable.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without

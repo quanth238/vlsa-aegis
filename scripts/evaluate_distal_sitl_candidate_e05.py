@@ -9,7 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     ARCHIVED_FILE_SHA256,
@@ -43,6 +43,7 @@ def evaluate(
     archived_path: Path,
     geometry_config_path: Path,
     heuristic_config_path: Path,
+    obstacle_config_path: Optional[Path],
     expected_commit: str,
     output_path: Path,
     host: str = "127.0.0.1",
@@ -83,6 +84,7 @@ def evaluate(
     )
     from main.multilink_ellipsoid.sitl_candidate import (
         DistalSitlCandidateFilter,
+        EXACT_BOX_CLOSED_LOOP_SCHEMA,
         load_sitl_candidate_config,
         summarize_sitl_steps,
     )
@@ -107,6 +109,23 @@ def evaluate(
     validate_case_row(case, repo_root)
     geometry_config = load_shadow_config(geometry_config_path)
     heuristic_config = load_sitl_candidate_config(heuristic_config_path)
+    obstacle_config = None
+    if heuristic_config["schema_version"] == EXACT_BOX_CLOSED_LOOP_SCHEMA:
+        from main.multilink_ellipsoid.obstacle_primitives import (
+            load_obstacle_primitive_config,
+        )
+
+        _require(obstacle_config_path is not None, "exact-box obstacle config is required")
+        obstacle_config = load_obstacle_primitive_config(obstacle_config_path)
+        _require(
+            obstacle_config["config_file_sha256"]
+            == heuristic_config["obstacle_geometry"]["exact_box_config_file_sha256"]
+            and obstacle_config["config_payload_sha256"]
+            == heuristic_config["obstacle_geometry"]["exact_box_config_payload_sha256"],
+            "exact-box obstacle config identity differs",
+        )
+    else:
+        _require(obstacle_config_path is None, "unexpected obstacle config")
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(heuristic_config["case_ids"] == [CASE_ID], "heuristic config case differs")
     nominal_source = heuristic_config["nominal_action_source"]
@@ -227,11 +246,21 @@ def evaluate(
                 "settled reference simulator state differs",
             )
             _disable_probe_images(reference_env)
+        obstacle_union = None
+        if obstacle_config is not None:
+            from main.multilink_ellipsoid.obstacle_primitives import (
+                ExactObstacleBoxUnion,
+            )
+
+            obstacle_union = ExactObstacleBoxUnion(
+                obstacle_config, probe_env, obstacle_name
+            )
         controller = DistalSitlCandidateFilter(
             heuristic_config,
             geometry,
             probe_env,
             active_obstacle_name=obstacle_name,
+            obstacle_primitive_union=obstacle_union,
         )
 
         client = None
@@ -567,7 +596,12 @@ def evaluate(
                 "vlsa_distal_sitl_hybrid_recovery_e05_result.v1"
                 if hybrid_recovery
                 else (
-                    "vlsa_distal_sitl_live_e05_result.v1"
+                    (
+                        "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+                        if heuristic_config["schema_version"]
+                        == EXACT_BOX_CLOSED_LOOP_SCHEMA
+                        else "vlsa_distal_sitl_live_e05_result.v1"
+                    )
                     if live_policy
                     else "vlsa_distal_sitl_candidate_e05_result.v1"
                 )
@@ -580,6 +614,7 @@ def evaluate(
             "allocation": allocation,
             "config": heuristic_config,
             "geometry_config": geometry_config,
+            "obstacle_config": obstacle_config,
             "archived_table1": {
                 "path": str(archived_path),
                 "file_sha256": ARCHIVED_FILE_SHA256,
@@ -630,6 +665,11 @@ def evaluate(
                 ),
             },
             "geometry": geometry_record,
+            "exact_obstacle_geometry": (
+                None
+                if obstacle_union is None
+                else obstacle_union.geometry_record(env)
+            ),
             "action_count": len(action_records),
             "actions": action_records,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},
@@ -686,6 +726,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--archived", type=Path, required=True)
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--heuristic-config", type=Path, required=True)
+    parser.add_argument("--obstacle-config", type=Path)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -697,6 +738,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         archived_path=args.archived.resolve(),
         geometry_config_path=args.geometry_config.resolve(),
         heuristic_config_path=args.heuristic_config.resolve(),
+        obstacle_config_path=(
+            None if args.obstacle_config is None else args.obstacle_config.resolve()
+        ),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
         host=args.host,
