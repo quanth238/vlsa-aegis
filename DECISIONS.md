@@ -810,3 +810,24 @@ hand/finger at step 15, failed CAR at step 16, displaced the obstacle by
 `0.183/0.701 rad`.  Thus the timing repair does not establish a competent
 Direct-Joint baseline or successful safety method.  The remaining mismatch is
 architectural, not a missing scalar heuristic from the paper.
+
+## ADR-0048: Retain the released EE proxy and use exact hull slabs for L5--L7
+
+Accepted after hand review of the H100 geometry renders. The AEGIS
+end-effector proxy remains the released site-attached ellipsoid with semiaxes
+`[0.06, 0.12, 0.11] m`; changing it would confound the requested comparison.
+The additional L5--L7 bounds are opt-in geometry and do not reinterpret or
+modify the completed Table 1 results.
+
+The common-apex facet partition from job `37086` is mathematically enclosing
+but rejected as the final geometry because one L5 part remained nearly as long
+as the original one-link MVEE. The replacement partitions the convex hull into
+contiguous dominant-axis slabs and encloses each exact clipped polytope. This
+gives a formal no-gap union certificate while allowing each ellipsoid to
+remain local to one short section of the physical link.
+
+H100 job `37087` passed the allocation numeric gate and produced the accepted
+seven-part render: three L5, two L6, two L7, plus the unchanged cyan AEGIS EE
+proxy. No active controller or QP is changed by this decision. Geometry must
+be promoted under a separate preregistered control protocol before any safety
+claim is evaluated.

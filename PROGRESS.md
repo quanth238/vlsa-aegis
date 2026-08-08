@@ -1012,3 +1012,43 @@ not the paper's chunk-start pose DDPM denoising and native joint action
 interface.  No scalar paper heuristic repairs that incompatibility.  The
 exact next audit command is:
 `jq '.comparison,.arms[]|{action_count,raw_simulation_evidence,joint_target_execution,aegis_ee_qp_timing}' /mnt/data/quanth/experiments/vlsa-embodisteer-aegis-ee-pair-e05/original-rate-aegis-ee-20260808a/result.json`.
+
+## Accepted tight L5--L7 ellipsoid geometry with released AEGIS EE retained
+
+The original AEGIS end-effector proxy remains exactly as released: its center
+and orientation come from the authoritative `robot0_grip` site plus the
+released `-0.08 m` local-z offset, and its semiaxes remain
+`[0.06, 0.12, 0.11] m`. It is not replaced, resized, or counted as one of the
+distal link parts.
+
+The first multi-part attempt used common-apex convex-hull facet groups. H100
+job `37086` proved hull enclosure, but visual review rejected that fit because
+one L5 ellipsoid still spanned nearly the complete link and retained excessive
+empty space. That immutable artifact remains diagnostic evidence only.
+
+The accepted opt-in v4 geometry cuts each compiled collision hull into
+contiguous slabs along its dominant PCA axis: three for L5, two for L6, and two
+for L7. Every clipped slab vertex is enumerated from original hull vertices
+and hull-edge/cut-plane intersections. Its MVEE contains those vertices and
+therefore the full clipped convex polytope. Adjacent cut bounds are identical,
+so the seven-ellipsoid union covers the full L5--L7 collision hulls without an
+unprotected gap.
+
+Clean H100 job `37087` completed on `worker-1` in 20 seconds from commit
+`9fb0cc8b48afe923ea0a6a9990954fe04873b6d0`. All 21 allocation numeric tests
+passed. All seven certificates report maximum normalized quadratic below one,
+complete clipped-polytope containment, contiguous boundaries, and full
+hull-union containment. The major semiaxes changed as follows:
+
+- L5: single `0.237611 m` to parts `0.084948/0.107840/0.083307 m`;
+- L6: single `0.111524 m` to parts `0.083655/0.094118 m`;
+- L7: single `0.081039 m` to parts `0.058616/0.054754 m`.
+
+The accepted simulator JPG and metadata SHA-256 values are
+`8924d99709b1704d928082d81b1d92329e905887d69d6ba1587e031a3e2c0be5` and
+`23d29a4b27b0e8a37a74187116f983691cd51706265bffd85852634c579db73b`.
+This result validates geometry only. The v4 bounds have not yet been promoted
+into an active safety filter, so they do not alter the completed Table 1
+artifacts and do not establish task or collision efficacy. The exact next
+audit command is:
+`jq '.source,.allocation,.released_aegis_end_effector_proxy_unchanged,.ellipsoids[]|{body_name,semiaxes_m,bound_source,enclosure_certificate}' /mnt/data/quanth/experiments/vlsa-distal-partitioned-ellipsoid-geometry/slabbed-l5-l7-ee-20260808c/visualization/visualization.json`.
