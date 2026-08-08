@@ -68,7 +68,15 @@ class WebsocketPolicyServer:
                     # envelope is present.
                     action = self._policy.infer(obs)
                 else:
-                    if "flow_guidance" in crfs_control:
+                    if "embodisteer_guidance" in crfs_control:
+                        action = self._policy.infer(
+                            obs,
+                            rng_seed=crfs_control["rng_seed"],
+                            embodisteer_guidance=crfs_control[
+                                "embodisteer_guidance"
+                            ],
+                        )
+                    elif "flow_guidance" in crfs_control:
                         action = self._policy.infer(
                             obs,
                             rng_seed=crfs_control["rng_seed"],
@@ -122,11 +130,13 @@ def _extract_crfs_control(obs):
     if not isinstance(control, Mapping):
         raise TypeError("__crfs__ must be a mapping")
     if "rng_seed" not in control or not set(control).issubset(
-        {"rng_seed", "flow_guidance"}
+        {"rng_seed", "flow_guidance", "embodisteer_guidance"}
     ):
         raise ValueError(
-            "__crfs__ requires rng_seed and accepts only optional flow_guidance"
+            "__crfs__ requires rng_seed and one optional guidance payload"
         )
+    if "flow_guidance" in control and "embodisteer_guidance" in control:
+        raise ValueError("__crfs__ guidance payloads are mutually exclusive")
 
     rng_seed = control["rng_seed"]
     if isinstance(rng_seed, bool) or not isinstance(rng_seed, int):
@@ -138,6 +148,10 @@ def _extract_crfs_control(obs):
     if "flow_guidance" in control:
         output["flow_guidance"] = _validate_flow_guidance(
             control["flow_guidance"]
+        )
+    if "embodisteer_guidance" in control:
+        output["embodisteer_guidance"] = _validate_embodisteer_guidance(
+            control["embodisteer_guidance"]
         )
     return obs, output
 
@@ -200,6 +214,98 @@ def _validate_flow_guidance(value):
         "nominal_output_actions": nominal,
         "delta_rows": rows,
         "delta_lower": lower,
+        "projection_sweeps": 64,
+        "projection_tolerance": float(tolerance),
+    }
+
+
+def _validate_embodisteer_guidance(value):
+    """Fail closed on the task-metric multi-CBF flow envelope."""
+
+    if not isinstance(value, Mapping):
+        raise TypeError("__crfs__.embodisteer_guidance must be a mapping")
+    expected = {
+        "schema_version",
+        "action_horizon",
+        "action_dimensions",
+        "nominal_output_actions",
+        "delta_rows",
+        "delta_lower",
+        "task_metric_directions",
+        "task_metric_condition_number",
+        "guidance_schedule",
+        "projection_sweeps",
+        "projection_tolerance",
+    }
+    if set(value) != expected:
+        raise ValueError("__crfs__.embodisteer_guidance keys differ")
+    if value["schema_version"] != "crfs_embodisteer_multicbf_guidance.v1":
+        raise ValueError("__crfs__.embodisteer_guidance schema differs")
+    if value["action_horizon"] != 10 or isinstance(
+        value["action_horizon"], bool
+    ):
+        raise ValueError("__crfs__.embodisteer_guidance horizon differs")
+    if value["action_dimensions"] != [0, 1, 2]:
+        raise ValueError("__crfs__.embodisteer_guidance must act on XYZ")
+    if value["projection_sweeps"] != 64 or isinstance(
+        value["projection_sweeps"], bool
+    ):
+        raise ValueError("__crfs__.embodisteer_guidance sweeps differ")
+
+    tolerance = value["projection_tolerance"]
+    if (
+        isinstance(tolerance, bool)
+        or not isinstance(tolerance, (int, float))
+        or not math.isfinite(float(tolerance))
+        or not 0.0 < float(tolerance) <= 0.01
+    ):
+        raise ValueError("__crfs__.embodisteer_guidance tolerance is invalid")
+    nominal = value["nominal_output_actions"]
+    if not isinstance(nominal, list) or len(nominal) != 10:
+        raise ValueError("__crfs__.embodisteer_guidance nominal shape differs")
+    _validate_numeric_matrix(nominal, width=7, label="nominal_output_actions")
+    rows = value["delta_rows"]
+    directions = value["task_metric_directions"]
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 128:
+        raise ValueError("__crfs__.embodisteer_guidance row count differs")
+    if not isinstance(directions, list) or len(directions) != len(rows):
+        raise ValueError("__crfs__.embodisteer_guidance direction count differs")
+    _validate_numeric_matrix(rows, width=30, label="delta_rows", nonzero=True)
+    _validate_numeric_matrix(
+        directions, width=30, label="task_metric_directions", nonzero=True
+    )
+    lower = value["delta_lower"]
+    if not isinstance(lower, list) or len(lower) != len(rows):
+        raise ValueError("__crfs__.embodisteer_guidance lower shape differs")
+    _validate_numeric_vector(lower, label="delta_lower")
+    condition = value["task_metric_condition_number"]
+    if (
+        isinstance(condition, bool)
+        or not isinstance(condition, (int, float))
+        or not math.isfinite(float(condition))
+        or not 1.0 <= float(condition) <= 1.0e12
+    ):
+        raise ValueError("__crfs__.embodisteer_guidance condition is invalid")
+    schedule = value["guidance_schedule"]
+    if not isinstance(schedule, Mapping) or set(schedule) != {
+        "base_strength",
+        "beta",
+        "transition",
+    }:
+        raise ValueError("__crfs__.embodisteer_guidance schedule differs")
+    expected_schedule = {"base_strength": 1.0, "beta": 50.0, "transition": 0.7}
+    if any(float(schedule[key]) != expected_schedule[key] for key in expected_schedule):
+        raise ValueError("__crfs__.embodisteer_guidance schedule values differ")
+    return {
+        "schema_version": value["schema_version"],
+        "action_horizon": 10,
+        "action_dimensions": [0, 1, 2],
+        "nominal_output_actions": nominal,
+        "delta_rows": rows,
+        "delta_lower": lower,
+        "task_metric_directions": directions,
+        "task_metric_condition_number": float(condition),
+        "guidance_schedule": dict(expected_schedule),
         "projection_sweeps": 64,
         "projection_tolerance": float(tolerance),
     }

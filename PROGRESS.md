@@ -1,5 +1,36 @@
 # AEGIS SafeLIBERO table reproduction
 
+## EmbodiSteer-inspired task-metric multi-CBF flow (preregistered, 2026-08-08)
+
+The next active `E02` subexperiment references Wang et al., *EmbodiSteer:
+Steering Embodiment-Agnostic Visuomotor Policies with Joint-Space Guidance for
+Zero-Shot Cross-Embodiment Deployment* (arXiv:2606.12965). The paper's
+single-constraint QP in Eqs. (6), (14), and (15) uses
+`H = J_EE^T W J_EE + lambda I` to move away from collision while minimizing
+end-effector disturbance, and Eq. (16) applies weak guidance to early noisy
+samples and strong guidance late in denoising.
+
+The smallest honest SafeLIBERO adaptation is frozen in
+`configs/vlsa_embodisteer_multicbf_e05.v1.json`. At each live pi0.5 query it
+identifies both four-body clearance and end-effector-trajectory Jacobians from
+the complete cloned OSC transition. One task metric contains all 40
+L5/L6/L7/end-effector trajectory-CBF definitions plus action bounds. A
+metric-Dykstra projection is applied after every one of pi0.5's ten Euler
+updates with the paper's fixed schedule `gamma=1`, `beta=50`, `c=0.7`; the
+final chunk must still pass exact cloned ten-step verification before its first
+five actions execute. The optimizer clearance remains `D_opt=10 mm`, gripper
+commands are unchanged, and only XYZ may change.
+
+This is an OSC action-space surrogate, not full EmbodiSteer joint-space
+denoising: SafeLIBERO's released task-competent arm accepts Cartesian OSC
+commands and does not expose joint redundancy to the policy sampler. The
+four-group evidence is therefore reported without claiming a matched
+EmbodiSteer reproduction: (1) immutable Cartesian EE baseline, (2) retained
+direct-joint diagnostic whose different checkpoint was baseline-incompetent,
+(3) retained Cartesian post-hoc three-row multi-CBF, and (4) this new
+denoising-time task-metric four-body projection. Only group (4) is a new H100
+run; completed Table 1 and prior negative artifacts remain read-only.
+
 ## Predictive L5--L7 plus end-effector flow guidance (completed negative capability test, 2026-08-08)
 
 The active `E02` follow-up is frozen in

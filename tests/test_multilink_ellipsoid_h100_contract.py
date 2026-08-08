@@ -174,6 +174,25 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
             source,
         )
 
+    def test_embodisteer_surrogate_is_single_h100_and_opt_in(self) -> None:
+        source = (ROOT / "slurm/embodisteer_multicbf_e05.sbatch").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --exclude=worker-0,worker-3", source)
+        self.assertIn("pi05_libero", source)
+        self.assertIn("preflight_embodisteer_multicbf_projection.py", source)
+        self.assertIn("vlsa_embodisteer_multicbf_e05.v1.json", source)
+        self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
+        self.assertNotIn('>"$ARCHIVED_TABLE1_RESULT"', source)
+
+        sampler = (ROOT / "openpi/src/openpi/models/pi0.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("def sample_actions_with_embodisteer_guidance", sampler)
+        self.assertIn("project_action_xyz_metric_halfspaces", sampler)
+        self.assertIn("schedule_transition - time", sampler)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -133,3 +133,49 @@ class CrfsWebsocketControlTest(unittest.TestCase):
             self.module._extract_crfs_control(
                 {"__crfs__": {"rng_seed": 1, "flow_guidance": base}}
             )
+
+    def test_embodisteer_task_metric_guidance_is_validated_and_removed(self):
+        row = [0.0] * 30
+        row[0] = 1.0
+        guidance = {
+            "schema_version": "crfs_embodisteer_multicbf_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "nominal_output_actions": [[0.0] * 7 for _ in range(10)],
+            "delta_rows": [row],
+            "delta_lower": [-0.5],
+            "task_metric_directions": [row],
+            "task_metric_condition_number": 2.0,
+            "guidance_schedule": {
+                "base_strength": 1.0,
+                "beta": 50.0,
+                "transition": 0.7,
+            },
+            "projection_sweeps": 64,
+            "projection_tolerance": 5.0e-5,
+        }
+        observation = {
+            "state": [1, 2, 3],
+            "__crfs__": {
+                "rng_seed": 23,
+                "embodisteer_guidance": guidance,
+            },
+        }
+
+        returned, control = self.module._extract_crfs_control(observation)
+
+        self.assertNotIn("__crfs__", returned)
+        self.assertEqual(control["rng_seed"], 23)
+        self.assertEqual(control["embodisteer_guidance"], guidance)
+
+    def test_guidance_payloads_are_mutually_exclusive(self):
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {
+                    "__crfs__": {
+                        "rng_seed": 1,
+                        "flow_guidance": {},
+                        "embodisteer_guidance": {},
+                    }
+                }
+            )

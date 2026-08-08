@@ -105,6 +105,11 @@ def evaluate(
         load_predictive_flow_config,
         translational_chunk,
     )
+    from main.multilink_ellipsoid.embodisteer_flow import (
+        EMBODISTEER_FLOW_SCHEMA,
+        build_embodisteer_guidance_envelope,
+        load_embodisteer_flow_config,
+    )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import allocation_record
 
@@ -118,7 +123,13 @@ def evaluate(
         archived.get("result_payload_sha256") == ARCHIVED_PAYLOAD_SHA256,
         "archived Table-1 payload identity differs",
     )
-    config = load_predictive_flow_config(config_path)
+    raw_config = _load(config_path)
+    if raw_config.get("schema_version") == EMBODISTEER_FLOW_SCHEMA:
+        config = load_embodisteer_flow_config(config_path)
+        guidance_kind = "embodisteer_multicbf"
+    else:
+        config = load_predictive_flow_config(config_path)
+        guidance_kind = "predictive_flow"
     rows = read_jsonl(manifest_path)
     matches = [row for row in rows if row.get("case_id") == CASE_ID]
     _require(len(matches) == 1, "primary predictive-flow manifest row is not unique")
@@ -246,7 +257,11 @@ def evaluate(
             output_params=["-crf", "18", "-movflags", "+faststart"],
         )
         trajectory = config["trajectory_model"]
-        flow = config["flow_guidance"]
+        flow = (
+            config["embodisteer_guidance"]
+            if guidance_kind == "embodisteer_multicbf"
+            else config["flow_guidance"]
+        )
         clone_tolerance = float(config["verification"]["clone_state_tolerance"])
         gamma = float(flow["barrier_decay_gamma"])
         clearance_tolerance = float(trajectory["clearance_tolerance_m"])
@@ -334,16 +349,42 @@ def evaluate(
                             action_limit=action_limit,
                             clone_state_tolerance=clone_tolerance,
                         )
-                        envelope, constraint_record = build_flow_guidance_envelope(
-                            model,
-                            center_raw,
-                            current_h,
-                            gamma=gamma,
-                            action_limit=action_limit,
-                            projection_tolerance=float(
-                                flow["projection_residual_tolerance"]
-                            ),
-                        )
+                        if guidance_kind == "embodisteer_multicbf":
+                            metric = flow["task_metric"]
+                            envelope, constraint_record = (
+                                build_embodisteer_guidance_envelope(
+                                    model,
+                                    center_raw,
+                                    current_h,
+                                    gamma=gamma,
+                                    action_limit=action_limit,
+                                    projection_tolerance=float(
+                                        flow["projection_residual_tolerance"]
+                                    ),
+                                    joint_regularization_lambda=float(
+                                        metric["joint_regularization_lambda"]
+                                    ),
+                                    position_weight=float(
+                                        metric["position_weight"]
+                                    ),
+                                    guidance_schedule=flow[
+                                        "guidance_schedule"
+                                    ],
+                                )
+                            )
+                            control_key = "embodisteer_guidance"
+                        else:
+                            envelope, constraint_record = build_flow_guidance_envelope(
+                                model,
+                                center_raw,
+                                current_h,
+                                gamma=gamma,
+                                action_limit=action_limit,
+                                projection_tolerance=float(
+                                    flow["projection_residual_tolerance"]
+                                ),
+                            )
+                            control_key = "flow_guidance"
                         guided_input = _policy_observation(
                             runtime,
                             observation,
@@ -351,7 +392,7 @@ def evaluate(
                             resize_size=224,
                             rng_seed=seed,
                         )
-                        guided_input["__crfs__"]["flow_guidance"] = envelope
+                        guided_input["__crfs__"][control_key] = envelope
                         guided_started = time.perf_counter_ns()
                         guided_response = client.infer(guided_input)
                         guided_infer_seconds = (
@@ -361,7 +402,7 @@ def evaluate(
                             guided_response,
                             expected_horizon=10,
                         )
-                        sampler_record = guided_response.get("flow_guidance")
+                        sampler_record = guided_response.get(control_key)
                         if not isinstance(sampler_record, Mapping):
                             raise ValueError("guided policy response lacks diagnostics")
                         guided_actions = translational_chunk(
@@ -400,7 +441,7 @@ def evaluate(
                         center_raw = guided_raw
                     if accepted_actions is None:
                         failure = {
-                            "component": "predictive_flow_guidance",
+                            "component": guidance_kind,
                             "step": step,
                             "query_index": query_index,
                             "reason": "no_exactly_verified_safe_guided_chunk",
@@ -561,11 +602,16 @@ def evaluate(
             }
 
         result = {
-            "schema_version": "vlsa_predictive_flow_guidance_e05_result.v1",
+            "schema_version": (
+                "vlsa_embodisteer_multicbf_e05_result.v1"
+                if guidance_kind == "embodisteer_multicbf"
+                else "vlsa_predictive_flow_guidance_e05_result.v1"
+            ),
             "status": "complete" if failure is None else "method_failure",
             "scientific_result": True,
             "case_id": CASE_ID,
             "claim_scope": config["claim_scope"],
+            "guidance_kind": guidance_kind,
             "source": source,
             "allocation": allocation,
             "config": config,

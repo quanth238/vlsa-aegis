@@ -527,3 +527,31 @@ against the in-memory source frames. H100 job `37031` satisfied this contract
 and completed normally. A renderer receipt written before a nonzero Slurm exit
 is not sufficient: prior attempt `37029` is an apparatus failure even though
 its bytes happened to pass the content checks.
+
+## ADR-0038: Test EmbodiSteer's metric and schedule as an OSC surrogate
+
+Accepted by direct user instruction before the outcome is known. The primary
+reference is Wang et al., *EmbodiSteer* (arXiv:2606.12965). We adopt two
+specific mechanisms: the task-preservation metric from Eqs. (6), (14), and
+(15), and the reverse-step guidance schedule from Eq. (16). We extend the
+paper's one safety inequality to one simultaneous projection containing every
+registered L5/L6/L7/end-effector horizon row.
+
+We do not label the experiment full EmbodiSteer. The released, task-competent
+SafeLIBERO path executes Cartesian `OSC_POSE` actions; converting a corrected
+joint null-space trajectory back to Cartesian commands would erase the paper's
+central redundancy. The preregistered surrogate instead identifies the
+end-effector-trajectory metric and barrier derivatives through exact cloned
+OSC transitions, applies metric multi-row projection after each pi0.5 flow
+Euler update, and verifies the proposed final chunk by exact cloned rollout.
+It isolates whether the paper's task-preserving metric plus late guidance fixes
+the earlier Euclidean hard-projection task diversion.
+
+The four paper baseline groups are used as an explanatory evidence matrix, not
+as a falsely matched reproduction. Existing immutable evidence supplies the
+Cartesian baseline, direct-joint diagnostic, and post-hoc multi-CBF outcomes;
+only the scheduled task-metric flow arm is newly executed. The direct-joint
+diagnostic remains baseline-incompetent and uses a different checkpoint, so it
+cannot support a cross-group efficacy claim. Success for the new arm still
+requires native task completion, no robot contact, no paper CAR, and exact
+verification of every executed guided chunk.

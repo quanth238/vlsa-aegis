@@ -72,6 +72,7 @@ class Policy(BasePolicy):
         noise: np.ndarray | None = None,
         rng_seed: int | None = None,
         flow_guidance: dict[str, Any] | None = None,
+        embodisteer_guidance: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
         # Make a copy since transformations may modify the inputs in place.
         inputs = jax.tree.map(lambda x: x, obs)
@@ -99,7 +100,10 @@ class Policy(BasePolicy):
             sample_kwargs["noise"] = noise
 
         observation = _model.Observation.from_dict(inputs)
+        if flow_guidance is not None and embodisteer_guidance is not None:
+            raise ValueError("flow and EmbodiSteer guidance are mutually exclusive")
         prepared_guidance = None
+        guidance_kind = None
         if flow_guidance is not None:
             if self._is_pytorch_model:
                 raise ValueError("flow guidance is supported only by the JAX pi0.5 policy")
@@ -113,9 +117,36 @@ class Policy(BasePolicy):
             sample_kwargs["flow_guidance_lower"] = jnp.asarray(
                 prepared_guidance["normalized_lower"]
             )
+            guidance_kind = "flow"
+        elif embodisteer_guidance is not None:
+            if self._is_pytorch_model:
+                raise ValueError("EmbodiSteer guidance is supported only by JAX pi0.5")
+            prepared_guidance = self._prepare_embodisteer_guidance(
+                embodisteer_guidance,
+                normalized_state=np.asarray(inputs["state"][0]),
+            )
+            sample_kwargs["embodisteer_rows"] = jnp.asarray(
+                prepared_guidance["normalized_rows"]
+            )
+            sample_kwargs["embodisteer_lower"] = jnp.asarray(
+                prepared_guidance["normalized_lower"]
+            )
+            sample_kwargs["embodisteer_directions"] = jnp.asarray(
+                prepared_guidance["normalized_directions"]
+            )
+            sample_kwargs["schedule_beta"] = float(
+                prepared_guidance["schedule_beta"]
+            )
+            sample_kwargs["schedule_transition"] = float(
+                prepared_guidance["schedule_transition"]
+            )
+            sample_kwargs["schedule_base_strength"] = float(
+                prepared_guidance["schedule_base_strength"]
+            )
+            guidance_kind = "embodisteer"
         start_time = time.monotonic()
         sample_actions = self._sample_actions
-        if prepared_guidance is not None:
+        if guidance_kind == "flow":
             sample_actions = getattr(
                 self, "_sample_actions_with_flow_guidance", None
             )
@@ -127,6 +158,15 @@ class Policy(BasePolicy):
                     self._model.sample_actions_with_flow_guidance
                 )
                 self._sample_actions_with_flow_guidance = sample_actions
+        elif guidance_kind == "embodisteer":
+            sample_actions = getattr(
+                self, "_sample_actions_with_embodisteer_guidance", None
+            )
+            if sample_actions is None:
+                sample_actions = nnx_utils.module_jit(
+                    self._model.sample_actions_with_embodisteer_guidance
+                )
+                self._sample_actions_with_embodisteer_guidance = sample_actions
         outputs = {
             "state": inputs["state"],
             "actions": sample_actions(
@@ -147,9 +187,22 @@ class Policy(BasePolicy):
                 prepared_guidance["output_rows"] @ delta
                 - prepared_guidance["delta_lower"]
             )
-            outputs["flow_guidance"] = {
-                "schema_version": "crfs_predictive_flow_guidance_result.v1",
-                "projection": "dykstra_euclidean_halfspace_projection_after_each_euler_step",
+            diagnostic_key = (
+                "flow_guidance"
+                if guidance_kind == "flow"
+                else "embodisteer_guidance"
+            )
+            outputs[diagnostic_key] = {
+                "schema_version": (
+                    "crfs_predictive_flow_guidance_result.v1"
+                    if guidance_kind == "flow"
+                    else "crfs_embodisteer_multicbf_guidance_result.v1"
+                ),
+                "projection": (
+                    "dykstra_euclidean_halfspace_projection_after_each_euler_step"
+                    if guidance_kind == "flow"
+                    else "scheduled_dykstra_task_metric_multi_halfspace_projection_after_each_euler_step"
+                ),
                 "projection_sweeps_per_euler_step": 64,
                 "constraint_count": int(residuals.size),
                 "minimum_output_constraint_residual": float(np.min(residuals)),
@@ -162,6 +215,17 @@ class Policy(BasePolicy):
                 "output_xyz_correction_l2": float(np.linalg.norm(delta)),
                 "normalized_xyz_scale": prepared_guidance["scale_xyz"].tolist(),
             }
+            if guidance_kind == "embodisteer":
+                outputs[diagnostic_key]["schedule"] = {
+                    "base_strength": prepared_guidance[
+                        "schedule_base_strength"
+                    ],
+                    "beta": prepared_guidance["schedule_beta"],
+                    "transition": prepared_guidance["schedule_transition"],
+                }
+                outputs[diagnostic_key]["task_metric_condition_number"] = (
+                    prepared_guidance["task_metric_condition_number"]
+                )
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,
         }
@@ -246,6 +310,46 @@ class Policy(BasePolicy):
             "projection_tolerance": float(guidance["projection_tolerance"]),
         }
 
+    def _prepare_embodisteer_guidance(
+        self,
+        guidance: dict[str, Any],
+        *,
+        normalized_state: np.ndarray,
+    ) -> dict[str, Any]:
+        """Map task-metric multi-CBF rows and directions to model space."""
+
+        prepared = self._prepare_flow_guidance(
+            guidance, normalized_state=normalized_state
+        )
+        directions = np.asarray(
+            guidance["task_metric_directions"], dtype=np.float64
+        )
+        rows = np.asarray(guidance["delta_rows"], dtype=np.float64)
+        if directions.shape != rows.shape or not np.all(np.isfinite(directions)):
+            raise ValueError("EmbodiSteer metric direction shape or values differ")
+        scale_flat = prepared["scale_xyz"].reshape(-1)
+        normalized_directions = directions / scale_flat[None, :]
+        denominators = np.sum(
+            prepared["normalized_rows"] * normalized_directions, axis=1
+        )
+        if np.any(denominators <= 1.0e-12) or not np.all(
+            np.isfinite(denominators)
+        ):
+            raise ValueError("EmbodiSteer metric projection is not positive")
+        schedule = guidance["guidance_schedule"]
+        prepared.update(
+            {
+                "normalized_directions": normalized_directions.astype(np.float32),
+                "schedule_base_strength": float(schedule["base_strength"]),
+                "schedule_beta": float(schedule["beta"]),
+                "schedule_transition": float(schedule["transition"]),
+                "task_metric_condition_number": float(
+                    guidance["task_metric_condition_number"]
+                ),
+            }
+        )
+        return prepared
+
     @property
     def metadata(self) -> dict[str, Any]:
         return self._metadata
@@ -270,12 +374,14 @@ class PolicyRecorder(_base_policy.BasePolicy):
         noise: np.ndarray | None = None,
         rng_seed: int | None = None,
         flow_guidance: dict[str, Any] | None = None,
+        embodisteer_guidance: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
         results = self._policy.infer(
             obs,
             noise=noise,
             rng_seed=rng_seed,
             flow_guidance=flow_guidance,
+            embodisteer_guidance=embodisteer_guidance,
         )
 
         data = {"inputs": obs, "outputs": results}

@@ -81,6 +81,75 @@ def project_action_xyz_halfspaces(
     return actions.at[..., :3].set(projected_xyz)
 
 
+def project_action_xyz_metric_halfspaces(
+    actions: jax.Array,
+    rows: jax.Array,
+    lower: jax.Array,
+    directions: jax.Array,
+    *,
+    sweeps: int = _CRFS_FLOW_GUIDANCE_SWEEPS,
+) -> jax.Array:
+    """Project chunk XYZ with a preregistered positive-definite metric.
+
+    ``directions[k]`` is ``H^-1 rows[k]`` in the same coordinates as
+    ``actions``.  This is the multi-row extension of EmbodiSteer's
+    task-preserving single-constraint QP; Dykstra composes the corresponding
+    metric projections without modifying rotation, gripper, or padding.
+    """
+
+    if actions.ndim != 3 or actions.shape[-1] < 3:
+        raise ValueError("metric flow guidance requires batched chunk XYZ")
+    variable_count = int(actions.shape[1]) * 3
+    if rows.ndim != 2 or rows.shape[1] != variable_count:
+        raise ValueError("metric-guidance row width differs")
+    if directions.shape != rows.shape:
+        raise ValueError("metric-guidance direction shape differs")
+    if lower.ndim != 1 or lower.shape[0] != rows.shape[0]:
+        raise ValueError("metric-guidance lower-bound shape differs")
+    if int(sweeps) != _CRFS_FLOW_GUIDANCE_SWEEPS:
+        raise ValueError("metric-guidance projection sweep count differs")
+
+    rows = jnp.asarray(rows, dtype=actions.dtype)
+    lower = jnp.asarray(lower, dtype=actions.dtype)
+    directions = jnp.asarray(directions, dtype=actions.dtype)
+    xyz = actions[..., :3].reshape((actions.shape[0], variable_count))
+
+    def project_one(vector):
+        corrections = jnp.zeros(
+            (rows.shape[0], variable_count), dtype=vector.dtype
+        )
+
+        def sweep(_, state):
+            current, offsets = state
+
+            def project_row(index, row_state):
+                point, row_offsets = row_state
+                shifted = point + row_offsets[index]
+                violation = lower[index] - jnp.dot(rows[index], shifted)
+                denominator = jnp.maximum(
+                    jnp.dot(rows[index], directions[index]), 1.0e-12
+                )
+                updated = shifted + (
+                    jnp.maximum(violation, 0.0) / denominator
+                ) * directions[index]
+                row_offsets = row_offsets.at[index].set(shifted - updated)
+                return updated, row_offsets
+
+            return jax.lax.fori_loop(
+                0, rows.shape[0], project_row, (current, offsets)
+            )
+
+        projected, _ = jax.lax.fori_loop(
+            0, int(sweeps), sweep, (vector, corrections)
+        )
+        return projected
+
+    projected_xyz = jax.vmap(project_one)(xyz).reshape(
+        (actions.shape[0], actions.shape[1], 3)
+    )
+    return actions.at[..., :3].set(projected_xyz)
+
+
 def make_attn_mask(input_mask, mask_ar):
     """Adapted from big_vision.
 
@@ -397,6 +466,88 @@ class Pi0(_model.BaseModel):
                 rows,
                 lower,
             )
+            return x_next, time + dt
+
+        def cond(carry):
+            _, time = carry
+            return time >= -dt / 2
+
+        x_0, _ = jax.lax.while_loop(cond, step, (noise, 1.0))
+        return x_0
+
+    def sample_actions_with_embodisteer_guidance(
+        self,
+        rng: at.KeyArrayLike,
+        observation: _model.Observation,
+        *,
+        embodisteer_rows: jax.Array,
+        embodisteer_lower: jax.Array,
+        embodisteer_directions: jax.Array,
+        schedule_beta: float,
+        schedule_transition: float,
+        schedule_base_strength: float,
+        num_steps: int | at.Int[at.Array, ""] = 10,
+        noise: at.Float[at.Array, "b ah ad"] | None = None,
+    ) -> _model.Actions:
+        """Opt-in task-metric multi-CBF projection during pi0.5 flow."""
+
+        observation = _model.preprocess_observation(None, observation, train=False)
+        dt = -1.0 / num_steps
+        batch_size = observation.state.shape[0]
+        if noise is None:
+            noise = jax.random.normal(
+                rng, (batch_size, self.action_horizon, self.action_dim)
+            )
+        rows = jnp.asarray(embodisteer_rows, dtype=noise.dtype)
+        lower = jnp.asarray(embodisteer_lower, dtype=noise.dtype)
+        directions = jnp.asarray(embodisteer_directions, dtype=noise.dtype)
+
+        prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
+        prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+        positions = jnp.cumsum(prefix_mask, axis=1) - 1
+        _, kv_cache = self.PaliGemma.llm(
+            [prefix_tokens, None], mask=prefix_attn_mask, positions=positions
+        )
+
+        def step(carry):
+            x_t, time = carry
+            suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(
+                observation, x_t, jnp.broadcast_to(time, batch_size)
+            )
+            suffix_attn_mask = make_attn_mask(suffix_mask, suffix_ar_mask)
+            prefix_to_suffix = einops.repeat(
+                prefix_mask, "b p -> b s p", s=suffix_tokens.shape[1]
+            )
+            full_attn_mask = jnp.concatenate(
+                [prefix_to_suffix, suffix_attn_mask], axis=-1
+            )
+            positions = (
+                jnp.sum(prefix_mask, axis=-1)[:, None]
+                + jnp.cumsum(suffix_mask, axis=-1)
+                - 1
+            )
+            (prefix_out, suffix_out), _ = self.PaliGemma.llm(
+                [None, suffix_tokens],
+                mask=full_attn_mask,
+                positions=positions,
+                kv_cache=kv_cache,
+                adarms_cond=[None, adarms_cond],
+            )
+            assert prefix_out is None
+            v_t = self.action_out_proj(suffix_out[:, -self.action_horizon :])
+            x_diff = x_t + dt * v_t
+            projected = project_action_xyz_metric_halfspaces(
+                x_diff,
+                rows,
+                lower,
+                directions,
+            )
+            # EmbodiSteer Eq. (16): weak guidance on noisy early samples and
+            # near-full guidance once the reverse process approaches data.
+            strength = schedule_base_strength * jax.nn.sigmoid(
+                schedule_beta * (schedule_transition - time)
+            )
+            x_next = x_diff + strength * (projected - x_diff)
             return x_next, time + dt
 
         def cond(carry):

@@ -242,6 +242,71 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             64,
         )
 
+    def test_embodisteer_config_freezes_paper_mapping_and_surrogate_scope(self) -> None:
+        from main.multilink_ellipsoid.embodisteer_flow import (
+            load_embodisteer_flow_config,
+        )
+
+        config = load_embodisteer_flow_config(
+            ROOT / "configs/vlsa_embodisteer_multicbf_e05.v1.json"
+        )
+        self.assertEqual(config["paper_reference"]["arxiv"], "2606.12965")
+        self.assertEqual(
+            config["paper_reference"]["fidelity"],
+            "osc_action_space_surrogate_not_full_joint_space_embodisteer",
+        )
+        self.assertEqual(len(config["protected_body_names"]), 4)
+        self.assertEqual(
+            config["embodisteer_guidance"]["guidance_schedule"],
+            {"base_strength": 1.0, "beta": 50.0, "transition": 0.7},
+        )
+
+    @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
+    def test_embodisteer_builder_extends_all_rows_with_task_metric(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.embodisteer_flow import (
+            build_embodisteer_guidance_envelope,
+        )
+
+        center = np.zeros((10, 7), dtype=np.float64)
+        clearance_jacobian = np.zeros((10, 4, 30), dtype=np.float64)
+        for step in range(10):
+            for body in range(4):
+                clearance_jacobian[step, body, step * 3 + body % 3] = (
+                    0.01 * (body + 1)
+                )
+        model = {
+            "center_actions": center,
+            "base": {"h_opt_m": np.full((10, 4), 0.035)},
+            "jacobian": clearance_jacobian,
+            "eef_jacobian": np.eye(30).reshape(10, 3, 30),
+        }
+        envelope, record = build_embodisteer_guidance_envelope(
+            model,
+            center,
+            np.full(4, 0.04),
+            gamma=0.9,
+            action_limit=1.0,
+            projection_tolerance=5.0e-5,
+            joint_regularization_lambda=0.01,
+            position_weight=1.0,
+            guidance_schedule={
+                "base_strength": 1.0,
+                "beta": 50.0,
+                "transition": 0.7,
+            },
+        )
+        self.assertEqual(len(envelope["delta_rows"]), 100)
+        self.assertEqual(len(envelope["task_metric_directions"]), 100)
+        self.assertEqual(record["trajectory_constraint_definition_count"], 40)
+        self.assertTrue(
+            record["paper_mapping"]["single_to_multi_constraint_extension"]
+        )
+        self.assertAlmostEqual(
+            envelope["task_metric_condition_number"], 1.0, places=10
+        )
+
     @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
     def test_predictive_flow_builds_40_cbf_definitions_and_60_bounds(self) -> None:
         import numpy as np

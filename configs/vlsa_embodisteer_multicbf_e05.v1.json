@@ -1,0 +1,80 @@
+{
+  "action_protocol": {
+    "execute_actions_per_query": 5,
+    "model_action_horizon": 10,
+    "modified_dimensions": [0, 1, 2],
+    "preserve_gripper": true,
+    "rotation": "zero_translational_protocol"
+  },
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_primary_case_simplified_embodisteer_inspired_multicbf_capability_test_not_full_joint_space_embodisteer_or_population_efficacy",
+  "embodisteer_guidance": {
+    "action_limit": 1.0,
+    "barrier_decay_gamma": 0.9,
+    "euler_steps": 10,
+    "guidance_schedule": {
+      "base_strength": 1.0,
+      "beta": 50.0,
+      "transition": 0.7
+    },
+    "projection_residual_tolerance": 0.00005,
+    "projection_sweeps_per_euler_step": 64,
+    "relinearization_attempts": 1,
+    "task_metric": {
+      "joint_regularization_lambda": 0.01,
+      "position_weight": 1.0,
+      "source": "cloned_osc_end_effector_trajectory_jacobian"
+    }
+  },
+  "end_effector_geometry": {
+    "center_and_orientation": "authoritative_robot0_grip_site_pose_plus_released_minus_0.08m_local_z_offset",
+    "semiaxes_m": [0.06, 0.12, 0.11],
+    "source": "released_aegis_end_effector_proxy"
+  },
+  "nominal_policy": {
+    "checkpoint": "pi05_libero",
+    "pairing": "same_initial_state_observation_and_per_query_rng_seed_as_released_aegis_arm",
+    "query_mode": "closed_loop_live_observation"
+  },
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "paper_reference": {
+    "adapted_equations": ["6", "14", "15", "16"],
+    "arxiv": "2606.12965",
+    "fidelity": "osc_action_space_surrogate_not_full_joint_space_embodisteer"
+  },
+  "protected_body_names": [
+    "robot0_link5",
+    "robot0_link6",
+    "robot0_link7",
+    "robot0_end_effector"
+  ],
+  "protocol_id": "vlsa-embodisteer-inspired-multicbf-e05-v1",
+  "robot_geometry": {
+    "fit": "khachiyan_mvee_exact_vertex_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "relative_numerical_padding": 1e-09,
+    "source": "compiled_mujoco_collision_mesh_vertices_for_link5_link6_link7"
+  },
+  "schema_version": "vlsa_embodisteer_multicbf_flow.v1",
+  "success_definition": {
+    "exact_guided_horizon": "every_executed_chunk_passes_cloned_osc_discrete_cbf_verification",
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_contact": "none_for_robot0_link5_link6_link7_or_end_effector_proxy",
+    "task": "native_goal_satisfied_within_registered_case_horizon"
+  },
+  "trajectory_model": {
+    "activation_h_opt_m": 0.02,
+    "clearance_tolerance_m": 1e-06,
+    "finite_difference_action": 0.05,
+    "finite_difference_scheme": "clipped_central_difference",
+    "horizon_steps": 10,
+    "optimizer_clearance_m": 0.01,
+    "transition": "complete_cloned_safelibero_env_step_with_stateful_osc_pose_and_gripper"
+  },
+  "verification": {
+    "clone_state_tolerance": 1e-10,
+    "execute_only_exactly_verified_chunk": true,
+    "raw_simulator_contact_and_car_authority": true
+  }
+}

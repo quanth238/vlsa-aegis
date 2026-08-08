@@ -337,6 +337,7 @@ class ClonedOscTrajectoryProbe:
             raise ValueError("predictive probe requires one finite 10x7 chunk")
         synchronization = self.synchronize(main_env)
         clearances = []
+        eef_positions = []
         next_state_vectors = []
         step_wall_seconds = []
         done_steps = []
@@ -347,15 +348,26 @@ class ClonedOscTrajectoryProbe:
                 (time.perf_counter_ns() - started) * 1.0e-9
             )
             clearances.append(self.geometry.clearances(self.probe_env))
+            _, data = _raw_model_data(self.probe_env.sim)
+            eef_positions.append(
+                np.asarray(
+                    data.site_xpos[_eef_site_id(self.probe_env)],
+                    dtype=np.float64,
+                ).copy()
+            )
             next_state_vectors.append(_dynamic_state_vector(self.probe_env))
             if done:
                 done_steps.append(index)
         clearance_array = np.asarray(clearances, dtype=np.float64)
+        eef_array = np.asarray(eef_positions, dtype=np.float64)
         if clearance_array.shape != (10, 4):
             raise ValueError("predictive rollout clearance trace differs")
+        if eef_array.shape != (10, 3) or not np.all(np.isfinite(eef_array)):
+            raise ValueError("predictive rollout end-effector trace differs")
         return {
             "actions": actions,
             "h_opt_m": clearance_array,
+            "eef_position_m": eef_array,
             "minimum_h_opt_m": float(np.min(clearance_array)),
             "next_state_vectors": next_state_vectors,
             "next_state_sha256": [
@@ -418,6 +430,7 @@ def identify_osc_clearance_model(
     if base["synchronization"]["maximum_absolute_error"] > clone_state_tolerance:
         raise ValueError("predictive base clone synchronization failed")
     jacobian = np.zeros((10, 4, 30), dtype=np.float64)
+    eef_jacobian = np.zeros((10, 3, 30), dtype=np.float64)
     denominators = np.zeros(30, dtype=np.float64)
     probe_wall = 0.0
     probe_hashes = []
@@ -449,6 +462,9 @@ def identify_osc_clearance_model(
         jacobian[:, :, variable] = (
             plus["h_opt_m"] - minus["h_opt_m"]
         ) / denominator
+        eef_jacobian[:, :, variable] = (
+            plus["eef_position_m"] - minus["eef_position_m"]
+        ) / denominator
         # A causal OSC transition cannot be affected before this command.
         if step > 0 and np.max(np.abs(jacobian[:step, :, variable])) > 1.0e-10:
             raise ValueError("predictive finite-difference model violates causality")
@@ -466,10 +482,13 @@ def identify_osc_clearance_model(
         )
     if not np.all(np.isfinite(jacobian)):
         raise ValueError("predictive finite-difference Jacobian is nonfinite")
+    if not np.all(np.isfinite(eef_jacobian)):
+        raise ValueError("predictive end-effector Jacobian is nonfinite")
     return {
         "center_actions": center,
         "base": base,
         "jacobian": jacobian,
+        "eef_jacobian": eef_jacobian,
         "record": {
             "scheme": "clipped_central_difference",
             "variable_count": 30,
@@ -480,6 +499,10 @@ def identify_osc_clearance_model(
             "jacobian_shape": [10, 4, 30],
             "jacobian_sha256": hashlib.sha256(
                 np.ascontiguousarray(jacobian, dtype="<f8").tobytes()
+            ).hexdigest(),
+            "eef_jacobian_shape": [10, 3, 30],
+            "eef_jacobian_sha256": hashlib.sha256(
+                np.ascontiguousarray(eef_jacobian, dtype="<f8").tobytes()
             ).hexdigest(),
             "probe_final_state_hashes": probe_hashes,
             "base_env_step_wall_seconds": float(
