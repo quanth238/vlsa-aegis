@@ -31,6 +31,7 @@ from .shadow import (
 SITL_CANDIDATE_SCHEMA = "vlsa_distal_sitl_candidate_e05.v1"
 EXACT_BOX_CLOSED_LOOP_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05.v1"
 DISTAL_ONLY_CLOSED_LOOP_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05.v2"
+DISTAL_ONLY_RELEASED_EE_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05.v3"
 SITL_CANDIDATE_STEP_SCHEMA = "vlsa_distal_sitl_candidate_step_e05.v1"
 _PROTECTED_BODY_NAMES = ("robot0_link5", "robot0_link6", "robot0_link7")
 
@@ -71,7 +72,11 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     exact_box_closed_loop = bool(
         isinstance(config, dict)
         and config.get("schema_version")
-        in {EXACT_BOX_CLOSED_LOOP_SCHEMA, DISTAL_ONLY_CLOSED_LOOP_SCHEMA}
+        in {
+            EXACT_BOX_CLOSED_LOOP_SCHEMA,
+            DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+            DISTAL_ONLY_RELEASED_EE_SCHEMA,
+        }
     )
     expected_keys = required | ({"obstacle_geometry"} if exact_box_closed_loop else set())
     if not isinstance(config, dict) or set(config) != expected_keys:
@@ -80,6 +85,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         SITL_CANDIDATE_SCHEMA,
         EXACT_BOX_CLOSED_LOOP_SCHEMA,
         DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+        DISTAL_ONLY_RELEASED_EE_SCHEMA,
     }:
         raise ValueError("SITL candidate schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
@@ -123,18 +129,26 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL end-effector target differs")
     if exact_box_closed_loop:
         expected_protocol = (
-            "vlsa-distal-exact-box-closed-loop-e05-v2"
-            if config["schema_version"] == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
-            else "vlsa-distal-exact-box-closed-loop-e05-v1"
+            "vlsa-distal-exact-box-closed-loop-e05-v3"
+            if config["schema_version"] == DISTAL_ONLY_RELEASED_EE_SCHEMA
+            else (
+                "vlsa-distal-exact-box-closed-loop-e05-v2"
+                if config["schema_version"] == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
+                else "vlsa-distal-exact-box-closed-loop-e05-v1"
+            )
         )
         if config["protocol_id"] != expected_protocol:
             raise ValueError("exact-box closed-loop protocol differs")
         if activation_clearance != 0.008 or hard_clearance != 0.008:
             raise ValueError("exact-box distal warning margin must be 8 mm")
         expected_ee_target = (
-            "zero_margin_frozen_aegis_mvee_clearance_after_released_aegis_qp"
-            if config["schema_version"] == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
-            else "zero_margin_exact_box_clearance_after_released_aegis_qp"
+            "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto"
+            if config["schema_version"] == DISTAL_ONLY_RELEASED_EE_SCHEMA
+            else (
+                "zero_margin_frozen_aegis_mvee_clearance_after_released_aegis_qp"
+                if config["schema_version"] == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
+                else "zero_margin_exact_box_clearance_after_released_aegis_qp"
+            )
         )
         if geometry["end_effector_target"] != expected_ee_target:
             raise ValueError("exact-box closed-loop EE target must remain zero margin")
@@ -155,9 +169,16 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
                 "zero_L5_L6_L7_contact_and_at_most_0.1mm_obstacle_motion"
             ),
         }
-        if config["schema_version"] == DISTAL_ONLY_CLOSED_LOOP_SCHEMA:
+        if config["schema_version"] in {
+            DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+            DISTAL_ONLY_RELEASED_EE_SCHEMA,
+        }:
             expected_obstacle_geometry["end_effector_obstacle_source"] = (
                 "frozen_released_aegis_perception_mvee"
+            )
+        if config["schema_version"] == DISTAL_ONLY_RELEASED_EE_SCHEMA:
+            expected_obstacle_geometry["end_effector_constraint_mode"] = (
+                "unchanged_released_aegis_qp_without_second_discrete_EE_target"
             )
         if config["obstacle_geometry"] != expected_obstacle_geometry:
             raise ValueError("exact-box closed-loop obstacle contract differs")
@@ -455,6 +476,7 @@ class DistalSitlCandidateFilter:
             SITL_CANDIDATE_SCHEMA,
             EXACT_BOX_CLOSED_LOOP_SCHEMA,
             DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+            DISTAL_ONLY_RELEASED_EE_SCHEMA,
         }:
             raise ValueError("SITL candidate configuration was not validated")
         if geometry.config.get("schema_version") != DISTAL_SLABBED_SCHEMA:
@@ -485,7 +507,10 @@ class DistalSitlCandidateFilter:
                     links: Sequence[Any],
                     obstacles: Sequence[Any],
                 ) -> Any:
-                    if config.get("schema_version") != DISTAL_ONLY_CLOSED_LOOP_SCHEMA:
+                    if config.get("schema_version") not in {
+                        DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+                        DISTAL_ONLY_RELEASED_EE_SCHEMA,
+                    }:
                         return super(
                             _ExactBoxSubstepAdapter, adapter_self
                         )._clearance_values(links, obstacles)

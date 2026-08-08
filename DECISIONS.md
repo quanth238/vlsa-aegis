@@ -1,5 +1,18 @@
 # Reproduction decisions
 
+## ADR-0060: Do not add a second discrete EE rule
+
+Accepted from clean job `37187`. Restoring the EE proxy's original obstacle
+MVEE was insufficient because v2 still required a new `h_EE(next)>=0` rule,
+whereas released AEGIS uses a continuous local CBF QP with virtual-direction
+dynamics. The isolated EE-only failure occurred with every distal row more
+than `114 mm` clear.
+
+Freeze v2. V3 retains the released AEGIS EE QP without a second discrete EE
+target and adds exactly seven exact-box `8 mm` L5--L7 constraints. The EE gap
+is diagnostic, while raw contact and obstacle-motion vetoes remain execution
+authority. This is a semantics correction, not threshold tuning.
+
 ## ADR-0059: Pair only distal rows with exact boxes
 
 Accepted from the clean job-`37185` no-go.  V1 applied zero added EE margin

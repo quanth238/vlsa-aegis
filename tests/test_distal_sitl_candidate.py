@@ -141,6 +141,25 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("links[:7], obstacles", source)
         self.assertIn("links[7:], [geometry.obstacle]", source)
 
+    def test_v3_adds_no_second_discrete_ee_target(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import (
+            DISTAL_ONLY_RELEASED_EE_SCHEMA,
+            load_sitl_candidate_config,
+        )
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_exact_box_closed_loop_e05.v3.json"
+        )
+        self.assertEqual(config["schema_version"], DISTAL_ONLY_RELEASED_EE_SCHEMA)
+        self.assertEqual(
+            config["obstacle_geometry"]["end_effector_constraint_mode"],
+            "unchanged_released_aegis_qp_without_second_discrete_EE_target",
+        )
+        self.assertEqual(
+            config["protected_geometry"]["end_effector_target"],
+            "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
+        )
+
     def test_hybrid_config_switches_only_after_distal_intervention(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
 

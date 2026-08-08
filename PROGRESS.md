@@ -38,6 +38,25 @@ and `6593126a9593e018b2e1cc6fb3575a831af532cbb22a343f8bda40a6dca233bf`;
 payload SHA-256 is
 `8cff9c60a73f6c7b1aaba41f75cfac357aa563118de85b7039b1b1777b665589`.
 
+Clean H100 job `37187` completed v2 on worker-1 in `1m49s` from commit
+`77c767913b26391a9a75ad69d0bc6fa3dfd1b2e3`; all 46 tests and validation
+passed. It failed closed at action 135, again only because of an added
+discrete EE rule: distal rows were `114--376 mm` clear while EE/MVEE was
+`-0.814 mm`. There was no contact, CAR, or task success. V2 therefore kept
+the original geometry but still did not keep the original continuous AEGIS
+constraint semantics.
+
+V3 is preregistered to leave the released AEGIS EE QP untouched and add only
+seven exact-box `8 mm` L5--L7 constraints; the EE row is diagnostic-only for
+the new discrete filter. All other settings are frozen. Scope is in
+`docs/distal_exact_box_closed_loop_v3_preregistration.md`. V2
+result/validation/preflight SHA-256 values are
+`c327ddb30b7a0e9b1dc521c7f30d97c6c7217230d049001bc6792674352953d5`,
+`0cfb53040abbbccf02d60c7e0d9e6e66c34d407b3c4b84a721bb3a5bc901eae7`,
+and `7e15d15e745b608389cf4d805ae06f1dc3943d9ac6fccd07b2a5b85b7125f7fa`;
+payload SHA-256 is
+`21c85e2d1150f2bcc6c8f6b982d37f85c0d9e344bdbbf35dfb0ef3828f342157`.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without

@@ -15,6 +15,7 @@ VALIDATION_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05_validation.v1"
 RESULT_SCHEMAS = {
     "vlsa_distal_exact_box_closed_loop_e05_result.v1",
     "vlsa_distal_exact_box_closed_loop_e05_result.v2",
+    "vlsa_distal_exact_box_closed_loop_e05_result.v3",
 }
 CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 
@@ -80,7 +81,12 @@ def validate(candidate_path: Path) -> dict[str, Any]:
     }
     actions = result.get("actions")
     action_records = actions if isinstance(actions, list) else []
-    target = [0.008] * 7 + [0.0]
+    target = [0.008] * 7 + [
+        -1.0
+        if result.get("schema_version")
+        == "vlsa_distal_exact_box_closed_loop_e05_result.v3"
+        else 0.0
+    ]
     tolerance = 1.0e-6
     checks["nonempty_closed_loop"] = bool(
         action_records
@@ -106,6 +112,17 @@ def validate(candidate_path: Path) -> dict[str, Any]:
                 "end_effector_obstacle_source"
             )
             == "frozen_released_aegis_perception_mvee"
+        )
+    if result.get("schema_version") == "vlsa_distal_exact_box_closed_loop_e05_result.v3":
+        checks["released_aegis_ee_qp_unaugmented"] = bool(
+            result.get("config", {}).get("protected_geometry", {}).get(
+                "end_effector_target"
+            )
+            == "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto"
+            and result.get("config", {}).get("obstacle_geometry", {}).get(
+                "end_effector_constraint_mode"
+            )
+            == "unchanged_released_aegis_qp_without_second_discrete_EE_target"
         )
     checks["accepted_exact_substep_clearance"] = bool(
         action_records
