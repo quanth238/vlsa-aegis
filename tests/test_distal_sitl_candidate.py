@@ -218,6 +218,26 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("compared_executed_prefix_length", source)
         self.assertIn("archived_initial_prefix", source)
 
+    def test_success_video_replays_one_rendered_environment_and_fails_on_stripes(self) -> None:
+        source = (
+            ROOT / "scripts/render_distal_sitl_success_video.py"
+        ).read_text()
+        self.assertEqual(source.count("_build_environment("), 1)
+        self.assertIn("executed_sitl_action", source)
+        self.assertIn("simulator-state trace differs", source)
+        self.assertIn("source frame has striped pixel corruption", source)
+        self.assertIn("decoded video has striped pixel corruption", source)
+        self.assertIn("native_task_success_step", source)
+
+        slurm = (
+            ROOT / "slurm/render_distal_sitl_success_video.sbatch"
+        ).read_text()
+        self.assertIn("#SBATCH --gres=gpu:1", slurm)
+        self.assertIn("exactly one H100", slurm)
+        self.assertIn("EXPECTED_RESULT_SHA256", slurm)
+        self.assertIn("verified-replay.mp4", slurm)
+        self.assertNotIn("rsync --delete", slurm)
+
 
 if __name__ == "__main__":
     unittest.main()
