@@ -1052,3 +1052,50 @@ into an active safety filter, so they do not alter the completed Table 1
 artifacts and do not establish task or collision efficacy. The exact next
 audit command is:
 `jq '.source,.allocation,.released_aegis_end_effector_proxy_unchanged,.ellipsoids[]|{body_name,semiaxes_m,bound_source,enclosure_certificate}' /mnt/data/quanth/experiments/vlsa-distal-partitioned-ellipsoid-geometry/slabbed-l5-l7-ee-20260808c/visualization/visualization.json`.
+
+## Exact cloned-step L5--L7 oracle ability demonstration
+
+The bounded objective was reduced to the primary archived failure
+`vlsa-t1-goal-ii-t0-e05`: show that a simple heuristic can preserve the
+successful released-AEGIS task motion while preventing its L5/L6 collision.
+The completed Table-1 result and action plan remain immutable inputs.
+
+The diagnostic combines the seven accepted distal ellipsoid parts and the
+unchanged released AEGIS EE row in an eight-row finite-difference QP proposal.
+Every candidate is then executed for exactly one complete step in a cloned
+OSC simulator. Candidates are rejected if the clone reports any raw L5--L7
+contact or moves the active obstacle by more than `0.1 mm` during that step.
+Among accepted candidates, a privileged exact replay of the immutable
+successful AEGIS trajectory supplies the next-EE-position reference. This is
+intentionally the simplest oracle ability test, not a deployable online
+policy.
+
+The diagnostic iterations established two necessary corrections. First,
+positive center-direction `support_gap` did not imply nonintersection: job
+`37109` contacted L6 and failed CAR despite positive proxy clearance. Second,
+post-step contact inspection alone missed transient within-step contact: job
+`37114` ended separated but displaced the obstacle by `3.295 mm` and failed
+CAR. These observations make raw cloned contact plus per-step obstacle motion,
+not the ellipsoid support proxy, authoritative for this oracle experiment.
+
+Clean H100 job `37115` completed on `worker-1` from commit
+`ced71857d3ede63f990755ba0427890ad69b2e87`. It executed 193 actions, made six
+material interventions beginning at step 187, completed the native task at
+step 192, produced no robot or protected-link contact, passed CAR, and limited
+maximum obstacle L1 displacement to `0.0394 mm`. All 193 executed transitions
+matched their accepted clones exactly. The search evaluated 972 cloned steps,
+including 230 raw-contact candidate vetoes. Active-QP time was `2.106 ms`
+mean, `4.743 ms` p95, and `5.496 ms` maximum; total filter time was
+`111.864 ms` mean and `2.131 s` maximum, so this oracle is not yet real-time.
+
+The result payload, MP4, and final-JPG SHA-256 values are respectively
+`5eabe9b9e05fa3a321dda4682566734e2940a97bb3bff9430b7ffd926913c9db`,
+`32e9f15e3ac253002f8c8dbdbf2ae88a81d76ada34c917c5e767ec0273ead11d`,
+and `18d42699bf7c5e3801f765b1474c24b2ed3b5ed856a5e2e4c056d8e1cd8f82dd`.
+The accepted claim is only a single-case, privileged-reference, exact-SITL
+ability demonstration. It does not establish online-policy efficacy,
+population efficacy, conservative ellipsoid distance, or whole-arm safety;
+feature `E02` therefore remains active.
+
+The exact next audit command is:
+`jq '{primary_problem_solved,raw_simulation_evidence,filter_summary,goal:.goal_progress.summary,oracle_reference_tracking,claim_scope}' /mnt/data/quanth/experiments/vlsa-distal-sitl-minimal-replay-e05/sitl-minimal-replay-20260808h/result.json`.

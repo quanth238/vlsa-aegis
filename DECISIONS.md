@@ -831,3 +831,31 @@ seven-part render: three L5, two L6, two L7, plus the unchanged cyan AEGIS EE
 proxy. No active controller or QP is changed by this decision. Geometry must
 be promoted under a separate preregistered control protocol before any safety
 claim is evaluated.
+
+## ADR-0049: Use exact cloned contact and obstacle motion as oracle authority
+
+Accepted after clean H100 job `37115`. For the requested simplest ability
+demonstration on primary case `vlsa-t1-goal-ii-t0-e05`, the ellipsoid
+finite-difference multi-constraint QP remains a candidate generator and
+activation heuristic, but its scalar center-direction `support_gap` is not
+treated as a conservative collision certificate. Job `37109` demonstrated
+physical L6 contact with positive proxy gap. Raw contact only at the end of a
+step is also insufficient: job `37114` demonstrated transient contact through
+`3.295 mm` obstacle motion even though the final cloned state was separated.
+
+The oracle acceptance rule therefore executes each candidate in a complete
+cloned OSC transition and requires both zero raw distal contact and at most
+`0.1 mm` active-obstacle displacement for that step. A privileged replay of
+the known successful immutable AEGIS action plan supplies the next end-effector
+reference used to choose among accepted candidates. The executed simulator
+then must match the accepted clone exactly.
+
+This bounded heuristic solved the single case: task success at step 192, no
+robot contact, no protected-link contact, no CAR, and only `0.0394 mm` maximum
+obstacle displacement. It is accepted as proof that a verified correction
+exists around the original successful motion. It is not accepted as proof
+that the current ellipsoid QP alone is correct, as a deployable causal policy,
+as population evidence, or as whole-arm safety. The next research question is
+whether the privileged reference and expensive cloned search can be replaced
+by a causal proposal model while retaining the exact simulator verification
+gate.
