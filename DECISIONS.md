@@ -1,5 +1,19 @@
 # Reproduction decisions
 
+## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
+
+Accepted after freezing job `37175`.  The second requested test returns to the
+base zero clearance target and changes only the obstacle representation.  The
+15 collision-active moka-pot geoms are boxes, so use their exact half sizes
+and live MuJoCo poses instead of the frozen perception MVEE or their
+`sqrt(3)`-inflated Loewner ellipsoids.
+
+All robot/EE proxies, candidates, affine/QP settings, OSC transition, and
+ordered decision gates remain fixed.  Negative interval-start gaps are valid
+late-activation evidence.  This test is explicitly privileged simulator
+geometry and can demonstrate feasibility only; it is not deployable
+perception or a population safety result.
+
 ## ADR-0055: Test the fixed 8 mm warning margin before exact obstacle boxes
 
 Accepted by direct user instruction.  Before using privileged MuJoCo obstacle

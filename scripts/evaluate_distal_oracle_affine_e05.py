@@ -33,6 +33,7 @@ def evaluate(
     geometry_config_path: Path,
     audit_config_path: Path,
     obstacle_primitive_config_path: Optional[Path],
+    obstacle_discovery_result_path: Optional[Path],
     expected_commit: str,
     output_path: Path,
 ) -> dict[str, Any]:
@@ -57,8 +58,11 @@ def evaluate(
         run_oracle_affine_audit,
     )
     from main.multilink_ellipsoid.obstacle_primitives import (
+        EXACT_BOX_OBSTACLE_RESULT_SCHEMA,
+        EXACT_BOX_OBSTACLE_SCHEMA,
         OBSTACLE_PRIMITIVE_RESULT_SCHEMA,
         ConservativeObstaclePrimitiveUnion,
+        ExactObstacleBoxUnion,
         load_obstacle_primitive_config,
     )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
@@ -97,6 +101,57 @@ def evaluate(
         if obstacle_primitive_config_path is None
         else load_obstacle_primitive_config(obstacle_primitive_config_path)
     )
+    obstacle_discovery_source = None
+    if (
+        obstacle_primitive_config is not None
+        and obstacle_primitive_config["schema_version"] == EXACT_BOX_OBSTACLE_SCHEMA
+    ):
+        _require(
+            obstacle_discovery_result_path is not None,
+            "exact-box audit requires its immutable discovery result",
+        )
+        discovery = _load(obstacle_discovery_result_path)
+        expected_discovery = obstacle_primitive_config["discovery_source"]
+        _require(
+            _file_sha256(obstacle_discovery_result_path)
+            == expected_discovery["file_sha256"]
+            and discovery.get("result_payload_sha256")
+            == expected_discovery["result_payload_sha256"]
+            and discovery.get("schema_version") == OBSTACLE_PRIMITIVE_RESULT_SCHEMA
+            and str(discovery.get("allocation", {}).get("slurm_job_id"))
+            == expected_discovery["slurm_job_id"],
+            "exact-box obstacle discovery identity differs",
+        )
+        discovered_primitives = discovery.get("geometry", {}).get(
+            "conservative_obstacle_union", {}
+        ).get("primitives")
+        _require(
+            isinstance(discovered_primitives, list)
+            and len(discovered_primitives)
+            == expected_discovery["obstacle_geom_count"]
+            and [item.get("geom_name") for item in discovered_primitives]
+            == expected_discovery["obstacle_geom_names"]
+            and all(
+                item.get("source_geom_kind")
+                == expected_discovery["obstacle_geom_type"]
+                for item in discovered_primitives
+            ),
+            "exact-box obstacle discovery geometry differs",
+        )
+        obstacle_discovery_source = {
+            "path": str(obstacle_discovery_result_path),
+            "file_sha256": expected_discovery["file_sha256"],
+            "result_payload_sha256": expected_discovery[
+                "result_payload_sha256"
+            ],
+            "slurm_job_id": expected_discovery["slurm_job_id"],
+            "read_only": True,
+            "obstacle_geom_count": len(discovered_primitives),
+            "obstacle_geom_names": [
+                item.get("geom_name") for item in discovered_primitives
+            ],
+            "obstacle_geom_type": expected_discovery["obstacle_geom_type"],
+        }
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(audit_config["case_ids"] == [CASE_ID], "audit config case differs")
     if obstacle_primitive_config is not None:
@@ -291,13 +346,16 @@ def evaluate(
             ),
             "false-safe audit action binding differs",
         )
-        obstacle_primitive_union = (
-            None
-            if obstacle_primitive_config is None
-            else ConservativeObstaclePrimitiveUnion(
+        if obstacle_primitive_config is None:
+            obstacle_primitive_union = None
+        elif obstacle_primitive_config["schema_version"] == EXACT_BOX_OBSTACLE_SCHEMA:
+            obstacle_primitive_union = ExactObstacleBoxUnion(
                 obstacle_primitive_config, env, obstacle_name
             )
-        )
+        else:
+            obstacle_primitive_union = ConservativeObstaclePrimitiveUnion(
+                obstacle_primitive_config, env, obstacle_name
+            )
         obstacle_primitive_record = (
             None
             if obstacle_primitive_union is None
@@ -321,7 +379,12 @@ def evaluate(
                     else ORACLE_AFFINE_RESULT_SCHEMA
                 )
                 if obstacle_primitive_config is None
-                else OBSTACLE_PRIMITIVE_RESULT_SCHEMA
+                else (
+                    EXACT_BOX_OBSTACLE_RESULT_SCHEMA
+                    if obstacle_primitive_config["schema_version"]
+                    == EXACT_BOX_OBSTACLE_SCHEMA
+                    else OBSTACLE_PRIMITIVE_RESULT_SCHEMA
+                )
             ),
             "status": "complete",
             "scientific_result": True,
@@ -335,6 +398,7 @@ def evaluate(
             "allocation": allocation,
             "config": audit_config,
             "obstacle_primitive_config": obstacle_primitive_config,
+            "obstacle_discovery_source": obstacle_discovery_source,
             "geometry_config": geometry_config,
             "archived_table1": {
                 "path": str(archived_path),
@@ -433,6 +497,7 @@ def main(argv: Sequence[str] = None) -> int:
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--audit-config", type=Path, required=True)
     parser.add_argument("--obstacle-primitive-config", type=Path)
+    parser.add_argument("--obstacle-discovery-result", type=Path)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -447,6 +512,11 @@ def main(argv: Sequence[str] = None) -> int:
             None
             if args.obstacle_primitive_config is None
             else args.obstacle_primitive_config.resolve()
+        ),
+        obstacle_discovery_result_path=(
+            None
+            if args.obstacle_discovery_result is None
+            else args.obstacle_discovery_result.resolve()
         ),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),

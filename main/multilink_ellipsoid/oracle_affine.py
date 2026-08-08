@@ -17,8 +17,11 @@ from pathlib import Path
 import time
 from typing import Any, Mapping, Optional, Sequence
 
-from .barrier import support_gap
-from .obstacle_primitives import minimum_union_support_gaps
+from .obstacle_primitives import (
+    center_axis_support_gap,
+    minimum_union_support_gaps,
+    primitive_containment_value,
+)
 from .qp import MultiConstraintQp
 from .rollout import (
     ClonedSimulatorStepProbe,
@@ -353,11 +356,11 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             protected_quadratics = [
                 _normalized_quadratic(position, item) for item in matching
             ]
-            obstacle_quadratics = [
-                _normalized_quadratic(position, item) for item in obstacles
+            obstacle_containment = [
+                primitive_containment_value(position, item) for item in obstacles
             ]
-            obstacle_minimum_index = int(np.argmin(obstacle_quadratics))
-            obstacle_quadratic = float(obstacle_quadratics[obstacle_minimum_index])
+            obstacle_minimum_index = int(np.argmin(obstacle_containment))
+            obstacle_value = float(obstacle_containment[obstacle_minimum_index])
             obstacle_source_matches = [
                 (index, item)
                 for index, item in enumerate(obstacles)
@@ -370,15 +373,15 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                 raise ValueError(
                     "contacted obstacle geom lacks exactly one certified primitive"
                 )
-            source_quadratic = (
-                obstacle_quadratic
+            source_value = (
+                obstacle_value
                 if not obstacle_source_matches
                 else float(
-                    obstacle_quadratics[int(obstacle_source_matches[0][0])]
+                    obstacle_containment[int(obstacle_source_matches[0][0])]
                 )
             )
             body_support_gaps = [
-                support_gap(robot_proxy, obstacle_proxy)
+                center_axis_support_gap(robot_proxy, obstacle_proxy)
                 for robot_proxy in matching
                 for obstacle_proxy in obstacles
             ]
@@ -388,10 +391,10 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                 protected_minimum <= 1.0 + self.quadratic_tolerance
             )
             obstacle_covered = bool(
-                obstacle_quadratic <= 1.0 + self.quadratic_tolerance
+                obstacle_value <= 1.0 + self.quadratic_tolerance
             )
             source_obstacle_covered = bool(
-                source_quadratic <= 1.0 + self.quadratic_tolerance
+                source_value <= 1.0 + self.quadratic_tolerance
             )
             nonpositive_gap = bool(minimum_gap <= self.quadratic_tolerance)
             record = {
@@ -404,9 +407,9 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                 "obstacle_geom_id": obstacle_geom,
                 "obstacle_geom_name": model.geom_id2name(obstacle_geom),
                 "minimum_protected_proxy_quadratic": protected_minimum,
-                "minimum_obstacle_proxy_quadratic": obstacle_quadratic,
+                "minimum_obstacle_containment_value": obstacle_value,
                 "minimum_obstacle_proxy_index": obstacle_minimum_index,
-                "source_obstacle_proxy_quadratic": source_quadratic,
+                "source_obstacle_containment_value": source_value,
                 "obstacle_primitive_count": len(obstacles),
                 "minimum_body_support_gap_m": minimum_gap,
                 "protected_contact_point_covered": protected_covered,
@@ -421,8 +424,13 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                 ),
             }
             if self.obstacle_primitive_union is None:
-                record["frozen_obstacle_proxy_quadratic"] = obstacle_quadratic
+                record["minimum_obstacle_proxy_quadratic"] = obstacle_value
+                record["source_obstacle_proxy_quadratic"] = source_value
+                record["frozen_obstacle_proxy_quadratic"] = obstacle_value
                 record["frozen_obstacle_contact_point_covered"] = obstacle_covered
+            elif not hasattr(obstacles[0], "containment_value"):
+                record["minimum_obstacle_proxy_quadratic"] = obstacle_value
+                record["source_obstacle_proxy_quadratic"] = source_value
             events.append(record)
         return events
 
@@ -569,7 +577,11 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                 "mode": (
                     "frozen_released_aegis_mvee"
                     if self.obstacle_primitive_union is None
-                    else "live_certified_collision_primitive_union"
+                    else getattr(
+                        self.obstacle_primitive_union,
+                        "mode",
+                        "live_certified_collision_primitive_union",
+                    )
                 ),
                 "primitive_count": int(trace[0]["obstacle_primitive_count"]),
             },

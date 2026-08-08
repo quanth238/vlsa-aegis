@@ -1,0 +1,50 @@
+{
+  "base_audit_config": {
+    "config_file_sha256": "c7019c176e0e8b6379cdb1b83e09d7129c1237a4f28ec2f3daba49a7b57ddc95",
+    "config_payload_sha256": "dc0a9d52fe75da297a187c36a0a6c9f069948511afa940c9268ff43ed392c98d",
+    "schema_version": "vlsa_distal_oracle_affine_e05.v1"
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_e05_false_safe_state_exact_oriented_box_obstacle_oracle_test_not_training_not_policy_or_population_efficacy_not_a_safety_certificate",
+  "decision_gate": {
+    "contact_witness": "every_raw_L5_L6_L7_contact_point_inside_corresponding_certified_robot_union_and_exact_contacted_obstacle_box_with_nonpositive_minimum_pair_support_gap",
+    "retain_base_affine_candidate_solver_and_exact_execution_gates": true
+  },
+  "discovery_source": {
+    "file_sha256": "3db37092b2c5573e70cfc604bbbf01f1361be822ec87c8733d2c80b84685b0fd",
+    "obstacle_geom_count": 15,
+    "obstacle_geom_names": [
+      "moka_pot_obstacle_1_g2",
+      "moka_pot_obstacle_1_g3",
+      "moka_pot_obstacle_1_g4",
+      "moka_pot_obstacle_1_g5",
+      "moka_pot_obstacle_1_g6",
+      "moka_pot_obstacle_1_g7",
+      "moka_pot_obstacle_1_g8",
+      "moka_pot_obstacle_1_g9",
+      "moka_pot_obstacle_1_g10",
+      "moka_pot_obstacle_1_g11",
+      "moka_pot_obstacle_1_g12",
+      "moka_pot_obstacle_1_g13",
+      "moka_pot_obstacle_1_g14",
+      "moka_pot_obstacle_1_g15",
+      "moka_pot_obstacle_1_g16"
+    ],
+    "obstacle_geom_type": "box",
+    "result_payload_sha256": "2eef9d767354f6692d36f57899bd511c261733e05394d00c997eacc7252fc051",
+    "slurm_job_id": "37163"
+  },
+  "obstacle_geometry": {
+    "collision_geom_filter": "active_obstacle_body_lineage_and_nonzero_contype_or_conaffinity",
+    "clearance_reduction": "minimum_center_axis_support_gap_over_every_exact_oriented_box_for_each_of_eight_robot_proxies",
+    "containment": "maximum_squared_normalized_box_coordinate_at_most_one",
+    "expected_box_count": 15,
+    "pose_update": "live_source_geom_pose_at_every_internal_mujoco_step",
+    "representation": "exact_compiled_mujoco_oriented_boxes_without_inflation",
+    "support_radius": "sum_half_extent_times_absolute_local_direction"
+  },
+  "protocol_id": "vlsa-distal-oracle-exact-box-obstacle-e05-v1",
+  "schema_version": "vlsa_distal_oracle_exact_box_obstacle_e05.v1"
+}

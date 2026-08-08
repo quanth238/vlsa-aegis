@@ -1,5 +1,23 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
+
+After freezing the failed 8 mm test, active gate `E02` now proceeds to the
+second user-requested experiment.  The frozen released-AEGIS obstacle MVEE is
+replaced by the exact 15 live oriented boxes in the compiled moka-pot
+collision model.  Their identities and type are hash-bound to clean H100 job
+`37163`; half sizes and live poses come directly from MuJoCo.  This removes the
+avoidable `sqrt(3)` Loewner inflation without shrinking the physical
+simulator collision geometry.
+
+The action-192 state, accepted seven L5--L7 slabs, released EE proxy, zero
+margin, 87 candidates, affine/QP apparatus, and exact raw substep verification
+remain unchanged.  Each of eight clearances is the minimum center-axis support
+gap over all 15 boxes, equivalent to enforcing every registered robot-box
+pair.  Contact positions are also checked in the exact source box.  The full
+frozen protocol is in `docs/distal_oracle_exact_box_preregistration.md`; no
+exact-box H100 outcome has run yet.
+
 ## Fixed 8 mm margin test (preregistered, 2026-08-09)
 
 At the user's requested ordering, active gate `E02` first tests the unchanged
