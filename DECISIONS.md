@@ -1,5 +1,18 @@
 # Reproduction decisions
 
+## ADR-0062: Freeze the 8 mm paired no-go at its first discrete crossing
+
+Accepted from producer job `37190`. The paired state is `13.127 mm` clear at
+action 185, yet every registered action at 186 drops at least one L5 row below
+`8 mm`; the best candidate reaches only `-0.907/7.400 mm` on the limiting
+parts. The QP is infeasible and no correction executes.
+
+Do not weaken the target or silently choose a raw-contact-free candidate after
+inspection. The direct answer is that `8 mm` triggers too late for this OSC
+transition and candidate/action authority. A subsequent experiment would need
+a separately preregistered larger predictive activation distance or multi-step
+braking model; it is not part of this requested fixed-margin test.
+
 ## ADR-0061: Pair the known prefix before live recovery
 
 Accepted from clean job `37189`. A fresh live pi0.5 rollout remained at least

@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import subprocess
 from typing import Any, Sequence
 
 
@@ -42,7 +43,7 @@ def _load(path: Path) -> dict[str, Any]:
     return value
 
 
-def validate(candidate_path: Path) -> dict[str, Any]:
+def validate(candidate_path: Path, *, producer_commit: str) -> dict[str, Any]:
     result = _load(candidate_path)
     payload = dict(result)
     recorded_payload_sha256 = payload.pop("result_payload_sha256", None)
@@ -51,6 +52,9 @@ def validate(candidate_path: Path) -> dict[str, Any]:
             result.get("schema_version") in RESULT_SCHEMAS
             and result.get("case_id") == CASE_ID
             and result.get("scientific_result") is True
+        ),
+        "producer_commit": bool(
+            result.get("source", {}).get("commit") == producer_commit
         ),
         "source_clean_and_h100": bool(
             result.get("source", {}).get("dirty") is False
@@ -92,9 +96,19 @@ def validate(candidate_path: Path) -> dict[str, Any]:
         else 0.0
     ]
     tolerance = 1.0e-6
+    paired_prefix_method_failure = bool(
+        result.get("schema_version")
+        == "vlsa_distal_exact_box_closed_loop_e05_result.v4"
+        and result.get("status") == "method_failure"
+        and result.get("hybrid_recovery", {}).get("enabled") is True
+        and result.get("hybrid_recovery", {}).get("live_recovery_started") is False
+    )
     checks["nonempty_closed_loop"] = bool(
         action_records
-        and result.get("policy_query_count", 0) > 0
+        and (
+            result.get("policy_query_count", 0) > 0
+            or paired_prefix_method_failure
+        )
         and result.get("action_count") == len(action_records)
     )
     checks["distal_only_target_vector"] = bool(
@@ -195,9 +209,25 @@ def validate(candidate_path: Path) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--repo-root", type=Path, required=True)
+    parser.add_argument("--producer-commit", required=True)
+    parser.add_argument("--validator-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    receipt = validate(args.candidate.resolve())
+    repo_root = args.repo_root.resolve()
+    head = subprocess.check_output(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"], text=True
+    ).strip()
+    dirty = subprocess.check_output(
+        ["git", "-C", str(repo_root), "status", "--porcelain=v1"], text=True
+    ).strip()
+    if head != args.validator_commit or dirty:
+        raise ValueError("validator source identity differs")
+    receipt = validate(
+        args.candidate.resolve(), producer_commit=args.producer_commit
+    )
+    receipt["producer_commit"] = args.producer_commit
+    receipt["validator_commit"] = args.validator_commit
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_name(args.output.name + ".partial")
     temporary.write_bytes(_canonical(receipt) + b"\n")

@@ -75,6 +75,24 @@ and `cb9e5c15ffd9d6b051d2cddfdb3cbccd1ff026a90a7d1ef01f9f96acab18189a`;
 payload SHA-256 is
 `63414c2bba374521f8be68cfb2db663a06fb7cfb55b08da42421ee2339e2a9aa`.
 
+H100 producer job `37190` reproduced the paired failure prefix from clean
+commit `40cde909e64b6a880892057d37c6f46d2c945c1a` and failed closed at the first
+distal intervention, action 186. Action 185 remained `13.127 mm` clear, but
+the next nominal L5 part minima were `-3.442/3.656 mm`. None of 81 exact
+candidates met the seven `8 mm` targets; the best L5 part 1/2 values were
+`-0.907/7.400 mm`, and the QP was primal infeasible in `7.276 ms`. No contact,
+CAR, live recovery, or unsafe execution occurred.
+
+The producer's result is valid but its allocation exited 1 because the first
+validator incorrectly rejected a paired method failure with zero live queries.
+That validator condition is corrected without changing the producer artifact;
+an allocation-backed validator-only recheck is next. Producer result/preflight
+SHA-256 values are
+`26522e4ee8ba7d78d7ecfa4021affbb309a25dc849a297b540e4f77c3f2904dd`
+and `531f0e58b9b6706b7c695942720295c7100d844ea8ad5863515590b669b4fb65`;
+payload SHA-256 is
+`e9859884e6e5e7e8d60dea4d6c4de99d71e48158297d2be84f1ac1bae5540793`.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without

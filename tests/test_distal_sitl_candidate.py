@@ -120,6 +120,8 @@ class DistalSitlCandidateTests(unittest.TestCase):
         ).read_text()
         self.assertIn("distal_only_target_vector", validator)
         self.assertIn("accepted_exact_substep_clearance", validator)
+        self.assertIn("paired_prefix_method_failure", validator)
+        self.assertIn("--producer-commit", validator)
 
     def test_v2_retains_original_aegis_obstacle_for_only_the_ee_row(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import (
@@ -295,6 +297,13 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("HEURISTIC_CONFIG", source)
         self.assertIn("--host 127.0.0.1", source)
         self.assertIn("OBSTACLE_CONFIG", source)
+
+        validator = (
+            ROOT / "slurm/validate_distal_exact_box_closed_loop_e05.sbatch"
+        ).read_text()
+        self.assertIn("#SBATCH --gres=gpu:1", validator)
+        self.assertIn("VALIDATOR_COMMIT", validator)
+        self.assertIn("PRODUCER_COMMIT", validator)
 
     def test_hybrid_runner_switches_to_corresponding_live_query(self) -> None:
         source = (

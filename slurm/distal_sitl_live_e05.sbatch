@@ -140,5 +140,8 @@ fi
 if [[ -n "$OBSTACLE_CONFIG" ]]; then
   "$AEGIS_PYTHON" scripts/validate_distal_exact_box_closed_loop_e05.py \
     --candidate "$RUN_ROOT/result.json" \
+    --repo-root "$REMOTE_REPO" \
+    --producer-commit "$EXPECTED_GIT_COMMIT" \
+    --validator-commit "$EXPECTED_GIT_COMMIT" \
     --output "$RUN_ROOT/validation.json"
 fi
