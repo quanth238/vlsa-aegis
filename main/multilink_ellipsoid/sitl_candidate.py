@@ -629,22 +629,40 @@ class DistalSitlCandidateFilter:
                 "lexicographic_minimum_reference_eef_error"
             ):
                 selectable = safe_options
-                selectable.sort(
-                    key=lambda item: (
-                        float(
-                            np.linalg.norm(
-                                np.asarray(
-                                    item[4]["next_eef_position_m"],
-                                    dtype=np.float64,
+                if nominal_safe:
+                    selectable.sort(
+                        key=lambda item: (
+                            float(
+                                np.linalg.norm(
+                                    np.asarray(
+                                        item[4]["next_eef_position_m"],
+                                        dtype=np.float64,
+                                    )
+                                    - reference_eef
                                 )
-                                - reference_eef
-                            )
-                        ),
-                        item[1],
-                        -item[0],
-                        item[2],
+                            ),
+                            item[1],
+                            -item[0],
+                            item[2],
+                        )
                     )
-                )
+                else:
+                    selectable.sort(
+                        key=lambda item: (
+                            -item[0],
+                            float(
+                                np.linalg.norm(
+                                    np.asarray(
+                                        item[4]["next_eef_position_m"],
+                                        dtype=np.float64,
+                                    )
+                                    - reference_eef
+                                )
+                            ),
+                            item[1],
+                            item[2],
+                        )
+                    )
             elif selection_objective.startswith(
                 "lexicographic_minimum_nominal_deviation"
             ):
@@ -679,6 +697,15 @@ class DistalSitlCandidateFilter:
             ],
             "reference_tracking": {
                 "enabled": reference_eef is not None,
+                "selection_phase": (
+                    None
+                    if reference_eef is None
+                    else (
+                        "reference_rejoin"
+                        if nominal_safe
+                        else "maximum_clearance_emergency_escape"
+                    )
+                ),
                 "target_next_eef_position_m": (
                     None if reference_eef is None else reference_eef.tolist()
                 ),

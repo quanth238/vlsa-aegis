@@ -117,6 +117,13 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("not_online_policy", config["claim_scope"])
         self.assertIn("oracle_reference_eef_tracking", config["claim_scope"])
 
+    def test_reference_runner_records_escape_and_rejoin_phases(self) -> None:
+        source = (
+            ROOT / "main/multilink_ellipsoid/sitl_candidate.py"
+        ).read_text()
+        self.assertIn("maximum_clearance_emergency_escape", source)
+        self.assertIn("reference_rejoin", source)
+
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
 
