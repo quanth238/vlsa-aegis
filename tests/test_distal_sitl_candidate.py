@@ -109,7 +109,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
             "lexicographic_minimum_reference_eef_error_then_minimum_nominal_deviation",
         )
         self.assertEqual(
-            config["protected_geometry"]["distal_clearance_target_m"], 0.001
+            config["protected_geometry"]["distal_clearance_target_m"], -0.01
         )
         self.assertEqual(
             config["protected_geometry"]["distal_activation_clearance_m"], 0.015
@@ -117,11 +117,11 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("not_online_policy", config["claim_scope"])
         self.assertIn("oracle_reference_eef_tracking", config["claim_scope"])
 
-    def test_reference_runner_records_escape_and_rejoin_phases(self) -> None:
+    def test_reference_runner_records_contact_veto_and_rejoin_phases(self) -> None:
         source = (
             ROOT / "main/multilink_ellipsoid/sitl_candidate.py"
         ).read_text()
-        self.assertIn("maximum_clearance_emergency_escape", source)
+        self.assertIn("raw_contact_veto", source)
         self.assertIn("reference_rejoin", source)
 
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:

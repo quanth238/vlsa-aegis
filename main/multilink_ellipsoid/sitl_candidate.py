@@ -98,7 +98,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL protected geometry contract differs")
     activation_clearance = geometry["distal_activation_clearance_m"]
     hard_clearance = geometry["distal_clearance_target_m"]
-    if activation_clearance != 0.015 or hard_clearance not in {0.001, 0.01}:
+    if activation_clearance != 0.015 or hard_clearance not in {-0.01, 0.001, 0.01}:
         raise ValueError("SITL protected geometry margins differ")
     finite_difference = config["finite_difference"]
     if finite_difference != {
@@ -629,40 +629,22 @@ class DistalSitlCandidateFilter:
                 "lexicographic_minimum_reference_eef_error"
             ):
                 selectable = safe_options
-                if nominal_safe:
-                    selectable.sort(
-                        key=lambda item: (
-                            float(
-                                np.linalg.norm(
-                                    np.asarray(
-                                        item[4]["next_eef_position_m"],
-                                        dtype=np.float64,
-                                    )
-                                    - reference_eef
+                selectable.sort(
+                    key=lambda item: (
+                        float(
+                            np.linalg.norm(
+                                np.asarray(
+                                    item[4]["next_eef_position_m"],
+                                    dtype=np.float64,
                                 )
-                            ),
-                            item[1],
-                            -item[0],
-                            item[2],
-                        )
+                                - reference_eef
+                            )
+                        ),
+                        item[1],
+                        -item[0],
+                        item[2],
                     )
-                else:
-                    selectable.sort(
-                        key=lambda item: (
-                            -item[0],
-                            float(
-                                np.linalg.norm(
-                                    np.asarray(
-                                        item[4]["next_eef_position_m"],
-                                        dtype=np.float64,
-                                    )
-                                    - reference_eef
-                                )
-                            ),
-                            item[1],
-                            item[2],
-                        )
-                    )
+                )
             elif selection_objective.startswith(
                 "lexicographic_minimum_nominal_deviation"
             ):
@@ -702,8 +684,8 @@ class DistalSitlCandidateFilter:
                     if reference_eef is None
                     else (
                         "reference_rejoin"
-                        if nominal_safe
-                        else "maximum_clearance_emergency_escape"
+                        if nominal_contact_free
+                        else "raw_contact_veto"
                     )
                 ),
                 "target_next_eef_position_m": (
