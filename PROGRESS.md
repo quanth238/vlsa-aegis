@@ -63,6 +63,20 @@ Result file SHA-256 is
 payload SHA-256 is
 `3582095f2844246d186f06f37c9978b85f127112bf21b89e574468135a1a27e1`.
 
+H100 visualization job `37044` then replayed the accepted 300-action ledger
+on `worker-1` from clean commit
+`fd1219b7f27009a4696ad1a1fc75212e5209f462`. Its receipt verifies exact
+simulator state, end-effector, obstacle-displacement, contact, CAR, and task
+traces; all 301 decoded frames; six distributed pixel-fidelity samples; and
+visible L5/L6/L7/EE plus obstacle wireframes. The verified MP4 SHA-256 is
+`ec5ee58889cb2a27c6a22466211aa476b6f572133d77e989e13c9a8122539c38`,
+the JPG SHA-256 is
+`e9ee91299e3e0f6a8b35c0e295c5e09573c50d6e38ee3e7ec2d1486e580f401b`,
+and the receipt SHA-256 is
+`933f6a34211456e68c553b160e27e800d27147af5c9584f0c01a63e85e1ea117`.
+The final local structural gate passes 219 tests with 27 dependency-optional
+skips.
+
 ## Predictive L5--L7 plus end-effector flow guidance (completed negative capability test, 2026-08-08)
 
 The active `E02` follow-up is frozen in
