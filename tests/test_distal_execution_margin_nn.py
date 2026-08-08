@@ -26,6 +26,10 @@ class DistalExecutionMarginNnTests(unittest.TestCase):
         self.assertEqual(config["schema_version"], EXECUTION_MARGIN_NN_SCHEMA)
         self.assertEqual(config["state_groups"]["collect_steps"], list(range(180, 193)))
         self.assertEqual(config["state_groups"]["primary_projection_step"], 191)
+        self.assertEqual(
+            sum(config["candidate_set"]["expected_candidate_count_by_state"].values()),
+            1125,
+        )
         self.assertEqual(len(FEATURE_NAMES), 33)
         self.assertEqual(config["network"]["output_count"], 7)
         self.assertEqual(config["projection"]["activation_warning_m"], 0.008)

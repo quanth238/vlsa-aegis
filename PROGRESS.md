@@ -4,9 +4,10 @@
 
 Active gate `E02` now moves earlier than the invalid action-192 intervention
 and tests whether the exact cloned OSC clearance map is both controllable and
-learnable. The immutable job-`37109` ledger supplies actions 180--192; each of
-13 paired states receives the same 87 deterministic XYZ candidates, exact 15
-box obstacle geometry, accepted seven L5--L7 slabs, and a complete
+learnable. The immutable job-`37109` ledger supplies actions 180--192; the 13
+paired states use the same deterministic generator, with action-bound
+deduplication yielding 85--87 unique XYZ candidates and 1,125 transitions.
+Each uses exact 15-box obstacle geometry, accepted seven L5--L7 slabs, and a complete
 interval-start plus internal-MuJoCo-step trace. `D_opt` is the seven-row
 minimum support gap, while raw contact and within-step obstacle motion remain
 separate `D_sim` authority.
@@ -26,6 +27,13 @@ Python, training uses OpenPI Python on the same allocation, and weights cross
 through a version-neutral NumPy artifact. The frozen protocol is in
 `docs/distal_execution_margin_nn_preregistration.md`; no dataset or neural
 outcome has run. Table 1 remains immutable.
+
+Initial H100 dataset job `37194` stopped before completing the second state:
+the first protocol incorrectly asserted 87 unique candidates at every state,
+but clipping produces deterministic duplicates for actions 181--183, 186, and
+187. The attempt is an apparatus failure and produced no dataset or training.
+The repair freezes the observed per-state counts while leaving every generated
+action, bound, split, label, and decision gate unchanged.
 
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 

@@ -23,8 +23,11 @@ one-step representation, learnability, and exact-projection gates pass.
 
 The experiment replays the completed job-`37109` action ledger and collects
 the 13 interval-start states at actions `180--192`. At each state it evaluates
-the same deterministic 87 Cartesian XYZ candidates used by the oracle-affine
-audit. Rotation remains zero and the archived gripper command is unchanged.
+the same deterministic candidate generator used by the oracle-affine audit.
+Deduplication after action-bound clipping yields 85--87 unique XYZ actions per
+state and 1,125 transitions in total; the exact per-state counts are frozen in
+the protocol config. Rotation remains zero and the archived gripper command is
+unchanged.
 
 The robot representation is the accepted seven-part tight distal union:
 three L5 slabs, two L6 slabs, and two L7 slabs. The obstacle representation is

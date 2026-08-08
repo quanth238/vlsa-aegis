@@ -55,7 +55,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         and dataset.get("config_payload_sha256") == config["config_payload_sha256"]
         and dataset.get("source_commit") == args.expected_commit
         and dataset.get("dataset_payload_sha256") == _dataset_payload(dataset)
-        and len(dataset.get("records", [])) == 1131,
+        and len(dataset.get("records", [])) == 1125,
         "execution-margin training dataset differs",
     )
     source = _git_identity(args.repo_root.resolve(), args.expected_commit)

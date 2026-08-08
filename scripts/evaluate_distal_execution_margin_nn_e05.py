@@ -216,10 +216,11 @@ def _collect_dataset(
         obstacle_primitive_union=exact_boxes,
     )
     candidate_config = {"candidate_set": dict(config["candidate_set"])}
-    candidate_config["candidate_set"].pop("expected_candidate_count_per_state")
+    expected_candidate_counts = candidate_config["candidate_set"].pop(
+        "expected_candidate_count_by_state"
+    )
     records = []
     state_records = []
-    candidate_count = int(config["candidate_set"]["expected_candidate_count_per_state"])
     for step in groups["collect_steps"]:
         nominal = _source_action(actions[step], step)
         _require(
@@ -228,6 +229,7 @@ def _collect_dataset(
         )
         state_before = np.asarray(_dynamic_state_vector(env), dtype=np.float64)
         candidates = oracle_candidate_xyz(nominal[:3], candidate_config)
+        candidate_count = int(expected_candidate_counts[str(step)])
         _require(len(candidates) == candidate_count, "candidate count differs")
         nominal_transition = None
         current_reference = None
@@ -363,7 +365,12 @@ def _collect_dataset(
     ]
     summary = {
         "state_count": len(state_records),
-        "candidate_count_per_state": candidate_count,
+        "candidate_count_by_state": {
+            str(item["state_step"]): sum(
+                record["state_step"] == item["state_step"] for record in records
+            )
+            for item in state_records
+        },
         "sample_count": len(records),
         "immutable_prefix_action_count": first,
         "immutable_prefix_action_sha256": prefix_hashes,

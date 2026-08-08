@@ -91,13 +91,16 @@ def validate(
         and dataset.get("source_commit") == expected_commit
         and len(dataset.get("states", [])) == 13
         and len(dataset.get("records", [])) == identity.get("sample_count")
-        == 1131,
+        == 1125,
         "dataset payload or dimensions differ",
     )
     for step in range(180, 193):
         selected = [item for item in dataset["records"] if item.get("state_step") == step]
+        expected_count = expected_config["candidate_set"][
+            "expected_candidate_count_by_state"
+        ][str(step)]
         _require(
-            len(selected) == 87
+            len(selected) == expected_count
             and {item.get("split") for item in selected}
             <= {"train", "validation", "test"}
             and all(
@@ -120,8 +123,9 @@ def validate(
     )
     _require(
         summary.get("state_count") == 13
-        and summary.get("candidate_count_per_state") == 87
-        and summary.get("sample_count") == 1131
+        and summary.get("candidate_count_by_state")
+        == expected_config["candidate_set"]["expected_candidate_count_by_state"]
+        and summary.get("sample_count") == 1125
         and summary.get("oracle_analysis_gate_pass") is expected_gate
         and decision.get("geometry_authority_pass")
         is bool(summary.get("geometry_authority_pass"))

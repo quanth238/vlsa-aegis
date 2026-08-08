@@ -134,7 +134,21 @@ def load_execution_margin_config(path: Path) -> dict[str, Any]:
         "include_reverse_nominal": True,
         "include_stop": True,
         "local_offset_magnitudes": [0.25, 0.5],
-        "expected_candidate_count_per_state": 87,
+        "expected_candidate_count_by_state": {
+            "180": 87,
+            "181": 86,
+            "182": 86,
+            "183": 86,
+            "184": 87,
+            "185": 87,
+            "186": 85,
+            "187": 86,
+            "188": 87,
+            "189": 87,
+            "190": 87,
+            "191": 87,
+            "192": 87,
+        },
     }:
         raise ValueError("execution-margin candidate set differs")
     if config["features"] != {

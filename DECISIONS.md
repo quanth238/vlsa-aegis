@@ -21,6 +21,12 @@ not H100-kernel compatible, while OpenPI PyTorch is. Use the former for
 MuJoCo, the latter for H100 training, and a NumPy weight archive between them.
 No learned steering is run before the oracle-analysis artifact validates.
 
+Job `37194` showed that the shared oracle generator has state-dependent unique
+counts because it deduplicates after clipping to action bounds. Retain that
+generator and freeze its exact 85--87 counts (1,125 transitions total); do not
+repeat clipped actions merely to make all state groups have equal size. This
+apparatus repair does not change a candidate value or scientific threshold.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the

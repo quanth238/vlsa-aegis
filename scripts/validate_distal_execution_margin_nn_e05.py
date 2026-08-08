@@ -123,10 +123,11 @@ def validate(
         dataset_identity.get("file_sha256") == _file_sha256(dataset_path)
         and dataset_identity.get("payload_sha256") == dataset_payload
         == computed_dataset_payload
-        and dataset_identity.get("sample_count") == 1131
+        and dataset_identity.get("sample_count") == 1125
         and dataset.get("summary", {}).get("state_count") == 13
-        and dataset.get("summary", {}).get("candidate_count_per_state") == 87
-        and len(dataset.get("records", [])) == 1131,
+        and dataset.get("summary", {}).get("candidate_count_by_state")
+        == expected_config["candidate_set"]["expected_candidate_count_by_state"]
+        and len(dataset.get("records", [])) == 1125,
         "execution-margin dataset identity or dimensions differ",
     )
     model_identity = result.get("model_artifact", {})
@@ -154,7 +155,7 @@ def validate(
         training.get("device") == "cuda"
         and "H100" in str(training.get("cuda_device_name"))
         and training.get("parameter_count") == 21767
-        and metrics.get("train", {}).get("sample_count") == 696
+        and metrics.get("train", {}).get("sample_count") == 690
         and metrics.get("validation", {}).get("sample_count") == 174
         and metrics.get("test", {}).get("sample_count") == 261,
         "execution-margin training dimensions differ",
