@@ -350,6 +350,9 @@ def evaluate(
                 "native_task_success_step": native_success_step,
             },
             "filter_summary": summary,
+            "terminal_filter_record": (
+                None if not filter_records else filter_records[-1]
+            ),
             "video": {
                 "path": str(video_final),
                 "file_sha256": _file_sha256(video_final),

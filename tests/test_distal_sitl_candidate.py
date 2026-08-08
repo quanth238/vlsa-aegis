@@ -15,7 +15,24 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertEqual(config["protected_geometry"]["distal_constraint_count"], 7)
         self.assertEqual(config["protected_geometry"]["end_effector_constraint_count"], 1)
         self.assertEqual(config["protected_geometry"]["distal_clearance_target_m"], 0.015)
-        self.assertEqual(config["protected_geometry"]["end_effector_clearance_target_m"], 0.0)
+        self.assertEqual(
+            config["protected_geometry"]["end_effector_target"],
+            "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
+        )
+
+    def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.sitl_candidate import DistalSitlCandidateFilter
+
+        instance = object.__new__(DistalSitlCandidateFilter)
+        instance.config = {
+            "protected_geometry": {"distal_clearance_target_m": 0.015}
+        }
+        nominal = np.asarray([0.1] * 7 + [-0.003])
+        target = instance.targets(nominal)
+        np.testing.assert_allclose(target[:7], 0.015)
+        self.assertEqual(float(target[-1]), -0.003)
 
     def test_finite_difference_rows_support_eight_constraints(self) -> None:
         import numpy as np

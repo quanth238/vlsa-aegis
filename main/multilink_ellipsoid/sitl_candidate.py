@@ -79,8 +79,10 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     if geometry != {
         "distal_clearance_target_m": 0.015,
         "distal_constraint_count": 7,
-        "end_effector_clearance_target_m": 0.0,
         "end_effector_constraint_count": 1,
+        "end_effector_target": (
+            "do_not_worsen_exact_next_clearance_of_released_aegis_nominal"
+        ),
         "source": (
             "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
         ),
@@ -258,12 +260,15 @@ class DistalSitlCandidateFilter:
         self.probe = SlabbedEightConstraintProbe(probe_env, geometry, clearance_m=0.0)
         self._pending: Optional[dict[str, Any]] = None
 
-    def targets(self) -> Any:
+    def targets(self, nominal_next_clearance: Any) -> Any:
         np = _numpy()
         geometry = self.config["protected_geometry"]
+        nominal = np.asarray(nominal_next_clearance, dtype=np.float64)
+        if nominal.shape != (8,) or not np.all(np.isfinite(nominal)):
+            raise ValueError("nominal eight-row clearance vector is invalid")
         return np.asarray(
             [float(geometry["distal_clearance_target_m"])] * 7
-            + [float(geometry["end_effector_clearance_target_m"])],
+            + [float(nominal[-1])],
             dtype=np.float64,
         )
 
@@ -287,7 +292,6 @@ class DistalSitlCandidateFilter:
         nominal = action.copy()
         nominal[:3] = np.clip(nominal[:3], -limit, limit)
         nominal[3:6] = 0.0
-        target = self.targets()
         tolerance = float(self.config["verification"]["clearance_tolerance_m"])
         clone_tolerance = float(self.config["verification"]["clone_state_tolerance"])
         base = self.probe.transition(env, nominal)
@@ -312,6 +316,7 @@ class DistalSitlCandidateFilter:
             if error > clone_tolerance:
                 raise ValueError("SITL nominal repeated clone is not deterministic")
         base_h = np.asarray(base["next_h_opt_m"], dtype=np.float64)
+        target = self.targets(base_h)
         nominal_safe = bool(np.all(base_h >= target - tolerance))
         probe_records = []
         rows = None
