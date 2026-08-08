@@ -1,5 +1,19 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Predictive L5--L7 plus end-effector flow guidance (preregistered, 2026-08-07)
+
+The active `E02` follow-up is frozen in
+`configs/vlsa_predictive_flow_guidance_e05.v1.json`. It retains the accepted
+three distal MVEEs and adds the released AEGIS end-effector ellipsoid, giving
+40 horizon constraints over ten future actions. A cloned SafeLIBERO rollout,
+including the stateful OSC_POSE and gripper transition, supplies the local
+trajectory derivatives. The correction is applied after every one of the ten
+pi0.5 Euler updates and the final chunk must pass exact cloned trajectory
+verification before execution. One relinearization is allowed.
+
+Implementation, default-sampler regression, clean commit, and the primary
+paired H100 result are pending. The completed Table 1 tree remains read-only.
+
 ## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 
 The next active `E02` subexperiment retains the accepted negative continuous

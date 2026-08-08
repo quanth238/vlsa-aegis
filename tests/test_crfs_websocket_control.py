@@ -87,3 +87,49 @@ class CrfsWebsocketControlTest(unittest.TestCase):
                     self.module._extract_crfs_control(
                         {"__crfs__": control}
                     )
+
+    def test_predictive_flow_guidance_is_validated_and_removed(self):
+        nominal = [[0.0] * 7 for _ in range(10)]
+        row = [0.0] * 30
+        row[0] = 1.0
+        guidance = {
+            "schema_version": "crfs_predictive_flow_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "nominal_output_actions": nominal,
+            "delta_rows": [row],
+            "delta_lower": [-0.5],
+            "projection_sweeps": 64,
+            "projection_tolerance": 5.0e-5,
+        }
+        observation = {
+            "state": [1, 2, 3],
+            "__crfs__": {"rng_seed": 17, "flow_guidance": guidance},
+        }
+
+        returned, control = self.module._extract_crfs_control(observation)
+
+        self.assertNotIn("__crfs__", returned)
+        self.assertEqual(control["rng_seed"], 17)
+        self.assertEqual(control["flow_guidance"], guidance)
+
+    def test_predictive_flow_guidance_rejects_zero_and_nonfinite_rows(self):
+        base = {
+            "schema_version": "crfs_predictive_flow_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "nominal_output_actions": [[0.0] * 7 for _ in range(10)],
+            "delta_rows": [[0.0] * 30],
+            "delta_lower": [0.0],
+            "projection_sweeps": 64,
+            "projection_tolerance": 5.0e-5,
+        }
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {"__crfs__": {"rng_seed": 1, "flow_guidance": base}}
+            )
+        base["delta_rows"][0][2] = float("nan")
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {"__crfs__": {"rng_seed": 1, "flow_guidance": base}}
+            )

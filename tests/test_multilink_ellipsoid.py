@@ -218,6 +218,80 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         self.assertEqual(config["optimizer"]["next_step_minimum_h_opt_m"], 0.0)
         self.assertTrue(config["simulator_verification"]["distinct_from_D_opt"])
 
+    def test_predictive_flow_config_freezes_four_bodies_and_ten_steps(self) -> None:
+        from main.multilink_ellipsoid.predictive_flow import (
+            load_predictive_flow_config,
+        )
+
+        config = load_predictive_flow_config(
+            ROOT / "configs/vlsa_predictive_flow_guidance_e05.v1.json"
+        )
+        self.assertEqual(
+            config["protected_body_names"],
+            [
+                "robot0_link5",
+                "robot0_link6",
+                "robot0_link7",
+                "robot0_end_effector",
+            ],
+        )
+        self.assertEqual(config["trajectory_model"]["horizon_steps"], 10)
+        self.assertEqual(config["flow_guidance"]["barrier_decay_gamma"], 0.9)
+        self.assertEqual(
+            config["flow_guidance"]["dykstra_projection_sweeps_per_euler_step"],
+            64,
+        )
+
+    @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
+    def test_predictive_flow_builds_40_cbf_definitions_and_60_bounds(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.predictive_flow import (
+            build_flow_guidance_envelope,
+            exact_trajectory_verification,
+        )
+
+        current = np.full(4, 0.04, dtype=np.float64)
+        future = np.full((10, 4), 0.035, dtype=np.float64)
+        jacobian = np.zeros((10, 4, 30), dtype=np.float64)
+        for step in range(10):
+            for body in range(4):
+                jacobian[step, body, step * 3 + body % 3] = 0.01 * (body + 1)
+        center = np.zeros((10, 7), dtype=np.float64)
+        model = {
+            "center_actions": center,
+            "base": {"h_opt_m": future},
+            "jacobian": jacobian,
+        }
+        envelope, record = build_flow_guidance_envelope(
+            model,
+            center,
+            current,
+            gamma=0.9,
+            action_limit=1.0,
+            projection_tolerance=5.0e-5,
+        )
+        self.assertEqual(record["trajectory_constraint_definition_count"], 40)
+        self.assertEqual(record["trajectory_projection_row_count"], 40)
+        self.assertEqual(record["action_bound_row_count"], 60)
+        self.assertEqual(record["projection_row_count"], 100)
+        self.assertEqual(len(envelope["delta_rows"]), 100)
+        verification = exact_trajectory_verification(
+            current,
+            {
+                "h_opt_m": future,
+                "next_state_sha256": ["0" * 64] * 10,
+                "synchronization": {"maximum_absolute_error": 0.0},
+                "total_env_step_wall_seconds": 0.1,
+            },
+            gamma=0.9,
+            tolerance_m=1.0e-6,
+        )
+        self.assertTrue(verification["safe"])
+        self.assertAlmostEqual(
+            verification["minimum_trajectory_cbf_residual_m"], 0.0315
+        )
+
     @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional locally")
     def test_discrete_clearance_rows_recover_coupled_linear_transition(self) -> None:
         import numpy as np

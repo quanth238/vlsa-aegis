@@ -104,6 +104,35 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
         self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
 
+    def test_predictive_flow_is_single_h100_and_runs_inside_sampler(self) -> None:
+        source = (
+            ROOT / "slurm/predictive_flow_guidance_e05.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --cpus-per-task=8", source)
+        self.assertIn("#SBATCH --mem=64G", source)
+        self.assertIn("#SBATCH --exclude=worker-0,worker-3", source)
+        self.assertNotIn("#SBATCH --array", source)
+        self.assertIn("pi05_libero", source)
+        self.assertIn("preflight_predictive_flow_projection.py", source)
+        self.assertIn("evaluate_predictive_flow_guidance_e05.py", source)
+        self.assertIn("$ARCHIVED_TABLE1_RESULT", source)
+        self.assertNotIn(">\"$ARCHIVED_TABLE1_RESULT\"", source)
+
+        sampler = (ROOT / "openpi/src/openpi/models/pi0.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("project_action_xyz_halfspaces", sampler)
+        self.assertIn("x_next = project_action_xyz_halfspaces", sampler)
+        self.assertIn("flow_guidance_rows is not None", sampler)
+
+        runner = (
+            ROOT / "scripts/evaluate_predictive_flow_guidance_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("identify_osc_clearance_model", runner)
+        self.assertIn("exact_trajectory_verification", runner)
+        self.assertIn("initial_policy_action_chunk_sha256", runner)
+
 
 if __name__ == "__main__":
     unittest.main()

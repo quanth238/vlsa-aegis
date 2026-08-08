@@ -459,3 +459,28 @@ one-step stopping boundary. The observed mean complete-filter time of
 remains fast at mean `1.182 ms`. KKT/VI or universal-formula learning remains
 gated because it can only approximate a controller after the oracle target is
 both feasible and task competent.
+
+## ADR-0035: Test predictive full-body flow guidance with cloned OSC dynamics
+
+Accepted by direct user instruction before implementation or outcome review.
+The next `E02` experiment moves the safety correction from a post-sampling,
+one-action QP into every Euler step of the ten-step pi0.5 flow sampler. It uses
+40 discrete trajectory-CBF inequalities: ten future steps for each of the
+separate L5, L6, L7, and released AEGIS end-effector ellipsoids. The L5--L7
+MVEEs, frozen obstacle MVEE, `D_opt=0.01 m`, paper decay `gamma=0.9`, and
+translational-only action protocol remain fixed.
+
+The trajectory model is not the rejected resolved-rate approximation. It is
+locally identified by centrally perturbed ten-step rollouts from a complete
+clone of the current MuJoCo, stateful OSC_POSE, and gripper state. The affine
+constraints are transformed into pi0.5's normalized action coordinates with
+scale only for displacement, then projected after each neural Euler update.
+The returned chunk must pass an exact cloned ten-step OSC rollout before any
+of its first five actions may execute. One frozen outer relinearization is
+allowed; failure after that is retained as method failure, never passed
+through or hidden by stopping-task success.
+
+This is a single-case oracle capability test, not a real-time or population
+claim. The default OpenPI sampler and ordinary AEGIS evaluator remain
+unchanged without the reserved opt-in control envelope. No KKT/VI or neural
+approximation training is authorized by this decision.

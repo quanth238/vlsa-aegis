@@ -15,6 +15,71 @@ from openpi.shared import array_typing as at
 
 logger = logging.getLogger("openpi")
 
+_CRFS_FLOW_GUIDANCE_SWEEPS = 64
+
+
+def project_action_xyz_halfspaces(
+    actions: jax.Array,
+    rows: jax.Array,
+    lower: jax.Array,
+    *,
+    sweeps: int = _CRFS_FLOW_GUIDANCE_SWEEPS,
+) -> jax.Array:
+    """Euclidean-project chunk XYZ onto affine halfspaces with Dykstra.
+
+    This helper is used only by the reserved CRFS experiment path. ``rows``
+    acts on time-major XYZ coordinates and never changes rotation, gripper, or
+    padded model action dimensions.
+    """
+
+    if actions.ndim != 3 or actions.shape[-1] < 3:
+        raise ValueError("flow guidance requires batched action chunks with XYZ")
+    variable_count = int(actions.shape[1]) * 3
+    if rows.ndim != 2 or rows.shape[1] != variable_count:
+        raise ValueError("flow-guidance row width differs from horizon XYZ")
+    if lower.ndim != 1 or lower.shape[0] != rows.shape[0]:
+        raise ValueError("flow-guidance lower-bound shape differs")
+    if int(sweeps) != _CRFS_FLOW_GUIDANCE_SWEEPS:
+        raise ValueError("flow-guidance projection sweep count differs")
+
+    rows = jnp.asarray(rows, dtype=actions.dtype)
+    lower = jnp.asarray(lower, dtype=actions.dtype)
+    xyz = actions[..., :3].reshape((actions.shape[0], variable_count))
+
+    def project_one(vector):
+        corrections = jnp.zeros(
+            (rows.shape[0], variable_count), dtype=vector.dtype
+        )
+
+        def sweep(_, state):
+            current, offsets = state
+
+            def project_row(index, row_state):
+                point, row_offsets = row_state
+                direction = rows[index]
+                shifted = point + row_offsets[index]
+                violation = lower[index] - jnp.dot(direction, shifted)
+                multiplier = jnp.maximum(violation, 0.0) / jnp.maximum(
+                    jnp.dot(direction, direction), 1.0e-12
+                )
+                updated = shifted + multiplier * direction
+                row_offsets = row_offsets.at[index].set(shifted - updated)
+                return updated, row_offsets
+
+            return jax.lax.fori_loop(
+                0, rows.shape[0], project_row, (current, offsets)
+            )
+
+        projected, _ = jax.lax.fori_loop(
+            0, int(sweeps), sweep, (vector, corrections)
+        )
+        return projected
+
+    projected_xyz = jax.vmap(project_one)(xyz).reshape(
+        (actions.shape[0], actions.shape[1], 3)
+    )
+    return actions.at[..., :3].set(projected_xyz)
+
 
 def make_attn_mask(input_mask, mask_ar):
     """Adapted from big_vision.
@@ -221,6 +286,8 @@ class Pi0(_model.BaseModel):
         *,
         num_steps: int | at.Int[at.Array, ""] = 10,
         noise: at.Float[at.Array, "b ah ad"] | None = None,
+        flow_guidance_rows: jax.Array | None = None,
+        flow_guidance_lower: jax.Array | None = None,
     ) -> _model.Actions:
         observation = _model.preprocess_observation(None, observation, train=False)
         # note that we use the convention more common in diffusion literature, where t=1 is noise and t=0 is the target
@@ -229,6 +296,11 @@ class Pi0(_model.BaseModel):
         batch_size = observation.state.shape[0]
         if noise is None:
             noise = jax.random.normal(rng, (batch_size, self.action_horizon, self.action_dim))
+        if (flow_guidance_rows is None) != (flow_guidance_lower is None):
+            raise ValueError("flow-guidance rows and lower bounds must be supplied together")
+        if flow_guidance_rows is not None:
+            flow_guidance_rows = jnp.asarray(flow_guidance_rows, dtype=noise.dtype)
+            flow_guidance_lower = jnp.asarray(flow_guidance_lower, dtype=noise.dtype)
 
         # first fill KV cache with a forward pass of the prefix
         prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
@@ -268,7 +340,14 @@ class Pi0(_model.BaseModel):
             assert prefix_out is None
             v_t = self.action_out_proj(suffix_out[:, -self.action_horizon :])
 
-            return x_t + dt * v_t, time + dt
+            x_next = x_t + dt * v_t
+            if flow_guidance_rows is not None:
+                x_next = project_action_xyz_halfspaces(
+                    x_next,
+                    flow_guidance_rows,
+                    flow_guidance_lower,
+                )
+            return x_next, time + dt
 
         def cond(carry):
             x_t, time = carry
