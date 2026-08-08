@@ -21,7 +21,10 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
-EXPECTED_RESULT_SCHEMA = "vlsa_predictive_flow_guidance_e05_result.v1"
+EXPECTED_RESULT_SCHEMAS = {
+    "vlsa_predictive_flow_guidance_e05_result.v1",
+    "vlsa_embodisteer_multicbf_e05_result.v1",
+}
 PAIRING_KEYS = (
     "manifest_row_sha256",
     "initial_state_sha256",
@@ -109,6 +112,7 @@ def _annotated_frame(
     frame_index: int,
     action_step: Optional[int],
     guidance_active: bool,
+    guidance_name: str,
     maximum_obstacle_displacement_m: float,
 ) -> tuple[Any, dict[str, int]]:
     import numpy as np
@@ -164,7 +168,7 @@ def _annotated_frame(
     canvas.paste(rendered, (0, 0))
     banner = ImageDraw.Draw(canvas)
     step_label = "initial" if action_step is None else "action %03d / 299" % action_step
-    mode = "PREDICTIVE GUIDANCE ACTIVE" if guidance_active else "nominal pi0.5"
+    mode = "%s ACTIVE" % guidance_name if guidance_active else "nominal pi0.5"
     banner.text(
         (16, height + 8),
         "OSC-consistent L5/L6/L7/EE replay | %s | %s" % (step_label, mode),
@@ -270,6 +274,9 @@ def render(
         PredictiveFullBodyGeometry,
         load_predictive_flow_config,
     )
+    from main.multilink_ellipsoid.embodisteer_flow import (
+        load_embodisteer_flow_config,
+    )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import allocation_record
 
@@ -284,7 +291,8 @@ def render(
     accepted = _load(accepted_result_path)
     accepted_sha = _file_sha256(accepted_result_path)
     _require(accepted_sha == expected_result_sha256, "accepted result hash differs")
-    _require(accepted.get("schema_version") == EXPECTED_RESULT_SCHEMA, "result schema differs")
+    result_schema = accepted.get("schema_version")
+    _require(result_schema in EXPECTED_RESULT_SCHEMAS, "result schema differs")
     _require(accepted.get("status") == "complete", "accepted result is incomplete")
     _require(accepted.get("case_id") == CASE_ID, "accepted result case differs")
     _require(accepted.get("primary_problem_solved") is False, "accepted outcome differs")
@@ -292,7 +300,12 @@ def render(
     _require(isinstance(actions, list) and len(actions) == 300, "action ledger differs")
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
-    config = load_predictive_flow_config(config_path)
+    if result_schema == "vlsa_embodisteer_multicbf_e05_result.v1":
+        config = load_embodisteer_flow_config(config_path)
+        guidance_name = "EMBODISTEER-METRIC"
+    else:
+        config = load_predictive_flow_config(config_path)
+        guidance_name = "PREDICTIVE GUIDANCE"
     runtime = _runtime_imports(include_aegis=False)
     rows = read_jsonl(manifest_path)
     matches = [row for row in rows if row.get("case_id") == CASE_ID]
@@ -387,6 +400,7 @@ def render(
                 frame_index=frame_index,
                 action_step=action_step,
                 guidance_active=active,
+                guidance_name=guidance_name,
                 maximum_obstacle_displacement_m=maximum_displacement,
             )
             for label, value in visible.items():
@@ -485,7 +499,11 @@ def render(
     )
     _require(all(value >= 96 for value in maximum_visible.values()), "ellipsoid overlay is not visible")
     receipt = {
-        "schema_version": "vlsa_predictive_flow_guidance_video.v1",
+        "schema_version": (
+            "vlsa_embodisteer_multicbf_video.v1"
+            if result_schema == "vlsa_embodisteer_multicbf_e05_result.v1"
+            else "vlsa_predictive_flow_guidance_video.v1"
+        ),
         "status": "verified",
         "case_id": CASE_ID,
         "source": source,

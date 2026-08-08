@@ -20,6 +20,8 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-predictive-flow-guidance-video}
 ACCEPTED_RESULT=${ACCEPTED_RESULT:-/mnt/data/quanth/experiments/vlsa-predictive-flow-guidance-e05/vlsa-predictive-flow-e05-20260808d/result.json}
 EXPECTED_RESULT_SHA256=${EXPECTED_RESULT_SHA256:-739adbca0287193bac477b737a7131e6fa9ed55c452ba9e7eea1113e5e4649c1}
+CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_predictive_flow_guidance_e05.v1.json}
+VIDEO_BASENAME=${VIDEO_BASENAME:-predictive-flow-e05-ellipsoids}
 IMAGEIO_FFMPEG_EXE=${IMAGEIO_FFMPEG_EXE:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
 
 die() {
@@ -39,6 +41,10 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 }
 [[ -x "$AEGIS_PYTHON" && -x "$IMAGEIO_FFMPEG_EXE" ]] || die "runtime is missing"
 [[ -f "$ACCEPTED_RESULT" && ! -L "$ACCEPTED_RESULT" ]] || die "accepted result is missing"
+[[ -f "$CONFIG_PATH" && ! -L "$CONFIG_PATH" ]] || die "video config is missing"
+case "$VIDEO_BASENAME" in
+  ""|*[!A-Za-z0-9._-]*) die "unsafe VIDEO_BASENAME" ;;
+esac
 [[ "$(sha256sum "$ACCEPTED_RESULT" | awk '{print $1}')" == "$EXPECTED_RESULT_SHA256" ]] || {
   die "accepted result hash differs"
 }
@@ -94,10 +100,10 @@ cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/render_predictive_flow_guidance_video.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
-  --config "$REMOTE_REPO/configs/vlsa_predictive_flow_guidance_e05.v1.json" \
+  --config "$CONFIG_PATH" \
   --accepted-result "$ACCEPTED_RESULT" \
   --expected-result-sha256 "$EXPECTED_RESULT_SHA256" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
-  --video "$RUN_ROOT/predictive-flow-e05-ellipsoids.mp4" \
-  --preview "$RUN_ROOT/predictive-flow-e05-ellipsoids.jpg" \
+  --video "$RUN_ROOT/$VIDEO_BASENAME.mp4" \
+  --preview "$RUN_ROOT/$VIDEO_BASENAME.jpg" \
   --receipt "$RUN_ROOT/video-receipt.json"

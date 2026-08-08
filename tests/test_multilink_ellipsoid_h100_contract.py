@@ -156,6 +156,8 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("render_predictive_flow_guidance_video.py", source)
         self.assertIn("$ACCEPTED_RESULT", source)
         self.assertIn("$EXPECTED_RESULT_SHA256", source)
+        self.assertIn("$CONFIG_PATH", source)
+        self.assertIn("$VIDEO_BASENAME.mp4", source)
         self.assertIn("IMAGEIO_FFMPEG_EXE", source)
         self.assertNotIn('>"$ACCEPTED_RESULT"', source)
 
@@ -168,6 +170,7 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("policy-query clearance trace differs", renderer)
         self.assertIn("geometry.ellipsoids(env)", renderer)
         self.assertIn("obstacle MVEE", renderer)
+        self.assertIn("vlsa_embodisteer_multicbf_e05_result.v1", renderer)
         self.assertIn("os._exit(0)", renderer)
         self.assertNotIn(
             'exec "$AEGIS_PYTHON" scripts/render_predictive_flow_guidance_video.py',

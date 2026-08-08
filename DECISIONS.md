@@ -555,3 +555,28 @@ diagnostic remains baseline-incompetent and uses a different checkpoint, so it
 cannot support a cross-group efficacy claim. Success for the new arm still
 requires native task completion, no robot contact, no paper CAR, and exact
 verification of every executed guided chunk.
+
+## ADR-0039: Retain task-metric guidance as safer but still task-incompetent
+
+Accepted after clean H100 job `37042`. The run exactly matched the immutable
+initial pi0.5 chunk, executed 300 actions with no contact or CAR, and accepted
+only chunks passing exact cloned-OSC verification. It did not move the bowl or
+complete the task. Therefore it is a negative capability result, not evidence
+that the requested primary problem is solved.
+
+EmbodiSteer's metric and late schedule materially reduced over-steering versus
+the earlier Euclidean flow projection: guidance ended 40 actions earlier and
+the end effector approached the bowl by another `72.707 mm`. The remaining
+failure is structural. At the initial paired state the successful nominal
+route violates only the released end-effector-proxy horizon constraint by
+`12.015 mm`, while every distal-link constraint is far inside its safe set.
+Any hard projection must change that route; minimizing end-effector deviation
+cannot make a declared-infeasible route feasible.
+
+This result does not reject full EmbodiSteer. The tested surrogate lacks the
+paper's defining joint-space sampling and null-space execution authority.
+Conversely, implementing true joint-space denoising requires a task-competent
+joint controller baseline, which the prior direct-joint and bridge pilots did
+not establish. We do not post-hoc remove the end-effector row, change its
+geometry, weaken the margin, or tune the schedule. Such changes require a new
+preregistered comparison.

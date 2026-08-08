@@ -1,6 +1,6 @@
 # AEGIS SafeLIBERO table reproduction
 
-## EmbodiSteer-inspired task-metric multi-CBF flow (preregistered, 2026-08-08)
+## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:
 Steering Embodiment-Agnostic Visuomotor Policies with Joint-Space Guidance for
@@ -30,6 +30,38 @@ direct-joint diagnostic whose different checkpoint was baseline-incompetent,
 (3) retained Cartesian post-hoc three-row multi-CBF, and (4) this new
 denoising-time task-metric four-body projection. Only group (4) is a new H100
 run; completed Table 1 and prior negative artifacts remain read-only.
+
+Clean H100 job `37042` completed on `worker-1` in `00:03:13` from frozen
+commit `b87f1fcbc12848321b83ce70224884f80b6475c6`. Its first nominal chunk
+SHA-256 `05f3960fdb6e97e0750a2f29d012bdee4dd680c1a9125c46f22e4f6538f99a6d`
+exactly matches the immutable task-success Table 1 episode. All 60 queries and
+300 actions completed. Eight queries at steps `0--35` activated guidance,
+giving nine task-metric projection attempts; all accepted chunks passed exact
+cloned-OSC verification. Raw MuJoCo evidence contains no robot contact, no
+paper CAR, and maximum obstacle displacement `2.275e-11 m`.
+
+The arm nevertheless never moved the bowl (maximum bowl-center displacement
+`6.375e-13 m`), never satisfied the native goal, and timed out, so
+`primary_problem_solved=false`. The initial nominal horizon violated only the
+end-effector trajectory constraint (`-12.015 mm`); its L5/L6/L7 minima were
+positive `79.391/103.491/73.052 mm`. Across live query states, minimum
+L5/L6/L7 buffered clearances remained `103.705/127.446/99.333 mm`, while the
+end-effector proxy reached the `20 mm` activation region. Thus all meaningful
+intervention again occurred before the historical distal-link collision
+regime.
+
+The metric and schedule improved task preservation relative to the earlier
+Euclidean hard projection but did not recover the task. The closest
+end-effector-to-bowl-center distance improved from `256.941 mm` to
+`184.234 mm`; the immutable successful baseline reaches `40.121 mm`. Guidance
+also stopped after step 35 instead of step 75, and cumulative XYZ deviation
+from the baseline through 75 actions decreased from `5.292` to `4.173` action
+units. This is still insufficient: a task-preserving metric cannot preserve a
+nominal task route that the hard end-effector proxy itself declares infeasible.
+Result file SHA-256 is
+`857e3d07d2f6f4f7712f8e08f27fe188be862525ca45e1a483abc4fff2158fdc`;
+payload SHA-256 is
+`3582095f2844246d186f06f37c9978b85f127112bf21b89e574468135a1a27e1`.
 
 ## Predictive L5--L7 plus end-effector flow guidance (completed negative capability test, 2026-08-08)
 
