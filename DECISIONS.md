@@ -654,6 +654,12 @@ threshold is fixed before v2 execution from valid Cartesian frames near
 
 ## ADR-0042: Align the barrier-free stress pilot with the paper's control rate
 
+Superseded by ADR-0047.  The paper's `103 ms` / `9.61 Hz` number is inference
+throughput for one guided call containing all reverse denoising steps; it does
+not establish a `10 Hz` simulator control protocol.  The v3 and AEGIS-EE v1
+runs remain immutable historical evidence, but their rate must not be called
+the paper's control rate.
+
 Accepted after H100 v2 job `37058` failed before a valid Joint result. Running
 the two arms in fresh processes did not prevent the fixed agent-view stream
 from flipping at action 10 and failing the pixel-integrity gate at action 11.
@@ -773,3 +779,34 @@ barrier protect unmodeled links.  It also adds controller-tracking and
 linearized-Jacobian error; its maximum lifted correction was `0.453 rad` and
 mean target tracking error was `0.289 rad`.  No L5--L7 geometry was enabled,
 so this run does not evaluate or rehabilitate the earlier distal ellipsoids.
+
+## ADR-0047: Restore released AEGIS timing and classify Direct Joint correctly
+
+Accepted after re-auditing the paper and validated H100 jobs `37083` and
+`37084`.  The released AEGIS reproduction runs at `20 Hz`, executes five of
+the ten predicted actions per query, and uses an internal QP step of `0.05 s`.
+The corrected AEGIS-EE v2 protocol restores those values.  AEGIS-EE v1's
+`10 Hz` simulator step was inconsistent with its unchanged `0.05 s` safety
+model and is not the primary result.
+
+EmbodiSteer's `Joint` baseline means joint-space denoising with FK calls to the
+frozen Cartesian denoiser and damped-Jacobian residual updates, with collision
+guidance disabled.  Our no-guidance arm implements that structural pattern and
+the published heuristics `alpha=0.1`, pseudoinverse damping `0.001`, and joint
+update clip `0.5 rad`.  It is still only an adaptation: pi0.5-LIBERO supplies
+ten incremental 7D OSC flow actions rather than the paper's chunk-start pose
+DDPM representation and the targets are executed through SafeLIBERO's
+`JOINT_POSITION` controller.  The arm named `joint_denoising_with_aegis_ee`
+adds a post-hoc EE correction and therefore is not the paper's `Joint`
+baseline.
+
+At restored timing, no-guidance job `37083` validated both 300-action videos;
+neither arm completed the task.  Direct Joint contacted L5 at step 97 and had
+mean/max target tracking error `0.218/0.978 rad`.  In job `37084`, Cartesian
+AEGIS completed at step 231 but contacted L5 and failed CAR at step 196.
+Direct Joint + AEGIS avoided L5--L7 contact in that rollout but contacted the
+hand/finger at step 15, failed CAR at step 16, displaced the obstacle by
+`0.034719 m`, and never completed the task; tracking error remained
+`0.183/0.701 rad`.  Thus the timing repair does not establish a competent
+Direct-Joint baseline or successful safety method.  The remaining mismatch is
+architectural, not a missing scalar heuristic from the paper.

@@ -925,7 +925,7 @@ release is validated.
 - Full pi0.5-versus-AEGIS evaluation is 3,200 rollouts and is expected to take
   roughly 50--100 GPU-hours under the two-GPU user limit.
 
-## Original AEGIS EE-only Cartesian/Direct-Joint pair (in progress)
+## Original AEGIS EE-only Cartesian/Direct-Joint pair (completed timing audit)
 
 The next primary-case run disables every L5/L6/L7 ellipsoid and CBF row.  It
 uses exactly the released Table-1 end-effector proxy (`0.06, 0.12, 0.11 m`),
@@ -976,3 +976,39 @@ and
 `e057126ec4ee3b6f0c30bb9dbec35eb4f4eb8ab63272ab035063757b90caaa7b`.
 The exact next audit command is:
 `jq '.geometry_isolation,.comparison,.arms|.' /mnt/data/quanth/experiments/vlsa-embodisteer-aegis-ee-pair-e05/paired-aegis-ee-20260808b/result.json`.
+
+The subsequent paper audit withdrew the earlier inference-rate interpretation:
+EmbodiSteer's reported `103 ms` / `9.61 Hz` is the time for a full guided
+inference call, not evidence for a `10 Hz` simulator control rate.  Protocol
+v2 restores the released AEGIS values (`20 Hz`, five executed actions/query,
+`0.05 s` internal QP step) while leaving the v1 evidence immutable.
+
+Clean H100 jobs `37083` and `37084` completed on worker-1 from commit
+`72f54892658e357f65c9beff952b38cd35f43703`; both allocation validators passed
+and decoded all four upright videos.  Job `37083` is the actual paper-derived
+`Joint` ablation: all guidance is disabled.  Neither its Cartesian nor Direct
+Joint arm completed the task.  Direct Joint contacted L5 at step 97, failed
+CAR at step 11, displaced the obstacle by `0.231396 m`, and had mean/max target
+tracking error `0.218/0.978 rad` despite zero target-encoding saturation.
+
+Job `37084` is separately and accurately named joint denoising plus post-hoc
+AEGIS EE correction.  Cartesian completed at step 231 but contacted L5 and
+failed CAR at step 196.  Direct Joint completed 300 one-row QPs (mean
+`6.575 ms`), did not contact L5--L7, but contacted the hand/finger at step 15,
+failed CAR at step 16, displaced the obstacle by `0.034719 m`, and did not
+complete the task.  Its mean/max tracking error remained `0.183/0.701 rad`.
+The no-guidance result/validation SHA-256 values are
+`2b1705fdba6e9627c48b5f2a63874c13f1b04ca9d9c2a0574b13509456fb799c`
+and `9d575e706a3e412d6fd92272e41609e0167aef43227aaf918d6fe42637d7b1b1`;
+the AEGIS result/validation values are
+`5cc05303b889cf07a267a5c790e021abff32783d356096f1ff6b49390a8631fc`
+and `517318edcf3accba5a485703f9dea1b9b9e16842e12caebc5816c7bebb921593`.
+
+The implementation audit confirms the published Joint heuristics are already
+present (`alpha=0.1`, damped pseudoinverse `0.001`, joint residual clip
+`0.5 rad`).  What remains unmatched is the native policy/control stack:
+pi0.5-LIBERO exposes incremental 7D OSC flow actions with ten Euler updates,
+not the paper's chunk-start pose DDPM denoising and native joint action
+interface.  No scalar paper heuristic repairs that incompatibility.  The
+exact next audit command is:
+`jq '.comparison,.arms[]|{action_count,raw_simulation_evidence,joint_target_execution,aegis_ee_qp_timing}' /mnt/data/quanth/experiments/vlsa-embodisteer-aegis-ee-pair-e05/original-rate-aegis-ee-20260808a/result.json`.
