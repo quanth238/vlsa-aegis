@@ -35,6 +35,15 @@ generalization evidence, or a safety certificate.  The complete protocol is
 frozen in `docs/distal_oracle_affine_preregistration.md` and
 `configs/vlsa_distal_oracle_affine_e05.v1.json`; no H100 outcome has run yet.
 
+Initial H100 submission `37135` passed its allocation unit gate but stopped
+before the registered transition because the primary replay was constructed at
+the probe's 32-pixel observation resolution, which did not match the immutable
+Table-1 observation hash.  Its immutable run root contains only an apparatus
+failure receipt.  The repair restores `TABLE_RENDER_RESOLUTION` for the primary
+environment while retaining 32 pixels only for the image-disabled clone; no
+state, action, geometry, candidate, margin, model, solver, or decision setting
+changes.
+
 ## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
 
 Before reconsidering any L5/L6 geometry or collision guidance, the active

@@ -38,6 +38,7 @@ def evaluate(
     import numpy as np
 
     from main.evaluate_safelibero_aegis import (
+        TABLE_RENDER_RESOLUTION,
         TABLE_SETTLE_ACTIONS,
         _active_obstacle,
         _build_environment,
@@ -122,7 +123,7 @@ def evaluate(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         env, task, observation, selected_initial_state = _build_environment(
-            runtime, case, render_resolution=32
+            runtime, case, render_resolution=TABLE_RENDER_RESOLUTION
         )
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         probe_env, probe_task, probe_observation, probe_initial_state = _build_environment(
