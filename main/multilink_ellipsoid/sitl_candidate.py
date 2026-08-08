@@ -79,9 +79,11 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     }:
         raise ValueError("SITL nominal action source differs")
     geometry = config["protected_geometry"]
-    if geometry != {
-        "distal_activation_clearance_m": 0.015,
-        "distal_clearance_target_m": 0.01,
+    expected_geometry = {
+        "distal_activation_clearance_m": geometry.get(
+            "distal_activation_clearance_m"
+        ),
+        "distal_clearance_target_m": geometry.get("distal_clearance_target_m"),
         "distal_constraint_count": 7,
         "end_effector_constraint_count": 1,
         "end_effector_target": (
@@ -90,8 +92,13 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         "source": (
             "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
         ),
-    }:
+    }
+    if geometry != expected_geometry:
         raise ValueError("SITL protected geometry contract differs")
+    activation_clearance = geometry["distal_activation_clearance_m"]
+    hard_clearance = geometry["distal_clearance_target_m"]
+    if activation_clearance != 0.015 or hard_clearance not in {0.001, 0.01}:
+        raise ValueError("SITL protected geometry margins differ")
     finite_difference = config["finite_difference"]
     if finite_difference != {
         "action_dimensions": [0, 1, 2],

@@ -69,6 +69,12 @@ class DistalSitlCandidateTests(unittest.TestCase):
             config["candidate_search"]["selection_objective"],
             "lexicographic_minimum_nominal_deviation_then_maximum_minimum_distal_clearance",
         )
+        self.assertEqual(
+            config["protected_geometry"]["distal_clearance_target_m"], 0.001
+        )
+        self.assertEqual(
+            config["protected_geometry"]["distal_activation_clearance_m"], 0.015
+        )
         self.assertIn("not_online_policy", config["claim_scope"])
 
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
