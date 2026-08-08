@@ -106,6 +106,14 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("vlsa_distal_sitl_live_e05.v1.json", source)
         self.assertIn("--host 127.0.0.1", source)
 
+    def test_live_runner_uses_calibrated_initial_chunk_gate(self) -> None:
+        source = (
+            ROOT / "scripts/evaluate_distal_sitl_candidate_e05.py"
+        ).read_text()
+        self.assertIn("maximum_absolute_raw_action_difference", source)
+        self.assertIn("allocation_job_37054_split_jit_equivalence_gate", source)
+        self.assertIn("first_five_gripper_signs_equal", source)
+
 
 if __name__ == "__main__":
     unittest.main()
