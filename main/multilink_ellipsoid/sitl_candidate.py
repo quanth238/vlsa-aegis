@@ -149,6 +149,10 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
             "lexicographic_minimum_nominal_deviation_then_"
             "maximum_minimum_distal_clearance"
         ),
+        (
+            "lexicographic_minimum_reference_eef_error_then_"
+            "minimum_nominal_deviation"
+        ),
     }:
         raise ValueError("SITL candidate search contract differs")
     verification = config["verification"]
@@ -347,7 +351,7 @@ class SlabbedEightConstraintProbe(ClonedSimulatorStepProbe):
             self.probe_env.sim.data.xpos[obstacle_id], dtype=np.float64
         ).copy()
         started = time.perf_counter_ns()
-        self.probe_env.step(command.tolist())
+        observation, _, _, _ = self.probe_env.step(command.tolist())
         elapsed = (time.perf_counter_ns() - started) * 1.0e-9
         vector = _dynamic_state_vector(self.probe_env)
         clearances = self.clearances(self.probe_env)
@@ -369,6 +373,9 @@ class SlabbedEightConstraintProbe(ClonedSimulatorStepProbe):
             "active_obstacle_step_l1_displacement_m": float(
                 np.sum(np.abs(obstacle_after - obstacle_before))
             ),
+            "next_eef_position_m": np.asarray(
+                observation["robot0_eef_pos"], dtype=np.float64
+            ).tolist(),
         }
 
 
@@ -422,6 +429,7 @@ class DistalSitlCandidateFilter:
         nominal_aegis_action: Sequence[float],
         *,
         step: int,
+        reference_next_eef_position_m: Optional[Sequence[float]] = None,
     ) -> tuple[Optional[list[float]], dict[str, Any]]:
         np = _numpy()
         if self._pending is not None:
@@ -439,6 +447,18 @@ class DistalSitlCandidateFilter:
         tolerance = float(self.config["verification"]["clearance_tolerance_m"])
         clone_tolerance = float(self.config["verification"]["clone_state_tolerance"])
         base = self.probe.transition(env, nominal)
+        selection_objective = self.config["candidate_search"][
+            "selection_objective"
+        ]
+        reference_eef = None
+        if selection_objective.startswith(
+            "lexicographic_minimum_reference_eef_error"
+        ):
+            reference_eef = np.asarray(
+                reference_next_eef_position_m, dtype=np.float64
+            )
+            if reference_eef.shape != (3,) or not np.all(np.isfinite(reference_eef)):
+                raise ValueError("reference next EEF position is unavailable")
         if base["synchronization"]["maximum_absolute_error"] > clone_tolerance:
             raise ValueError("SITL nominal clone synchronization failed")
         repeatability = None
@@ -537,6 +557,7 @@ class DistalSitlCandidateFilter:
                 "active_obstacle_step_l1_displacement_m": base[
                     "active_obstacle_step_l1_displacement_m"
                 ],
+                "next_eef_position_m": base["next_eef_position_m"],
             }
         ]
         safe_options = []
@@ -586,6 +607,9 @@ class DistalSitlCandidateFilter:
                         "active_obstacle_step_l1_displacement_m": transition[
                             "active_obstacle_step_l1_displacement_m"
                         ],
+                        "next_eef_position_m": transition[
+                            "next_eef_position_m"
+                        ],
                     }
                 )
                 if safe:
@@ -601,7 +625,27 @@ class DistalSitlCandidateFilter:
         accepted_source = None
         selectable = preferred_options if preferred_options else safe_options
         if selectable:
-            if self.config["candidate_search"]["selection_objective"].startswith(
+            if selection_objective.startswith(
+                "lexicographic_minimum_reference_eef_error"
+            ):
+                selectable = safe_options
+                selectable.sort(
+                    key=lambda item: (
+                        float(
+                            np.linalg.norm(
+                                np.asarray(
+                                    item[4]["next_eef_position_m"],
+                                    dtype=np.float64,
+                                )
+                                - reference_eef
+                            )
+                        ),
+                        item[1],
+                        -item[0],
+                        item[2],
+                    )
+                )
+            elif selection_objective.startswith(
                 "lexicographic_minimum_nominal_deviation"
             ):
                 selectable.sort(key=lambda item: (item[1], -item[0], item[2]))
@@ -633,6 +677,35 @@ class DistalSitlCandidateFilter:
             "selection_objective": self.config["candidate_search"][
                 "selection_objective"
             ],
+            "reference_tracking": {
+                "enabled": reference_eef is not None,
+                "target_next_eef_position_m": (
+                    None if reference_eef is None else reference_eef.tolist()
+                ),
+                "nominal_next_eef_error_m": (
+                    None
+                    if reference_eef is None
+                    else float(
+                        np.linalg.norm(
+                            np.asarray(base["next_eef_position_m"], dtype=np.float64)
+                            - reference_eef
+                        )
+                    )
+                ),
+                "accepted_next_eef_error_m": (
+                    None
+                    if reference_eef is None or accepted_transition is None
+                    else float(
+                        np.linalg.norm(
+                            np.asarray(
+                                accepted_transition["next_eef_position_m"],
+                                dtype=np.float64,
+                            )
+                            - reference_eef
+                        )
+                    )
+                ),
+            },
             "finite_difference": {
                 "used": activation,
                 "probe_count": 6 if activation else 0,

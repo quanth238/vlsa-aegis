@@ -119,6 +119,7 @@ def evaluate(
     runtime = _runtime_imports(include_aegis=live_policy)
     env = None
     probe_env = None
+    reference_env = None
     video_writer = None
     output_path.parent.mkdir(parents=True, exist_ok=True)
     video_partial = output_path.with_name("episode.partial.mp4")
@@ -193,6 +194,39 @@ def evaluate(
         geometry_record = geometry.geometry_record(env)
         _require(geometry_record["distal_ellipsoid_count"] == 7, "SITL distal geometry count differs")
         _require(geometry_record["total_constraint_geometry_count"] == 8, "SITL total geometry count differs")
+        reference_tracking = heuristic_config["candidate_search"][
+            "selection_objective"
+        ].startswith("lexicographic_minimum_reference_eef_error")
+        reference_observation = None
+        if reference_tracking:
+            (
+                reference_env,
+                reference_task,
+                reference_observation,
+                reference_initial_state,
+            ) = _build_environment(runtime, case, render_resolution=32)
+            reference_observation = _settle(
+                reference_env, reference_observation, TABLE_SETTLE_ACTIONS
+            )
+            _require(
+                str(reference_task.language) == str(task.language),
+                "reference task differs",
+            )
+            _require(
+                np.array_equal(
+                    np.asarray(reference_initial_state),
+                    np.asarray(selected_initial_state),
+                ),
+                "reference initial state differs",
+            )
+            _require(
+                np.array_equal(
+                    np.asarray(reference_env.sim.get_state().flatten()),
+                    np.asarray(env.sim.get_state().flatten()),
+                ),
+                "settled reference simulator state differs",
+            )
+            _disable_probe_images(reference_env)
         controller = DistalSitlCandidateFilter(
             heuristic_config,
             geometry,
@@ -402,7 +436,22 @@ def evaluate(
                 applied_nominal_source = (
                     "immutable_successful_released_aegis_env_step_input"
                 )
-            executed, filter_step = controller.filter(env, nominal, step=index)
+            reference_next_eef = None
+            if reference_tracking:
+                _require(
+                    reference_env is not None and reference_observation is not None,
+                    "reference trajectory is unavailable",
+                )
+                reference_observation, _, _, _ = reference_env.step(nominal.tolist())
+                reference_next_eef = np.asarray(
+                    reference_observation["robot0_eef_pos"], dtype=np.float64
+                )
+            executed, filter_step = controller.filter(
+                env,
+                nominal,
+                step=index,
+                reference_next_eef_position_m=reference_next_eef,
+            )
             filter_records.append(filter_step)
             if executed is None:
                 failure = {
@@ -567,6 +616,19 @@ def evaluate(
                 "osc_controller": "OSC_POSE",
                 "control_frequency_hz": 20,
             },
+            "oracle_reference_tracking": {
+                "enabled": reference_tracking,
+                "source": (
+                    "parallel_exact_replay_of_immutable_successful_released_aegis_actions"
+                    if reference_tracking
+                    else None
+                ),
+                "selection_metric": (
+                    "next_eef_position_l2_m_then_nominal_action_l2"
+                    if reference_tracking
+                    else None
+                ),
+            },
             "geometry": geometry_record,
             "action_count": len(action_records),
             "actions": action_records,
@@ -611,6 +673,8 @@ def evaluate(
             video_writer.close()
         if probe_env is not None:
             probe_env.close()
+        if reference_env is not None:
+            reference_env.close()
         if env is not None:
             env.close()
 

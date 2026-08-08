@@ -106,7 +106,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
         )
         self.assertEqual(
             config["candidate_search"]["selection_objective"],
-            "lexicographic_minimum_nominal_deviation_then_maximum_minimum_distal_clearance",
+            "lexicographic_minimum_reference_eef_error_then_minimum_nominal_deviation",
         )
         self.assertEqual(
             config["protected_geometry"]["distal_clearance_target_m"], 0.001
@@ -115,6 +115,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
             config["protected_geometry"]["distal_activation_clearance_m"], 0.015
         )
         self.assertIn("not_online_policy", config["claim_scope"])
+        self.assertIn("oracle_reference_eef_tracking", config["claim_scope"])
 
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
