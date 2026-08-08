@@ -18,6 +18,31 @@ Full scope is in
 `docs/distal_exact_box_inflated_trigger_preregistration.md`.  No H100 outcome
 has run yet.
 
+Clean H100 job `37183` completed on worker-1 in 43 seconds from commit
+`df97f3e5bc54be34ce4bef01ed88552638666a2f`; the independent validator
+passed.  The deterministic first trigger was action 13.  The current minimum
+was the released EE row at `11.256 mm`, while its nominal minimum-substep
+clearance was `7.354 mm`; all seven distal rows remained above `105.715 mm`.
+
+The registered single-transition mechanism passed.  Twenty-one candidates
+were jointly raw/inflated-proxy safe, the calibrated affine model had zero
+candidate false-safes, and the valid eight-row QP changed XYZ by `0.3578` L2.
+Exact execution had zero distal contact, zero obstacle motion, and minimum EE
+clearance `9.554 mm`.  QP wall time was `2.230 ms`; exact verification took
+`110.057 ms`.
+
+This is not evidence that the later L5/L6 failure is solved: the trigger was
+entirely EE-driven and the test did not continue closed-loop or measure task
+success.  A distal-specific next protocol would retain the base EE target and
+apply the warning shell only to L5--L7 rows.  Result/validation/preflight
+SHA-256 values are
+`1591a3bc1774be86f79f54941ac53cf622281041630038b6d1b0001ca3e8efe3`,
+`72a9d5aff2dbf5b018f2a75f6262162e3962c42aa31ba528e209328e30811a58`,
+and `bf04ffd7de9aa0e215b61f8a9c315474674dbfec48b29ea3ce4d900308098fc9`;
+payload SHA-256 is
+`26eea3c6044b77e4f75b0c6ef18b77a8d398e78ab233788cff97dc7573edd32e`.
+Gate `E02` remains active.
+
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
 After freezing the failed 8 mm test, active gate `E02` now proceeds to the

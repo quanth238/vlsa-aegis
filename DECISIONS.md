@@ -14,6 +14,15 @@ transition crosses it.  Apply the unchanged oracle-affine QP there and require
 exact raw, obstacle-motion, and inflated-proxy safety.  This remains a
 single-transition privileged heuristic test, not closed-loop task efficacy.
 
+Validated H100 job `37183` passes the registered mechanism at action 13: the
+EE row predicts an `8 mm` shell crossing, the QP is valid, and exact execution
+restores `9.554 mm` clearance with no distal contact or obstacle motion.  The
+result is not promoted to primary-problem efficacy because all distal rows are
+still over `105 mm` clear; the trigger and correction are EE-driven.  Testing
+the later L5/L6 failure requires a separate distal-specific margin and
+closed-loop rollout rather than interpreting this early one-step pass as task
+safety.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the
