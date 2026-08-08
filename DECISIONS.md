@@ -651,3 +651,26 @@ checks adjacent-pixel variation on every source and decoded frame. The
 threshold is fixed before v2 execution from valid Cartesian frames near
 `2/255` and corrupted joint frames above `17/255`; acceptance requires at most
 `8/255`. Neither correction authorizes L5/L6 geometry or safety guidance.
+
+## ADR-0042: Align the barrier-free stress pilot with the paper's control rate
+
+Accepted after H100 v2 job `37058` failed before a valid Joint result. Running
+the two arms in fresh processes did not prevent the fixed agent-view stream
+from flipping at action 10 and failing the pixel-integrity gate at action 11.
+The failure is apparatus/control evidence only; it is not a task, collision,
+or EmbodiSteer outcome.
+
+The paper executes its whole 16-action joint chunk at `10 Hz`. The frozen
+pi0.5-LIBERO checkpoint has a ten-action horizon, so v3 executes all ten
+available actions at `10 Hz` and explicitly records the remaining horizon and
+action-representation differences. It retains the exact absolute-target
+adapter, checkpoint, initial state, query-seed schedule, controller gains,
+primary obstacle scene, and zero-guidance condition. The primary obstacle
+case is a stress test and must not be equated with the paper's obstacle-free
+`Joint` baseline population.
+
+The visual gate is extended before v3 execution to catch both high-frequency
+corruption and 180-degree orientation changes. On failure, raw and processed
+frames, action/joint-state history, and fixed-camera poses are atomically
+retained. No failed visual run is promoted to scientific evidence, even if
+its MP4 decodes.

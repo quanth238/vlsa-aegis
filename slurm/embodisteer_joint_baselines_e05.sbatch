@@ -133,7 +133,7 @@ curl --fail --silent --show-error \
 "$EVALUATION_PYTHON" scripts/evaluate_embodisteer_joint_baselines_e05.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
-  --config "$REMOTE_REPO/configs/vlsa_embodisteer_joint_baselines_e05.v2.json" \
+  --config "$REMOTE_REPO/configs/vlsa_embodisteer_joint_baselines_e05.v3.json" \
   --checkpoint "$PI05_CHECKPOINT" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \

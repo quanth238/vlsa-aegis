@@ -148,6 +148,28 @@ def _frame_quality(frame: Any) -> dict[str, Any]:
     }
 
 
+def _frame_orientation(frame: Any, upright_reference: Any) -> dict[str, Any]:
+    """Reject the 180-degree OSMesa orientation flip seen in the joint arm."""
+
+    import numpy as np
+
+    value = np.asarray(frame, dtype=np.float32)
+    reference = np.asarray(upright_reference, dtype=np.float32)
+    _require(
+        value.shape == (1024, 1024, 3) and reference.shape == value.shape,
+        "agent-view orientation frame contract differs",
+    )
+    upright_mad = float(np.mean(np.abs(value - reference)))
+    rotated_mad = float(np.mean(np.abs(value - np.rot90(reference, 2))))
+    required_margin = 5.0
+    return {
+        "upright_reference_mad": upright_mad,
+        "rotated_reference_mad": rotated_mad,
+        "required_upright_margin": required_margin,
+        "passing": rotated_mad - upright_mad >= required_margin,
+    }
+
+
 def _protected_events(events: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     return [
         event
@@ -169,6 +191,25 @@ def _joint_state(env: Any) -> tuple[list[float], list[float]]:
         qpos.append(float(data.qpos[int(model.jnt_qposadr[joint_id])]))
     qvel = np.asarray(data.qvel, dtype=np.float64)[list(dofs)].tolist()
     return qpos, qvel
+
+
+def _camera_state(env: Any, name: str) -> dict[str, Any]:
+    """Record the rendered camera pose to distinguish physics from GL faults."""
+
+    import numpy as np
+
+    from main.multilink_ellipsoid.shadow import _raw_model_data
+
+    model, data = _raw_model_data(env.sim)
+    camera_id = int(model.camera_name2id(name))
+    position = np.asarray(data.cam_xpos[camera_id], dtype=np.float64)
+    rotation = np.asarray(data.cam_xmat[camera_id], dtype=np.float64).reshape(3, 3)
+    return {
+        "name": name,
+        "id": camera_id,
+        "world_position_m": position.tolist(),
+        "world_rotation": rotation.tolist(),
+    }
 
 
 def _arm_joint_contract(env: Any, margin: float) -> dict[str, Any]:
@@ -686,6 +727,13 @@ def _run_arm(
         frame = _processed_image(observation, "agentview_image")
         initial_frame_quality = _frame_quality(frame)
         _require(initial_frame_quality["passing"], "initial agent-view frame is corrupted")
+        upright_reference_frame = frame.copy()
+        initial_frame_orientation = _frame_orientation(frame, upright_reference_frame)
+        _require(
+            initial_frame_orientation["passing"],
+            "initial agent-view orientation is ambiguous",
+        )
+        initial_camera_state = _camera_state(env, "agentview")
         writer.append_data(frame)
         frames += 1
 
@@ -862,12 +910,62 @@ def _run_arm(
             )
             frame = _processed_image(observation, "agentview_image")
             frame_quality = _frame_quality(frame)
+            frame_orientation = _frame_orientation(frame, upright_reference_frame)
+            if not frame_quality["passing"] or not frame_orientation["passing"]:
+                raw_frame = np.ascontiguousarray(observation["agentview_image"])
+                processed_path = arm_root / ("failure-step-%03d-processed.jpg" % step)
+                raw_path = arm_root / ("failure-step-%03d-raw.jpg" % step)
+                runtime["imageio"].imwrite(str(processed_path), frame)
+                runtime["imageio"].imwrite(str(raw_path), raw_frame)
+                current_camera_state = _camera_state(env, "agentview")
+                prior_target = None
+                if len(actions) >= 2 and "joint_target_rad" in actions[-2]["action_source"]:
+                    prior_target = actions[-2]["action_source"]["joint_target_rad"]
+                trace = {
+                    "schema_version": "vlsa_embodisteer_joint_failure_trace.v1",
+                    "status": "apparatus_failure",
+                    "scientific_result": False,
+                    "arm": arm,
+                    "step": step,
+                    "reason": "agentview_source_frame_failed_preregistered_integrity_gate",
+                    "frame_quality": frame_quality,
+                    "frame_orientation": frame_orientation,
+                    "processed_frame": {
+                        "path": processed_path.name,
+                        "sha256": _file_sha256(processed_path),
+                    },
+                    "raw_frame": {
+                        "path": raw_path.name,
+                        "sha256": _file_sha256(raw_path),
+                    },
+                    "initial_camera_state": initial_camera_state,
+                    "failure_camera_state": current_camera_state,
+                    "camera_pose_bitwise_equal": _canonical(initial_camera_state)
+                    == _canonical(current_camera_state),
+                    "failed_action": actions[-1],
+                    "prior_joint_target_rad": prior_target,
+                    "completed_action_count_including_failed_frame": len(actions),
+                    "all_actions_through_failure": actions,
+                }
+                trace["result_payload_sha256"] = _sha256(_canonical(trace))
+                _atomic_write(arm_root / "failure-trace.json", trace)
+                print("JOINT_FRAME_FAILURE " + json.dumps(trace, sort_keys=True))
             _require(
-                frame_quality["passing"],
+                frame_quality["passing"] and frame_orientation["passing"],
                 "agent-view renderer corruption at step %d: %s"
-                % (step, json.dumps(frame_quality, sort_keys=True)),
+                % (
+                    step,
+                    json.dumps(
+                        {
+                            "quality": frame_quality,
+                            "orientation": frame_orientation,
+                        },
+                        sort_keys=True,
+                    ),
+                ),
             )
             actions[-1]["agentview_frame_quality"] = frame_quality
+            actions[-1]["agentview_frame_orientation"] = frame_orientation
             writer.append_data(frame)
             frames += 1
             if first_success is not None:
@@ -944,8 +1042,11 @@ def _run_arm(
             "joint_target_execution": joint_target_execution,
             "visual_integrity": {
                 "initial_frame": initial_frame_quality,
+                "initial_frame_orientation": initial_frame_orientation,
+                "initial_camera_state": initial_camera_state,
                 "all_frames_passing": all(
                     action["agentview_frame_quality"]["passing"]
+                    and action["agentview_frame_orientation"]["passing"]
                     for action in actions
                 ),
                 "maximum_adjacent_mad": max(

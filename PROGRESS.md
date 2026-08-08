@@ -99,6 +99,27 @@ pixel MAD exceeds `8`. All ellipsoids, SDFs, barriers, and QPs remain disabled.
 Acceptance additionally requires zero joint-target encoding saturation and
 reports target-tracking error explicitly.
 
+H100 job `37058` completed the v2 Cartesian worker, then the fresh-process
+Joint worker failed closed before a valid result. Its fixed agent-view stream
+flipped by 180 degrees at action 10 and exceeded the preregistered adjacent
+pixel MAD gate at action 11 (`54.698/255`). The pair therefore has no accepted
+Joint outcome and cannot be compared with the paper. This also disproves the
+earlier hypothesis that the visual failure was caused only by reusing one
+OSMesa context across the two arms.
+
+Protocol v3 is frozen before its H100 run. It corrects two additional
+paper-rate mismatches: EmbodiSteer controls at `10 Hz` and executes the full
+predicted chunk, so this pi0.5 adaptation executes all ten available actions
+at `10 Hz` instead of five at `20 Hz`. The paper's actual horizon is 16;
+pi0.5-LIBERO exposes only ten, so v3 remains an adaptation. The physical
+obstacle is retained because this is the primary-case stress test; it is not
+misreported as the paper's obstacle-free `Joint` population. Visual integrity
+now also requires each frame to remain at least `5/255` closer to the initial
+upright fixed-camera image than to its 180-degree rotation. A failure writes
+raw/processed JPGs, the complete action and joint-state prefix, and the
+initial/failure MuJoCo camera poses before terminating as apparatus failure.
+All collision geometry, CBF rows, and QPs remain disabled.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

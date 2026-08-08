@@ -21,11 +21,15 @@ from main.multilink_ellipsoid.embodisteer_joint_baseline import (  # noqa: E402
     matrix_to_rotation_vector,
     rotation_vector_to_matrix,
 )
-from scripts.evaluate_embodisteer_joint_baselines_e05 import _frame_quality  # noqa: E402
+from scripts.evaluate_embodisteer_joint_baselines_e05 import (  # noqa: E402
+    _frame_orientation,
+    _frame_quality,
+)
 
 
 CONFIG = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v1.json"
 CONFIG_V2 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v2.json"
+CONFIG_V3 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v3.json"
 
 
 def _linear_kinematics(configuration):
@@ -76,6 +80,18 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
                 "translation_m": 0.0001,
             },
         )
+
+    def test_v3_uses_paper_rate_and_full_available_pi05_horizon(self):
+        config = load_joint_baseline_config(CONFIG_V3)
+
+        protocol = config["action_protocol"]
+        self.assertEqual(protocol["control_frequency_hz"], 10)
+        self.assertEqual(protocol["execute_actions_per_query"], 10)
+        self.assertEqual(protocol["model_action_horizon"], 10)
+        self.assertEqual(
+            protocol["paper_rate_adaptation"]["paper_execution_horizon"], 16
+        )
+        self.assertFalse(config["collision_guidance"]["ellipsoid_constraints_enabled"])
 
     def test_damped_pseudoinverse_is_finite_and_has_paper_shape(self):
         jacobian = np.zeros((6, 7))
@@ -184,6 +200,16 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
 
         self.assertTrue(_frame_quality(smooth)["passing"])
         self.assertFalse(_frame_quality(striped)["passing"])
+
+    def test_frame_orientation_rejects_renderer_rotation(self):
+        upright = np.zeros((1024, 1024, 3), dtype=np.uint8)
+        upright[:512] = 20
+        upright[512:] = 180
+
+        self.assertTrue(_frame_orientation(upright, upright)["passing"])
+        self.assertFalse(
+            _frame_orientation(np.rot90(upright, 2), upright)["passing"]
+        )
 
 
 if __name__ == "__main__":

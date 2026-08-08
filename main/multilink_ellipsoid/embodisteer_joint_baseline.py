@@ -19,6 +19,7 @@ from typing import Any, Callable, Mapping, Sequence, Tuple
 
 SCHEMA = "vlsa_embodisteer_joint_baselines.v1"
 SCHEMA_V2 = "vlsa_embodisteer_joint_baselines.v2"
+SCHEMA_V3 = "vlsa_embodisteer_joint_baselines.v3"
 CONTROL_SCHEMA = "crfs_embodisteer_joint_denoising.v1"
 
 
@@ -63,7 +64,7 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("EmbodiSteer joint-baseline config keys differ")
-    if config["schema_version"] not in {SCHEMA, SCHEMA_V2}:
+    if config["schema_version"] not in {SCHEMA, SCHEMA_V2, SCHEMA_V3}:
         raise ValueError("EmbodiSteer joint-baseline schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("EmbodiSteer joint-baseline case differs")
@@ -87,11 +88,13 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
     }:
         raise ValueError("EmbodiSteer joint baseline must disable all guidance")
     protocol = config["action_protocol"]
+    expected_rate = 10 if config["schema_version"] == SCHEMA_V3 else 20
+    expected_execution = 10 if config["schema_version"] == SCHEMA_V3 else 5
     if any(
         int(protocol[key]) != expected
         for key, expected in (
-            ("control_frequency_hz", 20),
-            ("execute_actions_per_query", 5),
+            ("control_frequency_hz", expected_rate),
+            ("execute_actions_per_query", expected_execution),
             ("max_actions", 300),
             ("model_action_horizon", 10),
         )
@@ -116,6 +119,14 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
             raise ValueError("v2 absolute joint-target adapter differs")
         if float(controller["output_max"]) != 6.0 or float(controller["output_min"]) != -6.0:
             raise ValueError("v2 absolute joint-target range differs")
+        if config["schema_version"] == SCHEMA_V3:
+            if protocol.get("paper_rate_adaptation") != {
+                "paper_control_frequency_hz": 10,
+                "paper_execution_horizon": 16,
+                "available_pi05_action_horizon": 10,
+                "adaptation": "execute_all_10_available_actions_at_paper_control_frequency",
+            }:
+                raise ValueError("v3 paper-rate adaptation differs")
     expected_joint = {
         "action_representation_adaptation": "libero_incremental_delta_pose_as_sequential_joint_configuration_trajectory",
         "cartesian_rotation_scale_rad_per_action_unit": 0.5,

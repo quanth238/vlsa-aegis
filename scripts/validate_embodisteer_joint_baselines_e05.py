@@ -13,6 +13,7 @@ from scripts.evaluate_embodisteer_joint_baselines_e05 import (
     _atomic_write,
     _canonical,
     _file_sha256,
+    _frame_orientation,
     _require,
     _sha256,
 )
@@ -80,7 +81,11 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
             if arm_name == "joint_denoising_no_guidance":
                 _require(len(query["flow_steps"]) == 10, "joint flow horizon differs")
         if (
-            config["schema_version"] == "vlsa_embodisteer_joint_baselines.v2"
+            config["schema_version"]
+            in {
+                "vlsa_embodisteer_joint_baselines.v2",
+                "vlsa_embodisteer_joint_baselines.v3",
+            }
             and arm_name == "joint_denoising_no_guidance"
         ):
             _require(
@@ -115,6 +120,8 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         decoded = 0
         last_shape = None
         maximum_decoded_adjacent_mad = 0.0
+        minimum_decoded_upright_margin = None
+        upright_reference = None
         reader = imageio.get_reader(str(video_path))
         try:
             for frame in reader:
@@ -127,6 +134,22 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
                 )
                 maximum_decoded_adjacent_mad = max(
                     maximum_decoded_adjacent_mad, adjacent
+                )
+                if upright_reference is None:
+                    upright_reference = value.copy()
+                orientation = _frame_orientation(value, upright_reference)
+                margin = (
+                    orientation["rotated_reference_mad"]
+                    - orientation["upright_reference_mad"]
+                )
+                minimum_decoded_upright_margin = (
+                    margin
+                    if minimum_decoded_upright_margin is None
+                    else min(minimum_decoded_upright_margin, margin)
+                )
+                _require(
+                    orientation["passing"],
+                    "decoded video has a flipped or ambiguous camera orientation",
                 )
                 decoded += 1
                 last_shape = list(value.shape)
@@ -150,6 +173,7 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
             "decoded_frames": decoded,
             "decoded_frame_shape": last_shape,
             "maximum_decoded_adjacent_mad": maximum_decoded_adjacent_mad,
+            "minimum_decoded_upright_margin": minimum_decoded_upright_margin,
             "jpg_sha256": arm["final_jpg"]["sha256"],
             "jpg_shape": list(jpg.shape),
             "jpg_adjacent_mad": jpg_adjacent,
