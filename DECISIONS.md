@@ -1,5 +1,26 @@
 # Reproduction decisions
 
+## ADR-0057: Gate execution-margin learning behind an earlier exact-box oracle
+
+Accepted by user instruction after job `37180`. Do not train on the late
+action-192 state, where the exact proxy safe set has already been left.
+Collect actions 180--192 from the immutable job-`37109` ledger and require an
+exact-box, exact-substep recoverable crossing at action 191 before training.
+The data artifact keeps seven optimizer margins distinct from raw simulator
+contact and transient obstacle motion.
+
+If that gate passes, learn only the nonnegative clearance loss from the
+interval-start value. This structural form cannot claim that an interval
+minimum exceeds its first sample. Calibrate per-row lower bounds on separate
+state groups, apply seven simultaneous bounded QP rows, and exact-clone verify
+the proposal. Eight millimetres is warning/activation only; zero is the hard
+transition target.
+
+Live jobs `37192`/`37193` require split runtimes: legacy evaluation PyTorch is
+not H100-kernel compatible, while OpenPI PyTorch is. Use the former for
+MuJoCo, the latter for H100 training, and a NumPy weight archive between them.
+No learned steering is run before the oracle-analysis artifact validates.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the

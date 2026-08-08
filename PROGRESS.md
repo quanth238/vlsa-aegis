@@ -1,5 +1,32 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Execution-aware distal-margin residual network (preregistered, 2026-08-09)
+
+Active gate `E02` now moves earlier than the invalid action-192 intervention
+and tests whether the exact cloned OSC clearance map is both controllable and
+learnable. The immutable job-`37109` ledger supplies actions 180--192; each of
+13 paired states receives the same 87 deterministic XYZ candidates, exact 15
+box obstacle geometry, accepted seven L5--L7 slabs, and a complete
+interval-start plus internal-MuJoCo-step trace. `D_opt` is the seven-row
+minimum support gap, while raw contact and within-step obstacle motion remain
+separate `D_sim` authority.
+
+Training is ordered behind a pretraining oracle-analysis job. It is authorized
+only if exact contact geometry passes and action 191 is a recoverable crossing
+with at least one jointly proxy/raw-safe candidate inside the fixed trust
+region. The frozen model then predicts a nonnegative execution clearance loss
+with two 128-unit SiLU layers. Train states are 180--187, validation states
+188--189, and held-out states 190--192. An 8 mm value triggers evaluation, but
+the hard next-transition target remains zero.
+
+H100 preflight job `37192` retained an apparatus failure: evaluation PyTorch
+`1.11.0+cu113` cannot launch `sm_90` kernels. H100 job `37193` verified OpenPI
+PyTorch `2.7.1+cu126`. Therefore simulation/verification use the evaluation
+Python, training uses OpenPI Python on the same allocation, and weights cross
+through a version-neutral NumPy artifact. The frozen protocol is in
+`docs/distal_execution_margin_nn_preregistration.md`; no dataset or neural
+outcome has run. Table 1 remains immutable.
+
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
 After freezing the failed 8 mm test, active gate `E02` now proceeds to the
