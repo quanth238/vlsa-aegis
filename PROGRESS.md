@@ -42,6 +42,13 @@ new `tuple[...]` type-alias expression. The immutable run root contains an
 apparatus-failure receipt and no result or video. The repair changes only that
 annotation to `typing.Tuple`; no experiment parameter or algorithm changes.
 
+Retry `37050` passed the allocation unit gate and loaded `pi05_libero`, but the
+live ordinary-sampler equivalence check rejected the chained one-step endpoint
+before either simulation arm. This second immutable attempt is also an
+apparatus failure with no scientific result. The acceptance tolerance is not
+weakened; the next diagnostic records the exact maximum/mean discrepancy and
+index so the one-step implementation can be corrected against raw evidence.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

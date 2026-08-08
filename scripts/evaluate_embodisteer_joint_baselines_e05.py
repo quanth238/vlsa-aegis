@@ -493,16 +493,44 @@ def _flow_step_equivalence_preflight(
             model_actions = np.asarray(primitive["model_actions"], dtype=np.float32)
             physical = np.asarray(primitive["physical_actions"], dtype=np.float64)
         maximum_error = float(np.max(np.abs(ordinary - physical)))
+        diagnostic = {
+            "ordinary_actions_sha256": array_sha256(ordinary),
+            "chained_flow_step_actions_sha256": array_sha256(physical),
+            "maximum_absolute_physical_action_error": maximum_error,
+            "mean_absolute_physical_action_error": float(
+                np.mean(np.abs(ordinary - physical))
+            ),
+            "maximum_error_index": [
+                int(value)
+                for value in np.unravel_index(
+                    int(np.argmax(np.abs(ordinary - physical))), ordinary.shape
+                )
+            ],
+            "ordinary_value_at_maximum_error": float(
+                ordinary[
+                    np.unravel_index(
+                        int(np.argmax(np.abs(ordinary - physical))), ordinary.shape
+                    )
+                ]
+            ),
+            "chained_value_at_maximum_error": float(
+                physical[
+                    np.unravel_index(
+                        int(np.argmax(np.abs(ordinary - physical))), ordinary.shape
+                    )
+                ]
+            ),
+        }
+        print("FLOW_STEP_EQUIVALENCE " + json.dumps(diagnostic, sort_keys=True))
         _require(
             maximum_error <= 5.0e-5,
-            "exposed flow-step primitive differs from ordinary pi0.5 sampling",
+            "exposed flow-step primitive differs from ordinary pi0.5 sampling: "
+            + json.dumps(diagnostic, sort_keys=True),
         )
         return {
             "status": "passing",
             "seed": seed,
-            "ordinary_actions_sha256": array_sha256(ordinary),
-            "chained_flow_step_actions_sha256": array_sha256(physical),
-            "maximum_absolute_physical_action_error": maximum_error,
+            **diagnostic,
             "tolerance": 5.0e-5,
         }
     finally:
