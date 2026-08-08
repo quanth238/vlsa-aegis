@@ -24,7 +24,42 @@ late rather than an apparatus failure; an earlier-trigger audit would require
 separate preregistration.  Full details and frozen identities are in
 `docs/distal_oracle_mesh_obstacle_preregistration.md` and
 `configs/vlsa_distal_oracle_mesh_obstacle_e05.v1.json`.  No H100 outcome has
-run yet.
+run yet at preregistration time.
+
+Clean H100 job `37163` completed this protocol on worker-1 in 45 seconds from
+commit `c8ca7914a7ebd5228948ecf5bef91da3ea2227e0`; both the allocation tests and
+independent artifact validator passed.  The active moka-pot collision model
+contains 15 boxes and no mesh geoms.  All 15 closed-form Loewner ellipsoid
+certificates passed, and every raw L6/g12 contact point was inside the exact
+source primitive bound (source containment value `0.991--0.999`), inside the
+accepted robot slab, and associated with a nonpositive pair gap.  The geometry
+gate therefore passed, repairing job `37137`'s false-safe contact label.
+
+The result is still NO-GO at action 192 with stop reason
+`no_jointly_raw_and_proxy_safe_action_in_local_trust_region`.  Four proxy rows
+were already negative at the immutable interval start; the minimum was
+`-33.621 mm`.  Since every candidate includes that same start state, no action
+could have a nonnegative minimum-substep proxy barrier, although raw-safe local
+candidates existed.  The QP correctly returned `uncontrollable_constraint` on
+row 3 instead of executing a false-safe action.
+
+This reveals a representation issue before concluding that intervention is
+intrinsically too late: wrapping an exact MuJoCo box in its one-ellipsoid
+Loewner bound multiplies every half-axis by `sqrt(3)` and adds substantial empty
+space.  The next bounded follow-up uses the 15 source oriented boxes directly
+for support and contact containment.  This is both conservative and strictly
+tighter than their enclosing ellipsoids; it is not a post-outcome margin or
+candidate change.  If exact boxes are also negative at the interval start,
+the retained conclusion will be genuine late activation and the next audit
+must move earlier in the immutable action ledger.
+
+Job `37163` result, validation, and preflight SHA-256 values are
+`3db37092b2c5573e70cfc604bbbf01f1361be822ec87c8733d2c80b84685b0fd`,
+`ede301e1c764e6362fdfa99f61d5b4516c7bff91c726f76f7a3216609a1dafe5`,
+and `314e7785c31007352f35f3e2f94a21adf7f793154ec981b06bb24ab4a2de8e12`;
+payload SHA-256 is
+`2eef9d767354f6692d36f57899bd511c261733e05394d00c997eacc7252fc051`.
+Gate `E02` remains active and training remains blocked.
 
 ## Substep geometry and oracle-affine mechanism test (preregistered, 2026-08-09)
 

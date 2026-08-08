@@ -1,5 +1,23 @@
 # Reproduction decisions
 
+## ADR-0054: Use exact source boxes before declaring conservative late activation
+
+Accepted from validated job `37163`.  The live primitive union repaired contact
+authority, but the moka-pot collision model contains 15 exact boxes rather than
+meshes.  Replacing each box with its single Loewner enclosing ellipsoid expands
+all half-axes by `sqrt(3)` and produced up to `33.621 mm` negative clearance at
+the immutable action-192 interval start.  No registered action could erase an
+initial-state violation.
+
+Before moving the trigger earlier, the next bounded test uses the exact live
+oriented boxes for obstacle support and containment, retaining the robot
+slabs, state, candidates, affine/QP settings, and decision rule.  An exact box
+is already a conservative representation of its MuJoCo collision geom and has
+less empty space than its ellipsoid enclosure.  If the exact-box barrier is
+negative at action-192 start, late activation is established for this proxy and
+an earlier-ledger audit may then be preregistered.  No neural training is
+authorized.
+
 ## ADR-0053: Replace only the failed obstacle proxy with a certified live union
 
 Accepted by user instruction after job `37137`.  The next E02 mechanism test
