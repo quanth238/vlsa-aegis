@@ -55,6 +55,22 @@ class DistalSitlCandidateTests(unittest.TestCase):
         )
         self.assertIn("successful_aegis_prefix", config["claim_scope"])
 
+    def test_minimal_replay_config_preserves_action_plan(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_sitl_minimal_replay_e05.v1.json"
+        )
+        self.assertEqual(
+            config["nominal_action_source"],
+            "immutable_successful_released_aegis_env_step_input",
+        )
+        self.assertEqual(
+            config["candidate_search"]["selection_objective"],
+            "lexicographic_minimum_nominal_deviation_then_maximum_minimum_distal_clearance",
+        )
+        self.assertIn("not_online_policy", config["claim_scope"])
+
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
 
@@ -113,6 +129,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("#SBATCH --gres=gpu:1", source)
         self.assertIn("H100", source)
         self.assertIn("vlsa-distal-sitl-candidate-e05", source)
+        self.assertIn("HEURISTIC_CONFIG", source)
         self.assertNotIn("rsync --delete", source)
 
     def test_live_slurm_runs_pi05_libero_on_one_h100(self) -> None:
