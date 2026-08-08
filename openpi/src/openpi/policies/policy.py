@@ -62,9 +62,6 @@ class Policy(BasePolicy):
         else:
             # JAX model setup
             self._sample_actions = nnx_utils.module_jit(model.sample_actions)
-            self._sample_actions_with_flow_guidance = nnx_utils.module_jit(
-                model.sample_actions_with_flow_guidance
-            )
             self._rng = rng or jax.random.key(0)
 
     @override
@@ -117,11 +114,19 @@ class Policy(BasePolicy):
                 prepared_guidance["normalized_lower"]
             )
         start_time = time.monotonic()
-        sample_actions = (
-            self._sample_actions
-            if prepared_guidance is None
-            else self._sample_actions_with_flow_guidance
-        )
+        sample_actions = self._sample_actions
+        if prepared_guidance is not None:
+            sample_actions = getattr(
+                self, "_sample_actions_with_flow_guidance", None
+            )
+            if sample_actions is None:
+                # Keep ordinary policy construction byte-for-byte equivalent
+                # to upstream. The separate guided method is wrapped only
+                # after a validated opt-in request actually arrives.
+                sample_actions = nnx_utils.module_jit(
+                    self._model.sample_actions_with_flow_guidance
+                )
+                self._sample_actions_with_flow_guidance = sample_actions
         outputs = {
             "state": inputs["state"],
             "actions": sample_actions(

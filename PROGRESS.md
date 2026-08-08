@@ -28,6 +28,13 @@ failure, not accepted as a different live baseline. The repair restores the
 ordinary `sample_actions` implementation as a separate untouched method and
 moves all projection logic into a distinct opt-in compiled sampler selected
 only when the reserved guidance envelope is present.
+Second isolation check `37021` still failed the same pre-action hash gate. The
+ordinary sampler body was exact, but policy construction still wrapped the
+guided bound method alongside the ordinary method. The accepted live shadow
+run `36757` constructed only the ordinary wrapper and exactly reproduced the
+Table 1 chunk and 237-action task success. Guided wrapping is therefore now
+lazy: it cannot occur until after a validated guidance request, while the
+first nominal request follows the accepted construction path exactly.
 
 ## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 

@@ -129,6 +129,14 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
             "def sample_actions(\n", 1
         )[1].split("def sample_actions_with_flow_guidance", 1)[0]
         self.assertNotIn("flow_guidance", default_sampler)
+        policy = (ROOT / "openpi/src/openpi/policies/policy.py").read_text(
+            encoding="utf-8"
+        )
+        constructor = policy.split("def __init__(", 1)[1].split(
+            "def infer(", 1
+        )[0]
+        self.assertNotIn("sample_actions_with_flow_guidance", constructor)
+        self.assertIn("after a validated opt-in request", policy)
 
         runner = (
             ROOT / "scripts/evaluate_predictive_flow_guidance_e05.py"
