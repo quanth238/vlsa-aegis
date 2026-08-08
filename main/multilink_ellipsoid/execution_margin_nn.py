@@ -17,7 +17,7 @@ import time
 from typing import Any, Mapping, Sequence
 
 
-EXECUTION_MARGIN_NN_SCHEMA = "vlsa_distal_execution_margin_nn_e05.v1"
+EXECUTION_MARGIN_NN_SCHEMA = "vlsa_distal_execution_margin_nn_e05.v2"
 EXECUTION_MARGIN_RESULT_SCHEMA = "vlsa_distal_execution_margin_nn_e05_result.v1"
 CONSTRAINT_ORDER = (
     "L5_part_0",
@@ -95,7 +95,7 @@ def load_execution_margin_config(path: Path) -> dict[str, Any]:
         raise ValueError("execution-margin config keys differ")
     if config["schema_version"] != EXECUTION_MARGIN_NN_SCHEMA:
         raise ValueError("execution-margin schema differs")
-    if config["protocol_id"] != "vlsa-distal-execution-margin-nn-e05-v1":
+    if config["protocol_id"] != "vlsa-distal-execution-margin-nn-e05-v2":
         raise ValueError("execution-margin protocol differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("execution-margin protocol must select only E05")
@@ -116,10 +116,10 @@ def load_execution_margin_config(path: Path) -> dict[str, Any]:
     if (
         set(groups) != {"collect_steps", "train_steps", "validation_steps", "test_steps", "primary_projection_step"}
         or groups["collect_steps"] != expected_steps
-        or groups["train_steps"] != [180, 181, 182, 183, 184, 185, 186, 187]
-        or groups["validation_steps"] != [188, 189]
-        or groups["test_steps"] != [190, 191, 192]
-        or groups["primary_projection_step"] != 191
+        or groups["train_steps"] != [180, 181, 182, 183, 184, 185]
+        or groups["validation_steps"] != [186, 187]
+        or groups["test_steps"] != [188, 189, 190, 191, 192]
+        or groups["primary_projection_step"] != 188
     ):
         raise ValueError("execution-margin state groups differ")
     split = groups["train_steps"] + groups["validation_steps"] + groups["test_steps"]

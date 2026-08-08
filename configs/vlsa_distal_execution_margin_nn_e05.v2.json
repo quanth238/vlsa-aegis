@@ -1,10 +1,10 @@
 {
-  "schema_version": "vlsa_distal_execution_margin_nn_e05.v1",
-  "protocol_id": "vlsa-distal-execution-margin-nn-e05-v1",
+  "schema_version": "vlsa_distal_execution_margin_nn_e05.v2",
+  "protocol_id": "vlsa-distal-execution-margin-nn-e05-v2",
   "case_ids": [
     "vlsa-t1-goal-ii-t0-e05"
   ],
-  "claim_scope": "single_E05_state_grouped_execution_margin_residual_MLP_mechanism_test_using_privileged_exact_MuJoCo_boxes_and_exact_cloned_OSC_substeps_not_online_policy_not_population_efficacy_not_formal_safety_certificate",
+  "claim_scope": "post_oracle_selected_action188_single_E05_state_grouped_execution_margin_residual_MLP_mechanism_test_using_privileged_exact_MuJoCo_boxes_and_exact_cloned_OSC_substeps_not_online_policy_not_population_efficacy_not_formal_safety_certificate",
   "immutable_sources": {
     "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
     "archived_table1_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
@@ -38,20 +38,20 @@
       182,
       183,
       184,
-      185,
+      185
+    ],
+    "validation_steps": [
       186,
       187
     ],
-    "validation_steps": [
-      188,
-      189
-    ],
     "test_steps": [
+      188,
+      189,
       190,
       191,
       192
     ],
-    "primary_projection_step": 191
+    "primary_projection_step": 188
   },
   "candidate_set": {
     "action_dimensions": [

@@ -4,8 +4,8 @@
 
 Accepted by user instruction after job `37180`. Do not train on the late
 action-192 state, where the exact proxy safe set has already been left.
-Collect actions 180--192 from the immutable job-`37109` ledger and require an
-exact-box, exact-substep recoverable crossing at action 191 before training.
+Collect actions 180--192 from the immutable job-`37109` ledger and initially
+test an exact-box, exact-substep recoverable crossing at action 191 before training.
 The data artifact keeps seven optimizer margins distinct from raw simulator
 contact and transient obstacle motion.
 
@@ -26,6 +26,12 @@ counts because it deduplicates after clipping to action bounds. Retain that
 generator and freeze its exact 85--87 counts (1,125 transitions total); do not
 repeat clipped actions merely to make all state groups have equal size. This
 apparatus repair does not change a candidate value or scientific threshold.
+
+Validated job `37195` rejected action 191 before training and identified action
+188 as the only recoverable crossing. The v2 experiment may use 188 only as an
+explicit post-oracle feasibility target. To prevent direct leakage, train on
+180--185, calibrate on 186--187, and hold out 188--192. This can demonstrate
+one-step mechanism feasibility but cannot support an unbiased efficacy claim.
 
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 

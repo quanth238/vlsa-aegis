@@ -1,6 +1,7 @@
 # Execution-aware distal-margin residual network
 
-Status: preregistered before the first dataset or neural outcome.
+Status: v2 neural pilot frozen after the validated v1 oracle-only outcome and
+before any neural training outcome.
 
 ## Question
 
@@ -47,10 +48,13 @@ primitive rows remain separate in the optimizer; taking a three-body or smooth
 minimum is reporting/guidance only and cannot replace simultaneous hard rows.
 
 The initial data job is an oracle-analysis gate and performs no neural
-training. Training is allowed only if contact geometry authority passes and
-action 191 is a recoverable exact-proxy crossing: its interval start is safe,
-its nominal transition crosses a zero gap, and at least one registered action
-inside the fixed `L_inf <= 0.5` trust region is both proxy-safe and raw-safe.
+training. Validated H100 job `37195` passed contact geometry authority but
+showed that action 191 is already outside the exact proxy safe set. It found
+exactly one earlier recoverable crossing, action 188: all rows start positive,
+the nominal transition makes `L5_part_1` negative, and 16 registered actions
+inside `L_inf <= 0.5` are both proxy-safe and raw-safe. The v2 feasibility
+pilot therefore selects action 188 post-oracle and reports that selection
+explicitly; it is not a preregistered efficacy test.
 
 ## Physics-structured model
 
@@ -74,9 +78,12 @@ increase relative to the initial state.
 
 State groups, rather than actions from the same state, are separated:
 
-- train: `180--187`;
-- validation: `188--189`;
-- held-out test: `190--192`.
+- train: `180--185`;
+- validation: `186--187`;
+- held-out test: `188--192`.
+
+The oracle-selected projection state 188 is held out from both parameter
+training and calibration.
 
 Per-row conservatism is the maximum validation overprediction plus a fixed
 `1 mm` padding. The model gate requires zero conservative false-safe
@@ -85,7 +92,7 @@ no-motion/current-clearance baseline.
 
 ## Neural multi-constraint projection
 
-At action 191, the network supplies seven action gradients. A bounded QP
+At action 188, the network supplies seven action gradients. A bounded QP
 minimizes deviation from the released AEGIS XYZ command while requiring every
 linearized conservative margin to be nonnegative. The warning threshold is
 `8 mm`, but the hard transition target is zero; the earlier fixed-hard-8-mm

@@ -21,7 +21,7 @@ EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-exec
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 FALSE_SAFE_RESULT=${FALSE_SAFE_RESULT:-/mnt/data/quanth/experiments/vlsa-distal-sitl-minimal-replay-e05/sitl-minimal-replay-20260808b/result.json}
 OBSTACLE_DISCOVERY_RESULT=${OBSTACLE_DISCOVERY_RESULT:-/mnt/data/quanth/experiments/vlsa-distal-oracle-mesh-obstacle-e05/mesh-obstacle-20260809a/result.json}
-CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_distal_execution_margin_nn_e05.v1.json}
+CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_distal_execution_margin_nn_e05.v2.json}
 GEOMETRY_CONFIG=${GEOMETRY_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json}
 EXACT_BOX_CONFIG=${EXACT_BOX_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_oracle_exact_box_obstacle_e05.v1.json}
 
@@ -39,7 +39,7 @@ done
 [[ "$(sha256sum "$ARCHIVED_TABLE1_RESULT" | awk '{print $1}')" == 273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b ]] || die "archived Table-1 hash differs"
 [[ "$(sha256sum "$FALSE_SAFE_RESULT" | awk '{print $1}')" == d79a28585e74cece727fbc3d3e6a72eb1647a782cae4962ec3af9045f448e603 ]] || die "false-safe ledger hash differs"
 [[ "$(sha256sum "$OBSTACLE_DISCOVERY_RESULT" | awk '{print $1}')" == 3db37092b2c5573e70cfc604bbbf01f1361be822ec87c8733d2c80b84685b0fd ]] || die "exact-box discovery hash differs"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 875cd6a1ba3a77ecf1b7c889a0fff36f29b414b09f6d744d3b6bd289abd3a914 ]] || die "execution-margin config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == b2dc378aba6dbe91e244e83d059ed2be555c21cd78e6d7314294af3d7ba13488 ]] || die "execution-margin config hash differs"
 [[ "$(sha256sum "$GEOMETRY_CONFIG" | awk '{print $1}')" == fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1 ]] || die "distal geometry config hash differs"
 [[ "$(sha256sum "$EXACT_BOX_CONFIG" | awk '{print $1}')" == cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f ]] || die "exact-box config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"

@@ -155,9 +155,9 @@ def validate(
         training.get("device") == "cuda"
         and "H100" in str(training.get("cuda_device_name"))
         and training.get("parameter_count") == 21767
-        and metrics.get("train", {}).get("sample_count") == 690
-        and metrics.get("validation", {}).get("sample_count") == 174
-        and metrics.get("test", {}).get("sample_count") == 261,
+        and metrics.get("train", {}).get("sample_count") == 519
+        and metrics.get("validation", {}).get("sample_count") == 171
+        and metrics.get("test", {}).get("sample_count") == 435,
         "execution-margin training dimensions differ",
     )
     expected_model_gate = bool(

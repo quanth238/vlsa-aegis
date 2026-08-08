@@ -21,11 +21,13 @@ class DistalExecutionMarginNnTests(unittest.TestCase):
         )
 
         config = load_execution_margin_config(
-            ROOT / "configs/vlsa_distal_execution_margin_nn_e05.v1.json"
+            ROOT / "configs/vlsa_distal_execution_margin_nn_e05.v2.json"
         )
         self.assertEqual(config["schema_version"], EXECUTION_MARGIN_NN_SCHEMA)
         self.assertEqual(config["state_groups"]["collect_steps"], list(range(180, 193)))
-        self.assertEqual(config["state_groups"]["primary_projection_step"], 191)
+        self.assertEqual(config["state_groups"]["primary_projection_step"], 188)
+        self.assertNotIn(188, config["state_groups"]["train_steps"])
+        self.assertNotIn(188, config["state_groups"]["validation_steps"])
         self.assertEqual(
             sum(config["candidate_set"]["expected_candidate_count_by_state"].values()),
             1125,

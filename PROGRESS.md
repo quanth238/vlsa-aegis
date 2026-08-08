@@ -12,13 +12,10 @@ interval-start plus internal-MuJoCo-step trace. `D_opt` is the seven-row
 minimum support gap, while raw contact and within-step obstacle motion remain
 separate `D_sim` authority.
 
-Training is ordered behind a pretraining oracle-analysis job. It is authorized
-only if exact contact geometry passes and action 191 is a recoverable crossing
-with at least one jointly proxy/raw-safe candidate inside the fixed trust
-region. The frozen model then predicts a nonnegative execution clearance loss
-with two 128-unit SiLU layers. Train states are 180--187, validation states
-188--189, and held-out states 190--192. An 8 mm value triggers evaluation, but
-the hard next-transition target remains zero.
+Training is ordered behind a pretraining oracle-analysis job. The frozen model
+predicts a nonnegative execution clearance loss with two 128-unit SiLU layers.
+An 8 mm value triggers evaluation, but the hard next-transition target remains
+zero.
 
 H100 preflight job `37192` retained an apparatus failure: evaluation PyTorch
 `1.11.0+cu113` cannot launch `sm_90` kernels. H100 job `37193` verified OpenPI
@@ -32,8 +29,18 @@ Initial H100 dataset job `37194` stopped before completing the second state:
 the first protocol incorrectly asserted 87 unique candidates at every state,
 but clipping produces deterministic duplicates for actions 181--183, 186, and
 187. The attempt is an apparatus failure and produced no dataset or training.
-The repair freezes the observed per-state counts while leaving every generated
+The repair froze the observed per-state counts while leaving every generated
 action, bound, split, label, and decision gate unchanged.
+
+Repaired clean H100 job `37195` completed all 1,125 cloned transitions and its
+independent validator passed. Geometry authority passed, but the preregistered
+action 191 failed the oracle-analysis gate because its L5_part_1 and L6_part_0
+start gaps were already negative and no jointly proxy/raw-safe action remained
+inside the trust region. The only recoverable crossing was action 188: the
+nominal L5_part_1 minimum was `-1.327 mm`, while 16 in-trust candidates were
+jointly safe. No neural training ran. V2 now declares this post-oracle state
+selection, holds action 188 out of training and calibration, and uses train
+180--185, validation 186--187, and test 188--192.
 
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
