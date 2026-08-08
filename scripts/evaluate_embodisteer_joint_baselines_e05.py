@@ -500,6 +500,20 @@ def _flow_step_equivalence_preflight(
             "mean_absolute_physical_action_error": float(
                 np.mean(np.abs(ordinary - physical))
             ),
+            "maximum_absolute_error_by_action_dimension": np.max(
+                np.abs(ordinary - physical), axis=0
+            ).tolist(),
+            "maximum_translation_discrepancy_m": float(
+                0.05 * np.max(np.abs(ordinary[:, :3] - physical[:, :3]))
+            ),
+            "maximum_rotation_discrepancy_rad": float(
+                0.5 * np.max(np.abs(ordinary[:, 3:6] - physical[:, 3:6]))
+            ),
+            "executed_first_five_gripper_signs_equal": bool(
+                np.array_equal(
+                    np.sign(ordinary[:5, 6]), np.sign(physical[:5, 6])
+                )
+            ),
             "maximum_error_index": [
                 int(value)
                 for value in np.unravel_index(

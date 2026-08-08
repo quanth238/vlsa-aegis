@@ -49,6 +49,12 @@ apparatus failure with no scientific result. The acceptance tolerance is not
 weakened; the next diagnostic records the exact maximum/mean discrepancy and
 index so the one-step implementation can be corrected against raw evidence.
 
+Diagnostic retry `37052` measured maximum action discrepancy `0.001953` and
+mean discrepancy `0.000375`; the maximum occurred in the gripper channel, not
+an arm-pose dimension. The gate remains closed pending per-dimension pose-unit
+errors and first-five gripper-sign equivalence. Job `37051` is a one-second
+submission error from a mistyped expected commit and never created a run root.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:
