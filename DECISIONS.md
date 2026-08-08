@@ -1,5 +1,22 @@
 # Reproduction decisions
 
+## ADR-0053: Replace only the failed obstacle proxy with a certified live union
+
+Accepted by user instruction after job `37137`.  The next E02 mechanism test
+does not resize the accepted L5--L7 slabs or train a network.  It replaces the
+single frozen perception MVEE with one conservative enclosing ellipsoid per
+collision-active geom in the active obstacle lineage.  Mesh bounds carry exact
+compiled-vertex enclosure certificates and follow their source geom's live
+pose; non-mesh fallbacks require closed-form certificates.
+
+The eight model outputs remain the minimum pair gap for each of the seven
+distal slabs and released EE proxy.  This preserves the base affine/QP audit
+while making each output conservative with respect to all registered obstacle
+parts.  Exact contact-geom coverage is checked independently from optimizer
+gap.  A negative interval-start gap is retained and interpreted as late
+activation, not repaired post hoc.  No existing Table-1 or completed oracle
+artifact is modified.
+
 ## ADR-0052: Repair the obstacle label before learning transition corrections
 
 Accepted from the preregistered H100 outcome.  Job `37137` rejects the proposed

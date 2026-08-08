@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import time
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 from scripts.evaluate_distal_sitl_candidate_e05 import _disable_probe_images
 from scripts.replay_distal_three_ellipsoid_multicbf import (
@@ -32,6 +32,7 @@ def evaluate(
     false_safe_result_path: Path,
     geometry_config_path: Path,
     audit_config_path: Path,
+    obstacle_primitive_config_path: Optional[Path],
     expected_commit: str,
     output_path: Path,
 ) -> dict[str, Any]:
@@ -52,6 +53,11 @@ def evaluate(
         ORACLE_AFFINE_RESULT_SCHEMA,
         load_oracle_affine_config,
         run_oracle_affine_audit,
+    )
+    from main.multilink_ellipsoid.obstacle_primitives import (
+        OBSTACLE_PRIMITIVE_RESULT_SCHEMA,
+        ConservativeObstaclePrimitiveUnion,
+        load_obstacle_primitive_config,
     )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import (
@@ -84,8 +90,26 @@ def evaluate(
     validate_case_row(case, repo_root)
     geometry_config = load_shadow_config(geometry_config_path)
     audit_config = load_oracle_affine_config(audit_config_path)
+    obstacle_primitive_config = (
+        None
+        if obstacle_primitive_config_path is None
+        else load_obstacle_primitive_config(obstacle_primitive_config_path)
+    )
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(audit_config["case_ids"] == [CASE_ID], "audit config case differs")
+    if obstacle_primitive_config is not None:
+        _require(
+            obstacle_primitive_config["case_ids"] == [CASE_ID],
+            "obstacle primitive config case differs",
+        )
+        base_identity = obstacle_primitive_config["base_audit_config"]
+        _require(
+            base_identity["config_file_sha256"]
+            == audit_config["config_file_sha256"]
+            and base_identity["config_payload_sha256"]
+            == audit_config["config_payload_sha256"],
+            "obstacle primitive base audit config identity differs",
+        )
     false_safe_source = audit_config["false_safe_source"]
     _require(
         _file_sha256(false_safe_result_path) == false_safe_source["file_sha256"],
@@ -265,6 +289,18 @@ def evaluate(
             ),
             "false-safe audit action binding differs",
         )
+        obstacle_primitive_union = (
+            None
+            if obstacle_primitive_config is None
+            else ConservativeObstaclePrimitiveUnion(
+                obstacle_primitive_config, env, obstacle_name
+            )
+        )
+        obstacle_primitive_record = (
+            None
+            if obstacle_primitive_union is None
+            else obstacle_primitive_union.geometry_record(env)
+        )
         analytic_shadow = geometry.evaluate(env, nominal.tolist(), step=audit_step)
         audit = run_oracle_affine_audit(
             audit_config,
@@ -273,16 +309,26 @@ def evaluate(
             probe_env,
             obstacle_name,
             nominal.tolist(),
+            obstacle_primitive_union=obstacle_primitive_union,
         )
         result = {
-            "schema_version": ORACLE_AFFINE_RESULT_SCHEMA,
+            "schema_version": (
+                ORACLE_AFFINE_RESULT_SCHEMA
+                if obstacle_primitive_config is None
+                else OBSTACLE_PRIMITIVE_RESULT_SCHEMA
+            ),
             "status": "complete",
             "scientific_result": True,
             "case_id": CASE_ID,
-            "claim_scope": audit_config["claim_scope"],
+            "claim_scope": (
+                audit_config["claim_scope"]
+                if obstacle_primitive_config is None
+                else obstacle_primitive_config["claim_scope"]
+            ),
             "source": source,
             "allocation": allocation,
             "config": audit_config,
+            "obstacle_primitive_config": obstacle_primitive_config,
             "geometry_config": geometry_config,
             "archived_table1": {
                 "path": str(archived_path),
@@ -318,7 +364,14 @@ def evaluate(
                     "capture_hook"
                 ],
             },
-            "geometry": geometry_record,
+            "geometry": (
+                geometry_record
+                if obstacle_primitive_config is None
+                else {
+                    "accepted_robot_and_released_ee": geometry_record,
+                    "conservative_obstacle_union": obstacle_primitive_record,
+                }
+            ),
             "audit_state": {
                 "step": audit_step,
                 "immutable_prefix_action_count": audit_step,
@@ -329,7 +382,11 @@ def evaluate(
                 "dynamic_state_sha256": audit_state_sha256,
                 "nominal_action": nominal.tolist(),
             },
-            "analytic_shadow_at_audit_state": analytic_shadow,
+            (
+                "analytic_shadow_at_audit_state"
+                if obstacle_primitive_config is None
+                else "released_aegis_analytic_shadow_diagnostic"
+            ): analytic_shadow,
             "oracle_affine_audit": audit,
             "research_direction_go": bool(
                 audit["decision"]["research_direction_go"]
@@ -362,6 +419,7 @@ def main(argv: Sequence[str] = None) -> int:
     parser.add_argument("--false-safe-result", type=Path, required=True)
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--audit-config", type=Path, required=True)
+    parser.add_argument("--obstacle-primitive-config", type=Path)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -372,6 +430,11 @@ def main(argv: Sequence[str] = None) -> int:
         false_safe_result_path=args.false_safe_result.resolve(),
         geometry_config_path=args.geometry_config.resolve(),
         audit_config_path=args.audit_config.resolve(),
+        obstacle_primitive_config_path=(
+            None
+            if args.obstacle_primitive_config is None
+            else args.obstacle_primitive_config.resolve()
+        ),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
     )

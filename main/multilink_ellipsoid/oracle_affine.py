@@ -18,6 +18,7 @@ import time
 from typing import Any, Mapping, Optional, Sequence
 
 from .barrier import support_gap
+from .obstacle_primitives import minimum_union_support_gaps
 from .qp import MultiConstraintQp
 from .rollout import (
     ClonedSimulatorStepProbe,
@@ -262,6 +263,7 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
         active_obstacle_name: str,
         quadratic_tolerance: float,
         contact_distance_threshold_m: float,
+        obstacle_primitive_union: Optional[Any] = None,
     ) -> None:
         super().__init__(probe_env, geometry, clearance_m=0.0)
         if geometry.config.get("schema_version") != DISTAL_SLABBED_SCHEMA:
@@ -269,6 +271,7 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
         self.active_obstacle_name = str(active_obstacle_name)
         self.quadratic_tolerance = float(quadratic_tolerance)
         self.contact_distance_threshold_m = float(contact_distance_threshold_m)
+        self.obstacle_primitive_union = obstacle_primitive_union
 
     def _ellipsoids(self, env: Any) -> list[Any]:
         links = self.geometry._slabbed_links(env)
@@ -277,17 +280,32 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             raise ValueError("substep audit geometry must contain eight ellipsoids")
         return links
 
+    def _obstacles(self, env: Any) -> list[Any]:
+        if self.obstacle_primitive_union is None:
+            return [self.geometry.obstacle]
+        output = self.obstacle_primitive_union.ellipsoids(env)
+        if not output:
+            raise ValueError("obstacle primitive union is empty")
+        return output
+
     def clearances(self, env: Any) -> Any:
         np = _numpy()
         values = np.asarray(
-            [support_gap(item, self.geometry.obstacle) for item in self._ellipsoids(env)],
+            minimum_union_support_gaps(
+                self._ellipsoids(env), self._obstacles(env)
+            ),
             dtype=np.float64,
         )
         if values.shape != (8,) or not np.all(np.isfinite(values)):
             raise ValueError("substep clearance vector is invalid")
         return values
 
-    def _contact_events(self, env: Any, links: Sequence[Any]) -> list[dict[str, Any]]:
+    def _contact_events(
+        self,
+        env: Any,
+        links: Sequence[Any],
+        obstacles: Sequence[Any],
+    ) -> list[dict[str, Any]]:
         np = _numpy()
         model = env.sim.model
         data = env.sim.data
@@ -320,11 +338,34 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             protected_quadratics = [
                 _normalized_quadratic(position, item) for item in matching
             ]
-            obstacle_quadratic = _normalized_quadratic(
-                position, self.geometry.obstacle
+            obstacle_quadratics = [
+                _normalized_quadratic(position, item) for item in obstacles
+            ]
+            obstacle_minimum_index = int(np.argmin(obstacle_quadratics))
+            obstacle_quadratic = float(obstacle_quadratics[obstacle_minimum_index])
+            obstacle_source_matches = [
+                (index, item)
+                for index, item in enumerate(obstacles)
+                if int(item.geom_id) == obstacle_geom
+            ]
+            if (
+                self.obstacle_primitive_union is not None
+                and len(obstacle_source_matches) != 1
+            ):
+                raise ValueError(
+                    "contacted obstacle geom lacks exactly one certified primitive"
+                )
+            source_quadratic = (
+                obstacle_quadratic
+                if not obstacle_source_matches
+                else float(
+                    obstacle_quadratics[int(obstacle_source_matches[0][0])]
+                )
             )
             body_support_gaps = [
-                support_gap(item, self.geometry.obstacle) for item in matching
+                support_gap(robot_proxy, obstacle_proxy)
+                for robot_proxy in matching
+                for obstacle_proxy in obstacles
             ]
             protected_minimum = float(min(protected_quadratics))
             minimum_gap = float(min(body_support_gaps))
@@ -334,36 +375,48 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             obstacle_covered = bool(
                 obstacle_quadratic <= 1.0 + self.quadratic_tolerance
             )
-            nonpositive_gap = bool(minimum_gap <= self.quadratic_tolerance)
-            events.append(
-                {
-                    "contact_index": contact_index,
-                    "distance_m": distance,
-                    "position_m": position.tolist(),
-                    "protected_body_name": protected_body,
-                    "protected_geom_id": protected_geom,
-                    "protected_geom_name": model.geom_id2name(protected_geom),
-                    "obstacle_geom_id": obstacle_geom,
-                    "obstacle_geom_name": model.geom_id2name(obstacle_geom),
-                    "minimum_protected_proxy_quadratic": protected_minimum,
-                    "frozen_obstacle_proxy_quadratic": obstacle_quadratic,
-                    "minimum_body_support_gap_m": minimum_gap,
-                    "protected_contact_point_covered": protected_covered,
-                    "frozen_obstacle_contact_point_covered": obstacle_covered,
-                    "nonpositive_body_support_gap": nonpositive_gap,
-                    "geometry_consistent": bool(
-                        protected_covered and obstacle_covered and nonpositive_gap
-                    ),
-                }
+            source_obstacle_covered = bool(
+                source_quadratic <= 1.0 + self.quadratic_tolerance
             )
+            nonpositive_gap = bool(minimum_gap <= self.quadratic_tolerance)
+            record = {
+                "contact_index": contact_index,
+                "distance_m": distance,
+                "position_m": position.tolist(),
+                "protected_body_name": protected_body,
+                "protected_geom_id": protected_geom,
+                "protected_geom_name": model.geom_id2name(protected_geom),
+                "obstacle_geom_id": obstacle_geom,
+                "obstacle_geom_name": model.geom_id2name(obstacle_geom),
+                "minimum_protected_proxy_quadratic": protected_minimum,
+                "minimum_obstacle_proxy_quadratic": obstacle_quadratic,
+                "minimum_obstacle_proxy_index": obstacle_minimum_index,
+                "source_obstacle_proxy_quadratic": source_quadratic,
+                "obstacle_primitive_count": len(obstacles),
+                "minimum_body_support_gap_m": minimum_gap,
+                "protected_contact_point_covered": protected_covered,
+                "obstacle_contact_point_covered": obstacle_covered,
+                "source_obstacle_contact_point_covered": source_obstacle_covered,
+                "nonpositive_body_support_gap": nonpositive_gap,
+                "geometry_consistent": bool(
+                    protected_covered
+                    and obstacle_covered
+                    and source_obstacle_covered
+                    and nonpositive_gap
+                ),
+            }
+            if self.obstacle_primitive_union is None:
+                record["frozen_obstacle_proxy_quadratic"] = obstacle_quadratic
+                record["frozen_obstacle_contact_point_covered"] = obstacle_covered
+            events.append(record)
         return events
 
     def _capture(self, env: Any, substep_index: int, phase: str) -> dict[str, Any]:
         np = _numpy()
         links = self._ellipsoids(env)
+        obstacles = self._obstacles(env)
         clearances = np.asarray(
-            [support_gap(item, self.geometry.obstacle) for item in links],
-            dtype=np.float64,
+            minimum_union_support_gaps(links, obstacles), dtype=np.float64
         )
         robot = env.robots[0]
         position_indexes = np.asarray(robot._ref_joint_pos_indexes, dtype=np.int64)
@@ -390,7 +443,8 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             "obstacle_position_m": np.asarray(
                 env.sim.data.xpos[obstacle_id], dtype=np.float64
             ).tolist(),
-            "contact_events": self._contact_events(env, links),
+            "obstacle_primitive_count": len(obstacles),
+            "contact_events": self._contact_events(env, links, obstacles),
         }
 
     def transition(self, main_env: Any, action: Sequence[float]) -> dict[str, Any]:
@@ -474,7 +528,8 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
                     contact_events
                     and all(
                         item["protected_contact_point_covered"]
-                        and item["frozen_obstacle_contact_point_covered"]
+                        and item["obstacle_contact_point_covered"]
+                        and item["source_obstacle_contact_point_covered"]
                         for item in contact_events
                     )
                 ),
@@ -495,6 +550,14 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             "next_state_sha256": hashlib.sha256(vector.tobytes()).hexdigest(),
             "env_step_wall_seconds": elapsed,
             "substeps": trace,
+            "obstacle_proxy": {
+                "mode": (
+                    "frozen_released_aegis_mvee"
+                    if self.obstacle_primitive_union is None
+                    else "live_certified_collision_primitive_union"
+                ),
+                "primitive_count": int(trace[0]["obstacle_primitive_count"]),
+            },
         }
 
 
@@ -587,6 +650,7 @@ def run_oracle_affine_audit(
     probe_env: Any,
     active_obstacle_name: str,
     nominal_action: Sequence[float],
+    obstacle_primitive_union: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Evaluate geometry, affine structure, and the exact corrected QP action."""
 
@@ -608,6 +672,7 @@ def run_oracle_affine_audit(
         contact_distance_threshold_m=float(
             measurement["raw_contact_distance_threshold_m"]
         ),
+        obstacle_primitive_union=obstacle_primitive_union,
     )
     candidate_records = []
     transition_cache = []

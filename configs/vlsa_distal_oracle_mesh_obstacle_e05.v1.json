@@ -1,0 +1,29 @@
+{
+  "base_audit_config": {
+    "config_file_sha256": "c7019c176e0e8b6379cdb1b83e09d7129c1237a4f28ec2f3daba49a7b57ddc95",
+    "config_payload_sha256": "dc0a9d52fe75da297a187c36a0a6c9f069948511afa940c9268ff43ed392c98d",
+    "schema_version": "vlsa_distal_oracle_affine_e05.v1"
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_e05_false_safe_state_conservative_obstacle_primitive_oracle_test_not_training_not_policy_or_population_efficacy_not_a_safety_certificate",
+  "decision_gate": {
+    "contact_witness": "every_raw_L5_L6_L7_contact_point_inside_corresponding_certified_robot_union_and_live_source_obstacle_primitive_with_nonpositive_minimum_pair_support_gap",
+    "retain_base_affine_candidate_solver_and_exact_execution_gates": true
+  },
+  "obstacle_geometry": {
+    "collision_geom_filter": "active_obstacle_body_lineage_and_nonzero_contype_or_conaffinity",
+    "clearance_reduction": "minimum_support_gap_over_every_obstacle_primitive_for_each_of_eight_robot_proxies",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "maximum_primitive_count": 64,
+    "mesh_representation": "one_certified_mvee_per_compiled_mujoco_collision_mesh",
+    "non_mesh_representation": "certified_closed_form_enclosing_ellipsoid",
+    "pose_update": "rigidly_attached_to_live_source_geom_at_every_internal_mujoco_step",
+    "relative_numerical_padding": 1e-09,
+    "source": "live_compiled_mujoco_active_obstacle_collision_geometry"
+  },
+  "protocol_id": "vlsa-distal-oracle-mesh-obstacle-e05-v1",
+  "schema_version": "vlsa_distal_oracle_mesh_obstacle_e05.v1"
+}

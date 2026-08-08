@@ -1,5 +1,31 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Conservative obstacle-primitive oracle follow-up (preregistered, 2026-08-09)
+
+Active gate `E02` now performs the bounded follow-up authorized by the user.
+Only the failed obstacle label changes: every collision-active geom in the
+selected moka-pot body lineage receives one certified, live rigidly attached
+enclosing ellipsoid.  Compiled meshes use per-geom vertex MVEEs with exact
+inflation; supported analytic MuJoCo primitives use certified closed-form
+bounds.  The accepted seven L5--L7 slabs and released AEGIS EE proxy remain
+unchanged.
+
+Each of the eight robot/EE clearances is the minimum support gap over the full
+obstacle primitive union, which is equivalent to requiring separation from
+every obstacle part.  The job-`37109` action-192 state, all 87 candidates, 60
+candidate trust region, affine fit, one-sided error calibration, eight-row QP,
+raw contact/motion checks, and ordered GO rule are inherited unchanged from
+the committed job-`37137` protocol.  Contact authority now additionally binds
+each raw contact to the primitive for the exact contacted obstacle geom.
+
+The protocol explicitly retains the interval-start state.  If the new
+conservative union is already negative there, action 192 is scientifically too
+late rather than an apparatus failure; an earlier-trigger audit would require
+separate preregistration.  Full details and frozen identities are in
+`docs/distal_oracle_mesh_obstacle_preregistration.md` and
+`configs/vlsa_distal_oracle_mesh_obstacle_e05.v1.json`.  No H100 outcome has
+run yet.
+
 ## Substep geometry and oracle-affine mechanism test (preregistered, 2026-08-09)
 
 Before any Physics/KKT neural training, active gate `E02` now tests the model
