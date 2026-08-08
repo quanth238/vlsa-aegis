@@ -14,6 +14,15 @@ late-activation evidence.  This test is explicitly privileged simulator
 geometry and can demonstrate feasibility only; it is not deployable
 perception or a population safety result.
 
+Validated H100 job `37180` repairs geometry authority: every L6/g12 raw
+contact is contained by the exact source box and accepted robot slab with a
+negative support gap.  It nevertheless rejects action-192 efficacy.  Two
+proxy rows are already negative at interval start, no candidate is proxy-safe,
+and the QP is primal infeasible.  The exact proxy detects the impending raw
+contact, but the hard minimum-substep formulation is activated after its safe
+set has already been left.  Any further test must move earlier in the
+immutable ledger rather than tune geometry or solver settings post hoc.
+
 ## ADR-0055: Test the fixed 8 mm warning margin before exact obstacle boxes
 
 Accepted by direct user instruction.  Before using privileged MuJoCo obstacle

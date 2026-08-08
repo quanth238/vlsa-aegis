@@ -18,6 +18,31 @@ pair.  Contact positions are also checked in the exact source box.  The full
 frozen protocol is in `docs/distal_oracle_exact_box_preregistration.md`; no
 exact-box H100 outcome has run yet.
 
+Clean H100 job `37180` completed on worker-1 in 46 seconds from commit
+`e8ae3e30265d7cb808886aab297b5f92b3f472f5`; the independent validator
+passed.  All 15 exact boxes had zero inflation.  Every nominal L6/g12 contact
+was correctly covered by both its exact obstacle box and the accepted robot
+slab, with source containment `0.991--0.999` and pair gap
+`-4.315` to `-4.679 mm`.  Obstacle geometry authority is therefore repaired.
+
+The existing action-192 QP still cannot solve the transition.  Exact-box
+interval-start gaps are already `-11.009 mm` for `L5_part_1` and `-3.892 mm`
+for `L6_part_0`; no candidate can change that common past state.  None of 87
+candidates was proxy-safe although raw-safe local candidates existed, and
+OSQP returned primal infeasible without executing a proposal.  The exact
+proxy warns before raw L6 contact begins at internal substep 11, but activation
+at action 192 is too late for a hard `min_substep h>=0` rule.  The next bounded
+test must locate the first exact-box crossing and invoke the same QP one
+transition earlier.
+
+Result/validation/preflight SHA-256 values are
+`d57850d8d8b04e3601d0cb870cca84f15bc41684eae71dc2cb57c9414c1d10fb`,
+`146710ecd82255b5652dec895c2767ae3a7bedcce4319c409629a98c0dedd224`,
+and `a1bbb6e989505bbdc56c60d1c93c1b0ef052fef0af9dd3ec72aa91152955f8ec`;
+payload SHA-256 is
+`30d48753b457d1b52f935a9d5a5d4912f9b2aad651751f76b1e9edf6ab442f11`.
+Gate `E02` remains active and neural training remains blocked.
+
 ## Fixed 8 mm margin test (preregistered, 2026-08-09)
 
 At the user's requested ordering, active gate `E02` first tests the unchanged
