@@ -1,5 +1,19 @@
 # Reproduction decisions
 
+## ADR-0057: Enlarge exact boxes with an isotropic shell and trigger predictively
+
+Accepted by direct user instruction after job `37180`.  Use an `8 mm`
+Minkowski sphere around every exact obstacle box, not an `8 mm` increase to
+each box half-axis.  The former adds exactly `8 mm` support in every direction;
+the latter adds up to `sqrt(3)*8 mm` and unnecessary empty space.
+
+Enlargement at action 192 is already known to be infeasible.  Therefore scan
+the immutable job-`37109` action ledger and select the first state whose
+current eight rows remain outside the shell but whose nominal exact OSC
+transition crosses it.  Apply the unchanged oracle-affine QP there and require
+exact raw, obstacle-motion, and inflated-proxy safety.  This remains a
+single-transition privileged heuristic test, not closed-loop task efficacy.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the

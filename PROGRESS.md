@@ -1,5 +1,23 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
+
+Active gate `E02` now tests the user-authorized enlargement heuristic without
+repeating late action-192 activation.  Each of the 15 exact live obstacle
+boxes receives an isotropic `8 mm` Minkowski sphere shell, so
+`h_inflated=h_exact-0.008 m`.  This is a rounded box rather than half-axis
+inflation and avoids diagonal overpadding.
+
+The immutable job-`37109` ledger is scanned from step 0.  The trigger is the
+first state where every current exact row is at least `8 mm` but the complete
+nominal OSC transition predicts any minimum-substep row below `8 mm`.  Every
+earlier action must exactly match its cloned next-state hash.  At that frozen
+first crossing, the existing affine candidate set and QP use the `8 mm`
+target and receive exact raw-contact, obstacle-motion, and proxy verification.
+Full scope is in
+`docs/distal_exact_box_inflated_trigger_preregistration.md`.  No H100 outcome
+has run yet.
+
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
 After freezing the failed 8 mm test, active gate `E02` now proceeds to the
