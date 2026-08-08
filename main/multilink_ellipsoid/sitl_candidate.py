@@ -30,6 +30,7 @@ from .shadow import (
 
 SITL_CANDIDATE_SCHEMA = "vlsa_distal_sitl_candidate_e05.v1"
 SITL_CANDIDATE_STEP_SCHEMA = "vlsa_distal_sitl_candidate_step_e05.v1"
+_PROTECTED_BODY_NAMES = ("robot0_link5", "robot0_link6", "robot0_link7")
 
 
 def _canonical(value: Any) -> bytes:
@@ -238,8 +239,85 @@ def candidate_xyz_values(
     return output
 
 
+def _obstacle_root_body_id(model: Any, active_obstacle_name: str) -> int:
+    names = (str(active_obstacle_name), "%s_main" % active_obstacle_name)
+    for name in names:
+        try:
+            return int(model.body_name2id(name))
+        except (KeyError, ValueError):
+            continue
+    raise ValueError("active obstacle body is unavailable: %s" % active_obstacle_name)
+
+
+def _body_lineage(model: Any, body_id: int) -> set[int]:
+    output = set()
+    current = int(body_id)
+    while current >= 0 and current not in output:
+        output.add(current)
+        if current == 0:
+            break
+        current = int(model.body_parentid[current])
+    return output
+
+
+def _protected_contact_evidence(env: Any, active_obstacle_name: str) -> dict[str, Any]:
+    """Return raw nonpositive MuJoCo contacts for L5--L7 and the obstacle."""
+
+    model = env.sim.model
+    data = env.sim.data
+    obstacle_id = _obstacle_root_body_id(model, active_obstacle_name)
+    protected_ids = {int(model.body_name2id(name)) for name in _PROTECTED_BODY_NAMES}
+    events = []
+    for contact_index in range(int(data.ncon)):
+        contact = data.contact[contact_index]
+        distance = float(contact.dist)
+        if distance > 0.0:
+            continue
+        geom1 = int(contact.geom1)
+        geom2 = int(contact.geom2)
+        body1 = int(model.geom_bodyid[geom1])
+        body2 = int(model.geom_bodyid[geom2])
+        lineage1 = _body_lineage(model, body1)
+        lineage2 = _body_lineage(model, body2)
+        protected_first = bool(protected_ids & lineage1) and obstacle_id in lineage2
+        protected_second = bool(protected_ids & lineage2) and obstacle_id in lineage1
+        if not (protected_first or protected_second):
+            continue
+        protected_geom = geom1 if protected_first else geom2
+        obstacle_geom = geom2 if protected_first else geom1
+        events.append(
+            {
+                "contact_index": contact_index,
+                "distance_m": distance,
+                "protected_geom_id": protected_geom,
+                "protected_geom_name": model.geom_id2name(protected_geom),
+                "obstacle_geom_id": obstacle_geom,
+                "obstacle_geom_name": model.geom_id2name(obstacle_geom),
+            }
+        )
+    return {
+        "active_obstacle_name": str(active_obstacle_name),
+        "nonpositive_protected_contact_count": len(events),
+        "minimum_contact_distance_m": (
+            None if not events else min(item["distance_m"] for item in events)
+        ),
+        "events": events,
+    }
+
+
 class SlabbedEightConstraintProbe(ClonedSimulatorStepProbe):
     """Cloned step probe for seven distal parts and the released EE proxy."""
+
+    def __init__(
+        self,
+        probe_env: Any,
+        geometry: MultilinkEllipsoidShadow,
+        *,
+        clearance_m: float,
+        active_obstacle_name: str,
+    ) -> None:
+        super().__init__(probe_env, geometry, clearance_m=clearance_m)
+        self.active_obstacle_name = str(active_obstacle_name)
 
     def clearances(self, env: Any) -> Any:
         np = _numpy()
@@ -256,6 +334,43 @@ class SlabbedEightConstraintProbe(ClonedSimulatorStepProbe):
             raise ValueError("SITL probe must return seven distal and one EE clearance")
         return values
 
+    def transition(self, main_env: Any, action: Sequence[float]) -> dict[str, Any]:
+        np = _numpy()
+        synchronization = self.synchronize(main_env)
+        command = np.asarray(action, dtype=np.float64)
+        if command.shape != (7,) or not np.all(np.isfinite(command)):
+            raise ValueError("probe action must be finite with length seven")
+        obstacle_id = _obstacle_root_body_id(
+            self.probe_env.sim.model, self.active_obstacle_name
+        )
+        obstacle_before = np.asarray(
+            self.probe_env.sim.data.xpos[obstacle_id], dtype=np.float64
+        ).copy()
+        started = time.perf_counter_ns()
+        self.probe_env.step(command.tolist())
+        elapsed = (time.perf_counter_ns() - started) * 1.0e-9
+        vector = _dynamic_state_vector(self.probe_env)
+        clearances = self.clearances(self.probe_env)
+        contact = _protected_contact_evidence(
+            self.probe_env, self.active_obstacle_name
+        )
+        obstacle_after = np.asarray(
+            self.probe_env.sim.data.xpos[obstacle_id], dtype=np.float64
+        )
+        return {
+            "action": command.tolist(),
+            "next_h_opt_m": clearances.tolist(),
+            "next_minimum_h_opt_m": float(np.min(clearances)),
+            "next_state_sha256": hashlib.sha256(vector.tobytes()).hexdigest(),
+            "next_state_vector": vector,
+            "synchronization": synchronization,
+            "env_step_wall_seconds": elapsed,
+            "raw_protected_contact": contact,
+            "active_obstacle_step_l1_displacement_m": float(
+                np.sum(np.abs(obstacle_after - obstacle_before))
+            ),
+        }
+
 
 class DistalSitlCandidateFilter:
     """One-step exact candidate search around a released AEGIS command."""
@@ -265,6 +380,7 @@ class DistalSitlCandidateFilter:
         config: Mapping[str, Any],
         geometry: MultilinkEllipsoidShadow,
         probe_env: Any,
+        active_obstacle_name: str,
     ) -> None:
         if config.get("schema_version") != SITL_CANDIDATE_SCHEMA:
             raise ValueError("SITL candidate configuration was not validated")
@@ -280,7 +396,12 @@ class DistalSitlCandidateFilter:
             residual_tolerance=float(optimizer["residual_tolerance"]),
             bound_tolerance=float(optimizer["bound_tolerance_action"]),
         )
-        self.probe = SlabbedEightConstraintProbe(probe_env, geometry, clearance_m=0.0)
+        self.probe = SlabbedEightConstraintProbe(
+            probe_env,
+            geometry,
+            clearance_m=0.0,
+            active_obstacle_name=active_obstacle_name,
+        )
         self._pending: Optional[dict[str, Any]] = None
 
     def targets(self, nominal_next_clearance: Any) -> Any:
@@ -344,8 +465,16 @@ class DistalSitlCandidateFilter:
         preferred_target[:7] = float(
             self.config["protected_geometry"]["distal_activation_clearance_m"]
         )
-        nominal_safe = bool(np.all(base_h >= target - tolerance))
-        nominal_preferred = bool(np.all(base_h >= preferred_target - tolerance))
+        nominal_contact_free = bool(
+            base["raw_protected_contact"]["nonpositive_protected_contact_count"]
+            == 0
+        )
+        nominal_safe = bool(
+            nominal_contact_free and np.all(base_h >= target - tolerance)
+        )
+        nominal_preferred = bool(
+            nominal_contact_free and np.all(base_h >= preferred_target - tolerance)
+        )
         activation = not nominal_preferred
         probe_records = []
         rows = None
@@ -404,6 +533,10 @@ class DistalSitlCandidateFilter:
                 "objective_l2_from_nominal": 0.0,
                 "next_state_sha256": base["next_state_sha256"],
                 "env_step_wall_seconds": float(base["env_step_wall_seconds"]),
+                "raw_protected_contact": base["raw_protected_contact"],
+                "active_obstacle_step_l1_displacement_m": base[
+                    "active_obstacle_step_l1_displacement_m"
+                ],
             }
         ]
         safe_options = []
@@ -426,6 +559,14 @@ class DistalSitlCandidateFilter:
                 preferred = bool(
                     np.all(clearances >= preferred_target - tolerance)
                 )
+                contact_free = bool(
+                    transition["raw_protected_contact"][
+                        "nonpositive_protected_contact_count"
+                    ]
+                    == 0
+                )
+                safe = bool(safe and contact_free)
+                preferred = bool(preferred and contact_free)
                 objective = float(np.linalg.norm(xyz - nominal[:3]))
                 minimum_distal = float(np.min(clearances[:7]))
                 attempts.append(
@@ -439,6 +580,12 @@ class DistalSitlCandidateFilter:
                         "objective_l2_from_nominal": objective,
                         "next_state_sha256": transition["next_state_sha256"],
                         "env_step_wall_seconds": float(transition["env_step_wall_seconds"]),
+                        "raw_protected_contact": transition[
+                            "raw_protected_contact"
+                        ],
+                        "active_obstacle_step_l1_displacement_m": transition[
+                            "active_obstacle_step_l1_displacement_m"
+                        ],
                     }
                 )
                 if safe:
@@ -481,6 +628,7 @@ class DistalSitlCandidateFilter:
             "nominal_next_clearance_m": base_h.tolist(),
             "nominal_safe": nominal_safe,
             "nominal_preferred": nominal_preferred,
+            "nominal_raw_protected_contact": base["raw_protected_contact"],
             "activation": activation,
             "selection_objective": self.config["candidate_search"][
                 "selection_objective"
@@ -588,6 +736,25 @@ def summarize_sitl_steps(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]
         "step_count": len(records),
         "constraint_count_per_step": sorted({int(item["constraint_count"]) for item in records}),
         "material_intervention_count": sum(bool(item["modified"]) for item in records),
+        "raw_contact_candidate_veto_count": sum(
+            int(
+                attempt["raw_protected_contact"][
+                    "nonpositive_protected_contact_count"
+                ]
+                > 0
+            )
+            for item in records
+            for attempt in item["verification"]["attempts"]
+        ),
+        "raw_contact_nominal_veto_step_count": sum(
+            int(
+                item["nominal_raw_protected_contact"][
+                    "nonpositive_protected_contact_count"
+                ]
+                > 0
+            )
+            for item in records
+        ),
         "first_material_intervention_step": next(
             (int(item["step"]) for item in records if item["modified"]), None
         ),

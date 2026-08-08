@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 
@@ -6,6 +7,44 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DistalSitlCandidateTests(unittest.TestCase):
+    def test_raw_contact_veto_recognizes_link6_obstacle_contact(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import (
+            _protected_contact_evidence,
+        )
+
+        body_ids = {
+            "robot0_link5": 9,
+            "robot0_link6": 10,
+            "robot0_link7": 11,
+            "moka_pot_obstacle_1_main": 28,
+        }
+        parent_ids = [0] * 29
+        parent_ids[9] = 8
+        parent_ids[10] = 9
+        parent_ids[11] = 10
+        parent_ids[28] = 0
+        model = SimpleNamespace(
+            body_parentid=parent_ids,
+            geom_bodyid=[28, 10],
+            body_name2id=lambda name: body_ids[name],
+            geom_id2name=lambda geom_id: (
+                "moka_pot_obstacle_1_g12"
+                if geom_id == 0
+                else "robot0_link6_collision"
+            ),
+        )
+        data = SimpleNamespace(
+            ncon=1,
+            contact=[SimpleNamespace(geom1=0, geom2=1, dist=-0.0005)],
+        )
+        env = SimpleNamespace(sim=SimpleNamespace(model=model, data=data))
+        evidence = _protected_contact_evidence(env, "moka_pot_obstacle_1")
+        self.assertEqual(evidence["nonpositive_protected_contact_count"], 1)
+        self.assertEqual(
+            evidence["events"][0]["protected_geom_name"],
+            "robot0_link6_collision",
+        )
+
     def test_config_and_targets(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
 

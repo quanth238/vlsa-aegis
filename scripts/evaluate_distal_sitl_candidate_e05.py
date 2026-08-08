@@ -193,7 +193,12 @@ def evaluate(
         geometry_record = geometry.geometry_record(env)
         _require(geometry_record["distal_ellipsoid_count"] == 7, "SITL distal geometry count differs")
         _require(geometry_record["total_constraint_geometry_count"] == 8, "SITL total geometry count differs")
-        controller = DistalSitlCandidateFilter(heuristic_config, geometry, probe_env)
+        controller = DistalSitlCandidateFilter(
+            heuristic_config,
+            geometry,
+            probe_env,
+            active_obstacle_name=obstacle_name,
+        )
 
         client = None
         server_identity = None
