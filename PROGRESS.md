@@ -42,6 +42,14 @@ jointly safe. No neural training ran. V2 now declares this post-oracle state
 selection, holds action 188 out of training and calibration, and uses train
 180--185, validation 186--187, and test 188--192.
 
+V2 oracle-only job `37196` reproduced the 1,125 labels and independently
+validated `oracle_analysis_gate_pass=true` and
+`neural_training_authorized=true`. Initial neural job `37197` then stopped
+before training because the evaluator resolved the OpenPI virtual-environment
+Python symlink to its base Anaconda interpreter, where PyTorch is absent. This
+is an apparatus failure with no model or projection outcome. The repair keeps
+the absolute virtual-environment launcher path without resolving the symlink.
+
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
 After freezing the failed 8 mm test, active gate `E02` now proceeds to the

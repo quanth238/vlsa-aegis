@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -645,7 +646,9 @@ def evaluate(
         "pretraining oracle-analysis gate did not authorize neural training",
     )
     _require(
-        openpi_python.is_file() and not openpi_python.is_symlink(),
+        openpi_python.is_absolute()
+        and openpi_python.is_file()
+        and os.access(str(openpi_python), os.X_OK),
         "OpenPI training Python is unavailable",
     )
     subprocess.run(
@@ -789,7 +792,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         exact_box_config_path=args.exact_box_config.resolve(),
         config_path=args.config.resolve(),
         expected_commit=args.expected_commit,
-        openpi_python=args.openpi_python.resolve(),
+        # Preserve the virtual-environment launcher. Resolving this symlink
+        # bypasses the OpenPI environment and executes its base interpreter.
+        openpi_python=args.openpi_python.absolute(),
         dataset_path=args.dataset.resolve(),
         model_path=args.model.resolve(),
         training_path=args.training.resolve(),

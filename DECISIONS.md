@@ -33,6 +33,11 @@ explicit post-oracle feasibility target. To prevent direct leakage, train on
 180--185, calibrate on 186--187, and hold out 188--192. This can demonstrate
 one-step mechanism feasibility but cannot support an unbiased efficacy claim.
 
+Job `37197` authorizes no scientific inference: it completed recollection but
+failed before the first training operation because resolving the OpenPI Python
+symlink escaped the virtual environment. Preserve the absolute launcher path;
+the Slurm preflight remains responsible for proving H100 PyTorch execution.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the

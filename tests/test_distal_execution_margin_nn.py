@@ -69,6 +69,8 @@ class DistalExecutionMarginNnTests(unittest.TestCase):
         self.assertIn(
             'dataset_summary["oracle_analysis_gate_pass"] is True', source
         )
+        self.assertIn("openpi_python=args.openpi_python.absolute()", source)
+        self.assertNotIn("openpi_python=args.openpi_python.resolve()", source)
 
     def test_pretraining_allocation_collects_only_and_validates_gate(self):
         source = (
