@@ -160,6 +160,52 @@ bound, not an action or outcome tolerance. Every reverse step records its
 actual maximum error, magnitude, and bound. The trajectory supplied to the
 denoiser and the resulting joint targets are unchanged.
 
+Clean H100 job `37067` completed the final v3 pair on `worker-2` in
+`00:05:21` from commit
+`d1b3e7b6ec9a6044a795bb6858a3005bda62b758`. Allocation validation passed
+the complete result and both 301-frame upright videos. Both arms used the same
+settled state, checkpoint, and noise schedule; every ellipsoid, collision SDF,
+barrier row, and QP remained disabled. The maximum FK-pose float32 round-trip
+error was `1.559e-7` raw action units, only `3.21%` of its precision-derived
+bound.
+
+The result does not resemble EmbodiSteer's task-competent `EE`/`Joint`
+baseline relation. Both arms executed 300 actions and failed the native goal.
+Cartesian `EE` first failed paper CAR and made robot contact at step 7, then
+contacted the obstacle with link 6 at step 193; maximum obstacle displacement
+was `0.185724 m`. `Joint` likewise failed CAR/contact at step 7 and contacted
+with link 5 much earlier at step 79; maximum obstacle displacement was
+`0.509158 m`. Both did close the gripper (first positive commands at steps 97
+and 41), so this is not the former never-close bug.
+
+The direct-joint execution itself fails the competence gate. It had zero
+target-encoding saturation, but mean/maximum post-step target errors were
+`0.255/1.225 rad`, maximum joint speed was `3.503 rad/s`, and target changes
+reached `0.555 rad` per 0.1-second boundary step. It moved the bowl by as much
+as `0.593 m` without satisfying the bowl-on-plate goal. This is evidence that
+the pi0.5 incremental-action lift plus SafeLIBERO joint-position adapter is not
+a matched EmbodiSteer `Joint` baseline, not evidence against the paper.
+
+Result file/payload/validation-receipt SHA-256 values are
+`d690616cda5ff5895fe4d5af585c2a2e364f4a428e7ef319622d116366b8bb8b`,
+`a0a33571574fe273fad986e66940e8e151fe3e97635cddab70d7d6930db5ca02`,
+and `77501d0ab7414bc287681530460a13f42dca32222e80120aa2127ded6c24fd48`.
+Cartesian and Joint MP4 SHA-256 values are
+`49273784754407074d84b90287c1c2b3311d80067e150b48b25ef205ec8d7a13`
+and `d4ddf8016d7266cb3b396b2a427750135c554ceb9a630e1c10c95251feafc0dc`.
+The current L5/L6 MVEEs remain disabled and unsuitable for an EmbodiSteer
+claim; the paper uses multiple link-attached collision spheres with top-four
+smooth SDF aggregation.
+
+Unresolved risk: no task-competent, natively joint-executed policy/controller
+has been identified for this SafeLIBERO task. No further Slurm experiment is
+authorized until that choice is preregistered. The exact next command is the
+read-only evidence check:
+
+```bash
+sha256sum /mnt/data/quanth/experiments/vlsa-embodisteer-joint-baselines-e05/paired-v3-20260808e/result.json /mnt/data/quanth/experiments/vlsa-embodisteer-joint-baselines-e05/paired-v3-20260808e/arms/*/episode.mp4
+```
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

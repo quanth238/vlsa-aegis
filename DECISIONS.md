@@ -704,3 +704,28 @@ It scales only with IEEE float32 precision and the serialized value magnitude,
 and is frozen before observing its live error. Each denoising step records the
 error and bound. The policy input, denoising update, joint trajectory, control
 rate, execution horizon, and all acceptance outcomes remain unchanged.
+
+## ADR-0045: Reject the pi0.5 direct-Joint adaptation as a matched baseline
+
+Accepted after validated H100 job `37067`. The apparatus gates passed: one
+frozen checkpoint and settled state, no collision guidance, zero joint-target
+encoding saturation, bitwise state restoration after live-model kinematics,
+precision-valid sampler round trips, and two valid 301-frame videos. The
+negative outcome is therefore retained rather than repaired by more tuning.
+
+Neither arm completed the primary obstacle task. Cartesian contacted link 6
+at step 193; Joint contacted link 5 at step 79. Joint target tracking remained
+poor (`0.255 rad` mean and `1.225 rad` maximum error) and aggressive (maximum
+`3.503 rad/s` observed velocity), despite exact target encoding. The result
+does not reproduce the paper's competence-preserving `Joint` baseline.
+
+This does not falsify EmbodiSteer. Its released description assumes a 10D
+chunk-start relative pose diffusion policy, a 16-action chunk, a native joint
+execution interface, and reports `Joint` competence without obstacles. Our
+frozen pi0.5-LIBERO checkpoint produces ten incremental 7D OSC flow actions
+and the primary SafeLIBERO stress scene retains its physical obstacle. Future
+EmbodiSteer safety work is blocked until a competent Joint baseline is
+established with a natively compatible policy/controller. If geometry is
+reintroduced afterward, use audited link-attached spheres/capsules and
+top-critical-distance aggregation; do not present one MVEE per L5/L6 link as
+the paper's geometry.

@@ -98,7 +98,9 @@
       "Job 37060 was rejected in one second by the clean-source gate due to a mistyped expected full commit hash and created no run root.",
       "H100 retry 37061 completed the valid Cartesian worker but rejected Joint at action zero: zero target saturation, peak joint velocity 0.299 rad/s, and a bitwise-fixed camera pose accompanied an almost exact 180-degree frame rotation, identifying the second rendered FK probe environment as an OSMesa context violation rather than a joint-motion outcome.",
       "The preregistered repair performs FK/Jacobians on the live MuJoCo model, restores the complete flattened state with bitwise equality before execution, and removes the second rendered environment without changing any baseline or acceptance setting.",
-      "H100 job 37062 confirmed the renderer repair through multiple upright Joint frames, then stopped before a result on a fixed 1e-7 float32 affine round-trip assertion; the preregistered replacement uses 32*eps_float32*max(1, magnitude) and records every live error without changing denoising or execution."
+      "H100 job 37062 confirmed the renderer repair through multiple upright Joint frames, then stopped before a result on a fixed 1e-7 float32 affine round-trip assertion; the preregistered replacement uses 32*eps_float32*max(1, magnitude) and records every live error without changing denoising or execution.",
+      "Validated clean H100 job 37067 completed both zero-guidance 10 Hz arms with 300 actions and valid 301-frame videos: neither completed the goal; Cartesian contacted link 6 at step 193 and Joint contacted link 5 at step 79.",
+      "The final direct-Joint adaptation is rejected as an EmbodiSteer-matched competence baseline despite zero target encoding saturation: mean/max target tracking error 0.255/1.225 rad, max velocity 3.503 rad/s, and up to 0.593 m bowl displacement without success. Result/validation receipt SHA-256 values are d690616cda5ff5895fe4d5af585c2a2e364f4a428e7ef319622d116366b8bb8b and 77501d0ab7414bc287681530460a13f42dca32222e80120aa2127ded6c24fd48."
       ]
     },
     {
