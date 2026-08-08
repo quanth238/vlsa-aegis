@@ -126,6 +126,10 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         "include_stop": True,
         "lattice_values": [-1.0, 0.0, 1.0],
         "local_offset_magnitudes": [0.25, 0.5],
+        "selection_objective": (
+            "lexicographic_maximum_minimum_distal_clearance_then_"
+            "minimum_nominal_deviation"
+        ),
     }:
         raise ValueError("SITL candidate search contract differs")
     verification = config["verification"]
@@ -378,6 +382,7 @@ class DistalSitlCandidateFilter:
                 "verified_next_clearance_m": base_h.tolist(),
                 "verified_safe": nominal_safe,
                 "preferred_safe": nominal_preferred,
+                "minimum_distal_clearance_m": float(np.min(base_h[:7])),
                 "objective_l2_from_nominal": 0.0,
                 "next_state_sha256": base["next_state_sha256"],
                 "env_step_wall_seconds": float(base["env_step_wall_seconds"]),
@@ -386,9 +391,13 @@ class DistalSitlCandidateFilter:
         safe_options = []
         preferred_options = []
         if nominal_safe:
-            safe_options.append((0.0, "nominal_released_aegis", nominal, base))
+            safe_options.append(
+                (float(np.min(base_h[:7])), 0.0, "nominal_released_aegis", nominal, base)
+            )
         if nominal_preferred:
-            preferred_options.append((0.0, "nominal_released_aegis", nominal, base))
+            preferred_options.append(
+                (float(np.min(base_h[:7])), 0.0, "nominal_released_aegis", nominal, base)
+            )
         if activation:
             for source, xyz in candidates:
                 candidate_action = nominal.copy()
@@ -400,6 +409,7 @@ class DistalSitlCandidateFilter:
                     np.all(clearances >= preferred_target - tolerance)
                 )
                 objective = float(np.linalg.norm(xyz - nominal[:3]))
+                minimum_distal = float(np.min(clearances[:7]))
                 attempts.append(
                     {
                         "source": source,
@@ -407,24 +417,27 @@ class DistalSitlCandidateFilter:
                         "verified_next_clearance_m": clearances.tolist(),
                         "verified_safe": safe,
                         "preferred_safe": preferred,
+                        "minimum_distal_clearance_m": minimum_distal,
                         "objective_l2_from_nominal": objective,
                         "next_state_sha256": transition["next_state_sha256"],
                         "env_step_wall_seconds": float(transition["env_step_wall_seconds"]),
                     }
                 )
                 if safe:
-                    safe_options.append((objective, source, candidate_action, transition))
+                    safe_options.append(
+                        (minimum_distal, objective, source, candidate_action, transition)
+                    )
                 if preferred:
                     preferred_options.append(
-                        (objective, source, candidate_action, transition)
+                        (minimum_distal, objective, source, candidate_action, transition)
                     )
         accepted = None
         accepted_transition = None
         accepted_source = None
         selectable = preferred_options if preferred_options else safe_options
         if selectable:
-            selectable.sort(key=lambda item: (item[0], item[1]))
-            _, accepted_source, accepted, accepted_transition = selectable[0]
+            selectable.sort(key=lambda item: (-item[0], item[1], item[2]))
+            _, _, accepted_source, accepted, accepted_transition = selectable[0]
         record = {
             "schema_version": SITL_CANDIDATE_STEP_SCHEMA,
             "step": int(step),

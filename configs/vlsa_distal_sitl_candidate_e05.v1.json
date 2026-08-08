@@ -20,7 +20,8 @@
     "local_offset_magnitudes": [
       0.25,
       0.5
-    ]
+    ],
+    "selection_objective": "lexicographic_maximum_minimum_distal_clearance_then_minimum_nominal_deviation"
   },
   "claim_scope": "single_primary_case_archived_aegis_heuristic_ability_demo_not_formal_safety_or_population_efficacy",
   "finite_difference": {

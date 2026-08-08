@@ -22,6 +22,10 @@ class DistalSitlCandidateTests(unittest.TestCase):
             config["protected_geometry"]["end_effector_target"],
             "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
         )
+        self.assertEqual(
+            config["candidate_search"]["selection_objective"],
+            "lexicographic_maximum_minimum_distal_clearance_then_minimum_nominal_deviation",
+        )
 
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
