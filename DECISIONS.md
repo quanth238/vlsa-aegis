@@ -484,3 +484,29 @@ This is a single-case oracle capability test, not a real-time or population
 claim. The default OpenPI sampler and ordinary AEGIS evaluator remain
 unchanged without the reserved opt-in control envelope. No KKT/VI or neural
 approximation training is authorized by this decision.
+
+## ADR-0036: Retain predictive flow guidance as safe but task-incompetent
+
+Accepted after clean H100 job `37024`. The live initial observation and first
+pi0.5 chunk exactly match the immutable Table 1 task-success episode. All 18
+guided proposals used cloned stateful OSC_POSE horizon models, every executed
+guided chunk passed exact ten-step verification, and the 300 executed actions
+produced no robot contact, no paper CAR, and negligible obstacle motion.
+
+This is not counted as solving the primary problem because the robot never
+moved the bowl or satisfied any native goal atom. All 16 modified policy
+queries occurred in steps 0--79. The minimum L5/L6/L7 buffered clearances
+remained `108.667/129.095/95.291 mm`, while the end-effector proxy reached
+`0.333 mm`; therefore the predictive end-effector constraint, not a distal
+link constraint, caused every intervention and diverted the closed-loop
+policy before the archived L5/L6 collision regime.
+
+The retained interpretation is
+`predictive_full_body_safe_but_task_incompetent_no_safety_efficacy_claim`.
+The result verifies that an OSC-consistent cloned transition and exact rollout
+gate can enforce the specified horizon inequalities, but it also demonstrates
+that those hard inequalities can remove the task route. We do not weaken the
+margin, shorten the horizon, remove the explicitly requested end-effector
+constraint, or tune activation after observing the outcome. Any follow-up is
+a new preregistered experiment and must recover a task-competent paired
+baseline before KKT/VI or neural approximation training is reconsidered.

@@ -77,7 +77,10 @@
         "Predictive-flow follow-up preregisters 40 ten-step L5/L6/L7/end-effector trajectory-CBF definitions, identifies their local action model from complete cloned OSC_POSE transitions, projects XYZ after every pi0.5 Euler update, and requires exact cloned horizon verification; the local gate passed 213 tests with 26 skips before H100 submission",
         "Initial H100 submission 37014 ended in allocation-side unit preflight before policy startup or simulation because the Python-3.8 test loader evaluated a modern union annotation and one synthetic expected CBF minimum omitted the first step; the immutable attempt is retained as apparatus failure with no scientific result",
         "Retry 37019 passed allocation preflights and loaded pi0.5 but refused before action zero because the nominal chunk did not byte-match immutable Table 1; the attempt is retained as apparatus failure and motivated separating the exact ordinary sampler from the opt-in guided sampler rather than waiving pairing",
-        "Isolation check 37021 still refused before action zero because eagerly wrapping the separate guided bound method changed the accepted policy-construction path; the guided wrapper is now created lazily only after a validated guidance request"
+        "Isolation check 37021 still refused before action zero because eagerly wrapping the separate guided bound method changed the accepted policy-construction path; the guided wrapper is now created lazily only after a validated guidance request",
+        "Clean H100 job 37024 on worker-1 exactly matched the immutable successful Table 1 initial pi0.5 chunk, then executed 300 actions with no robot contact or paper CAR; all accepted guided chunks passed exact cloned ten-step OSC verification",
+        "The predictive run did not complete the task or move the bowl (primary_problem_solved=false): all 16 modified queries were caused by the end-effector proxy, while minimum L5/L6/L7 buffered clearances stayed at 108.667/129.095/95.291 mm, so this is retained as safe but task-incompetent rather than distal-link safety efficacy",
+        "Job 37024 result/video SHA-256 are 739adbca0287193bac477b737a7131e6fa9ed55c452ba9e7eea1113e5e4649c1 and df49d0d4f5a9659ad0c44f445e83ded4379995bebd2eb586e9d823933b4594d0; independent artifact validation remains pending"
       ]
     },
     {

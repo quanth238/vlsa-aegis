@@ -1,6 +1,6 @@
 # AEGIS SafeLIBERO table reproduction
 
-## Predictive L5--L7 plus end-effector flow guidance (preregistered, 2026-08-07)
+## Predictive L5--L7 plus end-effector flow guidance (completed negative capability test, 2026-08-08)
 
 The active `E02` follow-up is frozen in
 `configs/vlsa_predictive_flow_guidance_e05.v1.json`. It retains the accepted
@@ -11,8 +11,9 @@ trajectory derivatives. The correction is applied after every one of the ten
 pi0.5 Euler updates and the final chunk must pass exact cloned trajectory
 verification before execution. One relinearization is allowed.
 
-Implementation, default-sampler regression, clean commit, and the primary
-paired H100 result are pending. The completed Table 1 tree remains read-only.
+Implementation, default-sampler regression, and the primary paired H100 run
+are complete. Independent artifact validation remains pending. The completed
+Table 1 tree remains read-only.
 Initial H100 submission `37014` stopped during allocation-side unit preflight,
 before policy startup or simulation: the Python-3.8 evaluation runtime could
 not evaluate an existing `int | None` annotation while dynamically loading
@@ -35,6 +36,51 @@ run `36757` constructed only the ordinary wrapper and exactly reproduced the
 Table 1 chunk and 237-action task success. Guided wrapping is therefore now
 lazy: it cannot occur until after a validated guidance request, while the
 first nominal request follows the accepted construction path exactly.
+
+Clean H100 job `37024` completed on `worker-1` in `00:04:42` from commit
+`852070b2f2c4ed86b98411e17363d0ea22f89df2`. Its first live pi0.5 chunk has
+SHA-256 `05f3960fdb6e97e0750a2f29d012bdee4dd680c1a9125c46f22e4f6538f99a6d`,
+exactly matching the immutable task-success Table 1 episode. This resolves
+the pre-action pairing gate without waiving it. The 300-step result and video
+have SHA-256 `739adbca0287193bac477b737a7131e6fa9ed55c452ba9e7eea1113e5e4649c1`
+and `df49d0d4f5a9659ad0c44f445e83ded4379995bebd2eb586e9d823933b4594d0`.
+
+The predictive controller made 18 guidance attempts across the first 16
+queries (steps 0--79), using 1,098 cloned horizon rollouts and 10,980 cloned
+`env.step` calls for finite-difference identification. All accepted chunks
+passed exact ten-step verification. The minimum accepted exact trajectory-CBF
+residual was `2.760e-7 m`; two first proposals failed exact verification and
+were safely relinearized. No unsafe proposal was passed through. The sampler
+projection residual was at worst `-1.510e-9`, within the frozen tolerance.
+
+Raw MuJoCo evidence contains no robot contact and no paper CAR over all 300
+executed actions, with maximum obstacle displacement `2.275e-11 m`. However,
+the bowl never moved, no native goal atom was ever satisfied, and the episode
+timed out. Thus `primary_problem_solved=false`: safety by diverting the robot
+away from the task is not useful SafeLIBERO completion.
+
+The per-body audit is decisive. Minimum observed buffered clearances were
+`108.667 mm` for L5, `129.095 mm` for L6, `95.291 mm` for L7, and only
+`0.333 mm` for the end-effector proxy. Every intervention was therefore
+caused by the predictive end-effector constraint before the later L5/L6
+collision regime was reached. At query zero the exact nominal horizon had a
+minimum trajectory-CBF residual of `-12.015 mm`; the accepted correction put
+it at `+0.000276 mm`. After query 15 guidance deactivated, but the changed
+closed-loop observations had already diverted the policy: the end effector
+finished near `y=0.515 m` and the bowl pose remained unchanged. The immutable
+baseline instead moved the bowl by step 75, contacted L5/L6 beginning at step
+187, and completed the native goal at step 236.
+
+This result shows that cloned OSC dynamics and exact horizon verification fix
+the earlier certificate-to-`env.step` mismatch for the actions they accept.
+It does not show that predictive full-body guidance solves the original
+task-completing failure: the released AEGIS end-effector proxy plus a ten-step
+hard predictive barrier is too restrictive for this local flow-projection
+controller on the primary route. Model identification alone averaged
+`9.094 s` per guided attempt and guided inference averaged `0.891 s`, so the
+implementation is also an oracle capability test rather than a real-time
+filter. `E02` remains active and no KKT/VI or learned approximation is
+authorized by this negative result.
 
 ## Cloned-step discrete L5--L7 multi-CBF (completed negative oracle test, 2026-08-07)
 
