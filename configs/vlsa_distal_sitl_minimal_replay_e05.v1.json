@@ -47,7 +47,7 @@
     "distal_clearance_target_m": -1.0,
     "distal_constraint_count": 7,
     "end_effector_constraint_count": 1,
-    "end_effector_target": "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
+    "end_effector_target": "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
     "source": "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
   },
   "protocol_id": "vlsa-distal-sitl-minimal-replay-e05-v1",

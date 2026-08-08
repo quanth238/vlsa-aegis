@@ -114,6 +114,10 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertEqual(
             config["protected_geometry"]["distal_activation_clearance_m"], 0.015
         )
+        self.assertEqual(
+            config["protected_geometry"]["end_effector_target"],
+            "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
+        )
         self.assertIn("not_online_policy", config["claim_scope"])
         self.assertIn("oracle_reference_eef_tracking", config["claim_scope"])
 
@@ -134,6 +138,7 @@ class DistalSitlCandidateTests(unittest.TestCase):
             "protected_geometry": {
                 "distal_clearance_target_m": 0.01,
                 "distal_activation_clearance_m": 0.015,
+                "end_effector_target": "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
             }
         }
         nominal = np.asarray([0.1] * 7 + [-0.003])

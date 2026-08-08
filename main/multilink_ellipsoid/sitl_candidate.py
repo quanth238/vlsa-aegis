@@ -87,9 +87,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         "distal_clearance_target_m": geometry.get("distal_clearance_target_m"),
         "distal_constraint_count": 7,
         "end_effector_constraint_count": 1,
-        "end_effector_target": (
-            "do_not_worsen_exact_next_clearance_of_released_aegis_nominal"
-        ),
+        "end_effector_target": geometry.get("end_effector_target"),
         "source": (
             "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
         ),
@@ -100,6 +98,11 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     hard_clearance = geometry["distal_clearance_target_m"]
     if activation_clearance != 0.015 or hard_clearance not in {-1.0, 0.001, 0.01}:
         raise ValueError("SITL protected geometry margins differ")
+    if geometry["end_effector_target"] not in {
+        "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
+        "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
+    }:
+        raise ValueError("SITL end-effector target differs")
     finite_difference = config["finite_difference"]
     if finite_difference != {
         "action_dimensions": [0, 1, 2],
@@ -417,9 +420,16 @@ class DistalSitlCandidateFilter:
         nominal = np.asarray(nominal_next_clearance, dtype=np.float64)
         if nominal.shape != (8,) or not np.all(np.isfinite(nominal)):
             raise ValueError("nominal eight-row clearance vector is invalid")
+        end_effector_target = (
+            -1.0
+            if geometry["end_effector_target"].startswith(
+                "released_aegis_nominal_qp_then_raw_simulator"
+            )
+            else float(nominal[-1])
+        )
         return np.asarray(
             [float(geometry["distal_clearance_target_m"])] * 7
-            + [float(nominal[-1])],
+            + [end_effector_target],
             dtype=np.float64,
         )
 
@@ -489,11 +499,22 @@ class DistalSitlCandidateFilter:
             base["raw_protected_contact"]["nonpositive_protected_contact_count"]
             == 0
         )
+        raw_simulator_veto = self.config["protected_geometry"][
+            "end_effector_target"
+        ].startswith("released_aegis_nominal_qp_then_raw_simulator")
+        nominal_displacement_safe = bool(
+            not raw_simulator_veto
+            or base["active_obstacle_step_l1_displacement_m"] <= 1.0e-4
+        )
         nominal_safe = bool(
-            nominal_contact_free and np.all(base_h >= target - tolerance)
+            nominal_contact_free
+            and nominal_displacement_safe
+            and np.all(base_h >= target - tolerance)
         )
         nominal_preferred = bool(
-            nominal_contact_free and np.all(base_h >= preferred_target - tolerance)
+            nominal_contact_free
+            and nominal_displacement_safe
+            and np.all(base_h >= preferred_target - tolerance)
         )
         activation = not nominal_preferred
         probe_records = []
@@ -586,8 +607,13 @@ class DistalSitlCandidateFilter:
                     ]
                     == 0
                 )
-                safe = bool(safe and contact_free)
-                preferred = bool(preferred and contact_free)
+                displacement_safe = bool(
+                    not raw_simulator_veto
+                    or transition["active_obstacle_step_l1_displacement_m"]
+                    <= 1.0e-4
+                )
+                safe = bool(safe and contact_free and displacement_safe)
+                preferred = bool(preferred and contact_free and displacement_safe)
                 objective = float(np.linalg.norm(xyz - nominal[:3]))
                 minimum_distal = float(np.min(clearances[:7]))
                 attempts.append(
@@ -673,6 +699,13 @@ class DistalSitlCandidateFilter:
             "nominal_safe": nominal_safe,
             "nominal_preferred": nominal_preferred,
             "nominal_raw_protected_contact": base["raw_protected_contact"],
+            "raw_simulator_veto": {
+                "enabled": raw_simulator_veto,
+                "maximum_candidate_step_obstacle_l1_displacement_m": (
+                    1.0e-4 if raw_simulator_veto else None
+                ),
+                "nominal_displacement_safe": nominal_displacement_safe,
+            },
             "activation": activation,
             "selection_objective": self.config["candidate_search"][
                 "selection_objective"
