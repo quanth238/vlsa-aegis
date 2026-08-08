@@ -27,6 +27,18 @@ class DistalSitlCandidateTests(unittest.TestCase):
             "lexicographic_maximum_minimum_distal_clearance_then_minimum_nominal_deviation",
         )
 
+    def test_live_config_replans_released_aegis_nominal(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_sitl_live_e05.v1.json"
+        )
+        self.assertEqual(
+            config["nominal_action_source"],
+            "live_pi05_libero_then_released_aegis_ee_qp_replanned_every_five_steps",
+        )
+        self.assertIn("live_closed_loop", config["claim_scope"])
+
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
 
@@ -86,6 +98,13 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("H100", source)
         self.assertIn("vlsa-distal-sitl-candidate-e05", source)
         self.assertNotIn("rsync --delete", source)
+
+    def test_live_slurm_runs_pi05_libero_on_one_h100(self) -> None:
+        source = (ROOT / "slurm/distal_sitl_live_e05.sbatch").read_text()
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("pi05_libero", source)
+        self.assertIn("vlsa_distal_sitl_live_e05.v1.json", source)
+        self.assertIn("--host 127.0.0.1", source)
 
 
 if __name__ == "__main__":

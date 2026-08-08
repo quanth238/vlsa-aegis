@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
 import json
 from pathlib import Path
@@ -44,6 +45,8 @@ def evaluate(
     heuristic_config_path: Path,
     expected_commit: str,
     output_path: Path,
+    host: str = "127.0.0.1",
+    port: int = 8000,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -52,18 +55,25 @@ def evaluate(
         TABLE_SETTLE_ACTIONS,
         TABLE_VIDEO_FPS,
         _active_obstacle,
+        _aegis_action,
         _build_environment,
         _contact_model_authority,
         _detailed_active_obstacle_contacts,
+        _eef_proxy,
         _goal_progress_definition,
         _goal_progress_snapshot,
         _goal_progress_summary,
+        _policy_observation,
         _processed_image,
         _runtime_imports,
+        _server_identity,
         _settle,
         array_sha256,
+        max_steps_for_case,
         pairing_record,
+        query_seed,
         read_jsonl,
+        translational_action,
         validate_case_row,
     )
     from main.multilink_ellipsoid.shadow import (
@@ -99,9 +109,10 @@ def evaluate(
     heuristic_config = load_sitl_candidate_config(heuristic_config_path)
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(heuristic_config["case_ids"] == [CASE_ID], "heuristic config case differs")
+    live_policy = heuristic_config["nominal_action_source"].startswith("live_pi05_libero")
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
-    runtime = _runtime_imports(include_aegis=False)
+    runtime = _runtime_imports(include_aegis=live_policy)
     env = None
     probe_env = None
     video_writer = None
@@ -113,6 +124,7 @@ def evaluate(
         env, task, observation, selected_initial_state = _build_environment(
             runtime, case, render_resolution=TABLE_RENDER_RESOLUTION
         )
+        stale_proxy = _eef_proxy(runtime, observation) if live_policy else None
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         probe_env, probe_task, probe_observation, probe_initial_state = _build_environment(
             runtime, case, render_resolution=32
@@ -172,6 +184,37 @@ def evaluate(
         _require(geometry_record["total_constraint_geometry_count"] == 8, "SITL total geometry count differs")
         controller = DistalSitlCandidateFilter(heuristic_config, geometry, probe_env)
 
+        client = None
+        server_identity = None
+        policy_queries = []
+        action_plan = collections.deque()
+        proxy = stale_proxy
+        released_aegis_geometry = None
+        q1_diag = None
+        if live_policy:
+            _require(stale_proxy is not None, "live AEGIS stale EE proxy is unavailable")
+            p2 = np.asarray(perception["mvee_center"], dtype=np.float64)
+            z_fixed = p2 - np.asarray(stale_proxy["p1"], dtype=np.float64)
+            z_norm = float(np.linalg.norm(z_fixed))
+            _require(z_norm > 1e-12, "released AEGIS direction is degenerate")
+            z_fixed /= z_norm
+            released_aegis_geometry = {
+                "p2": p2,
+                "R2": np.asarray(perception["mvee_rotation"], dtype=np.float64),
+                "Q2_diag": np.asarray(perception["mvee_semiaxes"], dtype=np.float64),
+                "z_fixed": z_fixed,
+            }
+            q1_diag = (
+                np.asarray([0.06, 0.12, 0.2], dtype=np.float64)
+                if any(
+                    token in str(task.language)
+                    for token in ("orange juice", "milk", "alphabet soup")
+                )
+                else np.asarray([0.06, 0.12, 0.11], dtype=np.float64)
+            )
+            client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, port)
+            server_identity = _server_identity(client)
+
         goal_definition, goal_atoms = _goal_progress_definition(env)
         initial_goal = _goal_progress_snapshot(env, goal_atoms, step=-1, previous_values=None)
         previous_goal_values = initial_goal["values"]
@@ -200,13 +243,79 @@ def evaluate(
         video_writer.append_data(terminal_frame)
         frames_written += 1
 
-        for index, archived_action in enumerate(archived_actions):
-            _require(int(archived_action["step"]) == index, "archived action indexes differ")
-            nominal = np.asarray(archived_action["env_step_input"], dtype=np.float64)
-            _require(
-                nominal.shape == (7,) and np.array_equal(nominal, np.asarray(archived_action["executed"])),
-                "archived env.step input binding differs",
-            )
+        action_limit = max_steps_for_case(case) if live_policy else len(archived_actions)
+        for index in range(action_limit):
+            nominal_raw = None
+            aegis_qp_record = None
+            policy_query_index = None
+            if live_policy:
+                if not action_plan:
+                    _require(client is not None, "live pi0.5 client is unavailable")
+                    query_index = len(policy_queries)
+                    seed = query_seed(int(case["policy_noise_seed"]), query_index)
+                    policy_input = _policy_observation(
+                        runtime,
+                        observation,
+                        task_description=str(task.language),
+                        resize_size=224,
+                        rng_seed=seed,
+                    )
+                    query_started = time.perf_counter_ns()
+                    response = client.infer(policy_input)
+                    query_wall_seconds = (time.perf_counter_ns() - query_started) * 1e-9
+                    returned = np.asarray(response.get("actions"), dtype=np.float64)
+                    _require(
+                        returned.shape == (int(case["model_action_horizon"]), 7)
+                        and np.all(np.isfinite(returned)),
+                        "live pi0.5 action chunk differs",
+                    )
+                    returned_hash = array_sha256(returned)
+                    if query_index == 0:
+                        pairing["initial_policy_action_chunk_sha256"] = returned_hash
+                        _require(
+                            returned_hash
+                            == archived["pairing"]["initial_policy_action_chunk_sha256"],
+                            "initial live pi0.5 action chunk differs from Table 1",
+                        )
+                    replan_steps = int(case.get("replan_steps", 5))
+                    action_plan.extend(returned[item].copy() for item in range(replan_steps))
+                    policy_queries.append(
+                        {
+                            "query_index": query_index,
+                            "step": index,
+                            "rng_seed": seed,
+                            "returned_actions_sha256": returned_hash,
+                            "wall_seconds": query_wall_seconds,
+                            "server_timing": response.get("server_timing"),
+                        }
+                    )
+                policy_query_index = len(policy_queries) - 1
+                nominal_raw = np.asarray(action_plan.popleft(), dtype=np.float64)
+                translational = translational_action(nominal_raw)
+                _require(
+                    proxy is not None
+                    and released_aegis_geometry is not None
+                    and q1_diag is not None,
+                    "released AEGIS live state is unavailable",
+                )
+                nominal_list, aegis_qp_record = _aegis_action(
+                    runtime,
+                    nominal_translational=translational,
+                    proxy=proxy,
+                    geometry=released_aegis_geometry,
+                    q1_diag=q1_diag,
+                    diagnostics_enabled=True,
+                )
+                nominal = np.asarray(nominal_list, dtype=np.float64)
+            else:
+                archived_action = archived_actions[index]
+                _require(int(archived_action["step"]) == index, "archived action indexes differ")
+                nominal = np.asarray(archived_action["env_step_input"], dtype=np.float64)
+                _require(
+                    nominal.shape == (7,)
+                    and np.array_equal(nominal, np.asarray(archived_action["executed"])),
+                    "archived env.step input binding differs",
+                )
             executed, filter_step = controller.filter(env, nominal, step=index)
             filter_records.append(filter_step)
             if executed is None:
@@ -217,6 +326,8 @@ def evaluate(
                 }
                 break
             observation, reward, done, _ = env.step(executed)
+            if live_policy:
+                proxy = _eef_proxy(runtime, observation)
             try:
                 controller.verify_executed_transition(env, filter_step)
             except ValueError as error:
@@ -269,10 +380,16 @@ def evaluate(
             action_records.append(
                 {
                     "step": index,
-                    "archived_aegis_action_sha256": _sha256(
+                    "nominal_aegis_action_sha256": _sha256(
                         json.dumps(nominal.tolist(), separators=(",", ":"), allow_nan=False).encode("utf-8")
                     ),
-                    "nominal_archived_aegis_action": nominal.tolist(),
+                    "nominal_action_source": heuristic_config["nominal_action_source"],
+                    "nominal_raw_policy_action": (
+                        None if nominal_raw is None else nominal_raw.tolist()
+                    ),
+                    "policy_query_index": policy_query_index,
+                    "released_aegis_qp": aegis_qp_record,
+                    "nominal_released_aegis_action": nominal.tolist(),
                     "executed_sitl_action": list(executed),
                     "reward": float(reward),
                     "done": bool(done),
@@ -306,7 +423,11 @@ def evaluate(
             and native_success
         )
         result = {
-            "schema_version": "vlsa_distal_sitl_candidate_e05_result.v1",
+            "schema_version": (
+                "vlsa_distal_sitl_live_e05_result.v1"
+                if live_policy
+                else "vlsa_distal_sitl_candidate_e05_result.v1"
+            ),
             "status": "complete" if failure is None else "method_failure",
             "scientific_result": True,
             "case_id": CASE_ID,
@@ -327,6 +448,9 @@ def evaluate(
                 },
             },
             "pairing": pairing,
+            "policy_server": server_identity,
+            "policy_query_count": len(policy_queries),
+            "policy_queries": policy_queries,
             "probe_environment": {
                 "same_bddl_task_episode_and_settled_state": True,
                 "disabled_image_observable_count": disabled_probe_observables,
@@ -389,6 +513,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--heuristic-config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = evaluate(
@@ -399,6 +525,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         heuristic_config_path=args.heuristic_config.resolve(),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
+        host=args.host,
+        port=args.port,
     )
     _atomic_write(args.output.resolve(), result)
     print(

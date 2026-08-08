@@ -71,9 +71,10 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL candidate schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("SITL candidate must select only the primary case")
-    if config["nominal_action_source"] != (
-        "immutable_successful_released_aegis_env_step_input"
-    ):
+    if config["nominal_action_source"] not in {
+        "immutable_successful_released_aegis_env_step_input",
+        "live_pi05_libero_then_released_aegis_ee_qp_replanned_every_five_steps",
+    }:
         raise ValueError("SITL nominal action source differs")
     geometry = config["protected_geometry"]
     if geometry != {
