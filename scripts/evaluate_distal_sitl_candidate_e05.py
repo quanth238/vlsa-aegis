@@ -87,6 +87,7 @@ def evaluate(
         DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
         DISTAL_ONLY_RELEASED_EE_SCHEMA,
         EXACT_BOX_CLOSED_LOOP_SCHEMA,
+        PAIRED_DISTAL_RECOVERY_SCHEMA,
         load_sitl_candidate_config,
         summarize_sitl_steps,
     )
@@ -116,6 +117,7 @@ def evaluate(
         EXACT_BOX_CLOSED_LOOP_SCHEMA,
         DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
         DISTAL_ONLY_RELEASED_EE_SCHEMA,
+        PAIRED_DISTAL_RECOVERY_SCHEMA,
     }:
         from main.multilink_ellipsoid.obstacle_primitives import (
             load_obstacle_primitive_config,
@@ -599,31 +601,36 @@ def evaluate(
         )
         result = {
             "schema_version": (
-                "vlsa_distal_sitl_hybrid_recovery_e05_result.v1"
-                if hybrid_recovery
+                "vlsa_distal_exact_box_closed_loop_e05_result.v4"
+                if heuristic_config["schema_version"]
+                == PAIRED_DISTAL_RECOVERY_SCHEMA
                 else (
-                    (
+                    "vlsa_distal_sitl_hybrid_recovery_e05_result.v1"
+                    if hybrid_recovery
+                    else (
                         (
-                            "vlsa_distal_exact_box_closed_loop_e05_result.v3"
-                            if heuristic_config["schema_version"]
-                            == DISTAL_ONLY_RELEASED_EE_SCHEMA
-                            else (
-                                "vlsa_distal_exact_box_closed_loop_e05_result.v2"
+                            (
+                                "vlsa_distal_exact_box_closed_loop_e05_result.v3"
                                 if heuristic_config["schema_version"]
-                                == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
-                                else "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+                                == DISTAL_ONLY_RELEASED_EE_SCHEMA
+                                else (
+                                    "vlsa_distal_exact_box_closed_loop_e05_result.v2"
+                                    if heuristic_config["schema_version"]
+                                    == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
+                                    else "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+                                )
                             )
+                            if heuristic_config["schema_version"]
+                            in {
+                                EXACT_BOX_CLOSED_LOOP_SCHEMA,
+                                DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+                                DISTAL_ONLY_RELEASED_EE_SCHEMA,
+                            }
+                            else "vlsa_distal_sitl_live_e05_result.v1"
                         )
-                        if heuristic_config["schema_version"]
-                        in {
-                            EXACT_BOX_CLOSED_LOOP_SCHEMA,
-                            DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
-                            DISTAL_ONLY_RELEASED_EE_SCHEMA,
-                        }
-                        else "vlsa_distal_sitl_live_e05_result.v1"
+                        if live_policy
+                        else "vlsa_distal_sitl_candidate_e05_result.v1"
                     )
-                    if live_policy
-                    else "vlsa_distal_sitl_candidate_e05_result.v1"
                 )
             ),
             "status": "complete" if failure is None else "method_failure",

@@ -1,5 +1,17 @@
 # Reproduction decisions
 
+## ADR-0061: Pair the known prefix before live recovery
+
+Accepted from clean job `37189`. A fresh live pi0.5 rollout remained at least
+`88.478 mm` from the distal obstacle proxy, never activated the new filter,
+and failed the task. It therefore did not test the known Table-1 failure.
+
+V4 exactly replays the immutable successful AEGIS prefix until the first
+distal `8 mm` intervention, then discards the stale plan and begins live
+pi0.5/released-AEGIS feedback from the corrected observation. This keeps the
+failure-state comparison paired while measuring closed-loop recovery, without
+altering any completed Table-1 artifact.
+
 ## ADR-0060: Do not add a second discrete EE rule
 
 Accepted from clean job `37187`. Restoring the EE proxy's original obstacle

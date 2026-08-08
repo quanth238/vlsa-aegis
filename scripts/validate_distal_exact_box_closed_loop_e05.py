@@ -16,6 +16,7 @@ RESULT_SCHEMAS = {
     "vlsa_distal_exact_box_closed_loop_e05_result.v1",
     "vlsa_distal_exact_box_closed_loop_e05_result.v2",
     "vlsa_distal_exact_box_closed_loop_e05_result.v3",
+    "vlsa_distal_exact_box_closed_loop_e05_result.v4",
 }
 CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 
@@ -84,7 +85,10 @@ def validate(candidate_path: Path) -> dict[str, Any]:
     target = [0.008] * 7 + [
         -1.0
         if result.get("schema_version")
-        == "vlsa_distal_exact_box_closed_loop_e05_result.v3"
+        in {
+            "vlsa_distal_exact_box_closed_loop_e05_result.v3",
+            "vlsa_distal_exact_box_closed_loop_e05_result.v4",
+        }
         else 0.0
     ]
     tolerance = 1.0e-6
@@ -113,7 +117,10 @@ def validate(candidate_path: Path) -> dict[str, Any]:
             )
             == "frozen_released_aegis_perception_mvee"
         )
-    if result.get("schema_version") == "vlsa_distal_exact_box_closed_loop_e05_result.v3":
+    if result.get("schema_version") in {
+        "vlsa_distal_exact_box_closed_loop_e05_result.v3",
+        "vlsa_distal_exact_box_closed_loop_e05_result.v4",
+    }:
         checks["released_aegis_ee_qp_unaugmented"] = bool(
             result.get("config", {}).get("protected_geometry", {}).get(
                 "end_effector_target"
@@ -123,6 +130,12 @@ def validate(candidate_path: Path) -> dict[str, Any]:
                 "end_effector_constraint_mode"
             )
             == "unchanged_released_aegis_qp_without_second_discrete_EE_target"
+        )
+    if result.get("schema_version") == "vlsa_distal_exact_box_closed_loop_e05_result.v4":
+        checks["paired_prefix_then_live_recovery"] = bool(
+            result.get("hybrid_recovery", {}).get("enabled") is True
+            and result.get("config", {}).get("nominal_action_source")
+            == "immutable_released_aegis_until_first_sitl_intervention_then_live_pi05_libero_recovery_with_released_aegis_ee_qp"
         )
     checks["accepted_exact_substep_clearance"] = bool(
         action_records

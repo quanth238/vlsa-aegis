@@ -160,6 +160,21 @@ class DistalSitlCandidateTests(unittest.TestCase):
             "released_aegis_nominal_qp_then_raw_simulator_contact_and_displacement_veto",
         )
 
+    def test_v4_pairs_failure_prefix_before_live_recovery(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import (
+            PAIRED_DISTAL_RECOVERY_SCHEMA,
+            load_sitl_candidate_config,
+        )
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_exact_box_closed_loop_e05.v4.json"
+        )
+        self.assertEqual(config["schema_version"], PAIRED_DISTAL_RECOVERY_SCHEMA)
+        self.assertEqual(
+            config["nominal_action_source"],
+            "immutable_released_aegis_until_first_sitl_intervention_then_live_pi05_libero_recovery_with_released_aegis_ee_qp",
+        )
+
     def test_hybrid_config_switches_only_after_distal_intervention(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
 

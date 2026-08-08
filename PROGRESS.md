@@ -57,6 +57,24 @@ and `7e15d15e745b608389cf4d805ae06f1dc3943d9ac6fccd07b2a5b85b7125f7fa`;
 payload SHA-256 is
 `21c85e2d1150f2bcc6c8f6b982d37f85c0d9e344bdbbf35dfb0ef3828f342157`.
 
+Clean H100 job `37189` completed v3's full 300-step horizon on worker-1 in
+`1m58s` from commit `c28bb7ac9cc8e496d40a57940de9e7c24ff1b0b9`; all 47
+tests and validation passed. It had exact clone agreement, no contact/CAR,
+and no task success. Minimum distal clearance was `88.478 mm`, so the seven
+new rows never activated. This fresh live rollout did not reproduce the
+primary Table-1 failure path and is safe but inconclusive for recovery.
+
+V4 is preregistered to execute the immutable successful AEGIS prefix until
+the first exact distal `8 mm` correction, then switch to live pi0.5/released
+AEGIS closed-loop recovery. The filter and all gates remain unchanged. Scope
+is in `docs/distal_exact_box_closed_loop_v4_preregistration.md`. V3
+result/validation/preflight SHA-256 values are
+`e0ff795b27f23a06ceb76946ced1985955a2b9d388a549dd5354381774d909df`,
+`33b0940e41fcba5768add43385b11734b81f9c27f83bb813a6f5d15934b08351`,
+and `cb9e5c15ffd9d6b051d2cddfdb3cbccd1ff026a90a7d1ef01f9f96acab18189a`;
+payload SHA-256 is
+`63414c2bba374521f8be68cfb2db663a06fb7cfb55b08da42421ee2339e2a9aa`.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without
