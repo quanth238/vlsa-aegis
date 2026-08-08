@@ -674,3 +674,19 @@ corruption and 180-degree orientation changes. On failure, raw and processed
 frames, action/joint-state history, and fixed-camera poses are atomically
 retained. No failed visual run is promoted to scientific evidence, even if
 its MP4 decodes.
+
+## ADR-0043: Eliminate the second OSMesa environment from joint denoising
+
+Accepted from the fail-closed trace of H100 job `37061`. The first direct
+joint target was well behaved: zero encoding saturation and at most
+`0.299 rad/s` observed velocity. The fixed MuJoCo camera transform remained
+bitwise identical, but the source image became an almost exact 180-degree
+rotation immediately after action zero. This rules out the sampled target or
+physical camera motion as the cause of that frame.
+
+The remaining context violation was the separate rendered environment used
+only for kinematic queries inside the Joint worker. The repair reuses the
+live MuJoCo model for FK and Jacobians, then restores the full flattened state
+and requires bitwise equality before action execution. This preserves exact
+kinematics while avoiding a second OSMesa context. It is an apparatus repair,
+not a change to EmbodiSteer equations or the baseline protocol.

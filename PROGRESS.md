@@ -127,6 +127,25 @@ apparatus failure with no baseline outcome. The compatibility repair uses
 native `mujoco.mj_name2id` when the wrapper method is absent and changes no
 control, policy, pairing, geometry, or acceptance parameter.
 
+Job `37060` is a one-second submission typo: the expected full commit hash was
+mistyped, so the clean-source gate rejected it before creating a run root.
+Retry `37061` completed the valid 10 Hz Cartesian worker, then failed the
+Joint visual gate at action zero. The atomic trace makes the cause precise:
+the joint target had zero encoding saturation, peak post-step velocity was
+only `0.299 rad/s`, and the MuJoCo `agentview` camera pose was bitwise
+unchanged, while the processed frame was almost exactly the 180-degree
+rotation of the initial frame (`0.000618/255` rotated-reference MAD versus
+`71.202/255` upright-reference MAD).
+
+The Joint worker still constructed a second rendered SafeLIBERO environment
+for read-only FK/Jacobian queries; this changes the process-global OSMesa
+context even though the paired arms themselves use fresh processes. The next
+retry removes that second environment. It performs exact FK/Jacobian queries
+on the live MuJoCo model, restores the complete flattened state before every
+executed action, and requires bitwise state equality after restoration. No
+policy, joint target, controller, rate, pairing, geometry, or visual threshold
+changes.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

@@ -93,6 +93,17 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
         )
         self.assertFalse(config["collision_guidance"]["ellipsoid_constraints_enabled"])
 
+    def test_joint_worker_does_not_construct_a_second_render_environment(self):
+        source = (
+            ROOT / "scripts/evaluate_embodisteer_joint_baselines_e05.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("probe_env", source)
+        self.assertIn(
+            "live simulator state differs after joint-space kinematic lifting",
+            source,
+        )
+
     def test_damped_pseudoinverse_is_finite_and_has_paper_shape(self):
         jacobian = np.zeros((6, 7))
         jacobian[:, :6] = np.eye(6)

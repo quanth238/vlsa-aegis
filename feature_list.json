@@ -94,7 +94,10 @@
       "Preregistered v2 retains the same frozen checkpoint, state/noise pairing, Q0 sampler, obstacle scene, and zero guidance, but encodes absolute joint targets through a 6 rad delta-controller range, requires zero encoding saturation, runs arms in fresh processes, and fails closed on source or decoded adjacent-pixel MAD above 8/255.",
       "H100 job 37058 produced no accepted pair: the v2 Cartesian worker completed, but the fresh-process Joint camera flipped at action 10 and failed the adjacent-pixel gate at action 11, so the run is retained as apparatus failure rather than an EmbodiSteer outcome.",
       "Preregistered v3 retains zero geometry/guidance and the absolute joint-target adapter, but follows the paper's 10 Hz control rate and executes all ten actions available from pi0.5; it adds a 180-degree orientation gate plus atomic frame/action/joint/camera failure traces and remains explicitly distinct from the paper's 16-action obstacle-free Joint population.",
-      "Initial v3 H100 submission 37059 stopped before action zero because native MuJoCo lacks the legacy camera_name2id wrapper method; the compatibility-only fallback uses mujoco.mj_name2id and changes no scientific setting."
+      "Initial v3 H100 submission 37059 stopped before action zero because native MuJoCo lacks the legacy camera_name2id wrapper method; the compatibility-only fallback uses mujoco.mj_name2id and changes no scientific setting.",
+      "Job 37060 was rejected in one second by the clean-source gate due to a mistyped expected full commit hash and created no run root.",
+      "H100 retry 37061 completed the valid Cartesian worker but rejected Joint at action zero: zero target saturation, peak joint velocity 0.299 rad/s, and a bitwise-fixed camera pose accompanied an almost exact 180-degree frame rotation, identifying the second rendered FK probe environment as an OSMesa context violation rather than a joint-motion outcome.",
+      "The preregistered repair performs FK/Jacobians on the live MuJoCo model, restores the complete flattened state with bitwise equality before execution, and removes the second rendered environment without changing any baseline or acceptance setting."
       ]
     },
     {

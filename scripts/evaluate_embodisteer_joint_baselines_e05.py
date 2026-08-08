@@ -242,7 +242,7 @@ def _arm_joint_contract(env: Any, margin: float) -> dict[str, Any]:
     }
 
 
-def _kinematics_callback(probe_env: Any, base_state: Any):
+def _kinematics_callback(env: Any, base_state: Any):
     import numpy as np
 
     from main.multilink_ellipsoid.shadow import (
@@ -252,14 +252,14 @@ def _kinematics_callback(probe_env: Any, base_state: Any):
         _raw_model_data,
     )
 
-    probe_env.sim.set_state_from_flattened(np.asarray(base_state, dtype=np.float64))
-    probe_env.sim.forward()
-    model, data = _raw_model_data(probe_env.sim)
-    dofs = _arm_dof_indices(probe_env)
+    env.sim.set_state_from_flattened(np.asarray(base_state, dtype=np.float64))
+    env.sim.forward()
+    model, data = _raw_model_data(env.sim)
+    dofs = _arm_dof_indices(env)
     addresses = [
         int(model.jnt_qposadr[int(model.dof_jntid[index])]) for index in dofs
     ]
-    site_id = _eef_site_id(probe_env)
+    site_id = _eef_site_id(env)
 
     def evaluate(configuration: Any):
         value = np.asarray(configuration, dtype=np.float64)
@@ -269,10 +269,10 @@ def _kinematics_callback(probe_env: Any, base_state: Any):
         )
         data.qpos[addresses] = value
         data.qvel[list(dofs)] = 0.0
-        probe_env.sim.forward()
+        env.sim.forward()
         position = np.asarray(data.site_xpos[site_id], dtype=np.float64).copy()
         rotation = np.asarray(data.site_xmat[site_id], dtype=np.float64).reshape(3, 3).copy()
-        jacobian = np.asarray(_eef_jacobian(probe_env, dofs), dtype=np.float64).copy()
+        jacobian = np.asarray(_eef_jacobian(env, dofs), dtype=np.float64).copy()
         return position, rotation, jacobian
 
     return evaluate
@@ -361,7 +361,6 @@ def _joint_chunk(
     task_language: str,
     seed: int,
     env: Any,
-    probe_env: Any,
     config: Mapping[str, Any],
 ) -> tuple[Any, dict[str, Any]]:
     import numpy as np
@@ -401,7 +400,10 @@ def _joint_chunk(
     _require(model_actions.shape == (10, 32), "joint initialization model shape differs")
     start_configuration = np.asarray(_joint_state(env)[0], dtype=np.float64)
     base_state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64).copy()
-    kinematics = _kinematics_callback(probe_env, base_state)
+    # Use the live model for exact FK/Jacobians, then restore its full state
+    # before execution. Constructing a second rendered environment changes
+    # the process-global OSMesa context and flips/corrupts the primary camera.
+    kinematics = _kinematics_callback(env, base_state)
     contract = _arm_joint_contract(env, float(parameters["joint_limit_margin_rad"]))
     trajectory, initialization = initialize_joint_trajectory(
         initial_actions[:, :6],
@@ -484,7 +486,7 @@ def _joint_chunk(
                 "wall_seconds": step_wall,
             }
         )
-    return trajectory, {
+    record = {
         "rng_seed": seed,
         "initial_model_noise_sha256": array_sha256(
             np.asarray(primitive["model_actions"], dtype=np.float32)
@@ -498,6 +500,16 @@ def _joint_chunk(
         "collision_geometry_queried": False,
         "barrier_qp_solved": False,
     }
+    env.sim.set_state_from_flattened(base_state)
+    env.sim.forward()
+    _require(
+        np.array_equal(
+            np.asarray(env.sim.get_state().flatten(), dtype=np.float64),
+            base_state,
+        ),
+        "live simulator state differs after joint-space kinematic lifting",
+    )
+    return trajectory, record
 
 
 def _flow_step_equivalence_preflight(
@@ -659,7 +671,6 @@ def _run_arm(
     from main.evaluate_safelibero_aegis import (
         TABLE_RENDER_RESOLUTION,
         _active_obstacle,
-        _build_environment,
         _contact_model_authority,
         _detailed_active_obstacle_contacts,
         _goal_progress_definition,
@@ -680,7 +691,6 @@ def _run_arm(
     final_video = arm_root / "episode.mp4"
     final_jpg = arm_root / "final.jpg"
     env = None
-    probe_env = None
     writer = None
     frames = 0
     started = time.perf_counter_ns()
@@ -688,21 +698,6 @@ def _run_arm(
         env, task, observation = _build_arm(
             runtime, case, config, reference, joint=joint
         )
-        if joint:
-            probe_env, _, _, probe_initial = _build_environment(
-                runtime,
-                case,
-                render_resolution=32,
-                controller_configs=config["action_protocol"]["joint_controller"],
-                control_frequency_hz=int(config["action_protocol"]["control_frequency_hz"]),
-                ignore_done=True,
-            )
-            _require(
-                np.array_equal(np.asarray(probe_initial), reference["selected_initial_state"]),
-                "joint kinematics probe initial state differs",
-            )
-            probe_env.sim.set_state_from_flattened(reference["state"])
-            probe_env.sim.forward()
         obstacle_name, _ = _active_obstacle(env, observation)
         _require(obstacle_name == reference["obstacle_name"], "arm obstacle differs")
         initial_obstacle_position = np.asarray(
@@ -772,7 +767,6 @@ def _run_arm(
                         task_language=str(task.language),
                         seed=seed,
                         env=env,
-                        probe_env=probe_env,
                         config=config,
                     )
                     gripper_actions = query_record.pop("final_gripper_actions")
@@ -1075,8 +1069,6 @@ def _run_arm(
             if writer is not None:
                 writer.close()
         finally:
-            if probe_env is not None:
-                probe_env.close()
             if env is not None:
                 env.close()
     _require(partial_video.is_file() and partial_video.stat().st_size > 0, "arm video missing")
