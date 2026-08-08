@@ -1,0 +1,116 @@
+{
+  "action_protocol": {
+    "cartesian_controller": "OSC_POSE",
+    "control_frequency_hz": 20,
+    "execute_actions_per_query": 5,
+    "joint_controller": {
+      "damping_ratio": 1.0,
+      "impedance_mode": "fixed",
+      "input_max": 1.0,
+      "input_min": -1.0,
+      "interpolation": null,
+      "kp": 50.0,
+      "output_max": 6.0,
+      "output_min": -6.0,
+      "qpos_limits": null,
+      "ramp_ratio": 0.2,
+      "type": "JOINT_POSITION"
+    },
+    "joint_target_encoding": {
+      "formula": "env_action=(q_target-q_current)/controller_output_max",
+      "maximum_panda_joint_range_rad": 5.8,
+      "purpose": "encode_absolute_Q0_target_without_delta_saturation"
+    },
+    "max_actions": 300,
+    "model_action_horizon": 10
+  },
+  "arms": [
+    "cartesian_ee_with_aegis_ee",
+    "joint_denoising_with_aegis_ee"
+  ],
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_primary_case_released_20hz_aegis_end_effector_constraint_on_cartesian_and_posthoc_joint_denoising_adapter_not_embodisteer_joint_baseline_or_full_body_safety",
+  "collision_guidance": {
+    "barrier_projection_enabled": true,
+    "ellipsoid_constraints_enabled": true,
+    "joint_adapter": {
+      "damped_jacobian_lambda": 0.001,
+      "method": "posthoc_released_aegis_cartesian_translation_correction_lifted_to_direct_joint_target",
+      "preserve_nominal_joint_orientation": true,
+      "translation_scale_m_per_action_unit": 0.05
+    },
+    "l5_l6_l7_constraints_enabled": false,
+    "qp_enabled": true,
+    "released_aegis": {
+      "alpha_gain": 10.0,
+      "end_effector_proxy": {
+        "center": "robot0_eef_pose_plus_minus_0.08m_local_z",
+        "semiaxes_m": [0.06, 0.12, 0.11]
+      },
+      "formulation": "released_table1_six_variable_translational_cbf_qp",
+      "internal_dt_s": 0.05,
+      "obstacle_mvee": {
+        "center_m": [-0.058366719778605226, 0.14301469629436583, 1.0230830180351789],
+        "rotation": [
+          [-0.020790474824008438, 0.058184500032663435, -0.9980893347353939],
+          [0.1576830297250622, 0.9860014894880728, 0.054195247614777],
+          [0.9872708940778703, -0.15625500530623276, -0.02967414739182496]
+        ],
+        "semiaxes_m": [0.1393188890560937, 0.12054261654746469, 0.07910671170710154]
+      },
+      "rotation_execution": "zero_as_released_table1_translational_protocol",
+      "source_table1_artifact": {
+        "active_obstacle_initial_position_m": [-0.060000286232933644, 0.14002376109395798, 1.005775853852426],
+        "active_obstacle_position_tolerance_m": 1e-09,
+        "case_id": "vlsa-t1-goal-ii-t0-e05",
+        "file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+        "result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+        "settled_agentview_array_sha256": "b66103d274cbd2db02ef7fe84771725819fb74062ef36de18b6af6119da7865f",
+        "settled_simulator_state_sha256": "5a72a870b8368d0a6508428bb89dce75ccc6f28e86a2349edae35b2618918741"
+      }
+    }
+  },
+  "joint_denoising": {
+    "action_representation_adaptation": "libero_incremental_delta_pose_as_sequential_joint_configuration_trajectory",
+    "cartesian_rotation_scale_rad_per_action_unit": 0.5,
+    "cartesian_translation_scale_m_per_action_unit": 0.05,
+    "flow_euler_steps": 10,
+    "jacobian_damping_lambda_pinv": 0.001,
+    "joint_limit_margin_rad": 0.02,
+    "joint_update_clip_rad": 0.5,
+    "noise_initialization_scale_alpha": 0.1,
+    "pose_dimensions": 6
+  },
+  "nominal_policy": {
+    "checkpoint": "pi05_libero",
+    "frozen": true,
+    "same_checkpoint_both_arms": true
+  },
+  "pairing": {
+    "same_initial_state": true,
+    "same_policy_noise_seed_by_query_index": true,
+    "same_task_and_obstacle_scene": true,
+    "sampler_regression_tolerances": {
+      "executed_first_five_gripper_signs_must_match": true,
+      "raw_action_units": 0.005,
+      "rotation_rad": 0.001,
+      "translation_m": 0.0001
+    },
+    "settle_actions": 20
+  },
+  "paper_reference": {
+    "arxiv": "2606.12965v1",
+    "baseline_definition": "appendix_B4_EE_and_Joint",
+    "code_status_at_preregistration": "project_page_says_code_coming_soon",
+    "joint_denoising_equations": ["3", "4", "8", "9", "10"]
+  },
+  "protocol_id": "vlsa-embodisteer-aegis-ee-pair-e05-v2",
+  "schema_version": "vlsa_embodisteer_aegis_ee_pair.v2",
+  "success_definition": {
+    "competence_gate": "report_task_progress_separately_from_end_effector_barrier_and_raw_full_body_contact",
+    "report_raw_contact_and_car": true,
+    "task_authority": "native_safelibero_goal"
+  }
+}

@@ -28,11 +28,14 @@ CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 PAPER_CAR_THRESHOLD_M = 0.001
 PROTECTED_BODIES = {"robot0_link5", "robot0_link6", "robot0_link7"}
 FLOAT32_ROUNDTRIP_ULPS = 32.0
-AEGIS_EE_SCHEMA = "vlsa_embodisteer_aegis_ee_pair.v1"
+AEGIS_EE_SCHEMAS = {
+    "vlsa_embodisteer_aegis_ee_pair.v1",
+    "vlsa_embodisteer_aegis_ee_pair.v2",
+}
 
 
 def _aegis_ee_enabled(config: Mapping[str, Any]) -> bool:
-    return config.get("schema_version") == AEGIS_EE_SCHEMA
+    return config.get("schema_version") in AEGIS_EE_SCHEMAS
 
 
 def _canonical(value: Any) -> bytes:

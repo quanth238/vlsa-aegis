@@ -21,7 +21,11 @@ SCHEMA = "vlsa_embodisteer_joint_baselines.v1"
 SCHEMA_V2 = "vlsa_embodisteer_joint_baselines.v2"
 SCHEMA_V3 = "vlsa_embodisteer_joint_baselines.v3"
 SCHEMA_AEGIS_EE = "vlsa_embodisteer_aegis_ee_pair.v1"
+SCHEMA_AEGIS_EE_V2 = "vlsa_embodisteer_aegis_ee_pair.v2"
 CONTROL_SCHEMA = "crfs_embodisteer_joint_denoising.v1"
+
+
+AEGIS_EE_SCHEMAS = {SCHEMA_AEGIS_EE, SCHEMA_AEGIS_EE_V2}
 
 
 def _numpy() -> Any:
@@ -70,13 +74,14 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         SCHEMA_V2,
         SCHEMA_V3,
         SCHEMA_AEGIS_EE,
+        SCHEMA_AEGIS_EE_V2,
     }:
         raise ValueError("EmbodiSteer joint-baseline schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("EmbodiSteer joint-baseline case differs")
     expected_arms = (
         ["cartesian_ee_with_aegis_ee", "joint_denoising_with_aegis_ee"]
-        if config["schema_version"] == SCHEMA_AEGIS_EE
+        if config["schema_version"] in AEGIS_EE_SCHEMAS
         else ["cartesian_ee_no_guidance", "joint_denoising_no_guidance"]
     )
     if config["arms"] != expected_arms:
@@ -88,7 +93,7 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         "joint_denoising_equations": ["3", "4", "8", "9", "10"],
     }:
         raise ValueError("EmbodiSteer joint-baseline paper mapping differs")
-    if config["schema_version"] == SCHEMA_AEGIS_EE:
+    if config["schema_version"] in AEGIS_EE_SCHEMAS:
         guidance = config["collision_guidance"]
         if set(guidance) != {
             "barrier_projection_enabled",

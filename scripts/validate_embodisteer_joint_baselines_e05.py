@@ -35,7 +35,10 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
     _require(_sha256(_canonical(result)) == claimed_payload, "pair payload hash differs")
     result["result_payload_sha256"] = claimed_payload
     config = result["config"]
-    guided = config["schema_version"] == "vlsa_embodisteer_aegis_ee_pair.v1"
+    guided = config["schema_version"] in {
+        "vlsa_embodisteer_aegis_ee_pair.v1",
+        "vlsa_embodisteer_aegis_ee_pair.v2",
+    }
     isolation = result["geometry_isolation"]
     expected_isolation = {
             "l5_l6_l7_ellipsoids_constructed": False,

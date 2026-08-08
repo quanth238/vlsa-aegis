@@ -35,6 +35,9 @@ CONFIG_V3 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v3.json"
 CONFIG_AEGIS_EE = (
     ROOT / "configs/vlsa_embodisteer_aegis_ee_pair_e05.v1.json"
 )
+CONFIG_AEGIS_EE_V2 = (
+    ROOT / "configs/vlsa_embodisteer_aegis_ee_pair_e05.v2.json"
+)
 
 
 def _linear_kinematics(configuration):
@@ -146,6 +149,19 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
         self.assertEqual(
             guidance["released_aegis"]["formulation"],
             "released_table1_six_variable_translational_cbf_qp",
+        )
+
+    def test_aegis_ee_v2_restores_released_aegis_action_timing(self):
+        config = load_joint_baseline_config(CONFIG_AEGIS_EE_V2)
+
+        protocol = config["action_protocol"]
+        self.assertEqual(protocol["control_frequency_hz"], 20)
+        self.assertEqual(protocol["execute_actions_per_query"], 5)
+        self.assertEqual(protocol["model_action_horizon"], 10)
+        self.assertNotIn("paper_rate_adaptation", protocol)
+        self.assertEqual(
+            config["collision_guidance"]["released_aegis"]["internal_dt_s"],
+            0.05,
         )
 
     def test_joint_worker_does_not_construct_a_second_render_environment(self):
