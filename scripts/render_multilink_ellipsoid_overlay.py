@@ -19,6 +19,11 @@ COLORS = (
     (255, 152, 0, 245),
     (205, 220, 57, 245),
 )
+PART_COLORS = {
+    5: ((244, 67, 54, 245), (233, 30, 99, 245), (156, 39, 176, 245)),
+    6: ((255, 152, 0, 245), (255, 193, 7, 245)),
+    7: ((205, 220, 57, 245), (76, 175, 80, 245)),
+}
 EE_COLOR = (0, 188, 212, 245)
 
 
@@ -188,9 +193,11 @@ def render(
     from main.multilink_ellipsoid.shadow import (
         DISTAL_ELLIPSOID_SCHEMA,
         DISTAL_PARTITIONED_SCHEMA,
+        DISTAL_SLABBED_SCHEMA,
         _link_ellipsoids,
         _mesh_link_ellipsoids,
         _mesh_link_partition_ellipsoids,
+        _mesh_link_slab_ellipsoids,
         _released_aegis_end_effector_ellipsoid,
         allocation_record,
         load_shadow_config,
@@ -213,7 +220,18 @@ def render(
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         config = load_shadow_config(config_path)
         protected = config["protected_body_names"]
-        if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
+        if config["schema_version"] == DISTAL_SLABBED_SCHEMA:
+            geometry = config["robot_geometry"]
+            ellipsoids = _mesh_link_slab_ellipsoids(
+                env,
+                protected,
+                part_counts=geometry["part_counts"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
+            )
+            ellipsoids.append(_released_aegis_end_effector_ellipsoid(env))
+        elif config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
             geometry = config["robot_geometry"]
             ellipsoids = _mesh_link_partition_ellipsoids(
                 env,
@@ -239,7 +257,11 @@ def render(
             )
         else:
             ellipsoids = _link_ellipsoids(env, protected)
-        expected_count = 8 if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA else 3
+        is_partitioned = config["schema_version"] in {
+            DISTAL_PARTITIONED_SCHEMA,
+            DISTAL_SLABBED_SCHEMA,
+        }
+        expected_count = 8 if is_partitioned else 3
         if len(ellipsoids) != expected_count:
             raise ValueError("live ellipsoid count differs from geometry contract")
 
@@ -278,7 +300,14 @@ def render(
                 index = int(ellipsoid.body_name.rsplit("link", 1)[1])
                 certificate = dict(ellipsoid.enclosure_certificate or {})
                 partition_index = certificate.get("partition_index")
-                color = COLORS[index - 5] if 5 <= index <= 7 else COLORS[ordinal % len(COLORS)]
+                if partition_index is not None and index in PART_COLORS:
+                    color = PART_COLORS[index][int(partition_index)]
+                else:
+                    color = (
+                        COLORS[index - 5]
+                        if 5 <= index <= 7
+                        else COLORS[ordinal % len(COLORS)]
+                    )
                 label = "L%d" % index
                 if partition_index is not None:
                     label += ".%d" % (int(partition_index) + 1)
@@ -347,9 +376,13 @@ def render(
         preview.save(preview_path, quality=90, optimize=True)
         record = {
             "schema_version": (
-                "vlsa_distal_partitioned_ellipsoid_visualization.v1"
-                if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA
-                else "vlsa_multilink_ellipsoid_visualization.v1"
+                "vlsa_distal_slabbed_ellipsoid_visualization.v1"
+                if config["schema_version"] == DISTAL_SLABBED_SCHEMA
+                else (
+                    "vlsa_distal_partitioned_ellipsoid_visualization.v1"
+                    if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA
+                    else "vlsa_multilink_ellipsoid_visualization.v1"
+                )
             ),
             "case_id": CASE_ID,
             "config": {
@@ -373,7 +406,7 @@ def render(
                 "sha256": _sha256_path(preview_path),
             },
         }
-        if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
+        if is_partitioned:
             record.update(
                 {
                     "ellipsoids": link_records,

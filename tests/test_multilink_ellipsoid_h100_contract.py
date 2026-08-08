@@ -24,7 +24,7 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("#SBATCH --cpus-per-task=8", source)
         self.assertIn("#SBATCH --mem=64G", source)
         self.assertIn("rendering requires exactly one visible H100", source)
-        self.assertIn("vlsa_distal_partitioned_ellipsoid_shadow_e05.v3.json", source)
+        self.assertIn("vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json", source)
         self.assertIn("render_multilink_ellipsoid_overlay.py", source)
         self.assertNotIn("#SBATCH --array", source)
 

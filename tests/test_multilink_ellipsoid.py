@@ -203,6 +203,37 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             },
         )
 
+    def test_slabbed_config_keeps_released_ee_and_shortens_l5_l7(self) -> None:
+        from main.multilink_ellipsoid.shadow import load_shadow_config
+
+        config = load_shadow_config(
+            ROOT / "configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json"
+        )
+
+        self.assertEqual(
+            config["robot_geometry"]["part_counts"],
+            {"robot0_link5": 3, "robot0_link6": 2, "robot0_link7": 2},
+        )
+        self.assertEqual(
+            config["robot_geometry"]["slab_partition"],
+            "uniform_projection_span_contiguous_no_gaps",
+        )
+        self.assertEqual(
+            config["end_effector_geometry"]["semiaxes_m"], [0.06, 0.12, 0.11]
+        )
+
+        self.assertEqual(
+            config["end_effector_geometry"],
+            {
+                "center_and_orientation": (
+                    "authoritative_robot0_grip_site_pose_plus_released_"
+                    "minus_0.08m_local_z_offset"
+                ),
+                "semiaxes_m": [0.06, 0.12, 0.11],
+                "source": "released_aegis_end_effector_proxy",
+            },
+        )
+
     @unittest.skipUnless(
         NUMPY_AVAILABLE and SCIPY_AVAILABLE,
         "NumPy and SciPy are optional for the structural gate",
@@ -252,6 +283,75 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
         for part in parts:
             local = (grid - part.center) @ part.rotation
             covered |= np.sum((local / part.semiaxes_m) ** 2, axis=1) <= 1.0 + 1e-10
+        self.assertTrue(np.all(covered))
+
+    @unittest.skipUnless(
+        NUMPY_AVAILABLE and SCIPY_AVAILABLE,
+        "NumPy and SciPy are optional for the structural gate",
+    )
+    def test_slabbed_box_union_is_gap_free_and_shorter(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.geometry import (
+            minimum_volume_enclosing_ellipsoid,
+            slabbed_convex_hull_enclosing_ellipsoids,
+        )
+
+        points = np.asarray(
+            [
+                [x, y, z]
+                for x in (-2.0, 2.0)
+                for y in (-1.0, 1.0)
+                for z in (-0.5, 0.5)
+            ],
+            dtype=np.float64,
+        )
+        single = minimum_volume_enclosing_ellipsoid(
+            points,
+            body_name="robot0_link5",
+            geom_name="robot0_link5_collision",
+            source_body_names=("robot0_link5",),
+            source_geom_names=("robot0_link5_collision",),
+        )
+        parts = slabbed_convex_hull_enclosing_ellipsoids(
+            points,
+            part_count=2,
+            body_name="robot0_link5",
+            geom_name="robot0_link5_collision",
+            source_body_names=("robot0_link5",),
+            source_geom_names=("robot0_link5_collision",),
+        )
+
+        self.assertEqual(len(parts), 2)
+        self.assertTrue(
+            all(max(part.semiaxes_m) < max(single.semiaxes_m) for part in parts)
+        )
+        boundaries = [
+            part.enclosure_certificate["slab_boundaries_m"] for part in parts
+        ]
+        self.assertEqual(boundaries[0], boundaries[1])
+        self.assertEqual(
+            parts[0].enclosure_certificate["slab_upper_projection_m"],
+            parts[1].enclosure_certificate["slab_lower_projection_m"],
+        )
+        grid = np.asarray(
+            [
+                [x, y, z]
+                for x in np.linspace(-2.0, 2.0, 17)
+                for y in np.linspace(-1.0, 1.0, 9)
+                for z in np.linspace(-0.5, 0.5, 7)
+            ]
+        )
+        covered = np.zeros(len(grid), dtype=bool)
+        for part in parts:
+            certificate = part.enclosure_certificate
+            self.assertTrue(certificate["slab_clipped_polytope_contained"])
+            self.assertTrue(certificate["slab_boundaries_contiguous_without_gaps"])
+            self.assertTrue(certificate["convex_hull_contained_by_partition_union"])
+            local = (grid - part.center) @ part.rotation
+            covered |= (
+                np.sum((local / part.semiaxes_m) ** 2, axis=1) <= 1.0 + 1e-10
+            )
         self.assertTrue(np.all(covered))
 
     def test_active_multicbf_config_filters_only_xyz_for_links_5_6_7(self) -> None:

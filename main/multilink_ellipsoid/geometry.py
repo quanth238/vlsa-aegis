@@ -418,6 +418,198 @@ def partitioned_convex_hull_enclosing_ellipsoids(
     return output
 
 
+def slabbed_convex_hull_enclosing_ellipsoids(
+    points_world: Any,
+    *,
+    part_count: int,
+    body_name: str,
+    geom_name: str,
+    body_id: int = -1,
+    geom_id: int = -1,
+    source_body_names: Sequence[str],
+    source_geom_names: Sequence[str],
+    relative_padding: float = 1.0e-9,
+    tolerance: float = 1.0e-4,
+    max_iterations: int = 20000,
+    certificate_metadata: Mapping[str, Any] | None = None,
+    include_source_points: bool = False,
+) -> list[Ellipsoid]:
+    """Cover a collision hull with short, gap-free longitudinal ellipsoids.
+
+    The convex hull is cut by contiguous slabs normal to its dominant PCA
+    axis.  A clipped convex-polytope vertex is either an original hull vertex
+    or the intersection of a hull edge with a slab plane, so those vertices
+    are enumerated exactly.  One enclosing MVEE per clipped polytope contains
+    the complete slab by convexity.  The contiguous slabs exactly cover the
+    source hull, proving union enclosure without forcing every ellipsoid to
+    share an apex or span the full link.
+    """
+
+    np = _numpy()
+    try:
+        from scipy.spatial import ConvexHull
+    except ImportError as error:  # pragma: no cover - allocation dependency
+        raise RuntimeError("slabbed ellipsoids require SciPy") from error
+
+    points = np.asarray(points_world, dtype=np.float64)
+    if (
+        points.ndim != 2
+        or points.shape[1] != 3
+        or points.shape[0] < 4
+        or not np.all(np.isfinite(points))
+    ):
+        raise ValueError("slab source points must be a finite Nx3 array")
+    if isinstance(part_count, bool) or int(part_count) < 1:
+        raise ValueError("ellipsoid part_count must be a positive integer")
+    count = int(part_count)
+    hull = ConvexHull(points)
+    hull_indices = np.asarray(hull.vertices, dtype=np.int64)
+    hull_points = points[hull_indices]
+    facets = np.asarray(hull.simplices, dtype=np.int64)
+    if facets.ndim != 2 or facets.shape[1] != 3:
+        raise ValueError("convex hull must have triangular facets")
+
+    center = np.mean(hull_points, axis=0)
+    centered = hull_points - center
+    covariance = centered.T @ centered / float(len(hull_points))
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    axis = np.asarray(eigenvectors[:, int(np.argmax(eigenvalues))], dtype=np.float64)
+    sign_index = int(np.argmax(np.abs(axis)))
+    if axis[sign_index] < 0.0:
+        axis = -axis
+    projections = (hull_points - center) @ axis
+    projection_min = float(np.min(projections))
+    projection_max = float(np.max(projections))
+    if projection_max - projection_min <= 1.0e-12:
+        raise ValueError("convex hull has degenerate dominant-axis span")
+    boundaries = np.linspace(projection_min, projection_max, count + 1)
+
+    edge_set: set[tuple[int, int]] = set()
+    for facet in facets:
+        for first, second in (
+            (facet[0], facet[1]),
+            (facet[1], facet[2]),
+            (facet[2], facet[0]),
+        ):
+            edge_set.add((min(int(first), int(second)), max(int(first), int(second))))
+    edges = sorted(edge_set)
+    source_projection = (points - center) @ axis
+    source_hash = hashlib.sha256(
+        np.ascontiguousarray(points, dtype="<f8").tobytes(order="C")
+    ).hexdigest()
+    facet_hash = hashlib.sha256(
+        np.ascontiguousarray(facets, dtype="<i8").tobytes(order="C")
+    ).hexdigest()
+    edge_hash = hashlib.sha256(
+        np.ascontiguousarray(edges, dtype="<i8").tobytes(order="C")
+    ).hexdigest()
+
+    output: list[Ellipsoid] = []
+    for partition_index in range(count):
+        lower = float(boundaries[partition_index])
+        upper = float(boundaries[partition_index + 1])
+        inside = hull_indices[
+            (source_projection[hull_indices] >= lower)
+            & (source_projection[hull_indices] <= upper)
+        ]
+        support_values = [
+            np.asarray(points[index], dtype=np.float64) for index in inside
+        ]
+        plane_intersection_count = 0
+        for first, second in edges:
+            first_projection = float(source_projection[first])
+            second_projection = float(source_projection[second])
+            denominator = second_projection - first_projection
+            if abs(denominator) <= 1.0e-15:
+                continue
+            for boundary in (lower, upper):
+                if min(first_projection, second_projection) < boundary < max(
+                    first_projection, second_projection
+                ):
+                    fraction = (boundary - first_projection) / denominator
+                    support_values.append(
+                        points[first] + fraction * (points[second] - points[first])
+                    )
+                    plane_intersection_count += 1
+        support = np.asarray(support_values, dtype=np.float64)
+        if support.ndim != 2 or support.shape[0] < 4:
+            raise ValueError("clipped convex-hull slab has insufficient vertices")
+        support = np.unique(support, axis=0)
+        if int(np.linalg.matrix_rank(support - np.mean(support, axis=0))) != 3:
+            raise ValueError("clipped convex-hull slab is degenerate")
+
+        metadata = dict(certificate_metadata or {})
+        metadata.update(
+            {
+                "partition_index": int(partition_index),
+                "partition_count": count,
+                "partition_axis_world": axis.tolist(),
+                "slab_lower_projection_m": lower,
+                "slab_upper_projection_m": upper,
+                "slab_axis_span_m": upper - lower,
+                "slab_clipped_polytope_vertex_count": int(len(support)),
+                "slab_original_hull_vertex_count": int(len(inside)),
+                "slab_edge_plane_intersection_count": int(plane_intersection_count),
+                "slab_clipped_vertices_float64_sha256": hashlib.sha256(
+                    np.ascontiguousarray(support, dtype="<f8").tobytes(order="C")
+                ).hexdigest(),
+                "convex_hull_face_count": int(len(facets)),
+                "convex_hull_edge_count": int(len(edges)),
+                "convex_hull_vertex_count": int(len(hull_points)),
+                "convex_hull_volume_m3": float(hull.volume),
+                "convex_hull_source_vertices_float64_sha256": source_hash,
+                "convex_hull_facets_int64_sha256": facet_hash,
+                "convex_hull_edges_int64_sha256": edge_hash,
+                "slab_boundaries_m": boundaries.tolist(),
+            }
+        )
+        fitted = minimum_volume_enclosing_ellipsoid(
+            support,
+            body_name=body_name,
+            geom_name="%s#part%d" % (geom_name, partition_index + 1),
+            body_id=body_id,
+            geom_id=geom_id,
+            source_body_names=source_body_names,
+            source_geom_names=source_geom_names,
+            relative_padding=relative_padding,
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+            include_source_points=include_source_points,
+        )
+        certificate = dict(fitted.enclosure_certificate or {})
+        certificate.update(metadata)
+        certificate.update(
+            {
+                "proof": (
+                    "complete_convex_hull_covered_by_contiguous_clipped_"
+                    "polytope_slab_ellipsoids"
+                ),
+                "fit_method": (
+                    "convex_hull_axis_slab_khachiyan_mvee_exact_inflation"
+                ),
+                "slab_clipped_polytope_contained": True,
+                "slab_boundaries_contiguous_without_gaps": True,
+                "convex_hull_contained_by_partition_union": True,
+            }
+        )
+        output.append(
+            Ellipsoid(
+                center=fitted.center,
+                rotation=fitted.rotation,
+                semiaxes_m=fitted.semiaxes_m,
+                body_id=fitted.body_id,
+                body_name=fitted.body_name,
+                geom_id=fitted.geom_id,
+                geom_name=fitted.geom_name,
+                bound_source="certified_slabbed_convex_hull_mvee_union",
+                source_body_names=fitted.source_body_names,
+                source_geom_names=fitted.source_geom_names,
+                enclosure_certificate=certificate,
+            )
+        )
+    return output
+
+
 def primitive_bounding_radii(
     geom_kind: str,
     geom_size: Sequence[float],

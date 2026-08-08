@@ -18,7 +18,7 @@ EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
 RUN_ID=${RUN_ID:?RUN_ID is required}
 EVALUATION_PYTHON=${EVALUATION_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-partitioned-ellipsoid-geometry}
-CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_distal_partitioned_ellipsoid_shadow_e05.v3.json}
+CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json}
 
 die() {
   printf '%s\n' "$*" >&2

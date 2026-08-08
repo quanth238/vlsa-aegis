@@ -19,6 +19,7 @@ from .geometry import (
     partitioned_convex_hull_enclosing_ellipsoids,
     primitive_bounding_radii,
     primitive_enclosure_certificate,
+    slabbed_convex_hull_enclosing_ellipsoids,
 )
 from .qp import MultiConstraintQp
 
@@ -26,6 +27,7 @@ from .qp import MultiConstraintQp
 SHADOW_SCHEMA = "vlsa_multilink_ellipsoid_shadow.v1"
 DISTAL_ELLIPSOID_SCHEMA = "vlsa_distal_three_ellipsoid_shadow.v2"
 DISTAL_PARTITIONED_SCHEMA = "vlsa_distal_partitioned_ellipsoid_shadow.v3"
+DISTAL_SLABBED_SCHEMA = "vlsa_distal_slabbed_ellipsoid_shadow.v4"
 STEP_SCHEMA = "vlsa_multilink_ellipsoid_shadow_step.v1"
 DISTAL_ELLIPSOID_STEP_SCHEMA = "vlsa_distal_three_ellipsoid_shadow_step.v2"
 _BODY_PATTERN = re.compile(r"^robot0_link[1-7]$")
@@ -75,6 +77,7 @@ def load_shadow_config(path: Path) -> dict[str, Any]:
         SHADOW_SCHEMA,
         DISTAL_ELLIPSOID_SCHEMA,
         DISTAL_PARTITIONED_SCHEMA,
+        DISTAL_SLABBED_SCHEMA,
     ):
         raise ValueError("multi-link ellipsoid shadow config schema differs")
     schema = config["schema_version"]
@@ -89,9 +92,13 @@ def load_shadow_config(path: Path) -> dict[str, Any]:
         "claim_scope",
     }
     required.add("protected_body_names")
-    if schema in {DISTAL_ELLIPSOID_SCHEMA, DISTAL_PARTITIONED_SCHEMA}:
+    if schema in {
+        DISTAL_ELLIPSOID_SCHEMA,
+        DISTAL_PARTITIONED_SCHEMA,
+        DISTAL_SLABBED_SCHEMA,
+    }:
         required.add("robot_geometry")
-    if schema == DISTAL_PARTITIONED_SCHEMA:
+    if schema in {DISTAL_PARTITIONED_SCHEMA, DISTAL_SLABBED_SCHEMA}:
         required.add("end_effector_geometry")
     if set(config) != required:
         raise ValueError("multi-link ellipsoid shadow config keys differ")
@@ -137,6 +144,28 @@ def load_shadow_config(path: Path) -> dict[str, Any]:
         }
         if geometry != expected_geometry:
             raise ValueError("partitioned distal robot geometry contract differs")
+    if schema == DISTAL_SLABBED_SCHEMA:
+        geometry = config["robot_geometry"]
+        expected_geometry = {
+            "source": "compiled_mujoco_collision_mesh_vertices",
+            "fit": "convex_hull_axis_slab_khachiyan_mvee_exact_inflation",
+            "partition_axis": "dominant_pca_axis",
+            "slab_partition": "uniform_projection_span_contiguous_no_gaps",
+            "clipped_polytope_vertices": (
+                "original_hull_vertices_plus_hull_edge_plane_intersections"
+            ),
+            "part_counts": {
+                "robot0_link5": 3,
+                "robot0_link6": 2,
+                "robot0_link7": 2,
+            },
+            "relative_numerical_padding": 1.0e-9,
+            "khachiyan_tolerance": 1.0e-4,
+            "khachiyan_max_iterations": 20000,
+        }
+        if geometry != expected_geometry:
+            raise ValueError("slabbed distal robot geometry contract differs")
+    if schema in {DISTAL_PARTITIONED_SCHEMA, DISTAL_SLABBED_SCHEMA}:
         if config["end_effector_geometry"] != {
             "center_and_orientation": (
                 "authoritative_robot0_grip_site_pose_plus_released_"
@@ -561,6 +590,66 @@ def _mesh_link_partition_ellipsoids(
     return output
 
 
+def _mesh_link_slab_ellipsoids(
+    env: Any,
+    protected_names: Sequence[str],
+    *,
+    part_counts: Mapping[str, int],
+    relative_padding: float = 1.0e-9,
+    tolerance: float = 1.0e-4,
+    max_iterations: int = 20000,
+) -> list[Ellipsoid]:
+    """Build certified short, contiguous bounds for distal collision hulls."""
+
+    np = _numpy()
+    if set(part_counts) != set(protected_names):
+        raise ValueError("slab counts do not match protected distal links")
+    single_bounds = _mesh_link_ellipsoids(
+        env,
+        protected_names,
+        relative_padding=relative_padding,
+        tolerance=tolerance,
+        max_iterations=max_iterations,
+        include_source_points=True,
+    )
+    output: list[Ellipsoid] = []
+    for link in single_bounds:
+        certificate = dict(link.enclosure_certificate or {})
+        points = np.asarray(
+            certificate.get("source_vertices_world_m"), dtype=np.float64
+        )
+        if points.ndim != 2 or points.shape[1] != 3:
+            raise ValueError("slabbed distal link lacks certified vertices")
+        parts = slabbed_convex_hull_enclosing_ellipsoids(
+            points,
+            part_count=int(part_counts[link.body_name]),
+            body_name=link.body_name,
+            geom_name=link.geom_name,
+            body_id=link.body_id,
+            geom_id=link.geom_id,
+            source_body_names=link.source_body_names,
+            source_geom_names=link.source_geom_names,
+            relative_padding=relative_padding,
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+            certificate_metadata={
+                "source_meshes": certificate.get("source_meshes", []),
+                "single_mvee_semiaxes_m": link.semiaxes_m.tolist(),
+                "single_mvee_volume_m3": float(
+                    4.0
+                    * math.pi
+                    * float(np.prod(link.semiaxes_m))
+                    / 3.0
+                ),
+            },
+        )
+        output.extend(parts)
+    expected_count = sum(int(part_counts[name]) for name in protected_names)
+    if len(output) != expected_count:
+        raise ValueError("slabbed distal geometry count differs")
+    return output
+
+
 def _released_aegis_end_effector_ellipsoid(env: Any) -> Ellipsoid:
     """Return the released AEGIS EE proxy without refitting or resizing it."""
 
@@ -724,6 +813,28 @@ class MultilinkEllipsoidShadow:
         return cls(config, obstacle)
 
     def geometry_record(self, env: Any) -> dict[str, Any]:
+        if self.config["schema_version"] == DISTAL_SLABBED_SCHEMA:
+            geometry = self.config["robot_geometry"]
+            links = _mesh_link_slab_ellipsoids(
+                env,
+                self.config["protected_body_names"],
+                part_counts=geometry["part_counts"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
+            )
+            end_effector = _released_aegis_end_effector_ellipsoid(env)
+            return {
+                "obstacle": self.obstacle.to_record(),
+                "distal_ellipsoid_count": len(links),
+                "distal_ellipsoids": [item.to_record() for item in links],
+                "end_effector_proxy": end_effector.to_record(),
+                "total_constraint_geometry_count": len(links) + 1,
+                "coverage_semantics": (
+                    "certified_contiguous_convex_hull_slab_MVEE_unions_for_"
+                    "L5_L6_L7_plus_unchanged_released_AEGIS_EE_proxy"
+                ),
+            }
         if self.config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
             geometry = self.config["robot_geometry"]
             links = _mesh_link_partition_ellipsoids(
