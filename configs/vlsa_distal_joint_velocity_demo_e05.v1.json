@@ -1,0 +1,125 @@
+{
+  "action_protocol": {
+    "control_frequency_hz": 20,
+    "execute_actions_per_query": 5,
+    "max_actions": 300,
+    "model_action_horizon": 10,
+    "rotation_execution": "zero_translational_table1_protocol",
+    "translation_velocity_m_per_s_per_action_unit": 0.2
+  },
+  "arms": [
+    "joint_velocity_live_base",
+    "joint_velocity_live_l5_l7_ee"
+  ],
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_primary_case_live_pi05_libero_joint_velocity_distal_l5_l7_plus_released_ee_ability_demo_not_population_or_whole_arm_claim",
+  "controller": {
+    "input_max": 1.0,
+    "input_min": -1.0,
+    "interpolation": null,
+    "kp": 3.0,
+    "output_max": 1.0,
+    "output_min": -1.0,
+    "ramp_ratio": 0.2,
+    "type": "JOINT_VELOCITY",
+    "velocity_limits": [
+      -1.0,
+      1.0
+    ]
+  },
+  "end_effector_geometry": {
+    "center_and_orientation": "authoritative_robot0_grip_site_pose_plus_released_minus_0.08m_local_z_offset",
+    "semiaxes_m": [
+      0.06,
+      0.12,
+      0.11
+    ],
+    "source": "released_aegis_end_effector_proxy"
+  },
+  "nominal_policy": {
+    "checkpoint": "pi05_libero",
+    "frozen": true,
+    "query_on_live_joint_controller_observation": true,
+    "translation_and_gripper_only": true
+  },
+  "obstacle_geometry": {
+    "center_m": [
+      -0.058366719778605226,
+      0.14301469629436583,
+      1.0230830180351789
+    ],
+    "rotation": [
+      [
+        -0.020790474824008438,
+        0.058184500032663435,
+        -0.9980893347353939
+      ],
+      [
+        0.1576830297250622,
+        0.9860014894880728,
+        0.054195247614777
+      ],
+      [
+        0.9872708940778703,
+        -0.15625500530623276,
+        -0.02967414739182496
+      ]
+    ],
+    "semiaxes_m": [
+      0.1393188890560937,
+      0.12054261654746469,
+      0.07910671170710154
+    ],
+    "source": "immutable_primary_table1_aegis_perception_mvee"
+  },
+  "optimizer": {
+    "alpha_s_inv": 10.0,
+    "bound_tolerance_rad_s": 5e-08,
+    "cartesian_tracking_weight_diagonal": [
+      1.0,
+      1.0,
+      1.0,
+      0.2,
+      0.2,
+      0.2
+    ],
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "joint_position_margin_rad": 0.02,
+    "joint_regularization": 0.0025,
+    "joint_velocity_limit_rad_s": 1.0,
+    "material_correction_tolerance_rad_s": 1e-06,
+    "max_iter": 10000,
+    "optimizer_clearance_m": 0.0,
+    "residual_tolerance": 5e-07
+  },
+  "pairing": {
+    "same_initial_state": true,
+    "same_policy_noise_seed_by_query_index": true,
+    "settle_actions": 20
+  },
+  "protocol_id": "vlsa-distal-joint-velocity-demo-e05-v1",
+  "robot_geometry": {
+    "clipped_polytope_vertices": "original_hull_vertices_plus_hull_edge_plane_intersections",
+    "fit": "convex_hull_axis_slab_khachiyan_mvee_exact_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "part_counts": {
+      "robot0_link5": 3,
+      "robot0_link6": 2,
+      "robot0_link7": 2
+    },
+    "partition_axis": "dominant_pca_axis",
+    "relative_numerical_padding": 1e-09,
+    "slab_partition": "uniform_projection_span_contiguous_no_gaps",
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_distal_joint_velocity_demo.v1",
+  "success_definition": {
+    "active_ability_demo": "native_task_success_without_l5_l6_l7_raw_contact_or_paper_car",
+    "baseline_competence": "native_task_success",
+    "paper_car_threshold_m": 0.001
+  }
+}

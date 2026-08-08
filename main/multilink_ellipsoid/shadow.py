@@ -30,6 +30,7 @@ DISTAL_PARTITIONED_SCHEMA = "vlsa_distal_partitioned_ellipsoid_shadow.v3"
 DISTAL_SLABBED_SCHEMA = "vlsa_distal_slabbed_ellipsoid_shadow.v4"
 STEP_SCHEMA = "vlsa_multilink_ellipsoid_shadow_step.v1"
 DISTAL_ELLIPSOID_STEP_SCHEMA = "vlsa_distal_three_ellipsoid_shadow_step.v2"
+DISTAL_SLABBED_STEP_SCHEMA = "vlsa_distal_slabbed_ellipsoid_shadow_step.v4"
 _BODY_PATTERN = re.compile(r"^robot0_link[1-7]$")
 _GEOM_KIND_FALLBACK = {
     0: "plane",
@@ -709,11 +710,13 @@ class MultilinkEllipsoidShadow:
             SHADOW_SCHEMA,
             DISTAL_ELLIPSOID_SCHEMA,
             DISTAL_PARTITIONED_SCHEMA,
+            DISTAL_SLABBED_SCHEMA,
         ):
             raise ValueError("shadow configuration was not validated")
         self.config = dict(config)
         self.obstacle = obstacle
         self._distal_templates: list[dict[str, Any]] | None = None
+        self._slabbed_templates: list[dict[str, Any]] | None = None
         optimizer = config["optimizer"]
         self.qp = MultiConstraintQp(
             eps_abs=float(optimizer["eps_abs"]),
@@ -795,6 +798,84 @@ class MultilinkEllipsoidShadow:
             raise ValueError("cached distal geometry does not contain three links")
         return output
 
+    def _slabbed_links(
+        self,
+        env: Any,
+        *,
+        include_certificates: bool = False,
+    ) -> list[Ellipsoid]:
+        """Fit seven slab parts once, then update their rigid world poses."""
+
+        np = _numpy()
+        geometry = self.config["robot_geometry"]
+        _, data = _raw_model_data(env.sim)
+        if self._slabbed_templates is None:
+            links = _mesh_link_slab_ellipsoids(
+                env,
+                self.config["protected_body_names"],
+                part_counts=geometry["part_counts"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
+            )
+            templates: list[dict[str, Any]] = []
+            for link in links:
+                body_rotation = np.asarray(
+                    data.xmat[int(link.body_id)], dtype=np.float64
+                ).reshape(3, 3)
+                body_position = np.asarray(
+                    data.xpos[int(link.body_id)], dtype=np.float64
+                )
+                templates.append(
+                    {
+                        "body_id": int(link.body_id),
+                        "body_name": link.body_name,
+                        "geom_id": int(link.geom_id),
+                        "geom_name": link.geom_name,
+                        "center_body_m": body_rotation.T
+                        @ (link.center - body_position),
+                        "rotation_body": body_rotation.T @ link.rotation,
+                        "semiaxes_m": link.semiaxes_m.copy(),
+                        "bound_source": link.bound_source,
+                        "source_body_names": link.source_body_names,
+                        "source_geom_names": link.source_geom_names,
+                        "enclosure_certificate": link.enclosure_certificate,
+                    }
+                )
+            self._slabbed_templates = templates
+            if include_certificates:
+                return links
+        output: list[Ellipsoid] = []
+        for template in self._slabbed_templates or []:
+            body_id = int(template["body_id"])
+            body_rotation = np.asarray(
+                data.xmat[body_id], dtype=np.float64
+            ).reshape(3, 3)
+            body_position = np.asarray(data.xpos[body_id], dtype=np.float64)
+            output.append(
+                Ellipsoid(
+                    center=body_position
+                    + body_rotation @ template["center_body_m"],
+                    rotation=body_rotation @ template["rotation_body"],
+                    semiaxes_m=template["semiaxes_m"],
+                    body_id=body_id,
+                    body_name=str(template["body_name"]),
+                    geom_id=int(template["geom_id"]),
+                    geom_name=str(template["geom_name"]),
+                    bound_source=str(template["bound_source"]),
+                    source_body_names=tuple(template["source_body_names"]),
+                    source_geom_names=tuple(template["source_geom_names"]),
+                    enclosure_certificate=(
+                        template["enclosure_certificate"]
+                        if include_certificates
+                        else None
+                    ),
+                )
+            )
+        if len(output) != 7:
+            raise ValueError("cached slabbed geometry does not contain seven parts")
+        return output
+
     @classmethod
     def from_aegis_geometry(
         cls,
@@ -814,15 +895,7 @@ class MultilinkEllipsoidShadow:
 
     def geometry_record(self, env: Any) -> dict[str, Any]:
         if self.config["schema_version"] == DISTAL_SLABBED_SCHEMA:
-            geometry = self.config["robot_geometry"]
-            links = _mesh_link_slab_ellipsoids(
-                env,
-                self.config["protected_body_names"],
-                part_counts=geometry["part_counts"],
-                relative_padding=float(geometry["relative_numerical_padding"]),
-                tolerance=float(geometry["khachiyan_tolerance"]),
-                max_iterations=int(geometry["khachiyan_max_iterations"]),
-            )
+            links = self._slabbed_links(env, include_certificates=True)
             end_effector = _released_aegis_end_effector_ellipsoid(env)
             return {
                 "obstacle": self.obstacle.to_record(),
@@ -892,7 +965,10 @@ class MultilinkEllipsoidShadow:
             joint_velocity_limit=float(optimizer["joint_velocity_limit_rad_s"]),
         )
         geometry_started = time.perf_counter_ns()
-        if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
+        if self.config["schema_version"] == DISTAL_SLABBED_SCHEMA:
+            links = self._slabbed_links(env)
+            links.append(_released_aegis_end_effector_ellipsoid(env))
+        elif self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
             links = self._distal_links(env)
         else:
             links = _link_ellipsoids(env, self.config["protected_body_names"])
@@ -938,9 +1014,13 @@ class MultilinkEllipsoidShadow:
         ]
         record = {
             "schema_version": (
-                DISTAL_ELLIPSOID_STEP_SCHEMA
-                if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA
-                else STEP_SCHEMA
+                DISTAL_SLABBED_STEP_SCHEMA
+                if self.config["schema_version"] == DISTAL_SLABBED_SCHEMA
+                else (
+                    DISTAL_ELLIPSOID_STEP_SCHEMA
+                    if self.config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA
+                    else STEP_SCHEMA
+                )
             ),
             "step": int(step),
             "control_effect": "read_only_no_executed_action_change",
