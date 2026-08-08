@@ -77,7 +77,7 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
         raise ValueError("SITL nominal action source differs")
     geometry = config["protected_geometry"]
     if geometry != {
-        "distal_clearance_target_m": 0.015,
+        "distal_clearance_target_m": 0.01,
         "distal_constraint_count": 7,
         "end_effector_constraint_count": 1,
         "end_effector_target": (

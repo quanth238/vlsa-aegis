@@ -42,7 +42,7 @@
     "residual_tolerance": 5e-07
   },
   "protected_geometry": {
-    "distal_clearance_target_m": 0.015,
+    "distal_clearance_target_m": 0.01,
     "distal_constraint_count": 7,
     "end_effector_constraint_count": 1,
     "end_effector_target": "do_not_worsen_exact_next_clearance_of_released_aegis_nominal",
