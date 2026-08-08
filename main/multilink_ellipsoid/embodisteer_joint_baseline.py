@@ -14,7 +14,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, Tuple
 
 
 SCHEMA = "vlsa_embodisteer_joint_baselines.v1"
@@ -194,7 +194,7 @@ def matrix_to_rotation_vector(matrix: Any) -> Any:
     return angle * axis
 
 
-Kinematics = Callable[[Any], tuple[Any, Any, Any]]
+Kinematics = Callable[[Any], Tuple[Any, Any, Any]]
 
 
 def _bounded_configuration(

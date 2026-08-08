@@ -36,6 +36,12 @@ paper uses multiple link-attached cuRobo collision spheres with a top-4
 smooth maximum, not one ellipsoid per link; the old ellipsoids remain disabled
 until a raw-geometry audit is complete.
 
+Initial H100 submission `37049` stopped during its allocation-side unit gate,
+before policy startup or simulation, because Python 3.8 eagerly evaluated one
+new `tuple[...]` type-alias expression. The immutable run root contains an
+apparatus-failure receipt and no result or video. The repair changes only that
+annotation to `typing.Tuple`; no experiment parameter or algorithm changes.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:
