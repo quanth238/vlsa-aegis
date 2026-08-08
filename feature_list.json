@@ -97,7 +97,8 @@
       "Initial v3 H100 submission 37059 stopped before action zero because native MuJoCo lacks the legacy camera_name2id wrapper method; the compatibility-only fallback uses mujoco.mj_name2id and changes no scientific setting.",
       "Job 37060 was rejected in one second by the clean-source gate due to a mistyped expected full commit hash and created no run root.",
       "H100 retry 37061 completed the valid Cartesian worker but rejected Joint at action zero: zero target saturation, peak joint velocity 0.299 rad/s, and a bitwise-fixed camera pose accompanied an almost exact 180-degree frame rotation, identifying the second rendered FK probe environment as an OSMesa context violation rather than a joint-motion outcome.",
-      "The preregistered repair performs FK/Jacobians on the live MuJoCo model, restores the complete flattened state with bitwise equality before execution, and removes the second rendered environment without changing any baseline or acceptance setting."
+      "The preregistered repair performs FK/Jacobians on the live MuJoCo model, restores the complete flattened state with bitwise equality before execution, and removes the second rendered environment without changing any baseline or acceptance setting.",
+      "H100 job 37062 confirmed the renderer repair through multiple upright Joint frames, then stopped before a result on a fixed 1e-7 float32 affine round-trip assertion; the preregistered replacement uses 32*eps_float32*max(1, magnitude) and records every live error without changing denoising or execution."
       ]
     },
     {

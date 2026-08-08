@@ -146,6 +146,20 @@ executed action, and requires bitwise state equality after restoration. No
 policy, joint target, controller, rate, pairing, geometry, or visual threshold
 changes.
 
+H100 job `37062` confirmed that removing the second environment fixed the
+renderer: the 10 Hz Cartesian arm completed, and the Joint stream remained
+upright through multiple actions. The Joint worker later stopped on a
+different apparatus assertion before producing a result: the server's
+float32 affine normalize/decode round trip exceeded the original fixed
+`1e-7` raw-action tolerance. That tolerance was not derived from the actual
+float32 path and can reject a faithful value solely as its magnitude changes.
+
+Before the next retry, the round-trip gate is frozen to `32 * eps_float32 *
+max(1, |input|, |decoded|)`. This is an IEEE-precision-scaled serialization
+bound, not an action or outcome tolerance. Every reverse step records its
+actual maximum error, magnitude, and bound. The trajectory supplied to the
+denoiser and the resulting joint targets are unchanged.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

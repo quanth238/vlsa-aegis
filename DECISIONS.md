@@ -690,3 +690,17 @@ live MuJoCo model for FK and Jacobians, then restores the full flattened state
 and requires bitwise equality before action execution. This preserves exact
 kinematics while avoiding a second OSMesa context. It is an apparatus repair,
 not a change to EmbodiSteer equations or the baseline protocol.
+
+## ADR-0044: Scale the FK-pose serialization gate by float32 precision
+
+Accepted after H100 job `37062` passed the renderer repair but stopped on a
+fixed `1e-7` comparison between a float64 FK action and the same action after
+server-side normalization, float32 model storage, and affine decoding. The
+comparison is an apparatus-integrity check; it does not constrain safety or
+task behavior.
+
+The replacement bound is `32 * eps_float32 * max(1, |input|, |decoded|)`.
+It scales only with IEEE float32 precision and the serialized value magnitude,
+and is frozen before observing its live error. Each denoising step records the
+error and bound. The policy input, denoising update, joint trajectory, control
+rate, execution horizon, and all acceptance outcomes remain unchanged.

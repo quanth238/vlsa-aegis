@@ -22,6 +22,7 @@ from main.multilink_ellipsoid.embodisteer_joint_baseline import (  # noqa: E402
     rotation_vector_to_matrix,
 )
 from scripts.evaluate_embodisteer_joint_baselines_e05 import (  # noqa: E402
+    _float32_roundtrip_diagnostic,
     _frame_orientation,
     _frame_quality,
 )
@@ -221,6 +222,19 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
         self.assertFalse(
             _frame_orientation(np.rot90(upright, 2), upright)["passing"]
         )
+
+    def test_float32_roundtrip_gate_scales_with_machine_epsilon(self):
+        reference = np.linspace(-6.0, 6.0, 60, dtype=np.float64).reshape(10, 6)
+        observed = reference.astype(np.float32).astype(np.float64)
+
+        passing = _float32_roundtrip_diagnostic(reference, observed)
+        failing = _float32_roundtrip_diagnostic(
+            reference, observed + 100.0 * passing["acceptance_tolerance"]
+        )
+
+        self.assertTrue(passing["passing"])
+        self.assertFalse(failing["passing"])
+        self.assertEqual(passing["float32_epsilon_multiplier"], 32.0)
 
 
 if __name__ == "__main__":

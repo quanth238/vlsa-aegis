@@ -25,6 +25,7 @@ from typing import Any, Mapping, Sequence
 CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 PAPER_CAR_THRESHOLD_M = 0.001
 PROTECTED_BODIES = {"robot0_link5", "robot0_link6", "robot0_link7"}
+FLOAT32_ROUNDTRIP_ULPS = 32.0
 
 
 def _canonical(value: Any) -> bytes:
@@ -145,6 +146,36 @@ def _frame_quality(frame: Any) -> dict[str, Any]:
         "maximum_adjacent_mad": max(horizontal, vertical),
         "threshold": threshold,
         "passing": max(horizontal, vertical) <= threshold,
+    }
+
+
+def _float32_roundtrip_diagnostic(reference: Any, observed: Any) -> dict[str, Any]:
+    """Bound the normalize/float32/decode round trip by scaled machine epsilon."""
+
+    import numpy as np
+
+    expected = np.asarray(reference, dtype=np.float64)
+    actual = np.asarray(observed, dtype=np.float64)
+    _require(
+        expected.shape == actual.shape
+        and expected.size > 0
+        and np.all(np.isfinite(expected))
+        and np.all(np.isfinite(actual)),
+        "float32 round-trip values differ",
+    )
+    magnitude = float(
+        max(1.0, np.max(np.abs(expected)), np.max(np.abs(actual)))
+    )
+    tolerance = float(
+        FLOAT32_ROUNDTRIP_ULPS * np.finfo(np.float32).eps * magnitude
+    )
+    maximum_error = float(np.max(np.abs(actual - expected)))
+    return {
+        "maximum_absolute_error": maximum_error,
+        "maximum_absolute_magnitude": magnitude,
+        "float32_epsilon_multiplier": FLOAT32_ROUNDTRIP_ULPS,
+        "acceptance_tolerance": tolerance,
+        "passing": maximum_error <= tolerance,
     }
 
 
@@ -456,9 +487,13 @@ def _joint_chunk(
         input_physical = np.asarray(
             step_primitive["input_physical_actions"], dtype=np.float64
         )
+        roundtrip = _float32_roundtrip_diagnostic(
+            pose_actions, input_physical[:, :6]
+        )
         _require(
-            np.allclose(input_physical[:, :6], pose_actions, atol=1.0e-7, rtol=0.0),
-            "server joint flow input differs from FK pose actions",
+            roundtrip["passing"],
+            "server joint flow input differs from FK pose actions: "
+            + json.dumps(roundtrip, sort_keys=True),
         )
         next_physical = np.asarray(step_primitive["physical_actions"], dtype=np.float64)
         trajectory, residual = apply_joint_denoising_residual(
@@ -482,6 +517,7 @@ def _joint_chunk(
                 "fk_pose_actions_sha256": array_sha256(pose_actions),
                 "model_actions_sha256": array_sha256(model_actions),
                 "joint_trajectory_sha256": array_sha256(trajectory),
+                "fk_pose_float32_roundtrip": roundtrip,
                 "residual": residual,
                 "wall_seconds": step_wall,
             }
@@ -495,6 +531,10 @@ def _joint_chunk(
         "initialization": initialization,
         "initialize_wall_seconds": initialize_wall,
         "flow_steps": flow_records,
+        "maximum_fk_pose_float32_roundtrip_error": max(
+            step["fk_pose_float32_roundtrip"]["maximum_absolute_error"]
+            for step in flow_records
+        ),
         "final_gripper_actions": final_actions[:, 6].tolist(),
         "final_joint_trajectory_sha256": array_sha256(trajectory),
         "collision_geometry_queried": False,
