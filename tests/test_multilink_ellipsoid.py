@@ -175,6 +175,10 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             config["protected_body_names"],
             ["robot0_link5", "robot0_link6", "robot0_link7"],
         )
+        self.assertEqual(
+            config["robot_geometry"]["source"],
+            "compiled_mujoco_collision_mesh_vertices",
+        )
 
     def test_partitioned_config_keeps_released_ee_and_refines_l5_l7(self) -> None:
         from main.multilink_ellipsoid.shadow import load_shadow_config
@@ -249,10 +253,6 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             local = (grid - part.center) @ part.rotation
             covered |= np.sum((local / part.semiaxes_m) ** 2, axis=1) <= 1.0 + 1e-10
         self.assertTrue(np.all(covered))
-        self.assertEqual(
-            config["robot_geometry"]["source"],
-            "compiled_mujoco_collision_mesh_vertices",
-        )
 
     def test_active_multicbf_config_filters_only_xyz_for_links_5_6_7(self) -> None:
         from main.multilink_ellipsoid.active import load_active_config
