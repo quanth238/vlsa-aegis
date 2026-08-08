@@ -955,3 +955,24 @@ source gate keeps exact simulator-state equality and additionally requires
 the active obstacle position to match the archived numeric position within
 `1e-9 m`; it records both camera hashes but does not require render bytes from
 fresh contexts to match when the archived MVEE is reused numerically.
+
+Clean H100 retry `37080` completed on `worker-1` from commit
+`fd6625844536da8ede9e28c79efca824cab3d8bd`; the allocation-side validator
+passed all one-row QPs and decoded both upright videos.  The archived obstacle
+position matched within `2.242e-12 m`.  Cartesian solved 105 QPs (mean
+`6.409 ms`), completed the task at step 104, but directly contacted L5/L6 at
+step 85 and failed CAR at step 86 (`0.016973 m` maximum displacement).  Direct
+Joint solved 300 QPs (mean `6.440 ms`) but failed the task, failed CAR at step
+8, contacted L7 at step 27 and eventually L5/L6/L7, and displaced the obstacle
+by `0.288681 m`.  Its mean/max target tracking error was `0.289/1.029 rad`.
+
+Therefore the original EE-only constraint does not solve distal-link safety
+under either controller.  Cartesian retains useful task competence but is not
+safe.  The Direct-Joint post-hoc adapter is neither safe nor task competent,
+so it cannot support an EmbodiSteer efficacy claim.  Result/validation file
+SHA-256 values are
+`083c92e11c3b63b9275b8fee6d5b541ccfb87de5c3e4a341afdfeedd7ffb8073`
+and
+`e057126ec4ee3b6f0c30bb9dbec35eb4f4eb8ab63272ab035063757b90caaa7b`.
+The exact next audit command is:
+`jq '.geometry_isolation,.comparison,.arms|.' /mnt/data/quanth/experiments/vlsa-embodisteer-aegis-ee-pair-e05/paired-aegis-ee-20260808b/result.json`.

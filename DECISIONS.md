@@ -757,3 +757,19 @@ it consumes the archived numeric MVEE.  The revised fail-closed binding keeps
 the exact 170-value simulator-state hash and checks the active obstacle world
 position against the archived Table-1 value within `1e-9 m`.  Old and current
 camera hashes are both retained, with mismatch expected rather than hidden.
+
+The validated outcome from H100 job `37080` rejects both possible optimistic
+interpretations.  The Cartesian EE arm completed the task, but L5/L6 contact
+and CAR occurred while every single-row QP satisfied its optimizer
+constraint.  At first protected contact, released barrier `h=-0.003259` and
+the QP applied a `0.245590` action-unit translation correction; optimizer-row
+feasibility was not physical-link safety.  Direct Joint contacted L7 at step
+27 with `h=-0.054550`, later contacted L5/L6/L7, and never progressed the
+native goal despite 245 nontrivial lifted corrections.
+
+The accepted conclusion is limited but decisive for this diagnostic: changing
+from OSC to the current Direct-Joint adapter cannot make an end-effector-only
+barrier protect unmodeled links.  It also adds controller-tracking and
+linearized-Jacobian error; its maximum lifted correction was `0.453 rad` and
+mean target tracking error was `0.289 rad`.  No L5--L7 geometry was enabled,
+so this run does not evaluate or rehabilitate the earlier distal ellipsoids.
