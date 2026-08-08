@@ -1,5 +1,18 @@
 # Reproduction decisions
 
+## ADR-0059: Pair only distal rows with exact boxes
+
+Accepted from the clean job-`37185` no-go.  V1 applied zero added EE margin
+but still paired the released EE proxy with the exact box union.  At action
+242, all distal rows were more than `104 mm` clear while only that EE row was
+negative, so v1 did not implement the requested original-EE semantics.
+
+Freeze v1.  In v2, pair L5--L7 with exact boxes and `8 mm`; pair the released
+EE proxy with the original frozen AEGIS perception MVEE and zero margin.  Keep
+the live pi0.5/released-AEGIS nominal, candidate set, QP, internal-substep
+measurement, exact raw vetoes, and task criteria unchanged.  This is a
+protocol correction supported by the isolated row failure, not margin tuning.
+
 ## ADR-0058: Apply the warning margin only to distal rows and run live closed loop
 
 Accepted by direct user instruction after job `37183`.  Retain live

@@ -12,7 +12,10 @@ from typing import Any, Sequence
 
 
 VALIDATION_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05_validation.v1"
-RESULT_SCHEMA = "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+RESULT_SCHEMAS = {
+    "vlsa_distal_exact_box_closed_loop_e05_result.v1",
+    "vlsa_distal_exact_box_closed_loop_e05_result.v2",
+}
 CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 
 
@@ -43,7 +46,7 @@ def validate(candidate_path: Path) -> dict[str, Any]:
     recorded_payload_sha256 = payload.pop("result_payload_sha256", None)
     checks = {
         "schema_and_case": bool(
-            result.get("schema_version") == RESULT_SCHEMA
+            result.get("schema_version") in RESULT_SCHEMAS
             and result.get("case_id") == CASE_ID
             and result.get("scientific_result") is True
         ),
@@ -93,6 +96,17 @@ def validate(candidate_path: Path) -> dict[str, Any]:
             for item in action_records
         )
     )
+    if result.get("schema_version") == "vlsa_distal_exact_box_closed_loop_e05_result.v2":
+        checks["original_aegis_ee_geometry_retained"] = bool(
+            result.get("config", {}).get("protected_geometry", {}).get(
+                "end_effector_target"
+            )
+            == "zero_margin_frozen_aegis_mvee_clearance_after_released_aegis_qp"
+            and result.get("config", {}).get("obstacle_geometry", {}).get(
+                "end_effector_obstacle_source"
+            )
+            == "frozen_released_aegis_perception_mvee"
+        )
     checks["accepted_exact_substep_clearance"] = bool(
         action_records
         and all(

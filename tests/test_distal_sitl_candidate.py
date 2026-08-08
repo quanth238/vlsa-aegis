@@ -121,6 +121,26 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("distal_only_target_vector", validator)
         self.assertIn("accepted_exact_substep_clearance", validator)
 
+    def test_v2_retains_original_aegis_obstacle_for_only_the_ee_row(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import (
+            DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+            load_sitl_candidate_config,
+        )
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_exact_box_closed_loop_e05.v2.json"
+        )
+        self.assertEqual(config["schema_version"], DISTAL_ONLY_CLOSED_LOOP_SCHEMA)
+        self.assertEqual(
+            config["obstacle_geometry"]["end_effector_obstacle_source"],
+            "frozen_released_aegis_perception_mvee",
+        )
+        source = (
+            ROOT / "main/multilink_ellipsoid/sitl_candidate.py"
+        ).read_text()
+        self.assertIn("links[:7], obstacles", source)
+        self.assertIn("links[7:], [geometry.obstacle]", source)
+
     def test_hybrid_config_switches_only_after_distal_intervention(self) -> None:
         from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
 

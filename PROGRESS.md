@@ -17,6 +17,27 @@ closed-loop to native goal success or the registered horizon.  Full scope is
 in `docs/distal_exact_box_closed_loop_preregistration.md`.  No outcome has run
 yet; Table 1 remains immutable.
 
+Clean H100 job `37185` completed v1 on worker-1 in `2m10s` from commit
+`169c52ff5f9ecb9649a81618c82adb0fb7948ac2`; all 45 allocation tests and the
+independent validator passed.  It failed closed at action 242 with no contact,
+no CAR, and no task success.  The seven distal rows were still
+`104--378 mm` clear.  Only the EE row was negative (`-2.892 mm`) because v1
+paired the EE proxy with the exact-box union; no tested action made that row
+nonnegative.  This is an EE-geometry apparatus failure, not evidence against
+the distal `8 mm` margin.
+
+V2 is now preregistered without changing the frozen v1 artifact.  Exact boxes
+and `8 mm` apply only to L5--L7; the released EE row returns to the original
+frozen AEGIS obstacle MVEE at zero margin.  Every other live-policy, QP,
+candidate, substep, veto, and success setting is unchanged.  Scope is in
+`docs/distal_exact_box_closed_loop_v2_preregistration.md`; no v2 outcome has
+run yet.  V1 result/validation/preflight SHA-256 values are
+`31f47bf797ebc19a49455d85185d369d30eae288043cbb2d999ff13de439cb46`,
+`aaabfd8c111350261f06a75ee05c722c4734e558ed242da9e9a37f7c2b08846a`,
+and `6593126a9593e018b2e1cc6fb3575a831af532cbb22a343f8bda40a6dca233bf`;
+payload SHA-256 is
+`8cff9c60a73f6c7b1aaba41f75cfac357aa563118de85b7039b1b1777b665589`.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without

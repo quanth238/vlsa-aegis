@@ -308,15 +308,22 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
 
     def clearances(self, env: Any) -> Any:
         np = _numpy()
+        links = self._ellipsoids(env)
+        obstacles = self._obstacles(env)
         values = np.asarray(
-            minimum_union_support_gaps(
-                self._ellipsoids(env), self._obstacles(env)
-            ),
+            self._clearance_values(links, obstacles),
             dtype=np.float64,
         )
         if values.shape != (8,) or not np.all(np.isfinite(values)):
             raise ValueError("substep clearance vector is invalid")
         return values
+
+    def _clearance_values(
+        self, links: Sequence[Any], obstacles: Sequence[Any]
+    ) -> Any:
+        """Return per-row gaps; subclasses may retain a row-specific obstacle."""
+
+        return minimum_union_support_gaps(links, obstacles)
 
     def _contact_events(
         self,
@@ -439,7 +446,7 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
         links = self._ellipsoids(env)
         obstacles = self._obstacles(env)
         clearances = np.asarray(
-            minimum_union_support_gaps(links, obstacles), dtype=np.float64
+            self._clearance_values(links, obstacles), dtype=np.float64
         )
         robot = env.robots[0]
         position_indexes = np.asarray(robot._ref_joint_pos_indexes, dtype=np.int64)

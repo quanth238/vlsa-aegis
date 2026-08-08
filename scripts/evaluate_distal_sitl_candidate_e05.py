@@ -84,6 +84,7 @@ def evaluate(
     )
     from main.multilink_ellipsoid.sitl_candidate import (
         DistalSitlCandidateFilter,
+        DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
         EXACT_BOX_CLOSED_LOOP_SCHEMA,
         load_sitl_candidate_config,
         summarize_sitl_steps,
@@ -110,7 +111,10 @@ def evaluate(
     geometry_config = load_shadow_config(geometry_config_path)
     heuristic_config = load_sitl_candidate_config(heuristic_config_path)
     obstacle_config = None
-    if heuristic_config["schema_version"] == EXACT_BOX_CLOSED_LOOP_SCHEMA:
+    if heuristic_config["schema_version"] in {
+        EXACT_BOX_CLOSED_LOOP_SCHEMA,
+        DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+    }:
         from main.multilink_ellipsoid.obstacle_primitives import (
             load_obstacle_primitive_config,
         )
@@ -597,9 +601,17 @@ def evaluate(
                 if hybrid_recovery
                 else (
                     (
-                        "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+                        (
+                            "vlsa_distal_exact_box_closed_loop_e05_result.v2"
+                            if heuristic_config["schema_version"]
+                            == DISTAL_ONLY_CLOSED_LOOP_SCHEMA
+                            else "vlsa_distal_exact_box_closed_loop_e05_result.v1"
+                        )
                         if heuristic_config["schema_version"]
-                        == EXACT_BOX_CLOSED_LOOP_SCHEMA
+                        in {
+                            EXACT_BOX_CLOSED_LOOP_SCHEMA,
+                            DISTAL_ONLY_CLOSED_LOOP_SCHEMA,
+                        }
                         else "vlsa_distal_sitl_live_e05_result.v1"
                     )
                     if live_policy
