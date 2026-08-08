@@ -93,6 +93,14 @@ and `531f0e58b9b6706b7c695942720295c7100d844ea8ad5863515590b669b4fb65`;
 payload SHA-256 is
 `e9859884e6e5e7e8d60dea4d6c4de99d71e48158297d2be84f1ac1bae5540793`.
 
+Validator-only H100 job `37191` passed all 19 tests and every immutable
+producer, payload, distal-target, exact-box, source, and Table-1 check from
+validator commit `39a12f9fa86594807953981301d831c11dcb2466`. Validation
+receipt SHA-256 is
+`d6fcf39d173435c54bd784f7b70ebf6521a36a3742c13e74142564e24358dd43`.
+The fixed distal `8 mm` protocol is therefore a validated no-go for the paired
+primary case, and gate `E02` remains active rather than passing.
+
 ## Exact-box 8 mm rounded-shell early trigger (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the user-authorized enlargement heuristic without

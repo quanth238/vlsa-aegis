@@ -17,8 +17,14 @@ solver-runtime or ellipsoid-count failure.
 
 The first validator incorrectly required at least one live-policy query even
 for a valid pre-recovery method failure, causing Slurm exit 1 after the atomic
-scientific result was complete. The result remains immutable and is scheduled
-for validator-only recheck under the corrected contract.
+scientific result was complete. The result remained immutable and was then
+submitted for validator-only recheck under the corrected contract.
+
+Validator-only H100 job `37191` completed from clean validator commit
+`39a12f9fa86594807953981301d831c11dcb2466` and passed all 19 tests plus every
+result, producer-commit, target-vector, exact-box, and Table-1 immutability
+check. Its receipt SHA-256 is
+`d6fcf39d173435c54bd784f7b70ebf6521a36a3742c13e74142564e24358dd43`.
 
 Producer result/preflight/MP4/JPG SHA-256 values are
 `26522e4ee8ba7d78d7ecfa4021affbb309a25dc849a297b540e4f77c3f2904dd`,
