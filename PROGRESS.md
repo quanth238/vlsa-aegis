@@ -924,3 +924,25 @@ release is validated.
   This is an unresolved reporting ambiguity.
 - Full pi0.5-versus-AEGIS evaluation is 3,200 rollouts and is expected to take
   roughly 50--100 GPU-hours under the two-GPU user limit.
+
+## Original AEGIS EE-only Cartesian/Direct-Joint pair (in progress)
+
+The next primary-case run disables every L5/L6/L7 ellipsoid and CBF row.  It
+uses exactly the released Table-1 end-effector proxy (`0.06, 0.12, 0.11 m`),
+the archived E05 obstacle MVEE, and the released six-variable translational
+CBF-QP.  The archived MVEE is bound to immutable Table-1 result file SHA-256
+`273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b`,
+settled state SHA-256
+`5a72a870b8368d0a6508428bb89dce75ccc6f28e86a2349edae35b2618918741`,
+and settled agent-view SHA-256
+`b66103d274cbd2db02ef7fe84771725819fb74062ef36de18b6af6119da7865f`.
+Completed Table-1 artifacts remain read-only.
+
+The Cartesian arm executes the released translational filter directly.  The
+Direct-Joint arm first produces the same paper-derived joint-denoising chunk,
+evaluates the same released Cartesian EE QP, and lifts only the resulting
+translation correction to the joint target using the live 6x7 EE Jacobian.
+This is explicitly a post-hoc controller adaptation, not EmbodiSteer's
+denoising-time whole-body guidance.  Acceptance requires one and only one EE
+row per executed action, zero L5--L7 geometry/rows, optimizer-row feasibility,
+raw MuJoCo contact/CAR reporting, QP timing, and decodable upright videos.

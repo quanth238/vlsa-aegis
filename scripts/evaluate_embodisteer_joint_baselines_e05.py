@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Paired barrier-free EE and EmbodiSteer-Joint baselines on primary E05.
+"""Paired EE and EmbodiSteer-Joint controller tests on primary E05.
 
 This is a paper-derived pi0.5/LIBERO adaptation, not a claim of exact
 reproduction of the authors' unreleased implementation.  Both arms use the
 same frozen pi05_libero checkpoint and the same policy-noise seed schedule.
-No collision geometry, ellipsoid, CBF, or QP is constructed or queried.
+The v1--v3 protocols remain barrier-free.  The opt-in AEGIS-EE protocol uses
+only the released end-effector proxy and one released Table-1 CBF row; it
+never constructs L5/L6/L7 ellipsoids or constraints.
 """
 
 from __future__ import annotations
@@ -26,6 +28,11 @@ CASE_ID = "vlsa-t1-goal-ii-t0-e05"
 PAPER_CAR_THRESHOLD_M = 0.001
 PROTECTED_BODIES = {"robot0_link5", "robot0_link6", "robot0_link7"}
 FLOAT32_ROUNDTRIP_ULPS = 32.0
+AEGIS_EE_SCHEMA = "vlsa_embodisteer_aegis_ee_pair.v1"
+
+
+def _aegis_ee_enabled(config: Mapping[str, Any]) -> bool:
+    return config.get("schema_version") == AEGIS_EE_SCHEMA
 
 
 def _canonical(value: Any) -> bytes:
@@ -224,6 +231,21 @@ def _joint_state(env: Any) -> tuple[list[float], list[float]]:
     return qpos, qvel
 
 
+def _live_eef_jacobian(env: Any) -> Any:
+    import numpy as np
+
+    from main.multilink_ellipsoid.shadow import _arm_dof_indices, _eef_jacobian
+
+    value = np.asarray(
+        _eef_jacobian(env, _arm_dof_indices(env)), dtype=np.float64
+    )
+    _require(
+        value.shape == (6, 7) and np.all(np.isfinite(value)),
+        "live end-effector Jacobian differs",
+    )
+    return value
+
+
 def _camera_state(env: Any, name: str) -> dict[str, Any]:
     """Record the rendered camera pose to distinguish physics from GL faults."""
 
@@ -316,6 +338,7 @@ def _reference_state(runtime: Mapping[str, Any], case: Mapping[str, Any], settle
         TABLE_RENDER_RESOLUTION,
         _active_obstacle,
         _build_environment,
+        _eef_proxy,
         _settle,
         pairing_record,
     )
@@ -325,6 +348,7 @@ def _reference_state(runtime: Mapping[str, Any], case: Mapping[str, Any], settle
         env, task, observation, initial = _build_environment(
             runtime, case, render_resolution=TABLE_RENDER_RESOLUTION
         )
+        released_stale_proxy = _eef_proxy(runtime, observation)
         observation = _settle(env, observation, settle)
         obstacle, _ = _active_obstacle(env, observation)
         state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64).copy()
@@ -342,6 +366,10 @@ def _reference_state(runtime: Mapping[str, Any], case: Mapping[str, Any], settle
             "task_language": str(task.language),
             "obstacle_name": obstacle,
             "pairing": pairing,
+            "released_stale_proxy": {
+                key: np.asarray(value, dtype=np.float64).copy()
+                for key, value in released_stale_proxy.items()
+            },
         }
     finally:
         if env is not None:
@@ -540,6 +568,20 @@ def _joint_chunk(
         "collision_geometry_queried": False,
         "barrier_qp_solved": False,
     }
+    if _aegis_ee_enabled(config):
+        final_pose_actions = joint_trajectory_to_pose_actions(
+            trajectory,
+            start_configuration,
+            kinematics,
+            translation_scale_m=float(
+                parameters["cartesian_translation_scale_m_per_action_unit"]
+            ),
+            rotation_scale_rad=float(
+                parameters["cartesian_rotation_scale_rad_per_action_unit"]
+            ),
+        )
+        record["_final_pose_actions"] = final_pose_actions.tolist()
+        record["final_pose_actions_sha256"] = array_sha256(final_pose_actions)
     env.sim.set_state_from_flattened(base_state)
     env.sim.forward()
     _require(
@@ -723,8 +765,21 @@ def _run_arm(
         query_seed,
     )
 
-    joint = arm == "joint_denoising_no_guidance"
-    _require(joint or arm == "cartesian_ee_no_guidance", "unknown baseline arm")
+    guided = _aegis_ee_enabled(config)
+    joint = arm in {
+        "joint_denoising_no_guidance",
+        "joint_denoising_with_aegis_ee",
+    }
+    expected_arm = (
+        "joint_denoising_with_aegis_ee"
+        if guided and joint
+        else "cartesian_ee_with_aegis_ee"
+        if guided
+        else "joint_denoising_no_guidance"
+        if joint
+        else "cartesian_ee_no_guidance"
+    )
+    _require(arm == expected_arm, "unknown or mismatched controller arm")
     arm_root = output_root / "arms" / arm
     arm_root.mkdir(parents=True, exist_ok=False)
     partial_video = arm_root / "episode.partial.mp4"
@@ -756,6 +811,39 @@ def _run_arm(
             == reference["pairing"]["settled_simulator_state_sha256"],
             "paired arm settled simulator state differs",
         )
+        safety_filter = None
+        geometry_record = None
+        joint_contract = None
+        if guided:
+            from main.multilink_ellipsoid.aegis_ee_constraint import (
+                ReleasedAegisEEFilter,
+            )
+
+            source_artifact = config["collision_guidance"]["released_aegis"][
+                "source_table1_artifact"
+            ]
+            _require(
+                pairing["settled_simulator_state_sha256"]
+                == source_artifact["settled_simulator_state_sha256"],
+                "AEGIS-EE frozen MVEE settled state differs",
+            )
+            _require(
+                pairing["initial_observation_contract"][
+                    "agentview_array_sha256"
+                ]
+                == source_artifact["settled_agentview_array_sha256"],
+                "AEGIS-EE frozen MVEE settled camera differs",
+            )
+            safety_filter = ReleasedAegisEEFilter(
+                runtime=runtime,
+                config=config,
+                initial_proxy=reference["released_stale_proxy"],
+            )
+            geometry_record = safety_filter.geometry_record()
+            if joint:
+                joint_contract = _arm_joint_contract(
+                    env, float(config["joint_denoising"]["joint_limit_margin_rad"])
+                )
         goal_definition, goal_atoms = _goal_progress_definition(env)
         initial_goal = _goal_progress_snapshot(
             env, goal_atoms, step=-1, previous_values=None
@@ -810,6 +898,14 @@ def _run_arm(
                         config=config,
                     )
                     gripper_actions = query_record.pop("final_gripper_actions")
+                    pose_actions = (
+                        np.asarray(
+                            query_record.pop("_final_pose_actions"),
+                            dtype=np.float64,
+                        )
+                        if guided
+                        else None
+                    )
                     for chunk_index in range(execute_count):
                         action_plan.append(
                             {
@@ -817,6 +913,15 @@ def _run_arm(
                                 "chunk_index": chunk_index,
                                 "joint_target": np.asarray(trajectory[chunk_index]).copy(),
                                 "gripper": float(gripper_actions[chunk_index]),
+                                **(
+                                    {
+                                        "nominal_pose_action": pose_actions[
+                                            chunk_index
+                                        ].copy()
+                                    }
+                                    if guided
+                                    else {}
+                                ),
                             }
                         )
                 else:
@@ -842,12 +947,14 @@ def _run_arm(
                         "returned_actions_sha256": array_sha256(chunk),
                         "server_timing": response.get("server_timing"),
                         "policy_timing": response.get("policy_timing"),
-                        "collision_geometry_queried": False,
+                        "collision_geometry_queried": guided,
                         "barrier_qp_solved": False,
                     }
                 query_record.update(
                     {
                         "query_index": query_index,
+                        "collision_geometry_queried": guided,
+                        "barrier_qp_solved": guided,
                         "total_wall_seconds": (
                             time.perf_counter_ns() - query_started
                         ) * 1.0e-9,
@@ -858,8 +965,21 @@ def _run_arm(
             planned = action_plan.popleft()
             pre_state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64)
             pre_qpos, pre_qvel = _joint_state(env)
+            safety_record = None
             if joint:
                 target = np.asarray(planned["joint_target"], dtype=np.float64)
+                nominal_target = target.copy()
+                if guided:
+                    target, safety_record = safety_filter.filter_joint_target(
+                        observation,
+                        nominal_pose_action=planned["nominal_pose_action"],
+                        nominal_joint_target=target,
+                        current_joint_position=pre_qpos,
+                        end_effector_jacobian=_live_eef_jacobian(env),
+                        lower=joint_contract["lower"],
+                        upper=joint_contract["upper"],
+                        gripper=float(planned["gripper"]),
+                    )
                 output_scale = float(
                     config["action_protocol"]["joint_controller"]["output_max"]
                 )
@@ -874,14 +994,33 @@ def _run_arm(
                     "saturated_joint_count": int(
                         np.count_nonzero(normalized_delta != arm_action)
                     ),
+                    **(
+                        {"nominal_joint_target_rad": nominal_target.tolist()}
+                        if guided
+                        else {}
+                    ),
                 }
             else:
                 env_action = np.asarray(planned["cartesian_action"], dtype=np.float64)
-                action_source = {"cartesian_policy_action": env_action.tolist()}
+                nominal_cartesian = env_action.copy()
+                if guided:
+                    env_action, safety_record = safety_filter.filter_cartesian(
+                        observation, nominal_cartesian
+                    )
+                action_source = {
+                    "cartesian_policy_action": nominal_cartesian.tolist(),
+                    **(
+                        {"filtered_cartesian_action": env_action.tolist()}
+                        if guided
+                        else {}
+                    ),
+                }
             _require(np.all(np.isfinite(env_action)), "environment action is nonfinite")
             step_started = time.perf_counter_ns()
             observation, reward, done, _ = env.step(env_action)
             step_wall = (time.perf_counter_ns() - step_started) * 1.0e-9
+            if guided:
+                safety_filter.observe_post_step(observation)
             post_qpos, post_qvel = _joint_state(env)
             goal = _goal_progress_snapshot(
                 env,
@@ -939,6 +1078,11 @@ def _run_arm(
                     "post_state_sha256": array_sha256(post_state),
                     "executed_env_action": env_action.tolist(),
                     "action_source": action_source,
+                    **(
+                        {"aegis_ee_constraint": safety_record}
+                        if guided
+                        else {}
+                    ),
                     "pre_joint_position_rad": pre_qpos,
                     "pre_joint_velocity_rad_s": pre_qvel,
                     "post_joint_position_rad": post_qpos,
@@ -1066,13 +1210,25 @@ def _run_arm(
                 else {"type": "OSC_POSE", "source": "SafeLIBERO default"}
             ),
             "control_effect": (
-                "paper_derived_joint_space_denoising_without_guidance"
+                "paper_derived_joint_space_denoising_with_posthoc_aegis_ee"
+                if guided and joint
+                else "cartesian_denoising_with_released_aegis_ee"
+                if guided
+                else "paper_derived_joint_space_denoising_without_guidance"
                 if joint
                 else "ordinary_cartesian_denoising_without_guidance"
             ),
-            "barrier_projection_enabled": False,
-            "ellipsoid_constraints_enabled": False,
-            "qp_enabled": False,
+            "barrier_projection_enabled": guided,
+            "ellipsoid_constraints_enabled": guided,
+            "qp_enabled": guided,
+            **(
+                {
+                    "aegis_ee_geometry": geometry_record,
+                    "aegis_ee_qp_timing": safety_filter.timing_summary(),
+                }
+                if guided
+                else {}
+            ),
             "pairing": pairing,
             "policy_queries": policy_queries,
             "action_count": len(actions),
@@ -1162,7 +1318,7 @@ def evaluate_worker(
     _require(arm in config["arms"], "worker arm differs")
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
-    runtime = _runtime_imports(include_aegis=False)
+    runtime = _runtime_imports(include_aegis=_aegis_ee_enabled(config))
     client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, port)
     server = _server_identity(client)
     reference = _reference_state(
@@ -1289,6 +1445,7 @@ def evaluate(
     )
     cartesian_success = cartesian["raw_simulation_evidence"]["native_task_success"]
     joint_success = joint["raw_simulation_evidence"]["native_task_success"]
+    guided = _aegis_ee_enabled(config)
     if cartesian_success and joint_success:
         interpretation = "joint_denoising_preserves_single_case_task_competence"
     elif cartesian_success and not joint_success:
@@ -1296,7 +1453,11 @@ def evaluate(
     elif not cartesian_success and joint_success:
         interpretation = "joint_denoising_improves_this_single_case_but_not_paper_comparability"
     else:
-        interpretation = "both_barrier_free_arms_fail_single_case_no_paper_like_competence_claim"
+        interpretation = (
+            "both_aegis_ee_arms_fail_single_case_no_paper_like_competence_claim"
+            if guided
+            else "both_barrier_free_arms_fail_single_case_no_paper_like_competence_claim"
+        )
     result = {
         "schema_version": "vlsa_embodisteer_joint_baseline_pair_result.v1",
         "status": "complete",
@@ -1321,7 +1482,7 @@ def evaluate(
             "joint_space_sampling_variable": True,
             "fk_before_each_denoising_step": True,
             "damped_jacobian_residual_after_each_denoising_step": True,
-            "collision_guidance_disabled": True,
+            "collision_guidance_disabled": not guided,
             "libero_incremental_action_adaptation": True,
             "exact_author_code_reproduction": False,
             "reason_not_exact": "authors_project_page_reported_code_coming_soon_and_pi05_libero_uses_incremental_7D_OSC_flow_actions_instead_of_chunk_start_relative_10D_DDPM_actions",
@@ -1329,9 +1490,17 @@ def evaluate(
         "geometry_isolation": {
             "l5_l6_l7_ellipsoids_constructed": False,
             "collision_sdf_queried": False,
-            "barrier_constraints_built": False,
-            "qp_solved": False,
+            "barrier_constraints_built": guided,
+            "qp_solved": guided,
             "physical_obstacle_remains_in_scene": True,
+            **(
+                {
+                    "barrier_constraint_count_per_action": 1,
+                    "protected_geometry": "released_aegis_end_effector_proxy_only",
+                }
+                if guided
+                else {}
+            ),
         },
         "arms": {config["arms"][0]: cartesian, config["arms"][1]: joint},
         "comparison": {
@@ -1365,7 +1534,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--worker-arm",
-        choices=("cartesian_ee_no_guidance", "joint_denoising_no_guidance"),
+        choices=(
+            "cartesian_ee_no_guidance",
+            "joint_denoising_no_guidance",
+            "cartesian_ee_with_aegis_ee",
+            "joint_denoising_with_aegis_ee",
+        ),
     )
     parser.add_argument("--artifact-root", type=Path)
     args = parser.parse_args()

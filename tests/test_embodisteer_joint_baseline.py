@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import sys
 import unittest
 
@@ -31,6 +32,9 @@ from scripts.evaluate_embodisteer_joint_baselines_e05 import (  # noqa: E402
 CONFIG = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v1.json"
 CONFIG_V2 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v2.json"
 CONFIG_V3 = ROOT / "configs/vlsa_embodisteer_joint_baselines_e05.v3.json"
+CONFIG_AEGIS_EE = (
+    ROOT / "configs/vlsa_embodisteer_aegis_ee_pair_e05.v1.json"
+)
 
 
 def _linear_kinematics(configuration):
@@ -40,6 +44,29 @@ def _linear_kinematics(configuration):
     position = q[:3]
     rotation = rotation_vector_to_matrix(q[3:6])
     return position, rotation, jacobian
+
+
+class AegisEEStaticIsolationTest(unittest.TestCase):
+    def test_aegis_ee_path_has_no_multilink_geometry_constructor(self):
+        source = (
+            ROOT / "main/multilink_ellipsoid/aegis_ee_constraint.py"
+        ).read_text(encoding="utf-8")
+        for forbidden in (
+            "MultilinkEllipsoidShadow",
+            "_mesh_link_ellipsoids",
+            "_link_ellipsoids",
+            "build_pair_constraint",
+        ):
+            self.assertNotIn(forbidden, source)
+
+    def test_preregistered_config_disables_all_distal_rows(self):
+        config = json.loads(CONFIG_AEGIS_EE.read_text(encoding="utf-8"))
+        guidance = config["collision_guidance"]
+        self.assertFalse(guidance["l5_l6_l7_constraints_enabled"])
+        self.assertEqual(
+            guidance["released_aegis"]["formulation"],
+            "released_table1_six_variable_translational_cbf_qp",
+        )
 
 
 @unittest.skipIf(np is None, "NumPy is available in the H100 evaluation environment")
@@ -93,6 +120,27 @@ class EmbodiSteerJointBaselineTest(unittest.TestCase):
             protocol["paper_rate_adaptation"]["paper_execution_horizon"], 16
         )
         self.assertFalse(config["collision_guidance"]["ellipsoid_constraints_enabled"])
+
+    def test_aegis_ee_pair_enables_one_ee_row_and_disables_l5_l7(self):
+        config = load_joint_baseline_config(CONFIG_AEGIS_EE)
+
+        self.assertEqual(
+            config["arms"],
+            ["cartesian_ee_with_aegis_ee", "joint_denoising_with_aegis_ee"],
+        )
+        guidance = config["collision_guidance"]
+        self.assertTrue(guidance["barrier_projection_enabled"])
+        self.assertTrue(guidance["ellipsoid_constraints_enabled"])
+        self.assertTrue(guidance["qp_enabled"])
+        self.assertFalse(guidance["l5_l6_l7_constraints_enabled"])
+        self.assertEqual(
+            guidance["released_aegis"]["end_effector_proxy"]["semiaxes_m"],
+            [0.06, 0.12, 0.11],
+        )
+        self.assertEqual(
+            guidance["released_aegis"]["formulation"],
+            "released_table1_six_variable_translational_cbf_qp",
+        )
 
     def test_joint_worker_does_not_construct_a_second_render_environment(self):
         source = (

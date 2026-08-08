@@ -34,23 +34,28 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
     claimed_payload = result.pop("result_payload_sha256")
     _require(_sha256(_canonical(result)) == claimed_payload, "pair payload hash differs")
     result["result_payload_sha256"] = claimed_payload
+    config = result["config"]
+    guided = config["schema_version"] == "vlsa_embodisteer_aegis_ee_pair.v1"
     isolation = result["geometry_isolation"]
-    _require(
-        isolation
-        == {
+    expected_isolation = {
             "l5_l6_l7_ellipsoids_constructed": False,
             "collision_sdf_queried": False,
-            "barrier_constraints_built": False,
-            "qp_solved": False,
+            "barrier_constraints_built": guided,
+            "qp_solved": guided,
             "physical_obstacle_remains_in_scene": True,
-        },
-        "geometry isolation differs",
-    )
+    }
+    if guided:
+        expected_isolation.update(
+            {
+                "barrier_constraint_count_per_action": 1,
+                "protected_geometry": "released_aegis_end_effector_proxy_only",
+            }
+        )
+    _require(isolation == expected_isolation, "geometry isolation differs")
     _require(
         result["sampler_regression_preflight"]["status"] == "passing",
         "sampler regression did not pass",
     )
-    config = result["config"]
     _require(
         config["nominal_policy"]["same_checkpoint_both_arms"] is True,
         "baseline checkpoints are not paired",
@@ -63,10 +68,10 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         arm = arms[arm_name]
         _require(arm["status"] == "complete", "%s arm incomplete" % arm_name)
         _require(
-            arm["barrier_projection_enabled"] is False
-            and arm["ellipsoid_constraints_enabled"] is False
-            and arm["qp_enabled"] is False,
-            "%s arm applied forbidden guidance" % arm_name,
+            arm["barrier_projection_enabled"] is guided
+            and arm["ellipsoid_constraints_enabled"] is guided
+            and arm["qp_enabled"] is guided,
+            "%s arm guidance state differs" % arm_name,
         )
         _require(arm["action_count"] == len(arm["actions"]), "action count differs")
         _require(0 < arm["action_count"] <= 300, "action horizon differs")
@@ -76,18 +81,28 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         )
         settled_hashes.add(arm["pairing"]["settled_simulator_state_sha256"])
         for query in arm["policy_queries"]:
-            _require(query["collision_geometry_queried"] is False, "query used geometry")
-            _require(query["barrier_qp_solved"] is False, "query solved barrier QP")
-            if arm_name == "joint_denoising_no_guidance":
+            _require(
+                query["collision_geometry_queried"] is guided,
+                "query geometry state differs",
+            )
+            _require(
+                query["barrier_qp_solved"] is guided,
+                "query QP state differs",
+            )
+            if arm_name in {
+                "joint_denoising_no_guidance",
+                "joint_denoising_with_aegis_ee",
+            }:
                 _require(len(query["flow_steps"]) == 10, "joint flow horizon differs")
-        if (
+        absolute_joint_arm = (
             config["schema_version"]
             in {
                 "vlsa_embodisteer_joint_baselines.v2",
                 "vlsa_embodisteer_joint_baselines.v3",
             }
             and arm_name == "joint_denoising_no_guidance"
-        ):
+        ) or (guided and arm_name == "joint_denoising_with_aegis_ee")
+        if absolute_joint_arm:
             _require(
                 arm["joint_target_execution"][
                     "steps_with_delta_encoding_saturation"
@@ -95,6 +110,36 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
                 == 0,
                 "v2 absolute joint targets saturated",
             )
+        if guided:
+            geometry = arm["aegis_ee_geometry"]
+            _require(
+                geometry["constraint_count"] == 1
+                and geometry["protected_body_names"]
+                == ["robot0_end_effector"]
+                and geometry["l5_l6_l7_ellipsoids_constructed"] is False
+                and geometry["l5_l6_l7_constraints_built"] is False,
+                "AEGIS-EE geometry isolation differs",
+            )
+            _require(
+                arm["aegis_ee_qp_timing"]["qp_count"] == arm["action_count"],
+                "AEGIS-EE QP count differs",
+            )
+            for action in arm["actions"]:
+                safety = action["aegis_ee_constraint"]
+                _require(
+                    safety["constraint_count"] == 1
+                    and safety["l5_l6_l7_constraints_enabled"] is False,
+                    "action did not use exactly one EE constraint",
+                )
+                _require(
+                    safety["qp"]["solver_status"]
+                    in {"optimal", "optimal_inaccurate"},
+                    "AEGIS-EE QP did not solve",
+                )
+                _require(
+                    float(safety["qp"]["constraint_lhs"]) >= -1.0e-5,
+                    "AEGIS-EE solution violates its optimizer row",
+                )
         evidence = arm["raw_simulation_evidence"]
         observed_protected = next(
             (
@@ -186,7 +231,8 @@ def validate(result_path: Path, output_path: Path) -> dict[str, Any]:
         "result_path": str(result_path.resolve()),
         "result_file_sha256": _file_sha256(result_path),
         "result_payload_sha256": claimed_payload,
-        "all_guidance_disabled": True,
+        "all_guidance_disabled": not guided,
+        "exactly_one_aegis_ee_constraint": guided,
         "same_checkpoint_and_settled_state": True,
         "videos": video_receipts,
         "comparison": result["comparison"],

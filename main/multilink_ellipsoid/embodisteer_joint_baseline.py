@@ -20,6 +20,7 @@ from typing import Any, Callable, Mapping, Sequence, Tuple
 SCHEMA = "vlsa_embodisteer_joint_baselines.v1"
 SCHEMA_V2 = "vlsa_embodisteer_joint_baselines.v2"
 SCHEMA_V3 = "vlsa_embodisteer_joint_baselines.v3"
+SCHEMA_AEGIS_EE = "vlsa_embodisteer_aegis_ee_pair.v1"
 CONTROL_SCHEMA = "crfs_embodisteer_joint_denoising.v1"
 
 
@@ -64,14 +65,21 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("EmbodiSteer joint-baseline config keys differ")
-    if config["schema_version"] not in {SCHEMA, SCHEMA_V2, SCHEMA_V3}:
+    if config["schema_version"] not in {
+        SCHEMA,
+        SCHEMA_V2,
+        SCHEMA_V3,
+        SCHEMA_AEGIS_EE,
+    }:
         raise ValueError("EmbodiSteer joint-baseline schema differs")
     if config["case_ids"] != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("EmbodiSteer joint-baseline case differs")
-    if config["arms"] != [
-        "cartesian_ee_no_guidance",
-        "joint_denoising_no_guidance",
-    ]:
+    expected_arms = (
+        ["cartesian_ee_with_aegis_ee", "joint_denoising_with_aegis_ee"]
+        if config["schema_version"] == SCHEMA_AEGIS_EE
+        else ["cartesian_ee_no_guidance", "joint_denoising_no_guidance"]
+    )
+    if config["arms"] != expected_arms:
         raise ValueError("EmbodiSteer joint-baseline arms differ")
     if config["paper_reference"] != {
         "arxiv": "2606.12965v1",
@@ -80,7 +88,105 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
         "joint_denoising_equations": ["3", "4", "8", "9", "10"],
     }:
         raise ValueError("EmbodiSteer joint-baseline paper mapping differs")
-    if config["collision_guidance"] != {
+    if config["schema_version"] == SCHEMA_AEGIS_EE:
+        guidance = config["collision_guidance"]
+        if set(guidance) != {
+            "barrier_projection_enabled",
+            "ellipsoid_constraints_enabled",
+            "joint_adapter",
+            "l5_l6_l7_constraints_enabled",
+            "qp_enabled",
+            "released_aegis",
+        }:
+            raise ValueError("AEGIS-EE guidance keys differ")
+        if not all(
+            guidance[key]
+            for key in (
+                "barrier_projection_enabled",
+                "ellipsoid_constraints_enabled",
+                "qp_enabled",
+            )
+        ) or guidance["l5_l6_l7_constraints_enabled"] is not False:
+            raise ValueError("AEGIS-EE must enable one EE QP and disable L5--L7")
+        released = guidance["released_aegis"]
+        if set(released) != {
+            "alpha_gain",
+            "end_effector_proxy",
+            "formulation",
+            "internal_dt_s",
+            "obstacle_mvee",
+            "rotation_execution",
+            "source_table1_artifact",
+        } or float(released["alpha_gain"]) != 10.0 or float(
+            released["internal_dt_s"]
+        ) != 0.05:
+            raise ValueError("released AEGIS parameter contract differs")
+        if released.get("formulation") != (
+            "released_table1_six_variable_translational_cbf_qp"
+        ) or released.get("rotation_execution") != (
+            "zero_as_released_table1_translational_protocol"
+        ):
+            raise ValueError("released AEGIS formulation differs")
+        proxy = released.get("end_effector_proxy", {})
+        if proxy != {
+            "center": "robot0_eef_pose_plus_minus_0.08m_local_z",
+            "semiaxes_m": [0.06, 0.12, 0.11],
+        }:
+            raise ValueError("released AEGIS end-effector proxy differs")
+        obstacle = released.get("obstacle_mvee", {})
+        if set(obstacle) != {"center_m", "rotation", "semiaxes_m"}:
+            raise ValueError("frozen AEGIS obstacle MVEE keys differ")
+        np = _numpy()
+        center = np.asarray(obstacle["center_m"], dtype=np.float64)
+        rotation = np.asarray(obstacle["rotation"], dtype=np.float64)
+        semiaxes = np.asarray(obstacle["semiaxes_m"], dtype=np.float64)
+        if (
+            center.shape != (3,)
+            or rotation.shape != (3, 3)
+            or semiaxes.shape != (3,)
+            or not np.all(np.isfinite(center))
+            or not np.all(np.isfinite(rotation))
+            or not np.all(np.isfinite(semiaxes))
+            or np.any(semiaxes <= 0.0)
+            or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-10)
+        ):
+            raise ValueError("frozen AEGIS obstacle MVEE is invalid")
+        expected_center = np.asarray(
+            [-0.058366719778605226, 0.14301469629436583, 1.0230830180351789]
+        )
+        expected_rotation = np.asarray(
+            [
+                [-0.020790474824008438, 0.058184500032663435, -0.9980893347353939],
+                [0.1576830297250622, 0.9860014894880728, 0.054195247614777],
+                [0.9872708940778703, -0.15625500530623276, -0.02967414739182496],
+            ]
+        )
+        expected_semiaxes = np.asarray(
+            [0.1393188890560937, 0.12054261654746469, 0.07910671170710154]
+        )
+        if not (
+            np.array_equal(center, expected_center)
+            and np.array_equal(rotation, expected_rotation)
+            and np.array_equal(semiaxes, expected_semiaxes)
+        ):
+            raise ValueError("frozen AEGIS obstacle MVEE values differ")
+        adapter = guidance["joint_adapter"]
+        if adapter != {
+            "damped_jacobian_lambda": 0.001,
+            "method": "posthoc_released_aegis_cartesian_translation_correction_lifted_to_direct_joint_target",
+            "preserve_nominal_joint_orientation": True,
+            "translation_scale_m_per_action_unit": 0.05,
+        }:
+            raise ValueError("AEGIS-EE direct-joint adapter differs")
+        if released["source_table1_artifact"] != {
+            "case_id": "vlsa-t1-goal-ii-t0-e05",
+            "file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+            "result_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+            "settled_agentview_array_sha256": "b66103d274cbd2db02ef7fe84771725819fb74062ef36de18b6af6119da7865f",
+            "settled_simulator_state_sha256": "5a72a870b8368d0a6508428bb89dce75ccc6f28e86a2349edae35b2618918741",
+        }:
+            raise ValueError("frozen Table-1 AEGIS source artifact differs")
+    elif config["collision_guidance"] != {
         "barrier_projection_enabled": False,
         "ellipsoid_constraints_enabled": False,
         "qp_enabled": False,
@@ -88,8 +194,9 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
     }:
         raise ValueError("EmbodiSteer joint baseline must disable all guidance")
     protocol = config["action_protocol"]
-    expected_rate = 10 if config["schema_version"] == SCHEMA_V3 else 20
-    expected_execution = 10 if config["schema_version"] == SCHEMA_V3 else 5
+    paper_rate = config["schema_version"] in {SCHEMA_V3, SCHEMA_AEGIS_EE}
+    expected_rate = 10 if paper_rate else 20
+    expected_execution = 10 if paper_rate else 5
     if any(
         int(protocol[key]) != expected
         for key, expected in (
@@ -119,7 +226,7 @@ def load_joint_baseline_config(path: Path) -> dict[str, Any]:
             raise ValueError("v2 absolute joint-target adapter differs")
         if float(controller["output_max"]) != 6.0 or float(controller["output_min"]) != -6.0:
             raise ValueError("v2 absolute joint-target range differs")
-        if config["schema_version"] == SCHEMA_V3:
+        if config["schema_version"] in {SCHEMA_V3, SCHEMA_AEGIS_EE}:
             if protocol.get("paper_rate_adaptation") != {
                 "paper_control_frequency_hz": 10,
                 "paper_execution_horizon": 16,

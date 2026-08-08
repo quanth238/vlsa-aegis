@@ -729,3 +729,22 @@ established with a natively compatible policy/controller. If geometry is
 reintroduced afterward, use audited link-attached spheres/capsules and
 top-critical-distance aggregation; do not present one MVEE per L5/L6 link as
 the paper's geometry.
+
+## ADR-0046: Isolate the released AEGIS end-effector constraint
+
+Accepted as the next bounded diagnostic.  L5/L6/L7 ellipsoids and their CBF
+rows are disabled, not refit.  Both controller arms receive exactly the
+released Table-1 end-effector proxy and archived E05 obstacle MVEE.  Reusing
+the archived MVEE is valid here because the evaluator must reproduce its
+settled simulator-state and camera hashes before control; the completed Table
+1 result is never modified or reinterpreted.
+
+For Cartesian EE, the released six-variable translational CBF-QP is executed
+unchanged, including its virtual direction state and `0.05 s` internal update.
+For Direct Joint, the same QP is evaluated on the joint trajectory's
+equivalent Cartesian translation and only its translation correction is
+lifted through the live damped EE Jacobian into the joint target.  This tests
+whether changing the downstream controller representation helps the original
+AEGIS constraint.  It is not a claim of an exact EmbodiSteer implementation,
+native joint-space barrier, full-body protection, or matched paper baseline.
+Raw simulator contacts and task state remain authoritative over QP clearance.

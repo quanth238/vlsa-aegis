@@ -20,6 +20,7 @@ OPENPI_PYTHON=${OPENPI_PYTHON:-/mnt/data/quanth/venvs/openpi/bin/python}
 EVALUATION_PYTHON=${EVALUATION_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-embodisteer-joint-baselines-e05}
+CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_embodisteer_joint_baselines_e05.v3.json}
 
 die() {
   printf '%s\n' "$*" >&2
@@ -38,6 +39,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 }
 [[ -x "$OPENPI_PYTHON" && -x "$EVALUATION_PYTHON" ]] || die "registered Python missing"
 [[ -d "$PI05_CHECKPOINT" && ! -L "$PI05_CHECKPOINT" ]] || die "pi05 checkpoint missing"
+[[ -f "$CONFIG_PATH" && ! -L "$CONFIG_PATH" ]] || die "registered config missing"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || {
   die "source commit differs"
 }
@@ -133,7 +135,7 @@ curl --fail --silent --show-error \
 "$EVALUATION_PYTHON" scripts/evaluate_embodisteer_joint_baselines_e05.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
-  --config "$REMOTE_REPO/configs/vlsa_embodisteer_joint_baselines_e05.v3.json" \
+  --config "$CONFIG_PATH" \
   --checkpoint "$PI05_CHECKPOINT" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \
