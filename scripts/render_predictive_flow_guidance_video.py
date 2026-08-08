@@ -566,9 +566,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "preview": receipt["preview"]["path"],
             },
             sort_keys=True,
-        )
+        ),
+        flush=True,
     )
-    return 0
+    # The legacy OSMesa/MuJoCo stack can double-free its already-closed context
+    # during interpreter teardown. All writers, readers, simulator resources,
+    # and the atomic receipt are closed before this point, so bypass only the
+    # process-global C-extension destructor path.
+    os._exit(0)
 
 
 if __name__ == "__main__":

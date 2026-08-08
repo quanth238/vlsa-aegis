@@ -91,7 +91,7 @@ cd "$REMOTE_REPO"
   tests.test_multilink_ellipsoid_h100_contract \
   tests.test_multilink_ellipsoid -v \
   >"$RUN_ROOT/numeric-preflight.txt" 2>&1
-exec "$AEGIS_PYTHON" scripts/render_predictive_flow_guidance_video.py \
+"$AEGIS_PYTHON" scripts/render_predictive_flow_guidance_video.py \
   --repo-root "$REMOTE_REPO" \
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
   --config "$REMOTE_REPO/configs/vlsa_predictive_flow_guidance_e05.v1.json" \

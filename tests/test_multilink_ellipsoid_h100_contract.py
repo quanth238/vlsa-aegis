@@ -168,6 +168,11 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("policy-query clearance trace differs", renderer)
         self.assertIn("geometry.ellipsoids(env)", renderer)
         self.assertIn("obstacle MVEE", renderer)
+        self.assertIn("os._exit(0)", renderer)
+        self.assertNotIn(
+            'exec "$AEGIS_PYTHON" scripts/render_predictive_flow_guidance_video.py',
+            source,
+        )
 
 
 if __name__ == "__main__":
