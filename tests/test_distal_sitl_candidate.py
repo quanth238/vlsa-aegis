@@ -39,6 +39,18 @@ class DistalSitlCandidateTests(unittest.TestCase):
         )
         self.assertIn("live_closed_loop", config["claim_scope"])
 
+    def test_hybrid_config_switches_only_after_distal_intervention(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_sitl_hybrid_recovery_e05.v1.json"
+        )
+        self.assertEqual(
+            config["nominal_action_source"],
+            "immutable_released_aegis_until_first_sitl_intervention_then_live_pi05_libero_recovery_with_released_aegis_ee_qp",
+        )
+        self.assertIn("successful_aegis_prefix", config["claim_scope"])
+
     def test_targets_preserve_nominal_end_effector_clearance(self) -> None:
         import numpy as np
 
@@ -104,7 +116,18 @@ class DistalSitlCandidateTests(unittest.TestCase):
         self.assertIn("#SBATCH --gres=gpu:1", source)
         self.assertIn("pi05_libero", source)
         self.assertIn("vlsa_distal_sitl_live_e05.v1.json", source)
+        self.assertIn("HEURISTIC_CONFIG", source)
         self.assertIn("--host 127.0.0.1", source)
+
+    def test_hybrid_runner_switches_to_corresponding_live_query(self) -> None:
+        source = (
+            ROOT / "scripts/evaluate_distal_sitl_candidate_e05.py"
+        ).read_text()
+        self.assertIn("hybrid_recovery", source)
+        self.assertIn("recovery_activation_step", source)
+        self.assertIn("index // int(case.get(\"replan_steps\", 5))", source)
+        self.assertIn("immutable_successful_released_aegis_env_step_input", source)
+        self.assertIn("vlsa_distal_sitl_hybrid_recovery_e05_result.v1", source)
 
     def test_live_runner_uses_calibrated_initial_chunk_gate(self) -> None:
         source = (

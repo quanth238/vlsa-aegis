@@ -109,7 +109,11 @@ def evaluate(
     heuristic_config = load_sitl_candidate_config(heuristic_config_path)
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(heuristic_config["case_ids"] == [CASE_ID], "heuristic config case differs")
-    live_policy = heuristic_config["nominal_action_source"].startswith("live_pi05_libero")
+    nominal_source = heuristic_config["nominal_action_source"]
+    hybrid_recovery = nominal_source.startswith(
+        "immutable_released_aegis_until_first_sitl_intervention"
+    )
+    live_policy = nominal_source.startswith("live_pi05_libero") or hybrid_recovery
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
     runtime = _runtime_imports(include_aegis=live_policy)
@@ -168,6 +172,13 @@ def evaluate(
             "policy_noise_schedule_sha256",
         ):
             _require(pairing[key] == archived["pairing"][key], "SITL pairing field differs: %s" % key)
+        if hybrid_recovery:
+            pairing["initial_policy_action_chunk_sha256"] = archived["pairing"][
+                "initial_policy_action_chunk_sha256"
+            ]
+            pairing["nominal_prefix_source"] = (
+                "immutable_successful_released_aegis_env_step_input"
+            )
 
         perception = archived["perception"]
         geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
@@ -188,6 +199,8 @@ def evaluate(
         server_identity = None
         policy_queries = []
         action_plan = collections.deque()
+        recovery_active = False
+        recovery_activation_step = None
         proxy = stale_proxy
         released_aegis_geometry = None
         q1_diag = None
@@ -248,10 +261,18 @@ def evaluate(
             nominal_raw = None
             aegis_qp_record = None
             policy_query_index = None
-            if live_policy:
+            applied_nominal_source = None
+            use_live_action = live_policy and (
+                not hybrid_recovery or recovery_active
+            )
+            if use_live_action:
                 if not action_plan:
                     _require(client is not None, "live pi0.5 client is unavailable")
-                    query_index = len(policy_queries)
+                    query_index = (
+                        int(policy_queries[-1]["query_index"]) + 1
+                        if policy_queries
+                        else (index // int(case.get("replan_steps", 5)) if hybrid_recovery else 0)
+                    )
                     seed = query_seed(int(case["policy_noise_seed"]), query_index)
                     policy_input = _policy_observation(
                         runtime,
@@ -270,7 +291,7 @@ def evaluate(
                         "live pi0.5 action chunk differs",
                     )
                     returned_hash = array_sha256(returned)
-                    if query_index == 0:
+                    if query_index == 0 and not hybrid_recovery:
                         paired_prefix_length = int(case.get("replan_steps", 5))
                         archived_initial_prefix = np.asarray(
                             [
@@ -337,7 +358,12 @@ def evaluate(
                             "server_timing": response.get("server_timing"),
                         }
                     )
-                policy_query_index = len(policy_queries) - 1
+                policy_query_index = int(policy_queries[-1]["query_index"])
+                applied_nominal_source = (
+                    "live_pi05_libero_recovery_then_released_aegis_ee_qp"
+                    if hybrid_recovery
+                    else "live_pi05_libero_then_released_aegis_ee_qp"
+                )
                 nominal_raw = np.asarray(action_plan.popleft(), dtype=np.float64)
                 translational = translational_action(nominal_raw)
                 _require(
@@ -356,6 +382,10 @@ def evaluate(
                 )
                 nominal = np.asarray(nominal_list, dtype=np.float64)
             else:
+                _require(
+                    index < len(archived_actions),
+                    "immutable AEGIS prefix ended before a distal intervention",
+                )
                 archived_action = archived_actions[index]
                 _require(int(archived_action["step"]) == index, "archived action indexes differ")
                 nominal = np.asarray(archived_action["env_step_input"], dtype=np.float64)
@@ -363,6 +393,9 @@ def evaluate(
                     nominal.shape == (7,)
                     and np.array_equal(nominal, np.asarray(archived_action["executed"])),
                     "archived env.step input binding differs",
+                )
+                applied_nominal_source = (
+                    "immutable_successful_released_aegis_env_step_input"
                 )
             executed, filter_step = controller.filter(env, nominal, step=index)
             filter_records.append(filter_step)
@@ -376,6 +409,10 @@ def evaluate(
             observation, reward, done, _ = env.step(executed)
             if live_policy:
                 proxy = _eef_proxy(runtime, observation)
+            if hybrid_recovery and not recovery_active and filter_step["modified"]:
+                recovery_active = True
+                recovery_activation_step = index
+                action_plan.clear()
             try:
                 controller.verify_executed_transition(env, filter_step)
             except ValueError as error:
@@ -432,6 +469,7 @@ def evaluate(
                         json.dumps(nominal.tolist(), separators=(",", ":"), allow_nan=False).encode("utf-8")
                     ),
                     "nominal_action_source": heuristic_config["nominal_action_source"],
+                    "applied_nominal_source": applied_nominal_source,
                     "nominal_raw_policy_action": (
                         None if nominal_raw is None else nominal_raw.tolist()
                     ),
@@ -472,9 +510,13 @@ def evaluate(
         )
         result = {
             "schema_version": (
-                "vlsa_distal_sitl_live_e05_result.v1"
-                if live_policy
-                else "vlsa_distal_sitl_candidate_e05_result.v1"
+                "vlsa_distal_sitl_hybrid_recovery_e05_result.v1"
+                if hybrid_recovery
+                else (
+                    "vlsa_distal_sitl_live_e05_result.v1"
+                    if live_policy
+                    else "vlsa_distal_sitl_candidate_e05_result.v1"
+                )
             ),
             "status": "complete" if failure is None else "method_failure",
             "scientific_result": True,
@@ -499,6 +541,21 @@ def evaluate(
             "policy_server": server_identity,
             "policy_query_count": len(policy_queries),
             "policy_queries": policy_queries,
+            "hybrid_recovery": {
+                "enabled": hybrid_recovery,
+                "activation_step": recovery_activation_step,
+                "live_recovery_started": bool(hybrid_recovery and recovery_active),
+                "first_live_query_index": (
+                    None
+                    if not policy_queries
+                    else int(policy_queries[0]["query_index"])
+                ),
+                "immutable_prefix_action_count": (
+                    recovery_activation_step + 1
+                    if hybrid_recovery and recovery_activation_step is not None
+                    else (len(action_records) if hybrid_recovery else 0)
+                ),
+            },
             "probe_environment": {
                 "same_bddl_task_episode_and_settled_state": True,
                 "disabled_image_observable_count": disabled_probe_observables,

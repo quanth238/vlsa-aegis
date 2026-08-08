@@ -74,6 +74,8 @@ def load_sitl_candidate_config(path: Path) -> dict[str, Any]:
     if config["nominal_action_source"] not in {
         "immutable_successful_released_aegis_env_step_input",
         "live_pi05_libero_then_released_aegis_ee_qp_replanned_every_five_steps",
+        "immutable_released_aegis_until_first_sitl_intervention_then_"
+        "live_pi05_libero_recovery_with_released_aegis_ee_qp",
     }:
         raise ValueError("SITL nominal action source differs")
     geometry = config["protected_geometry"]
