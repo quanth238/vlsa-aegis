@@ -267,6 +267,157 @@ def minimum_volume_enclosing_ellipsoid(
     )
 
 
+def partitioned_convex_hull_enclosing_ellipsoids(
+    points_world: Any,
+    *,
+    part_count: int,
+    body_name: str,
+    geom_name: str,
+    body_id: int = -1,
+    geom_id: int = -1,
+    source_body_names: Sequence[str],
+    source_geom_names: Sequence[str],
+    relative_padding: float = 1.0e-9,
+    tolerance: float = 1.0e-4,
+    max_iterations: int = 20000,
+    certificate_metadata: Mapping[str, Any] | None = None,
+    include_source_points: bool = False,
+) -> list[Ellipsoid]:
+    """Cover one compiled convex collision hull with tighter ellipsoids.
+
+    The convex hull is triangulated into boundary facets.  Every facet and a
+    common certified interior point define a tetrahedral cell; those cells
+    exactly fill the hull.  Facets are partitioned along the dominant PCA
+    axis, and one MVEE encloses the common point plus every vertex of the
+    facets in that partition.  Convexity therefore proves that the union of
+    the returned ellipsoids encloses the complete collision hull, rather than
+    merely a sampled point cloud.
+    """
+
+    np = _numpy()
+    try:
+        from scipy.spatial import ConvexHull
+    except ImportError as error:  # pragma: no cover - allocation dependency
+        raise RuntimeError("partitioned ellipsoids require SciPy") from error
+
+    points = np.asarray(points_world, dtype=np.float64)
+    if (
+        points.ndim != 2
+        or points.shape[1] != 3
+        or points.shape[0] < 4
+        or not np.all(np.isfinite(points))
+    ):
+        raise ValueError("partition source points must be a finite Nx3 array")
+    if isinstance(part_count, bool) or int(part_count) < 1:
+        raise ValueError("ellipsoid part_count must be a positive integer")
+    count = int(part_count)
+    hull = ConvexHull(points)
+    facets = np.asarray(hull.simplices, dtype=np.int64)
+    hull_vertices = np.asarray(hull.vertices, dtype=np.int64)
+    if facets.ndim != 2 or facets.shape[1] != 3 or len(facets) < count:
+        raise ValueError("convex hull has insufficient triangular facets")
+
+    interior = np.mean(points[hull_vertices], axis=0)
+    halfspaces = np.asarray(hull.equations, dtype=np.float64)
+    maximum_halfspace = float(
+        np.max(halfspaces[:, :3] @ interior + halfspaces[:, 3])
+    )
+    if maximum_halfspace > 1.0e-10:
+        raise ValueError("partition common point is outside the convex hull")
+
+    centered = points[hull_vertices] - interior
+    covariance = centered.T @ centered / float(len(hull_vertices))
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    axis = np.asarray(eigenvectors[:, int(np.argmax(eigenvalues))], dtype=np.float64)
+    sign_index = int(np.argmax(np.abs(axis)))
+    if axis[sign_index] < 0.0:
+        axis = -axis
+    centroids = np.mean(points[facets], axis=1)
+    projections = (centroids - interior) @ axis
+    ordered = np.lexsort((np.arange(len(facets), dtype=np.int64), projections))
+    partitions = [np.asarray(value, dtype=np.int64) for value in np.array_split(ordered, count)]
+    if any(value.size == 0 for value in partitions):
+        raise ValueError("convex-hull facet partition is empty")
+    assigned = np.concatenate(partitions)
+    if not np.array_equal(np.sort(assigned), np.arange(len(facets), dtype=np.int64)):
+        raise ValueError("convex-hull facets are not partitioned exactly once")
+
+    source_hash = hashlib.sha256(
+        np.ascontiguousarray(points, dtype="<f8").tobytes(order="C")
+    ).hexdigest()
+    facet_hash = hashlib.sha256(
+        np.ascontiguousarray(facets, dtype="<i8").tobytes(order="C")
+    ).hexdigest()
+    output: list[Ellipsoid] = []
+    for partition_index, face_indices in enumerate(partitions):
+        vertex_indices = np.unique(facets[face_indices].reshape(-1))
+        support = np.concatenate((interior[None, :], points[vertex_indices]), axis=0)
+        metadata = dict(certificate_metadata or {})
+        metadata.update(
+            {
+                "partition_index": int(partition_index),
+                "partition_count": count,
+                "partition_face_count": int(len(face_indices)),
+                "partition_vertex_count": int(len(vertex_indices)),
+                "partition_face_indices": face_indices.tolist(),
+                "partition_vertex_indices": vertex_indices.tolist(),
+                "convex_hull_face_count": int(len(facets)),
+                "convex_hull_vertex_count": int(len(hull_vertices)),
+                "convex_hull_volume_m3": float(hull.volume),
+                "convex_hull_source_vertices_float64_sha256": source_hash,
+                "convex_hull_facets_int64_sha256": facet_hash,
+                "common_interior_point_m": interior.tolist(),
+                "common_interior_maximum_halfspace_value": maximum_halfspace,
+                "partition_axis_world": axis.tolist(),
+            }
+        )
+        fitted = minimum_volume_enclosing_ellipsoid(
+            support,
+            body_name=body_name,
+            geom_name="%s#part%d" % (geom_name, partition_index + 1),
+            body_id=body_id,
+            geom_id=geom_id,
+            source_body_names=source_body_names,
+            source_geom_names=source_geom_names,
+            relative_padding=relative_padding,
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+            include_source_points=include_source_points,
+        )
+        certificate = dict(fitted.enclosure_certificate or {})
+        certificate.update(metadata)
+        certificate.update(
+            {
+                "proof": (
+                    "complete_convex_hull_covered_by_union_of_common_apex_"
+                    "facet_partition_ellipsoids"
+                ),
+                "fit_method": (
+                    "convex_hull_facet_partition_khachiyan_mvee_exact_inflation"
+                ),
+                "partition_cell_contained": True,
+                "all_convex_hull_facets_assigned_exactly_once": True,
+                "convex_hull_contained_by_partition_union": True,
+            }
+        )
+        output.append(
+            Ellipsoid(
+                center=fitted.center,
+                rotation=fitted.rotation,
+                semiaxes_m=fitted.semiaxes_m,
+                body_id=fitted.body_id,
+                body_name=fitted.body_name,
+                geom_id=fitted.geom_id,
+                geom_name=fitted.geom_name,
+                bound_source="certified_partitioned_convex_hull_mvee_union",
+                source_body_names=fitted.source_body_names,
+                source_geom_names=fitted.source_geom_names,
+                enclosure_certificate=certificate,
+            )
+        )
+    return output
+
+
 def primitive_bounding_radii(
     geom_kind: str,
     geom_size: Sequence[float],

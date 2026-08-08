@@ -19,6 +19,7 @@ COLORS = (
     (255, 152, 0, 245),
     (205, 220, 57, 245),
 )
+EE_COLOR = (0, 188, 212, 245)
 
 
 def _canonical(value: Any) -> bytes:
@@ -186,8 +187,11 @@ def render(
     )
     from main.multilink_ellipsoid.shadow import (
         DISTAL_ELLIPSOID_SCHEMA,
+        DISTAL_PARTITIONED_SCHEMA,
         _link_ellipsoids,
         _mesh_link_ellipsoids,
+        _mesh_link_partition_ellipsoids,
+        _released_aegis_end_effector_ellipsoid,
         allocation_record,
         load_shadow_config,
     )
@@ -209,7 +213,18 @@ def render(
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         config = load_shadow_config(config_path)
         protected = config["protected_body_names"]
-        if config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
+        if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
+            geometry = config["robot_geometry"]
+            ellipsoids = _mesh_link_partition_ellipsoids(
+                env,
+                protected,
+                part_counts=geometry["part_counts"],
+                relative_padding=float(geometry["relative_numerical_padding"]),
+                tolerance=float(geometry["khachiyan_tolerance"]),
+                max_iterations=int(geometry["khachiyan_max_iterations"]),
+            )
+            ellipsoids.append(_released_aegis_end_effector_ellipsoid(env))
+        elif config["schema_version"] == DISTAL_ELLIPSOID_SCHEMA:
             ellipsoids = _mesh_link_ellipsoids(
                 env,
                 protected,
@@ -224,8 +239,9 @@ def render(
             )
         else:
             ellipsoids = _link_ellipsoids(env, protected)
-        if len(ellipsoids) != 3:
-            raise ValueError("expected exactly three live link-5/link-6/link-7 ellipsoids")
+        expected_count = 8 if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA else 3
+        if len(ellipsoids) != expected_count:
+            raise ValueError("live ellipsoid count differs from geometry contract")
 
         camera_name = "backview"
         camera_record = _frame_arm_camera(env, ellipsoids, camera_name)
@@ -250,8 +266,25 @@ def render(
         link_records: list[dict[str, Any]] = []
         combined = Image.new("RGBA", (image.shape[1], image.shape[0]), (0, 0, 0, 0))
         font = ImageFont.load_default()
-        for ellipsoid, color in zip(ellipsoids, COLORS):
-            index = int(ellipsoid.body_name.rsplit("link", 1)[1])
+        for ordinal, ellipsoid in enumerate(ellipsoids):
+            is_end_effector = ellipsoid.body_name == "robot0_end_effector"
+            if is_end_effector:
+                index = None
+                partition_index = None
+                color = EE_COLOR
+                label = "EE"
+                file_stem = "end-effector"
+            else:
+                index = int(ellipsoid.body_name.rsplit("link", 1)[1])
+                certificate = dict(ellipsoid.enclosure_certificate or {})
+                partition_index = certificate.get("partition_index")
+                color = COLORS[index - 5] if 5 <= index <= 7 else COLORS[ordinal % len(COLORS)]
+                label = "L%d" % index
+                if partition_index is not None:
+                    label += ".%d" % (int(partition_index) + 1)
+                file_stem = "link-%d" % index
+                if partition_index is not None:
+                    file_stem += "-part-%d" % (int(partition_index) + 1)
             layer = Image.new("RGBA", combined.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(layer)
             visible_points = 0
@@ -274,7 +307,6 @@ def render(
             )[0]
             if center is None:
                 raise ValueError("link ellipsoid center is behind the camera")
-            label = "L%d" % index
             x, y = center
             if not (0.0 <= x < image.shape[1] and 0.0 <= y < image.shape[0]):
                 raise ValueError("%s center is outside the framed camera" % ellipsoid.body_name)
@@ -289,13 +321,14 @@ def render(
             )
             if visible_points < 100:
                 raise ValueError("too few projected points for %s" % ellipsoid.body_name)
-            layer_path = output_dir / ("link-%d.png" % index)
+            layer_path = output_dir / (file_stem + ".png")
             layer.save(layer_path, optimize=True)
             combined = Image.alpha_composite(combined, layer)
             record = ellipsoid.to_record()
             record.update(
                 {
                     "link_index": index,
+                    "partition_index": partition_index,
                     "color_rgba": list(color),
                     "projected_center_px": [float(x), float(y)],
                     "visible_wire_points": visible_points,
@@ -313,7 +346,11 @@ def render(
         preview_path = output_dir / "libero-arm-ellipsoids.jpg"
         preview.save(preview_path, quality=90, optimize=True)
         record = {
-            "schema_version": "vlsa_multilink_ellipsoid_visualization.v1",
+            "schema_version": (
+                "vlsa_distal_partitioned_ellipsoid_visualization.v1"
+                if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA
+                else "vlsa_multilink_ellipsoid_visualization.v1"
+            ),
             "case_id": CASE_ID,
             "config": {
                 "path": str(config_path),
@@ -335,8 +372,18 @@ def render(
                 "path": preview_path.name,
                 "sha256": _sha256_path(preview_path),
             },
-            "links": link_records,
         }
+        if config["schema_version"] == DISTAL_PARTITIONED_SCHEMA:
+            record.update(
+                {
+                    "ellipsoids": link_records,
+                    "distal_partition_count": len(link_records) - 1,
+                    "released_aegis_end_effector_proxy_unchanged": True,
+                    "constraint_geometry_count": len(link_records),
+                }
+            )
+        else:
+            record["links"] = link_records
         record["payload_sha256"] = hashlib.sha256(_canonical(record)).hexdigest()
         metadata_path = output_dir / "visualization.json"
         temporary = output_dir / (".visualization.%d.tmp" % os.getpid())

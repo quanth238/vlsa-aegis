@@ -16,6 +16,24 @@ class MultilinkEllipsoidH100ContractTests(unittest.TestCase):
         self.assertIn("#SBATCH --exclude=worker-3", source)
         self.assertNotIn("#SBATCH --array", source)
 
+    def test_partitioned_geometry_render_is_h100_only_and_keeps_aegis_ee(self) -> None:
+        source = (
+            ROOT / "slurm/render_distal_partitioned_ellipsoids_e05.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("#SBATCH --cpus-per-task=8", source)
+        self.assertIn("#SBATCH --mem=64G", source)
+        self.assertIn("rendering requires exactly one visible H100", source)
+        self.assertIn("vlsa_distal_partitioned_ellipsoid_shadow_e05.v3.json", source)
+        self.assertIn("render_multilink_ellipsoid_overlay.py", source)
+        self.assertNotIn("#SBATCH --array", source)
+
+        renderer = (
+            ROOT / "scripts/render_multilink_ellipsoid_overlay.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("_released_aegis_end_effector_ellipsoid", renderer)
+        self.assertIn("released_aegis_end_effector_proxy_unchanged", renderer)
+
     def test_runner_requires_h100_and_uses_registered_interpreters(self) -> None:
         source = (ROOT / "slurm/run_multilink_ellipsoid_shadow_e05.sh").read_text(
             encoding="utf-8"

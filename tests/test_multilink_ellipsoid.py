@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 NUMPY_AVAILABLE = importlib.util.find_spec("numpy") is not None
+SCIPY_AVAILABLE = importlib.util.find_spec("scipy") is not None
 
 
 @unittest.skipUnless(NUMPY_AVAILABLE, "NumPy is optional for the structural gate")
@@ -174,6 +175,80 @@ class MultilinkEllipsoidContractTests(unittest.TestCase):
             config["protected_body_names"],
             ["robot0_link5", "robot0_link6", "robot0_link7"],
         )
+
+    def test_partitioned_config_keeps_released_ee_and_refines_l5_l7(self) -> None:
+        from main.multilink_ellipsoid.shadow import load_shadow_config
+
+        config = load_shadow_config(
+            ROOT / "configs/vlsa_distal_partitioned_ellipsoid_shadow_e05.v3.json"
+        )
+
+        self.assertEqual(
+            config["robot_geometry"]["part_counts"],
+            {"robot0_link5": 3, "robot0_link6": 2, "robot0_link7": 2},
+        )
+        self.assertEqual(
+            config["end_effector_geometry"],
+            {
+                "center_and_orientation": (
+                    "authoritative_robot0_grip_site_pose_plus_released_"
+                    "minus_0.08m_local_z_offset"
+                ),
+                "semiaxes_m": [0.06, 0.12, 0.11],
+                "source": "released_aegis_end_effector_proxy",
+            },
+        )
+
+    @unittest.skipUnless(
+        NUMPY_AVAILABLE and SCIPY_AVAILABLE,
+        "NumPy and SciPy are optional for the structural gate",
+    )
+    def test_partitioned_cube_union_certifiably_contains_convex_hull(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.geometry import (
+            partitioned_convex_hull_enclosing_ellipsoids,
+        )
+
+        points = np.asarray(
+            [
+                [x, y, z]
+                for x in (-2.0, 2.0)
+                for y in (-1.0, 1.0)
+                for z in (-0.5, 0.5)
+            ],
+            dtype=np.float64,
+        )
+        parts = partitioned_convex_hull_enclosing_ellipsoids(
+            points,
+            part_count=2,
+            body_name="robot0_link5",
+            geom_name="robot0_link5_collision",
+            source_body_names=("robot0_link5",),
+            source_geom_names=("robot0_link5_collision",),
+        )
+
+        self.assertEqual(len(parts), 2)
+        assigned = []
+        for part in parts:
+            certificate = part.enclosure_certificate
+            self.assertTrue(certificate["partition_cell_contained"])
+            self.assertTrue(certificate["convex_hull_contained_by_partition_union"])
+            assigned.extend(certificate["partition_face_indices"])
+        self.assertEqual(sorted(assigned), list(range(len(set(assigned)))))
+        grid = np.asarray(
+            [
+                [x, y, z]
+                for x in np.linspace(-2.0, 2.0, 9)
+                for y in np.linspace(-1.0, 1.0, 7)
+                for z in np.linspace(-0.5, 0.5, 5)
+            ]
+        )
+        covered = np.zeros(len(grid), dtype=bool)
+        for part in parts:
+            local = (grid - part.center) @ part.rotation
+            covered |= np.sum((local / part.semiaxes_m) ** 2, axis=1) <= 1.0 + 1e-10
+        self.assertTrue(np.all(covered))
         self.assertEqual(
             config["robot_geometry"]["source"],
             "compiled_mujoco_collision_mesh_vertices",
