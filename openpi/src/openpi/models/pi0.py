@@ -475,6 +475,67 @@ class Pi0(_model.BaseModel):
         x_0, _ = jax.lax.while_loop(cond, step, (noise, 1.0))
         return x_0
 
+    def sample_actions_flow_step(
+        self,
+        observation: _model.Observation,
+        *,
+        noisy_actions: jax.Array,
+        time: jax.Array,
+        num_steps: int | at.Int[at.Array, ""] = 10,
+    ) -> _model.Actions:
+        """Apply one ordinary pi0.5 Euler step to a supplied model-space sample.
+
+        The reserved EmbodiSteer baseline harness owns the kinematic lift and
+        calls this primitive once per reverse step.  The frozen denoiser and
+        Euler update are identical to :meth:`sample_actions`; ordinary policy
+        requests never compile or call this method.
+        """
+
+        observation = _model.preprocess_observation(None, observation, train=False)
+        dt = -1.0 / num_steps
+        batch_size = observation.state.shape[0]
+        x_t = jnp.asarray(noisy_actions)
+        if x_t.ndim != 3 or x_t.shape != (
+            batch_size,
+            self.action_horizon,
+            self.action_dim,
+        ):
+            raise ValueError("flow-step sample shape differs from the policy")
+        scalar_time = jnp.asarray(time, dtype=x_t.dtype)
+
+        prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
+        prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+        positions = jnp.cumsum(prefix_mask, axis=1) - 1
+        _, kv_cache = self.PaliGemma.llm(
+            [prefix_tokens, None], mask=prefix_attn_mask, positions=positions
+        )
+
+        suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(
+            observation, x_t, jnp.broadcast_to(scalar_time, batch_size)
+        )
+        suffix_attn_mask = make_attn_mask(suffix_mask, suffix_ar_mask)
+        prefix_to_suffix = einops.repeat(
+            prefix_mask, "b p -> b s p", s=suffix_tokens.shape[1]
+        )
+        full_attn_mask = jnp.concatenate(
+            [prefix_to_suffix, suffix_attn_mask], axis=-1
+        )
+        positions = (
+            jnp.sum(prefix_mask, axis=-1)[:, None]
+            + jnp.cumsum(suffix_mask, axis=-1)
+            - 1
+        )
+        (prefix_out, suffix_out), _ = self.PaliGemma.llm(
+            [None, suffix_tokens],
+            mask=full_attn_mask,
+            positions=positions,
+            kv_cache=kv_cache,
+            adarms_cond=[None, adarms_cond],
+        )
+        assert prefix_out is None
+        velocity = self.action_out_proj(suffix_out[:, -self.action_horizon :])
+        return x_t + dt * velocity
+
     def sample_actions_with_embodisteer_guidance(
         self,
         rng: at.KeyArrayLike,

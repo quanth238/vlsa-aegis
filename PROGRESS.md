@@ -1,5 +1,41 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
+
+Before reconsidering any L5/L6 geometry or collision guidance, the active
+`E02` work now isolates the paper's first two baseline groups on the primary
+case: ordinary Cartesian denoising without guidance (`EE`) and joint-space
+denoising without guidance (`Joint`). Both arms use the same frozen
+`pi05_libero` checkpoint, the same settled simulator state, observation,
+policy-noise seed schedule, five-action execution horizon, physical obstacle
+scene, and 300-action limit. Every ellipsoid, barrier row, clearance query,
+and QP is disabled in both arms.
+
+The joint arm follows EmbodiSteer Eqs. (3), (4), and (8)--(10): Cartesian
+Gaussian initialization is lifted around the chunk-start Panda configuration;
+each reverse pi0.5 Euler step maps the joint trajectory through exact MuJoCo
+FK, queries the unchanged Cartesian denoiser, and maps the resulting pose
+residual back with the damped Panda Jacobian (`alpha=0.1`,
+`lambda_pinv=0.001`, joint clip `0.5 rad`). The resulting joint targets are
+executed directly with SafeLIBERO `JOINT_POSITION`; the gripper channel is
+retained from the same denoised chunk.
+
+This is a paper-derived adaptation, not an exact author-code reproduction.
+The paper uses 10D DDPM actions expressed as poses relative to the chunk-start
+pose; `pi05_libero` uses 7D incremental OSC flow actions. We therefore compose
+incremental deltas into chunk-start targets for the paper equations, then map
+back to incremental deltas whenever the frozen pi0.5 denoiser is queried. A
+live allocation preflight must prove that ten exposed no-FK Euler primitives
+recover ordinary pi0.5 sampling within `5e-5` before simulation is accepted.
+
+The competence gate is deliberately prior to safety efficacy: if the joint
+arm does not preserve useful task behavior relative to the Cartesian arm,
+collision guidance cannot be credited. Separately, the current L5/L6 MVEE
+representation is no longer treated as EmbodiSteer-faithful geometry. The
+paper uses multiple link-attached cuRobo collision spheres with a top-4
+smooth maximum, not one ellipsoid per link; the old ellipsoids remain disabled
+until a raw-geometry audit is complete.
+
 ## EmbodiSteer-inspired task-metric multi-CBF flow (completed negative test, 2026-08-08)
 
 The next active `E02` subexperiment references Wang et al., *EmbodiSteer:

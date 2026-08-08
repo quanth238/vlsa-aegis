@@ -68,7 +68,15 @@ class WebsocketPolicyServer:
                     # envelope is present.
                     action = self._policy.infer(obs)
                 else:
-                    if "embodisteer_guidance" in crfs_control:
+                    if "embodisteer_joint_denoising" in crfs_control:
+                        action = self._policy.infer(
+                            obs,
+                            rng_seed=crfs_control["rng_seed"],
+                            embodisteer_joint_denoising=crfs_control[
+                                "embodisteer_joint_denoising"
+                            ],
+                        )
+                    elif "embodisteer_guidance" in crfs_control:
                         action = self._policy.infer(
                             obs,
                             rng_seed=crfs_control["rng_seed"],
@@ -130,13 +138,27 @@ def _extract_crfs_control(obs):
     if not isinstance(control, Mapping):
         raise TypeError("__crfs__ must be a mapping")
     if "rng_seed" not in control or not set(control).issubset(
-        {"rng_seed", "flow_guidance", "embodisteer_guidance"}
+        {
+            "rng_seed",
+            "flow_guidance",
+            "embodisteer_guidance",
+            "embodisteer_joint_denoising",
+        }
     ):
         raise ValueError(
             "__crfs__ requires rng_seed and one optional guidance payload"
         )
-    if "flow_guidance" in control and "embodisteer_guidance" in control:
-        raise ValueError("__crfs__ guidance payloads are mutually exclusive")
+    optional = {
+        key
+        for key in (
+            "flow_guidance",
+            "embodisteer_guidance",
+            "embodisteer_joint_denoising",
+        )
+        if key in control
+    }
+    if len(optional) > 1:
+        raise ValueError("__crfs__ optional payloads are mutually exclusive")
 
     rng_seed = control["rng_seed"]
     if isinstance(rng_seed, bool) or not isinstance(rng_seed, int):
@@ -153,7 +175,73 @@ def _extract_crfs_control(obs):
         output["embodisteer_guidance"] = _validate_embodisteer_guidance(
             control["embodisteer_guidance"]
         )
+    if "embodisteer_joint_denoising" in control:
+        output["embodisteer_joint_denoising"] = (
+            _validate_embodisteer_joint_denoising(
+                control["embodisteer_joint_denoising"]
+            )
+        )
     return obs, output
+
+
+def _validate_embodisteer_joint_denoising(value):
+    """Validate one barrier-free EmbodiSteer baseline primitive."""
+
+    if not isinstance(value, Mapping):
+        raise TypeError("__crfs__.embodisteer_joint_denoising must be a mapping")
+    common = {"schema_version", "mode", "action_horizon", "num_steps"}
+    if value.get("schema_version") != "crfs_embodisteer_joint_denoising.v1":
+        raise ValueError("__crfs__.embodisteer_joint_denoising schema differs")
+    if value.get("action_horizon") != 10 or isinstance(
+        value.get("action_horizon"), bool
+    ):
+        raise ValueError("joint-denoising horizon must equal ten")
+    if value.get("num_steps") != 10 or isinstance(value.get("num_steps"), bool):
+        raise ValueError("joint-denoising reverse-step count must equal ten")
+    mode = value.get("mode")
+    if mode == "initialize":
+        if set(value) != common:
+            raise ValueError("joint-denoising initialization keys differ")
+        return {
+            "schema_version": value["schema_version"],
+            "mode": mode,
+            "action_horizon": 10,
+            "num_steps": 10,
+        }
+    if mode != "step":
+        raise ValueError("joint-denoising mode differs")
+    expected = common | {"time", "model_actions", "physical_pose_actions"}
+    if set(value) != expected:
+        raise ValueError("joint-denoising step keys differ")
+    reverse_time = value["time"]
+    if (
+        isinstance(reverse_time, bool)
+        or not isinstance(reverse_time, (int, float))
+        or not math.isfinite(float(reverse_time))
+        or not 0.1 - 1.0e-8 <= float(reverse_time) <= 1.0 + 1.0e-8
+    ):
+        raise ValueError("joint-denoising reverse time is invalid")
+    model_actions = value["model_actions"]
+    pose_actions = value["physical_pose_actions"]
+    if not isinstance(model_actions, list) or len(model_actions) != 10:
+        raise ValueError("joint-denoising model sample shape differs")
+    if not isinstance(pose_actions, list) or len(pose_actions) != 10:
+        raise ValueError("joint-denoising pose sample shape differs")
+    _validate_numeric_matrix(
+        model_actions, width=32, label="joint_denoising.model_actions"
+    )
+    _validate_numeric_matrix(
+        pose_actions, width=6, label="joint_denoising.physical_pose_actions"
+    )
+    return {
+        "schema_version": value["schema_version"],
+        "mode": mode,
+        "action_horizon": 10,
+        "num_steps": 10,
+        "time": float(reverse_time),
+        "model_actions": model_actions,
+        "physical_pose_actions": pose_actions,
+    }
 
 
 def _validate_flow_guidance(value):

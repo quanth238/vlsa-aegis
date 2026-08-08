@@ -73,6 +73,7 @@ class Policy(BasePolicy):
         rng_seed: int | None = None,
         flow_guidance: dict[str, Any] | None = None,
         embodisteer_guidance: dict[str, Any] | None = None,
+        embodisteer_joint_denoising: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
         # Make a copy since transformations may modify the inputs in place.
         inputs = jax.tree.map(lambda x: x, obs)
@@ -100,8 +101,24 @@ class Policy(BasePolicy):
             sample_kwargs["noise"] = noise
 
         observation = _model.Observation.from_dict(inputs)
-        if flow_guidance is not None and embodisteer_guidance is not None:
-            raise ValueError("flow and EmbodiSteer guidance are mutually exclusive")
+        if sum(
+            value is not None
+            for value in (
+                flow_guidance,
+                embodisteer_guidance,
+                embodisteer_joint_denoising,
+            )
+        ) > 1:
+            raise ValueError("CRFS guidance and joint denoising are mutually exclusive")
+        if embodisteer_joint_denoising is not None:
+            if self._is_pytorch_model:
+                raise ValueError("EmbodiSteer joint denoising requires JAX pi0.5")
+            return self._infer_embodisteer_joint_denoising(
+                observation,
+                normalized_state=np.asarray(inputs["state"][0]),
+                rng=sample_rng_or_pytorch_device,
+                request=embodisteer_joint_denoising,
+            )
         prepared_guidance = None
         guidance_kind = None
         if flow_guidance is not None:
@@ -230,6 +247,144 @@ class Policy(BasePolicy):
             "infer_ms": model_time * 1000,
         }
         return outputs
+
+    def _decode_model_actions(
+        self,
+        model_actions: np.ndarray,
+        *,
+        normalized_state: np.ndarray,
+    ) -> np.ndarray:
+        transformed = self._output_transform(
+            {
+                "state": np.array(normalized_state, copy=True),
+                "actions": np.array(model_actions, copy=True),
+            }
+        )
+        output = np.asarray(transformed["actions"], dtype=np.float64)
+        expected = (int(self._model.action_horizon), 7)
+        if output.shape != expected or not np.all(np.isfinite(output)):
+            raise ValueError("decoded pi0.5 action chunk is invalid")
+        return output
+
+    def _output_action_affine(
+        self,
+        *,
+        normalized_state: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Recover the affine model-to-LIBERO action transform exactly."""
+
+        horizon = int(self._model.action_horizon)
+        model_dim = int(self._model.action_dim)
+        zeros = np.zeros((horizon, model_dim), dtype=np.float32)
+        offset = self._decode_model_actions(
+            zeros, normalized_state=normalized_state
+        )
+        scale = np.empty((horizon, 7), dtype=np.float64)
+        for dimension in range(7):
+            probe = zeros.copy()
+            probe[:, dimension] = 1.0
+            effect = self._decode_model_actions(
+                probe, normalized_state=normalized_state
+            ) - offset
+            scale[:, dimension] = effect[:, dimension]
+            cross = effect.copy()
+            cross[:, dimension] = 0.0
+            if np.max(np.abs(cross)) > 1.0e-8:
+                raise ValueError("pi0.5 output transform couples action dimensions")
+        if not np.all(np.isfinite(scale)) or np.any(np.abs(scale) <= 1.0e-12):
+            raise ValueError("pi0.5 output normalization scale is invalid")
+        return offset, scale
+
+    def _infer_embodisteer_joint_denoising(
+        self,
+        observation: _model.Observation,
+        *,
+        normalized_state: np.ndarray,
+        rng: at.KeyArrayLike,
+        request: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Serve one barrier-free joint-space denoising primitive.
+
+        FK and damped-Jacobian updates remain in the simulator process so they
+        use the exact live Panda model.  This endpoint supplies either the
+        paired Gaussian initialization or one unchanged pi0.5 Euler update.
+        """
+
+        started = time.monotonic()
+        horizon = int(self._model.action_horizon)
+        model_dim = int(self._model.action_dim)
+        mode = str(request["mode"])
+        if mode == "initialize":
+            model_actions = np.asarray(
+                jax.random.normal(rng, (1, horizon, model_dim))[0],
+                dtype=np.float32,
+            )
+            decoded = self._decode_model_actions(
+                model_actions, normalized_state=normalized_state
+            )
+            record = {
+                "schema_version": "crfs_embodisteer_joint_denoising_result.v1",
+                "mode": mode,
+                "model_actions": model_actions.tolist(),
+                "physical_actions": decoded.tolist(),
+            }
+        elif mode == "step":
+            template = np.asarray(request["model_actions"], dtype=np.float32)
+            physical_pose = np.asarray(
+                request["physical_pose_actions"], dtype=np.float64
+            )
+            if template.shape != (horizon, model_dim) or not np.all(
+                np.isfinite(template)
+            ):
+                raise ValueError("joint-denoising model sample is invalid")
+            if physical_pose.shape != (horizon, 6) or not np.all(
+                np.isfinite(physical_pose)
+            ):
+                raise ValueError("joint-denoising pose action is invalid")
+            offset, scale = self._output_action_affine(
+                normalized_state=normalized_state
+            )
+            model_input = np.array(template, copy=True)
+            model_input[:, :6] = (
+                physical_pose - offset[:, :6]
+            ) / scale[:, :6]
+            flow_step = getattr(self, "_sample_actions_flow_step", None)
+            if flow_step is None:
+                flow_step = nnx_utils.module_jit(
+                    self._model.sample_actions_flow_step
+                )
+                self._sample_actions_flow_step = flow_step
+            model_next = np.asarray(
+                flow_step(
+                    observation,
+                    noisy_actions=jnp.asarray(model_input[None, ...]),
+                    time=jnp.asarray(float(request["time"]), dtype=jnp.float32),
+                    num_steps=int(request["num_steps"]),
+                )[0],
+                dtype=np.float32,
+            )
+            decoded_input = self._decode_model_actions(
+                model_input, normalized_state=normalized_state
+            )
+            decoded = self._decode_model_actions(
+                model_next, normalized_state=normalized_state
+            )
+            record = {
+                "schema_version": "crfs_embodisteer_joint_denoising_result.v1",
+                "mode": mode,
+                "time": float(request["time"]),
+                "input_model_actions": model_input.tolist(),
+                "model_actions": model_next.tolist(),
+                "input_physical_actions": decoded_input.tolist(),
+                "physical_actions": decoded.tolist(),
+            }
+        else:
+            raise ValueError("unknown EmbodiSteer joint-denoising mode")
+        return {
+            "actions": decoded,
+            "embodisteer_joint_denoising": record,
+            "policy_timing": {"infer_ms": (time.monotonic() - started) * 1000},
+        }
 
     def _prepare_flow_guidance(
         self,

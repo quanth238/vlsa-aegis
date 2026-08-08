@@ -179,3 +179,71 @@ class CrfsWebsocketControlTest(unittest.TestCase):
                     }
                 }
             )
+
+    def test_embodisteer_joint_denoising_primitives_are_validated(self):
+        initialize = {
+            "schema_version": "crfs_embodisteer_joint_denoising.v1",
+            "mode": "initialize",
+            "action_horizon": 10,
+            "num_steps": 10,
+        }
+        returned, control = self.module._extract_crfs_control(
+            {
+                "state": [1, 2, 3],
+                "__crfs__": {
+                    "rng_seed": 31,
+                    "embodisteer_joint_denoising": initialize,
+                },
+            }
+        )
+        self.assertNotIn("__crfs__", returned)
+        self.assertEqual(control["embodisteer_joint_denoising"], initialize)
+
+        step = {
+            "schema_version": "crfs_embodisteer_joint_denoising.v1",
+            "mode": "step",
+            "action_horizon": 10,
+            "num_steps": 10,
+            "time": 0.7,
+            "model_actions": [[0.0] * 32 for _ in range(10)],
+            "physical_pose_actions": [[0.0] * 6 for _ in range(10)],
+        }
+        _, control = self.module._extract_crfs_control(
+            {
+                "__crfs__": {
+                    "rng_seed": 31,
+                    "embodisteer_joint_denoising": step,
+                }
+            }
+        )
+        self.assertEqual(control["embodisteer_joint_denoising"], step)
+
+    def test_joint_denoising_rejects_bad_shapes_and_other_payloads(self):
+        step = {
+            "schema_version": "crfs_embodisteer_joint_denoising.v1",
+            "mode": "step",
+            "action_horizon": 10,
+            "num_steps": 10,
+            "time": 1.0,
+            "model_actions": [[0.0] * 31 for _ in range(10)],
+            "physical_pose_actions": [[0.0] * 6 for _ in range(10)],
+        }
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {
+                    "__crfs__": {
+                        "rng_seed": 1,
+                        "embodisteer_joint_denoising": step,
+                    }
+                }
+            )
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {
+                    "__crfs__": {
+                        "rng_seed": 1,
+                        "flow_guidance": {},
+                        "embodisteer_joint_denoising": {},
+                    }
+                }
+            )

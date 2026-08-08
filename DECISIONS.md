@@ -580,3 +580,38 @@ joint controller baseline, which the prior direct-joint and bridge pilots did
 not establish. We do not post-hoc remove the end-effector row, change its
 geometry, weaken the margin, or tune the schedule. Such changes require a new
 preregistered comparison.
+
+## ADR-0040: Establish matched EE and Joint competence before geometry
+
+Accepted by direct user instruction before outcome review. The previous
+`pi05_droid` direct-joint pilot used a different checkpoint, and the Cartesian
+bridge applied joint conversion only after Cartesian sampling. Neither is the
+`Joint` baseline defined in EmbodiSteer Appendix B.4. The new paired pilot
+therefore uses one frozen `pi05_libero` checkpoint for both arms and performs
+FK and damped-Jacobian lifting after every reverse denoising step in the joint
+arm. The Cartesian arm remains an ordinary unmodified policy request.
+
+All collision interventions are disabled. No L5/L6/L7 ellipsoid is built, no
+clearance gradient is queried, no barrier inequality is formed, and no QP is
+solved. The obstacle remains physically present so raw MuJoCo contact, CAR,
+and native goal evidence are still observed. Acceptance requires one H100
+allocation, exact settled-state pairing, the same query-index noise schedule,
+valid decoded videos for both arms, and truthful reporting of failure or
+infeasible direct-joint tracking.
+
+This pilot adapts the paper because its policy and ours use different action
+representations and generative schedulers. EmbodiSteer uses 10D chunk-start
+relative Cartesian poses and a 16-step DDPM; SafeLIBERO pi0.5 uses 7D
+incremental OSC commands and ten flow-Euler steps. Incremental commands are
+composed into chunk-start poses for Eqs. (3), (4), and (8)--(10), then converted
+back before each frozen pi0.5 query. The result may support or reject this
+adaptation's competence on one primary case, but cannot be reported as an
+exact reproduction of the paper's population result.
+
+The user's L5/L6 geometry concern is accepted as a separate blocking issue for
+future guidance. EmbodiSteer represents the robot with multiple link-attached
+cuRobo collision spheres and aggregates the top four signed distances. One
+mesh-enclosing MVEE per link can be a valid enclosure yet still be too loose,
+hide local contact structure, and supply a qualitatively different gradient.
+The existing MVEEs remain disabled and untrusted for paper-fidelity claims
+until audited or replaced by a sphere/capsule decomposition.
