@@ -1,0 +1,65 @@
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class DistalSitlCandidateTests(unittest.TestCase):
+    def test_config_and_targets(self) -> None:
+        from main.multilink_ellipsoid.sitl_candidate import load_sitl_candidate_config
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_sitl_candidate_e05.v1.json"
+        )
+        self.assertEqual(config["protected_geometry"]["distal_constraint_count"], 7)
+        self.assertEqual(config["protected_geometry"]["end_effector_constraint_count"], 1)
+        self.assertEqual(config["protected_geometry"]["distal_clearance_target_m"], 0.015)
+        self.assertEqual(config["protected_geometry"]["end_effector_clearance_target_m"], 0.0)
+
+    def test_finite_difference_rows_support_eight_constraints(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.sitl_candidate import finite_difference_rows
+
+        expected = np.arange(24, dtype=np.float64).reshape(8, 3) / 10.0
+        plus_xyz = np.diag([0.2, 0.2, 0.2])
+        minus_xyz = -plus_xyz
+        plus_h = np.stack([0.4 * expected[:, index] for index in range(3)])
+        minus_h = np.zeros((3, 8), dtype=np.float64)
+        observed = finite_difference_rows(plus_h, minus_h, plus_xyz, minus_xyz)
+        np.testing.assert_allclose(observed, expected)
+
+    def test_candidate_set_preserves_bounds_and_contains_escape_actions(self) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.sitl_candidate import (
+            candidate_xyz_values,
+            load_sitl_candidate_config,
+        )
+
+        config = load_sitl_candidate_config(
+            ROOT / "configs/vlsa_distal_sitl_candidate_e05.v1.json"
+        )
+        nominal = np.asarray([0.8, -0.9, 0.1])
+        qp = np.asarray([0.2, -0.2, 0.3])
+        candidates = candidate_xyz_values(nominal, qp, config)
+        self.assertGreaterEqual(len(candidates), 27)
+        self.assertTrue(any(np.array_equal(value, np.zeros(3)) for _, value in candidates))
+        self.assertTrue(any(source == "reverse_nominal" for source, _ in candidates))
+        self.assertTrue(all(np.max(np.abs(value)) <= 1.0 for _, value in candidates))
+        self.assertEqual(
+            len({tuple(float(item) for item in value) for _, value in candidates}),
+            len(candidates),
+        )
+
+    def test_slurm_contract_requires_h100_and_separate_output(self) -> None:
+        source = (ROOT / "slurm/distal_sitl_candidate_e05.sbatch").read_text()
+        self.assertIn("#SBATCH --gres=gpu:1", source)
+        self.assertIn("H100", source)
+        self.assertIn("vlsa-distal-sitl-candidate-e05", source)
+        self.assertNotIn("rsync --delete", source)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,64 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "candidate_search": {
+    "correction_extrapolation_factors": [
+      1.0,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "include_global_lattice": true,
+    "include_reverse_nominal": true,
+    "include_stop": true,
+    "lattice_values": [
+      -1.0,
+      0.0,
+      1.0
+    ],
+    "local_offset_magnitudes": [
+      0.25,
+      0.5
+    ]
+  },
+  "claim_scope": "single_primary_case_archived_aegis_heuristic_ability_demo_not_formal_safety_or_population_efficacy",
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.1,
+    "scheme": "clipped_central_difference"
+  },
+  "nominal_action_source": "immutable_successful_released_aegis_env_step_input",
+  "optimizer": {
+    "action_limit": 1.0,
+    "bound_tolerance_action": 5e-08,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "residual_tolerance": 5e-07
+  },
+  "protected_geometry": {
+    "distal_clearance_target_m": 0.015,
+    "distal_constraint_count": 7,
+    "end_effector_clearance_target_m": 0.0,
+    "end_effector_constraint_count": 1,
+    "source": "accepted_v4_seven_slab_bounds_plus_unchanged_released_aegis_ee_proxy"
+  },
+  "protocol_id": "vlsa-distal-sitl-candidate-e05-v1",
+  "schema_version": "vlsa_distal_sitl_candidate_e05.v1",
+  "success_definition": {
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_link_contact": "none_for_robot0_link5_link6_link7",
+    "task": "native_goal_satisfied_within_archived_237_action_horizon",
+    "transition_verification": "every_executed_transition_exactly_matches_its_accepted_cloned_osc_step"
+  },
+  "verification": {
+    "clearance_tolerance_m": 1e-06,
+    "clone_state_tolerance": 1e-10,
+    "repeat_nominal_on_first_step": true
+  }
+}
