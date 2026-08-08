@@ -38,6 +38,21 @@ failed before the first training operation because resolving the OpenPI Python
 symlink escaped the virtual environment. Preserve the absolute launcher path;
 the Slurm preflight remains responsible for proving H100 PyTorch execution.
 
+Validated job `37198` rejects the frozen two-layer residual MLP mechanism gate.
+The training groups never enter the unsafe proxy region, so the learned model
+does not recover a useful boundary normal under the held-out state shift. Its
+conservative calibration makes three action-188 rows negative while the tiny
+learned Jacobian cannot recover them inside the fixed bounds; the QP is primal
+infeasible. Do not tune away this result or present the model as a QP
+replacement.
+
+The representation remains controllable because exact safe candidates exist.
+A future learned experiment therefore requires a new, explicit data-coverage
+hypothesis: boundary-focused cloned rollouts with state/episode-separated
+evaluation. Training on action 188 itself may test implementation capacity but
+cannot validate generalization or the paper claim. Denoising-flow guidance is
+still future work and must be called barrier-inspired unless separately proved.
+
 ## ADR-0056: Use the exact compiled obstacle boxes as the privileged oracle
 
 Accepted after freezing job `37175`.  The second requested test returns to the

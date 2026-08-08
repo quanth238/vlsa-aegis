@@ -128,3 +128,12 @@ runtime boundary in a version-neutral NumPy archive. Inference for exact
 verification runs on CPU in the simulator process and is timed separately.
 
 Completed Table 1 artifacts remain read-only and unchanged.
+
+## Frozen outcome
+
+Validated H100 job `37198` returned NO-GO. The representation gate passed, but
+the held-out residual model was less accurate than the no-motion baseline and
+its conservative seven-row projection was infeasible at action 188. The
+training split contained no unsafe row labels, exposing a boundary-coverage
+failure rather than a lack of exact safe actions. This result does not support
+action-chunk or denoising-flow claims in `idea_draft.md`.

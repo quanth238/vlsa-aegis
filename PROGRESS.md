@@ -50,6 +50,31 @@ Python symlink to its base Anaconda interpreter, where PyTorch is absent. This
 is an apparatus failure with no model or projection outcome. The repair keeps
 the absolute virtual-environment launcher path without resolving the symlink.
 
+Clean H100 retry `37198` completed and independently validated a scientific
+NO-GO for the simplest residual MLP. The representation gate passed, but the
+held-out model gate failed: test RMSE was `5.383 mm`, worse than the
+current-clearance/no-motion baseline at `2.632 mm`, despite zero conservative
+false-safe candidates. Train states contained zero unsafe row elements,
+validation contained 10, and held-out states contained 638. Per-row
+calibration consequently grew to `4.935--12.302 mm`.
+
+At held-out action 188 the nominal exact L5_part_1 minimum was `-1.327 mm`.
+The MLP predicted three conservative negative rows, but its action Jacobian
+magnitudes were only about `5.6e-6--2.86e-4 m/action`; the seven-row QP was
+primal infeasible inside the fixed trust region and proposed no transition to
+verify. This is not a representation failure: the exact dataset retains 16
+jointly proxy/raw-safe in-trust candidates at the same state. Training took
+`1.287 s`; the failed QP took `1.690 ms`; exact label collection took roughly
+`126 s`. `research_direction_go=false` and E02 remains active.
+
+This outcome rejects the draft's simplest claim that nominal-trajectory
+supervision alone yields a useful execution-safety gradient. It does not reject
+execution-aware learning generally. The next scientifically meaningful choice
+is whether to authorize boundary-focused data collection (for example,
+DAgger/adversarial perturbations around recoverable crossings) and evaluate on
+separate episodes/states. Same-state overfitting can be retained only as an
+implementation diagnostic, not research evidence.
+
 ## Exact MuJoCo obstacle-box oracle (preregistered, 2026-08-09)
 
 After freezing the failed 8 mm test, active gate `E02` now proceeds to the
