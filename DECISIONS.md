@@ -1,5 +1,38 @@
 # Reproduction decisions
 
+## ADR-0051: Test geometry authority and an oracle affine barrier before learning
+
+Accepted by direct user instruction before outcome review.  The next bounded
+`E02` experiment does not train a neural steering model.  It gives the proposed
+Physics NN oracle access to exactly the quantities it would predict: the local
+drift and XYZ sensitivity of every L5--L7/EE minimum-substep proxy barrier
+under the complete OSC transition.
+
+The experiment first audits the more fundamental assumption exposed by jobs
+`37109` and `37114`.  It exactly replays the hash-bound executed actions 0--191
+from completed job `37109`, then captures every internal MuJoCo state and raw
+direct protected-link contact for action 192.  This is the registered
+false-safe transition: all eight endpoint proxy clearances are positive while
+raw MuJoCo reports direct L6 contact.  The original Table-1 artifact remains
+the immutable initial-state, pairing, task, and frozen-perception authority.
+A contact is consistent
+with the registered geometry only when its position lies within both the
+matching robot slab union and the frozen obstacle MVEE and the corresponding
+support gap is nonpositive.  If this implication fails, the current barrier is
+not an authoritative physical label and the transition-only residual story
+stops before training.
+
+If geometry is consistent, the registered cloned candidates define the exact
+minimum-substep clearance map.  The best nominal-anchored affine coefficients
+are fitted inside a fixed `L_infinity <= 0.5` action trust region, shifted by
+their maximum one-sided candidate overprediction plus `1e-6 m`, and supplied
+to one exact eight-constraint OSQP.  Its proposal is executed only in the
+clone and checked against all substeps, raw contact, and `0.1 mm` within-step
+obstacle motion.  A local GO requires geometry consistency, a jointly raw- and
+proxy-safe local candidate, zero calibrated candidate false-safes, a feasible
+QP, and a raw/proxy-safe exact QP transition.  No setting may be tuned after
+outcome inspection.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The

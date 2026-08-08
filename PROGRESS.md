@@ -1,5 +1,40 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Substep geometry and oracle-affine mechanism test (preregistered, 2026-08-09)
+
+Before any Physics/KKT neural training, active gate `E02` now tests the model
+class itself at the primary false-safe state.  The frozen experiment replays
+the immutable executed-action ledger from completed H100 job `37109` through
+action 191, then evaluates its action 192 and a fixed Cartesian candidate set
+in synchronized OSC clones.  At this exact state all eight recorded endpoint
+proxy clearances were positive (minimum `0.003071851565 m`) while raw MuJoCo
+recorded direct L6 contact at `-0.000523052603 m`.  A temporary opt-in hook
+records the interval start and every internal
+MuJoCo state after Robosuite's `_update_observables`, including all eight
+minimum-substep proxy gaps, joint state, OSC goal, raw direct L5--L7 contacts,
+and within-step obstacle motion.
+
+The original Table-1 artifact remains immutable task, pairing, initial-state,
+and frozen-perception authority; job `37109` is a separately hash-bound,
+read-only executed-action authority.  The geometry gate precedes transition
+learning.  Every nominal raw contact
+point must lie inside both its corresponding certified robot slab union and
+the frozen released-AEGIS obstacle MVEE, and its body support gap must be
+nonpositive.  This directly tests whether job `37109`'s positive-gap L6 contact
+is transition error or an uncovered proxy contact.  A geometry failure stops
+the transition-only neural story rather than allowing a learned residual to
+hide it.
+
+If geometry passes, the experiment fits the best nominal-anchored affine map
+from XYZ to each constraint's exact minimum-substep clearance within a frozen
+`L_infinity <= 0.5` trust region.  A one-sided error bound is calibrated from
+the registered candidates, an exact eight-row OSQP projects the nominal
+action, and that proposal receives another complete substep trace.  This is an
+oracle upper bound on the proposed action-affine Physics NN, not training,
+generalization evidence, or a safety certificate.  The complete protocol is
+frozen in `docs/distal_oracle_affine_preregistration.md` and
+`configs/vlsa_distal_oracle_affine_e05.v1.json`; no H100 outcome has run yet.
+
 ## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
 
 Before reconsidering any L5/L6 geometry or collision guidance, the active
