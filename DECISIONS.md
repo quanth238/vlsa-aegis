@@ -1730,3 +1730,13 @@ direct supervision/model misalignment. Internal consistency without such a
 disagreement still does not rehabilitate the gradient, because job `37427`
 already showed that it fails to beat random directions. No outcome of this
 audit authorizes closed-loop execution.
+
+Job `37441` passed the implementation audit. Both states passed every internal
+ordering/indexing check, the finite-difference/autograd errors were below
+`1.4e-9`, and cloned OSC preferred the negative sign in all ten paired tests.
+There is therefore no evidence for a sign, normalization, or XYZ-indexing bug.
+Because all radii through `0.1` remained contacting and job `37427` showed
+many equally effective random directions at recovery radii, the retained
+diagnosis is insufficient directional discrimination from the pointwise BCE
+objective. The next model may add paired directional-ranking supervision;
+closed-loop remains blocked.

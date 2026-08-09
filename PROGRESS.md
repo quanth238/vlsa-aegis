@@ -2337,3 +2337,21 @@ Exact next command after clean commit/source sync is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=gradient-sign-audit-e05-20260810a
 slurm/distal_contact_gradient_sign_audit_e05.sbatch`.
+
+Clean H100 job `37441` completed and independently validated in `00:00:39`
+on `worker-2`. All ten symmetric model pairs satisfied
+`R(u-epsilon*g_hat) < R(u+epsilon*g_hat)`, all XYZ feature/action receipts
+passed, and the smallest-epsilon finite-difference relative errors were
+`1.31e-9` and `9.81e-10`. Cloned OSC preferred the negative sign in all ten
+pairs, with zero positive preferences and zero ties.
+
+This is an implementation-consistency pass, not a useful-gradient pass. Every
+tested negative-gradient action through radius `0.1` still contacted, although
+it reduced contact burden relative to the positive sign. Combined with job
+`37427`, the evidence says the model points locally away from worse contact
+but does not select an exceptional recovery direction. Pairwise directional
+supervision is now the next model test; closed-loop remains unauthorized.
+Result/payload/validation SHA-256 values are
+`63483c4cf87bcbd3b64349ce6bf5077fe8a34df958e8451d77445beea7d88b88`,
+`da036c04f6ba8a7fe26c8b862d8deb1f16331e6acbc123bfbd012e1a27eaee57`,
+and `2d74f1faead6b39cf52f18c9b4c0d115e355ce155c689c67142237b21f15639c`.
