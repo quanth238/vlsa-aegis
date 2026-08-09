@@ -1,0 +1,41 @@
+{
+  "schema_version": "vlsa_distal_gradient_random_control_e05.v1",
+  "protocol_id": "vlsa-distal-gradient-random-control-e05-v1",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "claim_scope": "Local paired randomization control for the job-37416 learned L5 contact-risk gradient on held-out E05 states 187 and 190. This uses no mesh distance and cannot establish L6/L7 learning, task preservation, closed-loop success, or unseen-episode generalization.",
+  "immutable_sources": {
+    "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "successful_sitl_file_sha256": "e23320ebad7c17f8d07d52f204b0fc32c2c3d81ab8007d0a1f1b6ba365c7bf08",
+    "successful_sitl_payload_sha256": "5eabe9b9e05fa3a321dda4682566734e2940a97bb3bff9430b7ffd926913c9db",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "contact_dataset_file_sha256": "b947a039978f892ad0f8b4462fcef67d78cdc28f955af8af5c31af610a6f0792",
+    "contact_dataset_payload_sha256": "de9ee4ac1bc8d52662004895477a2864a777984efb67dc9a93fa1437f58345e3",
+    "contact_model_file_sha256": "f9a73584d68629dc751913a748a4621372cdd8a010eda94e7df56e5ac3fe5469",
+    "contact_result_file_sha256": "47d9def32da7222150c2fb679f690e6c431601518abfa69560c258f89f0ee5f4",
+    "contact_result_payload_sha256": "a598125149dc0b2a4bafdd0d511f850b797d124c16aa195ad8234eb5e18c9698",
+    "contact_validation_file_sha256": "4571c48c2e560f105af5c86502044cb8224321b604e7df450f55070db77293fa",
+    "contact_source_commit": "d06a1c843de0f3cca67032ef22d628faf66cb60c"
+  },
+  "test_steps": [187, 190],
+  "correction_radii_action": [0.1, 0.25, 0.5, 1.0],
+  "random_control": {
+    "direction_count_per_state": 256,
+    "distribution": "uniform_unit_sphere_conditioned_on_full_radius_action_bounds",
+    "seeds_by_state": {
+      "187": 238187,
+      "190": 238190
+    },
+    "action_limit": 1.0,
+    "maximum_sampling_attempts": 100000
+  },
+  "safety_authority": {
+    "definition": "zero_nonpositive_raw_L5_L6_L7_contacts_over_every_internal_OSC_substep",
+    "ellipsoid_features": "accepted_seven_L5_L6_L7_ellipsoids_vs_unchanged_released_AEGIS_obstacle_MVEE",
+    "mesh_distance": false
+  },
+  "randomization_gate": {
+    "empirical_equal_or_earlier_safe_p_maximum": 0.05,
+    "p_value": "(1+random_directions_safe_at_or_before_learned_first_safe_radius)/(1+direction_count)",
+    "pass": "learned_direction_freshly_safe_and_empirical_p_at_most_0.05_on_both_states"
+  }
+}

@@ -1682,3 +1682,20 @@ may be a useful proposal generator, but this model cannot be the safety
 authority or Best-of-N filter. Exact verification remains necessary, and
 closed-loop use is not authorized. Because all positive training labels were
 L5, the result also provides no learned L6/L7 evidence.
+
+# ADR-0074: Require a matched-random directional advantage
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Two safe learned-gradient transitions are insufficient evidence because the
+local action space may contain many safe directions. The learned direction is
+therefore compared with 256 uniformly sampled, action-bound-feasible unit
+directions per state at identical correction radii. Reusing directions across
+radii permits a first-safe-radius comparison rather than four unrelated
+Bernoulli tests.
+
+Only an add-one empirical equal-or-earlier-safe value at most 0.05 on both
+held-out states authorizes boundary-focused multi-state/L6--L7 data
+refinement. Failure requires rethinking supervision or the model before any
+closed-loop test. Task error remains diagnostic and cannot compensate for
+contact.

@@ -2185,6 +2185,29 @@ The exact read-only next command is `jq
 '.decision,.metrics.test,.test_selection,.gradient_audit'
 <that-directory>/result.json`.
 
+# 2026-08-10: learned-gradient matched-random control preregistered
+
+The user authorized the first control required to interpret job `37416`.
+Without retraining, the new experiment reloads and hash-verifies its dataset,
+model, result, and validation artifacts, reconstructs held-out states 187 and
+190, and requires recomputed nominal risks/gradients to match exactly.
+
+At each state, 256 unit directions are sampled uniformly and conditioned only
+on remaining inside action bounds at radius 1.0. The same directions are
+reused at 0.1/0.25/0.5/1.0, giving exactly matched correction norms and 2,048
+random rollouts versus eight learned-gradient rollouts. Every action receives
+a fresh complete cloned OSC transition with all internal L5--L7 contacts
+recorded; no mesh distance is calculated. The per-state add-one randomization
+value is the fraction of random directions contact-free no later than the
+learned first-safe radius. Directional advantage requires this value to be at
+most 0.05 on both states. Task-reference error is diagnostic only.
+
+Protocol: `docs/distal_gradient_random_control_e05_preregistration.md`. Exact
+next command after clean commit/source sync is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=gradient-random-e05-20260810a
+slurm/distal_gradient_random_control_e05.sbatch`.
+
 Initial H100 job `37401` stopped in the unit-test preflight before simulator or
 training startup because the cluster's Python 3.8 standard library lacks
 `math.nextafter`. The compatibility repair computes the identical previous
