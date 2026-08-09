@@ -1923,3 +1923,29 @@ difference anchoring, action-level one-sided lower-bound/safe-unsafe losses,
 and held-out state-group tightening. Do not run the QP or closed-loop until
 that learned field independently reproduces zero false-safe and useful-recall
 behavior. This sampled GO is not a formal continuum guarantee.
+
+# ADR-0080: Canonicalize the affine target with boundary-weighted ridge-Huber
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The finite-difference result in job `37649` supports the affine representation
+but missed all safe actions in two low-support states. Before learning again,
+the gradient target must be both conservative and stable under changes in the
+fitted candidate set.
+
+The new target fixes the nominal value to exact `m(u0)` and estimates only the
+three action coefficients. Boundary-weighted Huber regression limits the
+effect of far/nonlinear candidates, while ridge regularization selects a
+unique coefficient vector. A state-specific maximum-overestimate error then
+converts the fitted plane to a sampled lower bound.
+
+Stability is not inferred from fit loss. Ridge-Huber and minimum-L1 are
+refitted on the same 16 deterministic 80% subsets. Active rows must preserve
+cosine at least 0.9 and relative norm within 0.25. Both targets use identical
+off-grid exact labels and new QP rollouts; failures and infeasible states stay
+in the population.
+
+No MLP is trained unless ridge-Huber passes every oracle gate. A later model,
+if authorized, combines coefficient loss with action-level one-sided false-
+safe loss and grouped validation tightening. Closed-loop E05 is a separate
+dependent gate.

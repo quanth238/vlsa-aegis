@@ -2620,3 +2620,28 @@ Result/payload/validation SHA-256 values are
 `661273a27aa5a025b160f50e7b0526bb6d434a4b90fa1a8e63758ab0f2083ff6`,
 and `8c5aa5c5f56e179a4603584d2e45da3e1de2ca571b1dc512e315c8a05c010b4f`.
 Full result: `docs/distal_affine_oracle_comparison_moka10_result.md`.
+
+# 2026-08-10: ridge-Huber affine-target oracle registered
+
+The next gate tests whether a canonical, regularized target is stable before
+any new neural training. It reuses the immutable 50-state job-`37580` grids
+for fitting and the 4,800 job-`37649` off-grid cloned-OSC actions as untouched
+evaluation data. Complete 30/5/15 state groups, the immutable second AEGIS
+action, Table 1 artifacts, and simulator labels are unchanged.
+
+At each state, `b=m(u0)` is exact. The seven gradients use boundary-weighted
+Huber regression in millimetres with ridge regularization, and each one-sided
+error is the maximum fitted overestimate plus 1 micrometre. Sixteen fixed 80%
+candidate resamples audit gradient direction and norm. The old minimum-L1
+target is refitted on the identical subsets and is evaluated on the same
+off-grid actions and new exact QP rollouts.
+
+Ridge-Huber must have zero off-grid false-safes, accept at least one exact-safe
+off-grid action at all 50 states, stabilize every active row, and produce a
+new valid/exact-safe seven-row QP rollout at all 50 states. Only this complete
+oracle pass authorizes the separate grouped MLP gate. Closed-loop E05 remains
+forbidden until that later learned gate also passes.
+
+Protocol: `docs/distal_ridge_huber_oracle_moka10_preregistration.md`.
+Config SHA-256: `af0ebe98645f4b8a2a59287719dafbe0d4804d0e3d39c4f460360c3ccf68a25b`.
+The bundled local structural gate passes 365 tests with 9 skips.
