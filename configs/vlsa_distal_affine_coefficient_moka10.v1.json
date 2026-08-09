@@ -1,0 +1,78 @@
+{
+  "schema_version": "vlsa_distal_affine_coefficient_moka10.v1",
+  "protocol_id": "vlsa-distal-affine-coefficient-moka10-v1",
+  "claim_scope": "multi_state_two_step_affine_coefficient_learning_feasibility_for_seven_L5_L7_constraints_not_closed_loop_efficacy_not_formal_safety",
+  "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "train_task_groups": ["vlsa-t1-goal-ii-t2", "vlsa-t1-spatial-i-t1"],
+    "validation_task_groups": ["vlsa-t1-goal-ii-t3"],
+    "test_task_groups": ["vlsa-t1-goal-ii-t0"],
+    "primary_e05_use": "test_only_never_training_or_calibration"
+  },
+  "state_sampling": {
+    "search_start_offset_actions": 20,
+    "crossing": "first_two_step_exact_proxy_crossing_in_registered_window",
+    "state_offsets_from_crossing": [-4, -3, -2, -1, 0],
+    "expected_states_per_episode": 5
+  },
+  "action_sampling": {
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "grid_points_per_dimension": 5,
+    "expected_grid_action_count_per_state": 125,
+    "second_action": "immutable_released_AEGIS_nominal"
+  },
+  "coefficient_target": {
+    "candidate_order": "exact_safe_then_l2_from_nominal_then_grid_index",
+    "fit": "candidate_conditioned_minimum_l1_sampled_grid_lower_envelope",
+    "one_sided_padding_m": 1e-06,
+    "target_clearance_m": 0.0,
+    "coefficient_postcheck_tolerance_m": 1e-08,
+    "error_target": "exact_nominal_margin_minus_lower_envelope_intercept",
+    "require_every_registered_state": true
+  },
+  "model": {
+    "input": "factorized_state_nominal_chunk_and_relative_geometry_features",
+    "shared_across_constraint_rows": true,
+    "hidden_widths": [128, 128],
+    "hidden_activation": "silu",
+    "outputs": ["nominal_margin_mm", "gradient_x_mm_per_action", "gradient_y_mm_per_action", "gradient_z_mm_per_action", "nonnegative_error_mm"]
+  },
+  "training": {
+    "device": "cuda",
+    "dtype": "float64",
+    "batching": "deterministic_full_batch",
+    "epochs": 3000,
+    "patience": 300,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-06,
+    "huber_delta_standardized": 1.0,
+    "seed": 20260810
+  },
+  "calibration": {
+    "method": "per_constraint_maximum_validation_affine_overprediction_plus_fixed_padding",
+    "fixed_padding_m": 0.001
+  },
+  "projection": {
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "clearance_target_m": 0.0,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "residual_tolerance": 5e-07,
+    "bound_tolerance_action": 5e-08
+  },
+  "decision_gate": {
+    "dataset": "all_50_registered_states_have_safe_candidates_and_valid_seven_row_lower_envelopes",
+    "test_sampled_false_safe_candidate_count": 0,
+    "test_gradient_cosine_similarity_mean_minimum": 0.8,
+    "test_projection": "every_test_state_has_valid_seven_row_QP_and_fresh_exact_two_step_all_eight_proxy_raw_safe",
+    "research_direction_go": "all_test_gates_pass",
+    "closed_loop_authorized": false
+  }
+}

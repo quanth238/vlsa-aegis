@@ -2476,3 +2476,32 @@ validation SHA-256 values are
 `1fd5a445a9a39f1d2f35b9748b5a33d01c7da8998cd754ce8439b9417c2000bc`,
 and `25677a62e783176cad9cf0a0df33a8f14428eb2c8e447c32ec90fd7a4a4c9352`.
 Full result: `docs/distal_direct_rollout_margin_e05_result.md`.
+
+# 2026-08-10: multi-state affine-coefficient target gate preregistered
+
+The user authorized the next mechanism after job `37508` showed that the QP
+received incorrect absolute-margin rows. The new learned object is the QP row
+itself: exact nominal margin `b`, a three-dimensional action coefficient `a`,
+and a state-conditioned nonnegative one-sided error `e`. It does not retrain
+or reinterpret the failed direct-margin model.
+
+Before training, the H100 collector registers five states per immutable
+episode: the first two-step crossing and offsets `-4/-3/-2/-1`. Each state
+executes a fixed 125-action grid inside the existing `L_inf <= 0.5` trust
+region while keeping the second released-AEGIS action unchanged. Across ten
+episodes this is 50 state groups and 6,250 exact two-step grid rollouts.
+Complete task/episode splits are preserved and E05/E10/E15 remain test-only.
+
+Every state must admit the same candidate-conditioned seven-row sampled lower
+envelope established by privileged job `37280`, plus a valid seven-row QP and
+a fresh exact all-eight proxy/raw-safe two-step QP rollout. Any missing state,
+infeasible certificate, or failed verification remains recorded and prevents
+training. An independent validator enforces the gate. Conditional learned
+evaluation is preregistered, but closed-loop E05 remains unauthorized.
+
+Protocol: `docs/distal_affine_coefficient_moka10_preregistration.md`. The
+bundled local structural gate passes all 355 tests with 7 skips. After a clean
+commit, source sync, and live preflight, the exact next command is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=affine-coeff-data-20260810a
+slurm/distal_affine_coefficient_dataset_moka10.sbatch`.

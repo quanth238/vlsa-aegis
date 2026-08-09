@@ -1820,3 +1820,30 @@ The next defensible learned object is the state-conditioned local affine
 coefficient target already shown representable by privileged job `37280`,
 together with conditional lower-bound residuals and broader distinct-state
 coverage. That requires a separate preregistered dataset gate.
+
+# ADR-0078: Learn state-conditioned affine QP rows, gated by exact targets
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37508` did not implicate OSQP: its learned field falsely declared the
+unsafe E05 nominal chunk safe and supplied no active correction row. The next
+test therefore predicts the local affine constraint consumed by the QP rather
+than differentiating another global absolute-margin approximation.
+
+The target is `(b, a, e)` per protected row, where `b` is the exact nominal
+two-step margin, `a` is the candidate-conditioned conservative affine
+coefficient, and `e = b - intercept` is the state-conditioned one-sided
+error. A separate validation-group overprediction calibration remains because
+the neural coefficient prediction itself is uncertain.
+
+Target collection expands state coverage, not merely action count at one
+state: five registered states from each of ten complete episodes, with the
+same task-group train/validation/test separation and E05 test-only. All 50
+states must have exact safe support, a seven-row lower-envelope certificate,
+a valid QP, and a fresh safe cloned-OSC QP transition before training is
+authorized. This strong no-training gate prevents a neural failure from being
+confounded with nonexistent or invalid targets.
+
+Passing the later learned test would establish only multi-state two-step
+mechanism feasibility. Closed-loop task completion remains a separate future
+gate.
