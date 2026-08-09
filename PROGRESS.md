@@ -1898,3 +1898,27 @@ learned-QP story, the next representation must be piecewise/nonlinear or use a
 local certificate around the selected component, because the complete-grid
 single affine lower envelope has been falsified at the decisive E05 state.
 Neither follow-up nor neural training is authorized by the current gate.
+
+# 2026-08-09: exact safe-candidate receding E05 diagnostic preregistered
+
+The user authorized the separate zeroth-order mechanism test suggested by the
+job-37285 outcome. The new opt-in controller performs the same exact two-step
+cloned OSC/substep measurement before every execution. Unsafe nominal horizons
+invoke the frozen 512-action XYZ trust-region grid, but no affine certificate
+or QP is used: it selects the minimum-L2 candidate with all eight exact margins
+at least 1 micrometre and raw simulator safety, freshly verifies it, executes
+only its first action, and recomputes from the new state. No safe candidate
+causes a fail-closed stop without fallback.
+
+Passing requires native task completion, nonnegative executed all-eight proxy
+margins, zero protected contact, zero paper CAR, and exact clone/execution
+state hashes. The experiment is explicitly privileged, not learned,
+deployable, or evidence that the affine QP worked. Scientific execution keeps
+both simulator image streams disabled; a separately verified single-context
+replay will generate the user-facing MP4/JPG. The frozen protocol is
+`docs/distal_exact_candidate_closed_loop_e05_preregistration.md`; config
+SHA-256 is
+`44a0e9448a0b17a77b75fdd6060a4cd1b141a11b775a045c77b770070af28ac8`.
+
+After a clean commit, remote sync, and live Slurm preflight, the exact next
+command is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=exact-candidate-closed-loop-20260809a slurm/distal_exact_candidate_closed_loop_e05.sbatch`.

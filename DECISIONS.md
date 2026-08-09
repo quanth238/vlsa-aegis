@@ -1448,3 +1448,23 @@ Clean H100 replay job `37289` verified all 186 dynamic-state hashes and all
 adjacent-pixel MAD `2.088/255` and maximum encoder MAE `1.592/255`; the final
 JPG is visually clean. This replacement is the sole accepted visual evidence
 for job `37285`; the original multi-context MP4/JPG remain provenance-only.
+
+# ADR-0067: Test the disconnected safe component with direct exact selection
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+Job `37285` proved that one of 512 actions at step 186 was exactly all-eight
+proxy/raw safe, but a single affine lower envelope over the complete grid could
+not certify that isolated component. The user authorized a separate privileged
+upper-bound diagnostic: select the closest exactly safe sampled action
+directly, execute only its freshly verified first transition, and recompute at
+the next state.
+
+The grid, trust region, two-action horizon, immutable nominal plan, L5--L7
+slabs, released AEGIS EE proxy, raw contact/obstacle-motion gates, and clone
+receipts remain fixed. A 1 micrometre candidate margin is required. No affine
+fit, QP, learned model, or fallback is permitted. A GO shows only that this
+zeroth-order sampled receding controller can solve primary E05; a NO-GO is
+limited to the registered search family. Image observables are disabled in the
+scientific run and visual evidence must be regenerated through one exact
+single-context replay.
