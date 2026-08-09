@@ -52,6 +52,12 @@ SHA-256 values are
 `08046dd91488d197869959c0c36e81c573a44ea146b080267cd6b5e964189183`,
 and `5abda7c6af22d795654c35e6e54b4953f2f5da8a32ebc936969b50866121e832`.
 
+A presentation-only H100 replay is preregistered to concatenate the immutable
+validated job-`37308` actions 0--229 with the job-`37337` suffix. It must match
+all 237 controller-inclusive state hashes and obstacle receipts in one OSMesa
+context, then pass source/decoded frame corruption gates before its MP4/JPG are
+accepted. This cannot change the scientific NO-GO.
+
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the coordinated action family left open by exact

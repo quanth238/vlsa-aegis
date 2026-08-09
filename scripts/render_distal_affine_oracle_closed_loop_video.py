@@ -22,6 +22,9 @@ from main.multilink_ellipsoid.exact_candidate_continue import (
 from main.multilink_ellipsoid.waypoint_candidate_closed_loop import (
     WAYPOINT_RESULT_SCHEMA,
 )
+from main.multilink_ellipsoid.object_refined_suffix import (
+    RESULT_SCHEMA as OBJECT_REFINED_SUFFIX_RESULT_SCHEMA,
+)
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write, _file_sha256, _git_identity, _load, _require,
 )
@@ -104,6 +107,7 @@ def render(
     *, repo_root: Path, manifest_path: Path, accepted_result_path: Path,
     expected_result_sha256: str, expected_commit: str, video_path: Path,
     final_jpg_path: Path, receipt_path: Path, video_fps: int,
+    prefix_result_path: Optional[Path] = None,
 ) -> dict[str, Any]:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -120,11 +124,15 @@ def render(
     exact_candidate = schema == EXACT_CANDIDATE_RESULT_SCHEMA
     unsafe_continuation = schema == CONTINUE_RESULT_SCHEMA
     waypoint_candidate = schema == WAYPOINT_RESULT_SCHEMA
+    object_refined_suffix = schema == OBJECT_REFINED_SUFFIX_RESULT_SCHEMA
     decision_key = (
-        "privileged_waypoint_best_of_n_closed_loop_e05_go"
-        if waypoint_candidate else (
-            "privileged_exact_candidate_closed_loop_e05_go"
-            if exact_candidate else "privileged_closed_loop_e05_go"
+        "privileged_object_refined_suffix_e05_go"
+        if object_refined_suffix else (
+            "privileged_waypoint_best_of_n_closed_loop_e05_go"
+            if waypoint_candidate else (
+                "privileged_exact_candidate_closed_loop_e05_go"
+                if exact_candidate else "privileged_closed_loop_e05_go"
+            )
         )
     )
     _require(
@@ -134,6 +142,7 @@ def render(
             EXACT_CANDIDATE_RESULT_SCHEMA,
             CONTINUE_RESULT_SCHEMA,
             WAYPOINT_RESULT_SCHEMA,
+            OBJECT_REFINED_SUFFIX_RESULT_SCHEMA,
         )
         and accepted.get("status") in ("method_failure", "complete")
         and accepted.get("case_id") == CASE_ID
@@ -146,13 +155,40 @@ def render(
         ),
         "accepted closed-loop result differs",
     )
-    actions = [
+    suffix_actions = [
         item for item in accepted.get("actions", []) if item.get("executed") is True
     ]
-    expected_action_count = (
-        accepted["continuation"]["total_executed_action_count"]
-        if unsafe_continuation else accepted["closed_loop"]["action_count"]
-    )
+    prefix_accepted = None
+    if object_refined_suffix:
+        _require(prefix_result_path is not None, "suffix visual prefix is missing")
+        prefix_accepted = _load(prefix_result_path)
+        prefix_end = int(accepted["suffix"]["start_step"])
+        prefix_actions = [
+            item for item in prefix_accepted.get("actions", [])
+            if item.get("executed") is True and int(item["step"]) < prefix_end
+        ]
+        _require(
+            prefix_accepted.get("schema_version") == WAYPOINT_RESULT_SCHEMA
+            and _file_sha256(prefix_result_path)
+            == accepted["config"]["prerequisite"]["waypoint_result_file_sha256"]
+            and prefix_accepted.get("result_payload_sha256")
+            == accepted["config"]["prerequisite"][
+                "waypoint_result_payload_sha256"
+            ]
+            and len(prefix_actions) == prefix_end,
+            "suffix visual prefix result differs",
+        )
+        actions = prefix_actions + suffix_actions
+        expected_action_count = prefix_end + int(
+            accepted["suffix"]["executed_action_count"]
+        )
+    else:
+        _require(prefix_result_path is None, "unexpected visual prefix result")
+        actions = suffix_actions
+        expected_action_count = (
+            accepted["continuation"]["total_executed_action_count"]
+            if unsafe_continuation else accepted["closed_loop"]["action_count"]
+        )
     _require(
         len(actions) == expected_action_count
         and len(actions) > 0
@@ -268,11 +304,14 @@ def render(
         "schema_version": (
             "vlsa_distal_exact_candidate_continue_e05_video.v1"
             if unsafe_continuation else (
-                "vlsa_distal_waypoint_closed_loop_e05_video.v1"
-                if waypoint_candidate else (
-                    "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
-                    if exact_candidate
-                    else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+                "vlsa_distal_object_refined_suffix_e05_video.v1"
+                if object_refined_suffix else (
+                    "vlsa_distal_waypoint_closed_loop_e05_video.v1"
+                    if waypoint_candidate else (
+                        "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
+                        if exact_candidate
+                        else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+                    )
                 )
             )
         ),
@@ -287,6 +326,14 @@ def render(
             "payload_sha256": accepted["result_payload_sha256"],
             "read_only": True,
         },
+        "accepted_prefix_result": (
+            None if prefix_accepted is None else {
+                "path": str(prefix_result_path),
+                "file_sha256": _file_sha256(prefix_result_path),
+                "payload_sha256": prefix_accepted["result_payload_sha256"],
+                "read_only": True,
+            }
+        ),
         "pairing_fields_verified": list(PAIRING_KEYS),
         "trace_equivalence": {
             "executed_action_count": len(actions),
@@ -295,12 +342,13 @@ def render(
                 maximum_obstacle_displacement_error
             ),
             "native_task_success": bool(
-                accepted[
+                accepted["suffix"]["native_task_success"]
+                if object_refined_suffix else accepted[
                     "continuation" if unsafe_continuation else "closed_loop"
                 ]["native_task_success"]
             ),
             "stopped_before_action": (
-                None if unsafe_continuation else (
+                None if unsafe_continuation or object_refined_suffix else (
                     accepted["closed_loop"].get("failure", {}).get("step")
                     if accepted["closed_loop"].get("failure") else None
                 )
@@ -328,6 +376,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--accepted-result", type=Path, required=True)
+    parser.add_argument("--prefix-result", type=Path)
     parser.add_argument("--expected-result-sha256", required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--video", type=Path, required=True)
@@ -342,6 +391,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         expected_commit=args.expected_commit, video_path=args.video.resolve(),
         final_jpg_path=args.final_jpg.resolve(), receipt_path=args.receipt.resolve(),
         video_fps=args.video_fps,
+        prefix_result_path=(
+            None if args.prefix_result is None else args.prefix_result.resolve()
+        ),
     )
     print(json.dumps({
         "status": receipt["status"],

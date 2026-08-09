@@ -1601,3 +1601,7 @@ short chunk cannot recover enough task precision. The next justified arm must
 introduce object-conditioned proposals earlier (for example live pi0.5
 replanning with exact safety verification); merely densifying this terminal
 local search is not supported. Neural training remains unauthorized.
+
+Visual evidence for job `37337` must use a separate single-context H100 replay.
+It concatenates only the accepted job-`37308` prefix and job-`37337` suffix,
+requires every dynamic-state and obstacle receipt, and cannot alter the NO-GO.

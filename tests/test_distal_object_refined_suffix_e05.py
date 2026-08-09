@@ -58,6 +58,14 @@ class ObjectRefinedSuffixTests(unittest.TestCase):
         self.assertNotIn("solve_affine_certificate_qp", source)
         self.assertNotIn("WebsocketClientPolicy", source)
 
+    def test_visual_replay_combines_exact_prefix_and_suffix(self) -> None:
+        source = (
+            ROOT / "scripts/render_distal_affine_oracle_closed_loop_video.py"
+        ).read_text()
+        self.assertIn("OBJECT_REFINED_SUFFIX_RESULT_SCHEMA", source)
+        self.assertIn("prefix_actions + suffix_actions", source)
+        self.assertIn("suffix visual prefix result differs", source)
+
 
 if __name__ == "__main__":
     unittest.main()
