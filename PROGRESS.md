@@ -2316,3 +2316,24 @@ The local artifacts are under
 The exact next read-only audit is `jq
 '.decision,.state_results,.learned_records'
 /Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_gradient_random_control_e05/gradient-random-e05-20260810b/result.json`.
+
+# 2026-08-10: contact-risk gradient implementation audit preregistered
+
+Before changing the failed job-`37416` objective, the user requested a direct
+sign/normalization/indexing audit. At held-out E05 states 187 and 190, the
+immutable contact model is evaluated symmetrically at
+`u +/- epsilon*g_hat` for action-space epsilons
+`0.0001/0.001/0.01/0.05/0.1`. The last three feature entries must be exactly
+candidate XYZ, all other feature and action entries remain unchanged, every
+negative-gradient model risk must be strictly smaller, and the smallest-step
+central derivative must agree with autograd within 1%.
+
+Both signs then receive fresh complete cloned OSC transitions from the same
+state. Simulator ordering uses raw L5--L7 safety, contact count, then summed
+MuJoCo penetration; no mesh distance is used. This audit contains exactly 20
+fresh transitions, does not retrain, and cannot authorize closed-loop E05.
+Protocol: `docs/distal_contact_gradient_sign_audit_e05_preregistration.md`.
+Exact next command after clean commit/source sync is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=gradient-sign-audit-e05-20260810a
+slurm/distal_contact_gradient_sign_audit_e05.sbatch`.

@@ -1711,3 +1711,22 @@ paired opposite perturbations at matched radii, exact controller-rollout
 ordering labels, and a directional-ranking loss evaluated on held-out pairs.
 It must again beat the matched-random gate before multi-state/L6--L7 scaling
 or closed-loop E05 is considered.
+
+# ADR-0075: Audit gradient implementation before changing supervision
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Failure against random directions does not by itself distinguish a weak
+objective from a sign, normalization, or action-indexing defect. The immutable
+job-`37416` model must therefore first satisfy a symmetric local identity:
+its maximum contact probability is lower at `u-epsilon*g_hat` than at
+`u+epsilon*g_hat`, and its smallest-step central derivative matches the
+autograd norm. Both commands are then compared under paired cloned OSC
+transitions.
+
+An internal failure sends the work back to implementation repair. Internal
+consistency with simulator preference for the positive-gradient command is
+direct supervision/model misalignment. Internal consistency without such a
+disagreement still does not rehabilitate the gradient, because job `37427`
+already showed that it fails to beat random directions. No outcome of this
+audit authorizes closed-loop execution.
