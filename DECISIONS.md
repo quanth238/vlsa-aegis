@@ -1373,3 +1373,29 @@ affine coefficients and a conditional conservative residual, trained on many
 distinct state groups rather than dense actions from only a few states. The
 current GO authorizes target collection only. A separately validated grouped
 dataset is required before training, and closed-loop E05 remains a later gate.
+
+# ADR-0064: Run a privileged receding affine-oracle E05 efficacy diagnostic
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+The isolated-state affine representation gate passed on E05/E10/E15, while
+the grouped residual MLP did not provide a feasible held-out QP. Before
+collecting affine-coefficient targets or training another model, the user
+authorized one bounded privileged experiment to test whether the target
+mechanism itself can solve the complete primary episode.
+
+At every executed E05 state, a cloned OSC rollout checks the next two immutable
+released-AEGIS actions. Unsafe horizons trigger the same 512-action trust
+region, seven candidate-conditioned lower envelopes, and one seven-row
+minimum-deviation QP validated in job `37280`. The released AEGIS EE proxy
+remains unchanged and is exact-gated; it is not added as an eighth QP row.
+Only the freshly verified first action executes, after which the oracle is
+recomputed. A certificate, QP, exact-gate, or clone-hash failure stops without
+executing a fallback.
+
+Passing requires nonnegative executed all-eight proxy margins, zero protected
+contact, zero paper CAR, exact clone/execution state agreement, and native task
+success. Actual execution is recorded to MP4/JPG. This can establish a
+privileged target for later learning, but cannot establish learned
+generalization, deployability, or formal whole-body safety. Neural training
+remains blocked regardless of the result.

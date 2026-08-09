@@ -1810,3 +1810,25 @@ result payload SHA-256 is
 `ce02d87417d8bcc56d80263a928122149e1c88188b02b7f8372b062efa0a83ff`.
 The exact next audit command is:
 `jq '{decision,cases:(.case_results|with_entries(.value={state_step:.value.state_step,certificate:.value.certificate,qp:.value.qp,exact:.value.exact_two_step_verification,pass:.value.case_gate_pass}))}' /mnt/data/quanth/experiments/vlsa-distal-two-step-oracle-affine-safe-set/two-step-affine-oracle-20260809c/result.json`.
+
+# 2026-08-09: privileged receding affine-oracle E05 run preregistered
+
+The user authorized the next bounded mechanism test after job `37280`:
+recompute the exact two-step safe set after every executed action and continue
+through native E05 task completion. The new opt-in harness keeps the immutable
+successful released-AEGIS 237-action sequence as nominal, retains the original
+EE proxy as an exact outcome gate, and sends exactly seven L5--L7 affine rows
+to the existing minimum-deviation QP.
+
+Only unsafe exact nominal horizons invoke the 512-action grid. Every proposed
+QP action receives a fresh cloned OSC verification; only its first action is
+executed and the executed next-state hash must match the clone. All internal
+substep margins, raw protected contact, obstacle motion, native goal progress,
+QP/oracle timing, and actual agent-view MP4/JPG are recorded. Failure is kept
+as a scientific NO-GO without fallback or tuning. Neural training remains
+unauthorized. The frozen protocol is in
+`docs/distal_affine_oracle_closed_loop_e05_preregistration.md`; config SHA-256
+is `0a82ee6c6250996e10d2a4c30a0bb48927d08240b298a0fb5b21a438c855186b`.
+
+After a clean commit, remote sync, and live preflight, the exact next command
+is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=affine-oracle-closed-loop-20260809a slurm/distal_affine_oracle_closed_loop_e05.sbatch`.
