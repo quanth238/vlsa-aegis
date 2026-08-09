@@ -163,7 +163,8 @@ def main():
                 nominal_transition["substeps"][0], query[:3], query[:3]
             )
             stored_feature = np.asarray(nominal_rows[0]["feature_vector"], dtype=np.float64)
-            _require(np.array_equal(recomputed_feature, stored_feature), "random-control nominal feature differs")
+            feature_error = float(np.max(np.abs(recomputed_feature - stored_feature)))
+            _require(feature_error <= 1e-10, "random-control nominal feature exceeds clone tolerance")
             risk, gradient = _predict_risk_and_gradient(
                 model, stored_feature, artifact["feature_mean"],
                 artifact["feature_standard_deviation"],
@@ -228,6 +229,7 @@ def main():
             threshold = float(config["randomization_gate"]["empirical_equal_or_earlier_safe_p_maximum"])
             state_results.append({
                 "state_step": int(step), "nominal_risk": risk,
+                "maximum_recomputed_feature_error": feature_error,
                 "learned_gradient": gradient.tolist(),
                 "learned_first_safe_radius_action": learned_first,
                 "random_first_safe_radius_counts": {

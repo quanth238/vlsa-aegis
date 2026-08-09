@@ -2208,6 +2208,15 @@ next command after clean commit/source sync is `sbatch
 HEAD),RUN_ID=gradient-random-e05-20260810a
 slurm/distal_gradient_random_control_e05.sbatch`.
 
+Initial H100 job `37426` passed source, allocation, and unit-test preflights but
+stopped before any learned or random action rollout. Restoring the paired
+snapshot and forwarding MuJoCo caused the recomputed nominal feature to fail
+an exact bitwise equality assertion. The apparatus-only repair uses the
+repository's established `1e-10` clone-state tolerance, records the actual
+maximum feature error, and continues to compute the learned gradient from the
+immutable stored feature. Seeds, directions, radii, contact authority, and
+randomization gates are unchanged. The failed run is retained.
+
 Initial H100 job `37401` stopped in the unit-test preflight before simulator or
 training startup because the cluster's Python 3.8 standard library lacks
 `math.nextafter`. The compatibility repair computes the identical previous
