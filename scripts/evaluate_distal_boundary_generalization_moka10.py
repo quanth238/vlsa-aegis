@@ -158,6 +158,21 @@ def main() -> int:
     population = {row["case_id"]: row for row in read_jsonl(args.population_manifest.resolve())}
     episode_state = {item["case_id"]: item for item in dataset["episode_results"]}
     test_rows = [row for row in selected if row["split"] == "test"]
+    primary_row = next(
+        row for row in selected
+        if row["case_id"] == "vlsa-t1-goal-ii-t0-e05"
+    )
+    geometry_placeholder_path = (
+        args.archived_root.resolve() / primary_row["archived_relative_path"]
+    )
+    geometry_placeholder_archived = _load(geometry_placeholder_path)
+    _require(
+        _file_sha256(geometry_placeholder_path)
+        == primary_row["archived_file_sha256"]
+        and geometry_placeholder_archived.get("result_payload_sha256")
+        == primary_row["archived_payload_sha256"],
+        "evaluation exact-box geometry placeholder differs",
+    )
     runtime = _runtime_imports(include_aegis=False)
     arm_results = {}
     for arm in config["training"]["arms"]:
@@ -174,7 +189,8 @@ def main() -> int:
             archived = _load(archived_path)
             _require(_file_sha256(archived_path) == row["archived_file_sha256"] and archived.get("result_payload_sha256") == row["archived_payload_sha256"], "test archive differs")
             projections[case_id] = _projection(
-                runtime=runtime, case=population[case_id], archived=archived,
+                runtime=runtime, case=population[case_id],
+                archived=geometry_placeholder_archived,
                 step=int(episode_state[case_id]["selected_step"]), geometry_config=geometry_config,
                 exact_box_config=exact_box_config, config=config, model=model, state=state,
             )

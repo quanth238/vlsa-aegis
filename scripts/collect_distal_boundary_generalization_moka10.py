@@ -122,6 +122,21 @@ def collect(
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
     runtime = _runtime_imports(include_aegis=False)
+    primary_row = next(
+        row for row in selected
+        if row["case_id"] == "vlsa-t1-goal-ii-t0-e05"
+    )
+    geometry_placeholder_path = archived_root / str(
+        primary_row["archived_relative_path"]
+    )
+    geometry_placeholder_archived = _load(geometry_placeholder_path)
+    _require(
+        _file_sha256(geometry_placeholder_path)
+        == primary_row["archived_file_sha256"]
+        and geometry_placeholder_archived.get("result_payload_sha256")
+        == primary_row["archived_payload_sha256"],
+        "exact-box geometry placeholder identity differs",
+    )
     settings = config["sampling"]
     band = float(settings["boundary_band_m"])
     epsilon = float(settings["finite_difference_epsilon_action"])
@@ -169,7 +184,8 @@ def collect(
             all_pairings[case_id] = pairing
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config, exact_box_config=exact_box_config,
-                archived=archived, env=env, obstacle_name=setup["obstacle_name"],
+                archived=geometry_placeholder_archived, env=env,
+                obstacle_name=setup["obstacle_name"],
             )
             probe = SubstepEightConstraintProbe(
                 probe_env, geometry, active_obstacle_name=setup["obstacle_name"],
@@ -318,6 +334,14 @@ def collect(
         "claim_scope": config["claim_scope"], "source": source, "allocation": allocation,
         "config": config, "selected_manifest": {"path": str(selected_manifest_path), "file_sha256": _file_sha256(selected_manifest_path)},
         "archived_table1_root": {"path": str(archived_root), "read_only": True},
+        "geometry_placeholder": {
+            "path": str(geometry_placeholder_path),
+            "file_sha256": _file_sha256(geometry_placeholder_path),
+            "use": (
+                "proper_rotation_constructor_placeholder_only; all_recorded_"
+                "clearances_use_live_exact_15_box_union"
+            ),
+        },
         "pairings": all_pairings,
         "dataset": {"path": str(dataset_path), "file_sha256": _file_sha256(dataset_path), "payload_sha256": dataset["dataset_payload_sha256"]},
         "dataset_summary": dataset["summary"],

@@ -1142,3 +1142,11 @@ episode passing model accuracy, zero conservative false-safe, active-gradient,
 seven-row QP, and exact cloned OSC verification. This preserves the distinction
 between one-step grouped generalization and later causal closed-loop task
 completion.
+
+H100 job `37211` exposed a constructor-only incompatibility before data
+collection: one historical Table-1 PCA obstacle basis is reflective. The
+exact-box probe never reads the geometry object's obstacle after construction,
+so the accepted repair uses the proper primary-E05 MVEE solely to construct
+the shared robot slab geometry. The live exact 15-box union remains the only
+obstacle used by clearance and contact-witness evaluation. This is an
+apparatus repair, not a representation or threshold change.

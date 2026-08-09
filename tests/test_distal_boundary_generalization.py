@@ -72,11 +72,15 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
 
     def test_evaluator_requires_every_test_episode_and_exact_seven_row_projection(self):
         source = (ROOT / "scripts/evaluate_distal_boundary_generalization_moka10.py").read_text()
+        collector = (ROOT / "scripts/collect_distal_boundary_generalization_moka10.py").read_text()
         self.assertIn("valid_seven_row_qp", source)
         self.assertIn("projected_exact_proxy_safe", source)
         self.assertIn("projected_exact_raw_safe", source)
         self.assertIn("all(value[\"projection_gate_pass\"]", source)
         self.assertIn("closed_loop_e05_authorized", source)
+        self.assertIn("geometry_placeholder_archived", source)
+        self.assertIn("geometry_placeholder_archived", collector)
+        self.assertIn("clearances_use_live_exact_15_box_union", collector)
 
 
 if __name__ == "__main__": unittest.main()

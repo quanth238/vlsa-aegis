@@ -1514,3 +1514,12 @@ episode gates. Completed Table-1 artifacts remain read-only.
 No H100 result exists yet. The exact next command after syncing the clean
 commit is:
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=boundary-gen-data-20260809a slurm/distal_boundary_generalization_dataset_moka10.sbatch`.
+
+H100 job `37211` stopped on the first case before any grid transition or
+dataset output. That older Table-1 obstacle PCA record has a reflective basis,
+which the proper-rotation ellipsoid constructor rejects. This does not affect
+the registered exact 15-box obstacle union: the constructor's MVEE is unused
+whenever that union is supplied. The apparatus repair binds the constructor
+placeholder to the already validated primary-E05 MVEE and records this use;
+all clearances, witnesses, labels, raw checks, actions, splits, and gates
+remain exact-box based and unchanged. Job `37211` is apparatus failure only.

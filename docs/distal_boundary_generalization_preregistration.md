@@ -23,6 +23,13 @@ and evaluates six central finite differences per anchor. Exact labels cover
 every internal OSC/MuJoCo substep and keep optimizer gaps separate from raw
 contact and obstacle-motion verification.
 
+The exact 15-box union is the obstacle authority for every recorded
+clearance. Some older Table-1 PCA MVEEs contain a reflective basis that the
+ellipsoid constructor correctly rejects. Because the probe constructor still
+requires an obstacle object even when the exact-box union overrides it, the
+validated primary-E05 MVEE is reused only as a proper-rotation placeholder;
+it does not enter any recorded clearance, witness, label, or acceptance gate.
+
 Training is blocked until all ten episodes have a recoverable crossing,
 balanced anchors, and at least one witness-stable active-row gradient. The
 architecture, paired margin-only and gradient-supervised arms, validation
