@@ -1855,3 +1855,26 @@ The direct V2 correction is preregistered before execution in
 margin with the same lower-envelope construction and supply exactly eight hard
 QP rows. Every other setting and success gate is frozen. V2 config SHA-256 is
 `3ad64a16e75852873e7f5b837d7dc7eba85a82fd042ff5d2d261aabb3a3175f0`.
+
+Clean H100 V2 job `37285` completed on `worker-1` in `00:17:23` and
+independently validated a scientific NO-GO. It executed actions 0--185 with
+seven verified eight-row corrections, all executed substeps proxy-safe, exact
+clone-state hashes, zero protected contact, and zero paper CAR. Minimum
+executed distal/EE margins were `23.071/0.793 mm`.
+
+At action 186, the nominal two-step L5-part-1/L5-part-2 margins were
+`-6.997/-5.702 mm`. Exactly 1/512 grid action was all-eight proxy/raw safe, but
+the L5-part-1 lower-envelope LP was infeasible for that isolated candidate, so
+no eight-row certificate or QP proposal existed. The controller failed closed
+before contact and the native task did not complete. Total exact grid-oracle
+time was `936.197 s`; total/mean QP time across the seven solved interventions
+was `47.852/5.982 ms`. Result/validation SHA-256 values are
+`310f46744a2e8583c9dd602dd9188f5838d226b560523c7f7a96826588967cff` and
+`2c9dcc8c4b9336e0a229d009a2a442caede328b690fab529fe89f2a4178c1d3c`.
+
+The original job MP4/JPG are rejected as visual evidence after direct
+inspection found OSMesa stripe corruption from the second probe render
+context. An evidence-only single-context H100 replay is preregistered: replay
+the accepted 186-action ledger, require every dynamic-state and obstacle trace
+receipt, and fail on source or decoded adjacent-pixel MAD above 12/255. It does
+not change the scientific NO-GO.
