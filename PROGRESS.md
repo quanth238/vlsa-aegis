@@ -20,6 +20,13 @@ model, deployable method, or whole-body claim. The protocol is frozen in
 `docs/distal_object_refined_suffix_e05_preregistration.md`; no H100 outcome has
 run and neural training remains blocked.
 
+Initial H100 attempt `37333` passed allocation preflight but stopped during the
+prefix receipt before suffix search. The harness hashed only the flattened
+MuJoCo state, while the frozen accepted receipt hashes the controller-inclusive
+dynamic state vector. This is an apparatus failure with no scientific result.
+The repair calls the same `_dynamic_state_vector` routine used by the accepted
+measurement path; no action, search, safety gate, or decision threshold changes.
+
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the coordinated action family left open by exact

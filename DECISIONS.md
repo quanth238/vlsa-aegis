@@ -1578,3 +1578,10 @@ A GO establishes only that a locally refined object-aware safe suffix exists
 from the validated action-230 state. A NO-GO rejects this fixed seven-action
 suffix family, not live-policy or earlier-state recovery. No QP or learned
 model is used and neural training remains unauthorized.
+
+Initial H100 attempt `37333` failed before suffix search because its prefix
+receipt applied `array_sha256` to the flattened MuJoCo state rather than the
+controller-inclusive dynamic-state vector used by the accepted job-`37308`
+ledger. The repair uses the identical `_dynamic_state_vector` hash contract.
+The failed attempt is retained as apparatus evidence and changes no scientific
+setting.

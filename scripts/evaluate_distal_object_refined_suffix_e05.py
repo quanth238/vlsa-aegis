@@ -159,6 +159,7 @@ def evaluate(
         load_obstacle_primitive_config,
     )
     from main.multilink_ellipsoid.oracle_affine import SubstepEightConstraintProbe
+    from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import allocation_record, load_shadow_config
     from main.multilink_ellipsoid.two_step_margin import (
         load_selected_manifest, load_two_step_config,
@@ -255,9 +256,9 @@ def evaluate(
             prior = prerequisite_result["actions"][step]
             action = np.asarray(prior["executed_action"], dtype=np.float64)
             observation, _, done, _ = env.step(action.tolist())
-            state_hash = array_sha256(np.asarray(
-                env.sim.get_state().flatten(), dtype=np.float64
-            ))
+            state_hash = hashlib.sha256(
+                _dynamic_state_vector(env).tobytes()
+            ).hexdigest()
             expected_hash = prior["executed_measurement"]["next_state_sha256"]
             if state_hash != expected_hash:
                 failure = {
