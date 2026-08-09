@@ -100,9 +100,14 @@ def _exact_two_step_verification(
     geometry_config: Mapping[str, Any], exact_box_config: Mapping[str, Any],
     state_step: int, nominal_first: Any, nominal_second: Any,
     expected_current_clearance_m: Any, candidate_xyz: Any,
+    collision_step: int, search_start_offset_actions: int,
+    expected_first_crossing_step: int,
 ) -> dict[str, Any]:
     import numpy as np
     from main.multilink_ellipsoid.oracle_affine import SubstepEightConstraintProbe
+    from scripts.collect_distal_boundary_generalization_moka10 import (
+        _restore_env, _snapshot_env,
+    )
 
     env = probe_env = None
     try:
@@ -112,13 +117,39 @@ def _exact_two_step_verification(
             archived=geometry_placeholder, env=env,
             obstacle_name=setup["obstacle_name"],
         )
-        for index in range(state_step):
-            env.step(_canonical_action(archived["actions"][index], index).tolist())
         probe = SubstepEightConstraintProbe(
             probe_env, geometry, active_obstacle_name=setup["obstacle_name"],
             quadratic_tolerance=1.0e-6, contact_distance_threshold_m=0.0,
             obstacle_primitive_union=exact_boxes,
         )
+        actions = archived["actions"]
+        search_start = max(0, int(collision_step) - int(search_start_offset_actions))
+        for index in range(search_start):
+            env.step(_canonical_action(actions[index], index).tolist())
+        snapshots = {}
+        reconstructed_crossing_step = None
+        for index in range(search_start, min(int(collision_step) + 1, len(actions) - 1)):
+            snapshots[index] = _snapshot_env(env)
+            first = _canonical_action(actions[index], index)
+            second = _canonical_action(actions[index + 1], index + 1)
+            chunk = probe.rollout_chunk(env, [first, second])
+            minimum = np.asarray(
+                summarize_chunk(chunk)["minimum_substep_clearance_m"],
+                dtype=np.float64,
+            )
+            current = np.asarray(
+                feature_context(env, probe)["current_clearance_m"], dtype=np.float64
+            )
+            if bool(np.all(current >= 0.0) and np.any(minimum < 0.0)):
+                reconstructed_crossing_step = index
+                break
+            env.step(first.tolist())
+        _require(
+            reconstructed_crossing_step == int(expected_first_crossing_step)
+            and state_step in snapshots,
+            "oracle affine safe-set reconstructed crossing differs",
+        )
+        _restore_env(env, snapshots[state_step])
         context = feature_context(env, probe)
         observed_current = np.asarray(
             context["current_clearance_m"], dtype=np.float64
@@ -163,6 +194,9 @@ def _exact_two_step_verification(
         )
         _require(all_eight.shape == (8,), "oracle affine safe-set row count differs")
         return {
+            "reconstructed_first_two_step_crossing_step": int(
+                reconstructed_crossing_step
+            ),
             "maximum_reconstructed_current_clearance_difference_m": (
                 maximum_pairing_difference
             ),
@@ -242,6 +276,9 @@ def main() -> int:
         "oracle affine safe-set selected manifest differs",
     )
     selected_by_case = {item["case_id"]: item for item in selected}
+    episode_by_case = {
+        item["case_id"]: item for item in dataset["episode_results"]
+    }
     _require(
         set(config["test_case_ids"]).issubset(selected_by_case),
         "oracle affine safe-set selected cases missing",
@@ -304,6 +341,13 @@ def main() -> int:
                 nominal_second=grid["nominal_second"],
                 expected_current_clearance_m=grid["current_clearance_m"],
                 candidate_xyz=qp["candidate_xyz"],
+                collision_step=int(row["collision_first_step"]),
+                search_start_offset_actions=int(
+                    source_config["state"]["search_start_offset_actions"]
+                ),
+                expected_first_crossing_step=int(
+                    episode_by_case[case_id]["first_two_step_crossing_step"]
+                ),
             )
         seven_input_rows = bool(
             qp.get("diagnostics", {}).get("input_constraint_count") == 7

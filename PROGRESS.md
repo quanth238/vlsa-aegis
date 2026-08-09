@@ -1768,3 +1768,11 @@ records the maximum difference and accepts at most `1e-8` m (0.01 micrometre),
 which remains 100 times smaller than the frozen 1 micrometre affine padding.
 It changes no grid label, certificate, QP, exact safety threshold, or decision
 gate. The retry uses a new immutable run ID.
+
+Retry `37278` measured a `0.00066038641036412007` m difference, so it was also
+retained as an apparatus failure; that discrepancy is too large to accept by
+tolerance. Audit identified that the job-37270 state was produced by the
+registered first-crossing probe plus snapshot/restore path, not a bare direct
+action-index replay. The next repair reconstructs that exact collector path,
+requires the same first crossing and selected snapshot, and keeps the strict
+`1e-8` m recorded receipt. The scientific protocol remains unchanged.

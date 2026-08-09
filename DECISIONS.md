@@ -1354,3 +1354,9 @@ passed, but a `1e-12` m replay-clearance equality receipt rejected the first
 case before output. The fixed repair records and bounds that pairing
 difference by `1e-8` m, still 100 times below the scientific affine padding.
 No optimization or acceptance setting changes.
+
+Retry `37278` exposed a 0.660 mm difference and is also an apparatus failure;
+the receipt is not relaxed. The verifier must reproduce the dataset
+collector's first-crossing probes and controller-inclusive snapshot/restore
+before evaluating the QP action. It must match both the recorded crossing step
+and selected-state clearance within the existing `1e-8` m receipt.
