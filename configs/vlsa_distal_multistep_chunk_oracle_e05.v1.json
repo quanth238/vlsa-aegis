@@ -1,0 +1,83 @@
+{
+  "schema_version": "vlsa_distal_multistep_chunk_oracle_e05.v1",
+  "protocol_id": "vlsa-distal-multistep-chunk-oracle-e05-v1",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "claim_scope": "single_state_privileged_exact_chunk_recovery_feasibility_not_neural_generalization_or_closed_loop_efficacy",
+  "source": {
+    "table1_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "archived_relative_path": "tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json",
+    "archived_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "archived_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+    "executed_sequence_sha256": "e5e2df4efee667fee0b0b7596dbc203a3cce84e67cb3507cb839132d2ee67481",
+    "action_count": 237,
+    "start_action_step": 185,
+    "prior_full_bound_job_id": "37226",
+    "prior_full_bound_result_sha256": "d325dbf430ea3165d6304df4fe064b498b75ac36943df39fecbd98f420e6370f",
+    "prior_full_bound_validation_sha256": "c832791e2cf661226ac71bfd2b4224b9d632a1dd04fae76d978ef788b3f432ff",
+    "prior_full_bound_result_payload_sha256": "08cfbae8451b67c27954002feb997a73c7ab8934c617e5890da6afa969b66a3a"
+  },
+  "geometry": {
+    "distal_geometry_config_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "constraint_count": 7,
+    "clearance_target_m": 0.0
+  },
+  "candidate_family": {
+    "action_limit": 1.0,
+    "grid_points_per_dimension": 9,
+    "one_shot_expected_candidate_count": 731,
+    "distributed_expected_candidate_count": 730,
+    "one_shot": "replace_only_first_chunk_translation_then_keep_immutable_aegis_suffix",
+    "distributed": "add_weighted_residual_without_clipping_inside_jointly_feasible_delta_box_and_include_zero_residual",
+    "two_step_residual_weights": [
+      1.0,
+      -1.0
+    ],
+    "five_step_residual_weights": [
+      1.0,
+      0.5,
+      0.0,
+      -0.5,
+      -1.0
+    ],
+    "endpoint_preservation": "sum_of_translation_corrections_is_zero_per_dimension",
+    "normalization": "normalized_action_displacements_use_scale_only_no_mean_subtraction"
+  },
+  "arms": [
+    {
+      "arm_id": "two_step_one_shot",
+      "horizon": 2,
+      "family": "one_shot"
+    },
+    {
+      "arm_id": "two_step_distributed",
+      "horizon": 2,
+      "family": "distributed"
+    },
+    {
+      "arm_id": "five_step_one_shot",
+      "horizon": 5,
+      "family": "one_shot"
+    },
+    {
+      "arm_id": "five_step_distributed",
+      "horizon": 5,
+      "family": "distributed"
+    }
+  ],
+  "verification": {
+    "raw_contact_distance_threshold_m": 0.0,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001,
+    "clone_state_tolerance": 1e-10,
+    "require_all_internal_osc_substeps": true,
+    "execute_smallest_verified_safe_chunk_once": true
+  },
+  "decision_gate": {
+    "baseline": "immutable_two_and_five_step_chunks_must_reproduce_proxy_unsafe_crossing",
+    "chunk_recovery": "at_least_one_registered_chunk_has_all_seven_exact_substep_gaps_nonnegative_zero_raw_contact_and_at_most_0p1mm_per_step_obstacle_motion",
+    "execution_fidelity": "selected_safe_chunk_execution_matches_every_cloned_transition",
+    "larger_region_collection": "authorized_if_any_arm_passes_chunk_recovery_and_execution_fidelity",
+    "neural_training": "not_authorized_until_grouped_chunk_dataset_gate_passes",
+    "closed_loop": "not_authorized_by_single_state_chunk_oracle"
+  }
+}

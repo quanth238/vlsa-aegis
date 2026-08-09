@@ -1610,3 +1610,19 @@ result payload SHA-256 is
 `08cfbae8451b67c27954002feb997a73c7ab8934c617e5890da6afa969b66a3a`.
 The exact audit command is:
 `jq '{decision,nominal,qp:{valid:.qp.valid,reason:.qp.reason,candidate:.qp.candidate,diagnostics:.qp.diagnostics},global_search:{candidate_count:.global_search.candidate_count,verified_safe_candidate_count:.global_search.verified_safe_candidate_count,smallest_verified_safe_candidate:.global_search.smallest_verified_safe_candidate}}' /mnt/data/quanth/experiments/vlsa-distal-full-bound-recovery-e05/full-bound-e05-20260809a/result.json`.
+
+# 2026-08-09: exact two-/five-step E05 chunk oracle preregistered
+
+The next E02 gate starts one action earlier at step 185 and uses the actual
+sequential OSC transition. It compares one-shot first-action editing and
+endpoint-preserving distributed residuals at two- and five-action horizons.
+The one-shot family has 731 candidates per horizon; the distributed family
+has 730 including zero residual. Every candidate uses exact 15-box L5--L7
+clearance over every internal substep plus raw contact and obstacle-motion
+checks. Only the smallest verified safe chunk is executed once for per-step
+clone identity. This is a no-training, no-policy-server oracle. See
+`docs/distal_multistep_chunk_oracle_e05_preregistration.md`.
+
+No H100 result exists yet. The exact next command after clean sync and live
+preflight is:
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=chunk-oracle-e05-20260809a slurm/distal_multistep_chunk_oracle_e05.sbatch`.

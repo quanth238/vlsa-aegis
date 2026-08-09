@@ -1230,3 +1230,24 @@ Larger-region one-step training and closed-loop E05 remain unauthorized. The
 next method-level experiment is a two-step, then five-step, cloned-OSC action-
 chunk clearance oracle starting at step 185; neural training remains after
 that oracle gate.
+
+# ADR-0061: Test paired two- and five-step E05 chunk recovery before training
+
+**Status:** Preregistered; allocation evidence pending (2026-08-09).
+
+The multi-step oracle begins at immutable action 185 and retains the accepted
+seven slabs, exact 15-box obstacle, raw contact/motion authority, and released
+AEGIS suffix. It keeps one-shot first-action editing distinct from distributed
+residual velocity at horizons two and five. The distributed two-step weights
+are `[1,-1]`; the five-step weights are `[1,0.5,0,-0.5,-1]`. Corrections are
+constructed inside the jointly feasible action box without clipping and sum
+to zero, so endpoint preservation is exact.
+
+Each candidate synchronizes the complete simulator/controller clone once and
+then advances the chunk sequentially through the real OSC. A candidate passes
+only if every internal substep keeps all seven proxy gaps nonnegative, has no
+raw L5--L7 contact, and moves the obstacle at most 0.1 mm per control step.
+The smallest passing candidate is re-executed with per-step clone identity.
+A pass authorizes grouped chunk-data collection, not neural training or
+closed-loop E05. A failure rejects only these registered low-dimensional
+families, not every possible action chunk.

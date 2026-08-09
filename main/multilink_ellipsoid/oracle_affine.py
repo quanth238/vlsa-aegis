@@ -476,8 +476,45 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
         }
 
     def transition(self, main_env: Any, action: Sequence[float]) -> dict[str, Any]:
-        np = _numpy()
         synchronization = self.synchronize(main_env)
+        return self._transition_from_current_probe(
+            action, synchronization=synchronization
+        )
+
+    def rollout_chunk(
+        self, main_env: Any, actions: Sequence[Sequence[float]]
+    ) -> dict[str, Any]:
+        """Synchronize once, then execute an action chunk in the exact clone."""
+
+        if not actions:
+            raise ValueError("oracle-affine action chunk must be nonempty")
+        synchronization = self.synchronize(main_env)
+        transitions = []
+        for chunk_index, action in enumerate(actions):
+            transitions.append(
+                self._transition_from_current_probe(
+                    action,
+                    synchronization=(
+                        synchronization
+                        if chunk_index == 0
+                        else {
+                            "mode": "sequential_same_cloned_env",
+                            "chunk_index": int(chunk_index),
+                            "maximum_absolute_error": 0.0,
+                        }
+                    ),
+                )
+            )
+        return {
+            "initial_synchronization": synchronization,
+            "action_count": len(transitions),
+            "transitions": transitions,
+        }
+
+    def _transition_from_current_probe(
+        self, action: Sequence[float], *, synchronization: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        np = _numpy()
         command = np.asarray(action, dtype=np.float64)
         if command.shape != (7,) or not np.all(np.isfinite(command)):
             raise ValueError("oracle-affine action must be finite with length seven")
