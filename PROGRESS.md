@@ -2571,3 +2571,28 @@ Target-analysis/model/training/result/validation SHA-256 values are
 `37956b5c2f89f20324c3783496f97f289530b7a447c9d47c45cb9962d7c046e5`,
 and `709f41e5866133a74694746c15e87bd55af85dfd7f64254e2b3a5f27d9d67546`.
 Full result: `docs/distal_affine_coefficient_moka10_result.md`.
+
+# 2026-08-10: direct half-space versus finite-difference oracle registered
+
+The current coefficient MLP is frozen after job `37630`; it is not trained
+longer and no closed-loop rollout is authorized. The next decisive experiment
+separates an unstable learning target from an inadequate affine safe-set
+assumption without involving a neural model or OSQP reliability.
+
+The immutable job-`37580` 125-action grids are used only for fitting. At each
+of all 50 paired states, seven label-only logistic half-spaces are tightened
+past every unsafe fitted action. A separate canonical arm measures exact
+central finite differences at the nominal action and calibrates its one-sided
+error on the same grid. Both are tested on 96 newly sampled actions per state
+through every internal substep of the exact two-action cloned OSC rollout.
+
+The frozen gate requires zero false-safe actions, aggregate safe recall at
+least 0.20, and safe-action coverage in at least 0.80 of fresh-support states.
+If either oracle passes, future direct half-space/one-sided neural supervision
+is justified. If neither passes, the trust region must shrink or become
+piecewise affine. The released AEGIS EE proxy is diagnostic only, Table 1 is
+read-only, and closed-loop remains false regardless of outcome.
+
+Protocol: `docs/distal_affine_oracle_comparison_moka10_preregistration.md`.
+Config SHA-256: `0e77d8c250d7fecbfc6c5e31d549b9cec9164b198b7ab9e56eef18df438c3f1f`.
+The bundled local structural gate passes 360 tests with 8 skips.

@@ -1,0 +1,63 @@
+{
+  "schema_version": "vlsa_distal_affine_oracle_comparison_moka10.v1",
+  "protocol_id": "vlsa-distal-affine-oracle-comparison-moka10-v1",
+  "claim_scope": "no_training_test_of_direct_label_fitted_halfspaces_versus_canonical_finite_difference_lower_affine_constraints_on_50_existing_states_and_fresh_two_step_OSC_actions_not_closed_loop_not_formal_safety",
+  "immutable_source": {
+    "dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "dataset_result_file_sha256": "18e8a188a4815c5cb4409666d8d33b4b41c6f00311646493960235396b46b164",
+    "dataset_result_payload_sha256": "039e58f42e11e7844f94819b74086273e1a2cd42b5b30c5caba6533fa5425b81",
+    "dataset_validation_file_sha256": "824f27a3477dbf4a90f4fe975c7e9e03d1436d0619cc8ef2351b401d55009bc6",
+    "dataset_source_commit": "e71ea17ff849c25b1187bf103b29931103a60a06",
+    "expected_state_count": 50,
+    "expected_fit_actions_per_state": 125
+  },
+  "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "train_task_groups": ["vlsa-t1-goal-ii-t2", "vlsa-t1-spatial-i-t1"],
+    "validation_task_groups": ["vlsa-t1-goal-ii-t3"],
+    "test_task_groups": ["vlsa-t1-goal-ii-t0"]
+  },
+  "direct_halfspace": {
+    "fit_labels": "per_row_two_step_OSC_minimum_margin_nonnegative",
+    "features": "nominal_centered_action_scaled_by_box_half_width",
+    "optimizer": "class_balanced_L2_logistic_LBFGSB",
+    "l2_regularization": 0.001,
+    "maximum_iterations": 1000,
+    "gradient_tolerance": 1e-10,
+    "unsafe_score_padding": 1e-12,
+    "conservative_threshold": "maximum_fitted_score_over_unsafe_fit_actions"
+  },
+  "finite_difference": {
+    "nominal_value": "immutable_exact_nominal_two_step_margin",
+    "central_epsilon_action": 0.02,
+    "coefficient": "per_row_central_difference_of_exact_OSC_margin",
+    "one_sided_error": "maximum_affine_overprediction_on_125_fit_actions",
+    "one_sided_padding_m": 1e-6
+  },
+  "fresh_actions": {
+    "distribution": "independent_uniform_inside_registered_action_box",
+    "count_per_state": 96,
+    "seed": 20260810,
+    "second_action": "immutable_released_AEGIS_nominal"
+  },
+  "exact_verification": {
+    "horizon_actions": 2,
+    "osc_internal_substeps": "all",
+    "true_safe_requires_all_seven_distal_margins_nonnegative": true,
+    "true_safe_requires_zero_raw_L5_L6_L7_contact": true,
+    "maximum_per_step_obstacle_l1_displacement_m": 1e-4,
+    "released_AEGIS_EE_proxy": "diagnostic_only_not_a_fitted_row"
+  },
+  "decision_gate": {
+    "false_safe_action_count": 0,
+    "minimum_aggregate_safe_action_recall": 0.2,
+    "minimum_safe_support_state_coverage": 0.8,
+    "oracle_affine_assumption_supported": "either_method_passes_all_gates",
+    "closed_loop_authorized": false
+  }
+}

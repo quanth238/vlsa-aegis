@@ -1886,3 +1886,26 @@ the selected affine region can switch across nearby states. Do not add epochs
 or run closed-loop with this model. Any continuation must canonicalize the
 target or explicitly model the active region, then repeat the same held-out
 false-safe and gradient gates.
+
+# ADR-0079: Test the affine representation before choosing another neural target
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37630` cannot distinguish whether the MLP failed because it regressed a
+non-unique minimum-L1 coefficient selection or because a single local affine
+row is intrinsically too coarse over the registered action box. The next test
+therefore contains no training and uses fresh exact simulator labels.
+
+At every immutable state, one arm fits each L5--L7 row directly from binary
+safe/unsafe two-step OSC labels and moves its half-space threshold beyond all
+unsafe fitted actions. The other arm uses the exact nominal margin, exact
+central finite-difference coefficient, and a grid-calibrated one-sided error.
+The same 4,800 new action queries evaluate both arms, preserving state,
+second-action horizon, and simulation pairing.
+
+An oracle is useful only if it produces zero false-safe actions while retaining
+at least 20% of exact safe actions and accepting a safe action in at least 80%
+of states with fresh safe support. Passing either arm supports a later direct
+half-space/one-sided loss with held-out tightening. Failing both redirects the
+method to smaller trust regions or multiple affine regions. OSQP is outside
+this diagnostic because it cannot repair a false safe-set representation.
