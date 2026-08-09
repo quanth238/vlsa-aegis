@@ -2549,3 +2549,25 @@ earlier tiny-network experiments: deterministic CPU training inside the H100
 allocation, with any authorized cloned simulation still running on that H100
 worker. Architecture, data, losses, calibration, and decision gates do not
 change.
+
+Clean H100 retry `37630` completed and independently validated in six seconds
+on `worker-2`. The 24,069-parameter coefficient MLP stopped at best epoch 8.
+Its held-out gradient cosine mean was `0.5818`, below the frozen `0.8` gate,
+and it produced 48 sampled false-safe candidates, all on E15. E05 and E10 had
+zero sampled false-safes but gradient cosine means of only `0.4231`; E15 was
+`0.7404`.
+
+Nominal-margin RMSE was `27.09/28.99/34.51 mm` on E05/E10/E15, and predicted
+state-conditioned-error RMSE was `28.12/31.90/34.99 mm`. Thus
+`learned_evaluation_authorized=false`, no learned QP or fresh learned-action
+simulation ran, `research_direction_go=false`, and closed-loop remains
+unauthorized. This is a learned coefficient-generalization failure, not a QP
+failure or missing-target result.
+
+Target-analysis/model/training/result/validation SHA-256 values are
+`ba26802189f67b0b6b7803b032325c314f208a027c461326cbbb2395f6bdba15`,
+`829df0ae3937739aecb20e1694b2ea2d794184a98defca06e8dc1a429b86295c`,
+`5ef17ac6c5e17bbd0571d8d85f2de6d2ddae248d6e030321f5c85ef1c2ea3f80`,
+`37956b5c2f89f20324c3783496f97f289530b7a447c9d47c45cb9962d7c046e5`,
+and `709f41e5866133a74694746c15e87bd55af85dfd7f64254e2b3a5f27d9d67546`.
+Full result: `docs/distal_affine_coefficient_moka10_result.md`.

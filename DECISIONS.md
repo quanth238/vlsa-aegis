@@ -1873,3 +1873,16 @@ then failed before a checkpoint because the pinned evaluation PyTorch has no
 H100 `sm90` kernels. The apparatus-only repair trains this small deterministic
 network on CPU inside the H100 allocation; it changes no scientific setting
 or simulation authority.
+
+Clean learned retry `37630` resolves the current formulation as NO-GO. All 50
+targets exist, but the state-to-coefficient MLP generalizes poorly: held-out
+gradient cosine is `0.5818` and 48 E15 candidates are falsely declared safe.
+The metric gate therefore prevented learned QP simulation.
+
+The retained diagnosis is target identifiability, not optimizer failure. The
+candidate-conditioned minimum-L1 envelope is a region-dependent LP selection,
+not a unique physical Jacobian; inactive rows commonly collapse to zero and
+the selected affine region can switch across nearby states. Do not add epochs
+or run closed-loop with this model. Any continuation must canonicalize the
+target or explicitly model the active region, then repeat the same held-out
+false-safe and gradient gates.
