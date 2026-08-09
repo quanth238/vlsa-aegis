@@ -1483,3 +1483,9 @@ separate H100 replay using one OSMesa context, exact accepted-action/state
 receipts, and corruption gates. It is encoded at 10 fps for presentation only,
 yielding approximately 18.8 seconds for 188 frames while retaining one frame
 per executed simulator action.
+
+Clean H100 replay job `37299` verified every accepted transition and all 188
+frames with zero state/obstacle-trace error. Maximum decoded adjacent-pixel MAD
+and encoder MAE were `2.082/1.476` of 255, and direct inspection found the
+terminal frame clean. This replay is the accepted visual evidence for job
+`37294`; it does not alter the scientific NO-GO.

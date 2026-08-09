@@ -1952,3 +1952,14 @@ single-render-context replay of all 187 accepted actions. Every dynamic-state,
 reward/done, obstacle-displacement, and pairing receipt must match; source and
 decoded pixel MAD gates remain 12/255. Encoding at 10 fps makes the 188 frames
 about 18.8 seconds long without changing simulator timing or scientific data.
+
+Clean H100 replay job `37299` completed in `00:01:25`, matched all 187
+accepted dynamic-state hashes and obstacle-displacement receipts exactly, and
+verified all 188 decoded frames. Six distributed samples had maximum adjacent
+pixel MAD `2.082/255` and maximum encoder MAE `1.476/255`; the final JPG was
+directly inspected and is clean. MP4/JPG/receipt SHA-256 values are
+`91b3b3d114f84a01eeb63a58d528d997d8ea4ab1982fb1ee6601c619ef3589b0`,
+`989bf5e5d681f99106d5411808c33a76ec04af8a2cfb6724aaa1b877ca2386ec`,
+and `d9d4aed6cb2369f2c1d9d7b06870700fb9f75043c614199e9f6c1ae42253d553`.
+The local 18.8-second deliverable is under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_exact_candidate_closed_loop_e05/exact-candidate-video-20260809a/`.
