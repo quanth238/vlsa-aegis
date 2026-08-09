@@ -2355,3 +2355,26 @@ Result/payload/validation SHA-256 values are
 `63483c4cf87bcbd3b64349ce6bf5077fe8a34df958e8451d77445beea7d88b88`,
 `da036c04f6ba8a7fe26c8b862d8deb1f16331e6acbc123bfbd012e1a27eaee57`,
 and `2d74f1faead6b39cf52f18c9b4c0d115e355ce155c689c67142237b21f15639c`.
+
+# 2026-08-10: paired directional contact objective preregistered
+
+Following the job-`37441` implementation pass, the smallest objective-change
+test reuses the immutable job-`37416` cloned-OSC dataset. Symmetric central and
+local-0.25 candidates within L2 radius 0.45 are paired inside complete state
+groups. Strictly fewer raw L5--L7 contact events identifies the better member;
+ties are reported but excluded from the new hinge-ranking loss. The original
+three-link weighted BCE and 64x64 architecture remain.
+
+States 184/185/186/188/189/191 train, 192 validates, and 187/190 remain unseen.
+At each test state, the revised gradient and the same 256 seeded job-`37427`
+random directions are freshly executed at radius 0.1. Old random action,
+contact-count, and next-state hashes must reproduce exactly; new penetration
+measurements break count ties. Mechanism GO requires validation informative
+pair accuracy at least 0.7 and add-one matched-random burden values at most
+0.05 on both states. No closed-loop run is authorized.
+
+Protocol: `docs/distal_contact_directional_ranker_e05_preregistration.md`.
+Exact next command after clean commit/source sync is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=directional-ranker-e05-20260810a
+slurm/distal_contact_directional_ranker_e05.sbatch`.

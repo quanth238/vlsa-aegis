@@ -1740,3 +1740,20 @@ many equally effective random directions at recovery radii, the retained
 diagnosis is insufficient directional discrimination from the pointwise BCE
 objective. The next model may add paired directional-ranking supervision;
 closed-loop remains blocked.
+
+# ADR-0076: Add directional ranking without changing the contact model family
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The first refinement reuses symmetric actions that were already executed by
+the cloned OSC dataset rather than collecting a broader population or changing
+geometry. Weighted link-contact BCE remains, while an auxiliary hinge loss
+requires the lower-contact member of each opposite pair to receive lower
+maximum contact risk. Complete state groups and the test holdout are preserved.
+
+The revised gradient is judged at radius 0.1, where job `37427` found no random
+collision-free direction, using the same 256 random directions and a finer
+lexicographic raw-safety/contact-count/penetration ordering. This tests whether
+the objective learned an exceptional local improvement rather than benefiting
+from large corrections. Passing does not authorize closed-loop execution; it
+only supports scaling directional supervision to broader state/link data.

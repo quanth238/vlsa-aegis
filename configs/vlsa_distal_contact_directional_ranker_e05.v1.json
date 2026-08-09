@@ -1,0 +1,72 @@
+{
+  "schema_version": "vlsa_distal_contact_directional_ranker_e05.v1",
+  "protocol_id": "vlsa-distal-contact-directional-ranker-e05-v1",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "claim_scope": "Local feasibility test of BCE plus paired directional-ranking supervision using immutable cloned-OSC candidate labels. Complete state groups are preserved and E05 states 187/190 remain unseen until the matched-random gradient test. This cannot establish L6/L7 learning, task preservation, closed-loop safety, or population generalization.",
+  "immutable_sources": {
+    "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "successful_sitl_file_sha256": "e23320ebad7c17f8d07d52f204b0fc32c2c3d81ab8007d0a1f1b6ba365c7bf08",
+    "successful_sitl_payload_sha256": "5eabe9b9e05fa3a321dda4682566734e2940a97bb3bff9430b7ffd926913c9db",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "contact_dataset_file_sha256": "b947a039978f892ad0f8b4462fcef67d78cdc28f955af8af5c31af610a6f0792",
+    "contact_dataset_payload_sha256": "de9ee4ac1bc8d52662004895477a2864a777984efb67dc9a93fa1437f58345e3",
+    "contact_result_file_sha256": "47d9def32da7222150c2fb679f690e6c431601518abfa69560c258f89f0ee5f4",
+    "contact_result_payload_sha256": "a598125149dc0b2a4bafdd0d511f850b797d124c16aa195ad8234eb5e18c9698",
+    "contact_validation_file_sha256": "4571c48c2e560f105af5c86502044cb8224321b604e7df450f55070db77293fa",
+    "random_control_result_file_sha256": "b25fc41f3fe9db39387b5dff32dbffa2a92e5cc4dc4aefd3e7b61623d249c989",
+    "random_control_result_payload_sha256": "76d8a4f122a637fd9843c2f4c1d03f22b1856707bca49ddd1e0658e3657186a7",
+    "random_control_validation_file_sha256": "6f644ddc2b48f243b2d7c4e6e2319b63cc7879c2e5207662184405814d48be48",
+    "sign_audit_result_file_sha256": "63483c4cf87bcbd3b64349ce6bf5077fe8a34df958e8451d77445beea7d88b88",
+    "sign_audit_result_payload_sha256": "da036c04f6ba8a7fe26c8b862d8deb1f16331e6acbc123bfbd012e1a27eaee57",
+    "sign_audit_validation_file_sha256": "2d74f1faead6b39cf52f18c9b4c0d115e355ce155c689c67142237b21f15639c",
+    "contact_source_commit": "d06a1c843de0f3cca67032ef22d628faf66cb60c"
+  },
+  "state_groups": {
+    "train_steps": [184, 185, 186, 188, 189, 191],
+    "validation_steps": [192],
+    "test_steps": [187, 190]
+  },
+  "pair_construction": {
+    "allowed_candidate_source_prefixes": ["central_", "local_0.25"],
+    "maximum_l2_radius_action": 0.45,
+    "opposite_offset_matching_tolerance": 1e-12,
+    "directional_label": "strictly_fewer_complete_OSC_raw_protected_contact_events",
+    "ties": "retained_for_audit_but_excluded_from_directional_loss"
+  },
+  "network": {
+    "hidden_widths": [64, 64],
+    "activation": "silu",
+    "outputs": ["L5_contact_logit", "L6_contact_logit", "L7_contact_logit"],
+    "risk": "maximum_link_contact_probability"
+  },
+  "training": {
+    "seed": 239,
+    "epochs": 3000,
+    "early_stopping_patience": 300,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-6,
+    "minimum_standard_deviation": 1e-6,
+    "classification_loss": "weighted_BCE_with_logits",
+    "directional_loss": "mean_relu(margin-(risk_worse-risk_better))",
+    "directional_margin_probability": 0.05,
+    "directional_loss_weight": 10.0,
+    "selection": "minimum_validation_combined_loss",
+    "device": "cpu_inside_H100_allocation"
+  },
+  "matched_random_test": {
+    "radius_action": 0.1,
+    "random_direction_count_per_state": 256,
+    "direction_distribution": "same_job_37427_uniform_unit_sphere_conditioned_on_radius_1_action_bounds",
+    "seeds_by_state": {"187": 238187, "190": 238190},
+    "ordering": ["raw_safe", "contact_count", "summed_penetration_m"],
+    "empirical_p": "(1+random_directions_at_least_as_good_as_learned)/(1+256)",
+    "empirical_p_maximum": 0.05,
+    "fresh_complete_cloned_OSC_rollouts": true,
+    "mesh_distance": false
+  },
+  "decision_gate": {
+    "minimum_validation_informative_pair_accuracy": 0.7,
+    "pass": "validation_pair_accuracy_at_least_0.7_and_revised_gradient_empirical_p_at_most_0.05_on_both_unseen_states",
+    "closed_loop_authorized": false
+  }
+}
