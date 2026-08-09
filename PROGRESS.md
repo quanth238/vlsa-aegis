@@ -2645,3 +2645,27 @@ forbidden until that later learned gate also passes.
 Protocol: `docs/distal_ridge_huber_oracle_moka10_preregistration.md`.
 Config SHA-256: `af0ebe98645f4b8a2a59287719dafbe0d4804d0e3d39c4f460360c3ccf68a25b`.
 The bundled local structural gate passes 365 tests with 9 skips.
+
+Clean H100 job `37688` completed on `worker-1` in `00:04:55` and its
+independent validator accepted the artifact. Ridge-Huber had zero false-safe
+actions, 95.76% off-grid safe recall, stable gradients on all 41 active rows,
+and 49/50 fresh exact-safe QP rollouts. Minimum-L1 also had zero false-safes
+but only 87.86% recall; 13/41 active rows across 11 states were unstable.
+
+The strict ridge-Huber oracle remains NO-GO. Both methods accepted no safe
+off-grid action at spatial-I-t1-e00 step 120 (7 exact-safe actions) and
+goal-II-t2-e00 step 30 (1 exact-safe action). At the latter state, ridge-
+Huber's QP was primal infeasible: the only safe action had `+0.040 mm` exact
+L5-part-2 clearance but a `-1.638 mm` conservative affine value. Ridge-Huber
+therefore fixes target stability but one global affine lower plane still
+hides a sparse safe component.
+
+`learned_training_authorized=false`; no MLP, learned QP, or closed-loop E05
+ran. A future continuation needs a separately registered piecewise/local
+affine oracle rather than more training on the current targets.
+
+Result/payload/validation SHA-256 values are
+`6efda2cb521416f9086dbd8ea99a07f46e32e9bb77b84cefe2efc0ea0ec1e8b3`,
+`1076ef752d3b1ef0dda306a654c992292006c6fa6edb53d7e1f965138a91f2a3`,
+and `c2d831aa87edae00918c4f8b020d6f1a53e3579994b51d0bf1ebaad39a826c4d`.
+Full result: `docs/distal_ridge_huber_oracle_moka10_result.md`.

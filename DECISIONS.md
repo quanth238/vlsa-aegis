@@ -1949,3 +1949,22 @@ No MLP is trained unless ridge-Huber passes every oracle gate. A later model,
 if authorized, combines coefficient loss with action-level one-sided false-
 safe loss and grouped validation tightening. Closed-loop E05 is a separate
 dependent gate.
+
+Clean H100 job `37688` resolves the ridge-Huber oracle as NO-GO under the
+registered all-state gate. Ridge-Huber stabilized all 41 active rows and
+raised safe recall from minimum-L1's 87.86% to 95.76%, with zero false-safes
+for either target. This confirms that regularization/canonicalization fixes a
+real minimum-L1 target instability.
+
+It does not fix conservative safe-set coverage. Ridge-Huber and minimum-L1
+both accepted no safe off-grid action at the same two sparse states. Ridge-
+Huber's QP was primal infeasible at goal-II-t2-e00 step 30 despite one exact-
+safe action, because its calibrated L5-part-2 plane remained 1.678 mm below
+that action's exact margin and therefore negative.
+
+Training a state-conditioned network on this target is rejected: it would
+learn a stable representation already known to delete required safe support.
+The next representation-level test must use multiple local affine regions or
+condition the region on safe-support geometry. The separate minimum-L1 OSQP
+iteration stall at spatial-I-t1-e00 remains a deployment diagnostic, not the
+cause of the ridge-Huber NO-GO.
