@@ -1878,3 +1878,23 @@ context. An evidence-only single-context H100 replay is preregistered: replay
 the accepted 186-action ledger, require every dynamic-state and obstacle trace
 receipt, and fail on source or decoded adjacent-pixel MAD above 12/255. It does
 not change the scientific NO-GO.
+
+Clean H100 single-context replay job `37289` completed in `00:01:30`. It
+matched every one of the 186 accepted dynamic-state hashes and obstacle
+displacements, decoded all 187 frames, and passed six distributed visual
+samples with maximum adjacent-pixel MAD `2.088/255` and encoder MAE
+`1.592/255`. The replacement MP4/JPG/receipt SHA-256 values are
+`68ac9bd402e84861c29672d94c60e2a1702b72c1f84463ea77232ad0f4c9f965`,
+`31b3a9929be85a95b8200c2ef6f0d5157299d8609c36be48367be7bc8c13ec1f`,
+and `5c4a4fc77ff14004c690ebe27996fc59e2b5d3a2546cebeced937b3e1e53e489`.
+The final JPG was also directly inspected and is clean. The local deliverable
+is under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_affine_oracle_closed_loop_e05/affine-oracle-video-20260809a/`.
+
+The supported next decision is now explicit. A direct exact safe-grid selector
+can test whether the single action-186 safe component supports continued task
+completion; that is a different privileged zeroth-order method. For the
+learned-QP story, the next representation must be piecewise/nonlinear or use a
+local certificate around the selected component, because the complete-grid
+single affine lower envelope has been falsified at the decisive E05 state.
+Neither follow-up nor neural training is authorized by the current gate.

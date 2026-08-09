@@ -1442,3 +1442,9 @@ in one fresh rendered environment on H100. Every dynamic-state hash, reward,
 done flag, obstacle displacement, and pairing receipt must match the accepted
 result. Source and decoded frames additionally fail closed on adjacent-pixel
 MAD above 12/255. No action, safety decision, or scientific outcome changes.
+
+Clean H100 replay job `37289` verified all 186 dynamic-state hashes and all
+187 frames in one render context. Six distributed decoded samples had maximum
+adjacent-pixel MAD `2.088/255` and maximum encoder MAE `1.592/255`; the final
+JPG is visually clean. This replacement is the sole accepted visual evidence
+for job `37285`; the original multi-context MP4/JPG remain provenance-only.
