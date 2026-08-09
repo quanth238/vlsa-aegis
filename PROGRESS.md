@@ -1,5 +1,25 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Object-aware continuously refined suffix oracle (preregistered, 2026-08-09)
+
+Active gate `E02` now isolates the placement-precision hypothesis left by H100
+job `37308`. The new diagnostic exactly replays that artifact's validated safe
+actions 0--229 and requires every dynamic-state hash to match. It searches only
+the seven-action suffix 230--236, preserving the immutable AEGIS orientation
+and gripper commands.
+
+An unsafe exact two-action nominal activates the existing four-action waypoint
+library. Safe candidates are ranked by native task completion and then by the
+terminal bowl-relative-to-plate error from a parallel read-only successful
+AEGIS replay. The best four safe anchors receive two first-action translation
+refinement rounds at `0.25` and `0.10`; all 26 nonzero ternary directions are
+freshly rolled through the exact OSC and deduplicated. All eight L5--L7/EE
+proxy rows, raw contact, obstacle motion, and clone/execution equality remain
+hard gates. This is a privileged suffix-existence test, not a QP, learned
+model, deployable method, or whole-body claim. The protocol is frozen in
+`docs/distal_object_refined_suffix_e05_preregistration.md`; no H100 outcome has
+run and neural training remains blocked.
+
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the coordinated action family left open by exact

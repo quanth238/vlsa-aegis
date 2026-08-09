@@ -1555,3 +1555,26 @@ source and decoded pixel-integrity gates and visually confirms the scientific
 interpretation: the obstacle remains undisturbed, while the bowl ends outside
 the plate. This replay is presentation evidence only and does not change the
 validated safety-GO/task-NO-GO result.
+
+# ADR-0070: Isolate object-aware local suffix refinement
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+Job `37308` proves that a collision-free coordinated trajectory exists but its
+future-EE-only coarse ranking misses placement precision. Before adding live
+pi0.5 replanning, the next `E02` test isolates that single proposed repair.
+Actions 0--229 must replay the validated job-`37308` trajectory with exact
+state hashes. Only actions 230--236 may change.
+
+The same two-action activation, four-action coarse chunks, exact OSC substeps,
+seven distal rows, released AEGIS EE row, raw-contact veto, obstacle-motion
+gate, and execute-first/replan rule remain. Candidate ranking changes to the
+bowl pose relative to the plate from a read-only successful replay. Two local
+first-action refinements, `0.25` then `0.10`, search all 26 ternary directions
+around the four best safe anchors. Native task success outranks pose error and
+safety is never traded against task score.
+
+A GO establishes only that a locally refined object-aware safe suffix exists
+from the validated action-230 state. A NO-GO rejects this fixed seven-action
+suffix family, not live-policy or earlier-state recovery. No QP or learned
+model is used and neural training remains unauthorized.

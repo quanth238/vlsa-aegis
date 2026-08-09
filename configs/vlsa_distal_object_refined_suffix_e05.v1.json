@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_object_refined_suffix_e05.v1",
+  "protocol_id": "vlsa-distal-object-refined-suffix-e05-v1",
+  "claim_scope": "privileged_object_aware_continuously_refined_exact_OSC_suffix_feasibility_for_primary_E05_not_QP_not_learned_not_deployable_not_formal_whole_body_safety",
+  "primary_case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "expected_action_count": 237,
+    "suffix_start_step": 230,
+    "original_native_task_success_step": 236
+  },
+  "prerequisite": {
+    "waypoint_result_file_sha256": "ae040e13b06390eedf152817e9ab2ecd9300b0c9248764c2b6424694b14a45ce",
+    "waypoint_result_payload_sha256": "a7a05931104977e9fdd3bbc812f51a6eeac19232b0fde4aa1aa0098feec86d0e",
+    "waypoint_validation_file_sha256": "709f141b262d203d2d51b549251283de5cbb6361a1133758b17f97ca66805f58",
+    "require_exact_safe_prefix": true
+  },
+  "activation": {
+    "nominal_exact_horizon_actions": 2,
+    "intervene_if_any_eight_margin_below_m": 0.000001,
+    "intervene_on_raw_L5_L6_L7_contact": true,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001
+  },
+  "search": {
+    "coarse_library": "registered_four_action_waypoint_chunks",
+    "horizon_actions": 4,
+    "local_refinement_first_action_translation_only": true,
+    "top_k_safe_anchors": 4,
+    "refinement_magnitudes": [0.25, 0.1],
+    "refinement_directions": "all_nonzero_cartesian_ternary_directions",
+    "translation_action_bounds": [-1.0, 1.0],
+    "deduplicate_full_translation_chunk": true
+  },
+  "selector": {
+    "ranking": [
+      "exact_all_eight_safe",
+      "native_task_success_in_chunk",
+      "minimum_terminal_bowl_relative_to_plate_reference_error_m",
+      "minimum_terminal_EE_reference_error_m",
+      "minimum_chunk_correction_L2",
+      "candidate_index"
+    ],
+    "object_reference": "parallel_immutable_successful_AEGIS_replay_same_future_step",
+    "QP_used": false,
+    "learned_model_used": false
+  },
+  "execution": {
+    "prefix": "exact_replay_of_validated_waypoint_actions_0_through_229",
+    "suffix": "fresh_verified_first_action_only_then_replan",
+    "require_executed_next_state_hash_equals_clone": true,
+    "require_zero_raw_L5_L6_L7_contact": true,
+    "require_all_eight_margins_nonnegative": true,
+    "paper_CAR_threshold_m": 0.001
+  },
+  "decision_gate": {
+    "go": "exact_safe_prefix_and_suffix_zero_contact_zero_CAR_and_native_task_success",
+    "interpretation": "privileged_local_object_aware_safe_suffix_exists_for_primary_E05",
+    "not_claimed": [
+      "deployable_method",
+      "QP_success",
+      "learned_model_success",
+      "whole_body_safety"
+    ],
+    "neural_training_authorized": false
+  }
+}
