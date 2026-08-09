@@ -29,7 +29,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "affine-coefficient dataset requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" && -d "$ARCHIVED_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "runtime or immutable Table-1 root missing"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == b4c4e7910a1b7a3aae7e2f40c3a6d7a7a4b2fab64f0446a28c153bf5a9b195c3 ]] || die "affine-coefficient config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 721992dd97ab5df46406b1db3a6091357f323ea05a6e28df7604e18e0bc54366 ]] || die "affine-coefficient config hash differs"
 [[ "$(sha256sum "$SELECTED" | awk '{print $1}')" == 8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa ]] || die "selected manifest hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID

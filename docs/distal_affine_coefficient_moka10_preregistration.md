@@ -47,6 +47,10 @@ overprediction per row plus 1 mm. Test gates are:
 
 Closed-loop E05 is explicitly not authorized by this diagnostic.
 
+The pinned evaluation PyTorch lacks H100 `sm90` kernels. The small MLP is
+therefore trained deterministically on CPU inside the required H100
+allocation; any authorized cloned simulation remains allocation-backed.
+
 ## Scoped target-availability amendment after the strict dataset NO-GO
 
 The strict first dataset gate remains failed. Its audit showed valid safe

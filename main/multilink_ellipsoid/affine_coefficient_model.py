@@ -302,12 +302,13 @@ def train_affine_coefficient_model(
     settings = config["training"]
     seed = int(settings["seed"])
     torch.manual_seed(seed)
-    if not torch.cuda.is_available():
-        raise RuntimeError("affine-coefficient training requires CUDA on H100")
-    torch.cuda.manual_seed_all(seed)
     if hasattr(torch, "use_deterministic_algorithms"):
         torch.use_deterministic_algorithms(True)
-    device = torch.device("cuda")
+    if settings["device"] != (
+        "cpu_inside_H100_allocation_due_pinned_sm90_incompatibility"
+    ):
+        raise ValueError("affine-coefficient training device differs")
+    device = torch.device("cpu")
     model = build_affine_coefficient_model(
         config["model"]["hidden_widths"]
     ).to(device=device, dtype=torch.float64)
@@ -393,7 +394,11 @@ def train_affine_coefficient_model(
     audit = {
         "model_class": "shared_state_conditioned_affine_coefficient",
         "device": str(device), "torch_version": str(torch.__version__),
-        "cuda_device_name": str(torch.cuda.get_device_name(0)),
+        "allocation_cuda_available": bool(torch.cuda.is_available()),
+        "allocation_cuda_device_name": (
+            None if not torch.cuda.is_available()
+            else str(torch.cuda.get_device_name(0))
+        ),
         "parameter_count": int(sum(value.numel() for value in model.parameters())),
         "best_epoch": best_epoch, "completed_epoch_count": int(epoch + 1),
         "best_validation_objective": best_validation, "history": history,

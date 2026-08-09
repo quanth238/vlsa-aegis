@@ -2537,3 +2537,15 @@ this outcome. It cannot change the strict NO-GO. It may authorize coefficient
 training only if all 50 L5--L7 targets reproduce their lower bounds and
 nonnegative errors without dropping a state. The original all-eight held-out
 learned-QP gate remains unchanged.
+
+Target-analysis H100 job `37621` passed: all 50 coefficient targets are valid,
+the 30/5/15 complete-state split is intact, strict dataset NO-GO remains true,
+and only the scoped neural test is authorized.
+
+Initial learned job `37627` failed before producing a checkpoint because the
+pinned evaluation PyTorch detects H100 but lacks `sm90` kernels. This is an
+apparatus failure, not a neural result. The registered repair follows the
+earlier tiny-network experiments: deterministic CPU training inside the H100
+allocation, with any authorized cloned simulation still running on that H100
+worker. Architecture, data, losses, calibration, and decision gates do not
+change.

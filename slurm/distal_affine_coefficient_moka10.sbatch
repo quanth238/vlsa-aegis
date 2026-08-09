@@ -33,7 +33,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 for name in dataset.json result.json validation.json; do [[ -f "$DATASET_ROOT/$name" && ! -L "$DATASET_ROOT/$name" ]] || die "validated affine target artifact missing"; done
 [[ -f "$TARGET_ANALYSIS" && ! -L "$TARGET_ANALYSIS" ]] || die "affine target analysis missing"
 [[ -x "$AEGIS_PYTHON" && -d "$ARCHIVED_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "runtime or immutable Table-1 root missing"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == b4c4e7910a1b7a3aae7e2f40c3a6d7a7a4b2fab64f0446a28c153bf5a9b195c3 ]] || die "affine-coefficient config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 721992dd97ab5df46406b1db3a6091357f323ea05a6e28df7604e18e0bc54366 ]] || die "affine-coefficient config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 mkdir -p "$EXPERIMENT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"

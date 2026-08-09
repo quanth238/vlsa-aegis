@@ -45,7 +45,7 @@
     "outputs": ["nominal_margin_mm", "gradient_x_mm_per_action", "gradient_y_mm_per_action", "gradient_z_mm_per_action", "nonnegative_error_mm"]
   },
   "training": {
-    "device": "cuda",
+    "device": "cpu_inside_H100_allocation_due_pinned_sm90_incompatibility",
     "dtype": "float64",
     "batching": "deterministic_full_batch",
     "epochs": 3000,

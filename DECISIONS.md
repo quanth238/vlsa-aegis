@@ -1867,3 +1867,9 @@ analysis—not a retroactive pass. Training may use the immutable dataset only
 if this new audit validates all 50 seven-row targets without filtering. The
 learned test still requires zero held-out false-safes, gradient cosine at
 least 0.8, and exact all-eight safe QPs on every held-out state.
+
+The scoped target audit passed in H100 job `37621`. Learned attempt `37627`
+then failed before a checkpoint because the pinned evaluation PyTorch has no
+H100 `sm90` kernels. The apparatus-only repair trains this small deterministic
+network on CPU inside the H100 allocation; it changes no scientific setting
+or simulation authority.
