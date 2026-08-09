@@ -2151,3 +2151,23 @@ closed-loop task success or unseen-state/task generalization. Protocol:
 clean commit/source sync is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git
 rev-parse HEAD),RUN_ID=contact-ranker-e05-20260809a
 slurm/distal_contact_ranker_e05.sbatch`.
+
+Initial H100 job `37401` stopped in the unit-test preflight before simulator or
+training startup because the cluster's Python 3.8 standard library lacks
+`math.nextafter`. The compatibility repair computes the identical previous
+positive IEEE-754 double directly; it changes no registered data, model, or
+gate. The failed immutable run is retained as apparatus evidence.
+
+The user then simplified the requested authority to ellipsoids only. Because
+job `37401` never reached simulation, the replacement is preregistered before
+data collection. It evaluates the same E05 states and candidates using only
+the seven L5--L7 robot ellipsoids against the unchanged released-AEGIS
+obstacle MVEE, minimized over complete cloned OSC substeps. Raw MuJoCo contact
+is stored only as a diagnostic. The no-training prerequisite requires at
+least one all-seven-safe candidate at both primary states 187 and 190; if the
+candidate safe set is empty, neural training is not scientifically justified.
+Protocol: `docs/distal_ellipsoid_candidate_support_e05_preregistration.md`.
+Next command after clean commit/source sync is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=ellipsoid-support-e05-20260809a
+slurm/distal_ellipsoid_candidate_support_e05.sbatch`.

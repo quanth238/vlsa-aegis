@@ -1633,3 +1633,17 @@ the stronger question needed by the proposed differentiable residual. A
 ranking GO with gradient NO-GO supports candidate selection only; it cannot
 support the draft's gradient-guidance equation. Neither arm authorizes a
 closed-loop or generalization claim.
+
+# ADR-0072: Gate ellipsoid learning on nonempty ellipsoid-safe support
+
+**Status:** Decided; supersedes the unexecuted contact-label training arm at
+the user's direction (2026-08-09).
+
+The immediate experiment uses the accepted seven L5--L7 ellipsoids and the
+unchanged released-AEGIS obstacle MVEE only. Exact raw contact remains a
+diagnostic, not a training target or feasibility condition. Before fitting an
+MLP, the registered candidate family must contain at least one action whose
+seven minimum substep margins are all nonnegative at each primary failure
+state. If this oracle support gate fails, an MLP cannot correctly select an
+ellipsoid-safe action from that family, regardless of optimizer or network
+capacity, so training stops.

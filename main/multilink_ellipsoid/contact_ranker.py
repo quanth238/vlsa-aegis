@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import struct
 from typing import Any, Mapping, Sequence
 
 
@@ -100,7 +101,14 @@ def calibrate_zero_false_safe_threshold(
         raise ValueError("validation split lacks an unsafe candidate")
     if not all(math.isfinite(value) and 0.0 <= value <= 1.0 for value in risks):
         raise ValueError("calibration risk is invalid")
-    return max(0.0, math.nextafter(min(unsafe_risks), -math.inf))
+    minimum = min(unsafe_risks)
+    if minimum <= 0.0:
+        return 0.0
+    # ``math.nextafter`` is absent from the cluster's Python 3.8 build.  Risks
+    # are finite, positive IEEE-754 doubles, so decrementing the bit pattern is
+    # exactly the next representable value toward zero.
+    bits = struct.unpack(">Q", struct.pack(">d", minimum))[0]
+    return struct.unpack(">d", struct.pack(">Q", bits - 1))[0]
 
 
 def select_minimal_predicted_safe(
