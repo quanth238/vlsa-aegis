@@ -19,6 +19,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from .obstacle_primitives import (
     center_axis_support_gap,
+    minimum_union_support_gap_witnesses,
     minimum_union_support_gaps,
     primitive_containment_value,
 )
@@ -438,9 +439,10 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
         np = _numpy()
         links = self._ellipsoids(env)
         obstacles = self._obstacles(env)
-        clearances = np.asarray(
-            minimum_union_support_gaps(links, obstacles), dtype=np.float64
+        clearances, obstacle_witnesses = minimum_union_support_gap_witnesses(
+            links, obstacles
         )
+        clearances = np.asarray(clearances, dtype=np.float64)
         robot = env.robots[0]
         position_indexes = np.asarray(robot._ref_joint_pos_indexes, dtype=np.int64)
         velocity_indexes = np.asarray(robot._ref_joint_vel_indexes, dtype=np.int64)
@@ -451,6 +453,9 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             "phase": str(phase),
             "sim_time_s": float(env.sim.data.time),
             "clearance_m": clearances.tolist(),
+            "minimum_obstacle_primitive_index": np.asarray(
+                obstacle_witnesses, dtype=np.int64
+            ).tolist(),
             "minimum_distal_clearance_m": float(np.min(clearances[:7])),
             "robot_joint_position_rad": np.asarray(
                 env.sim.data.qpos[position_indexes], dtype=np.float64
@@ -514,6 +519,18 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             [item["clearance_m"] for item in trace], dtype=np.float64
         )
         minimum_substep = np.min(clearance_trace, axis=0)
+        minimum_substep_indexes = np.argmin(clearance_trace, axis=0)
+        minimum_substep_witnesses = [
+            {
+                "substep_index": int(minimum_substep_indexes[index]),
+                "obstacle_primitive_index": int(
+                    trace[int(minimum_substep_indexes[index])][
+                        "minimum_obstacle_primitive_index"
+                    ][index]
+                ),
+            }
+            for index in range(clearance_trace.shape[1])
+        ]
         contact_events = []
         for substep in trace:
             for event in substep["contact_events"]:
@@ -531,6 +548,7 @@ class SubstepEightConstraintProbe(ClonedSimulatorStepProbe):
             "expected_internal_mujoco_step_count": expected_internal,
             "captured_state_count": len(trace),
             "minimum_substep_clearance_m": minimum_substep.tolist(),
+            "minimum_substep_witnesses": minimum_substep_witnesses,
             "endpoint_clearance_m": clearance_trace[-1].tolist(),
             "minimum_distal_substep_clearance_m": float(
                 np.min(minimum_substep[:7])

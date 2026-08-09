@@ -252,6 +252,18 @@ def minimum_union_support_gaps(
 ) -> Any:
     """Return one conservative minimum pair gap for every robot proxy."""
 
+    gaps, _ = minimum_union_support_gap_witnesses(
+        robot_ellipsoids, obstacle_ellipsoids
+    )
+    return gaps
+
+
+def minimum_union_support_gap_witnesses(
+    robot_ellipsoids: Sequence[Any],
+    obstacle_ellipsoids: Sequence[Any],
+) -> tuple[Any, Any]:
+    """Return minimum gaps and their obstacle-primitive indexes."""
+
     np = _numpy()
     if not robot_ellipsoids or not obstacle_ellipsoids:
         raise ValueError("support-gap union requires nonempty ellipsoid sets")
@@ -269,7 +281,7 @@ def minimum_union_support_gaps(
         raise ValueError("support-gap union matrix shape differs")
     if not np.all(np.isfinite(matrix)):
         raise ValueError("support-gap union is nonfinite")
-    return np.min(matrix, axis=1)
+    return np.min(matrix, axis=1), np.argmin(matrix, axis=1)
 
 
 @dataclass(frozen=True)

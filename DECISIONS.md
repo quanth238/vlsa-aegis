@@ -1067,3 +1067,21 @@ with exact state/contact/task equivalence and passed both source and decoded
 pixel-integrity gates. The clean single-context MP4 is therefore accepted as
 the presentation artifact for the successful oracle run; the original striped
 job-`37115` MP4 remains provenance only.
+# ADR-0058: Gate boundary-supervised neural capacity at action 188 before generalization
+
+**Status:** Accepted and preregistered, awaiting H100 evidence (2026-08-09).
+
+Validated job `37198` rejected nominal-trajectory supervision but retained 16
+exactly safe local actions at action 188. The next diagnostic therefore keeps
+the existing residual MLP and seven-row projection fixed while changing only
+the supervision distribution. A deterministic 1,000-action trust-region grid
+and 64 balanced boundary anchors provide exact cloned-OSC margins; 384 central
+differences provide witness-audited gradients. Complete anchor groups remain
+in one split. The margin-only and margin-plus-gradient arms are paired.
+
+No model may train before the no-training dataset validator authorizes it.
+Success is limited to same-state local capacity and requires better critical
+near-boundary RMSE than the baseline, zero conservative false-safe candidates,
+mean active-gradient cosine at least `0.8`, a valid seven-row QP, and an exact
+proxy/raw-safe cloned transition. Multi-task generalization and closed-loop
+task success remain later gates.

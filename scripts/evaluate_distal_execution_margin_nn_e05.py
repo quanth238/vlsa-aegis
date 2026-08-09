@@ -409,6 +409,7 @@ def _projection_audit(
     config: Mapping[str, Any],
     model: Any,
     model_state: Mapping[str, Any],
+    step_override: Optional[int] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -428,7 +429,11 @@ def _projection_audit(
             env=env,
             obstacle_name=setup["obstacle_name"],
         )
-        step = int(config["state_groups"]["primary_projection_step"])
+        step = int(
+            config["state_groups"]["primary_projection_step"]
+            if step_override is None
+            else step_override
+        )
         _replay_prefix(env, actions, step)
         probe = SubstepEightConstraintProbe(
             probe_env,

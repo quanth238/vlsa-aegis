@@ -1,0 +1,107 @@
+{
+  "schema_version": "vlsa_distal_boundary_capacity_e05.v1",
+  "protocol_id": "vlsa-distal-boundary-capacity-e05-v1",
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "post_oracle_selected_action188_same_state_local_capacity_diagnostic_not_state_generalization_not_closed_loop_efficacy_not_formal_safety_certificate",
+  "immutable_sources": {
+    "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "archived_table1_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+    "baseline_nn_result_file_sha256": "7fed872f2e189c9cdc07180f7ef3950c0a1a605065650e9650c8a9cee167fcca",
+    "baseline_nn_result_payload_sha256": "22b3b9ebda2eb15c32215ab26fc08ce1e43d28dc120856c443cdac6a47f1a2a3",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "exact_box_config_payload_sha256": "d3e0ab883eb3b3de160417fc9547012db9154dae7015ff80bc739219b728013b",
+    "exact_box_discovery_file_sha256": "3db37092b2c5573e70cfc604bbbf01f1361be822ec87c8733d2c80b84685b0fd",
+    "exact_box_discovery_payload_sha256": "2eef9d767354f6692d36f57899bd511c261733e05394d00c997eacc7252fc051",
+    "false_safe_action_ledger_file_sha256": "d79a28585e74cece727fbc3d3e6a72eb1647a782cae4962ec3af9045f448e603",
+    "false_safe_action_ledger_payload_sha256": "2a4ecd5ff79a363141e0927d1dfbcfb26248ec9bb5e2bc123cc8f879c3395a53",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "previous_nn_config_file_sha256": "b2dc378aba6dbe91e244e83d059ed2be555c21cd78e6d7314294af3d7ba13488"
+  },
+  "state": {
+    "source": "immutable_job_37109_executed_sitl_action",
+    "step": 188,
+    "critical_constraint_index": 1,
+    "critical_constraint_name": "L5_part_1"
+  },
+  "sampling": {
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "grid_points_per_dimension": 10,
+    "expected_grid_action_count": 1000,
+    "boundary_band_m": 0.005,
+    "gradient_anchor_count": 64,
+    "gradient_anchor_safe_count": 32,
+    "gradient_anchor_unsafe_count": 32,
+    "finite_difference_epsilon_action": 0.02,
+    "expected_gradient_probe_count": 384,
+    "require_matching_substep_and_obstacle_witness": true
+  },
+  "split": {
+    "unit": "base_action_with_all_finite_difference_probes",
+    "seed": 20260809,
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "stratify": "critical_row_boundary_safe_boundary_unsafe_far_safe_far_unsafe"
+  },
+  "features": {
+    "source": "same_33_features_as_execution_margin_v2",
+    "normalization": "train_group_mean_and_standard_deviation_with_1e-6_floor"
+  },
+  "network": {
+    "hidden_widths": [
+      128,
+      128
+    ],
+    "hidden_activation": "silu",
+    "output_activation": "softplus_nonnegative_clearance_loss_mm",
+    "output_count": 7
+  },
+  "training": {
+    "arms": [
+      "boundary_margin",
+      "boundary_margin_gradient"
+    ],
+    "batching": "deterministic_full_batch",
+    "device": "cuda",
+    "epochs": 3000,
+    "gradient_loss_weight": 1.0,
+    "gradient_normalization": "training_valid_gradient_global_rms_with_1mm_per_action_floor",
+    "huber_delta_mm": 1.0,
+    "learning_rate": 0.001,
+    "margin_category_target_fractions": {
+      "boundary_safe": 0.35,
+      "boundary_unsafe": 0.35,
+      "far_safe": 0.15,
+      "far_unsafe": 0.15
+    },
+    "patience": 300,
+    "seed": 20260809,
+    "weight_decay": 1e-06
+  },
+  "calibration": {
+    "method": "per_constraint_maximum_validation_overprediction_plus_fixed_padding",
+    "fixed_padding_m": 0.001
+  },
+  "projection": {
+    "action_limit": 1.0,
+    "activation_warning_m": 0.008,
+    "bound_tolerance_action": 5e-08,
+    "clearance_target_m": 0.0,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "maximum_linearization_iterations": 3,
+    "residual_tolerance": 5e-07,
+    "trust_region_linf_action": 0.5
+  },
+  "decision_gate": {
+    "boundary_test_rmse": "strictly_below_current_clearance_baseline",
+    "conservative_false_safe_candidate_count": 0,
+    "critical_gradient_cosine_similarity_minimum": 0.8,
+    "projection": "valid_seven_row_QP_and_exact_proxy_raw_safe_cloned_transition",
+    "research_direction_go": "boundary_margin_gradient_arm_passes_all_capacity_gates"
+  }
+}

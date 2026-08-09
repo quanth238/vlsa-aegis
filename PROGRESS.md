@@ -1438,3 +1438,15 @@ The verified MP4, intervention JPG, final JPG, and receipt SHA-256 values are
 and `5b8435545a67c8f25313e989c8469ae70d5984677a21571215f09d2ee73ee813`.
 The exact next audit command is:
 `jq '{status,allocation,trace_equivalence,visual_integrity,video,preview,final_jpg}' /mnt/data/quanth/experiments/vlsa-distal-sitl-success-video-e05/sitl-success-video-20260808a/video-receipt.json`.
+# 2026-08-09: action-188 boundary-capacity diagnostic preregistered
+
+The next E02 experiment now tests the narrow failure exposed by job `37198`:
+the nominal splits lacked boundary supervision even though action 188 retained
+16 exact safe actions. The frozen two-stage protocol first collects 1,000
+trust-region grid actions plus 384 witness-audited finite-difference probes at
+action 188. Only a validated balanced dataset may authorize paired
+margin-only and margin-plus-gradient MLP training. The local gates are
+critical boundary RMSE below the current-clearance baseline, zero conservative
+false-safe candidates, gradient cosine at least `0.8`, a valid seven-row QP,
+and exact cloned-OSC proxy/raw safety. No multi-task or closed-loop claim is in
+scope yet. See `docs/distal_boundary_capacity_preregistration.md`.
