@@ -63,6 +63,15 @@ required a redundant top-level `case_id`, while the new result freezes that
 identity under `config.primary_case.case_id`. The evidence-only repair reads
 that validated schema field; it changes no action or scientific artifact.
 
+Clean H100 replay job `37355` completed in `00:01:41`, matched all 237 accepted
+dynamic-state and obstacle receipts, and verified 238 decoded frames at native
+20 fps. Six distributed samples passed with maximum adjacent-pixel MAD
+`2.036/255` and encoder MAE `1.536/255`; direct final-frame inspection is clean
+and shows the bowl still offset from the plate. MP4/JPG/receipt SHA-256 values
+are `4838ae7fbeed9326b62d52c083b3b51b9af6a67577d62341936db231b507537b`,
+`06b8471ed36ac5411af221447c3c2ad6cad55ea7e1aa9da07dfc7eb184e1c280`,
+and `a577b51f2ec1d1472c00b1ac35fda1e27f9ed3db14575193c1db755d3ba4003f`.
+
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the coordinated action family left open by exact

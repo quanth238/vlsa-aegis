@@ -1608,3 +1608,8 @@ requires every dynamic-state and obstacle receipt, and cannot alter the NO-GO.
 Initial replay `37349` failed before its first frame on the result schema's
 nested case identity. Reading the frozen `config.primary_case.case_id` is an
 evidence-only apparatus repair.
+
+Clean replay `37355` matched every accepted state/obstacle receipt and passed
+all source and decoded pixel-integrity checks for 238 frames at 20 fps. Direct
+inspection confirms a clean final view with the bowl outside the plate. This is
+the accepted visual evidence and does not alter job-`37337` NO-GO.
