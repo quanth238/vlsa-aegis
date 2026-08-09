@@ -1797,3 +1797,26 @@ false-safe, gradient, matched-random, and QP gates must pass for a mechanism
 GO. No outcome authorizes closed-loop execution or task-success claims; a
 failure distinguishes grouped margin/gradient generalization from the already
 established same-state capacity result.
+
+Clean H100 job `37508` resolves this decision as NO-GO for the registered
+model. The direct target reduced E05 boundary RMSE from the `29.279 mm`
+no-motion baseline to `23.076 mm`, but its gradient cosine was only `0.643`,
+its magnitude was severely underestimated, and validation calibration left
+`783` held-out false-safe candidates. At the decisive nominal state it
+predicted `21.803--33.409 mm` positive margins while exact L5-part-1 was
+`-3.442 mm`.
+
+The learned radius-0.1 direction did improve exact clearance by `0.741 mm`,
+but 43/256 random directions did at least as well (`p=0.1712`). Both raw and
+calibrated predictors therefore accepted the unchanged unsafe nominal chunk
+and never invoked OSQP. This rules out the simple explanation that binary
+labels alone caused the previous failure. The gradient operator remains
+correct, and continuous supervision contains some directional signal, but
+cross-state value, derivative magnitude, and conservative-error prediction
+remain inadequate.
+
+Do not run closed-loop E05 or train this same absolute-margin model longer.
+The next defensible learned object is the state-conditioned local affine
+coefficient target already shown representable by privileged job `37280`,
+together with conditional lower-bound residuals and broader distinct-state
+coverage. That requires a separate preregistered dataset gate.

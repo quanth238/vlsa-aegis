@@ -2441,3 +2441,38 @@ and syncing clean source, the exact next command is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=direct-margin-e05-20260810a
 slurm/distal_direct_rollout_margin_e05.sbatch`.
+
+Clean H100 job `37508` completed the frozen diagnostic on `worker-2` in
+`00:01:44` from commit `d70c6c5f16397645f1de5dd164cca65de97da9fa`.
+Training took `2.114 s` and stopped at best epoch 35. The independent
+validator passed the artifact and decision contract after 260 fresh exact
+two-step rollouts.
+
+The result is a scientific NO-GO for this model. E05 active-boundary RMSE
+improved over the current-clearance baseline (`23.076` versus `29.279 mm`),
+but gradient cosine mean/minimum was only `0.643/0.613` and gradient magnitude
+relative error averaged `0.908`. Conservative false-safe candidates numbered
+`272/289/222` on E05/E10/E15 (`783` total).
+
+At state 185 the exact nominal minimum was `-3.442 mm` on L5-part-1. The
+learned radius-0.1 direction improved it by `0.741 mm` with zero raw contact,
+but 43/256 random directions were at least as effective, giving add-one
+`p=0.1712` against the frozen `0.05` gate. The model predicted all nominal
+rows positive (`21.803--33.409 mm`); validation calibration still left all
+lower margins positive. Consequently both uncalibrated and calibrated paths
+accepted the unchanged nominal as predicted safe, invoked no seven-row QP,
+and failed fresh exact proxy verification. This is a learned value/gradient
+generalization and calibration failure, not an OSQP failure.
+
+`research_direction_go=false`; closed-loop E05 remains unauthorized. Direct
+quantitative margins provide weak useful signal—the random mean clearance
+change was `-0.062 mm`—but replacing BCE alone is insufficient. The retained
+next model target is state-conditioned local affine coefficients plus
+conditional lower-bound error, trained from broader distinct-state coverage,
+not more epochs on the same absolute-margin model. Model/training/result/
+validation SHA-256 values are
+`406710efb29894ea10ed2563173d7472493f0114ff40d88f937fdd3cc8166476`,
+`ed6ed8264fade59d8b76e1880382d26a6f155d5173f0c9312fbbdfd79028eaae`,
+`1fd5a445a9a39f1d2f35b9748b5a33d01c7da8998cd754ce8439b9417c2000bc`,
+and `25677a62e783176cad9cf0a0df33a8f14428eb2c8e447c32ec90fd7a4a4c9352`.
+Full result: `docs/distal_direct_rollout_margin_e05_result.md`.
