@@ -1233,7 +1233,7 @@ that oracle gate.
 
 # ADR-0061: Test paired two- and five-step E05 chunk recovery before training
 
-**Status:** Preregistered; allocation evidence pending (2026-08-09).
+**Status:** Decided; two-step partial GO and five-step NO-GO (2026-08-09).
 
 The multi-step oracle begins at immutable action 185 and retains the accepted
 seven slabs, exact 15-box obstacle, raw contact/motion authority, and released
@@ -1273,7 +1273,7 @@ closed-loop E05 remain later gates.
 
 # ADR-0062: Compare global and factorized two-step margin models before E05
 
-**Status:** Preregistered; allocation evidence pending (2026-08-09).
+**Status:** Decided; current simplest paired method is NO-GO (2026-08-09).
 
 Job `37262` proves that the primary action-185 state has control authority in
 the two-step one-shot family, while job `37226` proves that waiting until
@@ -1302,3 +1302,23 @@ correction, and does not consult a cloned candidate oracle online. This is a
 fast replay-level feasibility diagnostic, not yet a live-policy or population
 claim. Failure at the data, generalization, projection, collision, CAR, or task
 gate is retained as a research-direction NO-GO rather than tuned away.
+
+H100 job `37270` passed the data gate with all 10/10 episodes eligible and
+4,938 learning records, so the negative result is not caused by a missing
+two-step oracle boundary. Paired job `37273` found that both models improve
+held-out margin RMSE and have zero conservative false-safe candidates, but the
+factorized gradient cosine mean/minimum was only 0.793/0.777 on E05,
+0.674/0.576 on E10, and 0.783/0.644 on E15. It therefore failed the frozen
+0.8 gate on every complete test episode.
+
+Validation-only row calibration reached 7.234--19.679 mm for the factorized
+arm. With the learned local gradients and registered action bounds, all three
+held-out seven-row QPs were correctly reported primal infeasible. The global
+arm was also infeasible in all three cases. Thus closed-loop E05 was not run
+and no D_sim or task-success claim was created. The supported interpretation
+is narrower than rejecting the research direction: value prediction
+generalizes better than the no-motion baseline, but this simplest global
+calibration plus local-gradient QP does not reproduce the two-step oracle on
+unseen state groups. Any follow-up must be separately preregistered and target
+conditional uncertainty/gradient generalization rather than merely train the
+same model longer or relax the gate post hoc.

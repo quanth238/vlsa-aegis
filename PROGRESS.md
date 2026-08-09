@@ -1682,3 +1682,52 @@ Local structural/unit tests pass, including the complete NumPy path with the
 bundled runtime. No H100 result exists yet. The ordered next command after a
 clean source sync and live preflight is:
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=two-step-data-20260809a slurm/distal_two_step_margin_dataset_moka10.sbatch`.
+
+# 2026-08-09: grouped two-step residual-MLP diagnostic is a current-method NO-GO
+
+Clean H100 dataset job `37270` ran on `worker-1` for `00:29:27` from commit
+`f7fe5ab571174b9dd8f766c06bab3c1cea912ac4`. Its independent validator passed:
+all 10/10 complete episode groups had an eligible balanced two-step boundary,
+and the immutable artifact contains 5,600 total records with 4,938 learning
+records. This is a positive oracle/data result and authorized the frozen
+paired training job; no episode, failed state, or infeasible action was
+dropped.
+
+Clean paired H100 job `37273` then ran on `worker-1` for `00:03:02`. Both the
+global and geometry-factorized models beat the current-clearance RMSE baseline
+and had zero conservative false-safe candidates on all three held-out
+`goal-II-t0` episodes. The factorized held-out results were:
+
+| Case | active RMSE / baseline (mm) | gradient cosine mean / minimum |
+| --- | ---: | ---: |
+| E05 | 6.307 / 29.279 | 0.793 / 0.777 |
+| E10 | 2.389 / 12.455 | 0.674 / 0.576 |
+| E15 | 3.459 / 12.298 | 0.783 / 0.644 |
+
+This fails the preregistered `>=0.8` held-out gradient gate. The global model
+was worse in gradient direction on the same cases, with mean cosines
+0.587/0.546/0.690. Validation-only conservative calibration for the
+factorized model reached 7.234--19.679 mm across the seven rows. Consequently,
+all three factorized held-out seven-row QPs were `primal infeasible` inside the
+registered action bounds; the global arm was also infeasible on all three.
+No projected transition existed to send to exact verification.
+
+The result is therefore `factorized_grouped_generalization_go=false`,
+`research_direction_validated=false`, and
+`stop_reason=factorized_held_out_gate_failed`. Closed-loop E05 was correctly
+not executed. This does not reject execution-aware learning in general: the
+exact two-step oracle remains positive in every episode and both MLPs improve
+margin value prediction. It rejects the current claim that this simplest
+validation-calibrated residual MLP supplies sufficiently accurate unseen-state
+action gradients for a bounded multi-constraint QP. Because no learned action
+was executed, this job adds no D_sim collision/CAR or task-completion evidence.
+
+Dataset result/validation SHA-256 values are
+`304383acd57d3ba8108007677c7c46ee3a8b65fe0981e4df69e7a9a75d9b4268` and
+`7cb255ed5ac1239ac6ac9129cc30bd4e8e26e7479825c0913523744d6f9b51c8`.
+Paired training/result/validation SHA-256 values are
+`66c852163240d5633bfc8c2c694ed93ac39f7a81555ed2880acfea1479caf71b`,
+`3e92699179cd5ba64ca01db24fe37b00783377890e794318ceaf9ff477308f48`, and
+`2bbc7401a8e7a2550089c234ad316d416eb17994593b714e7206cb1b715d93d8`.
+The exact next audit command is:
+`jq '{decision,test_case_ids,arms:(.arms|with_entries(.value={decision:.value.decision,held_out_exact_projections:.value.held_out_exact_projections})),closed_loop_e05}' /mnt/data/quanth/experiments/vlsa-distal-two-step-margin/two-step-mlp-20260809a/result.json`.
