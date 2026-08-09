@@ -17,8 +17,28 @@ AEGIS sequence. Only the first action is freshly verified and executed before
 replanning. This privileged task reference isolates multi-step control
 feasibility; it is not a QP, learned model, live VLA proposal, deployable
 method, or population claim. The frozen protocol is in
-`docs/distal_waypoint_closed_loop_e05_preregistration.md`. No H100 outcome has
-run and neural training remains blocked.
+`docs/distal_waypoint_closed_loop_e05_preregistration.md`. At preregistration
+no H100 outcome had run and neural training remained blocked.
+
+Clean H100 job `37308` completed on `worker-2` in `00:16:39` and independently
+validated a safety GO but task NO-GO. It executed all 237 actions with 16
+waypoint interventions, all eight executed substep margins nonnegative, zero
+protected contact, zero paper CAR, and exact clone/execution agreement. The
+minimum executed distal/EE margins were `0.303/1.180 mm`; maximum obstacle
+motion was `2.28e-8 mm`.
+
+The task predicate never became true. The bowl finished about `83.5 mm` from
+the plate center in XY, versus `26.7 mm` in the successful immutable replay.
+Safe candidates existed at every intervention, but their best future-EE
+waypoint errors were `10.8--32.3 mm`; the coarse action library preserved gross
+pick-and-carry motion but not placement precision. Mean/maximum waypoint
+search time was `53.234/58.014 s` per intervention (`851.738 s` total), so this
+is not online control. Result/payload/validation SHA-256 values are
+`ae040e13b06390eedf152817e9ab2ecd9300b0c9248764c2b6424694b14a45ce`,
+`a7a05931104977e9fdd3bbc812f51a6eeac19232b0fde4aa1aa0098feec86d0e`,
+and `709f141b262d203d2d51b549251283de5cbb6361a1133758b17f97ca66805f58`.
+The result supports multi-step recoverability but rejects coarse future-EE
+tracking as sufficient for task completion; neural training remains blocked.
 
 ## Execution-aware distal-margin residual network (preregistered, 2026-08-09)
 

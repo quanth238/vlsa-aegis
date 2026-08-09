@@ -1536,3 +1536,15 @@ mechanism evidence: a positive result establishes that coordinated multi-step
 control can solve E05, not that a learned or live VLA method supplies the
 waypoint. A negative result rejects only this registered library. No QP or
 neural model is called and neural training remains unauthorized.
+
+Clean H100 job `37308` returned the informative mixed result. All 237 actions
+executed with 16 verified interventions, every hard proxy/raw/clone gate
+passed, and there was no contact or CAR. However, native task success remained
+false: the final bowl-to-plate XY center error was `83.5 mm`, while the
+successful reference ended at `26.7 mm`. The registered safe candidates
+tracked the future EE only to `10.8--32.3 mm`, which is too coarse for the
+placement predicate. Therefore waypoint Best-of-N solves the collision
+avoidance subproblem but not the combined safety-and-task problem. The next
+method must use state-conditioned live task proposals or object-aware terminal
+ranking, not merely a larger safety margin or another local QP. This result
+does not authorize neural training.

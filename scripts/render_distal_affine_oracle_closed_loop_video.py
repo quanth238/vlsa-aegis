@@ -19,6 +19,9 @@ from main.multilink_ellipsoid.exact_candidate_closed_loop import (
 from main.multilink_ellipsoid.exact_candidate_continue import (
     CONTINUE_RESULT_SCHEMA,
 )
+from main.multilink_ellipsoid.waypoint_candidate_closed_loop import (
+    WAYPOINT_RESULT_SCHEMA,
+)
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write, _file_sha256, _git_identity, _load, _require,
 )
@@ -116,9 +119,13 @@ def render(
     schema = accepted.get("schema_version")
     exact_candidate = schema == EXACT_CANDIDATE_RESULT_SCHEMA
     unsafe_continuation = schema == CONTINUE_RESULT_SCHEMA
+    waypoint_candidate = schema == WAYPOINT_RESULT_SCHEMA
     decision_key = (
-        "privileged_exact_candidate_closed_loop_e05_go"
-        if exact_candidate else "privileged_closed_loop_e05_go"
+        "privileged_waypoint_best_of_n_closed_loop_e05_go"
+        if waypoint_candidate else (
+            "privileged_exact_candidate_closed_loop_e05_go"
+            if exact_candidate else "privileged_closed_loop_e05_go"
+        )
     )
     _require(
         _file_sha256(accepted_result_path) == expected_result_sha256
@@ -126,6 +133,7 @@ def render(
             ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
             EXACT_CANDIDATE_RESULT_SCHEMA,
             CONTINUE_RESULT_SCHEMA,
+            WAYPOINT_RESULT_SCHEMA,
         )
         and accepted.get("status") in ("method_failure", "complete")
         and accepted.get("case_id") == CASE_ID
@@ -260,9 +268,12 @@ def render(
         "schema_version": (
             "vlsa_distal_exact_candidate_continue_e05_video.v1"
             if unsafe_continuation else (
-                "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
-                if exact_candidate
-                else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+                "vlsa_distal_waypoint_closed_loop_e05_video.v1"
+                if waypoint_candidate else (
+                    "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
+                    if exact_candidate
+                    else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+                )
             )
         ),
         "status": "verified",

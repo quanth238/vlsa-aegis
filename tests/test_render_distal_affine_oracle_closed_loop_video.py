@@ -18,6 +18,7 @@ class RenderDistalAffineOracleClosedLoopVideoTests(unittest.TestCase):
         self.assertIn("decoded video fidelity differs", source)
         self.assertIn("EXACT_CANDIDATE_RESULT_SCHEMA", source)
         self.assertIn("CONTINUE_RESULT_SCHEMA", source)
+        self.assertIn("WAYPOINT_RESULT_SCHEMA", source)
         self.assertIn("video_fps", source)
 
 
