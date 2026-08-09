@@ -1,0 +1,88 @@
+{
+  "schema_version": "vlsa_distal_waypoint_closed_loop_e05.v1",
+  "protocol_id": "vlsa-distal-waypoint-closed-loop-e05-v1",
+  "claim_scope": "privileged_receding_four_action_cartesian_waypoint_Best_of_N_with_future_EE_reference_and_exact_OSC_all_eight_constraints_for_primary_E05_not_QP_not_learned_not_deployable_not_formal_whole_body_safety",
+  "primary_case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "expected_action_count": 237,
+    "original_first_L5_contact_step": 187,
+    "original_first_paper_CAR_step": 188,
+    "original_native_task_success_step": 236
+  },
+  "prerequisite": {
+    "exact_candidate_result_file_sha256": "908c7c0cd57ef9ea1fb2868e24433534b5336b4a2daabb8ec22cf549360251b4",
+    "exact_candidate_result_payload_sha256": "49b4d8c06704e7339de1f836bc59f47b8e8d76f56c05a13f9af6044943ef426f",
+    "exact_candidate_validation_file_sha256": "18ae1afdffd1a1bca49454cb133c4543d526c00b4782a245a924f9e8d73742f0",
+    "require_observed_empty_one_step_safe_set": true
+  },
+  "constraint_order": [
+    "L5_part_0",
+    "L5_part_1",
+    "L5_part_2",
+    "L6_part_0",
+    "L6_part_1",
+    "L7_part_0",
+    "L7_part_1",
+    "released_AEGIS_EE_proxy"
+  ],
+  "nominal_plan": {
+    "source": "immutable_successful_released_AEGIS_Table1_env_step_sequence",
+    "orientation_gripper_channels": "unchanged_per_nominal_chunk_step",
+    "task_waypoint": "future_end_effector_position_from_parallel_immutable_AEGIS_replay",
+    "terminal_horizon": "truncate_chunk_at_last_immutable_action"
+  },
+  "activation": {
+    "mode": "fresh_exact_cloned_OSC_two_action_check_before_every_execution",
+    "nominal_horizon_actions": 2,
+    "unsafe_if_any_eight_margin_negative": true,
+    "unsafe_if_raw_L5_L6_L7_contact": true,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001
+  },
+  "waypoint_search": {
+    "horizon_actions": 4,
+    "action_limit": 1.0,
+    "lattice_values": [-1.0, 0.0, 1.0],
+    "constant_full_lattice": true,
+    "two_phase_primitives": [
+      [0.0, 0.0, 0.0],
+      [-1.0, 0.0, 0.0],
+      [1.0, 0.0, 0.0],
+      [0.0, -1.0, 0.0],
+      [0.0, 1.0, 0.0],
+      [0.0, 0.0, -1.0],
+      [0.0, 0.0, 1.0]
+    ],
+    "diversion_prefix_lengths": [1, 2],
+    "candidate_order": "nominal_then_constant_lattice_then_two_phase_then_diversion",
+    "expected_candidate_count_by_horizon": {
+      "1": 28,
+      "2": 97,
+      "3": 124,
+      "4": 124
+    }
+  },
+  "candidate_selector": {
+    "method": "exact_safe_then_task_completion_then_minimum_future_EE_waypoint_error_then_minimum_chunk_correction_L2_then_candidate_index",
+    "minimum_all_eight_margin_m": 0.000001,
+    "require_raw_L5_L6_L7_contact_free": true,
+    "require_obstacle_motion_gate": true,
+    "fresh_exact_rollout_before_execution": true,
+    "QP_used": false,
+    "learned_model_used": false,
+    "fallback": "none_stop_if_no_exact_safe_waypoint_chunk"
+  },
+  "execution": {
+    "execute": "verified_first_action_only_then_replan",
+    "osc_internal_substeps": "all",
+    "require_all_eight_margins_nonnegative": true,
+    "require_zero_raw_L5_L6_L7_contact": true,
+    "require_executed_next_state_hash_equals_clone": true,
+    "paper_CAR_threshold_m": 0.001
+  },
+  "decision_gate": {
+    "success": "all_executed_substeps_all_eight_proxy_safe_and_zero_raw_L5_L6_L7_contact_and_zero_paper_CAR_and_native_task_success",
+    "go_interpretation": "privileged_receding_waypoint_Best_of_N_can_solve_primary_E05_not_QP_not_learned_not_deployable_safety",
+    "no_go_interpretation": "registered_four_action_waypoint_library_failed_closed_loop_E05_not_impossibility_of_live_VLA_or_joint_space_recovery",
+    "neural_training_authorized": false
+  }
+}

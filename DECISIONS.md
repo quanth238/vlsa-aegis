@@ -1516,3 +1516,23 @@ Clean H100 replay job `37303` exactly matched all 237 action/state/obstacle
 receipts and verified 238 frames at native 20 fps. Maximum adjacent-pixel MAD
 and encoder MAE were `1.997/1.586` of 255, and the final frame is visually
 clean. This is the accepted visual record of the collision-prone continuation.
+
+# ADR-0069: Test coordinated Cartesian waypoint Best-of-N
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+Accepted by direct user instruction after validated exact-candidate job
+`37294`. The next `E02` diagnostic does not enlarge or reinterpret that
+one-step result. It freezes four-action Cartesian waypoint chunks: constant
+full-lattice commands, two-phase cardinal turns, and one-/two-step diversions
+followed by the immutable nominal suffix. Every orientation and gripper
+channel remains unchanged.
+
+All eight exact proxy rows, raw protected contact, per-step obstacle motion,
+and clone/execution equality remain hard gates. Candidate selection uses a
+parallel read-only successful AEGIS replay only to provide the future EE
+waypoint, with task completion ranked first. This is deliberately privileged
+mechanism evidence: a positive result establishes that coordinated multi-step
+control can solve E05, not that a learned or live VLA method supplies the
+waypoint. A negative result rejects only this registered library. No QP or
+neural model is called and neural training remains unauthorized.

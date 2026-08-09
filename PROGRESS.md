@@ -1,5 +1,25 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
+
+Active gate `E02` now tests the coordinated action family left open by exact
+candidate job `37294`. Before each execution it keeps the same exact cloned
+OSC two-action activation check, seven accepted L5--L7 slab rows, released
+AEGIS EE row, exact 15-box obstacle geometry, raw-contact veto, and 0.1 mm
+per-step obstacle-motion gate. An unsafe nominal horizon invokes a frozen
+four-action library of constant lattice motions, two-phase cardinal turns,
+and one-/two-step diversions back to the immutable nominal suffix.
+
+Candidate ranking first requires the complete chunk to remain exactly safe,
+then prefers task completion and minimum terminal EE error to a future
+waypoint obtained from a parallel read-only replay of the immutable successful
+AEGIS sequence. Only the first action is freshly verified and executed before
+replanning. This privileged task reference isolates multi-step control
+feasibility; it is not a QP, learned model, live VLA proposal, deployable
+method, or population claim. The frozen protocol is in
+`docs/distal_waypoint_closed_loop_e05_preregistration.md`. No H100 outcome has
+run and neural training remains blocked.
+
 ## Execution-aware distal-margin residual network (preregistered, 2026-08-09)
 
 Active gate `E02` now moves earlier than the invalid action-192 intervention
