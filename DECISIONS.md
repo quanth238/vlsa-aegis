@@ -1757,3 +1757,16 @@ lexicographic raw-safety/contact-count/penetration ordering. This tests whether
 the objective learned an exceptional local improvement rather than benefiting
 from large corrections. Passing does not authorize closed-loop execution; it
 only supports scaling directional supervision to broader state/link data.
+
+Job `37463` returns a partial but overall NO-GO. The model ordered every
+informative finite pair correctly, including 30/30 held-out pairs. Its actual
+nominal gradient was exceptional at state 187 (`p=0.00778`) but not at state
+190 (`p=0.16342`), and neither radius-0.1 action was contact-free. Therefore
+finite endpoint ranking is not sufficient evidence for the derivative used by
+control. The preregistered requirement was both unseen states, so no closed-loop
+or broader-data continuation is permitted.
+
+The next defensible model change, if separately authorized, is direct dense
+small-radius derivative supervision or regression of a continuous executed
+contact burden. Retuning the ranking weight or training longer on the same 28
+informative training pairs would not answer the observed generalization gap.

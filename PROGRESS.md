@@ -2378,3 +2378,28 @@ Exact next command after clean commit/source sync is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=directional-ranker-e05-20260810a
 slurm/distal_contact_directional_ranker_e05.sbatch`.
+
+Clean H100 job `37463` completed and independently validated in `00:00:58` on
+`worker-2`. The ranking objective reached 100% informative-pair accuracy on
+train (`28/28`), validation (`8/8`), and held-out test (`30/30`). It improved
+test contact AUC from `0.698` to `0.739`, but false-safe count remained 51
+versus 52 previously.
+
+The decisive continuous-gradient result was mixed. At unseen state 187, the
+radius-0.1 revised direction had two contacts and only 1/256 random directions
+had a better lexicographic burden, giving add-one `p=0.00778` (pass). At state
+190 it had ten contacts and 41/256 random directions were at least as good,
+giving `p=0.16342` (fail). Both revised actions still contacted. Thus
+`paired_directional_supervision_mechanism_go=false` and closed-loop remains
+unauthorized.
+
+This isolates the next conceptual gap: perfect finite-pair ordering does not
+guarantee a useful nominal action derivative. More epochs or the same pair
+loss are not supported. A future method would need dense small-radius
+directional/gradient labels or a continuous executed-contact-burden target,
+still split by complete states and still tested against random directions.
+Model/result/payload/validation SHA-256 values are
+`c477a9af90b9bd1498492b90ac597890f83c1183505e6bddcdb7adcad546fea3`,
+`cd186104aa245767cc346bb16b5e62796612fa946c7037cccf1f2cb01a4f35b4`,
+`588887035abbda58d867d752cc49112092db55b0003df8e7c0dda92dca1479d8`,
+and `aed056699ce110d1e2598e5408f00df29c95923a11ed268e681280ee5b5e8df7`.
