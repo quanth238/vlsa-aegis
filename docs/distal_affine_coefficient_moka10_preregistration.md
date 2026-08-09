@@ -46,3 +46,18 @@ overprediction per row plus 1 mm. Test gates are:
   verification for every test state.
 
 Closed-loop E05 is explicitly not authorized by this diagnostic.
+
+## Scoped target-availability amendment after the strict dataset NO-GO
+
+The strict first dataset gate remains failed. Its audit showed valid safe
+support and seven lower envelopes at all 50 states, while ten failures were
+caused only by the separate released-AEGIS EE proxy and one training-state
+failure was an OSQP maximum-iteration result despite a certified safe grid
+candidate. All 15 held-out test states passed the original full gate.
+
+Before any neural training, a separately hash-bound target analysis now asks
+only whether every registered state supplies the seven L5--L7 coefficient
+targets. It must retain all 50 states, reproduce every sampled lower bound,
+and verify nonnegative state-conditioned error. The strict dataset NO-GO is
+not changed. EE remains a separate existing deployment constraint, and the
+learned QP must still pass its original all-eight exact held-out gate.

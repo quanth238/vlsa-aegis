@@ -29,6 +29,7 @@ for optional_file in \
   scripts/validate_distal_two_step_oracle_affine_safe_set.py \
   scripts/collect_distal_affine_coefficient_moka10.py \
   scripts/validate_distal_affine_coefficient_dataset.py \
+  scripts/analyze_distal_affine_coefficient_targets.py \
   scripts/train_distal_affine_coefficient_moka10.py \
   scripts/evaluate_distal_affine_coefficient_moka10.py \
   scripts/validate_distal_affine_coefficient_moka10.py

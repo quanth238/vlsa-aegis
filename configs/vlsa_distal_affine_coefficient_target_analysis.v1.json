@@ -1,0 +1,33 @@
+{
+  "schema_version": "vlsa_distal_affine_coefficient_target_analysis.v1",
+  "protocol_id": "vlsa-distal-affine-coefficient-target-analysis-v1",
+  "claim_scope": "post_hoc_scoped_target_availability_audit_not_reinterpretation_of_strict_dataset_no_go_not_neural_result",
+  "immutable_source": {
+    "dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "result_file_sha256": "18e8a188a4815c5cb4409666d8d33b4b41c6f00311646493960235396b46b164",
+    "result_payload_sha256": "039e58f42e11e7844f94819b74086273e1a2cd42b5b30c5caba6533fa5425b81",
+    "validation_file_sha256": "824f27a3477dbf4a90f4fe975c7e9e03d1436d0619cc8ef2351b401d55009bc6",
+    "source_commit": "e71ea17ff849c25b1187bf103b29931103a60a06"
+  },
+  "target_gate": {
+    "expected_state_count": 50,
+    "expected_split_state_counts": {"train": 30, "validation": 5, "test": 15},
+    "require_every_state_safe_support": true,
+    "require_every_state_seven_lower_envelopes": true,
+    "require_nonnegative_state_conditioned_error": true,
+    "maximum_lower_envelope_overbound_m": 1e-08,
+    "retain_every_state": true
+  },
+  "scope_separation": {
+    "learned_rows": "seven_L5_L7_two_step_affine_constraints",
+    "released_AEGIS_EE_proxy": "separate_existing_constraint_not_a_coefficient_target_gate",
+    "per_state_oracle_QP": "diagnostic_target_coefficients_remain_defined_when_OSQP_stalls",
+    "held_out_deployment_QP": "unchanged_future_learned_test_gate"
+  },
+  "decision": {
+    "training_authorized_if": "every_target_gate_passes_without_dropping_states",
+    "strict_dataset_result_remains": "no_go",
+    "closed_loop_authorized": false
+  }
+}

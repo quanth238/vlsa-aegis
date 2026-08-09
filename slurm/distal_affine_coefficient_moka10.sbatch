@@ -16,6 +16,7 @@ REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-table-repro}
 EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
 RUN_ID=${RUN_ID:?RUN_ID is required}
 DATASET_ROOT=${DATASET_ROOT:?DATASET_ROOT is required}
+TARGET_ANALYSIS=${TARGET_ANALYSIS:?TARGET_ANALYSIS is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-affine-coefficient}
 ARCHIVED_ROOT=${ARCHIVED_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
@@ -30,6 +31,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "affine-coefficient learned test requires exactly one H100"
 for name in dataset.json result.json validation.json; do [[ -f "$DATASET_ROOT/$name" && ! -L "$DATASET_ROOT/$name" ]] || die "validated affine target artifact missing"; done
+[[ -f "$TARGET_ANALYSIS" && ! -L "$TARGET_ANALYSIS" ]] || die "affine target analysis missing"
 [[ -x "$AEGIS_PYTHON" && -d "$ARCHIVED_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "runtime or immutable Table-1 root missing"
 [[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == b4c4e7910a1b7a3aae7e2f40c3a6d7a7a4b2fab64f0446a28c153bf5a9b195c3 ]] || die "affine-coefficient config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
@@ -51,6 +53,7 @@ cd "$REMOTE_REPO"
   --dataset "$DATASET_ROOT/dataset.json" \
   --dataset-result "$DATASET_ROOT/result.json" \
   --dataset-validation "$DATASET_ROOT/validation.json" \
+  --target-analysis "$TARGET_ANALYSIS" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --model "$RUN_ROOT/model.npz" --output "$RUN_ROOT/training.json"
 "$AEGIS_PYTHON" scripts/evaluate_distal_affine_coefficient_moka10.py \
@@ -60,6 +63,7 @@ cd "$REMOTE_REPO"
   --config "$CONFIG" --dataset "$DATASET_ROOT/dataset.json" \
   --dataset-result "$DATASET_ROOT/result.json" \
   --dataset-validation "$DATASET_ROOT/validation.json" \
+  --target-analysis "$TARGET_ANALYSIS" \
   --training "$RUN_ROOT/training.json" --model "$RUN_ROOT/model.npz" \
   --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/result.json"
 "$AEGIS_PYTHON" scripts/validate_distal_affine_coefficient_moka10.py \

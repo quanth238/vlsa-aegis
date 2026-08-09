@@ -2517,3 +2517,23 @@ certificate anchor at every state. It does not add a sampled candidate,
 change the 6,250 grid labels, clamp the learned error, relax the envelope, or
 alter any decision gate. Enforcing the envelope at the nominal point is
 required by the registered definition `e = b - intercept`.
+
+Clean H100 retry `37580` completed on `worker-2` in `00:29:35` with all 50
+states and 6,250 grid rollouts, and its independent validator accepted the
+strict decision artifact. The registered strict gate is NO-GO and neural
+training is not authorized by that result. Every state nevertheless has safe
+support and a valid seven-row lower envelope; the minimum safe-support count
+is 7 and the maximum sampled overbound is `1.73e-18 m`. All 15 test states
+passed the original full certificate/QP/EE/raw gate.
+
+The 11 failed strict states isolate two out-of-scope/diagnostic causes. Ten
+train/validation states had safe distal QP rollouts with zero protected
+contact and obstacle motion but negative released-AEGIS EE proxy margins.
+One training crossing had a valid certificate and 19 safe candidates, but
+OSQP reached its iteration limit on two active rows. No target is missing.
+
+A separate hash-bound target-availability analysis is preregistered after
+this outcome. It cannot change the strict NO-GO. It may authorize coefficient
+training only if all 50 L5--L7 targets reproduce their lower bounds and
+nonnegative errors without dropping a state. The original all-eight held-out
+learned-QP gate remains unchanged.

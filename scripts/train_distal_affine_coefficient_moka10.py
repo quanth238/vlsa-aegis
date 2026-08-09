@@ -39,6 +39,7 @@ def main() -> int:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--dataset-result", type=Path, required=True)
     parser.add_argument("--dataset-validation", type=Path, required=True)
+    parser.add_argument("--target-analysis", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -47,14 +48,22 @@ def main() -> int:
     dataset = _load(args.dataset.resolve())
     result = _load(args.dataset_result.resolve())
     validation = _load(args.dataset_validation.resolve())
+    target_analysis = _load(args.target_analysis.resolve())
     _require(
         dataset.get("schema_version") == AFFINE_COEFFICIENT_DATASET_SCHEMA
         and dataset.get("dataset_payload_sha256")
         == _hash_without(dataset, "dataset_payload_sha256")
         and result.get("dataset", {}).get("file_sha256")
         == _file_sha256(args.dataset.resolve())
-        and result.get("decision", {}).get("neural_training_authorized") is True
-        and validation.get("neural_training_authorized") is True,
+        and result.get("decision", {}).get("neural_training_authorized") is False
+        and validation.get("neural_training_authorized") is False
+        and target_analysis.get("schema_version")
+        == "vlsa_distal_affine_coefficient_target_analysis_result.v1"
+        and target_analysis.get("dataset_file_sha256")
+        == _file_sha256(args.dataset.resolve())
+        and target_analysis.get("decision", {}).get(
+            "neural_training_authorized"
+        ) is True,
         "affine-coefficient dataset did not authorize training",
     )
     states = dataset["state_records"]
@@ -166,6 +175,11 @@ def main() -> int:
             "file_sha256": _file_sha256(args.dataset.resolve()),
             "payload_sha256": dataset["dataset_payload_sha256"],
             "state_count": len(states),
+        },
+        "target_analysis": {
+            "path": str(args.target_analysis.resolve()),
+            "file_sha256": _file_sha256(args.target_analysis.resolve()),
+            "payload_sha256": target_analysis["analysis_payload_sha256"],
         },
         "model_artifact": model_identity,
         "training": audit,

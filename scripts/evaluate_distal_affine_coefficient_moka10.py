@@ -60,6 +60,7 @@ def main() -> int:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--dataset-result", type=Path, required=True)
     parser.add_argument("--dataset-validation", type=Path, required=True)
+    parser.add_argument("--target-analysis", type=Path, required=True)
     parser.add_argument("--training", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
@@ -70,13 +71,21 @@ def main() -> int:
     dataset = _load(args.dataset.resolve())
     dataset_result = _load(args.dataset_result.resolve())
     dataset_validation = _load(args.dataset_validation.resolve())
+    target_analysis = _load(args.target_analysis.resolve())
     training = _load(args.training.resolve())
     _require(
         dataset.get("schema_version") == AFFINE_COEFFICIENT_DATASET_SCHEMA
         and dataset.get("dataset_payload_sha256")
         == _hash_without(dataset, "dataset_payload_sha256")
-        and dataset_result.get("decision", {}).get("neural_training_authorized") is True
-        and dataset_validation.get("neural_training_authorized") is True
+        and dataset_result.get("decision", {}).get("neural_training_authorized") is False
+        and dataset_validation.get("neural_training_authorized") is False
+        and target_analysis.get("schema_version")
+        == "vlsa_distal_affine_coefficient_target_analysis_result.v1"
+        and target_analysis.get("dataset_file_sha256")
+        == _file_sha256(args.dataset.resolve())
+        and target_analysis.get("decision", {}).get(
+            "neural_training_authorized"
+        ) is True
         and training.get("schema_version") == AFFINE_COEFFICIENT_TRAINING_SCHEMA
         and training.get("training_payload_sha256")
         == _hash_without(training, "training_payload_sha256")
@@ -253,6 +262,11 @@ def main() -> int:
             "file_sha256": _file_sha256(args.training.resolve()),
             "payload_sha256": training["training_payload_sha256"],
             "test_metrics": training["test_metrics"],
+        },
+        "target_analysis": {
+            "path": str(args.target_analysis.resolve()),
+            "file_sha256": _file_sha256(args.target_analysis.resolve()),
+            "payload_sha256": target_analysis["analysis_payload_sha256"],
         },
         "model": {
             "path": str(args.model.resolve()),

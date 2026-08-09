@@ -1854,3 +1854,16 @@ action, so its sampled lower envelope need not lower-bound the separately
 measured nominal margin. The correction explicitly anchors every certificate
 with that nominal rollout. Clamping a negative `e` would hide the violated
 lower-bound assumption and is rejected.
+
+The repaired strict job `37580` remains a dataset NO-GO. Its failure is not
+treated as evidence that coefficient targets are absent: all 50 certificates
+are valid and all have exact safe support, while ten failures come only from
+the separately released AEGIS EE proxy and one from OSQP reaching its
+iteration cap despite a certified safe candidate. All 15 held-out test states
+pass the full original gate.
+
+The next action is therefore a separately registered, post-outcome target
+analysis—not a retroactive pass. Training may use the immutable dataset only
+if this new audit validates all 50 seven-row targets without filtering. The
+learned test still requires zero held-out false-safes, gradient cosine at
+least 0.8, and exact all-eight safe QPs on every held-out state.
