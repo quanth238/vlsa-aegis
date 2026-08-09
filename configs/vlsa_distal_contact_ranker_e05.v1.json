@@ -1,0 +1,60 @@
+{
+  "schema_version": "vlsa_distal_contact_ranker_e05.v1",
+  "protocol_id": "vlsa-distal-exact-contact-ranker-e05-v1",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "claim_scope": "Local same-episode E05 feasibility diagnostic: learn exact one-OSC-step L5-L7 contact risk around released-AEGIS actions on a successful simulator-oracle trajectory. This is not a clearance regressor, CBF certificate, unseen-task generalization result, deployable perception method, or closed-loop task-success claim.",
+  "immutable_sources": {
+    "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "successful_sitl_file_sha256": "e23320ebad7c17f8d07d52f204b0fc32c2c3d81ab8007d0a1f1b6ba365c7bf08",
+    "successful_sitl_payload_sha256": "5eabe9b9e05fa3a321dda4682566734e2940a97bb3bff9430b7ffd926913c9db",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f"
+  },
+  "state_groups": {
+    "collect_steps": [184, 185, 186, 187, 188, 189, 190, 191, 192],
+    "train_steps": [184, 185, 186, 188, 189, 191],
+    "validation_steps": [192],
+    "test_steps": [187, 190]
+  },
+  "candidate_set": {
+    "action_dimensions": [0, 1, 2],
+    "action_limit": 1.0,
+    "central_difference_action": 0.1,
+    "global_lattice_values": [-1.0, 0.0, 1.0],
+    "include_global_lattice": true,
+    "include_reverse_nominal": true,
+    "include_stop": true,
+    "local_offset_magnitudes": [0.25, 0.5]
+  },
+  "network": {
+    "hidden_widths": [64, 64],
+    "input_count": 33,
+    "output_count": 3,
+    "output_semantics": [
+      "L5_contact_probability",
+      "L6_contact_probability",
+      "L7_contact_probability"
+    ]
+  },
+  "training": {
+    "seed": 238,
+    "epochs": 3000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "early_stopping_patience": 300,
+    "minimum_standard_deviation": 0.000001
+  },
+  "calibration": {
+    "method": "strictly_below_minimum_validation_raw_unsafe_risk",
+    "authority": "complete_held_out_state_192"
+  },
+  "gradient_audit": {
+    "step_sizes_action": [0.1, 0.25, 0.5, 1.0],
+    "minimum_gradient_norm": 1e-12
+  },
+  "decision_gate": {
+    "ranking": "zero_test_false_safe_candidates_and_fresh_exact_safe_minimum_correction_on_steps_187_and_190",
+    "gradient": "at_least_one_fresh_exact_safe_negative_gradient_candidate_on_each_test_state",
+    "closed_loop": "not_authorized_by_this_local_diagnostic"
+  }
+}

@@ -2129,3 +2129,25 @@ is clean. MP4/JPG/receipt SHA-256 values are
 and `e867195b97bc256e98529f17476046896480a0cd4f3e736e1c418c893990ade7`.
 The local native-rate video is under
 `/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_exact_candidate_continue_e05/exact-candidate-continue-video-20260809a/`.
+
+# 2026-08-09: exact-contact E05 MLP diagnostic preregistered
+
+The user authorized the smallest experiment that directly tests whether
+offline cloned controller rollouts can teach a neural safety correction. The
+new opt-in protocol uses the immutable collision-free/task-successful
+simulator-oracle trajectory only to define recoverable E05 states and one
+task-valid candidate per state. At actions 184--192 it evaluates central and
+local perturbations, stop, reverse, a global lattice, and that task-valid
+candidate through complete cloned OSC transitions while capturing every
+internal MuJoCo substep.
+
+The MLP predicts three exact contact probabilities, one each for L5/L6/L7; it
+does not regress or rename ellipsoid clearance. Complete-state groups are
+frozen as train 184/185/186/188/189/191, validation 192, and test 187/190.
+Conservative Best-of-N ranking and direct negative-gradient steering have
+separate exact fresh-rollout gates. This local capacity test cannot establish
+closed-loop task success or unseen-state/task generalization. Protocol:
+`docs/distal_contact_ranker_e05_preregistration.md`. Exact next command after
+clean commit/source sync is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git
+rev-parse HEAD),RUN_ID=contact-ranker-e05-20260809a
+slurm/distal_contact_ranker_e05.sbatch`.

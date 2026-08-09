@@ -1613,3 +1613,23 @@ Clean replay `37355` matched every accepted state/obstacle receipt and passed
 all source and decoded pixel-integrity checks for 238 frames at 20 fps. Direct
 inspection confirms a clean final view with the bowl outside the plate. This is
 the accepted visual evidence and does not alter job-`37337` NO-GO.
+
+# ADR-0071: Separate exact-contact ranking from neural gradient steering
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+The installed MuJoCo binding does not expose a continuous arbitrary-mesh
+distance query, so the first neural feasibility test must not describe an
+ellipsoid proxy or contact logit as exact clearance. It instead learns three
+binary labels from all internal OSC substeps: contact of L5, L6, or L7 with
+the active obstacle. A 0.1 mm obstacle-motion veto remains part of fresh
+`D_sim` verification, while seven-ellipsoid/exact-box support gaps remain
+separate `D_opt` diagnostics.
+
+The same model is audited in two modes. Conservative Best-of-N selection asks
+whether it can rank a finite registered candidate set and choose a minimally
+changed exact-safe action on held-out states. Negative-gradient steering asks
+the stronger question needed by the proposed differentiable residual. A
+ranking GO with gradient NO-GO supports candidate selection only; it cannot
+support the draft's gradient-guidance equation. Neither arm authorizes a
+closed-loop or generalization claim.
