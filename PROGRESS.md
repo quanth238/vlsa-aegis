@@ -1523,3 +1523,14 @@ whenever that union is supplied. The apparatus repair binds the constructor
 placeholder to the already validated primary-E05 MVEE and records this use;
 all clearances, witnesses, labels, raw checks, actions, splits, and gates
 remain exact-box based and unchanged. Job `37211` is apparatus failure only.
+
+Retry `37212` collected the first two training episodes, then stopped before
+the third on the immutable receipt gate. The selected manifest had a
+one-character transcription error in the E18 result payload SHA-256; its raw
+file SHA-256, action count, action-sequence SHA-256, case, split, and every
+scientific setting were already correct. All ten selected rows were audited
+against the raw Table-1 files, and only that payload field differed. The
+corrected manifest/config hashes are
+`8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa`
+and `1746aca01e15e15449f8adc3d2eafe8b849279fc871a7ef7abdb195f5c033c9c`.
+The partial job wrote no dataset and supports no outcome.

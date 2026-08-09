@@ -1150,3 +1150,10 @@ so the accepted repair uses the proper primary-E05 MVEE solely to construct
 the shared robot slab geometry. The live exact 15-box union remains the only
 obstacle used by clearance and contact-witness evaluation. This is an
 apparatus repair, not a representation or threshold change.
+
+Retry `37212` was also rejected before a dataset because one selected E18
+payload hash was transcribed incorrectly even though its raw-file and action
+sequence hashes matched. The corrected value is taken directly from the
+immutable Table-1 `result.json`; all ten selected receipt identities were
+cross-checked before retry. This is provenance repair only and does not alter
+case selection, grouping, actions, labels, or gates.

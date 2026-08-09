@@ -30,7 +30,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "grouped test requires exactly one H100"
 for path in "$DATASET" "$DATASET_RESULT" "$DATASET_VALIDATION"; do [[ -f "$path" && ! -L "$path" ]] || die "dataset gate input missing"; done
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == c81f5761e3228868b33360deee846091656d1af4c9e0aa9dceea46db8e013319 ]] || die "config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 1746aca01e15e15449f8adc3d2eafe8b849279fc871a7ef7abdb195f5c033c9c ]] || die "config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 mkdir -p "$EXPERIMENT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"

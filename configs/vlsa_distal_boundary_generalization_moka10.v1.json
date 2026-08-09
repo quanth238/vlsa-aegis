@@ -3,7 +3,7 @@
   "protocol_id": "vlsa-distal-boundary-generalization-moka10-v1",
   "claim_scope": "outcome_conditioned_moka_pot_grouped_episode_and_task_boundary_generalization_pilot_not_unbiased_population_efficacy_not_formal_safety_certificate",
   "source_population_manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
-  "selected_manifest_sha256": "9143bcc94cd5d6472c8a1d0f099b3c242e9d8165ee73b00f53e4a049eb368fb9",
+  "selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
   "table1_population_run_id": "vlsa-table1-contact-authority-population-20260718a",
   "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
   "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
