@@ -1468,3 +1468,18 @@ zeroth-order sampled receding controller can solve primary E05; a NO-GO is
 limited to the registered search family. Image observables are disabled in the
 scientific run and visual evidence must be regenerated through one exact
 single-context replay.
+
+Clean H100 job `37294` validated the registered method as NO-GO. It safely and
+exactly executed ten selected corrections through action 186, but action 187
+had zero eligible candidates among all 512 samples. The controller stopped
+with no contact or CAR and with minimum executed distal/EE margins
+`15.371/0.183 mm`, but native task progress remained zero. Therefore the
+isolated safe component at the prior action is not a sufficient receding
+solution; it only shifts the unrecoverable boundary forward one action. No QP
+or learned-model efficacy follows from this result.
+
+The scientific run intentionally has no renderer. Visual evidence is a
+separate H100 replay using one OSMesa context, exact accepted-action/state
+receipts, and corruption gates. It is encoded at 10 fps for presentation only,
+yielding approximately 18.8 seconds for 188 frames while retaining one frame
+per executed simulator action.

@@ -1922,3 +1922,33 @@ SHA-256 is
 
 After a clean commit, remote sync, and live Slurm preflight, the exact next
 command is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=exact-candidate-closed-loop-20260809a slurm/distal_exact_candidate_closed_loop_e05.sbatch`.
+
+Clean H100 job `37294` completed on `worker-2` in `00:21:48` and independently
+validated a scientific NO-GO. It executed actions 0--186 with ten direct exact
+candidate interventions, every executed all-eight substep margin nonnegative,
+zero protected contact, zero paper CAR, and exact clone/execution state hashes.
+Minimum executed distal/EE margins were `15.371/0.183 mm`.
+
+At action 187 the nominal two-step distal minimum was `-14.991 mm` while the
+EE margin was `+7.110 mm`. Zero of 512 candidates met the frozen 1 micrometre
+all-eight/raw-safety gate, so the controller stopped without execution. The
+native task had made no predicate progress and did not complete. Total exact
+grid-oracle time was `1212.845 s` across 11 interventions (`110.259 s` mean,
+`112.493 s` maximum). No affine certificate or QP was called.
+
+Result/validation/preflight SHA-256 values are
+`908c7c0cd57ef9ea1fb2868e24433534b5336b4a2daabb8ec22cf549360251b4`,
+`18ae1afdffd1a1bca49454cb133c4543d526c00b4782a245a924f9e8d73742f0`,
+and `7189a00b4db41e05e1f660e9b9c90ef2bd5105757140488e8176aac8fad74d53`;
+result payload SHA-256 is
+`49b4d8c06704e7339de1f836bc59f47b8e8d76f56c05a13f9af6044943ef426f`.
+This proves that directly taking the isolated action-186 safe component is not
+sufficient for registered E05 completion: it postpones the unrecoverable
+boundary by one action. It does not rule out adaptive/local larger-region or
+longer-horizon action-chunk search.
+
+The user-facing visual evidence is separately preregistered as an exact
+single-render-context replay of all 187 accepted actions. Every dynamic-state,
+reward/done, obstacle-displacement, and pairing receipt must match; source and
+decoded pixel MAD gates remain 12/255. Encoding at 10 fps makes the 188 frames
+about 18.8 seconds long without changing simulator timing or scientific data.

@@ -13,6 +13,9 @@ from typing import Any, Mapping, Optional, Sequence
 from main.multilink_ellipsoid.oracle_affine_closed_loop import (
     ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
 )
+from main.multilink_ellipsoid.exact_candidate_closed_loop import (
+    EXACT_CANDIDATE_RESULT_SCHEMA,
+)
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write, _file_sha256, _git_identity, _load, _require,
 )
@@ -94,7 +97,7 @@ def _verify_video(
 def render(
     *, repo_root: Path, manifest_path: Path, accepted_result_path: Path,
     expected_result_sha256: str, expected_commit: str, video_path: Path,
-    final_jpg_path: Path, receipt_path: Path,
+    final_jpg_path: Path, receipt_path: Path, video_fps: int,
 ) -> dict[str, Any]:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -107,23 +110,35 @@ def render(
     from main.multilink_ellipsoid.shadow import allocation_record
 
     accepted = _load(accepted_result_path)
+    schema = accepted.get("schema_version")
+    exact_candidate = schema == EXACT_CANDIDATE_RESULT_SCHEMA
+    decision_key = (
+        "privileged_exact_candidate_closed_loop_e05_go"
+        if exact_candidate else "privileged_closed_loop_e05_go"
+    )
     _require(
         _file_sha256(accepted_result_path) == expected_result_sha256
-        and accepted.get("schema_version")
-        == ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2
+        and schema in (
+            ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
+            EXACT_CANDIDATE_RESULT_SCHEMA,
+        )
         and accepted.get("status") == "method_failure"
         and accepted.get("case_id") == CASE_ID
-        and accepted.get("decision", {}).get("privileged_closed_loop_e05_go")
-        is False,
-        "accepted affine-oracle result differs",
+        and accepted.get("decision", {}).get(decision_key) is False,
+        "accepted closed-loop result differs",
     )
     actions = [
         item for item in accepted.get("actions", []) if item.get("executed") is True
     ]
     _require(
-        len(actions) == accepted["closed_loop"]["action_count"] == 186
-        and [int(item["step"]) for item in actions] == list(range(186)),
-        "accepted affine-oracle action ledger differs",
+        len(actions) == accepted["closed_loop"]["action_count"]
+        and len(actions) > 0
+        and [int(item["step"]) for item in actions] == list(range(len(actions))),
+        "accepted closed-loop action ledger differs",
+    )
+    _require(
+        isinstance(video_fps, int) and 1 <= video_fps <= TABLE_VIDEO_FPS,
+        "visual replay FPS differs",
     )
     rows = read_jsonl(manifest_path)
     matches = [item for item in rows if item.get("case_id") == CASE_ID]
@@ -164,7 +179,7 @@ def render(
         for key in PAIRING_KEYS:
             _require(pairing[key] == accepted["pairing"][key], "pairing differs: %s" % key)
         writer = runtime["imageio"].get_writer(
-            str(partial), fps=TABLE_VIDEO_FPS, codec="libx264",
+            str(partial), fps=video_fps, codec="libx264",
             macro_block_size=None, pixelformat="yuv420p",
             output_params=["-crf", "18", "-movflags", "+faststart"],
         )
@@ -175,7 +190,11 @@ def render(
             statistics = _frame_statistics(terminal_frame)
             source_statistics.append({"frame_index": index, **statistics})
             writer.append_data(terminal_frame)
-            if index in (0, 15, 60, 120, 180, 186):
+            sample_indexes = {
+                0, min(15, len(actions)), min(60, len(actions)),
+                min(120, len(actions)), min(180, len(actions)), len(actions),
+            }
+            if index in sample_indexes:
                 source_samples[index] = terminal_frame.copy()
 
         append_frame(0)
@@ -223,7 +242,11 @@ def render(
         runtime["imageio"], video_path, source_samples, len(actions) + 1
     )
     receipt = {
-        "schema_version": "vlsa_distal_affine_oracle_closed_loop_video.v1",
+        "schema_version": (
+            "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
+            if exact_candidate
+            else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+        ),
         "status": "verified",
         "scientific_result": False,
         "case_id": CASE_ID,
@@ -242,8 +265,13 @@ def render(
             "maximum_obstacle_displacement_error_m": (
                 maximum_obstacle_displacement_error
             ),
-            "native_task_success": False,
-            "stopped_before_action": 186,
+            "native_task_success": bool(
+                accepted["closed_loop"]["native_task_success"]
+            ),
+            "stopped_before_action": (
+                accepted["closed_loop"].get("failure", {}).get("step")
+                if accepted["closed_loop"].get("failure") else None
+            ),
         },
         "source_frame_maximum_adjacent_pixel_mad": max(
             item["adjacent_pixel_mad"] for item in source_statistics
@@ -251,7 +279,7 @@ def render(
         "video_validation": video_validation,
         "video": {
             "path": str(video_path), "file_sha256": _file_sha256(video_path),
-            "frame_count": len(actions) + 1, "fps": TABLE_VIDEO_FPS,
+            "frame_count": len(actions) + 1, "fps": video_fps,
         },
         "final_image": {
             "path": str(final_jpg_path),
@@ -272,6 +300,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--video", type=Path, required=True)
     parser.add_argument("--final-jpg", type=Path, required=True)
     parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--video-fps", type=int, default=30)
     args = parser.parse_args(argv)
     receipt = render(
         repo_root=args.repo_root.resolve(), manifest_path=args.manifest.resolve(),
@@ -279,6 +308,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         expected_result_sha256=args.expected_result_sha256,
         expected_commit=args.expected_commit, video_path=args.video.resolve(),
         final_jpg_path=args.final_jpg.resolve(), receipt_path=args.receipt.resolve(),
+        video_fps=args.video_fps,
     )
     print(json.dumps({
         "status": receipt["status"],

@@ -16,6 +16,8 @@ class RenderDistalAffineOracleClosedLoopVideoTests(unittest.TestCase):
         self.assertIn("next_state_sha256", source)
         self.assertIn("source frame has striped pixel corruption", source)
         self.assertIn("decoded video fidelity differs", source)
+        self.assertIn("EXACT_CANDIDATE_RESULT_SCHEMA", source)
+        self.assertIn("video_fps", source)
 
 
 if __name__ == "__main__":
