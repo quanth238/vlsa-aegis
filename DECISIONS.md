@@ -1605,3 +1605,6 @@ local search is not supported. Neural training remains unauthorized.
 Visual evidence for job `37337` must use a separate single-context H100 replay.
 It concatenates only the accepted job-`37308` prefix and job-`37337` suffix,
 requires every dynamic-state and obstacle receipt, and cannot alter the NO-GO.
+Initial replay `37349` failed before its first frame on the result schema's
+nested case identity. Reading the frozen `config.primary_case.case_id` is an
+evidence-only apparatus repair.

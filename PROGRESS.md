@@ -58,6 +58,11 @@ all 237 controller-inclusive state hashes and obstacle receipts in one OSMesa
 context, then pass source/decoded frame corruption gates before its MP4/JPG are
 accepted. This cannot change the scientific NO-GO.
 
+Initial replay job `37349` stopped before rendering because the generic reader
+required a redundant top-level `case_id`, while the new result freezes that
+identity under `config.primary_case.case_id`. The evidence-only repair reads
+that validated schema field; it changes no action or scientific artifact.
+
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 
 Active gate `E02` now tests the coordinated action family left open by exact

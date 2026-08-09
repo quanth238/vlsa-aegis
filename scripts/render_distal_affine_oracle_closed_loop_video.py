@@ -125,6 +125,10 @@ def render(
     unsafe_continuation = schema == CONTINUE_RESULT_SCHEMA
     waypoint_candidate = schema == WAYPOINT_RESULT_SCHEMA
     object_refined_suffix = schema == OBJECT_REFINED_SUFFIX_RESULT_SCHEMA
+    accepted_case_id = (
+        accepted.get("config", {}).get("primary_case", {}).get("case_id")
+        if object_refined_suffix else accepted.get("case_id")
+    )
     decision_key = (
         "privileged_object_refined_suffix_e05_go"
         if object_refined_suffix else (
@@ -145,7 +149,7 @@ def render(
             OBJECT_REFINED_SUFFIX_RESULT_SCHEMA,
         )
         and accepted.get("status") in ("method_failure", "complete")
-        and accepted.get("case_id") == CASE_ID
+        and accepted_case_id == CASE_ID
         and (
             accepted.get("decision", {}).get(
                 "continued_after_empty_safe_set"
