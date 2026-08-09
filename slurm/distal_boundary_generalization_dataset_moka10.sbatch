@@ -18,7 +18,7 @@ RUN_ID=${RUN_ID:?RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-boundary-generalization-dataset}
 ARCHIVED_ROOT=${ARCHIVED_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
-CONFIG=$REMOTE_REPO/configs/vlsa_distal_boundary_generalization_moka10.v1.json
+CONFIG=$REMOTE_REPO/configs/vlsa_distal_boundary_generalization_moka10.v2.json
 SELECTED=$REMOTE_REPO/manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl
 GEOMETRY=$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json
 EXACT_BOX=$REMOTE_REPO/configs/vlsa_distal_oracle_exact_box_obstacle_e05.v1.json
@@ -28,7 +28,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "grouped dataset requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" && -d "$ARCHIVED_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "runtime or immutable Table-1 root missing"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 1746aca01e15e15449f8adc3d2eafe8b849279fc871a7ef7abdb195f5c033c9c ]] || die "config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 9108354a127978f1213432eef560ab004b7e8b2d33d3d093bc7aa9483b4fab72 ]] || die "config hash differs"
 [[ "$(sha256sum "$SELECTED" | awk '{print $1}')" == 8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa ]] || die "selected manifest hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID

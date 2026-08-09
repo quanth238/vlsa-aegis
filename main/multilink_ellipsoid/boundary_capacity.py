@@ -616,9 +616,8 @@ def train_boundary_capacity_model(
             create_graph=False,
         )
     predicted_gradient = predicted_gradient_mm.detach().cpu().numpy() / 1000.0
-    active_per_record = (
-        config.get("schema_version")
-        == "vlsa_distal_boundary_generalization_moka10.v1"
+    active_per_record = str(config.get("schema_version", "")).startswith(
+        "vlsa_distal_boundary_generalization_moka10.v"
     )
     critical = int(config["state"]["critical_constraint_index"])
     band = float(config["sampling"]["boundary_band_m"])

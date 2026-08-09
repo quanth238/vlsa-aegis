@@ -17,7 +17,7 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
     def test_registered_split_is_task_group_disjoint_and_e05_is_test_only(self):
         from main.multilink_ellipsoid.boundary_generalization import load_generalization_config, load_selected_manifest
 
-        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v1.json")
+        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v2.json")
         rows = load_selected_manifest(ROOT / "manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl", config)
         by_group = {}
         for row in rows:
@@ -27,11 +27,15 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
         self.assertEqual(sum(row["split"] == "train" for row in rows), 6)
         self.assertEqual(sum(row["split"] == "validation" for row in rows), 1)
         self.assertEqual(sum(row["split"] == "test" for row in rows), 3)
+        self.assertEqual(
+            config["state"]["candidate_state_offsets_from_first_crossing"],
+            [0, -1, -2, -3],
+        )
 
     def test_manifest_hash_and_split_mutations_are_rejected(self):
         from main.multilink_ellipsoid.boundary_generalization import load_generalization_config, load_selected_manifest
 
-        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v1.json")
+        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v2.json")
         source = ROOT / "manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "mutated.jsonl"
@@ -45,7 +49,7 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
     def test_grid_and_worst_row_anchor_selection_are_balanced(self):
         from main.multilink_ellipsoid.boundary_generalization import grid_actions, load_generalization_config, select_balanced_anchors
 
-        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v1.json")
+        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v2.json")
         lower, upper, actions = grid_actions([0.8, -0.8, 0.0], config)
         self.assertEqual(len(actions), 512)
         self.assertTrue(np.allclose(lower, [0.3, -1.0, -0.5]))
@@ -59,6 +63,19 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
         self.assertEqual(len(selected), 32)
         self.assertEqual(sum(min(records[index]["minimum_substep_clearance_m"]) >= 0 for index in selected), 16)
         self.assertEqual(sum(min(records[index]["minimum_substep_clearance_m"]) < 0 for index in selected), 16)
+
+    @unittest.skipUnless(HAS_NUMPY, "NumPy is an allocation dependency")
+    def test_v2_allows_gradient_probes_just_outside_anchor_trust_edge(self):
+        from main.multilink_ellipsoid.boundary_generalization import load_generalization_config, select_balanced_anchors
+
+        config = load_generalization_config(ROOT / "configs/vlsa_distal_boundary_generalization_moka10.v2.json")
+        records = []
+        for index in range(32):
+            margin = 1e-4 if index < 16 else -1e-4
+            minimum = [0.1] * 7; minimum[index % 7] = margin
+            records.append({"grid_index": index, "candidate_xyz": [0.5, 0.0, 0.0], "minimum_substep_clearance_m": minimum})
+        selected = select_balanced_anchors(records, [-0.5] * 3, [0.5] * 3, config)
+        self.assertEqual(len(selected), 32)
 
     def test_two_stage_h100_protocol_and_no_training_dataset_stage(self):
         dataset = (ROOT / "slurm/distal_boundary_generalization_dataset_moka10.sbatch").read_text()

@@ -1534,3 +1534,21 @@ corrected manifest/config hashes are
 `8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa`
 and `1746aca01e15e15449f8adc3d2eafe8b849279fc871a7ef7abdb195f5c033c9c`.
 The partial job wrote no dataset and supports no outcome.
+
+Clean H100 job `37213` completed the full v1 no-training stage in `00:16:30`
+and independently validated a dataset `NO-GO`. Only 3/10 episodes were
+eligible. All ten had exact nominal crossings, but seven first-crossing grids
+lacked 16 finite-difference-eligible safe anchors; E05 had zero safe actions
+at canonical step 186. Dataset/result/validation SHA-256 values are
+`101dadd2c157066bf28fde9a304432a1a1aa12d48890c83c74f7c8d9c2827a54`,
+`318e1d418b0b8b6bc0d6185776aa8b6492ebb906fefa11ccf0d4421dc7b8551b`,
+and `edb5d5e30c21eebaa903ca2e81e04332ee865c3e6d4bc74ab00248bb0fc75f0b`.
+No model is trained and closed-loop E05 remains blocked.
+
+V2 is preregistered from this failure pattern. It searches the first crossing
+and at most three preceding immutable states, choosing the latest exact grid
+with 16 safe and 16 unsafe anchors. QP/anchor actions retain the same trust
+region; only +/-0.02 derivative probes may cross its edge while remaining in
+the global action bounds. All other data, model, split, and decision settings
+are unchanged. The new config SHA-256 is
+`9108354a127978f1213432eef560ab004b7e8b2d33d3d093bc7aa9483b4fab72`.

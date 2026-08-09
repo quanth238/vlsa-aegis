@@ -12,6 +12,7 @@ from .execution_margin_nn import _canonical, _numpy
 
 
 GENERALIZATION_SCHEMA = "vlsa_distal_boundary_generalization_moka10.v1"
+GENERALIZATION_V2_SCHEMA = "vlsa_distal_boundary_generalization_moka10.v2"
 GENERALIZATION_DATASET_SCHEMA = "vlsa_distal_boundary_generalization_moka10_dataset.v1"
 GENERALIZATION_DATASET_RESULT_SCHEMA = "vlsa_distal_boundary_generalization_moka10_dataset_result.v1"
 GENERALIZATION_TRAINING_SCHEMA = "vlsa_distal_boundary_generalization_moka10_training.v1"
@@ -38,9 +39,16 @@ def load_generalization_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("boundary-generalization config keys differ")
-    if config["schema_version"] != GENERALIZATION_SCHEMA:
+    if config["schema_version"] not in {
+        GENERALIZATION_SCHEMA, GENERALIZATION_V2_SCHEMA
+    }:
         raise ValueError("boundary-generalization schema differs")
-    if config["protocol_id"] != "vlsa-distal-boundary-generalization-moka10-v1":
+    expected_protocol = (
+        "vlsa-distal-boundary-generalization-moka10-v2"
+        if config["schema_version"] == GENERALIZATION_V2_SCHEMA
+        else "vlsa-distal-boundary-generalization-moka10-v1"
+    )
+    if config["protocol_id"] != expected_protocol:
         raise ValueError("boundary-generalization protocol differs")
     split = config["split"]
     groups = {
@@ -73,11 +81,19 @@ def load_generalization_config(path: Path) -> dict[str, Any]:
         "require_matching_substep_and_obstacle_witness": True,
     }:
         raise ValueError("boundary-generalization sampling differs")
-    if config["state"] != {
+    expected_state = {
         "search_start_offset_actions": 20,
         "selection": "first_exact_seven_proxy_nominal_crossing_in_registered_window",
         "critical_constraint_index": 0,
-    }:
+    }
+    if config["schema_version"] == GENERALIZATION_V2_SCHEMA:
+        expected_state.update({
+            "candidate_state_offsets_from_first_crossing": [0, -1, -2, -3],
+            "boundary_state_selection": (
+                "latest_state_with_balanced_exact_boundary_grid"
+            ),
+        })
+    if config["state"] != expected_state:
         raise ValueError("boundary-generalization crossing rule differs")
     if config["network"].get("output_count") != 7:
         raise ValueError("boundary-generalization network output differs")
@@ -175,8 +191,18 @@ def select_balanced_anchors(
     eligible = []
     for record in records:
         action = np.asarray(record["candidate_xyz"], dtype=np.float64)
-        if np.any(action - epsilon < lower_array - 1e-12) or np.any(
-            action + epsilon > upper_array + 1e-12
+        probe_lower = (
+            np.full(3, -float(settings["action_limit"]), dtype=np.float64)
+            if config.get("schema_version") == GENERALIZATION_V2_SCHEMA
+            else lower_array
+        )
+        probe_upper = (
+            np.full(3, float(settings["action_limit"]), dtype=np.float64)
+            if config.get("schema_version") == GENERALIZATION_V2_SCHEMA
+            else upper_array
+        )
+        if np.any(action - epsilon < probe_lower - 1e-12) or np.any(
+            action + epsilon > probe_upper + 1e-12
         ):
             continue
         margin = float(min(record["minimum_substep_clearance_m"]))

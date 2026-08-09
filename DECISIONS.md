@@ -1157,3 +1157,17 @@ sequence hashes matched. The corrected value is taken directly from the
 immutable Table-1 `result.json`; all ten selected receipt identities were
 cross-checked before retry. This is provenance repair only and does not alter
 case selection, grouping, actions, labels, or gates.
+
+Clean job `37213` is the accepted v1 dataset decision: training is blocked
+because only 3/10 first-crossing states supplied balanced derivative-eligible
+anchors. This is evidence against first-crossing-only sampling, not against
+the already accepted same-state model capacity.
+
+V2 is a distinct preregistered follow-up rather than a reinterpretation of
+v1. It may select one of the three immediately preceding states when the
+first-crossing grid is unbalanced. It also permits derivative probes, but not
+anchors or QP actions, to extend 0.02 beyond the anchor trust edge while
+remaining inside global action bounds. The grouped split, exact labels,
+network, calibration, projection trust region, and held-out gates remain
+unchanged. Training is still forbidden unless every episode passes the new
+no-training gate.

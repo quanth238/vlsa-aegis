@@ -42,3 +42,17 @@ conservative false-safe candidates, mean active-row gradient cosine at least
 0.8, and a valid seven-row QP whose exact cloned transition has nonnegative
 seven-proxy gaps, zero protected raw contact, and at most 0.1 mm obstacle
 motion. Failure stops the sequence before closed-loop E05.
+
+## V2 boundary-state follow-up
+
+V1 H100 dataset job `37213` passed all provenance and grouping checks but
+authorized no training: only 3/10 first-crossing states had 16 safe and 16
+unsafe finite-difference-eligible anchors. V2 is a new, ordered data gate. It
+keeps every case, split, action trust region, grid, margin band, network,
+calibration, projection, and decision threshold fixed. For each case it tries
+the first crossing and at most the three immediately preceding immutable
+states, selecting the latest state whose exact grid is balanced. Anchor
+actions remain inside the original trust region. Only the +/-0.02 derivative
+probes may cross that trust edge, while remaining inside the global [-1,1]
+action bounds. This directly addresses safe boundary points observed on the
+trust edge without expanding the eventual QP action set.

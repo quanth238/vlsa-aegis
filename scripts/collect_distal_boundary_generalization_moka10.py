@@ -48,6 +48,42 @@ def _canonical_action(item: Mapping[str, Any], step: int) -> Any:
     return action
 
 
+def _snapshot_env(env: Any) -> dict[str, Any]:
+    import numpy as np
+    from main.multilink_ellipsoid.rollout import (
+        _auxiliary_sim_snapshot, _base_env, _controller_snapshot,
+    )
+
+    base = _base_env(env)
+    return {
+        "simulator_state": np.asarray(
+            env.sim.get_state().flatten(), dtype=np.float64
+        ).copy(),
+        "auxiliary": _auxiliary_sim_snapshot(env),
+        "controllers": _controller_snapshot(env),
+        "timestep": int(base.timestep),
+        "cur_time": float(base.cur_time),
+        "done": bool(base.done),
+    }
+
+
+def _restore_env(env: Any, snapshot: Mapping[str, Any]) -> None:
+    from main.multilink_ellipsoid.rollout import (
+        _base_env, _restore_auxiliary_sim_snapshot,
+        _restore_controller_snapshot,
+    )
+
+    base = _base_env(env)
+    env.sim.set_state_from_flattened(snapshot["simulator_state"])
+    _restore_auxiliary_sim_snapshot(env, snapshot["auxiliary"])
+    base.timestep = int(snapshot["timestep"])
+    base.cur_time = float(snapshot["cur_time"])
+    base.done = bool(snapshot["done"])
+    _restore_controller_snapshot(env, snapshot["controllers"])
+    env.sim.forward()
+    _restore_auxiliary_sim_snapshot(env, snapshot["auxiliary"])
+
+
 def _transition_record(
     *, record_index: int, case_row: Mapping[str, Any], source: str,
     group_id: str, grid_index: Optional[int], anchor_grid_index: Optional[int],
@@ -197,11 +233,11 @@ def collect(
             search_start = max(0, collision_step - int(config["state"]["search_start_offset_actions"]))
             for step in range(search_start):
                 env.step(_canonical_action(actions[step], step).tolist())
-            selected_step = None
-            selected_nominal = None
-            selected_transition = None
+            crossing_step = None
             searched = []
+            state_snapshots = {}
             for step in range(search_start, collision_step + 1):
+                state_snapshots[step] = _snapshot_env(env)
                 nominal = _canonical_action(actions[step], step)
                 transition = probe.transition(env, nominal)
                 start_gap = np.asarray(transition["substeps"][0]["clearance_m"][:7], dtype=np.float64)
@@ -209,10 +245,10 @@ def collect(
                 crossing = bool(np.all(start_gap >= 0.0) and np.any(minimum < 0.0))
                 searched.append({"step": step, "minimum_start_m": float(np.min(start_gap)), "minimum_interval_m": float(np.min(minimum)), "crossing": crossing})
                 if crossing:
-                    selected_step, selected_nominal, selected_transition = step, nominal, transition
+                    crossing_step = step
                     break
                 env.step(nominal.tolist())
-            if selected_step is None:
+            if crossing_step is None:
                 episode_results.append({
                     "case_id": case_id, "split": selected_row["split"],
                     "task_level_group_id": selected_row["task_level_group_id"],
@@ -220,31 +256,84 @@ def collect(
                     "search": searched,
                 })
                 continue
-            nominal = selected_nominal
-            lower, upper, candidates = grid_actions(nominal[:3], config)
+            state_offsets = config["state"].get(
+                "candidate_state_offsets_from_first_crossing", [0]
+            )
+            selected_step = None
+            selected_transition = None
+            nominal = None
             grid_records = []
-            for grid_index, xyz in enumerate(candidates):
-                action = nominal.copy(); action[:3] = xyz
-                record = _transition_record(
-                    record_index=len(all_records) + len(grid_records), case_row=selected_row,
-                    source="grid", group_id="%s::grid_%04d" % (case_id, grid_index),
-                    grid_index=grid_index, anchor_grid_index=None, probe_dimension=None,
-                    probe_sign=None, nominal=nominal, candidate_xyz=xyz,
-                    transition=probe.transition(env, action), band_m=band,
+            anchors = []
+            boundary_state_search = []
+            last_error = "no_registered_boundary_state"
+            for state_offset in state_offsets:
+                candidate_step = crossing_step + int(state_offset)
+                if candidate_step < search_start or candidate_step not in state_snapshots:
+                    continue
+                _restore_env(env, state_snapshots[candidate_step])
+                candidate_nominal = _canonical_action(
+                    actions[candidate_step], candidate_step
                 )
-                grid_records.append(record)
-            try:
-                anchors = select_balanced_anchors(grid_records, lower, upper, config)
-            except ValueError as error:
+                candidate_transition = probe.transition(env, candidate_nominal)
+                lower, upper, candidates = grid_actions(
+                    candidate_nominal[:3], config
+                )
+                candidate_records = []
+                for grid_index, xyz in enumerate(candidates):
+                    action = candidate_nominal.copy(); action[:3] = xyz
+                    candidate_records.append(_transition_record(
+                        record_index=len(all_records) + len(candidate_records),
+                        case_row=selected_row, source="grid",
+                        group_id="%s::grid_%04d" % (case_id, grid_index),
+                        grid_index=grid_index, anchor_grid_index=None,
+                        probe_dimension=None, probe_sign=None,
+                        nominal=candidate_nominal, candidate_xyz=xyz,
+                        transition=probe.transition(env, action), band_m=band,
+                    ))
+                counts = {
+                    name: sum(r["category"] == name for r in candidate_records)
+                    for name in (
+                        "boundary_safe", "boundary_unsafe",
+                        "far_safe", "far_unsafe",
+                    )
+                }
+                try:
+                    candidate_anchors = select_balanced_anchors(
+                        candidate_records, lower, upper, config
+                    )
+                    candidate_error = None
+                except ValueError as error:
+                    candidate_anchors = []
+                    candidate_error = str(error)
+                    last_error = candidate_error
+                boundary_state_search.append({
+                    "state_offset_from_first_crossing": int(state_offset),
+                    "state_step": candidate_step,
+                    "grid_category_counts": counts,
+                    "balanced_anchor_gate_pass": bool(candidate_anchors),
+                    "reason": candidate_error,
+                })
+                if candidate_anchors:
+                    selected_step = candidate_step
+                    selected_transition = candidate_transition
+                    nominal = candidate_nominal
+                    grid_records = candidate_records
+                    anchors = candidate_anchors
+                    break
+                grid_records = candidate_records
+            if selected_step is None:
                 episode_results.append({
                     "case_id": case_id, "split": selected_row["split"],
                     "task_level_group_id": selected_row["task_level_group_id"],
-                    "eligible": False, "reason": str(error), "selected_step": selected_step,
+                    "eligible": False, "reason": last_error,
+                    "first_crossing_step": crossing_step,
                     "search": searched,
+                    "boundary_state_search": boundary_state_search,
                     "grid_category_counts": {name: sum(r["category"] == name for r in grid_records) for name in ("boundary_safe", "boundary_unsafe", "far_safe", "far_unsafe")},
                 })
                 all_records.extend(grid_records)
                 continue
+            _restore_env(env, state_snapshots[selected_step])
             grid_by_index = {int(item["grid_index"]): item for item in grid_records}
             probes: dict[tuple[int, int, int], dict[str, Any]] = {}
             episode_records = list(grid_records)
@@ -296,10 +385,13 @@ def collect(
                 "task_level_group_id": selected_row["task_level_group_id"],
                 "eligible": bool(stable_active > 0),
                 "reason": None if stable_active > 0 else "no_stable_active_gradient_anchor",
+                "first_crossing_step": crossing_step,
                 "selected_step": selected_step,
                 "nominal_action": nominal.tolist(),
                 "nominal_minimum_substep_clearance_m": list(selected_transition["minimum_substep_clearance_m"][:7]),
-                "search": searched, "grid_category_counts": counts,
+                "search": searched,
+                "boundary_state_search": boundary_state_search,
+                "grid_category_counts": counts,
                 "gradient_anchor_count": len(anchors),
                 "stable_active_gradient_anchor_count": stable_active,
                 "record_count": len(episode_records),
