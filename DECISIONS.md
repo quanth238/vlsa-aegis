@@ -1504,3 +1504,10 @@ violations, raw contacts, and CAR are measured but do not terminate execution.
 Because an empty safe set is knowingly bypassed, `safety_success` is always
 false. The arm answers only whether continuing restores task completion and
 when physical collision occurs.
+
+Clean H100 job `37301` executed the full suffix and validated the answer:
+proxy violation and protected L5 contact began at action 188, paper CAR began
+at 189, maximum obstacle displacement reached `24.554 mm`, and the task still
+had no predicate progress after action 236. Removing the stop therefore
+converts the safe NO-GO into collision without recovering task success. A
+single-context 20 fps replay is required for the final visual evidence.

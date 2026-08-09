@@ -1978,3 +1978,22 @@ This is explicitly unsafe continuation evidence, never safety success. The
 frozen protocol is
 `docs/distal_exact_candidate_continue_e05_preregistration.md`; config SHA-256
 is `f1cec8e8479be6b71f54e2239cbf1c21a5054be40aaa610753e469e42c6386c2`.
+
+Clean H100 job `37301` completed on `worker-1` in 44 seconds and independently
+validated the full 237-action continuation. The prefix reproduced all 187
+dynamic-state hashes and obstacle displacements exactly. With the safety
+filter disabled, the first actual proxy violation and protected L5 contact
+both occurred at action 188; paper CAR followed at 189. Maximum obstacle
+displacement reached `24.554 mm`, and the minimum L5--L7 proxy gap reached
+`-16.793 mm`. The plan exhausted at action 236 with zero native predicate
+progress and no task success.
+
+Result/validation/preflight SHA-256 values are
+`c63cb1e339ad5eff9b53a35919fa4aa37adbc64682d69a877bff94a1db8c96e3`,
+`2267654ee64509f3889582111883f1fe3a3ab603719b9ebfffc6f70fab976c7b`,
+and `37e1fb93cad4212cbca692ee38cbad75c635e7dfc1db17eb47bf72f59ad5da43`;
+result payload SHA-256 is
+`168d497959a119247cd9273b7d63a1d800e3686ec89d8a700ea2457bbc9e31b0`.
+Thus removing the stop neither restores task completion nor preserves safety.
+The full 238-frame single-context replay is preregistered at the simulator's
+native 20 Hz action rate, not the earlier presentation-only 10 fps.

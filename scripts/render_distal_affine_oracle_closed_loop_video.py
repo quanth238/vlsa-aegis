@@ -16,6 +16,9 @@ from main.multilink_ellipsoid.oracle_affine_closed_loop import (
 from main.multilink_ellipsoid.exact_candidate_closed_loop import (
     EXACT_CANDIDATE_RESULT_SCHEMA,
 )
+from main.multilink_ellipsoid.exact_candidate_continue import (
+    CONTINUE_RESULT_SCHEMA,
+)
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write, _file_sha256, _git_identity, _load, _require,
 )
@@ -112,6 +115,7 @@ def render(
     accepted = _load(accepted_result_path)
     schema = accepted.get("schema_version")
     exact_candidate = schema == EXACT_CANDIDATE_RESULT_SCHEMA
+    unsafe_continuation = schema == CONTINUE_RESULT_SCHEMA
     decision_key = (
         "privileged_exact_candidate_closed_loop_e05_go"
         if exact_candidate else "privileged_closed_loop_e05_go"
@@ -121,17 +125,28 @@ def render(
         and schema in (
             ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
             EXACT_CANDIDATE_RESULT_SCHEMA,
+            CONTINUE_RESULT_SCHEMA,
         )
-        and accepted.get("status") == "method_failure"
+        and accepted.get("status") in ("method_failure", "complete")
         and accepted.get("case_id") == CASE_ID
-        and accepted.get("decision", {}).get(decision_key) is False,
+        and (
+            accepted.get("decision", {}).get(
+                "continued_after_empty_safe_set"
+            ) is True
+            if unsafe_continuation
+            else accepted.get("decision", {}).get(decision_key) is False
+        ),
         "accepted closed-loop result differs",
     )
     actions = [
         item for item in accepted.get("actions", []) if item.get("executed") is True
     ]
+    expected_action_count = (
+        accepted["continuation"]["total_executed_action_count"]
+        if unsafe_continuation else accepted["closed_loop"]["action_count"]
+    )
     _require(
-        len(actions) == accepted["closed_loop"]["action_count"]
+        len(actions) == expected_action_count
         and len(actions) > 0
         and [int(item["step"]) for item in actions] == list(range(len(actions))),
         "accepted closed-loop action ledger differs",
@@ -243,9 +258,12 @@ def render(
     )
     receipt = {
         "schema_version": (
-            "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
-            if exact_candidate
-            else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+            "vlsa_distal_exact_candidate_continue_e05_video.v1"
+            if unsafe_continuation else (
+                "vlsa_distal_exact_candidate_closed_loop_e05_video.v1"
+                if exact_candidate
+                else "vlsa_distal_affine_oracle_closed_loop_video.v1"
+            )
         ),
         "status": "verified",
         "scientific_result": False,
@@ -266,11 +284,15 @@ def render(
                 maximum_obstacle_displacement_error
             ),
             "native_task_success": bool(
-                accepted["closed_loop"]["native_task_success"]
+                accepted[
+                    "continuation" if unsafe_continuation else "closed_loop"
+                ]["native_task_success"]
             ),
             "stopped_before_action": (
-                accepted["closed_loop"].get("failure", {}).get("step")
-                if accepted["closed_loop"].get("failure") else None
+                None if unsafe_continuation else (
+                    accepted["closed_loop"].get("failure", {}).get("step")
+                    if accepted["closed_loop"].get("failure") else None
+                )
             ),
         },
         "source_frame_maximum_adjacent_pixel_mad": max(
