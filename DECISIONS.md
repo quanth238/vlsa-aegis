@@ -1121,3 +1121,24 @@ same-state local capacity for the execution-aware surrogate. It does not
 accept generalization or closed-loop efficacy, and it does not show that
 explicit gradient supervision is necessary because the margin-only arm also
 passed with nearly identical accuracy and exact safety.
+
+# ADR-0059: Require task-group generalization before neural closed-loop E05
+
+**Status:** Preregistered; allocation evidence pending (2026-08-09).
+
+The action-188 result establishes local representational capacity only. The
+next experiment therefore freezes complete episode and task-level groups
+before collecting any new labels. Primary E05 and its selected `goal-II-t0`
+siblings are test-only. Training uses two different task groups; calibration
+uses a third unseen task group. Outcome-conditioned episodes with protected
+contact already present after settling are excluded because they cannot
+provide a recoverable safe-to-unsafe transition.
+
+The no-training gate requires an exact recoverable crossing and balanced
+boundary supervision in every selected episode. The learned decision uses the
+physically active minimum-clearance row per record rather than a fixed E05
+row. Closed-loop E05 is ordered after, and conditional on, every held-out
+episode passing model accuracy, zero conservative false-safe, active-gradient,
+seven-row QP, and exact cloned OSC verification. This preserves the distinction
+between one-step grouped generalization and later causal closed-loop task
+completion.

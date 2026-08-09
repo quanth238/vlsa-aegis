@@ -616,6 +616,10 @@ def train_boundary_capacity_model(
             create_graph=False,
         )
     predicted_gradient = predicted_gradient_mm.detach().cpu().numpy() / 1000.0
+    active_per_record = (
+        config.get("schema_version")
+        == "vlsa_distal_boundary_generalization_moka10.v1"
+    )
     critical = int(config["state"]["critical_constraint_index"])
     band = float(config["sampling"]["boundary_band_m"])
 
@@ -625,28 +629,60 @@ def train_boundary_capacity_model(
         conservative = lower_margin[mask]
         baseline = arrays["current"][mask]
         false_safe = np.logical_and(conservative >= 0.0, actual < 0.0)
-        boundary = np.abs(actual[:, critical]) <= band
+        active_indexes = np.argmin(actual, axis=1)
+        active_actual = actual[np.arange(len(actual)), active_indexes]
+        boundary = (
+            np.abs(active_actual) <= band
+            if active_per_record
+            else np.abs(actual[:, critical]) <= band
+        )
         if not np.any(boundary):
             raise ValueError("boundary-capacity metric split lacks boundary samples")
+        valid_values = arrays["gradient_valid"][mask]
         gradient_rows = np.logical_and(
-            arrays["gradient_valid"][mask, critical], boundary
+            valid_values[np.arange(len(valid_values)), active_indexes]
+            if active_per_record
+            else valid_values[:, critical],
+            boundary,
         )
         cosines = []
         if np.any(gradient_rows):
-            target = arrays["gradients_m_per_action"][mask, critical][gradient_rows]
-            estimate = predicted_gradient[mask, critical][gradient_rows]
+            target_values = arrays["gradients_m_per_action"][mask]
+            estimate_values = predicted_gradient[mask]
+            if active_per_record:
+                target = target_values[
+                    np.arange(len(target_values)), active_indexes
+                ][gradient_rows]
+                estimate = estimate_values[
+                    np.arange(len(estimate_values)), active_indexes
+                ][gradient_rows]
+            else:
+                target = target_values[:, critical][gradient_rows]
+                estimate = estimate_values[:, critical][gradient_rows]
             for left, right in zip(target, estimate):
                 denominator = float(np.linalg.norm(left) * np.linalg.norm(right))
                 if denominator > 1.0e-12:
                     cosines.append(float(np.dot(left, right) / denominator))
         boundary_error = predicted[boundary] - actual[boundary]
         boundary_baseline_error = baseline[boundary] - actual[boundary]
-        critical_boundary_error = (
-            predicted[boundary, critical] - actual[boundary, critical]
-        )
-        critical_boundary_baseline_error = (
-            baseline[boundary, critical] - actual[boundary, critical]
-        )
+        if active_per_record:
+            row_indexes = active_indexes[boundary]
+            sample_indexes = np.arange(len(actual))[boundary]
+            critical_boundary_error = (
+                predicted[sample_indexes, row_indexes]
+                - actual[sample_indexes, row_indexes]
+            )
+            critical_boundary_baseline_error = (
+                baseline[sample_indexes, row_indexes]
+                - actual[sample_indexes, row_indexes]
+            )
+        else:
+            critical_boundary_error = (
+                predicted[boundary, critical] - actual[boundary, critical]
+            )
+            critical_boundary_baseline_error = (
+                baseline[boundary, critical] - actual[boundary, critical]
+            )
         return {
             "sample_count": int(np.count_nonzero(mask)),
             "boundary_sample_count": int(np.count_nonzero(boundary)),
@@ -671,6 +707,7 @@ def train_boundary_capacity_model(
             "critical_gradient_cosine_minimum": (
                 None if not cosines else float(np.min(cosines))
             ),
+            "active_row_per_record": active_per_record,
             "minimum_actual_margin_m": float(np.min(actual)),
             "minimum_conservative_margin_m": float(np.min(conservative)),
         }

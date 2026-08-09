@@ -1490,3 +1490,27 @@ task completion are not yet tested. The exact next work is to preregister
 recoverable boundary-state collection across complete task/episode groups.
 The exact audit command is:
 `jq '{decision,baseline:.immutable_nominal_data_baseline,arms:(.arms|with_entries(.value={test:.value.training.split_metrics.test,projection:.value.decision,exact_minimum_m:.value.primary_projection.projected_exact_transition.minimum_substep_clearance_m,raw_contacts:.value.primary_projection.projected_exact_transition.raw_protected_contact_count,obstacle_motion_m:.value.primary_projection.projected_exact_transition.maximum_within_step_obstacle_l1_displacement_m}))}' /mnt/data/quanth/experiments/vlsa-distal-boundary-capacity-e05/boundary-mlp-20260809a/result.json`.
+
+# 2026-08-09: grouped multi-task boundary generalization preregistered
+
+The next ordered E02 gate is implemented in
+`docs/distal_boundary_generalization_preregistration.md`. The selected
+outcome-conditioned moka-pot pilot excludes episodes with protected contact
+already present after settling. It assigns six complete episodes from two
+task groups to training, one episode from an unseen task group to validation,
+and the complete selected `goal-II-t0` group of three episodes to test. E05
+is test-only and cannot enter training or calibration.
+
+Every case first searches its registered pre-collision window for an exact
+recoverable seven-proxy crossing. The no-training H100 stage then collects a
+512-action trust-region grid, 32 balanced boundary anchors, and 192
+witness-audited finite-difference probes per eligible episode. A validator
+checks complete episode/task grouping and must authorize training. The paired
+H100 stage evaluates every held-out episode with active-row RMSE, conservative
+false-safe, gradient, valid seven-row QP, and exact proxy/raw cloned-transition
+gates. Closed-loop E05 is blocked unless the gradient arm passes all held-out
+episode gates. Completed Table-1 artifacts remain read-only.
+
+No H100 result exists yet. The exact next command after syncing the clean
+commit is:
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=boundary-gen-data-20260809a slurm/distal_boundary_generalization_dataset_moka10.sbatch`.

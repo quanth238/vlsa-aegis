@@ -1,0 +1,83 @@
+{
+  "schema_version": "vlsa_distal_boundary_generalization_moka10.v1",
+  "protocol_id": "vlsa-distal-boundary-generalization-moka10-v1",
+  "claim_scope": "outcome_conditioned_moka_pot_grouped_episode_and_task_boundary_generalization_pilot_not_unbiased_population_efficacy_not_formal_safety_certificate",
+  "source_population_manifest_sha256": "af5f9bee795d73906ee023545be85c809debe0beffad972574ac08aa43c028a2",
+  "selected_manifest_sha256": "9143bcc94cd5d6472c8a1d0f099b3c242e9d8165ee73b00f53e4a049eb368fb9",
+  "table1_population_run_id": "vlsa-table1-contact-authority-population-20260718a",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "train_task_groups": ["vlsa-t1-goal-ii-t2", "vlsa-t1-spatial-i-t1"],
+    "validation_task_groups": ["vlsa-t1-goal-ii-t3"],
+    "test_task_groups": ["vlsa-t1-goal-ii-t0"],
+    "primary_e05_use": "test_only_never_training_or_calibration"
+  },
+  "state": {
+    "search_start_offset_actions": 20,
+    "selection": "first_exact_seven_proxy_nominal_crossing_in_registered_window",
+    "critical_constraint_index": 0
+  },
+  "sampling": {
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "grid_points_per_dimension": 8,
+    "expected_grid_action_count": 512,
+    "boundary_band_m": 0.005,
+    "gradient_anchor_count": 32,
+    "gradient_anchor_safe_count": 16,
+    "gradient_anchor_unsafe_count": 16,
+    "finite_difference_epsilon_action": 0.02,
+    "expected_gradient_probe_count_per_episode": 192,
+    "require_matching_substep_and_obstacle_witness": true
+  },
+  "features": {
+    "source": "same_33_features_as_execution_margin_v2",
+    "normalization": "training_episode_records_only_mean_and_standard_deviation_with_1e-6_floor"
+  },
+  "network": {
+    "hidden_widths": [128, 128],
+    "hidden_activation": "silu",
+    "output_activation": "softplus_nonnegative_clearance_loss_mm",
+    "output_count": 7
+  },
+  "training": {
+    "arms": ["boundary_margin", "boundary_margin_gradient"],
+    "batching": "deterministic_full_batch",
+    "device": "cuda",
+    "epochs": 3000,
+    "gradient_loss_weight": 1.0,
+    "gradient_normalization": "training_valid_gradient_global_rms_with_1mm_per_action_floor",
+    "huber_delta_mm": 1.0,
+    "learning_rate": 0.001,
+    "margin_category_target_fractions": {"boundary_safe": 0.5, "boundary_unsafe": 0.5},
+    "patience": 300,
+    "seed": 20260809,
+    "weight_decay": 0.000001
+  },
+  "calibration": {
+    "method": "per_constraint_maximum_validation_episode_overprediction_plus_fixed_padding",
+    "fixed_padding_m": 0.001
+  },
+  "projection": {
+    "action_limit": 1.0,
+    "activation_warning_m": 0.008,
+    "bound_tolerance_action": 0.00000005,
+    "clearance_target_m": 0.0,
+    "eps_abs": 0.0000001,
+    "eps_rel": 0.0000001,
+    "max_iter": 10000,
+    "maximum_linearization_iterations": 3,
+    "residual_tolerance": 0.0000005,
+    "trust_region_linf_action": 0.5
+  },
+  "decision_gate": {
+    "dataset": "every_episode_has_recoverable_crossing_balanced_boundary_and_stable_active_gradient",
+    "test_active_boundary_rmse": "strictly_below_current_clearance_baseline_for_every_test_episode",
+    "conservative_false_safe_candidate_count": 0,
+    "active_gradient_cosine_similarity_minimum": 0.8,
+    "projection": "valid_seven_row_QP_and_exact_proxy_raw_safe_cloned_transition_for_every_test_episode",
+    "closed_loop_authorization": "gradient_arm_passes_all_grouped_test_gates"
+  }
+}
