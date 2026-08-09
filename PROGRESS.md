@@ -1776,3 +1776,37 @@ registered first-crossing probe plus snapshot/restore path, not a bare direct
 action-index replay. The next repair reconstructs that exact collector path,
 requires the same first crossing and selected snapshot, and keeps the strict
 `1e-8` m recorded receipt. The scientific protocol remains unchanged.
+
+Clean H100 job `37280` ran on `worker-1` for `00:01:42` from commit
+`118b50cef92defda7b38040b65968e22e46e11e8` and independently validated
+`representation_go=true`. Every registered case had exact proxy/raw-safe grid
+actions, a complete seven-row sampled-grid lower-envelope certificate, a valid
+minimum-deviation QP, and a fresh exact two-step rollout with all eight proxy
+rows nonnegative, zero protected contact, and zero obstacle motion:
+
+| Case | safe grid actions | QP correction L2 | exact distal minimum | exact EE minimum |
+| --- | ---: | ---: | ---: | ---: |
+| E05 | 120/512 | 0.38320 | 0.736 mm | 8.439 mm |
+| E10 | 125/512 | 0.36018 | 0.505 mm | 27.612 mm |
+| E15 | 283/512 | 0.09113 | 0.826 mm | 13.172 mm |
+
+All sampled-grid false-safe counts were zero and maximum affine overbound was
+at numerical roundoff (`<=4.12e-18` m). The QP supplied seven input rows in
+every case and total solve-path time was 1.829--7.805 ms. Exact reconstructed
+crossing/state receipts matched with zero recorded clearance difference.
+
+This privileged result establishes representation feasibility only: a single
+state-conditioned affine safe set can express an exactly safe correction for
+the registered two-step states. It does not show that a neural model can infer
+the coefficients on unseen states. Per the frozen gate, only grouped
+state-to-affine-coefficient target collection is authorized; neural training,
+closed-loop E05, task efficacy, and formal safety remain unauthorized.
+
+Result/validation/preflight SHA-256 values are
+`087ba3e236c5f6cab986445c278ef4945aedfe760ae8855e4ea9a81093200d74`,
+`df2ba2dc1813c9880183e28fad56350b8208a80d946d9ab2d2c9a68cdbabac64`, and
+`efc9b1aa143abfbf639cbc62c8d9addf2e52fc6bdd2ec5bb3518be5ff888d345`;
+result payload SHA-256 is
+`ce02d87417d8bcc56d80263a928122149e1c88188b02b7f8372b062efa0a83ff`.
+The exact next audit command is:
+`jq '{decision,cases:(.case_results|with_entries(.value={state_step:.value.state_step,certificate:.value.certificate,qp:.value.qp,exact:.value.exact_two_step_verification,pass:.value.case_gate_pass}))}' /mnt/data/quanth/experiments/vlsa-distal-two-step-oracle-affine-safe-set/two-step-affine-oracle-20260809c/result.json`.

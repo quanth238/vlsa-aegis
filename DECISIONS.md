@@ -1325,7 +1325,7 @@ same model longer or relax the gate post hoc.
 
 # ADR-0063: Test the affine safe-set representation with a privileged oracle
 
-**Status:** Preregistered; allocation evidence pending (2026-08-09).
+**Status:** Decided; representation GO, coefficient collection authorized (2026-08-09).
 
 Job `37270` shows that exact two-step safe actions exist in every selected
 episode, while job `37273` shows that the residual MLP's unseen-state values
@@ -1360,3 +1360,16 @@ the receipt is not relaxed. The verifier must reproduce the dataset
 collector's first-crossing probes and controller-inclusive snapshot/restore
 before evaluating the QP action. It must match both the recorded crossing step
 and selected-state clearance within the existing `1e-8` m receipt.
+
+Clean H100 job `37280` reconstructed every registered crossing/state exactly
+and passed independent validation. E05/E10/E15 each admitted a seven-row
+affine certificate and valid QP whose fresh exact two-step distal minimum was
+0.736/0.505/0.826 mm. The unchanged released-AEGIS EE proxy retained
+8.439/27.612/13.172 mm; raw contact and obstacle motion were zero. Therefore
+the QP representation is not the limiting mechanism observed in job `37273`.
+
+The next research object is a state-conditioned predictor for these oracle
+affine coefficients and a conditional conservative residual, trained on many
+distinct state groups rather than dense actions from only a few states. The
+current GO authorizes target collection only. A separately validated grouped
+dataset is required before training, and closed-loop E05 remains a later gate.
