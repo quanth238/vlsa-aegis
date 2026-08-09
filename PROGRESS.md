@@ -17,8 +17,8 @@ freshly rolled through the exact OSC and deduplicated. All eight L5--L7/EE
 proxy rows, raw contact, obstacle motion, and clone/execution equality remain
 hard gates. This is a privileged suffix-existence test, not a QP, learned
 model, deployable method, or whole-body claim. The protocol is frozen in
-`docs/distal_object_refined_suffix_e05_preregistration.md`; no H100 outcome has
-run and neural training remains blocked.
+`docs/distal_object_refined_suffix_e05_preregistration.md`; neural training
+remains blocked.
 
 Initial H100 attempt `37333` passed allocation preflight but stopped during the
 prefix receipt before suffix search. The harness hashed only the flattened
@@ -29,6 +29,28 @@ measurement path; no action, search, safety gate, or decision threshold changes.
 Retry `37335` was rejected by source-identity preflight in one second because
 the submitted expanded commit hash was mistyped. It ran no Python or simulation
 and is retained as a submission apparatus failure.
+
+Clean H100 job `37337` completed in `00:05:39` and independently validated a
+scientific NO-GO. The complete 230-action prefix matched the accepted dynamic
+state hashes. All seven suffix actions then executed with three interventions,
+702 exact candidates, all eight substep margins nonnegative, zero protected
+contact, zero paper CAR, and exact clone/execution agreement. Combined minimum
+distal/EE margins were `0.303/1.180 mm`.
+
+Object-aware refinement was directionally useful but insufficient. It reduced
+the bowl-to-plate XY center error from `92.1 mm` at the action-230 state to
+`66.5 mm`, compared with `83.5 mm` for the coarse job-`37308` endpoint, and
+reduced vertical offset from `31.2 mm` to `5.4 mm`. The native placement
+predicate nevertheless never became true. The three searches took `270.154 s`
+total (`113.952 s` maximum) and selected candidates still had terminal
+object-reference errors of `58.8--63.2 mm`. This rejects late seven-action,
+first-action-only local refinement as a complete E05 solution; it supports
+moving object-conditioned task proposals earlier in the trajectory, not simply
+adding more local candidates at the terminal suffix. Result/payload/validation
+SHA-256 values are
+`ada5dab210675b3d8ebcdb6e3f7f1eb978899fb6f4770679db902b4d898b7c52`,
+`08046dd91488d197869959c0c36e81c573a44ea146b080267cd6b5e964189183`,
+and `5abda7c6af22d795654c35e6e54b4953f2f5da8a32ebc936969b50866121e832`.
 
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 

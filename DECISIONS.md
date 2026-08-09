@@ -1589,3 +1589,15 @@ setting.
 Retry `37335` was rejected by the clean-source preflight before Python startup
 because the submission supplied an incorrectly expanded commit hash. It is a
 submission-only apparatus failure with no effect on the registered protocol.
+
+Clean H100 job `37337` validated the registered suffix as NO-GO. Its 230-action
+prefix and all seven suffix executions matched exact state receipts; all eight
+proxy margins, raw contact, and CAR gates passed. Three object-aware searches
+evaluated 702 candidates and improved terminal bowl-to-plate XY error from
+`92.1 mm` at the suffix start to `66.5 mm`, but native task success remained
+false. Thus object-aware ranking helps placement relative to future-EE-only
+ranking, but beginning at action 230 and refining only the first action of each
+short chunk cannot recover enough task precision. The next justified arm must
+introduce object-conditioned proposals earlier (for example live pi0.5
+replanning with exact safety verification); merely densifying this terminal
+local search is not supported. Neural training remains unauthorized.
