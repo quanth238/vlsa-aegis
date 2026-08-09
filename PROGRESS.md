@@ -1731,3 +1731,31 @@ Paired training/result/validation SHA-256 values are
 `2bbc7401a8e7a2550089c234ad316d416eb17994593b714e7206cb1b715d93d8`.
 The exact next audit command is:
 `jq '{decision,test_case_ids,arms:(.arms|with_entries(.value={decision:.value.decision,held_out_exact_projections:.value.held_out_exact_projections})),closed_loop_e05}' /mnt/data/quanth/experiments/vlsa-distal-two-step-margin/two-step-mlp-20260809a/result.json`.
+
+# 2026-08-09: oracle affine safe-set representation test preregistered
+
+The job-37270 exact grid and job-37273 learned-gradient NO-GO motivate a
+representation gate before any additional training. The frozen protocol in
+`docs/distal_two_step_oracle_affine_safe_set_preregistration.md` reuses only
+the 512 exact grid records at each held-out E05/E10/E15 state. It does not
+recollect Table 1 or use the learned models.
+
+For each exact proxy/raw-safe grid candidate, ordered by correction magnitude
+and immutable grid index, seven independent LPs search for minimum-L1-gradient
+affine functions that stay at least 1 micrometre below every sampled exact
+two-step margin and certify that candidate. The first complete seven-row
+certificate enters one bounded minimum-deviation QP. A fresh cloned rollout
+then measures both real OSC transitions and all MuJoCo substeps. Passing
+requires all seven distal margins, the unchanged released-AEGIS EE proxy,
+raw protected contact, and the 0.1 mm obstacle-motion authority to pass in all
+three cases.
+
+This is privileged per-state representation feasibility, not state
+generalization or closed-loop efficacy. A complete GO authorizes collection
+of state-to-affine-coefficient targets under a later independent data gate;
+neural training and closed-loop E05 remain unauthorized. A failure rejects
+only this registered single-affine sampled-grid construction, not piecewise or
+nonlinear safe sets. Config SHA-256 is
+`fd380f28b8c6611e2d1e11181604f10b42e3363e74641f773880a9654c66eba0`.
+The exact next command after a clean commit, remote sync, and live preflight is:
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=two-step-affine-oracle-20260809a slurm/distal_two_step_oracle_affine_safe_set.sbatch`.

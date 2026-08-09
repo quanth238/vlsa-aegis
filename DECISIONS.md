@@ -1322,3 +1322,29 @@ calibration plus local-gradient QP does not reproduce the two-step oracle on
 unseen state groups. Any follow-up must be separately preregistered and target
 conditional uncertainty/gradient generalization rather than merely train the
 same model longer or relax the gate post hoc.
+
+# ADR-0063: Test the affine safe-set representation with a privileged oracle
+
+**Status:** Preregistered; allocation evidence pending (2026-08-09).
+
+Job `37270` shows that exact two-step safe actions exist in every selected
+episode, while job `37273` shows that the residual MLP's unseen-state values
+are useful but its gradients and global calibration make all held-out QPs
+infeasible. Before collecting more states or training a different network, the
+next gate isolates whether one seven-row affine safe set is expressive enough.
+
+The oracle uses the immutable 512-action exact grids for held-out E05/E10/E15.
+For each candidate, every row is a minimum-L1-gradient affine lower envelope
+over the complete sampled grid with 1 micrometre one-sided padding. Candidates
+are tried in a fixed minimum-correction/index order. The resulting seven rows
+must make the ordinary bounded QP valid, and the QP's own continuous solution
+must pass a fresh two-step exact OSC rollout. The original released-AEGIS EE
+proxy is retained as an exact eighth-row outcome gate rather than learned or
+reinterpreted.
+
+All three cases must pass for `representation_go=true`. That outcome only
+authorizes a new grouped state-to-coefficient dataset gate. It does not
+authorize a neural model, closed-loop E05, or a safety claim. A failure is a
+NO-GO for this registered single-affine sampled-grid construction; it does not
+exclude piecewise-affine or nonlinear safe sets. This ordering prevents a
+larger model or relaxed calibration from hiding a representation failure.

@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_two_step_oracle_affine_safe_set_moka_test.v1",
+  "protocol_id": "vlsa-distal-two-step-oracle-affine-safe-set-moka-test-v1",
+  "claim_scope": "privileged_per_state_representation_feasibility_for_seven_L5_L7_two_step_constraints_not_learned_generalization_not_closed_loop_efficacy_not_formal_safety",
+  "source_dataset": {
+    "dataset_file_sha256": "475913f1f42f26ed5cfc2a3424632ea7c8409986b9db0467e60157c85bb35fe3",
+    "dataset_result_file_sha256": "304383acd57d3ba8108007677c7c46ee3a8b65fe0981e4df69e7a9a75d9b4268",
+    "dataset_validation_file_sha256": "7cb255ed5ac1239ac6ac9129cc30bd4e8e26e7479825c0913523744d6f9b51c8",
+    "dataset_source_commit": "f7fe5ab571174b9dd8f766c06bab3c1cea912ac4",
+    "expected_grid_count_per_case": 512,
+    "use_records": "source_equals_grid_only"
+  },
+  "test_case_ids": [
+    "vlsa-t1-goal-ii-t0-e05",
+    "vlsa-t1-goal-ii-t0-e10",
+    "vlsa-t1-goal-ii-t0-e15"
+  ],
+  "constraint_order": [
+    "L5_part_0",
+    "L5_part_1",
+    "L5_part_2",
+    "L6_part_0",
+    "L6_part_1",
+    "L7_part_0",
+    "L7_part_1"
+  ],
+  "affine_certificate": {
+    "candidate_order": "exact_safe_then_l2_from_nominal_then_grid_index",
+    "fit": "candidate_conditioned_minimum_l1_sampled_grid_lower_envelope",
+    "one_sided_padding_m": 1e-06,
+    "target_clearance_m": 0.0,
+    "coefficient_postcheck_tolerance_m": 1e-08,
+    "candidate_requires_distal_proxy_and_raw_simulator_safety": true
+  },
+  "optimizer": {
+    "bound_tolerance_action": 5e-08,
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "max_iter": 10000,
+    "residual_tolerance": 5e-07
+  },
+  "exact_verification": {
+    "horizon_actions": 2,
+    "second_action": "immutable_released_AEGIS_nominal",
+    "osc_internal_substeps": "all",
+    "require_all_seven_distal_margins_nonnegative": true,
+    "require_released_AEGIS_EE_proxy_nonnegative": true,
+    "require_zero_raw_L5_L6_L7_contact": true,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001
+  },
+  "decision_gate": {
+    "per_case": "sampled_grid_safe_candidate_and_seven_affine_certificates_and_valid_qp_and_exact_two_step_all_eight_proxy_raw_safe",
+    "representation_go": "every_registered_test_case_passes",
+    "go_authorizes": "multi_state_affine_coefficient_target_collection_not_neural_closed_loop_efficacy",
+    "no_go_interpretation": "registered_single_affine_sampled_grid_certificate_is_insufficient_not_all_piecewise_or_nonlinear_safe_sets"
+  }
+}
