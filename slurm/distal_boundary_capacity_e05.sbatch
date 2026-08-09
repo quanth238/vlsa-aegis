@@ -45,7 +45,7 @@ done
 [[ "$(sha256sum "$FALSE_SAFE_RESULT" | awk '{print $1}')" == d79a28585e74cece727fbc3d3e6a72eb1647a782cae4962ec3af9045f448e603 ]] || die "false-safe ledger hash differs"
 [[ "$(sha256sum "$OBSTACLE_DISCOVERY_RESULT" | awk '{print $1}')" == 3db37092b2c5573e70cfc604bbbf01f1361be822ec87c8733d2c80b84685b0fd ]] || die "exact-box discovery hash differs"
 [[ "$(sha256sum "$BASELINE_NN_RESULT" | awk '{print $1}')" == 7fed872f2e189c9cdc07180f7ef3950c0a1a605065650e9650c8a9cee167fcca ]] || die "baseline neural result hash differs"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 95bd3b39b24d5e5e3f905e3af115ebe7b5e9717927cf52d426d7c82a231849a1 ]] || die "boundary config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == e7fb56902b432420241254bac2455aab263a9a00e0fcf3cafc1e52111f2cf68c ]] || die "boundary config hash differs"
 [[ "$(sha256sum "$GEOMETRY_CONFIG" | awk '{print $1}')" == fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1 ]] || die "distal geometry config hash differs"
 [[ "$(sha256sum "$EXACT_BOX_CONFIG" | awk '{print $1}')" == cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f ]] || die "exact-box config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"

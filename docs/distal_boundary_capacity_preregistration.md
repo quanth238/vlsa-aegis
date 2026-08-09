@@ -25,11 +25,13 @@ additional exact transitions and 1,384 records total. A gradient row is valid
 only when the minimizing MuJoCo substep and exact obstacle primitive agree at
 the anchor and both perturbations in all three dimensions.
 
-Each base action and all its probes stay in one split. Groups are
-deterministically stratified as boundary-safe, boundary-unsafe, far-safe, and
-far-unsafe with a 70/15/15 train/validation/test split. Boundary-safe and
-boundary-unsafe records each receive 35% of the margin-loss weight; far-safe
-and far-unsafe records each receive 15%.
+Each base action and all its probes stay in one split. Boundary-safe and
+boundary-unsafe groups use a deterministic 70/15/15 train/validation/test
+split and each receives 50% of the margin-loss weight. Actions outside the
+frozen +/-5 mm band remain in the dataset as diagnostic evidence but are
+excluded from learning and calibration. This is the apparatus repair after
+job 37205 showed that the sampled trust region contains no separate far-safe
+stratum; no action, label, band, trust region, model, or gate was changed.
 
 ## Paired arms
 

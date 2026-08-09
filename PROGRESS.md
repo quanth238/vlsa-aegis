@@ -1450,3 +1450,11 @@ critical boundary RMSE below the current-clearance baseline, zero conservative
 false-safe candidates, gradient cosine at least `0.8`, a valid seven-row QP,
 and exact cloned-OSC proxy/raw safety. No multi-task or closed-loop claim is in
 scope yet. See `docs/distal_boundary_capacity_preregistration.md`.
+
+H100 job `37205` completed collection but stopped before dataset output and
+before training because the first splitter required a far-safe stratum that
+does not exist: no trust-region action has critical clearance above +5 mm.
+This is an apparatus failure, not a model result. The repair retains every
+label for diagnosis, excludes outside-band groups from learning/calibration,
+and balances only the requested boundary-safe/boundary-unsafe groups. All
+physical sampling and scientific gates remain frozen.

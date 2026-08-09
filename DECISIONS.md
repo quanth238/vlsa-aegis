@@ -1085,3 +1085,12 @@ near-boundary RMSE than the baseline, zero conservative false-safe candidates,
 mean active-gradient cosine at least `0.8`, a valid seven-row QP, and an exact
 proxy/raw-safe cloned transition. Multi-task generalization and closed-loop
 task success remain later gates.
+
+H100 job `37205` stopped after all cloned transitions but before dataset
+serialization because the protocol incorrectly required a nonempty far-safe
+stratum. The trust-region grid contains no critical-row action above +5 mm,
+so the recoverable safe set is entirely boundary-safe. The apparatus repair
+records all grid labels but excludes outside-band groups from learning; the
+two boundary signs receive equal weight and retain grouped 70/15/15 splits.
+No action, exact label, band, trust region, model, QP, or success threshold is
+changed, and job `37205` supports no neural outcome.

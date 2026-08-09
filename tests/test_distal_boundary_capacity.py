@@ -135,7 +135,17 @@ class DistalBoundaryCapacityTests(unittest.TestCase):
                     )
         split = assign_grouped_splits(records, config)
         self.assertEqual(len(split), 32)
-        self.assertEqual(set(split.values()), {"train", "validation", "test"})
+        self.assertEqual(
+            set(split.values()),
+            {"train", "validation", "test", "excluded_far"},
+        )
+        self.assertTrue(
+            all(
+                value == "excluded_far"
+                for group, value in split.items()
+                if group.startswith("far_")
+            )
+        )
 
     @unittest.skipUnless(HAS_NUMPY, "NumPy is allocation dependency")
     def test_union_support_gap_reports_obstacle_witness(self):

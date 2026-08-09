@@ -44,7 +44,8 @@
     "train_fraction": 0.7,
     "validation_fraction": 0.15,
     "test_fraction": 0.15,
-    "stratify": "critical_row_boundary_safe_boundary_unsafe_far_safe_far_unsafe"
+    "stratify": "critical_row_boundary_safe_boundary_unsafe",
+    "outside_boundary_band": "record_but_exclude_from_learning_splits"
   },
   "features": {
     "source": "same_33_features_as_execution_margin_v2",
@@ -72,10 +73,8 @@
     "huber_delta_mm": 1.0,
     "learning_rate": 0.001,
     "margin_category_target_fractions": {
-      "boundary_safe": 0.35,
-      "boundary_unsafe": 0.35,
-      "far_safe": 0.15,
-      "far_unsafe": 0.15
+      "boundary_safe": 0.5,
+      "boundary_unsafe": 0.5
     },
     "patience": 300,
     "seed": 20260809,

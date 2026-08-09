@@ -110,9 +110,8 @@ def load_boundary_capacity_config(path: Path) -> dict[str, Any]:
         "train_fraction": 0.7,
         "validation_fraction": 0.15,
         "test_fraction": 0.15,
-        "stratify": (
-            "critical_row_boundary_safe_boundary_unsafe_far_safe_far_unsafe"
-        ),
+        "stratify": "critical_row_boundary_safe_boundary_unsafe",
+        "outside_boundary_band": "record_but_exclude_from_learning_splits",
     }:
         raise ValueError("boundary-capacity split differs")
     if config["features"] != {
@@ -142,10 +141,8 @@ def load_boundary_capacity_config(path: Path) -> dict[str, Any]:
         "huber_delta_mm": 1.0,
         "learning_rate": 0.001,
         "margin_category_target_fractions": {
-            "boundary_safe": 0.35,
-            "boundary_unsafe": 0.35,
-            "far_safe": 0.15,
-            "far_unsafe": 0.15,
+            "boundary_safe": 0.5,
+            "boundary_unsafe": 0.5,
         },
         "patience": 300,
         "seed": 20260809,
@@ -297,12 +294,10 @@ def assign_grouped_splits(
         groups[group] = category
     output: dict[str, str] = {}
     rng = np.random.default_rng(int(config["split"]["seed"]))
-    for category in (
-        "boundary_safe",
-        "boundary_unsafe",
-        "far_safe",
-        "far_unsafe",
-    ):
+    for group, category in groups.items():
+        if category in {"far_safe", "far_unsafe"}:
+            output[group] = "excluded_far"
+    for category in ("boundary_safe", "boundary_unsafe"):
         selected = sorted(group for group, value in groups.items() if value == category)
         if not selected:
             raise ValueError("boundary-capacity split category is empty: %s" % category)

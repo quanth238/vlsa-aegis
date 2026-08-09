@@ -118,7 +118,8 @@ def validate(
             and len(record.get("current_clearance_m", [])) == 7
             and len(record.get("minimum_substep_clearance_m", [])) == 7
             and len(record.get("minimum_substep_witnesses", [])) == 7
-            and record.get("split") in {"train", "validation", "test"}
+            and record.get("split")
+            in {"train", "validation", "test", "excluded_far"}
             and isinstance(record.get("D_opt_proxy_safe"), bool)
             and isinstance(record.get("D_sim_raw_safe"), bool)
             and isinstance(record.get("geometry_consistency"), dict),

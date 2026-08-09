@@ -402,7 +402,7 @@ def collect(
             and bool(item["gradient_valid_rows"][critical])
             for item in selected_anchor_records
         )
-        for name in ("train", "validation", "test")
+        for name in ("train", "validation", "test", "excluded_far")
     }
     split_group_counts = {
         name: len(
