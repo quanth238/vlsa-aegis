@@ -2596,3 +2596,27 @@ read-only, and closed-loop remains false regardless of outcome.
 Protocol: `docs/distal_affine_oracle_comparison_moka10_preregistration.md`.
 Config SHA-256: `0e77d8c250d7fecbfc6c5e31d549b9cec9164b198b7ab9e56eef18df438c3f1f`.
 The bundled local structural gate passes 360 tests with 8 skips.
+
+Clean H100 job `37649` completed all 5,100 registered new cloned-OSC
+rollouts on `worker-2` in `00:23:51`, and the independent validator accepted
+the result. The direct label-fitted half-space is NO-GO: it retained 30
+false-safe actions despite 99.85% safe recall and 49/50 state coverage.
+
+The canonical finite-difference plus one-sided-error arm is GO for local
+affine representation: zero false-safe actions among 4,800 fresh actions,
+93.34% safe recall, and accepted safe support in 48/50 states. The two missed
+states had only 7 and 1 fresh safe actions and were rejected conservatively.
+All 15 held-out test states retained zero finite-difference false-safes, with
+1,169/1,236 safe actions accepted.
+
+Therefore the current evidence rejects the non-unique minimum-L1 learning
+target and naive binary half-space fit, not the single local affine-row
+assumption. A future model may use action-level one-sided half-space loss,
+canonical finite-difference anchoring, and held-out uncertainty tightening.
+No new model, OSQP audit, or closed-loop run was executed.
+
+Result/payload/validation SHA-256 values are
+`5f34efe306cde24e1d2b20801015cb5f353f7e598f8afd606124da3bd0ff175f`,
+`661273a27aa5a025b160f50e7b0526bb6d434a4b90fa1a8e63758ab0f2083ff6`,
+and `8c5aa5c5f56e179a4603584d2e45da3e1de2ca571b1dc512e315c8a05c010b4f`.
+Full result: `docs/distal_affine_oracle_comparison_moka10_result.md`.

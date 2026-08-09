@@ -1909,3 +1909,17 @@ of states with fresh safe support. Passing either arm supports a later direct
 half-space/one-sided loss with held-out tightening. Failing both redirects the
 method to smaller trust regions or multiple affine regions. OSQP is outside
 this diagnostic because it cannot repair a false safe-set representation.
+
+Clean H100 job `37649` resolves this comparison. The direct label-only
+half-space fails with 30 false-safe fresh actions. The canonical finite-
+difference lower affine bound passes with zero false-safes, 93.34% safe recall,
+and 48/50 safe-support state coverage. Thus one local affine row per distal
+constraint is supported on this sampled action family, while the old
+minimum-L1 coefficient regression target is rejected.
+
+The next neural object should be judged through its induced half-space values,
+not coefficient equality to an arbitrary LP optimum. Use canonical finite-
+difference anchoring, action-level one-sided lower-bound/safe-unsafe losses,
+and held-out state-group tightening. Do not run the QP or closed-loop until
+that learned field independently reproduces zero false-safe and useful-recall
+behavior. This sampled GO is not a formal continuum guarantee.
