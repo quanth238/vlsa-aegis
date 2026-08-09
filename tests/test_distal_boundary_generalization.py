@@ -1,3 +1,4 @@
+import ast
 import json
 from pathlib import Path
 import tempfile
@@ -98,6 +99,25 @@ class DistalBoundaryGeneralizationTests(unittest.TestCase):
         self.assertIn("geometry_placeholder_archived", source)
         self.assertIn("geometry_placeholder_archived", collector)
         self.assertIn("clearances_use_live_exact_15_box_union", collector)
+
+    def test_held_out_projection_replays_each_episode_archive(self):
+        path = ROOT / "scripts/evaluate_distal_boundary_generalization_moka10.py"
+        tree = ast.parse(path.read_text())
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_projection"
+        ]
+        self.assertEqual(len(calls), 1)
+        keywords = {item.arg: item.value for item in calls[0].keywords}
+        self.assertIsInstance(keywords["archived"], ast.Name)
+        self.assertEqual(keywords["archived"].id, "archived")
+        self.assertIsInstance(keywords["geometry_placeholder_archived"], ast.Name)
+        self.assertEqual(
+            keywords["geometry_placeholder_archived"].id,
+            "geometry_placeholder_archived",
+        )
 
 
 if __name__ == "__main__": unittest.main()

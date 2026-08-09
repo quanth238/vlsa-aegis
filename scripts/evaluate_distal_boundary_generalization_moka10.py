@@ -75,8 +75,8 @@ def _model_metrics(model, state, records, config):
 
 
 def _projection(
-    *, runtime, case, archived, step, geometry_config, exact_box_config,
-    config, model, state,
+    *, runtime, case, archived, geometry_placeholder_archived, step,
+    geometry_config, exact_box_config, config, model, state,
 ):
     import numpy as np
     from main.multilink_ellipsoid.execution_margin_nn import predict_margin_and_jacobian, project_action_with_model
@@ -87,7 +87,8 @@ def _projection(
         env, probe_env, _, _, setup = _build_pair(runtime, case)
         geometry, boxes = _geometry(
             geometry_config=geometry_config, exact_box_config=exact_box_config,
-            archived=archived, env=env, obstacle_name=setup["obstacle_name"],
+            archived=geometry_placeholder_archived, env=env,
+            obstacle_name=setup["obstacle_name"],
         )
         for index in range(step):
             env.step(_canonical_action(archived["actions"][index], index).tolist())
@@ -190,7 +191,8 @@ def main() -> int:
             _require(_file_sha256(archived_path) == row["archived_file_sha256"] and archived.get("result_payload_sha256") == row["archived_payload_sha256"], "test archive differs")
             projections[case_id] = _projection(
                 runtime=runtime, case=population[case_id],
-                archived=geometry_placeholder_archived,
+                archived=archived,
+                geometry_placeholder_archived=geometry_placeholder_archived,
                 step=int(episode_state[case_id]["selected_step"]), geometry_config=geometry_config,
                 exact_box_config=exact_box_config, config=config, model=model, state=state,
             )
