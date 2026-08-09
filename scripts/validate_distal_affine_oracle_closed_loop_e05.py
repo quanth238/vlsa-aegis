@@ -11,7 +11,9 @@ from typing import Any, Mapping, Optional, Sequence
 
 from main.multilink_ellipsoid.oracle_affine_closed_loop import (
     ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA,
+    ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
     ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA,
+    ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA_V2,
     load_oracle_affine_closed_loop_config,
 )
 from scripts.replay_distal_three_ellipsoid_multicbf import (
@@ -55,9 +57,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     config = load_oracle_affine_closed_loop_config(args.config.resolve())
+    qp_constraint_count = len(config["constraint_order"])
+    result_schema = (
+        ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2
+        if qp_constraint_count == 8 else ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA
+    )
+    validation_schema = (
+        ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA_V2
+        if qp_constraint_count == 8
+        else ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA
+    )
     result = _load(args.result.resolve())
     _require(
-        result.get("schema_version") == ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA
+        result.get("schema_version") == result_schema
         and result.get("status") in ("complete", "method_failure")
         and result.get("scientific_result") is True
         and result.get("source", {}).get("commit") == args.expected_commit
@@ -115,10 +127,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             valid = bool(
                 grid.get("candidate_count")
                 == config["sampling"]["expected_grid_action_count"]
+                and grid.get("qp_constraint_count") == qp_constraint_count
                 and certificate.get("valid") is True
                 and certificate.get("sampled_grid_false_safe_candidate_count") == 0
                 and qp.get("valid") is True
-                and qp.get("diagnostics", {}).get("input_constraint_count") == 7
+                and qp.get("diagnostics", {}).get("input_constraint_count")
+                == qp_constraint_count
             )
             if item.get("executed") is True:
                 exact = item.get("selected_exact_summary", {})
@@ -186,7 +200,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "closed-loop final decision differs",
     )
     output = {
-        "schema_version": ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA,
+        "schema_version": validation_schema,
         "status": "validated",
         "scientific_result": False,
         "expected_commit": args.expected_commit,
@@ -196,7 +210,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "intervention_count": sum(bool(item.get("intervention")) for item in records),
         "all_executed_substeps_all_eight_safe": executed_safe,
         "all_executed_next_states_match_clone": clone_match,
-        "all_completed_interventions_have_valid_seven_row_qp": intervention_valid,
+        "all_completed_interventions_have_valid_registered_row_qp": intervention_valid,
+        "qp_constraint_count": qp_constraint_count,
         "native_task_success": task_success,
         "zero_protected_contact": no_contact,
         "zero_paper_CAR": no_car,

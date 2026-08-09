@@ -19,7 +19,8 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-affine-oracle-closed-loop-e05}
 ARCHIVED_ROOT=${ARCHIVED_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
 REPRESENTATION_ROOT=${REPRESENTATION_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-two-step-oracle-affine-safe-set/two-step-affine-oracle-20260809c}
-CONFIG=$REMOTE_REPO/configs/vlsa_distal_affine_oracle_closed_loop_e05.v1.json
+CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_distal_affine_oracle_closed_loop_e05.v1.json}
+EXPECTED_CONFIG_SHA256=${EXPECTED_CONFIG_SHA256:-0a82ee6c6250996e10d2a4c30a0bb48927d08240b298a0fb5b21a438c855186b}
 SOURCE_CONFIG=$REMOTE_REPO/configs/vlsa_distal_two_step_margin_moka10.v1.json
 SELECTED=$REMOTE_REPO/manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl
 GEOMETRY=$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json
@@ -36,7 +37,7 @@ for path in "$REPRESENTATION_RESULT" "$REPRESENTATION_VALIDATION"; do
   [[ -f "$path" && ! -L "$path" ]] || die "closed-loop prerequisite missing"
 done
 [[ -x "$AEGIS_PYTHON" ]] || die "evaluation Python missing"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 0a82ee6c6250996e10d2a4c30a0bb48927d08240b298a0fb5b21a438c855186b ]] || die "closed-loop config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == "$EXPECTED_CONFIG_SHA256" ]] || die "closed-loop config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 mkdir -p "$EXPERIMENT_ROOT"

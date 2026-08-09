@@ -1832,3 +1832,26 @@ is `0a82ee6c6250996e10d2a4c30a0bb48927d08240b298a0fb5b21a438c855186b`.
 
 After a clean commit, remote sync, and live preflight, the exact next command
 is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=affine-oracle-closed-loop-20260809a slurm/distal_affine_oracle_closed_loop_e05.sbatch`.
+
+Clean H100 job `37283` completed on `worker-1` in `00:02:34` and independently
+validated `privileged_closed_loop_e05_go=false`. Actions 0--14 were executed
+with minimum distal/EE margins `100.275/4.065 mm`, zero protected contact,
+maximum obstacle displacement `2.3e-11 m`, and exact clone-state hashes.
+
+At action 15, the nominal two-step EE margin was `-1.535 mm`; the seven distal
+margins were `90.866--354.373 mm`. Although 201/512 candidates were all-eight
+safe, the frozen seven-row fitter only saw inactive distal rows, returned zero
+gradients, and OSQP returned the nominal action (`1.95e-9` correction). Fresh
+exact verification correctly refused execution. The task therefore did not
+complete, but no collision or CAR occurred. Result/validation/video/JPG
+SHA-256 values are
+`16e8974520808c1d4d3fcf14e475d2bd335e519c64a4a44cb591b767a5a27974`,
+`09c3ee4eb08a81bfeb8d2fe54029e2c970b4c6f06d05cfea4ded482f9bb88fc6`,
+`2184d19431ffad2d25dc0ccb0845e83039d636279f57a0b8239e5869997ec00d`,
+and `a4a2803e0a23e84d82b974b19202b601d3502cdeeb730455f4b3c20b1b6703b`.
+
+The direct V2 correction is preregistered before execution in
+`docs/distal_affine_oracle_closed_loop_e05_v2_preregistration.md`: fit the EE
+margin with the same lower-envelope construction and supply exactly eight hard
+QP rows. Every other setting and success gate is frozen. V2 config SHA-256 is
+`3ad64a16e75852873e7f5b837d7dc7eba85a82fd042ff5d2d261aabb3a3175f0`.

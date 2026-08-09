@@ -1399,3 +1399,24 @@ success. Actual execution is recorded to MP4/JPG. This can establish a
 privileged target for later learning, but cannot establish learned
 generalization, deployability, or formal whole-body safety. Neural training
 remains blocked regardless of the result.
+
+Clean H100 job `37283` validated a scientific NO-GO for the seven-row version.
+It executed 15 actions with nonnegative all-eight margins, zero protected
+contact/CAR, and exact clone hashes, then failed closed at action 15. The
+nominal two-step EE margin was `-1.535 mm`, while all distal margins exceeded
+`90.866 mm` and the grid contained 201 all-eight-safe candidates. Because the
+EE row was only a veto, all seven distal certificate gradients collapsed to
+zero and the seven-row QP returned the nominal action. This is neither an OSC
+nor an OSQP failure; it is the registered constraint omission.
+
+# ADR-0065: Add the released-AEGIS EE proxy as the eighth affine QP row
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+V2 changes only the observed missing constraint. The exact released-AEGIS EE
+margin is fitted by the same candidate-conditioned lower-envelope procedure
+and becomes the eighth hard QP row. Geometry, grid, bounds, padding, objective,
+nominal sequence, receding horizon, exact veto, clone receipts, and success
+criteria are unchanged. This does not discard job `37283` or relax safety; it
+tests whether the registered all-eight safe candidates can be reached when the
+optimizer is actually informed about all eight required constraints.

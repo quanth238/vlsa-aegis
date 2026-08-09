@@ -17,17 +17,27 @@ from typing import Any, Mapping
 ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA = (
     "vlsa_distal_affine_oracle_closed_loop_e05.v1"
 )
+ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA_V2 = (
+    "vlsa_distal_affine_oracle_closed_loop_e05.v2"
+)
 ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA = (
     "vlsa_distal_affine_oracle_closed_loop_e05_result.v1"
 )
 ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA = (
     "vlsa_distal_affine_oracle_closed_loop_e05_validation.v1"
 )
+ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2 = (
+    "vlsa_distal_affine_oracle_closed_loop_e05_result.v2"
+)
+ORACLE_AFFINE_CLOSED_LOOP_VALIDATION_SCHEMA_V2 = (
+    "vlsa_distal_affine_oracle_closed_loop_e05_validation.v2"
+)
 
 CONSTRAINT_ORDER = [
     "L5_part_0", "L5_part_1", "L5_part_2", "L6_part_0",
     "L6_part_1", "L7_part_0", "L7_part_1",
 ]
+CONSTRAINT_ORDER_EIGHT = CONSTRAINT_ORDER + ["released_AEGIS_EE_proxy"]
 
 
 def _canonical(value: Any) -> bytes:
@@ -61,10 +71,14 @@ def load_oracle_affine_closed_loop_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("affine-oracle closed-loop config keys differ")
-    if (
-        config["schema_version"] != ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA
-        or config["protocol_id"]
-        != "vlsa-distal-affine-oracle-closed-loop-e05-v1"
+    schema = config["schema_version"]
+    v2 = schema == ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA_V2
+    if schema not in (
+        ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA,
+        ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA_V2,
+    ) or config["protocol_id"] != (
+        "vlsa-distal-affine-oracle-closed-loop-e05-v2"
+        if v2 else "vlsa-distal-affine-oracle-closed-loop-e05-v1"
     ):
         raise ValueError("affine-oracle closed-loop protocol differs")
     if config["primary_case"] != {
@@ -90,7 +104,9 @@ def load_oracle_affine_closed_loop_config(path: Path) -> dict[str, Any]:
     ):
         if not isinstance(prerequisite[key], str) or len(prerequisite[key]) != 64:
             raise ValueError("affine-oracle prerequisite hash differs")
-    if config["constraint_order"] != CONSTRAINT_ORDER:
+    if config["constraint_order"] != (
+        CONSTRAINT_ORDER_EIGHT if v2 else CONSTRAINT_ORDER
+    ):
         raise ValueError("affine-oracle constraint order differs")
     if config["nominal_plan"] != {
         "source": "immutable_successful_released_AEGIS_Table1_env_step_sequence",
@@ -117,13 +133,19 @@ def load_oracle_affine_closed_loop_config(path: Path) -> dict[str, Any]:
         "candidate_order": "cartesian_product_lexicographic",
     }:
         raise ValueError("affine-oracle sampling differs")
-    if config["affine_certificate"] != {
+    expected_certificate = {
         "fit": "candidate_conditioned_minimum_l1_sampled_grid_lower_envelope",
         "one_sided_padding_m": 1.0e-6,
         "target_clearance_m": 0.0,
         "coefficient_postcheck_tolerance_m": 1.0e-8,
         "safe_candidate_requires_all_eight_proxy_and_raw_simulator_safety": True,
-    }:
+    }
+    if v2:
+        expected_certificate["qp_constraint_count"] = 8
+        expected_certificate["released_AEGIS_EE_proxy_role"] = (
+            "eighth_affine_hard_constraint"
+        )
+    if config["affine_certificate"] != expected_certificate:
         raise ValueError("affine-oracle certificate differs")
     optimizer = config["optimizer"]
     if set(optimizer) != {
@@ -147,21 +169,27 @@ def load_oracle_affine_closed_loop_config(path: Path) -> dict[str, Any]:
         "video_fps": 30,
     }:
         raise ValueError("affine-oracle execution differs")
-    if config["decision_gate"] != {
+    expected_decision = {
         "success": (
             "all_executed_substeps_all_eight_proxy_safe_and_zero_raw_"
             "L5_L6_L7_contact_and_zero_paper_CAR_and_native_task_success"
         ),
         "go_interpretation": (
-            "privileged_receding_affine_oracle_can_solve_primary_E05_not_"
-            "learned_generalization_not_deployable_safety"
+            (
+                "privileged_receding_eight_constraint_affine_oracle_can_solve_"
+                "primary_E05_not_learned_generalization_not_deployable_safety"
+            ) if v2 else (
+                "privileged_receding_affine_oracle_can_solve_primary_E05_not_"
+                "learned_generalization_not_deployable_safety"
+            )
         ),
         "no_go_interpretation": (
             "registered_local_grid_affine_oracle_failed_closed_loop_E05_"
             "not_impossibility_of_other_oracles_or_action_chunk_methods"
         ),
         "neural_training_authorized": False,
-    }:
+    }
+    if config["decision_gate"] != expected_decision:
         raise ValueError("affine-oracle decision gate differs")
     output = json.loads(_canonical(config).decode("utf-8"))
     output["config_file_sha256"] = _sha256(raw)

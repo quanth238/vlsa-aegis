@@ -6,6 +6,7 @@ import unittest
 
 from main.multilink_ellipsoid.oracle_affine_closed_loop import (
     ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA,
+    ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA_V2,
     load_oracle_affine_closed_loop_config,
     summarize_exact_chunk_all_eight,
 )
@@ -26,6 +27,18 @@ class DistalAffineOracleClosedLoopE05Tests(unittest.TestCase):
             config["execution"]["require_released_AEGIS_EE_proxy_nonnegative"]
         )
         self.assertFalse(config["decision_gate"]["neural_training_authorized"])
+
+    def test_checked_in_eight_constraint_repair_loads(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        config = load_oracle_affine_closed_loop_config(
+            root / "configs" / "vlsa_distal_affine_oracle_closed_loop_e05.v2.json"
+        )
+        self.assertEqual(
+            config["schema_version"], ORACLE_AFFINE_CLOSED_LOOP_CONFIG_SCHEMA_V2
+        )
+        self.assertEqual(len(config["constraint_order"]), 8)
+        self.assertEqual(config["constraint_order"][-1], "released_AEGIS_EE_proxy")
+        self.assertEqual(config["affine_certificate"]["qp_constraint_count"], 8)
 
     @unittest.skipUnless(
         importlib.util.find_spec("numpy") is not None, "NumPy runtime dependency"

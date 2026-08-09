@@ -70,6 +70,34 @@ class DistalTwoStepOracleAffineSafeSetTests(unittest.TestCase):
         self.assertFalse(certificate["valid"])
         self.assertEqual(certificate["reason"], "no_exact_proxy_raw_safe_grid_candidate")
 
+    @unittest.skipUnless(SCIPY_OSQP_AVAILABLE, "SciPy/OSQP allocation dependency")
+    def test_eighth_EE_row_is_not_dropped(self) -> None:
+        import numpy as np
+
+        xyz = np.asarray(list(itertools.product((-1.0, 0.0, 1.0), repeat=3)))
+        distal = np.repeat(np.full((len(xyz), 1), 0.1), 7, axis=1)
+        ee = (0.1 * xyz[:, 0] - 0.01)[:, None]
+        margins = np.column_stack((distal, ee))
+        certificate = fit_candidate_conditioned_affine_certificate(
+            xyz, margins, np.zeros(3), np.ones(len(xyz), dtype=bool),
+            np.arange(len(xyz)), one_sided_padding_m=1.0e-6,
+            target_clearance_m=0.0, postcheck_tolerance_m=1.0e-8,
+            expected_constraint_count=8,
+        )
+        self.assertTrue(certificate["valid"])
+        self.assertEqual(len(certificate["gradients_m_per_action"]), 8)
+        result = solve_affine_certificate_qp(
+            np.zeros(3), -np.ones(3), np.ones(3), certificate,
+            {
+                "eps_abs": 1.0e-7, "eps_rel": 1.0e-7, "max_iter": 10000,
+                "residual_tolerance": 5.0e-7,
+                "bound_tolerance_action": 5.0e-8,
+            },
+        )
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["diagnostics"]["input_constraint_count"], 8)
+        self.assertGreater(result["candidate_xyz"][0], 0.09)
+
 
 if __name__ == "__main__":
     unittest.main()

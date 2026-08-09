@@ -12,6 +12,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from main.multilink_ellipsoid.oracle_affine_closed_loop import (
     ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA,
+    ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2,
     load_oracle_affine_closed_loop_config,
     summarize_exact_chunk_all_eight,
 )
@@ -213,6 +214,12 @@ def evaluate(
 
     started = time.perf_counter_ns()
     config = load_oracle_affine_closed_loop_config(config_path)
+    qp_constraint_count = len(config["constraint_order"])
+    _require(qp_constraint_count in (7, 8), "closed-loop QP row count differs")
+    result_schema = (
+        ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA_V2
+        if qp_constraint_count == 8 else ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA
+    )
     source_config = load_two_step_config(source_config_path)
     for key in (
         "action_limit", "trust_region_linf_action", "grid_points_per_dimension",
@@ -359,12 +366,16 @@ def evaluate(
                     )
                     candidate_xyz.append(np.asarray(xyz, dtype=np.float64))
                     grid_margins.append(np.asarray(
-                        summary["minimum_all_eight_substep_clearance_m"][:7],
+                        summary["minimum_all_eight_substep_clearance_m"][
+                            :qp_constraint_count
+                        ],
                         dtype=np.float64,
                     ))
                     grid_raw_ee_safe.append(bool(
-                        summary["D_sim_raw_safe"]
-                        and summary["released_AEGIS_EE_proxy_safe"]
+                        summary["D_sim_raw_safe"] and (
+                            qp_constraint_count == 8
+                            or summary["released_AEGIS_EE_proxy_safe"]
+                        )
                     ))
                     grid_indexes.append(grid_index)
                     candidate_rollout_seconds += float(summary["env_step_wall_seconds"])
@@ -383,6 +394,7 @@ def evaluate(
                     postcheck_tolerance_m=float(
                         certificate_settings["coefficient_postcheck_tolerance_m"]
                     ),
+                    expected_constraint_count=qp_constraint_count,
                 )
                 certificate_seconds = (
                     time.perf_counter_ns() - certificate_started
@@ -404,7 +416,8 @@ def evaluate(
                 grid_record = {
                     "candidate_count": len(candidates),
                     "candidate_xyz_array_sha256": array_sha256(xyz_array),
-                    "seven_margin_array_sha256": array_sha256(margin_array),
+                    "constraint_margin_array_sha256": array_sha256(margin_array),
+                    "qp_constraint_count": qp_constraint_count,
                     "all_eight_raw_safe_candidate_count": int(sum(
                         bool(raw) and bool(np.all(margin_array[index] >= 0.0))
                         for index, raw in enumerate(grid_raw_ee_safe)
@@ -417,10 +430,11 @@ def evaluate(
                 if not (
                     certificate.get("valid") is True
                     and qp.get("valid") is True
-                    and qp.get("diagnostics", {}).get("input_constraint_count") == 7
+                    and qp.get("diagnostics", {}).get("input_constraint_count")
+                    == qp_constraint_count
                 ):
                     failure = {
-                        "component": "seven_row_affine_oracle_qp",
+                        "component": "%d_row_affine_oracle_qp" % qp_constraint_count,
                         "step": step,
                         "reason": (
                             certificate.get("reason")
@@ -553,7 +567,7 @@ def evaluate(
             )
         )
         result = {
-            "schema_version": ORACLE_AFFINE_CLOSED_LOOP_RESULT_SCHEMA,
+            "schema_version": result_schema,
             "status": "complete" if failure is None else "method_failure",
             "scientific_result": True,
             "claim_scope": config["claim_scope"],

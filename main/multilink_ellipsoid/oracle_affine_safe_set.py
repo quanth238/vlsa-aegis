@@ -142,8 +142,9 @@ def fit_candidate_conditioned_affine_certificate(
     one_sided_padding_m: float,
     target_clearance_m: float,
     postcheck_tolerance_m: float,
+    expected_constraint_count: int = 7,
 ) -> dict[str, Any]:
-    """Find the closest sampled-safe action admitting seven affine envelopes.
+    """Find the closest sampled-safe action admitting all affine envelopes.
 
     Each row is a minimum-L1-gradient affine function constrained to lie below
     every exact grid label (minus fixed padding) and to certify the selected
@@ -159,9 +160,10 @@ def fit_candidate_conditioned_affine_certificate(
     nominal = np.asarray(nominal_xyz, dtype=np.float64)
     raw = np.asarray(raw_safe, dtype=bool)
     indexes = np.asarray(grid_indexes, dtype=np.int64)
+    row_count = int(expected_constraint_count)
     if (
         xyz.ndim != 2 or xyz.shape[1] != 3
-        or margins.shape != (xyz.shape[0], 7)
+        or row_count < 1 or margins.shape != (xyz.shape[0], row_count)
         or nominal.shape != (3,) or raw.shape != (xyz.shape[0],)
         or indexes.shape != (xyz.shape[0],)
         or len(set(indexes.tolist())) != len(indexes)
@@ -205,7 +207,7 @@ def fit_candidate_conditioned_affine_certificate(
         all_feasible = True
         target_row = np.zeros(7, dtype=np.float64)
         target_row[:4] = -np.concatenate(([1.0], offsets[candidate_index]))
-        for row in range(7):
+        for row in range(row_count):
             a_ub = np.vstack((base_grid, absolute_rows, target_row[None, :]))
             b_ub = np.concatenate(
                 (
@@ -279,7 +281,11 @@ def fit_candidate_conditioned_affine_certificate(
         "reason": (
             "no_exact_proxy_raw_safe_grid_candidate"
             if not len(eligible)
-            else "no_seven_row_affine_certificate"
+            else (
+                "no_seven_row_affine_certificate"
+                if row_count == 7
+                else "no_%d_row_affine_certificate" % row_count
+            )
         ),
         "grid_record_count": int(len(xyz)),
         "exact_proxy_raw_safe_grid_candidate_count": int(len(eligible)),
