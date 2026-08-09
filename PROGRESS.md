@@ -1997,3 +1997,14 @@ result payload SHA-256 is
 Thus removing the stop neither restores task completion nor preserves safety.
 The full 238-frame single-context replay is preregistered at the simulator's
 native 20 Hz action rate, not the earlier presentation-only 10 fps.
+
+Clean H100 single-context replay job `37303` completed in `00:01:37`, matched
+all 237 dynamic-state and obstacle-displacement receipts exactly, and verified
+all 238 frames at 20 fps. Six distributed decoded samples had maximum adjacent
+pixel MAD `1.997/255` and encoder MAE `1.586/255`; direct final-frame inspection
+is clean. MP4/JPG/receipt SHA-256 values are
+`f45855dd26f5aa79339192e908f48e83a37a8f27b5dd92a32a615525c6b158c2`,
+`7f85a01adceeb55e8166cd0e6fd4644a01d3cda8e0d382ebd0dfd7db2122aded`,
+and `e867195b97bc256e98529f17476046896480a0cd4f3e736e1c418c893990ade7`.
+The local native-rate video is under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_exact_candidate_continue_e05/exact-candidate-continue-video-20260809a/`.

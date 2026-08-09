@@ -1511,3 +1511,8 @@ at 189, maximum obstacle displacement reached `24.554 mm`, and the task still
 had no predicate progress after action 236. Removing the stop therefore
 converts the safe NO-GO into collision without recovering task success. A
 single-context 20 fps replay is required for the final visual evidence.
+
+Clean H100 replay job `37303` exactly matched all 237 action/state/obstacle
+receipts and verified 238 frames at native 20 fps. Maximum adjacent-pixel MAD
+and encoder MAE were `1.997/1.586` of 255, and the final frame is visually
+clean. This is the accepted visual record of the collision-prone continuation.
