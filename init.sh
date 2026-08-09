@@ -28,7 +28,10 @@ for optional_file in \
   scripts/evaluate_distal_two_step_oracle_affine_safe_set.py \
   scripts/validate_distal_two_step_oracle_affine_safe_set.py \
   scripts/collect_distal_affine_coefficient_moka10.py \
-  scripts/validate_distal_affine_coefficient_dataset.py
+  scripts/validate_distal_affine_coefficient_dataset.py \
+  scripts/train_distal_affine_coefficient_moka10.py \
+  scripts/evaluate_distal_affine_coefficient_moka10.py \
+  scripts/validate_distal_affine_coefficient_moka10.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
