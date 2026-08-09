@@ -2171,3 +2171,28 @@ Next command after clean commit/source sync is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=ellipsoid-support-e05-20260809a
 slurm/distal_ellipsoid_candidate_support_e05.sbatch`.
+
+Clean H100 job `37407` completed and independently validated in `00:01:11`
+on `worker-2`. It evaluated 87 registered candidates at each of nine states
+(`783` complete cloned OSC transitions). The all-seven ellipsoid-safe counts
+were `87` at action 184, `64` at 185, and exactly `0` at every action 186--192.
+At primary test action 187, the best candidate was global-lattice
+`[-1,1,1]`, but its minimum margin was still `-11.651 mm` on `L5_part_1`
+and `L6_part_0` was also `-2.889 mm`. At action 190, reverse nominal was best
+but remained `-12.602 mm` on `L5_part_1`, with `L6_part_0=-4.459 mm`.
+
+Thus `ellipsoid_candidate_support_pass=false` and training was correctly not
+run. This is not a neural-capacity failure: the registered candidate family
+contains no ellipsoid-feasible supervision at the primary states. Raw contact
+was diagnostic only; it recorded 29 protected substep contact events for the
+successful-oracle action at 188, which does not alter the ellipsoid decision
+but warns that earlier endpoint-only contact reporting was incomplete.
+
+Result/payload/validation SHA-256 values are
+`36457a96ac0f16d7bb8cb3b3d42162ded35f08019b6347573e480b46e8500215`,
+`ece010cbf9b81121fa388cdecaeb5c89f37a9ac875b025b67b47c591eee42ac3`,
+and `e4c1330a6f33269f3f6364a6a724477924d47615487db73f5daa0f923c4f0008`.
+The local artifacts are under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_ellipsoid_candidate_support_e05/ellipsoid-support-e05-20260809a/`.
+No next training command is authorized. The exact read-only next command is
+`jq '.decision,.state_results' <that-directory>/result.json`.

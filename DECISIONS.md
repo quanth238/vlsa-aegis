@@ -1647,3 +1647,13 @@ seven minimum substep margins are all nonnegative at each primary failure
 state. If this oracle support gate fails, an MLP cannot correctly select an
 ellipsoid-safe action from that family, regardless of optimizer or network
 capacity, so training stops.
+
+Job `37407` validated this gate as NO-GO. The safe set disappeared at state
+186 and stayed empty through 192; even the best candidates at the two primary
+test states retained `-11.651 mm` and `-12.602 mm` worst margins. The active
+rows were `L5_part_1`, with `L6_part_0` also negative. Consequently no
+ellipsoid-margin MLP is trained on this suffix. A future learned experiment
+must either start before the first ellipsoid violation, define an explicitly
+recovering barrier for already-negative states, or change the registered
+geometry/candidate family. It may not report this empty-set result as a neural
+optimization failure.
