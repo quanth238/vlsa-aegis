@@ -1,0 +1,82 @@
+{
+  "schema_version": "vlsa_distal_direct_rollout_margin_e05.v1",
+  "protocol_id": "vlsa-distal-direct-rollout-margin-e05-v1",
+  "claim_scope": "grouped_direct_two_step_rollout_margin_and_gradient_feasibility_at_primary_E05_state_185_not_closed_loop_not_population_efficacy_not_formal_safety",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "state_step": 185,
+  "immutable_sources": {
+    "dataset_file_sha256": "475913f1f42f26ed5cfc2a3424632ea7c8409986b9db0467e60157c85bb35fe3",
+    "dataset_payload_sha256": "80cb0baa04e7ec103b1abb5e18cc2d440f7a33e697f35607539ca0ddfcc695c3",
+    "dataset_source_commit": "f7fe5ab571174b9dd8f766c06bab3c1cea912ac4",
+    "dataset_result_file_sha256": "304383acd57d3ba8108007677c7c46ee3a8b65fe0981e4df69e7a9a75d9b4268",
+    "dataset_validation_file_sha256": "7cb255ed5ac1239ac6ac9129cc30bd4e8e26e7479825c0913523744d6f9b51c8",
+    "archived_table1_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f"
+  },
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "train_episode_count": 6,
+    "validation_episode_count": 1,
+    "test_episode_count": 3,
+    "primary_e05_use": "test_only_never_training_or_calibration"
+  },
+  "model": {
+    "input": "factorized_state_action_and_relative_geometry_features",
+    "shared_across_constraint_rows": true,
+    "hidden_widths": [128, 128],
+    "hidden_activation": "softplus",
+    "output_activation": "linear_signed_margin_mm",
+    "output_count_per_constraint": 1,
+    "target_clip_mm": 50.0
+  },
+  "training": {
+    "device": "cuda",
+    "dtype": "float64",
+    "batching": "deterministic_full_batch",
+    "epochs": 2500,
+    "patience": 250,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "huber_delta_mm": 1.0,
+    "gradient_cosine_loss_weight": 0.25,
+    "gradient_magnitude_loss_weight": 0.1,
+    "gradient_magnitude_floor_mm_per_action": 1.0,
+    "seed": 20260810,
+    "sample_weighting": "equal_episode_then_equal_boundary_sign",
+    "finite_difference_source": "witness_stable_exact_cloned_OSC_two_step_pairs"
+  },
+  "calibration": {
+    "method": "per_constraint_maximum_validation_overprediction_plus_fixed_padding",
+    "fixed_padding_m": 0.001
+  },
+  "matched_random": {
+    "radius_action": 0.1,
+    "direction_count": 256,
+    "seed": 20260810,
+    "maximum_sampling_attempts": 100000,
+    "empirical_equal_or_better_p_maximum": 0.05,
+    "comparison": "exact_change_in_minimum_seven_row_two_step_margin"
+  },
+  "projection": {
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "clearance_target_m": 0.0,
+    "maximum_linearization_iterations": 4,
+    "eps_abs": 0.0000001,
+    "eps_rel": 0.0000001,
+    "max_iter": 10000,
+    "residual_tolerance": 0.0000005,
+    "bound_tolerance_action": 0.00000005
+  },
+  "decision_gate": {
+    "e05_active_boundary_rmse": "strictly_below_current_clearance_baseline",
+    "all_test_conservative_false_safe_count": 0,
+    "e05_active_gradient_cosine_mean_minimum": 0.8,
+    "matched_random": "learned_exact_margin_improvement_positive_and_empirical_p_at_most_0.05",
+    "projection": "calibrated_seven_row_QP_and_fresh_exact_two_step_proxy_raw_safe",
+    "research_direction_go": "all_gates_pass",
+    "closed_loop_authorized": false
+  }
+}

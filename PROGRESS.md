@@ -2403,3 +2403,41 @@ Model/result/payload/validation SHA-256 values are
 `cd186104aa245767cc346bb16b5e62796612fa946c7037cccf1f2cb01a4f35b4`,
 `588887035abbda58d867d752cc49112092db55b0003df8e7c0dda92dca1479d8`,
 and `aed056699ce110d1e2598e5408f00df29c95923a11ed268e681280ee5b5e8df7`.
+
+# 2026-08-10: direct quantitative rollout-margin diagnostic preregistered
+
+The user authorized the decisive replacement for the binary-contact gradient.
+The new experiment reuses the independently validated H100 job-`37270`
+two-step dataset rather than recollecting identical simulator transitions.
+Each target is the signed minimum exact-box clearance of one accepted L5--L7
+ellipsoid part across both complete OSC transitions and every internal MuJoCo
+substep. Raw protected contact and obstacle motion remain separate `D_sim`
+authority.
+
+The network is shared across the seven rows, uses the existing factorized
+state/action/relative-geometry features, two 128-unit Softplus hidden layers,
+and a linear signed-margin output. Training combines Huber value regression,
+witness-stable finite-difference gradient cosine, and normalized gradient-
+magnitude error. Complete groups remain six train episodes, one validation
+episode from a separate task, and three `goal-II-t0` test episodes; primary
+E05 never enters training or calibration.
+
+The decisive state is the exact recoverable E05 action 185. At radius `0.1`,
+the direction increasing the smallest predicted raw margin is compared with
+256 uniform feasible random directions at identical correction norm. The
+measured score is the exact change in the two-step minimum of all seven rows,
+not contact classification. The same model also supplies seven calibrated
+rows to the existing bounded QP, whose proposal must pass a fresh exact
+two-step proxy, raw-contact, and obstacle-motion gate.
+
+Research-direction GO requires E05 RMSE to beat the no-motion baseline, zero
+conservative false-safe candidates over all held-out episodes, E05 active-row
+gradient cosine at least `0.8`, add-one matched-random value at most `0.05`
+with positive exact improvement, and a valid calibrated seven-row QP whose
+fresh exact rollout is safe. Closed-loop execution is prohibited regardless
+of this local result. Protocol:
+`docs/distal_direct_rollout_margin_e05_preregistration.md`. After committing
+and syncing clean source, the exact next command is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=direct-margin-e05-20260810a
+slurm/distal_direct_rollout_margin_e05.sbatch`.

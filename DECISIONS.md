@@ -1770,3 +1770,30 @@ The next defensible model change, if separately authorized, is direct dense
 small-radius derivative supervision or regression of a continuous executed
 contact burden. Retuning the ranking weight or training longer on the same 28
 informative training pairs would not answer the observed generalization gap.
+
+# ADR-0077: Replace contact logits with direct signed rollout margins
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The binary-contact gradient implementation is internally correct, but jobs
+`37427` and `37463` show that its learned field is not a reliable recovery
+direction. The next experiment therefore changes the target, not the gradient
+operator. It directly regresses the seven signed minimum controller-rollout
+margins from the validated job-`37270` exact two-step dataset.
+
+The primary E05 state remains entirely held out. Six complete episodes train
+the model, a separate task episode calibrates conservative lower margins, and
+the complete selected `goal-II-t0` group remains test-only. The shared
+factorized network uses smooth Softplus hidden activations and a linear output
+because margins can be positive or negative. Value loss is supplemented by
+both witness-stable finite-difference direction and magnitude supervision;
+cosine alone is not sufficient for a projection Jacobian.
+
+At E05 action 185, the smallest predicted margin supplies the action gradient.
+Its exact two-step margin improvement at radius `0.1` is compared with 256
+uniform feasible directions at the same norm. A separate calibrated seven-row
+QP must pass fresh exact proxy and raw-simulator verification. All model,
+false-safe, gradient, matched-random, and QP gates must pass for a mechanism
+GO. No outcome authorizes closed-loop execution or task-success claims; a
+failure distinguishes grouped margin/gradient generalization from the already
+established same-state capacity result.
