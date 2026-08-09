@@ -2288,3 +2288,31 @@ after clean commit/source sync is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=contact-ranker-e05-v2-20260809a
 slurm/distal_contact_ranker_e05.sbatch`.
+
+# 2026-08-10: learned gradient fails matched-random control
+
+Clean H100 job `37427` completed the preregistered no-training comparison in
+`00:02:07` on `worker-2`, with 2,056 fresh complete cloned OSC transitions.
+The immutable learned gradient first became contact-free at radius `0.25` on
+held-out state 187, but 56/256 random directions were safe by the same radius
+(add-one empirical value `0.2218`). It first became safe at `0.5` on state 190,
+where 122/256 random directions were safe by that radius (value `0.4786`).
+Both exceed the frozen `0.05` gate.
+
+Thus `learned_gradient_beats_matched_random=false`. The two safe learned
+actions from job `37416` do not establish an informative neural steering
+gradient because safe directions are common locally. Boundary-focused
+multi-state/L6--L7 refinement and closed-loop E05 remain unauthorized. The
+next mechanism test must first replace pointwise binary-only supervision with
+paired directional-ranking supervision and repeat the matched-random gate on
+held-out directions/states.
+
+Result/payload/validation SHA-256 values are
+`b25fc41f3fe9db39387b5dff32dbffa2a92e5cc4dc4aefd3e7b61623d249c989`,
+`76d8a4f122a637fd9843c2f4c1d03f22b1856707bca49ddd1e0658e3657186a7`,
+and `6f644ddc2b48f243b2d7c4e6e2319b63cc7879c2e5207662184405814d48be48`.
+The local artifacts are under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_gradient_random_control_e05/gradient-random-e05-20260810b/`.
+The exact next read-only audit is `jq
+'.decision,.state_results,.learned_records'
+/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_gradient_random_control_e05/gradient-random-e05-20260810b/result.json`.

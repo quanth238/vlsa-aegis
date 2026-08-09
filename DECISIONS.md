@@ -1699,3 +1699,15 @@ held-out states authorizes boundary-focused multi-state/L6--L7 data
 refinement. Failure requires rethinking supervision or the model before any
 closed-loop test. Task error remains diagnostic and cannot compensate for
 contact.
+
+H100 job `37427` resolves this decision as NO-GO for the current model. The
+values were `0.2218` at state 187 and `0.4786` at state 190, so neither state
+passed. The current binary-contact classifier's action gradient is not shown
+to contain more steering information than a random direction. More examples
+under the same pointwise loss are therefore not the next experiment.
+
+The next admissible model test must explicitly supervise local direction:
+paired opposite perturbations at matched radii, exact controller-rollout
+ordering labels, and a directional-ranking loss evaluated on held-out pairs.
+It must again beat the matched-random gate before multi-state/L6--L7 scaling
+or closed-loop E05 is considered.
