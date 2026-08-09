@@ -2152,6 +2152,39 @@ clean commit/source sync is `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git
 rev-parse HEAD),RUN_ID=contact-ranker-e05-20260809a
 slurm/distal_contact_ranker_e05.sbatch`.
 
+Clean H100 job `37416` completed and independently validated on `worker-2` in
+`00:01:13`. Dataset, model, result, and validation artifacts were produced
+from the clean preregistered commit. Training stopped at best epoch 69 after
+370 epochs and took `1.209 s` on CPU inside the allocation. Only L5 had
+positive training labels (`124`); L6 and L7 had zero, so the learned result is
+strictly L5-local.
+
+The two arms separated clearly. Held-out ranking was NO-GO: test AUC was
+`0.698`, with `52/107` unsafe candidates incorrectly below the validation
+threshold. At state 187 it selected a fresh contact-free global action, but at
+190 it selected the unmodified nominal action, which produced 14 protected
+contacts and `1.057 mm` obstacle motion. `ranking_feasibility_go=false`.
+
+Gradient steering was a local mechanism GO. At state 187, the 0.1 action step
+still contacted, while 0.25/0.5/1.0 were freshly contact-free. At state 190,
+0.1 and 0.25 contacted, while 0.5/1.0 were freshly contact-free; the first safe
+0.5 action was `[-0.415824,0.564447,-0.315198]` with zero protected contacts
+and only `5.6 micrometres` obstacle motion. Thus
+`gradient_steering_go=true`, but this does not show task preservation, random-
+direction advantage, L6/L7 learning, closed-loop success, or unseen-episode
+generalization. Closed-loop execution remains unauthorized.
+
+Dataset/model/result/validation SHA-256 values are
+`b947a039978f892ad0f8b4462fcef67d78cdc28f955af8af5c31af610a6f0792`,
+`f9a73584d68629dc751913a748a4621372cdd8a010eda94e7df56e5ac3fe5469`,
+`47d9def32da7222150c2fb679f690e6c431601518abfa69560c258f89f0ee5f4`,
+and `4571c48c2e560f105af5c86502044cb8224321b604e7df450f55070db77293fa`.
+The local artifacts are under
+`/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_contact_ranker_e05/contact-ranker-e05-v2-20260809a/`.
+The exact read-only next command is `jq
+'.decision,.metrics.test,.test_selection,.gradient_audit'
+<that-directory>/result.json`.
+
 Initial H100 job `37401` stopped in the unit-test preflight before simulator or
 training startup because the cluster's Python 3.8 standard library lacks
 `math.nextafter`. The compatibility repair computes the identical previous

@@ -1673,3 +1673,12 @@ supports an MLP-assisted Best-of-N filter. Only a separate gradient GO
 supports the proposed differentiable residual story. Both are local
 same-episode mechanism results; neither authorizes closed-loop success or
 generalization claims.
+
+Job `37416` supports only the gradient-mechanism half of this decision. The
+learned negative-risk direction yielded freshly contact-free actions at both
+held-out states, but the calibrated classifier produced 52 test false-safes
+and selected an unsafe nominal action at state 190. Therefore an MLP gradient
+may be a useful proposal generator, but this model cannot be the safety
+authority or Best-of-N filter. Exact verification remains necessary, and
+closed-loop use is not authorized. Because all positive training labels were
+L5, the result also provides no learned L6/L7 evidence.
