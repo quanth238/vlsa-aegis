@@ -1348,3 +1348,9 @@ authorize a neural model, closed-loop E05, or a safety claim. A failure is a
 NO-GO for this registered single-affine sampled-grid construction; it does not
 exclude piecewise-affine or nonlinear safe sets. This ordering prevents a
 larger model or relaxed calibration from hiding a representation failure.
+
+Attempt `37277` is an apparatus failure: its allocation numerical tests
+passed, but a `1e-12` m replay-clearance equality receipt rejected the first
+case before output. The fixed repair records and bounds that pairing
+difference by `1e-8` m, still 100 times below the scientific affine padding.
+No optimization or acceptance setting changes.

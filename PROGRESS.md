@@ -1759,3 +1759,12 @@ nonlinear safe sets. Config SHA-256 is
 `fd380f28b8c6611e2d1e11181604f10b42e3363e74641f773880a9654c66eba0`.
 The exact next command after a clean commit, remote sync, and live preflight is:
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=two-step-affine-oracle-20260809a slurm/distal_two_step_oracle_affine_safe_set.sbatch`.
+
+H100 attempt `37277` passed all three allocation-only SciPy/OSQP tests, then
+stopped before result serialization on the first replay receipt because the
+implementation required exact current-clearance equality within `1e-12` m.
+It is retained as an apparatus failure with no scientific result. The repair
+records the maximum difference and accepts at most `1e-8` m (0.01 micrometre),
+which remains 100 times smaller than the frozen 1 micrometre affine padding.
+It changes no grid label, certificate, QP, exact safety threshold, or decision
+gate. The retry uses a new immutable run ID.

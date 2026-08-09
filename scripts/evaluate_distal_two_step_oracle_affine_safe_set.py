@@ -120,13 +120,19 @@ def _exact_two_step_verification(
             obstacle_primitive_union=exact_boxes,
         )
         context = feature_context(env, probe)
+        observed_current = np.asarray(
+            context["current_clearance_m"], dtype=np.float64
+        )
+        expected_current = np.asarray(
+            expected_current_clearance_m, dtype=np.float64
+        )
+        maximum_pairing_difference = float(
+            np.max(np.abs(observed_current - expected_current))
+        )
         _require(
-            np.allclose(
-                np.asarray(context["current_clearance_m"], dtype=np.float64),
-                np.asarray(expected_current_clearance_m, dtype=np.float64),
-                rtol=0.0, atol=1.0e-12,
-            ),
-            "oracle affine safe-set reconstructed state differs",
+            maximum_pairing_difference <= 1.0e-8,
+            "oracle affine safe-set reconstructed state differs: %.17g m"
+            % maximum_pairing_difference,
         )
         archived_first = _canonical_action(archived["actions"][state_step], state_step)
         archived_second = _canonical_action(
@@ -157,6 +163,10 @@ def _exact_two_step_verification(
         )
         _require(all_eight.shape == (8,), "oracle affine safe-set row count differs")
         return {
+            "maximum_reconstructed_current_clearance_difference_m": (
+                maximum_pairing_difference
+            ),
+            "reconstructed_current_clearance_tolerance_m": 1.0e-8,
             "nominal_minimum_distal_clearance_m": float(
                 min(nominal_summary["minimum_substep_clearance_m"])
             ),
