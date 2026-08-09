@@ -1963,3 +1963,18 @@ directly inspected and is clean. MP4/JPG/receipt SHA-256 values are
 and `d9d4aed6cb2369f2c1d9d7b06870700fb9f75043c614199e9f6c1ae42253d553`.
 The local 18.8-second deliverable is under
 `/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_exact_candidate_closed_loop_e05/exact-candidate-video-20260809a/`.
+
+# 2026-08-09: unsafe suffix continuation preregistered
+
+The user requested removal of the action-187 fail-closed stop. The new opt-in
+diagnostic hash-binds validated job `37294`, exactly reconstructs its safe
+actions 0--186, then disables the safety filter and executes immutable nominal
+actions 187--236 until native success or plan exhaustion. It does not repeat
+the 512-candidate oracle, call a QP, or stop on proxy violation, raw protected
+contact, or paper CAR. Every suffix action still records all eight proxy rows
+at every internal substep plus raw contact, obstacle motion, and goal progress.
+
+This is explicitly unsafe continuation evidence, never safety success. The
+frozen protocol is
+`docs/distal_exact_candidate_continue_e05_preregistration.md`; config SHA-256
+is `f1cec8e8479be6b71f54e2239cbf1c21a5054be40aaa610753e469e42c6386c2`.

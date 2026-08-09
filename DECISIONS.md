@@ -1489,3 +1489,18 @@ frames with zero state/obstacle-trace error. Maximum decoded adjacent-pixel MAD
 and encoder MAE were `2.082/1.476` of 255, and direct inspection found the
 terminal frame clean. This replay is the accepted visual evidence for job
 `37294`; it does not alter the scientific NO-GO.
+
+# ADR-0068: Continue nominally after the empty safe set
+
+**Status:** Decided; preregistered before execution (2026-08-09).
+
+At the user's request, a separate diagnostic removes the fail-closed stop. It
+does not weaken or reinterpret job `37294`. The accepted actions 0--186 are
+replayed with exact state receipts; from action 187 onward the safety filter is
+latched off and the immutable AEGIS nominal suffix executes until task success
+or action-horizon exhaustion. Candidate search and QP are disabled, and proxy
+violations, raw contacts, and CAR are measured but do not terminate execution.
+
+Because an empty safe set is knowingly bypassed, `safety_success` is always
+false. The arm answers only whether continuing restores task completion and
+when physical collision occurs.

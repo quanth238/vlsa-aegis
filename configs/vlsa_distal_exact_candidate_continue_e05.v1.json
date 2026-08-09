@@ -1,0 +1,55 @@
+{
+  "schema_version": "vlsa_distal_exact_candidate_continue_e05.v1",
+  "protocol_id": "vlsa-distal-exact-candidate-continue-e05-v1",
+  "claim_scope": "unsafe_suffix_continuation_after_registered_exact_candidate_empty_safe_set_not_a_safety_method_not_QP_not_learned",
+  "primary_case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "expected_action_count": 237,
+    "accepted_safe_prefix_action_count": 187,
+    "unsafe_continuation_start_step": 187
+  },
+  "prerequisite": {
+    "exact_candidate_result_file_sha256": "908c7c0cd57ef9ea1fb2868e24433534b5336b4a2daabb8ec22cf549360251b4",
+    "exact_candidate_result_payload_sha256": "49b4d8c06704e7339de1f836bc59f47b8e8d76f56c05a13f9af6044943ef426f",
+    "exact_candidate_validation_file_sha256": "18ae1afdffd1a1bca49454cb133c4543d526c00b4782a245a924f9e8d73742f0",
+    "require_validated_empty_safe_set_at_step": 187
+  },
+  "prefix": {
+    "source": "validated_exact_candidate_executed_action_ledger",
+    "require_every_dynamic_state_hash_match": true,
+    "require_every_obstacle_displacement_match": true,
+    "require_zero_prefix_protected_contact": true,
+    "require_zero_prefix_paper_CAR": true
+  },
+  "continuation": {
+    "source": "immutable_successful_released_AEGIS_Table1_env_step_sequence",
+    "execute_steps": "187_through_native_done_or_action_236",
+    "safety_filter": "disabled_after_empty_safe_set",
+    "candidate_search": false,
+    "affine_QP_used": false,
+    "stop_on_proxy_violation": false,
+    "stop_on_raw_contact": false,
+    "stop_on_paper_CAR": false,
+    "orientation_gripper_channels": "unchanged"
+  },
+  "measurement": {
+    "osc_internal_substeps": "all",
+    "constraint_order": [
+      "L5_part_0",
+      "L5_part_1",
+      "L5_part_2",
+      "L6_part_0",
+      "L6_part_1",
+      "L7_part_0",
+      "L7_part_1",
+      "released_AEGIS_EE_proxy"
+    ],
+    "paper_CAR_threshold_m": 0.001
+  },
+  "decision_gate": {
+    "report": "native_task_success_and_first_proxy_violation_contact_and_CAR_steps_under_unsafe_continuation",
+    "safety_success_allowed": false,
+    "neural_training_authorized": false,
+    "interpretation": "diagnostic_of_what_happens_if_fail_closed_stop_is_removed"
+  }
+}
