@@ -40,6 +40,15 @@ and `709f141b262d203d2d51b549251283de5cbb6361a1133758b17f97ca66805f58`.
 The result supports multi-step recoverability but rejects coarse future-EE
 tracking as sufficient for task completion; neural training remains blocked.
 
+Clean H100 single-context replay job `37319` exactly matched all 237 executed
+actions, dynamic states, rewards, done flags, and obstacle positions, then
+verified 238 decoded frames at native 20 fps. Maximum adjacent-pixel MAD and
+encoder MAE were `2.015/1.536` of 255; direct final-frame inspection is clean
+and visibly shows the bowl outside the plate. MP4/JPG/receipt SHA-256 values
+are `07563ac70a2dc9d624a55ae5335dadff7b9b5d65e5d443aebb9dacd4e4f320ba`,
+`ada0cc587ba6a6d02fe9f95a6ef95231bc0473d12419bf9ffff483f1f425a55e`,
+and `33a9ff72a30e01f1180748b60acf9b5e1cd85efb530828542ec2130e715427ab`.
+
 ## Execution-aware distal-margin residual network (preregistered, 2026-08-09)
 
 Active gate `E02` now moves earlier than the invalid action-192 intervention

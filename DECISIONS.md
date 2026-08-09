@@ -1548,3 +1548,10 @@ avoidance subproblem but not the combined safety-and-task problem. The next
 method must use state-conditioned live task proposals or object-aware terminal
 ranking, not merely a larger safety margin or another local QP. This result
 does not authorize neural training.
+
+Clean H100 replay job `37319` exactly reproduced all 237 actions and state /
+obstacle receipts in one render context. Its native-rate 20 fps video passes
+source and decoded pixel-integrity gates and visually confirms the scientific
+interpretation: the obstacle remains undisturbed, while the bowl ends outside
+the plate. This replay is presentation evidence only and does not change the
+validated safety-GO/task-NO-GO result.
