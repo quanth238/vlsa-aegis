@@ -1196,7 +1196,7 @@ remains only the constructor placeholder. This defect did not affect job
 
 # ADR-0060: Diagnose full-bound E05 recovery before changing the learned method
 
-**Status:** Preregistered; allocation evidence pending (2026-08-09).
+**Status:** Completed partial GO (2026-08-09).
 
 Job `37214` showed that the nominal-centered L-infinity 0.5 region excludes
 stop/upward retreat at E05 action 186. The next experiment changes only the
@@ -1251,3 +1251,22 @@ The smallest passing candidate is re-executed with per-step clone identity.
 A pass authorizes grouped chunk-data collection, not neural training or
 closed-loop E05. A failure rejects only these registered low-dimensional
 families, not every possible action chunk.
+
+Clean H100 job `37262` completed all 2,922 registered chunks in `00:21:44`
+and passed independent validation. Both two-step arms passed: one-shot had
+459/731 safe candidates and endpoint-preserving distributed residuals had
+121/730. The minimum-correction winner was two-step one-shot, changing action
+185 XYZ to `[0,0.5,-0.25]`; its worst L5_part_1 gap was +0.478 mm, with zero
+raw contact, zero obstacle motion, and exact clone/execution hashes at both
+steps. The smallest distributed safe correction also passed with +0.145 mm
+and exact zero summed XYZ correction.
+
+Neither registered five-step family passed. Even the best one-shot and
+distributed chunks reached -15.128/-15.036 mm and every five-step candidate
+had raw protected contact by chunk steps three to four. This rejects a single
+first-action edit and the frozen one-parameter taper for open-loop execution
+of the entire five-action suffix. It does not reject multi-step prediction.
+The evidence supports a receding two-step execution-margin filter that
+re-evaluates at each simulator step while consuming the buffered pi0.5 chunk.
+Grouped chunk-boundary collection is authorized; neural training and
+closed-loop E05 remain later gates.

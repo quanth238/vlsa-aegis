@@ -1626,3 +1626,26 @@ clone identity. This is a no-training, no-policy-server oracle. See
 No H100 result exists yet. The exact next command after clean sync and live
 preflight is:
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=chunk-oracle-e05-20260809a slurm/distal_multistep_chunk_oracle_e05.sbatch`.
+
+Clean H100 job `37262` completed on `worker-1` in `00:21:44` and independently
+validated a partial mechanism `GO`. Two-step one-shot supplied 459/731 safe
+chunks; two-step endpoint-preserving distributed residuals supplied 121/730.
+The smallest safe correction changed only action 185 XYZ to `[0,0.5,-0.25]`
+and retained +0.478 mm minimum L5_part_1 gap, zero raw contact, zero obstacle
+motion, and exact clone/execution state hashes at both steps. The smallest
+distributed safe candidate retained +0.145 mm and exactly zero summed XYZ
+correction.
+
+Both five-step families returned zero safe candidates. Their best proxy gaps
+were -15.128/-15.036 mm, and all 731/730 candidates eventually had raw contact
+around chunk steps three to four. Thus one fixed edit cannot safely execute
+the full strongly downward suffix. The supported next method is a receding
+two-step execution-margin filter applied at every control step to the buffered
+five-action pi0.5 chunk. This result authorizes grouped chunk-region data
+collection, not training or closed-loop E05. Result/validation SHA-256 values
+are `de02f94a7eba91d195c8f63a93cbfb6e766362befb705582effc68afef1b28a3`
+and `3e4b4bf4ffd87f9ec02990aba557cfdd21dcce7cfe205833e26b4bcf9449ec27`;
+result payload SHA-256 is
+`3995f22f308115b044374ac35651a97b183ab79170aa5b92b1c8ff422617a9df`.
+The exact audit command is:
+`jq '{decision,baselines,arms:(.arms|with_entries(.value={horizon:.value.horizon,family:.value.family,candidate_count:.value.candidate_count,safe_count:.value.verified_safe_candidate_count,smallest:.value.smallest_verified_safe_chunk,best:.value.best_minimum_clearance_candidate})),selected_safe_chunk,executed_selected_chunk}' /mnt/data/quanth/experiments/vlsa-distal-multistep-chunk-oracle-e05/chunk-oracle-e05-20260809a/result.json`.
