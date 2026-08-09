@@ -26,6 +26,9 @@ MuJoCo state, while the frozen accepted receipt hashes the controller-inclusive
 dynamic state vector. This is an apparatus failure with no scientific result.
 The repair calls the same `_dynamic_state_vector` routine used by the accepted
 measurement path; no action, search, safety gate, or decision threshold changes.
+Retry `37335` was rejected by source-identity preflight in one second because
+the submitted expanded commit hash was mistyped. It ran no Python or simulation
+and is retained as a submission apparatus failure.
 
 ## Receding Cartesian waypoint Best-of-N (preregistered, 2026-08-09)
 

@@ -1585,3 +1585,7 @@ controller-inclusive dynamic-state vector used by the accepted job-`37308`
 ledger. The repair uses the identical `_dynamic_state_vector` hash contract.
 The failed attempt is retained as apparatus evidence and changes no scientific
 setting.
+
+Retry `37335` was rejected by the clean-source preflight before Python startup
+because the submission supplied an incorrectly expanded commit hash. It is a
+submission-only apparatus failure with no effect on the registered protocol.
