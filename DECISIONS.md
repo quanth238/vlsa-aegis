@@ -1124,7 +1124,7 @@ passed with nearly identical accuracy and exact safety.
 
 # ADR-0059: Require task-group generalization before neural closed-loop E05
 
-**Status:** Preregistered; allocation evidence pending (2026-08-09).
+**Status:** Completed NO-GO (2026-08-09).
 
 The action-188 result establishes local representational capacity only. The
 next experiment therefore freezes complete episode and task-level groups
@@ -1212,3 +1212,21 @@ optimizer. An exact-safe candidate plus clone/execution identity authorizes
 larger-region data collection. It does not authorize closed-loop E05. If no
 full-bound candidate is safe, the one-step formulation is rejected in favor
 of multi-step action-chunk prediction.
+
+Clean H100 job `37226` completed the frozen diagnostic in `00:02:02` and its
+independent validator passed. The finite-difference seven-row QP solved, but
+its exact clone retained a -1.718 mm L5_part_1 gap. None of the 731 registered
+full-bound candidates preserved all seven nonnegative proxy gaps. The best
+candidate was the physical-bound corner `[-1,1,1]`, with L5_part_1 still
+-0.907 mm; the three coordinate slices improved monotonically toward that
+corner. Thus widening the action box at step 186 does not restore one-step
+ellipsoid-set invariance.
+
+All 731 candidates were raw-contact-free with zero obstacle motion. This does
+not mean the proxy is irrelevant: action 186 is the pre-contact barrier
+crossing, while raw L5 contact occurs later. It means the filter must act at
+an earlier safe state using a horizon long enough to see the future crossing.
+Larger-region one-step training and closed-loop E05 remain unauthorized. The
+next method-level experiment is a two-step, then five-step, cloned-OSC action-
+chunk clearance oracle starting at step 185; neural training remains after
+that oracle gate.

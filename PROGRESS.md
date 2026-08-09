@@ -1588,3 +1588,25 @@ remains blocked. See `docs/distal_full_bound_recovery_e05_preregistration.md`.
 No H100 result exists yet. The exact next command after a clean source sync
 and live preflight is:
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=full-bound-e05-20260809a slurm/distal_full_bound_recovery_e05.sbatch`.
+
+Clean H100 job `37226` completed on `worker-1` in `00:02:02` and validated a
+full-bound `NO-GO`. The seven-row finite-difference QP was valid, but exact
+verification found minimum L5_part_1 clearance -1.718 mm. Across all 731
+registered actions, zero preserved every nonnegative L5--L7 proxy gap. The
+best action was the saturated retreat corner `[-1,1,1]`, still at -0.907 mm;
+all x/y/z grid slices improved toward that corner. Every action nevertheless
+had zero raw protected contact and zero obstacle motion, as expected before
+the later physical contact.
+
+The conclusion is narrow: action 186 is too late to maintain the conservative
+ellipsoid safe set even with full action authority. It is not evidence of raw
+contact during that one step and not a learned-model failure. Larger-region
+one-step collection and closed-loop E05 are blocked. The next oracle should
+start at action 185 and evaluate two-step, then five-step, action chunks before
+any neural training. Result/validation SHA-256 values are
+`d325dbf430ea3165d6304df4fe064b498b75ac36943df39fecbd98f420e6370f`
+and `c832791e2cf661226ac71bfd2b4224b9d632a1dd04fae76d978ef788b3f432ff`;
+result payload SHA-256 is
+`08cfbae8451b67c27954002feb997a73c7ab8934c617e5890da6afa969b66a3a`.
+The exact audit command is:
+`jq '{decision,nominal,qp:{valid:.qp.valid,reason:.qp.reason,candidate:.qp.candidate,diagnostics:.qp.diagnostics},global_search:{candidate_count:.global_search.candidate_count,verified_safe_candidate_count:.global_search.verified_safe_candidate_count,smallest_verified_safe_candidate:.global_search.smallest_verified_safe_candidate}}' /mnt/data/quanth/experiments/vlsa-distal-full-bound-recovery-e05/full-bound-e05-20260809a/result.json`.
