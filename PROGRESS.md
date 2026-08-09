@@ -1649,3 +1649,36 @@ result payload SHA-256 is
 `3995f22f308115b044374ac35651a97b183ab79170aa5b92b1c8ff422617a9df`.
 The exact audit command is:
 `jq '{decision,baselines,arms:(.arms|with_entries(.value={horizon:.value.horizon,family:.value.family,candidate_count:.value.candidate_count,safe_count:.value.verified_safe_candidate_count,smallest:.value.smallest_verified_safe_chunk,best:.value.best_minimum_clearance_candidate})),selected_safe_chunk,executed_selected_chunk}' /mnt/data/quanth/experiments/vlsa-distal-multistep-chunk-oracle-e05/chunk-oracle-e05-20260809a/result.json`.
+
+# 2026-08-09: grouped two-step residual-MLP diagnostic preregistered
+
+The accepted job-`37262` partial mechanism GO authorizes the next E02 data
+gate. `docs/distal_two_step_margin_preregistration.md` freezes the fastest
+decisive learned test: only the first XYZ action in a two-step chunk varies;
+the second immutable released-AEGIS action is retained. Exact labels cover
+both sequential OSC transitions and every MuJoCo substep.
+
+The existing ten-episode task-group split is reused without dropping its
+previous failures: six train episodes from two task groups, one unseen
+validation task group, and the complete selected `goal-II-t0` test group with
+E05 test-only. Each episode searches the first two-step crossing and at most
+three preceding states for a balanced 512-action boundary grid, then adds
+eight balanced witness-audited gradient anchors and 48 derivative probes.
+The no-training validator must accept all ten episodes before an H100 training
+job can start.
+
+The paired learning arms share labels and optimization. `global` is the
+monolithic seven-output two-step extension of the existing residual MLP;
+`factorized` shares one scalar MLP across the seven constraints using relative
+robot--exact-box geometry. Every held-out episode must beat the current-gap
+baseline, have zero conservative false-safe candidates, mean active-gradient
+cosine at least 0.8, and produce an exactly verified safe seven-row QP
+projection. Only a complete factorized pass runs E05 closed loop. That rollout
+recomputes after every executed action but uses no online cloned candidate
+oracle; it must preserve native task completion, nonnegative exact L5--L7
+substep clearance, zero raw protected contact, and CAR.
+
+Local structural/unit tests pass, including the complete NumPy path with the
+bundled runtime. No H100 result exists yet. The ordered next command after a
+clean source sync and live preflight is:
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=two-step-data-20260809a slurm/distal_two_step_margin_dataset_moka10.sbatch`.

@@ -1270,3 +1270,35 @@ The evidence supports a receding two-step execution-margin filter that
 re-evaluates at each simulator step while consuming the buffered pi0.5 chunk.
 Grouped chunk-boundary collection is authorized; neural training and
 closed-loop E05 remain later gates.
+
+# ADR-0062: Compare global and factorized two-step margin models before E05
+
+**Status:** Preregistered; allocation evidence pending (2026-08-09).
+
+Job `37262` proves that the primary action-185 state has control authority in
+the two-step one-shot family, while job `37226` proves that waiting until
+action 186 is too late. The next learned experiment therefore keeps the
+second released-AEGIS command immutable and varies only the first XYZ command.
+This preserves a three-dimensional projection and directly tests receding
+two-step lookahead without introducing a six-dimensional chunk optimizer.
+
+The previous ten-case grouped split and exact 15-box obstacle authority are
+retained. A two-stage protocol prevents training unless all episodes provide
+a balanced exact two-step boundary and witness-stable derivative supervision.
+E05 and its complete task-level group remain test-only. D_opt is the minimum
+seven-row exact-box clearance over both OSC transitions and all substeps;
+D_sim raw contact and obstacle motion remain separate acceptance authorities.
+
+The paired arms isolate representation. The `global` arm extends the earlier
+monolithic execution-loss MLP with the second action. The `factorized` arm
+uses a shared scalar MLP per constraint with relative robot--obstacle geometry.
+Both use the same samples, Huber and gradient loss, normalization source,
+validation-only conservative calibration, and bounded seven-row QP.
+
+Closed-loop E05 is ordered after every held-out factorized model and exact
+projection gate. It recomputes the learned model after every executed action
+on the immutable successful AEGIS nominal sequence, executes only the first
+correction, and does not consult a cloned candidate oracle online. This is a
+fast replay-level feasibility diagnostic, not yet a live-policy or population
+claim. Failure at the data, generalization, projection, collision, CAR, or task
+gate is retained as a research-direction NO-GO rather than tuned away.
