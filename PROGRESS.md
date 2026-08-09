@@ -1552,3 +1552,23 @@ region; only +/-0.02 derivative probes may cross its edge while remaining in
 the global action bounds. All other data, model, split, and decision settings
 are unchanged. The new config SHA-256 is
 `9108354a127978f1213432eef560ab004b7e8b2d33d3d093bc7aa9483b4fab72`.
+
+Clean H100 job `37214` completed v2 on `worker-1` in `00:28:46` and its
+independent validator accepted the artifact/grouping contract, but denied
+training. Seven of ten episodes were eligible. Train `goal-II-t2-e15` and
+test `goal-II-t0-e05/e10` failed the balanced recoverable-boundary gate. E05
+had 512 far-safe candidates at step 185 and no safe candidate at step 186
+inside the nominal-centered L-infinity 0.5 action box. Because its nominal z
+command is -0.694, that box excludes zero and upward retreat. Dataset/result/
+validation SHA-256 values are
+`a3bff300a51007d09be4d7215fb383b09e8bd361e9e3c74b15bf8225815c97f4`,
+`6a47a7450b1bcf83d07097d27fb5ddbea7adf741d1f84d8fd9520916da57ff5f`,
+and `8aa45844a7f65184e1e90469b8dfe89b16e4c1211a762b7022418df6a7ea156d`.
+No neural training or closed-loop E05 run was authorized. The next experiment
+must explicitly choose full-bound/stop-retreat one-step recovery or a
+multi-step action-chunk execution-margin model; it must not drop the failed
+episodes. Commit `0d7be4c` also fixes the later held-out projector to replay
+each episode's own actions, and the full local gate passes with 296 tests and
+5 dependency skips.
+The exact next audit command is:
+`jq '{summary,episode_results:[.episode_results[]|{case_id,split,eligible,first_crossing_step,selected_step,reason,boundary_state_search}]}' /mnt/data/quanth/experiments/vlsa-distal-boundary-generalization-dataset/boundary-gen-data-20260809d/dataset.json`.

@@ -1171,3 +1171,25 @@ remaining inside global action bounds. The grouped split, exact labels,
 network, calibration, projection trust region, and held-out gates remain
 unchanged. Training is still forbidden unless every episode passes the new
 no-training gate.
+
+Clean H100 job `37214` is the accepted v2 dataset decision. It completed all
+ten cases and passed the independent receipt/grouping validator, but the
+dataset gate remains `NO-GO`: 7/10 episodes were eligible. The failed cases
+were train `goal-II-t2-e15` and held-out test `goal-II-t0-e05/e10`; no failed
+case is removed from the decision. E05 is the decisive mechanism failure. At
+step 185 every registered candidate was more than 5 mm safe, while at step
+186 every candidate in the nominal-centered L-infinity 0.5 action box was
+unsafe. The nominal step-186 z command is -0.694, so that box admits only
+z <= -0.194 and excludes stop/upward retreat. The one-step boundary dataset
+therefore has no recoverable E05 action at the active state.
+
+No neural model or closed-loop policy is run from job `37214`. The next
+scientific choice must be preregistered, not tuned into this result: either
+(a) retain a one-step model but allow the full physical action bounds / an
+explicit stop-retreat recovery direction, or (b) predict a multi-step action
+chunk so state 185 can be changed before the step-186 controllability loss.
+The latter matches the execution-aware action-chunk draft more directly.
+Separately, commit `0d7be4c` repairs the held-out projection evaluator so
+each test environment replays its own immutable episode actions; E05 geometry
+remains only the constructor placeholder. This defect did not affect job
+`37214`, which was a no-training collection stage.
