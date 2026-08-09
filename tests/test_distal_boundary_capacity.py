@@ -58,6 +58,30 @@ class DistalBoundaryCapacityTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "sampling differs"):
                 load_boundary_capacity_config(path)
 
+    def test_dataset_gate_rejects_diagnostic_bucket_in_learning_splits(self):
+        from main.multilink_ellipsoid.boundary_capacity import (
+            boundary_dataset_capacity_gate,
+            load_boundary_capacity_config,
+        )
+
+        config = load_boundary_capacity_config(
+            ROOT / "configs/vlsa_distal_boundary_capacity_e05.v1.json"
+        )
+        categories = {
+            "boundary_safe": 365,
+            "boundary_unsafe": 635,
+            "far_safe": 0,
+            "far_unsafe": 0,
+        }
+        stable = {"train": 41, "validation": 11, "test": 12}
+        self.assertTrue(
+            boundary_dataset_capacity_gate(categories, stable, config)
+        )
+        with self.assertRaisesRegex(ValueError, "stable split summary keys differ"):
+            boundary_dataset_capacity_gate(
+                categories, {**stable, "excluded_far": 0}, config
+            )
+
     @unittest.skipUnless(HAS_NUMPY, "NumPy is allocation dependency")
     def test_grid_is_complete_unique_and_inside_clipped_trust_region(self):
         from main.multilink_ellipsoid.boundary_capacity import (

@@ -1094,3 +1094,13 @@ records all grid labels but excludes outside-band groups from learning; the
 two boundary signs receive equal weight and retain grouped 70/15/15 splits.
 No action, exact label, band, trust region, model, QP, or success threshold is
 changed, and job `37205` supports no neural outcome.
+
+Retry `37208` wrote all 1,384 records and confirmed 365 boundary-safe versus
+635 boundary-unsafe grid actions. All 64 selected critical gradients were
+witness-stable (41/11/12 train/validation/test). Training nevertheless stayed
+blocked because the collector accidentally included an empty `excluded_far`
+entry in the minimum stable-anchor count, while its independent validator
+recomputed only the three learning splits and rejected the mismatch. The
+repair swaps the affected summary comprehensions; it changes no recorded
+transition or registered scientific setting. Job `37208` supports no neural
+outcome.

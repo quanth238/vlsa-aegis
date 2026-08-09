@@ -237,6 +237,32 @@ def critical_category(margin_m: float, band_m: float) -> str:
     return "far_safe" if margin_m > band_m else "far_unsafe"
 
 
+def boundary_dataset_capacity_gate(
+    categories: Mapping[str, int],
+    stable_by_split: Mapping[str, int],
+    config: Mapping[str, Any],
+) -> bool:
+    """Return the frozen no-training gate with exact summary-key checks."""
+
+    if set(categories) != {
+        "boundary_safe",
+        "boundary_unsafe",
+        "far_safe",
+        "far_unsafe",
+    }:
+        raise ValueError("boundary-capacity category summary keys differ")
+    if set(stable_by_split) != {"train", "validation", "test"}:
+        raise ValueError("boundary-capacity stable split summary keys differ")
+    settings = config["sampling"]
+    return bool(
+        int(categories["boundary_safe"])
+        >= int(settings["gradient_anchor_safe_count"])
+        and int(categories["boundary_unsafe"])
+        >= int(settings["gradient_anchor_unsafe_count"])
+        and min(int(value) for value in stable_by_split.values()) >= 1
+    )
+
+
 def select_gradient_anchor_indexes(
     records: Sequence[Mapping[str, Any]],
     lower_action: Sequence[float],

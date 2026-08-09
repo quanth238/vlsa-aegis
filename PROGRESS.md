@@ -1458,3 +1458,11 @@ This is an apparatus failure, not a model result. The repair retains every
 label for diagnosis, excludes outside-band groups from learning/calibration,
 and balances only the requested boundary-safe/boundary-unsafe groups. All
 physical sampling and scientific gates remain frozen.
+
+Retry `37208` produced 1,384 records with 365/635 boundary-safe/unsafe grid
+actions and 41/11/12 witness-stable critical anchors across the learning
+splits. Its collector still reported a false gate because the stable-count
+minimum accidentally included an empty diagnostic-only `excluded_far` key;
+the validator caught the inconsistency and no training ran. A two-line summary
+repair is required before a clean retry; the simulator data themselves show
+that the preregistered boundary dataset is adequate.

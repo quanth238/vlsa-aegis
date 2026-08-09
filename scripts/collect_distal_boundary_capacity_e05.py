@@ -13,6 +13,7 @@ from main.multilink_ellipsoid.boundary_capacity import (
     BOUNDARY_DATASET_RESULT_SCHEMA,
     BOUNDARY_DATASET_SCHEMA,
     assign_grouped_splits,
+    boundary_dataset_capacity_gate,
     critical_category,
     load_boundary_capacity_config,
     select_gradient_anchor_indexes,
@@ -402,7 +403,7 @@ def collect(
             and bool(item["gradient_valid_rows"][critical])
             for item in selected_anchor_records
         )
-        for name in ("train", "validation", "test", "excluded_far")
+        for name in ("train", "validation", "test")
     }
     split_group_counts = {
         name: len(
@@ -410,14 +411,10 @@ def collect(
                 item["group_id"] for item in records if item["split"] == name
             }
         )
-        for name in ("train", "validation", "test")
+        for name in ("train", "validation", "test", "excluded_far")
     }
-    dataset_gate = bool(
-        categories["boundary_safe"]
-        >= int(settings["gradient_anchor_safe_count"])
-        and categories["boundary_unsafe"]
-        >= int(settings["gradient_anchor_unsafe_count"])
-        and min(stable_by_split.values()) >= 1
+    dataset_gate = boundary_dataset_capacity_gate(
+        categories, stable_by_split, config
     )
     summary = {
         "state_step": step,
