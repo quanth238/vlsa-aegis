@@ -92,6 +92,8 @@ def load_affine_coefficient_config(path: Path) -> dict[str, Any]:
         "action_limit": 1.0, "trust_region_linf_action": 0.5,
         "grid_points_per_dimension": 5,
         "expected_grid_action_count_per_state": 125,
+        "include_exact_nominal_certificate_anchor": True,
+        "expected_certificate_action_count_per_state": 126,
         "second_action": "immutable_released_AEGIS_nominal",
     }:
         raise ValueError("affine-coefficient action sampling differs")

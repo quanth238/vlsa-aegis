@@ -19,6 +19,13 @@ class AffineCoefficientModelTests(unittest.TestCase):
         config = load_affine_coefficient_config(CONFIG)
         lower, upper, candidates = coefficient_grid_actions([0.0, 0.5, -0.5], config)
         self.assertEqual(len(candidates), 125)
+        self.assertEqual(
+            config["action_sampling"]["expected_certificate_action_count_per_state"],
+            126,
+        )
+        self.assertTrue(
+            config["action_sampling"]["include_exact_nominal_certificate_anchor"]
+        )
         self.assertEqual(lower.tolist(), [-0.5, 0.0, -1.0])
         self.assertEqual(upper.tolist(), [0.5, 1.0, 0.0])
 

@@ -1847,3 +1847,10 @@ confounded with nonexistent or invalid targets.
 Passing the later learned test would establish only multi-state two-step
 mechanism feasibility. Closed-loop task completion remains a separate future
 gate.
+
+H100 attempt `37554` exposed a target-construction omission before producing a
+scientific artifact: the clipped five-point grid need not contain the nominal
+action, so its sampled lower envelope need not lower-bound the separately
+measured nominal margin. The correction explicitly anchors every certificate
+with that nominal rollout. Clamping a negative `e` would hide the violated
+lower-bound assumption and is rejected.

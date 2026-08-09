@@ -2505,3 +2505,15 @@ commit, source sync, and live preflight, the exact next command is `sbatch
 --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
 HEAD),RUN_ID=affine-coeff-data-20260810a
 slurm/distal_affine_coefficient_dataset_moka10.sbatch`.
+
+Initial H100 job `37554` ran on `worker-2` for `00:15:23` and failed before
+writing any dataset, result, or validation artifact. The target builder found
+that `b - intercept` was negative at one state because bound clipping makes a
+five-point axis grid asymmetric and therefore does not always include the
+exact nominal action. This is an apparatus failure, not a scientific result.
+
+The repair adds the already measured exact nominal rollout as a 126th affine
+certificate anchor at every state. It does not add a sampled candidate,
+change the 6,250 grid labels, clamp the learned error, relax the envelope, or
+alter any decision gate. Enforcing the envelope at the nominal point is
+required by the registered definition `e = b - intercept`.

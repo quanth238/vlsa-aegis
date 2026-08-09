@@ -18,6 +18,8 @@ two-step exact-proxy crossing and the four preceding states. At every state,
 execute a fixed `5 x 5 x 5` first-action grid inside the existing
 `L_inf <= 0.5` trust region while retaining the immutable second AEGIS action.
 This produces 50 distinct states and 6,250 exact cloned-OSC grid labels.
+The separately measured exact nominal rollout is appended as a 126th
+certificate anchor at every state; it is not an additional sampled candidate.
 
 For every state and each of the seven L5--L7 rows, fit the existing
 candidate-conditioned minimum-L1 affine lower envelope with 1 micrometre

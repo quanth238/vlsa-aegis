@@ -233,8 +233,25 @@ def collect(
                         and summary["maximum_within_step_obstacle_l1_displacement_m"]
                         <= maximum_motion
                     ))
+                nominal_raw_safe = bool(
+                    nominal_summary["D_sim_raw_safe"]
+                    and nominal_summary[
+                        "maximum_within_step_obstacle_l1_displacement_m"
+                    ] <= maximum_motion
+                )
+                certificate_candidates = list(candidates) + [first[:3]]
+                certificate_margins = list(margins) + [nominal_margin.tolist()]
+                certificate_raw_safe = list(raw_safe) + [nominal_raw_safe]
+                _require(
+                    len(certificate_candidates)
+                    == int(config["action_sampling"][
+                        "expected_certificate_action_count_per_state"
+                    ]),
+                    "affine-coefficient certificate anchor count differs",
+                )
                 certificate = fit_candidate_conditioned_affine_certificate(
-                    candidates, margins, first[:3], raw_safe, list(range(len(candidates))),
+                    certificate_candidates, certificate_margins, first[:3],
+                    certificate_raw_safe, list(range(len(certificate_candidates))),
                     one_sided_padding_m=float(target_settings["one_sided_padding_m"]),
                     target_clearance_m=float(target_settings["target_clearance_m"]),
                     postcheck_tolerance_m=float(
