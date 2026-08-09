@@ -1069,7 +1069,7 @@ the presentation artifact for the successful oracle run; the original striped
 job-`37115` MP4 remains provenance only.
 # ADR-0058: Gate boundary-supervised neural capacity at action 188 before generalization
 
-**Status:** Accepted and preregistered, awaiting H100 evidence (2026-08-09).
+**Status:** Same-state local capacity accepted; generalization pending (2026-08-09).
 
 Validated job `37198` rejected nominal-trajectory supervision but retained 16
 exactly safe local actions at action 188. The next diagnostic therefore keeps
@@ -1104,3 +1104,20 @@ recomputed only the three learning splits and rejected the mismatch. The
 repair swaps the affected summary comprehensions; it changes no recorded
 transition or registered scientific setting. Job `37208` supports no neural
 outcome.
+
+Clean H100 dataset job `37209` passed the repaired no-training gate with 365
+boundary-safe and 635 boundary-unsafe grid actions and 41/11/12 stable
+critical anchors across train/validation/test. Clean paired job `37210` then
+passed independent validation for both fixed-architecture arms. Held-out
+critical RMSE was 0.01396/0.01440 mm for margin-only/gradient-supervised,
+versus 3.70047 mm for the current-clearance baseline; both retained zero
+conservative false-safe candidates and gradient cosine 0.99987/0.99997.
+
+Both seven-row QPs solved and passed exact cloned OSC verification. The
+gradient arm achieved minimum exact L5_part_1 clearance 1.391 mm, all seven
+distal gaps nonnegative, zero raw distal contact, and zero obstacle motion;
+QP and complete projection wall times were 1.344/5.549 ms. This accepts only
+same-state local capacity for the execution-aware surrogate. It does not
+accept generalization or closed-loop efficacy, and it does not show that
+explicit gradient supervision is necessary because the margin-only arm also
+passed with nearly identical accuracy and exact safety.

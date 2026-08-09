@@ -1466,3 +1466,27 @@ minimum accidentally included an empty diagnostic-only `excluded_far` key;
 the validator caught the inconsistency and no training ran. A two-line summary
 repair is required before a clean retry; the simulator data themselves show
 that the preregistered boundary dataset is adequate.
+
+Clean H100 dataset job `37209` from commit `927c292` completed in `00:03:14`
+and independently validated the no-training gate. It retained 1,384 exact
+transitions, 365/635 safe/unsafe boundary grid actions, and 41/11/12 stable
+critical anchors across train/validation/test. Dataset/result/validation
+SHA-256 values are `ddc8699ee59b4278fdbd39a0b302f7100b7801dc5d5e277a7bf4860cf8f3f73f`,
+`0226abaa4035a13a62a9ce00cf78e7dba579e080824e4b7a4542102324fe75f7`,
+and `bb30ee30799dd08b0f6266129f4a663be5436d0e0fcb11b1c1f312bb22e76f51`.
+
+Paired H100 job `37210` completed in `00:01:50` and independently validated a
+same-state local capacity `GO`. Critical boundary test RMSE was
+0.01396/0.01440 mm for margin-only/gradient-supervised versus the 3.70047 mm
+current-clearance baseline; both arms had zero conservative false-safe
+candidates and gradient cosine 0.99987/0.99997. Both seven-row QPs solved and
+their exact clones were proxy/raw safe. The gradient arm reached 1.391 mm
+minimum L5_part_1 clearance with zero raw contact/obstacle motion; QP/complete
+projection time was 1.344/5.549 ms. Result/validation SHA-256 values are
+`51809a270d68c3268655f2e8fbcbc7e06bd515d73e34746181c5ac3a2fba154b`
+and `2681c64c5575fe2b83df0fe8439eeaa844bde7eb8e6b260d038f65bf62f810ef`.
+E02 remains active because unseen-state/episode generalization and closed-loop
+task completion are not yet tested. The exact next work is to preregister
+recoverable boundary-state collection across complete task/episode groups.
+The exact audit command is:
+`jq '{decision,baseline:.immutable_nominal_data_baseline,arms:(.arms|with_entries(.value={test:.value.training.split_metrics.test,projection:.value.decision,exact_minimum_m:.value.primary_projection.projected_exact_transition.minimum_substep_clearance_m,raw_contacts:.value.primary_projection.projected_exact_transition.raw_protected_contact_count,obstacle_motion_m:.value.primary_projection.projected_exact_transition.maximum_within_step_obstacle_l1_displacement_m}))}' /mnt/data/quanth/experiments/vlsa-distal-boundary-capacity-e05/boundary-mlp-20260809a/result.json`.
