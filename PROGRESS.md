@@ -1572,3 +1572,19 @@ each episode's own actions, and the full local gate passes with 296 tests and
 5 dependency skips.
 The exact next audit command is:
 `jq '{summary,episode_results:[.episode_results[]|{case_id,split,eligible,first_crossing_step,selected_step,reason,boundary_state_search}]}' /mnt/data/quanth/experiments/vlsa-distal-boundary-generalization-dataset/boundary-gen-data-20260809d/dataset.json`.
+
+# 2026-08-09: E05 full-action-bound recovery diagnostic preregistered
+
+The next E02 diagnostic follows the job-37214 mechanism result without
+claiming learned generalization. At immutable E05 action 186 it keeps the
+seven accepted L5--L7 constraints and exact 15-box/raw-simulator authority,
+but replaces the nominal-centered +/-0.5 action box with the full normalized
+physical bounds `[-1,1]^3`. It evaluates both a seven-row finite-difference QP
+and a 729-point exact cloned-simulator grid. The smallest verified recovery is
+executed once and must match its cloned state exactly. A positive physical
+oracle result authorizes larger-region data collection; closed-loop E05
+remains blocked. See `docs/distal_full_bound_recovery_e05_preregistration.md`.
+
+No H100 result exists yet. The exact next command after a clean source sync
+and live preflight is:
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=full-bound-e05-20260809a slurm/distal_full_bound_recovery_e05.sbatch`.

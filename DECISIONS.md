@@ -1193,3 +1193,22 @@ Separately, commit `0d7be4c` repairs the held-out projection evaluator so
 each test environment replays its own immutable episode actions; E05 geometry
 remains only the constructor placeholder. This defect did not affect job
 `37214`, which was a no-training collection stage.
+
+# ADR-0060: Diagnose full-bound E05 recovery before changing the learned method
+
+**Status:** Preregistered; allocation evidence pending (2026-08-09).
+
+Job `37214` showed that the nominal-centered L-infinity 0.5 region excludes
+stop/upward retreat at E05 action 186. The next experiment changes only the
+candidate and QP action bounds to the physical normalized box `[-1,1]^3`.
+It retains the immutable AEGIS input, accepted seven L5--L7 slabs, exact
+15-box obstacle, zero-margin target, minimum-deviation objective, every-OSC-
+substep measurement, raw contact veto, and 0.1 mm obstacle-motion veto.
+
+The diagnostic reports a central-finite-difference seven-row QP separately
+from a 9-by-9-by-9 exact cloned-simulator recovery lattice. The lattice is a
+privileged discrete oracle, not the final method or an exact continuous
+optimizer. An exact-safe candidate plus clone/execution identity authorizes
+larger-region data collection. It does not authorize closed-loop E05. If no
+full-bound candidate is safe, the one-step formulation is rejected in favor
+of multi-step action-chunk prediction.
