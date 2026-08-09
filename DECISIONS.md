@@ -1657,3 +1657,19 @@ must either start before the first ellipsoid violation, define an explicitly
 recovering barrier for already-negative states, or change the registered
 geometry/candidate family. It may not report this empty-set result as a neural
 optimization failure.
+
+# ADR-0073: Use ellipsoid features but raw contact supervision
+
+**Status:** Decided; preregistered before V2 execution (2026-08-09).
+
+The hard ellipsoid safe set is empty at the primary states, but exact substep
+diagnostics still contain 34 and 33 zero-contact actions. Therefore the next
+local feasibility test must not train on the impossible hard-ellipsoid target.
+It retains the ellipsoid geometry as state information and learns three binary
+execution-contact risks without calculating mesh distance.
+
+Candidate ranking and gradient steering are distinct gates. Ranking GO alone
+supports an MLP-assisted Best-of-N filter. Only a separate gradient GO
+supports the proposed differentiable residual story. Both are local
+same-episode mechanism results; neither authorizes closed-loop success or
+generalization claims.

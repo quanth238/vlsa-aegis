@@ -20,9 +20,8 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-contact-ranker-e05}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 SUCCESSFUL_SITL_RESULT=${SUCCESSFUL_SITL_RESULT:-/mnt/data/quanth/experiments/vlsa-distal-sitl-minimal-replay-e05/sitl-minimal-replay-20260808h/result.json}
-CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_distal_contact_ranker_e05.v1.json}
+CONFIG=${CONFIG:-$REMOTE_REPO/configs/vlsa_distal_contact_ranker_e05.v2.json}
 GEOMETRY_CONFIG=${GEOMETRY_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json}
-EXACT_BOX_CONFIG=${EXACT_BOX_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_oracle_exact_box_obstacle_e05.v1.json}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
@@ -35,7 +34,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source tree is dirty"
 [[ "$(sha256sum "$ARCHIVED_TABLE1_RESULT" | awk '{print $1}')" == 273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b ]] || die "Table-1 hash differs"
 [[ "$(sha256sum "$SUCCESSFUL_SITL_RESULT" | awk '{print $1}')" == e23320ebad7c17f8d07d52f204b0fc32c2c3d81ab8007d0a1f1b6ba365c7bf08 ]] || die "successful SITL hash differs"
-for path in "$CONFIG" "$GEOMETRY_CONFIG" "$EXACT_BOX_CONFIG"; do [[ -f "$path" && ! -L "$path" ]] || die "required input missing"; done
+for path in "$CONFIG" "$GEOMETRY_CONFIG"; do [[ -f "$path" && ! -L "$path" ]] || die "required input missing"; done
 
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 mkdir -p "$EXPERIMENT_ROOT"
@@ -73,7 +72,7 @@ safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 } >"$LIBERO_CONFIG_PATH/config.yaml"
 
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -c 'import numpy, torch; assert torch.cuda.is_available(); print({"numpy": numpy.__version__, "torch": torch.__version__, "cuda": torch.cuda.get_device_name(0)})' >"$RUN_ROOT/runtime-preflight.txt"
+"$AEGIS_PYTHON" -c 'import numpy, torch; print({"numpy": numpy.__version__, "torch": torch.__version__, "training_device": "cpu_inside_H100_allocation"})' >"$RUN_ROOT/runtime-preflight.txt"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_contact_ranker tests.test_distal_oracle_affine tests.test_distal_execution_margin_nn -v >"$RUN_ROOT/test-preflight.txt" 2>&1
 "$AEGIS_PYTHON" scripts/evaluate_distal_contact_ranker_e05.py \
   --repo-root "$REMOTE_REPO" \
@@ -81,7 +80,6 @@ cd "$REMOTE_REPO"
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --successful-sitl "$SUCCESSFUL_SITL_RESULT" \
   --geometry-config "$GEOMETRY_CONFIG" \
-  --exact-box-config "$EXACT_BOX_CONFIG" \
   --config "$CONFIG" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --dataset "$RUN_ROOT/dataset.json" \

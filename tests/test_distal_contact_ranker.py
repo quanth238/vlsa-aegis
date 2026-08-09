@@ -1,7 +1,22 @@
 import unittest
+from pathlib import Path
 
 
 class DistalContactRankerTest(unittest.TestCase):
+    def test_v2_uses_ellipsoid_features_without_mesh_distance(self):
+        from main.multilink_ellipsoid.contact_ranker import (
+            load_contact_ranker_config,
+        )
+
+        root = Path(__file__).resolve().parents[1]
+        config = load_contact_ranker_config(
+            root / "configs/vlsa_distal_contact_ranker_e05.v2.json"
+        )
+        self.assertNotIn("exact_box_config_file_sha256", config["immutable_sources"])
+        evaluator = (root / "scripts/evaluate_distal_contact_ranker_e05.py").read_text()
+        self.assertNotIn("--exact-box-config", evaluator)
+        self.assertIn("obstacle_primitive_union=None", evaluator)
+
     def test_link_labels_keep_three_bodies_separate(self):
         from main.multilink_ellipsoid.contact_ranker import link_contact_labels
 

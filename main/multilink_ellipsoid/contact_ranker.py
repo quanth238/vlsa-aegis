@@ -14,7 +14,7 @@ import struct
 from typing import Any, Mapping, Sequence
 
 
-CONTACT_RANKER_SCHEMA = "vlsa_distal_contact_ranker_e05.v1"
+CONTACT_RANKER_SCHEMA = "vlsa_distal_contact_ranker_e05.v2"
 PROTECTED_LINKS = ("robot0_link5", "robot0_link6", "robot0_link7")
 
 

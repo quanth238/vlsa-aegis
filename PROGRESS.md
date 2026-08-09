@@ -2196,3 +2196,30 @@ The local artifacts are under
 `/Users/quanth238/personal/Research/probe_vla/output/vlsa_distal_ellipsoid_candidate_support_e05/ellipsoid-support-e05-20260809a/`.
 No next training command is authorized. The exact read-only next command is
 `jq '.decision,.state_results' <that-directory>/result.json`.
+
+# 2026-08-09: contact-risk ranking and gradient V2 preregistered
+
+The user authorized the decisive learned test after clarifying that mesh
+distance is unnecessary. V2 uses robot state, Cartesian nominal/candidate
+actions, and the accepted seven L5--L7 ellipsoid margins against the unchanged
+released-AEGIS obstacle MVEE as inputs. Its only targets are three binary raw
+contact flags captured across every internal cloned OSC substep. Ellipsoid
+margin and obstacle motion remain diagnostics and do not define the label.
+
+This is justified separately from the failed hard-ellipsoid gate: job `37407`
+recorded `34/87` and `33/87` zero-contact candidates at held-out states 187
+and 190 even though all 87 failed the conservative ellipsoid test. Complete
+states are frozen as train 184/185/186/188/189/191, validation 192, and test
+187/190. The validation threshold is strictly below its least-risk unsafe
+candidate. Best-of-N must have zero held-out false-safe candidates and freshly
+verify the least-change selection at both test states. Negative-risk-gradient
+steps 0.1/0.25/0.5/1.0 are audited separately with fresh rollouts.
+
+The pinned simulator PyTorch predates H100 sm90 kernels, so the tiny 64x64 MLP
+trains deterministically on CPU inside the H100 allocation; simulation remains
+allocation-backed and no Python environment is changed. Protocol:
+`docs/distal_contact_ranker_e05_v2_preregistration.md`. Exact next command
+after clean commit/source sync is `sbatch
+--export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse
+HEAD),RUN_ID=contact-ranker-e05-v2-20260809a
+slurm/distal_contact_ranker_e05.sbatch`.

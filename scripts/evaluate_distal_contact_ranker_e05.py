@@ -26,7 +26,6 @@ from scripts.collect_distal_boundary_generalization_moka10 import (
 )
 from scripts.evaluate_distal_execution_margin_nn_e05 import (
     _build_pair,
-    _geometry,
     _source_action,
 )
 from scripts.replay_distal_three_ellipsoid_multicbf import (
@@ -152,11 +151,12 @@ def _train(records: Sequence[Mapping[str, Any]], config: Mapping[str, Any], mode
     normalized = (features - mean) / deviation
     seed = int(settings["seed"])
     torch.manual_seed(seed)
-    _require(torch.cuda.is_available(), "contact-ranker training requires H100 CUDA")
-    torch.cuda.manual_seed_all(seed)
     if hasattr(torch, "use_deterministic_algorithms"):
         torch.use_deterministic_algorithms(True)
-    device = torch.device("cuda")
+    # The pinned simulator environment predates sm90.  This network is tiny,
+    # so train deterministically on CPU inside the H100 allocation rather than
+    # change the simulator's Python environment.
+    device = torch.device("cpu")
     model = _build_model(torch, 33, config["network"]["hidden_widths"]).to(
         device=device, dtype=torch.float64
     )
@@ -220,7 +220,7 @@ def _train(records: Sequence[Mapping[str, Any]], config: Mapping[str, Any], mode
         "train_negative_count_by_link": negative.astype(int).tolist(),
         "positive_weight_by_link": positive_weight.tolist(),
         "wall_seconds": (time.perf_counter_ns() - started) * 1e-9,
-        "cuda_device_name": str(torch.cuda.get_device_name(0)),
+        "training_device": "cpu_inside_H100_allocation",
         "torch_version": str(torch.__version__),
         "model_path": str(model_path),
         "model_file_sha256": _file_sha256(model_path),
@@ -249,7 +249,6 @@ def main() -> int:
     parser.add_argument("--archived", type=Path, required=True)
     parser.add_argument("--successful-sitl", type=Path, required=True)
     parser.add_argument("--geometry-config", type=Path, required=True)
-    parser.add_argument("--exact-box-config", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--dataset", type=Path, required=True)
@@ -263,7 +262,6 @@ def main() -> int:
         _runtime_imports, pairing_record, read_jsonl, validate_case_row,
     )
     from main.multilink_ellipsoid.execution_margin_nn import feature_vector
-    from main.multilink_ellipsoid.obstacle_primitives import load_obstacle_primitive_config
     from main.multilink_ellipsoid.oracle_affine import SubstepEightConstraintProbe, oracle_candidate_xyz
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import allocation_record, load_shadow_config
@@ -276,9 +274,7 @@ def main() -> int:
     _require(successful.get("result_payload_sha256") == identities["successful_sitl_payload_sha256"], "successful SITL payload differs")
     _require(successful.get("primary_problem_solved") is True and successful.get("case_id") == CASE_ID, "successful SITL contract differs")
     _require(_file_sha256(args.geometry_config.resolve()) == identities["geometry_config_file_sha256"], "geometry config differs")
-    _require(_file_sha256(args.exact_box_config.resolve()) == identities["exact_box_config_file_sha256"], "exact-box config differs")
     geometry_config = load_shadow_config(args.geometry_config.resolve())
-    exact_box_config = load_obstacle_primitive_config(args.exact_box_config.resolve())
     rows = [row for row in read_jsonl(args.manifest.resolve()) if row.get("case_id") == CASE_ID]
     _require(len(rows) == 1, "E05 manifest row is not unique"); case = rows[0]; validate_case_row(case, args.repo_root.resolve())
     source = _git_identity(args.repo_root.resolve(), args.expected_commit)
@@ -298,14 +294,25 @@ def main() -> int:
             "policy_noise_schedule_sha256",
         ):
             _require(pairing[key] == successful["pairing"][key], "pairing differs: %s" % key)
-        geometry, exact_boxes = _geometry(
-            geometry_config=geometry_config, exact_box_config=exact_box_config,
-            archived=archived, env=env, obstacle_name=setup["obstacle_name"],
+        from main.multilink_ellipsoid.shadow import MultilinkEllipsoidShadow
+        perception = archived["perception"]
+        geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
+            geometry_config,
+            {
+                "p2": perception["mvee_center"],
+                "R2": perception["mvee_rotation"],
+                "Q2_diag": perception["mvee_semiaxes"],
+                "record": {"label": perception["obstacle_label"]},
+            },
+        )
+        _require(
+            geometry.geometry_record(env)["distal_ellipsoid_count"] == 7,
+            "distal geometry count differs",
         )
         probe = SubstepEightConstraintProbe(
             probe_env, geometry, active_obstacle_name=setup["obstacle_name"],
             quadratic_tolerance=1e-6, contact_distance_threshold_m=0.0,
-            obstacle_primitive_union=exact_boxes,
+            obstacle_primitive_union=None,
         )
         actions = successful["actions"]
         first = config["state_groups"]["collect_steps"][0]
@@ -330,9 +337,7 @@ def main() -> int:
                 transition = probe.transition(env, action)
                 events = transition["raw_protected_contact_events"]
                 labels = link_contact_labels(events)
-                raw_safe = bool(
-                    not events and transition["maximum_within_step_obstacle_l1_displacement_m"] <= 1e-4
-                )
+                raw_safe = bool(not events)
                 record = {
                     "record_index": len(records), "state_step": int(step),
                     "split": _split_for_step(config, step), "candidate_index": int(candidate_index),
@@ -373,7 +378,6 @@ def main() -> int:
         }
         data_gate = bool(
             all(value["raw_safe_count"] > 0 and value["raw_unsafe_count"] > 0 for value in split_counts.values())
-            and all(item["successful_oracle_raw_safe"] for item in states)
             and all(item["raw_safe_count"] > 0 and item["raw_unsafe_count"] > 0 for item in states if item["split"] == "test")
         )
         dataset = {
@@ -382,8 +386,8 @@ def main() -> int:
             "config": config, "pairing": pairing, "states": states, "records": records,
             "split_counts": split_counts,
             "label_semantics": "exact_nonpositive_MuJoCo_contact_during_every_internal_OSC_substep",
-            "D_opt_semantics": "seven_ellipsoid_exact_box_support_gap_diagnostic_only",
-            "D_sim_semantics": "raw_L5_L6_L7_contact_plus_0.1mm_obstacle_motion_veto",
+            "D_opt_semantics": "seven_L5_L6_L7_ellipsoids_vs_released_AEGIS_obstacle_MVEE_diagnostic_only",
+            "D_sim_semantics": "any_nonpositive_raw_L5_L6_L7_contact_over_every_internal_OSC_substep",
             "dataset_gate_pass": data_gate,
             "total_clone_env_step_wall_seconds": float(sum(item["env_step_wall_seconds"] for item in records)),
         }
@@ -430,10 +434,7 @@ def main() -> int:
                     action = query.copy(); action[:3] = selected["candidate_xyz"]
                     transition = probe.transition(env, action)
                     fresh = {
-                        "D_sim_raw_safe": bool(
-                            transition["raw_protected_contact_count"] == 0
-                            and transition["maximum_within_step_obstacle_l1_displacement_m"] <= 1e-4
-                        ),
+                        "D_sim_raw_safe": bool(transition["raw_protected_contact_count"] == 0),
                         "raw_protected_contact_count": int(transition["raw_protected_contact_count"]),
                         "maximum_within_step_obstacle_l1_displacement_m": float(transition["maximum_within_step_obstacle_l1_displacement_m"]),
                         "next_state_sha256": transition["next_state_sha256"],
@@ -452,7 +453,7 @@ def main() -> int:
                 nominal_risk, gradient = _predict_risk_and_gradient(
                     model, nominal_record["feature_vector"], model_state["mean"], model_state["deviation"]
                 )
-                torch.cuda.synchronize(); inference_times.append((time.perf_counter_ns() - t0) * 1e-6)
+                inference_times.append((time.perf_counter_ns() - t0) * 1e-6)
                 norm = float(np.linalg.norm(gradient)); attempts = []
                 for amount in config["gradient_audit"]["step_sizes_action"]:
                     candidate_xyz = query[:3].copy()
@@ -462,7 +463,7 @@ def main() -> int:
                     transition = probe.transition(env, action)
                     attempts.append({
                         "step_size_action": float(amount), "candidate_xyz": candidate_xyz.tolist(),
-                        "D_sim_raw_safe": bool(transition["raw_protected_contact_count"] == 0 and transition["maximum_within_step_obstacle_l1_displacement_m"] <= 1e-4),
+                        "D_sim_raw_safe": bool(transition["raw_protected_contact_count"] == 0),
                         "raw_protected_contact_count": int(transition["raw_protected_contact_count"]),
                         "maximum_within_step_obstacle_l1_displacement_m": float(transition["maximum_within_step_obstacle_l1_displacement_m"]),
                     })
