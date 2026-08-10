@@ -1,0 +1,51 @@
+{
+  "schema_version": "vlsa_distal_adaptive_native_distance_moka10.v1",
+  "protocol_id": "vlsa-distal-adaptive-native-distance-moka10-v1",
+  "claim_scope": "H100 contact-consistency diagnostic for zero-cutoff overlap plus fixed small-cutoff native L5-L7 clearance on the 15 critical held-out states; no learning, QP, closed loop, or safety claim",
+  "immutable_source": {
+    "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "test_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "prior_inventory_result_file_sha256": "555f463d26d54b0b8508ef78548a6e97bbefa2a7bdd6c33b9140d3de941b6553",
+    "prior_inventory_result_payload_sha256": "a36d01a5165ae0edad56d41ac240b1f15e88209d8cdad1a7dbe718cb94317a33",
+    "prior_inventory_validation_file_sha256": "07787aa5594bbaa1a8656425a5715e3ef16b08221394a0b5c5a9954744111a68"
+  },
+  "population": {
+    "case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "expected_state_count": 15,
+    "state_identity": "exact_paired_settled_state_plus_canonical_archived_action_prefix_replayed_in_current_runtime",
+    "primary_contact_witness_steps": [187, 188]
+  },
+  "measurement": {
+    "distance_api": "mujoco.mj_geomDistance",
+    "overlap_distmax_m": 0.0,
+    "positive_distmax_sequence_m": [0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064],
+    "query_tolerance_m": 0.000001,
+    "repeated_uncensored_consistency_tolerance_m": 0.00001,
+    "raw_contact_distance_threshold_m": 0.0,
+    "horizon_actions": 2,
+    "temporal_resolution": "every_internal_MuJoCo_substep_in_cloned_OSC",
+    "right_censored_value_semantics": "safe_lower_bound_not_exact_target",
+    "contact_consistency": "distmax_zero_negative_iff_registered_raw_pair_contact"
+  },
+  "gate": {
+    "semantic_protected_group_inventory_hash_count": 1,
+    "maximum_negative_without_raw_pair_contact_count": 0,
+    "maximum_raw_pair_contact_without_negative_count": 0,
+    "maximum_cutoff_induced_negative_count": 0,
+    "maximum_repeated_uncensored_inconsistency_count": 0,
+    "required_registered_raw_contact_count": 1,
+    "required_initially_safe_test_state_count": 15,
+    "training_in_this_gate": false,
+    "QP_in_this_gate": false,
+    "closed_loop_in_this_gate": false
+  },
+  "decision": {
+    "pass": "preregister_full_grouped_physical_candidate_target_collection",
+    "failure": "reject_mj_geomDistance_and_use_contact_or_external_geometry_oracle",
+    "closed_loop_E05_authorized": false
+  }
+}

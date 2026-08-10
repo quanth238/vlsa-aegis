@@ -3286,3 +3286,17 @@ small-cutoff audit. Result/payload/validation/preflight SHA-256 values are
 `07787aa5594bbaa1a8656425a5715e3ef16b08221394a0b5c5a9954744111a68`,
 and `cb8040628b2c83c25c4c869069795d4995196b1d9564cbb25c0341b725419dfe`.
 Full report: `docs/distal_native_geom_inventory_moka10_result.md`.
+
+# 2026-08-10: adaptive zero/small-cutoff native audit registered
+
+Before abandoning the compiled physical rows, a final no-training measurement
+diagnostic is frozen on the 15 E05/E10/E15 states. It uses `distmax=0` only for
+overlap, then fixed 1/2/4/8/16/32/64 mm cutoffs for positive clearance. Values
+still censored at 64 mm are safe lower bounds, not exact targets.
+
+Every internal cloned-OSC substep must have exact raw-contact sign agreement,
+no cutoff-induced negative, consistent repeated non-censored distance, and a
+registered E05 contact witness. All 15 starts must be safe. No model, QP, or
+closed-loop is authorized. Protocol:
+`docs/distal_adaptive_native_distance_moka10_preregistration.md`. Config SHA-256
+is `fe869e9c5e16615999f59b12d00ed33c0e530cc20bc9948ee76ba60a95cf8e82`.

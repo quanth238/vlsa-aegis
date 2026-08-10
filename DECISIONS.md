@@ -2394,3 +2394,17 @@ measurement: `distmax=0` for overlap plus a fixed sequence of small positive
 cutoffs for near-boundary clearance. It must agree in sign with raw collision
 state and avoid negative/no-contact contradictions before any candidate target
 collection.
+
+# ADR-0098: Test zero-cutoff overlap before rejecting native distances
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The large-cutoff bug does not by itself prove that the zero-cutoff collision
+query is unusable. Freeze an adaptive measurement: zero cutoff for overlap,
+then powers-of-two millimetre cutoffs up to 64 mm for safe clearance. Never
+treat a right-censored result as an exact target.
+
+Require pair-level equivalence between zero-cutoff negative sign and registered
+raw contact throughout the cloned transition. Any cutoff-induced negative or
+repeated-distance inconsistency rejects the API for the research target. This
+gate cannot authorize training or control directly.
