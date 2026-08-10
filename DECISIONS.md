@@ -2703,3 +2703,10 @@ known-FK geometry and require at most 0.5 mm near-boundary error, signed
 agreement, and candidate-resampling stability. No training is authorized until
 this audit resolves both questions. E05/E10/E15 may no longer support a final
 generalization claim; reserve new complete episodes for that role.
+
+Job `38071` is an apparatus failure before geometry measurement. Retain the
+failed artifact and repair only ensemble arithmetic order: use the original
+job-37980 predictor (mean float32 residual, then add float64 q0) for the mean
+trajectory, while retaining baseline-plus-residual member trajectories solely
+for exact disagreement. Do not relax the immutable prediction equality gate or
+change any audit threshold.

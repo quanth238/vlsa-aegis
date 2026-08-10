@@ -3818,3 +3818,13 @@ Protocol:
 `docs/distal_factorized_terminal_bias_audit_moka10_preregistration.md`.
 Config SHA-256 is
 `85a9f0cf83dae6c97d47f6adde013a1145f5ebaec6e8af6e4e1b48c106b112a0`.
+
+Initial H100 job `38071` passed all ten allocation unit/regression tests but
+stopped before the first geometry outcome. The member-disagreement helper
+added the float64 joint baseline before averaging five float32 residuals,
+whereas immutable job 37980 averages residuals before adding the baseline.
+This changed only the strict prediction receipt at float32 rounding scale. The
+apparatus repair calls the original `predict` function for the ensemble mean
+and retains separately reconstructed member trajectories only for
+disagreement. No population, geometry, threshold, model, or scientific gate
+changes, and the failure-only run is not reused.

@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 from main.multilink_ellipsoid.factorized_execution_pilot import (
     _arm_targets, dataset_arrays, load_config, load_weights, payload_sha256,
+    predict,
 )
 from main.multilink_ellipsoid.factorized_terminal_bias_audit import (
     RESULT_SCHEMA, audit_decision, ensemble_disagreement_audit,
@@ -337,9 +338,12 @@ def collect_records(paths: Mapping[str, Path], config: Mapping[str, Any]) -> tup
     ].astype(np.float64)
     models, model_state = load_weights(paths["model"])
     member_q = _member_predictions(models, model_state, arrays)
-    recomputed_mean_q = np.mean(member_q, axis=0)
+    # Preserve job 37980's arithmetic order: average float32 residuals first,
+    # then add the float64 q0 baseline. Averaging baseline-plus-member outputs
+    # changes the receipt at float32 rounding scale.
+    recomputed_mean_q = predict(models, model_state, arrays)
     _require(
-        float(np.max(np.abs(recomputed_mean_q - stored_prediction))) <= 1e-12,
+        np.array_equal(recomputed_mean_q, stored_prediction),
         "terminal-bias ensemble mean did not reproduce",
     )
     # Use the immutable saved mean for the exact same arithmetic receipt as
