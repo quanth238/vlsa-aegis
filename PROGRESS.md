@@ -2916,3 +2916,33 @@ The exact next commands after the clean preregistration commit are:
 and, from `/home/quanth/working_space/vlsa-aegis-table-repro`,
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=same-task-boundary-expansion-20260810a slurm/distal_same_task_boundary_expansion_moka10.sbatch`.
+
+# 2026-08-10: same-task coverage improves but remains insufficient
+
+Clean H100 job `37742` completed on `worker-2` in `00:09:02` and the
+independent validator accepted the result. It collected all 15 registered
+E00/E20/E30 states and 1,875 exact two-step cloned-OSC grid rollouts, then
+formed the frozen 40/10/15 expanded episode split without touching
+E05/E10/E15.
+
+Coverage improved materially but failed the all-state gate: supported test
+states rose from 0/15 to 7/15, maximum feature shift fell from `10.182 z` to
+`5.601 z`, and shifted features fell from eight to two. All E05 states and E15
+steps 149--150 are supported; every E10 state and E15 steps 146--148 remain
+unsupported. In contrast, the induced regional-oracle smoothness gate now
+passes 15/15.
+
+The additional collector's separate single-affine compatibility gate is also
+false because E00 step 167 and E30 step 137 have no safe sampled trust-region
+action; all states and labels are retained, and 13/15 single-affine targets
+remain valid. This is not reclassified as an apparatus failure and is not the
+decisive learned gate.
+
+Current MLP retraining, an action-conditioned model, and closed-loop E05 all
+remain unauthorized. The next data collection must target complete episodes
+covering the E10 trajectory and early E15 action/joint-velocity ranges. Result,
+payload, and validation SHA-256 values are
+`89da1c0018db80ba35460368acddc5ae69e8400a1eb5ee0b99edc91f4b58e858`,
+`1d2c30931c356d10aed6c38fb6f93f2c3de86b245f531ac86aa1f98886926163`,
+and `ee4c3144da62387dbd07da6c597d34800ab2e489aa822f6d9a8fde7ff2f72ee3`.
+Full report: `docs/distal_same_task_boundary_expansion_moka10_result.md`.

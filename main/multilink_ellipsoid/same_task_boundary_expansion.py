@@ -354,6 +354,7 @@ def evaluate_expansion(
     ] = authorized
     analysis["decision"].update({
         "boundary_collection_simulation_executed": True,
+        "new_simulation_executed": True,
         "current_region_aware_MLP_retraining_authorized": authorized,
         "action_conditioned_model_authorized": False,
         "closed_loop_E05_remains_blocked": True,

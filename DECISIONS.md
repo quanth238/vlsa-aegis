@@ -2153,3 +2153,16 @@ the induced regional oracle is smooth relative to cross-episode training
 pairs. A pass authorizes a separate rerun of the current region-aware MLP; it
 does not authorize closed-loop E05. Only a supported-state learned failure
 would motivate the action-conditioned conservative value model.
+
+Clean H100 job `37742` resolves this first expansion as a strict support
+NO-GO. E00/E20/E30 reduce the maximum test shift from `10.182 z` to `5.601 z`
+and recover all five E05 states plus two late E15 states, but only 7/15 test
+states pass the training-derived support gate. All five E10 states and the
+first three E15 states remain unsupported.
+
+The fixed regional oracle is smooth for 15/15 matched test/training pairs, so
+there is no evidence here that the oracle mapping must be replaced. Conversely,
+partial coverage is insufficient to retry the MLP: doing so would knowingly
+retain unsupported extrapolation. Collect more complete same-task episodes
+that cover E10 and early E15. Preserve E05/E10/E15 as test-only, and rerun the
+same support gate before learning or closed-loop execution.
