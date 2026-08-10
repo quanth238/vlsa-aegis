@@ -2627,3 +2627,12 @@ default. Retain the failed receipt, change equality to accept only matching
 NaN masks while requiring exact finite values, and validate the immutable
 job-37980 result separately. This cannot change any model, metric, gate, or
 scientific conclusion.
+
+Job `38025` validates the repair with `0.0 m` maximum finite difference and an
+identical NO-GO decision. Treat factorization as useful mechanism evidence,
+not an intervention-ready method: it strongly improves direct-regression
+accuracy and learns action sensitivity, but its 44 proxy false-safes block the
+safety claim. The exact-joint geometry arm localizes the next work to execution
+prediction. Do not spend the next gate on Poisson/SDF, calibration, QP, or
+closed loop before the joint/substep error responsible for false-safes is
+reduced on held-out episodes.

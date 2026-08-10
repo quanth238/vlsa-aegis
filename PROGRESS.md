@@ -3669,3 +3669,14 @@ its invalid receipt. Repair only the equality predicate to require identical
 NaN masks and bit-exact finite values, report the maximum finite difference,
 and rerun validation from a separate immutable H100 allocation without
 retraining or changing the result.
+
+Validation-only H100 job `38025` completed on `worker-2` in `00:08:04` from
+validator commit `059e8510878767439ac4edf4d10b991b90c93097`. It loaded the
+immutable job-37980 result and models without retraining. Predictions, all
+metrics, the NO-GO decision, NaN masks, and every finite FK/ellipsoid margin
+reproduced exactly; maximum finite difference was `0.0 m`. Validation file and
+payload hashes are
+`ed78d2f528010095f1bc4db85f73e160996db62e764f30122196d8fb8821ef1e` and
+`e8a764e5b5be9e11807a64f2c773c363f9ca9ac4043a88915bc246d47206a9a4`.
+The strict factorized-pilot NO-GO is now validated. Full report:
+`docs/distal_factorized_execution_moka10_result.md`.
