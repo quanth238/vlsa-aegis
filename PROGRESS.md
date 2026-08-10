@@ -3699,3 +3699,23 @@ at least 0.5. No training, new simulation label, Poisson/SDF, calibration, QP,
 or closed loop is permitted. Protocol:
 `docs/distal_factorized_surface_error_moka10_preregistration.md`. Config hash
 is `0dc6aafc413ebbd116a4a3651b5ee1aadbae44c19e75fb0808ec51da30eb93d8`.
+
+Clean H100 job `38036` completed both diagnostic and independent replay on
+`worker-2` in `00:12:16`. All 960 test-random records, all 44 false-safes, FK
+margins, metrics, and the decision reproduced exactly. The surface-loss gate
+is NO-GO: false-safe median support-surface error was 4.538 mm versus 4.639 mm
+for unique same-state matched unsafe controls, an excess of -0.101 mm rather
+than the required +0.5 mm. Paired wins were 72.7% and signed surface
+retraction/margin-overestimate Spearman correlation was 0.635, but all gates
+were required.
+
+All 44 false-safes localized to L5 at final substep 50 with 100% obstacle
+witness agreement. Their 1.449 mm median surface clearance overestimate versus
+1.082 mm controls was dominated by center translation (1.196 versus 0.846 mm),
+not support/orientation (-0.107 versus -0.163 mm). Generic symmetric surface
+loss is not authorized; the next question is terminal L5 one-sided prediction
+bias. Records/result/validation hashes are
+`b8856658c2dde292805b19b9902cf9b09fb8d9897f6d0100c2fe475149dc0187`,
+`263b51cf93cea9aee6b894962562229f8ad79ebd8ce1aa308bde873495e38b30`, and
+`69b5e1b72ec17f8e5944ed719b9746b5c960a2f3e1e1328f165962a9409e70c6`.
+Full report: `docs/distal_factorized_surface_error_moka10_result.md`.

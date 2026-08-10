@@ -2645,3 +2645,15 @@ correctly rejected controls. Require 0.5 mm median excess, 65% paired wins,
 and 0.5 signed-error correlation. Passing authorizes only a later matched
 surface-loss pilot; failing redirects discussion to one-sided uncertainty.
 The diagnostic itself cannot train, calibrate, optimize, or execute actions.
+
+Job `38036` rejects generic symmetric surface-position loss under the frozen
+gate. False-safe Euclidean surface and center errors are not larger than
+matched unsafe controls at the population median, despite 72.7% paired wins.
+The useful signal is directional: all failures are L5 at terminal substep 50,
+with about 0.35--0.37 mm additional signed center/surface clearance
+overestimation and 0.635 correlation with margin overestimation. Treat this as
+terminal one-sided execution bias, not missing Poisson geometry or active
+witness switching. Before any downstream controller experiment, decide
+between terminal L5 normal-direction supervision and a state-conditioned
+one-sided uncertainty model; do not relabel this result as support for generic
+surface loss.
