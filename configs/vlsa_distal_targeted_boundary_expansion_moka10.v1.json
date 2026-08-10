@@ -1,0 +1,111 @@
+{
+  "schema_version": "vlsa_distal_targeted_boundary_expansion_moka10.v1",
+  "protocol_id": "vlsa-distal-targeted-boundary-expansion-moka10-v1",
+  "claim_scope": "test-label-free complete-episode moka-pot boundary coverage expansion; no learned training, closed loop, or formal safety claim",
+  "immutable_source": {
+    "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "selected_manifest_sha256": "32a88c6e973031bb553c056abb244c39a8f5952f411e3d7b16c2a9c5b3717c3d",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "affine_collection_config_file_sha256": "721992dd97ab5df46406b1db3a6091357f323ea05a6e28df7604e18e0bc54366",
+    "multi_region_config_file_sha256": "42814eb24c105a559a7314b1b823fc0ee59d5333524420fac867e00eb5bedcee",
+    "base_expanded_dataset_file_sha256": "b4590b5aa74bcbd626e3dbe19fe816899d89aaa106ddb7699c1be666a0b54fb6",
+    "base_expanded_dataset_payload_sha256": "fc3f38535ec562d091f07c113350a98f15953d7987903fa811baf4bc98623737",
+    "base_expanded_oracle_file_sha256": "b6e8d64a39ed91f1aef55b351269a23c8256de76b987414e4040642d94ab53cb",
+    "base_expanded_oracle_payload_sha256": "c7fc7c8ae6658aea387fa162e9925ce8c4b462523bc24f92f58dd88c394ce7cf",
+    "prior_result_file_sha256": "89da1c0018db80ba35460368acddc5ae69e8400a1eb5ee0b99edc91f4b58e858",
+    "prior_result_payload_sha256": "1d2c30931c356d10aed6c38fb6f93f2c3de86b245f531ac86aa1f98886926163",
+    "prior_validation_file_sha256": "ee4c3144da62387dbd07da6c597d34800ab2e489aa822f6d9a8fde7ff2f72ee3"
+  },
+  "episode_split": {
+    "unit": "complete_episode",
+    "additional_train_case_ids": [
+      "vlsa-t1-goal-ii-t0-e25",
+      "vlsa-t1-goal-ii-t0-e35",
+      "vlsa-t1-goal-ii-t0-e40",
+      "vlsa-t1-goal-ii-t0-e45"
+    ],
+    "immutable_test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ],
+    "test_inputs_or_labels_used_for_selection": false,
+    "expected_additional_state_counts": {"train": 20, "validation": 0, "test": 0},
+    "expected_expanded_state_counts": {"train": 60, "validation": 10, "test": 15}
+  },
+  "state_selection": {
+    "scan_start_step": 20,
+    "window_state_count": 5,
+    "require_every_start_clearance_nonnegative": true,
+    "anchor": "smallest_nonnegative_current_seven_row_clearance_with_safe_four_state_prefix",
+    "maximum_anchor_clearance_m": 0.1,
+    "tie_break": "smallest_anchor_step",
+    "uses_future_rollout_margin": false,
+    "uses_test_episode_features_or_labels": false
+  },
+  "collection": {
+    "reuse_affine_collection_action_grid_without_change": true,
+    "expected_episode_count": 4,
+    "expected_states_per_episode": 5,
+    "expected_additional_state_count": 20,
+    "expected_grid_actions_per_state": 125,
+    "simulator": "cloned OSC with every internal substep",
+    "device": "H100 allocation only"
+  },
+  "multi_region": {
+    "partition": {
+      "coordinates": "per_state_action_box_normalized_minus1_plus1",
+      "axis_intervals": [[-1.0, 0.0], [-0.5, 0.5], [0.0, 1.0]],
+      "axis_centers": [-0.5, 0.0, 0.5],
+      "region_count": 27,
+      "fit_actions_per_region": 27,
+      "inclusive_membership_tolerance": 1e-12
+    },
+    "ridge_huber": {
+      "nominal_value": "exact_region_center_two_step_OSC_margin",
+      "response_unit": "millimetres",
+      "boundary_band_m": 0.005,
+      "boundary_weight_multiplier": 9.0,
+      "huber_delta_mm": 2.0,
+      "ridge_strength": 0.0001,
+      "optimizer": "LBFGSB",
+      "maximum_iterations": 2000,
+      "gradient_tolerance": 1e-10,
+      "one_sided_padding_m": 1e-6
+    }
+  },
+  "support_audit": {
+    "feature_shift": {
+      "representation": "frozen_62D_region_aware_MLP_input",
+      "normalization": "training_rows_mean_std_with_1e-6_floor",
+      "absolute_z_shift_threshold": 5.0,
+      "rank_by": ["test_max_abs_z", "test_p95_abs_z"],
+      "report_top_feature_count": 20
+    },
+    "state_support": {
+      "context": "frozen_43D_pair_features_excluding_constraint_one_hot_and_candidate_action",
+      "distance": "RMS_training_standardized_context_difference",
+      "normalization": "training_constraint_rows_mean_std_with_1e-6_floor",
+      "reference": "nearest_training_state_from_a_different_complete_episode",
+      "reference_quantile": 0.95,
+      "maximum_single_feature_abs_z": 5.0,
+      "required_supported_test_state_count": 15
+    },
+    "oracle_smoothness": {
+      "comparison": "test_state_to_its_support_nearest_training_state_at_matched_normalized_action_grid_coordinates",
+      "value": "union_margin_max_over_regions_of_minimum_seven_row_lower_value",
+      "decision": "zero_margin_accepted_set_Jaccard",
+      "reference": "same_metrics_for_cross_episode_nearest_training_pairs",
+      "maximum_value_RMSE_reference_quantile": 0.95,
+      "minimum_Jaccard_reference_quantile": 0.05,
+      "required_smooth_test_state_count": 15
+    }
+  },
+  "decision": {
+    "current_region_aware_MLP_retraining_requires_support_and_smoothness_15_of_15": true,
+    "if_supported_MLP_fails": "replace coefficient output with action-conditioned conservative safety-value prediction",
+    "training_in_this_gate": false,
+    "closed_loop_E05_authorized": false
+  }
+}

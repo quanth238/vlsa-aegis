@@ -2166,3 +2166,26 @@ partial coverage is insufficient to retry the MLP: doing so would knowingly
 retain unsupported extrapolation. Collect more complete same-task episodes
 that cover E10 and early E15. Preserve E05/E10/E15 as test-only, and rerun the
 same support gate before learning or closed-loop execution.
+
+# ADR-0086: Exhaust same-task episode coverage without held-out selection
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37742` leaves five E10 states and three early E15 states unsupported. The
+remaining archived goal-II/task-0 episodes are E25/E35/E40/E45. All four are
+included as training episodes, so the experiment does not choose a favorable
+subset by inspecting E05/E10/E15. Held-out features and labels do not influence
+new state registration.
+
+Each new episode instead supplies its own closest nonnegative five-state
+L5--L7 boundary window. Its complete replay scan records action, joint
+configuration, and joint velocity coverage; the registered states receive the
+unchanged cloned-OSC action grid and fixed regional oracle. This is the last
+available archived same-task coverage expansion, not a new model experiment.
+
+The current region-aware MLP remains blocked unless the expanded 60/10/15
+population passes support and induced-oracle smoothness for all 15 held-out
+states. A support pass authorizes only a separate preregistered retraining run.
+If that supported-state model still fails its zero-false-safe, per-state safe
+support, QP, and exact-rollout gates, the coefficient-output parameterization
+is rejected in favor of an action-conditioned conservative value model.

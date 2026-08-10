@@ -2946,3 +2946,28 @@ payload, and validation SHA-256 values are
 `1d2c30931c356d10aed6c38fb6f93f2c3de86b245f531ac86aa1f98886926163`,
 and `ee4c3144da62387dbd07da6c597d34800ab2e489aa822f6d9a8fde7ff2f72ee3`.
 Full report: `docs/distal_same_task_boundary_expansion_moka10_result.md`.
+
+# 2026-08-10: remaining same-task boundary coverage registered
+
+The next coverage-only H100 experiment is frozen before simulation. It adds
+all four remaining unused complete goal-II/task-0 episodes E25/E35/E40/E45 as
+training episodes while E05/E10/E15 remain unchanged and strictly test-only.
+The selection does not compare candidate episodes against held-out features or
+labels. Instead, every new episode selects its own five-state window ending at
+its smallest nonnegative seven-row L5--L7 current clearance.
+
+The complete replay scan records Cartesian actions, joint positions, joint
+velocities, controller goals, and exact-box clearances. Each selected state
+then receives the unchanged 125-action, two-step cloned-OSC grid and fixed
+27-region ridge-Huber oracle. The expanded split is 60/10/15. Current MLP
+retraining requires support and oracle smoothness for all 15 test states; this
+gate itself contains no training or closed-loop execution.
+
+Protocol: `docs/distal_targeted_boundary_expansion_moka10_preregistration.md`.
+Config and manifest SHA-256 values are
+`9c90aa1047cff37efa2091657a9c0c1d0d7e26719c29ac331602e76045d3813e`
+and `32a88c6e973031bb553c056abb244c39a8f5952f411e3d7b16c2a9c5b3717c3d`.
+The exact next command after local validation, clean commit, remote source
+sync, and live Slurm preflight is:
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=targeted-boundary-expansion-20260810a slurm/distal_targeted_boundary_expansion_moka10.sbatch`.

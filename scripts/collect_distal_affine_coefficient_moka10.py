@@ -69,6 +69,9 @@ def collect(
     config_path: Path, expected_commit: str, dataset_path: Path,
     config_override: Optional[Mapping[str, Any]] = None,
     selected_override: Optional[Sequence[Mapping[str, Any]]] = None,
+    registered_state_steps_override: Optional[
+        Mapping[str, Sequence[int]]
+    ] = None,
 ) -> dict[str, Any]:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -165,46 +168,92 @@ def collect(
                 obstacle_primitive_union=exact_boxes,
             )
             actions = archived["actions"]
-            collision_step = int(selected_row["collision_first_step"])
-            search_start = max(
-                0, collision_step
-                - int(config["state_sampling"]["search_start_offset_actions"])
-            )
+            fixed_steps = None
+            if registered_state_steps_override is not None:
+                fixed_steps = [
+                    int(value) for value in
+                    registered_state_steps_override.get(case_id, [])
+                ]
+                _require(
+                    len(fixed_steps) == int(
+                        config["state_sampling"]["expected_states_per_episode"]
+                    )
+                    and fixed_steps == list(range(fixed_steps[0], fixed_steps[0] + len(fixed_steps)))
+                    and fixed_steps[-1] + 1 < len(actions),
+                    "affine-coefficient fixed registered states differ: %s"
+                    % case_id,
+                )
+            if fixed_steps is None:
+                collision_step = int(selected_row["collision_first_step"])
+                search_start = max(
+                    0, collision_step
+                    - int(config["state_sampling"]["search_start_offset_actions"])
+                )
+            else:
+                search_start = fixed_steps[0]
             for step in range(search_start):
                 env.step(_canonical_action(actions[step], step).tolist())
-            crossing_step = None
             snapshots = {}
             search = []
-            for step in range(search_start, min(collision_step + 1, len(actions) - 1)):
-                snapshots[step] = _snapshot_env(env)
-                first = _canonical_action(actions[step], step)
-                second = _canonical_action(actions[step + 1], step + 1)
-                nominal_summary, _ = _chunk_values(probe.rollout_chunk(env, [first, second]))
-                current = np.asarray(
-                    feature_context(env, probe)["current_clearance_m"], dtype=np.float64
-                )
-                minimum = np.asarray(
-                    nominal_summary["minimum_substep_clearance_m"], dtype=np.float64
-                )
-                crossing = bool(np.all(current >= 0.0) and np.any(minimum < 0.0))
-                search.append({
-                    "step": int(step), "minimum_start_m": float(np.min(current)),
-                    "minimum_two_step_m": float(np.min(minimum)), "crossing": crossing,
-                })
-                if crossing:
-                    crossing_step = step
-                    break
-                env.step(first.tolist())
-            if crossing_step is None:
-                episode_results.append({
-                    "case_id": case_id, "split": selected_row["split"],
-                    "task_level_group_id": selected_row["task_level_group_id"],
-                    "gate_pass": False, "reason": "no_two_step_crossing", "search": search,
-                })
-                continue
+            if fixed_steps is None:
+                crossing_step = None
+                for step in range(
+                    search_start, min(collision_step + 1, len(actions) - 1)
+                ):
+                    snapshots[step] = _snapshot_env(env)
+                    first = _canonical_action(actions[step], step)
+                    second = _canonical_action(actions[step + 1], step + 1)
+                    nominal_summary, _ = _chunk_values(
+                        probe.rollout_chunk(env, [first, second])
+                    )
+                    current = np.asarray(
+                        feature_context(env, probe)["current_clearance_m"],
+                        dtype=np.float64,
+                    )
+                    minimum = np.asarray(
+                        nominal_summary["minimum_substep_clearance_m"],
+                        dtype=np.float64,
+                    )
+                    crossing = bool(
+                        np.all(current >= 0.0) and np.any(minimum < 0.0)
+                    )
+                    search.append({
+                        "step": int(step),
+                        "minimum_start_m": float(np.min(current)),
+                        "minimum_two_step_m": float(np.min(minimum)),
+                        "crossing": crossing,
+                    })
+                    if crossing:
+                        crossing_step = step
+                        break
+                    env.step(first.tolist())
+                if crossing_step is None:
+                    episode_results.append({
+                        "case_id": case_id, "split": selected_row["split"],
+                        "task_level_group_id": selected_row[
+                            "task_level_group_id"
+                        ],
+                        "gate_pass": False, "reason": "no_two_step_crossing",
+                        "search": search,
+                    })
+                    continue
+                registrations = [
+                    (int(offset), int(crossing_step + offset))
+                    for offset in offsets
+                ]
+                state_selection = "first_two_step_crossing_offsets"
+            else:
+                crossing_step = None
+                for step in range(fixed_steps[0], fixed_steps[-1] + 1):
+                    snapshots[step] = _snapshot_env(env)
+                    if step < fixed_steps[-1]:
+                        env.step(
+                            _canonical_action(actions[step], step).tolist()
+                        )
+                registrations = list(zip(offsets, fixed_steps))
+                state_selection = "fixed_consecutive_registered_steps"
 
-            for offset in offsets:
-                step = int(crossing_step + offset)
+            for offset, step in registrations:
                 if step not in snapshots or step + 1 >= len(actions):
                     case_states.append({
                         "case_id": case_id, "state_step": step,
@@ -311,7 +360,11 @@ def collect(
                     "task_level_group_id": selected_row["task_level_group_id"],
                     "split": selected_row["split"], "state_step": step,
                     "state_offset_from_crossing": int(offset),
-                    "crossing_step": int(crossing_step),
+                    "crossing_step": (
+                        None if crossing_step is None else int(crossing_step)
+                    ),
+                    "registration_reference_step": int(registrations[-1][1]),
+                    "state_selection": state_selection,
                     "nominal_first_action": first.tolist(),
                     "nominal_second_action": second.tolist(),
                     "action_lower": lower.tolist(), "action_upper": upper.tolist(),
@@ -349,7 +402,11 @@ def collect(
             episode_results.append({
                 "case_id": case_id, "split": selected_row["split"],
                 "task_level_group_id": selected_row["task_level_group_id"],
-                "first_two_step_crossing_step": int(crossing_step),
+                "first_two_step_crossing_step": (
+                    None if crossing_step is None else int(crossing_step)
+                ),
+                "registration_reference_step": int(registrations[-1][1]),
+                "state_selection": state_selection,
                 "registered_state_count": len(case_states),
                 "gate_pass": episode_gate,
                 "reason": None if episode_gate else "one_or_more_registered_states_failed",
