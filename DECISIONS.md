@@ -2094,3 +2094,25 @@ and current grouped training support, preserve the multi-region oracle result,
 and keep closed-loop blocked. Any learned continuation must first resolve
 state-support/representation extrapolation and pass the same unseen safe-set
 gate.
+
+# ADR-0084: Diagnose state support before replacing the regional MLP
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37722` failed before QP execution and test features reached 10.182
+training standard deviations. Changing architecture without distinguishing
+unsupported extrapolation from a poor output parameterization would confound
+the next result. The next gate therefore trains no model and runs no simulator.
+
+It ranks the frozen 62-dimensional feature shifts, defines state support from
+cross-episode nearest-neighbor distances using training data only, and compares
+the induced multi-region union margins and accepted sets at matched normalized
+actions. Decision-level oracle values are used instead of raw coefficient
+equality because job `37701` already established benign coefficient
+non-uniqueness.
+
+If any test state lacks registered support, collect additional complete-episode
+boundary states and preserve grouped splits. Only if every test state is
+supported and its oracle behavior lies within the training reference envelope
+may an action-conditioned conservative safety-value model be preregistered.
+Closed-loop E05 remains blocked under every outcome of this diagnostic.

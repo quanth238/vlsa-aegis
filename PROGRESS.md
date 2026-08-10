@@ -2837,3 +2837,28 @@ Closed-loop E05 remains blocked. Before another learned run, preregister either
 broader grouped state support or a representation that removes unsupported
 absolute action/joint-velocity extrapolation, then repeat the same immutable
 unseen accepted-set and fresh-QP gates.
+
+# 2026-08-10: feature support and oracle smoothness registered
+
+The next no-training diagnostic is frozen before execution. It identifies the
+exact 62-dimensional features responsible for the job-`37722` test shift, then
+measures each validation/test state's nearest training support using the
+43-dimensional state context after removing constraint identity and candidate
+action. The p95 nearest-cross-episode distance among training states is the
+support threshold; every test state must also stay within five training
+standard deviations featurewise.
+
+Oracle comparison uses induced regional lower values rather than unstable raw
+coefficient identity. At matched normalized action coordinates, it compares
+the union margin (max over containing regions of the minimum seven-row value)
+and its zero-margin accepted set. Cross-episode training pairs freeze the p95
+margin-RMSE and p05 Jaccard thresholds.
+
+Insufficient test support directs new grouped boundary-state collection;
+sufficient support plus smooth oracle behavior authorizes only a separately
+preregistered action-conditioned safety-value model. This gate trains nothing,
+runs no simulator/QP, and cannot authorize closed-loop E05. Protocol:
+`docs/distal_state_support_smoothness_moka10_preregistration.md`; config SHA-256
+`5dacdc8e5eb843db3dcb27ecd6747059fcd3cd785c10a54404d162a46fc340ec`.
+The frozen implementation passes the complete local structural gate: 382
+tests with one skip.

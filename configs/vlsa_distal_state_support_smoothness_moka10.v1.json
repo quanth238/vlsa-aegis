@@ -1,0 +1,63 @@
+{
+  "schema_version": "vlsa_distal_state_support_smoothness_moka10.v1",
+  "protocol_id": "vlsa-distal-state-support-smoothness-moka10-v1",
+  "claim_scope": "no-training diagnosis of frozen region-aware feature shift, grouped state support, and decision-level multi-region oracle smoothness",
+  "immutable_source": {
+    "dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "multi_region_result_file_sha256": "a14c8f3c3f06d881a4ed83db94edf139f4ca5f2a9f53381f3b182a7e28ac2a5f",
+    "multi_region_result_payload_sha256": "a80b343a4810d746086ef933eead6e86f1ec61a0f123ee08b1a459c7274de265",
+    "multi_region_validation_file_sha256": "a24175762be7fecee2308c7f8a9dcb6f9bc82cf2ed2edaaf4949e53776e46e13",
+    "learned_result_file_sha256": "aa8dc377aeca50acdb102e721d3e483951aa9fd4ecd6477f2b8e46b2d3d0904a",
+    "learned_result_payload_sha256": "298c11f7eb8f0533fdd27fb4f86d02134af3de286d2dde63fdd2dfe61a26d6f3",
+    "learned_validation_file_sha256": "692a81ff96262d0a4d8c868ab914b39fe85e1390da8f967191eb5beee703c78f",
+    "expected_state_count": 50,
+    "expected_region_count": 27,
+    "expected_constraint_count": 7,
+    "fit_actions_per_state": 125
+  },
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "expected_state_counts": {"train": 30, "validation": 5, "test": 15},
+    "test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ],
+    "reference_neighbor_exclusion": "same_case_id",
+    "test_labels_never_used_to_define_thresholds": true
+  },
+  "feature_shift": {
+    "representation": "frozen_62D_region_aware_MLP_input",
+    "normalization": "training_rows_mean_std_with_1e-6_floor",
+    "absolute_z_shift_threshold": 5.0,
+    "rank_by": ["test_max_abs_z", "test_p95_abs_z"],
+    "report_top_feature_count": 20
+  },
+  "state_support": {
+    "context": "frozen_53D_pair_features_excluding_constraint_one_hot_and_candidate_action",
+    "distance": "RMS_training_standardized_context_difference",
+    "normalization": "training_constraint_rows_mean_std_with_1e-6_floor",
+    "reference": "nearest_training_state_from_a_different_complete_episode",
+    "reference_quantile": 0.95,
+    "maximum_single_feature_abs_z": 5.0,
+    "required_supported_test_state_count": 15
+  },
+  "oracle_smoothness": {
+    "comparison": "test_state_to_its_support_nearest_training_state_at_matched_normalized_action_grid_coordinates",
+    "value": "union_margin_max_over_regions_of_minimum_seven_row_lower_value",
+    "decision": "zero_margin_accepted_set_Jaccard",
+    "reference": "same_metrics_for_cross_episode_nearest_training_pairs",
+    "maximum_value_RMSE_reference_quantile": 0.95,
+    "minimum_Jaccard_reference_quantile": 0.05,
+    "required_smooth_test_state_count": 15
+  },
+  "decision": {
+    "insufficient_support": "collect_additional_grouped_boundary_states_from_new_episodes",
+    "supported_but_nonsmooth": "collect_denser_local_boundary_states_or_reduce_region_size",
+    "supported_and_smooth_after_prior_MLP_failure": "authorize_preregistration_of_action_conditioned_conservative_safety_value_model",
+    "closed_loop_E05_authorized": false,
+    "training_in_this_gate": false,
+    "simulation_in_this_gate": false
+  }
+}
