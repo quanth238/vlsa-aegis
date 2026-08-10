@@ -3116,3 +3116,17 @@ three states, no nonnegative scalar pad can satisfy both zero false-safes and
 15/15 support. Do not spend another H100 job on global calibration. The next
 method must condition uncertainty locally by state/episode while preserving
 grouped calibration and the untouched test gate.
+
+# 2026-08-10: distal margin-target authority audit registered
+
+Before local residual calibration, a no-training H100 artifact audit is frozen.
+It checks all 10,625 grid and 2,400 validation/test off-grid two-action rollouts.
+An ellipsoid-safe record requires all seven minimum internal-substep L5--L7
+margins nonnegative; raw safety requires zero protected MuJoCo distal contact.
+Zero ellipsoid-safe/raw-unsafe actions are mandatory.
+
+The audit invokes no simulator, trains no model, solves no QP, and cannot
+authorize closed-loop. A pass authorizes only separate leave-one-episode-out
+local residual calibration. Protocol:
+`docs/distal_margin_target_authority_moka10_preregistration.md`. Config SHA-256
+is `9aa8f5f2e4942d79f248dbec16d899718432d931691cf47b44be098601730747`.

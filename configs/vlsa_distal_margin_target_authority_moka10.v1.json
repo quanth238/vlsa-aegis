@@ -1,0 +1,47 @@
+{
+  "schema_version": "vlsa_distal_margin_target_authority_moka10.v1",
+  "protocol_id": "vlsa-distal-margin-target-authority-moka10-v1",
+  "claim_scope": "immutable_exact_rollout_audit_of_seven_ellipsoid_margin_safety_against_raw_MuJoCo_L5_L7_contact_before_local_residual_calibration",
+  "immutable_source": {
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "expanded_oracle_file_sha256": "5ac8efe88fed934ade3ec36512aa2a0d870142bd91ae09923e7cae577aea77b7",
+    "expanded_oracle_payload_sha256": "0716aae9cba8ef1bed5ce3b0800733593bfe8c550c599da68e5106729a72aebe",
+    "validation_fresh_file_sha256": "727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3",
+    "validation_fresh_payload_sha256": "240378006c46360b6a4c4beda4e585b73b860ff4d4404b30c6de9ec53d50d93e",
+    "action_conditioned_result_file_sha256": "fc61cbf8b936447c591897ebf47f0606e135a8ff9df8d878d562bf37fc3a32da",
+    "action_conditioned_result_payload_sha256": "9d345936fc6c4d1e3677de6223345db8e867a4571b3f449290fcf2aa208736d0",
+    "action_conditioned_validation_file_sha256": "255df4eeb454e8d6de574517f0d1244d5d9588c18e9978222c93f113ec6ef704",
+    "expected_state_count": 85,
+    "fit_actions_per_state": 125,
+    "expected_fit_action_count": 10625,
+    "expected_fresh_state_count": 25,
+    "fresh_actions_per_state": 96,
+    "expected_fresh_action_count": 2400
+  },
+  "target_definition": {
+    "ellipsoid_safe": "all_seven_minimum_substep_margins_nonnegative",
+    "raw_distal_safe": "D_sim_raw_safe_and_zero_raw_protected_L5_L6_L7_contacts",
+    "horizon_actions": 2,
+    "controller": "unchanged_OSC_POSE",
+    "temporal_resolution": "every_internal_MuJoCo_substep",
+    "robot_geometry": "certified_seven_slab_L5_L7_ellipsoid_union",
+    "obstacle_geometry": "exact_MuJoCo_moka_pot_collision_primitives",
+    "excluded_from_gate": ["released_AEGIS_EE_proxy", "CAR_obstacle_motion", "task_success"]
+  },
+  "population": {
+    "fit_grid": "all_85_states_all_125_actions",
+    "fresh_off_grid": "all_10_validation_and_15_test_states_all_96_actions",
+    "no_state_or_action_discarded": true,
+    "test_labels_used_only_for_geometry_target_audit_not_model_selection": true
+  },
+  "gate": {
+    "maximum_ellipsoid_safe_raw_distal_unsafe_count": 0,
+    "require_expected_population_counts": true,
+    "local_residual_calibration_authorized_only_if_gate_passes": true,
+    "training_in_this_gate": false,
+    "QP_in_this_gate": false,
+    "simulation_in_this_gate": false,
+    "closed_loop_E05_authorized": false
+  }
+}

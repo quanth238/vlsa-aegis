@@ -2295,3 +2295,18 @@ already has only 12/15 supported states before additional tightening, so no
 larger global pad can meet the 15/15 support gate. The next preregistration must
 estimate state-local uncertainty from episode-grouped non-test residuals; it
 must not tune a threshold on E05/E10/E15.
+
+# ADR-0092: Audit target authority before local uncertainty learning
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The next uncertainty model is meaningful only if nonnegative seven-row
+ellipsoid rollout margins do not hide protected raw MuJoCo contact. Therefore
+all existing exact grid and off-grid rollouts are audited before generating
+leave-one-episode-out residuals. The gate is zero dangerous false-safe target
+labels over the complete 13,025-action population.
+
+This audit is narrower than whole-arm safety: it covers the registered seven
+L5--L7 ellipsoids against the exact moka-pot collision primitives and raw
+protected distal contact. EE compatibility, CAR, and task success remain
+separate later gates. A pass authorizes local residual calibration only.
