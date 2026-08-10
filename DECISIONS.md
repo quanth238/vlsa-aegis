@@ -2573,3 +2573,30 @@ crossings. The existing complete-input model still fails with 271 false-safe
 test actions. Follow the user's conditional rule with one targeted
 old56-versus-old56-plus-rotation ablation. Do not expand to a six-arm study,
 Poisson field, calibration, QP, or closed loop at this decision point.
+
+# ADR-0108: Factor controller execution before changing safety geometry
+
+**Status:** Preregistered before H100 execution (2026-08-11).
+
+The user supersedes the targeted rotation-only MLP ablation with a structured
+execution pilot. Preserve job `37933` as proof that full rotation/action state
+must be present, but do not claim omitted inputs are the only failure: both
+matched direct-margin arms also failed to fit their training boundary.
+
+Collect a fresh matched population because the previous dataset stores only
+rollout minima and varies only first-action XYZ. At all 85 grouped states,
+record every OSC substep for both complete 7D actions. Use one nominal, 28
+all-coordinate finite-difference probes, and 64 deterministic antithetic local
+actions. Supervise both the 51-by-7 joint trace and its actual clipped
+14-coordinate action secants.
+
+Compare a direct minimum-margin arm and factorized joint-execution arm on the
+same complete input, action rows, splits, trunk, seeds, optimizer, and
+schedule. The factorized arm must compute safety only through known MuJoCo
+forward kinematics and the existing ellipsoids. Require joint/link accuracy,
+action-space sensitivity agreement, fewer false-safes than the fresh direct
+arm and prior 72-action result, recall, 15/15 support, and boundary accuracy.
+
+Do not add Poisson/SDF, calibration, a QP, policy inference, or closed-loop
+E05. Passing authorizes only a separate geometry-pipeline pilot; it is not a
+whole-body or invariance claim.

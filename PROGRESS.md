@@ -3590,3 +3590,33 @@ validation file/payload hashes are
 `bd66ef991ac631f46ef44768da4f9bc823dde4ad09b7c6c98e850f0c4c719531`,
 `1116d9b909adda1c8d4af11590514c643ff26aef83e0c94e5acf2465d234c80a`,
 and `fd957374c5d78fe98b5213f194dc64a5e55e7c95705c269af28d0e468131f20e`.
+
+# 2026-08-11: factorized OSC execution pilot registered
+
+The user superseded the targeted rotation-only input ablation before it ran.
+The next active mechanism gate asks whether learning the smooth short-horizon
+OSC joint execution map is more reliable than directly regressing the
+piecewise-smooth rollout minimum. The prior 125-action dataset is insufficient
+because it stores no joint trace and varies only first-action XYZ, while job
+`37933` proved that rotation can change both proxy safety and raw contact.
+
+The new H100 protocol retains the complete 60/10/15 episode split and
+E05/E10/E15 test isolation. At each of 85 states it collects 93 complete
+two-action candidates: nominal, clipped negative/positive probes for all 14
+action coordinates, and 32 antithetic random pairs. Every rollout stores the
+51-by-7 joint trace and seven ellipsoid traces; five candidates per state are
+duplicated exactly. The 14 finite-difference pairs explicitly supervise the
+joint-trajectory/action Jacobian.
+
+A fresh direct minimum-margin arm and factorized joint-execution arm share the
+same complete state, full actions, rows, splits, trunk, seeds, optimizer, and
+schedule. Predicted joints are evaluated through MuJoCo forward kinematics and
+the unchanged L5--L7 ellipsoids. The frozen gate requires joint/link error,
+joint and action-space safety sensitivity cosine at least 0.8, no more than 36
+factorized false-safes, zero false-safes and at least 95% recall when exact
+joints are recomposed with fixed initial obstacle geometry, strict improvement over the fresh direct arm and prior
+72 false-safes, at least 50% safe recall, 15/15 support, and at most 3.058 mm
+boundary RMSE. Poisson/SDF, calibration, QP, VLA inference, and closed-loop
+E05 remain forbidden. Protocol:
+`docs/distal_factorized_execution_moka10_preregistration.md`. Config SHA-256
+is `1fde25dc94f10bb4c4af91c35782df067172cdad5a0e6b6b42ae8b72b0ac4088`.
