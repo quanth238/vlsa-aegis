@@ -3170,3 +3170,11 @@ The exact next command after clean commit, remote sync, and live allocation
 preflight is:
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=local-residual-bound-20260810a slurm/distal_local_residual_bound_moka10.sbatch`.
+
+Initial H100 job `37823` completed all 12 grouped folds and atomically wrote the
+OOF residual artifact, then stopped before any result or scientific gate. The
+validation-only off-grid artifact stores `true_safe` directly and has no
+historical oracle-comparator `arms` object. The compatibility repair reads its
+registered direct label while retaining the comparator field for test records.
+Training, residual estimator, test labels, QP, and gates are unchanged; the
+attempt is retained as apparatus failure.

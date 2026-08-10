@@ -57,6 +57,21 @@ def _combine_oracle(
     return output
 
 
+def _recorded_safety_flags(action: Mapping[str, Any]) -> tuple[Any, bool]:
+    """Read both registered off-grid artifact schemas without changing labels."""
+
+    zero_arm = action.get("arms", {}).get("0mm")
+    oracle_safe = (
+        None if zero_arm is None
+        else bool(zero_arm["multi_region_predicted_safe"])
+    )
+    true_safe = bool(
+        action["true_safe"] if "true_safe" in action
+        else zero_arm["true_safe"]
+    )
+    return oracle_safe, true_safe
+
+
 def _generate_oof(
     *, states: Sequence[Mapping[str, Any]], arrays: Mapping[str, Any],
     action_config: Mapping[str, Any], expected_count: int,
@@ -191,10 +206,7 @@ def _evaluate_population(
                 ) >= 0.0)
                 for region_index in action["containing_region_indexes"]
             ))
-            oracle_safe = bool(
-                action["arms"]["0mm"]["multi_region_predicted_safe"]
-            )
-            true_safe = bool(action["arms"]["0mm"]["true_safe"])
+            oracle_safe, true_safe = _recorded_safety_flags(action)
             learned_flags.append(learned)
             oracle_flags.append(oracle_safe)
             true_flags.append(true_safe)

@@ -14,6 +14,9 @@ from main.multilink_ellipsoid.local_residual_bound import (
 from main.multilink_ellipsoid.action_conditioned_margin import (
     build_model, load_model, save_model,
 )
+from scripts.evaluate_distal_local_residual_bound_moka10 import (
+    _recorded_safety_flags,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,6 +70,16 @@ class LocalResidualBoundTest(unittest.TestCase):
             path.write_text(json.dumps(payload))
             with self.assertRaisesRegex(ValueError, "bound differs"):
                 load_config(path)
+
+    def test_both_immutable_off_grid_schemas_keep_the_same_true_label(self):
+        self.assertEqual(_recorded_safety_flags({
+            "true_safe": True,
+        }), (None, True))
+        self.assertEqual(_recorded_safety_flags({
+            "arms": {"0mm": {
+                "multi_region_predicted_safe": False, "true_safe": True,
+            }},
+        }), (False, True))
 
     @unittest.skipUnless(np is not None, "numerical runtime is required")
     def test_immutable_action_model_round_trip(self):
