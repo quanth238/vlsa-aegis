@@ -26,6 +26,17 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
+_GEOMETRY_PLACEHOLDER_CASE_ID = "vlsa-t1-goal-ii-t0-e05"
+
+
+def _geometry_placeholder_row(rows: Mapping[str, Mapping[str, Any]]) -> Mapping[str, Any]:
+    """Return the established compatibility-only released-AEGIS MVEE source."""
+
+    if _GEOMETRY_PLACEHOLDER_CASE_ID not in rows:
+        raise ValueError("complete-OSC geometry placeholder case is missing")
+    return rows[_GEOMETRY_PLACEHOLDER_CASE_ID]
+
+
 def _transform_record(item: Any) -> dict[str, Any]:
     import numpy as np
 
@@ -228,6 +239,16 @@ def main() -> int:
         and {str(item["case_id"]) for item in source_states} == set(row_by_case),
         "complete-OSC episode population differs",
     )
+    placeholder_row = _geometry_placeholder_row(row_by_case)
+    placeholder_path = paths["archived"] / placeholder_row["archived_relative_path"]
+    geometry_placeholder = _load(placeholder_path)
+    _require(
+        _file_sha256(placeholder_path) == placeholder_row["archived_file_sha256"]
+        and geometry_placeholder.get("result_payload_sha256")
+        == placeholder_row["archived_payload_sha256"]
+        and geometry_placeholder.get("case_id") == _GEOMETRY_PLACEHOLDER_CASE_ID,
+        "complete-OSC geometry placeholder differs",
+    )
     test_cases = sorted({
         str(item["case_id"]) for item in source_states if item["split"] == "test"
     })
@@ -276,7 +297,12 @@ def main() -> int:
             pairings[case_id] = pairing
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config, exact_box_config=exact_box_config,
-                archived=archived, env=env, obstacle_name=setup["obstacle_name"],
+                # The released AEGIS obstacle MVEE is required only to build
+                # the compatibility shadow object. The seven learned rows use
+                # the live exact-box union below, so freeze the same valid E05
+                # placeholder used by the established grouped collectors.
+                archived=geometry_placeholder, env=env,
+                obstacle_name=setup["obstacle_name"],
             )
             probe = SubstepEightConstraintProbe(
                 probe_env, geometry, active_obstacle_name=setup["obstacle_name"],

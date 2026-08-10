@@ -3445,3 +3445,13 @@ the historical cloned-rollout helper, whose nonempty check expects a Python
 sequence. The apparatus-only adapter now validates the array and passes its
 list representation; a regression test freezes that boundary. Population,
 actions, snapshots, labels, model, thresholds, and config are unchanged.
+
+Retry `37892` completed 6,250 paired apparatus checks with no mismatch but
+stopped before a final dataset when the next episode's archived legacy AEGIS
+obstacle rotation failed the proper-rotation constructor. This MVEE is unused
+by the seven L5--L7 rows, which evaluate the live exact-box obstacle union.
+The apparatus repair restores the established valid E05 archive as the fixed
+compatibility-only MVEE placeholder for every episode. Live simulator states,
+robot ellipsoids, exact obstacle transforms, actions, margins, contacts,
+population, model, thresholds, and config remain unchanged. No partial output
+is reused; `37892` is not a scientific result.

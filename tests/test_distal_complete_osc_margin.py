@@ -13,7 +13,9 @@ from main.multilink_ellipsoid.complete_osc_margin import (
     CONFIG_SCHEMA, action_row_features, flatten_numeric_tree, load_config,
     prediction_metrics,
 )
-from scripts.collect_distal_complete_osc_margin_moka10 import _rollout_receipt
+from scripts.collect_distal_complete_osc_margin_moka10 import (
+    _geometry_placeholder_row, _rollout_receipt,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +23,15 @@ CONFIG = ROOT / "configs" / "vlsa_distal_complete_osc_margin_moka10.v1.json"
 
 
 class CompleteOscMarginTest(unittest.TestCase):
+    def test_fixed_e05_geometry_placeholder_is_independent_of_episode_order(self) -> None:
+        rows = {
+            "vlsa-t1-goal-ii-t2-e00": {"case_id": "other"},
+            "vlsa-t1-goal-ii-t0-e05": {"case_id": "fixed"},
+        }
+        self.assertEqual(_geometry_placeholder_row(rows)["case_id"], "fixed")
+        with self.assertRaisesRegex(ValueError, "placeholder case is missing"):
+            _geometry_placeholder_row({"vlsa-t1-goal-ii-t2-e00": {}})
+
     def test_rollout_adapter_converts_ndarray_to_python_chunk(self) -> None:
         class Probe:
             def rollout_chunk(self, _env, actions):
