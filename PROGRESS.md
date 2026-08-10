@@ -3082,3 +3082,6 @@ registered 3-vector across the seven feature rows in one structural test. The
 implementation had already produced all seven identical rows; the repair
 expands only the expected test array. Model, data, loss, calibration, QP, and
 decision gates are unchanged. The attempt is retained as apparatus failure.
+Retry `37806` stopped at the adjacent normalized-action assertion for the same
+NumPy-1.22 non-broadcasting behavior. Its explicit expected array is likewise
+expanded to `7x3`; no model or simulator code executed.

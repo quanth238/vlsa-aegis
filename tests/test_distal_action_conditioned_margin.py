@@ -49,7 +49,7 @@ class ActionConditionedMarginTests(unittest.TestCase):
         np.testing.assert_allclose(
             output[:, PAIR_CANDIDATE_SLICE], np.repeat(action[None, :], 7, axis=0)
         )
-        np.testing.assert_allclose(output[:, -3:], [0.0, 0.0, 0.0])
+        np.testing.assert_allclose(output[:, -3:], np.zeros((7, 3)))
         np.testing.assert_array_equal(base, original)
 
     def test_model_predicts_one_residual_per_constraint_action_row(self):
