@@ -1968,3 +1968,27 @@ The next representation-level test must use multiple local affine regions or
 condition the region on safe-support geometry. The separate minimum-L1 OSQP
 iteration stall at spatial-I-t1-e00 remains a deployment diagnostic, not the
 cause of the ridge-Huber NO-GO.
+
+# ADR-0081: Test a fixed overlapping multi-region affine safe set
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37688` produced stable conservative single-affine rows but deleted exact
+safe support in two sparse states. The next experiment changes only the safe-
+set representation: the existing action box is covered by 27 fixed overlapping
+regions, and ridge-Huber rows are fitted independently from the already
+executed 27 grid points in each region.
+
+Every region is optimized separately with hard regional bounds and all seven
+L5--L7 constraints. Fresh cloned-OSC verification is mandatory for every valid
+regional proposal, including proposals later rejected by selection. The final
+choice is the verified-safe proposal with the smallest nominal-action change.
+This is a privileged oracle test of piecewise-affine representational capacity,
+not a deployable online filter.
+
+Zero margin and +1 mm clearance are independent frozen arms. Overall GO needs
+both arms to have zero false-safes, stable active fits, complete exact-safe QP
+coverage, and recovery of the two zero-margin safe-support misses. No MLP or
+closed-loop E05 runs in this gate. A failure distinguishes inadequate fixed
+regional affine coverage from the already rejected single-affine target; a
+pass only authorizes designing a later learned region-conditioned model.

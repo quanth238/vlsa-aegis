@@ -36,7 +36,9 @@ for optional_file in \
   scripts/evaluate_distal_affine_oracle_comparison_moka10.py \
   scripts/validate_distal_affine_oracle_comparison_moka10.py \
   scripts/evaluate_distal_ridge_huber_oracle_moka10.py \
-  scripts/validate_distal_ridge_huber_oracle_moka10.py
+  scripts/validate_distal_ridge_huber_oracle_moka10.py \
+  scripts/evaluate_distal_multi_region_affine_oracle_moka10.py \
+  scripts/validate_distal_multi_region_affine_oracle_moka10.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")

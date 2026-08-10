@@ -1,0 +1,95 @@
+{
+  "schema_version": "vlsa_distal_multi_region_affine_oracle_moka10.v1",
+  "protocol_id": "vlsa-distal-multi-region-affine-oracle-moka10-v1",
+  "claim_scope": "no_training_fixed_27_region_ridge_huber_affine_oracle_on_50_existing_states_not_closed_loop_not_formal_safety",
+  "immutable_source": {
+    "dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "dataset_result_file_sha256": "18e8a188a4815c5cb4409666d8d33b4b41c6f00311646493960235396b46b164",
+    "dataset_validation_file_sha256": "824f27a3477dbf4a90f4fe975c7e9e03d1436d0619cc8ef2351b401d55009bc6",
+    "off_grid_result_file_sha256": "5f34efe306cde24e1d2b20801015cb5f353f7e598f8afd606124da3bd0ff175f",
+    "off_grid_result_payload_sha256": "661273a27aa5a025b160f50e7b0526bb6d434a4b90fa1a8e63758ab0f2083ff6",
+    "off_grid_validation_file_sha256": "8c5aa5c5f56e179a4603584d2e45da3e1de2ca571b1dc512e315c8a05c010b4f",
+    "single_affine_result_file_sha256": "6efda2cb521416f9086dbd8ea99a07f46e32e9bb77b84cefe2efc0ea0ec1e8b3",
+    "single_affine_result_payload_sha256": "1076ef752d3b1ef0dda306a654c992292006c6fa6edb53d7e1f965138a91f2a3",
+    "single_affine_validation_file_sha256": "c2d831aa87edae00918c4f8b020d6f1a53e3579994b51d0bf1ebaad39a826c4d",
+    "dataset_source_commit": "e71ea17ff849c25b1187bf103b29931103a60a06",
+    "expected_state_count": 50,
+    "fit_actions_per_state": 125,
+    "off_grid_actions_per_state": 96
+  },
+  "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "expected_state_counts": {"train": 30, "validation": 5, "test": 15},
+    "primary_e05_use": "test_only"
+  },
+  "partition": {
+    "coordinates": "per_state_action_box_normalized_minus1_plus1",
+    "axis_intervals": [[-1.0, 0.0], [-0.5, 0.5], [0.0, 1.0]],
+    "axis_centers": [-0.5, 0.0, 0.5],
+    "region_count": 27,
+    "fit_actions_per_region": 27,
+    "inclusive_membership_tolerance": 1e-12
+  },
+  "ridge_huber": {
+    "nominal_value": "exact_region_center_two_step_OSC_margin",
+    "response_unit": "millimetres",
+    "boundary_band_m": 0.005,
+    "boundary_weight_multiplier": 9.0,
+    "huber_delta_mm": 2.0,
+    "ridge_strength": 0.0001,
+    "optimizer": "LBFGSB",
+    "maximum_iterations": 2000,
+    "gradient_tolerance": 1e-10,
+    "one_sided_padding_m": 1e-6
+  },
+  "resampling": {
+    "method": "deterministic_without_replacement",
+    "replicate_count": 16,
+    "candidate_fraction": 0.8,
+    "seed": 20260810,
+    "active_row": "unsafe_region_action_or_minimum_absolute_margin_at_most_5mm",
+    "minimum_cosine": 0.9,
+    "maximum_relative_norm_difference": 0.25,
+    "near_zero_gradient_m_per_action": 1e-5
+  },
+  "comparison": {
+    "baseline": "immutable_single_affine_ridge_huber_job_37688",
+    "off_grid_actions": "immutable_job_37649_fresh_uniform_cloned_OSC_actions",
+    "same_states_actions_and_exact_labels": true
+  },
+  "projection": {
+    "eps_abs": 1e-7,
+    "eps_rel": 1e-7,
+    "max_iter": 10000,
+    "residual_tolerance": 5e-7,
+    "bound_tolerance_action": 5e-8
+  },
+  "clearance_arms_m": [0.0, 0.001],
+  "exact_verification": {
+    "horizon_actions": 2,
+    "second_action": "immutable_released_AEGIS_nominal",
+    "osc_internal_substeps": "all",
+    "require_all_seven_distal_margins_at_clearance_arm": true,
+    "require_zero_raw_L5_L6_L7_contact": true,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001,
+    "released_AEGIS_EE_proxy": "diagnostic_only",
+    "verify_every_valid_regional_QP_proposal": true,
+    "selection": "verified_safe_then_minimum_L2_from_nominal_then_region_index"
+  },
+  "oracle_gate": {
+    "off_grid_false_safe_action_count_per_arm": 0,
+    "regional_QP_false_safe_proposal_count_per_arm": 0,
+    "all_active_region_rows_resampling_stable": true,
+    "minimum_accepted_safe_action_count_per_supported_state": 1,
+    "required_zero_margin_recovery_state_indexes": [4, 19],
+    "every_state_selected_exact_safe_QP_per_arm": true,
+    "overall_pass": "both_clearance_arms_pass_every_gate",
+    "mlp_training_executed": false,
+    "closed_loop_e05_executed": false
+  }
+}

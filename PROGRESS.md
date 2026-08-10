@@ -2669,3 +2669,26 @@ Result/payload/validation SHA-256 values are
 `1076ef752d3b1ef0dda306a654c992292006c6fa6edb53d7e1f965138a91f2a3`,
 and `c2d831aa87edae00918c4f8b020d6f1a53e3579994b51d0bf1ebaad39a826c4d`.
 Full result: `docs/distal_ridge_huber_oracle_moka10_result.md`.
+
+# 2026-08-10: fixed overlapping multi-region affine oracle registered
+
+The user authorized the representation-level continuation of job `37688`.
+No MLP is trained and closed-loop E05 remains blocked. The existing 125-action
+fit grids are partitioned into 27 fixed overlapping boxes: each normalized
+axis uses `[-1,0]`, `[-0.5,0.5]`, and `[0,1]`. Every region therefore has 27
+existing fit actions and an exact center anchor.
+
+Each region independently receives seven conservative ridge-Huber rows. One
+QP per region enforces those rows and the region bounds. Every valid proposal
+is freshly executed through the complete cloned two-action OSC rollout; the
+verified-safe proposal nearest the nominal action is selected. The immutable
+4,800 off-grid labels and the job-`37688` single-affine oracle provide paired
+comparison data.
+
+Both 0 mm and +1 mm arms are frozen before outcome inspection. Each arm must
+have zero off-grid and QP-proposal false-safes, stable active regional fits,
+accepted safe support wherever immutable support exists, and an exact-safe
+selected QP in all 50 states. The zero-margin arm must recover state indexes 4
+and 19. Overall GO requires both arms. Protocol:
+`docs/distal_multi_region_affine_oracle_moka10_preregistration.md`; config
+SHA-256 `42814eb24c105a559a7314b1b823fc0ee59d5333524420fac867e00eb5bedcee`.
