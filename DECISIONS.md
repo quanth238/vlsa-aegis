@@ -2525,7 +2525,7 @@ complete-episode splits. It must pass prediction gates before control.
 
 # ADR-0106: Isolate input content with a matched fresh-label ablation
 
-**Status:** Preregistered before H100 execution (2026-08-10).
+**Status:** Decided from validated H100 evidence (2026-08-10).
 
 Do not compare the prior 56D result to the complete-input result across
 different label collections, schedules, or seeds. Reconstruct the old 56D
@@ -2539,3 +2539,12 @@ state/setup coverage; two near-boundary training-fit failures identify the
 target or plain-MLP representation. Mixed outcomes remain inconclusive. This
 diagnostic cannot authorize Poisson fields, calibration, a QP, more data, or
 closed-loop control.
+
+Job `37925` resolves the frozen decision as a training-fit failure for both
+arms. The compact arm is materially better but still misses the boundary-fit
+gate; the complete arm has worse train/test error and more false-safes. Reject
+omitted inputs as the root cause for this plain residual MLP. Because training
+itself fails, do not classify this as the registered state/setup coverage
+failure. The deterministic target remains defined, so prioritize a structured
+or local representation of the execution-margin function before revisiting
+calibration, a QP, additional data, or closed-loop E05.

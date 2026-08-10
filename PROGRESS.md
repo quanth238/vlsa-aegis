@@ -3520,3 +3520,30 @@ coverage or representation failure. Poisson fields, calibration, QPs, new
 data, simulation, and closed-loop E05 are forbidden. Protocol:
 `docs/distal_matched_input_ablation_moka10_preregistration.md`. Config SHA-256
 is `9a62b52423386e34ccbc947700ff5437f3fbd3791b4faf11a61154c0483060fe`.
+
+# 2026-08-10: matched input ablation rejects missing inputs
+
+Clean H100 job `37925` completed on `worker-1` in `00:03:06`; independent
+validation passed. All 74,375 row identities and current/target margin bytes
+matched between arms, and fresh 56D geometry reconstruction agreed within
+`1.11e-16 m`.
+
+Both arms failed the registered training-fit gate. The old56 arm had 4.158 mm
+training overall RMSE, 3.285 mm training-boundary RMSE, 3.060/3.058 mm test
+overall/boundary RMSE, and 72 test false-safes. The completeOSC arm was worse:
+7.338/7.751 mm training overall/boundary RMSE, 7.529/8.497 mm test RMSE, and
+271 test false-safes. Its apparent 100% safe recall came from accepting every
+unsafe test action; all members selected epoch zero.
+
+The preregistered conclusion is
+`output_target_or_plain_MLP_representation_problem`, not missing inputs or the
+registered train-fit/test-fail coverage signature. No simulation, new data,
+Poisson field, calibration, QP, or closed loop ran. Full report:
+`docs/distal_matched_input_ablation_moka10_result.md`. Old/complete model,
+result file/payload, and validation file/payload hashes are
+`fbb986053ad8d2f1343c007635e8aa3d4977e531078cc1dfa6d9f8f6471d18c5`,
+`146e4e16745844fe50bbc802f958956239fb440aed99648eebf4e56358aa8a5d`,
+`dc76f3b6d4f8f78d08861bc13b9cec2a396c931bb5479f5646b729fe0e76698a`,
+`3a93f3d85097c9621a017999416d29cccababb316bbfd7d6d703362f78ba67c3`,
+`fb28af937b906883c3502f9be6560503e41d7139922b01a8a458aaa3bc74b55f`,
+and `8fcadb23b46c9e68e1ba39a3387b252f868c0a4b23ec7dc6b8d205f9fd7509c1`.
