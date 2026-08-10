@@ -2692,3 +2692,26 @@ selected QP in all 50 states. The zero-margin arm must recover state indexes 4
 and 19. Overall GO requires both arms. Protocol:
 `docs/distal_multi_region_affine_oracle_moka10_preregistration.md`; config
 SHA-256 `42814eb24c105a559a7314b1b823fc0ee59d5333524420fac867e00eb5bedcee`.
+
+Clean H100 job `37690` completed 2,567 new cloned-OSC rollouts on `worker-1`
+in `00:14:50`; its independent validator accepted the artifact. The frozen
+overall gate is NO-GO. At zero margin the 27-region oracle retained zero
+false-safes, improved safe recall from the single-affine 95.76% to 99.85%, and
+produced exact-safe selected QPs at 50/50 rather than 49/50 states.
+
+It recovered state index 4 with 6/7 accepted safe actions, but not state index
+19's single off-grid safe action. At state 19 the regional QPs still found
+three exact-safe proposals (closest correction 0.5879; minimum clearance
+0.2795 mm), demonstrating improved optimization support, but that state's fit
+was unstable. Overall, 13 active L5-part-2 regional fits across five states
+failed the 25% norm-stability threshold despite cosine at least 0.9139.
+
+The +1 mm arm had zero off-grid false-safes and 99.71% recall, but one valid QP
+proposal reached 0.999489 mm rather than 1 mm. A different proposal passed,
+yet every-proposal verification makes the arm NO-GO. Therefore
+`mlp_training_authorized=false` and closed-loop E05 remains blocked. Result,
+payload, and validation SHA-256 values are
+`a14c8f3c3f06d881a4ed83db94edf139f4ca5f2a9f53381f3b182a7e28ac2a5f`,
+`a80b343a4810d746086ef933eead6e86f1ec61a0f123ee08b1a459c7274de265`,
+and `a24175762be7fecee2308c7f8a9dcb6f9bc82cf2ed2edaaf4949e53776e46e13`.
+Full result: `docs/distal_multi_region_affine_oracle_moka10_result.md`.

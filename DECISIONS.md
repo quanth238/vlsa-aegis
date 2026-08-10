@@ -1992,3 +1992,22 @@ coverage, and recovery of the two zero-margin safe-support misses. No MLP or
 closed-loop E05 runs in this gate. A failure distinguishes inadequate fixed
 regional affine coverage from the already rejected single-affine target; a
 pass only authorizes designing a later learned region-conditioned model.
+
+Clean H100 job `37690` resolves the fixed 27-region oracle as NO-GO. The
+regional union is materially more expressive: at zero margin it has no false-
+safes, 99.85% safe recall, and exact-safe QP selections in every state, versus
+95.76% recall and 49/50 QPs for one affine region. It recovers one of the two
+registered sparse-support states, and finds an exact-safe QP even in the other.
+
+The strict representation is nevertheless rejected. State index 19's sole
+immutable safe action remains outside every conservative regional certificate;
+13 active L5-part-2 rows across five states fail norm stability; and one +1 mm
+QP proposal misses its buffer by 0.000511 mm. Do not train an MLP or run
+closed-loop E05 from this gate.
+
+The retained mechanism insight is narrower: multiple regions repair most
+single-plane conservatism and all zero-margin QP feasibility, but fixed equal
+partitioning with only 27 points per region creates boundary coefficient
+variance and still misses an isolated safe component. Any continuation must
+address adaptive boundary coverage and confidence, then repeat the immutable
+support/stability/fresh-rollout gates; it cannot reinterpret job `37690` as GO.
