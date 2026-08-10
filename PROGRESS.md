@@ -3384,3 +3384,9 @@ population are mandatory. A pass authorizes only a separate prevention-cohort
 training preregistration. No model, QP, or closed-loop runs. Protocol:
 `docs/distal_initial_contact_audit_moka10_preregistration.md`. Config SHA-256
 is `c96f355ad278f0f79ed5a8eb54b8da4af10e294c4b5224943f1a6604f8f7882b`.
+
+Initial H100 job `37881` stopped before a scientific result because the
+recorder expected `group_id` while the frozen compiled inventory exposes
+`group_index`. The apparatus-only repair reads the existing key and adds a
+structural regression test. It changes no state, replay, measurement,
+classification, threshold, or gate; the config hash remains unchanged.

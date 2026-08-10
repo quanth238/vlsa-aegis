@@ -114,7 +114,7 @@ def measure_initial_contact(
             negative = bool(float(query["distance_m"]) < -tolerance)
             raw = pair in raw_pairs
             record = {
-                "protected_group_id": str(group["group_id"]),
+                "protected_group_index": int(group["group_index"]),
                 "protected_geom_id": pair[0], "obstacle_geom_id": pair[1],
                 "zero_query_distance_m": float(query["distance_m"]),
                 "zero_query_negative": negative, "raw_pair_contact": raw,
@@ -125,7 +125,7 @@ def measure_initial_contact(
             pair_records.append(record)
             group_pairs.append(record)
         group_records.append({
-            "group_id": str(group["group_id"]),
+            "group_index": int(group["group_index"]),
             "body_name": str(group["body_name"]),
             "raw_contact": any(item["raw_pair_contact"] for item in group_pairs),
             "zero_query_negative": any(

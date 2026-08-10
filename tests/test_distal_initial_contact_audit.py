@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from main.multilink_ellipsoid.initial_contact_audit import load_config, summarize
 
@@ -40,6 +41,35 @@ class InitialContactAuditTests(unittest.TestCase):
         self.assertEqual(output["aggregates"]["prevention_state_count"], 84)
         self.assertEqual(output["aggregates"]["recovery_state_count"], 1)
         self.assertTrue(output["decision"]["initial_contact_audit_complete"])
+
+    def test_live_inventory_uses_group_index(self):
+        from main.multilink_ellipsoid.initial_contact_audit import (
+            measure_initial_contact,
+        )
+
+        inventory = {
+            "active_obstacle_root_body_id": 7,
+            "groups": [{
+                "group_index": 0, "body_name": "robot0_link5",
+                "protected_geom_id": 2, "obstacle_geom_ids": [3],
+            }],
+        }
+        query = {"distance_m": 0.0, "finite": True}
+        with patch(
+            "main.multilink_ellipsoid.initial_contact_audit._native_model_data",
+            return_value=(object(), object()),
+        ), patch(
+            "main.multilink_ellipsoid.initial_contact_audit._raw_pair_contacts",
+            return_value=(set(), []),
+        ), patch(
+            "main.multilink_ellipsoid.initial_contact_audit._pair_query",
+            return_value=query,
+        ):
+            result = measure_initial_contact(
+                object(), inventory, self.config["measurement"]
+            )
+        self.assertEqual(result["group_records"][0]["group_index"], 0)
+        self.assertEqual(result["cohort"], "prevention")
 
 
 if __name__ == "__main__":
