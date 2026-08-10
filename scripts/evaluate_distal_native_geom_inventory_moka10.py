@@ -15,6 +15,7 @@ from main.multilink_ellipsoid.native_geom_margin import (
     load_config, measure_native_groups, result_payload,
 )
 from main.multilink_ellipsoid.targeted_boundary_expansion import DATASET_SCHEMA
+from main.multilink_ellipsoid.two_step_margin import feature_context, feature_vectors
 from scripts.collect_distal_boundary_generalization_moka10 import _canonical_action
 from scripts.evaluate_distal_execution_margin_nn_e05 import _build_pair, _geometry
 from scripts.replay_distal_three_ellipsoid_multicbf import (
@@ -266,27 +267,19 @@ def main() -> int:
                     current = measure_native_groups(
                         env, inventory, **measurement_kwargs
                     )
-                    robot = env.robots[0]
-                    q = np.asarray(
-                        env.sim.data.qpos[np.asarray(robot._ref_joint_pos_indexes)],
-                        dtype=np.float64,
-                    )
-                    qdot = np.asarray(
-                        env.sim.data.qvel[np.asarray(robot._ref_joint_vel_indexes)],
-                        dtype=np.float64,
-                    )
-                    receipt_error = max(
-                        float(np.max(np.abs(q - np.asarray(
-                            state["robot_joint_position_rad"], dtype=np.float64
-                        )))),
-                        float(np.max(np.abs(qdot - np.asarray(
-                            state["robot_joint_velocity_rad_s"], dtype=np.float64
-                        )))),
-                    )
-                    _require(receipt_error <= 1.0e-8,
-                             "native inventory state receipt differs")
                     first = _canonical_action(actions[step], step)
                     second = _canonical_action(actions[step + 1], step + 1)
+                    context = feature_context(env, probe)
+                    _, live_pair_features = feature_vectors(
+                        context, first[:3], first[:3], second[:3]
+                    )
+                    receipt_error = float(np.max(np.abs(
+                        live_pair_features - np.asarray(
+                            state["pair_state_feature_vectors"], dtype=np.float64
+                        )
+                    )))
+                    _require(receipt_error <= 1.0e-8,
+                             "native inventory state feature receipt differs")
                     summary = _chunk_summary(probe.rollout_chunk(env, [first, second]))
                     initial_safe = bool(current["global_minimum_margin_m"] >= 0.0)
                     state_results.append({

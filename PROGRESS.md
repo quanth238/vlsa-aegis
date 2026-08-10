@@ -3222,3 +3222,11 @@ is `7b1265e7cab6bc7362cc21a1a76101999e2dd9492bf31b3f36228c0d637b4e8a`.
 After clean commit, remote sync, and live H100 preflight, the exact command is:
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=native-geom-inventory-20260810a slurm/distal_native_geom_inventory_moka10.sbatch`.
+
+Initial H100 job `37848` passed allocation and unit preflight, then stopped
+before a result because the final expanded-dataset schema retains the complete
+seven-row pair feature receipt but not the collector's intermediate standalone
+q/qdot fields. The compatibility-only repair verifies the stronger immutable
+53D pair-state feature matrix at each replayed state. Population, actions,
+native geometry, margins, contact witnesses, and gates are unchanged; `37848`
+is retained as apparatus failure with no scientific outcome.
