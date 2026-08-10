@@ -3199,3 +3199,26 @@ are `9b51577b5c3d87265422ea6be0697ea72bdacfe3df3572e3a3bd524f410cdf9d`,
 `c55e3e40d784b60a0096195caedb1f2dfcc084271b3b1c723d405d64107e66bc`,
 and `5d6feee53da4f9b800906372df70a0f886db4d15ff3e3eff49c1f0b946b20308`.
 Full report: `docs/distal_local_residual_bound_moka10_result.md`.
+
+# 2026-08-10: native MuJoCo L5--L7 target inventory registered
+
+The next gate replaces assumptions about seven proxy rows with discovery of
+the actual compiled collision-geometry groups. On the immutable 85-state,
+17-episode population, it queries signed `mujoco.mj_geomDistance` at every
+internal substep of the nominal two-action cloned-OSC horizon. One target group
+is registered per actual protected L5--L7 collision geom against every
+collision-eligible active-obstacle geom. Link/global minima are aggregates;
+ellipsoid gaps remain comparison-only `D_opt` values.
+
+Every query must be finite and uncensored, every raw contact must map to a
+registered pair and agree with direct signed distance, and E05 steps 187/188
+must supply at least one positive contact witness. Initially negative states
+are explicitly separated as recovery cases. All 15 test starts must be in the
+native prevention cohort. The gate trains no model, solves no QP, and cannot
+authorize closed-loop E05. Protocol:
+`docs/distal_native_geom_inventory_moka10_preregistration.md`. Config SHA-256
+is `7b1265e7cab6bc7362cc21a1a76101999e2dd9492bf31b3f36228c0d637b4e8a`.
+
+After clean commit, remote sync, and live H100 preflight, the exact command is:
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=native-geom-inventory-20260810a slurm/distal_native_geom_inventory_moka10.sbatch`.

@@ -2355,3 +2355,21 @@ the final regional-affine accepted decisions on the same immutable actions. If
 pointwise values fail, replace the uncertainty estimator and obtain more
 episode groups. If only interpolation fails, retain the value/bound model and
 replace or certify the regional projection step. Closed-loop remains blocked.
+
+# ADR-0096: Replace proxy-target assumptions with native physical-row discovery
+
+**Status:** Decided; preregistered before H100 execution (2026-08-10).
+
+The zero raw-contact false-safe audit does not establish that the seven
+ellipsoid margins are accurate quantitative regression targets. Before another
+uncertainty model, discover the actual compiled L5--L7 collision geoms and
+query their signed distances to collision-eligible active-obstacle geoms.
+
+Do not manufacture seven native rows. Freeze one row per actual protected geom
+and use link/global minima only as aggregates. Keep `D_sim` signed distance and
+raw contacts separate from `D_opt` ellipsoid support gaps. Include `k=0` only
+for prevention states; label initially negative states as recovery cases.
+
+This inventory gate precedes all native-target collection, model training, QP,
+and closed-loop work. A pass authorizes only a separately preregistered
+physical candidate-rollout collection experiment.
