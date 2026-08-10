@@ -3108,3 +3108,11 @@ Result/payload/validation/model SHA-256 values are
 `255df4eeb454e8d6de574517f0d1244d5d9588c18e9978222c93f113ec6ef704`,
 and `bfc1dd8dc4f3fcdb9c3268ce268a2f252fa31cadc86b72fb6c7d98f53c6346c3`.
 Full report: `docs/distal_action_conditioned_margin_moka10_result.md`.
+
+The registered scalar-tightening compatibility question is resolved directly
+from monotonicity: increasing a lower-bound pad can only shrink the learned
+accepted set. Because the untightened continuation already lacks support in
+three states, no nonnegative scalar pad can satisfy both zero false-safes and
+15/15 support. Do not spend another H100 job on global calibration. The next
+method must condition uncertainty locally by state/episode while preserving
+grouped calibration and the untouched test gate.

@@ -2288,3 +2288,10 @@ simultaneously yield zero test false-safes and preserve safe support in all 15
 states. This is diagnosis using held-out outcomes, not a selectable deployment
 threshold. Failure of that interval directs state-local/nonparametric residual
 adaptation; success directs a learned state-conditioned uncertainty bound.
+
+The interval is empty without another run. Any nonnegative tightening is
+monotone: it cannot turn a rejected action into an accepted action. Job `37807`
+already has only 12/15 supported states before additional tightening, so no
+larger global pad can meet the 15/15 support gate. The next preregistration must
+estimate state-local uncertainty from episode-grouped non-test residuals; it
+must not tune a threshold on E05/E10/E15.

@@ -44,13 +44,16 @@ OSQP and cloned execution are not the present failure: the registered protocol
 correctly stopped before those stages because the learned constraints already
 failed the unseen decision gate. Closed-loop E05 cannot be claimed.
 
-The smallest next diagnosis is to test, without retraining, whether any single
-additional lower-bound tightening can remove all false-safes while retaining
-safe support in all 15 states. If no such interval exists, global calibration
-cannot repair the learned ordering and the next method needs state-local
-adaptation or a nonparametric local residual. If it exists, the immediate
-problem is state-conditioned uncertainty estimation rather than the value
-network's mean prediction.
+No additional experiment is needed to reject a single larger global pad. A
+nonnegative tightening can only remove currently accepted actions. Because the
+model already has support in only 12/15 states at zero additional tightening,
+no scalar can both remove the 21 false-safes and restore 15/15 support.
+
+The next defensible direction is state-conditioned uncertainty or a
+nonparametric local residual: E05 step 185 needs more tightening, while E10
+step 156 and E15 steps 149--150 need less conservative bounds. Any such method
+must be calibrated with leave-one-episode-out groups and pass the same untouched
+E05/E10/E15 gate before QP or closed-loop execution.
 
 ## Immutable evidence
 
