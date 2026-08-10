@@ -2724,3 +2724,13 @@ matched mechanism test must replace the 357-output flat decoder with
 sensitivity supervision. Reaudit residuals before adding geometry loss.
 E05/E10/E15 remain diagnostic only; any later final test uses newly reserved
 complete episodes.
+
+The independently replayed one-sided result remains a strict NO-GO while its
+three unsupported states are audited. Do not train the time-conditioned
+decoder or fit a correction first. Freeze job `38070`, inspect the 64 already
+collected random actions in each unsupported state, and classify rejection by
+training-state support, exact ensemble-member support, sampled-region support,
+conditional signed bias, and joint-trajectory error. This diagnostic cannot
+authorize calibration or intervention and cannot change the existing verdict.
+Config hash is
+`bdfeca484795093d481825e986c740eb0745854d2cca10a922b59259755c44bc`.

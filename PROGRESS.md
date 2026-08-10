@@ -3852,3 +3852,23 @@ Records/result/validation hashes are
 `c2c43f6c9fc0b2c6708af7766bcada78f5128ca955a0dccdb1f110d0a4ebae8e`,
 `8724b36b2c5abfe6d17b6bd230c4ce31aa3040346322662e3c07bfd25b4b31df`,
 and `9124409b40a94b4280375f13be58aae0266fa26d45091d16866a868c1b09d4ea`.
+
+# 2026-08-11: one-sided unsupported-state audit registered
+
+Independent H100 job `38070` already reproduces the one-sided model, metrics,
+and strict NO-GO exactly. The next diagnostic freezes those artifacts and asks
+only why three of fifteen test states contain exact-safe random actions but no
+action accepted by the model. It records exact-safe counts, the closest
+predicted margin, exact/baseline/one-sided active row and substep, all five
+ensemble-member decisions, complete-state distance to supported grouped
+training states, and per-state trajectory error. The registered interpretation
+distinguishes coverage, ensemble aggregation, sampled-region, conditional-bias,
+and decoder-error explanations.
+
+No training, new controller rollout, bias/quantile fit, calibration, QP,
+closed loop, classifier, or Poisson/SDF is permitted, and the verdict cannot
+change. E05/E10/E15 remain diagnostic only; any final generalization claim
+requires newly reserved complete episodes. Protocol:
+`docs/distal_factorized_unsupported_state_audit_moka10_preregistration.md`.
+Config SHA-256 is
+`bdfeca484795093d481825e986c740eb0745854d2cca10a922b59259755c44bc`.

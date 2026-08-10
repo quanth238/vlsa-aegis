@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_factorized_unsupported_state_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-unsupported-state-audit-moka10-v1",
+  "claim_scope": "diagnostic_only_explain_why_the_validated_one_sided_factorized_model_rejects_all_exact_safe_actions_in_three_E05_E10_E15_states",
+  "immutable_source": {
+    "one_sided_config_file_sha256": "c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2",
+    "one_sided_model_file_sha256": "5548b8e4b48fcf11aacbb4f26186e59f487c15ccaab8eb0882e0a9fcdf2f1a62",
+    "one_sided_predictions_file_sha256": "acf25b0467ce26669d9a0f57e0c192639bbad76692d09aaac81bc10666023396",
+    "one_sided_result_file_sha256": "ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0",
+    "one_sided_result_payload_sha256": "e8763d699b7a20c3656a5b2587dad63ee76a95fa577d20bdb49bdc89d4f0b730",
+    "one_sided_validation_file_sha256": "1abb16135207cfc754c6d1a63373a01be69ed4930bdb1e69036ba3e4f3c1a3b3",
+    "one_sided_validation_payload_sha256": "7dbb6ee1b6f080f99dbf6b6c882cc5c440554f185854ea22608d5de8fa44d334",
+    "baseline_model_file_sha256": "262ee006523b76a09f120c5c4e8986f501ae49de50a194c16c697f4ad67c995f",
+    "baseline_predictions_file_sha256": "d888d3fafbf44cb74caf675b438e70af986200ce6027a2fee49712f0a2f82ab3",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063"
+  },
+  "population": {
+    "test_state_count": 15,
+    "random_candidate_count_per_state": 64,
+    "expected_unsupported_state_count": 3,
+    "exact_safe_definition": "all_seven_dynamic_rollout_minimum_ellipsoid_margins_nonnegative",
+    "accepted_definition": "all_seven_predicted_static_minimum_margins_nonnegative",
+    "unsupported_definition": "at_least_one_exact_safe_candidate_and_zero_accepted_exact_safe_candidates"
+  },
+  "measurements": {
+    "candidate_audit": [
+      "exact_safe_candidate_count",
+      "closest_predicted_worst_margin_to_zero",
+      "predicted_and_exact_active_link_row_and_substep",
+      "baseline_and_one_sided_prediction",
+      "five_exact_FK_member_predictions"
+    ],
+    "trajectory_error": "per_state_all_random_and_exact_safe_joint_RMSE_plus_terminal_RMSE",
+    "state_support_representation": "complete_2110D_OSC_state_without_candidate_action",
+    "state_support_normalization": "training_state_mean_std_with_1e-6_floor",
+    "supported_training_state": "training_state_with_at_least_one_exact_safe_random_candidate",
+    "support_reference": "p95_nearest_cross_episode_supported_training_state_RMS_z",
+    "maximum_single_feature_abs_z": 5.0,
+    "small_systematic_negative_bias_m": 0.005,
+    "large_trajectory_error_reference": "p95_one_sided_joint_RMSE_of_supported_test_states"
+  },
+  "interpretation": {
+    "conditional_bias_candidate": "small_negative_bias_and_training_support_and_not_large_trajectory_error",
+    "coverage_failure": "fails_training_state_support",
+    "aggregation_failure": "some_but_not_all_ensemble_members_accept_an_exact_safe_candidate",
+    "candidate_region_failure": "no_exact_safe_candidate_inside_registered_random_region",
+    "decoder_failure": "one_sided_joint_RMSE_exceeds_supported_test_p95"
+  },
+  "final_evaluation_policy": {
+    "E05_E10_E15_role": "diagnostic_only",
+    "final_generalization_population": "newly_reserved_complete_unseen_episodes"
+  },
+  "forbidden_actions": {
+    "training": true,
+    "new_controller_rollouts": true,
+    "bias_or_quantile_correction_fit": true,
+    "poisson_or_SDF": true,
+    "binary_classifier": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "verdict_change": true
+  }
+}
