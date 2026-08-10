@@ -2741,3 +2741,13 @@ action, whereas state 49 has 44 exact-safe actions rejected by the model.
 Audit all three, but do not call the first two model false rejections. Region
 insufficiency takes priority when the exact-safe count is zero. No outcome or
 threshold is otherwise changed.
+
+Job `38075` resolves the three-state audit into two distinct mechanisms. Do
+not fit one correction across all three. E05 state 39 and E10 state 44 have no
+exact-safe action in the registered region, so first test larger or continuous
+exact-oracle recovery regions. E15 state 49 has 44 exact-safe actions rejected
+by all five members despite supported state features and ordinary trajectory
+error; this is a conditional conservative-bias candidate, not ensemble
+aggregation. Any residual correction must be fit on validation episodes only
+and must retain zero false-safes. E05/E10/E15 remain diagnostic, and the final
+claim requires new episodes.

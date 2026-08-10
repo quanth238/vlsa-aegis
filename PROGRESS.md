@@ -3882,3 +3882,23 @@ exact-safe actions and the model accepts none. The apparatus repair retains
 all three zero-support states and makes candidate-region failure an explicit
 outcome. It changes no model, prediction, threshold, geometry, or verdict; the
 failure-only job is not reused.
+
+Clean H100 retry `38075` completed the audit and independent metric replay in
+`00:04:32` on `worker-2`. The missing support has two causes. E05 step 185 and
+E10 step 156 contain 0/64 exact-safe actions; their least-unsafe exact margins
+are -0.294 and -0.788 mm. E15 step 150 contains 44/64 exact-safe actions, but
+the mean and all five ensemble members reject every one; the closest predicted
+margin is -1.968 mm for an exactly +2.448 mm action. All states pass the frozen
+training-support test and none has registered large trajectory error. Thus two
+states require a larger/refined candidate region, while E15 exhibits
+systematic conservative model bias rather than ensemble aggregation.
+
+The strict NO-GO remains. A correction cannot solve the two regions with no
+observed safe action. Next establish exact safe support by region expansion for
+E05/E10 and separately test a validation-only conditional residual correction
+for E15-like supported states. No correction, QP, or closed loop ran. Full
+report: `docs/distal_factorized_unsupported_state_audit_moka10_result.md`.
+Records/result/validation hashes are
+`fa55559bed38efe0bc581d8e3d6887e0f990a5f21ae5c7555443ef5d8246b632`,
+`1b9a475c3090b4cff32c0df161e3ee99b4695a7cd5f481cbfe520ba26e0eca8b`,
+and `b74a1f47e1e4ddb3848af6225cebf858dfe0aeaf317263c7c142e62b7f37a511`.
