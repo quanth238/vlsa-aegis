@@ -3794,3 +3794,27 @@ Result/validation/model/prediction SHA-256 values are
 and `acf25b0467ce26669d9a0f57e0c192639bbad76692d09aaac81bc10666023396`.
 Exact next audit:
 `jq '{test:.metrics.test_safety,validation:.metrics.validation_safety,joint:.metrics.joint_sensitivity,margin:.metrics.margin_sensitivity,decision}' /mnt/data/quanth/experiments/vlsa-distal-factorized-one-sided-geometry/one-sided-geometry-20260811b/result.json`.
+
+# 2026-08-11: factorized terminal-bias audit registered
+
+The next gate is audit-only and freezes the immutable job-37980 five-member
+factorized model. It covers all 5,440 out-of-fit random actions across the
+60/10/15 grouped state split and reconstructs exact-q and predicted-q static
+clearance at all 51 substeps and seven L5--L7 rows. It reports
+`predicted - exact` residuals for every link/substep/split, evaluates exact
+ensemble disagreement on every false-safe plus same-state nearest-margin
+correct controls, and distinguishes L5-specific from link-generic terminal
+bias.
+
+The proposed geometry signal is separately frozen as central finite difference
+through known FK and ellipsoid geometry. Near-boundary rollout and
+prediction-error linearization RMSE must each be at most 0.5 mm, signed-delta
+cosine/sign agreement at least 0.9, and 32 action-candidate resamples must keep
+gradient median/p05 cosine at least 0.95/0.8. The earlier 2 mm gate cannot
+authorize training. No training, new rollout labels, calibration, QP, closed
+loop, surface/classification loss, or Poisson/SDF is allowed. E05/E10/E15 are
+diagnostic only; final evaluation requires newly reserved complete episodes.
+Protocol:
+`docs/distal_factorized_terminal_bias_audit_moka10_preregistration.md`.
+Config SHA-256 is
+`85a9f0cf83dae6c97d47f6adde013a1145f5ebaec6e8af6e4e1b48c106b112a0`.

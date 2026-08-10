@@ -1,0 +1,79 @@
+{
+  "schema_version": "vlsa_distal_factorized_terminal_bias_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-terminal-bias-audit-moka10-v1",
+  "claim_scope": "audit_only_localize_existing_factorized_execution_clearance_residuals_across_grouped_train_validation_and_diagnostic_test_episodes_and_validate_exact_geometry_loss_signal_before_any_new_training",
+  "immutable_source": {
+    "factorized_config_file_sha256": "dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "trajectory_collection_file_sha256": "cee9b789aa0010737ad02399661ecbef14fc176fa032bd1f2f84d1071e504217",
+    "factorized_model_file_sha256": "262ee006523b76a09f120c5c4e8986f501ae49de50a194c16c697f4ad67c995f",
+    "predictions_file_sha256": "d888d3fafbf44cb74caf675b438e70af986200ce6027a2fee49712f0a2f82ab3",
+    "factorized_result_file_sha256": "70c4dd81e7b20d03541d85ed392e0f552cd1e4b8b3e8f81d0c148f2fbe36b271",
+    "factorized_result_payload_sha256": "acbad04905abcd450b6e52cb7f2ee0c19a86e895016350dde3d07930b0c84477",
+    "factorized_validation_file_sha256": "ed78d2f528010095f1bc4db85f73e160996db62e764f30122196d8fb8821ef1e",
+    "factorized_validation_payload_sha256": "e8a764e5b5be9e11807a64f2c773c363f9ca9ac4043a88915bc246d47206a9a4",
+    "factorized_result_commit": "7062d70a5cc90f9689def2bfc4bf2bdd347b1c8e"
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "state_split_counts": {"train": 60, "validation": 10, "test": 15},
+    "candidate_scope": "64_out_of_fit_random_antithetic_actions_per_state",
+    "expected_action_count": 5440,
+    "joint_trace_state_count": 51,
+    "constraint_count": 7,
+    "link_row_groups": {"L5": [0, 1, 2], "L6": [3, 4], "L7": [5, 6]}
+  },
+  "residual_audit": {
+    "residual_sign": "predicted_minus_exact_static_ellipsoid_clearance",
+    "near_boundary_absolute_margin_m": 0.005,
+    "terminal_substep_index": 50,
+    "material_bias_minimum_sample_count": 30,
+    "material_optimistic_median_m": 0.0005,
+    "material_optimistic_fraction": 0.6,
+    "report_every_link_and_substep": true
+  },
+  "geometry_signal_audit": {
+    "method": "central_finite_difference_of_exact_FK_and_ellipsoid_geometry",
+    "joint_step_rad": 0.00001,
+    "random_action_ridge": 1e-8,
+    "candidate_resample_count": 32,
+    "candidate_resample_size": 48,
+    "candidate_resample_seed": 2026081102,
+    "minimum_nontrivial_clearance_delta_m": 0.0001,
+    "maximum_near_boundary_linearization_RMSE_m": 0.0005,
+    "minimum_signed_delta_cosine": 0.9,
+    "minimum_signed_delta_sign_agreement": 0.9,
+    "minimum_resampled_action_gradient_median_cosine": 0.95,
+    "minimum_resampled_action_gradient_p05_cosine": 0.8
+  },
+  "ensemble_audit": {
+    "members": 5,
+    "measurement": "exact_FK_ellipsoid_global_minimum_per_member",
+    "population": "all_false_safes_and_same_state_nearest_margin_correct_controls",
+    "high_disagreement_median_ratio": 2.0,
+    "high_disagreement_AUROC": 0.8
+  },
+  "decision_gate": {
+    "bias_present_in_train_or_validation": "training_objective_or_flat_decoder",
+    "bias_only_in_diagnostic_test": "unseen_state_generalization",
+    "matched_ablation_requires_valid_geometry_signal_and_train_or_validation_bias": true
+  },
+  "final_evaluation_policy": {
+    "E05_E10_E15_role": "diagnostic_failure_cases_only_after_repeated_model_selection",
+    "final_generalization_population": "newly_reserved_complete_unseen_episodes",
+    "group_complete_episodes": true
+  },
+  "forbidden_actions": {
+    "training": true,
+    "new_rollout_labels": true,
+    "one_sided_geometry_ablation": true,
+    "surface_loss": true,
+    "binary_classifier": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true
+  }
+}

@@ -2689,3 +2689,17 @@ support. The next matched model must replace the flat 51-by-7 output layer
 with shared time-conditioned execution decoding `q_hat_k=F(x,A,k)` while
 retaining the successful one-sided geometry supervision. Classifier,
 calibration, QP, and closed loop remain blocked.
+
+The user now supersedes immediate decoder training with a causal audit of the
+immutable job-37980 ensemble. Before another model is fit, recompute
+`predicted - exact` static ellipsoid clearance at every L5--L7 row and all 51
+substeps for the 64 out-of-fit actions at every state. Compare train,
+validation, and diagnostic E05/E10/E15 episodes. Material terminal optimism in
+train/validation implicates the loss or flat decoder; optimism only in the
+diagnostic episodes implicates state coverage/generalization. Evaluate exact
+five-member geometry disagreement on false-safes and matched boundary
+controls. Replace the permissive 2 mm fitted-Jacobian gate with central-FD
+known-FK geometry and require at most 0.5 mm near-boundary error, signed
+agreement, and candidate-resampling stability. No training is authorized until
+this audit resolves both questions. E05/E10/E15 may no longer support a final
+generalization claim; reserve new complete episodes for that role.
