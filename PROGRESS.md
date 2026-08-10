@@ -3619,4 +3619,13 @@ joints are recomposed with fixed initial obstacle geometry, strict improvement o
 boundary RMSE. Poisson/SDF, calibration, QP, VLA inference, and closed-loop
 E05 remain forbidden. Protocol:
 `docs/distal_factorized_execution_moka10_preregistration.md`. Config SHA-256
-is `1fde25dc94f10bb4c4af91c35782df067172cdad5a0e6b6b42ae8b72b0ac4088`.
+is `2dd3e5e6c5f9a8ba6aa81fb3f523b3311f779fc2e3172894be7dff2e6abb848b`.
+
+Initial H100 job `37948` was canceled after 33 seconds during preflight/early
+collection, before a dataset or scientific result. The allocation warning
+showed that the pinned evaluation PyTorch supports only through `sm_86`, not
+the H100's `sm_90`; the same cluster limitation previously blocked job
+`37627`. The apparatus repair keeps H100 allocation-backed simulation but
+trains both matched arms on the registered eight CPUs. Population, actions,
+traces, labels, architecture, losses, seeds, splits, geometry, and gates are
+unchanged; no partial output from `37948` is reused.

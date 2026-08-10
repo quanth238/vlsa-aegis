@@ -33,7 +33,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "factorized-execution pilot requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" && -d "$ARCHIVED_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "runtime or immutable archive missing"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 1fde25dc94f10bb4c4af91c35782df067172cdad5a0e6b6b42ae8b72b0ac4088 ]] || die "factorized-execution config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 2dd3e5e6c5f9a8ba6aa81fb3f523b3311f779fc2e3172894be7dff2e6abb848b ]] || die "factorized-execution config hash differs"
 [[ "$(sha256sum "$SOURCE_ROOT/dataset.json" | awk '{print $1}')" == 585f696eedef9bd9a4c9d0ba576d6d86e5660638696862ec2d5d1af434fb426b ]] || die "complete dataset hash differs"
 [[ "$(sha256sum "$SOURCE_ROOT/collection-result.json" | awk '{print $1}')" == bd85f3175c790a153833a7c903a4e119c71f771271b2ecb92cc1c579269ce966 ]] || die "complete collection hash differs"
 [[ "$(sha256sum "$MATCHED_ROOT/result.json" | awk '{print $1}')" == dc76f3b6d4f8f78d08861bc13b9cec2a396c931bb5479f5646b729fe0e76698a ]] || die "matched direct result hash differs"
@@ -50,7 +50,7 @@ mkdir "$LIBERO_CONFIG_PATH"
 safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 printf 'benchmark_root: %s\nbddl_files: %s\ninit_states: %s\ndatasets: %s\nassets: %s\n' "$safelibero_root" "$safelibero_root/bddl_files" "$safelibero_root/init_files" "$REMOTE_REPO/safelibero/libero/datasets" "$safelibero_root/assets" >"$LIBERO_CONFIG_PATH/config.yaml"
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -c 'import numpy, scipy, torch; assert torch.cuda.is_available(); print({"numpy":numpy.__version__,"scipy":scipy.__version__,"torch":torch.__version__,"cuda":torch.cuda.get_device_name(0)})' >"$RUN_ROOT/preflight.txt"
+"$AEGIS_PYTHON" -c 'import numpy, scipy, torch; print({"numpy":numpy.__version__,"scipy":scipy.__version__,"torch":torch.__version__,"training_device":"cpu_inside_H100_allocation"})' >"$RUN_ROOT/preflight.txt"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_factorized_execution_pilot tests.test_distal_complete_osc_margin -v >>"$RUN_ROOT/preflight.txt" 2>&1
 "$AEGIS_PYTHON" scripts/collect_distal_factorized_execution_moka10.py \
   --repo-root "$REMOTE_REPO" --config "$CONFIG" \

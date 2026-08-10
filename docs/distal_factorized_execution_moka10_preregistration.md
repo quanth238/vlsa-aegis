@@ -65,6 +65,10 @@ Both arms receive exactly the same complete 2,110D simulator/controller state
 and both complete 7D actions. They use the same episode split, MLP trunk
 widths `[256,256,128]`, five seeds, optimizer, schedule, and candidate rows.
 
+Simulation remains allocation-backed on one H100. The pinned evaluation
+PyTorch lacks `sm_90` kernels, so both paired arms train deterministically on
+the same eight allocation CPUs. Device is therefore not an arm difference.
+
 The direct arm predicts the seven rollout-minimum ellipsoid margins and is
 supervised by the corresponding 14-coordinate margin secants.
 
@@ -110,4 +114,4 @@ existing ellipsoid/contact evidence is preserved and completed Table 1
 artifacts remain read-only.
 
 Frozen config SHA-256:
-`1fde25dc94f10bb4c4af91c35782df067172cdad5a0e6b6b42ae8b72b0ac4088`.
+`2dd3e5e6c5f9a8ba6aa81fb3f523b3311f779fc2e3172894be7dff2e6abb848b`.

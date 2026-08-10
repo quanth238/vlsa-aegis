@@ -67,7 +67,7 @@
     "factorized_output": "51_by_7_q_residuals_from_k0_q"
   },
   "training": {
-    "device": "cuda_inside_H100_allocation",
+    "device": "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels",
     "batch_size": 512,
     "epochs": 300,
     "patience": 40,

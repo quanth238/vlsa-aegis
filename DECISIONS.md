@@ -2600,3 +2600,8 @@ arm and prior 72-action result, recall, 15/15 support, and boundary accuracy.
 Do not add Poisson/SDF, calibration, a QP, policy inference, or closed-loop
 E05. Passing authorizes only a separate geometry-pipeline pilot; it is not a
 whole-body or invariance claim.
+
+Initial job `37948` exposed the already known pinned-PyTorch lack of H100
+`sm_90` kernels before producing data. Keep simulation in the H100 allocation
+and run both matched learning arms on the same eight allocation CPUs. This is
+an apparatus repair, not an experimental-arm change; discard the partial run.

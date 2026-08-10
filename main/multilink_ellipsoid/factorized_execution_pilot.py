@@ -109,7 +109,8 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("factorized-execution model differs")
     training = config["training"]
     if (
-        training["device"] != "cuda_inside_H100_allocation"
+        training["device"]
+        != "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels"
         or int(training["batch_size"]) != 512
         or int(training["epochs"]) != 300
         or int(training["patience"]) != 40
@@ -419,9 +420,10 @@ def train_ensemble(
 
     np = _numpy()
     torch = _torch()
-    if not torch.cuda.is_available():
-        raise RuntimeError("factorized-execution training requires allocated CUDA")
-    device = torch.device("cuda")
+    # The pinned evaluation PyTorch lacks sm_90 kernels. Simulation remains
+    # inside the H100 allocation; both matched arms use its registered CPUs.
+    device = torch.device("cpu")
+    torch.set_num_threads(8)
     x = np.asarray(arrays["features"], dtype=np.float64)
     target, base, _ = _arm_targets(arrays, arm)
     split = np.asarray(arrays["split"], dtype=object)
@@ -664,7 +666,7 @@ def load_weights(path: Path) -> tuple[list[Any], dict[str, Any]]:
     widths = archive["hidden_widths"].astype(int).tolist()
     seeds = archive["ensemble_seeds"].astype(int).tolist()
     torch = _torch()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     models = []
     states = []
     for member in range(len(seeds)):
