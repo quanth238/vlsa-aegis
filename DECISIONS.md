@@ -2189,3 +2189,25 @@ states. A support pass authorizes only a separate preregistered retraining run.
 If that supported-state model still fails its zero-false-safe, per-state safe
 support, QP, and exact-rollout gates, the coefficient-output parameterization
 is rejected in favor of an action-conditioned conservative value model.
+
+# ADR-0087: Retry the current MLP only after full same-task support
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37771` resolves the data-coverage prerequisite: all 15 E05/E10/E15 states
+pass both the training-derived state-support gate and the induced regional
+oracle-smoothness gate. Maximum test shift is `3.555 z`, no feature exceeds the
+five-z bound, and E25/E45 provide the closest neighbors for the previously
+unsupported goal-II/task-0 states.
+
+This result does not validate the learned controller. It removes the stated
+reason for refusing to test it. The next experiment must keep the architecture,
+regional targets, grouped episode split, loss, ensemble guard, validation-only
+calibration, off-grid test actions, regional QP, and exact verification gates
+unchanged apart from the expanded immutable dataset cardinality.
+
+Closed-loop E05 remains blocked until that retrained model has zero unseen
+false-safes, safe-action support in every test state, valid seven-row QPs, and
+fresh exact-safe selected-action rollouts. If it fails with supported inputs,
+stop extending the coefficient-output MLP and preregister the action-conditioned
+conservative safety-value model.

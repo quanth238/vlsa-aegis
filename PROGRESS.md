@@ -2971,3 +2971,29 @@ The exact next command after local validation, clean commit, remote source
 sync, and live Slurm preflight is:
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=targeted-boundary-expansion-20260810a slurm/distal_targeted_boundary_expansion_moka10.sbatch`.
+
+# 2026-08-10: same-task support gate passes 15/15
+
+Clean H100 job `37771` completed on `worker-2` in `00:13:17`; its independent
+validator accepted the result. All four E25/E35/E40/E45 own-episode windows
+were valid, and the job retained 20 states plus 2,500 exact two-step cloned-OSC
+grid rollouts. The immutable expanded split is 60/10/15.
+
+State support now passes 15/15, induced regional-oracle smoothness passes
+15/15, maximum test feature shift falls to `3.555 z`, and no feature exceeds
+five z. Test nearest-neighbor distances are `0.588950--0.872968` under the
+training-derived `1.111101` threshold. This resolves the registered data
+coverage blocker and authorizes only a separately preregistered retraining of
+the unchanged current region-aware MLP.
+
+The older single-affine/all-eight collector gate remains false: E25 step 186
+has no sampled safe local action, while E35 steps 71--75 are distal-safe but
+violate the separate released AEGIS EE proxy. No state is dropped. Closed-loop
+E05 and the action-conditioned replacement remain unauthorized until the
+supported-state MLP is tested.
+
+Result/payload/validation SHA-256 values are
+`68be3d07d0d616037ff90e25299c8309ee7d2b5e9353e181f67887b81098b428`,
+`5879931851f8991d9bae09f896c7962c2d2790e5e9d2ec9d4d5212f50cd24472`,
+and `68a84e6b5caddbe12e9f490f798822e606ca8a31bb5167d9e78af4d49183c620`.
+Full report: `docs/distal_targeted_boundary_expansion_moka10_result.md`.
