@@ -2438,3 +2438,18 @@ Report false-unsafes as well as false-safes across frozen thresholds and
 proxy-boundary strata. This diagnostic may authorize only the next
 initial-state classification gate. It cannot authorize training, calibration,
 QP execution, or closed-loop E05.
+
+# ADR-0101: Retain the ellipsoid margin as a conservative smooth proxy
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37879` found zero observed ellipsoid false-safes across 466 protected
+contact actions but 1,911 false-unsafes across 12,559 contact-free actions.
+Retain the analytic margin as `D_opt` for the simplest research continuation,
+with raw MuJoCo contact as independent `D_sim` verification. Do not claim the
+ellipsoid value is exact physical clearance.
+
+The proxy may reduce task-compatible support, but it does not explain the
+learned model's false-safe predictions against its own target. Do not tune the
+-2 mm observed threshold from this population. Proceed only to a separately
+registered initial-state classification before revisiting learning.

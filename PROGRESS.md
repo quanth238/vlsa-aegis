@@ -3345,3 +3345,27 @@ threshold has no observed false-safe. No learning, QP, new simulation, or
 closed-loop E05 is authorized. Protocol:
 `docs/distal_proxy_contact_boundary_audit_moka10_preregistration.md`. Config
 SHA-256 is `79070aead126870039a17154903089efc9ec075b10dda38834ee47d5ffcaf680`.
+
+# 2026-08-10: ellipsoid proxy is conservative against observed contact
+
+Clean H100 job `37879` completed on `worker-2` in `00:00:03`; independent
+validation passed. At the frozen zero threshold over all 13,025 paired
+rollouts, the proxy rejected all 466 protected-contact actions with zero
+false-safes. It also rejected 1,911 of 12,559 contact-free actions, giving
+84.78% contact-free safe recall.
+
+The 5 mm proxy-boundary band contained 301 contact actions, all rejected, plus
+1,413 rejected contact-free actions. The proxy is therefore conservative, not
+an exact physical clearance. A -2 mm threshold remained false-safe-free on
+this audit and improved recall to 90.53%, but this observed sweep is not a
+deployment calibration. The test split contained no raw-contact candidates,
+so its false-safe count is vacuous for contact detection.
+
+The result authorizes only the separate initial-state audit. It does not
+authorize MLP training, QP execution, or closed-loop E05. Full report:
+`docs/distal_proxy_contact_boundary_audit_moka10_result.md`. Result, payload,
+validation, and preflight hashes are
+`6d9d5e1b68d21542f4311d19d45b3256c9882745119c17afb003a1a670867def`,
+`5dad22090eb0c830b5e086b95b55a11945a7832a3dd77e00530298453d8c5617`,
+`d741b4b24949ab03d18f82512c435710093ce755c234185cc86a119f95fc6309`,
+and `dfe5dd154e583951f928c7798c8c950d3544ec47b7223e597eb5f911cedde44b`.
