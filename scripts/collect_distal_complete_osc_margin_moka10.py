@@ -11,8 +11,8 @@ import time
 from typing import Any, Mapping
 
 from main.multilink_ellipsoid.complete_osc_margin import (
-    COLLECTION_RESULT_SCHEMA, DATASET_SCHEMA, flatten_numeric_tree, jsonable,
-    load_config, payload_sha256,
+    COLLECTION_RESULT_SCHEMA, DATASET_SCHEMA, align_named_complete_inputs,
+    flatten_numeric_tree, jsonable, load_config, payload_sha256,
 )
 from main.multilink_ellipsoid.targeted_boundary_expansion import (
     DATASET_SCHEMA as SOURCE_DATASET_SCHEMA,
@@ -260,7 +260,6 @@ def main() -> int:
     state_records = []
     episode_results = []
     pairings = {}
-    expected_feature_names = None
     maximum_margin_difference = 0.0
     nondeterministic_pairs = []
     total_raw_contacts = 0
@@ -330,9 +329,14 @@ def main() -> int:
                     )
                     state_input = _state_input(env, probe, setup["obstacle_name"])
                     names = state_input.pop("complete_input_feature_names")
-                    if expected_feature_names is None:
-                        expected_feature_names = names
-                    _require(names == expected_feature_names, "complete-OSC feature schema differs")
+                    values = state_input.pop("complete_input_vector")
+                    _require(
+                        len(names) == len(values) and len(names) == len(set(names)),
+                        "complete-OSC per-state named feature receipt differs",
+                    )
+                    state_input["complete_input_named_values"] = {
+                        name: float(value) for name, value in zip(names, values)
+                    }
                     context = feature_context(env, probe)
                     current = np.asarray(context["current_clearance_m"], dtype=np.float64)
                     candidates = []
@@ -424,6 +428,12 @@ def main() -> int:
             if env is not None:
                 env.close()
     state_records.sort(key=lambda item: int(item["state_index"]))
+    aligned_names, aligned_vectors = align_named_complete_inputs([
+        item["complete_input_named_values"] for item in state_records
+    ])
+    for record, vector in zip(state_records, aligned_vectors):
+        record.pop("complete_input_named_values")
+        record["complete_input_vector"] = vector.tolist()
     pair_count = sum(int(item["candidate_count"]) for item in state_records)
     split_counts = _split_counts(state_records)
     input_sufficiency_pass = bool(
@@ -431,7 +441,7 @@ def main() -> int:
         and pair_count == int(source["expected_pair_count"])
         and split_counts == config["split"]["expected_state_counts"]
         and not nondeterministic_pairs
-        and all(len(item["complete_input_vector"]) == len(expected_feature_names) for item in state_records)
+        and all(len(item["complete_input_vector"]) == len(aligned_names) for item in state_records)
     )
     dataset = {
         "schema_version": DATASET_SCHEMA,
@@ -439,8 +449,8 @@ def main() -> int:
         "config_file_sha256": config["config_file_sha256"],
         "config_payload_sha256": config["config_payload_sha256"],
         "source_expanded_dataset_file_sha256": _file_sha256(paths["source_dataset"]),
-        "complete_input_feature_names": expected_feature_names,
-        "complete_input_dimension": len(expected_feature_names),
+        "complete_input_feature_names": aligned_names,
+        "complete_input_dimension": len(aligned_names),
         "state_records": state_records,
         "summary": {
             "episode_count": len(episode_results), "state_count": len(state_records),

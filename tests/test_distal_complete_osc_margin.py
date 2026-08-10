@@ -10,8 +10,8 @@ import unittest
 import numpy as np
 
 from main.multilink_ellipsoid.complete_osc_margin import (
-    CONFIG_SCHEMA, action_row_features, flatten_numeric_tree, load_config,
-    prediction_metrics,
+    CONFIG_SCHEMA, action_row_features, align_named_complete_inputs,
+    flatten_numeric_tree, load_config, prediction_metrics,
 )
 from scripts.collect_distal_complete_osc_margin_moka10 import (
     _geometry_placeholder_row, _rollout_receipt,
@@ -23,6 +23,19 @@ CONFIG = ROOT / "configs" / "vlsa_distal_complete_osc_margin_moka10.v1.json"
 
 
 class CompleteOscMarginTest(unittest.TestCase):
+    def test_variable_task_snapshots_use_lossless_presence_mask_alignment(self) -> None:
+        names, vectors = align_named_complete_inputs([
+            {"shared": 1.0, "task_a_only": 2.0},
+            {"shared": 3.0, "task_b_only": 4.0},
+        ])
+        self.assertEqual(vectors[0].shape, vectors[1].shape)
+        first = dict(zip(names, vectors[0]))
+        second = dict(zip(names, vectors[1]))
+        self.assertEqual(first["task_a_only.present"], 1.0)
+        self.assertEqual(first["task_b_only.present"], 0.0)
+        self.assertEqual(second["task_a_only.present"], 0.0)
+        self.assertEqual(second["task_b_only.value"], 4.0)
+
     def test_fixed_e05_geometry_placeholder_is_independent_of_episode_order(self) -> None:
         rows = {
             "vlsa-t1-goal-ii-t2-e00": {"case_id": "other"},

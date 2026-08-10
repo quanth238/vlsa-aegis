@@ -199,6 +199,41 @@ def flatten_numeric_tree(value: Any, prefix: str = "") -> tuple[list[str], Any]:
     return names, output
 
 
+def align_named_complete_inputs(
+    named_values: Sequence[Mapping[str, float]],
+) -> tuple[list[str], list[Any]]:
+    """Losslessly align variable-size task snapshots with presence masks."""
+
+    np = _numpy()
+    if not named_values:
+        raise ValueError("complete-OSC named input population is empty")
+    base_names = sorted({name for item in named_values for name in item})
+    if not base_names:
+        raise ValueError("complete-OSC named input schema is empty")
+    feature_names = []
+    for name in base_names:
+        feature_names.extend((name + ".value", name + ".present"))
+    vectors = []
+    for item in named_values:
+        unknown = set(item) - set(base_names)
+        if unknown:
+            raise ValueError("complete-OSC named input contains unknown fields")
+        values = []
+        for name in base_names:
+            if name in item:
+                scalar = float(item[name])
+                if not math.isfinite(scalar):
+                    raise ValueError("complete-OSC aligned input is nonfinite")
+                values.extend((scalar, 1.0))
+            else:
+                values.extend((0.0, 0.0))
+        vector = np.asarray(values, dtype=np.float64)
+        if vector.shape != (len(feature_names),):
+            raise ValueError("complete-OSC aligned vector differs")
+        vectors.append(vector)
+    return feature_names, vectors
+
+
 def action_row_features(
     state_vector: Sequence[float], action_pair: Sequence[Sequence[float]],
     constraint_index: int,

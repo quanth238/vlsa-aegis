@@ -3455,3 +3455,14 @@ compatibility-only MVEE placeholder for every episode. Live simulator states,
 robot ellipsoids, exact obstacle transforms, actions, margins, contacts,
 population, model, thresholds, and config remain unchanged. No partial output
 is reused; `37892` is not a scientific result.
+
+Clean retry `37900` crossed the prior failure and completed 8,750 paired
+checks with no mismatch, then stopped before a dataset on the first
+cross-task complete-snapshot schema difference. SafeLIBERO task models have
+different simulator-state lengths, so direct concatenation is not a fixed MLP
+input. The apparatus repair retains every named numeric value, takes the union
+of names across all 85 states, and emits a value plus presence bit for every
+union field. This is a lossless fixed-size encoding of the already registered
+complete snapshot, not a label-dependent feature selection. The population,
+actions, simulator, labels, model, loss, thresholds, grouped split, and config
+remain unchanged. No partial output or result from `37900` is reused.
