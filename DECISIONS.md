@@ -2247,8 +2247,26 @@ actions. Thus the prior coverage hypothesis is rejected for this model.
 Do not enlarge, retrain longer, or loosen calibration on the coefficient
 network. The next learned gate predicts quantitative two-step constraint
 margins from state, constraint identity, and candidate Cartesian action.
-Autograd supplies action sensitivity for bounded regional QPs; validation-only
-one-sided tightening and fresh exact rollout verification remain mandatory.
+The validated ridge-Huber routine fits regional QP rows to guarded predicted
+values; validation-only one-sided tightening and fresh exact rollout
+verification remain mandatory.
 No held-out test label may select architecture, calibration, or checkpoints.
 Closed-loop E05 remains unauthorized until the replacement passes every
 unseen acceptance, support, QP, and exact-verification gate.
+
+# ADR-0090: Learn rollout values and derive regional rows deterministically
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The coefficient target is replaced, but the validated regional safety/QP
+mechanism is retained. The MLP predicts exact two-step margins at candidate
+actions. At runtime it evaluates the fixed 125-action grid, applies
+validation-only lower-confidence tightening, and uses the validated
+ridge-Huber fitter to derive the 27 regional half-spaces.
+
+This separates what must generalize across states (quantitative executed
+safety values) from what can be computed deterministically at the current
+state (local QP coefficients). The direct model uses a current-clearance
+residual and normalized local action coordinates. E05/E10/E15 remain test-only;
+the simulator cannot select a proposal. No closed-loop run is authorized by
+the preregistration itself.

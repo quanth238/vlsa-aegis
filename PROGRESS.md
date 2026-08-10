@@ -3044,6 +3044,34 @@ safety-value model.
 Result/payload/validation/model SHA-256 values are
 `0c796022cc748a190f913780d7a722be68cd2233a13b05f0262ef9d63d648243`,
 `47eb8884050879f4fd95add3fe06d4739adf2792473c741932f4e5078549d70b`,
-`727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3`,
+`68a16e086a9cc8398154557160c7215a73301e281d262101f0105012d19c0694`,
 and `1743cea3873b746389fc846bba49337cc14e3e281dd4e9731a3321232e0b7256`.
 Full report: `docs/distal_supported_region_aware_mlp_moka10_result.md`.
+
+# 2026-08-10: action-conditioned margin replacement registered
+
+The next supported-state learned gate is frozen before execution. A shared
+five-member MLP now predicts one exact two-action L5--L7 margin at a time from
+state, pair geometry, constraint identity, and candidate action. It is trained
+on direct rollout values with a current-clearance residual, boundary-weighted
+Huber loss, and a one-sided overestimate penalty. No regional anchor or
+gradient coefficient is a supervised target.
+
+Validation-only ensemble guarding and per-constraint calibration produce 125
+conservative values at an unseen state. The validated ridge-Huber routine then
+fits seven rows inside each of the same 27 fixed overlapping QP regions. Test
+E05/E10/E15 labels remain isolated. Closed-loop does not run in this gate.
+
+The frozen pass requires zero test false-safes, oracle accepted-set Jaccard of
+at least `0.90/0.80` globally/per-state, safe support and valid QPs in all 15
+states, and 15 fresh exact-safe plus AEGIS-EE-compatible rollouts. A failure
+rejects the plain action-conditioned MLP; a pass authorizes a separate
+receding-QP E05 preregistration.
+
+Protocol: `docs/distal_action_conditioned_margin_moka10_preregistration.md`.
+Config SHA-256 is
+`b40ff3a14f4644ea91233e5bdcb69060ccce526ac2b3bca502715531d36792af`.
+The exact next command after a clean commit, remote sync, live preflight, and
+allocation availability check is:
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=action-conditioned-margin-20260810a slurm/distal_action_conditioned_margin_moka10.sbatch`.

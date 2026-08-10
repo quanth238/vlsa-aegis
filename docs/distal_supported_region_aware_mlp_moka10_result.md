@@ -55,7 +55,8 @@ safe rollouts.
 - run root: `/mnt/data/quanth/experiments/vlsa-distal-supported-region-aware-mlp/supported-region-aware-mlp-20260810a`
 - result file SHA-256: `0c796022cc748a190f913780d7a722be68cd2233a13b05f0262ef9d63d648243`
 - result payload SHA-256: `47eb8884050879f4fd95add3fe06d4739adf2792473c741932f4e5078549d70b`
-- validation file SHA-256: `727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3`
+- validation file SHA-256: `68a16e086a9cc8398154557160c7215a73301e281d262101f0105012d19c0694`
+- validation-only rollout file SHA-256: `727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3`
 - model file SHA-256: `1743cea3873b746389fc846bba49337cc14e3e281dd4e9731a3321232e0b7256`
 - validation-only rollout payload SHA-256: `240378006c46360b6a4c4beda4e585b73b860ff4d4404b30c6de9ec53d50d93e`
 - source commit: `728ff94c26618523dd8f6d57b89a8e4b3932fc7a`
