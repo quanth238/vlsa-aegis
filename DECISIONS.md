@@ -2710,3 +2710,17 @@ job-37980 predictor (mean float32 residual, then add float64 q0) for the mean
 trajectory, while retaining baseline-plus-residual member trajectories solely
 for exact disagreement. Do not relax the immutable prediction equality gate or
 change any audit threshold.
+
+Job `38072` resolves the causal audit in favor of a current training/decoder
+failure rather than test-only generalization. L5 and L6 terminal optimism is
+material in train, validation, and diagnostic test; every false-safe is at
+substep 50. Do not rely on ensemble uncertainty: exact member disagreement is
+not elevated on false-safes. Do not run the proposed one-sided local-Jacobian
+loss: although exact `dh/dq` is accurate for actual small action-induced
+motion, it is unstable under the frozen candidate-resampling gate and is not a
+valid linearization over the flat model's larger prediction errors. The next
+matched mechanism test must replace the 357-output flat decoder with
+`q_hat_k=F(x,A,k)` while initially retaining only existing joint and
+sensitivity supervision. Reaudit residuals before adding geometry loss.
+E05/E10/E15 remain diagnostic only; any later final test uses newly reserved
+complete episodes.

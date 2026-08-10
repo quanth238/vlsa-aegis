@@ -3828,3 +3828,27 @@ apparatus repair calls the original `predict` function for the ensemble mean
 and retains separately reconstructed member trajectories only for
 disagreement. No population, geometry, threshold, model, or scientific gate
 changes, and the failure-only run is not reused.
+
+Clean H100 retry `38072` completed the full audit and independent metric replay
+in `00:39:26` on `worker-2`. Immutable mean-joint predictions and both stored
+test static-margin arrays reproduced exactly. The cause is not diagnostic-test
+coverage alone: train/validation/test all have material terminal L5 and L6
+optimism. False-safes are 27/103/44, all at substep 50; train/test are row 1
+(L5) and validation is row 3 (L6). Terminal L5 median optimism is
+0.660/9.572/1.623 mm for train/validation/test.
+
+The exact local FK/ellipsoid derivative passes small-motion accuracy at
+0.0496 mm near-boundary RMSE with 0.999738 signed-delta cosine, but it fails as
+a surrogate for the flat model's own nonlocal prediction errors and misses the
+frozen resampling-stability gates (median/p05 0.942/0.739). Ensemble
+disagreement is lower on false-safes than controls (3.622 versus 3.992 mm;
+AUROC 0.344), so uncertainty calibration is not supported. The matched
+one-sided loss ablation, calibration, QP, and closed loop remain blocked. Next
+replace the flat trajectory decoder with shared time-conditioned execution
+decoding and rerun the audit before adding geometry supervision. Full report:
+`docs/distal_factorized_terminal_bias_audit_moka10_result.md`.
+
+Records/result/validation hashes are
+`c2c43f6c9fc0b2c6708af7766bcada78f5128ca955a0dccdb1f110d0a4ebae8e`,
+`8724b36b2c5abfe6d17b6bd230c4ce31aa3040346322662e3c07bfd25b4b31df`,
+and `9124409b40a94b4280375f13be58aae0266fa26d45091d16866a868c1b09d4ea`.
