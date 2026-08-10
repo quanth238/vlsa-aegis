@@ -3390,3 +3390,24 @@ recorder expected `group_id` while the frozen compiled inventory exposes
 `group_index`. The apparatus-only repair reads the existing key and adds a
 structural regression test. It changes no state, replay, measurement,
 classification, threshold, or gate; the config hash remains unchanged.
+
+# 2026-08-10: all 85 registered k0 states are prevention states
+
+Clean H100 retry `37882` completed on `worker-2` in `00:06:47`; independent
+validation passed. All 85 canonical states have zero registered protected
+L5--L7 contact at `k=0`: 60/60 train, 10/10 validation, and 15/15 E05/E10/E15
+test states are prevention; none are recovery. Zero-cutoff sign matched raw
+contact with no mismatches or unregistered pairs.
+
+The 29 apparent recovery states from the rejected 1 m query were measurement
+artifacts. Unsafe `k=0` does not poison the existing two-step ellipsoid-margin
+labels. The current action-conditioned model already used these same grouped
+states, full q/qdot and relative proxy-geometry features, and candidate action;
+its 21 false-safes and 12/15 support therefore remain a prediction failure, not
+an initial-state issue. No unchanged retraining, calibration, QP, or closed-loop
+is authorized. Full report: `docs/distal_initial_contact_audit_moka10_result.md`.
+Result, payload, validation, and preflight hashes are
+`b6f57361a7259de49790061b1d04c1c74a1e6f80e18bc04ab09433f607fb034a`,
+`f424932506c2e2b808ec3be151638fe6c1ce69a3ce12b090e8f7875c4406170a`,
+`40e1e8946eb06296032475b2e238cd53fba2e848758cfd602292cad949fe6fdc`,
+and `2d178fc92fc5659e1c68012eed748e3dad6d143b8eed580e8211087ec9fe3e8a`.

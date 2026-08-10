@@ -2466,3 +2466,19 @@ Preserve all states in the report. Prevention states may later supervise the
 complete rollout minimum including `k=0`. Any genuine recovery state requires
 an explicitly separate future-only objective because its fixed unsafe `k=0`
 cannot be repaired by the action.
+
+# ADR-0103: Reject unsafe k0 as the current learning failure
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37882` found all 85 states contact-free at `k=0`, with exact raw-contact
+and zero-cutoff sign agreement. Treat every current state as prevention for the
+scoped L5--L7 experiment. Do not create a recovery split from rejected positive
+native distances.
+
+The prior action-conditioned model's failure cannot be attributed to an
+irreparable initial collision. Because that model already used the same
+episode-grouped states, complete q/qdot and relative proxy geometry, candidate
+action, and quantitative ellipsoid rollout targets, do not rerun it unchanged.
+Require a separately preregistered prediction-model change before calibration
+or QP.
