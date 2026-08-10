@@ -3680,3 +3680,22 @@ payload hashes are
 `e8a764e5b5be9e11807a64f2c773c363f9ca9ac4043a88915bc246d47206a9a4`.
 The strict factorized-pilot NO-GO is now validated. Full report:
 `docs/distal_factorized_execution_moka10_result.md`.
+
+# 2026-08-11: false-safe surface-error diagnostic registered
+
+The next active gate tests the user's surface-loss hypothesis without new
+labels or training. It reconstructs only the 960 untouched E05/E10/E15 random
+actions from the validated job-37980 joint predictions. At every action's
+globally worst exact-q static constraint, it measures the L5--L7 ellipsoid
+support-surface error on the exact obstacle-facing normal and separates center
+translation from support/orientation error.
+
+Each of the registered 44 false-safes is matched within the same state to the
+nearest-margin correctly rejected unsafe action. A later surface-loss pilot is
+supported only if finite FK margins reproduce exactly, the false-safe median
+surface error exceeds matched controls by at least 0.5 mm, paired wins are at
+least 65%, and surface-retraction/margin-overestimate Spearman correlation is
+at least 0.5. No training, new simulation label, Poisson/SDF, calibration, QP,
+or closed loop is permitted. Protocol:
+`docs/distal_factorized_surface_error_moka10_preregistration.md`. Config hash
+is `0dc6aafc413ebbd116a4a3651b5ee1aadbae44c19e75fb0808ec51da30eb93d8`.

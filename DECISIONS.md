@@ -2636,3 +2636,12 @@ safety claim. The exact-joint geometry arm localizes the next work to execution
 prediction. Do not spend the next gate on Poisson/SDF, calibration, QP, or
 closed loop before the joint/substep error responsible for false-safes is
 reduced on held-out episodes.
+
+Prefer surface-position supervision over another uniform joint loss only if
+the 44 false-safes exhibit the proposed spatial failure. Freeze a diagnostic
+before inspection: compare the exact-normal ellipsoid support-point error at
+each unsafe action's worst constraint against same-state nearest-margin
+correctly rejected controls. Require 0.5 mm median excess, 65% paired wins,
+and 0.5 signed-error correlation. Passing authorizes only a later matched
+surface-loss pilot; failing redirects discussion to one-sided uncertainty.
+The diagnostic itself cannot train, calibrate, optimize, or execute actions.

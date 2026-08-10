@@ -1,0 +1,54 @@
+{
+  "schema_version": "vlsa_distal_factorized_surface_error_config.v1",
+  "protocol_id": "vlsa-distal-factorized-surface-error-moka10-v1",
+  "claim_scope": "diagnostic_only_test_whether_held_out_factorized_false_safes_have_larger_L5_L6_L7_obstacle_facing_surface_position_error_than_matched_correctly_rejected_actions",
+  "immutable_source": {
+    "factorized_config_file_sha256": "dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "trajectory_collection_file_sha256": "cee9b789aa0010737ad02399661ecbef14fc176fa032bd1f2f84d1071e504217",
+    "predictions_file_sha256": "d888d3fafbf44cb74caf675b438e70af986200ce6027a2fee49712f0a2f82ab3",
+    "factorized_result_file_sha256": "70c4dd81e7b20d03541d85ed392e0f552cd1e4b8b3e8f81d0c148f2fbe36b271",
+    "factorized_result_payload_sha256": "acbad04905abcd450b6e52cb7f2ee0c19a86e895016350dde3d07930b0c84477",
+    "factorized_validation_file_sha256": "ed78d2f528010095f1bc4db85f73e160996db62e764f30122196d8fb8821ef1e",
+    "factorized_validation_payload_sha256": "e8a764e5b5be9e11807a64f2c773c363f9ca9ac4043a88915bc246d47206a9a4",
+    "factorized_result_commit": "7062d70a5cc90f9689def2bfc4bf2bdd347b1c8e"
+  },
+  "population": {
+    "candidate_scope": "untouched_test_random_antithetic_actions_only",
+    "expected_action_count": 960,
+    "expected_false_safe_action_count": 44,
+    "test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ]
+  },
+  "surface_measurement": {
+    "constraint_scope": "seven_L5_L6_L7_ellipsoid_rows",
+    "geometry": "fixed_k0_exact_box_union_identical_to_factorized_pilot",
+    "surface_point": "ellipsoid_support_point_on_exact_active_center_axis_normal",
+    "witness": "globally_minimum_exact_q_static_constraint_and_substep",
+    "clearance_overestimate_sign": "negative_normal_surface_position_error",
+    "compare_center_and_support_contributions": true
+  },
+  "matched_control": {
+    "class": "correctly_rejected_exact_unsafe_action",
+    "matching": "same_state_nearest_exact_dynamic_margin_greedy_without_reuse_then_reuse"
+  },
+  "decision_gate": {
+    "minimum_false_safe_surface_error_median_excess_m": 0.0005,
+    "minimum_paired_surface_error_win_fraction": 0.65,
+    "minimum_surface_retraction_margin_overestimate_spearman": 0.5,
+    "surface_loss_pilot_only_if_all_pass": true
+  },
+  "forbidden_actions": {
+    "new_simulation_labels": true,
+    "training": true,
+    "surface_loss_training": true,
+    "poisson_or_SDF": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}
