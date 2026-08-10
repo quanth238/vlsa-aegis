@@ -2211,3 +2211,25 @@ false-safes, safe-action support in every test state, valid seven-row QPs, and
 fresh exact-safe selected-action rollouts. If it fails with supported inputs,
 stop extending the coefficient-output MLP and preregister the action-conditioned
 conservative safety-value model.
+
+# ADR-0088: Hold the model fixed for the supported-state attribution test
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+The purpose of the next run is causal attribution: job `37722` failed with
+unsupported inputs, while job `37771` now supplies supported inputs. Changing
+the architecture or objective simultaneously would prevent deciding whether
+coverage was the cause. Therefore the region-aware MLP, losses, ensemble,
+uncertainty guard, calibration rule, regional QP, and learned gates remain
+unchanged.
+
+E30's five validation states require the same deterministic off-grid labels as
+the original validation population. Collecting those 480 validation-only
+rollouts is part of completing the unchanged calibration contract, not new
+test supervision. E05/E10/E15 remain isolated.
+
+Do not run closed-loop in the retraining job. If all unseen acceptance, QP,
+fresh exact rollout, EE compatibility, and selected-action-shift gates pass,
+preregister closed-loop E05 separately. If the supported-state model fails,
+stop treating data coverage as the primary blocker and move to the
+action-conditioned conservative safety-value parameterization.

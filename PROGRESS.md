@@ -2997,3 +2997,31 @@ Result/payload/validation SHA-256 values are
 `5879931851f8991d9bae09f896c7962c2d2790e5e9d2ec9d4d5212f50cd24472`,
 and `68a84e6b5caddbe12e9f490f798822e606ca8a31bb5167d9e78af4d49183c620`.
 Full report: `docs/distal_targeted_boundary_expansion_moka10_result.md`.
+
+# 2026-08-10: supported-state region-aware MLP retraining registered
+
+The now-authorized learned experiment is frozen before execution. It retrains
+the unchanged five-member region-aware coefficient-output MLP on the immutable
+60/10/15 job-`37771` split. Architecture, regional targets, losses, seeds,
+training schedule, ensemble guard, validation-only calibration, 27-region QP,
+and every unseen acceptance/exact-verification threshold match the original
+job-`37722` method.
+
+The five newly added E30 validation states first receive the same 96
+deterministic uniform off-grid cloned-OSC calibration actions as the original
+validation states. These 480 labels are validation-only; E05/E10/E15 remain
+untouched test episodes. Closed-loop E05 does not run in this gate.
+
+Zero false-safes, safe support in all 15 test states, valid QPs, fresh exact
+safe rollouts, and separate AEGIS-EE compatibility are mandatory. A pass
+authorizes separate receding-QP closed-loop preregistration. A supported-state
+failure directs the action-conditioned conservative safety-value model.
+
+Protocol:
+`docs/distal_supported_region_aware_mlp_moka10_preregistration.md`. Config
+SHA-256 is
+`9253f93faaf9d86a08e3fcddcfeb10d632b446ff8dffccb223683d89cbeeb609`.
+The exact next command after the clean preregistration commit, remote sync, and
+live Slurm preflight is:
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=supported-region-aware-mlp-20260810a slurm/distal_supported_region_aware_mlp_moka10.sbatch`.
