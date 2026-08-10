@@ -2732,3 +2732,33 @@ exact-safe selections, and selected-action p95/maximum L2 shifts no larger than
 0.05/0.15. No MLP or closed-loop run is part of this experiment. Protocol:
 `docs/distal_multi_region_decision_stability_moka10_preregistration.md`;
 config SHA-256 `5d456f7cac60ed26d9dd0f1776422b2262024256351aba2f3d53583e3363c661`.
+
+Clean H100 job `37701` completed on `worker-2` in `549.361 s`; the
+independent validator accepted the artifact. All frozen decision-level gates
+passed: zero false-safes across 76,800 replicated off-grid decisions,
+minimum global/state Jaccard `0.999495`/`0.952381`, support retained in all 49
+complete-fit supported states for every replicate, and 800/800 freshly
+verified exact-safe selected QPs. Selected-action L2 shift was `0.002991` at
+p95 and `0.031053` maximum, below the `0.05`/`0.15` gates.
+
+Only 693/800 selections retained the same overlapping region index, but all
+107 region switches remained action-stable and exact-safe. The prior 13 raw
+coefficient-norm failures are therefore decision-harmless on this sampled
+zero-margin population. This audit is GO and authorizes a separately
+preregistered grouped MLP gate; no MLP was trained and closed-loop E05 remains
+unauthorized. Job `37690` remains a strict NO-GO and its +1 mm miss is not
+reinterpreted.
+
+Result/payload/validation SHA-256 values are
+`1ac02e8f45730b8961628e2b1f3ea985146f07b1f7574ad44fb8570f7c08aeeb`,
+`d142df3ba81d9129884dfb5bf281dc77b279ab59814b58e52a85322c40fed2ee`,
+and `3fe8943f0cf20daa0b621da61df8b42aea4ee3b9530987a0a78b40b10565a7cc`.
+Full result: `docs/distal_multi_region_decision_stability_moka10_result.md`.
+The final bundled local structural gate passes 371 tests with 11 skips.
+
+Unresolved risks are learned generalization across complete episode groups,
+conservative state-conditioned uncertainty, the separately failed +1 mm
+buffer, and closed-loop task preservation. The exact next command for the
+current evidence handoff is:
+
+`jq '{aggregates,decision,claim_scope,allocation,wall_seconds}' output/vlsa_distal_multi_region_decision_stability/region-decision-stability-20260810a/result.json`.

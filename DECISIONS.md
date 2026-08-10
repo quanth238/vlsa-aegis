@@ -2032,3 +2032,17 @@ selections, and small selected-action displacement may classify coefficient
 non-uniqueness as harmless. Passing may clear a separate learned-model design
 gate, but this experiment trains no model and never retroactively changes the
 strict result of job `37690`.
+
+Clean H100 job `37701` passes every registered decision-level gate. Across
+76,800 replicated off-grid decisions it has zero false-safes; minimum global
+and state/replicate Jaccard are `0.999495` and `0.952381`; and all 800 selected
+QP actions pass fresh exact cloned-OSC verification. Selected-action p95 and
+maximum L2 shifts are `0.002991` and `0.031053`, far below their frozen limits.
+
+The selected region index changes in 107/800 replicates, but overlapping-region
+identity is not the control decision: those switches remain action-stable and
+exact-safe. The observed raw coefficient non-uniqueness is therefore accepted
+as decision-harmless for this sampled zero-margin oracle. A separately
+preregistered grouped MLP experiment is now permitted. No learned model or
+closed-loop E05 run has been authorized by this result, and job `37690` remains
+strict NO-GO under its original zero/+1 mm all-gates criterion.
