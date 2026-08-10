@@ -3327,3 +3327,21 @@ payload, validation, and preflight SHA-256 values are
 `6a606382d118c5320fa121d16047d910fa3326d5bdbb73a5e18297a610806fa2`,
 and `5fc2d1be2423b4ded2f1f04929bfe81502e8bf137a9741b76f3f51f665893208`.
 Full report: `docs/distal_adaptive_native_distance_moka10_result.md`.
+
+# 2026-08-10: ellipsoid/contact boundary audit registered
+
+The user-authorized simplest continuation is preregistered after rejection of
+positive `mj_geomDistance`. It preserves the seven L5--L7 ellipsoid rollout
+margins as `D_opt` and treats only registered protected MuJoCo contact as
+binary `D_sim` authority. All 13,025 existing paired cloned-OSC rollouts are
+retained; no state or action is discarded.
+
+The H100 audit reports false-safes and false-unsafes at fixed proxy thresholds
+from -20 to +20 mm and within fixed absolute proxy-boundary bands of 1, 2, 5,
+10, and 20 mm. These bands are explicitly not physical-distance claims. The
+gate authorizes only a separate initial-state audit if the population is
+complete, observed contacts and 5 mm boundary support exist, and the zero
+threshold has no observed false-safe. No learning, QP, new simulation, or
+closed-loop E05 is authorized. Protocol:
+`docs/distal_proxy_contact_boundary_audit_moka10_preregistration.md`. Config
+SHA-256 is `79070aead126870039a17154903089efc9ec075b10dda38834ee47d5ffcaf680`.

@@ -2423,3 +2423,18 @@ research method now needs an explicit choice: a certified analytic proxy field
 with binary native verification, or a separately validated external physical
 distance engine. This is a core claim decision and should be confirmed with the
 advisor before another learned-model experiment.
+
+# ADR-0100: Compare the analytic proxy only to binary native contact
+
+**Status:** Preregistered before H100 execution (2026-08-10).
+
+After the positive native-distance NO-GO, keep optimizer clearance `D_opt`
+distinct from simulator verification `D_sim`. Audit the seven ellipsoid
+minimum rollout margins against registered protected L5--L7 contact on the
+complete existing paired population. Do not reinterpret an ellipsoid-margin
+band as physical millimetre clearance.
+
+Report false-unsafes as well as false-safes across frozen thresholds and
+proxy-boundary strata. This diagnostic may authorize only the next
+initial-state classification gate. It cannot authorize training, calibration,
+QP execution, or closed-loop E05.

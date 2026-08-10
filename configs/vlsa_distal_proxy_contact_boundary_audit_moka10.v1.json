@@ -1,0 +1,48 @@
+{
+  "schema_version": "vlsa_distal_proxy_contact_boundary_audit_moka10.v1",
+  "protocol_id": "vlsa-distal-proxy-contact-boundary-audit-moka10-v1",
+  "claim_scope": "paired_no_training_audit_of_seven_L5_L7_ellipsoid_rollout_margins_against_registered_raw_MuJoCo_contact_near_fixed_proxy_boundary_bands",
+  "immutable_source": {
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "expanded_oracle_file_sha256": "5ac8efe88fed934ade3ec36512aa2a0d870142bd91ae09923e7cae577aea77b7",
+    "expanded_oracle_payload_sha256": "0716aae9cba8ef1bed5ce3b0800733593bfe8c550c599da68e5106729a72aebe",
+    "validation_fresh_file_sha256": "727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3",
+    "validation_fresh_payload_sha256": "240378006c46360b6a4c4beda4e585b73b860ff4d4404b30c6de9ec53d50d93e",
+    "target_authority_result_file_sha256": "c29a99383f50012b3f9b0b4fadcbbb320bcd42a7932d8d5079144ecb460ccce2",
+    "target_authority_result_payload_sha256": "9e881dca46c06d63acee6bd20e7313016679f6fd4ab2dc91ebc0acfb95394e3d",
+    "target_authority_validation_file_sha256": "05b8a517dcd1286cc30b486d1cc0bc2f1fdcfd223a919b28ab9d892877480fd2"
+  },
+  "comparison": {
+    "D_opt": "minimum_of_seven_L5_L7_ellipsoid_rollout_margins_m",
+    "D_sim": "any_registered_raw_protected_L5_L6_L7_contact",
+    "proxy_safe": "D_opt_at_least_threshold",
+    "false_safe": "proxy_safe_and_D_sim_contact",
+    "false_unsafe": "not_proxy_safe_and_no_D_sim_contact",
+    "thresholds_m": [-0.02, -0.01, -0.005, -0.002, -0.001, 0.0, 0.001, 0.002, 0.005, 0.008, 0.01, 0.02],
+    "absolute_proxy_boundary_bands_m": [0.001, 0.002, 0.005, 0.01, 0.02],
+    "native_positive_distance_used": false
+  },
+  "population": {
+    "state_count": 85,
+    "fit_actions_per_state": 125,
+    "fit_action_count": 10625,
+    "fresh_state_count": 25,
+    "fresh_actions_per_state": 96,
+    "fresh_action_count": 2400,
+    "total_action_count": 13025,
+    "horizon_actions": 2,
+    "temporal_resolution": "every_internal_cloned_OSC_substep",
+    "no_state_or_action_discarded": true
+  },
+  "gate": {
+    "maximum_zero_threshold_false_safe_count": 0,
+    "minimum_observed_contact_action_count": 1,
+    "minimum_five_mm_boundary_action_count": 1,
+    "initial_state_audit_authorized_only_if_complete": true,
+    "training_in_this_gate": false,
+    "QP_in_this_gate": false,
+    "simulation_in_this_gate": false,
+    "closed_loop_E05_authorized": false
+  }
+}

@@ -52,7 +52,9 @@ for optional_file in \
   scripts/evaluate_distal_supported_region_aware_mlp_moka10.py \
   scripts/validate_distal_supported_region_aware_mlp_moka10.py \
   scripts/evaluate_distal_local_residual_bound_moka10.py \
-  scripts/validate_distal_local_residual_bound_moka10.py
+  scripts/validate_distal_local_residual_bound_moka10.py \
+  scripts/evaluate_distal_proxy_contact_boundary_audit_moka10.py \
+  scripts/validate_distal_proxy_contact_boundary_audit_moka10.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
