@@ -2522,3 +2522,20 @@ Any continuation must be a separately preregistered representation change,
 such as a compact structured controller/geometry state or learned task-aware
 latent encoder, evaluated on the same immutable deterministic dataset and
 complete-episode splits. It must pass prediction gates before control.
+
+# ADR-0106: Isolate input content with a matched fresh-label ablation
+
+**Status:** Preregistered before H100 execution (2026-08-10).
+
+Do not compare the prior 56D result to the complete-input result across
+different label collections, schedules, or seeds. Reconstruct the old 56D
+projection from the fresh semantic states and train both arms against the same
+immutable seven-row rollout-margin targets with identical grouped splits,
+architecture, loss, seeds, normalization, and schedule.
+
+Interpret only frozen gates: complete-only test passage supports omitted input
+as the root cause; two training fits followed by two test failures identify
+state/setup coverage; two near-boundary training-fit failures identify the
+target or plain-MLP representation. Mixed outcomes remain inconclusive. This
+diagnostic cannot authorize Poisson fields, calibration, a QP, more data, or
+closed-loop control.

@@ -1,0 +1,93 @@
+{
+  "schema_version": "vlsa_distal_matched_input_ablation_moka10.v1",
+  "protocol_id": "vlsa-distal-matched-input-ablation-moka10-v1",
+  "claim_scope": "Dataset-only matched ablation of the old 56D versus complete-OSC input projection for the same seven fresh two-action L5-L7 ellipsoid rollout margins; no calibration, QP, simulation, or closed loop.",
+  "immutable_source": {
+    "dataset_file_sha256": "585f696eedef9bd9a4c9d0ba576d6d86e5660638696862ec2d5d1af434fb426b",
+    "dataset_payload_sha256": "b84415c650cf5b11bce9f344bcd4fd288a136d3aaa15ce4458f23d0f3a20aa6a",
+    "collection_result_file_sha256": "bd85f3175c790a153833a7c903a4e119c71f771271b2ecb92cc1c579269ce966",
+    "collection_result_payload_sha256": "4e4a415ef25ca217fc43a23f94dd82af66f782434647f79c29f72f47a90226a5",
+    "dataset_schema_version": "vlsa_distal_complete_osc_margin_dataset.v1",
+    "expected_state_count": 85,
+    "expected_candidate_count": 10625,
+    "expected_row_count": 74375
+  },
+  "split": {
+    "unit": "complete_episode",
+    "expected_state_counts": {
+      "train": 60,
+      "validation": 10,
+      "test": 15
+    },
+    "test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ],
+    "test_only": true
+  },
+  "paired_arms": {
+    "old56": {
+      "dimension": 56,
+      "projection": "fresh_q_qdot_relative_proxy_geometry_and_XYZ_action",
+      "action": "first_translation_and_fixed_second_translation"
+    },
+    "completeOSC": {
+      "dimension": 2131,
+      "projection": "complete_serialized_OSC_snapshot_and_semantic_geometry",
+      "action": "full_two_action_translation_rotation_gripper_commands"
+    },
+    "same_rows_labels_splits_architecture_loss_seeds_schedule": true,
+    "old56_geometry_reconstruction_tolerance_m": 1e-10
+  },
+  "model": {
+    "class": "shared_constraint_action_conditioned_residual_MLP_ensemble",
+    "ensemble_seeds": [
+      20260831,
+      20260832,
+      20260833,
+      20260834,
+      20260835
+    ],
+    "hidden_widths": [256, 256, 128],
+    "activation": "silu",
+    "output_count": 1
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation",
+    "batch_size": 4096,
+    "epochs": 500,
+    "patience": 60,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-6,
+    "huber_delta_mm": 2.0,
+    "boundary_band_m": 0.005,
+    "boundary_weight_multiplier": 9.0,
+    "one_sided_overestimate_loss_weight": 4.0,
+    "early_stopping_split": "validation_complete_episodes",
+    "normalization": "training_rows_mean_std_with_1e-6_floor"
+  },
+  "prediction_gate": {
+    "proxy_false_safe_action_count": 0,
+    "minimum_exact_safe_action_recall": 0.5,
+    "required_test_state_safe_support_count": 15,
+    "maximum_near_boundary_RMSE_m": 0.002,
+    "near_boundary_absolute_margin_m": 0.005,
+    "maximum_overall_RMSE_m": 0.003808,
+    "training_fit_requires_overall_and_near_boundary_gates": true
+  },
+  "interpretation": {
+    "complete_input_root_cause": "completeOSC_test_pass_and_old56_test_fail",
+    "state_setup_coverage_failure": "both_train_fit_and_both_test_fail",
+    "target_or_model_representation_failure": "both_train_fail",
+    "otherwise": "mixed_or_inconclusive"
+  },
+  "forbidden_actions": {
+    "additional_simulation": true,
+    "new_data_collection": true,
+    "poisson_fields": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop_E05": true
+  }
+}

@@ -3502,3 +3502,21 @@ and preflight hashes are
 `93e99a7eb74a7f3bde4bce909bf4556e2793dd5d2ef581bf519375471286f92b`,
 `586e59310d88bda883a7b3613ef228451b70da22a4ce5a44b67b59761bc0a180`,
 and `2dfbf59755afb87922414cc566b0b1de65e61f7b6e52e9a6fbb43fe5f6d0c413`.
+
+# 2026-08-10: matched input-only ablation registered
+
+The user-authorized decisive comparison is preregistered on the immutable
+fresh complete-OSC dataset, with no further simulation or collection. The
+old 56D and complete 2,131D arms share all 74,375 row identities, seven-row
+rollout-margin labels, complete-episode 60/10/15 splits, model widths, loss,
+normalization, seeds, batches, and early stopping. Only their input projection
+differs.
+
+The compact features are reconstructed from the fresh semantic state rather
+than stale targets; reconstructed start margins must match within `1e-10 m`
+and the row/label hashes must be identical before training. Train,
+validation, test, and near-boundary metrics distinguish missing inputs from
+coverage or representation failure. Poisson fields, calibration, QPs, new
+data, simulation, and closed-loop E05 are forbidden. Protocol:
+`docs/distal_matched_input_ablation_moka10_preregistration.md`. Config SHA-256
+is `9a62b52423386e34ccbc947700ff5437f3fbd3791b4faf11a61154c0483060fe`.
