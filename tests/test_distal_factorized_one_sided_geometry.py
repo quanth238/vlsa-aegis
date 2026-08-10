@@ -9,11 +9,13 @@ from main.multilink_ellipsoid.factorized_one_sided_geometry import (
     load_one_sided_config,
     one_sided_decision,
     signed_clearance_error,
+    validation_pattern_gate_tests,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/vlsa_distal_factorized_one_sided_geometry_moka10.v1.json"
+CONFIG_V2 = ROOT / "configs/vlsa_distal_factorized_one_sided_geometry_moka10.v2.json"
 
 
 class OneSidedGeometryTests(unittest.TestCase):
@@ -23,6 +25,19 @@ class OneSidedGeometryTests(unittest.TestCase):
         self.assertFalse(config["local_geometry_jacobian"]["test_split_used_for_fit"])
         self.assertTrue(config["forbidden_actions"]["QP"])
         self.assertTrue(config["forbidden_actions"]["closed_loop"])
+
+    def test_v2_is_explicitly_adapted_to_terminal_distal_pattern(self):
+        config = load_one_sided_config(CONFIG_V2)
+        self.assertEqual(
+            config["validation_pattern_gate"]["adaptation_source"],
+            "validated_v1_audit_job_38064",
+        )
+        tests = validation_pattern_gate_tests({
+            "false_safe_action_count": 93,
+            "terminal_L5_false_safe_fraction": 0.0,
+            "terminal_distal_false_safe_fraction": 1.0,
+        }, config)
+        self.assertTrue(all(tests.values()))
 
     def test_local_geometry_jacobian_recovers_linear_clearance(self):
         config = json.loads(CONFIG.read_text())

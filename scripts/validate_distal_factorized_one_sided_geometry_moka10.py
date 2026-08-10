@@ -13,7 +13,7 @@ from main.multilink_ellipsoid.factorized_execution_pilot import (
 )
 from main.multilink_ellipsoid.factorized_one_sided_geometry import (
     RESULT_SCHEMA, VALIDATION_SCHEMA, fit_local_geometry_jacobians,
-    one_sided_decision,
+    one_sided_decision, validation_pattern_gate_tests,
 )
 from scripts.evaluate_distal_factorized_one_sided_geometry_moka10 import (
     _hash_array, add_common_arguments, geometry_kwargs, load_inputs,
@@ -79,16 +79,7 @@ def main() -> int:
     if result.get("training", {}).get("executed") is False:
         expected_decision = {
             "gate_tests": {
-                "validation_has_false_safe": pattern[
-                    "false_safe_action_count"
-                ] >= config["validation_pattern_gate"][
-                    "minimum_validation_false_safe_action_count"
-                ],
-                "validation_terminal_L5_pattern": pattern[
-                    "terminal_L5_false_safe_fraction"
-                ] >= config["validation_pattern_gate"][
-                    "minimum_terminal_L5_fraction"
-                ],
+                **validation_pattern_gate_tests(pattern, config),
                 "validation_linearization": local_geometry["audit"][
                     "validation"
                 ]["linearization_RMSE_m"] <= config[

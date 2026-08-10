@@ -19,6 +19,7 @@ from main.multilink_ellipsoid.factorized_execution_pilot import (
 from main.multilink_ellipsoid.factorized_one_sided_geometry import (
     RESULT_SCHEMA, fit_local_geometry_jacobians, load_one_sided_config,
     one_sided_decision, train_one_sided_geometry_ensemble,
+    validation_pattern_gate_tests,
 )
 from scripts.evaluate_distal_factorized_execution_moka10 import (
     _test_sensitivity_mask, evaluate_predicted_geometry,
@@ -48,6 +49,8 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--factorized-result", type=Path, required=True)
     parser.add_argument("--factorized-validation", type=Path, required=True)
     parser.add_argument("--surface-result", type=Path, required=True)
+    parser.add_argument("--adaptation-result", type=Path)
+    parser.add_argument("--adaptation-validation", type=Path)
     parser.add_argument("--population-manifest", type=Path, required=True)
     parser.add_argument("--selected-manifest", type=Path, required=True)
     parser.add_argument("--same-task-manifest", type=Path, required=True)
@@ -59,7 +62,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def resolved_paths(args: argparse.Namespace) -> dict[str, Path]:
-    return {key: value.resolve() for key, value in {
+    output = {key: value.resolve() for key, value in {
         "repo": args.repo_root, "config": args.config,
         "factorized_config": args.factorized_config,
         "complete_dataset": args.complete_dataset,
@@ -78,6 +81,11 @@ def resolved_paths(args: argparse.Namespace) -> dict[str, Path]:
         "archived": args.archived_root,
         "geometry": args.geometry_config, "exact_box": args.exact_box_config,
     }.items()}
+    if args.adaptation_result is not None:
+        output["adaptation_result"] = args.adaptation_result.resolve()
+    if args.adaptation_validation is not None:
+        output["adaptation_validation"] = args.adaptation_validation.resolve()
+    return output
 
 
 def load_inputs(paths: Mapping[str, Path]) -> tuple[Any, ...]:
@@ -129,6 +137,32 @@ def load_inputs(paths: Mapping[str, Path]) -> tuple[Any, ...]:
         and surface.get("decision", {}).get("surface_loss_pilot_supported") is False,
         "one-sided geometry validated source differs",
     )
+    if str(config["protocol_id"]).endswith("-v2"):
+        _require(
+            "adaptation_result" in paths and "adaptation_validation" in paths
+            and _file_sha256(paths["adaptation_result"])
+            == source["v1_adaptation_result_file_sha256"]
+            and _file_sha256(paths["adaptation_validation"])
+            == source["v1_adaptation_validation_file_sha256"],
+            "one-sided geometry v2 adaptation source differs",
+        )
+        adaptation_result = _load(paths["adaptation_result"])
+        adaptation_validation = _load(paths["adaptation_validation"])
+        _require(
+            adaptation_result.get("result_payload_sha256")
+            == source["v1_adaptation_result_payload_sha256"]
+            and adaptation_result.get("training", {}).get("executed") is False
+            and adaptation_result.get("validation_pattern_audit", {}).get(
+                "false_safe_action_count"
+            ) == 93
+            and adaptation_result.get("validation_pattern_audit", {}).get(
+                "terminal_L5_false_safe_count"
+            ) == 0
+            and adaptation_validation.get("validation_payload_sha256")
+            == source["v1_adaptation_validation_payload_sha256"]
+            and adaptation_validation.get("valid") is True,
+            "one-sided geometry v2 validated adaptation differs",
+        )
     archive = np.load(paths["array"], allow_pickle=False)
     arrays = dataset_arrays(metadata, archive)
     sensitivities = sensitivity_arrays(arrays)
@@ -183,14 +217,21 @@ def validation_pattern(
     exact_safe = np.all(exact_minimum >= 0.0, axis=1)
     rows = np.flatnonzero(selected & predicted_safe & ~exact_safe)
     terminal = int(config["validation_pattern_gate"]["terminal_substep_index"])
-    l5_rows = set(config["validation_pattern_gate"]["L5_constraint_rows"])
+    l5_rows = {0, 1, 2}
+    distal_rows = set(range(7))
     terminal_l5 = 0
+    terminal_distal = 0
+    constraint_histogram = {str(index): 0 for index in range(7)}
     localization = []
     for row in rows:
         substep, constraint = np.unravel_index(
             int(np.argmin(exact_trace[row])), (51, 7),
         )
         terminal_l5 += int(substep == terminal and constraint in l5_rows)
+        terminal_distal += int(
+            substep == terminal and constraint in distal_rows
+        )
+        constraint_histogram[str(int(constraint))] += 1
         localization.append({
             "row_index": int(row),
             "state_index": int(np.asarray(arrays["state_index"])[row]),
@@ -200,13 +241,22 @@ def validation_pattern(
             "exact_worst_margin_m": float(exact_trace[row, substep, constraint]),
         })
     fraction = 0.0 if not len(rows) else float(terminal_l5 / len(rows))
-    return {
+    output = {
         "random_action_count": int(np.count_nonzero(selected)),
         "false_safe_action_count": int(len(rows)),
         "terminal_L5_false_safe_count": int(terminal_l5),
         "terminal_L5_false_safe_fraction": fraction,
         "false_safe_localization": localization,
     }
+    if str(config["protocol_id"]).endswith("-v2"):
+        output.update({
+            "terminal_distal_false_safe_count": int(terminal_distal),
+            "terminal_distal_false_safe_fraction": (
+                0.0 if not len(rows) else float(terminal_distal / len(rows))
+            ),
+            "worst_constraint_row_histogram": constraint_histogram,
+        })
+    return output
 
 
 def prediction_metrics(
@@ -282,12 +332,8 @@ def main() -> int:
     )
     baseline_validation_geometry.pop("exact_q_static_minimum_margin_m")
     pattern = validation_pattern(baseline_validation_margin, arrays, config)
-    pattern_pass = (
-        pattern["false_safe_action_count"]
-        >= config["validation_pattern_gate"]["minimum_validation_false_safe_action_count"]
-        and pattern["terminal_L5_false_safe_fraction"]
-        >= config["validation_pattern_gate"]["minimum_terminal_L5_fraction"]
-    )
+    pattern_tests = validation_pattern_gate_tests(pattern, config)
+    pattern_pass = all(pattern_tests.values())
     linearization_pass = (
         local_geometry["audit"]["validation"]["linearization_RMSE_m"]
         <= config["local_geometry_jacobian"][
@@ -297,16 +343,7 @@ def main() -> int:
     if not (pattern_pass and linearization_pass):
         decision = {
             "gate_tests": {
-                "validation_has_false_safe": pattern[
-                    "false_safe_action_count"
-                ] >= config["validation_pattern_gate"][
-                    "minimum_validation_false_safe_action_count"
-                ],
-                "validation_terminal_L5_pattern": pattern[
-                    "terminal_L5_false_safe_fraction"
-                ] >= config["validation_pattern_gate"][
-                    "minimum_terminal_L5_fraction"
-                ],
+                **pattern_tests,
                 "validation_linearization": linearization_pass,
             },
             "one_sided_geometry_GO": False,

@@ -20,6 +20,7 @@ from .factorized_execution_pilot import _arm_targets, _build_model
 
 
 CONFIG_SCHEMA = "vlsa_distal_factorized_one_sided_geometry_config.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_factorized_one_sided_geometry_config.v2"
 RESULT_SCHEMA = "vlsa_distal_factorized_one_sided_geometry_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_factorized_one_sided_geometry_validation.v1"
 
@@ -37,11 +38,11 @@ def load_one_sided_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("one-sided geometry config keys differ")
-    if (
-        config["schema_version"] != CONFIG_SCHEMA
-        or config["protocol_id"]
-        != "vlsa-distal-factorized-one-sided-geometry-moka10-v1"
-    ):
+    protocol = str(config["protocol_id"])
+    if (config["schema_version"], protocol) not in {
+        (CONFIG_SCHEMA, "vlsa-distal-factorized-one-sided-geometry-moka10-v1"),
+        (CONFIG_SCHEMA_V2, "vlsa-distal-factorized-one-sided-geometry-moka10-v2"),
+    }:
         raise ValueError("one-sided geometry protocol differs")
     if config["population"] != {
         "episode_count": 17,
@@ -56,14 +57,27 @@ def load_one_sided_config(path: Path) -> dict[str, Any]:
         ],
     }:
         raise ValueError("one-sided geometry population differs")
-    if config["validation_pattern_gate"] != {
-        "source_model": "immutable_job_37980_factorized_execution",
-        "minimum_validation_false_safe_action_count": 1,
-        "minimum_terminal_L5_fraction": 0.5,
-        "terminal_substep_index": 50,
-        "L5_constraint_rows": [0, 1, 2],
-        "train_only_if_both_pass": True,
-    }:
+    expected_pattern = (
+        {
+            "source_model": "immutable_job_37980_factorized_execution",
+            "minimum_validation_false_safe_action_count": 1,
+            "minimum_terminal_L5_fraction": 0.5,
+            "terminal_substep_index": 50,
+            "L5_constraint_rows": [0, 1, 2],
+            "train_only_if_both_pass": True,
+        }
+        if protocol.endswith("-v1") else
+        {
+            "source_model": "immutable_job_37980_factorized_execution",
+            "adaptation_source": "validated_v1_audit_job_38064",
+            "minimum_validation_false_safe_action_count": 1,
+            "minimum_terminal_distal_fraction": 0.5,
+            "terminal_substep_index": 50,
+            "distal_constraint_rows": [0, 1, 2, 3, 4, 5, 6],
+            "train_only_if_both_pass": True,
+        }
+    )
+    if config["validation_pattern_gate"] != expected_pattern:
         raise ValueError("one-sided validation pattern gate differs")
     if config["local_geometry_jacobian"] != {
         "fit_rows": "nominal_plus_28_full_action_finite_difference_candidates",
@@ -231,6 +245,27 @@ def signed_clearance_error(
     if jacobian.shape != (len(predicted), 51, 7, 7):
         raise ValueError("one-sided geometry Jacobian row shape differs")
     return np.einsum("bkrj,bkj->bkr", jacobian, predicted - exact)
+
+
+def validation_pattern_gate_tests(
+    audit: Mapping[str, Any], config: Mapping[str, Any],
+) -> dict[str, bool]:
+    """Return the frozen v1 L5-specific or v2 distal-terminal audit."""
+
+    pattern = config["validation_pattern_gate"]
+    tests = {
+        "validation_has_false_safe": int(audit["false_safe_action_count"])
+        >= int(pattern["minimum_validation_false_safe_action_count"]),
+    }
+    if "minimum_terminal_L5_fraction" in pattern:
+        tests["validation_terminal_L5_pattern"] = float(
+            audit["terminal_L5_false_safe_fraction"]
+        ) >= float(pattern["minimum_terminal_L5_fraction"])
+    else:
+        tests["validation_terminal_distal_pattern"] = float(
+            audit["terminal_distal_false_safe_fraction"]
+        ) >= float(pattern["minimum_terminal_distal_fraction"])
+    return tests
 
 
 def train_one_sided_geometry_ensemble(
@@ -452,13 +487,8 @@ def one_sided_decision(
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     gate = config["decision_gate"]
-    pattern = config["validation_pattern_gate"]
     tests = {
-        "validation_has_false_safe": int(validation_audit["false_safe_action_count"])
-        >= int(pattern["minimum_validation_false_safe_action_count"]),
-        "validation_terminal_L5_pattern": float(
-            validation_audit["terminal_L5_false_safe_fraction"]
-        ) >= float(pattern["minimum_terminal_L5_fraction"]),
+        **validation_pattern_gate_tests(validation_audit, config),
         "validation_linearization": float(
             jacobian_audit["validation"]["linearization_RMSE_m"]
         ) <= float(config["local_geometry_jacobian"][

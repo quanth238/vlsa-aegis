@@ -3745,3 +3745,23 @@ allowed. Protocol:
 `docs/distal_factorized_one_sided_geometry_moka10_preregistration.md`.
 Config SHA-256 is
 `740ad469f4b2cba2d38d27526dbf9d9b1f35b3264b6d6cb1ae6a8df6811988b5`.
+
+H100 job `38064` completed in `00:10:49` and independently validated a
+conditional NO-GO without training. The immutable baseline produced 93/640
+validation false-safes. All 93 had their exact worst constraint at substep 50,
+but all were row 3 (the first L6 ellipsoid row), so the registered requirement
+for at least half to be L5 failed with `0/93`. The local geometry
+linearization itself passed strongly at `0.201 mm` RMSE and `0.974` clearance-
+delta cosine. No model, calibration, QP, or closed loop ran. Result/validation
+hashes are
+`bad80f43ce205246515ba5aaffcb582b167d211bf7cb6862aea0781edd392afd` and
+`5cb612cdf35b7b891b820d5430c445e780f7af307832fc7eb6a2af2a2ac28bf4`.
+
+The v1 result remains a strict NO-GO. A separate validation-adapted v2 is now
+registered because the proposed loss is link-generic across all seven L5--L7
+rows: its only protocol change accepts terminal optimism on any distal row.
+Loss, hyperparameters, model, split, untouched E05/E10/E15 test population,
+and zero-false-safe/15-support gates are unchanged. Protocol:
+`docs/distal_factorized_one_sided_geometry_moka10_v2_preregistration.md`.
+Config SHA-256 is
+`c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2`.

@@ -2669,3 +2669,12 @@ as the joint trajectory. At evaluation, retain known FK plus the existing
 ellipsoid geometry as safety authority. Require zero unseen false-safes and
 15/15 safe support before any uncertainty model. Calibration, QP, and closed
 loop remain blocked.
+
+Job `38064` preserves the registered L5-specific conditional NO-GO and skips
+training: validation has 93 false-safes, all at substep 50, but every exact
+worst row is the first L6 row rather than L5. The local signed geometry model
+is accurate (0.201 mm RMSE, 0.974 cosine), so the failure is not its numerical
+quality. Do not relabel v1 as passing. Because the already frozen auxiliary
+loss sums across all seven distal rows, register a separate validation-adapted
+v2 whose only change is accepting terminal optimism on any L5--L7 row. Keep
+the loss, model, test set, and zero-false-safe/15-support gates unchanged.
