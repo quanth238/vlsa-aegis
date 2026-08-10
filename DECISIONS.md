@@ -2548,3 +2548,20 @@ itself fails, do not classify this as the registered state/setup coverage
 failure. The deterministic target remains defined, so prioritize a structured
 or local representation of the execution-margin function before revisiting
 calibration, a QP, additional data, or closed-loop E05.
+
+# ADR-0107: Prove old-input insufficiency only with controlled conflicts
+
+**Status:** Preregistered before H100 execution (2026-08-10).
+
+Do not infer that an omitted variable is causal merely because a larger input
+model performs differently. Hold the historical 56D vector byte-identical,
+change one omitted variable family at a time from the exact same simulator
+state, and execute the same two-action translation through cloned OSC. Declare
+the old input insufficient only if one identical hash maps to both safe and
+unsafe seven-row rollout margins.
+
+Reuse the already validated exact duplicate-replay population for target
+determinism. Recheck the immutable complete-input model rather than retraining
+or tuning it. No audit result authorizes calibration, a QP, or closed-loop E05
+unless the separate prediction gate reaches zero false-safes and 15/15 safe
+support.

@@ -58,6 +58,8 @@ for optional_file in \
   scripts/validate_distal_complete_osc_margin_moka10.py \
   scripts/evaluate_distal_matched_input_ablation_moka10.py \
   scripts/validate_distal_matched_input_ablation_moka10.py \
+  scripts/evaluate_distal_omitted_variable_audit_moka10.py \
+  scripts/validate_distal_omitted_variable_audit_moka10.py \
   scripts/evaluate_distal_proxy_contact_boundary_audit_moka10.py \
   scripts/validate_distal_proxy_contact_boundary_audit_moka10.py \
   scripts/evaluate_distal_initial_contact_audit_moka10.py \

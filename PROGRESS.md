@@ -3547,3 +3547,21 @@ result file/payload, and validation file/payload hashes are
 `3a93f3d85097c9621a017999416d29cccababb316bbfd7d6d703362f78ba67c3`,
 `fb28af937b906883c3502f9be6560503e41d7139922b01a8a458aaa3bc74b55f`,
 and `8fcadb23b46c9e68e1ba39a3387b252f868c0a4b23ec7dc6b8d205f9fd7509c1`.
+
+# 2026-08-10: controlled omitted-variable audit registered
+
+The user-authorized sufficiency audit is preregistered before new H100
+simulation. Test 1 revalidates the immutable 10,625 complete snapshot/action
+pairs and their 21,250 exact duplicate rollouts. Test 2 reconstructs all 85
+states, selects the closest safe and unsafe candidate without dropping a
+state, and independently changes goal orientation, rotation command, gripper
+command, and named controller-memory fields.
+
+Every intervention recomputes and byte-hashes the seven historical 56D rows.
+Only an identical old-input hash with both safe and unsafe all-seven rollout
+margins proves insufficiency. Contact conflicts are separate diagnostics. The
+existing complete-input MLP is rechecked without retraining against zero
+false-safes and 15/15 support. The QP, calibration, new policy inference, and
+closed loop remain frozen. Protocol:
+`docs/distal_omitted_variable_audit_moka10_preregistration.md`. Config SHA-256
+is `42fc2a5b8f4067e8555fea4fa01d91a8a831d288b8fb1cb2d38b9edfcb0a12c8`.
