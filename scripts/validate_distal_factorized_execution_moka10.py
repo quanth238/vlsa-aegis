@@ -29,6 +29,16 @@ def _hash_array(value: object) -> str:
     return hashlib.sha256(np.asarray(value).tobytes()).hexdigest()
 
 
+def _array_equal_with_matching_nan_mask(left: object, right: object) -> bool:
+    """Require bit-exact finite values while treating paired mask NaNs equally."""
+
+    import numpy as np
+
+    left_array = np.asarray(left)
+    right_array = np.asarray(right)
+    return bool(np.array_equal(left_array, right_array, equal_nan=True))
+
+
 def main() -> int:
     import numpy as np
 
@@ -176,10 +186,33 @@ def main() -> int:
         "exact_q_static_minimum_margin_m"
     )
     geometry_match = bool(
-        np.array_equal(recomputed_margin, stored_margin)
-        and np.array_equal(
+        _array_equal_with_matching_nan_mask(recomputed_margin, stored_margin)
+        and _array_equal_with_matching_nan_mask(
             recomputed_exact_q_static_margin, stored_exact_q_static_margin
         )
+    )
+    geometry_nan_mask_match = bool(
+        np.array_equal(np.isnan(recomputed_margin), np.isnan(stored_margin))
+        and np.array_equal(
+            np.isnan(recomputed_exact_q_static_margin),
+            np.isnan(stored_exact_q_static_margin),
+        )
+    )
+    predicted_finite = (
+        np.isfinite(recomputed_margin) & np.isfinite(stored_margin)
+    )
+    exact_finite = (
+        np.isfinite(recomputed_exact_q_static_margin)
+        & np.isfinite(stored_exact_q_static_margin)
+    )
+    geometry_finite_difference = np.concatenate([
+        np.abs(recomputed_margin[predicted_finite]
+               - stored_margin[predicted_finite]),
+        np.abs(recomputed_exact_q_static_margin[exact_finite]
+               - stored_exact_q_static_margin[exact_finite]),
+    ])
+    geometry_maximum_finite_difference_m = float(
+        np.max(geometry_finite_difference)
     )
     exact_geometry_metrics = safety_metrics(
         arrays["minimum_margin_m"], recomputed_exact_q_static_margin,
@@ -239,6 +272,10 @@ def main() -> int:
         "audit": {
             "model_predictions_exactly_reproduced": prediction_match,
             "MuJoCo_FK_ellipsoid_margins_exactly_reproduced": geometry_match,
+            "MuJoCo_FK_matching_non_test_NaN_mask": geometry_nan_mask_match,
+            "MuJoCo_FK_maximum_finite_absolute_difference_m": (
+                geometry_maximum_finite_difference_m
+            ),
             "all_metrics_and_decision_exactly_reproduced": metrics_match,
             "forbidden_actions_absent": forbidden_clean,
             "decision": decision,

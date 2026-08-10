@@ -2616,3 +2616,14 @@ the nominal command exactly, clip only pose coordinates, and apply local
 gripper perturbations without harness clipping so the unchanged controller
 retains formatting authority. This is an action-domain correction made before
 any dataset or result, not post-outcome tuning.
+
+Job `37980` fixes the scientific decision at NO-GO before any downstream
+experiment: useful learned sensitivities do not offset 44 false-safe actions,
+13/15 support, or 11.560 mrad joint-trajectory RMSE. Do not calibrate, solve a
+QP, run closed loop, or add Poisson/SDF. The validator's only failed predicate
+is an implementation error: evaluation deliberately stores NaN in non-test
+geometry rows, and `numpy.array_equal` rejects identical paired NaNs by
+default. Retain the failed receipt, change equality to accept only matching
+NaN masks while requiring exact finite values, and validate the immutable
+job-37980 result separately. This cannot change any model, metric, gate, or
+scientific conclusion.

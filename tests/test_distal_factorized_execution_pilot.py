@@ -9,6 +9,9 @@ from main.multilink_ellipsoid.factorized_execution_pilot import (
     finite_difference_candidate_indexes, load_config, sensitivity_arrays,
     trace_arrays,
 )
+from scripts.validate_distal_factorized_execution_moka10 import (
+    _array_equal_with_matching_nan_mask,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -152,6 +155,16 @@ class FactorizedExecutionPilotTest(unittest.TestCase):
             margin_sensitivity_cosine=0.9, config=self.config,
         )
         self.assertFalse(decision["factorization_GO"])
+
+    def test_validation_exact_equality_accepts_only_matching_mask_nans(self):
+        left = np.asarray([[np.nan, 0.25], [1.0, -2.0]], dtype=np.float64)
+        right = left.copy()
+        self.assertTrue(_array_equal_with_matching_nan_mask(left, right))
+        right[0, 1] = np.nextafter(right[0, 1], np.inf)
+        self.assertFalse(_array_equal_with_matching_nan_mask(left, right))
+        right = left.copy()
+        right[0, 0] = 0.0
+        self.assertFalse(_array_equal_with_matching_nan_mask(left, right))
 
 
 if __name__ == "__main__":

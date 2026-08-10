@@ -3646,3 +3646,26 @@ around the exact archived value without harness clipping, leaving formatting
 to the unchanged SafeLIBERO gripper controller. This repair was frozen before
 any dataset/result, changes no executed nominal action, and reuses no partial
 rollout.
+
+H100 job `37980` completed the corrected population: 7,905 primary rollouts,
+425 registered repeats with zero mismatch, and 1,190 full-action sensitivity
+rows over the exact 60/10/15 grouped split. The frozen scientific result is a
+strict NO-GO. The factorized arm achieved 11.560 mrad test joint-trajectory
+RMSE, 3.538 mm link-center RMSE, 0.975 joint-sensitivity cosine, 0.913
+action-space margin-sensitivity cosine, and 2.188 mm near-boundary margin
+RMSE. It retained 94.70% safe recall but produced 44 proxy false-safes and
+safe support in only 13/15 test states. The fresh direct arm produced zero
+false-safes only by accepting six of 812 safe test actions and supporting
+1/15 states. Exact-joint static-geometry recomposition produced zero
+false-safes and 99.51% recall, isolating the remaining failure primarily to
+execution prediction rather than the fixed-obstacle ellipsoid computation.
+QP, calibration, Poisson/SDF, and closed-loop E05 remain unauthorized.
+
+The original validator repeated every model metric and the NO-GO decision
+exactly but returned invalid because `numpy.array_equal` treats paired NaNs as
+unequal. Geometry arrays intentionally mask all non-test rows with NaN; the
+test rows and aggregate metrics reproduced exactly. Preserve job `37980` and
+its invalid receipt. Repair only the equality predicate to require identical
+NaN masks and bit-exact finite values, report the maximum finite difference,
+and rerun validation from a separate immutable H100 allocation without
+retraining or changing the result.
