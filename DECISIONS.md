@@ -2373,3 +2373,24 @@ for prevention states; label initially negative states as recovery cases.
 This inventory gate precedes all native-target collection, model training, QP,
 and closed-loop work. A pass authorizes only a separately preregistered
 physical candidate-rollout collection experiment.
+
+# ADR-0097: Reject large-cutoff `mj_geomDistance` as the native target
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37863` validates the compiled grouping—three L5--L7 protected geoms
+against 15 active obstacle geoms—but rejects the 1 m distance query as a
+quantitative target. Negative queried distances without raw contact and
+41--47 mm differences from individual contact depths show that the frozen
+contact-consistency contract does not hold.
+
+This agrees with the MuJoCo API warning that large positive `distmax` can be
+approximate for general convex collision pairs. Do not reinterpret the 29
+negative query states as confirmed collisions, relax the gate post hoc, or
+train on these values.
+
+Preserve the semantic inventory and next test the smallest useful native
+measurement: `distmax=0` for overlap plus a fixed sequence of small positive
+cutoffs for near-boundary clearance. It must agree in sign with raw collision
+state and avoid negative/no-contact contradictions before any candidate target
+collection.

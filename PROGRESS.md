@@ -3259,3 +3259,30 @@ native margins will be recollected in freshly cloned OSC from these states;
 the 60/10/15 complete-episode split and E05/E10/E15 isolation are unchanged.
 The superseding config SHA-256 is
 `f0c709d9f26a475bc93636c2d2ffebf13ee88a8c517a61223b5135c5c9a5fdc1`.
+
+# 2026-08-10: native 1 m distance target is strict NO-GO
+
+Clean H100 job `37863` completed on `worker-2` in `00:07:29`; the independent
+validator accepted the strict failure. The compiled inventory is stable:
+exactly three protected collision geoms (one each for L5/L6/L7), 15 active
+moka-pot collision geoms, one semantic inventory across all 17 episodes, and
+all 53 primary contacts registered.
+
+The quantitative target failed. Only 56/85 starts and 8/15 test starts had
+nonnegative 1 m `mj_geomDistance` values, yet all 15 test nominal two-action
+rollouts had zero raw protected contacts. At the primary witness, global pair
+distance differed from individual contact distances by about 41--47 mm, so the
+10 micrometre equality gate also failed. All 85 prior feature receipts differed
+under canonical replay and remain forbidden as native labels.
+
+MuJoCo 3.2.3 documentation warns that large positive `distmax` queries can be
+approximate and inaccurate for the general convex collider. Therefore the 29
+negative starts are negative under a rejected query, not established physical
+collisions. Physical target collection, learning, QP, and closed-loop E05 all
+remain blocked. The next method must first pass a contact-consistent adaptive
+small-cutoff audit. Result/payload/validation/preflight SHA-256 values are
+`555f463d26d54b0b8508ef78548a6e97bbefa2a7bdd6c33b9140d3de941b6553`,
+`a36d01a5165ae0edad56d41ac240b1f15e88209d8cdad1a7dbe718cb94317a33`,
+`07787aa5594bbaa1a8656425a5715e3ef16b08221394a0b5c5a9954744111a68`,
+and `cb8040628b2c83c25c4c869069795d4995196b1d9564cbb25c0341b725419dfe`.
+Full report: `docs/distal_native_geom_inventory_moka10_result.md`.
