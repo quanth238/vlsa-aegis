@@ -3130,3 +3130,22 @@ authorize closed-loop. A pass authorizes only separate leave-one-episode-out
 local residual calibration. Protocol:
 `docs/distal_margin_target_authority_moka10_preregistration.md`. Config SHA-256
 is `9aa8f5f2e4942d79f248dbec16d899718432d931691cf47b44be098601730747`.
+
+# 2026-08-10: distal margin-target authority passes
+
+Clean H100 job `37808` completed on `worker-1` in `00:00:03`; the independent
+validator accepted it. All 10,625 fit-grid and 2,400 validation/test off-grid
+two-action rollouts were retained. The audit found zero cases where all seven
+minimum-substep ellipsoid margins were nonnegative but raw MuJoCo reported
+protected L5--L7 contact.
+
+The seven ellipsoid rollout margins are therefore accepted as quantitative
+targets for this scoped moka-pot distal-link experiment. This is not a
+whole-arm, EE, CAR, or task-success result. It authorizes only a separately
+preregistered leave-one-episode-out state-conditioned residual bound.
+
+Result/payload/validation SHA-256 values are
+`c29a99383f50012b3f9b0b4fadcbbb320bcd42a7932d8d5079144ecb460ccce2`,
+`9e881dca46c06d63acee6bd20e7313016679f6fd4ab2dc91ebc0acfb95394e3d`,
+and `05b8a517dcd1286cc30b486d1cc0bc2f1fdcfd223a919b28ab9d892877480fd2`.
+Full report: `docs/distal_margin_target_authority_moka10_result.md`.

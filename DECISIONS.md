@@ -2310,3 +2310,13 @@ This audit is narrower than whole-arm safety: it covers the registered seven
 L5--L7 ellipsoids against the exact moka-pot collision primitives and raw
 protected distal contact. EE compatibility, CAR, and task success remain
 separate later gates. A pass authorizes local residual calibration only.
+
+# ADR-0093: Accept the seven margins as scoped residual targets
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37808` found zero dangerous geometry-target false-safes over 13,025 exact
+rollouts. Proceed with leave-one-episode-out local residual calibration using
+the seven quantitative margins. Keep the claim limited to the certified
+L5--L7 ellipsoid union and exact moka-pot primitives; retain EE, CAR, and task
+success as independent later gates. Closed-loop remains unauthorized.
