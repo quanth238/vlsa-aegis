@@ -3300,3 +3300,30 @@ registered E05 contact witness. All 15 starts must be safe. No model, QP, or
 closed-loop is authorized. Protocol:
 `docs/distal_adaptive_native_distance_moka10_preregistration.md`. Config SHA-256
 is `fe869e9c5e16615999f59b12d00ed33c0e530cc20bc9948ee76ba60a95cf8e82`.
+
+# 2026-08-10: zero-cutoff contact GO, quantitative native distance NO-GO
+
+Clean H100 job `37875` completed on `worker-2` in `00:01:29`; the independent
+validator accepted the strict outcome. Zero-cutoff overlap is exactly
+contact-consistent on the critical population: no negative-without-contact, no
+contact-without-negative, all 53 primary contacts registered, and 15/15 starts
+correctly contact-free.
+
+Positive cutoff values are not a usable margin. Eighty-eight queries became
+negative only after increasing `distmax`, and 2,255 pair/substep observations
+were inconsistent across repeated non-censored cutoffs. Therefore
+`mj_geomDistance` is retained only as a zero-cutoff binary overlap check, not a
+quantitative MLP target. Full physical target collection, learning, QP, and
+closed-loop E05 remain blocked.
+
+The next step requires an advisor-level method choice: keep certified
+ellipsoid/box margins as the smooth surrogate with raw-contact verification,
+or add and validate an external physical distance engine before learning. A
+binary classifier alone is not the preferred continuation because the prior
+matched-random experiment already rejected its steering gradient. Result,
+payload, validation, and preflight SHA-256 values are
+`d096e6c8c18fd86961fbd59b47f08e10d824c37c8313bf7d21dbb147c804b785`,
+`97438521d8b3513c5402fa09c91085ba15877135490eaf7684b878ed15c0a8ef`,
+`6a606382d118c5320fa121d16047d910fa3326d5bdbb73a5e18297a610806fa2`,
+and `5fc2d1be2423b4ded2f1f04929bfe81502e8bf137a9741b76f3f51f665893208`.
+Full report: `docs/distal_adaptive_native_distance_moka10_result.md`.

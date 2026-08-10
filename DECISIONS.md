@@ -2408,3 +2408,18 @@ Require pair-level equivalence between zero-cutoff negative sign and registered
 raw contact throughout the cloned transition. Any cutoff-induced negative or
 repeated-distance inconsistency rejects the API for the research target. This
 gate cannot authorize training or control directly.
+
+# ADR-0099: Keep MuJoCo native authority binary, not differentiable
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37875` establishes exact pair-level agreement between zero-cutoff negative
+sign and raw protected contact, but rejects every positive-cutoff construction
+tested. Retain zero-cutoff/raw contact as binary `D_sim` authority only.
+
+Do not train a continuous execution-margin network on unstable positive
+distances or assume a contact classifier gradient supplies avoidance. The
+research method now needs an explicit choice: a certified analytic proxy field
+with binary native verification, or a separately validated external physical
+distance engine. This is a core claim decision and should be confirmed with the
+advisor before another learned-model experiment.
