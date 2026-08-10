@@ -2116,3 +2116,18 @@ boundary states and preserve grouped splits. Only if every test state is
 supported and its oracle behavior lies within the training reference envelope
 may an action-conditioned conservative safety-value model be preregistered.
 Closed-loop E05 remains blocked under every outcome of this diagnostic.
+
+Clean H100 job `37733` resolves the diagnostic: supported test states are
+`0/15`, so additional grouped boundary episodes are required before another
+model. The cross-episode training p95 distance is `1.264877` RMS z, while test
+nearest-neighbor distances are `1.410731--3.212344`. Every nearest neighbor is
+from spatial-I-task-1 episode 18 rather than the held-out goal-II-task-0
+population.
+
+Eight features exceed five z. The largest are joint velocity 3 (`10.182`),
+nominal first-action x (`9.342`), nominal second-action x (`9.010`), and joint
+velocities 4/2 (`8.862/8.258`). The induced oracle is smooth under the frozen
+decision thresholds for 11/15 pairs, but that cannot compensate for absent
+state support. Do not authorize the action-conditioned model yet. Collect
+additional complete-episode boundary states, retain E05/E10/E15 as test-only,
+and repeat support before learning or closed-loop E05.

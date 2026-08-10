@@ -2862,3 +2862,26 @@ runs no simulator/QP, and cannot authorize closed-loop E05. Protocol:
 `5dacdc8e5eb843db3dcb27ecd6747059fcd3cd785c10a54404d162a46fc340ec`.
 The frozen implementation passes the complete local structural gate: 382
 tests with one skip.
+
+# 2026-08-10: grouped state support is absent
+
+Clean H100 job `37733` completed in four seconds on `worker-2`; independent
+recomputation validated the artifact. The exact 10.182-z shift is caused by
+`qdot_rad_s_3`. Seven more inputs exceed five z: the first/second nominal x
+actions, qdot 4/2/1, and q 2/4.
+
+The training cross-episode p95 support distance is `1.264877` RMS z. All 15
+test states fail: their nearest distances range `1.410731--3.212344`, and all
+nearest neighbors are spatial-I-task-1 episode 18. The oracle union margin and
+accepted set pass their training-reference smoothness thresholds for 11/15
+pairs, with E05 steps 181--183 and E10 step 152 failing. Therefore absent state
+support, not universal oracle nonsmoothness, is the first blocker.
+
+The frozen decision is to collect additional complete-episode boundary states
+while retaining E05/E10/E15 as test-only. Action-conditioned model
+preregistration and closed-loop E05 remain unauthorized. Result, payload, and
+validation SHA-256 values are
+`114ba547b16f88f1e18c59e0fa245c6fd47782f6a15c9775cbff148070469237`,
+`adcfea06ed6de05a8311e2a4f60a963b2f38c2afa15e5a225c5818eecca122fc`,
+and `4de0cd4997dfda6495416cb75a7b21d582f5ede04924d0a06a583289f53b87bc`.
+Full report: `docs/distal_state_support_smoothness_moka10_result.md`.
