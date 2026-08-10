@@ -41,6 +41,9 @@ witness rather than relying on a vacuous no-contact audit.
 
 The ordinary seven ellipsoid gaps are retained only as `D_opt` comparison
 values. Native distances and raw contacts are `D_sim` evidence.
+For receipt fidelity, comparison-only ellipsoid features reproduce the existing
+collector's cohort-local placeholder rule: use the E05 row when that cohort
+contains E05, otherwise use the cohort's first immutable manifest row.
 
 ## Initial-state rule
 

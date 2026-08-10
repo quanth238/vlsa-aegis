@@ -152,12 +152,22 @@ def main() -> int:
     ):
         _require(_file_sha256(path) == source[key], "native inventory %s differs" % label)
     selected = []
+    geometry_placeholder_row_by_case = {}
     for key, path in (
         ("boundary_generalization_manifest_sha256", paths["boundary"]),
         ("same_task_expansion_manifest_sha256", paths["same_task"]),
         ("targeted_expansion_manifest_sha256", paths["targeted"]),
     ):
-        selected.extend(_read_manifest(path, source[key]))
+        cohort_rows = _read_manifest(path, source[key])
+        cohort_placeholder = next(
+            (item for item in cohort_rows if str(item["case_id"]).endswith("e05")),
+            cohort_rows[0],
+        )
+        selected.extend(cohort_rows)
+        for item in cohort_rows:
+            geometry_placeholder_row_by_case[str(item["case_id"])] = (
+                cohort_placeholder
+            )
     row_by_case = {str(item["case_id"]): item for item in selected}
     _require(
         len(selected) == len(row_by_case)
@@ -180,15 +190,6 @@ def main() -> int:
         "native inventory state population differs",
     )
     population = {item["case_id"]: item for item in read_jsonl(paths["population"])}
-    placeholder_row = row_by_case["vlsa-t1-goal-ii-t0-e05"]
-    placeholder_path = paths["archived"] / placeholder_row["archived_relative_path"]
-    placeholder = _load(placeholder_path)
-    _require(
-        _file_sha256(placeholder_path) == placeholder_row["archived_file_sha256"]
-        and placeholder.get("result_payload_sha256")
-        == placeholder_row["archived_payload_sha256"],
-        "native inventory geometry placeholder differs",
-    )
     geometry_config = load_shadow_config(paths["geometry"])
     exact_box_config = load_obstacle_primitive_config(paths["exact_box"])
     runtime = _runtime_imports(include_aegis=False)
@@ -239,9 +240,21 @@ def main() -> int:
                 "native inventory main/clone protected groups differ",
             )
             semantic_hashes.add(inventory["semantic_protected_group_sha256"])
+            geometry_placeholder_row = geometry_placeholder_row_by_case[case_id]
+            geometry_placeholder_path = paths["archived"] / geometry_placeholder_row[
+                "archived_relative_path"
+            ]
+            geometry_placeholder = _load(geometry_placeholder_path)
+            _require(
+                _file_sha256(geometry_placeholder_path)
+                == geometry_placeholder_row["archived_file_sha256"]
+                and geometry_placeholder.get("result_payload_sha256")
+                == geometry_placeholder_row["archived_payload_sha256"],
+                "native inventory cohort geometry placeholder differs",
+            )
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config, exact_box_config=exact_box_config,
-                archived=placeholder, env=env,
+                archived=geometry_placeholder, env=env,
                 obstacle_name=setup["obstacle_name"],
             )
             probe = NativeGeomSubstepProbe(
@@ -338,6 +351,9 @@ def main() -> int:
                     env.step(_canonical_action(actions[step], step).tolist())
             episode_results.append({
                 "case_id": case_id,
+                "comparison_geometry_placeholder_case_id": str(
+                    geometry_placeholder_row["case_id"]
+                ),
                 "semantic_protected_groups": inventory[
                     "semantic_protected_groups"
                 ],

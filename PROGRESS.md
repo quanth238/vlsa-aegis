@@ -3236,3 +3236,13 @@ pair-feature receipt differed at an as-yet-unidentified component. The gate
 tolerance remains `1e-8`; a diagnostic-only retry now prints the exact episode,
 step, constraint row, named feature, expected/observed values, and independent
 current-clearance error before failing. No scientific setting is changed.
+
+Diagnostic H100 job `37855` localized the first mismatch to goal-II/task-0 E00
+step 163: the obstacle-relative feature differed by 0.660 mm and the proxy
+clearance by 0.635 mm. Code audit found that the three immutable dataset
+cohorts used the existing collector's cohort-local geometry placeholder rule:
+E05 when present, otherwise the cohort's first manifest row (E00 or E25). The
+inventory had incorrectly used E05 for comparison features in every cohort.
+The apparatus repair reproduces E05/E00/E25 exactly. This changes only `D_opt`
+receipt/comparison geometry; native compiled `D_sim` groups, states, actions,
+distance queries, contacts, and gates are unchanged.
