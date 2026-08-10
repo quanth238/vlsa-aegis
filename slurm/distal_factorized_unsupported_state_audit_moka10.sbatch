@@ -42,7 +42,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ ! -L "$SOURCE_RUN" && ! -L "$SOURCE_VALIDATION" && ! -L "$SURFACE_RUN" && ! -L "$ADAPTATION_RUN" && ! -L "$ONE_SIDED_RUN" ]] || die "immutable source symlink forbidden"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "unsupported-state audit source identity differs"
 [[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2 ]] || die "one-sided geometry v2 config differs"
-[[ "$(sha256sum "$AUDIT_CONFIG" | awk '{print $1}')" == bdfeca484795093d481825e986c740eb0745854d2cca10a922b59259755c44bc ]] || die "unsupported-state audit config differs"
+[[ "$(sha256sum "$AUDIT_CONFIG" | awk '{print $1}')" == 0b81c045da7fb8121abe2bf7b90a1ebed71af6c6d6d3fe33bb7658f28ca39d1b ]] || die "unsupported-state audit config differs"
 [[ "$(sha256sum "$ONE_SIDED_RUN/result.json" | awk '{print $1}')" == ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0 ]] || die "one-sided result differs"
 [[ "$(sha256sum "$ONE_SIDED_RUN/validation.json" | awk '{print $1}')" == 1abb16135207cfc754c6d1a63373a01be69ed4930bdb1e69036ba3e4f3c1a3b3 ]] || die "one-sided validation differs"
 RUN_ROOT=$OUTPUT_ROOT/$RUN_ID

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from .complete_osc_margin import _canonical, _numpy
 
@@ -39,7 +39,7 @@ def load_unsupported_state_config(path: Path) -> dict[str, Any]:
         "expected_unsupported_state_count": 3,
         "exact_safe_definition": "all_seven_dynamic_rollout_minimum_ellipsoid_margins_nonnegative",
         "accepted_definition": "all_seven_predicted_static_minimum_margins_nonnegative",
-        "unsupported_definition": "at_least_one_exact_safe_candidate_and_zero_accepted_exact_safe_candidates",
+        "unsupported_definition": "zero_accepted_exact_safe_candidates_in_registered_random_region",
     }:
         raise ValueError("unsupported-state population differs")
     if config["forbidden_actions"] != {
@@ -71,7 +71,7 @@ def unsupported_state_indexes(
         rows = mask & (states == state)
         exact_safe = np.all(exact[rows] >= 0.0, axis=1)
         accepted = exact_safe & np.all(predicted[rows] >= 0.0, axis=1)
-        if np.any(exact_safe) and not np.any(accepted):
+        if not np.any(accepted):
             output.append(int(state))
     if len(output) != int(expected_count):
         raise ValueError("unsupported-state count differs")
@@ -145,25 +145,29 @@ def standardized_state_support(
 
 
 def interpret_state(
-    *, closest_predicted_margin_m: float, support_pass: bool,
+    *, closest_predicted_margin_m: Optional[float], support_pass: bool,
     member_accepted_counts: Sequence[int], candidate_exact_safe_count: int,
     large_trajectory_error: bool, config: Mapping[str, Any],
 ) -> dict[str, Any]:
     member = [int(value) for value in member_accepted_counts]
     some_member_support = any(value > 0 for value in member)
     all_member_support = all(value > 0 for value in member)
+    conditional_bias = bool(
+        closest_predicted_margin_m is not None
+        and -float(config["measurements"]["small_systematic_negative_bias_m"])
+        <= float(closest_predicted_margin_m) < 0.0
+        and support_pass and not large_trajectory_error
+    )
     flags = {
-        "conditional_bias_candidate": bool(
-            -float(config["measurements"]["small_systematic_negative_bias_m"])
-            <= float(closest_predicted_margin_m) < 0.0
-            and support_pass and not large_trajectory_error
-        ),
+        "conditional_bias_candidate": conditional_bias,
         "coverage_failure": not bool(support_pass),
         "aggregation_failure": bool(some_member_support and not all_member_support),
         "candidate_region_failure": int(candidate_exact_safe_count) == 0,
         "decoder_failure": bool(large_trajectory_error),
     }
-    if flags["coverage_failure"]:
+    if flags["candidate_region_failure"]:
+        primary = "no_exact_safe_action_in_registered_candidate_region"
+    elif flags["coverage_failure"]:
         primary = "unsupported_robot_or_controller_state"
     elif flags["decoder_failure"]:
         primary = "large_execution_trajectory_error"

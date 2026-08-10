@@ -2733,4 +2733,11 @@ training-state support, exact ensemble-member support, sampled-region support,
 conditional signed bias, and joint-trajectory error. This diagnostic cannot
 authorize calibration or intervention and cannot change the existing verdict.
 Config hash is
-`bdfeca484795093d481825e986c740eb0745854d2cca10a922b59259755c44bc`.
+`0b81c045da7fb8121abe2bf7b90a1ebed71af6c6d6d3fe33bb7658f28ca39d1b`.
+
+Job `38073` is an apparatus failure before geometry. Job `38074` establishes
+that support loss is heterogeneous: states 39/44 have no exact-safe sampled
+action, whereas state 49 has 44 exact-safe actions rejected by the model.
+Audit all three, but do not call the first two model false rejections. Region
+insufficiency takes priority when the exact-safe count is zero. No outcome or
+threshold is otherwise changed.

@@ -3857,8 +3857,8 @@ and `9124409b40a94b4280375f13be58aae0266fa26d45091d16866a868c1b09d4ea`.
 
 Independent H100 job `38070` already reproduces the one-sided model, metrics,
 and strict NO-GO exactly. The next diagnostic freezes those artifacts and asks
-only why three of fifteen test states contain exact-safe random actions but no
-action accepted by the model. It records exact-safe counts, the closest
+why three of fifteen test states have no accepted exact-safe action. It records
+exact-safe counts, the closest
 predicted margin, exact/baseline/one-sided active row and substep, all five
 ensemble-member decisions, complete-state distance to supported grouped
 training states, and per-state trajectory error. The registered interpretation
@@ -3871,4 +3871,14 @@ change. E05/E10/E15 remain diagnostic only; any final generalization claim
 requires newly reserved complete episodes. Protocol:
 `docs/distal_factorized_unsupported_state_audit_moka10_preregistration.md`.
 Config SHA-256 is
-`bdfeca484795093d481825e986c740eb0745854d2cca10a922b59259755c44bc`.
+`0b81c045da7fb8121abe2bf7b90a1ebed71af6c6d6d3fe33bb7658f28ca39d1b`.
+
+Initial H100 job `38073` passed 14 allocation tests and stopped before geometry
+because the original selector assumed all three unsupported states contained
+an exact-safe sampled action. Allocation diagnostic `38074` showed the
+aggregate support count hid two distinct causes: states 39 and 44 have 0/64
+exact-safe actions in the registered region, while state 49 has 44/64
+exact-safe actions and the model accepts none. The apparatus repair retains
+all three zero-support states and makes candidate-region failure an explicit
+outcome. It changes no model, prediction, threshold, geometry, or verdict; the
+failure-only job is not reused.

@@ -157,6 +157,14 @@ def _state_trajectory_metrics(
         exact_safe = np.all(np.asarray(exact_margin)[rows] >= 0.0, axis=1)
         base_error = np.asarray(baseline_q)[rows] - np.asarray(exact_q)[rows]
         new_error = np.asarray(experimental_q)[rows] - np.asarray(exact_q)[rows]
+        baseline_safe_rmse = (
+            None if not np.any(exact_safe) else
+            float(np.sqrt(np.mean(base_error[exact_safe] ** 2)))
+        )
+        one_sided_safe_rmse = (
+            None if not np.any(exact_safe) else
+            float(np.sqrt(np.mean(new_error[exact_safe] ** 2)))
+        )
         output[int(state)] = {
             "exact_safe_candidate_count": int(np.count_nonzero(exact_safe)),
             "baseline_all_joint_RMSE_rad": float(np.sqrt(np.mean(base_error ** 2))),
@@ -167,12 +175,8 @@ def _state_trajectory_metrics(
             "one_sided_terminal_joint_RMSE_rad": float(np.sqrt(np.mean(
                 new_error[:, -1] ** 2
             ))),
-            "baseline_exact_safe_joint_RMSE_rad": float(np.sqrt(np.mean(
-                base_error[exact_safe] ** 2
-            ))),
-            "one_sided_exact_safe_joint_RMSE_rad": float(np.sqrt(np.mean(
-                new_error[exact_safe] ** 2
-            ))),
+            "baseline_exact_safe_joint_RMSE_rad": baseline_safe_rmse,
+            "one_sided_exact_safe_joint_RMSE_rad": one_sided_safe_rmse,
         }
     return output
 
@@ -245,7 +249,15 @@ def analyze_records(
         exact_safe = np.all(exact_margin[rows] >= 0.0, axis=1)
         predicted_worst = np.min(stored_experimental[compact], axis=1)
         safe_local = np.flatnonzero(exact_safe)
-        best_local = int(safe_local[np.argmax(predicted_worst[exact_safe])])
+        if len(safe_local):
+            best_local = int(safe_local[np.argmax(predicted_worst[exact_safe])])
+            representative_basis = "exact_safe_with_closest_predicted_margin_to_zero"
+            closest_predicted_margin = float(predicted_worst[best_local])
+        else:
+            exact_worst = np.min(exact_margin[rows], axis=1)
+            best_local = int(np.argmax(exact_worst))
+            representative_basis = "least_unsafe_exact_candidate"
+            closest_predicted_margin = None
         best_row = int(rows[best_local])
         best_compact = int(compact[best_local])
         experimental_active = np.unravel_index(
@@ -264,14 +276,17 @@ def analyze_records(
             member_counts.append(int(np.count_nonzero(
                 exact_safe & (member_score >= 0.0)
             )))
-            member_best.append(float(np.max(member_score[exact_safe])))
+            member_best.append(
+                None if not np.any(exact_safe) else
+                float(np.max(member_score[exact_safe]))
+            )
         state_support = support["queries"][str(int(state))]
         large = bool(
             trajectory[int(state)]["one_sided_all_joint_RMSE_rad"]
             > p95_error + 1e-15
         )
         interpretation = interpret_state(
-            closest_predicted_margin_m=float(predicted_worst[best_local]),
+            closest_predicted_margin_m=closest_predicted_margin,
             support_pass=bool(state_support["support_pass"]),
             member_accepted_counts=member_counts,
             candidate_exact_safe_count=int(np.count_nonzero(exact_safe)),
@@ -284,13 +299,17 @@ def analyze_records(
             "state_index": int(state), "case_id": str(metadata["case_id"]),
             "state_step": int(metadata["state_step"]),
             "exact_safe_candidate_count": int(np.count_nonzero(exact_safe)),
-            "best_rejected_candidate_index": int(
+            "representative_candidate_index": int(
                 np.asarray(arrays["candidate_index"])[best_row]
             ),
-            "closest_one_sided_predicted_worst_margin_m": float(
+            "representative_candidate_basis": representative_basis,
+            "closest_exact_safe_one_sided_predicted_worst_margin_m": (
+                closest_predicted_margin
+            ),
+            "representative_candidate_one_sided_predicted_worst_margin_m": float(
                 predicted_worst[best_local]
             ),
-            "best_candidate_exact_worst_margin_m": float(np.min(
+            "representative_candidate_exact_worst_margin_m": float(np.min(
                 exact_margin[best_row]
             )),
             "baseline_predicted_worst_margin_m": float(np.min(baseline_row_margin)),
@@ -314,7 +333,7 @@ def analyze_records(
                 "supported_test_state_p95_one_sided_joint_RMSE_rad": p95_error,
                 "large_trajectory_error": large,
             },
-            "exact_safe_action_inside_registered_region": True,
+            "exact_safe_action_inside_registered_region": bool(np.any(exact_safe)),
             "interpretation": interpretation,
         })
     primary_counts = {}

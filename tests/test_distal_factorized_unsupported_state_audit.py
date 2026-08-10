@@ -21,7 +21,7 @@ class UnsupportedStateAuditTests(unittest.TestCase):
         self.assertTrue(config["forbidden_actions"]["training"])
         self.assertTrue(config["forbidden_actions"]["verdict_change"])
 
-    def test_unsupported_requires_exact_safe_but_no_accepted_safe(self):
+    def test_unsupported_is_any_state_without_accepted_exact_safe_action(self):
         exact = np.asarray([[0.1], [0.2], [0.1], [-0.1]])
         predicted = np.asarray([[-0.1], [-0.2], [0.1], [0.1]])
         output = unsupported_state_indexes(
@@ -31,6 +31,16 @@ class UnsupportedStateAuditTests(unittest.TestCase):
             selected=np.ones(4, dtype=bool), expected_count=1,
         )
         self.assertEqual(output, [0])
+
+    def test_unsupported_includes_region_without_an_exact_safe_action(self):
+        exact = np.repeat(np.asarray([[-0.1], [-0.2]]), 7, axis=1)
+        predicted = np.repeat(np.asarray([[0.1], [0.2]]), 7, axis=1)
+        output = unsupported_state_indexes(
+            exact_margin=exact, predicted_margin=predicted,
+            state_index=np.asarray([2, 2]), selected=np.ones(2, dtype=bool),
+            expected_count=1,
+        )
+        self.assertEqual(output, [2])
 
     def test_support_uses_train_only_normalization(self):
         output = standardized_state_support(
@@ -59,6 +69,18 @@ class UnsupportedStateAuditTests(unittest.TestCase):
             large_trajectory_error=True, config=config,
         )
         self.assertEqual(decoder["primary_explanation"], "large_execution_trajectory_error")
+
+    def test_interpretation_identifies_missing_local_safe_action_first(self):
+        config = json.loads(CONFIG.read_text())
+        output = interpret_state(
+            closest_predicted_margin_m=None, support_pass=False,
+            member_accepted_counts=[0] * 5, candidate_exact_safe_count=0,
+            large_trajectory_error=True, config=config,
+        )
+        self.assertEqual(
+            output["primary_explanation"],
+            "no_exact_safe_action_in_registered_candidate_region",
+        )
 
 
 if __name__ == "__main__":

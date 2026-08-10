@@ -1,8 +1,12 @@
 # One-sided factorized unsupported-state audit
 
 The independently replayed job-38070 verdict remains NO-GO. This diagnostic
-asks only why the one-sided model rejects every exact-safe random candidate in
-three of the fifteen E05/E10/E15 states.
+asks why the one-sided model has no accepted exact-safe random candidate in
+three of the fifteen E05/E10/E15 states. Apparatus-only H100 selector
+diagnostic `38074` established before geometry inspection that two states have
+no exact-safe candidate in the registered region and one contains exact-safe
+candidates that are all rejected. The audit retains all three so those causes
+remain distinct.
 
 For each discovered unsupported state, record:
 

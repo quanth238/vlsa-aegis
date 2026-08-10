@@ -21,7 +21,7 @@
     "expected_unsupported_state_count": 3,
     "exact_safe_definition": "all_seven_dynamic_rollout_minimum_ellipsoid_margins_nonnegative",
     "accepted_definition": "all_seven_predicted_static_minimum_margins_nonnegative",
-    "unsupported_definition": "at_least_one_exact_safe_candidate_and_zero_accepted_exact_safe_candidates"
+    "unsupported_definition": "zero_accepted_exact_safe_candidates_in_registered_random_region"
   },
   "measurements": {
     "candidate_audit": [
