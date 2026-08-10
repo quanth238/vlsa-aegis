@@ -2046,3 +2046,36 @@ as decision-harmless for this sampled zero-margin oracle. A separately
 preregistered grouped MLP experiment is now permitted. No learned model or
 closed-loop E05 run has been authorized by this result, and job `37690` remains
 strict NO-GO under its original zero/+1 mm all-gates criterion.
+
+# ADR-0083: Learn regional lower planes and gate closed-loop E05
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37701` shows that the fixed regional controller is stable even when its
+raw ridge-Huber coefficients vary. The learned object is therefore the induced
+regional lower affine plane, not equality to one arbitrary coefficient fit.
+A shared region/constraint MLP ensemble predicts the lower anchor and three
+action coefficients from state-relative geometry, nominal two-action context,
+and fixed region coordinates.
+
+Training uses only complete train groups. Its loss directly evaluates every
+predicted plane over the 27 regional grid actions and penalizes exact-margin
+overestimation. Ensemble disagreement supplies a state-dependent guard;
+complete validation groups supply a separate fixed one-sided calibration.
+E05/E10/E15 cannot affect the model, calibration, early stopping, or gates.
+
+Neural reproduction is a control-decision claim: zero unseen false-safes,
+accepted-set overlap, retained safe support, valid regional QPs, and fresh
+exact selected-action rollouts are mandatory. Raw coefficient cosine is
+diagnostic only. Closed-loop E05 is conditionally executed only after every
+learned gate passes.
+
+The E05 controller retains released AEGIS EE filtering, switches to live pi0.5
+replanning after its first learned correction, and recomputes the regional QP
+after every executed action within a frozen 50 mm current-clearance activation
+boundary. Farther states execute the released AEGIS nominal so the network does
+not extrapolate beyond its registered state support. The cloned simulator
+records exact evidence but cannot influence selection or stopping. This
+prevents a simulator oracle from silently becoming the deployed controller.
+Collision-free stopping is not a pass: native SafeLIBERO completion is required
+with zero L5--L7 contact and no paper CAR.

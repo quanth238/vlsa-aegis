@@ -1,0 +1,112 @@
+{
+  "schema_version": "vlsa_distal_region_aware_mlp_moka10.v1",
+  "protocol_id": "vlsa-distal-region-aware-mlp-moka10-v1",
+  "claim_scope": "state_conditioned_region_aware_neural_reproduction_of_zero_margin_27_region_L5_L7_oracle_on_grouped_unseen_states_then_conditional_receding_E05",
+  "immutable_source": {
+    "dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "off_grid_result_file_sha256": "5f34efe306cde24e1d2b20801015cb5f353f7e598f8afd606124da3bd0ff175f",
+    "off_grid_result_payload_sha256": "661273a27aa5a025b160f50e7b0526bb6d434a4b90fa1a8e63758ab0f2083ff6",
+    "multi_region_result_file_sha256": "a14c8f3c3f06d881a4ed83db94edf139f4ca5f2a9f53381f3b182a7e28ac2a5f",
+    "multi_region_result_payload_sha256": "a80b343a4810d746086ef933eead6e86f1ec61a0f123ee08b1a459c7274de265",
+    "multi_region_validation_file_sha256": "a24175762be7fecee2308c7f8a9dcb6f9bc82cf2ed2edaaf4949e53776e46e13",
+    "decision_stability_result_file_sha256": "1ac02e8f45730b8961628e2b1f3ea985146f07b1f7574ad44fb8570f7c08aeeb",
+    "decision_stability_result_payload_sha256": "d142df3ba81d9129884dfb5bf281dc77b279ab59814b58e52a85322c40fed2ee",
+    "decision_stability_validation_file_sha256": "3fe8943f0cf20daa0b621da61df8b42aea4ee3b9530987a0a78b40b10565a7cc",
+    "archived_e05_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "archived_e05_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+    "expected_state_count": 50,
+    "fit_actions_per_state": 125,
+    "off_grid_actions_per_state": 96
+  },
+  "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "expected_state_counts": {"train": 30, "validation": 5, "test": 15},
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "primary_e05_use": "test_and_conditional_closed_loop_only_never_training_or_calibration"
+  },
+  "partition": {
+    "coordinates": "per_state_action_box_normalized_minus1_plus1",
+    "axis_intervals": [[-1.0, 0.0], [-0.5, 0.5], [0.0, 1.0]],
+    "axis_centers": [-0.5, 0.0, 0.5],
+    "region_count": 27,
+    "fit_actions_per_region": 27,
+    "action_limit": 1.0,
+    "trust_region_linf_action": 0.5,
+    "grid_points_per_dimension": 5,
+    "inclusive_membership_tolerance": 1e-12
+  },
+  "features": {
+    "base": "validated_53D_pair_state_geometry_feature_with_candidate_slot_replaced_by_region_anchor",
+    "region_descriptor": ["normalized_lower_xyz", "normalized_upper_xyz", "normalized_center_xyz"],
+    "input_dimension": 62,
+    "normalization": "training_states_mean_and_standard_deviation_with_1e-6_floor"
+  },
+  "model": {
+    "class": "shared_constraint_and_region_MLP_ensemble",
+    "ensemble_seeds": [20260811, 20260812, 20260813, 20260814, 20260815],
+    "hidden_widths": [256, 256, 128],
+    "hidden_activation": "silu",
+    "outputs": ["regional_lower_anchor_mm", "gradient_x_mm_per_action", "gradient_y_mm_per_action", "gradient_z_mm_per_action"]
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation_due_pinned_sm90_incompatibility",
+    "batching": "deterministic_full_batch",
+    "epochs": 1800,
+    "patience": 180,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-6,
+    "huber_delta_standardized": 1.0,
+    "regional_value_loss_weight": 1.0,
+    "one_sided_exact_overestimate_loss_weight": 4.0,
+    "coefficient_loss_weight": 0.25
+  },
+  "uncertainty": {
+    "ensemble_aggregation": "mean_affine_coefficients",
+    "guard": "twice_maximum_ensemble_affine_standard_deviation_over_eight_region_vertices",
+    "standard_deviation_multiplier": 2.0,
+    "calibration": "per_region_and_constraint_maximum_validation_exact_margin_overestimate_after_guard_plus_fixed_padding",
+    "calibration_sources": ["validation_fit_grid", "validation_immutable_off_grid"],
+    "fixed_padding_m": 0.001
+  },
+  "projection": {
+    "eps_abs": 1e-7,
+    "eps_rel": 1e-7,
+    "max_iter": 10000,
+    "residual_tolerance": 1e-6,
+    "bound_tolerance_action": 5e-8
+  },
+  "learned_gate": {
+    "test_off_grid_false_safe_action_count": 0,
+    "minimum_global_accepted_set_jaccard_to_oracle": 0.9,
+    "minimum_state_accepted_set_jaccard_to_oracle": 0.8,
+    "required_test_state_safe_support_count": 15,
+    "required_valid_selected_QP_count": 15,
+    "required_fresh_exact_safe_selected_QP_count": 15,
+    "required_released_AEGIS_EE_compatible_selected_QP_count": 15,
+    "selected_action_shift_from_oracle_l2_p95_maximum": 0.1,
+    "selected_action_shift_from_oracle_l2_maximum": 0.25,
+    "closed_loop_authorized_only_if_every_gate_passes": true
+  },
+  "closed_loop": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "nominal_source": "immutable_released_AEGIS_prefix_then_live_pi05_libero_after_first_learned_intervention",
+    "released_AEGIS_EE_filter": "retained_and_recomputed_from_live_state",
+    "activation_current_distal_clearance_m": 0.05,
+    "inactive_behavior": "execute_released_AEGIS_nominal_and_keep_exact_rollout_measurement_only",
+    "safety_replanning": "within_50mm_solve_27_seven_row_regional_QPs_before_every_executed_action_and_select_minimum_L2_valid_action_without_simulator_outcome",
+    "prediction_horizon_actions": 2,
+    "second_action_when_live_chunk_tail": "repeat_current_released_AEGIS_nominal",
+    "execute": "first_action_only_then_recompute_from_next_state",
+    "exact_cloned_OSC_rollout_role": "measurement_only_never_selection_fallback_or_stopping",
+    "fallback": "none",
+    "maximum_steps": 300,
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001,
+    "success_requires": ["zero_L5_L6_L7_raw_contact", "all_executed_two_step_distal_margins_nonnegative", "paper_CAR_pass", "native_SafeLIBERO_task_success"],
+    "video": true
+  }
+}

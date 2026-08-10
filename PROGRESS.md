@@ -2762,3 +2762,47 @@ buffer, and closed-loop task preservation. The exact next command for the
 current evidence handoff is:
 
 `jq '{aggregates,decision,claim_scope,allocation,wall_seconds}' output/vlsa_distal_multi_region_decision_stability/region-decision-stability-20260810a/result.json`.
+
+# 2026-08-10: state-conditioned region-aware MLP registered
+
+Job `37701` authorized the learned continuation. The new gate trains a
+five-member state-conditioned MLP ensemble on the same 30 complete training
+states, calibrates only on the five complete validation states, and leaves the
+15 E05/E10/E15 states test-only. Each shared constraint/region model receives
+the validated 53-dimensional pair feature with its candidate slot set to the
+region anchor plus nine fixed region coordinates. It predicts the regional
+lower affine anchor and three action coefficients used by the QP.
+
+This does not restore the rejected minimum-L1 coefficient objective. Training
+is dominated by regional affine-value error and a one-sided penalty against
+exact cloned-OSC grid margins. A five-model disagreement guard and
+validation-only per-region/per-constraint maximum-overestimate calibration
+with 1 mm padding provide the conservative lower row.
+
+The unseen-state gate requires zero false-safes on 1,440 immutable off-grid
+actions, global/state Jaccard to the oracle at least 0.90/0.80, safe support in
+all 15 states, 15 valid and freshly exact-safe selected QPs, compatibility with
+the released AEGIS EE proxy, and learned/oracle selected-action p95/maximum L2
+shift no larger than 0.10/0.25. Only a complete pass conditionally starts E05.
+
+The conditional controller replays the immutable successful AEGIS prefix until
+the first learned correction, then obtains live pi0.5 actions from the new
+state and recomputes the released AEGIS EE filter. A frozen 50 mm current-
+clearance activation keeps unsupported far-field states on the released AEGIS
+nominal; within that boundary it solves 27 seven-row QPs before every action
+and executes one action before replanning. Exact cloned OSC is measurement-only
+and cannot select, repair, reject, stop, or provide a fallback. E05 passes only
+with nonnegative exact L5--L7 substep margins, zero protected contact/CAR, and
+native task success.
+
+Protocol: `docs/distal_region_aware_mlp_moka10_preregistration.md`. Config
+SHA-256: `976c8305b0b5d1e28803fa48ee936252c00a98c096ead0ae52e77d3239adc867`.
+The frozen implementation passes the complete local structural gate: 377
+tests with 11 skips.
+The exact next commands after the clean preregistration commit are:
+
+`ssh vinuni 'sinfo -N -p main -o "%N %T %G %c %m" && squeue -u quanth -o "%.18i %.9P %.20j %.8T %.10M %.6D %R"'`
+
+and, from `/home/quanth/working_space/vlsa-aegis-table-repro`,
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=region-aware-mlp-20260810a slurm/distal_region_aware_mlp_moka10.sbatch`.

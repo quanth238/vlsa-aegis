@@ -40,7 +40,11 @@ for optional_file in \
   scripts/evaluate_distal_multi_region_affine_oracle_moka10.py \
   scripts/validate_distal_multi_region_affine_oracle_moka10.py \
   scripts/evaluate_distal_multi_region_decision_stability_moka10.py \
-  scripts/validate_distal_multi_region_decision_stability_moka10.py
+  scripts/validate_distal_multi_region_decision_stability_moka10.py \
+  scripts/evaluate_distal_region_aware_mlp_moka10.py \
+  scripts/validate_distal_region_aware_mlp_moka10.py \
+  scripts/evaluate_distal_region_aware_mlp_closed_loop_e05.py \
+  scripts/validate_distal_region_aware_mlp_closed_loop_e05.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
