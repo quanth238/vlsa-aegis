@@ -3719,3 +3719,29 @@ bias. Records/result/validation hashes are
 `263b51cf93cea9aee6b894962562229f8ad79ebd8ce1aa308bde873495e38b30`, and
 `69b5e1b72ec17f8e5944ed719b9746b5c960a2f3e1e1328f165962a9409e70c6`.
 Full report: `docs/distal_factorized_surface_error_moka10_result.md`.
+
+# 2026-08-11: one-sided per-step geometry supervision registered
+
+The signed-error audit motivates one matched refinement of the factorized OSC
+execution model. Before training, the immutable job-37980 model must reproduce
+at least one validation false-safe and at least half of validation false-safes
+must localize to L5 at terminal substep 50. The differentiable training signal
+is a frozen local ellipsoid-clearance Jacobian `dh/dq`, fit only from the
+nominal and 28 registered finite-difference candidates in train/validation
+states. Its validation random-action linearization RMSE must be at most 2 mm.
+
+The experimental model retains the same complete inputs, 51-by-7 joint output,
+architecture, grouped splits, seeds, optimizer, schedule, joint loss, and
+sensitivity loss as job 37980. It adds Huber signed-clearance error plus a
+four-times penalty on dangerous clearance overestimation, with five-times
+near-boundary weighting and a smooth one-to-three late-horizon weight. Known FK
+and the unchanged ellipsoid evaluator still calculate safety at evaluation.
+
+The untouched E05/E10/E15 gate requires zero false-safes, 15/15 support, at
+least 50% safe recall, at most 3.058 mm boundary RMSE, and both sensitivity
+cosines at least 0.8. No new rollout labels, generic surface loss, binary
+classifier, uncertainty calibration, Poisson/SDF, QP, or closed loop is
+allowed. Protocol:
+`docs/distal_factorized_one_sided_geometry_moka10_preregistration.md`.
+Config SHA-256 is
+`740ad469f4b2cba2d38d27526dbf9d9b1f35b3264b6d6cb1ae6a8df6811988b5`.

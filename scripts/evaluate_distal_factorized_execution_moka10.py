@@ -9,7 +9,7 @@ import json
 import math
 from pathlib import Path
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from main.multilink_ellipsoid.factorized_execution_pilot import (
     COLLECTION_SCHEMA, DATASET_SCHEMA, DATASET_VALIDATION_SCHEMA, RESULT_SCHEMA, cosine_summary,
@@ -59,6 +59,7 @@ def evaluate_predicted_geometry(
     selected_manifest: Path, same_task_manifest: Path, targeted_manifest: Path,
     archived_root: Path, geometry_config_path: Path, exact_box_config_path: Path,
     complete_collection: Mapping[str, Any], return_margin: bool = True,
+    evaluation_splits: Sequence[str] = ("test",),
 ) -> dict[str, Any]:
     """Evaluate predicted q with fixed-k0 exact-box ellipsoid geometry."""
 
@@ -120,10 +121,19 @@ def evaluate_predicted_geometry(
     center_error_count = 0
     center_errors = []
     evaluated_action_count = 0
-    test_states = [
-        item for item in complete_dataset["state_records"] if item["split"] == "test"
+    requested_splits = tuple(str(item) for item in evaluation_splits)
+    if (
+        not requested_splits
+        or len(set(requested_splits)) != len(requested_splits)
+        or any(item not in {"train", "validation", "test"} for item in requested_splits)
+    ):
+        raise ValueError("factorized-execution geometry split selection differs")
+    evaluation_states = [
+        item for item in complete_dataset["state_records"]
+        if str(item["split"]) in requested_splits
     ]
-    for case_id in config["immutable_source"]["test_case_ids"]:
+    case_ids = sorted(set(str(item["case_id"]) for item in evaluation_states))
+    for case_id in case_ids:
         selected_row = row_by_case[case_id]
         archived_path = archived_root / selected_row["archived_relative_path"]
         archived = _load(archived_path)
@@ -149,7 +159,7 @@ def evaluate_predicted_geometry(
                 obstacle_primitive_union=exact_boxes,
             )
             states = sorted(
-                (item for item in test_states if item["case_id"] == case_id),
+                (item for item in evaluation_states if item["case_id"] == case_id),
                 key=lambda item: int(item["state_step"]),
             )
             by_step = {int(item["state_step"]): item for item in states}
@@ -231,7 +241,9 @@ def evaluate_predicted_geometry(
                 probe_env.close()
             if env is not None:
                 env.close()
-    expected = 15 * int(config["candidate_design"]["expected_candidate_count_per_state"])
+    expected = len(evaluation_states) * int(
+        config["candidate_design"]["expected_candidate_count_per_state"]
+    )
     if (
         evaluated_action_count != expected
         or np.count_nonzero(np.all(np.isfinite(factor_margin), axis=1)) != expected
@@ -241,20 +253,23 @@ def evaluate_predicted_geometry(
     ):
         raise ValueError("factorized-execution geometry evaluation count differs")
     center = np.asarray(center_errors, dtype=np.float64)
+    prefix = "test" if requested_splits == ("test",) else "selected"
     output = {
         "predicted_minimum_margin_m": factor_margin if return_margin else None,
         "exact_q_static_minimum_margin_m": (
             exact_q_static_margin if return_margin else None
         ),
-        "test_evaluated_action_count": int(evaluated_action_count),
-        "test_random_link_center_error_count": int(center_error_count),
-        "test_random_link_center_RMSE_m": float(math.sqrt(
+        "%s_evaluated_action_count" % prefix: int(evaluated_action_count),
+        "%s_random_link_center_error_count" % prefix: int(center_error_count),
+        "%s_random_link_center_RMSE_m" % prefix: float(math.sqrt(
             center_squared_error_sum / center_error_count
         )),
-        "test_random_link_center_p95_m": float(np.quantile(center, 0.95)),
-        "test_random_link_center_maximum_m": float(np.max(center)),
+        "%s_random_link_center_p95_m" % prefix: float(np.quantile(center, 0.95)),
+        "%s_random_link_center_maximum_m" % prefix: float(np.max(center)),
         "obstacle_geometry_mode": "fixed_k0_exact_box_union",
     }
+    if requested_splits != ("test",):
+        output["evaluation_splits"] = list(requested_splits)
     return output
 
 

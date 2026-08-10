@@ -1,0 +1,100 @@
+{
+  "schema_version": "vlsa_distal_factorized_one_sided_geometry_config.v1",
+  "protocol_id": "vlsa-distal-factorized-one-sided-geometry-moka10-v1",
+  "claim_scope": "matched_prediction_only_ablation_of_one_sided_per_step_ellipsoid_geometry_supervision_for_the_existing_factorized_two_action_OSC_joint_trajectory_model",
+  "immutable_source": {
+    "factorized_config_file_sha256": "dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "trajectory_collection_file_sha256": "cee9b789aa0010737ad02399661ecbef14fc176fa032bd1f2f84d1071e504217",
+    "baseline_model_file_sha256": "262ee006523b76a09f120c5c4e8986f501ae49de50a194c16c697f4ad67c995f",
+    "baseline_predictions_file_sha256": "d888d3fafbf44cb74caf675b438e70af986200ce6027a2fee49712f0a2f82ab3",
+    "baseline_joint_prediction_sha256": "f55ab30b268ab513ad4f5de024476f7bfd583bb91fc97b91ab50334855fc8514",
+    "factorized_result_file_sha256": "70c4dd81e7b20d03541d85ed392e0f552cd1e4b8b3e8f81d0c148f2fbe36b271",
+    "factorized_result_payload_sha256": "acbad04905abcd450b6e52cb7f2ee0c19a86e895016350dde3d07930b0c84477",
+    "factorized_validation_file_sha256": "ed78d2f528010095f1bc4db85f73e160996db62e764f30122196d8fb8821ef1e",
+    "factorized_validation_payload_sha256": "e8a764e5b5be9e11807a64f2c773c363f9ca9ac4043a88915bc246d47206a9a4",
+    "surface_result_file_sha256": "263b51cf93cea9aee6b894962562229f8ad79ebd8ce1aa308bde873495e38b30",
+    "surface_result_payload_sha256": "301e3c89ba802c46d1d131dc18f027a573f02bbe0177dc80267cebca4c26a0e7",
+    "baseline_source_commit": "7062d70a5cc90f9689def2bfc4bf2bdd347b1c8e"
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "state_split_counts": {"train": 60, "validation": 10, "test": 15},
+    "candidate_count_per_state": 93,
+    "joint_trace_state_count": 51,
+    "constraint_count": 7,
+    "test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ]
+  },
+  "validation_pattern_gate": {
+    "source_model": "immutable_job_37980_factorized_execution",
+    "minimum_validation_false_safe_action_count": 1,
+    "minimum_terminal_L5_fraction": 0.5,
+    "terminal_substep_index": 50,
+    "L5_constraint_rows": [0, 1, 2],
+    "train_only_if_both_pass": true
+  },
+  "local_geometry_jacobian": {
+    "fit_rows": "nominal_plus_28_full_action_finite_difference_candidates",
+    "fit_state_splits": ["train", "validation"],
+    "test_split_used_for_fit": false,
+    "center_on_nominal_candidate": true,
+    "ridge_regularization": 1e-06,
+    "target": "seven_per_step_ellipsoid_clearances",
+    "shape": [85, 51, 7, 7],
+    "maximum_validation_random_linearization_RMSE_m": 0.002
+  },
+  "matched_ablation": {
+    "baseline": "immutable_job_37980_factorized_execution_weights",
+    "experimental": "same_factorized_joint_model_plus_one_sided_geometry_loss",
+    "same_dataset_splits_features_architecture_seeds_optimizer_schedule": true,
+    "only_training_difference": "one_sided_per_step_local_geometry_loss",
+    "inference_output": "51_by_7_joint_trajectory_only",
+    "deployment_safety": "known_FK_plus_existing_ellipsoid_geometry"
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels",
+    "ensemble_seeds": [20260841, 20260842, 20260843, 20260844, 20260845],
+    "hidden_widths": [256, 256, 128],
+    "activation": "silu",
+    "batch_size": 512,
+    "epochs": 300,
+    "patience": 40,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "joint_huber_delta_rad": 0.002,
+    "geometry_huber_delta_m": 0.002,
+    "finite_difference_loss_weight": 1.0,
+    "geometry_loss_weight": 10.0,
+    "dangerous_overestimate_weight": 4.0,
+    "near_boundary_absolute_margin_m": 0.005,
+    "near_boundary_weight_multiplier": 5.0,
+    "terminal_weight_multiplier": 3.0,
+    "terminal_weight_power": 4,
+    "early_stopping": "validation_joint_RMSE_plus_0.1_sensitivity_RMSE_plus_local_signed_geometry_RMSE"
+  },
+  "decision_gate": {
+    "maximum_test_false_safe_action_count": 0,
+    "required_test_safe_support_state_count": 15,
+    "minimum_test_safe_recall": 0.5,
+    "maximum_test_near_boundary_RMSE_m": 0.003058,
+    "minimum_joint_sensitivity_cosine": 0.8,
+    "minimum_margin_sensitivity_cosine": 0.8,
+    "strict_false_safe_improvement_over_baseline_44": true,
+    "continue_to_uncertainty_only_if_all_pass": true
+  },
+  "forbidden_actions": {
+    "new_simulation_labels": true,
+    "surface_position_loss": true,
+    "binary_classifier": true,
+    "uncertainty_calibration": true,
+    "poisson_or_SDF": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}

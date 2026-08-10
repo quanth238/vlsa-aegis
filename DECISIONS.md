@@ -2657,3 +2657,15 @@ witness switching. Before any downstream controller experiment, decide
 between terminal L5 normal-direction supervision and a state-conditioned
 one-sided uncertainty model; do not relabel this result as support for generic
 surface loss.
+
+Choose exactly one targeted refinement before uncertainty calibration: a
+matched one-sided per-step geometry-loss ablation. First require the immutable
+job-37980 model to reproduce terminal L5 optimism on validation episodes. Fit
+a local `dh/dq` only from each train/validation state's nominal and 28
+registered finite-difference candidates; test episodes never supply this
+training signal. Penalize signed clearance overestimation more strongly near
+the boundary and late in the 51-state horizon while keeping the network output
+as the joint trajectory. At evaluation, retain known FK plus the existing
+ellipsoid geometry as safety authority. Require zero unseen false-safes and
+15/15 safe support before any uncertainty model. Calibration, QP, and closed
+loop remain blocked.
