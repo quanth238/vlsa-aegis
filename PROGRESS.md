@@ -3629,3 +3629,10 @@ the H100's `sm_90`; the same cluster limitation previously blocked job
 trains both matched arms on the registered eight CPUs. Population, actions,
 traces, labels, architecture, losses, seeds, splits, geometry, and gates are
 unchanged; no partial output from `37948` is reused.
+
+Retry `37960` passed allocation and source preflight but stopped after 34
+seconds before a dataset/result because cluster Python 3.8 does not support
+dictionary union syntax. The compatibility-only repair expands the same two
+dictionaries with Python-3.8-compatible unpacking. Candidate values, traces,
+labels, ordering, hashes, training, geometry, and gates are unchanged; the
+partial in-memory rollouts and failure-only run directory are not reused.

@@ -2605,3 +2605,7 @@ Initial job `37948` exposed the already known pinned-PyTorch lack of H100
 `sm_90` kernels before producing data. Keep simulation in the H100 allocation
 and run both matched learning arms on the same eight allocation CPUs. This is
 an apparatus repair, not an experimental-arm change; discard the partial run.
+
+Retry `37960` exposed only Python-3.8 dictionary-union incompatibility before
+writing a dataset. Replace it with equivalent dictionary unpacking and retain
+every frozen scientific setting. Do not reuse the failure-only run.

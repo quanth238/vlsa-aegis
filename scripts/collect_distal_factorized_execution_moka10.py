@@ -342,10 +342,10 @@ def main() -> int:
                             receipt["next_state_sha256_per_action"]
                         )
                         raw_contact_total += int(receipt["raw_protected_contact_count"])
-                        metadata_candidates.append({
+                        metadata_candidates.append({**{
                             key: candidate[key] for key in candidate
                             if key != "full_two_action_commands"
-                        } | {
+                        }, **{
                             "action_chunk_sha256": hashlib.sha256(
                                 action_chunk.tobytes()
                             ).hexdigest(),
@@ -355,7 +355,7 @@ def main() -> int:
                             "clearance_trace_sha256": hashlib.sha256(
                                 receipt["ellipsoid_clearance_m"].tobytes()
                             ).hexdigest(),
-                        })
+                        }})
                     state_metadata.append({
                         "state_index": int(state["state_index"]),
                         "case_id": case_id, "state_step": int(step),
