@@ -2011,3 +2011,24 @@ partitioning with only 27 points per region creates boundary coefficient
 variance and still misses an isolated safe component. Any continuation must
 address adaptive boundary coverage and confidence, then repeat the immutable
 support/stability/fresh-rollout gates; it cannot reinterpret job `37690` as GO.
+
+# ADR-0082: Judge regional resampling at the decision level
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Raw affine coefficients are not uniquely meaningful when overlapping regions
+and conservative error calibration can produce the same accepted safe set and
+QP action. Therefore job `37690` remains NO-GO, but the 13 coefficient-norm
+failures are not automatically treated as controller instability.
+
+The decisive audit refits coherent seven-row regions on shared 80% subsets and
+recalibrates every one-sided error on the complete 27-point region. It compares
+off-grid Boolean acceptance and the selected QP action against the full fit,
+then freshly verifies each selected action. Coefficient cosine or norm is no
+longer a decision gate.
+
+Only stable accepted sets, retained support, zero false-safes, exact-safe QP
+selections, and small selected-action displacement may classify coefficient
+non-uniqueness as harmless. Passing may clear a separate learned-model design
+gate, but this experiment trains no model and never retroactively changes the
+strict result of job `37690`.

@@ -2715,3 +2715,20 @@ payload, and validation SHA-256 values are
 `a80b343a4810d746086ef933eead6e86f1ec61a0f123ee08b1a459c7274de265`,
 and `a24175762be7fecee2308c7f8a9dcb6f9bc82cf2ed2edaaf4949e53776e46e13`.
 Full result: `docs/distal_multi_region_affine_oracle_moka10_result.md`.
+
+# 2026-08-10: multi-region decision-stability audit registered
+
+Job `37690` remains strict NO-GO. The user authorized a zero-margin audit of
+whether its 13 unstable raw coefficients actually change the accepted safe set
+or selected QP action. Sixteen deterministic 80% resamples per state/region
+share one subset across all seven rows. Gradients use 22 regional actions, but
+one-sided errors are recalibrated on all 27 actions so the audit isolates
+coefficient variation rather than omitted conservatism labels.
+
+The frozen gate uses 76,800 immutable off-grid decisions and 800 fresh selected-
+QP cloned-OSC rollouts. It requires zero false-safes, global/state Jaccard at
+least 0.98/0.80, retained support in all 49 baseline-supported states, 800/800
+exact-safe selections, and selected-action p95/maximum L2 shifts no larger than
+0.05/0.15. No MLP or closed-loop run is part of this experiment. Protocol:
+`docs/distal_multi_region_decision_stability_moka10_preregistration.md`;
+config SHA-256 `5d456f7cac60ed26d9dd0f1776422b2262024256351aba2f3d53583e3363c661`.
