@@ -1,0 +1,81 @@
+{
+  "schema_version": "vlsa_distal_complete_osc_margin_moka10.v1",
+  "protocol_id": "vlsa-distal-complete-osc-margin-moka10-v1",
+  "claim_scope": "paired_determinism_and_prediction_only_test_of_whether_complete_OSC_simulator_controller_and_full_two_action_inputs_explain_L5_L7_two_step_ellipsoid_rollout_margins_on_grouped_unseen_episodes",
+  "immutable_source": {
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "selected_manifest_file_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+    "same_task_manifest_file_sha256": "63110fe7778be984ddd6a62582fdbf30ff8acba43ae277b78263c1bde23a87f8",
+    "targeted_manifest_file_sha256": "32a88c6e973031bb553c056abb244c39a8f5952f411e3d7b16c2a9c5b3717c3d",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "expected_episode_count": 17,
+    "expected_state_count": 85,
+    "expected_candidates_per_state": 125,
+    "expected_pair_count": 10625
+  },
+  "split": {
+    "unit": "complete_episode",
+    "expected_state_counts": {"train": 60, "validation": 10, "test": 15},
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "test_only": true
+  },
+  "paired_collection": {
+    "replay_count_per_snapshot_action_pair": 2,
+    "margin_comparison": "bitwise_float64_equal",
+    "contact_comparison": "canonical_raw_contact_receipt_equal",
+    "next_state_comparison": "sha256_equal_for_both_actions",
+    "training_requires_every_pair_deterministic": true,
+    "horizon_actions": 2,
+    "record_every_internal_OSC_substep": true
+  },
+  "complete_input": {
+    "state_vector": "complete_serialized_simulator_auxiliary_controller_snapshot",
+    "semantic_state": ["q", "qdot", "current_EE_position_orientation", "goal_EE_position_orientation", "obstacle_pose", "seven_robot_ellipsoid_transforms", "all_exact_obstacle_primitive_transforms"],
+    "action": "full_two_action_translation_rotation_gripper_commands",
+    "constraint_identity": "seven_way_one_hot",
+    "normalization": "training_rows_mean_std_with_1e-6_floor",
+    "output": "rollout_minimum_ellipsoid_margin_residual_from_k0_margin_mm"
+  },
+  "model": {
+    "class": "shared_constraint_complete_state_action_conditioned_residual_MLP_ensemble",
+    "ensemble_seeds": [20260831, 20260832, 20260833, 20260834, 20260835],
+    "hidden_widths": [256, 256, 128],
+    "activation": "silu",
+    "output_count": 1
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation",
+    "batch_size": 4096,
+    "epochs": 500,
+    "patience": 60,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "huber_delta_mm": 2.0,
+    "boundary_band_m": 0.005,
+    "boundary_weight_multiplier": 9.0,
+    "one_sided_overestimate_loss_weight": 4.0,
+    "early_stopping_split": "validation_complete_episodes"
+  },
+  "prediction_gate": {
+    "test_proxy_false_safe_action_count": 0,
+    "minimum_test_exact_safe_action_recall": 0.5,
+    "required_test_state_safe_support_count": 15,
+    "maximum_test_near_boundary_RMSE_m": 0.002,
+    "near_boundary_absolute_margin_m": 0.005,
+    "maximum_test_overall_RMSE_m": 0.003808
+  },
+  "forbidden_actions": {
+    "calibration": true,
+    "QP": true,
+    "closed_loop_E05": true,
+    "pi05_features": true
+  },
+  "decision": {
+    "if_input_sufficiency_fails": "NO_GO_for_deterministic_MLP_from_recorded_inputs_and_block_training",
+    "if_input_sufficiency_passes_but_prediction_fails": "missing_OSC_state_is_not_sufficient_and_model_or_data_representation_remains_the_blocker",
+    "if_prediction_passes": "authorize_separate_conservative_calibration_and_contact_verified_QP_preregistration"
+  }
+}

@@ -2482,3 +2482,23 @@ episode-grouped states, complete q/qdot and relative proxy geometry, candidate
 action, and quantitative ellipsoid rollout targets, do not rerun it unchanged.
 Require a separately preregistered prediction-model change before calibration
 or QP.
+
+# ADR-0104: Test complete OSC input sufficiency before changing the model class
+
+**Status:** Preregistered before H100 execution (2026-08-10).
+
+The previous 56D action-conditioned model omitted full rotation/gripper
+commands, controller orientation goals and internal state, auxiliary simulator
+control state, and complete proxy transforms. Recollect the same 85-state,
+10,625-action population with those inputs and fresh two-action labels.
+
+First require every identical snapshot/action replay to reproduce bitwise
+ellipsoid margins, canonical raw contacts, and both next-state hashes. Only
+then train the same action-conditioned residual concept with the complete
+input. Keep grouped episodes and E05/E10/E15 test isolation. Do not add
+calibration, a QP, pi0.5 features, or closed-loop execution in this gate.
+
+If replay is deterministic but the registered prediction gates still fail,
+missing OSC input is not a sufficient explanation and the remaining problem
+is the model/data representation. A pass authorizes only a separate
+calibration and contact-verified QP preregistration.

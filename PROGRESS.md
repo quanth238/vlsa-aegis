@@ -3411,3 +3411,30 @@ Result, payload, validation, and preflight hashes are
 `f424932506c2e2b808ec3be151638fe6c1ce69a3ce12b090e8f7875c4406170a`,
 `40e1e8946eb06296032475b2e238cd53fba2e848758cfd602292cad949fe6fdc`,
 and `2d178fc92fc5659e1c68012eed748e3dad6d143b8eed580e8211087ec9fe3e8a`.
+
+# 2026-08-10: complete-OSC input-sufficiency and margin model registered
+
+The user-authorized decisive model diagnostic is preregistered before new
+simulation or training. It preserves the existing 85 states, 10,625 candidate
+action pairs, complete-episode 60/10/15 split, and test-only E05/E10/E15. It
+reconstructs every canonical state and recollects the labels rather than
+mixing old labels with new inputs.
+
+Each state stores the complete simulator, auxiliary solver/control, wrapper,
+and OSC/controller snapshot, plus explicit q/qdot, current and goal EE poses,
+obstacle pose, and every robot/obstacle proxy transform. Each input includes
+both full 7D actions, including rotation and gripper. Every snapshot/action
+pair is rolled out twice; bitwise-equal seven-row margins, identical raw
+protected-contact receipts, and identical next-state hashes are mandatory.
+Training is mechanically blocked if any of 10,625 pairs differs.
+
+Only after that gate passes may the complete-input action-conditioned residual
+MLP train. The prediction-only pass requires zero test false-safes, at least
+50% safe recall, safe support in 15/15 states, at most 2 mm near-boundary RMSE,
+and at most 3.808 mm overall RMSE. Calibration, QP, pi0.5 features, and
+closed-loop E05 are excluded. Protocol:
+`docs/distal_complete_osc_margin_moka10_preregistration.md`. Config SHA-256 is
+`ed3dc204b233f24ec60259c3a165e2006ceb04a68ee3d0ab2f618f595ddfa4c4`.
+
+After clean commit/source sync and live preflight, the exact command is
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=complete-osc-margin-20260810a slurm/distal_complete_osc_margin_moka10.sbatch`.
