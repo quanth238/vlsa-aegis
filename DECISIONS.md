@@ -2320,3 +2320,19 @@ rollouts. Proceed with leave-one-episode-out local residual calibration using
 the seven quantitative margins. Keep the claim limited to the certified
 L5--L7 ellipsoid union and exact moka-pot primitives; retain EE, CAR, and task
 success as independent later gates. Closed-loop remains unauthorized.
+
+# ADR-0094: Calibrate the useful value model with episode-OOF local errors
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Retain the action-conditioned MLP because its mean-margin RMSE materially
+improved, but replace its inconsistent global uncertainty pad. Generate
+dangerous prediction errors from complete held-out training episodes, never
+from E05/E10/E15. Use a fixed, simple nearest-neighbor maximum residual per
+constraint with a 1 mm pad before regional affine fitting.
+
+This gate asks whether conservative calibration can simultaneously remove the
+E05 false-safes and recover the E10/E15 rejected safe support. It is not a new
+large network and cannot tune on held-out outcomes. Receding closed-loop E05 is
+authorized only by zero false-safes, 15-state support, 15 valid QPs, and 15
+fresh exact-safe proposals.

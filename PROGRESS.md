@@ -3149,3 +3149,24 @@ Result/payload/validation SHA-256 values are
 `9e881dca46c06d63acee6bd20e7313016679f6fd4ab2dc91ebc0acfb95394e3d`,
 and `05b8a517dcd1286cc30b486d1cc0bc2f1fdcfd223a919b28ab9d892877480fd2`.
 Full report: `docs/distal_margin_target_authority_moka10_result.md`.
+
+# 2026-08-10: state-conditioned local residual bound registered
+
+The authorized next gate keeps the immutable action-conditioned margin MLP and
+learns only its conservative error bound. Twelve leave-one-training-episode-out
+folds generate 52,500 dangerous residuals without using E05/E10/E15. Seven
+constraint-specific fixed-256-neighbor estimators use 43 state/pair context
+features plus normalized candidate XYZ; each bound is the neighbor maximum,
+clipped at zero, plus 1 mm.
+
+The local lower margins feed the validated 27-region ridge-Huber QP pipeline.
+The strict gate is zero test false-safes, 15/15 safe support, 15/15 selected
+QPs, and 15/15 fresh exact-safe cloned-OSC rollouts. Closed-loop E05 is excluded
+and remains blocked unless all four pass. Protocol:
+`docs/distal_local_residual_bound_moka10_preregistration.md`. Config SHA-256 is
+`484f727ee642f7a138c7eb9bcef589d0ef0d13a5e22f4079c4c7be4e742ad33b`.
+
+The exact next command after clean commit, remote sync, and live allocation
+preflight is:
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=local-residual-bound-20260810a slurm/distal_local_residual_bound_moka10.sbatch`.

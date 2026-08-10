@@ -1,0 +1,102 @@
+{
+  "schema_version": "vlsa_distal_local_residual_bound_moka10.v1",
+  "protocol_id": "vlsa-distal-local-residual-bound-moka10-v1",
+  "claim_scope": "leave_one_episode_out_nearest_neighbor_upper_error_bound_for_action_conditioned_two_step_L5_L7_margins_then_unseen_regional_QP_and_exact_rollout_not_closed_loop",
+  "immutable_source": {
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "expanded_oracle_file_sha256": "5ac8efe88fed934ade3ec36512aa2a0d870142bd91ae09923e7cae577aea77b7",
+    "expanded_oracle_payload_sha256": "0716aae9cba8ef1bed5ce3b0800733593bfe8c550c599da68e5106729a72aebe",
+    "validation_fresh_file_sha256": "727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3",
+    "validation_fresh_payload_sha256": "240378006c46360b6a4c4beda4e585b73b860ff4d4404b30c6de9ec53d50d93e",
+    "action_conditioned_config_file_sha256": "b40ff3a14f4644ea91233e5bdcb69060ccce526ac2b3bca502715531d36792af",
+    "action_conditioned_result_file_sha256": "fc61cbf8b936447c591897ebf47f0606e135a8ff9df8d878d562bf37fc3a32da",
+    "action_conditioned_result_payload_sha256": "9d345936fc6c4d1e3677de6223345db8e867a4571b3f449290fcf2aa208736d0",
+    "action_conditioned_validation_file_sha256": "255df4eeb454e8d6de574517f0d1244d5d9588c18e9978222c93f113ec6ef704",
+    "action_conditioned_model_file_sha256": "bfc1dd8dc4f3fcdb9c3268ce268a2f252fa31cadc86b72fb6c7d98f53c6346c3",
+    "target_authority_result_file_sha256": "c29a99383f50012b3f9b0b4fadcbbb320bcd42a7932d8d5079144ecb460ccce2",
+    "target_authority_result_payload_sha256": "9e881dca46c06d63acee6bd20e7313016679f6fd4ab2dc91ebc0acfb95394e3d",
+    "target_authority_validation_file_sha256": "05b8a517dcd1286cc30b486d1cc0bc2f1fdcfd223a919b28ab9d892877480fd2",
+    "archived_e05_file_sha256": "273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b",
+    "archived_e05_payload_sha256": "ec58c8581297751de33756e76efbf5b18e24a5f836aa6a8f147d0caebdd92d1c",
+    "expected_state_count": 85,
+    "fit_actions_per_state": 125,
+    "fresh_actions_per_validation_or_test_state": 96
+  },
+  "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "test_selected_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+  "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+  "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+  "split": {
+    "unit": "complete_episode_and_task_level_group",
+    "expected_state_counts": {"train": 60, "validation": 10, "test": 15},
+    "expected_training_episode_count": 12,
+    "states_per_episode": 5,
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "test_never_used_for_fold_training_residual_estimation_normalization_or_thresholds": true
+  },
+  "leave_one_episode_out": {
+    "fold_unit": "one_complete_training_episode",
+    "fold_count": 12,
+    "held_out_states_per_fold": 5,
+    "fit_population": "other_55_training_states",
+    "early_stopping_population": "unchanged_10_validation_states",
+    "base_model": "unchanged_five_member_action_conditioned_margin_MLP",
+    "base_model_prediction": "ensemble_mean_exact_margin",
+    "dangerous_residual": "predicted_margin_minus_exact_OSC_margin",
+    "expected_residual_count": 52500
+  },
+  "local_features": {
+    "context": "validated_53D_pair_features_excluding_constraint_one_hot_and_candidate_action",
+    "context_dimension": 43,
+    "candidate": "normalized_candidate_xyz_within_state_action_box",
+    "candidate_dimension": 3,
+    "input_dimension": 46,
+    "normalization": "leave_one_episode_out_training_residual_pool_mean_std_with_1e-6_floor",
+    "constraint_handling": "separate_neighbor_pool_per_each_of_seven_constraints"
+  },
+  "local_bound": {
+    "estimator": "fixed_k_nearest_neighbor_upper_residual",
+    "distance": "RMS_standardized_local_feature_distance",
+    "neighbor_count": 256,
+    "quantile_probability": 0.999,
+    "finite_sample_quantile": "higher_order_statistic_equals_neighbor_maximum",
+    "minimum_quantile_m": 0.0,
+    "fixed_padding_m": 0.001,
+    "validation_labels_used_for_adaptation": false,
+    "test_labels_used_for_adaptation": false,
+    "conservative_margin": "ensemble_mean_margin_minus_local_upper_residual_minus_fixed_padding"
+  },
+  "regionalization": {
+    "region_count": 27,
+    "fit_actions_per_region": 27,
+    "runtime_value_queries_per_state": 125,
+    "affine_fit": "validated_ridge_Huber_on_local_lower_margin_values",
+    "ridge_huber_settings_from_action_conditioned_config": true
+  },
+  "projection": {
+    "eps_abs": 0.0000001,
+    "eps_rel": 0.0000001,
+    "max_iter": 10000,
+    "residual_tolerance": 0.000001,
+    "bound_tolerance_action": 0.00000005
+  },
+  "learned_gate": {
+    "test_off_grid_false_safe_action_count": 0,
+    "required_test_state_safe_support_count": 15,
+    "required_valid_selected_QP_count": 15,
+    "required_fresh_exact_safe_selected_QP_count": 15
+  },
+  "exact_verification": {
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "maximum_per_step_obstacle_l1_displacement_m": 0.0001,
+    "released_AEGIS_EE_proxy": "diagnostic_only_not_a_seven_row_gate",
+    "horizon_actions": 2,
+    "osc_internal_substeps": "all"
+  },
+  "decision": {
+    "closed_loop_in_this_gate": false,
+    "if_every_gate_passes": "preregister_receding_QP_closed_loop_E05",
+    "if_gate_fails": "retain_execution_aware_direction_as_unvalidated_and_stop_before_closed_loop"
+  }
+}

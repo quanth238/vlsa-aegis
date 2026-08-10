@@ -610,6 +610,60 @@ def save_model(path: Path, state: Mapping[str, Any]) -> dict[str, Any]:
     return {"path": str(path), "file_sha256": _sha256(raw), "size_bytes": len(raw)}
 
 
+def load_model(path: Path) -> tuple[list[Any], dict[str, Any]]:
+    """Load an immutable action-conditioned ensemble artifact."""
+
+    np = _numpy()
+    torch = _torch()
+    with np.load(Path(path), allow_pickle=False) as archive:
+        metadata = json.loads(
+            bytes(archive["metadata_utf8"].tolist()).decode("utf-8")
+        )
+        if (
+            metadata.get("schema_version") != WEIGHTS_SCHEMA
+            or metadata.get("feature_names") != list(ACTION_FEATURE_NAMES)
+            or metadata.get("constraint_order") != list(CONSTRAINT_ORDER)
+        ):
+            raise ValueError("action-conditioned model identity differs")
+        names = metadata["parameter_names"]
+        models = []
+        for member_index, _ in enumerate(metadata["ensemble_seeds"]):
+            model = build_model(metadata["hidden_widths"]).to(dtype=torch.float64)
+            if names != list(model.state_dict()):
+                raise ValueError("action-conditioned parameter names differ")
+            member = {}
+            for parameter_index, name in enumerate(names):
+                values = np.asarray(
+                    archive["member_%02d_parameter_%03d" % (
+                        member_index, parameter_index
+                    )], dtype=np.float64,
+                )
+                if values.shape != tuple(model.state_dict()[name].shape):
+                    raise ValueError("action-conditioned parameter shape differs")
+                member[name] = torch.as_tensor(values, dtype=torch.float64)
+            model.load_state_dict(member)
+            model.eval()
+            models.append(model)
+        state = {
+            "feature_mean": np.asarray(archive["feature_mean"], dtype=np.float64),
+            "feature_standard_deviation": np.asarray(
+                archive["feature_standard_deviation"], dtype=np.float64
+            ),
+            "output_mean_mm": float(np.asarray(
+                archive["output_mean_mm"], dtype=np.float64
+            )[0]),
+            "output_scale_mm": float(np.asarray(
+                archive["output_scale_mm"], dtype=np.float64
+            )[0]),
+            "calibration_m": np.asarray(
+                archive["calibration_m"], dtype=np.float64
+            ),
+            "hidden_widths": list(metadata["hidden_widths"]),
+            "ensemble_seeds": list(metadata["ensemble_seeds"]),
+        }
+    return models, state
+
+
 def jaccard(left: Sequence[bool], right: Sequence[bool]) -> float:
     np = _numpy()
     a = np.asarray(left, dtype=bool)
@@ -622,7 +676,8 @@ __all__ = [
     "ACTION_FEATURE_NAMES", "CONFIG_SCHEMA", "CURRENT_CLEARANCE_INDEX", "RESULT_SCHEMA",
     "VALIDATION_SCHEMA", "action_feature_matrix", "action_features_for_state",
     "build_model", "calibrate_validation", "guarded_margin_values", "jaccard",
-    "learned_regional_targets", "load_config", "predict_member_margins",
+    "learned_regional_targets", "load_config", "load_model",
+    "predict_member_margins",
     "save_model", "solve_regional_qps", "target_values", "train_ensemble",
     "value_training_arrays",
 ]
