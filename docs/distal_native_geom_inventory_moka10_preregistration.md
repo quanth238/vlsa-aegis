@@ -16,6 +16,14 @@ expanded dataset. E05/E10/E15 remain test-only. The 17 source episodes and
 their archived Table-1 action ledgers are hash-bound through the three existing
 selection manifests.
 
+The physical-data state identity is the hash-verified settled simulator state
+plus the exact canonical archived action prefix replayed in the current
+runtime. Historical candidate arrays and group assignments may be reused, but
+historical proxy margins and feature receipts are diagnostic only. They are
+not joined to new native labels because the old collection did not retain full
+per-step simulator/controller snapshots and accumulated replay drift was
+observed before any native outcome.
+
 ## Physical rows
 
 The experiment does not force MuJoCo geometry into the seven artificial slab
@@ -67,4 +75,4 @@ A pass authorizes only a new candidate-rollout target collection gate. Model
 training, physical-row QPs, and closed-loop E05 remain blocked.
 
 Config SHA-256:
-`7b1265e7cab6bc7362cc21a1a76101999e2dd9492bf31b3f36228c0d637b4e8a`.
+`f0c709d9f26a475bc93636c2d2ffebf13ee88a8c517a61223b5135c5c9a5fdc1`.

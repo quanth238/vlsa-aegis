@@ -36,7 +36,7 @@ for path in "$SUPPORT_ROOT/expanded-dataset.json" "$CONFIG" "$POPULATION" "$BOUN
 do
   [[ -f "$path" && ! -L "$path" ]] || die "immutable native-geometry input missing: $path"
 done
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 7b1265e7cab6bc7362cc21a1a76101999e2dd9492bf31b3f36228c0d637b4e8a ]] || die "native-geometry config hash differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == f0c709d9f26a475bc93636c2d2ffebf13ee88a8c517a61223b5135c5c9a5fdc1 ]] || die "native-geometry config hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 mkdir -p "$EXPERIMENT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"

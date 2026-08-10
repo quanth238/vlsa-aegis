@@ -74,6 +74,13 @@ def load_config(path: Path) -> dict[str, Any]:
             "vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10",
             "vlsa-t1-goal-ii-t0-e15",
         ],
+        "state_identity": (
+            "exact_paired_settled_state_plus_canonical_archived_action_"
+            "prefix_replayed_in_current_runtime"
+        ),
+        "prior_proxy_feature_receipts": (
+            "diagnostic_only_not_reused_as_native_training_labels"
+        ),
     }:
         raise ValueError("native-geometry inventory population differs")
     if config["target_definition"] != {

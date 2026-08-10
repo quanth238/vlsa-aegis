@@ -72,6 +72,12 @@ def main() -> int:
         "primary_contact_witness_count": sum(
             int(item["raw_protected_contact_count"]) for item in witnesses
         ),
+        "prior_proxy_feature_receipt_mismatch_state_count": sum(
+            not item["prior_proxy_feature_receipt_matches"] for item in states
+        ),
+        "prior_proxy_feature_receipt_maximum_error": float(max(
+            item["state_receipt_maximum_error"] for item in states
+        )),
         "all_queries_finite_and_uncensored": all(
             item["all_queries_finite_and_uncensored"] for item in rollouts + witnesses
         ),
@@ -99,6 +105,7 @@ def main() -> int:
         result["decision"] == {
             "native_inventory_gate_pass": passed,
             "physical_target_collection_authorized": passed,
+            "prior_proxy_candidate_labels_reusable_as_native_labels": False,
             "training_authorized": False, "QP_authorized": False,
             "closed_loop_E05_authorized": False,
             "stop_reason": None if passed else "native_geometry_inventory_gate_failed",

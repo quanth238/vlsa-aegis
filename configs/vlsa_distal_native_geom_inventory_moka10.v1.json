@@ -16,7 +16,9 @@
     "expected_state_count": 85,
     "expected_split_counts": {"train": 60, "validation": 10, "test": 15},
     "expected_complete_episode_count": 17,
-    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"]
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "state_identity": "exact_paired_settled_state_plus_canonical_archived_action_prefix_replayed_in_current_runtime",
+    "prior_proxy_feature_receipts": "diagnostic_only_not_reused_as_native_training_labels"
   },
   "target_definition": {
     "protected_bodies": ["robot0_link5", "robot0_link6", "robot0_link7"],

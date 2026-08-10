@@ -3246,3 +3246,16 @@ inventory had incorrectly used E05 for comparison features in every cohort.
 The apparatus repair reproduces E05/E00/E25 exactly. This changes only `D_opt`
 receipt/comparison geometry; native compiled `D_sim` groups, states, actions,
 distance queries, contacts, and gates are unchanged.
+
+Retry `37861` reproduced the same mismatch, rejecting the placeholder
+hypothesis. The archived Table-1 episode has exact settled-state/action-prefix
+identity but no full per-step simulator/controller snapshots, so the historical
+proxy-label state cannot be restored exactly after accumulated replay drift.
+Before observing any native result, the revised preregistration defines each
+physical state by the exact paired settled state plus canonical archived action
+prefix in the current runtime. Historical proxy receipts are reported only as
+drift diagnostics and are forbidden as native training labels. All candidate
+native margins will be recollected in freshly cloned OSC from these states;
+the 60/10/15 complete-episode split and E05/E10/E15 isolation are unchanged.
+The superseding config SHA-256 is
+`f0c709d9f26a475bc93636c2d2ffebf13ee88a8c517a61223b5135c5c9a5fdc1`.

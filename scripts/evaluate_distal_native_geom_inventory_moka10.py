@@ -295,33 +295,33 @@ def main() -> int:
                         live_pair_features - expected_pair_features
                     )
                     receipt_error = float(np.max(receipt_difference))
-                    if receipt_error > 1.0e-8:
-                        row, column = np.unravel_index(
-                            int(np.argmax(receipt_difference)),
-                            receipt_difference.shape,
-                        )
-                        print(json.dumps({
-                            "event": "native_inventory_state_receipt_mismatch",
-                            "case_id": case_id, "state_step": step,
-                            "maximum_absolute_error": receipt_error,
-                            "constraint_row": int(row),
-                            "feature_index": int(column),
-                            "feature_name": PAIR_FEATURE_NAMES[int(column)],
-                            "expected": float(expected_pair_features[row, column]),
-                            "observed": float(live_pair_features[row, column]),
-                            "current_clearance_error": float(np.max(np.abs(
-                                np.asarray(context["current_clearance_m"], dtype=np.float64)
-                                - np.asarray(state["current_clearance_m"], dtype=np.float64)
-                            ))),
-                        }, sort_keys=True), flush=True)
-                    _require(receipt_error <= 1.0e-8,
-                             "native inventory state feature receipt differs")
+                    receipt_row, receipt_column = np.unravel_index(
+                        int(np.argmax(receipt_difference)),
+                        receipt_difference.shape,
+                    )
+                    receipt_matches = bool(receipt_error <= 1.0e-8)
                     summary = _chunk_summary(probe.rollout_chunk(env, [first, second]))
                     initial_safe = bool(current["global_minimum_margin_m"] >= 0.0)
                     state_results.append({
                         "state_index": int(state["state_index"]),
                         "case_id": case_id, "split": str(state["split"]),
                         "state_step": step, "state_receipt_maximum_error": receipt_error,
+                        "prior_proxy_feature_receipt_matches": receipt_matches,
+                        "prior_proxy_receipt_maximum_error_constraint_row": int(
+                            receipt_row
+                        ),
+                        "prior_proxy_receipt_maximum_error_feature_name": (
+                            PAIR_FEATURE_NAMES[int(receipt_column)]
+                        ),
+                        "prior_proxy_current_clearance_maximum_error": float(
+                            np.max(np.abs(
+                                np.asarray(
+                                    context["current_clearance_m"], dtype=np.float64
+                                ) - np.asarray(
+                                    state["current_clearance_m"], dtype=np.float64
+                                )
+                            ))
+                        ),
                         "semantic_protected_groups": inventory[
                             "semantic_protected_groups"
                         ],
@@ -392,6 +392,13 @@ def main() -> int:
         "recovery_state_count": sum(item["cohort"] == "recovery" for item in state_results),
         "test_initially_native_safe_state_count": int(test_prevention),
         "primary_contact_witness_count": int(contact_count),
+        "prior_proxy_feature_receipt_mismatch_state_count": sum(
+            not item["prior_proxy_feature_receipt_matches"]
+            for item in state_results
+        ),
+        "prior_proxy_feature_receipt_maximum_error": float(max(
+            item["state_receipt_maximum_error"] for item in state_results
+        )),
         "all_queries_finite_and_uncensored": bool(
             all(item["all_queries_finite_and_uncensored"] for item in all_rollouts)
             and all(item["all_queries_finite_and_uncensored"] for item in contact_witnesses)
@@ -427,6 +434,7 @@ def main() -> int:
         "decision": {
             "native_inventory_gate_pass": passed,
             "physical_target_collection_authorized": passed,
+            "prior_proxy_candidate_labels_reusable_as_native_labels": False,
             "training_authorized": False, "QP_authorized": False,
             "closed_loop_E05_authorized": False,
             "stop_reason": None if passed else "native_geometry_inventory_gate_failed",

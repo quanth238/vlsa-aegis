@@ -38,6 +38,14 @@ class NativeGeomInventoryConfigTests(unittest.TestCase):
         self.assertFalse(gate["closed_loop_in_this_gate"])
         self.assertFalse(self.config["decision"]["closed_loop_E05_authorized"])
 
+    def test_old_proxy_labels_are_not_native_training_labels(self):
+        population = self.config["population"]
+        self.assertIn("canonical_archived_action_prefix", population["state_identity"])
+        self.assertEqual(
+            population["prior_proxy_feature_receipts"],
+            "diagnostic_only_not_reused_as_native_training_labels",
+        )
+
 
 @unittest.skipIf(np is None, "numpy is unavailable")
 class NativeGeomInventoryNumericTests(unittest.TestCase):
