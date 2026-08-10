@@ -2502,3 +2502,23 @@ If replay is deterministic but the registered prediction gates still fail,
 missing OSC input is not a sufficient explanation and the remaining problem
 is the model/data representation. A pass authorizes only a separate
 calibration and contact-verified QP preregistration.
+
+# ADR-0105: Reject missing OSC state as the sufficient MLP explanation
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37910` proves that the saved complete simulator/controller snapshot and
+full two-action command deterministically define the scoped two-step ellipsoid
+target: 10,625/10,625 duplicated pairs reproduced exactly. Hidden or omitted
+OSC state is therefore not the immediate source of label ambiguity.
+
+Reject the raw complete-state/plain-MLP representation. It produced 271 test
+false-safes and worse margin accuracy than the earlier compact model, despite
+accepting safe actions in all states. The apparent recall gain is invalid
+because every test action was accepted. Do not add calibration, a QP, or
+closed-loop execution to this predictor.
+
+Any continuation must be a separately preregistered representation change,
+such as a compact structured controller/geometry state or learned task-aware
+latent encoder, evaluated on the same immutable deterministic dataset and
+complete-episode splits. It must pass prediction gates before control.

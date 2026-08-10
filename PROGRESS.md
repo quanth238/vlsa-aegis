@@ -3466,3 +3466,39 @@ union field. This is a lossless fixed-size encoding of the already registered
 complete snapshot, not a label-dependent feature selection. The population,
 actions, simulator, labels, model, loss, thresholds, grouped split, and config
 remain unchanged. No partial output or result from `37900` is reused.
+
+# 2026-08-10: complete OSC state is sufficient, plain MLP is NO-GO
+
+Clean H100 job `37910` completed on `worker-2` in `01:29:22`; independent
+validation passed. All 10,625 immutable snapshot/action pairs were executed
+twice (21,250 cloned two-action rollouts). Every seven-row float64 margin,
+canonical raw protected-contact receipt, and both next-state hashes matched;
+the maximum margin difference was exactly zero. The stored complete simulator,
+auxiliary, controller, semantic geometry, and full-action inputs therefore
+uniquely determine this deterministic rollout target.
+
+The complete-input action-conditioned MLP is nevertheless a strict NO-GO. Its
+2,131D row input produced 271/1,875 test false-safe actions, 7.529 mm overall
+RMSE, and 8.497 mm near-boundary RMSE over 822 rows. It recovered 1,604/1,604
+exact-safe actions in 15/15 states only because it effectively accepted every
+test action, including all 271 unsafe actions. All five ensemble members chose
+epoch 0; huge validation scores reveal that lossless raw cross-task padding
+and scalar standardization are a poor representation.
+
+Thus, missing OSC inputs are not a sufficient explanation for the prior MLP
+failure. The deterministic target exists, but the raw complete-state/plain-MLP
+representation fails more severely than the earlier 56D model. No calibration,
+QP, pi0.5 feature, or closed-loop E05 ran, and none is authorized. Full report:
+`docs/distal_complete_osc_margin_moka10_result.md`. Dataset file/payload,
+collection file/payload, model, result file/payload, validation file/payload,
+and preflight hashes are
+`585f696eedef9bd9a4c9d0ba576d6d86e5660638696862ec2d5d1af434fb426b`,
+`b84415c650cf5b11bce9f344bcd4fd288a136d3aaa15ce4458f23d0f3a20aa6a`,
+`bd85f3175c790a153833a7c903a4e119c71f771271b2ecb92cc1c579269ce966`,
+`4e4a415ef25ca217fc43a23f94dd82af66f782434647f79c29f72f47a90226a5`,
+`146e4e16745844fe50bbc802f958956239fb440aed99648eebf4e56358aa8a5d`,
+`3d75740f073129f4e71342c3b48a49ffc66db5c5bcec69bcd1bc705443bc50d2`,
+`4cfdb62a938b09b18b432336ca018ad1f5451519f012d3eee6e264f112cfd925`,
+`93e99a7eb74a7f3bde4bce909bf4556e2793dd5d2ef581bf519375471286f92b`,
+`586e59310d88bda883a7b3613ef228451b70da22a4ce5a44b67b59761bc0a180`,
+and `2dfbf59755afb87922414cc566b0b1de65e61f7b6e52e9a6fbb43fe5f6d0c413`.
