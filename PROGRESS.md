@@ -2885,3 +2885,34 @@ validation SHA-256 values are
 `adcfea06ed6de05a8311e2a4f60a963b2f38c2afa15e5a225c5818eecca122fc`,
 and `4de0cd4997dfda6495416cb75a7b21d582f5ede04924d0a06a583289f53b87bc`.
 Full report: `docs/distal_state_support_smoothness_moka10_result.md`.
+
+# 2026-08-10: same-task complete-episode coverage expansion registered
+
+The user-authorized coverage experiment is frozen before simulation. It adds
+goal-II-task-0 E00/E20 as complete training episodes and E30 as a complete
+validation episode; E05/E10/E15 remain immutable test-only episodes. This
+narrows the next claim to same-task unseen-episode generalization and never
+mixes states from one episode across splits.
+
+The experiment reuses the exact five-state/two-step/125-action cloned-OSC
+collector and the validated fixed 27-region ridge-Huber oracle without changing
+their settings. The expanded population is 40/10/15 train/validation/test
+states. Before any retraining it reruns the frozen 62D feature-shift, 43D
+state-support, and induced-oracle smoothness gates. Current region-aware MLP
+retraining requires support and smoothness in all 15 test states; otherwise
+more complete episodes are required. Training and closed-loop E05 are excluded
+from this gate.
+
+Protocol:
+`docs/distal_same_task_boundary_expansion_moka10_preregistration.md`. Config
+and selected-manifest SHA-256 values are
+`8a81876fe4420b8ab09dcb628c215a830e60d4122bd0f81d1b53bc4fdea94c0d`
+and `63110fe7778be984ddd6a62582fdbf30ff8acba43ae277b78263c1bde23a87f8`.
+The complete local structural gate passes 386 tests with one skip.
+The exact next commands after the clean preregistration commit are:
+
+`ssh vinuni 'sinfo -N -p main -o "%N %T %G %c %m" && squeue -u quanth -o "%.18i %.9P %.20j %.8T %.10M %.6D %R"'`
+
+and, from `/home/quanth/working_space/vlsa-aegis-table-repro`,
+
+`sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=same-task-boundary-expansion-20260810a slurm/distal_same_task_boundary_expansion_moka10.sbatch`.

@@ -1,0 +1,106 @@
+{
+  "schema_version": "vlsa_distal_same_task_boundary_expansion_moka10.v1",
+  "protocol_id": "vlsa-distal-same-task-boundary-expansion-moka10-v1",
+  "claim_scope": "same-task complete-episode boundary-state coverage and multi-region oracle support diagnostic; no learned training, no closed loop, and no formal safety claim",
+  "immutable_source": {
+    "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "selected_manifest_sha256": "63110fe7778be984ddd6a62582fdbf30ff8acba43ae277b78263c1bde23a87f8",
+    "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
+    "exact_box_config_file_sha256": "cc568a85c2acf215beda1cef4abcc31a92b3f6d3772d6c36147410afd471bf9f",
+    "affine_collection_config_file_sha256": "721992dd97ab5df46406b1db3a6091357f323ea05a6e28df7604e18e0bc54366",
+    "multi_region_config_file_sha256": "42814eb24c105a559a7314b1b823fc0ee59d5333524420fac867e00eb5bedcee",
+    "original_dataset_file_sha256": "dc8d0dd89cf5dd3f736eb9c33dde884eb64ad1206e686504b4e42385f3ab6dc8",
+    "original_dataset_payload_sha256": "fe7bf05ee76ef689d19b2927984ba6bc62ecdd6b3d066392746c0e8c4780b6bf",
+    "original_multi_region_file_sha256": "a14c8f3c3f06d881a4ed83db94edf139f4ca5f2a9f53381f3b182a7e28ac2a5f",
+    "original_multi_region_payload_sha256": "a80b343a4810d746086ef933eead6e86f1ec61a0f123ee08b1a459c7274de265",
+    "original_multi_region_validation_file_sha256": "a24175762be7fecee2308c7f8a9dcb6f9bc82cf2ed2edaaf4949e53776e46e13",
+    "prior_support_result_file_sha256": "114ba547b16f88f1e18c59e0fa245c6fd47782f6a15c9775cbff148070469237",
+    "prior_support_result_payload_sha256": "adcfea06ed6de05a8311e2a4f60a963b2f38c2afa15e5a225c5818eecca122fc",
+    "prior_support_validation_file_sha256": "4de0cd4997dfda6495416cb75a7b21d582f5ede04924d0a06a583289f53b87bc"
+  },
+  "episode_split": {
+    "unit": "complete_episode",
+    "additional_train_case_ids": [
+      "vlsa-t1-goal-ii-t0-e00",
+      "vlsa-t1-goal-ii-t0-e20"
+    ],
+    "additional_validation_case_ids": [
+      "vlsa-t1-goal-ii-t0-e30"
+    ],
+    "immutable_test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ],
+    "same_task_generalization_only": true,
+    "test_labels_never_used_for_collection_fitting_or_thresholds": true,
+    "expected_additional_state_counts": {"train": 10, "validation": 5, "test": 0},
+    "expected_expanded_state_counts": {"train": 40, "validation": 10, "test": 15}
+  },
+  "collection": {
+    "reuse_affine_collection_state_and_action_sampling_without_change": true,
+    "expected_episode_count": 3,
+    "expected_states_per_episode": 5,
+    "expected_additional_state_count": 15,
+    "expected_grid_actions_per_state": 125,
+    "simulator": "cloned OSC with every internal substep",
+    "device": "H100 allocation only"
+  },
+  "multi_region": {
+    "reuse_fixed_partition_and_ridge_huber_settings_without_change": true,
+    "partition": {
+      "coordinates": "per_state_action_box_normalized_minus1_plus1",
+      "axis_intervals": [[-1.0, 0.0], [-0.5, 0.5], [0.0, 1.0]],
+      "axis_centers": [-0.5, 0.0, 0.5],
+      "region_count": 27,
+      "fit_actions_per_region": 27,
+      "inclusive_membership_tolerance": 1e-12
+    },
+    "ridge_huber": {
+      "nominal_value": "exact_region_center_two_step_OSC_margin",
+      "response_unit": "millimetres",
+      "boundary_band_m": 0.005,
+      "boundary_weight_multiplier": 9.0,
+      "huber_delta_mm": 2.0,
+      "ridge_strength": 0.0001,
+      "optimizer": "LBFGSB",
+      "maximum_iterations": 2000,
+      "gradient_tolerance": 1e-10,
+      "one_sided_padding_m": 1e-6
+    }
+  },
+  "support_audit": {
+    "feature_shift": {
+      "representation": "frozen_62D_region_aware_MLP_input",
+      "normalization": "training_rows_mean_std_with_1e-6_floor",
+      "absolute_z_shift_threshold": 5.0,
+      "rank_by": ["test_max_abs_z", "test_p95_abs_z"],
+      "report_top_feature_count": 20
+    },
+    "state_support": {
+      "context": "frozen_53D_pair_features_excluding_constraint_one_hot_and_candidate_action",
+      "distance": "RMS_training_standardized_context_difference",
+      "normalization": "training_constraint_rows_mean_std_with_1e-6_floor",
+      "reference": "nearest_training_state_from_a_different_complete_episode",
+      "reference_quantile": 0.95,
+      "maximum_single_feature_abs_z": 5.0,
+      "required_supported_test_state_count": 15
+    },
+    "oracle_smoothness": {
+      "comparison": "test_state_to_its_support_nearest_training_state_at_matched_normalized_action_grid_coordinates",
+      "value": "union_margin_max_over_regions_of_minimum_seven_row_lower_value",
+      "decision": "zero_margin_accepted_set_Jaccard",
+      "reference": "same_metrics_for_cross_episode_nearest_training_pairs",
+      "maximum_value_RMSE_reference_quantile": 0.95,
+      "minimum_Jaccard_reference_quantile": 0.05,
+      "required_smooth_test_state_count": 15
+    }
+  },
+  "decision": {
+    "authorize_current_region_aware_MLP_retraining_only_if_support_and_smoothness_pass": true,
+    "if_supported_model_still_fails": "replace coefficient output with action-conditioned conservative safety-value prediction",
+    "if_support_fails": "collect more complete same-task episodes without touching E05_E10_E15",
+    "training_in_this_gate": false,
+    "closed_loop_E05_authorized": false
+  }
+}

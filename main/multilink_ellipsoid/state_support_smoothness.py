@@ -174,14 +174,16 @@ def context_feature_indexes() -> list[int]:
     return output
 
 
-def context_arrays(states: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def context_arrays(
+    states: Sequence[Mapping[str, Any]], expected_train_state_count: int = 30,
+) -> dict[str, Any]:
     np = _numpy()
     indexes = context_feature_indexes()
     train_values = np.asarray([
         state["pair_state_feature_vectors"] for state in states
         if state["split"] == "train"
     ], dtype=np.float64)[:, :, indexes]
-    if train_values.shape != (30, 7, len(indexes)):
+    if train_values.shape != (int(expected_train_state_count), 7, len(indexes)):
         raise ValueError("training context shape differs")
     mean = np.mean(train_values.reshape(-1, len(indexes)), axis=0)
     standard_deviation = np.maximum(
@@ -392,7 +394,10 @@ def analyze(
     )
     top_count = int(config["feature_shift"]["report_top_feature_count"])
 
-    context = context_arrays(states)
+    context = context_arrays(
+        states,
+        int(config["split"]["expected_state_counts"]["train"]),
+    )
     reference_neighbors = []
     oracle_signatures = {
         int(state["state_index"]): oracle_signature(

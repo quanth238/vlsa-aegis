@@ -2131,3 +2131,25 @@ decision thresholds for 11/15 pairs, but that cannot compensate for absent
 state support. Do not authorize the action-conditioned model yet. Collect
 additional complete-episode boundary states, retain E05/E10/E15 as test-only,
 and repeat support before learning or closed-loop E05.
+
+# ADR-0085: Expand same-task episode coverage before changing the model
+
+**Status:** Decided; preregistered before execution (2026-08-10).
+
+Job `37733` shows that the current learned failure occurs outside its training
+support. Replacing the coefficient-output architecture before measuring a
+supported same-task population would confound feature coverage with model
+parameterization. The next experiment therefore changes data coverage only.
+
+Goal-II-task-0 E00/E20 are complete training episodes and E30 is a complete
+validation episode. E05/E10/E15 remain test-only. Although these episodes
+share one task-level group, the claim is explicitly same-task unseen-episode
+generalization and the indivisible split unit is the complete episode.
+
+Collection reuses the frozen two-step cloned-OSC grid. Regional labels reuse
+the validated 27-region ridge-Huber construction. No model is trained until
+all 15 test states lie inside the training-derived state-support envelope and
+the induced regional oracle is smooth relative to cross-episode training
+pairs. A pass authorizes a separate rerun of the current region-aware MLP; it
+does not authorize closed-loop E05. Only a supported-state learned failure
+would motivate the action-conditioned conservative value model.

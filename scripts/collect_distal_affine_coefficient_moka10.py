@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional, Sequence
 
 from main.multilink_ellipsoid.affine_coefficient_model import (
     AFFINE_COEFFICIENT_DATASET_RESULT_SCHEMA,
@@ -67,6 +67,8 @@ def collect(
     selected_manifest_path: Path, archived_root: Path,
     geometry_config_path: Path, exact_box_config_path: Path,
     config_path: Path, expected_commit: str, dataset_path: Path,
+    config_override: Optional[Mapping[str, Any]] = None,
+    selected_override: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> dict[str, Any]:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -79,8 +81,14 @@ def collect(
     from main.multilink_ellipsoid.shadow import allocation_record, load_shadow_config
 
     started = time.perf_counter_ns()
-    config = load_affine_coefficient_config(config_path)
-    selected = load_selected_manifest(selected_manifest_path, config)
+    config = (
+        load_affine_coefficient_config(config_path)
+        if config_override is None else dict(config_override)
+    )
+    selected = (
+        load_selected_manifest(selected_manifest_path, config)
+        if selected_override is None else [dict(item) for item in selected_override]
+    )
     for path, expected, label in (
         (population_manifest_path, config["source_population_manifest_sha256"], "population"),
         (selected_manifest_path, config["selected_manifest_sha256"], "selected"),
@@ -93,7 +101,10 @@ def collect(
     population = {item["case_id"]: item for item in read_jsonl(population_manifest_path)}
     source = _git_identity(repo_root, expected_commit)
     runtime = _runtime_imports(include_aegis=False)
-    primary = next(item for item in selected if item["case_id"].endswith("e05"))
+    primary = next(
+        (item for item in selected if item["case_id"].endswith("e05")),
+        selected[0],
+    )
     placeholder_path = archived_root / primary["archived_relative_path"]
     placeholder = _load(placeholder_path)
     _require(
