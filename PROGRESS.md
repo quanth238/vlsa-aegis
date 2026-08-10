@@ -3075,3 +3075,10 @@ The exact next command after a clean commit, remote sync, live preflight, and
 allocation availability check is:
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=action-conditioned-margin-20260810a slurm/distal_action_conditioned_margin_moka10.sbatch`.
+
+Initial H100 submission `37803` stopped in allocation preflight before model
+training or simulation. NumPy 1.22's `assert_allclose` did not broadcast the
+registered 3-vector across the seven feature rows in one structural test. The
+implementation had already produced all seven identical rows; the repair
+expands only the expected test array. Model, data, loss, calibration, QP, and
+decision gates are unchanged. The attempt is retained as apparatus failure.
