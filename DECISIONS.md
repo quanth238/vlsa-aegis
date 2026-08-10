@@ -2270,3 +2270,21 @@ state (local QP coefficients). The direct model uses a current-clearance
 residual and normalized local action coordinates. E05/E10/E15 remain test-only;
 the simulator cannot select a proposal. No closed-loop run is authorized by
 the preregistration itself.
+
+# ADR-0091: Reject a global uncertainty pad as a completed safety model
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37807` shows that direct action-conditioned value learning is a better
+representation than coefficient regression, but the plain ensemble plus one
+validation-calibrated per-row pad is not a deployable lower bound. It is
+overconfident at E05 step 185 and eliminates all support at three other unseen
+boundary states.
+
+Do not run QP or closed-loop on this result, and do not report its low RMSE as
+safety success. Before proposing another network, perform a no-retraining
+compatibility audit: determine whether any additional scalar tightening can
+simultaneously yield zero test false-safes and preserve safe support in all 15
+states. This is diagnosis using held-out outcomes, not a selectable deployment
+threshold. Failure of that interval directs state-local/nonparametric residual
+adaptation; success directs a learned state-conditioned uncertainty bound.

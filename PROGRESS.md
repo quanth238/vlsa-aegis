@@ -3085,3 +3085,26 @@ decision gates are unchanged. The attempt is retained as apparatus failure.
 Retry `37806` stopped at the adjacent normalized-action assertion for the same
 NumPy-1.22 non-broadcasting behavior. Its explicit expected array is likewise
 expanded to `7x3`; no model or simulator code executed.
+
+# 2026-08-10: action-conditioned margin MLP is NO-GO
+
+Clean H100 retry `37807` completed on `worker-2` in `00:01:19`; the independent
+validator accepted the result. Direct value prediction materially improved:
+test RMSE was `3.808 mm` versus the `16.513 mm` current-clearance baseline.
+This did not satisfy safety.
+
+The learned regional safe set produced 21/1,440 false-safes, global/worst-state
+Jaccard `0.7866/0`, and exact-safe support in only 12/15 states. All 21
+false-safes occur at E05 step 185. Conversely, E10 step 156 and E15 steps
+149--150 have oracle-safe support but zero learned acceptance. The protocol
+therefore stopped before QP simulation; closed-loop E05 remains unauthorized.
+
+This is no longer a coefficient-target or missing-context result. The direct
+value model learns a much better mean field, but its validation-calibrated
+uncertainty is not a useful conservative lower bound at every unseen boundary.
+Result/payload/validation/model SHA-256 values are
+`fc61cbf8b936447c591897ebf47f0606e135a8ff9df8d878d562bf37fc3a32da`,
+`9d345936fc6c4d1e3677de6223345db8e867a4571b3f449290fcf2aa208736d0`,
+`255df4eeb454e8d6de574517f0d1244d5d9588c18e9978222c93f113ec6ef704`,
+and `bfc1dd8dc4f3fcdb9c3268ce268a2f252fa31cadc86b72fb6c7d98f53c6346c3`.
+Full report: `docs/distal_action_conditioned_margin_moka10_result.md`.
