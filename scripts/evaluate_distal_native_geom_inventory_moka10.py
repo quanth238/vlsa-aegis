@@ -15,7 +15,9 @@ from main.multilink_ellipsoid.native_geom_margin import (
     load_config, measure_native_groups, result_payload,
 )
 from main.multilink_ellipsoid.targeted_boundary_expansion import DATASET_SCHEMA
-from main.multilink_ellipsoid.two_step_margin import feature_context, feature_vectors
+from main.multilink_ellipsoid.two_step_margin import (
+    PAIR_FEATURE_NAMES, feature_context, feature_vectors,
+)
 from scripts.collect_distal_boundary_generalization_moka10 import _canonical_action
 from scripts.evaluate_distal_execution_margin_nn_e05 import _build_pair, _geometry
 from scripts.replay_distal_three_ellipsoid_multicbf import (
@@ -273,11 +275,32 @@ def main() -> int:
                     _, live_pair_features = feature_vectors(
                         context, first[:3], first[:3], second[:3]
                     )
-                    receipt_error = float(np.max(np.abs(
-                        live_pair_features - np.asarray(
-                            state["pair_state_feature_vectors"], dtype=np.float64
+                    expected_pair_features = np.asarray(
+                        state["pair_state_feature_vectors"], dtype=np.float64
+                    )
+                    receipt_difference = np.abs(
+                        live_pair_features - expected_pair_features
+                    )
+                    receipt_error = float(np.max(receipt_difference))
+                    if receipt_error > 1.0e-8:
+                        row, column = np.unravel_index(
+                            int(np.argmax(receipt_difference)),
+                            receipt_difference.shape,
                         )
-                    )))
+                        print(json.dumps({
+                            "event": "native_inventory_state_receipt_mismatch",
+                            "case_id": case_id, "state_step": step,
+                            "maximum_absolute_error": receipt_error,
+                            "constraint_row": int(row),
+                            "feature_index": int(column),
+                            "feature_name": PAIR_FEATURE_NAMES[int(column)],
+                            "expected": float(expected_pair_features[row, column]),
+                            "observed": float(live_pair_features[row, column]),
+                            "current_clearance_error": float(np.max(np.abs(
+                                np.asarray(context["current_clearance_m"], dtype=np.float64)
+                                - np.asarray(state["current_clearance_m"], dtype=np.float64)
+                            ))),
+                        }, sort_keys=True), flush=True)
                     _require(receipt_error <= 1.0e-8,
                              "native inventory state feature receipt differs")
                     summary = _chunk_summary(probe.rollout_chunk(env, [first, second]))

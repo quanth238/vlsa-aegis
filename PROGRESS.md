@@ -3230,3 +3230,9 @@ q/qdot fields. The compatibility-only repair verifies the stronger immutable
 53D pair-state feature matrix at each replayed state. Population, actions,
 native geometry, margins, contact witnesses, and gates are unchanged; `37848`
 is retained as apparatus failure with no scientific outcome.
+
+Compatibility retry `37849` again stopped before a result because the frozen
+pair-feature receipt differed at an as-yet-unidentified component. The gate
+tolerance remains `1e-8`; a diagnostic-only retry now prints the exact episode,
+step, constraint row, named feature, expected/observed values, and independent
+current-clearance error before failing. No scientific setting is changed.
