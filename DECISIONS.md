@@ -2551,7 +2551,7 @@ calibration, a QP, additional data, or closed-loop E05.
 
 # ADR-0107: Prove old-input insufficiency only with controlled conflicts
 
-**Status:** Preregistered before H100 execution (2026-08-10).
+**Status:** Decided from validated H100 evidence (2026-08-11).
 
 Do not infer that an omitted variable is causal merely because a larger input
 model performs differently. Hold the historical 56D vector byte-identical,
@@ -2565,3 +2565,11 @@ determinism. Recheck the immutable complete-input model rather than retraining
 or tuning it. No audit result authorizes calibration, a QP, or closed-loop E05
 unless the separate prediction gate reaches zero false-safes and 15/15 safe
 support.
+
+Job `37933` proves insufficiency: 83 byte-identical old56 groups cross the
+proxy safety class and 41 also cross raw-contact class. All four omitted groups
+affect the target, but rotation action has the largest effect and the most
+crossings. The existing complete-input model still fails with 271 false-safe
+test actions. Follow the user's conditional rule with one targeted
+old56-versus-old56-plus-rotation ablation. Do not expand to a six-arm study,
+Poisson field, calibration, QP, or closed loop at this decision point.

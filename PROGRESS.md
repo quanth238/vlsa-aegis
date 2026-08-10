@@ -3565,3 +3565,28 @@ false-safes and 15/15 support. The QP, calibration, new policy inference, and
 closed loop remain frozen. Protocol:
 `docs/distal_omitted_variable_audit_moka10_preregistration.md`. Config SHA-256
 is `42fc2a5b8f4067e8555fea4fa01d91a8a831d288b8fb1cb2d38b9edfcb0a12c8`.
+
+# 2026-08-11: old56 is provably insufficient; complete MLP still fails
+
+Clean H100 job `37933` completed on `worker-1` in `00:16:58`; independent
+validation passed. Test 1 reconfirmed exact determinism over 10,625 pairs and
+21,250 duplicate rollouts with zero margin, contact, or next-state mismatch.
+
+Test 2 preserved the old56 bytes for all 2,106 effective interventions. Yet
+83/117 boundary-selected identical-input candidate groups produced both safe
+and unsafe proxy margins, and 41 changed raw-contact class. Rotation action
+was strongest (83 proxy / 41 contact crossings, 23.367 mm maximum margin
+change), followed by goal orientation (73/29, 13.294 mm), controller memory
+(37/5, 6.098 mm), and gripper command (8/0, 0.967 mm).
+
+The old input is therefore provably insufficient. The immutable complete
+model still has 271 false-safes despite 15/15 support, so it also fails. Per
+the user's conditional instruction, only a targeted old56-versus-old56-plus-
+rotation input ablation is next; no six-arm ablation runs. QP, calibration,
+and closed loop remain frozen. Full report:
+`docs/distal_omitted_variable_audit_moka10_result.md`. Result file/payload and
+validation file/payload hashes are
+`27335bce0fb20c1cc9f86d7edd78abf034fcc83f73fe8ab3e97488766659069c`,
+`bd66ef991ac631f46ef44768da4f9bc823dde4ad09b7c6c98e850f0c4c719531`,
+`1116d9b909adda1c8d4af11590514c643ff26aef83e0c94e5acf2465d234c80a`,
+and `fd957374c5d78fe98b5213f194dc64a5e55e7c95705c269af28d0e468131f20e`.
