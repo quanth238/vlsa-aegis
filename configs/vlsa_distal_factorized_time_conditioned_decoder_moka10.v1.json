@@ -1,0 +1,117 @@
+{
+  "schema_version": "vlsa_distal_factorized_time_conditioned_decoder_config.v1",
+  "protocol_id": "vlsa-distal-factorized-time-conditioned-decoder-moka10-v1",
+  "claim_scope": "diagnostic_matched_test_of_shared_time_conditioned_OSC_joint_trajectory_decoding_with_existing_one_sided_L5_L7_geometry_supervision",
+  "immutable_source": {
+    "one_sided_config_file_sha256": "c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2",
+    "one_sided_model_file_sha256": "5548b8e4b48fcf11aacbb4f26186e59f487c15ccaab8eb0882e0a9fcdf2f1a62",
+    "one_sided_predictions_file_sha256": "acf25b0467ce26669d9a0f57e0c192639bbad76692d09aaac81bc10666023396",
+    "one_sided_result_file_sha256": "ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0",
+    "one_sided_result_payload_sha256": "e8763d699b7a20c3656a5b2587dad63ee76a95fa577d20bdb49bdc89d4f0b730",
+    "one_sided_validation_file_sha256": "1abb16135207cfc754c6d1a63373a01be69ed4930bdb1e69036ba3e4f3c1a3b3",
+    "one_sided_validation_payload_sha256": "7dbb6ee1b6f080f99dbf6b6c882cc5c440554f185854ea22608d5de8fa44d334",
+    "unsupported_audit_result_file_sha256": "1b9a475c3090b4cff32c0df161e3ee99b4695a7cd5f481cbfe520ba26e0eca8b",
+    "unsupported_audit_result_payload_sha256": "7987336948790f35fc9816bfd5015e6e223dbf94e129dfdd209bce3db8115ceb",
+    "unsupported_audit_validation_file_sha256": "b74a1f47e1e4ddb3848af6225cebf858dfe0aeaf317263c7c142e62b7f37a511",
+    "unsupported_audit_validation_payload_sha256": "96031a2fe96c0dcb7ab990c805765d1e36b9d4ebd2652e2e5b3422d312459ba5",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "source_test_state_safe_support_count": 12,
+    "source_test_false_safe_action_count": 0,
+    "source_validation_state_safe_support_count": 3,
+    "source_validation_false_safe_action_count": 1
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "state_split_counts": {"train": 60, "validation": 10, "test": 15},
+    "candidate_count_per_state": 93,
+    "random_candidate_count_per_state": 64,
+    "joint_trace_state_count": 51,
+    "constraint_count": 7,
+    "diagnostic_test_case_ids": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t0-e15"
+    ]
+  },
+  "matched_ablation": {
+    "baseline": "immutable_job_38070_flat_51_by_7_one_sided_model",
+    "experimental": "shared_time_conditioned_joint_execution_decoder",
+    "same_dataset_splits_complete_inputs_targets_seeds_optimizer_schedule_and_one_sided_geometry_loss": true,
+    "only_model_change": "flat_357_output_decoder_to_shared_F_theta_state_action_k",
+    "inference_output": "51_by_7_joint_trajectory_only",
+    "deployment_safety": "known_FK_plus_existing_ellipsoid_geometry"
+  },
+  "architecture": {
+    "state_action_encoder_widths": [256, 256],
+    "time_decoder_width": 128,
+    "joint_output_dimension": 7,
+    "activation": "silu",
+    "time_coordinate": "tau_equals_k_over_50",
+    "time_encoding": "tau_plus_sin_cos_pi_tau_at_frequencies_1_2_4_8",
+    "time_encoding_dimension": 9,
+    "shared_weights_across_all_51_substeps": true,
+    "exact_initial_condition": "predicted_joint_residual_equals_tau_times_decoder_output"
+  },
+  "local_geometry_jacobian": {
+    "source": "same_train_validation_only_local_dh_dq_as_job_38070",
+    "fit_rows": "nominal_plus_28_full_action_finite_difference_candidates",
+    "fit_state_splits": ["train", "validation"],
+    "test_split_used_for_fit": false,
+    "ridge_regularization": 0.000001,
+    "maximum_validation_random_linearization_RMSE_m": 0.002
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels",
+    "ensemble_seeds": [20260841, 20260842, 20260843, 20260844, 20260845],
+    "batch_size": 512,
+    "epochs": 300,
+    "patience": 40,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "joint_huber_delta_rad": 0.002,
+    "geometry_huber_delta_m": 0.002,
+    "finite_difference_loss_weight": 1.0,
+    "geometry_loss_weight": 10.0,
+    "dangerous_overestimate_weight": 4.0,
+    "near_boundary_absolute_margin_m": 0.005,
+    "near_boundary_weight_multiplier": 5.0,
+    "terminal_weight_multiplier": 3.0,
+    "terminal_weight_power": 4,
+    "training_substeps_per_update": 4,
+    "training_substep_sampling": "terminal_50_plus_three_without_replacement_from_1_through_49",
+    "evaluation_substeps": "all_0_through_50",
+    "early_stopping": "validation_joint_RMSE_plus_0.1_sensitivity_RMSE_plus_local_signed_geometry_RMSE"
+  },
+  "decision_gate": {
+    "maximum_validation_false_safe_action_count": 0,
+    "maximum_test_false_safe_action_count": 0,
+    "require_safe_support_in_every_exact_safe_eligible_validation_state": true,
+    "require_safe_support_in_every_exact_safe_eligible_test_state": true,
+    "minimum_validation_safe_recall": 0.5,
+    "minimum_test_safe_recall": 0.9,
+    "maximum_test_near_boundary_RMSE_m": 0.002671122,
+    "minimum_joint_sensitivity_cosine": 0.8,
+    "minimum_margin_sensitivity_cosine": 0.8,
+    "require_strict_test_terminal_joint_RMSE_improvement_over_job_38070": true,
+    "require_strict_validation_terminal_joint_RMSE_improvement_over_job_38070": true,
+    "mechanism_pass_authorizes_only_new_episode_evaluation": true
+  },
+  "final_evaluation_policy": {
+    "E05_E10_E15_role": "diagnostic_only_because_they_influenced_model_selection",
+    "final_population": "newly_reserved_complete_unseen_episodes",
+    "required_final_false_safe_action_count": 0,
+    "required_final_support": "every_exact_safe_eligible_state"
+  },
+  "forbidden_actions": {
+    "new_controller_rollout_labels": true,
+    "candidate_region_expansion": true,
+    "uncertainty_calibration": true,
+    "binary_classifier": true,
+    "surface_loss": true,
+    "poisson_or_SDF": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}

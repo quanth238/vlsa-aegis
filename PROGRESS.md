@@ -3902,3 +3902,28 @@ Records/result/validation hashes are
 `fa55559bed38efe0bc581d8e3d6887e0f990a5f21ae5c7555443ef5d8246b632`,
 `1b9a475c3090b4cff32c0df161e3ee99b4695a7cd5f481cbfe520ba26e0eca8b`,
 and `b74a1f47e1e4ddb3848af6225cebf858dfe0aeaf317263c7c142e62b7f37a511`.
+
+# 2026-08-11: shared time-conditioned execution decoder registered
+
+The validated unsupported-state audit closes missing complete-state coverage:
+all three diagnostic states pass the frozen training-support test. It also
+separates candidate support from prediction support: E05/E10 have no exact-safe
+registered random action, while E15 has 44 exact-safe actions rejected by all
+five one-sided members. The next single model gate therefore replaces job
+`38070`'s flat 357-output head with a shared decoder
+`q_hat_k=q0+(k/50)D(E(x,A),eta(k))`. The fixed encoding uses normalized time
+plus sine/cosine features at frequencies 1/2/4/8 and enforces q0 exactly.
+
+Dataset, grouped splits, complete inputs, targets, seeds, optimizer, schedule,
+joint/sensitivity losses, and successful one-sided L5--L7 geometry loss remain
+fixed. Terminal step 50 plus three deterministic-seeded interior steps are used
+per training update; all 51 steps are used for checkpoint selection and final
+evaluation. The gate requires zero validation/test false-safes, support in
+every state that contains an exact-safe candidate, at least 50%/90%
+validation/test recall, test boundary RMSE at most 2.671122 mm, sensitivity
+cosines at least 0.8, and strict terminal-joint improvement on validation and
+test. Candidate expansion, calibration, QP, and closed loop remain forbidden.
+Even a pass authorizes only newly reserved episode evaluation. Protocol:
+`docs/distal_factorized_time_conditioned_decoder_moka10_preregistration.md`.
+Config SHA-256 is
+`452fe00d53f3b6e9c278962116c5cf760821f14b18b06a6d4079a577bd5a2d17`.

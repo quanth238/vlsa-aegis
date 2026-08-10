@@ -2751,3 +2751,14 @@ error; this is a conditional conservative-bias candidate, not ensemble
 aggregation. Any residual correction must be fit on validation episodes only
 and must retain zero false-safes. E05/E10/E15 remain diagnostic, and the final
 claim requires new episodes.
+
+All three rejected states pass the frozen complete-state support audit, so do
+not collect more episodes as the immediate mechanism test. Register one
+matched shared time-conditioned decoder against immutable job `38070`. Keep
+the one-sided geometry loss and every dataset/split/seed/target fixed; enforce
+the known q0 endpoint and evaluate all 51 substeps. Count support only in
+states that contain an exact-safe registered action, because no predictor can
+create support in E05/E10's current candidate region. A diagnostic decoder pass
+may authorize new reserved-episode evaluation only, never calibration, QP, or
+closed loop. Config hash is
+`452fe00d53f3b6e9c278962116c5cf760821f14b18b06a6d4079a577bd5a2d17`.
