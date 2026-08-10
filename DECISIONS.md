@@ -2079,3 +2079,18 @@ records exact evidence but cannot influence selection or stopping. This
 prevents a simulator oracle from silently becoming the deployed controller.
 Collision-free stopping is not a pass: native SafeLIBERO completion is required
 with zero L5--L7 contact and no paper CAR.
+
+Clean H100 job `37722` is a valid strict NO-GO. The learned rows had zero
+false-safes but also zero accepted actions across all 1,440 unseen off-grid
+tests, versus 1,235 accepted by the exact regional oracle. No learned QP was
+defined, and the conditional E05 arm correctly did not run.
+
+This is not a QP or uncertainty-padding failure. Removing both calibration and
+the ensemble guard in a read-only audit still yielded zero accepted actions.
+Raw unseen affine-anchor prediction had 144.200 mm RMSE and -131.545 mm mean
+error. Test inputs reached 10.182 training standard deviations, compared with
+3.158 maximum inside training. The decision is therefore to reject this model
+and current grouped training support, preserve the multi-region oracle result,
+and keep closed-loop blocked. Any learned continuation must first resolve
+state-support/representation extrapolation and pass the same unseen safe-set
+gate.

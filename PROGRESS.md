@@ -2806,3 +2806,34 @@ The exact next commands after the clean preregistration commit are:
 and, from `/home/quanth/working_space/vlsa-aegis-table-repro`,
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=region-aware-mlp-20260810a slurm/distal_region_aware_mlp_moka10.sbatch`.
+
+# 2026-08-10: state-conditioned region-aware MLP is NO-GO
+
+Clean H100 job `37722` completed on `worker-2` in 32 seconds and the independent
+validator accepted its artifact. The learned unseen-state gate failed without
+an apparatus error: zero of 1,440 actions were false-safe, but the network
+accepted zero actions in all 15 test states. The regional oracle accepted
+1,235/1,440 and exact simulation marked 1,236/1,440 safe. Safe support,
+accepted-set Jaccard, learned QPs, fresh exact QP rollouts, and AEGIS-EE
+compatibility were therefore all zero. Conditional closed-loop E05 was not
+authorized and did not execute.
+
+The read-only failure audit rules out the final guards as the primary cause:
+the uncalibrated, unguarded ensemble mean also accepted zero actions. Raw
+affine-anchor prediction on test had 144.200 mm RMSE and -131.545 mm bias. Test
+features reached 10.182 training standard deviations, with 4.73% exceeding
+five standard deviations; training itself had a 3.158 maximum. This is a
+state-distribution/representation generalization failure before QP execution,
+not an OSQP failure.
+
+Result/payload/validation/model SHA-256 values are
+`aa8dc377aeca50acdb102e721d3e483951aa9fd4ecd6477f2b8e46b2d3d0904a`,
+`298c11f7eb8f0533fdd27fb4f86d02134af3de286d2dde63fdd2dfe61a26d6f3`,
+`692a81ff96262d0a4d8c868ab914b39fe85e1390da8f967191eb5beee703c78f`,
+and `4fd9425d8f4f404570603cf215ff6ecbb1aeb5d58a13729608f9c70ac253e7f0`.
+Full report: `docs/distal_region_aware_mlp_moka10_result.md`.
+
+Closed-loop E05 remains blocked. Before another learned run, preregister either
+broader grouped state support or a representation that removes unsupported
+absolute action/joint-velocity extrapolation, then repeat the same immutable
+unseen accepted-set and fresh-QP gates.
