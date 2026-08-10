@@ -2336,3 +2336,22 @@ E05 false-safes and recover the E10/E15 rejected safe support. It is not a new
 large network and cannot tune on held-out outcomes. Receding closed-loop E05 is
 authorized only by zero false-safes, 15-state support, 15 valid QPs, and 15
 fresh exact-safe proposals.
+
+# ADR-0095: Reject the fixed local-KNN error bound
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37829` recovered safe support in every unseen state but retained 13
+false-safe actions, so it cannot authorize QP execution or closed-loop E05.
+Do not tune `k`, the 1 mm pad, or a new threshold from these held-out outcomes.
+
+The result also exposes an evidence-unit limitation: action and constraint rows
+within one simulator state are correlated, while only 12 complete training
+episodes generated the OOF pool. A nominal 0.999 row-level quantile therefore
+must not be presented as a 0.999 episode-level guarantee.
+
+The next read-only attribution must compare pointwise conservative values with
+the final regional-affine accepted decisions on the same immutable actions. If
+pointwise values fail, replace the uncertainty estimator and obtain more
+episode groups. If only interpolation fails, retain the value/bound model and
+replace or certify the regional projection step. Closed-loop remains blocked.

@@ -3178,3 +3178,24 @@ historical oracle-comparator `arms` object. The compatibility repair reads its
 registered direct label while retaining the comparator field for test records.
 Training, residual estimator, test labels, QP, and gates are unchanged; the
 attempt is retained as apparatus failure.
+
+# 2026-08-10: local residual bound is strict NO-GO
+
+Clean H100 retry `37829` completed on `worker-2` in `00:13:35`; the independent
+validator accepted the result. The 12 grouped folds supplied all 52,500 OOF
+residuals. On untouched E05/E10/E15 actions, the estimator recovered exact-safe
+support in 15/15 states and accepted 1,182 exact-safe actions, but produced 13
+false-safes: six at E05 step 185, five at E10 step 155, and two at E10 step
+156. Validation also had 40/960 false-safes and support in only 9/10 states.
+
+The preliminary gate failed, so no QP simulation and no closed-loop E05 ran.
+The result rejects the fixed 256-neighbor maximum-residual plus 1 mm bound, not
+the already established mean-value improvement or existence of safe support.
+Before changing calibration or collecting data, attribute the 13 decisions to
+either pointwise bound failure or off-grid regional-affine interpolation in a
+separate no-training diagnostic. Result/payload/validation/OOF SHA-256 values
+are `9b51577b5c3d87265422ea6be0697ea72bdacfe3df3572e3a3bd524f410cdf9d`,
+`bdd9b7a73e6e2a35325112a4f090aa5f510fead4de11f7ed27a29fcdf1f9acc9`,
+`c55e3e40d784b60a0096195caedb1f2dfcc084271b3b1c723d405d64107e66bc`,
+and `5d6feee53da4f9b800906372df70a0f886db4d15ff3e3eff49c1f0b946b20308`.
+Full report: `docs/distal_local_residual_bound_moka10_result.md`.
