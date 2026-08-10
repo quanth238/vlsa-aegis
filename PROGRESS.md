@@ -3927,3 +3927,25 @@ Even a pass authorizes only newly reserved episode evaluation. Protocol:
 `docs/distal_factorized_time_conditioned_decoder_moka10_preregistration.md`.
 Config SHA-256 is
 `452fe00d53f3b6e9c278962116c5cf760821f14b18b06a6d4079a577bd5a2d17`.
+
+Clean H100 job `38076` completed training, full 51-step geometry evaluation,
+and independent artifact replay in `00:27:50` on `worker-2`. The shared decoder
+is a strict NO-GO. Test false-safes remain zero and joint/margin sensitivity
+cosines remain useful at 0.893/0.883, but exact-safe recall falls from 93.84%
+to 47.29%, support falls from 12 states to 6/13 eligible states, boundary RMSE
+rises from 2.671 to 15.700 mm, and terminal joint RMSE worsens from 18.158 to
+22.889 mrad. Validation has 30 false-safes and only 6/9 eligible support.
+
+The run also exposes a model-selection pathology: source/new validation
+terminal joint errors are 1341/1153 rad, so the validation representation is
+unsupported or explosively normalized even though the time decoder is
+numerically smaller there. This cannot rescue the architecture because it also
+worsens normal-scale test prediction. Do not train longer or proceed to new
+episodes, calibration, QP, or closed loop. Next run a no-training per-episode
+complete-input z-score/normalization audit before another model. Full report:
+`docs/distal_factorized_time_conditioned_decoder_moka10_result.md`.
+Model/prediction/result/validation hashes are
+`6112d1c936375d9aaf54225b09ae1a9c6de2794d5417c1ad7c8d277c3f04021a`,
+`29068f5506ffb45ea51f672040aeb7a650c46d253344730c86a68b9f891c0ec2`,
+`4b98951a387aa1f7f21ece321e611c085274ede19b7b1a2825558c7d5a56c30f`,
+and `54fefd2ed6d756f93e382bf657aabec2e909a57c571ddf999d28001711796eb4`.

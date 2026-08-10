@@ -2762,3 +2762,15 @@ create support in E05/E10's current candidate region. A diagnostic decoder pass
 may authorize new reserved-episode evaluation only, never calibration, QP, or
 closed loop. Config hash is
 `452fe00d53f3b6e9c278962116c5cf760821f14b18b06a6d4079a577bd5a2d17`.
+
+Job `38076` rejects the naive shared time-conditioned decoder. It keeps zero
+test false-safes and useful gradients but loses safe support and roughly
+sixfold worsens boundary RMSE; test terminal joint error also increases. Do
+not train it longer or treat temporal weight sharing alone as the missing
+component. The absurd source/new validation terminal errors (1341/1153 rad)
+also show that the model-selection representation is unsupported or
+explosively normalized. Before another architecture, audit normalized complete
+inputs per episode and identify constant/padding/presence or causal controller
+features responsible for the shift. Collect new grouped episodes only if the
+shift is physical rather than representational. Calibration, QP, Poisson/SDF,
+new-episode claims, and closed loop remain blocked.
