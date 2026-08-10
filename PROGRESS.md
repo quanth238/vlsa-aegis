@@ -3025,3 +3025,25 @@ The exact next command after the clean preregistration commit, remote sync, and
 live Slurm preflight is:
 
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=supported-region-aware-mlp-20260810a slurm/distal_supported_region_aware_mlp_moka10.sbatch`.
+
+# 2026-08-10: supported-state coefficient MLP is NO-GO
+
+Clean H100 job `37795` completed on `worker-2` in `00:03:10`; its independent
+validator accepted the scientific artifact. The now-supported unchanged model
+still accepted `0/1,440` held-out actions in `0/15` states, while exact
+simulation classified 1,236 actions safe and the validated regional oracle
+accepted 1,235. Global and worst-state accepted-set Jaccard were both zero.
+
+The zero false-safe count is vacuous total rejection. No learned QP existed,
+no fresh selected-action rollout ran, and closed-loop E05 remained blocked.
+Because job `37771` already established 15/15 state support and 15/15 oracle
+smoothness, data coverage is no longer the primary explanation. Stop extending
+the coefficient-output MLP and preregister the action-conditioned conservative
+safety-value model.
+
+Result/payload/validation/model SHA-256 values are
+`0c796022cc748a190f913780d7a722be68cd2233a13b05f0262ef9d63d648243`,
+`47eb8884050879f4fd95add3fe06d4739adf2792473c741932f4e5078549d70b`,
+`727dc69cf5ae5c08d1a11b07883132c8b21d19b67f984be476c269a0dc9afeb3`,
+and `1743cea3873b746389fc846bba49337cc14e3e281dd4e9731a3321232e0b7256`.
+Full report: `docs/distal_supported_region_aware_mlp_moka10_result.md`.

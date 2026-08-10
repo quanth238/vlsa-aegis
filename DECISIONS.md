@@ -2233,3 +2233,22 @@ fresh exact rollout, EE compatibility, and selected-action-shift gates pass,
 preregister closed-loop E05 separately. If the supported-state model fails,
 stop treating data coverage as the primary blocker and move to the
 action-conditioned conservative safety-value parameterization.
+
+# ADR-0089: Replace coefficient prediction with action-conditioned values
+
+**Status:** Decided from validated H100 evidence (2026-08-10).
+
+Job `37795` tested the unchanged coefficient-output MLP after job `37771`
+established adequate training support for every held-out state. The network
+still rejected all 1,440 test actions in all 15 states, whereas the exact
+simulator and fixed regional oracle supplied 1,236 and 1,235 safe/accepted
+actions. Thus the prior coverage hypothesis is rejected for this model.
+
+Do not enlarge, retrain longer, or loosen calibration on the coefficient
+network. The next learned gate predicts quantitative two-step constraint
+margins from state, constraint identity, and candidate Cartesian action.
+Autograd supplies action sensitivity for bounded regional QPs; validation-only
+one-sided tightening and fresh exact rollout verification remain mandatory.
+No held-out test label may select architecture, calibration, or checkpoints.
+Closed-loop E05 remains unauthorized until the replacement passes every
+unseen acceptance, support, QP, and exact-verification gate.
