@@ -3619,7 +3619,7 @@ joints are recomposed with fixed initial obstacle geometry, strict improvement o
 boundary RMSE. Poisson/SDF, calibration, QP, VLA inference, and closed-loop
 E05 remain forbidden. Protocol:
 `docs/distal_factorized_execution_moka10_preregistration.md`. Config SHA-256
-is `2dd3e5e6c5f9a8ba6aa81fb3f523b3311f779fc2e3172894be7dff2e6abb848b`.
+is `dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8`.
 
 Initial H100 job `37948` was canceled after 33 seconds during preflight/early
 collection, before a dataset or scientific result. The allocation warning
@@ -3636,3 +3636,13 @@ dictionary union syntax. The compatibility-only repair expands the same two
 dictionaries with Python-3.8-compatible unpacking. Candidate values, traces,
 labels, ordering, hashes, training, geometry, and gates are unchanged; the
 partial in-memory rollouts and failure-only run directory are not reused.
+
+Retry `37966` completed all five E00 states and the first E05 state with zero
+repeat mismatch, then stopped before a dataset because the harness incorrectly
+required all archived 7D values to lie in `[-1,1]`; E05 step 182 has an
+immutable gripper command `1.0007027508294581`. The corrected domain clips
+only translation/rotation to their normalized pose box and perturbs gripper
+around the exact archived value without harness clipping, leaving formatting
+to the unchanged SafeLIBERO gripper controller. This repair was frozen before
+any dataset/result, changes no executed nominal action, and reuses no partial
+rollout.

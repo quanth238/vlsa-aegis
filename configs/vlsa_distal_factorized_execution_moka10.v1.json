@@ -22,7 +22,8 @@
       "a0_tx", "a0_ty", "a0_tz", "a0_rx", "a0_ry", "a0_rz", "a0_gripper",
       "a1_tx", "a1_ty", "a1_tz", "a1_rx", "a1_ry", "a1_rz", "a1_gripper"
     ],
-    "action_limit": 1.0,
+    "pose_action_limit": 1.0,
+    "gripper_clipping": "none_preserve_archived_center_and_local_perturbation",
     "finite_difference_step": {"translation": 0.05, "rotation": 0.05, "gripper": 0.25},
     "random_antithetic_pair_count": 32,
     "random_seed": 2026081101,

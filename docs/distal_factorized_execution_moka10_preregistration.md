@@ -38,10 +38,13 @@ chunk is expanded to 93 candidates:
 
 Translation and rotation probe steps are `0.05` normalized action; gripper
 steps are `0.25`. Random radii are `0.10`, `0.10`, and `0.25`, respectively.
-All commands remain in `[-1,1]`. Five registered candidates per state are
-rolled twice and must reproduce joint traces, ellipsoid traces, contacts, and
-both next-state hashes bitwise. This gives 7,905 primary and 425 repeat cloned
-two-action OSC rollouts.
+Translation and rotation remain in `[-1,1]`. Gripper values are centered on
+the immutable executed commands and are not clipped by the harness, because
+the archived controller input can slightly exceed one and the unchanged
+SafeLIBERO controller owns its gripper formatting. Five registered candidates
+per state are rolled twice and must reproduce joint traces, ellipsoid traces,
+contacts, and both next-state hashes bitwise. This gives 7,905 primary and 425
+repeat cloned two-action OSC rollouts.
 
 Each action trace contains the initial state, all 25 internal MuJoCo states of
 the first OSC step, and all 25 new internal states of the second step: 51
@@ -114,4 +117,4 @@ existing ellipsoid/contact evidence is preserved and completed Table 1
 artifacts remain read-only.
 
 Frozen config SHA-256:
-`2dd3e5e6c5f9a8ba6aa81fb3f523b3311f779fc2e3172894be7dff2e6abb848b`.
+`dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8`.

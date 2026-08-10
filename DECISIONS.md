@@ -2609,3 +2609,10 @@ an apparatus repair, not an experimental-arm change; discard the partial run.
 Retry `37960` exposed only Python-3.8 dictionary-union incompatibility before
 writing a dataset. Replace it with equivalent dictionary unpacking and retain
 every frozen scientific setting. Do not reuse the failure-only run.
+
+Retry `37966` also rejects a scalar `[-1,1]` bound for every archived 7D
+coordinate: the immutable E05 gripper input can slightly exceed one. Preserve
+the nominal command exactly, clip only pose coordinates, and apply local
+gripper perturbations without harness clipping so the unchanged controller
+retains formatting authority. This is an action-domain correction made before
+any dataset or result, not post-outcome tuning.

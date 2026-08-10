@@ -72,7 +72,9 @@ def load_config(path: Path) -> dict[str, Any]:
         design["action_chunk_shape"] != [2, 7]
         or int(design["flattened_action_dimension"]) != 14
         or len(design["action_coordinate_order"]) != 14
-        or float(design["action_limit"]) != 1.0
+        or float(design["pose_action_limit"]) != 1.0
+        or design["gripper_clipping"]
+        != "none_preserve_archived_center_and_local_perturbation"
         or design["finite_difference_step"]
         != {"translation": 0.05, "rotation": 0.05, "gripper": 0.25}
         or int(design["random_antithetic_pair_count"]) != 32
@@ -149,9 +151,16 @@ def candidate_chunks(
     if nominal.shape != (2, 7) or not np.all(np.isfinite(nominal)):
         raise ValueError("factorized-execution nominal action chunk differs")
     design = config["candidate_design"]
-    limit = float(design["action_limit"])
-    if np.any(nominal < -limit) or np.any(nominal > limit):
-        raise ValueError("factorized-execution nominal action exceeds bounds")
+    limit = float(design["pose_action_limit"])
+    pose_indexes = np.asarray([
+        index for index in range(14) if _coordinate_kind(index) != "gripper"
+    ], dtype=np.int64)
+    nominal_flat = nominal.reshape(-1)
+    if (
+        np.any(nominal_flat[pose_indexes] < -limit)
+        or np.any(nominal_flat[pose_indexes] > limit)
+    ):
+        raise ValueError("factorized-execution nominal pose action exceeds bounds")
     flat = nominal.reshape(-1)
     records: list[dict[str, Any]] = [{
         "candidate_index": 0, "source": "nominal",
@@ -163,9 +172,9 @@ def candidate_chunks(
         step = float(design["finite_difference_step"][kind])
         for sign in (-1, 1):
             value = flat.copy()
-            value[dimension] = np.clip(
-                value[dimension] + sign * step, -limit, limit
-            )
+            value[dimension] = value[dimension] + sign * step
+            if kind != "gripper":
+                value[dimension] = np.clip(value[dimension], -limit, limit)
             if value[dimension] == flat[dimension]:
                 # At an action bound the outward probe is the nominal point;
                 # the opposite probe still supplies a valid one-sided secant.
@@ -192,7 +201,10 @@ def candidate_chunks(
             raise ValueError("factorized-execution random direction differs")
         offset = direction * radii / norm
         for sign in (-1, 1):
-            value = np.clip(flat + sign * offset, -limit, limit)
+            value = flat + sign * offset
+            value[pose_indexes] = np.clip(
+                value[pose_indexes], -limit, limit
+            )
             records.append({
                 "candidate_index": len(records),
                 "source": "random_antithetic",
