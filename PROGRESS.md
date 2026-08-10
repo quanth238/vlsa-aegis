@@ -3765,3 +3765,32 @@ and zero-false-safe/15-support gates are unchanged. Protocol:
 `docs/distal_factorized_one_sided_geometry_moka10_v2_preregistration.md`.
 Config SHA-256 is
 `c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2`.
+
+Clean H100 job `38070` completed the v2 training and independent replay in
+`00:38:38` on `worker-2`. The saved model, joint predictions, baseline
+validation margins, experimental margins, exact-q margins, metrics, and
+decision reproduced with maximum absolute difference `0.0`.
+
+The result is a strict NO-GO with positive mechanism evidence. On 960 untouched
+E05/E10/E15 random actions, false-safes fell from 44 to zero, exact-safe recall
+was `93.84%`, near-boundary RMSE was `2.671 mm`, and joint/margin sensitivity
+cosines were `0.977/0.921`. However, exact-safe support was only `12/15` states,
+below both the mandatory 15/15 gate and the baseline's 13/15. Validation was
+also unstable: one false-safe, 35.05% recall, and 3/10 support. No calibration,
+QP, or closed loop ran.
+
+This rejects the current complete-input flat 357-output MLP even with
+joint/sensitivity/one-sided geometry loss. It does not reject factorized
+execution prediction: the one-sided signal eliminated dangerous optimism and
+preserved gradients. The next registered model should be a shared
+time-conditioned decoder `q_hat_k=F(x,A,k)` using the same targets and loss;
+a subtractive buffer cannot recover unsupported safe states. Full report:
+`docs/distal_factorized_one_sided_geometry_moka10_v2_result.md`.
+
+Result/validation/model/prediction SHA-256 values are
+`ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0`,
+`1abb16135207cfc754c6d1a63373a01be69ed4930bdb1e69036ba3e4f3c1a3b3`,
+`5548b8e4b48fcf11aacbb4f26186e59f487c15ccaab8eb0882e0a9fcdf2f1a62`,
+and `acf25b0467ce26669d9a0f57e0c192639bbad76692d09aaac81bc10666023396`.
+Exact next audit:
+`jq '{test:.metrics.test_safety,validation:.metrics.validation_safety,joint:.metrics.joint_sensitivity,margin:.metrics.margin_sensitivity,decision}' /mnt/data/quanth/experiments/vlsa-distal-factorized-one-sided-geometry/one-sided-geometry-20260811b/result.json`.

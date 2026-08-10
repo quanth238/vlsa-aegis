@@ -2678,3 +2678,14 @@ quality. Do not relabel v1 as passing. Because the already frozen auxiliary
 loss sums across all seven distal rows, register a separate validation-adapted
 v2 whose only change is accepting terminal optimism on any L5--L7 row. Keep
 the loss, model, test set, and zero-false-safe/15-support gates unchanged.
+
+Job `38070` validates the one-sided geometry loss as useful but insufficient.
+It removes every test false-safe (44 to 0), retains 93.84% safe recall, and
+preserves joint/margin sensitivity cosine at 0.977/0.921. It nevertheless
+supports only 12/15 test states, worse than the flat baseline's 13/15, and
+validation support is only 3/10. Preserve the strict NO-GO. Do not apply a
+global or local subtractive buffer next: it cannot restore rejected safe
+support. The next matched model must replace the flat 51-by-7 output layer
+with shared time-conditioned execution decoding `q_hat_k=F(x,A,k)` while
+retaining the successful one-sided geometry supervision. Classifier,
+calibration, QP, and closed loop remain blocked.
