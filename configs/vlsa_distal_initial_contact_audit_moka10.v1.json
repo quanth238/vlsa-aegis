@@ -1,0 +1,48 @@
+{
+  "schema_version": "vlsa_distal_initial_contact_audit_moka10.v1",
+  "protocol_id": "vlsa-distal-initial-contact-audit-moka10-v1",
+  "claim_scope": "zero_cutoff_and_raw_contact_classification_of_all_85_paired_k0_states_into_prevention_and_recovery_without_positive_native_distance_or_learning",
+  "immutable_source": {
+    "source_population_manifest_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "boundary_generalization_manifest_sha256": "8a834ede67c10e67dcf41d00dd79ee7794f2262548935fb3348221fd37af57fa",
+    "same_task_expansion_manifest_sha256": "63110fe7778be984ddd6a62582fdbf30ff8acba43ae277b78263c1bde23a87f8",
+    "targeted_expansion_manifest_sha256": "32a88c6e973031bb553c056abb244c39a8f5952f411e3d7b16c2a9c5b3717c3d",
+    "expanded_dataset_file_sha256": "98158b3ea85993945ddc5170747af8a14a929597becddcce92d484f343d95c80",
+    "expanded_dataset_payload_sha256": "629142dd9b7710b7f26f00d001fd5ee3781cc1a000fef82c9d9fca9aa79ab41b",
+    "proxy_contact_result_file_sha256": "6d9d5e1b68d21542f4311d19d45b3256c9882745119c17afb003a1a670867def",
+    "proxy_contact_result_payload_sha256": "5dad22090eb0c830b5e086b95b55a11945a7832a3dd77e00530298453d8c5617",
+    "proxy_contact_validation_file_sha256": "d741b4b24949ab03d18f82512c435710093ce755c234185cc86a119f95fc6309"
+  },
+  "population": {
+    "expected_state_count": 85,
+    "expected_split_counts": {"train": 60, "validation": 10, "test": 15},
+    "expected_complete_episode_count": 17,
+    "test_case_ids": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10", "vlsa-t1-goal-ii-t0-e15"],
+    "state_identity": "exact_paired_settled_state_plus_canonical_archived_action_prefix_replayed_in_current_runtime",
+    "no_state_discarded": true
+  },
+  "measurement": {
+    "protected_bodies": ["robot0_link5", "robot0_link6", "robot0_link7"],
+    "obstacle_scope": "collision_eligible_active_obstacle_body_lineage",
+    "distance_api": "mujoco.mj_geomDistance",
+    "distmax_m": 0.0,
+    "negative_tolerance_m": 0.000001,
+    "raw_contact_distance_threshold_m": 0.0,
+    "classification": {
+      "prevention": "zero_registered_protected_contact_at_k0",
+      "recovery": "at_least_one_registered_protected_contact_at_k0"
+    },
+    "positive_native_distance_forbidden": true
+  },
+  "gate": {
+    "semantic_inventory_hash_count": 1,
+    "maximum_negative_without_raw_pair_contact_count": 0,
+    "maximum_raw_pair_contact_without_negative_count": 0,
+    "maximum_unregistered_raw_pair_count": 0,
+    "required_state_count": 85,
+    "required_test_state_count": 15,
+    "training_in_this_gate": false,
+    "QP_in_this_gate": false,
+    "closed_loop_in_this_gate": false
+  }
+}

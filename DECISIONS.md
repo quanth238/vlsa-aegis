@@ -2453,3 +2453,16 @@ The proxy may reduce task-compatible support, but it does not explain the
 learned model's false-safe predictions against its own target. Do not tune the
 -2 mm observed threshold from this population. Proceed only to a separately
 registered initial-state classification before revisiting learning.
+
+# ADR-0102: Classify k0 from contact, not rejected positive distance
+
+**Status:** Preregistered before H100 execution (2026-08-10).
+
+Reevaluate every paired state's initial cohort using raw protected L5--L7
+contact and only zero-cutoff MuJoCo sign. Do not reuse the rejected 1 m native
+distance result that labeled 29 states as recovery without raw contact.
+
+Preserve all states in the report. Prevention states may later supervise the
+complete rollout minimum including `k=0`. Any genuine recovery state requires
+an explicitly separate future-only objective because its fixed unsafe `k=0`
+cannot be repaired by the action.

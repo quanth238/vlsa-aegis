@@ -3369,3 +3369,18 @@ validation, and preflight hashes are
 `5dad22090eb0c830b5e086b95b55a11945a7832a3dd77e00530298453d8c5617`,
 `d741b4b24949ab03d18f82512c435710093ce755c234185cc86a119f95fc6309`,
 and `dfe5dd154e583951f928c7798c8c950d3544ec47b7223e597eb5f911cedde44b`.
+
+# 2026-08-10: 85-state initial-contact audit registered
+
+The next ordered gate classifies all 85 paired states at `k=0`. Each complete
+episode is reconstructed from its settled state and canonical archived action
+prefix. Only registered raw protected contact and zero-cutoff
+`mj_geomDistance` sign are measured; positive native distance is forbidden.
+
+Every state is retained and labeled prevention (no L5--L7 contact) or recovery
+(at least one L5--L7 contact). Exact raw-pair/sign agreement, one semantic
+compiled inventory, finite queries, and the complete 60/10/15 grouped
+population are mandatory. A pass authorizes only a separate prevention-cohort
+training preregistration. No model, QP, or closed-loop runs. Protocol:
+`docs/distal_initial_contact_audit_moka10_preregistration.md`. Config SHA-256
+is `c96f355ad278f0f79ed5a8eb54b8da4af10e294c4b5224943f1a6604f8f7882b`.
