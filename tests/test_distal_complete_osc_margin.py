@@ -13,6 +13,7 @@ from main.multilink_ellipsoid.complete_osc_margin import (
     CONFIG_SCHEMA, action_row_features, flatten_numeric_tree, load_config,
     prediction_metrics,
 )
+from scripts.collect_distal_complete_osc_margin_moka10 import _rollout_receipt
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,33 @@ CONFIG = ROOT / "configs" / "vlsa_distal_complete_osc_margin_moka10.v1.json"
 
 
 class CompleteOscMarginTest(unittest.TestCase):
+    def test_rollout_adapter_converts_ndarray_to_python_chunk(self) -> None:
+        class Probe:
+            def rollout_chunk(self, _env, actions):
+                self.actions = actions
+                transition = {
+                    "minimum_substep_clearance_m": [0.01] * 8,
+                    "minimum_substep_witnesses": [
+                        {"substep_index": 0, "obstacle_primitive_index": 0}
+                        for _ in range(8)
+                    ],
+                    "raw_protected_contact_count": 0,
+                    "raw_protected_contact_events": [],
+                    "maximum_within_step_obstacle_l1_displacement_m": 0.0,
+                    "next_state_sha256": "a" * 64,
+                    "env_step_wall_seconds": 0.1,
+                }
+                return {
+                    "initial_synchronization": {},
+                    "transitions": [copy.deepcopy(transition), transition],
+                }
+
+        probe = Probe()
+        receipt = _rollout_receipt(probe, object(), np.zeros((2, 7)))
+        self.assertIsInstance(probe.actions, list)
+        self.assertEqual(np.asarray(probe.actions).shape, (2, 7))
+        self.assertEqual(receipt["raw_contact_count"], 0)
+
     def test_registered_config(self) -> None:
         config = load_config(CONFIG)
         self.assertEqual(config["schema_version"], CONFIG_SCHEMA)

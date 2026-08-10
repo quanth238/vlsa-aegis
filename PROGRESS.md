@@ -3438,3 +3438,10 @@ closed-loop E05 are excluded. Protocol:
 
 After clean commit/source sync and live preflight, the exact command is
 `sbatch --export=ALL,EXPECTED_GIT_COMMIT=$(git rev-parse HEAD),RUN_ID=complete-osc-margin-20260810a slurm/distal_complete_osc_margin_moka10.sbatch`.
+
+Initial H100 job `37891` passed allocation preflight but stopped before the
+first paired result: the new collector passed a NumPy `(2,7)` action array to
+the historical cloned-rollout helper, whose nonempty check expects a Python
+sequence. The apparatus-only adapter now validates the array and passes its
+list representation; a regression test freezes that boundary. Population,
+actions, snapshots, labels, model, thresholds, and config are unchanged.

@@ -134,7 +134,14 @@ def _contact_receipt(chunk: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def _rollout_receipt(probe: Any, env: Any, actions: Any) -> dict[str, Any]:
-    chunk = probe.rollout_chunk(env, actions)
+    import numpy as np
+
+    commands = np.asarray(actions, dtype=np.float64)
+    if commands.shape != (2, 7) or not np.all(np.isfinite(commands)):
+        raise ValueError("complete-OSC action chunk differs")
+    # ``rollout_chunk`` predates ndarray callers and intentionally checks the
+    # Python sequence's truth value. Keep that compatibility at this adapter.
+    chunk = probe.rollout_chunk(env, commands.tolist())
     summary = summarize_chunk(chunk)
     contacts = _contact_receipt(chunk)
     return {
