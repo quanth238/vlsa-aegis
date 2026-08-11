@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_factorized_explicit_jacobian_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-explicit-jacobian-audit-moka10-v1",
+  "claim_scope": "frozen_no_training_member_level_diagnosis_of_explicit_execution_J_direction_failure_before_any_model_or_control_change",
+  "immutable_source": {
+    "explicit_config_file_sha256": "8aae74181f24db35c7b86c5fdd17ec84d62bb9fd05ab034d5b3b72a688eb79bf",
+    "explicit_model_file_sha256": "9d86649d74617316ce9fce7080d7227c970426e46c104d847b99f477fc3d7393",
+    "explicit_predictions_file_sha256": "aa93567f28dde0fddf075e26e6982b68ed31fcb3591d41bbc167d546b3840d7c",
+    "explicit_result_file_sha256": "944ea7e1aa02030b9be39002af0d73291e85d396c25fc836e6cbc7afff5b78cf",
+    "explicit_validation_file_sha256": "9e9aeaeb4825d13267885bd26104dca2463255d74f3c669ba294e433430795fe",
+    "explicit_result_payload_sha256": "abc84fd53db6a031bc01bd8d1bee8cd1e01e3f484bdff4da304a53233a3350ae",
+    "explicit_validation_payload_sha256": "e4b53c288e57732d2b2a9d1080e4d58a228278dd0ddf9c01f8eb404883f7aeb6",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "future_untouched_manifest_file_sha256": "031971110c59aacf582c9d4dae51216c6f12d605a9a0f97a2fa22b677a1a663b",
+    "archived_table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a"
+  },
+  "population": {
+    "existing_state_count": 85,
+    "existing_rollout_count": 7905,
+    "ensemble_member_count": 5,
+    "finite_difference_row_count": 1190,
+    "training_episode_count": 12,
+    "validation_episode_count": 2,
+    "existing_diagnostic_episode_count": 3,
+    "future_untouched_episode_count": 5
+  },
+  "audit": {
+    "ensemble_member_count": 5,
+    "splits": ["train", "validation", "test"],
+    "action_families": ["all", "translation", "rotation", "gripper"],
+    "report_every_action_dimension_and_horizon": true,
+    "terminal_substep": 50,
+    "minimum_joint_sensitivity_cosine": 0.8,
+    "minimum_joint_sensitivity_median_norm_ratio": 0.5,
+    "maximum_joint_sensitivity_median_norm_ratio": 1.5,
+    "maximum_joint_sensitivity_mean_relative_norm_error": 0.5,
+    "ensemble_cancellation_ratio_threshold": 0.5
+  },
+  "decision": {
+    "member_level_failure": "at_most_one_of_five_members_passes_train_and_validation_aggregate_and_terminal_gates",
+    "ensemble_cancellation": "at_least_four_members_pass_train_and_validation_aggregate_and_terminal_gates_but_validation_ensemble_norm_ratio_below_0.5",
+    "otherwise": "heterogeneous_member_and_ensemble_failure",
+    "checkpoint_epoch_is_descriptive_not_causal": true
+  },
+  "forbidden_actions": {
+    "training": true,
+    "simulation": true,
+    "new_labels": true,
+    "new_unseen_episodes": true,
+    "residual_bound_calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true,
+    "binary_classifier": true
+  }
+}

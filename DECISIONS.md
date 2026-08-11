@@ -3131,3 +3131,24 @@ cancellation, followed—only if justified—by a separately preregistered
 intercept/Jacobian optimization or checkpoint-selection change. Calibration,
 QP, closed loop, new labels, Poisson/SDF, classifiers, and unopened task-3
 episodes remain blocked.
+
+# ADR-0124: Diagnose frozen explicit-J members before changing optimization
+
+**Status:** Preregistered before H100 audit (2026-08-11).
+
+Do not infer ensemble cancellation or optimizer failure from the job-38673
+ensemble average alone. Reload all five immutable members and compare each
+explicit Jacobian with the same paired OSC secants on train, validation, and
+the already-used diagnostic split. Report aggregate, terminal, action-family,
+and complete 14-by-51 direction/magnitude metrics, member trajectory RMSE,
+checkpoint epoch, all pairwise member cosines, and the norm of the ensemble
+mean relative to the mean member norm.
+
+Classify at most one passing member as member-level optimization/checkpoint
+failure. Classify at least four passing members combined with validation
+ensemble-norm ratio below 0.5 as ensemble cancellation. Otherwise retain a
+heterogeneous diagnosis. Checkpoint epoch is descriptive, not causal. This is
+a frozen no-training, no-simulation audit. It cannot authorize training,
+calibration, QP, closed loop, new labels, new unseen episodes, Poisson/SDF, or
+a classifier. Config SHA-256 is
+`40a77cb25e1ef18ae0a80dc2eaec2f19dd4ea8bb8128132ef148ad4090b8733e`.

@@ -4477,3 +4477,15 @@ new labels did not run. Model/predictions/result/validation SHA-256 values are
 and `9e9aeaeb4825d13267885bd26104dca2463255d74f3c669ba294e433430795fe`.
 Full report:
 `docs/distal_factorized_explicit_execution_jacobian_moka10_result.md`.
+
+The frozen explicit-J member diagnosis is preregistered before H100 execution.
+It reloads all five job-38673 members and existing paired OSC secants, then
+reports member-level train/validation/diagnostic sensitivity across all 14
+action coordinates and 51 horizons, trajectory RMSE, checkpoint epoch,
+pairwise member cosine, and ensemble cancellation ratio. At most one member
+passing train and validation identifies member-level optimization/checkpoint
+failure; at least four passing members with validation cancellation ratio
+below 0.5 identifies ensemble cancellation. The audit performs no training or
+simulation and opens no new episodes. Calibration, QP, closed loop, new
+labels, Poisson/SDF, and classifiers remain blocked. Config SHA-256 is
+`40a77cb25e1ef18ae0a80dc2eaec2f19dd4ea8bb8128132ef148ad4090b8733e`.
