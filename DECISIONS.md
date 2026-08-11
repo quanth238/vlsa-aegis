@@ -2969,6 +2969,10 @@ calibration, QP, and closed loop. The first validator reproduces metrics and
 decision exactly but needs a validation-only NaN-aware array-equality repair;
 do not retrain or reinterpret the NO-GO.
 
+Validation-only H100 job `38462` passes every replay predicate with zero finite
+array difference and exact metric/decision equality. Mark the direct-horizon
+prediction result as validated NO-GO and end the experiment at this gate.
+
 # ADR-0119: Separate immutable model inputs from reconstructible physical state
 
 **Status:** Accepted after H100 replay diagnostics, before training (2026-08-11).

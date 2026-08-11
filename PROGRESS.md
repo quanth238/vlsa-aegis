@@ -4324,3 +4324,15 @@ and `d6280d431b71d2d9299382e74f8c25f4ca311701c8084a52df5e7963298efeb8`.
 Result/first-validation payload hashes are
 `ea8bfd83cd012cb7034f9a9d9c92aa43039c89566c8f06caaa76685e7f7b8fc3`
 and `4444da4e8e67052000fa8f9b08b15939e878ff63b803a150483eaf53ac84d88f`.
+
+Validation-only H100 job `38462` completed on `worker-2` in `00:18:07`
+without retraining. All four stored prediction arrays reproduce with identical
+NaN masks and exactly zero finite difference; every metric and the complete
+NO-GO decision reproduce exactly across all 2,325 reserved actions. The final
+validation file/payload SHA-256 values are
+`c676fd5fee6de2130047a7362f1a7f78b8d07c62abaf81318304b6a08a031c7b`
+and `e672676b2c01d8af6efeede0bdbd060f19c5f8cfca10cde633dcb99e8836713c`.
+The direct-horizon prediction NO-GO is now validated. Per the preregistered
+hard stop, no residual calibration, QP, closed-loop E05, or future-episode
+evaluation was run. Full report:
+`docs/distal_factorized_direct_horizon_displacement_moka10_result.md`.
