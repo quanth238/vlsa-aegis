@@ -4458,3 +4458,22 @@ remain matched to job `38586`. No new unseen episode, residual calibration,
 QP, closed loop, Poisson/SDF, classifier, or new rollout label is permitted.
 Config SHA-256 is
 `8aae74181f24db35c7b86c5fdd17ec84d62bb9fd05ab034d5b3b72a688eb79bf`.
+
+Clean H100 job `38673` completed the explicit execution-Jacobian experiment
+on worker-1 in `01:35:27`; its independent validator is valid. All structural
+checks pass: candidate secants equal explicit J to `4.42e-15 rad/action`, q0/J0
+are exact zeros, action-2 J is exactly zero through substep 25, and all eight
+stored arrays reproduce with zero finite difference. The scientific gate is a
+strict NO-GO. Train/validation aggregate joint-sensitivity cosine is only
+`0.126/0.132` and terminal cosine `0.070/0.060`; validation joint RMSE is
+`24.787 mrad` versus the `21.629 mrad` limit. Gain magnitude recovers to
+`1.348/1.455` aggregate median ratio, so the explicit decoder replaces
+job-38586's vanishing response with a wrong-direction response rather than
+solving it. New unseen episodes, residual calibration, QP, closed loop, and
+new labels did not run. Model/predictions/result/validation SHA-256 values are
+`9d86649d74617316ce9fce7080d7227c970426e46c104d847b99f477fc3d7393`,
+`aa93567f28dde0fddf075e26e6982b68ed31fcb3591d41bbc167d546b3840d7c`,
+`944ea7e1aa02030b9be39002af0d73291e85d396c25fc836e6cbc7afff5b78cf`,
+and `9e9aeaeb4825d13267885bd26104dca2463255d74f3c669ba294e433430795fe`.
+Full report:
+`docs/distal_factorized_explicit_execution_jacobian_moka10_result.md`.

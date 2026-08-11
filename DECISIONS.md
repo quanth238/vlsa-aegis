@@ -3045,7 +3045,7 @@ open the frozen future task-3 population.
 
 # ADR-0122: Change only the paired-secant sensitivity scaling
 
-**Status:** Preregistered before H100 training (2026-08-11).
+**Status:** Rejected after independently validated H100 job `38586` (2026-08-11).
 
 Keep the job-38376 direct-horizon architecture, complete structured OSC input,
 direct joint-displacement target, joint-trajectory loss, symmetric
@@ -3087,7 +3087,7 @@ does not prove that all sensitivity-aware objectives are impossible.
 
 # ADR-0123: Decode the execution intercept and action Jacobian explicitly
 
-**Status:** Preregistered before H100 training (2026-08-11).
+**Status:** Rejected after independently validated H100 job `38673` (2026-08-11).
 
 Job `38586` shows that implicit candidate-conditioned trajectory decoding can
 fit joint trajectories while suppressing their action response. Replace that
@@ -3113,3 +3113,21 @@ optimization diagnosis only. Calibration, QP, closed loop, new rollout labels,
 Poisson/SDF, classifiers, and unopened task-3 episodes remain blocked. Config
 SHA-256 is
 `8aae74181f24db35c7b86c5fdd17ec84d62bb9fd05ab034d5b3b72a688eb79bf`.
+
+Job `38673` proves that the registered architecture and causal contract
+executed exactly, but rejects the fitted model. Predicted action-pair secants
+match the explicit stored Jacobian within `4.42e-15 rad/action`; q0/J0 and all
+pre-causal action-2 entries are exactly zero. Nevertheless, train/validation
+aggregate joint-sensitivity cosine falls to `0.126/0.132`, terminal cosine to
+`0.070/0.060`, and validation joint RMSE rises to `24.787 mrad` above the
+`21.629 mrad` limit. Aggregate gain magnitude is no longer collapsed
+(`1.348/1.455` median ratio), showing that the representation changes the
+failure from vanishing response to wrong response rather than solving it.
+
+Keep strict NO-GO. A residual bound cannot certify wrong correction
+directions or repair the trajectory gate. The next allowed action is a frozen
+per-member audit to distinguish member-level direction failure from ensemble
+cancellation, followed—only if justified—by a separately preregistered
+intercept/Jacobian optimization or checkpoint-selection change. Calibration,
+QP, closed loop, new labels, Poisson/SDF, classifiers, and unopened task-3
+episodes remain blocked.
