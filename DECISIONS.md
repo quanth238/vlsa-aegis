@@ -3017,3 +3017,25 @@ unexpected-input, or physical-replay mismatches and exact zero joint/margin
 difference across all 25 fresh replays. Authorize only the preregistered
 direct-horizon prediction training/evaluation. Keep residual calibration, QP,
 and closed loop blocked until that hard prediction gate passes.
+
+# ADR-0121: Treat direct-horizon sensitivity failure as fitted-model underfitting
+
+**Status:** Accepted after validated H100 job `38560` (2026-08-11).
+
+The frozen model fails action-sensitivity gates on its training and validation
+episodes, before reserved unseen episodes determine the outcome. Training
+joint/safety cosine is `0.809/0.741`, median norm ratio is `0.416/0.422`, and
+mean relative norm error is `0.598/0.553`; validation also fails. Sensitivity
+magnitude is horizon dependent: it is close to correct around substep 15,
+spikes when the second action first becomes active at substep 26, and collapses
+to training joint/safety norm ratios `0.217/0.225` at substep 50. Both
+translation and rotation coordinates exhibit the defect.
+
+Classify this as loss scaling or decoder underfitting, not primarily an
+unseen-state coverage failure. Keep job `38376` as strict NO-GO. The only
+authorized next scientific experiment is a preregistered matched retraining of
+the same direct-horizon representation with normalized paired-action secant
+direction/magnitude supervision and one-sided near-boundary geometry loss.
+Require training and validation sensitivity to pass before any unseen control
+claim. Do not calibrate this model, solve a QP, run closed loop, add Poisson, or
+open the frozen future task-3 population.

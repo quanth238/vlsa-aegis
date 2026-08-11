@@ -4370,3 +4370,32 @@ new regression searched for `traces[name][row]` as a substring, which is also
 contained in the repaired `clearance_traces[name][row]`. Narrow the test to
 the exact shadowed assignment line. This is test-only; no scientific code or
 setting changes, and job `38559` is not reused.
+
+Clean H100 job `38560` completed the frozen split-wise root-cause audit on
+`worker-1` in `01:02:44`; its independent validator is valid. The direct model
+fails paired sensitivity before unseen episodes: train joint/safety cosine is
+`0.809/0.741`, median norm ratio is `0.416/0.422`, and mean relative norm error
+is `0.598/0.553`. Validation is also failing at cosine `0.751/0.678` and norm
+ratio `0.443/0.513`. The action-to-horizon gain is near correct at substep 15,
+but at training substep 50 joint/safety norm ratios collapse to `0.217/0.225`;
+second-action coordinate ratios are only `0.071--0.172` for joints and
+`0.107--0.207` for safety. The same temporal attenuation occurs in validation
+and reserved episodes and affects translation and rotation. Exact-q static
+FK/ellipsoid evaluation has zero false-safes in every split, so geometry is
+not reopened. Classify the root as loss-scaling/direct-horizon decoder
+underfitting already present in training, retain strict NO-GO, and authorize
+only a later matched normalized paired-secant plus one-sided-geometry training
+ablation. Calibration, QP, closed loop, new labels, and future task-3 remain
+blocked. Records/result/validation SHA-256 values are
+`626cd8b16beb5f080f8c00bc5fd3e08c5697c73bcef20a2ff30df8e9d242eb19`,
+`6bf2e196f88d79e7bb3c29cccb9bc6995db00356b00e330f5fd5751b5530e793`,
+and `51ae572097e5d5174726baa6562023318af981c43038c59bb269cf5474cdf9b2`.
+Full report:
+`docs/distal_factorized_direct_horizon_root_cause_audit_moka10_result.md`.
+
+The local `./init.sh` structural gate was attempted after documentation. Its
+JSON and compile phases passed, but the host system Python lacks NumPy, causing
+24 import-only errors among 431 discovered tests (`ModuleNotFoundError:
+numpy`). This is a local dependency failure, not a test assertion failure. The
+clean H100 allocation preflight for job `38560` passed all ten audit-specific
+tests before geometry, and the final artifact validator passed.
