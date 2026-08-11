@@ -42,6 +42,7 @@ VALIDATION_SCHEMA = (
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     add_direct_horizon_arguments(parser)
     parser.add_argument("--matched-direct-run", type=Path, required=True)
+    parser.add_argument("--matched-direct-validation", type=Path, required=True)
     parser.add_argument("--root-cause-run", type=Path, required=True)
     parser.add_argument("--experimental-model", type=Path, required=True)
     parser.add_argument("--predictions", type=Path, required=True)
@@ -51,6 +52,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def extra_paths(args: argparse.Namespace) -> dict[str, Path]:
     return {
         "matched_direct_run": args.matched_direct_run.resolve(),
+        "matched_direct_validation": args.matched_direct_validation.resolve(),
         "root_cause_run": args.root_cause_run.resolve(),
         "experimental_model": args.experimental_model.resolve(),
         "predictions": args.predictions.resolve(),
@@ -71,7 +73,8 @@ def validate_matched_sources(
         (matched / "model.npz", "matched_direct_model_file_sha256"),
         (matched / "predictions.npz", "matched_direct_predictions_file_sha256"),
         (matched / "result.json", "matched_direct_result_file_sha256"),
-        (matched / "validation.json", "matched_direct_validation_file_sha256"),
+        (paths["matched_direct_validation"],
+         "matched_direct_validation_file_sha256"),
         (root / "result.json", "root_cause_result_file_sha256"),
         (root / "validation.json", "root_cause_validation_file_sha256"),
     ):

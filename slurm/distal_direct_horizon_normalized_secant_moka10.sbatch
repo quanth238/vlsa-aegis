@@ -30,6 +30,7 @@ ORIENTATION_RUN=${ORIENTATION_RUN:-/mnt/data/quanth/experiments/vlsa-distal-fact
 STRUCTURED_RUN=${STRUCTURED_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-structured-orientation/structured-orientation-20260811b}
 CUMULATIVE_RUN=${CUMULATIVE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-cumulative-delta-q/cumulative-delta-q-20260811b}
 DIRECT_RUN=${DIRECT_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-displacement/direct-horizon-displacement-20260811a}
+DIRECT_VALIDATION=${DIRECT_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-displacement/direct-horizon-displacement-20260811a-validation-a/validation.json}
 ROOT_CAUSE_RUN=${ROOT_CAUSE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-root-cause-audit/direct-horizon-root-cause-audit-20260811c}
 COMPLETE_ROOT=${COMPLETE_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-complete-osc-margin/complete-osc-margin-20260810d}
 ARCHIVED_ROOT=${ARCHIVED_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
@@ -61,6 +62,7 @@ done
 [[ "$(sha256sum "$DIRECT_CONFIG" | awk '{print $1}')" == a9661a6ab8725374f509e61ffc11861216ba4809692f448cc9f44d0b731ab4df ]] || die "normalized-secant config differs"
 [[ "$(sha256sum "$DIRECT_RUN/model.npz" | awk '{print $1}')" == d9aaa72812fae83271a451aef136e8ed98a00fce7cc882f6f2bad67876b0ce29 ]] || die "matched direct model differs"
 [[ "$(sha256sum "$DIRECT_RUN/result.json" | awk '{print $1}')" == 6ab198218aa3903698b516be5e9748dfeca7748456ac1d315df8b85abcc69544 ]] || die "matched direct result differs"
+[[ "$(sha256sum "$DIRECT_VALIDATION" | awk '{print $1}')" == c676fd5fee6de2130047a7362f1a7f78b8d07c62abaf81318304b6a08a031c7b ]] || die "matched direct validation differs"
 [[ "$(sha256sum "$ROOT_CAUSE_RUN/result.json" | awk '{print $1}')" == 6bf2e196f88d79e7bb3c29cccb9bc6995db00356b00e330f5fd5751b5530e793 ]] || die "root-cause result differs"
 RUN_ROOT=$OUTPUT_ROOT/$RUN_ID
 mkdir -p "$OUTPUT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"
@@ -91,5 +93,5 @@ common=(
   --reserved-collection "$RESERVED_RUN/collection-result.json" --reserved-metadata "$RESERVED_RUN/trajectory-metadata.json" --reserved-array "$RESERVED_RUN/trajectory-dataset.npz" --reserved-validation "$RESERVED_VALIDATION"
   --previous-factorized-model "$ONE_SIDED_RUN/experimental-model.npz" --previous-cumulative-model "$CUMULATIVE_RUN/model.npz"
 )
-"$AEGIS_PYTHON" scripts/evaluate_distal_direct_horizon_normalized_secant_moka10.py "${common[@]}" --matched-direct-run "$DIRECT_RUN" --root-cause-run "$ROOT_CAUSE_RUN" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --output "$RUN_ROOT/result.json"
-"$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_normalized_secant_moka10.py "${common[@]}" --matched-direct-run "$DIRECT_RUN" --root-cause-run "$ROOT_CAUSE_RUN" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --result "$RUN_ROOT/result.json" --expected-result-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/validation.json"
+"$AEGIS_PYTHON" scripts/evaluate_distal_direct_horizon_normalized_secant_moka10.py "${common[@]}" --matched-direct-run "$DIRECT_RUN" --matched-direct-validation "$DIRECT_VALIDATION" --root-cause-run "$ROOT_CAUSE_RUN" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --output "$RUN_ROOT/result.json"
+"$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_normalized_secant_moka10.py "${common[@]}" --matched-direct-run "$DIRECT_RUN" --matched-direct-validation "$DIRECT_VALIDATION" --root-cause-run "$ROOT_CAUSE_RUN" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --result "$RUN_ROOT/result.json" --expected-result-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/validation.json"

@@ -39,6 +39,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     add_direct_horizon_arguments(parser)
     parser.add_argument("--matched-direct-run", type=Path, required=True)
+    parser.add_argument("--matched-direct-validation", type=Path, required=True)
     parser.add_argument("--root-cause-run", type=Path, required=True)
     parser.add_argument("--experimental-model", type=Path, required=True)
     parser.add_argument("--predictions", type=Path, required=True)
@@ -55,6 +56,7 @@ def main() -> int:
     paths.update(direct_paths(args))
     paths.update({
         "matched_direct_run": args.matched_direct_run.resolve(),
+        "matched_direct_validation": args.matched_direct_validation.resolve(),
         "root_cause_run": args.root_cause_run.resolve(),
         "experimental_model": args.experimental_model.resolve(),
         "predictions": args.predictions.resolve(),

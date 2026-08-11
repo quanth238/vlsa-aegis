@@ -4414,3 +4414,10 @@ than 10% validation trajectory-RMSE degradation. Pass authorizes only a later
 new grouped-unseen prediction test; failure selects a time-decoder change.
 Config SHA-256 is
 `a9661a6ab8725374f509e61ffc11861216ba4809692f448cc9f44d0b731ab4df`.
+
+Initial H100 job `38585` passed all 22 allocation-side tests, then stopped
+before training because the apparatus looked for the final job-38462
+validation receipt inside the original job-38376 run directory. The validated
+receipt is an immutable separate file. Pin that explicit path and SHA-256 in
+both evaluator and Slurm preflight; do not reuse the failed run. This changes
+no data, model, loss, split, seed, optimizer, gate, or config.
