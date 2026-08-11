@@ -4148,3 +4148,34 @@ and `b30c9dc4a2ddc0a01286a9a92fa626bd81176662b2a00286b61d8aeef9342bcb`.
 The next model must predict each horizon displacement directly rather than
 recursively summing learned per-step increments; no execution command is
 authorized before that separate gate is preregistered.
+
+# 2026-08-11: direct-horizon OSC displacement gate registered
+
+The user authorizes one decisive continuation that rejects job `38240`'s
+recursive increments. The new shared time-conditioned decoder predicts every
+`Delta q_k=q_k-q0` directly from complete structured OSC state and the full
+two-action Cartesian chunk. `Delta q_0=0` is architectural; there is no
+per-step increment prediction or cumulative integration. Direct displacement,
+finite-difference action sensitivity, and symmetric near-boundary signed
+geometry-normal error are the only supervised targets.
+
+Training retains the existing 60/10 grouped states. E05/E10/E15 remain
+diagnostic. E01/E11/E21/E31/E41 are now the newly reserved prediction groups:
+five label-blind initially safe states and 93 full-action candidates per state
+produce 2,325 cloned-OSC traces, followed by 25 fresh independent replays. The
+frozen E02/E12/E22/E32/E42 manifest is reserved for a future intervention
+test and must remain unopened until both prediction and residual-bound gates
+pass.
+
+The prediction result is a hard conjunction: zero validation/reserved
+false-safes, support in every recoverable state, at least 90% reserved recall,
+at most 2.671122 mm boundary error, both sensitivity cosines above 0.8, exact
+q0, bounded terminal/overall error, and no horizon drift. It is evaluated
+against the frozen job-38070 factorized and job-38240 cumulative models on the
+same reserved actions. Failure stops before calibration, QP, or closed loop.
+Protocol:
+`docs/distal_factorized_direct_horizon_displacement_moka10_preregistration.md`.
+Direct-config/reserved/future-manifest hashes are
+`722d9183294b2f85dbbd1f0a341585a891a7a729bb79ee535827f7a4aa4742f7`,
+`4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6`,
+and `609eddd0ac768246827a5f126d05799bf7f2e314dadcc0a5f94343bc6287739c`.

@@ -71,7 +71,11 @@ for optional_file in \
   scripts/audit_distal_factorized_nominal_safety_formula_moka10.py \
   scripts/validate_distal_factorized_nominal_safety_formula_moka10.py \
   scripts/evaluate_distal_factorized_cumulative_delta_q_moka10.py \
-  scripts/validate_distal_factorized_cumulative_delta_q_moka10.py
+  scripts/validate_distal_factorized_cumulative_delta_q_moka10.py \
+  scripts/collect_distal_direct_horizon_reserved_moka10.py \
+  scripts/validate_distal_direct_horizon_reserved_moka10.py \
+  scripts/evaluate_distal_direct_horizon_displacement_moka10.py \
+  scripts/validate_distal_direct_horizon_displacement_moka10.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")

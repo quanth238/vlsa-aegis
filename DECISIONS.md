@@ -2923,3 +2923,31 @@ factorized-execution hypothesis. If continued, preregister direct horizon
 displacement output `Delta q_k=q_k-q_0` with exact zero at `k=0` and no
 recursive accumulation. Keep job `38070` as the current best conservative
 learned mechanism comparison.
+
+# ADR-0118: Predict direct per-horizon displacement before affine residual calibration
+
+**Status:** Preregistered before reserved H100 collection (2026-08-11).
+
+Reject recursive learned increments because job `38240` shows that small
+transition errors accumulate into 0.411 rad terminal error. Preserve the
+factorized execution hypothesis but predict `q_k-q0` independently at every
+horizon with shared time-conditioned weights. Hard-code the zero displacement
+at substep zero and add every predicted displacement to the measured q0.
+
+Use the complete stable structured OSC input, both full seven-dimensional
+Cartesian actions, direct displacement and action-sensitivity labels, and a
+symmetric signed geometry-normal loss. This separates motion prediction from
+known FK/ellipsoid safety without reintroducing a direct minimum-margin target
+or the accidental conservatism of the previous one-sided loss.
+
+The newly reserved E01/E11/E21/E31/E41 episode groups are the decisive
+prediction population. Compare the new model with frozen jobs `38070` and
+`38240` on identical actions. Require zero false-safes, support in every
+recoverable state, useful recall and sensitivities, and no terminal drift.
+Failure is a hard stop before residual calibration, QP, or closed loop.
+
+Freeze E02/E12/E22/E32/E42 as a separate, still-unopened future intervention
+population. Only a full prediction pass may authorize a separately calibrated
+upper bound on optimistic affine residuals, and only both passes may authorize
+sequential QP correction. This prevents the final intervention set from
+influencing model selection.
