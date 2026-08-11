@@ -3949,3 +3949,20 @@ Model/prediction/result/validation hashes are
 `29068f5506ffb45ea51f672040aeb7a650c46d253344730c86a68b9f891c0ec2`,
 `4b98951a387aa1f7f21ece321e611c085274ede19b7b1a2825558c7d5a56c30f`,
 and `54fefd2ed6d756f93e382bf657aabec2e909a57c571ddf999d28001711796eb4`.
+
+# 2026-08-11: complete-input normalization audit registered
+
+The next single active diagnostic freezes jobs `38070` and `38076` and traces
+their shared 2,124D input representation before any new model is trained. It
+requires exact prediction replay, exact agreement between fresh train-only
+normalization and both stored model receipts, per-feature/per-episode z-score
+records, every-member linear/SiLU activation summaries, and a diagnostic
+training-mean mask of the 24 most shifted semantic groups.
+
+A representation or physical-support group is causal only if it reduces the
+validation terminal-joint RMSE by at least 90% in both immutable models. No
+simulation, training, normalization change, calibration, candidate expansion,
+QP, Poisson/SDF, or closed loop is allowed. Protocol:
+`docs/distal_factorized_input_representation_audit_moka10_preregistration.md`.
+Config SHA-256 is
+`e9e1b4d954696a704a28e1982270235ce1ff65d25166199fbf3eef4fa3805043`.

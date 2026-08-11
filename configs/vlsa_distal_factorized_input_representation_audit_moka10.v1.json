@@ -1,0 +1,70 @@
+{
+  "schema_version": "vlsa_distal_factorized_input_representation_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-input-representation-audit-moka10-v1",
+  "claim_scope": "no_training_causal_audit_of_complete_OSC_input_normalization_and_frozen_flat_and_time_conditioned_execution_model_activations",
+  "immutable_source": {
+    "complete_dataset_file_sha256": "585f696eedef9bd9a4c9d0ba576d6d86e5660638696862ec2d5d1af434fb426b",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "flat_model_file_sha256": "5548b8e4b48fcf11aacbb4f26186e59f487c15ccaab8eb0882e0a9fcdf2f1a62",
+    "flat_predictions_file_sha256": "acf25b0467ce26669d9a0f57e0c192639bbad76692d09aaac81bc10666023396",
+    "flat_result_file_sha256": "ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0",
+    "flat_validation_file_sha256": "1abb16135207cfc754c6d1a63373a01be69ed4930bdb1e69036ba3e4f3c1a3b3",
+    "time_model_file_sha256": "6112d1c936375d9aaf54225b09ae1a9c6de2794d5417c1ad7c8d277c3f04021a",
+    "time_predictions_file_sha256": "29068f5506ffb45ea51f672040aeb7a650c46d253344730c86a68b9f891c0ec2",
+    "time_result_file_sha256": "4b98951a387aa1f7f21ece321e611c085274ede19b7b1a2825558c7d5a56c30f",
+    "time_validation_file_sha256": "54fefd2ed6d756f93e382bf657aabec2e909a57c571ddf999d28001711796eb4"
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "rollout_count": 7905,
+    "state_input_dimension": 2110,
+    "action_input_dimension": 14,
+    "model_input_dimension": 2124,
+    "split_state_counts": {"train": 60, "validation": 10, "test": 15}
+  },
+  "normalization_audit": {
+    "recompute_from": "training_rows_only",
+    "standard_deviation_floor": 0.000001,
+    "require_stored_mean_and_standard_deviation_exact": true,
+    "extreme_absolute_z_threshold": 10.0,
+    "explosive_absolute_z_threshold": 100.0,
+    "artifact_feature_classes": ["presence", "padded_value", "train_constant", "binary_or_categorical"],
+    "top_feature_record_count": 64,
+    "top_group_record_count": 24
+  },
+  "activation_audit": {
+    "models": ["flat_one_sided_job_38070", "time_conditioned_job_38076"],
+    "evaluate_every_ensemble_member": true,
+    "evaluate_splits": ["train", "validation", "test"],
+    "first_exploding_layer_minimum_validation_max_abs": 100.0,
+    "first_exploding_layer_minimum_validation_to_train_ratio": 100.0,
+    "require_immutable_prediction_replay_exact": true
+  },
+  "causal_mask_audit": {
+    "selection": "fixed_semantic_groups_ranked_by_validation_maximum_absolute_z",
+    "maximum_group_count": 24,
+    "mask_value": "training_mean_equivalently_normalized_zero",
+    "evaluation_split": "validation",
+    "strong_terminal_RMSE_reduction_fraction": 0.9,
+    "diagnostic_only": true
+  },
+  "decision": {
+    "representation_artifact_requires_explosive_z_artifact_group_and_strong_causal_reduction": true,
+    "physical_support_shift_requires_continuous_physical_extreme_group_and_strong_causal_reduction": true,
+    "otherwise_classify_as_model_internal_or_mixed_failure": true,
+    "authorizes_retraining": false,
+    "authorizes_candidate_expansion": false
+  },
+  "forbidden_actions": {
+    "new_simulation": true,
+    "training": true,
+    "normalization_change": true,
+    "model_change": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true
+  }
+}

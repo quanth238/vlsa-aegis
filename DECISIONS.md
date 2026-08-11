@@ -2774,3 +2774,20 @@ inputs per episode and identify constant/padding/presence or causal controller
 features responsible for the shift. Collect new grouped episodes only if the
 shift is physical rather than representational. Calibration, QP, Poisson/SDF,
 new-episode claims, and closed loop remain blocked.
+
+# ADR-0113: Trace the shared input representation before another model
+
+**Status:** Preregistered before H100 execution (2026-08-11).
+
+The impossible validation outputs occur in both the flat and time-conditioned
+models, so do not attribute them to positional time or the shared decoder
+without first testing their common 2,124D normalized input. Freeze all existing
+data, weights, predictions, and split assignments. Recompute normalization
+from training rows, map every aligned scalar to its semantic name, and find the
+first layer at which validation activations become explosive.
+
+Use training-mean group masks only as a read-only causal diagnostic. Call a
+representation artifact or physical support shift causal only when the same
+semantic group removes at least 90% of terminal validation error from both
+models. The audit cannot authorize retraining, calibration, candidate search,
+QP, or closed loop; it selects the next matched experiment.
