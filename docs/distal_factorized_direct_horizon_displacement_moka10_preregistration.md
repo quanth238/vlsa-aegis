@@ -23,11 +23,11 @@ sum.
 - Training/validation: the existing complete 60/10 state groups only.
 - Prior E05/E10/E15 groups: diagnostics only and excluded from the new
   prediction verdict.
-- New reserved prediction episodes: E01/E11/E21/E31/E41. Five label-blind,
+- New reserved prediction episodes: goal-II-task-2 E05/E20/E25/E30/E35. Five label-blind,
   initially nonnegative, two-action states are selected per episode by current
   clearance and a five-step spacing rule. Each state receives the unchanged 93
   candidate design, including XYZ, rotation, and gripper dimensions.
-- Future intervention episodes: E02/E12/E22/E32/E42. Their immutable manifest
+- Future intervention episodes: goal-II-task-3 E00/E05/E10/E15/E20. Their immutable manifest
   is frozen before any new rollout labels and remains unopened unless both the
   prediction and residual-bound gates pass.
 
@@ -94,15 +94,15 @@ action in every recoverable state. No QP is part of that calibration gate.
 
 Only both passes can authorize trust-region sequential QP correction with
 geometry/envelope recomputation and fresh cloned-OSC verification after every
-iteration. Final generalization uses the still-unopened E02/E12/E22/E32/E42
+iteration. Final generalization uses the still-unopened task-3 E00/E05/E10/E15/E20
 episodes; E05 remains the diagnostic closed-loop collision case. Simulation
 and training run only inside a verified single-H100 Slurm allocation.
 
 ## Frozen identities
 
 - Direct config SHA-256:
-  `722d9183294b2f85dbbd1f0a341585a891a7a729bb79ee535827f7a4aa4742f7`.
+  `13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f`.
 - Reserved prediction manifest SHA-256:
-  `4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6`.
+  `f99ce2b38b5c2b9ceb4073611cc16356efc36e1820193926a5770f396e93ffcd`.
 - Future untouched intervention manifest SHA-256:
-  `609eddd0ac768246827a5f126d05799bf7f2e314dadcc0a5f94343bc6287739c`.
+  `031971110c59aacf582c9d4dae51216c6f12d605a9a0f97a2fa22b677a1a663b`.

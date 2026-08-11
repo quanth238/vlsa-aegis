@@ -193,6 +193,11 @@ def main() -> int:
         env = probe_env = None
         try:
             env, probe_env, _, _, setup = _build_pair(runtime, case)
+            _require(
+                setup["obstacle_name"]
+                == reserved_by_case[case_id]["active_obstacle_name"],
+                "reserved direct-horizon validation obstacle differs",
+            )
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config, exact_box_config=exact_box_config,
                 archived=geometry_placeholder, env=env,

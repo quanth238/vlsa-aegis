@@ -114,7 +114,7 @@ def select_reserved_steps(
 def _scan_episode(
     *, runtime: Mapping[str, Any], case: Mapping[str, Any], archived: Mapping[str, Any],
     geometry_config: Any, exact_box_config: Any, geometry_placeholder: Mapping[str, Any],
-    config: Mapping[str, Any],
+    config: Mapping[str, Any], expected_obstacle_name: str,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     import numpy as np
     from main.evaluate_safelibero_aegis import pairing_record
@@ -123,6 +123,10 @@ def _scan_episode(
     env = probe_env = None
     try:
         env, probe_env, task, observation, setup = _build_pair(runtime, case)
+        _require(
+            setup["obstacle_name"] == expected_obstacle_name,
+            "reserved direct-horizon active obstacle differs",
+        )
         pairing = pairing_record(
             case=case, selected_initial_state=setup["selected_initial_state"],
             settled_observation=observation, task_description=str(task.language),
@@ -239,7 +243,7 @@ def main() -> int:
     expected_cases = config["population"]["reserved_prediction_episode_ids"]
     _require(
         [row["case_id"] for row in reserved_rows] == expected_cases
-        and all(row.get("selection_role") == "new_reserved_final_evaluation"
+        and all(row.get("selection_role") == "new_reserved_direct_horizon_prediction"
                 for row in reserved_rows),
         "reserved direct-horizon manifest population differs",
     )
@@ -281,6 +285,7 @@ def main() -> int:
             runtime=runtime, case=case, archived=archived,
             geometry_config=geometry_config, exact_box_config=exact_box_config,
             geometry_placeholder=geometry_placeholder, config=config,
+            expected_obstacle_name=str(row["active_obstacle_name"]),
         )
         selections[case_id] = selected
         pairings[case_id] = pairing
@@ -315,6 +320,10 @@ def main() -> int:
         env = probe_env = None
         try:
             env, probe_env, _, _, setup = _build_pair(runtime, case)
+            _require(
+                setup["obstacle_name"] == row_by_case[case_id]["active_obstacle_name"],
+                "reserved direct-horizon collection obstacle differs",
+            )
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config,
                 exact_box_config=exact_box_config,

@@ -4,8 +4,8 @@
   "claim_scope": "reserved_episode_feasibility_gate_for_direct_per_horizon_OSC_joint_displacement_prediction_with_symmetric_safety_normal_supervision_before_any_calibration_or_QP",
   "immutable_source": {
     "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
-    "reserved_prediction_manifest_file_sha256": "4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6",
-    "future_untouched_manifest_file_sha256": "609eddd0ac768246827a5f126d05799bf7f2e314dadcc0a5f94343bc6287739c",
+    "reserved_prediction_manifest_file_sha256": "f99ce2b38b5c2b9ceb4073611cc16356efc36e1820193926a5770f396e93ffcd",
+    "future_untouched_manifest_file_sha256": "031971110c59aacf582c9d4dae51216c6f12d605a9a0f97a2fa22b677a1a663b",
     "factorized_config_file_sha256": "dfe0afbcf6439e7ef317ec73d913b0784892f1deb4cedce4908b766c2aecdfc8",
     "structured_config_file_sha256": "adf6a42bdf01d1eb4910c1d50275065b34a6df37583865922d2a186e14df241c",
     "geometry_config_file_sha256": "fd9042ebc7605c68e71d1ab51bfdc8b4412fcb9dda11f1879d85271641436da1",
@@ -30,18 +30,18 @@
     "existing_state_count": 85,
     "existing_rollout_count": 7905,
     "reserved_prediction_episode_ids": [
-      "vlsa-t1-goal-ii-t0-e01",
-      "vlsa-t1-goal-ii-t0-e11",
-      "vlsa-t1-goal-ii-t0-e21",
-      "vlsa-t1-goal-ii-t0-e31",
-      "vlsa-t1-goal-ii-t0-e41"
+      "vlsa-t1-goal-ii-t2-e05",
+      "vlsa-t1-goal-ii-t2-e20",
+      "vlsa-t1-goal-ii-t2-e25",
+      "vlsa-t1-goal-ii-t2-e30",
+      "vlsa-t1-goal-ii-t2-e35"
     ],
     "future_untouched_intervention_episode_ids": [
-      "vlsa-t1-goal-ii-t0-e02",
-      "vlsa-t1-goal-ii-t0-e12",
-      "vlsa-t1-goal-ii-t0-e22",
-      "vlsa-t1-goal-ii-t0-e32",
-      "vlsa-t1-goal-ii-t0-e42"
+      "vlsa-t1-goal-ii-t3-e00",
+      "vlsa-t1-goal-ii-t3-e05",
+      "vlsa-t1-goal-ii-t3-e10",
+      "vlsa-t1-goal-ii-t3-e15",
+      "vlsa-t1-goal-ii-t3-e20"
     ],
     "reserved_states_per_episode": 5,
     "reserved_state_count": 25,

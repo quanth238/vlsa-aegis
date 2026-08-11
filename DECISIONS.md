@@ -2940,14 +2940,22 @@ symmetric signed geometry-normal loss. This separates motion prediction from
 known FK/ellipsoid safety without reintroducing a direct minimum-margin target
 or the accidental conservatism of the previous one-sided loss.
 
-The newly reserved E01/E11/E21/E31/E41 episode groups are the decisive
+The newly reserved goal-II-task-2 E05/E20/E25/E30/E35 episode groups are the decisive
 prediction population. Compare the new model with frozen jobs `38070` and
 `38240` on identical actions. Require zero false-safes, support in every
 recoverable state, useful recall and sensitivities, and no terminal drift.
 Failure is a hard stop before residual calibration, QP, or closed loop.
 
-Freeze E02/E12/E22/E32/E42 as a separate, still-unopened future intervention
-population. Only a full prediction pass may authorize a separately calibrated
+Freeze goal-II-task-3 E00/E05/E10/E15/E20 as a separate, still-unopened
+future intervention population. Only a full prediction pass may authorize a separately calibrated
 upper bound on optimistic affine residuals, and only both passes may authorize
 sequential QP correction. This prevents the final intervention set from
 influencing model selection.
+
+The initial index-only E01/E11/E21/E31/E41 reservation was invalid for this
+moka-pot experiment: immutable setup metadata identifies a white storage box,
+and job `38281` rejected its compiled geometry before any candidate rollout.
+Correct the population, not the obstacle model. Reserve unused goal-II-task-2
+moka-pot episodes E05/E20/E25/E30/E35 based only on initial obstacle identity.
+Keep the failed manifest as history and require every collector/evaluator to
+assert the registered obstacle name before geometry or labels.

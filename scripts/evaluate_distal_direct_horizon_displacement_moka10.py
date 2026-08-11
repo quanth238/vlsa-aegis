@@ -225,6 +225,10 @@ def evaluate_reserved_geometry(
         env = probe_env = None
         try:
             env, probe_env, _, _, setup = _build_pair(runtime, case)
+            _require(
+                setup["obstacle_name"] == row_by_case[case_id]["active_obstacle_name"],
+                "direct-horizon reserved geometry obstacle differs",
+            )
             geometry, exact_boxes = _geometry(
                 geometry_config=geometry_config, exact_box_config=exact_box_config,
                 archived=placeholder, env=env,

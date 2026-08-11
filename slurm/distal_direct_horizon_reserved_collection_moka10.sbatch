@@ -22,7 +22,7 @@ ARCHIVED_ROOT=${ARCHIVED_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vl
 CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_direct_horizon_displacement_moka10.v1.json
 FACTOR_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_execution_moka10.v1.json
 POPULATION=$REMOTE_REPO/manifests/vlsa_table1_population.jsonl
-RESERVED=$REMOTE_REPO/manifests/vlsa_distal_delta_q_reserved_evaluation_moka10.v1.jsonl
+RESERVED=$REMOTE_REPO/manifests/vlsa_distal_direct_horizon_reserved_prediction_moka10.v1.jsonl
 SELECTED=$REMOTE_REPO/manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl
 SAME_TASK=$REMOTE_REPO/manifests/vlsa_distal_same_task_boundary_expansion_moka10.v1.jsonl
 TARGETED=$REMOTE_REPO/manifests/vlsa_distal_targeted_same_task_screen_moka10.v1.jsonl
@@ -36,8 +36,8 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -x "$AEGIS_PYTHON" && -d "$COMPLETE_ROOT" && -d "$ARCHIVED_ROOT" ]] || die "runtime or immutable source missing"
 [[ ! -L "$COMPLETE_ROOT" && ! -L "$ARCHIVED_ROOT" ]] || die "immutable source symlink forbidden"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
-[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 722d9183294b2f85dbbd1f0a341585a891a7a729bb79ee535827f7a4aa4742f7 ]] || die "direct-horizon config differs"
-[[ "$(sha256sum "$RESERVED" | awk '{print $1}')" == 4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6 ]] || die "reserved manifest differs"
+[[ "$(sha256sum "$CONFIG" | awk '{print $1}')" == 13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f ]] || die "direct-horizon config differs"
+[[ "$(sha256sum "$RESERVED" | awk '{print $1}')" == f99ce2b38b5c2b9ceb4073611cc16356efc36e1820193926a5770f396e93ffcd ]] || die "reserved manifest differs"
 RUN_ROOT=$OUTPUT_ROOT/$RUN_ID
 mkdir -p "$OUTPUT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"
 FAILURE=$RUN_ROOT/runtime-failure.json
