@@ -271,7 +271,7 @@ def validation_pattern_gate_tests(
 def train_one_sided_geometry_ensemble(
     arrays: Mapping[str, Any], sensitivities: Mapping[str, Any],
     geometry: Mapping[str, Any], factorized_config: Mapping[str, Any],
-    config: Mapping[str, Any],
+    config: Mapping[str, Any], normalization_override: Any = None,
 ) -> tuple[list[Any], dict[str, Any], dict[str, Any]]:
     """Train q prediction with the registered directional geometry loss."""
 
@@ -285,8 +285,22 @@ def train_one_sided_geometry_ensemble(
     split = np.asarray(arrays["split"], dtype=object)
     train_mask = split == "train"
     validation_mask = split == "validation"
-    mean = np.mean(x[train_mask], axis=0)
-    std = np.maximum(np.std(x[train_mask], axis=0), 1.0e-6)
+    if normalization_override is None:
+        mean = np.mean(x[train_mask], axis=0)
+        std = np.maximum(np.std(x[train_mask], axis=0), 1.0e-6)
+    else:
+        mean = np.asarray(
+            normalization_override["feature_mean"], dtype=np.float64,
+        )
+        std = np.asarray(
+            normalization_override["feature_std"], dtype=np.float64,
+        )
+        if (
+            mean.shape != (x.shape[1],) or std.shape != (x.shape[1],)
+            or not np.all(np.isfinite(mean))
+            or not np.all(np.isfinite(std)) or np.any(std <= 0.0)
+        ):
+            raise ValueError("one-sided geometry normalization override differs")
     normalized = (x - mean) / std
     train_indexes = np.flatnonzero(train_mask)
     validation_indexes = np.flatnonzero(validation_mask)

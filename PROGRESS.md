@@ -4012,3 +4012,23 @@ orientation representation ablation is authorized. Full report:
 Result/validation hashes are
 `1cd507f5b00ad4a5a243f957ae3466348680e821a9fab973caf133f73023cfc1` and
 `b5b3931bc85021c849a4916e5e260b90c389b7a267931e9b9d8f0adb1ebfaa66`.
+
+# 2026-08-11: structured bounded-orientation ablation registered
+
+The next single active gate replaces the confirmed pathological 288 duplicated
+root/primitive rotation scalars with one bounded 6D root orientation. Known
+primitive-local transforms remain in the explicit geometry backend. Presence
+bits and the bounded rotation bypass scalar standardization; all remaining
+normalization is train-only and constant features use unit scale.
+
+The immutable 7,905 rollouts, grouped 60/10/15 split, targets, sensitivities,
+one-sided geometry loss, seeds, optimizers, schedules, and both flat/time
+architectures remain fixed. The input changes from 2,124 to 1,842 dimensions
+and no simulation labels are collected. The gate tests stable validation,
+zero flat test false-safes, useful recall/support/boundary prediction, and
+strict time-decoder improvement over job `38076`. A pass authorizes only new
+reserved-episode evaluation; calibration, candidate expansion, QP,
+Poisson/SDF, and closed loop remain forbidden. Protocol:
+`docs/distal_factorized_structured_orientation_moka10_preregistration.md`.
+Config SHA-256 is
+`adf6a42bdf01d1eb4910c1d50275065b34a6df37583865922d2a186e14df241c`.

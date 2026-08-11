@@ -2828,3 +2828,19 @@ structured orientation representation ablation using the same data, models,
 losses, seeds, and splits. The time decoder remains NO-GO on normal-scale test
 states until such a matched comparison says otherwise; QP and closed loop stay
 blocked.
+
+# ADR-0115: Replace duplicated rotation scalars with one bounded 6D orientation
+
+**Status:** Preregistered before H100 execution (2026-08-11).
+
+Mean-masking the two rotation groups proved causality but is not deployable
+because it deletes valid geometry. Remove the 288 redundant world-rotation
+scalars from the learned execution input and append exactly one 6D root
+orientation. Keep primitive-local transforms in the known geometry evaluator.
+Do not independently standardize presence bits or the bounded rotation.
+
+Retrain both the flat job-38070 model and time-conditioned job-38076 model with
+every non-representation variable fixed. This is the decisive test separating
+the confirmed input pathology from the remaining normal-scale execution-model
+error. Even a pass only authorizes newly reserved episode evaluation; it does
+not authorize calibration, a QP, or closed-loop E05.

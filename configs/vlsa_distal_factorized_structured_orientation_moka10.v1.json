@@ -1,0 +1,71 @@
+{
+  "schema_version": "vlsa_distal_factorized_structured_orientation_config.v1",
+  "protocol_id": "vlsa-distal-factorized-structured-orientation-moka10-v1",
+  "claim_scope": "matched_frozen_data_ablation_of_structured_bounded_obstacle_orientation_representation_for_flat_and_time_conditioned_factorized_OSC_execution_models",
+  "immutable_source": {
+    "orientation_confirmation_config_file_sha256": "bc11384a0aeb35ab8ad609d47e460d0b3eea0efec991581e04f8ddf5bc616fce",
+    "orientation_confirmation_result_file_sha256": "1cd507f5b00ad4a5a243f957ae3466348680e821a9fab973caf133f73023cfc1",
+    "orientation_confirmation_result_payload_sha256": "b7e34029375acf8be920b4ca67c6776a9f749a14b5760472df8da05168ebda6a",
+    "orientation_confirmation_validation_file_sha256": "b5b3931bc85021c849a4916e5e260b90c389b7a267931e9b9d8f0adb1ebfaa66",
+    "orientation_confirmation_validation_payload_sha256": "21210c2f37faef35f10812c6e407b986cf0ce8993156454bda80cd71603f7020",
+    "one_sided_config_file_sha256": "c2d4d6b69294531100a0b361b703c156b276238a9581e6b414132c2564995ec2",
+    "time_config_file_sha256": "452fe00d53f3b6e9c278962116c5cf760821f14b18b06a6d4079a577bd5a2d17",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "flat_source_model_file_sha256": "5548b8e4b48fcf11aacbb4f26186e59f487c15ccaab8eb0882e0a9fcdf2f1a62",
+    "flat_source_result_file_sha256": "ee0f1296cdd155564a9cd040ae1cceca62a1005e1126b50b383614d6f1f12de0",
+    "time_source_model_file_sha256": "6112d1c936375d9aaf54225b09ae1a9c6de2794d5417c1ad7c8d277c3f04021a",
+    "time_source_result_file_sha256": "4b98951a387aa1f7f21ece321e611c085274ede19b7b1a2825558c7d5a56c30f"
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "rollout_count": 7905,
+    "split_state_counts": {"train": 60, "validation": 10, "test": 15},
+    "random_candidate_count_per_state": 64,
+    "joint_trace_state_count": 51,
+    "constraint_count": 7
+  },
+  "structured_representation": {
+    "original_input_dimension": 2124,
+    "removed_scalar_count": 288,
+    "removed_groups": [
+      "semantic_state.exact_obstacle_primitive_transforms[].rotation_world_from_local[][]",
+      "semantic_state.obstacle_root_orientation_world_from_body[][]"
+    ],
+    "appended_feature": "root_rotation_6D_first_two_columns_world_from_body",
+    "appended_dimension": 6,
+    "structured_input_dimension": 1842,
+    "exact_primitive_local_transforms": "retained_by_known_geometry_backend_not_repeated_in_execution_MLP_input",
+    "presence_features": "raw_zero_or_one_without_centering_or_scaling",
+    "root_rotation_6D": "raw_bounded_minus_one_plus_one_without_centering_or_scaling",
+    "other_training_raw_std_below_1e-6": "center_by_training_mean_and_scale_by_one",
+    "other_features": "training_mean_and_raw_standard_deviation",
+    "test_and_validation_never_used_for_normalization": true
+  },
+  "matched_arms": {
+    "flat_one_sided": "job_38070_architecture_loss_seeds_optimizer_schedule_with_only_structured_input_change",
+    "time_conditioned": "job_38076_architecture_loss_seeds_optimizer_schedule_with_only_structured_input_change",
+    "same_targets_sensitivities_geometry_and_splits": true
+  },
+  "decision_gate": {
+    "maximum_structured_validation_absolute_z": 500.0,
+    "maximum_validation_terminal_joint_RMSE_rad_each_arm": 0.1,
+    "maximum_flat_test_false_safe_action_count": 0,
+    "minimum_flat_test_safe_recall": 0.9,
+    "minimum_flat_test_supported_eligible_state_count": 12,
+    "maximum_flat_test_boundary_RMSE_m": 0.0029382342,
+    "maximum_flat_test_terminal_joint_RMSE_rad": 0.0199738,
+    "time_candidate_requires_zero_test_false_safe": true,
+    "time_candidate_requires_strict_improvement_over_job_38076_in_test_boundary_RMSE_terminal_joint_RMSE_and_supported_state_count": true,
+    "pass_authorizes_only_new_reserved_episode_evaluation": true
+  },
+  "forbidden_actions": {
+    "new_simulation_labels": true,
+    "calibration": true,
+    "candidate_expansion": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true
+  }
+}
