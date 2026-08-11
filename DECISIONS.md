@@ -2859,3 +2859,21 @@ conservative. Freeze QP and closed loop. The next justified action is a
 read-only localization of structured-model false-safes; choose data expansion
 or a new safety-aware objective only after distinguishing test-only coverage
 shift from train/validation terminal optimism.
+
+# ADR-0116: Audit the exact joint-to-safety composition before changing the MLP
+
+**Status:** Preregistered before H100 artifact replay (2026-08-11).
+
+The factorized model artifact must be treated as a joint-trajectory predictor,
+not as a direct clearance predictor: its registered output is 51 configurations
+of seven joints. Validate the downstream calculation with the same exact and
+predicted traces. Write each q into MuJoCo, call nonlinear forward kinematics,
+reconstruct the link-attached ellipsoids, and evaluate the exact analytic
+support gap. Do not use the QP or a linearized h in this audit.
+
+Decompose `h(predicted q) - h(dynamic rollout)` into `h(exact q) - h(dynamic
+rollout)` and `h(predicted q) - h(exact q)`. If exact-q recomposition is
+submillimetre, conservative, and substantially more accurate than predicted-q
+safety, attribute the dominant current failure to execution prediction rather
+than FK or phi. If it fails, stop MLP redesign and audit link transforms and
+obstacle-time alignment first.

@@ -4061,3 +4061,23 @@ Flat/time model, prediction, result, and validation hashes are
 `3b06fe181996c9719f6ee50f704c9b2f55d0ac7689e30bb190bca8a663398eac`,
 `eeac18ca69aac9dc498b33b547418d987a6ac6fb572fbf02a5529dc771c070bd`,
 and `cd170dcbfba441145983a3c3b6aaecbf6302fe250dc693337d1d3d313a3d77c9`.
+
+# 2026-08-11: nominal-safety formula decomposition registered
+
+Before changing the execution MLP, the next read-only audit directly validates
+the composition
+`joint prediction -> MuJoCo forward kinematics -> L5-L7 ellipsoids -> support
+gap`. Immutable job-38072 traces provide exact and predicted joints plus both
+static clearance traces for all 5,440 random actions. The audit decomposes the
+total nominal-safety error into exact-q FK/geometry recomposition error and
+predicted-q safety error at every one of 51 substeps. Substep zero directly
+checks FK/ellipsoid attachment without obstacle-motion confounding.
+
+The model artifacts must explicitly output `51 x 7` joint configurations.
+Exact-q recomposition must have at most 1 micrometre k0 error, at most 0.5 mm
+test boundary RMSE, zero false-safes, and at least 99% recall. The predicted-q
+boundary error must dominate by at least 2x. No new simulation, training, QP,
+calibration, or closed loop is permitted. Protocol:
+`docs/distal_factorized_nominal_safety_formula_audit_moka10_preregistration.md`.
+Config SHA-256 is
+`43c0ca12bf2c83de294383d2952586713b9f1644fc0e0cb8637ebb10c17b181a`.

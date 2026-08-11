@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_factorized_nominal_safety_formula_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-nominal-safety-formula-audit-moka10-v1",
+  "claim_scope": "artifact_only_decomposition_of_joint_prediction_error_and_exact_q_forward_kinematics_ellipsoid_safety_recomposition",
+  "immutable_source": {
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "terminal_bias_records_file_sha256": "c2c43f6c9fc0b2c6708af7766bcada78f5128ca955a0dccdb1f110d0a4ebae8e",
+    "terminal_bias_result_file_sha256": "8724b36b2c5abfe6d17b6bd230c4ce31aa3040346322662e3c07bfd25b4b31df",
+    "terminal_bias_result_payload_sha256": "ec05e3af4cfc4897da7c024e4dd82ca73171fc715053ea2bcd13d613af432ec6",
+    "terminal_bias_validation_file_sha256": "9124409b40a94b4280375f13be58aae0266fa26d45091d16866a868c1b09d4ea",
+    "terminal_bias_validation_payload_sha256": "fefc04db017a1302344df09b065b2e56c6b999f4a71154f1b681f71d5c676e67",
+    "structured_flat_model_file_sha256": "3f2ed45f269d8b43ef929ac75311758c974192d46370074e2ddb312414f11287",
+    "structured_time_model_file_sha256": "625061b23839669d1c36ad2a29cde232b5b06dfa9bb3636326bc0a45214ffb31",
+    "structured_predictions_file_sha256": "3b06fe181996c9719f6ee50f704c9b2f55d0ac7689e30bb190bca8a663398eac",
+    "structured_result_file_sha256": "eeac18ca69aac9dc498b33b547418d987a6ac6fb572fbf02a5529dc771c070bd",
+    "structured_result_payload_sha256": "aef1a4353c8e134c464ab50d6a4c9bbdd9fd3f2cdec02920e9e5fe29bb95651b",
+    "structured_validation_file_sha256": "cd170dcbfba441145983a3c3b6aaecbf6302fe250dc693337d1d3d313a3d77c9",
+    "structured_validation_payload_sha256": "5ce3a65712a1fd47d18bd9baae1eb95d9c8f72520d17bdb32b36d38baeb23f01"
+  },
+  "population": {
+    "episode_count": 17,
+    "state_count": 85,
+    "random_action_count": 5440,
+    "test_random_action_count": 960,
+    "substep_count": 51,
+    "joint_count": 7,
+    "constraint_count": 7
+  },
+  "decomposition": {
+    "rollout_target": "h_dynamic_from_cloned_OSC_substeps",
+    "exact_q_static": "phi_of_MuJoCo_forward_at_exact_q_with_fixed_k0_obstacle",
+    "predicted_q_static": "phi_of_MuJoCo_forward_at_MLP_q_with_same_fixed_k0_obstacle",
+    "geometry_recomposition_error": "h_exact_q_static_minus_h_dynamic",
+    "joint_prediction_safety_error": "h_predicted_q_static_minus_h_exact_q_static",
+    "total_error": "h_predicted_q_static_minus_h_dynamic",
+    "identity": "total_equals_geometry_recomposition_plus_joint_prediction_safety_error"
+  },
+  "decision_gate": {
+    "maximum_k0_exact_q_recomposition_absolute_error_m": 0.000001,
+    "maximum_test_exact_q_minimum_boundary_RMSE_m": 0.0005,
+    "maximum_test_exact_q_false_safe_action_count": 0,
+    "minimum_test_exact_q_safe_recall": 0.99,
+    "require_positive_predicted_q_false_safe_action_count": true,
+    "minimum_joint_prediction_to_geometry_RMSE_ratio": 2.0,
+    "interpretation_if_pass": "joint_execution_prediction_is_dominant_over_forward_kinematics_and_phi_recomposition",
+    "interpretation_if_fail": "forward_kinematics_or_phi_recomposition_requires_further_audit"
+  },
+  "forbidden_actions": {
+    "new_simulation": true,
+    "new_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true
+  }
+}
