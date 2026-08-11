@@ -4248,3 +4248,13 @@ restores the saved flag, serializes the input, and then restores the immutable
 snapshot again before rollout. It does not change collection labels or the
 transition under test. Job `38353` validation file SHA-256 is
 `22fe573fd27674ec1db8febf576c957d11d1c2b828e7e408e904c56b8437c5aa`.
+
+H100 job `38358` verified that the forced controller update removes the stale
+EE-pose error, but it exposed a second apparatus side effect: `sim.forward`
+inside that update rewrote saved `qacc_warmstart` features (up to
+`809.716188475` in the worst state). The transition still reproduced exactly.
+The reconstruction now restores every saved auxiliary array immediately after
+the observation refresh. This preserves the refreshed q-derived cache while
+keeping the independent physical/controller inputs immutable. Job `38358`
+validation file SHA-256 is
+`35044cd62b5e11f63abf78999e55eac53b0b5eb3145e0801532c85d32c0f4e37`.

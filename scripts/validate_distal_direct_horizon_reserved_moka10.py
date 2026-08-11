@@ -37,6 +37,8 @@ def refresh_restored_controller_observation_cache(
 ) -> None:
     """Refresh q-derived OSC observations without changing saved control state."""
 
+    from main.multilink_ellipsoid.rollout import _restore_auxiliary_sim_snapshot
+
     controllers = list(snapshot["controllers"])
     if len(env.robots) != len(controllers):
         raise ValueError("reserved replay controller count differs")
@@ -47,6 +49,9 @@ def refresh_restored_controller_observation_cache(
         # control-flow flag. It is part of the saved deployment state, so put
         # only that flag back before serializing the reconstructed input.
         controller.new_update = bool(saved["new_update"])
+    # The forced forward pass can rewrite warm-start arrays. They are saved
+    # physical inputs, not observation caches, so restore them exactly.
+    _restore_auxiliary_sim_snapshot(env, snapshot["auxiliary"])
 
 
 def main() -> int:
