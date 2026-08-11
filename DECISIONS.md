@@ -2844,3 +2844,18 @@ every non-representation variable fixed. This is the decisive test separating
 the confirmed input pathology from the remaining normal-scale execution-model
 error. Even a pass only authorizes newly reserved episode evaluation; it does
 not authorize calibration, a QP, or closed-loop E05.
+
+Job `38095` validates the representation repair but rejects both learned
+models. Removing the duplicated scalars and using bounded 6D orientation makes
+validation trajectories physical, so positional time and the old numerical
+explosion are no longer confounded. Nevertheless, both arms introduce more
+than 60 test false-safes and support only 8/13 eligible states. Record the old
+flat zero-false-safe result cautiously: its model-selection objective included
+the exploding validation episode and may have induced accidental conservatism.
+
+Do not revert to the invalid scalar representation, and do not interpret the
+stable-input failure as a QP failure. The learned clearance field is still not
+conservative. Freeze QP and closed loop. The next justified action is a
+read-only localization of structured-model false-safes; choose data expansion
+or a new safety-aware objective only after distinguishing test-only coverage
+shift from train/validation terminal optimism.

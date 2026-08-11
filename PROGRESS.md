@@ -4038,3 +4038,26 @@ check looked for the confirmed orientation decision at the result root rather
 than under its immutable `audit` receipt. The apparatus-only repair reads the
 existing nested field. It changes no data, representation, model, loss, seed,
 gate, or config, and no partial artifact is reused.
+
+Clean H100 job `38095` completed both matched arms and independent replay in
+`00:55:05` on `worker-2`. The bounded representation repairs the impossible
+validation scale: maximum validation z falls from `2e6` to `355.37`, while
+flat/time validation terminal joint RMSE is `33.39/37.35` mrad. The safety
+model remains a strict NO-GO. Structured flat/time produce `64/63` test
+false-safes, `63.05%/63.05%` safe recall, `8/13` support, `4.498/5.246` mm
+boundary RMSE, and `34.488/29.287` mrad terminal joint RMSE. The time decoder
+improves job `38076` in boundary error and support but worsens terminal error
+and loses zero-false-safe behavior; the flat arm is worse than job `38070` on
+every registered safety gate.
+
+All nine independent validation checks pass and all recomputed joint/margin
+arrays differ by exactly `0.0`. Do not run QP or closed loop. Next localize the
+new 63/64 false-safes by split/state/link/substep before choosing another
+objective or collecting data. Full report:
+`docs/distal_factorized_structured_orientation_moka10_result.md`.
+Flat/time model, prediction, result, and validation hashes are
+`3f2ed45f269d8b43ef929ac75311758c974192d46370074e2ddb312414f11287`,
+`625061b23839669d1c36ad2a29cde232b5b06dfa9bb3636326bc0a45214ffb31`,
+`3b06fe181996c9719f6ee50f704c9b2f55d0ac7689e30bb190bca8a663398eac`,
+`eeac18ca69aac9dc498b33b547418d987a6ac6fb572fbf02a5529dc771c070bd`,
+and `cd170dcbfba441145983a3c3b6aaecbf6302fe250dc693337d1d3d313a3d77c9`.
