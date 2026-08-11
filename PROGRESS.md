@@ -4347,3 +4347,20 @@ states with exact-safe but no predicted-safe candidates. No training or new
 rollout label is permitted; calibration, QP, Poisson/SDF, classifiers, closed
 loop, and the future task-3 population remain blocked. Config SHA-256 is
 `b6c044e9e1d5ec832bd43e1985943e1b5cd4d783f0e95cb812c53f62f1af2e40`.
+
+Initial H100 job `38481` completed all 22 source/reserved geometry environments
+but stopped before `records.npz` or a scientific result. The optional
+clearance-trace array was shadowed by a per-candidate joint-trace dictionary,
+so the final `(51,7)` trace was assigned into a `(7,)` joint row. Rename only
+the outer receipt array and add a structural regression test. No model, data,
+prediction, geometry, split, metric, or threshold changes; job `38481` is an
+apparatus failure and is not reused.
+
+Before retry, expand the frozen sensitivity receipt exactly as requested: all
+14 action dimensions by all 51 horizons, split across train, validation, old
+diagnostic, and reserved episodes. Direction passes at cosine `>=0.8`;
+magnitude passes with median norm ratio in `[0.5,1.5]` and mean relative norm
+error `<=0.5`. Train/validation failure means loss/decoder underfitting;
+train/validation pass with reserved failure means coverage/generalization.
+This adds no model fitting or labels. V2 config SHA-256 is
+`69c40e545aeff59a603b4afa6a95c01b5d6c0bea0c8f3370b52a4a7e0d915f49`.

@@ -38,7 +38,7 @@ TIME_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_time_conditioned_decoder
 STRUCTURED_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_structured_orientation_moka10.v1.json
 CUMULATIVE_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_cumulative_delta_q_moka10.v1.json
 DIRECT_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_direct_horizon_displacement_moka10.v1.json
-AUDIT_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_direct_horizon_root_cause_audit_moka10.v1.json
+AUDIT_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_direct_horizon_root_cause_audit_moka10.v2.json
 ORIENTATION_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_orientation_joint_mask_moka10.v1.json
 FACTOR_CONFIG=$REMOTE_REPO/configs/vlsa_distal_factorized_execution_moka10.v1.json
 POPULATION=$REMOTE_REPO/manifests/vlsa_table1_population.jsonl
@@ -56,7 +56,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "root-cause audit requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" ]] || die "evaluation runtime missing"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
-[[ "$(sha256sum "$AUDIT_CONFIG" | awk '{print $1}')" == b6c044e9e1d5ec832bd43e1985943e1b5cd4d783f0e95cb812c53f62f1af2e40 ]] || die "audit config differs"
+[[ "$(sha256sum "$AUDIT_CONFIG" | awk '{print $1}')" == 69c40e545aeff59a603b4afa6a95c01b5d6c0bea0c8f3370b52a4a7e0d915f49 ]] || die "audit config differs"
 [[ "$(sha256sum "$DIRECT_RUN/model.npz" | awk '{print $1}')" == d9aaa72812fae83271a451aef136e8ed98a00fce7cc882f6f2bad67876b0ce29 ]] || die "frozen model differs"
 [[ "$(sha256sum "$DIRECT_RUN/result.json" | awk '{print $1}')" == 6ab198218aa3903698b516be5e9748dfeca7748456ac1d315df8b85abcc69544 ]] || die "frozen result differs"
 [[ "$(sha256sum "$DIRECT_VALIDATION" | awk '{print $1}')" == c676fd5fee6de2130047a7362f1a7f78b8d07c62abaf81318304b6a08a031c7b ]] || die "frozen validation differs"

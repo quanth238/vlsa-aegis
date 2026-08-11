@@ -12,6 +12,7 @@ from .factorized_execution_pilot import finite_difference_candidate_indexes
 
 
 CONFIG_SCHEMA = "vlsa_distal_factorized_direct_horizon_root_cause_audit_config.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_factorized_direct_horizon_root_cause_audit_config.v2"
 RESULT_SCHEMA = "vlsa_distal_factorized_direct_horizon_root_cause_audit_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_factorized_direct_horizon_root_cause_audit_validation.v1"
 LINK_ROWS = {"L5": (0, 1, 2), "L6": (3, 4), "L7": (5, 6)}
@@ -26,14 +27,16 @@ def load_audit_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("direct-horizon audit config keys differ")
-    if (
-        config["schema_version"] != CONFIG_SCHEMA
-        or config["protocol_id"]
-        != "vlsa-distal-factorized-direct-horizon-root-cause-audit-moka10-v1"
-    ):
+    protocol = str(config["protocol_id"])
+    if (config["schema_version"], protocol) not in {
+        (CONFIG_SCHEMA,
+         "vlsa-distal-factorized-direct-horizon-root-cause-audit-moka10-v1"),
+        (CONFIG_SCHEMA_V2,
+         "vlsa-distal-factorized-direct-horizon-root-cause-audit-moka10-v2"),
+    }:
         raise ValueError("direct-horizon audit protocol differs")
     audit = config["audit"]
-    if audit != {
+    expected_audit = {
         "near_boundary_absolute_margin_m": 0.005,
         "geometry_jacobian_fit_candidates": list(range(1, 29)),
         "geometry_jacobian_ridge": 1e-06,
@@ -47,7 +50,18 @@ def load_audit_config(path: Path) -> dict[str, Any]:
             "nominal", "translation_FD", "rotation_FD", "gripper_FD",
             "mixed_random",
         ],
-    }:
+    }
+    if protocol.endswith("-v2"):
+        expected_audit.update({
+            "sensitivity_median_norm_ratio_minimum": 0.5,
+            "sensitivity_median_norm_ratio_maximum": 1.5,
+            "sensitivity_mean_relative_norm_error_maximum": 0.5,
+            "sensitivity_reporting": (
+                "training_validation_diagnostic_reserved_by_14_action_"
+                "dimensions_and_51_rollout_horizons"
+            ),
+        })
+    if audit != expected_audit:
         raise ValueError("direct-horizon audit definition differs")
     forbidden = config["forbidden_actions"]
     if set(forbidden) != {
@@ -465,6 +479,14 @@ def sensitivity_audit(
     ) / denominator[:, None, None]
     margin = np.min(np.asarray(predicted_h), axis=1)
     h_secant = (margin[positive] - margin[negative]) / denominator[:, None]
+    exact_trace = np.asarray(arrays["ellipsoid_clearance_m"], dtype=np.float64)
+    predicted_trace = np.asarray(predicted_h, dtype=np.float64)
+    exact_trace_secant = (
+        exact_trace[positive] - exact_trace[negative]
+    ) / denominator[:, None, None]
+    predicted_trace_secant = (
+        predicted_trace[positive] - predicted_trace[negative]
+    ) / denominator[:, None, None]
     exact_q = np.asarray(sensitivities["joint_sensitivity_rad_per_action"])
     exact_h = np.asarray(sensitivities["margin_sensitivity_m_per_action"])
     family = np.asarray([
@@ -473,16 +495,65 @@ def sensitivity_audit(
     ], dtype=object)
     split = np.asarray([state_to_split[int(item)] for item in states], dtype=object)
     output = {}
+    coordinate_names = (
+        "translation_x", "translation_y", "translation_z",
+        "rotation_x", "rotation_y", "rotation_z", "gripper",
+    )
     for split_name in sorted(set(split.tolist())):
         output[split_name] = {}
+        split_selected = split == split_name
         for group in ("all", "translation", "rotation", "gripper"):
-            selected = split == split_name
+            selected = split_selected.copy()
             if group != "all":
                 selected &= family == group
             output[split_name][group] = {
                 "joint": _cosine(exact_q[selected], q_secant[selected]),
                 "safety": _cosine(exact_h[selected], h_secant[selected]),
             }
+        output[split_name]["all_horizon_trace"] = {
+            "joint": _cosine(exact_q[split_selected], q_secant[split_selected]),
+            "safety": _cosine(
+                exact_trace_secant[split_selected],
+                predicted_trace_secant[split_selected],
+            ),
+            "by_horizon": [{
+                "substep": int(k),
+                "joint": _cosine(
+                    exact_q[split_selected, k], q_secant[split_selected, k]
+                ),
+                "safety": _cosine(
+                    exact_trace_secant[split_selected, k],
+                    predicted_trace_secant[split_selected, k],
+                ),
+            } for k in range(51)],
+        }
+        by_dimension = {}
+        for dimension in range(14):
+            selected = (split == split_name) & (dimensions == dimension)
+            label = "action_%d_%s" % (
+                dimension // 7, coordinate_names[dimension % 7]
+            )
+            by_dimension[label] = {
+                "dimension_index": int(dimension),
+                "joint_all_horizons": _cosine(
+                    exact_q[selected], q_secant[selected]
+                ),
+                "safety_all_horizons": _cosine(
+                    exact_trace_secant[selected],
+                    predicted_trace_secant[selected],
+                ),
+                "by_horizon": [{
+                    "substep": int(k),
+                    "joint": _cosine(
+                        exact_q[selected, k], q_secant[selected, k]
+                    ),
+                    "safety": _cosine(
+                        exact_trace_secant[selected, k],
+                        predicted_trace_secant[selected, k],
+                    ),
+                } for k in range(51)],
+            }
+        output[split_name]["by_dimension_and_horizon"] = by_dimension
     return output
 
 
@@ -491,20 +562,54 @@ def root_cause_decision(
     sensitivities: Mapping[str, Any], config: Mapping[str, Any],
 ) -> dict[str, Any]:
     threshold = float(config["audit"]["boundary_RMSE_threshold_m"])
-    cosine = float(config["audit"]["sensitivity_cosine_threshold"])
     training = populations["train"]
     validation = populations["validation"]
     reserved = populations["reserved"]
     training_sensitivity = sensitivities["source"]["train"]
+    validation_sensitivity = sensitivities["source"]["validation"]
+    reserved_sensitivity = sensitivities["reserved"]["reserved"]
+
+    def sensitivity_gate(split_metrics: Mapping[str, Any]) -> dict[str, Any]:
+        metrics = split_metrics.get("all_horizon_trace", split_metrics["all"])
+        minimum_cosine = float(config["audit"]["sensitivity_cosine_threshold"])
+        ratio_minimum = float(config["audit"].get(
+            "sensitivity_median_norm_ratio_minimum", 0.0
+        ))
+        ratio_maximum = float(config["audit"].get(
+            "sensitivity_median_norm_ratio_maximum", float("inf")
+        ))
+        relative_maximum = float(config["audit"].get(
+            "sensitivity_mean_relative_norm_error_maximum", float("inf")
+        ))
+        tests = {}
+        for name in ("joint", "safety"):
+            item = metrics[name]
+            tests[name + "_direction"] = bool(
+                item["mean_cosine"] is not None
+                and item["mean_cosine"] >= minimum_cosine
+            )
+            tests[name + "_magnitude"] = bool(
+                item["median_norm_ratio"] is not None
+                and ratio_minimum <= item["median_norm_ratio"] <= ratio_maximum
+                and item["mean_relative_norm_error"] <= relative_maximum
+            )
+        return {"tests": tests, "pass": bool(all(tests.values())),
+                "metrics": metrics}
+
+    sensitivity_gates = {
+        "train": sensitivity_gate(training_sensitivity),
+        "validation": sensitivity_gate(validation_sensitivity),
+        "reserved": sensitivity_gate(reserved_sensitivity),
+    }
     training_fit_failure = bool(
         training["safety"]["false_safe_count"] > 0
         or training["safety"]["near_boundary_RMSE_m"] > threshold
-        or training_sensitivity["all"]["joint"]["mean_cosine"] < cosine
-        or training_sensitivity["all"]["safety"]["mean_cosine"] < cosine
+        or not sensitivity_gates["train"]["pass"]
     )
     validation_fit_failure = bool(
         validation["safety"]["false_safe_count"] > 0
         or validation["safety"]["near_boundary_RMSE_m"] > threshold
+        or not sensitivity_gates["validation"]["pass"]
     )
     geometry_failure = any(
         item["exact_q_static_geometry"]["false_safe_count"] > 0
@@ -531,6 +636,16 @@ def root_cause_decision(
         if validation_fit_failure or reserved["safety"]["false_safe_count"] else
         "no_failure_reproduced"
     )
+    sensitivity_conclusion = (
+        "loss_scaling_or_decoder_underfitting"
+        if not (
+            sensitivity_gates["train"]["pass"]
+            and sensitivity_gates["validation"]["pass"]
+        ) else
+        "state_coverage_or_unseen_episode_generalization"
+        if not sensitivity_gates["reserved"]["pass"] else
+        "action_sensitivity_passes_all_splits"
+    )
     return {
         "strict_model_NO_GO_preserved": True,
         "training_fit_failure": training_fit_failure,
@@ -539,6 +654,8 @@ def root_cause_decision(
         "terminal_error_concentration": terminal_concentration,
         "rotation_candidate_concentration": rotation_concentration,
         "ensemble_disagreement_detects_false_safes": ensemble_detects,
+        "sensitivity_gates": sensitivity_gates,
+        "sensitivity_root_cause": sensitivity_conclusion,
         "conclusion": conclusion,
         "authorized_next_action": (
             "reopen_geometry" if geometry_failure else

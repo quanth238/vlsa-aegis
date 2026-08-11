@@ -213,7 +213,7 @@ def evaluate_reserved_geometry(
         name: np.full((len(exact_q), 7), np.nan, dtype=np.float64)
         for name in (*predicted.keys(), "exact_q_static")
     }
-    traces = {
+    clearance_traces = {
         name: np.full((len(exact_q), 51, 7), np.nan, dtype=np.float64)
         for name in (*predicted.keys(), "exact_q_static")
     } if return_trace else None
@@ -295,7 +295,7 @@ def evaluate_reserved_geometry(
                         trace = np.asarray(values, dtype=np.float64)
                         margins[name][row] = np.min(trace, axis=0)
                         if return_trace:
-                            traces[name][row] = trace
+                            clearance_traces[name][row] = trace
                     evaluated += 1
                 restore_json_snapshot(env, state["complete_snapshot"])
         finally:
@@ -325,7 +325,7 @@ def evaluate_reserved_geometry(
         "obstacle_geometry_mode": "fixed_k0_exact_box_union",
     }
     if return_trace:
-        output["clearance_trace_m"] = traces
+        output["clearance_trace_m"] = clearance_traces
     return output
 
 
