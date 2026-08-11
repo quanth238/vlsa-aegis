@@ -17,6 +17,8 @@ EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
 RUN_ID=${RUN_ID:?RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 OUTPUT_ROOT=${OUTPUT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-displacement}
+VALIDATION_ONLY_SOURCE_RUN=${VALIDATION_ONLY_SOURCE_RUN:-}
+EXPECTED_RESULT_COMMIT=${EXPECTED_RESULT_COMMIT:-$EXPECTED_GIT_COMMIT}
 RESERVED_RUN=${RESERVED_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved/direct-horizon-reserved-20260811c}
 RESERVED_VALIDATION=${RESERVED_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved-validation/direct-horizon-reserved-20260811c-validation-i/collection-validation.json}
 SOURCE_RUN=${SOURCE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-execution/factorized-execution-20260811d}
@@ -91,5 +93,15 @@ common=(
   --reserved-collection "$RESERVED_RUN/collection-result.json" --reserved-metadata "$RESERVED_RUN/trajectory-metadata.json" --reserved-array "$RESERVED_RUN/trajectory-dataset.npz" --reserved-validation "$RESERVED_VALIDATION"
   --previous-factorized-model "$ONE_SIDED_RUN/experimental-model.npz" --previous-cumulative-model "$CUMULATIVE_RUN/model.npz"
 )
+if [[ -n "$VALIDATION_ONLY_SOURCE_RUN" ]]; then
+  [[ -d "$VALIDATION_ONLY_SOURCE_RUN" && ! -L "$VALIDATION_ONLY_SOURCE_RUN" ]] || die "validation-only source missing or symlinked"
+  [[ "$(sha256sum "$VALIDATION_ONLY_SOURCE_RUN/model.npz" | awk '{print $1}')" == d9aaa72812fae83271a451aef136e8ed98a00fce7cc882f6f2bad67876b0ce29 ]] || die "validation-only model differs"
+  [[ "$(sha256sum "$VALIDATION_ONLY_SOURCE_RUN/predictions.npz" | awk '{print $1}')" == 191cbb857b00f9292ebbda9ec891432e2184d41cd58ee0a10e001cf6a67028fe ]] || die "validation-only predictions differ"
+  [[ "$(sha256sum "$VALIDATION_ONLY_SOURCE_RUN/result.json" | awk '{print $1}')" == 6ab198218aa3903698b516be5e9748dfeca7748456ac1d315df8b85abcc69544 ]] || die "validation-only result differs"
+  "$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_displacement_moka10.py "${common[@]}" \
+    --experimental-model "$VALIDATION_ONLY_SOURCE_RUN/model.npz" --predictions "$VALIDATION_ONLY_SOURCE_RUN/predictions.npz" \
+    --result "$VALIDATION_ONLY_SOURCE_RUN/result.json" --expected-result-commit "$EXPECTED_RESULT_COMMIT" --output "$RUN_ROOT/validation.json"
+  exit 0
+fi
 "$AEGIS_PYTHON" scripts/evaluate_distal_direct_horizon_displacement_moka10.py "${common[@]}" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --output "$RUN_ROOT/result.json"
-"$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_displacement_moka10.py "${common[@]}" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --result "$RUN_ROOT/result.json" --output "$RUN_ROOT/validation.json"
+"$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_displacement_moka10.py "${common[@]}" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --result "$RUN_ROOT/result.json" --expected-result-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/validation.json"

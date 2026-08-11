@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import time
+from typing import Tuple
 
 from main.multilink_ellipsoid.factorized_direct_horizon_displacement import (
     RESULT_SCHEMA, VALIDATION_SCHEMA, apply_structured_representation,
@@ -36,6 +37,26 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
+def _array_equal_with_nan(left: object, right: object) -> Tuple[bool, float]:
+    """Require identical NaN masks and bit-identical finite entries."""
+
+    import numpy as np
+
+    a = np.asarray(left)
+    b = np.asarray(right)
+    if a.shape != b.shape or a.dtype != b.dtype:
+        return False, float("inf")
+    a_nan = np.isnan(a)
+    b_nan = np.isnan(b)
+    if not np.array_equal(a_nan, b_nan):
+        return False, float("inf")
+    finite = ~a_nan
+    maximum = 0.0 if not np.any(finite) else float(np.max(np.abs(
+        a[finite] - b[finite]
+    )))
+    return bool(np.array_equal(a[finite], b[finite])), maximum
+
+
 def main() -> int:
     import numpy as np
     from main.multilink_ellipsoid.shadow import allocation_record
@@ -45,6 +66,7 @@ def main() -> int:
     parser.add_argument("--experimental-model", type=Path, required=True)
     parser.add_argument("--predictions", type=Path, required=True)
     parser.add_argument("--result", type=Path, required=True)
+    parser.add_argument("--expected-result-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     started = time.perf_counter_ns()
@@ -66,7 +88,7 @@ def main() -> int:
         result.get("schema_version") == RESULT_SCHEMA
         and result.get("result_payload_sha256")
         == payload_sha256(result, "result_payload_sha256")
-        and result["source"]["commit"] == args.expected_commit
+        and result["source"]["commit"] == args.expected_result_commit
         and result["model"]["file_sha256"]
         == _file_sha256(paths["experimental_model"])
         and result["predictions"]["file_sha256"]
@@ -124,22 +146,35 @@ def main() -> int:
     margins = reserved_geometry.pop("minimum_margin_m")
     reserved_margin = margins["direct_horizon_displacement"]
     exact_static = margins["exact_q_static"]
-    stored_equal = bool(
-        np.array_equal(
+    array_pairs = {
+        "validation_direct_horizon": (
             validation_margin,
             stored["validation_direct_horizon_minimum_margin_m"],
-        )
-        and np.array_equal(
+        ),
+        "validation_exact_q_static": (
             validation_exact_static,
             stored["validation_exact_q_static_minimum_margin_m"],
-        )
-        and np.array_equal(
+        ),
+        "reserved_direct_horizon": (
             reserved_margin, stored["direct_horizon_minimum_margin_m"],
-        )
-        and np.array_equal(
+        ),
+        "reserved_exact_q_static": (
             exact_static, stored["exact_q_static_minimum_margin_m"],
+        ),
+    }
+    array_audit = {
+        name: {
+            "equal_with_matching_nan_mask": bool(result_and_maximum[0]),
+            "maximum_finite_difference_m": float(result_and_maximum[1]),
+        }
+        for name, result_and_maximum in (
+            (name, _array_equal_with_nan(*values))
+            for name, values in array_pairs.items()
         )
-    )
+    }
+    stored_equal = bool(all(
+        item["equal_with_matching_nan_mask"] for item in array_audit.values()
+    ))
     validation_metrics = safety_metrics(
         training_arrays["minimum_margin_m"], validation_margin,
         training_arrays, factorized_config, split_name="validation",
@@ -200,6 +235,7 @@ def main() -> int:
         "predictions_file_sha256": _file_sha256(paths["predictions"]),
         "audit": {
             "stored_prediction_arrays_exactly_reproduced": stored_equal,
+            "stored_prediction_array_audit": array_audit,
             "metrics_and_decision_exactly_reproduced": metric_equal,
             "reserved_action_count_recomputed": int(len(reserved_q)),
             "validation_prediction_sha256": _hash_array(validation_margin),

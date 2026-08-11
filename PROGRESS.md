@@ -4297,3 +4297,30 @@ values are
 and `e3f4e060029cb84506dcd8af6eb690fdcc0d32ee16a1c17db75f6e51c90194a1`.
 The matched direct-horizon prediction gate is now authorized; residual
 calibration, QP, and closed loop remain forbidden.
+
+H100 job `38376` completed the registered direct-horizon training/evaluation
+on `worker-2` from clean commit `c233325` and produced a strict prediction
+NO-GO. Direct decoding eliminates cumulative explosion and passes exact q0,
+the `0.446 mrad/substep` drift-slope gate, and the cumulative comparison, but
+fails the safety/generalization gates: validation/reserved false-safes are
+`95/64`, reserved recall is `71.43%`, support is `15/21` recoverable states,
+boundary RMSE is `9.650 mm`, joint/safety sensitivity cosine is `0.736/0.669`,
+and random-action overall/terminal joint RMSE is `20.728/29.494 mrad`. Exact q
+through the same geometry has zero false-safes, 100% recall, and `0.251 mm`
+boundary RMSE, so execution prediction remains the cause. Residual calibration,
+QP, and closed loop stop as preregistered.
+
+The independent validator reproduced every metric and the complete decision
+exactly; reloaded joint and reserved/validation predicted-margin hashes also
+match. Its receipt is invalid only because `numpy.array_equal` rejects matching
+NaNs in the stored non-evaluated validation rows, the same apparatus issue
+previously handled in job `38025`. A validation-only H100 retry now requires
+identical NaN masks and bit-identical finite values and does not retrain. Model,
+predictions, result, and first validation SHA-256 values are
+`d9aaa72812fae83271a451aef136e8ed98a00fce7cc882f6f2bad67876b0ce29`,
+`191cbb857b00f9292ebbda9ec891432e2184d41cd58ee0a10e001cf6a67028fe`,
+`6ab198218aa3903698b516be5e9748dfeca7748456ac1d315df8b85abcc69544`,
+and `d6280d431b71d2d9299382e74f8c25f4ca311701c8084a52df5e7963298efeb8`.
+Result/first-validation payload hashes are
+`ea8bfd83cd012cb7034f9a9d9c92aa43039c89566c8f06caaa76685e7f7b8fc3`
+and `4444da4e8e67052000fa8f9b08b15939e878ff63b803a150483eaf53ac84d88f`.

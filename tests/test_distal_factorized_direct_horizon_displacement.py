@@ -7,6 +7,9 @@ from main.multilink_ellipsoid.factorized_direct_horizon_displacement import (
     _build_model, direct_horizon_decision, horizon_time_encoding,
     load_direct_horizon_config, temporal_error_metrics,
 )
+from scripts.validate_distal_direct_horizon_displacement_moka10 import (
+    _array_equal_with_nan,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +59,16 @@ class DirectHorizonDisplacementTests(unittest.TestCase):
         self.assertEqual(metrics["maximum_initial_joint_error_rad"], 0.0)
         self.assertAlmostEqual(metrics["terminal_joint_RMSE_rad"], 0.05)
         self.assertAlmostEqual(metrics["linear_RMSE_slope_rad_per_substep"], 0.001)
+
+    def test_validation_equality_accepts_only_matching_nan_masks(self):
+        left = np.asarray([1.0, np.nan, -2.0], dtype=np.float64)
+        equal, maximum = _array_equal_with_nan(left, left.copy())
+        self.assertTrue(equal)
+        self.assertEqual(maximum, 0.0)
+        right = np.asarray([1.0, 0.0, -2.0], dtype=np.float64)
+        self.assertFalse(_array_equal_with_nan(left, right)[0])
+        changed = np.asarray([1.0, np.nan, -2.1], dtype=np.float64)
+        self.assertFalse(_array_equal_with_nan(left, changed)[0])
 
     def test_decision_is_hard_conjunction(self):
         config = load_direct_horizon_config(CONFIG)

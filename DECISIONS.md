@@ -2960,6 +2960,15 @@ moka-pot episodes E05/E20/E25/E30/E35 based only on initial obstacle identity.
 Keep the failed manifest as history and require every collector/evaluator to
 assert the registered obstacle name before geometry or labels.
 
+Job `38376` is a strict direct-horizon prediction NO-GO. Independent horizon
+decoding removes the catastrophic recursive drift of job `38240`, but it does
+not make the current execution model safe on reserved episodes: 64 false-safe
+actions, 15/21 support, 71.43% recall, 9.650 mm boundary RMSE, sensitivity
+cosines below 0.8, and 29.494 mrad terminal error. Stop before residual-bound
+calibration, QP, and closed loop. The first validator reproduces metrics and
+decision exactly but needs a validation-only NaN-aware array-equality repair;
+do not retrain or reinterpret the NO-GO.
+
 # ADR-0119: Separate immutable model inputs from reconstructible physical state
 
 **Status:** Accepted after H100 replay diagnostics, before training (2026-08-11).
