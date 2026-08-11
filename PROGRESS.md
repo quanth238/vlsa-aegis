@@ -4127,3 +4127,24 @@ training because the reserved-manifest reader was imported from the replay
 module rather than its native-geometry owner. The apparatus-only repair changes
 that import. No model, prediction, geometry result, threshold, population, or
 config changes, and the failure-only run is not reused.
+
+Clean H100 retry `38240` completed in `00:32:09` on `worker-2` and
+independently validated a strict cumulative-delta-q NO-GO. Exact `q_hat_0=q_0`
+passes, but recursive increment integration drifts from `8.441 mrad` joint RMSE
+at substep 1 to `410.690 mrad` at substep 50. Test boundary RMSE is
+`33.724 mm`, joint/margin sensitivity cosine is `0.746/0.185`, exact-safe
+recall is `25.99%`, and support is `5/13` eligible states. Test has zero
+false-safes only through strong rejection; validation still has 30.
+
+All eight independent replay checks pass with exactly `0.0` maximum joint,
+margin, and exact-static-margin difference. Reserved E01/E11/E21/E31/E41
+collection, sequential QP, and closed-loop E05 remain forbidden. Full report:
+`docs/distal_factorized_cumulative_delta_q_moka10_result.md`. Model,
+predictions, result, and validation SHA-256 values are
+`511810494a12e15c8ef7b1d839738499cb4f194f4dc19c8bcfa1e13731140c1b`,
+`af1ec13590f2dab5531e3274c5b5d4619dea28159fe782d4beaa09f949f76736`,
+`78243f0c874780565cecb8f9e74a185141fa67930de182e2b68d812818ac2435`,
+and `b30c9dc4a2ddc0a01286a9a92fa626bd81176662b2a00286b61d8aeef9342bcb`.
+The next model must predict each horizon displacement directly rather than
+recursively summing learned per-step increments; no execution command is
+authorized before that separate gate is preregistered.

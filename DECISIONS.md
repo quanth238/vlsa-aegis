@@ -2908,3 +2908,18 @@ not itself establish safe control or CBF invariance.
 Job `38239` is an apparatus failure before training. Repair only the incorrect
 manifest-reader import and rerun the identical immutable gate; do not reuse the
 empty failed run or alter the model, data, reservations, loss, or thresholds.
+
+Job `38240` independently validates the cumulative-increment decoder as a
+strict NO-GO. Anchoring substep zero exactly does not control recursive error:
+test terminal joint RMSE is `0.410690 rad`, boundary RMSE is `33.724 mm`, and
+margin-sensitivity cosine is `0.185`. Zero test false-safes reflects rejection
+of most safe actions, while validation still has 30 false-safes. The failure is
+present more strongly on validation (`0.908280 rad` terminal RMSE), so do not
+attribute it only to E05/E10/E15 coverage.
+
+Do not collect the newly reserved episodes, solve a QP, or run closed loop.
+Reject recursive per-substep increment integration, not the broader
+factorized-execution hypothesis. If continued, preregister direct horizon
+displacement output `Delta q_k=q_k-q_0` with exact zero at `k=0` and no
+recursive accumulation. Keep job `38070` as the current best conservative
+learned mechanism comparison.
