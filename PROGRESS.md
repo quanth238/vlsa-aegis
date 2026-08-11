@@ -4509,3 +4509,18 @@ Records/result/validation file SHA-256 values are
 and `8204336a9759ab67b18b7e0017d0877b17b3e1b8ea984607a26adfc322735ff4`.
 Full report:
 `docs/distal_factorized_explicit_jacobian_member_audit_moka10_result.md`.
+
+The recurrent nominal-plus-residual execution gate is preregistered before
+H100 training. It compares the frozen normalized direct-horizon model with a
+causal GRU model on the same 7,905 actions and grouped splits. The recurrent
+model predicts direct displacement from q0 at every horizon and centers its
+candidate residual by subtracting the zero-delta recurrent trace; it never
+integrates predicted increments. Normalized paired-action sensitivity,
+symmetric safety-normal supervision, known L5--L7 geometry, and five seeds are
+retained. Checkpoints are selected by validation secant fidelity among those
+within the joint-error gate. The untouched task-3 episodes and matched-random
+rollouts open only after a complete fitted train/validation pass. Flow
+guidance, calibration, QP, closed loop, Poisson/SDF, and classifiers remain
+blocked. The current data contain local perturbations, not actual VLA
+flow-noised or guided chunks. Config SHA-256 is
+`0124715fe1962a38f2437f8ca2a1407e7ed35b47c5505913f2ca49426c57dc10`.

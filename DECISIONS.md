@@ -3172,3 +3172,31 @@ Only a separately preregistered ablation that isolates nominal/intercept and J
 optimization or selects checkpoints by paired-secant validation is authorized.
 Full report:
 `docs/distal_factorized_explicit_jacobian_member_audit_moka10_result.md`.
+
+# ADR-0125: Gate recurrent nominal-plus-residual execution before VLA guidance
+
+**Status:** Preregistered before H100 training (2026-08-12).
+
+Test whether a causal recurrent execution representation can learn the OSC
+action response that flat direct-horizon and explicit-J models missed. Predict
+each \(\Delta q_k\) directly from measured \(q_0\); do not integrate predicted
+joint increments. Factor each candidate into a recurrent nominal trace and a
+shared recurrent residual centered by subtracting the zero-action-delta trace.
+This enforces exact q0, exact zero nominal residual, and no second-action effect
+through substep 25.
+
+Use the immutable 7,905-action dataset, grouped splits, normalized paired
+secants, symmetric safety-normal loss, geometry, and five seeds. Compare with
+the frozen job-38586 direct-horizon model. Select recurrent checkpoints by
+train-scaled validation secant fidelity among checkpoints satisfying the joint
+error limit. This makes the test a mechanism-feasibility comparison, not a
+recurrence-only causal ablation.
+
+The untouched task-3 episodes remain unopened unless fitted train/validation
+trajectory, safety, sensitivity direction/magnitude, support, and drift gates
+all pass. Failure stops before matched-random rollouts, flow guidance,
+calibration, QP, and closed loop. A pass authorizes only the preregistered
+untouched prediction and matched-random direction gate. The current dataset
+does not contain actual flow-noised or guided chunks, so it cannot support a
+flow-distribution claim. Config SHA-256 is
+`0124715fe1962a38f2437f8ca2a1407e7ed35b47c5505913f2ca49426c57dc10`.
