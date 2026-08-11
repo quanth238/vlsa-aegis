@@ -2959,3 +2959,25 @@ Correct the population, not the obstacle model. Reserve unused goal-II-task-2
 moka-pot episodes E05/E20/E25/E30/E35 based only on initial obstacle identity.
 Keep the failed manifest as history and require every collector/evaluator to
 assert the registered obstacle name before geometry or labels.
+
+# ADR-0119: Separate immutable model inputs from reconstructible physical state
+
+**Status:** Accepted after H100 replay diagnostics, before training (2026-08-11).
+
+The reserved collector stores both the complete physical/controller snapshot
+and the exact 2,110D semantic model input. Fresh H100 replay proves the
+snapshot/action pair deterministically reproduces all 51 joint states, all
+seven ellipsoid traces, both next-state hashes, and contacts bit-for-bit.
+However, MuJoCo derived body transforms and Robosuite cached EE observations
+at the end of `mj_step` are not part of `MjSimState`; restoring the snapshot
+calls `mj_forward` and recomputes them from the final q. They can therefore
+differ from the live cached observation by up to `9.13e-4` in a rotation entry
+even when the executed transition is identical.
+
+Treat the exact stored model-input vector and its per-state SHA-256 as the
+authoritative observation receipt. Require it to be identical across every
+candidate from that state. Independently require all reconstructible
+non-derived snapshot/controller features and every rollout receipt to match
+exactly. Report derived cache differences, but do not misclassify them as a
+physical replay failure. This implements the preregistered fresh-replay gate;
+it does not modify inputs, labels, model, population, or thresholds.

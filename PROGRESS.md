@@ -4264,3 +4264,23 @@ restore helper cannot broadcast a JSON empty `(0,)` list into MuJoCo's live
 `(0,3)` array. The cache refresh now performs the already validated
 target-shape reconstruction directly for every auxiliary value. No input,
 rollout, or label was evaluated in the failed run.
+
+H100 job `38372` restored all saved physical/controller inputs and again
+reproduced every joint trace, seven-row margin trace, next-state hash, and raw
+contact count exactly. The only remaining difference is in explicitly derived
+semantic observations after `mj_forward`: link/obstacle transforms and a few
+EE-pose entries, with maximum rotation-matrix entry difference
+`9.133811286e-4`. The live collector reads Robosuite/MuJoCo caches at the end
+of `mj_step`, whereas snapshot restoration recomputes them from the final q.
+They are immutable stored model inputs but are not physical state variables.
+
+The preregistration requires 25 fresh nominal replays, exact stored-input
+identity, and exact rollout evidence; it does not require derived observation
+caches to be reconstructible from the physical snapshot. The validator now
+checks each stored 2,110D vector against its per-state SHA-256 and equality
+across all 93 candidates, requires every non-derived reconstructed feature to
+match exactly, reports the known derived-cache differences separately, and
+continues to require bit-exact trajectories/margins/hashes/contacts. This
+corrects validation semantics without changing data, model, threshold, or
+scientific equality. Job `38372` validation file SHA-256 is
+`650627cc8f625a2ca5fbfd783c9ec1876c8d99e3bc2672679e3f90999cdd35d7`.

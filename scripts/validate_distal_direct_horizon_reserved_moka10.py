@@ -32,6 +32,16 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
+_DERIVED_OBSERVATION_PREFIXES = (
+    "semantic_state.current_EE_position_m",
+    "semantic_state.current_EE_orientation_world_from_EE",
+    "semantic_state.obstacle_root_position_m",
+    "semantic_state.obstacle_root_orientation_world_from_body",
+    "semantic_state.seven_robot_ellipsoid_transforms",
+    "semantic_state.exact_obstacle_primitive_transforms",
+)
+
+
 def refresh_restored_controller_observation_cache(
     env: Any, snapshot: Mapping[str, Any],
 ) -> None:
@@ -155,6 +165,7 @@ def main() -> int:
     )
     candidate_mismatches = []
     initial_condition_mismatches = []
+    stored_input_mismatches = []
     row_by_identity = {}
     records = sorted(metadata["state_records"], key=lambda item: int(item["state_index"]))
     for state in records:
@@ -176,6 +187,19 @@ def main() -> int:
         q0 = arrays["joint_position_rad"][rows, 0]
         if not np.all(q0 == q0[0]):
             initial_condition_mismatches.append(state_index)
+        reference_input = arrays["state_input_vector"][rows[0]]
+        stored_hash = hashlib.sha256(reference_input.tobytes()).hexdigest()
+        if (
+            any(not np.array_equal(
+                arrays["state_input_vector"][row], reference_input
+            ) for row in rows)
+            or stored_hash != state["complete_input_vector_sha256"]
+        ):
+            stored_input_mismatches.append({
+                "state_index": state_index,
+                "expected_sha256": state["complete_input_vector_sha256"],
+                "observed_sha256": stored_hash,
+            })
         for item in expected:
             row = by_candidate[int(item["candidate_index"])]
             expected_action = np.asarray(item["full_two_action_commands"], dtype=np.float64)
@@ -207,6 +231,8 @@ def main() -> int:
     geometry_config = load_shadow_config(paths["geometry"])
     exact_box_config = load_obstacle_primitive_config(paths["exact_box"])
     replay_mismatches = []
+    input_reconstruction_mismatches = []
+    unexpected_input_reconstruction_mismatches = []
     maximum_q_difference = 0.0
     maximum_margin_difference = 0.0
     names = [str(value) for value in metadata["complete_input_feature_names"]]
@@ -278,18 +304,22 @@ def main() -> int:
                 observed_contacts = int(replay["raw_protected_contact_count"])
                 expected_contacts = int(arrays["raw_contact_count"][row])
                 contacts_equal = bool(observed_contacts == expected_contacts)
-                if not all((
-                    state_input_equal, joint_equal, margin_equal, hashes_equal,
-                    contacts_equal,
-                )):
+                if not state_input_equal:
                     input_difference = np.abs(
                         replay_input - arrays["state_input_vector"][row]
                     )
+                    different_input_indexes = np.flatnonzero(
+                        input_difference > 0.0
+                    )
+                    unexpected_names = sorted({
+                        names[int(index)] for index in different_input_indexes
+                        if not names[int(index)].startswith(
+                            _DERIVED_OBSERVATION_PREFIXES
+                        )
+                    })
                     largest_input_indexes = np.argsort(input_difference)[-8:][::-1]
-                    replay_mismatches.append({
+                    input_record = {
                         "state_index": state_index,
-                        "maximum_q_difference_rad": q_difference,
-                        "maximum_margin_difference_m": margin_difference,
                         "maximum_state_input_difference": float(np.max(
                             input_difference
                         )),
@@ -311,8 +341,21 @@ def main() -> int:
                             for index in largest_input_indexes
                             if input_difference[int(index)] > 0.0
                         ],
+                        "unexpected_feature_names": unexpected_names,
+                    }
+                    input_reconstruction_mismatches.append(input_record)
+                    if unexpected_names:
+                        unexpected_input_reconstruction_mismatches.append(
+                            input_record
+                        )
+                if not all((
+                    joint_equal, margin_equal, hashes_equal, contacts_equal,
+                )):
+                    replay_mismatches.append({
+                        "state_index": state_index,
+                        "maximum_q_difference_rad": q_difference,
+                        "maximum_margin_difference_m": margin_difference,
                         "predicate": {
-                            "state_input_equal": state_input_equal,
                             "joint_equal": joint_equal,
                             "margin_equal": margin_equal,
                             "next_state_hashes_equal": hashes_equal,
@@ -330,7 +373,9 @@ def main() -> int:
                 env.close()
     valid = bool(
         shape_gate and not candidate_mismatches
-        and not initial_condition_mismatches and not replay_mismatches
+        and not initial_condition_mismatches and not stored_input_mismatches
+        and not unexpected_input_reconstruction_mismatches
+        and not replay_mismatches
         and maximum_q_difference == 0.0 and maximum_margin_difference == 0.0
     )
     output = {
@@ -348,6 +393,13 @@ def main() -> int:
             "fresh_nominal_replay_count": len(records),
             "candidate_mismatches": candidate_mismatches,
             "initial_condition_mismatches": initial_condition_mismatches,
+            "stored_input_mismatches": stored_input_mismatches,
+            "derived_observation_reconstruction_mismatches": (
+                input_reconstruction_mismatches
+            ),
+            "unexpected_input_reconstruction_mismatches": (
+                unexpected_input_reconstruction_mismatches
+            ),
             "replay_mismatches": replay_mismatches,
             "maximum_replay_q_difference_rad": maximum_q_difference,
             "maximum_replay_margin_difference_m": maximum_margin_difference,
