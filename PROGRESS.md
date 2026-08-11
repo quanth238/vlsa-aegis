@@ -4197,3 +4197,12 @@ moka-pot episodes in goal-II task 2 (E05/E20/E25/E30/E35), based only on the
 immutable initial-obstacle identity, and separately freezes five unused
 task-3 moka-pot episodes for future intervention. Model, loss, state-selection
 rule, 93 candidates, gates, and geometry are unchanged.
+
+H100 job `38284` then completed the immutable collection itself: 2,325 primary
+rollouts and 125 registered repeats had zero joint/margin mismatch and zero
+nominal next-state mismatch. The collection gate passed, but the subsequent
+fresh-replay process failed before its first rollout because JSON serialization
+lost the `(0,3)` shape of an empty MuJoCo auxiliary array. The validation-only
+repair reshapes every serialized auxiliary value to its live target shape
+before calling the unchanged restore routine. It does not recollect or modify
+the dataset and cannot authorize training until all 25 fresh replays pass.

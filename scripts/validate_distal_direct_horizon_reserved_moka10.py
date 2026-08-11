@@ -18,13 +18,12 @@ from main.multilink_ellipsoid.factorized_execution_pilot import (
     candidate_chunks, load_config as load_factorized_config, payload_sha256,
     trace_arrays,
 )
-from scripts.collect_distal_boundary_generalization_moka10 import _restore_env
 from scripts.collect_distal_complete_osc_margin_moka10 import (
     _GEOMETRY_PLACEHOLDER_CASE_ID, _contact_receipt, _geometry_placeholder_row,
     _state_input,
 )
 from scripts.collect_distal_direct_horizon_reserved_moka10 import (
-    _aligned_state_vector,
+    _aligned_state_vector, restore_json_snapshot,
 )
 from scripts.evaluate_distal_execution_margin_nn_e05 import _build_pair, _geometry
 from scripts.evaluate_distal_native_geom_inventory_moka10 import _read_manifest
@@ -211,7 +210,7 @@ def main() -> int:
             for state in (item for item in records if item["case_id"] == case_id):
                 state_index = int(state["state_index"])
                 row = row_by_identity[(state_index, 0)]
-                _restore_env(env, state["complete_snapshot"])
+                restore_json_snapshot(env, state["complete_snapshot"])
                 replay_input = _aligned_state_vector(
                     _state_input(env, probe, setup["obstacle_name"]), names,
                 )

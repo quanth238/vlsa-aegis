@@ -31,9 +31,11 @@ from main.multilink_ellipsoid.factorized_structured_orientation import (
 from main.multilink_ellipsoid.factorized_time_conditioned_decoder import (
     eligible_state_support,
 )
-from scripts.collect_distal_boundary_generalization_moka10 import _restore_env
 from scripts.collect_distal_complete_osc_margin_moka10 import (
     _GEOMETRY_PLACEHOLDER_CASE_ID, _geometry_placeholder_row,
+)
+from scripts.collect_distal_direct_horizon_reserved_moka10 import (
+    restore_json_snapshot,
 )
 from scripts.evaluate_distal_factorized_cumulative_delta_q_moka10 import (
     add_cumulative_arguments, prepare,
@@ -248,7 +250,7 @@ def evaluate_reserved_geometry(
                 (item for item in state_records if item["case_id"] == case_id),
                 key=lambda item: int(item["state_index"]),
             ):
-                _restore_env(env, state["complete_snapshot"])
+                restore_json_snapshot(env, state["complete_snapshot"])
                 obstacles = probe._obstacles(env)
                 state_index = int(state["state_index"])
                 for candidate_index in range(
@@ -289,7 +291,7 @@ def evaluate_reserved_geometry(
                             np.asarray(values, dtype=np.float64), axis=0
                         )
                     evaluated += 1
-                _restore_env(env, state["complete_snapshot"])
+                restore_json_snapshot(env, state["complete_snapshot"])
         finally:
             if probe_env is not None:
                 probe_env.close()

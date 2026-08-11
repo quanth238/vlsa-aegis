@@ -51,6 +51,21 @@ def _write_npz_atomic(path: Path, arrays: Mapping[str, Any]) -> None:
     temporary.replace(path)
 
 
+def restore_json_snapshot(env: Any, snapshot: Mapping[str, Any]) -> None:
+    """Restore a JSON snapshot while recovering empty MuJoCo array shapes."""
+
+    import numpy as np
+    from scripts.collect_distal_boundary_generalization_moka10 import _restore_env
+
+    restored = dict(snapshot)
+    auxiliary = {}
+    for name, value in snapshot["auxiliary"].items():
+        target = getattr(env.sim.data, name)
+        auxiliary[name] = np.asarray(value, dtype=target.dtype).reshape(target.shape)
+    restored["auxiliary"] = auxiliary
+    _restore_env(env, restored)
+
+
 def _aligned_state_vector(
     state_input: Mapping[str, Any], aligned_names: Sequence[str],
 ) -> Any:

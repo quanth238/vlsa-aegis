@@ -17,7 +17,8 @@ EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
 RUN_ID=${RUN_ID:?RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 OUTPUT_ROOT=${OUTPUT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-displacement}
-RESERVED_RUN=${RESERVED_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved/direct-horizon-reserved-20260811a}
+RESERVED_RUN=${RESERVED_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved/direct-horizon-reserved-20260811c}
+RESERVED_VALIDATION=${RESERVED_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved-validation/direct-horizon-reserved-20260811c-validation-a/collection-validation.json}
 SOURCE_RUN=${SOURCE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-execution/factorized-execution-20260811d}
 SOURCE_VALIDATION=${SOURCE_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-factorized-execution-validation/factorized-execution-20260811d-validation-a}
 SURFACE_RUN=${SURFACE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-surface-error/factorized-surface-error-20260811a}
@@ -51,6 +52,7 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "direct-horizon evaluation requires exactly one H100"
 for source_dir in "$RESERVED_RUN" "$SOURCE_RUN" "$STRUCTURED_RUN" "$CUMULATIVE_RUN"; do [[ -d "$source_dir" && ! -L "$source_dir" ]] || die "immutable source missing or symlinked"; done
+[[ -f "$RESERVED_VALIDATION" && ! -L "$RESERVED_VALIDATION" ]] || die "reserved validation missing or symlinked"
 [[ -x "$AEGIS_PYTHON" ]] || die "evaluation runtime missing"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 [[ "$(sha256sum "$DIRECT_CONFIG" | awk '{print $1}')" == 13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f ]] || die "direct-horizon config differs"
@@ -85,7 +87,7 @@ common=(
   --source-structured-predictions "$STRUCTURED_RUN/predictions.npz" --source-structured-result "$STRUCTURED_RUN/result.json" --source-structured-validation "$STRUCTURED_RUN/validation.json"
   --population-manifest "$POPULATION" --selected-manifest "$SELECTED" --same-task-manifest "$SAME_TASK" --targeted-manifest "$TARGETED" --reserved-manifest "$LEGACY_RESERVED" --direct-reserved-manifest "$DIRECT_RESERVED"
   --archived-root "$ARCHIVED_ROOT" --geometry-config "$GEOMETRY" --exact-box-config "$EXACT_BOX" --expected-commit "$EXPECTED_GIT_COMMIT"
-  --reserved-collection "$RESERVED_RUN/collection-result.json" --reserved-metadata "$RESERVED_RUN/trajectory-metadata.json" --reserved-array "$RESERVED_RUN/trajectory-dataset.npz" --reserved-validation "$RESERVED_RUN/collection-validation.json"
+  --reserved-collection "$RESERVED_RUN/collection-result.json" --reserved-metadata "$RESERVED_RUN/trajectory-metadata.json" --reserved-array "$RESERVED_RUN/trajectory-dataset.npz" --reserved-validation "$RESERVED_VALIDATION"
   --previous-factorized-model "$ONE_SIDED_RUN/experimental-model.npz" --previous-cumulative-model "$CUMULATIVE_RUN/model.npz"
 )
 "$AEGIS_PYTHON" scripts/evaluate_distal_direct_horizon_displacement_moka10.py "${common[@]}" --experimental-model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --output "$RUN_ROOT/result.json"
