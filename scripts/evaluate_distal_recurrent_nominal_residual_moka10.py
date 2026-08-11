@@ -80,7 +80,7 @@ def validate_recurrent_sources(
         (paths["complete_collection"], "complete_collection_file_sha256"),
         (paths["array"], "trajectory_array_file_sha256"),
         (paths["metadata"], "trajectory_metadata_file_sha256"),
-        (paths["trajectory_collection"], "trajectory_collection_file_sha256"),
+        (paths["collection"], "trajectory_collection_file_sha256"),
         (paths["direct_config"], "normalized_direct_config_file_sha256"),
         (direct / "model.npz", "normalized_direct_model_file_sha256"),
         (direct / "predictions.npz", "normalized_direct_predictions_file_sha256"),

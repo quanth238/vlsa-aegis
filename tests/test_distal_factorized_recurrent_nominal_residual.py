@@ -105,6 +105,16 @@ class RecurrentNominalResidualTests(unittest.TestCase):
         self.assertIn("candidate_hidden, zero_hidden", source)
         self.assertIn("nominal + residual", source)
 
+    def test_evaluator_uses_existing_trajectory_collection_path_key(self):
+        source = (
+            ROOT / "scripts/evaluate_distal_recurrent_nominal_residual_moka10.py"
+        ).read_text()
+        self.assertIn(
+            '(paths["collection"], "trajectory_collection_file_sha256")',
+            source,
+        )
+        self.assertNotIn('paths["trajectory_collection"]', source)
+
 
 if __name__ == "__main__":
     unittest.main()

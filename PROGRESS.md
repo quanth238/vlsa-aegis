@@ -4524,3 +4524,10 @@ guidance, calibration, QP, closed loop, Poisson/SDF, and classifiers remain
 blocked. The current data contain local perturbations, not actual VLA
 flow-noised or guided chunks. Config SHA-256 is
 `0124715fe1962a38f2437f8ca2a1407e7ed35b47c5505913f2ca49426c57dc10`.
+
+Initial H100 job `38701` passed allocation-side structural tests and stopped
+before training because the new evaluator used `trajectory_collection` while
+the established prepared-path key is `collection`. The apparatus-only repair
+changes that lookup and adds a regression test. No model, prediction, metric,
+untouched episode, or scientific result exists for job `38701`; its immutable
+failure receipt is preserved.
