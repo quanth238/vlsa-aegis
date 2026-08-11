@@ -95,7 +95,7 @@ def validate_structured_sources(
     _require(
         orientation.get("result_payload_sha256")
         == source["orientation_confirmation_result_payload_sha256"]
-        and orientation.get("decision", {}).get(
+        and orientation.get("audit", {}).get("decision", {}).get(
             "orientation_representation_causal"
         ) is True
         and orientation_validation.get("validation_payload_sha256")

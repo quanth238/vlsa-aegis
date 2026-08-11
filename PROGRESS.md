@@ -4032,3 +4032,9 @@ Poisson/SDF, and closed loop remain forbidden. Protocol:
 `docs/distal_factorized_structured_orientation_moka10_preregistration.md`.
 Config SHA-256 is
 `adf6a42bdf01d1eb4910c1d50275065b34a6df37583865922d2a186e14df241c`.
+
+Initial H100 job `38094` stopped before training because the source identity
+check looked for the confirmed orientation decision at the result root rather
+than under its immutable `audit` receipt. The apparatus-only repair reads the
+existing nested field. It changes no data, representation, model, loss, seed,
+gate, or config, and no partial artifact is reused.
