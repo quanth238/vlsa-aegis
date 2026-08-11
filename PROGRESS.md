@@ -4179,3 +4179,10 @@ Direct-config/reserved/future-manifest hashes are
 `722d9183294b2f85dbbd1f0a341585a891a7a729bb79ee535827f7a4aa4742f7`,
 `4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6`,
 and `609eddd0ac768246827a5f126d05799bf7f2e314dadcc0a5f94343bc6287739c`.
+
+Initial H100 collection job `38280` stopped before simulation because the unit
+fixture supplied 95% exact-static recall to a deliberately frozen 99% geometry
+gate. The implementation correctly rejected the fixture. The apparatus-only
+repair gives the mock exact-static arm 100% recall; it changes no config,
+episode, state selection, candidate, rollout, model, target, or threshold. The
+failure-only run is not reused.

@@ -64,6 +64,10 @@ class DirectHorizonDisplacementTests(unittest.TestCase):
             "exact_safe_action_recall": 0.95,
             "near_boundary_RMSE_m": 0.001,
         }
+        exact_static = {
+            "false_safe_action_count": 0,
+            "exact_safe_action_recall": 1.0,
+        }
         support = {"all_eligible_states_supported": True}
         temporal = {
             "overall_joint_RMSE_rad": 0.01,
@@ -75,7 +79,7 @@ class DirectHorizonDisplacementTests(unittest.TestCase):
         cosine = {"mean_cosine": 0.9}
         decision = direct_horizon_decision(
             validation_metrics=safety, reserved_metrics=safety,
-            reserved_exact_static_metrics=safety,
+            reserved_exact_static_metrics=exact_static,
             validation_support=support, reserved_support=support,
             reserved_temporal=temporal, joint_sensitivity=cosine,
             safety_sensitivity=cosine,
@@ -86,7 +90,7 @@ class DirectHorizonDisplacementTests(unittest.TestCase):
         safety["false_safe_action_count"] = 1
         decision = direct_horizon_decision(
             validation_metrics=safety, reserved_metrics=safety,
-            reserved_exact_static_metrics=safety,
+            reserved_exact_static_metrics=exact_static,
             validation_support=support, reserved_support=support,
             reserved_temporal=temporal, joint_sensitivity=cosine,
             safety_sensitivity=cosine,
