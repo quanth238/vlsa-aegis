@@ -4228,3 +4228,23 @@ hashes and raw-contact counts also match exactly, in addition to the joint and
 margin traces. Because model inputs must be reproducible from the complete
 snapshot, the gate remains blocked. The next diagnostic reports the largest
 named input-feature differences; the equality requirement is not relaxed.
+
+Queued diagnostic job `38332` stopped before Python or environment creation
+because its submission supplied an incorrect expanded source-commit string.
+The remote worktree was clean at the intended commit; the failed allocation
+produced no replay or scientific artifact and is not reused. Replacement job
+`38353` reads the exact commit from the remote Git worktree at submission.
+
+H100 diagnostic job `38353` then confirmed that all 25 mismatches are solely
+the reconstructed state input: trace arrays, next-state hashes, and contacts
+remain bit-exact. The dominant named differences are
+`semantic_state.current_EE_position_m` and
+`semantic_state.current_EE_orientation_world_from_EE`; the first state had a
+stale-cache error as large as `0.210754858 m`. Robosuite's controller source
+confirms these are cached q-derived observations refreshed by
+`controller.update(force=True)`, while `new_update` is the only saved control
+flag that call changes. The validator now refreshes those observation caches,
+restores the saved flag, serializes the input, and then restores the immutable
+snapshot again before rollout. It does not change collection labels or the
+transition under test. Job `38353` validation file SHA-256 is
+`22fe573fd27674ec1db8febf576c957d11d1c2b828e7e408e904c56b8437c5aa`.

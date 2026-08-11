@@ -32,6 +32,23 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
+def refresh_restored_controller_observation_cache(
+    env: Any, snapshot: Mapping[str, Any],
+) -> None:
+    """Refresh q-derived OSC observations without changing saved control state."""
+
+    controllers = list(snapshot["controllers"])
+    if len(env.robots) != len(controllers):
+        raise ValueError("reserved replay controller count differs")
+    for robot, saved in zip(env.robots, controllers):
+        controller = robot.controller
+        controller.update(force=True)
+        # ``update`` refreshes q-derived pose/Jacobian caches but clears this
+        # control-flow flag. It is part of the saved deployment state, so put
+        # only that flag back before serializing the reconstructed input.
+        controller.new_update = bool(saved["new_update"])
+
+
 def main() -> int:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -212,9 +229,15 @@ def main() -> int:
                 state_index = int(state["state_index"])
                 row = row_by_identity[(state_index, 0)]
                 restore_json_snapshot(env, state["complete_snapshot"])
+                refresh_restored_controller_observation_cache(
+                    env, state["complete_snapshot"],
+                )
                 replay_input = _aligned_state_vector(
                     _state_input(env, probe, setup["obstacle_name"]), names,
                 )
+                # The cache refresh is for input reconstruction only. Restore
+                # the immutable snapshot again before testing the transition.
+                restore_json_snapshot(env, state["complete_snapshot"])
                 replay = trace_arrays(
                     probe.rollout_chunk(env, arrays["action_chunk"][row].tolist()),
                     factorized_config,
