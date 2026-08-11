@@ -4421,3 +4421,26 @@ validation receipt inside the original job-38376 run directory. The validated
 receipt is an immutable separate file. Pin that explicit path and SHA-256 in
 both evaluator and Slurm preflight; do not reuse the failed run. This changes
 no data, model, loss, split, seed, optimizer, gate, or config.
+
+Clean H100 job `38586` completed the unchanged matched ablation on `worker-1`
+in `01:38:34`, including independent validation, and is a strict fitted-model
+NO-GO. The train-only scale audit used 450 nonzero action-coordinate/horizon
+cells, excluded 264 zero/noisy cells, and clipped 22 high inverse-scale
+weights, confirming that the registered normalized loss executed. It did not
+repair action response: train/validation aggregate sensitivity cosine is
+`0.691/0.658`, median gain ratio is `0.046/0.049`, and relative magnitude error
+is `0.946/0.939`. Terminal cosine rises to `0.902/0.838`, but terminal gain
+collapses to `0.017/0.018`. Validation joint RMSE passes at `19.275 mrad`
+versus the frozen `19.662 mrad`, so ordinary trajectory fit is not the failed
+gate. The validator reloaded all five members, recomputed 7,905 FK/ellipsoid
+traces, reproduced all five stored arrays with zero finite difference, and
+matched every metric/decision exactly. New unseen evaluation, calibration,
+QP, and closed loop did not run. Per preregistration, change the time decoder
+without adding losses next. Model/prediction/result/validation SHA-256 values
+are
+`60791198b705cd36bc6ad7765d72089483f62fa68a7873c02d99d6e77ef90d2b`,
+`1a5da8391be988980c4078e09dd943db85fadaa97a56ba5a5f8aa6b5d9571c29`,
+`265e2a16d5dfd49877d48b8eab9961f4fa9b65d3680a9d8c9a1279fcf3abf868`,
+and `5661919f60f8f250a7afa8939feeeeedc217780e95fe08c8b72397cf4a4b8312`.
+Full report:
+`docs/distal_factorized_direct_horizon_normalized_secant_moka10_result.md`.

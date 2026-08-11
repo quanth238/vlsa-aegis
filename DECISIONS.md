@@ -2889,7 +2889,8 @@ predictor, then rerun the same composition gate before intervention.
 
 # ADR-0117: Predict cumulative OSC joint displacement before sequential QP
 
-**Status:** Preregistered before H100 training (2026-08-11).
+**Status:** Accepted as strict NO-GO after validated H100 job `38586`
+(2026-08-11).
 
 Retain the factorized execution story, but make the learned output explicitly
 motion: 50 joint increments integrated from the exact observed q0. Use shared
@@ -3067,3 +3068,19 @@ authorizes only a time-decoder change. QP, residual calibration, new rollout
 labels, closed loop, and the future task-3 manifest remain unopened. Config
 SHA-256 is
 `a9661a6ab8725374f509e61ffc11861216ba4809692f448cc9f44d0b731ab4df`.
+
+Job `38586` rejects sensitivity-loss scaling as a sufficient repair for this
+decoder. Train/validation aggregate joint-sensitivity cosine falls to
+`0.691/0.658` and median predicted/exact gain collapses to `0.046/0.049`.
+Terminal direction is good (`0.902/0.838` cosine), but terminal gain is only
+`0.017/0.018` with about `0.98` mean relative norm error. Validation joint
+trajectory RMSE remains acceptable at `19.275 mrad`, so the failure is
+specifically action response rather than general trajectory divergence.
+
+The independent validator reloaded the model and reproduced all five stored
+arrays bit-for-bit plus every metric and decision across 7,905 actions. Stop
+before new grouped-unseen evaluation, calibration, QP, or closed loop. The
+next authorized model intervention is a preregistered time-decoder change with
+no additional loss terms. The conclusion is limited to normalized paired
+secants under the frozen job-38376 optimizer, schedule, and early stopping; it
+does not prove that all sensitivity-aware objectives are impossible.
