@@ -2816,3 +2816,15 @@ preserving ordinary validation and test scale. Also report each single mask and
 all variance-floored features, but do not use those auxiliary arms to change
 the gate. A pass identifies the representation cause and authorizes only a
 matched representation ablation, never direct retraining or intervention.
+
+Job `38093` confirms the cause. The fixed union removes more than 99.999% of
+the E35 terminal error from both frozen models and leaves the ordinary
+validation episode and diagnostic test essentially unchanged. Classify the
+impossible validation trajectories as a raw rotation-matrix scalar
+standardization failure amplified by redundant primitive transforms, not a
+failure of positional time. Do not treat mean-masking as a deployable fix: it
+removes valid orientation information. The next authorized gate is a matched
+structured orientation representation ablation using the same data, models,
+losses, seeds, and splits. The time decoder remains NO-GO on normal-scale test
+states until such a matched comparison says otherwise; QP and closed loop stay
+blocked.

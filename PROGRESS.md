@@ -3994,3 +3994,21 @@ authorize only a later matched representation ablation. Protocol:
 `docs/distal_factorized_orientation_joint_mask_moka10_preregistration.md`.
 Config SHA-256 is
 `bc11384a0aeb35ab8ad609d47e460d0b3eea0efec991581e04f8ddf5bc616fce`.
+
+Clean H100 job `38093` completed in `00:00:11` and independently validated all
+six gates. Jointly masking the 288 duplicated root/primitive obstacle rotation
+scalars reduces goal-II-t3-e35 terminal RMSE from 1896.791/1630.247 rad to
+0.017637/0.011109 rad for flat/time models, or 99.99907%/99.99932%. The ordinary
+validation episode remains physical and diagnostic-test terminal RMSE changes
+by only -0.0375%/+0.0113%.
+
+The impossible validation trajectory is therefore a confirmed representation
+failure: a valid 180-degree obstacle rotation flips entries that were constant
+in training, and independent scalar standardization maps them to `2e6` before
+duplicating them across primitive transforms. This does not solve the remaining
+normal-scale model error or authorize a QP. Only a matched structured bounded
+orientation representation ablation is authorized. Full report:
+`docs/distal_factorized_orientation_joint_mask_moka10_result.md`.
+Result/validation hashes are
+`1cd507f5b00ad4a5a243f957ae3466348680e821a9fab973caf133f73023cfc1` and
+`b5b3931bc85021c849a4916e5e260b90c389b7a267931e9b9d8f0adb1ebfaa66`.
