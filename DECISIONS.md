@@ -2877,3 +2877,12 @@ submillimetre, conservative, and substantially more accurate than predicted-q
 safety, attribute the dominant current failure to execution prediction rather
 than FK or phi. If it fails, stop MLP redesign and audit link transforms and
 obstacle-time alignment first.
+
+Job `38155` passes the full decomposition. Exact q through the unchanged
+MuJoCo-FK/ellipsoid/phi chain is exact at k0 and has only 0.321 mm boundary
+RMSE, zero false-safes, and 99.51% recall despite the deliberately frozen
+obstacle used after k0. The learned q trace through the same evaluator has
+2.302 mm boundary RMSE and 44 false-safes. Attribute the dominant failure to
+the learned execution trajectory. Do not change the explicit geometry backend
+or blame QP linearization; no QP was used. Improve the late-horizon joint
+predictor, then rerun the same composition gate before intervention.

@@ -4081,3 +4081,21 @@ calibration, or closed loop is permitted. Protocol:
 `docs/distal_factorized_nominal_safety_formula_audit_moka10_preregistration.md`.
 Config SHA-256 is
 `43c0ca12bf2c83de294383d2952586713b9f1644fc0e0cb8637ebb10c17b181a`.
+
+Clean H100 job `38155` completed in `00:00:07` and independently validated all
+seven gates. Both current artifacts explicitly output `51 x 7` joint
+trajectories. At substep zero, exact q passed through MuJoCo FK, ellipsoid
+attachment, and phi differs from the live recorded safety value by at most
+`2.36e-16 m`. Across the test boundary, exact-q recomposition has `0.321 mm`
+RMSE, zero false-safes, and `99.51%` recall.
+
+The original learned q trace has `11.560 mrad` trajectory RMSE and produces
+`2.302 mm` boundary error plus 44 false-safes through the same geometry chain;
+its boundary error is `7.17x` the exact-q error. The stable structured
+flat/time models likewise produce 64/63 false-safes. The dominant root is
+learned execution prediction, not FK, ellipsoid conversion, phi, or QP
+linearization. Full report:
+`docs/distal_factorized_nominal_safety_formula_audit_moka10_result.md`.
+Result/validation hashes are
+`1d56b9f1a4e95ab80d02f9cf5cb4d6c0c22edd4c61f22abfbbf1f41b80e1ac55`
+and `8413606405dd9870b9351012b4e603885891ac9c9456063816bb5d88a14b0658`.
