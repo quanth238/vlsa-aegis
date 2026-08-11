@@ -4489,3 +4489,23 @@ below 0.5 identifies ensemble cancellation. The audit performs no training or
 simulation and opens no new episodes. Calibration, QP, closed loop, new
 labels, Poisson/SDF, and classifiers remain blocked. Config SHA-256 is
 `40a77cb25e1ef18ae0a80dc2eaec2f19dd4ea8bb8128132ef148ad4090b8733e`.
+
+Clean H100 job `38696` completed the frozen member audit on worker-1 in
+`00:00:18`; its independent validator is valid and exactly reproduces all
+metrics, decisions, and four stored arrays. The diagnosis is
+`member_level_optimization_or_checkpoint_failure`: zero of five members passes
+train and validation. Member train/validation aggregate sensitivity cosine is
+`0.093/0.109`, `0.124/0.126`, `0.003/-0.005`, `-0.119/-0.125`, and
+`0.211/0.195`. Validation member norm ratios are `3.385`, `2.902`, `2.748`,
+`3.261`, and `1.670`. Pairwise cosine is only `0.024/0.028` on
+train/validation and ensemble norm cancellation is `0.495/0.491`, but
+cancellation is secondary because every member is already wrong. Translation
+is the strongest failure; no valid nonzero gripper secants exist. This rules
+out unseen-state coverage as the primary explanation for the current model and
+keeps calibration, QP, closed loop, new labels, and unopened episodes blocked.
+Records/result/validation file SHA-256 values are
+`b9cbd99f5041a343856e95a8d360f1ab9152a994d32bb8d1e0c81892bcad9549`,
+`f0c8ac63a7a57b00a63e795bb45efd7b0c434f8f031fe08eddacc188438922fe`,
+and `8204336a9759ab67b18b7e0017d0877b17b3e1b8ea984607a26adfc322735ff4`.
+Full report:
+`docs/distal_factorized_explicit_jacobian_member_audit_moka10_result.md`.

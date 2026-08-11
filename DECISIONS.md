@@ -3134,7 +3134,8 @@ episodes remain blocked.
 
 # ADR-0124: Diagnose frozen explicit-J members before changing optimization
 
-**Status:** Preregistered before H100 audit (2026-08-11).
+**Status:** Accepted diagnosis after independently validated H100 job `38696`
+(2026-08-11).
 
 Do not infer ensemble cancellation or optimizer failure from the job-38673
 ensemble average alone. Reload all five immutable members and compare each
@@ -3152,3 +3153,22 @@ a frozen no-training, no-simulation audit. It cannot authorize training,
 calibration, QP, closed loop, new labels, new unseen episodes, Poisson/SDF, or
 a classifier. Config SHA-256 is
 `40a77cb25e1ef18ae0a80dc2eaec2f19dd4ea8bb8128132ef148ad4090b8733e`.
+
+Job `38696` reproduced all metrics, decisions, and stored arrays exactly and
+diagnosed member-level optimization/checkpoint failure. Zero of five members
+passes the frozen train-and-validation sensitivity gates. Member
+train/validation aggregate cosine values are respectively `0.093/0.109`,
+`0.124/0.126`, `0.003/-0.005`, `-0.119/-0.125`, and `0.211/0.195`; terminal
+values are no better. Translation is especially poor and over-amplified.
+Pairwise member cosine is only `0.024/0.028` on train/validation and ensemble
+averaging reduces the response norm to `0.495/0.491` of the mean member norm,
+but this cancellation is secondary because every individual member is already
+wrong. The current training/checkpoint process—not unseen-state coverage—is
+the root of this frozen result. Gripper sensitivity remains untested because
+the paired data contain no valid nonzero gripper secants.
+
+Keep calibration, QP, closed loop, new labels, and unopened episodes blocked.
+Only a separately preregistered ablation that isolates nominal/intercept and J
+optimization or selects checkpoints by paired-secant validation is authorized.
+Full report:
+`docs/distal_factorized_explicit_jacobian_member_audit_moka10_result.md`.

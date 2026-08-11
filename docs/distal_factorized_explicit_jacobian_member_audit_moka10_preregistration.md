@@ -38,3 +38,10 @@ separately preregistered next experiment.
 
 Config SHA-256:
 `40a77cb25e1ef18ae0a80dc2eaec2f19dd4ea8bb8128132ef148ad4090b8733e`.
+
+## Completed result
+
+Independently validated H100 job `38696` classified the frozen model as
+`member_level_optimization_or_checkpoint_failure`: zero of five members passed
+the registered train-and-validation gates. See
+`docs/distal_factorized_explicit_jacobian_member_audit_moka10_result.md`.
