@@ -37,7 +37,7 @@ def refresh_restored_controller_observation_cache(
 ) -> None:
     """Refresh q-derived OSC observations without changing saved control state."""
 
-    from main.multilink_ellipsoid.rollout import _restore_auxiliary_sim_snapshot
+    import numpy as np
 
     controllers = list(snapshot["controllers"])
     if len(env.robots) != len(controllers):
@@ -51,7 +51,9 @@ def refresh_restored_controller_observation_cache(
         controller.new_update = bool(saved["new_update"])
     # The forced forward pass can rewrite warm-start arrays. They are saved
     # physical inputs, not observation caches, so restore them exactly.
-    _restore_auxiliary_sim_snapshot(env, snapshot["auxiliary"])
+    for name, value in snapshot["auxiliary"].items():
+        target = getattr(env.sim.data, name)
+        target[...] = np.asarray(value, dtype=target.dtype).reshape(target.shape)
 
 
 def main() -> int:

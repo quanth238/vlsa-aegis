@@ -4258,3 +4258,9 @@ the observation refresh. This preserves the refreshed q-derived cache while
 keeping the independent physical/controller inputs immutable. Job `38358`
 validation file SHA-256 is
 `35044cd62b5e11f63abf78999e55eac53b0b5eb3145e0801532c85d32c0f4e37`.
+
+H100 job `38371` stopped before its first replay because the generic auxiliary
+restore helper cannot broadcast a JSON empty `(0,)` list into MuJoCo's live
+`(0,3)` array. The cache refresh now performs the already validated
+target-shape reconstruction directly for every auxiliary value. No input,
+rollout, or label was evaluated in the failed run.
