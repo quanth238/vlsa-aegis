@@ -3966,3 +3966,21 @@ QP, Poisson/SDF, or closed loop is allowed. Protocol:
 `docs/distal_factorized_input_representation_audit_moka10_preregistration.md`.
 Config SHA-256 is
 `e9e1b4d954696a704a28e1982270235ce1ff65d25166199fbf3eef4fa3805043`.
+
+Clean H100 job `38092` completed in `00:00:26` and independently replayed every
+audit value exactly. Train normalization matches both models, but 1,754/2,124
+inputs use the variance floor and one validation episode reaches `2e6` z-score
+on duplicated obstacle rotation-matrix entries. Both models first explode in
+their first linear layer at about `540,000`, and only goal-II-t3-e35 has
+impossible terminal error; the other validation episode is normal.
+
+The strict registered result remains inconclusive because masking the repeated
+exact-primitive rotations removes only 59.34%/73.47% of flat/time terminal
+error, below the all-model 90% gate, while the duplicate root-orientation input
+remains. A fixed joint-mask follow-up is required before calling this causal.
+No training or downstream intervention ran. Full report:
+`docs/distal_factorized_input_representation_audit_moka10_result.md`.
+Records/result/validation hashes are
+`60d4539ef50e4539b912ba632dca0dc5e861e09f0034a6addaac645bc10ed2f1`,
+`055508e5309ae73d9a6a538ce65b4ab563af838e78ca941827c595efe9ea2f1f`,
+and `656e6be4e034de13f9fc7820060624d64f8c4ab8ca3ee48da0cc9ffd79adb9e9`.

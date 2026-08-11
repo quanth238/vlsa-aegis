@@ -2791,3 +2791,14 @@ representation artifact or physical support shift causal only when the same
 semantic group removes at least 90% of terminal validation error from both
 models. The audit cannot authorize retraining, calibration, candidate search,
 QP, or closed loop; it selects the next matched experiment.
+
+Job `38092` validates the normalization pathology but does not pass the frozen
+single-group causal gate. Both networks explode at their first linear layer on
+only goal-II-t3-e35. Raw obstacle rotation entries that are constant at `+/-1`
+in training flip sign in that setup; the `1e-6` variance floor turns the valid
+rotation into a `2e6` z-score. The same physical orientation is redundantly
+encoded in the root transform and 15 primitive transforms. Because masking one
+encoding leaves the other, the strongest single mask removes only 59%/73% of
+flat/time error. Preserve the registered inconclusive verdict. The only
+justified follow-up is a fixed joint mask of those already identified redundant
+groups; do not retrain or tune a new representation yet.
