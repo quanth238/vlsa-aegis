@@ -4444,3 +4444,17 @@ are
 and `5661919f60f8f250a7afa8939feeeeedc217780e95fe08c8b72397cf4a4b8312`.
 Full report:
 `docs/distal_factorized_direct_horizon_normalized_secant_moka10_result.md`.
+
+The next decoder-only mechanism test is preregistered before H100 training.
+It replaces the implicit candidate-conditioned direct-horizon decoder with an
+explicit nominal displacement plus local 51-by-7-by-14 execution Jacobian.
+Candidate trajectories use `q0 + delta_q_nominal + J * delta_action`; q0/J0
+are architectural zeros, and second-action Jacobian columns are exactly zero
+through the first 25 controller substeps. The existing positional time
+encoding is retained with a two-action phase code. Data, complete structured
+OSC input, grouped splits, five seeds, optimizer, schedule, joint loss,
+symmetric safety-normal loss, normalized paired-secant loss, and fitted gates
+remain matched to job `38586`. No new unseen episode, residual calibration,
+QP, closed loop, Poisson/SDF, classifier, or new rollout label is permitted.
+Config SHA-256 is
+`8aae74181f24db35c7b86c5fdd17ec84d62bb9fd05ab034d5b3b72a688eb79bf`.

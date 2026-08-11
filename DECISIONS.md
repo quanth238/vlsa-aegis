@@ -3084,3 +3084,32 @@ next authorized model intervention is a preregistered time-decoder change with
 no additional loss terms. The conclusion is limited to normalized paired
 secants under the frozen job-38376 optimizer, schedule, and early stopping; it
 does not prove that all sensitivity-aware objectives are impossible.
+
+# ADR-0123: Decode the execution intercept and action Jacobian explicitly
+
+**Status:** Preregistered before H100 training (2026-08-11).
+
+Job `38586` shows that implicit candidate-conditioned trajectory decoding can
+fit joint trajectories while suppressing their action response. Replace that
+decoder with one state/nominal-action encoder whose shared horizon decoder
+outputs both the nominal direct displacement and the local 51-by-7-by-14 OSC
+execution Jacobian. Candidate predictions are the explicit affine expansion
+`q0 + delta_q_nominal + J * (A - A_nominal)`; there is no recursive joint
+integration and no nonlinear candidate residual in this first mechanism test.
+
+Hard-code zero displacement and zero Jacobian at substep zero. Because each
+of the two actions receives 25 controller substeps, hard-code second-action
+Jacobian columns to zero through substep 25 and add a first/second-action phase
+encoding to the existing positional time encoding. Supervise the explicit
+Jacobian with the same train-RMS-normalized paired-secant loss used in job
+`38586`. Keep all data, grouped splits, seeds, optimizer, schedule, trajectory
+loss, symmetric geometry loss, and fitted train/validation thresholds fixed.
+
+The prediction gate additionally requires candidate secants to equal the
+stored explicit Jacobian within `1e-5 rad/action` and all forbidden Jacobian
+entries to remain exactly zero. A pass authorizes only a new preregistered
+grouped-unseen prediction experiment. A failure authorizes decoder or
+optimization diagnosis only. Calibration, QP, closed loop, new rollout labels,
+Poisson/SDF, classifiers, and unopened task-3 episodes remain blocked. Config
+SHA-256 is
+`8aae74181f24db35c7b86c5fdd17ec84d62bb9fd05ab034d5b3b72a688eb79bf`.
