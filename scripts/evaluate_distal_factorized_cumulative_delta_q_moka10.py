@@ -34,8 +34,9 @@ from scripts.evaluate_distal_factorized_structured_orientation_moka10 import (
 from scripts.evaluate_distal_factorized_time_conditioned_decoder_moka10 import (
     validate_time_sources,
 )
+from scripts.evaluate_distal_native_geom_inventory_moka10 import _read_manifest
 from scripts.replay_distal_three_ellipsoid_multicbf import (
-    _atomic_write, _file_sha256, _git_identity, _load, _read_manifest, _require,
+    _atomic_write, _file_sha256, _git_identity, _load, _require,
 )
 
 

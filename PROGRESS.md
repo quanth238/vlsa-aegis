@@ -4121,3 +4121,9 @@ remain blocked. Protocol:
 Config/reserved-manifest SHA-256 values are
 `0e4461dd17e1569c7dd6464ec4f228e4f000bbb266187a4fd476ebe16f55a968`
 and `4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6`.
+
+Initial H100 job `38239` passed allocation preflight tests but stopped before
+training because the reserved-manifest reader was imported from the replay
+module rather than its native-geometry owner. The apparatus-only repair changes
+that import. No model, prediction, geometry result, threshold, population, or
+config changes, and the failure-only run is not reused.

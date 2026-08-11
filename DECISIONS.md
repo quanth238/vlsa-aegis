@@ -2904,3 +2904,7 @@ index before their new safety labels are inspected. A mechanism failure blocks
 their collection. Even a reserved prediction pass authorizes only a separate
 trust-region sequential-QP experiment with exact rollout verification; it does
 not itself establish safe control or CBF invariance.
+
+Job `38239` is an apparatus failure before training. Repair only the incorrect
+manifest-reader import and rerun the identical immutable gate; do not reuse the
+empty failed run or alter the model, data, reservations, loss, or thresholds.
