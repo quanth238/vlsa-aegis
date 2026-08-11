@@ -5,7 +5,9 @@ import numpy as np
 
 from main.multilink_ellipsoid.factorized_direct_horizon_displacement import (
     _build_model, direct_horizon_decision, horizon_time_encoding,
-    load_direct_horizon_config, temporal_error_metrics,
+    load_direct_horizon_config, normalized_paired_secant_loss,
+    normalized_paired_secant_scales, normalized_secant_fitted_gate,
+    temporal_error_metrics,
 )
 from scripts.validate_distal_direct_horizon_displacement_moka10 import (
     _array_equal_with_nan,
@@ -14,6 +16,7 @@ from scripts.validate_distal_direct_horizon_displacement_moka10 import (
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/vlsa_distal_factorized_direct_horizon_displacement_moka10.v1.json"
+NORMALIZED_CONFIG = ROOT / "configs/vlsa_distal_factorized_direct_horizon_normalized_secant_moka10.v1.json"
 
 
 class DirectHorizonDisplacementTests(unittest.TestCase):
@@ -32,6 +35,86 @@ class DirectHorizonDisplacementTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(encoding)))
         self.assertEqual(float(encoding[0, 0]), 0.0)
         self.assertEqual(float(encoding[-1, 0]), 1.0)
+
+    def test_normalized_config_changes_only_sensitivity_objective(self):
+        baseline = load_direct_horizon_config(CONFIG)
+        normalized = load_direct_horizon_config(NORMALIZED_CONFIG)
+        self.assertEqual(baseline["architecture"], normalized["architecture"])
+        for key in baseline["training"]:
+            self.assertEqual(baseline["training"][key], normalized["training"][key])
+        self.assertEqual(
+            normalized["training"]["sensitivity_loss"],
+            "training_RMS_normalized_paired_secant_vector_MSE",
+        )
+        self.assertEqual(
+            normalized["training"]["dangerous_overestimate_extra_weight"], 0.0
+        )
+
+    def test_normalized_secant_loss_matches_vector_scale(self):
+        import torch
+
+        exact = np.zeros((4, 51, 7), dtype=np.float64)
+        exact[:2, 10, 0] = 1.0
+        exact[2:, 10, 1] = 0.1
+        dimensions = np.asarray([0, 0, 1, 1], dtype=np.int64)
+        settings = load_direct_horizon_config(NORMALIZED_CONFIG)["training"]
+        scale = normalized_paired_secant_scales(
+            exact, dimensions, np.arange(4), settings,
+        )
+        self.assertEqual(scale["valid_cell_count"], 2)
+        self.assertFalse(bool(scale["valid"][0, 0]))
+        self.assertTrue(bool(scale["valid"][0, 10]))
+        exact_tensor = torch.as_tensor(exact, dtype=torch.float32)
+        zero = torch.zeros_like(exact_tensor)
+        self.assertAlmostEqual(
+            float(normalized_paired_secant_loss(
+                exact_tensor, exact_tensor, dimensions, scale,
+            )), 0.0,
+        )
+        self.assertAlmostEqual(
+            float(normalized_paired_secant_loss(
+                zero, exact_tensor, dimensions, scale,
+            )), 1.0, places=5,
+        )
+        self.assertAlmostEqual(
+            float(normalized_paired_secant_loss(
+                -exact_tensor, exact_tensor, dimensions, scale,
+            )), 4.0, places=5,
+        )
+
+    def test_normalized_secant_gate_is_fitted_split_only(self):
+        config = load_direct_horizon_config(NORMALIZED_CONFIG)
+        passing = {
+            "mean_cosine": 0.9, "median_norm_ratio": 1.0,
+            "mean_relative_norm_error": 0.2,
+        }
+        sensitivity = {}
+        for split in ("train", "validation"):
+            sensitivity[split] = {"all_horizon_trace": {
+                "joint": dict(passing),
+                "by_horizon": [
+                    {"joint": dict(passing)} for _ in range(51)
+                ],
+            }}
+        temporal = {"overall_joint_RMSE_rad": 0.01}
+        decision = normalized_secant_fitted_gate(
+            sensitivity=sensitivity, validation_temporal=temporal,
+            baseline_validation_joint_RMSE_rad=0.01, config=config,
+        )
+        self.assertTrue(decision["fitted_sensitivity_gate_pass"])
+        self.assertFalse(decision["calibration_QP_closed_loop_authorized"])
+        sensitivity["validation"]["all_horizon_trace"]["by_horizon"][50][
+            "joint"
+        ]["mean_cosine"] = 0.7
+        decision = normalized_secant_fitted_gate(
+            sensitivity=sensitivity, validation_temporal=temporal,
+            baseline_validation_joint_RMSE_rad=0.01, config=config,
+        )
+        self.assertFalse(decision["fitted_sensitivity_gate_pass"])
+        self.assertEqual(
+            decision["authorized_next_action"],
+            "change_time_decoder_without_adding_losses",
+        )
 
     def test_decoder_predicts_each_horizon_directly_with_exact_q0(self):
         import torch

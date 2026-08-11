@@ -3033,9 +3033,37 @@ translation and rotation coordinates exhibit the defect.
 
 Classify this as loss scaling or decoder underfitting, not primarily an
 unseen-state coverage failure. Keep job `38376` as strict NO-GO. The only
-authorized next scientific experiment is a preregistered matched retraining of
-the same direct-horizon representation with normalized paired-action secant
-direction/magnitude supervision and one-sided near-boundary geometry loss.
+authorized next scientific experiment was initially a preregistered matched
+retraining of the same direct-horizon representation with normalized
+paired-action secant direction/magnitude supervision. ADR-0122 supersedes the
+earlier suggestion to add a one-sided near-boundary geometry term in the same
+ablation.
 Require training and validation sensitivity to pass before any unseen control
 claim. Do not calibrate this model, solve a QP, run closed loop, add Poisson, or
 open the frozen future task-3 population.
+
+# ADR-0122: Change only the paired-secant sensitivity scaling
+
+**Status:** Preregistered before H100 training (2026-08-11).
+
+Keep the job-38376 direct-horizon architecture, complete structured OSC input,
+direct joint-displacement target, joint-trajectory loss, symmetric
+safety-normal loss, grouped source split, five seeds, AdamW settings, schedule,
+and early-stopping score fixed. Replace only the raw secant Huber term with a
+paired vector-MSE divided by a fixed train-only RMS joint-sensitivity scale for
+each of 14 action coordinates and 51 horizons. Exclude train-RMS cells below
+`1e-5 rad/action` and clip inverse-scale weights to `[0.001,1000]` times the
+train median. Do not add a cosine loss, separate magnitude loss, one-sided
+geometry term, classifier, or calibration.
+
+The first gate uses only fitted train and validation episode groups. Both
+aggregate and terminal sensitivity must reach cosine at least `0.8`, median
+predicted/exact norm ratio in `[0.5,1.5]`, and mean relative norm error at most
+`0.5`; validation joint-trajectory RMSE may grow by at most 10% from the frozen
+direct model. All 14-by-51 cells are reported, including excluded near-zero
+cells, but noisy zero cells are not hard-gated. A pass authorizes only a
+separately preregistered evaluation on new grouped unseen episodes. A failure
+authorizes only a time-decoder change. QP, residual calibration, new rollout
+labels, closed loop, and the future task-3 manifest remain unopened. Config
+SHA-256 is
+`a9661a6ab8725374f509e61ffc11861216ba4809692f448cc9f44d0b731ab4df`.

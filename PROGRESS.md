@@ -4399,3 +4399,18 @@ JSON and compile phases passed, but the host system Python lacks NumPy, causing
 numpy`). This is a local dependency failure, not a test assertion failure. The
 clean H100 allocation preflight for job `38560` passed all ten audit-specific
 tests before geometry, and the final artifact validator passed.
+
+The user-authorized matched normalized paired-secant ablation is now
+preregistered before H100 training. It retains the direct-horizon architecture,
+complete structured OSC input, direct joint-displacement and symmetric
+safety-normal losses, data, episode splits, ensemble seeds, optimizer,
+schedule, and early stopping. Only the raw secant Huber objective is replaced
+by fixed train-RMS-normalized paired vector MSE over the 14 action coordinates
+and 51 horizons. One-sided geometry, extra direction/magnitude losses,
+calibration, QP, closed loop, new labels, and new unseen episodes are excluded.
+The fitted train/validation gate requires aggregate and terminal cosine at
+least 0.8, norm ratio 0.5--1.5, relative norm error at most 0.5, and no more
+than 10% validation trajectory-RMSE degradation. Pass authorizes only a later
+new grouped-unseen prediction test; failure selects a time-decoder change.
+Config SHA-256 is
+`a9661a6ab8725374f509e61ffc11861216ba4809692f448cc9f44d0b731ab4df`.

@@ -15,6 +15,7 @@ from .factorized_structured_orientation import _root_rotation_indexes
 
 
 CONFIG_SCHEMA = "vlsa_distal_factorized_direct_horizon_displacement_config.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_factorized_direct_horizon_displacement_config.v2"
 COLLECTION_SCHEMA = "vlsa_distal_factorized_direct_horizon_reserved_collection.v1"
 DATASET_SCHEMA = "vlsa_distal_factorized_direct_horizon_reserved_dataset.v1"
 COLLECTION_VALIDATION_SCHEMA = (
@@ -40,11 +41,13 @@ def load_direct_horizon_config(path: Path) -> dict[str, Any]:
     }
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("direct-horizon config keys differ")
-    if (
-        config["schema_version"] != CONFIG_SCHEMA
-        or config["protocol_id"]
-        != "vlsa-distal-factorized-direct-horizon-displacement-moka10-v1"
-    ):
+    protocol = str(config["protocol_id"])
+    if (config["schema_version"], protocol) not in {
+        (CONFIG_SCHEMA,
+         "vlsa-distal-factorized-direct-horizon-displacement-moka10-v1"),
+        (CONFIG_SCHEMA_V2,
+         "vlsa-distal-factorized-direct-horizon-normalized-secant-moka10-v1"),
+    }:
         raise ValueError("direct-horizon protocol differs")
     architecture = config["architecture"]
     if (
@@ -60,22 +63,68 @@ def load_direct_horizon_config(path: Path) -> dict[str, Any]:
     ):
         raise ValueError("direct-horizon architecture differs")
     training = config["training"]
-    if (
+    common_training_valid = (
         training["ensemble_seeds"]
-        != [20260861, 20260862, 20260863, 20260864, 20260865]
-        or int(training["batch_size"]) != 512
-        or int(training["epochs"]) != 300
-        or int(training["patience"]) != 40
-        or float(training["joint_huber_delta_rad"]) != 0.002
-        or float(training["joint_displacement_loss_weight"]) != 1.0
-        or float(training["finite_difference_sensitivity_loss_weight"]) != 1.0
-        or float(training["symmetric_safety_normal_loss_weight"]) != 10.0
-        or float(training["geometry_huber_delta_m"]) != 0.002
-        or float(training["near_boundary_absolute_margin_m"]) != 0.005
-        or float(training["near_boundary_weight_multiplier"]) != 5.0
-        or training["dangerous_overestimate_extra_weight"] != 0.0
-    ):
+        == [20260861, 20260862, 20260863, 20260864, 20260865]
+        and int(training["batch_size"]) == 512
+        and int(training["epochs"]) == 300
+        and int(training["patience"]) == 40
+        and float(training["joint_huber_delta_rad"]) == 0.002
+        and float(training["joint_displacement_loss_weight"]) == 1.0
+        and float(training["finite_difference_sensitivity_loss_weight"]) == 1.0
+        and float(training["symmetric_safety_normal_loss_weight"]) == 10.0
+        and float(training["geometry_huber_delta_m"]) == 0.002
+        and float(training["near_boundary_absolute_margin_m"]) == 0.005
+        and float(training["near_boundary_weight_multiplier"]) == 5.0
+        and training["dangerous_overestimate_extra_weight"] == 0.0
+    )
+    if not common_training_valid:
         raise ValueError("direct-horizon training differs")
+    if protocol.endswith("displacement-moka10-v1"):
+        if set(training) != {
+            "device", "ensemble_seeds", "batch_size", "epochs", "patience",
+            "learning_rate", "weight_decay", "joint_huber_delta_rad",
+            "joint_displacement_loss_weight",
+            "finite_difference_sensitivity_loss_weight",
+            "symmetric_safety_normal_loss_weight", "geometry_huber_delta_m",
+            "near_boundary_absolute_margin_m", "near_boundary_weight_multiplier",
+            "dangerous_overestimate_extra_weight", "training_substeps",
+            "early_stopping",
+        }:
+            raise ValueError("direct-horizon v1 training keys differ")
+    else:
+        normalized = training.get("normalized_paired_secant")
+        if (
+            set(training) != {
+                "device", "ensemble_seeds", "batch_size", "epochs",
+                "patience", "learning_rate", "weight_decay",
+                "joint_huber_delta_rad", "joint_displacement_loss_weight",
+                "finite_difference_sensitivity_loss_weight",
+                "sensitivity_loss", "normalized_paired_secant",
+                "symmetric_safety_normal_loss_weight",
+                "geometry_huber_delta_m", "near_boundary_absolute_margin_m",
+                "near_boundary_weight_multiplier",
+                "dangerous_overestimate_extra_weight", "training_substeps",
+                "early_stopping",
+            }
+            or float(training["learning_rate"]) != 0.001
+            or float(training["weight_decay"]) != 1.0e-6
+            or training.get("sensitivity_loss")
+            != "training_RMS_normalized_paired_secant_vector_MSE"
+            or not isinstance(normalized, dict)
+            or normalized != {
+                "scale": "training_only_RMS_L2_joint_sensitivity_by_action_coordinate_and_horizon",
+                "physically_zero_RMS_norm_threshold_rad_per_action": 1e-05,
+                "denominator_epsilon_squared": 1e-12,
+                "minimum_relative_weight": 0.001,
+                "maximum_relative_weight": 1000.0,
+                "exclude_zero_or_noisy_cells": True,
+            }
+            or training["training_substeps"] != "all_1_through_50"
+            or training["early_stopping"]
+            != "validation_joint_RMSE_plus_0.1_sensitivity_RMSE_plus_symmetric_safety_normal_RMSE"
+        ):
+            raise ValueError("normalized paired-secant training differs")
     forbidden = config["forbidden_before_prediction_pass"]
     if set(forbidden) != {
         "residual_bound_calibration", "QP", "closed_loop", "poisson_or_SDF",
@@ -149,6 +198,80 @@ def _huber(error: Any, beta: float) -> Any:
         absolute <= beta, 0.5 * error ** 2,
         beta * (absolute - 0.5 * beta),
     )
+
+
+def normalized_paired_secant_scales(
+    exact_sensitivity: Any, dimensions: Any, training_rows: Any,
+    settings: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Fit fixed action-coordinate/horizon scales from training rows only."""
+
+    np = _numpy()
+    exact = np.asarray(exact_sensitivity, dtype=np.float64)
+    dimension = np.asarray(dimensions, dtype=np.int64)
+    rows = np.asarray(training_rows, dtype=np.int64)
+    if exact.ndim != 3 or exact.shape[1:] != (51, 7):
+        raise ValueError("paired-secant sensitivity shape differs")
+    if dimension.shape != (len(exact),) or np.any((dimension < 0) | (dimension >= 14)):
+        raise ValueError("paired-secant action dimensions differ")
+    selected = np.zeros(len(exact), dtype=bool)
+    selected[rows] = True
+    scale = np.zeros((14, 51), dtype=np.float64)
+    sample_count = np.zeros((14, 51), dtype=np.int64)
+    for action_dimension in range(14):
+        use = selected & (dimension == action_dimension)
+        if np.any(use):
+            squared_norm = np.sum(exact[use] ** 2, axis=2)
+            scale[action_dimension] = np.sqrt(np.mean(squared_norm, axis=0))
+            sample_count[action_dimension] = int(np.count_nonzero(use))
+    specification = settings["normalized_paired_secant"]
+    threshold = float(
+        specification["physically_zero_RMS_norm_threshold_rad_per_action"]
+    )
+    valid = scale >= threshold
+    epsilon = float(specification["denominator_epsilon_squared"])
+    raw_weight = np.zeros_like(scale)
+    raw_weight[valid] = 1.0 / (scale[valid] ** 2 + epsilon)
+    if not np.any(valid):
+        raise ValueError("paired-secant training has no nonzero cells")
+    median_weight = float(np.median(raw_weight[valid]))
+    lower = median_weight * float(specification["minimum_relative_weight"])
+    upper = median_weight * float(specification["maximum_relative_weight"])
+    weight = np.zeros_like(scale)
+    weight[valid] = np.clip(raw_weight[valid], lower, upper)
+    return {
+        "RMS_scale_rad_per_action": scale,
+        "sample_count": sample_count,
+        "valid": valid,
+        "weight": weight,
+        "raw_weight_median": median_weight,
+        "weight_clip_lower": lower,
+        "weight_clip_upper": upper,
+        "valid_cell_count": int(np.count_nonzero(valid)),
+        "excluded_cell_count": int(valid.size - np.count_nonzero(valid)),
+        "clipped_low_cell_count": int(np.count_nonzero(
+            valid & (raw_weight < lower)
+        )),
+        "clipped_high_cell_count": int(np.count_nonzero(
+            valid & (raw_weight > upper)
+        )),
+    }
+
+
+def normalized_paired_secant_loss(
+    predicted: Any, exact: Any, dimensions: Any, scale: Mapping[str, Any],
+) -> Any:
+    """Return one vector-MSE loss normalized by fixed training-only scales."""
+
+    torch = _torch()
+    dimension = torch.as_tensor(dimensions, dtype=torch.long)
+    weight = torch.as_tensor(scale["weight"], dtype=predicted.dtype)[dimension]
+    valid = torch.as_tensor(scale["valid"], dtype=torch.bool)[dimension]
+    squared_vector_error = torch.sum((predicted - exact) ** 2, dim=2)
+    denominator = torch.sum(valid)
+    if int(denominator.detach().cpu()) <= 0:
+        raise ValueError("paired-secant batch has no valid cells")
+    return torch.sum(squared_vector_error * weight * valid) / denominator
 
 
 def apply_structured_representation(
@@ -246,6 +369,15 @@ def train_direct_horizon_ensemble(
         actions[positive_rows, dimensions] - actions[negative_rows, dimensions]
     )
     settings = config["training"]
+    sensitivity_mode = str(settings.get("sensitivity_loss", "raw_secant_huber"))
+    normalized_scale = (
+        normalized_paired_secant_scales(
+            exact_sensitivity, dimensions, train_sensitivity, settings,
+        )
+        if sensitivity_mode
+        == "training_RMS_normalized_paired_secant_vector_MSE"
+        else None
+    )
     joint_beta = float(settings["joint_huber_delta_rad"])
     geometry_beta = float(settings["geometry_huber_delta_m"])
     boundary = float(settings["near_boundary_absolute_margin_m"])
@@ -317,9 +449,15 @@ def train_direct_horizon_ensemble(
             exact = torch.as_tensor(
                 exact_sensitivity[selected], dtype=torch.float32,
             )
-            sensitivity_loss = torch.nn.functional.smooth_l1_loss(
-                predicted_sensitivity[:, 1:], exact[:, 1:], beta=joint_beta,
-            )
+            if normalized_scale is None:
+                sensitivity_loss = torch.nn.functional.smooth_l1_loss(
+                    predicted_sensitivity[:, 1:], exact[:, 1:], beta=joint_beta,
+                )
+            else:
+                sensitivity_loss = normalized_paired_secant_loss(
+                    predicted_sensitivity, exact, dimensions[selected],
+                    normalized_scale,
+                )
             optimizer.zero_grad()
             (float(settings["finite_difference_sensitivity_loss_weight"])
              * sensitivity_loss).backward()
@@ -385,13 +523,35 @@ def train_direct_horizon_ensemble(
         "architecture": dict(config["architecture"]),
         "model_states": model_states,
     }
-    return models, state, {
+    training_audit = {
         "member_audits": audits,
         "training_row_count": int(len(train_indexes)),
         "validation_row_count": int(len(validation_indexes)),
         "training_sensitivity_row_count": int(len(train_sensitivity)),
         "validation_sensitivity_row_count": int(len(validation_sensitivity)),
     }
+    if normalized_scale is not None:
+        training_audit["normalized_paired_secant"] = {
+            "scale_fit_split": "train_only",
+            "RMS_scale_rad_per_action": normalized_scale[
+                "RMS_scale_rad_per_action"
+            ].tolist(),
+            "sample_count": normalized_scale["sample_count"].tolist(),
+            "valid": normalized_scale["valid"].tolist(),
+            "weight": normalized_scale["weight"].tolist(),
+            "raw_weight_median": float(normalized_scale["raw_weight_median"]),
+            "weight_clip_lower": float(normalized_scale["weight_clip_lower"]),
+            "weight_clip_upper": float(normalized_scale["weight_clip_upper"]),
+            "valid_cell_count": int(normalized_scale["valid_cell_count"]),
+            "excluded_cell_count": int(normalized_scale["excluded_cell_count"]),
+            "clipped_low_cell_count": int(
+                normalized_scale["clipped_low_cell_count"]
+            ),
+            "clipped_high_cell_count": int(
+                normalized_scale["clipped_high_cell_count"]
+            ),
+        }
+    return models, state, training_audit
 
 
 def predict_direct_horizon(
@@ -513,6 +673,85 @@ def sensitivity_magnitude_metrics(exact: Any, predicted: Any) -> dict[str, Any]:
         "mean_relative_norm_error": float(np.mean(relative)),
         "median_relative_norm_error": float(np.median(relative)),
         "median_predicted_to_exact_norm_ratio": float(np.median(ratio)),
+    }
+
+
+def normalized_secant_fitted_gate(
+    *, sensitivity: Mapping[str, Any], validation_temporal: Mapping[str, Any],
+    baseline_validation_joint_RMSE_rad: float, config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Gate fitted-state action sensitivity before any unseen evaluation."""
+
+    gate = config["prediction_gate"]
+
+    def metric_tests(item: Mapping[str, Any]) -> dict[str, bool]:
+        return {
+            "direction": bool(
+                item["mean_cosine"] is not None
+                and float(item["mean_cosine"])
+                >= float(gate["minimum_joint_sensitivity_cosine"])
+            ),
+            "magnitude_ratio": bool(
+                item["median_norm_ratio"] is not None
+                and float(gate["minimum_joint_sensitivity_median_norm_ratio"])
+                <= float(item["median_norm_ratio"])
+                <= float(gate["maximum_joint_sensitivity_median_norm_ratio"])
+            ),
+            "magnitude_error": bool(
+                item["mean_relative_norm_error"] is not None
+                and float(item["mean_relative_norm_error"])
+                <= float(gate[
+                    "maximum_joint_sensitivity_mean_relative_norm_error"
+                ])
+            ),
+        }
+
+    metrics = {}
+    tests = {}
+    for split in ("train", "validation"):
+        aggregate = sensitivity[split]["all_horizon_trace"]["joint"]
+        terminal = sensitivity[split]["all_horizon_trace"]["by_horizon"][50][
+            "joint"
+        ]
+        metrics[split] = {"aggregate": aggregate, "terminal": terminal}
+        for scope, item in (("aggregate", aggregate), ("terminal", terminal)):
+            scoped = metric_tests(item)
+            tests["%s_%s" % (split, scope)] = bool(all(scoped.values()))
+            tests["%s_%s_components" % (split, scope)] = scoped
+    maximum_validation = (
+        float(baseline_validation_joint_RMSE_rad)
+        * float(gate[
+            "maximum_validation_joint_RMSE_relative_to_frozen_direct_model"
+        ])
+    )
+    tests["validation_joint_trajectory"] = bool(
+        float(validation_temporal["overall_joint_RMSE_rad"])
+        <= maximum_validation
+    )
+    required = [
+        tests["train_aggregate"], tests["validation_aggregate"],
+        tests["train_terminal"], tests["validation_terminal"],
+        tests["validation_joint_trajectory"],
+    ]
+    passed = bool(all(required))
+    return {
+        "metrics": metrics,
+        "validation_joint_trajectory": {
+            "observed_RMSE_rad": float(
+                validation_temporal["overall_joint_RMSE_rad"]
+            ),
+            "frozen_baseline_RMSE_rad": float(
+                baseline_validation_joint_RMSE_rad
+            ),
+            "maximum_RMSE_rad": maximum_validation,
+        },
+        "tests": tests,
+        "fitted_sensitivity_gate_pass": passed,
+        "authorized_next_action": (
+            "evaluate_on_new_grouped_unseen_episodes" if passed
+            else "change_time_decoder_without_adding_losses"
+        ),
+        "calibration_QP_closed_loop_authorized": False,
     }
 
 

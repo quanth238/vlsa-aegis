@@ -75,7 +75,9 @@ for optional_file in \
   scripts/collect_distal_direct_horizon_reserved_moka10.py \
   scripts/validate_distal_direct_horizon_reserved_moka10.py \
   scripts/evaluate_distal_direct_horizon_displacement_moka10.py \
-  scripts/validate_distal_direct_horizon_displacement_moka10.py
+  scripts/validate_distal_direct_horizon_displacement_moka10.py \
+  scripts/evaluate_distal_direct_horizon_normalized_secant_moka10.py \
+  scripts/validate_distal_direct_horizon_normalized_secant_moka10.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
