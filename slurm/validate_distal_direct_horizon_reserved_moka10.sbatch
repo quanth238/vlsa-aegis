@@ -57,4 +57,4 @@ cd "$REMOTE_REPO"
   --selected-manifest "$SELECTED" --same-task-manifest "$SAME_TASK" --targeted-manifest "$TARGETED" \
   --archived-root "$ARCHIVED_ROOT" --geometry-config "$GEOMETRY" --exact-box-config "$EXACT_BOX" \
   --collection "$SOURCE_RUN/collection-result.json" --metadata "$SOURCE_RUN/trajectory-metadata.json" --array-dataset "$SOURCE_RUN/trajectory-dataset.npz" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/collection-validation.json"
+  --expected-commit "$EXPECTED_GIT_COMMIT" --expected-collection-commit 2217e48079368ca386eb5c29de0851eb7f33ac5e --output "$RUN_ROOT/collection-validation.json"

@@ -59,6 +59,7 @@ def main() -> int:
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--array-dataset", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--expected-collection-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     started = time.perf_counter_ns()
@@ -82,7 +83,7 @@ def main() -> int:
         and collection.get("result_payload_sha256")
         == payload_sha256(collection, "result_payload_sha256")
         and collection.get("decision", {}).get("collection_gate_pass") is True
-        and collection["source"]["commit"] == args.expected_commit
+        and collection["source"]["commit"] == args.expected_collection_commit
         and collection["dataset"]["metadata_file_sha256"]
         == _file_sha256(paths["metadata"])
         and collection["dataset"]["array_file_sha256"]

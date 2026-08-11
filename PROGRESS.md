@@ -4206,3 +4206,10 @@ lost the `(0,3)` shape of an empty MuJoCo auxiliary array. The validation-only
 repair reshapes every serialized auxiliary value to its live target shape
 before calling the unchanged restore routine. It does not recollect or modify
 the dataset and cannot authorize training until all 25 fresh replays pass.
+
+Validation-only H100 job `38302` stopped before environment construction
+because the validator conflated the immutable collection source commit
+`2217e48` with the newer validation-code commit. The identity repair requires
+both commits explicitly while retaining the already pinned collection/result,
+metadata, and NPZ hashes. It changes no replay, label, model, or gate, and the
+failed validation run is not reused.

@@ -62,4 +62,4 @@ common=(
   --complete-dataset "$COMPLETE_ROOT/dataset.json" --complete-collection "$COMPLETE_ROOT/collection-result.json" \
   --array-dataset "$RUN_ROOT/trajectory-dataset.npz" --metadata "$RUN_ROOT/trajectory-metadata.json" --output "$RUN_ROOT/collection-result.json"
 "$AEGIS_PYTHON" scripts/validate_distal_direct_horizon_reserved_moka10.py "${common[@]}" \
-  --collection "$RUN_ROOT/collection-result.json" --metadata "$RUN_ROOT/trajectory-metadata.json" --array-dataset "$RUN_ROOT/trajectory-dataset.npz" --output "$RUN_ROOT/collection-validation.json"
+  --collection "$RUN_ROOT/collection-result.json" --metadata "$RUN_ROOT/trajectory-metadata.json" --array-dataset "$RUN_ROOT/trajectory-dataset.npz" --expected-collection-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/collection-validation.json"
