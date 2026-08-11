@@ -41,7 +41,8 @@ POPULATION=$REMOTE_REPO/manifests/vlsa_table1_population.jsonl
 SELECTED=$REMOTE_REPO/manifests/vlsa_distal_boundary_generalization_moka10.v1.jsonl
 SAME_TASK=$REMOTE_REPO/manifests/vlsa_distal_same_task_boundary_expansion_moka10.v1.jsonl
 TARGETED=$REMOTE_REPO/manifests/vlsa_distal_targeted_same_task_screen_moka10.v1.jsonl
-RESERVED=$REMOTE_REPO/manifests/vlsa_distal_direct_horizon_reserved_prediction_moka10.v1.jsonl
+LEGACY_RESERVED=$REMOTE_REPO/manifests/vlsa_distal_delta_q_reserved_evaluation_moka10.v1.jsonl
+DIRECT_RESERVED=$REMOTE_REPO/manifests/vlsa_distal_direct_horizon_reserved_prediction_moka10.v1.jsonl
 GEOMETRY=$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json
 EXACT_BOX=$REMOTE_REPO/configs/vlsa_distal_oracle_exact_box_obstacle_e05.v1.json
 die() { printf '%s\n' "$*" >&2; exit 1; }
@@ -53,7 +54,8 @@ for source_dir in "$RESERVED_RUN" "$SOURCE_RUN" "$STRUCTURED_RUN" "$CUMULATIVE_R
 [[ -x "$AEGIS_PYTHON" ]] || die "evaluation runtime missing"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 [[ "$(sha256sum "$DIRECT_CONFIG" | awk '{print $1}')" == 13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f ]] || die "direct-horizon config differs"
-[[ "$(sha256sum "$RESERVED" | awk '{print $1}')" == f99ce2b38b5c2b9ceb4073611cc16356efc36e1820193926a5770f396e93ffcd ]] || die "reserved manifest differs"
+[[ "$(sha256sum "$LEGACY_RESERVED" | awk '{print $1}')" == 4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6 ]] || die "legacy reserved manifest differs"
+[[ "$(sha256sum "$DIRECT_RESERVED" | awk '{print $1}')" == f99ce2b38b5c2b9ceb4073611cc16356efc36e1820193926a5770f396e93ffcd ]] || die "direct reserved manifest differs"
 RUN_ROOT=$OUTPUT_ROOT/$RUN_ID
 mkdir -p "$OUTPUT_ROOT"; mkdir "$RUN_ROOT" || die "immutable run root exists"
 FAILURE=$RUN_ROOT/runtime-failure.json
@@ -81,7 +83,7 @@ common=(
   --orientation-result "$ORIENTATION_RUN/result.json" --orientation-validation "$ORIENTATION_RUN/validation.json"
   --source-structured-flat-model "$STRUCTURED_RUN/flat-model.npz" --source-structured-time-model "$STRUCTURED_RUN/time-model.npz"
   --source-structured-predictions "$STRUCTURED_RUN/predictions.npz" --source-structured-result "$STRUCTURED_RUN/result.json" --source-structured-validation "$STRUCTURED_RUN/validation.json"
-  --population-manifest "$POPULATION" --selected-manifest "$SELECTED" --same-task-manifest "$SAME_TASK" --targeted-manifest "$TARGETED" --reserved-manifest "$RESERVED"
+  --population-manifest "$POPULATION" --selected-manifest "$SELECTED" --same-task-manifest "$SAME_TASK" --targeted-manifest "$TARGETED" --reserved-manifest "$LEGACY_RESERVED" --direct-reserved-manifest "$DIRECT_RESERVED"
   --archived-root "$ARCHIVED_ROOT" --geometry-config "$GEOMETRY" --exact-box-config "$EXACT_BOX" --expected-commit "$EXPECTED_GIT_COMMIT"
   --reserved-collection "$RESERVED_RUN/collection-result.json" --reserved-metadata "$RESERVED_RUN/trajectory-metadata.json" --reserved-array "$RESERVED_RUN/trajectory-dataset.npz" --reserved-validation "$RESERVED_RUN/collection-validation.json"
   --previous-factorized-model "$ONE_SIDED_RUN/experimental-model.npz" --previous-cumulative-model "$CUMULATIVE_RUN/model.npz"

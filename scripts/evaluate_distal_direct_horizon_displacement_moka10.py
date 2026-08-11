@@ -64,6 +64,7 @@ def add_direct_horizon_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--reserved-metadata", type=Path, required=True)
     parser.add_argument("--reserved-array", type=Path, required=True)
     parser.add_argument("--reserved-validation", type=Path, required=True)
+    parser.add_argument("--direct-reserved-manifest", type=Path, required=True)
     parser.add_argument("--previous-factorized-model", type=Path, required=True)
     parser.add_argument("--previous-cumulative-model", type=Path, required=True)
 
@@ -75,6 +76,7 @@ def direct_paths(args: argparse.Namespace) -> dict[str, Path]:
         "reserved_metadata": args.reserved_metadata,
         "reserved_array": args.reserved_array,
         "reserved_validation": args.reserved_validation,
+        "direct_reserved_manifest": args.direct_reserved_manifest,
         "previous_factorized_model": args.previous_factorized_model,
         "previous_cumulative_model": args.previous_cumulative_model,
     }.items()}
@@ -129,7 +131,7 @@ def validate_direct_sources(
     source = config["immutable_source"]
     for source_key, path_key in (
         ("population_manifest_file_sha256", "population"),
-        ("reserved_prediction_manifest_file_sha256", "reserved_manifest"),
+        ("reserved_prediction_manifest_file_sha256", "direct_reserved_manifest"),
         ("factorized_config_file_sha256", "factorized_config"),
         ("structured_config_file_sha256", "structured_config"),
         ("geometry_config_file_sha256", "geometry"),
@@ -190,7 +192,8 @@ def evaluate_reserved_geometry(
     )
     population = {item["case_id"]: item for item in read_jsonl(paths["population"])}
     reserved_rows = _read_manifest(
-        paths["reserved_manifest"], _file_sha256(paths["reserved_manifest"])
+        paths["direct_reserved_manifest"],
+        _file_sha256(paths["direct_reserved_manifest"])
     )
     row_by_case = {str(row["case_id"]): row for row in reserved_rows}
     runtime = _runtime_imports(include_aegis=False)
