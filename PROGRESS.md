@@ -4099,3 +4099,25 @@ linearization. Full report:
 Result/validation hashes are
 `1d56b9f1a4e95ab80d02f9cf5cb4d6c0c22edd4c61f22abfbbf1f41b80e1ac55`
 and `8413606405dd9870b9351012b4e603885891ac9c9456063816bb5d88a14b0658`.
+
+# 2026-08-11: cumulative delta-q execution model registered
+
+The next prediction-only gate replaces independent joint-configuration output
+with 50 shared time-conditioned joint increments. Their cumulative sum is the
+predicted OSC displacement, while `q_hat_0=q_0` is exact. Complete controller
+state, bounded structured orientation, full two-action Cartesian commands,
+grouped splits, joint/sensitivity labels, and known FK/ellipsoid geometry are
+retained. Training adds direct increment supervision to joint trajectory,
+finite-difference sensitivity, and near-boundary one-sided geometry losses.
+
+The existing 17 episodes are mechanism diagnostics only. E01/E11/E21/E31/E41
+are reserved before inspecting any new geometry/candidate labels. They cannot
+be collected unless the mechanism model first has zero validation/test
+false-safes, support in every exact-safe-eligible state, at least 90% test
+recall, at most 2.671122 mm boundary RMSE, at most 20.586673 mrad terminal
+error, exact q0, and both sensitivity cosines above 0.8. QP and closed loop
+remain blocked. Protocol:
+`docs/distal_factorized_cumulative_delta_q_moka10_preregistration.md`.
+Config/reserved-manifest SHA-256 values are
+`0e4461dd17e1569c7dd6464ec4f228e4f000bbb266187a4fd476ebe16f55a968`
+and `4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6`.

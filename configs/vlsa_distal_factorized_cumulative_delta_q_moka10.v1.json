@@ -1,0 +1,99 @@
+{
+  "schema_version": "vlsa_distal_factorized_cumulative_delta_q_config.v1",
+  "protocol_id": "vlsa-distal-factorized-cumulative-delta-q-moka10-v1",
+  "claim_scope": "matched_existing_data_mechanism_gate_for_exact_q0_cumulative_joint_displacement_prediction_before_new_reserved_episode_collection",
+  "immutable_source": {
+    "structured_config_file_sha256": "adf6a42bdf01d1eb4910c1d50275065b34a6df37583865922d2a186e14df241c",
+    "structured_result_file_sha256": "eeac18ca69aac9dc498b33b547418d987a6ac6fb572fbf02a5529dc771c070bd",
+    "structured_result_payload_sha256": "aef1a4353c8e134c464ab50d6a4c9bbdd9fd3f2cdec02920e9e5fe29bb95651b",
+    "structured_validation_file_sha256": "cd170dcbfba441145983a3c3b6aaecbf6302fe250dc693337d1d3d313a3d77c9",
+    "structured_validation_payload_sha256": "5ce3a65712a1fd47d18bd9baae1eb95d9c8f72520d17bdb32b36d38baeb23f01",
+    "structured_flat_model_file_sha256": "3f2ed45f269d8b43ef929ac75311758c974192d46370074e2ddb312414f11287",
+    "structured_time_model_file_sha256": "625061b23839669d1c36ad2a29cde232b5b06dfa9bb3636326bc0a45214ffb31",
+    "structured_predictions_file_sha256": "3b06fe181996c9719f6ee50f704c9b2f55d0ac7689e30bb190bca8a663398eac",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "reserved_episode_manifest_file_sha256": "4ac030c4757c7a705cacf7ed227076324c23fb7d4ce8c6ae7615c6fa7f9e26e6"
+  },
+  "population": {
+    "mechanism_episode_count": 17,
+    "mechanism_state_count": 85,
+    "mechanism_split_state_counts": {"train": 60, "validation": 10, "diagnostic_test": 15},
+    "candidate_count_per_state": 93,
+    "random_candidate_count_per_state": 64,
+    "joint_trace_state_count": 51,
+    "joint_dimension": 7,
+    "full_action_chunk_shape": [2, 7],
+    "reserved_final_episode_ids": [
+      "vlsa-t1-goal-ii-t0-e01",
+      "vlsa-t1-goal-ii-t0-e11",
+      "vlsa-t1-goal-ii-t0-e21",
+      "vlsa-t1-goal-ii-t0-e31",
+      "vlsa-t1-goal-ii-t0-e41"
+    ]
+  },
+  "architecture": {
+    "input_representation": "job_38095_structured_complete_OSC_state_plus_full_2_by_7_action",
+    "state_action_encoder_widths": [256, 256],
+    "increment_decoder_width": 128,
+    "activation": "silu",
+    "transition_count": 50,
+    "joint_dimension": 7,
+    "transition_time_encoding": "midpoint_tau_plus_sin_cos_pi_tau_frequencies_1_2_4_8",
+    "time_encoding_dimension": 9,
+    "output": "50_by_7_joint_increments_cumulative_sum_to_delta_q_1_through_50",
+    "exact_initial_condition": "delta_q_0_equals_zero_and_q_hat_0_equals_measured_q_0",
+    "deployment_output": "51_by_7_joint_configuration_trajectory_only"
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels",
+    "ensemble_seeds": [20260861, 20260862, 20260863, 20260864, 20260865],
+    "batch_size": 512,
+    "epochs": 300,
+    "patience": 40,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "joint_huber_delta_rad": 0.002,
+    "joint_increment_loss_weight": 1.0,
+    "finite_difference_sensitivity_loss_weight": 1.0,
+    "geometry_loss_weight": 10.0,
+    "geometry_huber_delta_m": 0.002,
+    "dangerous_overestimate_weight": 4.0,
+    "near_boundary_absolute_margin_m": 0.005,
+    "near_boundary_weight_multiplier": 5.0,
+    "terminal_weight_multiplier": 3.0,
+    "terminal_weight_power": 4,
+    "training_substeps": "all_1_through_50",
+    "early_stopping": "validation_joint_RMSE_plus_0.1_sensitivity_RMSE_plus_local_signed_geometry_RMSE"
+  },
+  "mechanism_decision_gate": {
+    "maximum_validation_false_safe_action_count": 0,
+    "maximum_diagnostic_test_false_safe_action_count": 0,
+    "require_support_in_every_exact_safe_eligible_validation_state": true,
+    "require_support_in_every_exact_safe_eligible_diagnostic_test_state": true,
+    "minimum_validation_safe_recall": 0.5,
+    "minimum_diagnostic_test_safe_recall": 0.9,
+    "maximum_diagnostic_test_near_boundary_RMSE_m": 0.002671122,
+    "minimum_joint_sensitivity_cosine": 0.8,
+    "minimum_margin_sensitivity_cosine": 0.8,
+    "maximum_diagnostic_test_terminal_joint_RMSE_rad": 0.020586673,
+    "pass_authorizes_reserved_episode_collection_and_prediction_only": true
+  },
+  "reserved_evaluation_policy": {
+    "manifest_selected_before_any_new_geometry_or_candidate_labels": true,
+    "state_selection": "five_precontact_nonnegative_current_margin_states_with_smallest_global_L5_L7_margin_and_minimum_five_action_spacing",
+    "candidate_design": "same_93_full_two_action_candidates_as_mechanism_dataset",
+    "required_false_safe_action_count": 0,
+    "required_support": "every_exact_safe_eligible_reserved_state",
+    "minimum_sensitivity_cosine": 0.8,
+    "failed_mechanism_gate_means_no_reserved_collection": true
+  },
+  "forbidden_actions": {
+    "reserved_episode_collection_before_mechanism_pass": true,
+    "uncertainty_calibration": true,
+    "binary_classifier": true,
+    "poisson_or_SDF": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}
