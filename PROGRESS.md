@@ -4364,3 +4364,9 @@ error `<=0.5`. Train/validation failure means loss/decoder underfitting;
 train/validation pass with reserved failure means coverage/generalization.
 This adds no model fitting or labels. V2 config SHA-256 is
 `69c40e545aeff59a603b4afa6a95c01b5d6c0bea0c8f3370b52a4a7e0d915f49`.
+
+Retry job `38559` stopped in allocation preflight before geometry because the
+new regression searched for `traces[name][row]` as a substring, which is also
+contained in the repaired `clearance_traces[name][row]`. Narrow the test to
+the exact shadowed assignment line. This is test-only; no scientific code or
+setting changes, and job `38559` is not reused.

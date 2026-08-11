@@ -85,7 +85,7 @@ class DirectHorizonRootCauseAuditTest(unittest.TestCase):
         self.assertIn("return_trace", inspect.signature(evaluate_reserved_geometry).parameters)
         source = inspect.getsource(evaluate_reserved_geometry)
         self.assertIn('clearance_traces[name][row] = trace', source)
-        self.assertNotIn('traces[name][row] = trace', source)
+        self.assertNotIn('\n                            traces[name][row] = trace', source)
 
     def test_sensitivity_reports_every_dimension_and_horizon(self) -> None:
         arrays = fixture_arrays()
