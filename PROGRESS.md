@@ -4213,3 +4213,11 @@ because the validator conflated the immutable collection source commit
 both commits explicitly while retaining the already pinned collection/result,
 metadata, and NPZ hashes. It changes no replay, label, model, or gate, and the
 failed validation run is not reused.
+
+Validation-only H100 job `38311` freshly replayed all 25 reserved nominal
+chunks. Every 51-step joint trace and every seven-row ellipsoid trace matched
+bit-for-bit (zero maximum difference), but the validator still rejected all
+25 rows through an unreported auxiliary predicate. This is an apparatus
+failure, not authorization to train. The diagnostic-only repair records each
+state-input, trace, next-state-hash, and raw-contact equality predicate so the
+remaining mismatch can be identified without recollection or changed labels.

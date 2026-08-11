@@ -230,24 +230,46 @@ def main() -> int:
                 maximum_margin_difference = max(
                     maximum_margin_difference, margin_difference
                 )
-                if not (
-                    np.array_equal(replay_input, arrays["state_input_vector"][row])
-                    and np.array_equal(
-                        replay["joint_position_rad"], arrays["joint_position_rad"][row]
-                    )
-                    and np.array_equal(
-                        replay["ellipsoid_clearance_m"],
-                        arrays["ellipsoid_clearance_m"][row],
-                    )
-                    and replay["next_state_sha256_per_action"]
-                    == arrays["next_state_sha256_per_action"][row].tolist()
-                    and int(replay["raw_protected_contact_count"])
-                    == int(arrays["raw_contact_count"][row])
-                ):
+                state_input_equal = bool(np.array_equal(
+                    replay_input, arrays["state_input_vector"][row]
+                ))
+                joint_equal = bool(np.array_equal(
+                    replay["joint_position_rad"], arrays["joint_position_rad"][row]
+                ))
+                margin_equal = bool(np.array_equal(
+                    replay["ellipsoid_clearance_m"],
+                    arrays["ellipsoid_clearance_m"][row],
+                ))
+                observed_hashes = replay["next_state_sha256_per_action"]
+                expected_hashes = arrays[
+                    "next_state_sha256_per_action"
+                ][row].tolist()
+                hashes_equal = bool(observed_hashes == expected_hashes)
+                observed_contacts = int(replay["raw_protected_contact_count"])
+                expected_contacts = int(arrays["raw_contact_count"][row])
+                contacts_equal = bool(observed_contacts == expected_contacts)
+                if not all((
+                    state_input_equal, joint_equal, margin_equal, hashes_equal,
+                    contacts_equal,
+                )):
                     replay_mismatches.append({
                         "state_index": state_index,
                         "maximum_q_difference_rad": q_difference,
                         "maximum_margin_difference_m": margin_difference,
+                        "maximum_state_input_difference": float(np.max(np.abs(
+                            replay_input - arrays["state_input_vector"][row]
+                        ))),
+                        "predicate": {
+                            "state_input_equal": state_input_equal,
+                            "joint_equal": joint_equal,
+                            "margin_equal": margin_equal,
+                            "next_state_hashes_equal": hashes_equal,
+                            "raw_contacts_equal": contacts_equal,
+                        },
+                        "expected_next_state_sha256_per_action": expected_hashes,
+                        "observed_next_state_sha256_per_action": observed_hashes,
+                        "expected_raw_contact_count": expected_contacts,
+                        "observed_raw_contact_count": observed_contacts,
                     })
         finally:
             if probe_env is not None:
