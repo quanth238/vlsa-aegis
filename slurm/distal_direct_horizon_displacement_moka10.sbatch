@@ -18,7 +18,7 @@ RUN_ID=${RUN_ID:?RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 OUTPUT_ROOT=${OUTPUT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-displacement}
 RESERVED_RUN=${RESERVED_RUN:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved/direct-horizon-reserved-20260811c}
-RESERVED_VALIDATION=${RESERVED_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved-validation/direct-horizon-reserved-20260811c-validation-a/collection-validation.json}
+RESERVED_VALIDATION=${RESERVED_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-direct-horizon-reserved-validation/direct-horizon-reserved-20260811c-validation-i/collection-validation.json}
 SOURCE_RUN=${SOURCE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-execution/factorized-execution-20260811d}
 SOURCE_VALIDATION=${SOURCE_VALIDATION:-/mnt/data/quanth/experiments/vlsa-distal-factorized-execution-validation/factorized-execution-20260811d-validation-a}
 SURFACE_RUN=${SURFACE_RUN:-/mnt/data/quanth/experiments/vlsa-distal-factorized-surface-error/factorized-surface-error-20260811a}
@@ -53,6 +53,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "direct-horizon evaluation requires exactly one H100"
 for source_dir in "$RESERVED_RUN" "$SOURCE_RUN" "$STRUCTURED_RUN" "$CUMULATIVE_RUN"; do [[ -d "$source_dir" && ! -L "$source_dir" ]] || die "immutable source missing or symlinked"; done
 [[ -f "$RESERVED_VALIDATION" && ! -L "$RESERVED_VALIDATION" ]] || die "reserved validation missing or symlinked"
+[[ "$(sha256sum "$RESERVED_VALIDATION" | awk '{print $1}')" == 6c2af0cf6940a310a44e413bd3709f629a947db87bcaf3150665394d2ba44cfe ]] || die "reserved validation differs"
 [[ -x "$AEGIS_PYTHON" ]] || die "evaluation runtime missing"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source identity differs"
 [[ "$(sha256sum "$DIRECT_CONFIG" | awk '{print $1}')" == 13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f ]] || die "direct-horizon config differs"

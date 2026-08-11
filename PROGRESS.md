@@ -4284,3 +4284,16 @@ continues to require bit-exact trajectories/margins/hashes/contacts. This
 corrects validation semantics without changing data, model, threshold, or
 scientific equality. Job `38372` validation file SHA-256 is
 `650627cc8f625a2ca5fbfd783c9ec1876c8d99e3bc2672679e3f90999cdd35d7`.
+
+Clean H100 job `38375` passes the final reserved collection validation on
+`worker-2` in `00:02:17`. All 25 stored input receipts match their SHA-256 and
+all 93 same-state copies, all non-derived reconstructed inputs match exactly,
+and all 25 fresh nominal rollouts reproduce joints, seven-row margins, both
+next-state hashes, and raw-contact counts bit-for-bit. Maximum joint and margin
+differences are exactly zero. The 25 expected derived-cache records are
+retained and no unexpected feature differs. Validation file/payload SHA-256
+values are
+`6c2af0cf6940a310a44e413bd3709f629a947db87bcaf3150665394d2ba44cfe`
+and `e3f4e060029cb84506dcd8af6eb690fdcc0d32ee16a1c17db75f6e51c90194a1`.
+The matched direct-horizon prediction gate is now authorized; residual
+calibration, QP, and closed loop remain forbidden.

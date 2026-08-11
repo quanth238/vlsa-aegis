@@ -2981,3 +2981,9 @@ non-derived snapshot/controller features and every rollout receipt to match
 exactly. Report derived cache differences, but do not misclassify them as a
 physical replay failure. This implements the preregistered fresh-replay gate;
 it does not modify inputs, labels, model, population, or thresholds.
+
+H100 job `38375` passes this validation contract: zero stored-input,
+unexpected-input, or physical-replay mismatches and exact zero joint/margin
+difference across all 25 fresh replays. Authorize only the preregistered
+direct-horizon prediction training/evaluation. Keep residual calibration, QP,
+and closed loop blocked until that hard prediction gate passes.
