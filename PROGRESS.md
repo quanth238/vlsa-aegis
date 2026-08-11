@@ -4221,3 +4221,10 @@ bit-for-bit (zero maximum difference), but the validator still rejected all
 failure, not authorization to train. The diagnostic-only repair records each
 state-input, trace, next-state-hash, and raw-contact equality predicate so the
 remaining mismatch can be identified without recollection or changed labels.
+
+Diagnostic H100 job `38325` isolated the only failed predicate to the
+recomputed 2,110D state-input vector in all 25 states. Both action-transition
+hashes and raw-contact counts also match exactly, in addition to the joint and
+margin traces. Because model inputs must be reproducible from the complete
+snapshot, the gate remains blocked. The next diagnostic reports the largest
+named input-feature differences; the equality requirement is not relaxed.

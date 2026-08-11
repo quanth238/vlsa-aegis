@@ -252,13 +252,35 @@ def main() -> int:
                     state_input_equal, joint_equal, margin_equal, hashes_equal,
                     contacts_equal,
                 )):
+                    input_difference = np.abs(
+                        replay_input - arrays["state_input_vector"][row]
+                    )
+                    largest_input_indexes = np.argsort(input_difference)[-8:][::-1]
                     replay_mismatches.append({
                         "state_index": state_index,
                         "maximum_q_difference_rad": q_difference,
                         "maximum_margin_difference_m": margin_difference,
-                        "maximum_state_input_difference": float(np.max(np.abs(
-                            replay_input - arrays["state_input_vector"][row]
-                        ))),
+                        "maximum_state_input_difference": float(np.max(
+                            input_difference
+                        )),
+                        "different_state_input_feature_count": int(
+                            np.count_nonzero(input_difference)
+                        ),
+                        "largest_state_input_differences": [
+                            {
+                                "index": int(index),
+                                "name": names[int(index)],
+                                "absolute_difference": float(
+                                    input_difference[int(index)]
+                                ),
+                                "expected": float(
+                                    arrays["state_input_vector"][row, int(index)]
+                                ),
+                                "observed": float(replay_input[int(index)]),
+                            }
+                            for index in largest_input_indexes
+                            if input_difference[int(index)] > 0.0
+                        ],
                         "predicate": {
                             "state_input_equal": state_input_equal,
                             "joint_equal": joint_equal,
