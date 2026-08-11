@@ -3984,3 +3984,13 @@ Records/result/validation hashes are
 `60d4539ef50e4539b912ba632dca0dc5e861e09f0034a6addaac645bc10ed2f1`,
 `055508e5309ae73d9a6a538ce65b4ab563af838e78ca941827c595efe9ea2f1f`,
 and `656e6be4e034de13f9fc7820060624d64f8c4ab8ca3ee48da0cc9ffd79adb9e9`.
+
+The fixed post-audit confirmation now jointly masks the two redundant obstacle
+orientation encodings identified by job `38092`. The union must remove at
+least 90% of E35 terminal error from both frozen models, keep the ordinary
+validation episode below 0.1 rad, and avoid more than 10% test degradation.
+This is a read-only causal check, not a proposed representation; a pass can
+authorize only a later matched representation ablation. Protocol:
+`docs/distal_factorized_orientation_joint_mask_moka10_preregistration.md`.
+Config SHA-256 is
+`bc11384a0aeb35ab8ad609d47e460d0b3eea0efec991581e04f8ddf5bc616fce`.

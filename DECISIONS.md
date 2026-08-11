@@ -2802,3 +2802,17 @@ encoding leaves the other, the strongest single mask removes only 59%/73% of
 flat/time error. Preserve the registered inconclusive verdict. The only
 justified follow-up is a fixed joint mask of those already identified redundant
 groups; do not retrain or tune a new representation yet.
+
+# ADR-0114: Confirm duplicated obstacle orientation with one fixed joint mask
+
+**Status:** Preregistered after job `38092`, before confirmation execution
+(2026-08-11).
+
+The single-group gate was intentionally too strict for two redundant encodings
+of the same physical rotation. Freeze the two groups named by the completed
+audit and mask their union to the training mean. Require at least 90% removal
+of the exploding episode's terminal error in both immutable models while
+preserving ordinary validation and test scale. Also report each single mask and
+all variance-floored features, but do not use those auxiliary arms to change
+the gate. A pass identifies the representation cause and authorizes only a
+matched representation ablation, never direct retraining or intervention.

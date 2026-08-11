@@ -1,0 +1,52 @@
+{
+  "schema_version": "vlsa_distal_factorized_orientation_joint_mask_config.v1",
+  "protocol_id": "vlsa-distal-factorized-orientation-joint-mask-moka10-v1",
+  "claim_scope": "post_audit_no_training_confirmation_of_whether_redundant_variance_floored_obstacle_orientation_inputs_cause_frozen_model_validation_explosion",
+  "immutable_source": {
+    "input_audit_config_file_sha256": "e9e1b4d954696a704a28e1982270235ce1ff65d25166199fbf3eef4fa3805043",
+    "input_audit_records_file_sha256": "60d4539ef50e4539b912ba632dca0dc5e861e09f0034a6addaac645bc10ed2f1",
+    "input_audit_result_file_sha256": "055508e5309ae73d9a6a538ce65b4ab563af838e78ca941827c595efe9ea2f1f",
+    "input_audit_result_payload_sha256": "5891d2318432bcd74c34eca757db41646140b9e08aab76e0842a1f06a1529b54",
+    "input_audit_validation_file_sha256": "656e6be4e034de13f9fc7820060624d64f8c4ab8ca3ee48da0cc9ffd79adb9e9",
+    "input_audit_validation_payload_sha256": "d5db29e0f3f3b2e542835fbfda7ef4bc5ad1133dd77940219d46056899e4ac20"
+  },
+  "fixed_masks": {
+    "primitive_rotation_only": [
+      "semantic_state.exact_obstacle_primitive_transforms[].rotation_world_from_local[][]"
+    ],
+    "root_rotation_only": [
+      "semantic_state.obstacle_root_orientation_world_from_body[][]"
+    ],
+    "joint_redundant_orientation": [
+      "semantic_state.exact_obstacle_primitive_transforms[].rotation_world_from_local[][]",
+      "semantic_state.obstacle_root_orientation_world_from_body[][]"
+    ],
+    "all_variance_floored_features": ["__all_training_raw_std_below_1e-6__"]
+  },
+  "evaluation": {
+    "mask_value": "training_mean_equivalently_normalized_zero",
+    "validation_explosion_case_id": "vlsa-t1-goal-ii-t3-e35",
+    "ordinary_validation_case_id": "vlsa-t1-goal-ii-t0-e30",
+    "evaluate_random_candidates_only": true,
+    "minimum_joint_mask_terminal_RMSE_reduction_fraction_both_models": 0.9,
+    "maximum_ordinary_validation_terminal_RMSE_rad_after_joint_mask": 0.1,
+    "maximum_test_terminal_RMSE_relative_increase": 0.1
+  },
+  "decision": {
+    "pass_interpretation": "duplicated_constant_obstacle_rotation_scalar_standardization_is_causal_for_validation_explosion",
+    "fail_interpretation": "orientation_representation_is_shifted_but_does_not_fully_explain_model_explosion",
+    "authorizes_only_matched_representation_ablation": true,
+    "authorizes_training_directly": false
+  },
+  "forbidden_actions": {
+    "new_simulation": true,
+    "training": true,
+    "normalization_change": true,
+    "model_change": true,
+    "calibration": true,
+    "candidate_expansion": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true
+  }
+}
