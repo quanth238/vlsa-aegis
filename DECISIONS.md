@@ -3175,7 +3175,8 @@ Full report:
 
 # ADR-0125: Gate recurrent nominal-plus-residual execution before VLA guidance
 
-**Status:** Preregistered before H100 training (2026-08-12).
+**Status:** Rejected after independently validated H100 job `38702`
+(2026-08-12).
 
 Test whether a causal recurrent execution representation can learn the OSC
 action response that flat direct-horizon and explicit-J models missed. Predict
@@ -3200,3 +3201,25 @@ untouched prediction and matched-random direction gate. The current dataset
 does not contain actual flow-noised or guided chunks, so it cannot support a
 flow-distribution claim. Config SHA-256 is
 `0124715fe1962a38f2437f8ca2a1407e7ed35b47c5505913f2ca49426c57dc10`.
+
+Job `38702` executed the registered causal and centering contracts and passed
+the ordinary trajectory/drift gates, but rejected the fitted model. Relative
+to frozen job `38586`, validation joint RMSE improved from `19.275` to
+`15.987 mrad`, terminal error from `31.880` to `27.321 mrad`, boundary RMSE
+from `6.414` to `5.735 mm`, and false-safes from `95` to `62`. The recurrent
+model nevertheless supports only `8/9` recoverable validation states.
+
+Most importantly, sensitivity remains wrong or too small on training itself:
+aggregate joint/safety cosine is `0.586/0.582` and median gain ratio is
+`0.251/0.351`; terminal gain ratios collapse to `0.050/0.064`. Validation
+aggregate joint/safety cosine is `0.602/0.506`, with median gain ratio
+`0.271/0.492`. This localizes the failure to the current recurrent
+representation/training/checkpoint process rather than primarily to unseen
+state coverage. Recurrence partially restores gain magnitude but does not
+produce a trustworthy correction direction.
+
+Per the registered stop rule, keep the task-3 episodes unopened and do not run
+matched-random correction, flow guidance, calibration, QP, or closed loop.
+Neither current learned execution model clears the prerequisite for control.
+Full report:
+`docs/distal_factorized_recurrent_nominal_residual_moka10_result.md`.

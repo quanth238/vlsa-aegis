@@ -4531,3 +4531,24 @@ the established prepared-path key is `collection`. The apparatus-only repair
 changes that lookup and adds a regression test. No model, prediction, metric,
 untouched episode, or scientific result exists for job `38701`; its immutable
 failure receipt is preserved.
+
+Clean H100 job `38702` completed the recurrent nominal-plus-residual execution
+gate on `worker-2` in `02:08:09`; the independent validator is valid and
+exactly reproduces all stored arrays, geometry, support, metrics, and the hard
+decision across `7,905` actions. The scientific verdict is a strict fitted
+NO-GO. Recurrence improves validation joint/terminal RMSE to
+`15.987/27.321 mrad`, boundary RMSE to `5.735 mm`, and false-safes from the
+direct model's `95` to `62`, but loses support from `9/9` to `8/9` recoverable
+validation states. Validation aggregate joint/safety direction is only
+`0.602/0.506`; gain ratios are `0.271/0.492`, and terminal gain ratios are
+`0.094/0.099`. Training already fails at joint/safety cosine `0.586/0.582`
+and gain ratio `0.251/0.351`, so the main failure is the current learned
+action response rather than unseen-state coverage. Task-3 episodes remained
+unopened; random correction, flow guidance, calibration, QP, and closed loop
+did not run. Model/prediction/result/validation SHA-256 values are
+`507176ad5467e1cffb8cc227f3cb152d8c657a563c00df804b0d2b21efa827d5`,
+`b9a2594d76d0355c5cad89381437c55a348d054f746bb68e2614a73ed74ce2a4`,
+`b453277b69282388062353d367f398999311c68e39991ab87b94cf7e7a876b04`,
+and `0fe6c7ab957df4f3c2e6fc54fa7fb40baea5ea8df565d3ce2db383de379209d9`.
+Full report:
+`docs/distal_factorized_recurrent_nominal_residual_moka10_result.md`.
