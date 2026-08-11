@@ -176,6 +176,7 @@ def evaluate_reserved_geometry(
     *, paths: Mapping[str, Path], factorized_config: Mapping[str, Any],
     complete_collection: Mapping[str, Any], metadata: Mapping[str, Any],
     arrays: Mapping[str, Any], predictions: Mapping[str, Any],
+    return_trace: bool = False,
 ) -> dict[str, Any]:
     """Evaluate all model joint traces through the same known FK/ellipsoids."""
 
@@ -212,6 +213,10 @@ def evaluate_reserved_geometry(
         name: np.full((len(exact_q), 7), np.nan, dtype=np.float64)
         for name in (*predicted.keys(), "exact_q_static")
     }
+    traces = {
+        name: np.full((len(exact_q), 51, 7), np.nan, dtype=np.float64)
+        for name in (*predicted.keys(), "exact_q_static")
+    } if return_trace else None
     center_error_sum = {name: 0.0 for name in predicted}
     center_error_count = {name: 0 for name in predicted}
     center_error_values = {name: [] for name in predicted}
@@ -287,9 +292,10 @@ def evaluate_reserved_geometry(
                                     center_error_count[name] += int(error.size)
                                     center_error_values[name].extend(error.tolist())
                     for name, values in trace_margins.items():
-                        margins[name][row] = np.min(
-                            np.asarray(values, dtype=np.float64), axis=0
-                        )
+                        trace = np.asarray(values, dtype=np.float64)
+                        margins[name][row] = np.min(trace, axis=0)
+                        if return_trace:
+                            traces[name][row] = trace
                     evaluated += 1
                 restore_json_snapshot(env, state["complete_snapshot"])
         finally:
@@ -312,12 +318,15 @@ def evaluate_reserved_geometry(
             "random_link_center_p95_m": float(np.quantile(values, 0.95)),
             "random_link_center_maximum_m": float(np.max(values)),
         }
-    return {
+    output = {
         "minimum_margin_m": margins,
         "geometry_metrics": geometry_metrics,
         "evaluated_action_count": int(evaluated),
         "obstacle_geometry_mode": "fixed_k0_exact_box_union",
     }
+    if return_trace:
+        output["clearance_trace_m"] = traces
+    return output
 
 
 def model_metrics(

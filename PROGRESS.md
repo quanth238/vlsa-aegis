@@ -4336,3 +4336,14 @@ The direct-horizon prediction NO-GO is now validated. Per the preregistered
 hard stop, no residual calibration, QP, closed-loop E05, or future-episode
 evaluation was run. Full report:
 `docs/distal_factorized_direct_horizon_displacement_moka10_result.md`.
+
+The validated job-`38462` NO-GO now freezes a single read-only root-cause
+audit. It reloads the immutable five-member model and existing 7,905 source
+plus 2,325 reserved rollouts, recomputes predicted-joint FK/ellipsoid traces,
+and reports residuals by split, episode, link, substep, and candidate source.
+It also audits signed `dh/dq` joint error, state-only distance to training,
+sensitivity direction/magnitude, ensemble disagreement, and the six reserved
+states with exact-safe but no predicted-safe candidates. No training or new
+rollout label is permitted; calibration, QP, Poisson/SDF, classifiers, closed
+loop, and the future task-3 population remain blocked. Config SHA-256 is
+`b6c044e9e1d5ec832bd43e1985943e1b5cd4d783f0e95cb812c53f62f1af2e40`.

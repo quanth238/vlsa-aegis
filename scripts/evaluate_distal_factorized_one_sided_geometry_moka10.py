@@ -187,6 +187,7 @@ def geometry_kwargs(
     paths: Mapping[str, Path], factorized_config: Mapping[str, Any],
     complete_dataset: Mapping[str, Any], complete_collection: Mapping[str, Any],
     arrays: Mapping[str, Any], predicted_q: Any, splits: tuple[str, ...],
+    *, return_trace: bool = False,
 ) -> dict[str, Any]:
     return evaluate_predicted_geometry(
         repo_root=paths["repo"], config=factorized_config,
@@ -198,6 +199,7 @@ def geometry_kwargs(
         geometry_config_path=paths["geometry"],
         exact_box_config_path=paths["exact_box"],
         complete_collection=complete_collection, evaluation_splits=splits,
+        return_trace=return_trace,
     )
 
 

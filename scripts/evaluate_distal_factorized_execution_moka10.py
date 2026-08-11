@@ -59,6 +59,7 @@ def evaluate_predicted_geometry(
     selected_manifest: Path, same_task_manifest: Path, targeted_manifest: Path,
     archived_root: Path, geometry_config_path: Path, exact_box_config_path: Path,
     complete_collection: Mapping[str, Any], return_margin: bool = True,
+    return_trace: bool = False,
     evaluation_splits: Sequence[str] = ("test",),
 ) -> dict[str, Any]:
     """Evaluate predicted q with fixed-k0 exact-box ellipsoid geometry."""
@@ -110,6 +111,14 @@ def evaluate_predicted_geometry(
         np.asarray(arrays["minimum_margin_m"]).shape, np.nan, dtype=np.float64
     )
     exact_q_static_margin = np.full_like(factor_margin, np.nan)
+    factor_trace = (
+        np.full((len(q_prediction), 51, 7), np.nan, dtype=np.float64)
+        if return_trace else None
+    )
+    exact_q_static_trace = (
+        np.full((len(q_prediction), 51, 7), np.nan, dtype=np.float64)
+        if return_trace else None
+    )
     row_by_identity = {
         (int(state), int(candidate)): int(row)
         for row, (state, candidate) in enumerate(zip(
@@ -224,12 +233,21 @@ def evaluate_predicted_geometry(
                                 center_squared_error_sum += float(np.sum(errors ** 2))
                                 center_error_count += int(errors.size)
                                 center_errors.extend(errors.tolist())
+                        predicted_trace_margin = np.asarray(
+                            trace_margin, dtype=np.float64
+                        )
+                        exact_static_trace_margin = np.asarray(
+                            exact_trace_margin, dtype=np.float64
+                        )
                         factor_margin[row] = np.min(
-                            np.asarray(trace_margin, dtype=np.float64), axis=0
+                            predicted_trace_margin, axis=0
                         )
                         exact_q_static_margin[row] = np.min(
-                            np.asarray(exact_trace_margin, dtype=np.float64), axis=0
+                            exact_static_trace_margin, axis=0
                         )
+                        if return_trace:
+                            factor_trace[row] = predicted_trace_margin
+                            exact_q_static_trace[row] = exact_static_trace_margin
                         evaluated_action_count += 1
                     _restore_env(env, snapshot)
                 if step < maximum_step:
@@ -270,6 +288,9 @@ def evaluate_predicted_geometry(
     }
     if requested_splits != ("test",):
         output["evaluation_splits"] = list(requested_splits)
+    if return_trace:
+        output["predicted_clearance_trace_m"] = factor_trace
+        output["exact_q_static_clearance_trace_m"] = exact_q_static_trace
     return output
 
 

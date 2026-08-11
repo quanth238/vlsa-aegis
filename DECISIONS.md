@@ -2973,6 +2973,23 @@ Validation-only H100 job `38462` passes every replay predicate with zero finite
 array difference and exact metric/decision equality. Mark the direct-horizon
 prediction result as validated NO-GO and end the experiment at this gate.
 
+# ADR-0120: Diagnose the frozen direct-horizon model before another intervention
+
+**Status:** Accepted after independent job-`38462` replay (2026-08-11).
+
+Do not calibrate a model with 64 reserved false-safes, only 15/21 state
+support, and unreliable action gradients. First audit the frozen predictions
+on train, validation, old diagnostic, and new reserved episode groups. The
+audit must localize joint and safety-normal errors by link/time/episode,
+separate translation/rotation/gripper candidates, measure state-only training
+distance and ensemble disagreement, and list exact/predicted support in every
+unsupported reserved state. Exact rollout joints remain the geometry oracle.
+
+The audit is diagnostic only. It collects no labels and authorizes no
+calibration, QP, Poisson/SDF, classifier, closed-loop execution, or future
+task-3 evaluation. Choose a later model or data intervention only from the
+validated root-cause pattern.
+
 # ADR-0119: Separate immutable model inputs from reconstructible physical state
 
 **Status:** Accepted after H100 replay diagnostics, before training (2026-08-11).

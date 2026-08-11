@@ -1,0 +1,53 @@
+{
+  "schema_version": "vlsa_distal_factorized_direct_horizon_root_cause_audit_config.v1",
+  "protocol_id": "vlsa-distal-factorized-direct-horizon-root-cause-audit-moka10-v1",
+  "claim_scope": "no_training_split_link_time_episode_action_source_audit_of_the_independently_validated_direct_horizon_prediction_NO_GO",
+  "immutable_source": {
+    "direct_config_file_sha256": "13181315beeca4dfbe98b7dbfa024f8f2f00728a770623e1f98d2e7aeed3c37f",
+    "model_file_sha256": "d9aaa72812fae83271a451aef136e8ed98a00fce7cc882f6f2bad67876b0ce29",
+    "predictions_file_sha256": "191cbb857b00f9292ebbda9ec891432e2184d41cd58ee0a10e001cf6a67028fe",
+    "result_file_sha256": "6ab198218aa3903698b516be5e9748dfeca7748456ac1d315df8b85abcc69544",
+    "result_payload_sha256": "ea8bfd83cd012cb7034f9a9d9c92aa43039c89566c8f06caaa76685e7f7b8fc3",
+    "validation_file_sha256": "c676fd5fee6de2130047a7362f1a7f78b8d07c62abaf81318304b6a08a031c7b",
+    "validation_payload_sha256": "e672676b2c01d8af6efeede0bdbd060f19c5f8cfca10cde633dcb99e8836713c",
+    "source_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "source_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "reserved_metadata_file_sha256": "96df2ca783d06e002bd8b268ee4e4a6b4d63eeb31db3f76bd4ae57109961c0b1",
+    "reserved_array_file_sha256": "edf0f3351d195a7751a49be1d30259829de9e3e92d7def3c4583cc33b1754ec1",
+    "reserved_collection_validation_file_sha256": "6c2af0cf6940a310a44e413bd3709f629a947db87bcaf3150665394d2ba44cfe"
+  },
+  "populations": {
+    "source": {"episodes": 17, "states": 85, "actions": 7905, "splits": ["train", "validation", "diagnostic"]},
+    "reserved": {"episodes": 5, "states": 25, "actions": 2325, "role": "new_reserved_prediction_test"},
+    "future_task3_manifest_opened": false
+  },
+  "audit": {
+    "near_boundary_absolute_margin_m": 0.005,
+    "geometry_jacobian_fit_candidates": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+    "geometry_jacobian_ridge": 0.000001,
+    "sensitivity_cosine_threshold": 0.8,
+    "boundary_RMSE_threshold_m": 0.002671122,
+    "terminal_window_start": 45,
+    "terminal_concentration_fraction": 0.5,
+    "ensemble_detection_AUROC": 0.8,
+    "input_distance": "RMS_train_normalized_state_only_nearest_training_state",
+    "candidate_groups": ["nominal", "translation_FD", "rotation_FD", "gripper_FD", "mixed_random"]
+  },
+  "interpretation": {
+    "training_failure": "architecture_normalization_or_objective_cannot_fit_execution_map",
+    "train_validation_pass_reserved_unsupported": "episode_state_coverage_failure",
+    "near_training_support_reserved_failure": "representation_or_model_generalization_failure",
+    "terminal_concentration": "horizon_dependent_decoder_bias",
+    "rotation_concentration": "full_action_rotation_coupling_inadequately_modeled",
+    "exact_q_geometry_failure": "reopen_FK_ellipsoid_geometry_audit"
+  },
+  "forbidden_actions": {
+    "training": true,
+    "new_rollout_labels": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true,
+    "classifier": true
+  }
+}
