@@ -1419,3 +1419,40 @@ strictly higher utility than the analytical field, and add-one random p-value
 at most `0.05`. No action executes and no task-completion or generalization
 claim is permitted. The exact next command after a clean commit and live Slurm
 preflight is `sbatch slurm/distal_counterfactual_field_e05.sbatch` on one H100.
+
+Clean H100 producer job `38929` completed on `worker-2` from commit
+`ae5d4e8cfd71bbd0f1591969e0b5af164db2b3c2` in 102 allocation seconds and
+evaluated 197 deterministic cloned-OSC rollouts. The fixed continuation exactly
+reproduced the later action-197 protected contact, with hard ellipsoid minimum
+`-14.263205 mm` and paper CAR displacement `1.013437 mm`.
+
+The fitted counterfactual field passed its held-out directional-prediction
+gate: Pearson `0.997344`, R2 `0.993467`, sign accuracy `93.75%`, and derivative
+RMSE `0.081023 mm/action`. At matched correction L2 `0.1`, its positive
+direction improved the hard long-horizon minimum by `0.248367 mm`, incurred
+only `0.695685 mm` terminal EEF error, passed paper CAR, and improved utility
+by `0.230205 mm`. The short-horizon analytical ellipsoid field instead reduced
+the hard minimum by `0.046285 mm` and failed paper CAR. The learned direction
+beat all 32 matched random directions on utility (add-one `p=1/33=0.030303`)
+and exceeded the analytical field by `0.288702 mm` utility.
+
+The safety mechanism gate nevertheless failed. The learned candidate still
+had hard clearance `-14.014838 mm` and raw L5 contact at action 197. No action
+among all 128 paired branches or 32 matched random candidates was exactly
+safe; the best paired hard minimum was still `-14.057551 mm`. Thus the local
+counterfactual labels contain useful later-horizon steering information, but
+the registered small endpoint-preserving five-action neighborhood has no safe
+support and cannot validate collision prevention.
+
+Independent H100 validator job `38932` recomputed pairing, correction norms,
+held-out gates, exact safety, task preservation, analytical/random comparison,
+and the strict NO-GO. Producer result/payload SHA-256 values are
+`ec686d928214d2f7c5652e8bdec092e8861b940e78d9f0c1021ee7c39a117aa3` and
+`d7cf3cb874e50370b4702293a9cab40822fcdbdd8c9a25f2510dc5fa6de4e313`;
+validation file/payload SHA-256 values are
+`4d544db234a8b3c4ed7f1cfaf0e57e277de55c6deec007677f0ca98f060f4a05` and
+`958f9eb992dcd471cea7499672a48c8bccd11fdf07985586d52b0832afde099a`.
+Do not train an MLP from this state yet. The next gate must first establish
+safe support using a larger or iterative endpoint-preserving field correction,
+an earlier intervention state, or a longer corrected horizon while retaining
+the same fixed continuation and exact final verification.

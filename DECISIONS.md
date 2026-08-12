@@ -1063,3 +1063,21 @@ information beyond ordinary repulsion or abundant safe directions. This is an
 offline, single-state expressivity test; exact cloned OSC is label generation,
 not the proposed deployment evaluator. Do not train an MLP or modify pi0.5
 unless this strict mechanism gate passes.
+
+## ADR-0056: Accept learned long-horizon direction, reject the small local safety mechanism
+
+Accepted after producer `38929` and independent validator `38932`. Paired
+counterfactual long-horizon outcomes do teach information that the immediate
+analytical ellipsoid field misses: held-out directional Pearson was `0.9973`,
+the learned correction improved exact long-horizon clearance while the fixed
+field worsened it, and it beat all 32 matched random directions at the
+registered norm. This supports the narrow hypothesis that rollout supervision
+can learn how a five-action change affects a later physical collision.
+
+It does not support collision avoidance. The action-197 contact remained,
+hard clearance improved by only `0.248 mm` from an initial `-14.263 mm`, and
+no sampled endpoint-preserving correction at L2 `0.1` was safe. Classify the
+experiment as a strict safety NO-GO and do not train an MLP merely because the
+directional metrics passed. First find a verified-safe member of a richer but
+still task-preserving correction family. Only then is learning that field from
+multiple states scientifically justified.
