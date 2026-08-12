@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .repulsive_force import normalized_direction, softmin_weights
+from .repulsive_force import softmin_weights
 from .shadow import _numpy
 
 
@@ -79,6 +79,15 @@ def _unique_directions(values: list[Any]) -> Any:
     return np.asarray(output, dtype=np.float64)
 
 
+def _normalized_six(vector: Any) -> Any:
+    np = _numpy()
+    value = np.asarray(vector, dtype=np.float64).reshape(-1)
+    norm = float(np.linalg.norm(value))
+    if value.shape != (6,) or not np.all(np.isfinite(value)) or norm <= 1.0e-12:
+        raise ValueError("six-dimensional oracle direction is degenerate")
+    return value / norm
+
+
 def unrestricted_directions(count: int, seed: int, preferred: list[Any]) -> Any:
     """Return deterministic arbitrary directions in the full two-action XYZ space."""
 
@@ -145,7 +154,7 @@ def task_tangent_direction(
         projection -= active_rows.T.dot(
             np.linalg.pinv(active_rows.dot(active_rows.T), rcond=1.0e-10)
         ).dot(active_rows).dot(task)
-    return normalized_direction(projection), active.astype(int).tolist()
+    return _normalized_six(projection), active.astype(int).tolist()
 
 
 def normal_plus_tangent_directions(

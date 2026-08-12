@@ -1211,3 +1211,11 @@ justified. No MLP, QP, flow guidance, execution, or task-completion claim is
 included. The exact next command is to commit the harness, sync the clean
 commit, perform live Slurm preflight, and submit
 `slurm/distal_field_mixture_oracle_e05.sbatch` on one H100.
+
+H100 attempt `38832` reached `worker-2` and stopped in allocation preflight
+before simulator construction. The task-tangent numeric test exposed that the
+oracle reused a repulsive-direction normalizer intentionally restricted to
+three-dimensional XYZ, while this experiment's two-action tangent has six
+dimensions. The immutable attempt is apparatus failure only. The repair adds
+a strict finite six-dimensional unit normalizer inside the oracle module and
+changes no state, action, search, comparator, geometry, or acceptance setting.
