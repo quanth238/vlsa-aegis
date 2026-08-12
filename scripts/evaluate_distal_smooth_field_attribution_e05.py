@@ -184,6 +184,7 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
             "minimum_clearance_m": float(np.min(trace)),
             "row_minimum_clearance_m": np.min(trace, axis=0),
             "protected_contacts": contacts,
+            "active_obstacle_l1_displacement_trace_m": displacements,
             "maximum_active_obstacle_l1_displacement_m": float(max(displacements)),
             "sample_count": int(trace.shape[0]),
             "sample_identities": sample_identities,
