@@ -98,7 +98,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --route-oracle-result "$ROUTE_ORACLE_RESULT" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
-  --experiment-config "$REMOTE_REPO/configs/vlsa_distal_receding_route_oracle_e05.v1.json" \
+  --experiment-config "$REMOTE_REPO/configs/vlsa_distal_receding_route_oracle_e05.v2.json" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \
   --port "$POLICY_PORT" \

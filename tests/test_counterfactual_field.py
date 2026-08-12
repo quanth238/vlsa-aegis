@@ -72,9 +72,9 @@ class CounterfactualFieldTest(unittest.TestCase):
         from main.multilink_ellipsoid.post_detour_live_gate import load_receding_route_config
 
         receding = load_receding_route_config(
-            ROOT / "configs" / "vlsa_distal_receding_route_oracle_e05.v1.json"
+            ROOT / "configs" / "vlsa_distal_receding_route_oracle_e05.v2.json"
         )
-        self.assertEqual(receding["state_protocol"]["execute_prefix_actions"], 1)
+        self.assertEqual(receding["state_protocol"]["execute_prefix_actions"], 5)
 
     def test_raw_multistart_gate0_config_and_transplant_contract(self):
         from main.multilink_ellipsoid.raw_multistart_gate0 import (

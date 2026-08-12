@@ -36,7 +36,7 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
-RESULT_SCHEMA = "vlsa_distal_receding_route_oracle_e05_result.v1"
+RESULT_SCHEMA = "vlsa_distal_receding_route_oracle_e05_result.v2"
 
 
 def _internal_summary(record: Mapping[str, Any]) -> dict[str, Any]:
@@ -284,13 +284,13 @@ def evaluate(
             )
             return _internal_summary(record), record
 
-        for step in range(182, max_steps_for_case(case)):
+        for step in range(182, max_steps_for_case(case), 5):
             query_record = None
             if step == 182:
                 nominal_actions = _archived_actions(archived, 182, 186)
                 qp_records = [archived["actions"][index]["qp"] for index in range(182, 187)]
             else:
-                query_index = query_base + step - 183
+                query_index = query_base + (step - 187) // 5
                 seed = query_seed(int(case["policy_noise_seed"]), query_index)
                 policy_input = _policy_observation(
                     runtime,
@@ -540,28 +540,34 @@ def evaluate(
             windows.append(window)
             if failure is not None:
                 break
-            expected = one_step.transition(env, selected_actions[0])
-            _, done = execute(selected_actions[0], step, selected_source)
-            state_error = float(
-                np.max(
-                    np.abs(
-                        np.asarray(_dynamic_state_vector(env), dtype=np.float64)
-                        - np.asarray(expected["next_state_vector"], dtype=np.float64)
+            clone_errors = []
+            done = False
+            for offset, selected_action in enumerate(selected_actions):
+                expected = one_step.transition(env, selected_action)
+                _, done = execute(selected_action, step + offset, selected_source)
+                state_error = float(
+                    np.max(
+                        np.abs(
+                            np.asarray(_dynamic_state_vector(env), dtype=np.float64)
+                            - np.asarray(expected["next_state_vector"], dtype=np.float64)
+                        )
                     )
                 )
-            )
-            _require(state_error <= 1.0e-10, "executed receding route action differs from clone")
-            window["executed_prefix_actions"] = 1
-            window["clone_state_max_abs_error"] = state_error
-            actual_z = np.asarray(qp_records[0]["z_after"], dtype=np.float64)
-            if first_robot_contact_step is not None or first_car_step is not None:
-                failure = {
-                    "component": "main_environment_safety_authority",
-                    "step": step,
-                    "reason": "verified_action_produced_contact_or_car",
-                }
-                break
-            if done:
+                _require(state_error <= 1.0e-10, "executed receding route action differs from clone")
+                clone_errors.append(state_error)
+                if first_robot_contact_step is not None or first_car_step is not None:
+                    failure = {
+                        "component": "main_environment_safety_authority",
+                        "step": step + offset,
+                        "reason": "verified_action_produced_contact_or_car",
+                    }
+                    break
+                if done:
+                    break
+            window["executed_prefix_actions"] = len(clone_errors)
+            window["clone_state_max_abs_error"] = max(clone_errors)
+            actual_z = np.asarray(qp_records[len(clone_errors) - 1]["z_after"], dtype=np.float64)
+            if failure is not None or done:
                 break
 
         video_writer.close()
@@ -617,7 +623,7 @@ def evaluate(
                 "unsafe_nominal_window_count": sum(not item["nominal_safe"] for item in windows),
                 "corrected_window_count": len(corrected_windows),
                 "total_search_rollouts": total_search_rollouts,
-                "execute_prefix_actions": 1,
+                "execute_prefix_actions": int(config["state_protocol"]["execute_prefix_actions"]),
                 "route_mode_sequence": [item["active_mode_selected"] for item in windows],
             },
             "windows": windows,

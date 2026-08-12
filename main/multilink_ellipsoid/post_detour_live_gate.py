@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 POST_DETOUR_LIVE_SCHEMA = "vlsa_distal_post_detour_live_gate_e05_config.v1"
 POST_DETOUR_ROUTE_SCHEMA = "vlsa_distal_post_detour_route_oracle_e05_config.v1"
-RECEDING_ROUTE_SCHEMA = "vlsa_distal_receding_route_oracle_e05_config.v1"
+RECEDING_ROUTE_SCHEMA = "vlsa_distal_receding_route_oracle_e05_config.v2"
 
 
 def _canonical(value: Any) -> bytes:
@@ -143,7 +143,7 @@ def load_post_detour_route_config(path: Path) -> dict[str, Any]:
 def load_receding_route_config(path: Path) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
-    if value.get("protocol_id") != "vlsa-distal-receding-route-oracle-e05-v1":
+    if value.get("protocol_id") != "vlsa-distal-receding-route-oracle-e05-v2":
         raise ValueError("receding route protocol differs")
     if value.get("case_ids") != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("receding route case differs")
@@ -151,11 +151,11 @@ def load_receding_route_config(path: Path) -> dict[str, Any]:
     expected_state = {
         "activation_step": 182,
         "initial_verified_prefix_steps": [],
-        "live_receding_start_step": 183,
+        "live_receding_start_step": 187,
         "lookahead_actions": 5,
-        "execute_prefix_actions": 1,
+        "execute_prefix_actions": 5,
         "first_live_policy_query_index": 37,
-        "replan_after_every_executed_action": True,
+        "replan_after_every_executed_chunk": True,
     }
     if state != expected_state:
         raise ValueError("receding route state protocol differs")

@@ -50,7 +50,7 @@ def validate(
 ) -> dict[str, Any]:
     result = json.loads(result_path.read_text())
     _require(
-        result["schema_version"] == "vlsa_distal_receding_route_oracle_e05_result.v1",
+        result["schema_version"] == "vlsa_distal_receding_route_oracle_e05_result.v2",
         "result schema differs",
     )
     payload = dict(result)
@@ -71,7 +71,12 @@ def validate(
         _require(bool(window["nominal_safe"]) == nominal_safe, "nominal gate differs")
         if window["selected"] is not None:
             _require(_record_gate(window["selected"], gate), "selected window is unsafe")
-            _require(window["executed_prefix_actions"] == 1, "execution prefix differs")
+            _require(
+                1
+                <= int(window["executed_prefix_actions"])
+                <= int(result["config"]["state_protocol"]["execute_prefix_actions"]),
+                "execution prefix differs",
+            )
             _require(float(window["clone_state_max_abs_error"]) <= 1.0e-10, "clone fidelity differs")
             corrected += int(
                 not window["selected_source"].startswith("fresh_exact_safe_nominal_window")
@@ -117,7 +122,7 @@ def validate(
     _require(_sha256(video_path.read_bytes()) == result["video"]["file_sha256"], "video hash differs")
     _require(_sha256(final_path.read_bytes()) == result["final_jpg"]["file_sha256"], "final frame hash differs")
     validation = {
-        "schema_version": "vlsa_distal_receding_route_oracle_e05_validation.v1",
+        "schema_version": "vlsa_distal_receding_route_oracle_e05_validation.v2",
         "status": "validated",
         "scientific_result": True,
         "producer_commit": expected_commit,
