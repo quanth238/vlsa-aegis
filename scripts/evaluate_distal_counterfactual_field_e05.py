@@ -387,6 +387,7 @@ def evaluate(
             nominal["_record"]["eef_position_trace_m"][-1], dtype=np.float64
         )
         nominal["score"] = _score(nominal["_record"], zero, target_terminal_eef, config)
+        nominal["task_preserving"] = True
         nominal_repeat = _candidate(probe, env, base_actions, zero, target_terminal_eef, config)
         _require(
             nominal["rollout"]["state_sha256"] == nominal_repeat["rollout"]["state_sha256"],
