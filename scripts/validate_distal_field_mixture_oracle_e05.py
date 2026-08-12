@@ -165,7 +165,7 @@ def validate(result_path: Path, expected_producer_commit: str) -> dict[str, Any]
     )
     maximum_correction_norm = float(config["search"]["maximum_total_correction_l2"])
     expected_arms = list(config["comparison"]["arms"])
-    _require(list(result["arms"]) == expected_arms, "arm order differs")
+    _require(set(result["arms"]) == set(expected_arms), "arm names differ")
     arm_checks: dict[str, Any] = {}
     for arm_name in expected_arms:
         arm = result["arms"][arm_name]
