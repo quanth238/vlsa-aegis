@@ -49,7 +49,12 @@ def _write_atomic(path: Path, value: Any) -> None:
     os.replace(temporary, path)
 
 
-def validate(root: Path, archived_path: Path, expected_commit: str) -> dict[str, Any]:
+def validate(
+    root: Path,
+    archived_path: Path,
+    expected_producer_commit: str,
+    validator_commit: str,
+) -> dict[str, Any]:
     import imageio.v2 as imageio
     import numpy as np
 
@@ -68,7 +73,7 @@ def validate(root: Path, archived_path: Path, expected_commit: str) -> dict[str,
             "%s result payload hash differs" % arm,
         )
         _require(
-            result["source"]["git_commit"] == expected_commit
+            result["source"]["commit"] == expected_producer_commit
             and not result["source"]["dirty"],
             "%s source identity differs" % arm,
         )
@@ -193,7 +198,8 @@ def validate(root: Path, archived_path: Path, expected_commit: str) -> dict[str,
         "schema_version": "vlsa_distal_field_receding_recovery_e05_validation.v1",
         "status": "valid",
         "scientific_result": True,
-        "source_commit": expected_commit,
+        "producer_source_commit": expected_producer_commit,
+        "validator_source_commit": validator_commit,
         "producer_root": str(root),
         "arms": records,
         "all_arms_prevented_robot_obstacle_contact": True,
@@ -212,10 +218,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--archived", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--validator-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     receipt = validate(
-        args.root.resolve(), args.archived.resolve(), args.expected_commit
+        args.root.resolve(),
+        args.archived.resolve(),
+        args.expected_commit,
+        args.validator_commit,
     )
     receipt["validation_payload_sha256"] = hashlib.sha256(
         _canonical(receipt)
