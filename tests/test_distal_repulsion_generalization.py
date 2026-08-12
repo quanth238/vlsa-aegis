@@ -104,6 +104,14 @@ class RepulsionGeneralizationTests(unittest.TestCase):
         )
         self.assertEqual(geometry["case_ids"], ["vlsa-t1-goal-ii-t3-e38"])
 
+    def test_task_valid_validator_checks_eligibility_and_internal_steps(self) -> None:
+        source = (
+            ROOT / "scripts/validate_distal_repulsion_task_valid_e38.py"
+        ).read_text()
+        self.assertIn('eligibility["baseline_native_task_success"]', source)
+        self.assertIn('eligibility["task_object_eef_distance_m"] <= 0.02', source)
+        self.assertIn("all(count == 25", source)
+
 
 if __name__ == "__main__":
     unittest.main()
