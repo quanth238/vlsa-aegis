@@ -34,6 +34,15 @@ nonlocal/multimodal candidate planning. Passing authorizes only later learning
 of separate link/time-conditioned rows; it does not authorize an MLP that
 outputs one collapsed vector.
 
+H100 attempt `38964` passed all allocation tests and completed substantial
+paired rollout work, then stopped without a result when one visited action lay
+within `0.05` of a normalized coordinate bound. The legacy random-direction
+sampler kept rejecting symmetric pairs until its fixed attempt limit. This is
+an apparatus failure with no scientific outcome. The retry freezes only those
+coordinates lacking the preregistered `+0.05/-0.05` bidirectional headroom and
+samples the same count, radius, seeds, and smooth random basis in the largest
+remaining coordinate subspace. No optimizer, witness, budget, or gate changes.
+
 ## Fixed-step long-horizon avoidance field gate (preregistered, 2026-08-12)
 
 The active E05 mechanism test now isolates whether the paired-rollout action

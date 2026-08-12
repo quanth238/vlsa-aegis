@@ -144,20 +144,21 @@ def _fit_local_rows(
 ) -> dict[str, Any]:
     import numpy as np
 
-    from main.multilink_ellipsoid.counterfactual_field import paired_chunk_directions
-    from main.multilink_ellipsoid.multi_witness_counterfactual import fit_clearance_rows
+    from main.multilink_ellipsoid.multi_witness_counterfactual import (
+        bounded_paired_directions,
+        fit_clearance_rows,
+    )
 
     estimation = config["field_estimation"]
     current_xyz = np.asarray(base_actions[:5, :3], dtype=np.float64) + np.asarray(
         correction, dtype=np.float64
     ).reshape(5, 3)
-    directions = paired_chunk_directions(
+    directions = bounded_paired_directions(
         int(estimation["paired_direction_count_per_iteration"]),
         int(estimation["direction_seed"]) + iteration,
         current_xyz,
         float(estimation["paired_perturbation_action"]),
         float(config["action_space"]["action_limit"]),
-        preserve_endpoint=False,
     )
     plus_traces = []
     minus_traces = []

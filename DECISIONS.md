@@ -22,6 +22,14 @@ fixed derivative-free control is safe, the local convex representation is
 still insufficient and the next method must represent alternative nonlocal
 detours rather than add learning.
 
+H100 attempt `38964` is retained as apparatus failure. A visited action was
+near a normalized coordinate boundary, so the old rejection sampler could not
+construct all symmetric `±0.05` pairs. Repair only the local sampling domain:
+freeze coordinates whose bidirectional headroom is below `0.05` and sample the
+same paired directions in the remaining axis subspace. This is the maximal
+conservative symmetric neighborhood at the registered perturbation scale; it
+does not waive action limits or change the scientific comparison.
+
 ## ADR-0075: Test the long-horizon field without task preservation
 
 Accepted before release. Job `38955` already proved that collision-free

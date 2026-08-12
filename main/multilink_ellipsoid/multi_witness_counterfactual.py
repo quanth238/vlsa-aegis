@@ -162,6 +162,55 @@ def fit_clearance_rows(
     }
 
 
+def bounded_paired_directions(
+    count: int,
+    seed: int,
+    nominal_xyz: Any,
+    radius: float,
+    action_limit: float,
+) -> Any:
+    """Sample unit pairs in the largest axis subspace with full ±radius support."""
+
+    np = _numpy()
+    nominal = np.asarray(nominal_xyz, dtype=np.float64)
+    if nominal.shape != (5, 3) or not np.all(np.isfinite(nominal)):
+        raise ValueError("bounded paired nominal action differs")
+    if int(count) < 1 or float(radius) <= 0.0 or float(action_limit) <= 0.0:
+        raise ValueError("bounded paired direction request differs")
+    headroom = float(action_limit) - np.abs(nominal.reshape(15))
+    if float(np.min(headroom)) < -1.0e-10:
+        raise ValueError("bounded paired nominal action exceeds limits")
+    free = headroom + 1.0e-12 >= float(radius)
+    if int(np.sum(free)) < 2:
+        raise ValueError("bounded paired neighborhood has fewer than two free coordinates")
+    rng = np.random.RandomState(int(seed))
+    output = []
+    attempts = 0
+    while len(output) < int(count):
+        attempts += 1
+        if attempts > int(count) * 1000:
+            raise ValueError("could not sample bounded paired directions")
+        raw = rng.normal(size=(5, 3))
+        smooth = raw.copy()
+        smooth[1:-1] = 0.25 * raw[:-2] + 0.5 * raw[1:-1] + 0.25 * raw[2:]
+        direction = smooth.reshape(15)
+        direction[~free] = 0.0
+        norm = float(np.linalg.norm(direction))
+        if norm <= 1.0e-10:
+            continue
+        direction /= norm
+        plus = nominal.reshape(15) + float(radius) * direction
+        minus = nominal.reshape(15) - float(radius) * direction
+        if max(float(np.max(np.abs(plus))), float(np.max(np.abs(minus)))) > float(
+            action_limit
+        ) + 1.0e-10:
+            continue
+        if any(abs(float(np.dot(direction, prior))) > 0.999999 for prior in output):
+            continue
+        output.append(direction)
+    return np.asarray(output, dtype=np.float64)
+
+
 def smooth_min_direction(clearances: Any, gradients: Any, temperature_m: float) -> dict[str, Any]:
     """Return the gradient of a stable smooth minimum of explicit clearances."""
 

@@ -23,6 +23,7 @@ from main.multilink_ellipsoid.fixed_step_counterfactual import (
     load_fixed_step_config,
 )
 from main.multilink_ellipsoid.multi_witness_counterfactual import (
+    bounded_paired_directions,
     fit_clearance_rows,
     load_multi_witness_config,
     select_near_active_witnesses,
@@ -165,6 +166,21 @@ class CounterfactualFieldTest(unittest.TestCase):
         smooth = smooth_min_direction(trace, fit["gradients"], 0.002)
         self.assertAlmostEqual(float(np.sum(smooth["weights"])), 1.0)
         self.assertGreater(float(smooth["weights"][19 * 7 + 1]), 0.1)
+
+    def test_multi_witness_pairs_freeze_coordinates_without_bidirectional_headroom(self):
+        nominal = np.zeros((5, 3), dtype=np.float64)
+        nominal[0, 0] = 0.98
+        nominal[2, 1] = -0.97
+        directions = bounded_paired_directions(32, 19, nominal, 0.05, 1.0)
+        self.assertTrue(np.allclose(np.linalg.norm(directions, axis=1), 1.0))
+        self.assertTrue(np.allclose(directions[:, 0], 0.0))
+        self.assertTrue(np.allclose(directions[:, 7], 0.0))
+        self.assertLessEqual(
+            float(np.max(np.abs(nominal.reshape(1, 15) + 0.05 * directions))), 1.0
+        )
+        self.assertLessEqual(
+            float(np.max(np.abs(nominal.reshape(1, 15) - 0.05 * directions))), 1.0
+        )
 
 
 if __name__ == "__main__":
