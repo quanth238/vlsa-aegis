@@ -68,6 +68,8 @@ def evaluate(
     output_path: Path,
     host: str,
     port: int,
+    forced_initial_route_mode: str | None = None,
+    forced_initial_route_norm: float | None = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -122,6 +124,18 @@ def evaluate(
     case = matches[0]
     validate_case_row(case, repo_root)
     config = load_receding_route_config(experiment_config_path)
+    if (forced_initial_route_mode is None) != (forced_initial_route_norm is None):
+        raise ValueError("forced initial route mode and norm must be provided together")
+    if forced_initial_route_mode is not None:
+        _require(
+            forced_initial_route_mode in config["route_search"]["modes"],
+            "forced initial route mode differs",
+        )
+        _require(
+            float(forced_initial_route_norm)
+            in [float(value) for value in config["route_search"]["coarse_norms_action"]],
+            "forced initial route norm differs",
+        )
     registered = config["registered_inputs"]
     route_oracle = _validate_registered(
         route_oracle_path,
@@ -399,14 +413,27 @@ def evaluate(
                         if safe:
                             verified_routes.append(item)
                 if verified_routes:
-                    selected_route = min(
-                        verified_routes,
-                        key=lambda item: (
-                            float(item["applied_correction_l2_action"]),
-                            0 if item["mode"] == active_mode else 1,
-                            int(item["mode_index"]),
-                        ),
-                    )
+                    forced_matches = [
+                        item
+                        for item in verified_routes
+                        if step == 182
+                        and forced_initial_route_mode is not None
+                        and item["mode"] == forced_initial_route_mode
+                        and float(item["requested_norm_action"])
+                        == float(forced_initial_route_norm)
+                    ]
+                    if step == 182 and forced_initial_route_mode is not None:
+                        _require(len(forced_matches) == 1, "forced initial route is not exactly safe")
+                        selected_route = forced_matches[0]
+                    else:
+                        selected_route = min(
+                            verified_routes,
+                            key=lambda item: (
+                                float(item["applied_correction_l2_action"]),
+                                0 if item["mode"] == active_mode else 1,
+                                int(item["mode_index"]),
+                            ),
+                        )
                     selected_actions = np.asarray(selected_route["actions"], dtype=np.float64)
                     selected_summary = selected_route["record"]
                     selected_source = "fresh_exact_persistent_%s_route" % selected_route["mode"]
@@ -607,6 +634,14 @@ def evaluate(
                 "route_oracle_payload_sha256": route_oracle["result_payload_sha256"],
             },
             "config": config,
+            "forced_initial_route": (
+                None
+                if forced_initial_route_mode is None
+                else {
+                    "mode": forced_initial_route_mode,
+                    "requested_norm_action": float(forced_initial_route_norm),
+                }
+            ),
             "geometry_config": geometry_config,
             "geometry": geometry.geometry_record(env),
             "pairing": pairing,
@@ -683,6 +718,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--forced-initial-route-mode")
+    parser.add_argument("--forced-initial-route-norm", type=float)
     args = parser.parse_args(argv)
     result = evaluate(
         repo_root=args.repo_root.resolve(),
@@ -695,6 +732,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         output_path=args.output.resolve(),
         host=args.host,
         port=args.port,
+        forced_initial_route_mode=args.forced_initial_route_mode,
+        forced_initial_route_norm=args.forced_initial_route_norm,
     )
     _atomic_write(args.output.resolve(), result)
     print(
