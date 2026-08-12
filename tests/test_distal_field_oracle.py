@@ -60,6 +60,15 @@ class DistalFieldOracleTests(unittest.TestCase):
         self.assertNotIn("train_monotone_potential", source)
         self.assertNotIn("MultiConstraintQp", source)
 
+    def test_independent_validator_recomputes_all_scientific_gates(self) -> None:
+        source = (
+            ROOT / "scripts/validate_distal_field_mixture_oracle_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("result payload hash differs", source)
+        self.assertIn("candidate exact-safe flag differs", source)
+        self.assertIn("matched correction norm differs", source)
+        self.assertIn("overall gate differs", source)
+
 
 if __name__ == "__main__":
     unittest.main()
