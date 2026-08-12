@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 POST_DETOUR_LIVE_SCHEMA = "vlsa_distal_post_detour_live_gate_e05_config.v1"
 POST_DETOUR_ROUTE_SCHEMA = "vlsa_distal_post_detour_route_oracle_e05_config.v1"
+RECEDING_ROUTE_SCHEMA = "vlsa_distal_receding_route_oracle_e05_config.v1"
 
 
 def _canonical(value: Any) -> bytes:
@@ -134,6 +135,48 @@ def load_post_detour_route_config(path: Path) -> dict[str, Any]:
         raise ValueError("post-detour route contact gate differs")
     output = json.loads(_canonical(value).decode())
     output["schema_version"] = POST_DETOUR_ROUTE_SCHEMA
+    output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
+    output["config_payload_sha256"] = hashlib.sha256(_canonical(value)).hexdigest()
+    return output
+
+
+def load_receding_route_config(path: Path) -> dict[str, Any]:
+    raw = Path(path).read_bytes()
+    value = json.loads(raw)
+    if value.get("protocol_id") != "vlsa-distal-receding-route-oracle-e05-v1":
+        raise ValueError("receding route protocol differs")
+    if value.get("case_ids") != ["vlsa-t1-goal-ii-t0-e05"]:
+        raise ValueError("receding route case differs")
+    state = value["state_protocol"]
+    expected_state = {
+        "activation_step": 182,
+        "initial_verified_prefix_steps": [],
+        "live_receding_start_step": 183,
+        "lookahead_actions": 5,
+        "execute_prefix_actions": 1,
+        "first_live_policy_query_index": 37,
+        "replan_after_every_executed_action": True,
+    }
+    if state != expected_state:
+        raise ValueError("receding route state protocol differs")
+    route = value["route_search"]
+    if route["modes"] != ["left", "right", "up", "retreat"]:
+        raise ValueError("receding route modes differ")
+    if route["coarse_norms_action"] != [0.5, 1.0, 1.5, 2.0]:
+        raise ValueError("receding route scale grid differs")
+    if route["selection"] != "smallest_verified_correction_then_persistent_mode_then_fixed_mode_order":
+        raise ValueError("receding route selection differs")
+    if not math.isclose(float(route["release_clearance_m"]), 0.005):
+        raise ValueError("receding route release threshold differs")
+    gate = value["gate"]
+    if not math.isclose(float(gate["internal_substep_clearance_buffer_m"]), 0.001):
+        raise ValueError("receding route clearance gate differs")
+    if not math.isclose(float(gate["paper_car_threshold_m"]), 0.001):
+        raise ValueError("receding route CAR gate differs")
+    if int(gate["protected_raw_contact_count"]) != 0:
+        raise ValueError("receding route contact gate differs")
+    output = json.loads(_canonical(value).decode())
+    output["schema_version"] = RECEDING_ROUTE_SCHEMA
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(_canonical(value)).hexdigest()
     return output
