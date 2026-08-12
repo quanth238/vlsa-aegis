@@ -1,5 +1,16 @@
 # Reproduction decisions
 
+## ADR-0073: Execute one action from every verified five-action window
+
+Accepted as the decisive follow-up to `38881`. Recompute a fresh five-action
+VLA window from the measured state after every executed action; do not execute
+all five actions from a previously corrected window. A nominal window may pass
+only with at least 1 mm exact L5--L7 clearance, no robot contact, and paper CAR.
+Otherwise, run the validated task-rejoining five-action SQP, verify the complete
+candidate again, execute only its first action, and shift the horizon. Preserve
+the frozen VLA and OSC and train no MLP until this exact oracle achieves safe
+task completion.
+
 ## ADR-0069: Bind executable field recovery to archived action 185
 
 Accepted. Do not interpret array `38848` scientifically. The executable

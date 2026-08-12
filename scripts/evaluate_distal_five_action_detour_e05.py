@@ -75,12 +75,15 @@ class FiveActionProbe:
     def __init__(self, one_step_probe: Any, contact_reader: Any) -> None:
         self.one_step_probe = one_step_probe
         self.contact_reader = contact_reader
+        self.obstacle_reference_position_m = None
 
     @property
     def env(self) -> Any:
         return self.one_step_probe.probe_env
 
-    def rollout(self, main_env: Any, actions: Any) -> dict[str, Any]:
+    def rollout(
+        self, main_env: Any, actions: Any, *, step_base: int = 182
+    ) -> dict[str, Any]:
         import numpy as np
 
         from main.multilink_ellipsoid.rollout import _dynamic_state_vector
@@ -95,9 +98,13 @@ class FiveActionProbe:
         obstacle_id = _obstacle_root_body_id(
             self.env.sim.model, self.one_step_probe.active_obstacle_name
         )
-        obstacle_before = np.asarray(
-            self.env.sim.data.xpos[obstacle_id], dtype=np.float64
-        ).copy()
+        obstacle_before = (
+            np.asarray(self.env.sim.data.xpos[obstacle_id], dtype=np.float64).copy()
+            if self.obstacle_reference_position_m is None
+            else np.asarray(
+                self.obstacle_reference_position_m, dtype=np.float64
+            ).reshape(3).copy()
+        )
         clearances = []
         eef_positions = []
         state_vectors = []
@@ -113,7 +120,7 @@ class FiveActionProbe:
                 np.asarray(observation["robot0_eef_pos"], dtype=np.float64)
             )
             state_vectors.append(_dynamic_state_vector(self.env))
-            contacts = self.contact_reader(self.env, offset)
+            contacts = self.contact_reader(self.env, int(step_base) + offset)
             robot = [
                 event
                 for event in contacts["events"]
@@ -170,11 +177,12 @@ def _linearization(
     *,
     epsilon: float,
     action_limit: float,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     import numpy as np
 
     center_actions = _corrected_actions(nominal, correction, action_limit)
-    center = probe.rollout(env, center_actions)
+    center = probe.rollout(env, center_actions, step_base=step_base)
     h = np.asarray(center["clearance_trace_m"], dtype=np.float64).reshape(35)
     terminal = np.asarray(center["eef_position_trace_m"][-1], dtype=np.float64)
     target = np.asarray(target_terminal_eef, dtype=np.float64)
@@ -190,8 +198,8 @@ def _linearization(
         minus[slot, dimension] = max(-action_limit, minus[slot, dimension] - epsilon)
         denominator = float(plus[slot, dimension] - minus[slot, dimension])
         _require(denominator > 0.0, "five-action finite-difference denominator differs")
-        positive = probe.rollout(env, plus)
-        negative = probe.rollout(env, minus)
+        positive = probe.rollout(env, plus, step_base=step_base)
+        negative = probe.rollout(env, minus, step_base=step_base)
         rows[:, variable] = (
             np.asarray(positive["clearance_trace_m"], dtype=np.float64).reshape(35)
             - np.asarray(negative["clearance_trace_m"], dtype=np.float64).reshape(35)
@@ -219,6 +227,8 @@ def _search_detour(
     env: Any,
     nominal: Any,
     config: Mapping[str, Any],
+    *,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     import cvxpy as cp
     import numpy as np
@@ -232,7 +242,7 @@ def _search_detour(
     start_eef = np.asarray(
         env.sim.data.site_xpos[site_id], dtype=np.float64
     ).copy()
-    nominal_rollout = probe.rollout(env, nominal)
+    nominal_rollout = probe.rollout(env, nominal, step_base=step_base)
     target_terminal = np.asarray(
         nominal_rollout["eef_position_trace_m"][-1], dtype=np.float64
     )
@@ -252,6 +262,7 @@ def _search_detour(
             target_terminal,
             epsilon=float(config["finite_difference"]["perturbation_action"]),
             action_limit=action_limit,
+            step_base=step_base,
         )
         total_rollouts += int(linear["rollout_count"])
         total_probe_wall += float(linear["probe_env_step_wall_seconds"])
@@ -270,7 +281,7 @@ def _search_detour(
             break
         correction = np.asarray(qp["total_correction"], dtype=np.float64)
         actions = _corrected_actions(nominal, correction, action_limit)
-        exact = probe.rollout(env, actions)
+        exact = probe.rollout(env, actions, step_base=step_base)
         total_rollouts += 1
         total_probe_wall += float(exact["env_step_wall_seconds"])
         terminal = np.asarray(exact["eef_position_trace_m"][-1], dtype=np.float64)
@@ -476,11 +487,11 @@ def evaluate(
         )
         probe_authority = _contact_model_authority(probe_env, obstacle_name)
 
-        def contact_reader(probe: Any, offset: int) -> dict[str, Any]:
+        def contact_reader(probe: Any, evidence_step: int) -> dict[str, Any]:
             contacts = _detailed_active_obstacle_contacts(
                 probe,
                 obstacle_name,
-                step=182 + int(offset),
+                step=int(evidence_step),
                 contact_authority=probe_authority,
             )
             _require(contacts["status"] == "available", "probe contact evidence differs")

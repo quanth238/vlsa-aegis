@@ -1,5 +1,19 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Receding five-action exact-oracle gate (preregistered, 2026-08-12)
+
+The active E05 gate now repeats the validated five-action task-rejoining
+optimization across the episode. It replays immutable actions 0--181, uses the
+immutable 182--186 window for its first decision, and thereafter requests a
+fresh frozen pi0.5 Cartesian chunk from every measured state. Each window is
+evaluated with the exact cloned OSC and seven accepted L5--L7 slab clearances;
+an unsafe nominal window triggers the same five-iteration finite-difference
+SQP used by job `38874`. Only the first action of a freshly verified five-action
+window may execute, after which the horizon shifts by one action. The success
+gate requires native task completion, zero robot/L5--L7 contact, paper CAR,
+and no infeasible window. This is an exact simulator oracle, not a deployable
+learned controller or a formal safety claim. MLP training remains blocked.
+
 ## Early five-action detour apparatus retry (2026-08-12)
 
 H100 attempt `38873` passed allocation tests, replayed the immutable prefix to
