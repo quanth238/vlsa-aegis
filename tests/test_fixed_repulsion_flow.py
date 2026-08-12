@@ -92,6 +92,14 @@ class FixedRepulsionFlowTests(unittest.TestCase):
         self.assertIn('"attempted": False', source)
         self.assertIn("surviving_output_correction", source)
 
+    def test_late_ramped_validator_recomputes_norm_matching(self) -> None:
+        source = (
+            ROOT / "scripts/validate_late_ramped_repulsion_flow_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("posthoc norm is not matched", source)
+        self.assertIn("timing gate differs", source)
+        self.assertIn("timing diagnostic executed", source)
+
 
 if __name__ == "__main__":
     unittest.main()
