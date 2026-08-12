@@ -8,6 +8,18 @@ the ordinary one-step candidate filter is therefore disabled for actions
 0--184, which execute byte-for-byte from the immutable successful released
 AEGIS artifact. This is a protocol correction, not a safety result.
 
+## ADR-0070: Do not train a field-mixing MLP from the late E05 repair
+
+Accepted after corrected H100 producer `38854` and independent validator
+`38867`. Fixed analytical, normal-only, normal-plus-tangent, and unrestricted
+two-action post-hoc repairs all prevented every active-obstacle robot contact
+and paper CAR from archived action 185 onward, but no arm completed the task.
+Normal-plus-tangent therefore offers no task-success value beyond the fixed
+analytical repulsion baseline. Learning is not justified from this gate. The
+next safety-and-task experiment must intervene earlier and/or optimize a longer
+task-aware horizon; late-denoising timing cannot rescue a task mode already
+destroyed by the required approximately `0.89--1.00` normalized correction.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The

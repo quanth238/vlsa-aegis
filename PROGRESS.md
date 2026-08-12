@@ -9,6 +9,18 @@ partial/result artifacts are retained as non-scientific apparatus evidence.
 The retry passes released AEGIS actions 0--184 byte-for-byte and activates only
 at the archived pre-action-185 state.
 
+Corrected H100 array `38854` and independent validator `38867` completed the
+four-arm executable gate. All arms reproduced the dangerous nominal margin
+`-9.313104 mm`, produced a fresh positive-clearance two-action repair, executed
+only its first action, and used live frozen pi0.5 plus released AEGIS replanning.
+Fixed, normal-plus-tangent, and unrestricted ran 300 actions; normal-only failed
+closed at action 209. All four had zero active-obstacle robot contact, zero
+protected L5--L7 contact, and paper-CAR pass, but none completed the native
+task. Thus late post-hoc geometry can prevent this collision, but the required
+large correction destroys task recovery. Normal-plus-tangent did not beat the
+fixed baseline, so the field-mixing MLP gate is closed. Validation SHA-256:
+`6c1011d2a74d6087cad2840e065ee40e7f556f91748041ef50a3c0fe8b27b38c`.
+
 ## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
 
 Before reconsidering any L5/L6 geometry or collision guidance, the active
