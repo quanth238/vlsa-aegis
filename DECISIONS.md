@@ -1096,3 +1096,20 @@ Run exact endpoint preservation first; relax it only after the exact-support
 search fails, so the result can identify whether the zero-sum condition caused
 the failure. This remains an offline local oracle diagnostic inspired by policy
 value learning, not a PNCBF or formal safety result.
+
+## ADR-0058: Reject fixed-tail five-action task preservation, retain the learned direction mechanism
+
+Accepted after producer `38955` and validator `38960`. Pure-risk refitting did
+not materially change the learned direction, and the fixed analytical field
+was correctly signed over its local five-action horizon but harmful over the
+twenty-action outcome. The earlier result was not caused by the task penalty
+or a repulsion-sign bug.
+
+Exact endpoint-preserving search found no safe support even at correction L2
+`1.0`. Removing endpoint equality allowed multiple zero-contact, CAR-free,
+positive-clearance trajectories, but every such retained candidate displaced
+the terminal end effector by more than 15 mm. Thus, avoid claiming that the
+five-action action space lacks geometric avoidance. The missing component is
+task-compatible rejoining beyond that five-action prefix. The next oracle
+should provide a longer rejoin horizon or live receding policy feedback; do not
+scale direct-field learning against this fixed unsafe tail.

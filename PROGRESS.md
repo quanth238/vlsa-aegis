@@ -1489,3 +1489,51 @@ The interpretation is preregistered: empirical-oracle success with learned
 failure identifies field estimation/optimization; soft-only support identifies
 the exact endpoint constraint; failure of both empirical searches identifies
 the registered five-action/fixed-tail correction family as insufficient.
+
+Clean H100 producer job `38955` completed on `worker-2` from commit
+`dd8cf17ae63ac20e414a30a5a84a469c23aceafa` in 14:24 and evaluated 2,275
+deterministic cloned-OSC rollouts. Independent H100 validator `38960`
+recomputed the result in one second. The nominal hard margin again reproduced
+`-14.263205 mm`, with the active second L5 slab at continuation action 201 and
+raw protected contact at action 197.
+
+The pure-risk refit is almost identical to the former task-penalized field:
+direction cosine `0.999837` and paired fit RMSE `0.081085 mm/action`. Therefore
+the task penalty did not cause the earlier directional failure. The analytical
+sign audit also found no implementation reversal: its clearance derivative is
+`+10.520606 mm/action` over the first five actions but `-1.928330 mm/action`
+over all twenty. Fixed repulsion is locally correct and long-horizon myopic.
+
+Exact endpoint preservation remained unsafe for every method and radius. The
+iterative pure-risk field stopped after three iterations at `-13.894031 mm`
+with correction L2 `0.091695`; all 32 paired branches switched active witness
+on every iteration. The analytical arm accepted no long-horizon-improving
+step. At radius `1.0`, the best derivative-free candidate reached only
+`-7.526865 mm` with terminal EEF error `12.689 mm`; no zero- or one-millimetre
+safe candidate existed.
+
+Relaxing endpoint equality exposed the actual tradeoff. Iterative analytical
+repulsion achieved positive hard clearance `+16.023852 mm`, zero protected
+contact, and paper CAR pass at correction L2 `0.996275`, but terminal EEF error
+was `39.795 mm`. The radius-1 derivative-free and random candidates also had
+positive margins (`+7.892343/+3.497057 mm`) and zero contact/CAR, but terminal
+errors were `28.156/21.752 mm`. None passed the registered 15 mm task-preserving
+gate. The learned pure-risk path remained unsafe and crossed the 15 mm task
+budget before it could remove the violation.
+
+The scientific result is therefore not “no geometric avoidance exists.” A
+large unconstrained five-action correction can avoid the later collision. The
+result is that the fixed five-action correction cannot simultaneously preserve
+the original twenty-action task endpoint and eliminate the collision under the
+registered family. Removing the task term or increasing the radius is not the
+missing solution. The next defensible oracle must intervene earlier, correct a
+longer action horizon with explicit task rejoining, or allow live receding VLA
+replanning after a temporary nonzero endpoint displacement. Do not train the
+direct field MLP from this fixed-tail state yet.
+
+Producer result/payload SHA-256 values are
+`e5931bad66d3c1782df1488b2ba6aa33dbab8211e54de26bf073dc6006ff88d4` and
+`c4af050c1997e76efa9d8886a8f17c6e23ba03b064e3be8fed7a86e7ae1cef96`;
+validation file/payload SHA-256 values are
+`87fcae0869b442a8398d6c552f533fb2f80a5f0e3fb82f63d94f07d4b4543af7` and
+`4b7de1d83e903c07b44a454ea02ec488a61021dbce023bd7617b1fc0ab9df089`.
