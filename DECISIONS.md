@@ -1440,3 +1440,24 @@ policy seed can yield materially different pi0.5 action chunks across server
 instances. Treat policy randomness as more than an integer seed: freeze action
 tensors for matched mechanism comparisons, or evaluate a registered sample
 set/quantile for future policy-value claims.
+
+## ADR-0063: Retain repulsion as a transferable local mechanism, reject fixed-suffix generalization
+
+Accepted after producer array `39149` and independent validator `39152`.
+Across three previously unused Table-1 collision cases, the smooth
+counterfactual field increased internal L5--L7 ellipsoid clearance in every
+case, but satisfied the zero-contact/CAR/+1 mm gate only in goal-II E00.
+Therefore the evidence supports a transferable local clearance direction,
+not generalized collision prevention under one five-action edit followed by
+an immutable unsafe suffix.
+
+Do not combine the two failed cases into a generic model error. Goal-II E24
+had a proxy-valid warning state. Smooth correction improved but did not clear
+the first five actions; analytical repulsion cleared those actions, but the
+later unchanged continuation remained unsafe. Test both stronger/multimodal
+prefix proposals and receding intervention there.
+Spatial-I E12 already violated the frozen obstacle-MVEE proxy by `264 mm`
+without raw contact at the intervention state; first audit proxy/contact
+consistency and select a proxy-valid warning state. Do not train a repulsive
+MLP, weaken the +1 mm gate, or claim population generalization from this
+outcome-conditioned three-case pilot.

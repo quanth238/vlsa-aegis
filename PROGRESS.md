@@ -2028,3 +2028,43 @@ server instances produced materially different action chunks. Future
 policy-value comparisons must freeze returned action tensors or explicitly
 model multiple policy samples; recording a seed alone is not sufficient on
 this deployment stack.
+
+## Repulsive-field generalization pilot
+
+Commit `6523ec866db6a6d52f140ad8049cea53543ca468` preregistered three
+previously unused, outcome-conditioned Table-1 collision cases and compared
+paired raw AEGIS, short-horizon analytical repulsion, smooth twenty-action
+counterfactual repulsion, and a bounded derivative-free search. All arms
+edited only the first five XYZ commands, retained the immutable twenty-action
+suffix, and were verified after every one of the 25 MuJoCo model steps inside
+each OSC action. No policy server, MLP, QP, task term, or Table-1 artifact
+write was used.
+
+H100 array `39149` completed all three producers, and independent H100 job
+`39152` recomputed and validated the aggregate:
+
+- goal-II E00, L6/moka: raw `-3.149500 mm`; smooth `+7.171654 mm`, zero
+  protected contact/CAR, correction L2 `0.475332`; analytical
+  `+21.523158 mm` and exact search `+16.779685 mm` also passed;
+- goal-II E24, L6/milk: raw `-26.018758 mm`; smooth `-18.813943 mm`, a
+  `+7.204815 mm` gain but still collision; analytical and exact search also
+  failed at `-23.076336/-21.707473 mm` within correction norm one;
+- spatial-I E12, L5/moka: the intervention state was already
+  `-264.041321 mm` under the frozen obstacle-MVEE proxy despite no initial raw
+  protected contact. Smooth/analytical/exact search improved the horizon
+  minimum by `16.720451/16.921166/16.031580 mm`, but none approached safety.
+
+The aggregate is a strict generalization NO-GO: positive clearance gain
+`3/3`, zero-margin collision prevention `1/3`, and +1 mm prevention `1/3`.
+The failures are not interchangeable. In E24, smooth repulsion improved the
+prefix but did not clear it; analytical repulsion cleared the first five
+actions, yet the immutable continuation later re-entered danger. It therefore
+needs more prefix authority or a different detour as well as receding
+warning-state intervention. In E12, the released obstacle MVEE
+makes the ellipsoid proxy deeply negative before raw contact, so proxy-valid
+prevention states must be audited before testing avoidance authority. Do not
+train or scale an MLP from this gate.
+
+Summary/validation payload SHA-256 values are
+`e1c3219ca5245ba153cba1c1613be5021e97767bf8177886e81fdd3e1ce18208`
+and `89878a1edcbec9597ada10d82cd67268cb473d6dbd19244c0ee45c54888de217`.
