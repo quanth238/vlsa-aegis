@@ -1,0 +1,34 @@
+{
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_archived_e05_terminal_action_exact_search_positive_control_not_policy_not_learning_not_qp_not_cbf_not_formal_safety",
+  "protocol_id": "vlsa-distal-terminal-buffer-repair-e05-v1",
+  "registered_inputs": {
+    "full_compound_result": {
+      "run_id": "full-compound-e05-20260812b",
+      "source_commit": "2f5e25ab6380e60602d60e10121a0665994b3c2d",
+      "result_payload_sha256": "7e702ab35fd1dee42726694e039d39de1a0cba17ef3c000b4e79b44d4fc09b85"
+    }
+  },
+  "state_protocol": {
+    "replay_steps": [0, 204],
+    "repair_step": 205,
+    "modified_action_dimensions": [0, 1, 2],
+    "preserve_rotation_and_gripper": true
+  },
+  "candidate_search": {
+    "directions": "all_nonzero_normalized_vectors_in_cartesian_grid_minus1_0_1",
+    "radii_action": [0.01, 0.02, 0.05, 0.1, 0.2, 0.3],
+    "action_limit": 1.0,
+    "selection": "minimum_applied_l2_then_maximum_internal_clearance"
+  },
+  "internal_verification": {
+    "expected_mujoco_substeps_per_action": 25,
+    "ordinary_env_step_boundary_equivalence_tolerance": 1e-12
+  },
+  "gate": {
+    "internal_substep_clearance_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0,
+    "require_native_goal_after_candidate": true
+  }
+}
