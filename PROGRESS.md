@@ -1077,6 +1077,12 @@ progress.
 The workstation structural gate is clean except for three pre-existing
 NumPy-dependent SITL tests, because the default local Python has no NumPy;
 the allocation job reruns those tests under the pinned evaluation Python
-before simulation. The exact next command is to commit this frozen apparatus,
-sync the commit to `/home/quanth/working_space/vlsa-aegis-table-repro`, run a
-live Slurm preflight, and submit `slurm/distal_repulsive_force_direction_e05.sbatch`.
+before simulation. H100 attempt `38782` passed all 39 allocation numerical
+tests, then stopped before the first candidate because the new evaluator built
+the primary camera at 32 pixels rather than the archived Table-1 resolution;
+the required initial-observation hash therefore differed. It is retained as
+an apparatus failure with no scientific result. The compatibility repair uses
+the archived render resolution for provenance, then disables images after the
+pairing hash is accepted; no split, sample, model, comparator, or gate changes.
+The exact next command is to commit this repair, sync the clean commit, and
+resubmit `slurm/distal_repulsive_force_direction_e05.sbatch` with a new run ID.

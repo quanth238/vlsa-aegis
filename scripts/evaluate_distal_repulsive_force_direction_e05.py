@@ -349,6 +349,7 @@ def evaluate(
     import numpy as np
 
     from main.evaluate_safelibero_aegis import (
+        TABLE_RENDER_RESOLUTION,
         TABLE_SETTLE_ACTIONS,
         _active_obstacle,
         _build_environment,
@@ -402,7 +403,7 @@ def evaluate(
     probe_env = None
     try:
         env, task, observation, selected_initial_state = _build_environment(
-            runtime, case, render_resolution=32
+            runtime, case, render_resolution=TABLE_RENDER_RESOLUTION
         )
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         probe_env, probe_task, probe_observation, probe_initial_state = _build_environment(
@@ -421,10 +422,6 @@ def evaluate(
             ),
             "settled simulator states differ",
         )
-        disabled_images = {
-            "main": _disable_images(env),
-            "probe": _disable_images(probe_env),
-        }
         obstacle_name, _ = _active_obstacle(env, observation)
         probe_obstacle_name, _ = _active_obstacle(probe_env, probe_observation)
         _require(obstacle_name == probe_obstacle_name, "probe obstacle differs")
@@ -449,6 +446,10 @@ def evaluate(
             "policy_noise_schedule_sha256",
         ):
             _require(pairing[key] == archived["pairing"][key], "pairing field differs: %s" % key)
+        disabled_images = {
+            "main": _disable_images(env),
+            "probe": _disable_images(probe_env),
+        }
         perception = archived["perception"]
         geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
             geometry_config,
