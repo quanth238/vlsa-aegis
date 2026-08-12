@@ -909,3 +909,20 @@ NO-GO for fixed-vector injection during denoising and as apparatus evidence
 that a reserved flow hook works. It is not evidence that early intervention
 prevents the archived E05 collision, because the current live pi0.5 query did
 not reproduce that archived query's dangerous action mode.
+
+## ADR-0051: Establish the structured physical-field oracle ceiling first
+
+Accepted after the denoising-insertion NO-GO. The dangerous archived actions,
+not a new live policy sample, are authoritative for this gate. Post-hoc exact
+cloned-OSC search separates three questions: whether any bounded two-action
+repair exists, whether positive mixtures of physical clearance normals can
+express one, and whether adding task-tangent motion preserves useful intent.
+
+The tangent is not an arbitrary avoidance vector. It is the nominal end-
+effector progress gradient projected into the nullspace of active safety
+rows. Nonnegative normal weights retain the physical push-away interpretation.
+Exact cloned rollouts, raw contact, episode-relative CAR, and end-effector
+progress decide outcomes; affine derivatives only generate directions and
+are recomputed after every iteration. Do not train an MLP unless a structured
+arm finds a verified-safe, task-progressing repair. Do not call this online
+control or task completion even if it passes.

@@ -1189,3 +1189,25 @@ and `2e8a0be2ac566a44e0ac17ef49c8f77484907f4aa2020e41e3ba783b4eb3cd22`.
 Because the live query-36 chunk differed substantially from the archived
 dangerous chunk and every compared prefix was already positive-margin, this
 run does not establish avoidance of the original E05 collision.
+
+## Preregistered archived E05 field-mixture oracle ceiling
+
+The next decisive gate returns to the exact state before archived action 185
+and requires the immutable two-action minimum to reproduce `-9.313104 mm`
+before search. It compares three post-hoc arms over the six XYZ values of
+archived actions 185--186: unrestricted deterministic correction directions,
+nonnegative mixtures of seven cloned-OSC clearance normals, and the same
+normal mixtures plus nominal end-effector progress projected tangent to the
+active safety rows. Rotation and gripper are unchanged.
+
+All arms share four exact correction/relinearization rounds, action bounds
+`[-1,1]`, maximum total correction L2 `1.0`, and matched final norms
+`0.25/0.50/0.75/1.0`. Every proposal is judged by a fresh two-action cloned
+OSC rollout. Passing requires nonnegative seven-row clearance, no raw L5--L7
+contact, no paper CAR from episode start, and at least 50% nominal end-
+effector progress. The unrestricted arm tests whether any bounded repair
+exists; either structured arm must pass before learning field weights is
+justified. No MLP, QP, flow guidance, execution, or task-completion claim is
+included. The exact next command is to commit the harness, sync the clean
+commit, perform live Slurm preflight, and submit
+`slurm/distal_field_mixture_oracle_e05.sbatch` on one H100.

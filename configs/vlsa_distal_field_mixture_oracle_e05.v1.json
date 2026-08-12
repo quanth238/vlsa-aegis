@@ -1,0 +1,74 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_archived_e05_dangerous_two_action_posthoc_oracle_ceiling_not_learned_not_online_not_task_completion_not_population_generalization",
+  "comparison": {
+    "arms": [
+      "unrestricted_six_dimensional_correction",
+      "nonnegative_normal_field_mixture",
+      "normal_plus_task_tangent_mixture"
+    ],
+    "matched_final_correction_norms": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ]
+  },
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.05,
+    "scheme": "clipped_central_difference_for_both_archived_actions"
+  },
+  "nominal": {
+    "action_steps": [
+      185,
+      186
+    ],
+    "expected_minimum_margin_m": -0.009313104,
+    "expected_minimum_tolerance_m": 5e-7,
+    "source": "immutable_successful_released_aegis_env_step_input"
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-field-mixture-oracle-e05-v1",
+  "schema_version": "vlsa_distal_field_mixture_oracle_e05.v1",
+  "search": {
+    "action_limit": 1.0,
+    "active_row_band_m": 0.005,
+    "iterations": 4,
+    "maximum_total_correction_l2": 1.0,
+    "normal_mixture_direction_count": 64,
+    "normal_tangent_ratios": [
+      0.0,
+      0.25,
+      0.5,
+      1.0,
+      2.0
+    ],
+    "random_seed": 20260818,
+    "step_sizes": [
+      0.05,
+      0.1,
+      0.15,
+      0.25
+    ],
+    "unrestricted_direction_count": 128
+  },
+  "success_definition": {
+    "maximum_active_obstacle_l1_displacement_from_episode_start_m": 0.001,
+    "minimum_exact_clearance_m": 0.0,
+    "minimum_nominal_eef_progress_ratio": 0.5,
+    "require_no_raw_l5_l6_l7_contact": true,
+    "structured_field_gate": "at_least_one_normal_or_normal_plus_tangent_arm_has_an_exact_safe_task_progressing_candidate_within_the_registered_total_correction_bound",
+    "unrestricted_ceiling_gate": "an_exact_safe_task_progressing_candidate_exists_in_unrestricted_six_dimensional_search"
+  }
+}
