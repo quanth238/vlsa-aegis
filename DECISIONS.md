@@ -1416,3 +1416,27 @@ Do not weaken or retroactively redefine the `+1 mm` gate. A robust oracle must
 act earlier and evaluate route-conditioned continuation/task value before the
 state enters this narrow terminal corridor. Learning remains blocked until
 that reproducible oracle supplies buffered safe task completion.
+
+## ADR-0062: Activate robust correction at buffered warning, not contact prediction
+
+Accepted after paired H100 producer `39141` and validator `39143`. The
+scale-`1.01/1.02` compound states were still physically contact-free at action
+205 and missed task success only by the native 30 mm horizontal `On` threshold.
+Fresh frozen-pi0.5 feedback did not recover the task. Exact five-action OSC
+lookahead warned about the `+1 mm` buffer immediately at action 206 and later
+failed closed before executing predicted protected contact/CAR at actions 231
+and 211, respectively.
+
+Thus the robust architecture should retain receding predictive evaluation,
+but a detector alone is insufficient. Trigger route generation at the first
+buffer warning, not at raw-contact prediction. The backup policy must preserve
+route memory and choose among task-compatible alternatives using a fixed
+continuation value; simple live VLA continuation and larger repulsion have
+both failed. Continue to block policy-value MLP training until this oracle
+policy completes buffered-safe E05.
+
+The same audit also records that identical simulator state and registered
+policy seed can yield materially different pi0.5 action chunks across server
+instances. Treat policy randomness as more than an integer seed: freeze action
+tensors for matched mechanism comparisons, or evaluate a registered sample
+set/quantile for future policy-value claims.

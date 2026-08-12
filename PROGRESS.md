@@ -1984,3 +1984,47 @@ simulation on a mistyped expected commit hash. Terminal-repair attempts
 `39106` and `39107` stopped before candidate evaluation on replay-binding code
 errors. They produced no scientific result and were superseded by clean jobs
 `39073`, `39109`, and `39115` without changing the registered gates.
+
+## Compound-scale threshold and live-feedback audit
+
+The earlier statement that every correction scale above one immediately made
+the compound unsafe was too coarse. A read-only audit of the validated scale
+artifacts shows that `1.01/1.02` remained contact- and CAR-free through action
+205, with internal minima `+0.370323/+0.556261 mm`, both higher than the
+scale-one `+0.167720 mm`. They missed the native `On(bowl, plate)` predicate
+only because the horizontal center distances were `31.145/30.454 mm`, outside
+the strict `30 mm` threshold by `1.145/0.454 mm`. The stale archived
+continuation then crossed zero clearance at action 206 and did not make raw
+protected contact until action 232.
+
+Paired H100 live-feedback array `39141` therefore restored those exact states
+through action 205, queried frozen pi0.5 at query index 41 with matched policy
+seeds, and evaluated every five-action released-AEGIS chunk through complete
+cloned OSC before execution. Neither arm recovered the task. The exact
+lookahead issued its first `+1 mm` warning immediately at action 206 and
+failed closed before predicted protected contact/CAR: action 231 for scale
+`1.01` and action 211 for scale `1.02`. No protected contact or CAR was
+executed. Maximum live-versus-clone clearance error was
+`4.44e-16/0.0 m`. Independent H100 validator `39143` accepted both immutable
+arms; result payload SHA-256 values are
+`14ff7b4545f6a1478de9e8f5a66f8d816c3094240650fca25bf2d917132bc862`
+and `00af8f1bea99924029d30a2d473345e6175f1e4a4059377fcb4c61e16908ecd6`,
+and validation payload SHA-256 is
+`0d15633c76d1e2beaab2d4fa8b521dbbe1f766dff860e535fcc965e3e2e9ccdb`.
+
+This supports the robust system's receding future-risk evaluator, but not yet
+its learned value or task-compatible correction. Detection alone fails closed
+and deadlocks. The next oracle should activate at the first buffered warning,
+keep persistent route proposals separate, and rank them by both verified
+five-action safety and task-continuation value. Do not wait for raw-contact
+prediction and do not train the policy-value MLP from the current incomplete
+backup policy.
+
+Producer array `39139` is retained as apparatus evidence only: scale `1.02`
+stopped on an over-strict `1e-12` cross-environment live-clearance assertion.
+Its surviving scale-`1.01` arm also exposed a reproducibility risk: repeating
+the identical simulator state and registered policy seed on separate pi0.5
+server instances produced materially different action chunks. Future
+policy-value comparisons must freeze returned action tensors or explicitly
+model multiple policy samples; recording a seed alone is not sufficient on
+this deployment stack.
