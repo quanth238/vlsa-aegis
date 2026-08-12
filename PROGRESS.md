@@ -2087,3 +2087,44 @@ budgets, twenty-action horizon, and internal-substep gates. It adds only an
 eligibility gate for both-arm native task success, retained task object,
 closed gripper, nonnegative initial proxy clearance, and zero initial contact.
 No prior artifact is replaced and no population claim is authorized.
+
+Clean H100 producer `39162` completed that focused task-valid experiment from
+commit `279bf618688776c52f9f3c7e5c87211a59dda0d1` in 7:40. Independent H100
+validator `39166` accepted the immutable artifact. The eligibility gate passed:
+both archived policy arms completed the native task, the cream cheese was
+`3.561651 mm` from the end effector at action 108, the gripper command was
+`+1.000359`, initial protected contact count was zero, and the initial proxy
+clearance was `+9.816061 mm`.
+
+Raw AEGIS reached `-52.880546 mm` and 115 protected internal contact samples
+over actions 108--127. Smooth counterfactual repulsion improved the ellipsoid
+minimum by `+16.792745 mm` to `-36.087801 mm`; analytical repulsion improved it
+by `+19.340293 mm` to `-33.540253 mm`; and the bounded derivative-free control
+improved it by `+11.898779 mm` to `-40.981767 mm`. All three corrected arms
+removed raw protected MuJoCo contact in this twenty-action window and passed
+CAR, but none reached even zero ellipsoid clearance. The focused result is
+therefore positive physical contact-removal and clearance-direction evidence,
+but a strict proxy-buffer NO-GO. It does not yet prove full-episode collision
+prevention or preserved task completion: the horizon ends at action 127, while
+the archived AEGIS episode completes at action 163 and has another late contact.
+
+The corrected generalization conclusion is consequently not `1/3`. E24 is
+task-invalid and E12 is proxy-invalid; they remain diagnostics only. Among the
+two eligible prevention cases evaluated so far, E00 passes the full +1 mm gate,
+whereas E38 removes physical contact in the registered warning horizon but
+fails the ellipsoid gate. This is too small and outcome-conditioned for a rate.
+The next focused experiment must extend E38 through completion with receding
+warning-state intervention, while reporting hard MuJoCo contact and the
+conservative ellipsoid gate separately.
+
+Producer/validation file SHA-256 values are
+`199d4fc6fdb25825517be27a8ced324501a28f9bc8e9827505ae34825f8f02b6` and
+`6352108aa2369a39ac70a36a0a5b5011f91775b960c39a39b930274b50063753`;
+payload SHA-256 values are
+`120e036ea0859f62dbc5ef3ba2972dd034e8050380c17f1a1aa09613ceca3822` and
+`c8ee5a15ec65db0ef6dbf35ebd69ea11bc0062a46a37dca0059311cdd3d243bb`.
+Attempts `39160` and `39161` stopped before scientific rollout on, respectively,
+a completed-ledger length assumption and an improper archived MVEE basis. The
+latter was canonicalized to determinant +1 by flipping one eigenvector, which
+preserves the centered ellipsoid exactly. Validator attempts `39163/39165`
+were import-path/expected-hash apparatus failures and changed no result.

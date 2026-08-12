@@ -1478,3 +1478,27 @@ and AEGIS subsequently made raw L5 contact with the wine-bottle obstacle.
 Keep the repulsion algorithm and correction budgets frozen. Eligibility must
 be checked before optimization; failure of that check is an invalid case, not
 a failed controller.
+
+## ADR-0065: Separate physical contact removal from conservative proxy certification
+
+Accepted after clean H100 producer `39162` and independent validator `39166`.
+Goal-II E38 passed every preregistered task-validity and prevention-state gate.
+Smooth counterfactual repulsion improved the twenty-action ellipsoid minimum
+from `-52.880546` to `-36.087801 mm` and removed all 115 protected MuJoCo
+contact samples; analytical and bounded derivative-free arms also removed raw
+contact. Nevertheless, every corrected arm remained negative under the frozen
+ellipsoid/MVEE proxy, so the registered zero- and +1 mm gates fail.
+
+Record this as transferable contact-removal mechanism evidence, not certified
+collision prevention and not task-preserving success. A stronger force is not
+the immediate conclusion: physical contact is already absent in the evaluated
+window, while the conservative proxy remains negative. Also do not infer that
+E24 was repaired or caused by the filter; it is excluded because the original
+VLA had already lost the bowl and both baseline arms failed the task.
+
+The next experiment should retain E38, extend evaluation through native task
+completion with receding intervention, and keep two authorities explicit:
+compiled MuJoCo protected contact for physical collision evaluation, and the
+ellipsoid margin for conservative optimization/certification. Do not collapse
+them into one success label or report an efficacy rate from the two eligible,
+outcome-conditioned cases.
