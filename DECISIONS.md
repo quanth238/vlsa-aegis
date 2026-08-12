@@ -3226,7 +3226,8 @@ Full report:
 
 # ADR-0126: Gate controller-conditioned link-motion gradients before guidance
 
-**Status:** Accepted for preregistered H100 mechanism test (2026-08-12).
+**Status:** Rejected after independently validated H100 jobs `38744` and
+`38764` (2026-08-12).
 
 Job `38702` shows that better trajectory RMSE does not imply a useful action
 response. Reframe the immediate question: can a learned execution model
@@ -3262,3 +3263,26 @@ trajectory-only, and matched-random directions. Flow guidance, calibration,
 QP, closed loop, Poisson/SDF, and classifiers remain forbidden until that
 later exact-rollout gate. Config SHA-256 is
 `6f0a6306fbf56a78e5ec01c3df0cf729640b34ff5436a3f3817d1906e5b3ca8a`.
+
+Job `38744` completed the registered 85-state, 7,905-action comparison. The
+physical center-JVP apparatus passed: validation mean cosine is `0.999991` and
+RMSE is `0.012529 mm/action`. The trained link-JVP arm nevertheless fails on
+training itself and reverses the validation safety direction. Its validation
+mean/median cosine is `-0.366/-0.445`, it moves in the wrong direction on
+`9/10` states, its median exact gain is `-7.192 mm/unit action`, and its mean
+matched-random rank p-value is `0.849`. Validation joint RMSE rises to
+`287.309 mrad` versus `63.922 mrad` for trajectory-only. All five registered
+decision tests fail.
+
+The frozen normalized joint-secant comparator remains directionally better at
+validation cosine `0.625` and median exact gain `11.647 mm/unit action`, but it
+still fails the registered direction, wrong-direction, random-rank, and
+magnitude requirements. It is not cleared for control.
+
+Validation-only H100 job `38764` passed all six tests and pinned the immutable
+preprocess, model, predictions, and scientific-result hashes. Preserve strict
+`NO_GO_direction_mechanism`. Because the new arm also fails on training, the
+next justified action is a frozen loss/weight/checkpoint decomposition, not
+new episode collection. Do not run flow guidance, calibration, QP, closed
+loop, Poisson/SDF, or a classifier. Full report:
+`docs/distal_execgrad_direction_moka10_result.md`.

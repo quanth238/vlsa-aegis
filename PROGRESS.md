@@ -4605,3 +4605,25 @@ the immutable result/model/prediction/preprocess hashes. Do not retrain or
 reuse the job's generic runtime-failure classification as the scientific
 verdict. No new episode, simulation label, metric, threshold, model, loss, QP,
 flow guidance, or closed-loop action is authorized.
+
+Validation-only H100 job `38764` passed all six allocation-side tests and
+validated the immutable job-38744 artifacts. The final classification is
+strict `NO_GO_direction_mechanism`. The link-JVP arm's validation mean cosine
+is `-0.365849`, wrong-direction rate is `0.9`, median exact gain is
+`-7.191643 mm/unit action`, and mean matched-random rank p-value is `0.849416`.
+Its joint RMSE is `287.309 mrad`, versus `63.922 mrad` for the trajectory-only
+arm. All five registered gates fail. The failure is already present on
+training states (mean cosine `-0.028192`), while the physical center-JVP
+apparatus passes at validation cosine `0.999991` and `0.012529 mm/action`
+RMSE. This localizes the immediate problem to fitting/weighting/checkpointing
+the learned response rather than the MuJoCo center-JVP computation or unseen
+state coverage.
+
+Result/payload/validation/validation-payload SHA-256 values are
+`14af299f02932f14d57f9597970efebdaf189ba3d1fa2b109c0a70472b2d42b9`,
+`ab89434c6017320a0020cc0233e6dda837be72c93f453aa07dc352d0f7396e61`,
+`ce78e6b7951c6d532b8a201816cb86c421ad267b3dbf3e4c0748b5b21e15cdc9`,
+and `1ff35ce9f80e05bc38e5221606e7224080c81d0a4dd311b3988f7a2bc9a0364a`.
+No new episode, fresh direction rollout, flow guidance, calibration, QP,
+closed loop, Poisson/SDF, or classifier ran. Full report:
+`docs/distal_execgrad_direction_moka10_result.md`.
