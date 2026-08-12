@@ -29,6 +29,18 @@ subsequent released-AEGIS action with the existing exact cloned-OSC candidate
 filter. This directly tests whether early task preservation plus receding
 physical safety can jointly achieve safe task success; it adds no learning.
 
+## ADR-0072: Reject one-step post-detour filtering and retain the five-action horizon
+
+Accepted after paired producer jobs `38874`/`38876` and independent H100
+validator `38881`. The endpoint-preserving five-action detour converted the
+archived `-9.313104 mm` minimum to `+1.747199 mm` and allowed the frozen policy
+to complete, but unfiltered execution contacted L5 at action 197. The existing
+one-step exact filter found no verified candidate at its first post-detour
+decision (action 187), despite 87 cloned candidates, and therefore could not
+preserve task completion. Persistent safety must be optimized over a receding
+task-rejoining horizon. Do not train a field-mixing MLP or enlarge one-step
+repulsion from these outcomes.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The

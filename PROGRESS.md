@@ -20,6 +20,18 @@ detour is therefore promising but not sufficient; the next matched composition
 keeps the same detour and adds exact receding cloned-OSC filtering only after
 the detour.
 
+H100 composition job `38876` replayed the identical prefix and identical
+five-action detour, then enabled the existing exact one-step cloned-OSC filter
+at action 187. The filter evaluated 87 candidates but found no exactly verified
+safe action, so it failed closed before contact and before task completion.
+Independent H100 validator `38881` reproduced both outcomes, decoded all
+`285` and `188` video frames, and accepted the paired interpretation: the early
+detour preserves task competence but is not persistently safe, whereas the
+one-step filter has no safe support immediately after it. Validation SHA-256:
+`e726da999a6e166f1826ac287f3f01999487c584d675245a699df834ba6adf74`.
+The primary problem remains unsolved. The next gate is a receding five-action
+task-rejoining detour, not learning or stronger one-step repulsion.
+
 ## Field-recovery executable gate apparatus retry (2026-08-12)
 
 H100 array `38848` was canceled after exact inspection when the first completed
