@@ -178,7 +178,7 @@ def evaluate(
         terminal_frame = _processed_image(observation, "agentview_image")
         video_writer.append_data(terminal_frame)
         action_records = []
-        for step, command in enumerate(complete_actions[:205]):
+        for step, command in enumerate(complete_actions[:204]):
             original_step = env.sim.step
             substep_count = 0
 
@@ -203,9 +203,9 @@ def evaluate(
             terminal_frame = _processed_image(observation, "agentview_image")
             video_writer.append_data(terminal_frame)
             action_records.append({"step": step, "action": command.tolist(), "reward": float(reward), "done": bool(done), "goal_progress": goal})
-        expected_state_hash = full["actions"][204]["goal_progress"]["simulator_state_sha256_after"]
+        expected_state_hash = full["actions"][203]["goal_progress"]["simulator_state_sha256_after"]
         _require(action_records[-1]["goal_progress"]["simulator_state_sha256_after"] == expected_state_hash, "pre-repair replay state differs")
-        nominal = complete_actions[205].copy()
+        nominal = complete_actions[204:206].copy()
         limit = float(config["candidate_search"]["action_limit"])
         directions = []
         for raw in itertools.product((-1.0, 0.0, 1.0), repeat=3):
@@ -215,23 +215,23 @@ def evaluate(
             directions.append(vector / np.linalg.norm(vector))
         candidates = []
 
-        def evaluate_candidate(action: Any, source_name: str, radius: float, direction_index: Optional[int]) -> dict[str, Any]:
+        def evaluate_candidate(actions: Any, source_name: str, radius: float, direction_index: Optional[int]) -> dict[str, Any]:
             record = instrumented.rollout_internal(
                 env,
-                np.asarray(action, dtype=np.float64).reshape(1, 7),
+                np.asarray(actions, dtype=np.float64).reshape(2, 7),
                 expected_substeps=int(config["internal_verification"]["expected_mujoco_substeps_per_action"]),
                 boundary_tolerance=float(config["internal_verification"]["ordinary_env_step_boundary_equivalence_tolerance"]),
-                step_base=205,
+                step_base=204,
             )
             goal = _goal_progress_snapshot(
                 instrumented.env, goal_atoms, step=205, previous_values=previous_goal_values
             )
-            applied = np.asarray(action, dtype=np.float64)[:3] - nominal[:3]
+            applied = np.asarray(actions, dtype=np.float64)[:, :3] - nominal[:, :3]
             return {
                 "source": source_name,
                 "radius_action": float(radius),
                 "direction_index": direction_index,
-                "action": np.asarray(action, dtype=np.float64).tolist(),
+                "actions": np.asarray(actions, dtype=np.float64).tolist(),
                 "applied_correction": applied.tolist(),
                 "applied_correction_l2_action": float(np.linalg.norm(applied)),
                 "record": _internal_summary(record),
@@ -240,16 +240,18 @@ def evaluate(
             }
 
         candidates.append(evaluate_candidate(nominal, "registered_nominal", 0.0, None))
-        seen = {tuple(nominal.tolist())}
+        seen = {tuple(nominal.reshape(-1).tolist())}
         for radius in config["candidate_search"]["radii_action"]:
             for index, direction in enumerate(directions):
-                action = nominal.copy()
-                action[:3] = np.clip(action[:3] + float(radius) * direction, -limit, limit)
-                key = tuple(action.tolist())
+                actions = nominal.copy()
+                actions[:, :3] = np.clip(
+                    actions[:, :3] + float(radius) * direction.reshape(1, 3), -limit, limit
+                )
+                key = tuple(actions.reshape(-1).tolist())
                 if key in seen:
                     continue
                 seen.add(key)
-                candidates.append(evaluate_candidate(action, "local_cartesian_grid", float(radius), index))
+                candidates.append(evaluate_candidate(actions, "local_cartesian_grid", float(radius), index))
         safe = [item for item in candidates if item["verification_gate"]]
         selected = (
             None
@@ -265,16 +267,30 @@ def evaluate(
         executed_goal = None
         clone_state_error = None
         if selected is not None:
-            expected = one_step.transition(env, selected["action"])
-            observation, reward, done, _ = env.step(selected["action"])
-            executed_goal = _goal_progress_snapshot(env, goal_atoms, step=205, previous_values=previous_goal_values)
-            actual = _dynamic_state_vector(env)
-            clone_state_error = float(np.max(np.abs(actual - np.asarray(expected["next_state_vector"]))))
+            clone_errors = []
+            done = False
+            reward = 0.0
+            executed_previous_values = previous_goal_values
+            executed_goal = None
+            for offset, selected_action in enumerate(selected["actions"]):
+                expected = one_step.transition(env, selected_action)
+                observation, reward, done, _ = env.step(selected_action)
+                actual = _dynamic_state_vector(env)
+                clone_errors.append(float(np.max(np.abs(actual - np.asarray(expected["next_state_vector"])))))
+                executed_goal = _goal_progress_snapshot(
+                    env,
+                    goal_atoms,
+                    step=204 + offset,
+                    previous_values=executed_previous_values,
+                )
+                executed_previous_values = executed_goal["values"]
+                terminal_frame = _processed_image(observation, "agentview_image")
+                video_writer.append_data(terminal_frame)
+                action_records.append({"step": 204 + offset, "action": list(selected_action), "reward": float(reward), "done": bool(done), "goal_progress": executed_goal})
+            clone_state_error = max(clone_errors)
             _require(clone_state_error <= 1.0e-10, "executed repair differs from clone")
+            _require(executed_goal is not None, "executed goal missing")
             _require(executed_goal["all_satisfied"] and done, "verified repair did not complete task")
-            terminal_frame = _processed_image(observation, "agentview_image")
-            video_writer.append_data(terminal_frame)
-            action_records.append({"step": 205, "action": selected["action"], "reward": float(reward), "done": bool(done), "goal_progress": executed_goal})
         video_writer.close()
         video_writer = None
         video_partial.replace(video_final)
@@ -296,8 +312,8 @@ def evaluate(
             "geometry_config": geometry_config,
             "geometry": geometry.geometry_record(env),
             "probe_environment": {"disabled_image_observable_count": disabled_images, "osc_controller": "OSC_POSE", "control_frequency_hz": 20},
-            "repair_step": 205,
-            "nominal_action": nominal.tolist(),
+            "repair_steps": [204, 205],
+            "nominal_actions": nominal.tolist(),
             "candidate_count": len(candidates),
             "safe_candidate_count": len(safe),
             "candidates": candidates,

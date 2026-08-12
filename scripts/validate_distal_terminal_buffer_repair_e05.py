@@ -33,8 +33,8 @@ def _atomic_write(path: Path, value: Mapping[str, Any]) -> None:
 
 def _candidate_safe(item: Mapping[str, Any], gate: Mapping[str, Any]) -> bool:
     record = item["record"]
-    _require(record["sample_count"] == 26, "candidate sample count differs")
-    _require(record["substep_counts"] == [25], "candidate substeps differ")
+    _require(record["sample_count"] == 51, "candidate sample count differs")
+    _require(record["substep_counts"] == [25, 25], "candidate substeps differ")
     _require(len(record["row_minimum_clearance_m"]) == 7, "candidate rows differ")
     return bool(
         float(record["minimum_clearance_m"]) >= float(gate["internal_substep_clearance_buffer_m"])
