@@ -1373,3 +1373,46 @@ five-action action space lacks geometric avoidance. The missing component is
 task-compatible rejoining beyond that five-action prefix. The next oracle
 should provide a longer rejoin horizon or live receding policy feedback; do not
 scale direct-field learning against this fixed unsafe tail.
+
+## ADR-0059: Reject greedy immediate-clearance route selection
+
+Accepted after execute-five producer `39048`, validator `39051`, route-value
+array `39053`, and validation array `39065`. Selecting the smallest currently
+safe route at action 182 led to a state at action 187 for which the registered
+oracle found no buffered continuation. Larger right/retreat routes remained
+collision-free through the time limit but never made native task progress.
+
+This is direct evidence that route selection cannot be based only on current
+clearance or correction norm. A route-conditioned continuation value is
+scientifically motivated because it must distinguish future feasibility and
+task compatibility. Do not respond by increasing the repulsive gain or by
+training on a policy whose tie-breaking is not fixed.
+
+## ADR-0060: Accept collision-free task completion as an oracle positive control, not a robust pass
+
+Accepted after complete-compound producer `39073` and validator `39079`. The
+registered compound trajectory completed E05 at action 205, produced no
+protected contact or paper CAR, and retained positive L5--L7 ellipsoid
+clearance. This proves the action space and frozen OSC contain a physical
+collision-free task-completing trajectory for the primary case.
+
+Retain the strict NO-GO because its minimum was only `+0.167720 mm`, below the
+registered `+1 mm` buffer. Correction-scale sweeps `39082/39096`, independently
+validated by `39090/39101`, show that even `+1%` scaling changes the downstream
+mode and causes later collision/task failure, while slightly lower scales lose
+positive clearance. The compound is a narrow open-loop positive control, not
+a robust policy and not training authorization.
+
+## ADR-0061: Intervene before the terminal corridor; terminal action authority is insufficient
+
+Accepted after the two-action terminal authority search `39115` and validator
+`39116`. Starting from the exact compound state before action 204, a 26-direction
+grid over radii through `1.0` found many goal-satisfying, zero-contact actions,
+but the best task-preserving internal margin was only `+0.667327 mm`. Starting
+at action 205 was even more constrained because the initial cloned state was
+already below the buffer.
+
+Do not weaken or retroactively redefine the `+1 mm` gate. A robust oracle must
+act earlier and evaluate route-conditioned continuation/task value before the
+state enters this narrow terminal corridor. Learning remains blocked until
+that reproducible oracle supplies buffered safe task completion.

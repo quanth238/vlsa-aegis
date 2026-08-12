@@ -1901,3 +1901,86 @@ Producer result/payload SHA-256 values are
 validation file/payload SHA-256 values are
 `87fcae0869b442a8398d6c552f533fb2f80a5f0e3fb82f63d94f07d4b4543af7` and
 `4b7de1d83e903c07b44a454ea02ec488a61021dbce023bd7617b1fc0ab9df089`.
+
+## Receding persistent-route oracle and route-value diagnostic
+
+The action-187 local route gate passed, but the complete receding test exposed
+the missing decision variable. Clean H100 execute-five producer `39048` and
+independent validator `39051` selected the smallest immediately safe action-182
+route (`right`, correction norm `1.0`, internal minimum `+1.095 mm`). From its
+resulting action-187 state, no registered route, smooth refinement, or 256-arm
+derivative-free search achieved the `+1 mm` buffer. The run failed closed with
+zero contact/CAR and no task success. Result/validation payload SHA-256 values
+are `3dca01ce5f1f5d486092066f3c61261e5322b42683c61171cd42b618a6563023`
+and `5741def171e0cf99fae7f6191c3ca11e72bdffaad35edf6a7d596839c7475112`.
+
+H100 route-value array `39053` then forced the other five immediately safe
+action-182 routes: `right` at norms `1.5/2.0` and `retreat` at norms
+`1.0/1.5/2.0`. Every arm executed through action 302 with zero protected
+contact, zero paper CAR, and minimum internal clearances
+`3.137/7.464/4.010/14.575/16.780 mm`, respectively. None ever satisfied the
+native goal predicate; maximum goal fraction remained zero. Independent H100
+validation array `39065` accepted all five immutable artifacts. Thus immediate
+clearance alone chooses between a later infeasible state and a safe but
+task-abandoning state. The route selector needs a continuation/task value;
+larger repulsion is not the missing component.
+
+The earlier execute-one mechanism arm `39044` is retained separately. It was
+contact/CAR-free through action 299 but task-failed after 118 policy queries;
+it queried pi0.5 after every action and therefore does not match the baseline
+five-action query schedule. Independent validator `39047` accepted its
+artifact, but it cannot support the main execute-five claim.
+
+## Complete compound positive control and robustness audit
+
+To determine whether a safe task-compatible continuation exists at all, clean
+H100 producer `39073` replayed the complete task-successful detour trajectory
+and applied the registered smooth correction only to actions 182--186. It
+completed the native task at action 205, had zero L5--L7 contact and zero paper
+CAR, and achieved strictly positive minimum ellipsoid clearance
+`+0.167720 mm`. Independent H100 validator `39079` reproduced every trace and
+media hash. This is the first complete E05 trajectory in this branch that both
+finishes the task and removes the original physical L5--L7 collision. It is an
+open-loop compound oracle positive control, not a learned or receding policy,
+and it remains a strict NO-GO under the preregistered `+1 mm` buffer. Producer
+and validation payload SHA-256 values are
+`7e702ab35fd1dee42726694e039d39de1a0cba17ef3c000b4e79b44d4fc09b85`
+and `b245f9d7fcdc6b9fb90d42fd3e696c050698cebe1aa42b1d03afdca830f88001`.
+
+The narrow success is not robust to scaling. H100 arrays `39082` and `39096`
+tested correction scales `0.98/0.99/1.01/1.02/1.05/1.10/1.20/1.30` with the
+identical complete continuation. Scales `0.98/0.99` still completed the task
+without contact but reached only `-0.220/-0.022 mm`; every scale above `1.0`
+lost task success and produced later contact around actions 232--233, with
+minimum clearance between `-15.0` and `-12.1 mm`. Independent H100 arrays
+`39090` and `39101` validated all eight arms. Therefore the scale-one result is
+a narrow safe corridor, not evidence that a larger repulsive gain supplies a
+robust margin.
+
+## Terminal buffer authority audit
+
+The scale-one minimum occurs at the last MuJoCo substep of task-completing
+action 205. One-action terminal search `39109` evaluated 261 exact cloned-OSC
+actions up to correction radius `1.0`; 200 still satisfied the goal, but none
+reached `+1 mm`. All improving actions saturated at `+0.644619 mm` because the
+fixed state entering action 205 was already below the buffer. The corrected
+two-action search beginning at action 204 (`39115`) evaluated 235 candidates;
+74 satisfied the goal, but the best task-preserving margin was only
+`+0.667327 mm`, again with zero contact/CAR. Independent H100 validator `39116`
+accepted the strict zero-support result; result/validation payload SHA-256
+values are `162a33660cf3a4cffa4f9a9c3d1ee0e3e5079e8201aee0019a727bbf62889669`
+and `2a46668c16cb50b073ea738bda32d63e7557fcd42223d6f51c0a13f93a5afae7`.
+
+The immediate conclusion is split. Feasibility of collision-free task
+completion is demonstrated by an exact open-loop oracle. Robust buffered
+feedback control is not: the greedy receding selector is myopic, safety-only
+routes abandon the task, and late local repair cannot restore the buffer.
+Do not train the proposed policy-value MLP yet. The next oracle must select a
+task-compatible route before the terminal corridor narrows, using a fixed,
+reproducible continuation policy and route memory.
+
+For apparatus provenance, complete-replay submission `39072` stopped before
+simulation on a mistyped expected commit hash. Terminal-repair attempts
+`39106` and `39107` stopped before candidate evaluation on replay-binding code
+errors. They produced no scientific result and were superseded by clean jobs
+`39073`, `39109`, and `39115` without changing the registered gates.
