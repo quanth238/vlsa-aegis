@@ -964,3 +964,19 @@ leaves the ordinary sampler unchanged. This test may identify reduced
 cancellation; it cannot establish safety efficacy because the paired live
 step-180 action is already safe and is not the archived dangerous mode. No
 candidate executes regardless of outcome.
+
+## ADR-0054: Accept late timing for cancellation, retain post-hoc for efficacy
+
+Accepted after producer `38839` and independent validator `38840`. Delaying
+the same physical injected budget from uniform updates 5--9 to updates 8--9
+and then update 9 raised final correction survival from `41.01%` to `78.85%`
+and `97.11%`. This directly validates denoiser cancellation as the mechanism
+behind the earlier weak inside-flow correction.
+
+Do not interpret this as a safety solution. Every compared live prefix was
+already more than 54 mm proxy-safe and no action executed. At equal surviving
+correction norm, the final-step arm was `0.228 mm` worse than post-hoc, which
+is consistent with the two becoming equivalent as timing approaches the
+completed sample. Retain late scheduling only if future work specifically
+requires modifying intermediate flow states; otherwise, post-hoc exact-verified
+correction is the simpler and strongest baseline for the archived collision.

@@ -1277,3 +1277,35 @@ to commit and sync the preregistered harness, run live Slurm preflight, and
 submit `slurm/fixed_repulsion_flow_e05.sbatch` with
 `EXPERIMENT_CONFIG=configs/vlsa_late_ramped_repulsion_flow_e05.v1.json` on one
 H100.
+
+Clean H100 producer job `38839` completed on `worker-2` from commit
+`6578b4137d906b4012ca3aedc59c7305ea1b4496` in 76 allocation seconds
+(`57.294` evaluator seconds). The registered timing gate passed. With the same
+unclipped injected chunk correction L2 `sqrt(3)*0.25 = 0.433013`, the correction
+surviving in final output XYZ was:
+
+- uniform updates 5--9: `0.177598` (`41.01%`), direction cosine `0.923638`;
+- late-linear updates 8--9: `0.341439` (`78.85%`), cosine `0.980229`;
+- final update 9 only: `0.420494` (`97.11%`), cosine `0.987790`.
+
+Thus, concentrating repulsion near the final Euler update materially reduces
+denoiser cancellation. Exact cloned-OSC minima were already positive for the
+ordinary live prefix (`54.934686 mm`) and increased to `58.220835/60.217061/
+60.886436 mm` for uniform/late/final timing. Ordinary-axis task progress was
+`0.936215/0.908824/0.898034`.
+
+At exactly matched surviving output norms, post-hoc minima were `57.489534/
+59.897178/61.114679 mm`. The corresponding inside-flow minus post-hoc
+differences were `+0.731301/+0.319882/-0.228243 mm`: the final-step arm is
+effectively post-hoc and does not outperform it. No arm executed, and
+`primary_problem_solved=false`, because this live prefix was already safe and
+did not reproduce the archived dangerous action.
+
+Independent H100 validator job `38840` recomputed all rollout minima,
+surviving norms, exact norm matching, schedules, timing gate, and non-execution
+verdict. Producer and validation file SHA-256 values are
+`d6a0e681ca22db2c89cc6041bb1b70e157fb2b5163ae6dc7f2ca9eb9ca6d4d60` and
+`477bbe063eed157ac5085270276396c379e4cd9a0f58b3a8a3f00dfb6ead1ae1`.
+The accepted conclusion is narrow: late scheduling fixes the cancellation
+mechanism, while post-hoc remains the cleanest maximum-survival baseline. It
+does not yet demonstrate prevention of the archived E05 collision.
