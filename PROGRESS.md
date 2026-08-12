@@ -73,6 +73,31 @@ Validation payload/file SHA-256 values are
 `2d8cf0c050435e27dbddcd3dd45adfaa49575b3a24b311ecec02b2abc0187474` and
 `1dae3663491a3b76684fdfd120d6bf00a33a6b9b34314e13add92cdae2571f7e`.
 
+## Action-187 persistent-route oracle (validated, 2026-08-12)
+
+Clean H100 producer `39029` and independent H100 validator `39032` tested the
+same measured action-187 state and frozen fresh pi0.5/released-AEGIS chunk from
+the post-detour gate. The nominal reproduced `-12.433323 mm`; the registered
+continuation reproduced `+8.151976 mm`. Four geometry-defined persistent route
+modes (left, right, projected-up, and obstacle-normal retreat) were tested at
+correction L2 bounds `0.5/1.0/1.5/2.0`, followed by one smooth-field refinement
+and a matched full 15-D derivative-free feasibility control. All acceptance
+used every internal MuJoCo substep, seven L5--L7 rows, a +1 mm buffer, zero
+protected contacts, and paper CAR.
+
+Persistent retreat was safe at norms `1.0/1.5/2.0`, with margins
+`+2.071672/+8.650534/+9.400398 mm`. Left and projected-up were harmful; right
+improved the margin but remained unsafe. Best-route plus smooth refinement
+reached `+4.314759 mm`; the derivative-free control reached `+10.822065 mm`.
+Therefore a generic physical route family can enter a verified safe corridor
+at action 187, and route selection matters more than simply increasing a fixed
+repulsive force. This authorizes a complete receding E05 oracle, but not MLP
+training, policy-value claims, QP claims, or neural-CBF terminology.
+
+Producer and validation payload SHA-256 values are
+`52efbd3c18331a4c200bc23baa8c6b257220ff4e2307e07e6ac821f10804a19b` and
+`b04f65a722fd07a620f46ad019935d3d673902da3835fc3e7c348c135f7915b0`.
+
 ## Raw-AEGIS multi-start Gate 0 (preregistered, 2026-08-12)
 
 Before launching a radius or branch search, Gate 0 tests whether the registered

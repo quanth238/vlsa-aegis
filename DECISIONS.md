@@ -309,6 +309,21 @@ preserve task completion. Persistent safety must be optimized over a receding
 task-rejoining horizon. Do not train a field-mixing MLP or enlarge one-step
 repulsion from these outcomes.
 
+## ADR-0073: Use persistent physical routes before learning policy value
+
+Accepted after H100 producer `39029` and validator `39032`. At the identical
+unsafe action-187 state, a constant five-action obstacle-normal retreat reached
+the strict +1 mm internal-substep clearance gate at correction L2 `1.0`, while
+left and up routes failed and the right route remained marginally unsafe.
+Smooth local refinement and full 15-D derivative-free search also found exact
+safe candidates. The earlier local-field failure was therefore not absence of
+correction authority; it lacked a sufficiently useful route proposal.
+
+Proceed to one full receding E05 oracle with persistent route memory, live
+frozen-VLA feedback, exact five-action look-ahead, short-prefix execution, and
+hard verification. Do not train a value model until that reproducible backup
+policy completes E05 without L5--L7 contact, CAR, or deadlock.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The
