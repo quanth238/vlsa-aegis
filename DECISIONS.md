@@ -854,3 +854,18 @@ field, and beat the matched random population. If it does not, the correct
 conclusion is that learning adds no evidence beyond analytical repulsion. A
 two-action receding continuation is conditional on the direction gate and is
 not a substitute for full closed-loop task completion.
+
+H100 jobs `38789` and `38791` now reject learned monotone weighting under this
+contract. The learned direction beat every matched random direction, so the
+physical controller-pulled repulsive basis is meaningful. But it was almost
+the same as the fixed analytical field and slightly worse at both registered
+radii. The local two-action region also contained no exact-safe candidate;
+its best learned hard margin remained `-6.801919 mm`.
+
+The accepted interpretation is not “repulsion failed.” It is that the MLP
+learned an already available analytical direction and cannot compensate for
+missing safe support. Do not enlarge the MLP, add a QP, or run closed loop
+from this result. First establish exact safe support using fixed physical
+repulsion under an independently preregistered earlier-intervention or
+larger/iterative trust-region experiment. A learned task-conditioned force is
+only motivated after that oracle support gate passes.

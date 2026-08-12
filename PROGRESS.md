@@ -1108,3 +1108,21 @@ than the producer's recorded `allocation.device.name`. This is validator
 apparatus failure only. The receipt-only repair changes no producer result or
 verdict. The exact next command is to commit that key repair and rerun only
 the immutable-result validator.
+
+Independent H100 validator job `38791` completed on `worker-2` and reproduced
+the strict NO-GO. The nominal two-action hard margin at step 185 was
+`-9.313104 mm`. At equal-norm radius 0.10, learned/fixed gains were
+`1.003028/1.006700 mm`; at radius 0.25 they were
+`2.509951/2.516463 mm`. Learned-minus-fixed was negative at both radii, no
+learned/fixed/random candidate was exactly safe, and the two directions had
+cosine `0.997199`. The learned field did beat all 256 random directions
+(`p=1/257`), proving that the controller-pulled physical gradient is useful,
+but learning its monotone row weights added no value over analytical soft-min
+repulsion and could not create missing local safe support.
+
+The conditional two-action continuation correctly did not execute. Result and
+validation SHA-256 values are
+`7ddaf40e25ce7a31e7687229bc86890583d87b604cd615c58cfdadb34a6ce0a2`
+and `7f64d148dd3861d94e196be063ec73ec654381f64de5c9f2024bee58604ae38a`.
+The exact next audit command is:
+`jq '{direction_gate_pass,interpretation,model:{train_rmse_m:.model.train_rmse_m,validation_rmse_m:.model.validation_rmse_m},test:{base:.test.basis.base,radii:[.test.radii[]|{radius_action,learned_exact_gain_m,fixed_exact_gain_m,gain_over_fixed_m,matched_random_p_value,learned_safe:.learned.exact_safe}]},continuation}' /mnt/data/quanth/experiments/vlsa-distal-repulsive-force-direction-e05/repulsive-direction-20260812c/result.json`.
