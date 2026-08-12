@@ -416,7 +416,7 @@ def evaluate(
         execution = {
             "attempted": False,
             "passed": False,
-            "reason": "guided_flow_not_exactly_safe",
+            "reason": "guided_flow_comparative_gate_failed",
         }
         if direction_gate_pass:
             contact_authority = _contact_model_authority(env, obstacle_name)
@@ -539,8 +539,16 @@ def evaluate(
                 if overall
                 else (
                     "fixed_repulsion_inside_flow_no_safe_support"
-                    if not direction_gate_pass
-                    else "fixed_repulsion_inside_flow_execution_no_go"
+                    if guided_min < 0.0
+                    else (
+                        "fixed_repulsion_inside_flow_no_clearance_gain"
+                        if guided_min <= ordinary_min
+                        else (
+                            "fixed_repulsion_inside_flow_worse_than_posthoc"
+                            if guided_min <= posthoc_min
+                            else "fixed_repulsion_inside_flow_execution_no_go"
+                        )
+                    )
                 )
             ),
             "wall_seconds": (time.perf_counter_ns() - started) * 1e-9,

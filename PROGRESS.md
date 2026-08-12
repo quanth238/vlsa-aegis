@@ -1167,3 +1167,15 @@ not a scientific result. The revised harness retains the late live-versus-
 archived discrepancy as a diagnostic without claiming equivalence. The three
 scientific arms remain exactly paired to each other by the same replayed
 step-180 state, live observation, RNG seed, and five-action horizon.
+
+Clean H100 job `38808` completed on `worker-2` from commit `b56854e` in 79
+seconds. All three exact cloned five-action prefixes were proxy-safe. Fixed
+repulsion inside final denoising improved the ordinary minimum by `2.917279
+mm` (`51.560573` to `54.477851 mm`) but was `3.451833 mm` worse than the
+equal injected-budget post-hoc arm (`57.929685 mm`). The final output
+correction norms at slots 2--4 were only `0.0944/0.1112/0.1056`, showing that
+subsequent denoiser dynamics canceled much of the requested `0.25` injected
+budget. The comparative gate failed, execution correctly did not occur, and
+`primary_problem_solved=false`. The stored generic “no safe support” label is
+too broad; the immutable numbers instead mean inside-denoising fixed force
+failed to outperform post-hoc force. Independent H100 validation is pending.

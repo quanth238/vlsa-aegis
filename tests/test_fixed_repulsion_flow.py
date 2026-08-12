@@ -54,6 +54,14 @@ class FixedRepulsionFlowTests(unittest.TestCase):
         )
         self.assertNotIn("live query-36 chunk exceeds pairing tolerance", source)
 
+    def test_validator_corrects_failed_gate_classification(self) -> None:
+        source = (
+            ROOT / "scripts/validate_fixed_repulsion_flow_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('guided < posthoc', source)
+        self.assertIn('"corrected_interpretation"', source)
+        self.assertIn('"fixed_repulsion_inside_flow_worse_than_posthoc"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

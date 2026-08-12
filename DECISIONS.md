@@ -894,3 +894,12 @@ not weaken the paired comparison: ordinary and guided denoising are evaluated
 from the same exact replayed state and live observation with the same explicit
 RNG seed, while post-hoc repulsion is constructed from the ordinary live
 chunk. No outcome or candidate clearance was observed before this correction.
+
+Job `38808` rejects the specific hypothesis that a fixed force becomes more
+effective merely by adding it during final pi0.5 Euler updates. It did improve
+the ordinary exact proxy clearance, but less than adding the same registered
+budget after denoising. The denoiser partially canceled the injected vector.
+This is not evidence against analytical repulsion, and all three prefixes
+were already positive-margin through action 184. Do not claim that the later
+E05 collision was prevented: the comparative gate intentionally blocked
+execution and no suffix was run.
