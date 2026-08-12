@@ -1,5 +1,14 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Early five-action detour apparatus retry (2026-08-12)
+
+H100 attempt `38873` passed allocation tests, replayed the immutable prefix to
+the pre-action-182 state, and stopped before candidate generation because the
+new evaluator hard-coded a nonexistent `robot0_grip_site`; this SafeLIBERO
+model names the authoritative site `gripper0_grip_site`. The attempt is retained
+as apparatus failure. The compatibility retry uses the repository's existing
+`_eef_site_id` resolver and changes no scientific setting.
+
 ## Field-recovery executable gate apparatus retry (2026-08-12)
 
 H100 array `38848` was canceled after exact inspection when the first completed

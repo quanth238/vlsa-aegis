@@ -224,10 +224,11 @@ def _search_detour(
     import numpy as np
 
     from main.multilink_ellipsoid.five_action_detour import solve_detour_qp
+    from main.multilink_ellipsoid.predictive_flow import _eef_site_id
 
     qp_config = config["sequential_qp"]
     action_limit = float(qp_config["action_limit"])
-    site_id = env.sim.model.site_name2id("robot0_grip_site")
+    site_id = _eef_site_id(env)
     start_eef = np.asarray(
         env.sim.data.site_xpos[site_id], dtype=np.float64
     ).copy()
