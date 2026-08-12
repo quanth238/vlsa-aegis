@@ -11,6 +11,18 @@ candidate again, execute only its first action, and shift the horizon. Preserve
 the frozen VLA and OSC and train no MLP until this exact oracle achieves safe
 task completion.
 
+## ADR-0074: Do not learn from the infeasible receding five-action oracle
+
+Accepted after clean H100 producer `38903` and independent validator `38907`.
+The receding controller correctly identified a new unsafe window at action 185,
+but its best exact five-action SQP candidate achieved only `+0.369923 mm`, below
+the registered `+1 mm` buffer. It therefore stopped with zero contact and zero
+CAR but without task completion. Learning a direct correction field from this
+oracle is not justified because the teacher has no accepted action at an
+encountered state. First test earlier intervention or a longer/richer
+task-rejoining candidate family; do not relax the buffer after observing the
+outcome.
+
 ## ADR-0069: Bind executable field recovery to archived action 185
 
 Accepted. Do not interpret array `38848` scientifically. The executable

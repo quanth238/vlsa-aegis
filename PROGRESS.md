@@ -14,6 +14,20 @@ gate requires native task completion, zero robot/L5--L7 contact, paper CAR,
 and no infeasible window. This is an exact simulator oracle, not a deployable
 learned controller or a formal safety claim. MLP training remains blocked.
 
+Clean H100 producer `38903` and independent validator `38907` completed this
+gate. At action 182 the receding oracle reproduced the `-9.313104 mm` nominal
+window and selected the validated `+1.747199 mm` detour, executing only its
+first action. Fresh nominal windows at actions 183 and 184 were exactly safe.
+At action 185, however, the new nominal five-action window reached
+`-7.611232 mm`; all five SQP iterations remained below the registered `1 mm`
+buffer. The best exact candidate reached only `+0.369923 mm`, so the controller
+failed closed before contact, CAR, or task completion. This is a strict oracle
+NO-GO: receding evaluation detects the later danger, but the present five-action
+zero-sum candidate family has no accepted support. Validation SHA-256:
+`014d2deb0c1fffe3cad4930e3b32379d3fbdd4d5a7fc87c8eddb489cdac262ea`.
+Do not train the direct correction field. The next gate must intervene before
+action 182 or expand the task-rejoining horizon/candidate family.
+
 ## Early five-action detour apparatus retry (2026-08-12)
 
 H100 attempt `38873` passed allocation tests, replayed the immutable prefix to
