@@ -1,0 +1,53 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_primary_e05_archived_pre_action182_five_action_task_rejoining_posthoc_detour_then_live_frozen_pi05_replanning_not_learned_not_population_generalization_not_formal_safety",
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.05,
+    "scheme": "clipped_central_difference_at_every_sqp_iteration"
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "unchanged_released_aegis_nominal_actions_and_virtual_state",
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-five-action-task-rejoining-detour-e05-v1",
+  "schema_version": "vlsa_distal_five_action_detour_e05.v1",
+  "sequential_qp": {
+    "action_limit": 1.0,
+    "clearance_buffer_m": 0.001,
+    "clearance_slack_weight": 1000000.0,
+    "iterations": 5,
+    "maximum_terminal_eef_error_m": 0.015,
+    "maximum_abs_total_correction_action": 0.75,
+    "maximum_abs_iteration_step_action": 0.25,
+    "minimum_progress_ratio": 0.5,
+    "nominal_deviation_weight": 1.0,
+    "smoothness_weight": 0.2,
+    "terminal_eef_weight": 10000.0
+  },
+  "state_protocol": {
+    "activation_step": 182,
+    "detour_action_steps": [
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "endpoint_preservation": "sum_xyz_correction_over_five_actions_equals_zero",
+    "post_detour_live_replan_step": 187
+  },
+  "success_definition": {
+    "detour": "fresh_exact_five_action_rollout_has_at_least_1mm_L5_L7_clearance_no_raw_contact_no_paper_car_sum_zero_correction_and_at_least_half_nominal_eef_progress",
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_contact": "none_for_robot0_link5_link6_link7",
+    "task": "native_goal_satisfied_within_registered_goal_suite_horizon"
+  }
+}
