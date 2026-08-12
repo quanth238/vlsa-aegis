@@ -757,11 +757,23 @@ def evaluate(
             "generalization selected policy schedule differs",
         )
         perception = archived["perception"]
+        obstacle_rotation = np.asarray(perception["mvee_rotation"], dtype=np.float64)
+        obstacle_rotation_canonicalization = "none"
+        if float(np.linalg.det(obstacle_rotation)) < 0.0:
+            obstacle_rotation = obstacle_rotation.copy()
+            obstacle_rotation[:, -1] *= -1.0
+            obstacle_rotation_canonicalization = (
+                "flip_last_eigenvector_preserves_centered_ellipsoid"
+            )
+        _require(
+            abs(float(np.linalg.det(obstacle_rotation)) - 1.0) <= 1.0e-8,
+            "generalization obstacle rotation canonicalization differs",
+        )
         geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
             geometry_config,
             {
                 "p2": perception["mvee_center"],
-                "R2": perception["mvee_rotation"],
+                "R2": obstacle_rotation,
                 "Q2_diag": perception["mvee_semiaxes"],
                 "record": {"label": perception["obstacle_label"]},
             },
@@ -937,6 +949,7 @@ def evaluate(
             },
             "eligibility": eligibility,
             "geometry_config": geometry_config,
+            "obstacle_rotation_canonicalization": obstacle_rotation_canonicalization,
             "geometry": geometry.geometry_record(env),
             "pairing": pairing,
             "probe_environment": {

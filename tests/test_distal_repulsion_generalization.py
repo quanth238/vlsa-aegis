@@ -112,6 +112,13 @@ class RepulsionGeneralizationTests(unittest.TestCase):
         self.assertIn('eligibility["task_object_eef_distance_m"] <= 0.02', source)
         self.assertIn("all(count == 25", source)
 
+    def test_improper_mvee_basis_is_canonicalized_without_refitting(self) -> None:
+        source = (
+            ROOT / "scripts/evaluate_distal_repulsion_generalization_pilot.py"
+        ).read_text()
+        self.assertIn("obstacle_rotation[:, -1] *= -1.0", source)
+        self.assertIn("flip_last_eigenvector_preserves_centered_ellipsoid", source)
+
 
 if __name__ == "__main__":
     unittest.main()
