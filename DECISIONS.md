@@ -926,3 +926,24 @@ progress decide outcomes; affine derivatives only generate directions and
 are recomputed after every iteration. Do not train an MLP unless a structured
 arm finds a verified-safe, task-progressing repair. Do not call this online
 control or task completion even if it passes.
+
+## ADR-0052: Accept structured field expressivity, not online efficacy
+
+Accepted after H100 producer `38834` and independent validator `38838`.
+Both registered structured arms repaired the exact archived `-9.313104 mm`
+two-action transition without raw L5--L7 contact or paper CAR and retained
+more than 82% of nominal end-effector progress. The structured field gate
+therefore passes: a positive mixture of controller-pulled physical clearance
+normals is expressive enough, and adding the projected task tangent remains
+compatible with the verified-safe repair.
+
+This is not yet an online-control result. The smallest retained iterative
+structured repairs have correction L2 about `0.89` and only micrometre-scale
+positive margins. At matched one-shot norms, no arm is safe below radius
+`1.0`. Accordingly, do not promote fixed inside-denoising injection, train an
+unconstrained action predictor, or run an unverified closed loop from this
+gate. The justified next learned object is only the structured mixture
+coefficient/step selector, trained across boundary states and always compared
+with fixed analytical mixtures and matched random directions. A positive
+buffer plus fresh exact cloned-OSC verification remains mandatory before any
+candidate executes.

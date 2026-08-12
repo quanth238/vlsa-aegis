@@ -1219,3 +1219,38 @@ three-dimensional XYZ, while this experiment's two-action tangent has six
 dimensions. The immutable attempt is apparatus failure only. The repair adds
 a strict finite six-dimensional unit normalizer inside the oracle module and
 changes no state, action, search, comparator, geometry, or acceptance setting.
+
+Clean H100 job `38834` completed on `worker-2` from producer commit
+`c772784c3b83e3882e5a50d7f797a97c2487c13a` in 235 allocation seconds
+(`232.397` evaluator seconds). It exactly reproduced the archived dangerous
+minimum `-9.313104 mm` and evaluated 5,351 exact two-action cloned-OSC
+rollouts. All three arms found a nonnegative, raw-contact-free, paper-CAR-free
+candidate retaining more than 82% of nominal end-effector progress:
+
+- unrestricted: `+0.023973 mm`, progress `0.822360`, correction L2 `0.896320`;
+- nonnegative normal mixture: `+0.007236 mm`, progress `0.820680`, correction
+  L2 `0.896963`;
+- normal plus task tangent: `+0.009566 mm`, progress `0.828249`, correction L2
+  `0.891318`.
+
+Matched one-shot nominal-state directions were still unsafe at radii
+`0.25/0.50/0.75`; every arm first passed at registered radius `1.0`, where
+the normal and normal-plus-tangent minima were `+0.479936/+0.792457 mm`.
+Thus, the positive result establishes that iterative physical field mixtures
+can express a verified-safe, task-progressing repair of the archived two-action
+transition. It does not establish a small correction, execution, complete E05
+recovery, population generalization, or learned online steering.
+
+Validator attempts `38835` and `38836` stopped on receipt-only assumptions
+about sorted JSON arm order and bounds on untouched rotation/gripper channels;
+they produced no validation artifact and did not alter the immutable producer
+result. Independent H100 validator `38838` then recomputed every exposed
+candidate flag, correction/action identity, seven-row minimum, raw-contact
+condition, progress condition, matched norm, and top-level gate. It validated
+`structured_field_oracle_supported`. Producer and validation file SHA-256
+values are `ff160be3589e76e185582fddc856e40e28ac80c2abe93ac84c16d4cd54674395`
+and `70cecda1b5c1bc45587052f68bf131cfd51d9f9320404805c808b5c670746958`.
+Table 1 remained read-only at its frozen SHA-256. The next scientific action
+is to preregister a multi-state field-weight learner against this exact oracle,
+with a positive clearance buffer and matched analytical/random baselines; do
+not insert the field into pi0.5 denoising or claim closed-loop task success yet.
