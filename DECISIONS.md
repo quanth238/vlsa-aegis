@@ -869,3 +869,20 @@ from this result. First establish exact safe support using fixed physical
 repulsion under an independently preregistered earlier-intervention or
 larger/iterative trust-region experiment. A learned task-conditioned force is
 only motivated after that oracle support gate passes.
+
+## ADR-0050: Test fixed repulsion inside denoising before the E05 boundary
+
+Accepted as the smallest follow-up to ADR-0049. The experiment reuses the
+analytical controller-pulled L5--L7 direction that already beat matched
+random steering. It intervenes from the pi0.5 query at action 180 and targets
+chunk slots 2--4, which execute as actions 182--184. Guidance is injected
+inside only the final five Euler updates and is bounded in physical normalized
+action units.
+
+An equal-budget post-hoc arm is mandatory. Without it, any improvement could
+be attributed merely to adding the same vector to the completed action rather
+than to denoising interaction. Ordinary pi0.5 remains unchanged unless the
+reserved opt-in envelope is present, and physical displacements are converted
+to model coordinates by scale only. The arm executes only after exact cloned
+OSC verification. Passing would establish local early fixed-force support;
+it would not establish learning, generalization, invariance, or task success.

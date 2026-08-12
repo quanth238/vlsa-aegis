@@ -134,6 +134,51 @@ class CrfsWebsocketControlTest(unittest.TestCase):
                 {"__crfs__": {"rng_seed": 1, "flow_guidance": base}}
             )
 
+    def test_fixed_repulsive_flow_guidance_is_validated_and_removed(self):
+        guidance = {
+            "schema_version": "crfs_fixed_repulsive_flow_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "physical_output_direction": [1.0, 0.0, 0.0],
+            "nominal_output_actions": [[0.0] * 7 for _ in range(10)],
+            "guided_action_slots": [2, 3, 4],
+            "guided_euler_steps": [5, 6, 7, 8, 9],
+            "step_size_action": 0.05,
+            "action_limit": 1.0,
+        }
+        returned, control = self.module._extract_crfs_control(
+            {
+                "state": [1, 2, 3],
+                "__crfs__": {
+                    "rng_seed": 19,
+                    "repulsive_flow_guidance": guidance,
+                },
+            }
+        )
+        self.assertNotIn("__crfs__", returned)
+        self.assertEqual(control["repulsive_flow_guidance"], guidance)
+
+    def test_fixed_repulsive_flow_guidance_rejects_wrong_slots(self):
+        guidance = {
+            "schema_version": "crfs_fixed_repulsive_flow_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "physical_output_direction": [1.0, 0.0, 0.0],
+            "nominal_output_actions": [[0.0] * 7 for _ in range(10)],
+            "guided_action_slots": [1, 2, 3],
+            "guided_euler_steps": [5, 6, 7, 8, 9],
+            "step_size_action": 0.05,
+            "action_limit": 1.0,
+        }
+        with self.assertRaises(ValueError):
+            self.module._extract_crfs_control(
+                {
+                    "__crfs__": {
+                        "rng_seed": 19,
+                        "repulsive_flow_guidance": guidance,
+                    }
+                }
+            )
     def test_embodisteer_task_metric_guidance_is_validated_and_removed(self):
         row = [0.0] * 30
         row[0] = 1.0

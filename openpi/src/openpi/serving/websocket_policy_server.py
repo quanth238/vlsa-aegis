@@ -90,6 +90,14 @@ class WebsocketPolicyServer:
                             rng_seed=crfs_control["rng_seed"],
                             flow_guidance=crfs_control["flow_guidance"],
                         )
+                    elif "repulsive_flow_guidance" in crfs_control:
+                        action = self._policy.infer(
+                            obs,
+                            rng_seed=crfs_control["rng_seed"],
+                            repulsive_flow_guidance=crfs_control[
+                                "repulsive_flow_guidance"
+                            ],
+                        )
                     else:
                         action = self._policy.infer(
                             obs, rng_seed=crfs_control["rng_seed"]
@@ -141,6 +149,7 @@ def _extract_crfs_control(obs):
         {
             "rng_seed",
             "flow_guidance",
+            "repulsive_flow_guidance",
             "embodisteer_guidance",
             "embodisteer_joint_denoising",
         }
@@ -152,6 +161,7 @@ def _extract_crfs_control(obs):
         key
         for key in (
             "flow_guidance",
+            "repulsive_flow_guidance",
             "embodisteer_guidance",
             "embodisteer_joint_denoising",
         )
@@ -171,6 +181,10 @@ def _extract_crfs_control(obs):
         output["flow_guidance"] = _validate_flow_guidance(
             control["flow_guidance"]
         )
+    if "repulsive_flow_guidance" in control:
+        output["repulsive_flow_guidance"] = _validate_repulsive_flow_guidance(
+            control["repulsive_flow_guidance"]
+        )
     if "embodisteer_guidance" in control:
         output["embodisteer_guidance"] = _validate_embodisteer_guidance(
             control["embodisteer_guidance"]
@@ -182,6 +196,71 @@ def _extract_crfs_control(obs):
             )
         )
     return obs, output
+
+
+def _validate_repulsive_flow_guidance(value):
+    """Fail closed on fixed physical repulsion during final flow steps."""
+
+    if not isinstance(value, Mapping):
+        raise TypeError("__crfs__.repulsive_flow_guidance must be a mapping")
+    expected = {
+        "schema_version",
+        "action_horizon",
+        "action_dimensions",
+        "physical_output_direction",
+        "nominal_output_actions",
+        "guided_action_slots",
+        "guided_euler_steps",
+        "step_size_action",
+        "action_limit",
+    }
+    if set(value) != expected:
+        raise ValueError("__crfs__.repulsive_flow_guidance keys differ")
+    if value["schema_version"] != "crfs_fixed_repulsive_flow_guidance.v1":
+        raise ValueError("__crfs__.repulsive_flow_guidance schema differs")
+    if value["action_horizon"] != 10 or isinstance(value["action_horizon"], bool):
+        raise ValueError("repulsive-flow horizon must equal ten")
+    if value["action_dimensions"] != [0, 1, 2]:
+        raise ValueError("repulsive-flow must act on exactly XYZ")
+    if value["guided_action_slots"] != [2, 3, 4]:
+        raise ValueError("guided_action_slots must equal executed steps 182--184")
+    if value["guided_euler_steps"] != [5, 6, 7, 8, 9]:
+        raise ValueError("repulsive-flow must act during the final five Euler updates")
+    direction = value["physical_output_direction"]
+    _validate_numeric_vector(direction, label="physical_output_direction")
+    if not isinstance(direction, list) or len(direction) != 3:
+        raise ValueError("repulsive-flow direction shape differs")
+    nominal = value["nominal_output_actions"]
+    if not isinstance(nominal, list) or len(nominal) != 10:
+        raise ValueError("repulsive-flow nominal chunk shape differs")
+    _validate_numeric_matrix(
+        nominal, width=7, label="repulsive_flow.nominal_output_actions"
+    )
+    norm = math.sqrt(sum(float(item) * float(item) for item in direction))
+    if not 1.0 - 1.0e-8 <= norm <= 1.0 + 1.0e-8:
+        raise ValueError("repulsive-flow direction must have unit norm")
+    step_size = value["step_size_action"]
+    if (
+        isinstance(step_size, bool)
+        or not isinstance(step_size, (int, float))
+        or not math.isfinite(float(step_size))
+        or not 0.0 < float(step_size) <= 0.1
+    ):
+        raise ValueError("repulsive-flow step size differs")
+    action_limit = value["action_limit"]
+    if float(action_limit) != 1.0 or isinstance(action_limit, bool):
+        raise ValueError("repulsive-flow action limit differs")
+    return {
+        "schema_version": value["schema_version"],
+        "action_horizon": 10,
+        "action_dimensions": [0, 1, 2],
+        "physical_output_direction": [float(item) for item in direction],
+        "nominal_output_actions": nominal,
+        "guided_action_slots": [2, 3, 4],
+        "guided_euler_steps": [5, 6, 7, 8, 9],
+        "step_size_action": float(step_size),
+        "action_limit": 1.0,
+    }
 
 
 def _validate_embodisteer_joint_denoising(value):

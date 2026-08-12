@@ -1,0 +1,72 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_case_fixed_physical_repulsion_inside_pi05_flow_at_e05_actions_182_184_mechanism_test_not_population_generalization_not_task_completion",
+  "comparison": {
+    "arms": [
+      "ordinary_pi05_chunk",
+      "posthoc_fixed_repulsion",
+      "fixed_repulsion_inside_final_flow_steps"
+    ],
+    "pairing": "same_state_observation_rng_seed_and_five_action_horizon"
+  },
+  "flow_guidance": {
+    "action_limit": 1.0,
+    "guided_action_slots": [
+      2,
+      3,
+      4
+    ],
+    "guided_euler_steps": [
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "per_euler_step_size_action": 0.05,
+    "total_nominal_guidance_budget_action": 0.25
+  },
+  "nominal_action_source": "immutable_successful_released_aegis_env_step_input_until_query_step_180_then_live_pi05_with_table1_rng_seed",
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-fixed-repulsion-inside-pi05-flow-e05-v1",
+  "repulsive_direction": {
+    "finite_difference_action": 0.05,
+    "future_action_count": 5,
+    "physical_basis": "cloned_osc_seven_row_clearance_jacobian_at_query_step_180",
+    "softmin_temperature_m": 0.002,
+    "weighting": "fixed_analytical_softmin"
+  },
+  "schema_version": "vlsa_fixed_repulsion_flow_e05.v1",
+  "state_protocol": {
+    "activation_query_step": 180,
+    "executed_action_steps": [
+      180,
+      181,
+      182,
+      183,
+      184
+    ],
+    "guided_executed_steps": [
+      182,
+      183,
+      184
+    ]
+  },
+  "success_definition": {
+    "clearance": "guided_flow_minimum_future_L5_L7_hard_margin_exceeds_both_ordinary_and_equal_budget_posthoc_and_is_nonnegative",
+    "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "protected_contact": "none_for_robot0_link5_link6_link7",
+    "task_motion": "guided_flow_end_effector_progress_along_ordinary_five_action_prefix_at_least_0.5"
+  },
+  "verification": {
+    "clone_state_tolerance": 1e-10,
+    "execute_guided_flow_only_if_exactly_safe": true,
+    "raw_simulator_contact_and_car_authority": true
+  }
+}

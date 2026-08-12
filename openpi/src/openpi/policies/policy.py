@@ -72,6 +72,7 @@ class Policy(BasePolicy):
         noise: np.ndarray | None = None,
         rng_seed: int | None = None,
         flow_guidance: dict[str, Any] | None = None,
+        repulsive_flow_guidance: dict[str, Any] | None = None,
         embodisteer_guidance: dict[str, Any] | None = None,
         embodisteer_joint_denoising: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
@@ -105,6 +106,7 @@ class Policy(BasePolicy):
             value is not None
             for value in (
                 flow_guidance,
+                repulsive_flow_guidance,
                 embodisteer_guidance,
                 embodisteer_joint_denoising,
             )
@@ -121,7 +123,33 @@ class Policy(BasePolicy):
             )
         prepared_guidance = None
         guidance_kind = None
-        if flow_guidance is not None:
+        if repulsive_flow_guidance is not None:
+            if self._is_pytorch_model:
+                raise ValueError("repulsive flow guidance is supported only by JAX pi0.5")
+            prepared_guidance = self._prepare_repulsive_flow_guidance(
+                repulsive_flow_guidance,
+                normalized_state=np.asarray(inputs["state"][0]),
+            )
+            sample_kwargs["repulsive_direction_model"] = jnp.asarray(
+                prepared_guidance["direction_model"]
+            )
+            sample_kwargs["repulsive_slot_mask"] = jnp.asarray(
+                prepared_guidance["slot_mask"]
+            )
+            sample_kwargs["repulsive_euler_mask"] = jnp.asarray(
+                prepared_guidance["euler_mask"]
+            )
+            sample_kwargs["repulsive_step_size"] = float(
+                prepared_guidance["step_size_action"]
+            )
+            sample_kwargs["repulsive_model_lower"] = jnp.asarray(
+                prepared_guidance["model_lower"]
+            )
+            sample_kwargs["repulsive_model_upper"] = jnp.asarray(
+                prepared_guidance["model_upper"]
+            )
+            guidance_kind = "repulsive_flow"
+        elif flow_guidance is not None:
             if self._is_pytorch_model:
                 raise ValueError("flow guidance is supported only by the JAX pi0.5 policy")
             prepared_guidance = self._prepare_flow_guidance(
@@ -163,7 +191,16 @@ class Policy(BasePolicy):
             guidance_kind = "embodisteer"
         start_time = time.monotonic()
         sample_actions = self._sample_actions
-        if guidance_kind == "flow":
+        if guidance_kind == "repulsive_flow":
+            sample_actions = getattr(
+                self, "_sample_actions_with_repulsive_flow_guidance", None
+            )
+            if sample_actions is None:
+                sample_actions = nnx_utils.module_jit(
+                    self._model.sample_actions_with_repulsive_flow_guidance
+                )
+                self._sample_actions_with_repulsive_flow_guidance = sample_actions
+        elif guidance_kind == "flow":
             sample_actions = getattr(
                 self, "_sample_actions_with_flow_guidance", None
             )
@@ -199,16 +236,33 @@ class Policy(BasePolicy):
         outputs = self._output_transform(outputs)
         if prepared_guidance is not None:
             guided = np.asarray(outputs["actions"], dtype=np.float64)
-            delta = guided[:, :3].reshape(-1) - prepared_guidance["nominal_xyz"]
-            residuals = (
-                prepared_guidance["output_rows"] @ delta
-                - prepared_guidance["delta_lower"]
-            )
-            diagnostic_key = (
-                "flow_guidance"
-                if guidance_kind == "flow"
-                else "embodisteer_guidance"
-            )
+            if guidance_kind == "repulsive_flow":
+                delta = guided[:, :3] - prepared_guidance["nominal_output_xyz"]
+                outputs["repulsive_flow_guidance"] = {
+                    "schema_version": "crfs_fixed_repulsive_flow_guidance_result.v1",
+                    "guided_action_slots": prepared_guidance["guided_action_slots"],
+                    "guided_euler_steps": prepared_guidance["guided_euler_steps"],
+                    "physical_output_direction": prepared_guidance[
+                        "physical_output_direction"
+                    ].tolist(),
+                    "step_size_action": prepared_guidance["step_size_action"],
+                    "guided_slot_output_corrections": delta[
+                        prepared_guidance["guided_action_slots"]
+                    ].tolist(),
+                }
+                prepared_guidance = None
+            else:
+                delta = guided[:, :3].reshape(-1) - prepared_guidance["nominal_xyz"]
+                residuals = (
+                    prepared_guidance["output_rows"] @ delta
+                    - prepared_guidance["delta_lower"]
+                )
+                diagnostic_key = (
+                    "flow_guidance"
+                    if guidance_kind == "flow"
+                    else "embodisteer_guidance"
+                )
+        if prepared_guidance is not None:
             outputs[diagnostic_key] = {
                 "schema_version": (
                     "crfs_predictive_flow_guidance_result.v1"
@@ -247,6 +301,73 @@ class Policy(BasePolicy):
             "infer_ms": model_time * 1000,
         }
         return outputs
+
+    def _prepare_repulsive_flow_guidance(
+        self,
+        guidance: dict[str, Any],
+        *,
+        normalized_state: np.ndarray,
+    ) -> dict[str, Any]:
+        """Map a physical XYZ push-away direction to normalized action space."""
+
+        horizon = int(guidance["action_horizon"])
+        if horizon != int(self._model.action_horizon):
+            raise ValueError("repulsive-flow horizon differs from the policy")
+        model_dim = int(self._model.action_dim)
+        zeros = np.zeros((horizon, model_dim), dtype=np.float32)
+
+        def decode(model_actions: np.ndarray) -> np.ndarray:
+            transformed = self._output_transform(
+                {
+                    "state": np.array(normalized_state, copy=True),
+                    "actions": np.array(model_actions, copy=True),
+                }
+            )
+            output = np.asarray(transformed["actions"], dtype=np.float64)
+            if output.shape != (horizon, 7) or not np.all(np.isfinite(output)):
+                raise ValueError("repulsive-flow output action transform is invalid")
+            return output
+
+        offset = decode(zeros)
+        scale_xyz = np.empty((horizon, 3), dtype=np.float64)
+        for dimension in range(3):
+            probe = zeros.copy()
+            probe[:, dimension] = 1.0
+            effect = decode(probe) - offset
+            cross = effect.copy()
+            scale_xyz[:, dimension] = effect[:, dimension]
+            cross[:, dimension] = 0.0
+            if np.max(np.abs(cross)) > 1.0e-8:
+                raise ValueError("repulsive-flow output transform couples XYZ")
+        if np.any(np.abs(scale_xyz) <= 1.0e-12):
+            raise ValueError("repulsive-flow XYZ normalization scale is invalid")
+        physical_direction = np.asarray(
+            guidance["physical_output_direction"], dtype=np.float64
+        )
+        direction_model = physical_direction[None, :] / scale_xyz
+        slot_mask = np.zeros((horizon, 1), dtype=np.float32)
+        slot_mask[guidance["guided_action_slots"], 0] = 1.0
+        euler_mask = np.zeros(10, dtype=np.float32)
+        euler_mask[guidance["guided_euler_steps"]] = 1.0
+        limit = float(guidance["action_limit"])
+        model_lower = (-limit - offset[:, :3]) / scale_xyz
+        model_upper = (limit - offset[:, :3]) / scale_xyz
+        lower = np.minimum(model_lower, model_upper)
+        upper = np.maximum(model_lower, model_upper)
+        return {
+            "direction_model": direction_model.astype(np.float32),
+            "slot_mask": slot_mask,
+            "euler_mask": euler_mask,
+            "model_lower": lower.astype(np.float32),
+            "model_upper": upper.astype(np.float32),
+            "nominal_output_xyz": np.asarray(
+                guidance["nominal_output_actions"], dtype=np.float64
+            )[:, :3],
+            "guided_action_slots": list(guidance["guided_action_slots"]),
+            "guided_euler_steps": list(guidance["guided_euler_steps"]),
+            "physical_output_direction": physical_direction,
+            "step_size_action": float(guidance["step_size_action"]),
+        }
 
     def _decode_model_actions(
         self,
@@ -530,6 +651,7 @@ class PolicyRecorder(_base_policy.BasePolicy):
         rng_seed: int | None = None,
         flow_guidance: dict[str, Any] | None = None,
         embodisteer_guidance: dict[str, Any] | None = None,
+        repulsive_flow_guidance: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
         results = self._policy.infer(
             obs,
@@ -537,6 +659,7 @@ class PolicyRecorder(_base_policy.BasePolicy):
             rng_seed=rng_seed,
             flow_guidance=flow_guidance,
             embodisteer_guidance=embodisteer_guidance,
+            repulsive_flow_guidance=repulsive_flow_guidance,
         )
 
         data = {"inputs": obs, "outputs": results}

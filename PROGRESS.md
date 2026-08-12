@@ -1126,3 +1126,25 @@ validation SHA-256 values are
 and `7f64d148dd3861d94e196be063ec73ec654381f64de5c9f2024bee58604ae38a`.
 The exact next audit command is:
 `jq '{direction_gate_pass,interpretation,model:{train_rmse_m:.model.train_rmse_m,validation_rmse_m:.model.validation_rmse_m},test:{base:.test.basis.base,radii:[.test.radii[]|{radius_action,learned_exact_gain_m,fixed_exact_gain_m,gain_over_fixed_m,matched_random_p_value,learned_safe:.learned.exact_safe}]},continuation}' /mnt/data/quanth/experiments/vlsa-distal-repulsive-force-direction-e05/repulsive-direction-20260812c/result.json`.
+
+## Preregistered early fixed repulsion inside pi0.5 denoising
+
+The next single-case mechanism test uses the validated analytical seven-row
+soft-min repulsive direction, not the failed learned weighting. The immutable
+Table-1 action ledger is replayed through step 179 and pi0.5 is queried at
+step 180 with the registered policy seed. Because the released controller
+executes five actions per query, action steps 182--184 are chunk slots 2--4.
+Exactly those slots receive `0.05` physical action units after each of final
+Euler updates 5--9, for a total per-slot budget of `0.25`.
+
+Ordinary pi0.5, equal-budget post-hoc repulsion, and inside-denoising
+repulsion share the same state, observation, RNG seed, and five-action
+horizon. A 31-rollout cloned-OSC finite-difference probe supplies the fixed
+seven-row L5--L7 direction. The inside-denoising arm may execute only if a
+fresh exact clone proves a nonnegative five-action margin strictly better
+than both comparisons. Execution must match the clone, remain free of raw
+L5--L7 contact and paper CAR, and retain at least half the ordinary prefix's
+end-effector progress. This is not a learned, population, or task-completion
+claim. The exact next command is to commit this preregistered harness, sync
+the clean commit, run live Slurm preflight, and submit
+`slurm/fixed_repulsion_flow_e05.sbatch` on one H100.
