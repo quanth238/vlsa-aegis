@@ -1091,3 +1091,20 @@ scientific result. The receipt-only repair converts that array to a plain
 list; it changes no rollout, model, direction, comparator, or threshold. The
 exact next command is to commit the serializer and independent validator,
 sync the clean commit, and resubmit with a new immutable run ID.
+
+Clean H100 job `38789` completed on `worker-2` from commit `4b4765b` in
+83 seconds and wrote the first scientific result. The frozen learned force
+beat all 256 equal-norm random directions at both radii (`p=1/257`), but was
+almost identical to the fixed physical soft-min direction (cosine `0.997199`)
+and slightly worse: learned-minus-fixed gain was `-0.00367 mm` at radius 0.10
+and `-0.00651 mm` at radius 0.25. Neither learned radius supplied an exact
+two-action safe candidate. The preregistered direction gate therefore failed,
+the conditional continuation correctly did not execute, and
+`primary_problem_solved=false`.
+
+Independent validation attempt `38790` stopped before issuing a receipt
+because its H100 provenance check looked for legacy `allocation.gpu` rather
+than the producer's recorded `allocation.device.name`. This is validator
+apparatus failure only. The receipt-only repair changes no producer result or
+verdict. The exact next command is to commit that key repair and rerun only
+the immutable-result validator.

@@ -76,7 +76,10 @@ def validate(result_path: Path, expected_producer_commit: str) -> dict[str, Any]
     _require(result["source"]["commit"] == expected_producer_commit, "producer commit differs")
     _require(result["source"]["dirty"] is False, "producer source was dirty")
     _require(result["allocation"]["slurm_job_id"] is not None, "Slurm job is absent")
-    _require("H100" in str(result["allocation"]["gpu"]), "producer GPU was not H100")
+    _require(
+        "H100" in str(result["allocation"]["device"]["name"]),
+        "producer GPU was not H100",
+    )
     _require(result["archived_table1"]["read_only"] is True, "Table 1 was not read-only")
     _require(
         result["archived_table1"]["file_sha256"]
