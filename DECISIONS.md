@@ -903,3 +903,9 @@ This is not evidence against analytical repulsion, and all three prefixes
 were already positive-margin through action 184. Do not claim that the later
 E05 collision was prevented: the comparative gate intentionally blocked
 execution and no suffix was run.
+
+Independent job `38809` validates this interpretation. Keep the result as a
+NO-GO for fixed-vector injection during denoising and as apparatus evidence
+that a reserved flow hook works. It is not evidence that early intervention
+prevents the archived E05 collision, because the current live pi0.5 query did
+not reproduce that archived query's dangerous action mode.

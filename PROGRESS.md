@@ -1179,3 +1179,13 @@ budget. The comparative gate failed, execution correctly did not occur, and
 `primary_problem_solved=false`. The stored generic “no safe support” label is
 too broad; the immutable numbers instead mean inside-denoising fixed force
 failed to outperform post-hoc force. Independent H100 validation is pending.
+
+Independent H100 validator job `38809` completed on `worker-1` and reproduced
+all three exact minima, both differences, the failed comparative gate, and
+the non-execution verdict. It records the corrected interpretation
+`fixed_repulsion_inside_flow_worse_than_posthoc`. Result and validation file
+SHA-256 values are `0c4afaa2d15a61d2defd251a9eaea8f2307cfefef18cbd80a6110d635d792419`
+and `2e8a0be2ac566a44e0ac17ef49c8f77484907f4aa2020e41e3ba783b4eb3cd22`.
+Because the live query-36 chunk differed substantially from the archived
+dangerous chunk and every compared prefix was already positive-margin, this
+run does not establish avoidance of the original E05 collision.
