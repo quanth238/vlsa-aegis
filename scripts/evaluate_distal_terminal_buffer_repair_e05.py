@@ -165,7 +165,7 @@ def evaluate(
         obstacle_id = _obstacle_root_body_id(env.sim.model, obstacle_name)
 
         def mirror_registered_measurement() -> None:
-            clearance_probe.clearances(env)
+            one_step.clearances(env)
             _protected_contact_evidence(env, obstacle_name)
             np.asarray(env.sim.data.xpos[obstacle_id], dtype=np.float64)
 
