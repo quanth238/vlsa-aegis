@@ -20,6 +20,12 @@ class ScaleFeedbackAuditTest(unittest.TestCase):
         self.assertEqual(config["state_protocol"]["live_query_first_index"], 41)
         self.assertEqual(config["state_protocol"]["live_query_action_horizon"], 5)
         self.assertEqual(
+            config["internal_verification"][
+                "live_execution_clearance_equivalence_tolerance"
+            ],
+            1e-10,
+        )
+        self.assertEqual(
             sorted(item["correction_scale"] for item in config["registered_inputs"].values()),
             [1.01, 1.02],
         )

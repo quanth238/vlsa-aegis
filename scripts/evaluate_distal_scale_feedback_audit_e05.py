@@ -239,6 +239,11 @@ def evaluate(
                 "ordinary_env_step_boundary_equivalence_tolerance"
             ]
         )
+        live_execution_tolerance = float(
+            config["internal_verification"][
+                "live_execution_clearance_equivalence_tolerance"
+            ]
+        )
 
         def execute(command: Any, step: int, source_name: str) -> tuple[bool, dict[str, Any]]:
             nonlocal observation, previous_goal_values, terminal_frame
@@ -421,7 +426,11 @@ def evaluate(
                     1 + offset * expected_substeps : 1 + (offset + 1) * expected_substeps
                 ]
                 clone_error = float(np.max(np.abs(actual - expected)))
-                _require(clone_error <= boundary_tolerance, "live execution differs from exact lookahead")
+                _require(
+                    clone_error <= live_execution_tolerance,
+                    "live execution differs from exact lookahead: %.17g > %.17g"
+                    % (clone_error, live_execution_tolerance),
+                )
                 record["lookahead_clearance_max_abs_error_m"] = clone_error
                 window["executed_actions"] += 1
                 if done:

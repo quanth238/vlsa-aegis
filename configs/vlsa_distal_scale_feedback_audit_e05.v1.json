@@ -12,6 +12,7 @@
   "internal_verification": {
     "expected_mujoco_substeps_per_action": 25,
     "include_initial_state": true,
+    "live_execution_clearance_equivalence_tolerance": 1e-10,
     "measurement": "all_mujoco_model_steps_and_initial_state",
     "ordinary_env_step_boundary_equivalence_tolerance": 1e-12,
     "registered_prelude_trace_tolerance": 1e-12

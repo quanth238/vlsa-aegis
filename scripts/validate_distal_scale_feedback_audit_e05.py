@@ -109,6 +109,19 @@ def _validate_arm(path: Path, expected_commit: str, expected_scale: float) -> di
             == (future_minimum < float(result["config"]["gate"]["internal_substep_clearance_buffer_m"])),
             "lookahead buffer warning differs",
         )
+    live_tolerance = float(
+        result["config"]["internal_verification"][
+            "live_execution_clearance_equivalence_tolerance"
+        ]
+    )
+    maximum_live_error = max(
+        (
+            float(action.get("lookahead_clearance_max_abs_error_m", 0.0))
+            for action in result["actions"]
+        ),
+        default=0.0,
+    )
+    _require(maximum_live_error <= live_tolerance, "live execution equivalence differs")
     task_success = result["goal_progress"]["summary"]["first_all_satisfied_step"] is not None
     first_contact = min((item["step"] for item in trace["protected_contacts"]), default=None)
     maximum_displacement = max(trace["active_obstacle_l1_displacement_trace_m"])
@@ -152,6 +165,7 @@ def _validate_arm(path: Path, expected_commit: str, expected_scale: float) -> di
         "correction_scale": expected_scale,
         "action_205_horizontal_threshold_margin_m": margin,
         "minimum_internal_clearance_m": exact_min,
+        "maximum_live_execution_clearance_error_m": maximum_live_error,
         "protected_contact_count": len(trace["protected_contacts"]),
         "maximum_active_obstacle_l1_displacement_m": maximum_displacement,
         "native_task_success_step": evidence["native_task_success_step"],
