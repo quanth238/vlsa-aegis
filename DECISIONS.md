@@ -28,6 +28,31 @@ hard ellipsoid clearance, raw protected contacts, and CAR. This is an
 apparatus-only correction made before any live policy query or scientific
 result.
 
+## ADR-0084: Reject the current local live-continuation field
+
+Accepted after clean H100 producer `38990` and independent validator `38993`.
+The registered action-187 continuation passed at `+8.151976 mm`, proving that
+the measured post-detour state contains a safe five-action continuation. The
+fresh frozen-`pi0.5` plus released-AEGIS continuation instead reached
+`-12.433323 mm` with 35 protected-contact samples. Live feedback therefore
+does not automatically preserve the safe detour.
+
+The registered smooth counterfactual field supplied accurate local directions
+through all ten iterations (held-out cosine at least `0.975932` and sign
+accuracy at least `0.875`) and improved exact clearance by `12.186052 mm`.
+It eliminated raw contact and passed CAR, but stopped at `-0.247271 mm` after
+using path budget `1.0`, missing the required +1 mm buffer by `1.247271 mm`.
+Classify this as a strict local NO-GO: accurate local descent is not sufficient
+to recover the known safe continuation from the fresh VLA mode.
+
+Do not train an MLP on this single-vector field, relax the clearance threshold,
+or spend a full closed-loop episode. The next no-learning diagnostic, if
+continued, should test whether the known safe continuation requires a larger
+or explicitly structured/multimodal proposal from this exact state, with the
+smooth field retained only for local refinement. The result does not reject
+counterfactual execution supervision; it rejects the present proposal family
+as the complete continuation generator.
+
 ## ADR-0081: Prove raw fixed-suffix safe support before multi-start search
 
 Accepted before release. The validated positive compound correction modified

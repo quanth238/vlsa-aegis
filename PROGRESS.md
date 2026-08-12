@@ -38,6 +38,41 @@ as apparatus evidence while preserving exact pre-prefix synchronization,
 bitwise action identity, and all-substep clearance/contact/CAR authority. No
 policy input, action, field setting, or acceptance threshold changes.
 
+Clean H100 producer `38990` completed from commit
+`6b04a2c5c6deee09ce818d77da52cfe6c548677c` on `worker-1` in 2:45;
+independent H100 validator `38993` recomputed every gate in one second. The
+registered compound prefix and continuation passed at `+15.441969 mm` and
+`+8.151976 mm`, respectively, with zero protected contact and paper CAR. This
+confirms that the post-detour state has safe five-action continuation support.
+
+The fresh query-37 `pi0.5` plus released-AEGIS continuation was unsafe at
+`-12.433323 mm`, with 35 protected-contact samples, although CAR remained
+within threshold. Ten smooth-field iterations used 851 cloned-OSC rollouts,
+consumed the full registered path budget `1.0`, and produced correction L2
+`0.905002`. Every independent direction audit passed (minimum cosine
+`0.975932`, minimum sign accuracy `0.875`). The exact final rollout eliminated
+all raw protected contacts and passed CAR, improving the margin by
+`12.186052 mm`, but its hard minimum remained `-0.247271 mm`. It therefore
+missed zero clearance by `0.247271 mm` and the registered +1 mm buffer by
+`1.247271 mm`.
+
+The focused gate is a strict local NO-GO. Live feedback alone did not preserve
+the safe detour, and the current single smooth descent nearly removed contact
+but could not reach the clearance gate within its fixed budget. Do not run a
+complete receding episode or train an MLP from this field. The important next
+question is no longer whether the local safety direction is accurate--it is--
+but whether the fresh live chunk needs a larger/nonlocal or multimodal
+continuation proposal. Any next oracle should compare the registered safe
+continuation with derivative-free or structured proposals at this exact
+action-187 state, rather than adding more local field fitting.
+
+Producer result payload/file SHA-256 values are
+`318f3e64701db6c5afd893b1b7c733c395fbd5e6812d7dfa3e84b66739a73bf1` and
+`ada4c854bc650bb2ef7fa3ed356b11acde2f9069b5d3f2d60370ad1957dd4976`.
+Validation payload/file SHA-256 values are
+`2d8cf0c050435e27dbddcd3dd45adfaa49575b3a24b311ecec02b2abc0187474` and
+`1dae3663491a3b76684fdfd120d6bf00a33a6b9b34314e13add92cdae2571f7e`.
+
 ## Raw-AEGIS multi-start Gate 0 (preregistered, 2026-08-12)
 
 Before launching a radius or branch search, Gate 0 tests whether the registered
