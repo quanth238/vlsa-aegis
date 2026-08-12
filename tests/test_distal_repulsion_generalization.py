@@ -7,6 +7,37 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RepulsionGeneralizationTests(unittest.TestCase):
+    def test_task_valid_receding_protocol_separates_three_authorities(self) -> None:
+        config = json.loads(
+            (
+                ROOT
+                / "configs/vlsa_distal_repulsion_task_valid_e38_receding.v1.json"
+            ).read_text()
+        )
+        self.assertEqual(
+            config["schema_version"],
+            "vlsa_distal_repulsion_task_valid_e38_receding.v1",
+        )
+        self.assertTrue(config["state_protocol"]["policy_query_disabled"])
+        self.assertEqual(config["state_protocol"]["lookahead_actions"], 20)
+        self.assertEqual(config["state_protocol"]["execute_prefix_max_actions"], 5)
+        source = (
+            ROOT / "scripts/evaluate_distal_repulsion_task_valid_e38_receding.py"
+        ).read_text()
+        self.assertIn('"physical_mujoco_authority"', source)
+        self.assertIn('"ellipsoid_certification"', source)
+        self.assertIn('"task_authority"', source)
+        self.assertIn("_run_smooth", source)
+        self.assertNotIn("WebsocketClientPolicy", source)
+
+    def test_task_valid_receding_validator_checks_internal_substeps(self) -> None:
+        source = (
+            ROOT / "scripts/validate_distal_repulsion_task_valid_e38_receding.py"
+        ).read_text()
+        self.assertIn("all(count == 25", source)
+        self.assertIn("physical_collision_free_task_completion", source)
+        self.assertIn("ellipsoid_certified_task_completion_zero_margin", source)
+
     def test_config_and_selection_manifest_are_frozen(self) -> None:
         from main.multilink_ellipsoid.repulsion_generalization import load_cases, load_config
 

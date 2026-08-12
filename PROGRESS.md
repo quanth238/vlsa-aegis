@@ -2128,3 +2128,14 @@ a completed-ledger length assumption and an improper archived MVEE basis. The
 latter was canonicalized to determinant +1 by flipping one eigenvector, which
 preserves the centered ellipsoid exactly. Validator attempts `39163/39165`
 were import-path/expected-hash apparatus failures and changed no result.
+
+The next gate is frozen before execution: starting at E38 action 108, evaluate
+the immutable archived AEGIS continuation over a twenty-action horizon. Trigger
+the unchanged smooth field whenever its all-substep ellipsoid minimum is below
+`+1 mm`, edit only the next five XYZ actions, execute at most five actions, and
+recompute from the resulting measured state. Preserve a full terminal
+five-action correction window. Stop at native task success, archived-ledger
+exhaustion, or a physically unsafe candidate. Report three authorities without
+collapsing them: protected MuJoCo contact/CAR, zero/+1 mm ellipsoid
+certification, and native task completion. This is an archived-policy receding
+oracle, not live VLA feedback, learning, a QP, a CBF, or population evidence.

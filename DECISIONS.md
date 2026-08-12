@@ -1502,3 +1502,18 @@ compiled MuJoCo protected contact for physical collision evaluation, and the
 ellipsoid margin for conservative optimization/certification. Do not collapse
 them into one success label or report an efficacy rate from the two eligible,
 outcome-conditioned cases.
+
+## ADR-0066: Recede over the immutable E38 task policy and separate authorities
+
+Accepted before execution. Reuse the exact validated smooth-field estimator,
+action bounds, correction radius, and twenty-action lookahead. Recompute after
+each executed prefix and trigger below the registered `+1 mm` ellipsoid warning.
+Use the immutable archived AEGIS action ledger so changes in task outcome can
+be attributed to repulsion rather than a new stochastic pi0.5 sample.
+
+Physical success requires zero protected MuJoCo contact and CAR at most 1 mm
+through every internal substep. Ellipsoid zero/+1 mm results are reported as
+separate conservative certification gates. Native BDDL completion is a third
+authority. No result may be described as full success unless physical safety
+and task completion both pass; proxy failure must still be reported even if
+physical contact is absent.
