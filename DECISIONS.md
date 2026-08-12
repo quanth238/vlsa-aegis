@@ -831,3 +831,26 @@ seven-part render: three L5, two L6, two L7, plus the unchanged cyan AEGIS EE
 proxy. No active controller or QP is changed by this decision. Geometry must
 be promoted under a separate preregistered control protocol before any safety
 claim is evaluated.
+
+## ADR-0049: Test learned weights on controller-pulled physical repulsion
+
+Accepted as the simplest decisive follow-up to the failed unconstrained MLP
+gradients. The learned object is a monotone scalar safety potential over the
+seven accepted L5--L7 rollout margins. Exact paired cloned-OSC perturbations
+provide the local Cartesian pullback. Consequently its action gradient is a
+nonnegative combination of physical clearance-increase directions; learning
+chooses strengths but cannot reverse all geometry normals.
+
+The design explicitly separates evidence for a physical repulsive mechanism
+from deployability. It uses privileged online clone rollouts and only one
+temporally adjacent E05 test state. It therefore cannot establish episode or
+task generalization, real-time performance, or SafeLIBERO completion. Those
+claims remain blocked even if the local direction passes.
+
+The MLP is frozen from steps 182--184 before test step 185. Learned, fixed
+soft-min and paired-random directions are evaluated at equal correction norm.
+The learned force must improve exact clearance, outperform the fixed physical
+field, and beat the matched random population. If it does not, the correct
+conclusion is that learning adds no evidence beyond analytical repulsion. A
+two-action receding continuation is conditional on the direction gate and is
+not a substitute for full closed-loop task completion.

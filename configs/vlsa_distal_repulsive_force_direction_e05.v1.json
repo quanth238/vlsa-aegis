@@ -1,0 +1,92 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_case_local_mechanism_test_of_a_monotone_learned_repulsive_potential_with_exact_cloned_osc_pullback_not_population_generalization_not_online_deployment_not_task_completion",
+  "comparators": {
+    "fixed": "affine_seven_row_softmin_gradient",
+    "learned": "gradient_of_monotone_mlp_safety_potential_through_affine_seven_row_cloned_osc_model",
+    "random": "paired_uniform_unit_sphere_directions"
+  },
+  "continuation": {
+    "actions_to_execute": 2,
+    "minimum_nominal_eef_progress_ratio": 0.5,
+    "replan_after_every_action": true,
+    "run_only_after_direction_gate": true
+  },
+  "finite_difference": {
+    "action_dimensions": [
+      0,
+      1,
+      2
+    ],
+    "perturbation_action": 0.05,
+    "scheme": "clipped_central_difference_of_two_action_rollout_minimum"
+  },
+  "gate": {
+    "maximum_active_obstacle_l1_displacement_m": 0.001,
+    "maximum_matched_random_p_value": 0.05,
+    "minimum_exact_clearance_gain_m": 0.0005,
+    "minimum_gain_over_fixed_m": 0.0001,
+    "require_no_raw_l5_l6_l7_contact": true,
+    "require_positive_exact_safe_support": true
+  },
+  "model": {
+    "batch_size": 128,
+    "epochs": 2000,
+    "hidden_units": 16,
+    "kind": "positive_weight_tanh_monotone_safety_potential",
+    "learning_rate": 0.01,
+    "seed": 20260813,
+    "training_loss": "huber_quantitative_two_action_softmin_margin",
+    "weight_decay": 1e-06
+  },
+  "nominal_action_source": "immutable_successful_released_aegis_env_step_input",
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "optimizer_clearance_m": 0.0,
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-repulsive-force-direction-e05-v1",
+  "sampling": {
+    "action_limit": 1.0,
+    "paired_direction_count_per_state": 128,
+    "random_test_direction_count": 256,
+    "test_radii_action": [
+      0.1,
+      0.25
+    ],
+    "test_seed": 20260816,
+    "train_radii_action": [
+      0.1,
+      0.25
+    ],
+    "train_seed": 20260814,
+    "validation_seed": 20260815
+  },
+  "schema_version": "vlsa_distal_repulsive_force_direction_e05.v1",
+  "score": {
+    "future_only_excludes_k0": true,
+    "rollout_actions": 2,
+    "softmin_temperature_m": 0.002,
+    "target_clearance_m": 0.0
+  },
+  "state_split": {
+    "test_steps": [
+      185
+    ],
+    "train_steps": [
+      182,
+      183
+    ],
+    "validation_steps": [
+      184
+    ]
+  },
+  "success_definition": {
+    "continuation": "two_exactly_verified_replanned_actions_without_l5_l6_l7_contact_or_car_and_at_least_half_nominal_eef_progress",
+    "direction": "learned_equal_norm_direction_beats_fixed_by_registered_margin_and_matched_random_at_registered_significance_for_both_test_radii",
+    "overall": "direction_and_continuation_both_pass"
+  }
+}

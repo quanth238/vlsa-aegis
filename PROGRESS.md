@@ -1052,3 +1052,31 @@ into an active safety filter, so they do not alter the completed Table 1
 artifacts and do not establish task or collision efficacy. The exact next
 audit command is:
 `jq '.source,.allocation,.released_aegis_end_effector_proxy_unchanged,.ellipsoids[]|{body_name,semiaxes_m,bound_source,enclosure_certificate}' /mnt/data/quanth/experiments/vlsa-distal-partitioned-ellipsoid-geometry/slabbed-l5-l7-ee-20260808c/visualization/visualization.json`.
+
+## Preregistered E05 learned repulsive-force direction gate
+
+The next bounded mechanism test starts from clean oracle-harness commit
+`ced71857d3ede63f990755ba0427890ad69b2e87`, leaving the later execution-model
+experiments and completed Table 1 artifacts untouched. It asks whether a tiny
+monotone MLP can learn useful weights for physical L5--L7 push-away directions.
+Paired cloned-OSC rollouts provide seven two-action clearance derivatives;
+the MLP cannot invent their signs and is trained on quantitative ellipsoid
+margins rather than contact labels.
+
+Whole state groups are frozen before launch: E05 steps 182--183 train, step
+184 validates, and step 185 is untouched test. At test, learned, fixed
+analytical soft-min, and 256 antithetic random directions receive identical
+normalized-action norms at radii 0.10 and 0.25. The learned arm must improve
+exact two-action clearance by at least 0.5 mm, beat fixed repulsion by at
+least 0.1 mm, and beat the matched-random distribution at add-one `p<=0.05`
+for both radii. No QP, stop, task-success claim, or online deployability claim
+is allowed. A two-action execute-and-replan continuation runs only after the
+direction gate passes and must retain at least half the nominal end-effector
+progress.
+
+The workstation structural gate is clean except for three pre-existing
+NumPy-dependent SITL tests, because the default local Python has no NumPy;
+the allocation job reruns those tests under the pinned evaluation Python
+before simulation. The exact next command is to commit this frozen apparatus,
+sync the commit to `/home/quanth/working_space/vlsa-aegis-table-repro`, run a
+live Slurm preflight, and submit `slurm/distal_repulsive_force_direction_e05.sbatch`.
