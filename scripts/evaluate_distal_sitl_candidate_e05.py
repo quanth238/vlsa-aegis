@@ -552,22 +552,38 @@ def evaluate(
                     float(step_record["active_obstacle_l1_displacement_m"])
                     for step_record in fresh_two["steps"]
                 )
-                probe_contact_authority = _contact_model_authority(
-                    probe_env, obstacle_name
+                probe_contact_authority = _contact_model_authority(probe_env, obstacle_name)
+                verified_first = controller.probe.transition(
+                    env, best["actions"][0]
                 )
-                probe_contacts = _detailed_active_obstacle_contacts(
+                first_probe_contacts = _detailed_active_obstacle_contacts(
+                    probe_env,
+                    obstacle_name,
+                    step=index,
+                    contact_authority=probe_contact_authority,
+                )
+                _require(
+                    first_probe_contacts["status"] == "available",
+                    "fresh field contact evidence is unavailable",
+                )
+                probe_env.step(list(best["actions"][1]))
+                second_probe_contacts = _detailed_active_obstacle_contacts(
                     probe_env,
                     obstacle_name,
                     step=index + 1,
                     contact_authority=probe_contact_authority,
                 )
                 _require(
-                    probe_contacts["status"] == "available",
-                    "fresh field contact evidence is unavailable",
+                    second_probe_contacts["status"] == "available",
+                    "fresh field second-step contact evidence is unavailable",
                 )
                 fresh_robot_contacts = [
                     event
-                    for event in probe_contacts["events"]
+                    for contact_record in (
+                        first_probe_contacts,
+                        second_probe_contacts,
+                    )
+                    for event in contact_record["events"]
                     if event.get("other", {}).get("classification") == "robot"
                 ]
                 _require(
@@ -577,7 +593,13 @@ def evaluate(
                     and fresh_displacement <= PAPER_CAR_THRESHOLD_M,
                     "fresh selected field rollout is unsafe",
                 )
-                field_transition = fresh_two["steps"][0]
+                field_transition = {
+                    "state_vector": verified_first["next_state_vector"],
+                    "clearances_m": verified_first["next_h_opt_m"],
+                    "raw_protected_contact": verified_first[
+                        "raw_protected_contact"
+                    ],
+                }
                 # The post-hoc field changes only the physical command.  The
                 # released AEGIS virtual direction still advances according
                 # to its archived nominal action-185 QP, exactly as it would

@@ -52,7 +52,7 @@ mkdir "$RUN_ROOT" || die "immutable arm run root exists"
 SERVER_LOG=$RUN_ROOT/pi05-libero-server.log
 FAILURE_PATH=$RUN_ROOT/runtime-failure.json
 slurm_numeric_id=${SLURM_JOB_ID%%_*}
-POLICY_PORT=$((20000 + 10#$slurm_numeric_id % 30000))
+POLICY_PORT=$((20000 + (10#$slurm_numeric_id + 97 * 10#$array_index) % 30000))
 SERVER_PID=
 cleanup() {
   exit_code=$?
