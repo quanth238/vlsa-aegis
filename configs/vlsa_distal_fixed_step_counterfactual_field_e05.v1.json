@@ -1,0 +1,58 @@
+{
+  "action_space": {
+    "action_limit": 1.0,
+    "corrected_dimensions": [0, 1, 2],
+    "corrected_horizon": 5,
+    "endpoint_preservation": false,
+    "maximum_total_correction_l2_action": 1.0
+  },
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_archived_e05_state_avoidance_only_oracle_test_of_iteratively_recomputed_long_horizon_counterfactual_action_field_not_task_preservation_not_mlp_not_qp_not_flow_guidance_not_closed_loop_not_population_generalization_not_formal_safety",
+  "comparators": {
+    "fixed_initial_direction_same_step_schedule": true,
+    "prior_derivative_free_radius_action": 1.0,
+    "prior_iterative_analytical_radius_action": 1.0
+  },
+  "field_estimation": {
+    "direction_seed": 26081221,
+    "fixed_normalized_step_action": 0.1,
+    "maximum_iterations": 10,
+    "paired_direction_count_per_iteration": 32,
+    "paired_perturbation_action": 0.05,
+    "ridge": 1e-06
+  },
+  "gate": {
+    "minimum_exact_clearance_m": 0.0,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0
+  },
+  "prior_iterative_result": {
+    "result_payload_sha256": "c4af050c1997e76efa9d8886a8f17c6e23ba03b064e3be8fed7a86e7ae1cef96",
+    "run_id": "it-risk-e05-20260812a",
+    "source_commit": "dd8cf17ae63ac20e414a30a5a84a469c23aceafa"
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "optimizer_clearance_m": 0.0,
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-fixed-step-counterfactual-field-e05-v1",
+  "reference_continuation": {
+    "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff",
+    "run_id": "five-detour-e05-20260812b",
+    "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f",
+    "use_executed_action_steps": [182, 201]
+  },
+  "risk": {
+    "definition": "maximum_over_link_and_action_of_negative_ellipsoid_margin",
+    "evaluation_horizon_actions": 20,
+    "positive_part_disabled": true,
+    "task_penalty_excluded": true
+  },
+  "state_protocol": {
+    "archived_prefix_last_step": 181,
+    "corrected_action_steps": [182, 183, 184, 185, 186],
+    "fixed_evaluation_steps": [182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201],
+    "known_reference_collision_step": 197
+  }
+}

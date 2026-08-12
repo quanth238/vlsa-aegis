@@ -1,5 +1,33 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Fixed-step long-horizon avoidance field gate (preregistered, 2026-08-12)
+
+The active E05 mechanism test now isolates whether the paired-rollout action
+field itself can find the safe five-action detour already demonstrated by the
+relaxed analytical and derivative-free oracles. It replays the same immutable
+state at action 182 and evaluates every corrected five-action prefix through
+the same fixed continuation to action 201, including the known action-197 L5
+contact. The risk target is only `V_H=-min h` over seven L5--L7 slab rows and
+twenty actions. Task penalties, endpoint preservation, attraction, QP, MLP,
+flow guidance, and closed-loop execution are excluded.
+
+At every iteration, 32 paired `+0.05/-0.05` cloned-OSC rollouts estimate a new
+15-dimensional XYZ clearance direction. The method must take one full
+normalized `0.1` action-space step without line search or backtracking, then
+re-estimate at the new center. It stops only after exact positive clearance
+with zero protected contact and paper-CAR pass, after ten registered steps, or
+when a full step violates physical action bounds. A matched comparator follows
+the first estimated direction under the identical step schedule. Previously
+validated radius-1 analytical and derivative-free safe candidates supply the
+shared-budget feasibility ceiling without new simulator search.
+
+The gate passes only if recomputation reaches verified safety within the same
+radius-1 budget and improves on the fixed initial direction. If known safe
+baselines remain positive but this field stays unsafe, the single-gradient
+representation is rejected and no field MLP is authorized. A pass authorizes
+only the next live-VLA rejoining test; it is not task-completion, learned,
+population, or formal-safety evidence.
+
 ## Receding five-action exact-oracle gate (preregistered, 2026-08-12)
 
 The active E05 gate now repeats the validated five-action task-rejoining

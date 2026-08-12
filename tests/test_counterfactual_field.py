@@ -18,6 +18,10 @@ from main.multilink_ellipsoid.iterative_counterfactual_risk import (
     fit_safety_direction,
     load_iterative_risk_config,
 )
+from main.multilink_ellipsoid.fixed_step_counterfactual import (
+    fixed_step_update,
+    load_fixed_step_config,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +37,10 @@ class CounterfactualFieldTest(unittest.TestCase):
             ROOT / "configs/vlsa_distal_iterative_counterfactual_risk_e05.v1.json"
         )
         self.assertEqual(iterative["action_space"]["total_trust_radii_action"][-1], 1.0)
+        fixed = load_fixed_step_config(
+            ROOT / "configs/vlsa_distal_fixed_step_counterfactual_field_e05.v1.json"
+        )
+        self.assertEqual(fixed["field_estimation"]["fixed_normalized_step_action"], 0.1)
 
     def test_config_rejects_protocol_drift(self):
         path = ROOT / "configs/vlsa_distal_counterfactual_field_e05.v1.json"
@@ -112,6 +120,16 @@ class CounterfactualFieldTest(unittest.TestCase):
                 nominal, correction, radius=0.1, action_limit=1.0, preserve_endpoint=True
             )
         )
+
+    def test_fixed_step_is_full_norm_and_never_silently_clips(self):
+        direction = np.zeros(15, dtype=np.float64)
+        direction[0] = 1.0
+        first = fixed_step_update(np.zeros(15), direction, step=0.1, maximum_norm=1.0)
+        self.assertAlmostEqual(float(np.linalg.norm(first)), 0.1)
+        with self.assertRaisesRegex(ValueError, "budget exceeded"):
+            fixed_step_update(0.95 * direction, direction, step=0.1, maximum_norm=1.0)
+        with self.assertRaisesRegex(ValueError, "unit norm"):
+            fixed_step_update(np.zeros(15), 2.0 * direction, step=0.1, maximum_norm=1.0)
 
 
 if __name__ == "__main__":

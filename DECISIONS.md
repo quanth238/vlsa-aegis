@@ -1,5 +1,30 @@
 # Reproduction decisions
 
+## ADR-0075: Test the long-horizon field without task preservation
+
+Accepted before release. Job `38955` already proved that collision-free
+five-action corrections exist once endpoint preservation is removed, but its
+learned field used exact backtracking and stopped after local witness
+switching. This did not answer the narrower avoidance question requested here:
+whether repeatedly recomputing the pure long-horizon field and taking small
+fixed steps can reach an already-known safe detour.
+
+Freeze an avoidance-only arm at E05 action 182. Re-estimate the field from 32
+paired cloned-OSC outcomes at every center, take exactly one normalized `0.1`
+step, and evaluate the complete twenty-action continuation containing the
+action-197 contact. Do not impose endpoint equality or use task attraction,
+task penalties, QP, MLP, or flow injection. Compare against repeatedly using
+the initial field direction and retain the existing radius-1 analytical and
+derivative-free oracles as no-learning safe-support controls.
+
+Terminal EEF displacement is reported but is not part of this avoidance gate.
+Passing requires positive exact L5--L7 clearance, zero protected contact,
+paper CAR, radius at most one, and superiority to the fixed initial direction.
+If the field fails while the controls remain safe, reject this single-gradient
+correction representation before training. If it passes, the next independent
+question is whether live frozen-VLA replanning can recover the task after the
+temporary detour.
+
 ## ADR-0073: Execute one action from every verified five-action window
 
 Accepted as the decisive follow-up to `38881`. Recompute a fresh five-action
