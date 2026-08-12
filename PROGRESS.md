@@ -1,5 +1,14 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Field-recovery executable gate apparatus retry (2026-08-12)
+
+H100 array `38848` was canceled after exact inspection when the first completed
+arm exposed an apparatus error: the generic one-step SITL activation modified
+archived action 184, so the registered action-185 field oracle never ran. Its
+partial/result artifacts are retained as non-scientific apparatus evidence.
+The retry passes released AEGIS actions 0--184 byte-for-byte and activates only
+at the archived pre-action-185 state.
+
 ## Barrier-free EmbodiSteer baseline fidelity pilot (preregistered, 2026-08-08)
 
 Before reconsidering any L5/L6 geometry or collision guidance, the active

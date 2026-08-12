@@ -1,5 +1,13 @@
 # Reproduction decisions
 
+## ADR-0069: Bind executable field recovery to archived action 185
+
+Accepted. Do not interpret array `38848` scientifically. The executable
+field-recovery comparison is bound to the exact archived pre-action-185 state;
+the ordinary one-step candidate filter is therefore disabled for actions
+0--184, which execute byte-for-byte from the immutable successful released
+AEGIS artifact. This is a protocol correction, not a safety result.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The

@@ -487,7 +487,63 @@ def evaluate(
                     reference_observation["robot0_eef_pos"], dtype=np.float64
                 )
             field_transition = None
-            if field_enabled and index == 185 and not recovery_active:
+            if field_enabled and index < 185:
+                # Preserve the successful released-AEGIS prefix byte for byte.
+                # The field experiment is registered to begin at the archived
+                # pre-action-185 state; the generic one-step filter must not
+                # intervene earlier merely because its activation buffer is
+                # crossed at action 184.
+                prefix_clone = controller.probe.transition(env, nominal)
+                executed = nominal.tolist()
+                field_transition = {
+                    "state_vector": prefix_clone["next_state_vector"],
+                    "clearances_m": prefix_clone["next_h_opt_m"],
+                    "raw_protected_contact": prefix_clone[
+                        "raw_protected_contact"
+                    ],
+                }
+                filter_step = {
+                    "schema_version": "vlsa_distal_field_recovery_step_e05.v1",
+                    "step": int(index),
+                    "constraint_count": 8,
+                    "nominal_released_aegis_action": nominal.tolist(),
+                    "nominal_next_clearance_m": list(prefix_clone["next_h_opt_m"]),
+                    "nominal_safe": True,
+                    "nominal_preferred": True,
+                    "nominal_raw_protected_contact": prefix_clone[
+                        "raw_protected_contact"
+                    ],
+                    "activation": False,
+                    "finite_difference": {"used": False, "probe_count": 0},
+                    "qp": {"used": False, "diagnostics": None},
+                    "verification": {
+                        "accepted": True,
+                        "accepted_source": "immutable_archived_aegis_prefix",
+                        "attempts": [
+                            {
+                                "raw_protected_contact": prefix_clone[
+                                    "raw_protected_contact"
+                                ]
+                            }
+                        ],
+                        "first_step_nominal_repeatability": None,
+                        "main_env_post_step_checked": False,
+                        "main_vs_probe_next_state_max_abs_error": None,
+                        "main_vs_probe_next_clearance_max_abs_error_m": None,
+                    },
+                    "executed_action": executed,
+                    "modified": False,
+                    "correction_l2": 0.0,
+                    "timing": {
+                        "candidate_env_step_wall_seconds": float(
+                            prefix_clone["env_step_wall_seconds"]
+                        ),
+                        "total_filter_wall_seconds": float(
+                            prefix_clone["env_step_wall_seconds"]
+                        ),
+                    },
+                }
+            elif field_enabled and index == 185 and not recovery_active:
                 _require(field_config is not None, "field configuration is unavailable")
                 nominal_second = np.asarray(
                     _json_action(archived_actions[186], 186), dtype=np.float64
