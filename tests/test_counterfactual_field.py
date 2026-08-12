@@ -22,6 +22,12 @@ from main.multilink_ellipsoid.fixed_step_counterfactual import (
     fixed_step_update,
     load_fixed_step_config,
 )
+from main.multilink_ellipsoid.multi_witness_counterfactual import (
+    fit_clearance_rows,
+    load_multi_witness_config,
+    select_near_active_witnesses,
+    smooth_min_direction,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +47,10 @@ class CounterfactualFieldTest(unittest.TestCase):
             ROOT / "configs/vlsa_distal_fixed_step_counterfactual_field_e05.v1.json"
         )
         self.assertEqual(fixed["field_estimation"]["fixed_normalized_step_action"], 0.1)
+        multi = load_multi_witness_config(
+            ROOT / "configs/vlsa_distal_multi_witness_counterfactual_e05.v1.json"
+        )
+        self.assertEqual(multi["multi_witness"]["maximum_witness_count"], 8)
 
     def test_config_rejects_protocol_drift(self):
         path = ROOT / "configs/vlsa_distal_counterfactual_field_e05.v1.json"
@@ -130,6 +140,31 @@ class CounterfactualFieldTest(unittest.TestCase):
             fixed_step_update(0.95 * direction, direction, step=0.1, maximum_norm=1.0)
         with self.assertRaisesRegex(ValueError, "unit norm"):
             fixed_step_update(np.zeros(15), 2.0 * direction, step=0.1, maximum_norm=1.0)
+
+    def test_multi_witness_rows_remain_separate_and_fit_gradients(self):
+        trace = np.ones((20, 7), dtype=np.float64)
+        trace[19, 1] = -0.014
+        trace[15, 1] = -0.0138
+        trace[14, 3] = -0.0135
+        witnesses = select_near_active_witnesses(trace, maximum_count=8, threshold_m=0.005)
+        self.assertEqual(witnesses[0]["action_offset"], 19)
+        self.assertEqual(witnesses[0]["ellipsoid_row"], 1)
+        self.assertGreaterEqual(len(witnesses), 3)
+
+        rng = np.random.RandomState(31)
+        directions = rng.normal(size=(32, 15))
+        directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+        truth = rng.normal(size=(20 * 7, 15))
+        target = directions.dot(truth.T)
+        plus = (0.05 * target).reshape(32, 20, 7)
+        minus = (-0.05 * target).reshape(32, 20, 7)
+        fit = fit_clearance_rows(directions, plus, minus, 0.05, 1e-9)
+        prediction = directions.dot(fit["gradients"].T)
+        self.assertLess(float(np.sqrt(np.mean((prediction - target) ** 2))), 1e-5)
+
+        smooth = smooth_min_direction(trace, fit["gradients"], 0.002)
+        self.assertAlmostEqual(float(np.sum(smooth["weights"])), 1.0)
+        self.assertGreater(float(smooth["weights"][19 * 7 + 1]), 0.1)
 
 
 if __name__ == "__main__":

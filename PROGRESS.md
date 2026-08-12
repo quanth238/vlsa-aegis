@@ -1,5 +1,39 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Multi-witness counterfactual field gate (preregistered, 2026-08-12)
+
+The next avoidance-only test keeps the same immutable E05 action-182 state,
+five corrected XYZ actions, and twenty-action outcome through the known
+action-197 collision. It addresses the fixed-step result's identified failure:
+the hard worst link/time witness switched on every paired probe, so one
+collapsed gradient zigzagged despite known radius-1 safe support.
+
+Every arm now estimates separate counterfactual action sensitivities for all
+140 `(future action offset, L5--L7 slab row)` clearances from 32 paired
+`+0.05/-0.05` cloned-OSC rollouts at each visited center. The comparison is:
+
+1. the single currently worst clearance row;
+2. a `2 mm`-temperature smooth minimum across all rows;
+3. a coordinated epigraph solve over at most eight rows within `5 mm` of the
+   worst witness; and
+4. the immutable radius-1 derivative-free safe result from job `38955`.
+
+The coordinated arm minimizes the maximum linearized violation plus a small
+quadratic action penalty under a `0.1` local trust radius, normalized action
+bounds, total correction L2 at most `1.0`, and total accepted path length at
+most `1.0`. Every arm uses the same three exact line-search fractions, accepts
+only an exact twenty-action hard-margin improvement, and recomputes at every
+accepted center. Task penalties, endpoint preservation, attraction, MLP, flow
+guidance, and closed-loop execution remain excluded.
+
+The multi-witness gate requires positive exact L5--L7 clearance, zero raw
+protected contact, paper CAR, the shared path budget, and a better hard margin
+than the single-witness arm. Failure while the derivative-free control remains
+safe rejects local multi-witness linearization for this detour and points to
+nonlocal/multimodal candidate planning. Passing authorizes only later learning
+of separate link/time-conditioned rows; it does not authorize an MLP that
+outputs one collapsed vector.
+
 ## Fixed-step long-horizon avoidance field gate (preregistered, 2026-08-12)
 
 The active E05 mechanism test now isolates whether the paired-rollout action

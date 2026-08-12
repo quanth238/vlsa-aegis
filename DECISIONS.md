@@ -1,5 +1,27 @@
 # Reproduction decisions
 
+## ADR-0077: Preserve link/time witnesses in the next oracle
+
+Accepted before release. The fixed-step field failure does not justify another
+scalar loss or a larger MLP. Its direct evidence is active-witness switching:
+the hard minimum has no unique gradient at the observed boundary. Preserve the
+identity and fitted action sensitivity of each future link/time clearance row.
+
+Compare a current-worst row, a smooth minimum, and an explicit multi-witness
+epigraph under matched paired-rollout, trust-region, exact line-search, path,
+and correction budgets. In clearance notation, the epigraph constraints are
+equivalently `-h_j-g_j^T delta <= t`; this avoids reversing the feedback's
+risk-space inequality. Select at most eight rows within 5 mm of the worst
+clearance, retaining deterministic `(action offset, ellipsoid row)` identity.
+
+Use exact cloned OSC only for counterfactual row labels and fresh acceptance.
+Do not impose task or endpoint terms in this avoidance gate. If the coordinated
+rows recover the known safe detour and beat the single row, the result supports
+learning `G_theta(x,A,j)` rather than one 15D vector. If they fail while the
+fixed derivative-free control is safe, the local convex representation is
+still insufficient and the next method must represent alternative nonlocal
+detours rather than add learning.
+
 ## ADR-0075: Test the long-horizon field without task preservation
 
 Accepted before release. Job `38955` already proved that collision-free
