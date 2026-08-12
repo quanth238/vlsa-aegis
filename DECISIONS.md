@@ -3223,3 +3223,42 @@ matched-random correction, flow guidance, calibration, QP, or closed loop.
 Neither current learned execution model clears the prerequisite for control.
 Full report:
 `docs/distal_factorized_recurrent_nominal_residual_moka10_result.md`.
+
+# ADR-0126: Gate controller-conditioned link-motion gradients before guidance
+
+**Status:** Accepted for preregistered H100 mechanism test (2026-08-12).
+
+Job `38702` shows that better trajectory RMSE does not imply a useful action
+response. Reframe the immediate question: can a learned execution model
+predict how a small Cartesian chunk change moves the protected L5--L7
+geometry, and does that direction increase exact executed clearance more than
+an otherwise matched trajectory-only model and random directions?
+
+Use a deterministic, non-simulator nominal joint rollout based on the live
+OSC action scale and a damped end-effector Jacobian. Predict one direct,
+nonrecursive residual trajectory over that nominal. Train matched
+trajectory-only and trajectory-plus-link-JVP arms from the same initialization
+and with the same ordinary joint and symmetric safety-normal losses. The only
+changed term is a train-RMS-normalized paired link-center response loss. This
+is the exact finite-difference quantity
+`(P(A+epsilon v)-P(A-epsilon v))/(2 epsilon)`, evaluated for both actions'
+translation and rotation coordinates. Gripper remains an input but is not a
+steering coordinate.
+
+Validate the fixed local MuJoCo center Jacobian before using it in training.
+Then form one action-space direction from a frozen soft minimum over all 51
+substeps and seven ellipsoid rows. Gate actual first-order exact-OSC clearance
+gain, not joint RMSE alone. The fitted validation requirements are cosine
+`>=0.8`, wrong-direction rate `<=0.05`, matched-random mean rank p `<=0.05`,
+median gain at least `0.1 mm/unit-action` beyond trajectory-only, and joint
+RMSE no worse than `1.1x` trajectory-only. The frozen normalized-secant model
+and deterministic kinematic nominal are contextual baselines.
+
+This first test is direction-only. False-safe classification remains reported
+but does not determine this gate; conversely, a direction pass is not a safety
+claim. Only a fitted pass may open newly reserved episode groups for actual
+cloned-OSC perturbation rollouts against exact finite-difference, kinematic,
+trajectory-only, and matched-random directions. Flow guidance, calibration,
+QP, closed loop, Poisson/SDF, and classifiers remain forbidden until that
+later exact-rollout gate. Config SHA-256 is
+`6f0a6306fbf56a78e5ec01c3df0cf729640b34ff5436a3f3817d1906e5b3ca8a`.

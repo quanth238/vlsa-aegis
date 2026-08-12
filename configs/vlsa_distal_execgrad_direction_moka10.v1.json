@@ -1,0 +1,119 @@
+{
+  "schema_version": "vlsa_distal_execgrad_direction_config.v1",
+  "protocol_id": "vlsa-distal-execgrad-direction-moka10-v1",
+  "claim_scope": "matched_existing_episode_direction_mechanism_gate_for_controller_conditioned_link_motion_JVP_before_new_episode_or_control_evaluation",
+  "immutable_source": {
+    "complete_dataset_file_sha256": "585f696eedef9bd9a4c9d0ba576d6d86e5660638696862ec2d5d1af434fb426b",
+    "complete_collection_file_sha256": "bd85f3175c790a153833a7c903a4e119c71f771271b2ecb92cc1c579269ce966",
+    "trajectory_array_file_sha256": "b613ef57c778fd55ec78b1df223457e9a7a7c48026d3fc2df439248306b2ece8",
+    "trajectory_metadata_file_sha256": "cc2f4200504cb78b23a125373af2fd5c8ecaf46f014656bb061acd319c262063",
+    "trajectory_collection_file_sha256": "cee9b789aa0010737ad02399661ecbef14fc176fa032bd1f2f84d1071e504217",
+    "normalized_direct_model_file_sha256": "60791198b705cd36bc6ad7765d72089483f62fa68a7873c02d99d6e77ef90d2b",
+    "normalized_direct_predictions_file_sha256": "1a5da8391be988980c4078e09dd943db85fadaa97a56ba5a5f8aa6b5d9571c29",
+    "normalized_direct_result_file_sha256": "265e2a16d5dfd49877d48b8eab9961f4fa9b65d3680a9d8c9a1279fcf3abf868",
+    "normalized_direct_validation_file_sha256": "5661919f60f8f250a7afa8939feeeeedc217780e95fe08c8b72397cf4a4b8312",
+    "future_untouched_manifest_file_sha256": "031971110c59aacf582c9d4dae51216c6f12d605a9a0f97a2fa22b677a1a663b",
+    "archived_table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a"
+  },
+  "population": {
+    "existing_state_count": 85,
+    "candidate_count_per_state": 93,
+    "existing_action_count": 7905,
+    "training_episode_count": 12,
+    "validation_episode_count": 2,
+    "old_diagnostic_episode_count": 3,
+    "central_pair_count_per_state": 14,
+    "pose_pair_count_per_state": 12,
+    "fitted_gate_uses_train_and_validation_only": true,
+    "E05_E10_E15_are_diagnostic_only": true,
+    "new_episode_opening_is_conditional": true
+  },
+  "nominal_rollout": {
+    "method": "two_segment_damped_resolved_rate_endpoint_interpolation",
+    "controller_action_scaling": "authoritative_OSC_scale_action",
+    "substeps_per_action": 25,
+    "damping": 0.05,
+    "maximum_absolute_joint_delta_per_segment_rad": 0.35,
+    "gripper_changes_arm_nominal": false,
+    "no_cloned_OSC_or_future_q_used": true,
+    "validation": {
+      "require_deterministic_repeat": true,
+      "require_finite_in_bounds_q": true,
+      "record_scaled_pose_basis": true,
+      "maximum_center_JVP_linearization_RMSE_m_per_action": 0.001,
+      "minimum_center_JVP_cosine": 0.95
+    }
+  },
+  "architecture": {
+    "input_representation": "structured_complete_OSC_state_and_full_two_action_chunk",
+    "state_action_encoder_widths": [256, 256],
+    "time_decoder_width": 192,
+    "activation": "silu",
+    "trace_state_count": 51,
+    "joint_dimension": 7,
+    "time_encoding_dimension": 9,
+    "nominal_input_dimension": 7,
+    "output": "direct_nonrecursive_residual_over_deterministic_kinematic_nominal_q",
+    "exact_initial_condition": "qhat_0_equals_q0_architecturally"
+  },
+  "training": {
+    "device": "cpu_inside_H100_allocation_due_to_pinned_PyTorch_missing_sm90_kernels",
+    "seed": 20260881,
+    "batch_size": 512,
+    "epochs": 300,
+    "patience": 40,
+    "learning_rate": 0.001,
+    "weight_decay": 0.000001,
+    "joint_huber_delta_rad": 0.002,
+    "joint_trajectory_loss_weight": 1.0,
+    "symmetric_safety_normal_loss_weight": 10.0,
+    "geometry_huber_delta_m": 0.002,
+    "near_boundary_absolute_margin_m": 0.005,
+    "near_boundary_weight_multiplier": 5.0,
+    "execgrad_link_center_JVP_loss_weight": 1.0,
+    "JVP_scale": "training_only_RMS_L2_link_center_response_by_pose_coordinate_and_horizon",
+    "JVP_minimum_RMS_m_per_action": 0.000001,
+    "JVP_weight_relative_clip": [0.001, 1000.0],
+    "steering_action_dimensions": [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12],
+    "gripper_dimensions_are_inputs_but_not_steering_targets": [6, 13],
+    "matched_arms": ["trajectory_only", "trajectory_plus_link_JVP"],
+    "same_initialization_optimizer_data_and_checkpoint_metric": true,
+    "checkpoint_metric": "validation_joint_RMSE_plus_0.1_validation_normalized_link_JVP_RMSE"
+  },
+  "direction_score": {
+    "score": "soft_min_over_51_by_7_ellipsoid_support_gaps",
+    "soft_min_temperature_m": 0.001,
+    "gradient": "central_secant_over_registered_pose_coordinate_pairs",
+    "zero_exact_gradient_norm_threshold_m_per_action": 0.000001,
+    "matched_random_direction_count_per_state": 256,
+    "random_seed": 20260882,
+    "action_norm": "unit_L2_in_normalized_pose_action_coordinates",
+    "old_E05_E10_E15_are_diagnostic_not_final_generalization": true
+  },
+  "fitted_direction_gate": {
+    "minimum_validation_mean_cosine": 0.8,
+    "maximum_validation_wrong_direction_rate": 0.05,
+    "maximum_validation_mean_random_rank_p": 0.05,
+    "minimum_median_gain_improvement_over_trajectory_only_m_per_unit_action": 0.0001,
+    "maximum_validation_joint_RMSE_ratio_to_trajectory_only": 1.1,
+    "failure_stops_before_new_episode_opening": true
+  },
+  "conditional_next_stage": {
+    "new_episode_group_count": 5,
+    "fresh_exact_OSC_step_sizes_normalized_action_L2": [0.05, 0.1, 0.2],
+    "comparators": ["exact_finite_difference", "ExecGrad", "kinematic_nominal", "trajectory_only", "matched_random"],
+    "primary_metric": "fresh_exact_OSC_soft_clearance_gain",
+    "secondary_metrics": ["hard_minimum_clearance_gain", "wrong_direction_rate", "raw_contact"],
+    "flow_guidance_is_later_and_separate": true
+  },
+  "forbidden_before_direction_pass": {
+    "new_unseen_episode_opening": true,
+    "fresh_cloned_OSC_direction_rollouts": true,
+    "flow_guidance": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "poisson_or_SDF": true,
+    "binary_classifier": true
+  }
+}

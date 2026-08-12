@@ -4552,3 +4552,29 @@ did not run. Model/prediction/result/validation SHA-256 values are
 and `0fe6c7ab957df4f3c2e6fc54fa7fb40baea5ea8df565d3ce2db383de379209d9`.
 Full report:
 `docs/distal_factorized_recurrent_nominal_residual_moka10_result.md`.
+
+The direction-first ExecGrad mechanism experiment is now preregistered before
+H100 execution. It changes the scientific target from absolute joint or
+minimum-margin prediction to the local action-to-physical-link response. A
+deterministic two-segment damped resolved-rate rollout supplies `Q_nom` using
+the authoritative OSC action scale but no cloned controller rollout or future
+joint label. Two matched direct-horizon residual models share the same input,
+architecture, initialization, optimizer, joint loss, symmetric safety-normal
+loss, data, and checkpoint score; only one receives a normalized L5--L7
+ellipsoid-center JVP loss computed from exact paired `A+/-epsilon v` OSC
+rollouts. Gripper coordinates remain complete model inputs but are excluded
+from steering because their arm secants are physically zero/noisy.
+
+Before training, MuJoCo point Jacobians must reproduce the exact paired link
+center response on validation episodes with cosine at least `0.95` and scalar
+RMSE at most `1 mm/action`, and `Q_nom` must repeat exactly. The fitted
+direction gate then uses a `1 mm` soft minimum over all `51x7` support gaps.
+It requires validation cosine at least `0.8`, wrong-direction rate at most
+`5%`, mean matched-random rank p-value at most `0.05`, at least
+`0.1 mm/unit-action` median gain beyond the trajectory-only arm, and no more
+than `10%` joint-RMSE regression. Absolute false-safes are diagnostic at this
+direction gate, not silently redefined as success. The old E05/E10/E15 groups
+remain diagnostics; future task-3 episodes and fresh cloned-OSC direction
+rollouts open only after a fitted pass. Flow guidance, calibration, QP,
+closed loop, Poisson/SDF, and classifiers remain blocked. Config SHA-256 is
+`6f0a6306fbf56a78e5ec01c3df0cf729640b34ff5436a3f3817d1906e5b3ca8a`.
