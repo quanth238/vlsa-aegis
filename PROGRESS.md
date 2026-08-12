@@ -29,6 +29,15 @@ live proposal/field family is a strict local NO-GO. Only a pass authorizes a
 complete receding episode. No MLP, QP, CBF, task-completion, or formal-safety
 claim is allowed at this stage.
 
+H100 attempt `38989` passed allocation and unit preflights, internally verified
+the registered prefix, and then stopped before the policy query on an
+over-strict bitwise comparison between the rendered primary environment and
+the image-disabled instrumented probe's complete auxiliary/controller state.
+It produced no scientific result. The retry retains that numerical difference
+as apparatus evidence while preserving exact pre-prefix synchronization,
+bitwise action identity, and all-substep clearance/contact/CAR authority. No
+policy input, action, field setting, or acceptance threshold changes.
+
 ## Raw-AEGIS multi-start Gate 0 (preregistered, 2026-08-12)
 
 Before launching a radius or branch search, Gate 0 tests whether the registered

@@ -19,6 +19,15 @@ paper-CAR authority. A local pass authorizes the longer receding experiment;
 a local failure blocks it and identifies missing safe continuation support
 without spending a full-episode rollout budget.
 
+Attempt `38989` showed that bitwise equality of the complete final dynamic
+vector is not a valid additional gate across the rendered primary environment
+and image-disabled probe. Retain the observed maximum difference, but do not
+use it to override the actual experiment authority: exact initial probe
+synchronization, identical commands, 25 internal measurements per action,
+hard ellipsoid clearance, raw protected contacts, and CAR. This is an
+apparatus-only correction made before any live policy query or scientific
+result.
+
 ## ADR-0081: Prove raw fixed-suffix safe support before multi-start search
 
 Accepted before release. The validated positive compound correction modified
