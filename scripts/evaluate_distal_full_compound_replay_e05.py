@@ -54,6 +54,7 @@ def evaluate(
     experiment_config_path: Path,
     expected_commit: str,
     output_path: Path,
+    correction_scale: float = 1.0,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -88,6 +89,12 @@ def evaluate(
 
     started = time.perf_counter_ns()
     config = json.loads(experiment_config_path.read_text())
+    _require(float(correction_scale) > 0.0, "correction scale must be positive")
+    registered_scales = [1.0] + [
+        float(value)
+        for value in config["compound_definition"]["registered_correction_scale_sweep"]
+    ]
+    _require(float(correction_scale) in registered_scales, "correction scale is not registered")
     registered = config["registered_inputs"]
     detour = _validate_registered(
         detour_path,
@@ -163,9 +170,10 @@ def evaluate(
         actions = _result_actions(detour, 0, expected_count - 1)
         archived_prefix = _archived_actions(archived, 0, 181)
         _require(np.array_equal(actions[:182], archived_prefix), "detour prefix differs from Table 1")
-        correction = np.asarray(
+        registered_correction = np.asarray(
             smooth["arms"]["smooth_max"]["best"]["correction"], dtype=np.float64
         ).reshape(5, 3)
+        correction = float(correction_scale) * registered_correction
         base_actions = actions.copy()
         actions[182:187, :3] += correction
         limit = float(config["compound_definition"]["action_limit"])
@@ -317,6 +325,8 @@ def evaluate(
             },
             "compound": {
                 "base_action_count": int(base_actions.shape[0]),
+                "correction_scale": float(correction_scale),
+                "registered_correction": registered_correction.tolist(),
                 "correction": correction.tolist(),
                 "correction_l2_action": float(np.linalg.norm(correction)),
                 "clipped_coordinate_count": 0,
@@ -373,6 +383,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--experiment-config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--correction-scale", type=float, default=1.0)
     args = parser.parse_args(argv)
     value = evaluate(
         repo_root=args.repo_root.resolve(),
@@ -384,6 +395,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         experiment_config_path=args.experiment_config.resolve(),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
+        correction_scale=args.correction_scale,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps({"status": value["status"], "primary_problem_solved": value["primary_problem_solved"], "result_payload_sha256": value["result_payload_sha256"]}, sort_keys=True), flush=True)
