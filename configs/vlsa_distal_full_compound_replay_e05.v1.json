@@ -22,7 +22,7 @@
     "correction_coordinates": "normalized_cartesian_translation_scale_only",
     "action_limit": 1.0,
     "expected_action_count": 284,
-    "registered_correction_scale_sweep": [1.05, 1.1, 1.2, 1.3]
+    "registered_correction_scale_sweep": [0.98, 0.99, 1.01, 1.02, 1.05, 1.1, 1.2, 1.3]
   },
   "internal_verification": {
     "expected_mujoco_substeps_per_action": 25,
