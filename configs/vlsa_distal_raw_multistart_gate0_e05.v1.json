@@ -1,0 +1,96 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_archived_e05_gate0_positive_control_binding_for_conditional_raw_fixed_suffix_multistart_oracle_not_search_not_closed_loop_not_task_completion_not_learning_not_cbf_not_formal_safety",
+  "controls": {
+    "arms": [
+      "raw_aegis",
+      "full_compound_trajectory",
+      "transplanted_compound_prefix_raw_suffix"
+    ],
+    "compound_definition": "earlier_detour_actions_182_201_plus_registered_smooth_xyz_correction_on_actions_182_186",
+    "transplant_definition": "full_compound_actions_182_186_plus_immutable_raw_aegis_actions_187_201"
+  },
+  "gate": {
+    "internal_substep_clearance_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0
+  },
+  "internal_verification": {
+    "expected_mujoco_substeps_per_action": 25,
+    "include_initial_state": true,
+    "measurement": "all_mujoco_model_steps_and_initial_state",
+    "ordinary_env_step_boundary_equivalence_tolerance": 1e-12
+  },
+  "normalization_contract": {
+    "action_limit": 1.0,
+    "displacement_conversion": "scale_only_no_normalization_mean_subtraction",
+    "record_clipping": true
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "optimizer_clearance_m": 0.0,
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-raw-multistart-gate0-e05-v1",
+  "registered_inputs": {
+    "attribution_result": {
+      "result_payload_sha256": "54469ee5dcd5ac8263df5a0cbaf833fb028d17ef8f0587ee501d0b4959865f55",
+      "run_id": "smooth-attr-e05-20260812a",
+      "source_commit": "7d617fa801cad4684a386e4dd92c34dca04e516d"
+    },
+    "detour_result": {
+      "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff",
+      "run_id": "five-detour-e05-20260812b",
+      "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f"
+    },
+    "smooth_result": {
+      "result_payload_sha256": "eb7bc1d97c6821b9fc66b15380383eb56917712d45af25613a7c1ea4ef3f0d77",
+      "run_id": "mw-field-e05-20260812b",
+      "source_commit": "325e285d594acc7f15dbec1eee39416466784703"
+    }
+  },
+  "search_authorization": {
+    "authorized_only_if": "full_compound_verified_safe_and_transplanted_prefix_verified_safe",
+    "conditional_radii_l2_bounds": [
+      1.0,
+      1.5,
+      2.0
+    ],
+    "otherwise": "stop_and_classify_fixed_suffix_support_or_binding_failure"
+  },
+  "state_protocol": {
+    "archived_prefix_last_step": 181,
+    "compound_prefix_steps": [
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "evaluation_steps": [
+      182,
+      183,
+      184,
+      185,
+      186,
+      187,
+      188,
+      189,
+      190,
+      191,
+      192,
+      193,
+      194,
+      195,
+      196,
+      197,
+      198,
+      199,
+      200,
+      201
+    ],
+    "raw_aegis_source": "immutable_table1_executed_actions"
+  }
+}

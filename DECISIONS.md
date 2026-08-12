@@ -1,5 +1,22 @@
 # Reproduction decisions
 
+## ADR-0081: Prove raw fixed-suffix safe support before multi-start search
+
+Accepted before release. The validated positive compound correction modified
+both the first five actions and the continuation after action 186. It is not a
+positive control for a search that changes only raw actions 182--186 while
+freezing raw actions 187--201. Run the two controls separately under identical
+pre-action-182 state binding and internal-substep authority.
+
+Only a safe transplanted compound prefix authorizes the planned radii
+`1.0/1.5/2.0`, derivative-free, structured temporal, and spatial-branch
+comparisons. If the full compound passes but the transplant fails, stop rather
+than interpreting search failure as bad optimization: the fixed raw suffix is
+the missing factor. If the full compound itself fails, first audit replay
+binding and transient internal collision. Treat every radius as an upper bound
+and retain matched-budget and matched-norm comparisons as separate later
+analyses.
+
 ## ADR-0080: Reject direct smooth-field attribution; retain it only as a compound repair
 
 Accepted after clean H100 producer `38974` and independent validator `38976`.

@@ -1,5 +1,31 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Raw-AEGIS multi-start Gate 0 (preregistered, 2026-08-12)
+
+Before launching a radius or branch search, Gate 0 tests whether the registered
+raw fixed-suffix problem actually contains the previously cited positive
+control. From the identical pre-action-182 state it compares: immutable raw
+AEGIS actions 182--201; the full earlier-detour-plus-smooth compound trajectory;
+and the compound actions 182--186 transplanted onto immutable raw AEGIS actions
+187--201. The transplant is defined by physical normalized-action displacement
+using scale only, never by subtracting a normalization mean. Requested and
+applied corrections, coordinate clipping, and bitwise prefix/suffix hashes are
+recorded.
+
+All three arms are measured at the initial state and after every one of 25
+MuJoCo model steps inside every OSC action. Acceptance requires at least 1 mm
+ellipsoid clearance, zero raw protected contact, and paper CAR at most 1 mm.
+The full compound may reveal either binding error or an action-boundary versus
+internal-substep transient if it fails this stricter authority.
+
+The radius/multi-start search is conditional. It is authorized only if raw
+AEGIS is unsafe, the full compound is safe, the transplanted prefix with raw
+suffix is also safe, no clipping occurred, and both action identities match
+bitwise. If only the full compound is safe, Gate 0 stops the experiment and
+classifies the five-action prefix as insufficient without an adaptive or
+modified continuation. No MLP, live VLA, QP, CBF, task-completion, or formal
+safety claim is allowed.
+
 ## Direct smooth-field attribution gate (preregistered, 2026-08-12)
 
 The next gate separates the successful smooth proposal from the earlier

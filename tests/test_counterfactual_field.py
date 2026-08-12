@@ -35,6 +35,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CounterfactualFieldTest(unittest.TestCase):
+    def test_raw_multistart_gate0_config_and_transplant_contract(self):
+        from main.multilink_ellipsoid.raw_multistart_gate0 import (
+            load_raw_multistart_gate0_config,
+            transplant_compound_prefix,
+        )
+
+        config = load_raw_multistart_gate0_config(
+            ROOT / "configs" / "vlsa_distal_raw_multistart_gate0_e05.v1.json"
+        )
+        self.assertEqual(
+            config["schema_version"], "vlsa_distal_raw_multistart_gate0_e05_config.v1"
+        )
+        raw = np.zeros((20, 7), dtype=np.float64)
+        raw[:5, :3] = 0.9
+        compound = raw.copy()
+        compound[:5, 0] = 1.2
+        result = transplant_compound_prefix(raw, compound, 1.0)
+        self.assertTrue(np.array_equal(result["actions"][5:], raw[5:]))
+        self.assertEqual(result["clipped_coordinate_count"], 5)
+        self.assertTrue(np.allclose(result["actions"][:5, 0], 1.0))
+        self.assertTrue(np.allclose(result["clipping_delta"][:, 0], -0.2))
+
     def test_smooth_field_attribution_config_and_scale_contract(self):
         from main.multilink_ellipsoid.smooth_field_attribution import (
             load_smooth_field_attribution_config,
