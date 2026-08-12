@@ -255,7 +255,20 @@ def _arm_directions(
         seed=seed + 1,
     )
     metadata: dict[str, Any] = {}
-    if arm_name == "unrestricted_six_dimensional_correction":
+    if arm_name == "fixed_analytical_softmin_repulsion":
+        # ``normal_mixture_directions`` always puts the deterministic
+        # soft-min weighted physical normal first.  Keeping just that row is
+        # the strongest non-learned analytical baseline: it may change
+        # magnitude through exact relinearization, but may not choose a new
+        # mixture or tangent direction.
+        directions = normals[:1]
+        metadata = {
+            "direction_definition": (
+                "normalized_transpose_clearance_jacobian_times_"
+                "seven_row_softmin_weights"
+            )
+        }
+    elif arm_name == "unrestricted_six_dimensional_correction":
         preferred = [rows.T.dot(np.ones(7)), task, rows.T.dot(np.ones(7)) + task]
         directions = unrestricted_directions(
             int(search["unrestricted_direction_count"]), seed + 2, preferred

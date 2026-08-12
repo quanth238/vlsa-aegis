@@ -47,6 +47,9 @@ def evaluate(
     output_path: Path,
     host: str = "127.0.0.1",
     port: int = 8000,
+    initial_field_arm: str | None = None,
+    field_config_path: Path | None = None,
+    replan_prefix_steps: int | None = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -86,6 +89,17 @@ def evaluate(
         load_sitl_candidate_config,
         summarize_sitl_steps,
     )
+    from main.multilink_ellipsoid.rollout import _dynamic_state_vector
+    from scripts.evaluate_distal_field_mixture_oracle_e05 import (
+        _local_basis as _field_local_basis,
+        _public_basis as _field_public_basis,
+        _public_rollout as _field_public_rollout,
+        _run_arm as _run_field_arm,
+    )
+    from scripts.evaluate_distal_repulsive_force_direction_e05 import (
+        TwoActionSlabProbe,
+        _json_action,
+    )
 
     started = time.perf_counter_ns()
     archived = _load(archived_path)
@@ -107,6 +121,24 @@ def evaluate(
     validate_case_row(case, repo_root)
     geometry_config = load_shadow_config(geometry_config_path)
     heuristic_config = load_sitl_candidate_config(heuristic_config_path)
+    field_config = None
+    field_enabled = initial_field_arm is not None
+    allowed_field_arms = {
+        "fixed_analytical_softmin_repulsion",
+        "nonnegative_normal_field_mixture",
+        "normal_plus_task_tangent_mixture",
+        "unrestricted_six_dimensional_correction",
+    }
+    if field_enabled:
+        from main.multilink_ellipsoid.field_oracle import load_field_oracle_config
+
+        _require(initial_field_arm in allowed_field_arms, "initial field arm differs")
+        _require(field_config_path is not None, "field config is required")
+        field_config = load_field_oracle_config(field_config_path)
+        _require(
+            replan_prefix_steps is not None and 1 <= int(replan_prefix_steps) <= 5,
+            "field recovery replan prefix must be between one and five",
+        )
     _require(geometry_config["case_ids"] == [CASE_ID], "geometry config case differs")
     _require(heuristic_config["case_ids"] == [CASE_ID], "heuristic config case differs")
     nominal_source = heuristic_config["nominal_action_source"]
@@ -114,6 +146,8 @@ def evaluate(
         "immutable_released_aegis_until_first_sitl_intervention"
     )
     live_policy = nominal_source.startswith("live_pi05_libero") or hybrid_recovery
+    if field_enabled:
+        _require(hybrid_recovery, "field intervention requires hybrid recovery")
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
     runtime = _runtime_imports(include_aegis=live_policy)
@@ -233,6 +267,7 @@ def evaluate(
             probe_env,
             active_obstacle_name=obstacle_name,
         )
+        two_action_probe = TwoActionSlabProbe(controller.probe)
 
         client = None
         server_identity = None
@@ -280,6 +315,7 @@ def evaluate(
         first_car_step = None
         maximum_displacement = 0.0
         failure = None
+        initial_field_record = None
         terminal_frame = _processed_image(observation, "agentview_image")
         frames_written = 0
         if video_partial.exists():
@@ -385,7 +421,11 @@ def evaluate(
                                 )
                             ),
                         )
-                    replan_steps = int(case.get("replan_steps", 5))
+                    replan_steps = (
+                        int(replan_prefix_steps)
+                        if field_enabled and recovery_active
+                        else int(case.get("replan_steps", 5))
+                    )
                     action_plan.extend(returned[item].copy() for item in range(replan_steps))
                     policy_queries.append(
                         {
@@ -446,12 +486,179 @@ def evaluate(
                 reference_next_eef = np.asarray(
                     reference_observation["robot0_eef_pos"], dtype=np.float64
                 )
-            executed, filter_step = controller.filter(
-                env,
-                nominal,
-                step=index,
-                reference_next_eef_position_m=reference_next_eef,
-            )
+            field_transition = None
+            if field_enabled and index == 185 and not recovery_active:
+                _require(field_config is not None, "field configuration is unavailable")
+                nominal_second = np.asarray(
+                    _json_action(archived_actions[186], 186), dtype=np.float64
+                )
+                nominal_actions = np.asarray([nominal, nominal_second], dtype=np.float64)
+                eef_start = np.asarray(observation["robot0_eef_pos"], dtype=np.float64)
+                nominal_two = two_action_probe.transition(
+                    env, nominal_actions[0], nominal_actions[1]
+                )
+                nominal_eef_terminal = np.asarray(
+                    nominal_two["steps"][-1]["eef_position_m"], dtype=np.float64
+                )
+                nominal_eef_delta = nominal_eef_terminal - eef_start
+                _require(
+                    float(np.linalg.norm(nominal_eef_delta)) > 1.0e-8,
+                    "field recovery nominal task direction is degenerate",
+                )
+                initial_basis = _field_local_basis(
+                    two_action_probe,
+                    env,
+                    nominal_actions,
+                    epsilon=float(field_config["finite_difference"]["perturbation_action"]),
+                    action_limit=float(field_config["search"]["action_limit"]),
+                    nominal_eef_start=eef_start,
+                    nominal_eef_direction=nominal_eef_delta
+                    / np.linalg.norm(nominal_eef_delta),
+                )
+                field_arm_result = _run_field_arm(
+                    str(initial_field_arm),
+                    two_action_probe,
+                    env,
+                    nominal_actions,
+                    config=field_config,
+                    initial_obstacle_position=initial_obstacle_position,
+                    nominal_eef_start=eef_start,
+                    nominal_eef_delta=nominal_eef_delta,
+                    initial_basis=initial_basis,
+                )
+                best = field_arm_result["best"]
+                if not bool(best["safe_and_task_progressing"]):
+                    failure = {
+                        "component": "initial_two_action_field_oracle",
+                        "step": index,
+                        "reason": "no_exact_safe_task_progressing_candidate",
+                    }
+                    break
+                executed = list(best["actions"][0])
+                # Never execute a cached search trace. Re-run the selected
+                # two-action candidate from the untouched main state, inspect
+                # all active-obstacle contacts, and bind execution to this
+                # fresh clone.
+                fresh_two = two_action_probe.transition(
+                    env, best["actions"][0], best["actions"][1]
+                )
+                fresh_no_contact = all(
+                    int(step_record["raw_protected_contact"][
+                        "nonpositive_protected_contact_count"
+                    ]) == 0
+                    for step_record in fresh_two["steps"]
+                )
+                fresh_displacement = max(
+                    float(step_record["active_obstacle_l1_displacement_m"])
+                    for step_record in fresh_two["steps"]
+                )
+                probe_contact_authority = _contact_model_authority(
+                    probe_env, obstacle_name
+                )
+                probe_contacts = _detailed_active_obstacle_contacts(
+                    probe_env,
+                    obstacle_name,
+                    step=index + 1,
+                    contact_authority=probe_contact_authority,
+                )
+                _require(
+                    probe_contacts["status"] == "available",
+                    "fresh field contact evidence is unavailable",
+                )
+                fresh_robot_contacts = [
+                    event
+                    for event in probe_contacts["events"]
+                    if event.get("other", {}).get("classification") == "robot"
+                ]
+                _require(
+                    float(fresh_two["minimum_row_m"]) >= 0.0
+                    and fresh_no_contact
+                    and not fresh_robot_contacts
+                    and fresh_displacement <= PAPER_CAR_THRESHOLD_M,
+                    "fresh selected field rollout is unsafe",
+                )
+                field_transition = fresh_two["steps"][0]
+                # The post-hoc field changes only the physical command.  The
+                # released AEGIS virtual direction still advances according
+                # to its archived nominal action-185 QP, exactly as it would
+                # without the opt-in field correction.
+                _require(
+                    released_aegis_geometry is not None,
+                    "released AEGIS virtual state is unavailable",
+                )
+                released_aegis_geometry["z_fixed"] = np.asarray(
+                    archived_actions[185]["qp"]["z_after"], dtype=np.float64
+                )
+                filter_step = {
+                    "schema_version": "vlsa_distal_field_recovery_step_e05.v1",
+                    "step": int(index),
+                    "constraint_count": 7,
+                    "nominal_released_aegis_action": nominal.tolist(),
+                    "nominal_next_clearance_m": nominal_two["steps"][0]["clearances_m"][:7],
+                    "nominal_safe": bool(float(nominal_two["minimum_row_m"]) >= 0.0),
+                    "nominal_preferred": False,
+                    "nominal_raw_protected_contact": nominal_two["steps"][0][
+                        "raw_protected_contact"
+                    ],
+                    "activation": True,
+                    "finite_difference": {
+                        "used": True,
+                        "probe_count": int(initial_basis["rollout_count"]),
+                    },
+                    "qp": {"used": False, "diagnostics": None},
+                    "verification": {
+                        "accepted": True,
+                        "accepted_source": str(initial_field_arm),
+                        "attempts": [
+                            {
+                                "raw_protected_contact": field_transition[
+                                    "raw_protected_contact"
+                                ]
+                            }
+                        ],
+                        "first_step_nominal_repeatability": None,
+                        "main_env_post_step_checked": False,
+                        "main_vs_probe_next_state_max_abs_error": None,
+                        "main_vs_probe_next_clearance_max_abs_error_m": None,
+                    },
+                    "executed_action": executed,
+                    "modified": True,
+                    "correction_l2": float(
+                        np.linalg.norm(
+                            np.asarray(executed[:3], dtype=np.float64) - nominal[:3]
+                        )
+                    ),
+                    "timing": {
+                        "candidate_env_step_wall_seconds": float(
+                            field_arm_result["probe_env_step_wall_seconds"]
+                        ),
+                        "total_filter_wall_seconds": float(
+                            field_arm_result["probe_env_step_wall_seconds"]
+                        ),
+                    },
+                }
+                initial_field_record = {
+                    "arm": str(initial_field_arm),
+                    "trigger_step": int(index),
+                    "replan_prefix_steps_after_intervention": int(replan_prefix_steps),
+                    "nominal_two_action_rollout": _field_public_rollout(
+                        nominal_two, 0.002
+                    ),
+                    "initial_basis": _field_public_basis(initial_basis, 0.002),
+                    "search": field_arm_result,
+                    "fresh_selected_verification": _field_public_rollout(
+                        fresh_two, 0.002
+                    ),
+                    "fresh_selected_terminal_robot_contact_events": fresh_robot_contacts,
+                    "executed_only_first_verified_action": True,
+                }
+            else:
+                executed, filter_step = controller.filter(
+                    env,
+                    nominal,
+                    step=index,
+                    reference_next_eef_position_m=reference_next_eef,
+                )
             filter_records.append(filter_step)
             if executed is None:
                 failure = {
@@ -468,7 +675,32 @@ def evaluate(
                 recovery_activation_step = index
                 action_plan.clear()
             try:
-                controller.verify_executed_transition(env, filter_step)
+                if field_transition is None:
+                    controller.verify_executed_transition(env, filter_step)
+                else:
+                    actual_state = _dynamic_state_vector(env)
+                    expected_state = np.asarray(
+                        field_transition["state_vector"], dtype=np.float64
+                    )
+                    state_error = float(
+                        np.max(np.abs(actual_state - expected_state))
+                    )
+                    actual_clearance = controller.probe.clearances(env)[:7]
+                    expected_clearance = np.asarray(
+                        field_transition["clearances_m"][:7], dtype=np.float64
+                    )
+                    clearance_error = float(
+                        np.max(np.abs(actual_clearance - expected_clearance))
+                    )
+                    filter_step["verification"]["main_env_post_step_checked"] = True
+                    filter_step["verification"][
+                        "main_vs_probe_next_state_max_abs_error"
+                    ] = state_error
+                    filter_step["verification"][
+                        "main_vs_probe_next_clearance_max_abs_error_m"
+                    ] = clearance_error
+                    _require(state_error <= 1.0e-10, "field clone state differs")
+                    _require(clearance_error <= 1.0e-10, "field clone clearance differs")
             except ValueError as error:
                 failure = {
                     "component": "cloned_osc_fidelity",
@@ -554,11 +786,13 @@ def evaluate(
         native_success = native_success_step is not None
         paper_car_pass = first_car_step is None
         protected_contact_pass = first_protected_contact_step is None
+        robot_contact_pass = first_robot_contact_step is None
         problem_solved = bool(
             failure is None
             and summary["status"] == "complete"
             and summary["all_executed_transitions_match_clone"]
             and protected_contact_pass
+            and (robot_contact_pass if field_enabled else True)
             and paper_car_pass
             and native_success
         )
@@ -610,6 +844,10 @@ def evaluate(
                     else (len(action_records) if hybrid_recovery else 0)
                 ),
             },
+            "initial_field_recovery": {
+                "enabled": field_enabled,
+                "record": initial_field_record,
+            },
             "probe_environment": {
                 "same_bddl_task_episode_and_settled_state": True,
                 "disabled_image_observable_count": disabled_probe_observables,
@@ -642,6 +880,7 @@ def evaluate(
                 "maximum_active_obstacle_l1_displacement_m": maximum_displacement,
                 "paper_car_pass": paper_car_pass,
                 "protected_link_contact_pass": protected_contact_pass,
+                "all_robot_active_obstacle_contact_pass": robot_contact_pass,
                 "native_task_success": native_success,
                 "native_task_success_step": native_success_step,
             },
@@ -690,6 +929,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--initial-field-arm")
+    parser.add_argument("--field-config", type=Path)
+    parser.add_argument("--replan-prefix-steps", type=int)
     args = parser.parse_args(argv)
     result = evaluate(
         repo_root=args.repo_root.resolve(),
@@ -701,6 +943,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_path=args.output.resolve(),
         host=args.host,
         port=args.port,
+        initial_field_arm=args.initial_field_arm,
+        field_config_path=(
+            None if args.field_config is None else args.field_config.resolve()
+        ),
+        replan_prefix_steps=args.replan_prefix_steps,
     )
     _atomic_write(args.output.resolve(), result)
     print(
