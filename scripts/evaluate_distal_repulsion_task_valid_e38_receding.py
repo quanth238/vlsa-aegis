@@ -384,6 +384,11 @@ def evaluate(
                 max(1, remaining - 5) if remaining > 5 else remaining,
             )
             prefix_actions = selected_actions[:execute_count]
+            completion_probe = boundary.rollout(env, prefix_actions, step_base=step)
+            if completion_probe["done_steps"]:
+                first_done = min(int(value) for value in completion_probe["done_steps"])
+                execute_count = min(execute_count, first_done - step + 1)
+                prefix_actions = prefix_actions[:execute_count]
             prefix = _internal_verify(
                 instrumented, env, prefix_actions, field_config, step_base=step
             )
@@ -404,6 +409,7 @@ def evaluate(
                 "field_heldout_gate": bool(heldout_valid),
                 "selected_source": selected_source,
                 "selected_actions": selected_actions.tolist(),
+                "cloned_done_steps": list(completion_probe["done_steps"]),
                 "selected_prefix": _public(prefix),
                 "physical_prefix_safe": physical_prefix_safe,
             }
@@ -418,25 +424,31 @@ def evaluate(
                     ),
                 }
                 break
-            expected_state = np.asarray(
-                _dynamic_state_vector(instrumented.env), dtype=np.float64
-            )
             executed_internal_contacts.extend(prefix_record["protected_contacts"])
             executed_proxy_minima.append(float(prefix_record["minimum_clearance_m"]))
             executed_internal_maximum_displacement = max(
                 executed_internal_maximum_displacement,
                 float(prefix_record["maximum_active_obstacle_l1_displacement_m"]),
             )
+            clone_errors = []
             for offset, command in enumerate(prefix_actions):
+                expected = one_step.transition(env, command)
                 done, _ = execute(command, step + offset, selected_source)
+                state_error = float(
+                    np.max(
+                        np.abs(
+                            np.asarray(_dynamic_state_vector(env), dtype=np.float64)
+                            - np.asarray(expected["next_state_vector"], dtype=np.float64)
+                        )
+                    )
+                )
+                _require(state_error <= 1.0e-10, "E38 executed action differs from clone")
+                clone_errors.append(state_error)
                 if done:
                     execute_count = offset + 1
                     break
-            actual_state = np.asarray(_dynamic_state_vector(env), dtype=np.float64)
-            state_error = float(np.max(np.abs(actual_state - expected_state)))
-            _require(state_error <= 1.0e-10, "E38 executed prefix differs from clone")
             window["executed_action_count"] = int(execute_count)
-            window["clone_state_max_abs_error"] = state_error
+            window["clone_state_max_abs_error"] = max(clone_errors)
             step += execute_count
 
         video_writer.close()
