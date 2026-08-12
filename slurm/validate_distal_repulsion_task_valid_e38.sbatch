@@ -31,6 +31,7 @@ RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 [[ -f "$RUN_ROOT/result.json" ]] || die "producer result is missing"
 [[ ! -e "$RUN_ROOT/validation.json" ]] || die "validation artifact exists"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_distal_repulsion_task_valid_e38.py \
   --result "$RUN_ROOT/result.json" \
