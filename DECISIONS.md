@@ -1517,3 +1517,20 @@ separate conservative certification gates. Native BDDL completion is a third
 authority. No result may be described as full success unless physical safety
 and task completion both pass; proxy failure must still be reported even if
 physical contact is absent.
+
+## ADR-0067: Accept E38 physical safe task success; reject proxy certification
+
+Accepted after producer `39181` and independent validator `39185`. Repeated
+warning-state smooth repulsion completed the native E38 task at action 120
+with zero protected contact at every internal MuJoCo substep and CAR pass.
+This validates the immediate hypothesis that a receding physical repulsive
+field can remove this task-valid L5 collision without inherently destroying
+task behavior under the frozen archived continuation.
+
+Do not call the method ellipsoid-safe or certified. Its executed minimum proxy
+clearance remained `-31.577525 mm`; both registered certification gates fail.
+Do not increase repulsion merely to satisfy that proxy: every corrected window
+already had zero physical contact, and correction norms were near the maximum.
+First audit why the robot/obstacle proxy remains deeply overlapping after raw
+collision disappears. Also retain the limitation that this is archived-policy
+receding execution, not live stochastic VLA feedback or population evidence.

@@ -2139,3 +2139,41 @@ exhaustion, or a physically unsafe candidate. Report three authorities without
 collapsing them: protected MuJoCo contact/CAR, zero/+1 mm ellipsoid
 certification, and native task completion. This is an archived-policy receding
 oracle, not live VLA feedback, learning, a QP, a CBF, or population evidence.
+
+Clean H100 producer `39181` completed this receding gate on `worker-2` in
+16:06 from commit `d4bfe4afa6cd1dfa2fb93be47e16f12f6f5b62d3`; independent
+H100 validator `39185` accepted the immutable artifact. Three consecutive
+windows at actions `108/113/118` all triggered the ellipsoid warning and the
+frozen smooth field. It executed `5/5/3` actions and reached native task
+success at action 120, earlier than the archived AEGIS action 163 completion.
+
+The physical and proxy authorities disagree. Across every executed MuJoCo
+substep after intervention, protected contact count was zero, no boundary
+robot contact occurred, maximum obstacle L1 displacement was only
+`0.014614 mm`, and CAR passed. Thus physical collision-free task completion
+passes. The conservative ellipsoid proxy nevertheless reached
+`-31.577525 mm`, so both zero- and +1 mm certification gates fail. All three
+field windows passed held-out direction validation, but no window reached the
+ellipsoid target within correction/path norm one. The correct interpretation
+is `repeated_repulsion_physical_safe_task_success_but_proxy_uncertified`.
+
+This is the first task-valid cross-case result showing repeated physical
+repulsion can remove the targeted contact while retaining native completion.
+It is not live-VLA generalization: the continuation is the immutable archived
+AEGIS ledger. It also shows that training or controlling against the current
+ellipsoid sign alone would remain permanently active even after physical
+contact has been removed. The next scientific decision is a proxy/calibration
+audit on E38, followed by a matched live-VLA receding test only if the physical
+and conservative authorities are explicitly separated.
+
+Producer/validation file SHA-256 values are
+`50a28bc8cbb09fbc15fefc113acfa968e139463227d2f18113e18173ce7165fa` and
+`de8bb0ba08f44270f1b19aa549fd65673f44519b1e38a3ef5a04de3983bda9a6`;
+payload SHA-256 values are
+`51ead24d0dc6b84e4c8b6ad8b33e318179d3e19ce4a205fdd62ea5b0c2f591e4` and
+`43d1356ae7ec1b938d6f2df2a6509c687fc5dd202bedcf69f26d220dfcf48d1b`.
+The video SHA-256 is
+`38300408eafac72b3c9100414527961df45dcf008bc63e165af6c2a69b6dfa55`.
+Attempts `39177/39178` stopped respectively before rollout on a config-key
+typo and at terminal completion on a five-step clone-state comparison. They
+are apparatus failures only and produced no scientific result.
