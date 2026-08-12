@@ -1,5 +1,27 @@
 # Reproduction decisions
 
+## ADR-0079: Attribute the smooth field before closed-loop recovery
+
+Accepted before release. The validated smooth candidate was a compound
+correction built on the earlier five-action detour continuation. Do not credit
+the smooth field as a standalone avoidance method until the identical
+counterfactual procedure is applied directly to immutable raw AEGIS actions
+182--201 from the same pre-action-182 simulator state.
+
+Keep the detour and compound candidates as read-only comparators. Fit the direct
+field with action-boundary rollouts exactly as before, add independent paired
+direction validation, and make final safety authority stricter by measuring all
+internal MuJoCo integration steps. Accept only a candidate with at least `1 mm`
+ellipsoid clearance, no raw protected contact, and paper CAR. Search scales on
+the discovered correction ray and call the selected result only the smallest
+registered safe ray scale, never a globally minimum-norm correction.
+
+If direct attribution fails, the smooth result remains a useful second-stage
+repair but cannot motivate standalone learned steering. If it passes, the next
+independent gate may execute the verified five-action prefix, requery the
+frozen VLA with matched policy noise, and repeat receding verification. No
+learning or PNCBF claim is authorized by this attribution gate alone.
+
 ## ADR-0078: Reject hard top-M selection; retain smooth all-witness evidence
 
 Accepted after clean H100 producer `38966` and independent validator `38967`.

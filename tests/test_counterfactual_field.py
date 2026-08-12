@@ -35,6 +35,27 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CounterfactualFieldTest(unittest.TestCase):
+    def test_smooth_field_attribution_config_and_scale_contract(self):
+        from main.multilink_ellipsoid.smooth_field_attribution import (
+            load_smooth_field_attribution_config,
+            scale_grid,
+            select_smallest_verified_scale,
+            smooth_min_value,
+        )
+
+        config = load_smooth_field_attribution_config(
+            ROOT / "configs" / "vlsa_distal_smooth_field_attribution_e05.v1.json"
+        )
+        self.assertEqual(config["schema_version"], "vlsa_distal_smooth_field_attribution_e05.v1")
+        self.assertEqual(len(scale_grid(0.025)), 41)
+        self.assertLess(smooth_min_value([0.001, 0.003], 0.002), 0.001)
+        records = [
+            {"scale": 0.0, "verification_gate": False},
+            {"scale": 0.5, "verification_gate": True},
+            {"scale": 1.0, "verification_gate": True},
+        ]
+        self.assertEqual(select_smallest_verified_scale(records)["scale"], 0.5)
+
     def test_registered_config_loads(self):
         value = load_counterfactual_field_config(
             ROOT / "configs/vlsa_distal_counterfactual_field_e05.v1.json"

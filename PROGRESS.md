@@ -1,5 +1,35 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Direct smooth-field attribution gate (preregistered, 2026-08-12)
+
+The next gate separates the successful smooth proposal from the earlier
+five-action task-rejoining detour. Starting from the identical archived
+pre-action-182 state, it compares the immutable raw Table-1 AEGIS suffix, the
+earlier detour, the detour plus the validated smooth second-stage correction,
+and a freshly fitted smooth counterfactual secant field applied directly to the
+raw AEGIS suffix. All comparisons use actions 182--201 and modify only XYZ in
+the first five actions. The direct field retains the registered 32 paired
+`+0.05/-0.05` probes, `2 mm` smooth-min temperature, `0.1` trust steps, exact
+hard-margin line search, and radius/path budgets of `1.0`. Eight independent
+paired directions per iteration must achieve cosine at least `0.8` and sign
+accuracy at least `0.75`; these held-out probes do not fit the field.
+
+The field continues to be fitted from the seven action-boundary ellipsoid rows
+over twenty actions, avoiding an unregistered 3,500-row change in the proposal
+model. Every comparator and every candidate considered for final scale
+selection is then replayed with instrumentation after all `25` MuJoCo model
+steps inside each 20 Hz OSC action, including the initial state. The attribution
+gate requires at least `1 mm` internal-substep ellipsoid clearance, zero raw
+L5--L7 contact, and paper CAR. A `0.025` grid reports the smallest verified
+scale along the discovered correction ray only; it is explicitly not a global
+minimum-norm claim.
+
+This is a single-state attribution experiment. It contains no live VLA query,
+closed-loop execution, task-completion claim, MLP, QP, CBF, policy iteration,
+or formal safety result. Passing proves only that the smooth field can directly
+repair raw AEGIS under the registered continuation and held-out directional
+gate. Only then may a separate receding frozen-VLA recovery experiment begin.
+
 ## Multi-witness counterfactual field gate (preregistered, 2026-08-12)
 
 The next avoidance-only test keeps the same immutable E05 action-182 state,
