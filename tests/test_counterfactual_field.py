@@ -35,6 +35,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CounterfactualFieldTest(unittest.TestCase):
+    def test_post_detour_live_gate_config(self):
+        from main.multilink_ellipsoid.post_detour_live_gate import (
+            load_post_detour_live_config,
+        )
+
+        config = load_post_detour_live_config(
+            ROOT / "configs" / "vlsa_distal_post_detour_live_gate_e05.v1.json"
+        )
+        self.assertEqual(
+            config["schema_version"],
+            "vlsa_distal_post_detour_live_gate_e05_config.v1",
+        )
+        self.assertEqual(config["state_protocol"]["continuation_steps"], list(range(187, 192)))
+
     def test_raw_multistart_gate0_config_and_transplant_contract(self):
         from main.multilink_ellipsoid.raw_multistart_gate0 import (
             load_raw_multistart_gate0_config,

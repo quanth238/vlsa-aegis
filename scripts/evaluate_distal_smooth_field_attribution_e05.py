@@ -115,7 +115,13 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
         )
 
         commands = np.asarray(actions, dtype=np.float64)
-        _require(commands.shape == (20, 7), "instrumented continuation action shape differs")
+        _require(
+            commands.ndim == 2
+            and commands.shape[1] == 7
+            and 1 <= commands.shape[0] <= 20
+            and np.all(np.isfinite(commands)),
+            "instrumented continuation action shape differs",
+        )
         synchronization = self.one_step_probe.synchronize(main_env)
         obstacle_id = _obstacle_root_body_id(self.env.sim.model, self.active_obstacle_name)
         obstacle_reference = np.asarray(self.obstacle_reference_position_m, dtype=np.float64).reshape(3)
@@ -195,6 +201,8 @@ def _boundary_candidate(
     base_actions: Any,
     correction: Any,
     config: Mapping[str, Any],
+    *,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -204,7 +212,7 @@ def _boundary_candidate(
     actions = _actions_with_correction(
         base_actions, delta, float(config["action_space"]["action_limit"])
     )
-    rollout = probe.rollout(env, actions)
+    rollout = probe.rollout(env, actions, step_base=step_base)
     trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)
     return {
         "actions": actions,
@@ -226,6 +234,8 @@ def _fit_rows(
     correction: Any,
     config: Mapping[str, Any],
     iteration: int,
+    *,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -249,10 +259,20 @@ def _fit_rows(
         wall = 0.0
         for direction in directions:
             positive = _boundary_candidate(
-                probe, env, base_actions, np.asarray(correction) + radius * direction, config
+                probe,
+                env,
+                base_actions,
+                np.asarray(correction) + radius * direction,
+                config,
+                step_base=step_base,
             )
             negative = _boundary_candidate(
-                probe, env, base_actions, np.asarray(correction) - radius * direction, config
+                probe,
+                env,
+                base_actions,
+                np.asarray(correction) - radius * direction,
+                config,
+                step_base=step_base,
             )
             plus.append(positive["_trace"])
             minus.append(negative["_trace"])
@@ -265,7 +285,9 @@ def _fit_rows(
         int(settings["paired_direction_count_per_iteration"]),
     )
     fit = fit_clearance_rows(directions, plus, minus, radius, float(settings["ridge"]))
-    center = _boundary_candidate(probe, env, base_actions, correction, config)
+    center = _boundary_candidate(
+        probe, env, base_actions, correction, config, step_base=step_base
+    )
     smooth = smooth_min_direction(
         center["_trace"].reshape(-1), fit["gradients"], float(settings["temperature_m"])
     )
@@ -305,6 +327,8 @@ def _direct_smooth_field(
     env: Any,
     raw_actions: Any,
     config: Mapping[str, Any],
+    *,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -315,7 +339,9 @@ def _direct_smooth_field(
     from main.multilink_ellipsoid.smooth_field_attribution import internal_verification_gate
 
     correction = np.zeros(15, dtype=np.float64)
-    center = _boundary_candidate(probe, env, raw_actions, correction, config)
+    center = _boundary_candidate(
+        probe, env, raw_actions, correction, config, step_base=step_base
+    )
     path = [_public(center)]
     iterations = []
     path_length = 0.0
@@ -323,7 +349,15 @@ def _direct_smooth_field(
     stop_reason = "maximum_iterations"
     verified = None
     for iteration in range(int(config["action_space"]["maximum_iterations"])):
-        local = _fit_rows(probe, env, raw_actions, correction, config, iteration)
+        local = _fit_rows(
+            probe,
+            env,
+            raw_actions,
+            correction,
+            config,
+            iteration,
+            step_base=step_base,
+        )
         rollout_count += int(local["rollout_count"])
         current_xyz = np.asarray(raw_actions[:5, :3]) + correction.reshape(5, 3)
         direction = project_mode_direction(
@@ -350,7 +384,9 @@ def _direct_smooth_field(
                 preserve_endpoint=False,
             ):
                 continue
-            candidate = _boundary_candidate(probe, env, raw_actions, proposed, config)
+            candidate = _boundary_candidate(
+                probe, env, raw_actions, proposed, config, step_base=step_base
+            )
             candidate["fraction"] = float(fraction)
             candidate["step_norm_action"] = step_norm
             candidates.append(candidate)
@@ -385,6 +421,7 @@ def _direct_smooth_field(
             boundary_tolerance=float(
                 config["internal_verification"]["ordinary_env_step_boundary_equivalence_tolerance"]
             ),
+            step_base=step_base,
         )
         rollout_count += 1
         selected["internal_verification"] = internal
@@ -409,6 +446,8 @@ def _verify_actions(
     env: Any,
     actions: Any,
     config: Mapping[str, Any],
+    *,
+    step_base: int = 182,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.smooth_field_attribution import internal_verification_gate
 
@@ -419,6 +458,7 @@ def _verify_actions(
         boundary_tolerance=float(
             config["internal_verification"]["ordinary_env_step_boundary_equivalence_tolerance"]
         ),
+        step_base=step_base,
     )
     return {"record": _public(record), "verification_gate": internal_verification_gate(record, config["gate"])}
 

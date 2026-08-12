@@ -1,5 +1,24 @@
 # Reproduction decisions
 
+## ADR-0083: Test live continuation locally before a complete receding episode
+
+Accepted before release. Gate 0 established that the safe compound prefix
+fails under the immutable raw suffix, so the next experiment must change the
+continuation rather than enlarge the same prefix correction. Use exactly one
+fresh frozen-`pi0.5` query at the verified post-compound action-187 state and
+compare its released-AEGIS five-action chunk with the registered safe
+continuation. Run the smooth counterfactual field only when the fresh chunk is
+unsafe, using the identical frozen chunk and initial state.
+
+Do not yet run a full episode, train an MLP, or introduce a QP. The decisive
+local question is whether feedback supplies a safe continuation or whether the
+existing smooth field can repair it. Preserve the registered continuation as
+a binding positive control, not as evidence about the live policy. Verify all
+internal MuJoCo steps with the same 1 mm L5--L7 clearance, zero-contact, and
+paper-CAR authority. A local pass authorizes the longer receding experiment;
+a local failure blocks it and identifies missing safe continuation support
+without spending a full-episode rollout budget.
+
 ## ADR-0081: Prove raw fixed-suffix safe support before multi-start search
 
 Accepted before release. The validated positive compound correction modified

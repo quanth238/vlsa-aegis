@@ -1,5 +1,34 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Post-detour live-continuation gate (preregistered, 2026-08-12)
+
+The next experiment is intentionally limited to the missing continuation
+question exposed by Gate 0. Starting from the identical pre-action-182 state,
+it internally verifies and executes only the registered compound actions
+182--186. At the resulting measured action-187 state, one fresh frozen
+`pi0.5` query uses registered query index 37 and its immutable noise seed.
+The first five raw actions are converted by the unchanged released AEGIS EE
+QP along their nominal cloned-OSC path, then frozen as one paired continuation
+chunk.
+
+Three local arms are compared from the identical action-187 state: the
+registered compound actions 187--191 as a binding positive control; the fresh
+`pi0.5` plus released-AEGIS chunk; and, only if that live chunk is unsafe, the
+same chunk after the registered iterative 2 mm smooth all-witness secant
+field. Every arm has exactly 126 measurements: the initial state and every one
+of 25 MuJoCo model steps inside each of five OSC actions. Acceptance remains
+at least 1 mm L5--L7 ellipsoid clearance, zero raw protected contact, and
+paper CAR at most 1 mm. Field acceptance additionally requires every fitted
+iteration to pass held-out cosine 0.8 and sign accuracy 0.75.
+
+This is a local mechanism gate, not a complete receding episode. A safe fresh
+VLA arm shows that live feedback can continue the detour locally; a safe field
+arm shows that repeated filtering can repair the first new continuation. If
+both fail while the registered continuation passes, the current five-action
+live proposal/field family is a strict local NO-GO. Only a pass authorizes a
+complete receding episode. No MLP, QP, CBF, task-completion, or formal-safety
+claim is allowed at this stage.
+
 ## Raw-AEGIS multi-start Gate 0 (preregistered, 2026-08-12)
 
 Before launching a radius or branch search, Gate 0 tests whether the registered
