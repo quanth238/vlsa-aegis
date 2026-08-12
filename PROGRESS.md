@@ -4594,3 +4594,14 @@ MuJoCo joint IDs from the registered arm velocity DOFs and their compiled
 `jnt_range` entries instead. This is an apparatus-only source correction; no
 nominal-rollout formula, model, loss, data, split, threshold, or configuration
 changes, and the failed run is not reused.
+
+H100 job `38744` completed the full 85-state preprocessing, matched training,
+and all 136 environment builds for exact FK/ellipsoid evaluation, and wrote a
+complete scientific `NO_GO_direction_mechanism` result. Its post-run validator
+then rejected artifact identity because it looked for `source.git_commit`,
+while the established `_git_identity` schema stores `source.commit`. Repair
+only that validation field and run a separate allocation-backed validation of
+the immutable result/model/prediction/preprocess hashes. Do not retrain or
+reuse the job's generic runtime-failure classification as the scientific
+verdict. No new episode, simulation label, metric, threshold, model, loss, QP,
+flow guidance, or closed-loop action is authorized.

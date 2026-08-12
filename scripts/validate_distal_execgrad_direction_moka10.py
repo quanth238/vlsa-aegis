@@ -13,6 +13,7 @@ from scripts.evaluate_distal_execgrad_direction_moka10 import RESULT_SCHEMA
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write,
     _file_sha256,
+    _git_identity,
     _load,
     _require,
 )
@@ -23,12 +24,14 @@ VALIDATION_SCHEMA = "vlsa_distal_execgrad_direction_validation.v1"
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--preprocess", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--predictions", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--validator-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     config = load_execgrad_config(args.config.resolve())
@@ -39,7 +42,7 @@ def main() -> int:
         and result.get("scientific_result") is True
         and result.get("result_payload_sha256")
         == payload_sha256(result, "result_payload_sha256")
-        and result.get("source", {}).get("git_commit") == args.expected_commit
+        and result.get("source", {}).get("commit") == args.expected_commit
         and result.get("config", {}).get("config_payload_sha256")
         == config["config_payload_sha256"]
         and result.get("apparatus", {}).get("apparatus_gate_pass") is True
@@ -86,6 +89,9 @@ def main() -> int:
         "model_file_sha256": _file_sha256(args.model.resolve()),
         "predictions_file_sha256": _file_sha256(args.predictions.resolve()),
         "expected_commit": args.expected_commit,
+        "validator_source": _git_identity(
+            args.repo_root.resolve(), args.validator_commit
+        ),
         "classification": result["decision"]["classification"],
         "conditional_new_episode_opening_authorized": bool(
             result["decision"]["fitted_direction_gate_pass"]

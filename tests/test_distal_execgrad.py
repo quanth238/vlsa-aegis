@@ -25,6 +25,13 @@ CONFIG = ROOT / "configs/vlsa_distal_execgrad_direction_moka10.v1.json"
 
 
 class ExecGradTest(unittest.TestCase):
+    def test_validator_uses_git_identity_commit_field(self) -> None:
+        source = (
+            ROOT / "scripts/validate_distal_execgrad_direction_moka10.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('result.get("source", {}).get("commit")', source)
+        self.assertNotIn('result.get("source", {}).get("git_commit")', source)
+
     def test_config_and_exact_initial_condition(self) -> None:
         import torch
 

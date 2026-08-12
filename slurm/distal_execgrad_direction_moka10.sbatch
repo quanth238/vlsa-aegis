@@ -97,4 +97,4 @@ common=(
   --execgrad-config "$EXECGRAD_CONFIG" --normalized-direct-run "$NORMALIZED_RUN" --normalized-direct-validation "$NORMALIZED_VALIDATION" --future-untouched-manifest "$FUTURE_UNTOUCHED"
 )
 "$AEGIS_PYTHON" scripts/evaluate_distal_execgrad_direction_moka10.py "${common[@]}" --preprocess "$RUN_ROOT/preprocess.npz" --model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --output "$RUN_ROOT/result.json"
-"$AEGIS_PYTHON" scripts/validate_distal_execgrad_direction_moka10.py --config "$EXECGRAD_CONFIG" --result "$RUN_ROOT/result.json" --preprocess "$RUN_ROOT/preprocess.npz" --model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/validation.json"
+"$AEGIS_PYTHON" scripts/validate_distal_execgrad_direction_moka10.py --repo-root "$REMOTE_REPO" --config "$EXECGRAD_CONFIG" --result "$RUN_ROOT/result.json" --preprocess "$RUN_ROOT/preprocess.npz" --model "$RUN_ROOT/model.npz" --predictions "$RUN_ROOT/predictions.npz" --expected-commit "$EXPECTED_GIT_COMMIT" --validator-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/validation.json"
