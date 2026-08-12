@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 
 POST_DETOUR_LIVE_SCHEMA = "vlsa_distal_post_detour_live_gate_e05_config.v1"
+POST_DETOUR_ROUTE_SCHEMA = "vlsa_distal_post_detour_route_oracle_e05_config.v1"
 
 
 def _canonical(value: Any) -> bytes:
@@ -68,6 +69,71 @@ def load_post_detour_live_config(path: Path) -> dict[str, Any]:
         raise ValueError("post-detour contact gate differs")
     output = json.loads(_canonical(value).decode())
     output["schema_version"] = POST_DETOUR_LIVE_SCHEMA
+    output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
+    output["config_payload_sha256"] = hashlib.sha256(_canonical(value)).hexdigest()
+    return output
+
+
+def persistent_route_directions(robot_center: Any, obstacle_center: Any) -> dict[str, Any]:
+    """Return deterministic obstacle-normal and tangent route directions."""
+    import numpy as np
+
+    normal = np.asarray(robot_center, dtype=np.float64) - np.asarray(obstacle_center, dtype=np.float64)
+    normal /= np.linalg.norm(normal)
+    world_up = np.asarray([0.0, 0.0, 1.0], dtype=np.float64)
+    up = world_up - normal * float(np.dot(normal, world_up))
+    if float(np.linalg.norm(up)) < 1.0e-8:
+        fallback = np.asarray([0.0, 1.0, 0.0], dtype=np.float64)
+        up = fallback - normal * float(np.dot(normal, fallback))
+    up /= np.linalg.norm(up)
+    side = np.cross(normal, up)
+    side /= np.linalg.norm(side)
+    return {"retreat": normal, "up": up, "left": side, "right": -side}
+
+
+def persistent_route_correction(direction: Any, norm: float) -> Any:
+    """Apply one spatial route direction persistently over five actions."""
+    import numpy as np
+
+    value = np.tile(np.asarray(direction, dtype=np.float64), 5)
+    return float(norm) * value / np.linalg.norm(value)
+
+
+def load_post_detour_route_config(path: Path) -> dict[str, Any]:
+    raw = Path(path).read_bytes()
+    value = json.loads(raw)
+    if value.get("protocol_id") != "vlsa-distal-post-detour-route-oracle-e05-v1":
+        raise ValueError("post-detour route protocol differs")
+    if value.get("case_ids") != ["vlsa-t1-goal-ii-t0-e05"]:
+        raise ValueError("post-detour route case differs")
+    if value["route_search"]["modes"] != ["left", "right", "up", "retreat"]:
+        raise ValueError("post-detour route modes differ")
+    if value["route_search"]["coarse_norms_action"] != [0.5, 1.0, 1.5, 2.0]:
+        raise ValueError("post-detour route scale grid differs")
+    if value["route_search"]["basis"] != "constant_five_action_obstacle_normal_or_tangent":
+        raise ValueError("post-detour route basis differs")
+    if value["derivative_free"] != {
+        "candidate_count_per_generation": 64,
+        "elite_count": 8,
+        "generations": 4,
+        "maximum_correction_l2_action": 2.0,
+        "seed": 26081261,
+    }:
+        raise ValueError("post-detour derivative-free control differs")
+    state = value["state_protocol"]
+    if state["compound_prefix_steps"] != list(range(182, 187)):
+        raise ValueError("post-detour route prefix differs")
+    if state["continuation_steps"] != list(range(187, 192)):
+        raise ValueError("post-detour route continuation differs")
+    gate = value["gate"]
+    if not math.isclose(float(gate["internal_substep_clearance_buffer_m"]), 0.001):
+        raise ValueError("post-detour route clearance gate differs")
+    if not math.isclose(float(gate["paper_car_threshold_m"]), 0.001):
+        raise ValueError("post-detour route CAR gate differs")
+    if int(gate["protected_raw_contact_count"]) != 0:
+        raise ValueError("post-detour route contact gate differs")
+    output = json.loads(_canonical(value).decode())
+    output["schema_version"] = POST_DETOUR_ROUTE_SCHEMA
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(_canonical(value)).hexdigest()
     return output

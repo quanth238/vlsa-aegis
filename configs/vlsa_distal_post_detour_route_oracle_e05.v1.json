@@ -1,0 +1,75 @@
+{
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_e05_action187_generic_persistent_route_oracle_rediscovery_gate_not_complete_episode_not_task_completion_not_learning_not_qp_not_cbf_not_formal_safety",
+  "derivative_free": {
+    "candidate_count_per_generation": 64,
+    "elite_count": 8,
+    "generations": 4,
+    "maximum_correction_l2_action": 2.0,
+    "seed": 26081261
+  },
+  "field_refinement": {
+    "action_limit": 1.0,
+    "corrected_dimensions": [0, 1, 2],
+    "corrected_horizon": 5,
+    "line_search_fractions": [1.0, 0.5, 0.25],
+    "maximum_iterations": 10,
+    "maximum_total_correction_l2_action": 1.0,
+    "maximum_total_path_length_action": 1.0,
+    "trust_radius_action": 0.1
+  },
+  "field_estimation": {
+    "direction_seed": 26081262,
+    "heldout_direction_count_per_iteration": 8,
+    "heldout_direction_seed": 26081263,
+    "paired_direction_count_per_iteration": 32,
+    "paired_perturbation_action": 0.05,
+    "ridge": 1e-06,
+    "temperature_m": 0.002
+  },
+  "gate": {
+    "internal_substep_clearance_buffer_m": 0.001,
+    "minimum_heldout_direction_cosine": 0.8,
+    "minimum_heldout_sign_accuracy": 0.75,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0
+  },
+  "internal_verification": {
+    "expected_mujoco_substeps_per_action": 25,
+    "include_initial_state": true,
+    "measurement": "all_mujoco_model_steps_and_initial_state",
+    "ordinary_env_step_boundary_equivalence_tolerance": 1e-12
+  },
+  "protocol_id": "vlsa-distal-post-detour-route-oracle-e05-v1",
+  "registered_inputs": {
+    "detour_result": {
+      "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff",
+      "run_id": "five-detour-e05-20260812b",
+      "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f"
+    },
+    "live_gate_result": {
+      "result_payload_sha256": "318f3e64701db6c5afd893b1b7c733c395fbd5e6812d7dfa3e84b66739a73bf1",
+      "run_id": "post-detour-live-e05-20260812b",
+      "source_commit": "6b04a2c5c6deee09ce818d77da52cfe6c548677c"
+    },
+    "smooth_result": {
+      "result_payload_sha256": "eb7bc1d97c6821b9fc66b15380383eb56917712d45af25613a7c1ea4ef3f0d77",
+      "run_id": "mw-field-e05-20260812b",
+      "source_commit": "325e285d594acc7f15dbec1eee39416466784703"
+    }
+  },
+  "route_search": {
+    "action_limit": 1.0,
+    "basis": "constant_five_action_obstacle_normal_or_tangent",
+    "coarse_norms_action": [0.5, 1.0, 1.5, 2.0],
+    "modes": ["left", "right", "up", "retreat"],
+    "refine_best_coarse_route": true
+  },
+  "state_protocol": {
+    "archived_prefix_last_step": 181,
+    "compound_prefix_steps": [182, 183, 184, 185, 186],
+    "continuation_steps": [187, 188, 189, 190, 191],
+    "fixed_live_policy_query_index": 37,
+    "persistent_route_memory": true
+  }
+}

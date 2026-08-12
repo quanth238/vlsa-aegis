@@ -49,6 +49,26 @@ class CounterfactualFieldTest(unittest.TestCase):
         )
         self.assertEqual(config["state_protocol"]["continuation_steps"], list(range(187, 192)))
 
+    def test_persistent_route_basis_is_orthonormal_and_normed(self):
+        from main.multilink_ellipsoid.post_detour_live_gate import (
+            persistent_route_correction,
+            persistent_route_directions,
+        )
+
+        routes = persistent_route_directions([1.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        self.assertTrue(np.allclose(routes["left"], -routes["right"]))
+        self.assertAlmostEqual(float(np.dot(routes["retreat"], routes["up"])), 0.0)
+        for direction in routes.values():
+            self.assertAlmostEqual(np.linalg.norm(direction), 1.0)
+        self.assertAlmostEqual(np.linalg.norm(persistent_route_correction(routes["up"], 1.5)), 1.5)
+
+        from main.multilink_ellipsoid.post_detour_live_gate import load_post_detour_route_config
+
+        config = load_post_detour_route_config(
+            ROOT / "configs" / "vlsa_distal_post_detour_route_oracle_e05.v1.json"
+        )
+        self.assertEqual(config["route_search"]["modes"], ["left", "right", "up", "retreat"])
+
     def test_raw_multistart_gate0_config_and_transplant_contract(self):
         from main.multilink_ellipsoid.raw_multistart_gate0 import (
             load_raw_multistart_gate0_config,
