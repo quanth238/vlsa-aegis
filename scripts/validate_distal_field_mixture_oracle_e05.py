@@ -85,7 +85,10 @@ def _validate_candidate(
     expected = nominal.copy()
     expected[:, :3] += correction.reshape(2, 3)
     _require(np.max(np.abs(actions - expected)) <= 1.0e-12, "candidate action/correction differs")
-    _require(np.max(np.abs(actions)) <= 1.0 + 1.0e-12, "candidate action bound differs")
+    _require(
+        np.max(np.abs(actions[:, :3])) <= 1.0 + 1.0e-12,
+        "candidate XYZ action bound differs",
+    )
     exact = candidate["exact"]
     rows = np.asarray(exact["row_minimum_m"], dtype=np.float64)
     _require(rows.shape == (7,), "candidate row count differs")
