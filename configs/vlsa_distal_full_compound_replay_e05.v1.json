@@ -1,0 +1,38 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_archived_e05_complete_open_loop_compound_positive_control_replay_not_closed_loop_policy_not_learning_not_qp_not_cbf_not_formal_safety",
+  "protocol_id": "vlsa-distal-full-compound-replay-e05-v1",
+  "registered_inputs": {
+    "detour_result": {
+      "run_id": "five-detour-e05-20260812b",
+      "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f",
+      "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff"
+    },
+    "smooth_result": {
+      "run_id": "mw-field-e05-20260812b",
+      "source_commit": "325e285d594acc7f15dbec1eee39416466784703",
+      "result_payload_sha256": "eb7bc1d97c6821b9fc66b15380383eb56917712d45af25613a7c1ea4ef3f0d77"
+    }
+  },
+  "compound_definition": {
+    "base_actions": "complete_task_successful_five_action_detour_actions_0_through_283",
+    "correction": "registered_smooth_max_xyz_correction_on_actions_182_through_186",
+    "correction_coordinates": "normalized_cartesian_translation_scale_only",
+    "action_limit": 1.0,
+    "expected_action_count": 284
+  },
+  "internal_verification": {
+    "expected_mujoco_substeps_per_action": 25,
+    "include_initial_state": true,
+    "measurement": "all_mujoco_model_steps_and_initial_state",
+    "ordinary_env_step_boundary_equivalence_tolerance": 1e-12
+  },
+  "gate": {
+    "internal_substep_clearance_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0,
+    "require_native_task_success": true
+  }
+}
