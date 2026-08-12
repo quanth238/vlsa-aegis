@@ -43,6 +43,36 @@ coordinates lacking the preregistered `+0.05/-0.05` bidirectional headroom and
 samples the same count, radius, seeds, and smooth random basis in the largest
 remaining coordinate subspace. No optimizer, witness, budget, or gate changes.
 
+Clean H100 producer `38966` completed `1,814` cloned-OSC rollouts in `778.612`
+seconds from commit `325e285`; independent H100 validator `38967` reproduced
+the immutable result. The nominal hard margin was `-14.263205 mm`. The current
+hard-min row reached only `-7.944801 mm`. The top-eight near-active epigraph
+improved slightly further to `-6.678093 mm`, but retained three L5 contacts,
+missed paper CAR at `1.196774 mm`, and exhausted `0.95` of the shared path
+budget. The preregistered multi-witness gate is therefore a strict NO-GO even
+though the immutable derivative-free control remains safe at `+7.892343 mm`.
+
+The matched `2 mm` smooth-maximum-of-risk arm produced a distinct positive
+mechanism result: after seven `0.1` updates it reached `+1.673938 mm` exact
+clearance with correction L2 `0.622085`, zero protected contact, and effectively
+zero obstacle displacement (`0.000000023 mm`). Its terminal EEF deviation was
+`19.576451 mm`, diagnostic only in this avoidance experiment. This shows that
+continuous weighting of all future link/time witnesses can avoid the archived
+collision where hard row selection still switches or omits useful impending
+witnesses. It is one-state oracle evidence, not learned steering, task recovery,
+population generalization, or a formal safety result. Do not train the proposed
+hard top-M row model from this failed gate. The next independently registered
+test should either validate the smooth field across additional dangerous states
+or execute this verified five-action correction and test live frozen-VLA
+replanning; no task-completion claim is made here.
+
+Producer result file/payload SHA-256 values are
+`639b4928efdb5bb27b2dcd4ea5d1c224f5fd6116264d29d316940933a7c96f58` and
+`eb7bc1d97c6821b9fc66b15380383eb56917712d45af25613a7c1ea4ef3f0d77`;
+validation file/payload SHA-256 values are
+`a9e80073eade8cbbf3e151f112eae129efaefe9452f1e4bb9e3be03b5573df2a` and
+`e12329c67be9fb5ff35da220db416adf71ee0bdac9b3e1da0a4e172bc2c0af41`.
+
 ## Fixed-step long-horizon avoidance field gate (preregistered, 2026-08-12)
 
 The active E05 mechanism test now isolates whether the paired-rollout action

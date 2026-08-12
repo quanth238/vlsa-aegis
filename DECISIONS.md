@@ -1,5 +1,29 @@
 # Reproduction decisions
 
+## ADR-0078: Reject hard top-M selection; retain smooth all-witness evidence
+
+Accepted after clean H100 producer `38966` and independent validator `38967`.
+Preserving eight near-active rows in a local epigraph was not sufficient: its
+best exact margin remained `-6.678093 mm`, it retained three L5 contacts, and it
+missed paper CAR. This is a strict failure of the preregistered multi-witness
+gate while the fixed derivative-free safe-support control remains positive.
+Do not train a link/time-conditioned hard-row MLP from this result.
+
+The matched `2 mm` smooth maximum of risk is retained as positive, narrower
+mechanism evidence. It combined all 140 future link/time rows continuously and
+reached `+1.673938 mm` with zero protected contact and paper CAR after seven
+updates. Hard top-M selection can change discontinuously and can exclude rows
+before they become critical; the smooth arm supplies continuous pressure from
+all witnesses. This causal explanation is an inference from the matched result,
+not yet a population conclusion.
+
+Do not collapse this into a claim that the primary problem is solved. The arm
+used exact counterfactual cloned-OSC labels at one archived state, did not test
+task recovery, and had `19.576451 mm` terminal EEF deviation. The next gate must
+keep the smooth field frozen and separately test either multi-state avoidance or
+live frozen-VLA task rejoining after its verified first five actions. Learning
+remains downstream of that oracle evidence.
+
 ## ADR-0077: Preserve link/time witnesses in the next oracle
 
 Accepted before release. The fixed-step field failure does not justify another
