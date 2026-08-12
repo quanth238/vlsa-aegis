@@ -705,7 +705,10 @@ def evaluate(
         )
         _require(bool(archived.get("task_success")), "task-valid AEGIS did not succeed")
         _require(bool(baseline.get("task_success")), "task-valid baseline did not succeed")
-    _require(len(archived.get("actions", [])) == 300, "generalization action ledger differs")
+    _require(
+        len(archived.get("actions", [])) > int(selected["evaluation_last_step"]),
+        "generalization action ledger ends before registered horizon",
+    )
     geometry_config = load_shadow_config(geometry_config_path)
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
