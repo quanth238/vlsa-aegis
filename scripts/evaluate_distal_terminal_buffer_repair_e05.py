@@ -80,7 +80,11 @@ def evaluate(
         allocation_record,
         load_shadow_config,
     )
-    from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
+    from main.multilink_ellipsoid.sitl_candidate import (
+        SlabbedEightConstraintProbe,
+        _obstacle_root_body_id,
+        _protected_contact_evidence,
+    )
 
     started = time.perf_counter_ns()
     config = json.loads(experiment_config_path.read_text())
@@ -158,6 +162,15 @@ def evaluate(
         initial_goal = _goal_progress_snapshot(env, goal_atoms, step=-1, previous_values=None)
         previous_goal_values = initial_goal["values"]
         complete_actions = _result_actions(full, 0, 205)
+        obstacle_id = _obstacle_root_body_id(env.sim.model, obstacle_name)
+
+        def mirror_registered_measurement() -> None:
+            clearance_probe.clearances(env)
+            _protected_contact_evidence(env, obstacle_name)
+            np.asarray(env.sim.data.xpos[obstacle_id], dtype=np.float64)
+
+        env.sim.forward()
+        mirror_registered_measurement()
         video_writer = runtime["imageio"].get_writer(
             str(video_partial), fps=TABLE_VIDEO_FPS, codec="libx264", macro_block_size=None,
             pixelformat="yuv420p", output_params=["-crf", "18", "-movflags", "+faststart"]
@@ -166,7 +179,24 @@ def evaluate(
         video_writer.append_data(terminal_frame)
         action_records = []
         for step, command in enumerate(complete_actions[:205]):
-            observation, reward, done, _ = env.step(command.tolist())
+            original_step = env.sim.step
+            substep_count = 0
+
+            def instrumented_replay_step(*args: Any, **kwargs: Any) -> Any:
+                nonlocal substep_count
+                output = original_step(*args, **kwargs)
+                # Match the registered complete-replay measurement path.
+                mirror_registered_measurement()
+                substep_count += 1
+                return output
+
+            env.sim.step = instrumented_replay_step
+            try:
+                observation, reward, done, _ = env.step(command.tolist())
+            finally:
+                env.sim.step = original_step
+            _require(substep_count == 25, "replay substep count differs")
+            mirror_registered_measurement()
             _require(not done, "task completed before registered repair step")
             goal = _goal_progress_snapshot(env, goal_atoms, step=step, previous_values=previous_goal_values)
             previous_goal_values = goal["values"]
