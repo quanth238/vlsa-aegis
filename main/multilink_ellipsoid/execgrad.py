@@ -198,7 +198,7 @@ def link_jvp_scales(
     values = np.asarray(exact, dtype=np.float64)
     dims = np.asarray(dimensions, dtype=np.int64)
     rows = np.asarray(training_rows, dtype=np.int64)
-    if values.ndim != 5 or values.shape[1:] != (51, 7, 3,):
+    if values.ndim != 4 or values.shape[1:] != (51, 7, 3):
         raise ValueError("ExecGrad link JVP shape differs")
     steering = set(int(value) for value in settings["steering_action_dimensions"])
     scale = np.zeros((14, 51), dtype=np.float64)

@@ -4578,3 +4578,11 @@ remain diagnostics; future task-3 episodes and fresh cloned-OSC direction
 rollouts open only after a fitted pass. Flow guidance, calibration, QP,
 closed loop, Poisson/SDF, and classifiers remain blocked. Config SHA-256 is
 `6f0a6306fbf56a78e5ec01c3df0cf729640b34ff5436a3f3817d1906e5b3ca8a`.
+
+Initial H100 job `38742` stopped in allocation-side structural preflight
+before preprocessing or training. The link-JVP tensor is correctly shaped as
+`pair x 51 x 7 x 3`, but its validator mistakenly required five dimensions.
+Repair only that tensor-rank assertion and retain the four-axis suffix check.
+No simulation label, model, loss, population, split, seed, threshold, or
+configuration changes; the failed run and its empty scientific artifacts are
+not reused.
