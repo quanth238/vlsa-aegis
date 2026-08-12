@@ -1,5 +1,32 @@
 # Reproduction decisions
 
+## ADR-0080: Reject direct smooth-field attribution; retain it only as a compound repair
+
+Accepted after clean H100 producer `38974` and independent validator `38976`.
+The stricter internal-substep audit reproduced raw AEGIS as unsafe at
+`-16.075686 mm`. Applying the same `2 mm` smooth all-witness secant procedure
+directly to raw actions improved clearance to `-7.009143 mm`, but retained 125
+protected contact samples, missed paper CAR, and supplied no verified-safe
+scale on the registered correction ray. The final held-out directional cosine
+also fell to `0.694629`, identifying loss of local field fidelity where exact
+line search stalled.
+
+Do not attribute the prior `+1.673938 mm` result to standalone smooth-field
+avoidance. That result was reproduced only by composing the earlier detour
+with the smooth second-stage correction; its total correction L2 from raw
+AEGIS is `1.849546`. Smooth aggregation remains useful for locally improving a
+given detour, but the current local field cannot discover that detour mode from
+the raw suffix. Consequently, do not run live closed-loop recovery and do not
+train an MLP to reproduce this failed direct field.
+
+The next proposal must target the missing nonlocal or multimodal correction
+structure, and must again be tested as a no-learning oracle before scale-up.
+Potential proposal generators may preserve multiple candidate detour branches
+or use derivative-free/global search, while hard internal-substep ellipsoid
+clearance, raw contact, and CAR remain the acceptance authority. This result
+does not reject counterfactual OSC supervision or smooth risk evaluation; it
+rejects the claim that one locally re-estimated smooth descent path is enough.
+
 ## ADR-0079: Attribute the smooth field before closed-loop recovery
 
 Accepted before release. The validated smooth candidate was a compound

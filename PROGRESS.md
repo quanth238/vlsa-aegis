@@ -30,6 +30,42 @@ or formal safety result. Passing proves only that the smooth field can directly
 repair raw AEGIS under the registered continuation and held-out directional
 gate. Only then may a separate receding frozen-VLA recovery experiment begin.
 
+Clean H100 producer job `38974` completed on `worker-1` from commit
+`7d617fa801cad4684a386e4dd92c34dca04e516d` in `7:36`; independent H100
+validator job `38976` accepted the immutable result. Internal instrumentation
+recorded the initial state plus exactly `25` MuJoCo model steps for every one
+of 20 OSC actions. Raw AEGIS reproduced a minimum of `-16.075686 mm`, `193`
+protected contact samples, and `22.833455 mm` paper-CAR displacement. The
+earlier five-action detour alone also remained unsafe at `-14.305567 mm` with
+`41` contact samples and `1.070811 mm` CAR displacement.
+
+The direct smooth field improved exact internal-substep clearance by
+`9.066542 mm`, reaching `-7.009143 mm` after seven accepted steps with path
+length `0.7` and net correction L2 `0.668480`. It nevertheless retained `125`
+protected contact samples, missed CAR at `18.110775 mm`, and had no safe scale
+on the registered `0.025` ray grid. Held-out secant prediction passed strongly
+for the first seven fits (`0.994--0.999` cosine), but the eighth local fit fell
+to cosine `0.694629`, below the registered `0.8` gate; exact line search then
+found no improving step. The direct-attribution gate is therefore a strict
+NO-GO.
+
+The compound detour-plus-smooth comparator reproduced `+1.673938 mm`, zero
+protected contact, and paper CAR. Its smallest registered second-stage scale
+was `0.975`, with `+1.173397 mm` clearance, and its total correction from raw
+AEGIS had L2 `1.849546`. This establishes that the earlier positive smooth arm
+was a second-stage repair of a much larger detour, not a standalone correction
+found directly from raw AEGIS. Do not start live closed-loop recovery or train
+a field MLP from this result. The next mechanism question is whether a richer
+proposal family can recover the detour mode from raw AEGIS; merely smoothing
+the scalar risk or learning its local secants is insufficient.
+
+Producer result/file SHA-256 values are
+`54469ee5dcd5ac8263df5a0cbaf833fb028d17ef8f0587ee501d0b4959865f55` and
+`49799eb0fb2ce45e916d3f6f7b630a4ed27ccf2c41fcee364d03ddf02f995f9e`.
+Validation payload/file SHA-256 values are
+`b6a90330d948c76516d29075c902430b322e1838d3c8e3faadd20cbf3032b5dd` and
+`b23fc9c3b4d29b4071787b44e35bbf61c115a48f63a8590087bbec2b2fee403c`.
+
 ## Multi-witness counterfactual field gate (preregistered, 2026-08-12)
 
 The next avoidance-only test keeps the same immutable E05 action-182 state,
