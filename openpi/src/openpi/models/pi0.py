@@ -564,6 +564,91 @@ class Pi0(_model.BaseModel):
         )
         return x_0
 
+    def sample_actions_with_scheduled_repulsive_flow_guidance(
+        self,
+        rng: at.KeyArrayLike,
+        observation: _model.Observation,
+        *,
+        repulsive_direction_model: jax.Array,
+        repulsive_slot_mask: jax.Array,
+        repulsive_euler_strengths: jax.Array,
+        repulsive_model_lower: jax.Array,
+        repulsive_model_upper: jax.Array,
+        num_steps: int | at.Int[at.Array, ""] = 10,
+        noise: at.Float[at.Array, "b ah ad"] | None = None,
+    ) -> _model.Actions:
+        """Add fixed physical repulsion under an explicit ten-step schedule."""
+
+        observation = _model.preprocess_observation(None, observation, train=False)
+        dt = -1.0 / num_steps
+        batch_size = observation.state.shape[0]
+        if noise is None:
+            noise = jax.random.normal(
+                rng, (batch_size, self.action_horizon, self.action_dim)
+            )
+        direction = jnp.asarray(repulsive_direction_model, dtype=noise.dtype)
+        slot_mask = jnp.asarray(repulsive_slot_mask, dtype=noise.dtype)
+        strengths = jnp.asarray(repulsive_euler_strengths, dtype=noise.dtype)
+        lower = jnp.asarray(repulsive_model_lower, dtype=noise.dtype)
+        upper = jnp.asarray(repulsive_model_upper, dtype=noise.dtype)
+        if direction.shape != (self.action_horizon, 3):
+            raise ValueError("scheduled repulsive-flow direction shape differs")
+        if slot_mask.shape != (self.action_horizon, 1):
+            raise ValueError("scheduled repulsive-flow slot mask shape differs")
+        if strengths.shape != (10,):
+            raise ValueError("scheduled repulsive-flow strengths shape differs")
+
+        prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
+        prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+        positions = jnp.cumsum(prefix_mask, axis=1) - 1
+        _, kv_cache = self.PaliGemma.llm(
+            [prefix_tokens, None], mask=prefix_attn_mask, positions=positions
+        )
+
+        def step(carry):
+            x_t, time, step_index = carry
+            suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(
+                observation, x_t, jnp.broadcast_to(time, batch_size)
+            )
+            suffix_attn_mask = make_attn_mask(suffix_mask, suffix_ar_mask)
+            prefix_to_suffix = einops.repeat(
+                prefix_mask, "b p -> b s p", s=suffix_tokens.shape[1]
+            )
+            full_attn_mask = jnp.concatenate(
+                [prefix_to_suffix, suffix_attn_mask], axis=-1
+            )
+            positions = (
+                jnp.sum(prefix_mask, axis=-1)[:, None]
+                + jnp.cumsum(suffix_mask, axis=-1)
+                - 1
+            )
+            (prefix_out, suffix_out), _ = self.PaliGemma.llm(
+                [None, suffix_tokens],
+                mask=full_attn_mask,
+                positions=positions,
+                kv_cache=kv_cache,
+                adarms_cond=[None, adarms_cond],
+            )
+            assert prefix_out is None
+            v_t = self.action_out_proj(suffix_out[:, -self.action_horizon :])
+            x_next = x_t + dt * v_t
+            strength = strengths[step_index]
+            guided_xyz = x_next[..., :3] + strength * slot_mask * direction
+            guided_xyz = jnp.clip(guided_xyz, lower, upper)
+            x_next = x_next.at[..., :3].set(guided_xyz)
+            return x_next, time + dt, step_index + 1
+
+        def cond(carry):
+            _, time, _ = carry
+            return time >= -dt / 2
+
+        x_0, _, _ = jax.lax.while_loop(
+            cond,
+            step,
+            (noise, 1.0, jnp.asarray(0, dtype=jnp.int32)),
+        )
+        return x_0
+
     def sample_actions_flow_step(
         self,
         observation: _model.Observation,

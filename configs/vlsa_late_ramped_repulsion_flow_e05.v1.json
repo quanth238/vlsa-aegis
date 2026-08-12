@@ -1,0 +1,105 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_live_step180_pi05_fixed_repulsion_timing_and_denoiser_cancellation_ablation_not_archived_dangerous_action_not_population_generalization_not_task_completion",
+  "comparison": {
+    "arms": [
+      "ordinary_pi05_chunk",
+      "uniform_final_five",
+      "late_linear_last_two",
+      "final_step_only",
+      "norm_matched_posthoc_for_each_guided_arm"
+    ],
+    "fairness": "match_the_total_surviving_output_XYZ_correction_L2_over_slots_2_3_4",
+    "pairing": "same_state_observation_rng_seed_physical_direction_and_five_action_horizon"
+  },
+  "flow_guidance": {
+    "action_limit": 1.0,
+    "guided_action_slots": [
+      2,
+      3,
+      4
+    ],
+    "injected_total_per_slot_action": 0.25,
+    "schedules": {
+      "final_step_only": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.25
+      ],
+      "late_linear_last_two": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.08333333333333333,
+        0.16666666666666666
+      ],
+      "uniform_final_five": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.05,
+        0.05,
+        0.05,
+        0.05,
+        0.05
+      ]
+    }
+  },
+  "nominal_action_source": "immutable_successful_released_aegis_env_step_input_until_query_step_180_then_live_pi05_with_table1_rng_seed",
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-late-ramped-repulsion-flow-e05-v1",
+  "repulsive_direction": {
+    "finite_difference_action": 0.05,
+    "future_action_count": 5,
+    "physical_basis": "cloned_osc_seven_row_clearance_jacobian_at_query_step_180",
+    "softmin_temperature_m": 0.002,
+    "weighting": "fixed_analytical_softmin"
+  },
+  "schema_version": "vlsa_late_ramped_repulsion_flow_e05.v1",
+  "state_protocol": {
+    "activation_query_step": 180,
+    "evaluated_action_steps": [
+      180,
+      181,
+      182,
+      183,
+      184
+    ],
+    "guided_executed_steps": [
+      182,
+      183,
+      184
+    ]
+  },
+  "success_definition": {
+    "clearance": "report_exact_cloned_OSC_L5_L7_hard_margin_for_every_flow_and_norm_matched_posthoc_arm",
+    "late_timing": "both_late_linear_last_two_and_final_step_only_retain_more_output_correction_norm_than_uniform_final_five",
+    "matching_tolerance_action_l2": 1e-08,
+    "task_motion": "report_end_effector_progress_along_the_ordinary_five_action_prefix"
+  },
+  "verification": {
+    "clone_state_tolerance": 1e-10,
+    "execute_any_arm": false,
+    "reason": "timing_mechanism_test_uses_a_live_prefix_already_known_to_be_safe_and_does_not_reproduce_the_archived_dangerous_action"
+  }
+}

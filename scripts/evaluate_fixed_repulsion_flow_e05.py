@@ -28,6 +28,7 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 
 
 RESULT_SCHEMA = "vlsa_fixed_repulsion_flow_e05_result.v1"
+LATE_RAMPED_RESULT_SCHEMA = "vlsa_late_ramped_repulsion_flow_e05_result.v1"
 
 
 def _disable_images(env: Any) -> int:
@@ -159,6 +160,12 @@ def evaluate(
         load_repulsive_flow_config,
         posthoc_chunk,
     )
+    from main.multilink_ellipsoid.late_ramped_flow import (
+        build_schedule_envelope,
+        load_late_ramped_flow_config,
+        norm_matched_posthoc_chunk,
+        surviving_output_correction,
+    )
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow,
         allocation_record,
@@ -181,7 +188,16 @@ def evaluate(
     _require(len(matches) == 1, "primary manifest row differs")
     case = matches[0]
     validate_case_row(case, repo_root)
-    config = load_repulsive_flow_config(experiment_config_path)
+    raw_experiment_config = json.loads(experiment_config_path.read_text(encoding="utf-8"))
+    late_ramped = bool(
+        raw_experiment_config.get("schema_version")
+        == "vlsa_late_ramped_repulsion_flow_e05.v1"
+    )
+    config = (
+        load_late_ramped_flow_config(experiment_config_path)
+        if late_ramped
+        else load_repulsive_flow_config(experiment_config_path)
+    )
     geometry_config = load_shadow_config(geometry_config_path)
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
@@ -363,6 +379,213 @@ def evaluate(
             temperature_m=float(config["repulsive_direction"]["softmin_temperature_m"]),
             guided_slots=list(config["flow_guidance"]["guided_action_slots"]),
         )
+        if late_ramped:
+            guided_slots = list(config["flow_guidance"]["guided_action_slots"])
+
+            def five_metrics(rollout: Mapping[str, Any]) -> dict[str, Any]:
+                trace = np.asarray(rollout["h_opt_m"][:5, :7], dtype=np.float64)
+                return {
+                    "hard_minimum_m": float(np.min(trace)),
+                    "row_minimum_m": np.min(trace, axis=0).tolist(),
+                    "eef_terminal_position_m": np.asarray(
+                        rollout["eef_position_m"][4], dtype=np.float64
+                    ).tolist(),
+                    "rollout": _public_rollout(rollout),
+                }
+
+            nominal_rollout = probe.rollout(env, nominal_actions)
+            start_eef = np.asarray(observation["robot0_eef_pos"], dtype=np.float64)
+            ordinary_terminal = np.asarray(
+                nominal_rollout["eef_position_m"][4], dtype=np.float64
+            )
+            ordinary_delta = ordinary_terminal - start_eef
+            progress_denominator = float(np.dot(ordinary_delta, ordinary_delta))
+            arms: dict[str, Any] = {
+                "ordinary_pi05_chunk": {
+                    **five_metrics(nominal_rollout),
+                    "surviving_output_correction_l2": 0.0,
+                    "task_progress_ratio": 1.0,
+                }
+            }
+            scheduled_queries: dict[str, Any] = {}
+            for schedule_name in (
+                "uniform_final_five",
+                "late_linear_last_two",
+                "final_step_only",
+            ):
+                envelope = build_schedule_envelope(
+                    nominal_raw,
+                    direction,
+                    guided_slots=guided_slots,
+                    schedule=list(config["flow_guidance"]["schedules"][schedule_name]),
+                    action_limit=float(config["flow_guidance"]["action_limit"]),
+                )
+                guided_input = _policy_observation(
+                    runtime,
+                    observation,
+                    task_description=str(task.language),
+                    resize_size=224,
+                    rng_seed=seed,
+                )
+                guided_input["__crfs__"]["scheduled_repulsive_flow_guidance"] = envelope
+                infer_started = time.perf_counter_ns()
+                response = client.infer(guided_input)
+                infer_seconds = (time.perf_counter_ns() - infer_started) * 1.0e-9
+                guided_raw = np.asarray(response["actions"], dtype=np.float64)
+                _require(guided_raw.shape == (10, 7), "scheduled guided chunk shape differs")
+                correction, surviving_norm = surviving_output_correction(
+                    nominal_raw, guided_raw, guided_slots
+                )
+                reference = np.tile(np.asarray(direction, dtype=np.float64), 3)
+                flattened = correction.reshape(-1)
+                alignment = (
+                    0.0
+                    if surviving_norm <= 1.0e-12
+                    else float(np.dot(flattened, reference) / (surviving_norm * np.linalg.norm(reference)))
+                )
+                guided_actions = translational_chunk(guided_raw, action_limit=1.0)
+                guided_rollout = probe.rollout(env, guided_actions)
+                guided_terminal = np.asarray(
+                    guided_rollout["eef_position_m"][4], dtype=np.float64
+                )
+                progress = (
+                    0.0
+                    if progress_denominator <= 1.0e-12
+                    else float(
+                        np.dot(guided_terminal - start_eef, ordinary_delta)
+                        / progress_denominator
+                    )
+                )
+                matched_raw, matched_norm = norm_matched_posthoc_chunk(
+                    nominal_raw,
+                    direction,
+                    guided_slots=guided_slots,
+                    target_correction_l2=surviving_norm,
+                    action_limit=1.0,
+                )
+                _require(
+                    abs(matched_norm - surviving_norm)
+                    <= float(config["success_definition"]["matching_tolerance_action_l2"]),
+                    "norm-matched posthoc correction differs",
+                )
+                matched_actions = translational_chunk(matched_raw, action_limit=1.0)
+                matched_rollout = probe.rollout(env, matched_actions)
+                matched_terminal = np.asarray(
+                    matched_rollout["eef_position_m"][4], dtype=np.float64
+                )
+                matched_progress = (
+                    0.0
+                    if progress_denominator <= 1.0e-12
+                    else float(
+                        np.dot(matched_terminal - start_eef, ordinary_delta)
+                        / progress_denominator
+                    )
+                )
+                arms[schedule_name] = {
+                    **five_metrics(guided_rollout),
+                    "schedule_action": list(
+                        config["flow_guidance"]["schedules"][schedule_name]
+                    ),
+                    "injected_total_per_slot_action": float(
+                        config["flow_guidance"]["injected_total_per_slot_action"]
+                    ),
+                    "surviving_output_correction": correction.tolist(),
+                    "surviving_output_correction_l2": surviving_norm,
+                    "survival_fraction_of_unclipped_injected_chunk_l2": (
+                        surviving_norm
+                        / (
+                            np.sqrt(len(guided_slots))
+                            * float(config["flow_guidance"]["injected_total_per_slot_action"])
+                        )
+                    ),
+                    "surviving_direction_cosine": alignment,
+                    "task_progress_ratio": progress,
+                    "inference_seconds": infer_seconds,
+                    "policy_diagnostic": response.get(
+                        "scheduled_repulsive_flow_guidance"
+                    ),
+                }
+                arms["norm_matched_posthoc_%s" % schedule_name] = {
+                    **five_metrics(matched_rollout),
+                    "matched_to": schedule_name,
+                    "surviving_output_correction_l2": matched_norm,
+                    "task_progress_ratio": matched_progress,
+                }
+                scheduled_queries[schedule_name] = {
+                    "guided_action_sha256": array_sha256(guided_raw),
+                    "server_timing": response.get("server_timing"),
+                }
+
+            uniform_norm = float(
+                arms["uniform_final_five"]["surviving_output_correction_l2"]
+            )
+            late_norm = float(
+                arms["late_linear_last_two"]["surviving_output_correction_l2"]
+            )
+            final_norm = float(
+                arms["final_step_only"]["surviving_output_correction_l2"]
+            )
+            timing_gate_pass = bool(late_norm > uniform_norm and final_norm > uniform_norm)
+            result = {
+                "schema_version": LATE_RAMPED_RESULT_SCHEMA,
+                "status": "complete",
+                "scientific_result": True,
+                "case_id": CASE_ID,
+                "claim_scope": config["claim_scope"],
+                "source": source,
+                "allocation": allocation,
+                "archived_table1": {
+                    "path": str(archived_path),
+                    "file_sha256": ARCHIVED_FILE_SHA256,
+                    "payload_sha256": ARCHIVED_PAYLOAD_SHA256,
+                    "read_only": True,
+                },
+                "config": config,
+                "geometry_config": geometry_config,
+                "geometry": geometry_record,
+                "pairing": pairing,
+                "disabled_image_observables": disabled_images,
+                "policy_server": server_identity,
+                "query": {
+                    "query_index": 36,
+                    "step": 180,
+                    "rng_seed": seed,
+                    "nominal_action_sha256": array_sha256(nominal_raw),
+                    "maximum_live_vs_archived_prefix_difference": float(
+                        np.max(live_difference)
+                    ),
+                    "per_dimension_live_vs_archived_prefix_maximum": np.max(
+                        live_difference, axis=0
+                    ).tolist(),
+                    "live_vs_archived_gripper_signs_equal": archived_gripper_signs_equal,
+                    "live_vs_archived_status": "diagnostic_only_no_late_query_equivalence_claim",
+                    "scientific_arm_pairing": "same_live_state_observation_rng_seed_physical_direction_and_horizon",
+                    "nominal_infer_seconds": nominal_infer_seconds,
+                    "server_nominal_timing": nominal_response.get("server_timing"),
+                    "scheduled_queries": scheduled_queries,
+                },
+                "repulsive_model": {
+                    **model["record"],
+                    "row_minimum_m": row_minima.tolist(),
+                    "fixed_softmin_weights": weights.tolist(),
+                    "physical_output_direction": direction.tolist(),
+                },
+                "arms": arms,
+                "timing_gate_pass": timing_gate_pass,
+                "execution": {
+                    "attempted": False,
+                    "reason": config["verification"]["reason"],
+                },
+                "primary_problem_solved": False,
+                "interpretation": (
+                    "late_guidance_reduces_denoiser_cancellation"
+                    if timing_gate_pass
+                    else "late_guidance_does_not_reduce_denoiser_cancellation"
+                ),
+                "wall_seconds": (time.perf_counter_ns() - started) * 1e-9,
+            }
+            result["result_payload_sha256"] = _sha256(_canonical(result))
+            return result
         posthoc_raw = posthoc_chunk(
             nominal_raw,
             direction,
@@ -585,12 +808,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         port=args.port,
     )
     _atomic_write(args.output.resolve(), result)
-    print(json.dumps({
-        "direction_gate_pass": result["direction_gate_pass"],
+    summary = {
         "primary_problem_solved": result["primary_problem_solved"],
         "interpretation": result["interpretation"],
         "result_payload_sha256": result["result_payload_sha256"],
-    }, sort_keys=True), flush=True)
+    }
+    if "timing_gate_pass" in result:
+        summary["timing_gate_pass"] = result["timing_gate_pass"]
+    else:
+        summary["direction_gate_pass"] = result["direction_gate_pass"]
+    print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 
 

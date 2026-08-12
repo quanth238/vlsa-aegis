@@ -62,6 +62,36 @@ class FixedRepulsionFlowTests(unittest.TestCase):
         self.assertIn('"corrected_interpretation"', source)
         self.assertIn('"fixed_repulsion_inside_flow_worse_than_posthoc"', source)
 
+    def test_late_ramped_config_matches_surviving_output_norm(self) -> None:
+        from main.multilink_ellipsoid.late_ramped_flow import (
+            load_late_ramped_flow_config,
+        )
+
+        config = load_late_ramped_flow_config(
+            ROOT / "configs/vlsa_late_ramped_repulsion_flow_e05.v1.json"
+        )
+        schedules = config["flow_guidance"]["schedules"]
+        self.assertEqual(schedules["final_step_only"][-1], 0.25)
+        self.assertEqual(schedules["late_linear_last_two"][:8], [0.0] * 8)
+        self.assertEqual(config["comparison"]["fairness"],
+                         "match_the_total_surviving_output_XYZ_correction_L2_over_slots_2_3_4")
+
+    def test_late_ramped_model_uses_explicit_strengths(self) -> None:
+        source = (ROOT / "openpi/src/openpi/models/pi0.py").read_text(encoding="utf-8")
+        start = source.index("def sample_actions_with_scheduled_repulsive_flow_guidance")
+        end = source.index("def sample_actions_flow_step", start)
+        method = source[start:end]
+        self.assertIn("strength = strengths[step_index]", method)
+        self.assertIn("x_t + dt * v_t", method)
+
+    def test_late_ramped_runner_never_executes(self) -> None:
+        source = (
+            ROOT / "scripts/evaluate_fixed_repulsion_flow_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"norm_matched_posthoc_%s" % schedule_name', source)
+        self.assertIn('"attempted": False', source)
+        self.assertIn("surviving_output_correction", source)
+
 
 if __name__ == "__main__":
     unittest.main()

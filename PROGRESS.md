@@ -1254,3 +1254,26 @@ Table 1 remained read-only at its frozen SHA-256. The next scientific action
 is to preregister a multi-state field-weight learner against this exact oracle,
 with a positive clearance buffer and matched analytical/random baselines; do
 not insert the field into pi0.5 denoising or claim closed-loop task success yet.
+
+## Preregistered late-ramped fixed-repulsion timing ablation
+
+The next narrow gate revisits the live step-180 pi0.5 query solely to measure
+denoiser cancellation. Ordinary pi0.5 and three fixed analytical repulsion
+schedules share the exact state, observation, query seed, physical direction,
+guided slots 2--4, and injected per-slot XYZ budget `0.25`. The schedules are
+uniform over final Euler updates 5--9, linearly ramped over only updates 8--9,
+and concentrated entirely at update 9.
+
+The registered fairness metric is the L2 norm that survives in all nine final
+output XYZ coordinates, not the injected budget. Each flow result receives a
+post-hoc comparator in the same physical direction, solved after clipping to
+that exact surviving norm. Exact cloned-OSC L5--L7 clearance and ordinary-axis
+end-effector progress are reported. The timing hypothesis passes only if both
+late schedules retain more output correction than the uniform-final-five arm.
+No arm executes: this live prefix was already proxy-safe and does not reproduce
+the archived dangerous policy mode. The experiment is not collision-prevention,
+task-completion, learning, or population evidence. The exact next command is
+to commit and sync the preregistered harness, run live Slurm preflight, and
+submit `slurm/fixed_repulsion_flow_e05.sbatch` with
+`EXPERIMENT_CONFIG=configs/vlsa_late_ramped_repulsion_flow_e05.v1.json` on one
+H100.

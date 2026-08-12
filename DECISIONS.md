@@ -947,3 +947,20 @@ coefficient/step selector, trained across boundary states and always compared
 with fixed analytical mixtures and matched random directions. A positive
 buffer plus fresh exact cloned-OSC verification remains mandatory before any
 candidate executes.
+
+## ADR-0053: Compare denoising timing by surviving correction norm
+
+Accepted as a mechanism-only follow-up to the earlier uniform-final-five
+inside-flow NO-GO. Equal injected forces are not equal interventions because
+later policy vector-field updates can cancel an earlier perturbation. The
+scientifically paired comparison therefore measures the final output XYZ
+correction over the same three chunk slots and constructs a separate post-hoc
+arm at that exact surviving L2 norm.
+
+Three schedules isolate timing while holding the injected physical budget
+fixed: uniform updates 5--9, a late ramp over updates 8--9, and update 9 only.
+The opt-in OpenPI path accepts an explicit nonnegative ten-step schedule and
+leaves the ordinary sampler unchanged. This test may identify reduced
+cancellation; it cannot establish safety efficacy because the paired live
+step-180 action is already safe and is not the archived dangerous mode. No
+candidate executes regardless of outcome.

@@ -179,6 +179,31 @@ class CrfsWebsocketControlTest(unittest.TestCase):
                     }
                 }
             )
+
+    def test_scheduled_repulsive_flow_guidance_is_validated(self):
+        guidance = {
+            "schema_version": "crfs_scheduled_repulsive_flow_guidance.v1",
+            "action_horizon": 10,
+            "action_dimensions": [0, 1, 2],
+            "physical_output_direction": [1.0, 0.0, 0.0],
+            "nominal_output_actions": [[0.0] * 7 for _ in range(10)],
+            "guided_action_slots": [2, 3, 4],
+            "euler_step_strengths_action": [0.0] * 8 + [1.0 / 12.0, 1.0 / 6.0],
+            "action_limit": 1.0,
+        }
+        returned, control = self.module._extract_crfs_control(
+            {
+                "state": [1, 2, 3],
+                "__crfs__": {
+                    "rng_seed": 19,
+                    "scheduled_repulsive_flow_guidance": guidance,
+                },
+            }
+        )
+        self.assertNotIn("__crfs__", returned)
+        self.assertEqual(
+            control["scheduled_repulsive_flow_guidance"], guidance
+        )
     def test_embodisteer_task_metric_guidance_is_validated_and_removed(self):
         row = [0.0] * 30
         row[0] = 1.0

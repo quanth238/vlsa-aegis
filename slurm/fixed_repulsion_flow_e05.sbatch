@@ -19,6 +19,7 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 OPENPI_PYTHON=${OPENPI_PYTHON:-/mnt/data/quanth/venvs/openpi/bin/python}
 PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/checkpoints/pi05_libero}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-fixed-repulsion-flow-e05}
+EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-$REMOTE_REPO/configs/vlsa_fixed_repulsion_flow_e05.v1.json}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 POLICY_PORT=${POLICY_PORT:-8028}
 
@@ -31,6 +32,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" && -x "$OPENPI_PYTHON" ]] || die "Python environment is missing"
 [[ -d "$PI05_CHECKPOINT" && ! -L "$PI05_CHECKPOINT" ]] || die "pi0.5 checkpoint is missing"
+[[ -f "$EXPERIMENT_CONFIG" && ! -L "$EXPERIMENT_CONFIG" ]] || die "experiment config is missing"
 [[ -f "$ARCHIVED_TABLE1_RESULT" && ! -L "$ARCHIVED_TABLE1_RESULT" ]] || die "Table-1 result is missing"
 [[ "$(sha256sum "$ARCHIVED_TABLE1_RESULT" | awk '{print $1}')" == 273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b ]] || die "Table-1 hash differs"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"
@@ -122,7 +124,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
-  --experiment-config "$REMOTE_REPO/configs/vlsa_fixed_repulsion_flow_e05.v1.json" \
+  --experiment-config "$EXPERIMENT_CONFIG" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \
   --port "$POLICY_PORT" \
