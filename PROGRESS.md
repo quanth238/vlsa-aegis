@@ -26,6 +26,14 @@ classifies the five-action prefix as insufficient without an adaptive or
 modified continuation. No MLP, live VLA, QP, CBF, task-completion, or formal
 safety claim is allowed.
 
+H100 attempt `38977` passed its allocation and unit-test preflight, then stopped
+before any rollout because the transplant reconstructed the registered prefix
+as `raw + (compound - raw)`. The subtraction/addition round trip was
+numerically equivalent but failed the required bitwise identity assertion.
+This is an apparatus failure with no scientific outcome. The retry assigns the
+registered compound prefix directly and continues to record its displacement
+from raw plus any clipping; no action value, comparator, or gate changes.
+
 ## Direct smooth-field attribution gate (preregistered, 2026-08-12)
 
 The next gate separates the successful smooth proposal from the earlier

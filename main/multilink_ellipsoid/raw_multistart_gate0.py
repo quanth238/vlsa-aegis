@@ -76,7 +76,10 @@ def transplant_compound_prefix(raw_actions: Any, compound_actions: Any, action_l
         raise ValueError("raw multi-start Gate-0 action shape differs")
     delta = compound[:5, :3] - raw[:5, :3]
     unbounded = raw.copy()
-    unbounded[:5, :3] += delta
+    # Assign the registered compound values directly. Reconstructing them as
+    # raw + (compound - raw) is numerically equivalent but needlessly loses
+    # bitwise identity through a floating-point subtraction/addition round trip.
+    unbounded[:5, :3] = compound[:5, :3]
     clipped = unbounded.copy()
     clipped[:5, :3] = np.clip(clipped[:5, :3], -float(action_limit), float(action_limit))
     applied = clipped[:5, :3] - raw[:5, :3]

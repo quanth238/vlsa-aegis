@@ -57,6 +57,10 @@ class CounterfactualFieldTest(unittest.TestCase):
         self.assertTrue(np.allclose(result["actions"][:5, 0], 1.0))
         self.assertTrue(np.allclose(result["clipping_delta"][:, 0], -0.2))
 
+        compound[:5, 0] = np.nextafter(0.3, 1.0)
+        exact = transplant_compound_prefix(raw, compound, 1.0)
+        self.assertTrue(np.array_equal(exact["actions"][:5], compound[:5]))
+
     def test_smooth_field_attribution_config_and_scale_contract(self):
         from main.multilink_ellipsoid.smooth_field_attribution import (
             load_smooth_field_attribution_config,

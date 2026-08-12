@@ -17,6 +17,12 @@ binding and transient internal collision. Treat every radius as an upper bound
 and retain matched-budget and matched-norm comparisons as separate later
 analyses.
 
+Attempt `38977` revealed that bitwise action binding must use direct registered
+value assignment rather than an algebraically equivalent displacement round
+trip. Accept this as a scientifically neutral apparatus repair: displacement
+is still reported as compound minus raw, while the applied prefix is copied
+from the immutable compound values before explicit action-bound checking.
+
 ## ADR-0080: Reject direct smooth-field attribution; retain it only as a compound repair
 
 Accepted after clean H100 producer `38974` and independent validator `38976`.
