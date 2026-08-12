@@ -1,0 +1,42 @@
+{
+  "case_ids": ["vlsa-t1-goal-ii-t3-e38"],
+  "claim_scope": "read_only_certified_slabbed_link5_link6_link7_ellipsoid_geometry_reused_without_refitting_on_one_previously_unused_task_valid_table1_case_not_active_safety_efficacy",
+  "control_effect": "read_only_no_executed_action_change",
+  "end_effector_geometry": {
+    "center_and_orientation": "authoritative_robot0_grip_site_pose_plus_released_minus_0.08m_local_z_offset",
+    "semiaxes_m": [0.06, 0.12, 0.11],
+    "source": "released_aegis_end_effector_proxy"
+  },
+  "obstacle_geometry": "released_aegis_frozen_perception_mvee",
+  "optimizer": {
+    "alpha_s_inv": 10.0,
+    "bound_tolerance_rad_s": 5e-08,
+    "eef_preservation_weight": 10.0,
+    "eef_weight_diagonal": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    "eps_abs": 1e-07,
+    "eps_rel": 1e-07,
+    "joint_velocity_limit_rad_s": 0.5,
+    "max_iter": 10000,
+    "optimizer_clearance_m": 0.01,
+    "residual_tolerance": 5e-07,
+    "resolved_rate_damping": 0.05
+  },
+  "protected_body_names": ["robot0_link5", "robot0_link6", "robot0_link7"],
+  "protocol_id": "vlsa-distal-slabbed-ellipsoid-shadow-task-valid-e38-v4",
+  "robot_geometry": {
+    "clipped_polytope_vertices": "original_hull_vertices_plus_hull_edge_plane_intersections",
+    "fit": "convex_hull_axis_slab_khachiyan_mvee_exact_inflation",
+    "khachiyan_max_iterations": 20000,
+    "khachiyan_tolerance": 0.0001,
+    "part_counts": {"robot0_link5": 3, "robot0_link6": 2, "robot0_link7": 2},
+    "partition_axis": "dominant_pca_axis",
+    "relative_numerical_padding": 1e-09,
+    "slab_partition": "uniform_projection_span_contiguous_no_gaps",
+    "source": "compiled_mujoco_collision_mesh_vertices"
+  },
+  "schema_version": "vlsa_distal_slabbed_ellipsoid_shadow.v4",
+  "simulator_verification": {
+    "D_sim": "raw_mujoco_nonpositive_contact_distance_and_active_obstacle_displacement",
+    "distinct_from_D_opt": true
+  }
+}

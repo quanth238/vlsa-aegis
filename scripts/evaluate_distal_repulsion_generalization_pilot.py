@@ -647,7 +647,7 @@ def evaluate(
         read_jsonl,
         validate_case_row,
     )
-    from main.multilink_ellipsoid.repulsion_generalization import load_cases, load_config
+    from main.multilink_ellipsoid.repulsion_generalization import load_experiment_contract
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow,
         allocation_record,
@@ -656,8 +656,9 @@ def evaluate(
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
 
     started = time.perf_counter_ns()
-    config = load_config(experiment_config_path)
-    selected_cases = load_cases(selection_manifest_path, config)
+    config, selected_cases = load_experiment_contract(
+        experiment_config_path, selection_manifest_path
+    )
     _require(0 <= int(case_index) < len(selected_cases), "generalization case index differs")
     selected = selected_cases[int(case_index)]
     matches = [row for row in read_jsonl(table1_manifest_path) if row.get("case_id") == selected["case_id"]]
@@ -668,16 +669,42 @@ def evaluate(
         int(case["case_ordinal"]) == int(selected["table1_case_ordinal"]),
         "generalization Table-1 ordinal differs",
     )
-    archived_path = archived_root / selected["archived_result_relative_path"]
+    task_valid = "aegis_result_relative_path" in selected
+    archived_relative_path = selected.get(
+        "aegis_result_relative_path", selected.get("archived_result_relative_path")
+    )
+    archived_file_sha256 = selected.get(
+        "aegis_result_file_sha256", selected.get("archived_result_file_sha256")
+    )
+    archived_payload_sha256 = selected.get(
+        "aegis_result_payload_sha256", selected.get("archived_result_payload_sha256")
+    )
+    archived_path = archived_root / archived_relative_path
     archived = _load(archived_path)
     _require(
-        _file_sha256(archived_path) == selected["archived_result_file_sha256"],
+        _file_sha256(archived_path) == archived_file_sha256,
         "generalization Table-1 file differs",
     )
     _require(
-        archived.get("result_payload_sha256") == selected["archived_result_payload_sha256"],
+        archived.get("result_payload_sha256") == archived_payload_sha256,
         "generalization Table-1 payload differs",
     )
+    baseline = None
+    baseline_path = None
+    if task_valid:
+        baseline_path = archived_root / selected["baseline_result_relative_path"]
+        baseline = _load(baseline_path)
+        _require(
+            _file_sha256(baseline_path) == selected["baseline_result_file_sha256"],
+            "task-valid baseline file differs",
+        )
+        _require(
+            baseline.get("result_payload_sha256")
+            == selected["baseline_result_payload_sha256"],
+            "task-valid baseline payload differs",
+        )
+        _require(bool(archived.get("task_success")), "task-valid AEGIS did not succeed")
+        _require(bool(baseline.get("task_success")), "task-valid baseline did not succeed")
     _require(len(archived.get("actions", [])) == 300, "generalization action ledger differs")
     geometry_config = load_shadow_config(geometry_config_path)
     source = _git_identity(repo_root, expected_commit)
@@ -744,7 +771,9 @@ def evaluate(
         instrumented = InstrumentedContinuationProbe(one_step, obstacle_name, initial_obstacle_position)
         intervention_step = int(selected["intervention_step"])
         for step in range(intervention_step):
-            _, _, done, _ = env.step(_archived_action(archived["actions"], step).tolist())
+            observation, _, done, _ = env.step(
+                _archived_action(archived["actions"], step).tolist()
+            )
             _require(not bool(done), "generalization episode completed before intervention")
         base_actions = _archived_actions(
             archived,
@@ -754,6 +783,56 @@ def evaluate(
         raw = _internal_verify(
             instrumented, env, base_actions, config, step_base=intervention_step
         )
+        eligibility = None
+        if task_valid:
+            task_object_name = selected["task_object_name"]
+            task_object_position = np.asarray(
+                observation["%s_pos" % task_object_name], dtype=np.float64
+            )
+            live_eef_position = np.asarray(observation["robot0_eef_pos"], dtype=np.float64)
+            object_eef_distance = float(
+                np.linalg.norm(task_object_position - live_eef_position)
+            )
+            gripper_command = float(
+                _archived_action(archived["actions"], intervention_step)[6]
+            )
+            initial_clearance = float(
+                min(raw["record"]["clearance_trace_m"][0])
+            )
+            initial_contacts = [
+                event
+                for event in raw["record"]["protected_contacts"]
+                if int(event.get("action_offset", 0)) == -1
+            ]
+            registered = config["eligibility_gate"]
+            eligibility = {
+                "aegis_native_task_success": bool(archived["task_success"]),
+                "baseline_native_task_success": bool(baseline["task_success"]),
+                "initial_protected_contact_count": len(initial_contacts),
+                "initial_proxy_clearance_m": initial_clearance,
+                "task_object_eef_distance_m": object_eef_distance,
+                "gripper_command": gripper_command,
+            }
+            _require(
+                eligibility["initial_protected_contact_count"]
+                == int(registered["initial_protected_contact_count"]),
+                "task-valid initial protected contact differs",
+            )
+            _require(
+                eligibility["initial_proxy_clearance_m"]
+                >= float(registered["minimum_initial_proxy_clearance_m"]),
+                "task-valid initial proxy clearance differs",
+            )
+            _require(
+                eligibility["task_object_eef_distance_m"]
+                <= float(registered["maximum_task_object_eef_distance_m"]),
+                "task-valid object is not retained at intervention",
+            )
+            _require(
+                eligibility["gripper_command"]
+                >= float(registered["minimum_gripper_command"]),
+                "task-valid gripper is not closed at intervention",
+            )
         protected_steps = {
             int(event["step"])
             for event in raw["record"]["protected_contacts"]
@@ -841,10 +920,19 @@ def evaluate(
             },
             "archived_table1": {
                 "path": str(archived_path),
-                "file_sha256": selected["archived_result_file_sha256"],
-                "payload_sha256": selected["archived_result_payload_sha256"],
+                "file_sha256": archived_file_sha256,
+                "payload_sha256": archived_payload_sha256,
                 "read_only": True,
             },
+            "baseline_table1": None
+            if baseline_path is None
+            else {
+                "path": str(baseline_path),
+                "file_sha256": selected["baseline_result_file_sha256"],
+                "payload_sha256": selected["baseline_result_payload_sha256"],
+                "read_only": True,
+            },
+            "eligibility": eligibility,
             "geometry_config": geometry_config,
             "geometry": geometry.geometry_record(env),
             "pairing": pairing,

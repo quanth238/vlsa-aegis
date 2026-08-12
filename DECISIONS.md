@@ -1461,3 +1461,20 @@ without raw contact at the intervention state; first audit proxy/contact
 consistency and select a proxy-valid warning state. Do not train a repulsive
 MLP, weaken the +1 mm gate, or claim population generalization from this
 outcome-conditioned three-case pilot.
+
+## ADR-0064: Require task-valid prevention states before scoring safety efficacy
+
+Accepted after auditing the raw Table-1 task ledgers. Goal-II E24 cannot count
+against repulsion efficacy: both pi0.5 and AEGIS failed the native task, the
+goal was never satisfied, and the bowl was already about `0.301 m` from the
+AEGIS end effector by the registered intervention. Spatial-I E12 also remains
+ineligible because its obstacle-MVEE proxy was already deeply negative without
+raw contact. Preserve both as diagnostic mechanism evidence, but remove them
+from any task-preserving success-rate denominator.
+
+The next focused case is goal-II E38, where both policy arms completed the
+task, the cream cheese remained coupled to the gripper before intervention,
+and AEGIS subsequently made raw L5 contact with the wine-bottle obstacle.
+Keep the repulsion algorithm and correction budgets frozen. Eligibility must
+be checked before optimization; failure of that check is an invalid case, not
+a failed controller.

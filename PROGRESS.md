@@ -2068,3 +2068,22 @@ train or scale an MLP from this gate.
 Summary/validation payload SHA-256 values are
 `e1c3219ca5245ba153cba1c1613be5021e97767bf8177886e81fdd3e1ce18208`
 and `89878a1edcbec9597ada10d82cd67268cb473d6dbd19244c0ee45c54888de217`.
+
+Post-hoc task-validity audit invalidated E24 and spatial E12 as efficacy
+denominators without changing their immutable results. In E24, both pi0.5
+and AEGIS failed `put_the_bowl_on_the_plate`; the goal was never satisfied,
+and at the action-154 intervention the bowl was about `0.301 m` from the AEGIS
+end effector and no longer followed it. E24 therefore remains clearance-only
+mechanism evidence, not a task-preserving safety failure. Spatial E12 remains
+proxy-invalid because its initial ellipsoid margin was `-264 mm` without raw
+protected contact.
+
+The focused replacement selects previously unused goal-II E38. Both pi0.5 and
+AEGIS completed `put_the_cream_cheese_in_the_bowl`; AEGIS retained the cream
+cheese about `4 mm` from the end effector at action 108 with a closing gripper,
+then made raw L5/wine-bottle contact at action 113. The new immutable protocol
+reuses the exact v1 smooth-field, analytical, and derivative-free algorithms,
+budgets, twenty-action horizon, and internal-substep gates. It adds only an
+eligibility gate for both-arm native task success, retained task object,
+closed gripper, nonnegative initial proxy clearance, and zero initial contact.
+No prior artifact is replaced and no population claim is authorized.

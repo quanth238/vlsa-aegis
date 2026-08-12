@@ -77,6 +77,33 @@ class RepulsionGeneralizationTests(unittest.TestCase):
         self.assertNotIn("WebsocketClientPolicy", source)
         self.assertNotIn("policy_port", source)
 
+    def test_task_valid_replacement_is_frozen_and_preserves_algorithm(self) -> None:
+        from main.multilink_ellipsoid.repulsion_generalization import (
+            load_task_valid_cases,
+            load_task_valid_config,
+        )
+
+        config = load_task_valid_config(
+            ROOT / "configs/vlsa_distal_repulsion_task_valid_e38.v1.json"
+        )
+        cases = load_task_valid_cases(
+            ROOT / "manifests/vlsa_distal_repulsion_task_valid_e38.v1.jsonl",
+            config,
+        )
+        self.assertEqual([case["case_id"] for case in cases], ["vlsa-t1-goal-ii-t3-e38"])
+        self.assertEqual(cases[0]["intervention_step"], 108)
+        self.assertEqual(cases[0]["first_relevant_contact_step"], 113)
+        self.assertEqual(config["eligibility_gate"]["aegis_native_task_success"], True)
+        self.assertEqual(config["eligibility_gate"]["baseline_native_task_success"], True)
+        self.assertTrue(config["state_protocol"]["policy_query_disabled"])
+
+        from main.multilink_ellipsoid.shadow import load_shadow_config
+
+        geometry = load_shadow_config(
+            ROOT / "configs/vlsa_distal_slabbed_ellipsoid_shadow_task_valid_e38.v4.json"
+        )
+        self.assertEqual(geometry["case_ids"], ["vlsa-t1-goal-ii-t3-e38"])
+
 
 if __name__ == "__main__":
     unittest.main()
