@@ -1148,3 +1148,12 @@ end-effector progress. This is not a learned, population, or task-completion
 claim. The exact next command is to commit this preregistered harness, sync
 the clean commit, run live Slurm preflight, and submit
 `slurm/fixed_repulsion_flow_e05.sbatch` on one H100.
+
+H100 attempt `38803` reached `worker-2` and passed all 36 evaluation tests,
+then stopped before policy startup or simulation because the OpenPI pytest
+repository hook imports optional `pynvml`, which is absent from the pinned
+OpenPI environment. The immutable run is apparatus failure only. The repair
+replaces that unsuitable pytest invocation with allocation-side bytecode
+compilation of the three modified OpenPI modules; evaluation behavior,
+comparison arms, state, seed, direction, budget, geometry, and gates are
+unchanged.

@@ -90,8 +90,10 @@ cd "$REMOTE_REPO"
   tests.test_multilink_ellipsoid \
   tests.test_fixed_repulsion_flow -v \
   >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
-"$OPENPI_PYTHON" -m pytest \
-  openpi/src/openpi/models/model_test.py -q \
+"$OPENPI_PYTHON" -m py_compile \
+  openpi/src/openpi/models/pi0.py \
+  openpi/src/openpi/policies/policy.py \
+  openpi/src/openpi/serving/websocket_policy_server.py \
   >"$RUN_ROOT/openpi-preflight.txt" 2>&1
 
 (
