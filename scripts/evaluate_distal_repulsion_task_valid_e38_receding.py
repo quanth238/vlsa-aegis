@@ -56,7 +56,7 @@ def _load_config(path: Path) -> dict[str, Any]:
         "E38 lookahead differs",
     )
     _require(
-        value["state_protocol"]["execute_prefix_actions"] == 5,
+        value["state_protocol"]["execute_prefix_max_actions"] == 5,
         "E38 execution prefix differs",
     )
     return value
