@@ -1084,5 +1084,10 @@ the required initial-observation hash therefore differed. It is retained as
 an apparatus failure with no scientific result. The compatibility repair uses
 the archived render resolution for provenance, then disables images after the
 pairing hash is accepted; no split, sample, model, comparator, or gate changes.
-The exact next command is to commit this repair, sync the clean commit, and
-resubmit `slurm/distal_repulsive_force_direction_e05.sbatch` with a new run ID.
+H100 retry `38783` passed pairing and completed candidate generation plus
+training, but failed before atomic output because the model receipt retained
+one NumPy input-scale array that JSON cannot serialize. It also has no
+scientific result. The receipt-only repair converts that array to a plain
+list; it changes no rollout, model, direction, comparator, or threshold. The
+exact next command is to commit the serializer and independent validator,
+sync the clean commit, and resubmit with a new immutable run ID.

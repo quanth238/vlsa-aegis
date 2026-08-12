@@ -78,6 +78,15 @@ class DistalRepulsiveForceTests(unittest.TestCase):
         self.assertIn("matched_random_p_value", source)
         self.assertNotIn("MultiConstraintQp", source)
 
+    def test_independent_validator_recomputes_direction_gate(self) -> None:
+        source = (
+            ROOT / "scripts/validate_distal_repulsive_force_direction_e05.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("matched_random_p_value", source)
+        self.assertIn("random correction norms differ", source)
+        self.assertIn("result payload hash differs", source)
+        self.assertIn("failed direction gate executed continuation", source)
+
 
 if __name__ == "__main__":
     unittest.main()

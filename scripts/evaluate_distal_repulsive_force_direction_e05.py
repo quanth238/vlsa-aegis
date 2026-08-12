@@ -518,7 +518,11 @@ def evaluate(
                     config["model"],
                 )
                 model_record = {
-                    key: value
+                    key: (
+                        value.tolist()
+                        if isinstance(value, np.ndarray)
+                        else value
+                    )
                     for key, value in model_bundle.items()
                     if key != "model"
                 }
