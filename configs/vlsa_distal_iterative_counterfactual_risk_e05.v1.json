@@ -1,0 +1,75 @@
+{
+  "action_space": {
+    "action_limit": 1.0,
+    "corrected_dimensions": [0, 1, 2],
+    "corrected_horizon": 5,
+    "total_trust_radii_action": [0.1, 0.25, 0.5, 1.0]
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_archived_e05_state_decisive_oracle_diagnostic_of_pure_long_horizon_action_risk_gradient_endpoint_constraint_correction_radius_and_empirical_five_action_safe_support_not_mlp_not_qp_not_flow_guidance_not_closed_loop_not_task_completion_not_population_generalization_not_formal_safety",
+  "comparators": {
+    "analytical_finite_difference_action": 0.05,
+    "derivative_free_candidates_per_radius": 32,
+    "derivative_free_elite_count": 8,
+    "derivative_free_generations": 3,
+    "derivative_free_seed": 26081212,
+    "matched_random_candidates_per_radius": 32,
+    "matched_random_seed": 26081213
+  },
+  "field_estimation": {
+    "direction_seed": 26081211,
+    "inner_step_action": 0.1,
+    "line_search_fractions": [1.0, 0.5, 0.25],
+    "maximum_iterations": 10,
+    "paired_labels_may_extend_beyond_acceptance_radius_by_epsilon": true,
+    "paired_direction_count_per_radius": 32,
+    "paired_perturbation_action": 0.05,
+    "ridge": 1e-06
+  },
+  "gate": {
+    "clearance_buffers_m": [0.0, 0.001],
+    "maximum_terminal_eef_error_m": 0.015,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0
+  },
+  "prior_counterfactual_result": {
+    "result_payload_sha256": "d7cf3cb874e50370b4702293a9cab40822fcdbdd8c9a25f2510dc5fa6de4e313",
+    "run_id": "cf-field-e05-20260812a",
+    "source_commit": "ae5d4e8cfd71bbd0f1591969e0b5af164db2b3c2"
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "optimizer_clearance_m": 0.0,
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-iterative-counterfactual-risk-e05-v1",
+  "reference_continuation": {
+    "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff",
+    "run_id": "five-detour-e05-20260812b",
+    "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f",
+    "use_executed_action_steps": [182, 201]
+  },
+  "risk": {
+    "definition": "maximum_over_link_and_action_of_negative_ellipsoid_margin",
+    "positive_part_disabled": true,
+    "task_penalty_excluded_from_field_target": true
+  },
+  "schema_version": "vlsa_distal_iterative_counterfactual_risk_e05.v1",
+  "search_modes": {
+    "primary": "exact_five_action_endpoint_preservation",
+    "secondary": "soft_terminal_penalty_only_if_no_primary_method_finds_safe_support"
+  },
+  "state_protocol": {
+    "archived_prefix_last_step": 181,
+    "corrected_action_steps": [182, 183, 184, 185, 186],
+    "fixed_evaluation_steps": [182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201],
+    "known_reference_collision_step": 197
+  },
+  "task_selection": {
+    "correction_smoothness_weight_m_per_action2": 0.001,
+    "terminal_eef_weight_per_m": 10.0
+  }
+}

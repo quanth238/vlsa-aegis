@@ -1456,3 +1456,36 @@ Do not train an MLP from this state yet. The next gate must first establish
 safe support using a larger or iterative endpoint-preserving field correction,
 an earlier intervention state, or a longer corrected horizon while retaining
 the same fixed continuation and exact final verification.
+
+## Preregistered decisive pure-risk/constraint/radius diagnostic
+
+The next gate keeps the same action-182 state, five corrected XYZ actions, and
+immutable twenty-action continuation through the known action-197 collision.
+It first refits job `38929` without simulation using the paper-inspired pure
+finite-horizon action risk `V_H=-min h`, with no task penalty or positive-part
+clipping. It also audits the short-horizon analytical ellipsoid direction under
+both five- and twenty-action hard risk and records active link/time witness
+switches. This separates a sign defect from short-horizon myopia.
+
+The simulation stage evaluates total correction radii `0.1/0.25/0.5/1.0`.
+The learned arm estimates a fresh pure-risk direction from 32 paired
+`+0.05/-0.05` cloned-OSC rollouts at every accepted point, uses inner steps
+at most `0.1` with exact backtracking, and accepts a step only when a fresh
+twenty-action rollout improves the exact hard margin. The analytical arm is
+relinearized under the same iterative schedule. A separate derivative-free
+oracle uses three generations of 32 actions per radius, while 32 matched random
+directions provide a non-optimized control.
+
+Exact five-action endpoint preservation is the primary arm. The soft-terminal
+arm runs only if the primary empirical search finds no safe support. Task terms
+never enter the learned risk target; terminal EEF deviation and smoothness are
+used only to rank equally safe proposals. All candidates are measured against
+zero and +1 mm ellipsoid buffers, raw L5--L7 contact, paper CAR, terminal EEF
+error at most 15 mm, correction norm, rollout count, runtime, and active-witness
+switches. Nothing executes and no MLP, QP, policy-flow, task-completion, or
+generalization claim is allowed.
+
+The interpretation is preregistered: empirical-oracle success with learned
+failure identifies field estimation/optimization; soft-only support identifies
+the exact endpoint constraint; failure of both empirical searches identifies
+the registered five-action/fixed-tail correction family as insufficient.

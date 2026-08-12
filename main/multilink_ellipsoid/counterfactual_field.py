@@ -98,6 +98,7 @@ def paired_chunk_directions(
     nominal_xyz: Any,
     radius: float,
     action_limit: float,
+    preserve_endpoint: bool = True,
 ) -> Any:
     """Sample smooth unit directions feasible with both signs and zero endpoint."""
 
@@ -111,7 +112,11 @@ def paired_chunk_directions(
     if np.min(headroom) < -1.0e-10:
         raise ValueError("counterfactual nominal action exceeds bounds")
     fixed = headroom <= 1.0e-10
-    projection = endpoint_projection_matrix(fixed)
+    projection = (
+        endpoint_projection_matrix(fixed)
+        if bool(preserve_endpoint)
+        else np.diag((~fixed).astype(np.float64))
+    )
     rng = np.random.RandomState(int(seed))
     output = []
     attempts = 0

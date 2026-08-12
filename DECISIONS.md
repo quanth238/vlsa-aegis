@@ -1081,3 +1081,18 @@ experiment as a strict safety NO-GO and do not train an MLP merely because the
 directional metrics passed. First find a verified-safe member of a richer but
 still task-preserving correction family. Only then is learning that field from
 multiple states scientifically justified.
+
+## ADR-0057: Diagnose pure risk, endpoint constraint, and safe support separately
+
+Accepted before the decisive follow-up. Remove the task penalty only from the
+field target, not from final task-preservation evaluation. Re-estimate the
+field after every accepted correction because the worst future link/time
+witness is nonsmooth and may switch. Include radius `1.0`, since earlier
+structured-field evidence required correction L2 near `0.89`.
+
+A no-learning derivative-free search is essential. Without it, another unsafe
+learned path cannot distinguish a bad gradient from an empty candidate family.
+Run exact endpoint preservation first; relax it only after the exact-support
+search fails, so the result can identify whether the zero-sum condition caused
+the failure. This remains an offline local oracle diagnostic inspired by policy
+value learning, not a PNCBF or formal safety result.

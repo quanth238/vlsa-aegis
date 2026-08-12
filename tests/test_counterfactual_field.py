@@ -12,6 +12,12 @@ from main.multilink_ellipsoid.counterfactual_field import (
     paired_chunk_directions,
     project_direction,
 )
+from main.multilink_ellipsoid.iterative_counterfactual_risk import (
+    active_witness,
+    feasible_correction,
+    fit_safety_direction,
+    load_iterative_risk_config,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +29,10 @@ class CounterfactualFieldTest(unittest.TestCase):
             ROOT / "configs/vlsa_distal_counterfactual_field_e05.v1.json"
         )
         self.assertEqual(value["sampling"]["paired_direction_count"], 64)
+        iterative = load_iterative_risk_config(
+            ROOT / "configs/vlsa_distal_iterative_counterfactual_risk_e05.v1.json"
+        )
+        self.assertEqual(iterative["action_space"]["total_trust_radii_action"][-1], 1.0)
 
     def test_config_rejects_protocol_drift(self):
         path = ROOT / "configs/vlsa_distal_counterfactual_field_e05.v1.json"
@@ -66,6 +76,14 @@ class CounterfactualFieldTest(unittest.TestCase):
         self.assertGreater(result["heldout_sign_accuracy"], 0.99)
         self.assertLess(result["heldout_rmse"], 1e-6)
 
+    def test_soft_endpoint_directions_are_not_forced_to_sum_zero(self):
+        nominal = np.zeros((5, 3), dtype=np.float64)
+        directions = paired_chunk_directions(
+            16, 11, nominal, 0.1, 1.0, preserve_endpoint=False
+        )
+        sums = np.sum(directions.reshape(16, 5, 3), axis=1)
+        self.assertGreater(float(np.max(np.abs(sums))), 0.1)
+
     def test_comparator_projection_and_random_p_value(self):
         nominal = np.zeros((5, 3), dtype=np.float64)
         basis = paired_chunk_directions(32, 7, nominal, 0.1, 1.0)
@@ -73,6 +91,27 @@ class CounterfactualFieldTest(unittest.TestCase):
         self.assertAlmostEqual(float(np.linalg.norm(projected)), 1.0)
         self.assertTrue(np.allclose(np.sum(projected.reshape(5, 3), axis=0), 0.0, atol=1e-10))
         self.assertAlmostEqual(matched_random_p_value(2.0, [0.0, 1.0, 3.0]), 0.5)
+
+    def test_pure_risk_fit_witness_and_feasibility(self):
+        nominal = np.zeros((5, 3), dtype=np.float64)
+        directions = paired_chunk_directions(32, 17, nominal, 0.05, 1.0)
+        truth = np.arange(15, dtype=np.float64)
+        truth -= np.tile(truth.reshape(5, 3).mean(axis=0), 5)
+        targets = directions.dot(truth)
+        fit = fit_safety_direction(
+            directions, 0.05 * targets, -0.05 * targets, 0.05, 1e-9
+        )
+        self.assertLess(fit["fit_rmse"], 1e-6)
+        trace = np.ones((20, 7), dtype=np.float64)
+        trace[15, 2] = -0.01
+        self.assertEqual(active_witness(trace)["action_offset"], 15)
+        self.assertEqual(active_witness(trace)["ellipsoid_row"], 2)
+        correction = directions[0].reshape(5, 3) * 0.1
+        self.assertTrue(
+            feasible_correction(
+                nominal, correction, radius=0.1, action_limit=1.0, preserve_endpoint=True
+            )
+        )
 
 
 if __name__ == "__main__":

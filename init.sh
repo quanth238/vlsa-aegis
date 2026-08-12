@@ -26,7 +26,9 @@ for optional_file in \
   scripts/replay_aegis_cartesian_joint_velocity_bridge_pair.py \
   scripts/validate_aegis_cartesian_joint_velocity_bridge_pair.py \
   scripts/evaluate_distal_counterfactual_field_e05.py \
-  scripts/validate_distal_counterfactual_field_e05.py
+  scripts/validate_distal_counterfactual_field_e05.py \
+  scripts/evaluate_distal_iterative_counterfactual_risk_e05.py \
+  scripts/validate_distal_iterative_counterfactual_risk_e05.py
 do
   if [[ -f "${optional_file}" ]]; then
     python_files+=("${optional_file}")
