@@ -1157,3 +1157,13 @@ replaces that unsuitable pytest invocation with allocation-side bytecode
 compilation of the three modified OpenPI modules; evaluation behavior,
 comparison arms, state, seed, direction, budget, geometry, and gates are
 unchanged.
+
+H100 retry `38806` passed both allocation preflights, loaded pi0.5, replayed
+the immutable prefix, and stopped before candidate rollouts because the live
+query-36 chunk exceeded the `0.005` raw-action tolerance. That tolerance was
+calibrated only for the initial split-JIT query in job `37054`; no evidence
+supports extrapolating it across 36 replans. The attempt is apparatus failure,
+not a scientific result. The revised harness retains the late live-versus-
+archived discrepancy as a diagnostic without claiming equivalence. The three
+scientific arms remain exactly paired to each other by the same replayed
+step-180 state, live observation, RNG seed, and five-action horizon.

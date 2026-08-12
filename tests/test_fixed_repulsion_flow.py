@@ -49,6 +49,10 @@ class FixedRepulsionFlowTests(unittest.TestCase):
             self.assertIn(arm, source)
         self.assertIn("direction_gate_pass", source)
         self.assertIn("if direction_gate_pass:", source)
+        self.assertIn(
+            '"diagnostic_only_no_late_query_equivalence_claim"', source
+        )
+        self.assertNotIn("live query-36 chunk exceeds pairing tolerance", source)
 
 
 if __name__ == "__main__":

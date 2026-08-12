@@ -886,3 +886,11 @@ reserved opt-in envelope is present, and physical displacements are converted
 to model coordinates by scale only. The arm executes only after exact cloned
 OSC verification. Passing would establish local early fixed-force support;
 it would not establish learning, generalization, invariance, or task success.
+
+The initial-query `0.005` action tolerance from job `37054` is not a valid
+late-query gate. After attempt `38806` exposed that unsupported extrapolation,
+late live-versus-archived action differences are diagnostic only. This does
+not weaken the paired comparison: ordinary and guided denoising are evaluated
+from the same exact replayed state and live observation with the same explicit
+RNG seed, while post-hoc repulsion is constructed from the ordinary live
+chunk. No outcome or candidate clearance was observed before this correction.

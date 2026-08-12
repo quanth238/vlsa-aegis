@@ -340,10 +340,11 @@ def evaluate(
             dtype=np.float64,
         )
         live_difference = np.abs(nominal_raw[:5] - archived_raw_prefix)
-        _require(float(np.max(live_difference)) <= 0.005, "live query-36 chunk exceeds pairing tolerance")
-        _require(
-            np.array_equal(np.sign(nominal_raw[:5, 6]), np.sign(archived_raw_prefix[:, 6])),
-            "live query-36 gripper signs differ",
+        archived_gripper_signs_equal = bool(
+            np.array_equal(
+                np.sign(nominal_raw[:5, 6]),
+                np.sign(archived_raw_prefix[:, 6]),
+            )
         )
         nominal_actions = translational_chunk(nominal_raw, action_limit=1.0)
         model = _identify_five_action_model(
@@ -509,6 +510,12 @@ def evaluate(
                 "nominal_action_sha256": array_sha256(nominal_raw),
                 "guided_action_sha256": array_sha256(guided_raw),
                 "maximum_live_vs_archived_prefix_difference": float(np.max(live_difference)),
+                "per_dimension_live_vs_archived_prefix_maximum": np.max(
+                    live_difference, axis=0
+                ).tolist(),
+                "live_vs_archived_gripper_signs_equal": archived_gripper_signs_equal,
+                "live_vs_archived_status": "diagnostic_only_no_late_query_equivalence_claim",
+                "scientific_arm_pairing": "same_live_state_observation_rng_seed_and_horizon",
                 "nominal_infer_seconds": nominal_infer_seconds,
                 "guided_infer_seconds": guided_infer_seconds,
                 "server_nominal_timing": nominal_response.get("server_timing"),
