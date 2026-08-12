@@ -23,6 +23,26 @@ trip. Accept this as a scientifically neutral apparatus repair: displacement
 is still reported as compound minus raw, while the applied prefix is copied
 from the immutable compound values before explicit action-bound checking.
 
+## ADR-0082: Reject raw fixed-suffix multi-start; require continuation adaptation
+
+Accepted after clean H100 producer `38978` and independent validator `38979`.
+The full compound positive control passed strict internal-substep authority,
+but its identical first-five prefix followed by the raw suffix failed despite
+correction L2 `1.849546`, zero clipping, and bitwise action binding. It delayed
+first L5 contact by four actions and improved worst clearance by `9.285844 mm`,
+but still reached `-6.789842 mm`, 85 protected-contact samples, and failed CAR.
+
+Accordingly, do not run the preregistered radii or structured multi-start arms
+on this fixed suffix. Such a search would no longer distinguish optimizer
+failure from an invalid positive-control assumption. The evidence identifies
+continuation adaptation after action 186 as necessary for this known safe
+trajectory. The next no-learning oracle may optimize a longer horizon or use
+short-prefix execution plus live frozen-VLA replanning, but it must preserve
+internal-substep clearance/contact/CAR authority. This does not yet prove that
+every possible five-action prefix with the raw suffix is unsafe; it proves that
+the known safe compound is not evidence of one, so the planned comparison is
+not decisive and remains blocked.
+
 ## ADR-0080: Reject direct smooth-field attribution; retain it only as a compound repair
 
 Accepted after clean H100 producer `38974` and independent validator `38976`.

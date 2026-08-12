@@ -34,6 +34,39 @@ This is an apparatus failure with no scientific outcome. The retry assigns the
 registered compound prefix directly and continues to record its displacement
 from raw plus any clipping; no action value, comparator, or gate changes.
 
+Clean H100 producer `38978` completed from commit
+`79a33fcb7427999f0a2675229c4059266d72b914` on `worker-1`; independent H100
+validator `38979` reproduced every registered gate. All arms contained exactly
+501 measurements: the initial state plus 25 MuJoCo model steps for each of 20
+OSC actions. Raw AEGIS reproduced `-16.075686 mm`, 193 protected-contact
+samples, and `22.833455 mm` CAR displacement. The full compound trajectory
+passed strictly at `+1.673938 mm`, zero protected contact, and effectively zero
+CAR displacement.
+
+The identical compound actions 182--186 transplanted onto the bitwise raw
+AEGIS suffix failed at `-6.789842 mm`, 85 protected-contact samples, and
+`8.289781 mm` CAR displacement. Requested and applied correction L2 were both
+`1.849546`; no coordinate clipped, and both prefix and suffix hashes matched.
+The prefix delayed first L5 contact from action 187 to action 191 but could not
+prevent actions 191--194 from returning L5 into the obstacle. A second L5 slab
+also reached `-1.154244 mm` while all L6/L7 slab minima stayed positive.
+
+Gate 0 therefore blocks the radius/multi-start search. The raw fixed-suffix
+problem does not contain the previously cited positive control, even with its
+full `1.849546` correction. This result rules out a simple “previous radius too
+small” diagnosis for the registered five-action/raw-continuation family. The
+next oracle must permit actions after 186 to adapt: correct a longer horizon or
+execute a short verified prefix and requery the frozen VLA. Do not train an MLP
+or use the compound result to claim a directly recoverable raw five-action
+detour.
+
+Producer result/file SHA-256 values are
+`eb673729c4c95b33d5551137c88e7e089b9eab4efc584dacbb996039e0c78b65` and
+`b7f7410b307e0bedef225d710b6dcd4ed06be13ff23fa3a0988f9705d7bf193f`.
+Validation payload/file SHA-256 values are
+`5c0cf046fc0d88aff2422e62a3b42b127333651c8acf62674d20b2b8e4af29ca` and
+`a2750f7983dad7bbea6c205247f08677d7f8f75d27b2071fcec198b03e7a5853`.
+
 ## Direct smooth-field attribution gate (preregistered, 2026-08-12)
 
 The next gate separates the successful smooth proposal from the earlier
