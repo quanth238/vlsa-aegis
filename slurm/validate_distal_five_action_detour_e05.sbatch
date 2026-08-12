@@ -37,7 +37,7 @@ cd "$REMOTE_REPO"
   --detour-only-root "$DETOUR_ONLY_ROOT" \
   --receding-root "$RECEDING_ROOT" \
   --archived "$ARCHIVED_TABLE1_RESULT" \
-  --detour-only-commit f4d3ad313f3930b567ac2d7d242b341b07bc1348 \
-  --receding-commit ca84597d09f425660e914471483581f20de4d54e \
+  --detour-only-commit f4d3ad3f2c03d94414e4415ed17273c4eb6e650f \
+  --receding-commit ca845974d65f797e103050edd81b49fcbf944da8 \
   --validator-commit "$EXPECTED_GIT_COMMIT" \
   --output "$OUTPUT"
