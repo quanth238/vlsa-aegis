@@ -28,6 +28,38 @@ representation is rejected and no field MLP is authorized. A pass authorizes
 only the next live-VLA rejoining test; it is not task-completion, learned,
 population, or formal-safety evidence.
 
+Clean H100 producer `38961` completed 656 deterministic cloned-OSC rollouts on
+`worker-2` in 5:22 from commit `5a81ecd`; independent H100 validator `38962`
+recomputed the immutable receipt. The nominal hard margin reproduced
+`-14.263205 mm` with L5 contact at action 197. Recomputing the long-horizon
+field after every full `0.1` step improved the best margin to `-7.125095 mm`,
+substantially better than following the initial field direction
+(`-12.861372 mm`), but remained unsafe after all ten registered steps. The
+best recomputed action still contacted L5 at actions 196 and 197 and exceeded
+paper CAR at `1.043142 mm`.
+
+All 32 paired branches switched active witness in every one of the ten field
+fits, alternating the worst second-L5-slab witness between continuation
+offsets 14 and 19. The recomputed directions therefore zigzagged: ten full
+steps consumed a registered path length of `1.0` but produced net correction
+L2 only `0.749880`. This is not empty support. The same radius-1 evidence
+contains verified analytical and derivative-free corrections with
+`+16.023852/+7.892343 mm` margins, zero protected contact, and CAR pass.
+
+The avoidance-only gate is a strict NO-GO for a single hard-min gradient field.
+Repeated recomputation is useful but insufficient because the nonsmooth worst
+future witness switches across modes. Do not train its MLP and do not run live
+VLA recovery from this candidate. The smallest justified next representation
+is multi-mode: retain separate active link/time field directions and choose or
+optimize among them, rather than average them into one local vector.
+
+Producer result file/payload SHA-256 values are
+`3b68cb6eaa0ba54144d3306b712c3a5a04d3cb27571b422ade04b8a7ead40be9` and
+`8d14d053bb85dcff43c55c55a5f71637ff85a558b5237f10f3de8d2dc7e5c0fb`;
+validation file/payload SHA-256 values are
+`3d143616f4c1a767cf5bb0181b8b7fcf198678d855f877367391ee6cdc82ea65` and
+`48b2c351e58ef245d43ba3158cdd12ef74df3e18da5126436fa000f6990312d5`.
+
 ## Receding five-action exact-oracle gate (preregistered, 2026-08-12)
 
 The active E05 gate now repeats the validated five-action task-rejoining

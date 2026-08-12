@@ -25,6 +25,27 @@ correction representation before training. If it passes, the next independent
 question is whether live frozen-VLA replanning can recover the task after the
 temporary detour.
 
+## ADR-0076: Reject the single hard-min action field before learning
+
+Accepted after clean H100 producer `38961` and independent validator `38962`.
+The registered field was not useless: ten recomputations improved exact hard
+clearance by `7.138110 mm` from nominal and beat repeated use of the initial
+direction by `5.736277 mm`. It nevertheless remained at `-7.125095 mm`, kept
+two raw L5 contacts around actions 196--197, and missed paper CAR.
+
+This is decisive because radius-1 analytical and derivative-free controls are
+already exactly safe under the same avoidance authority. The failure is not
+absence of an action-space detour. Every one of the 32 paired probes switched
+the active future witness at every iteration, so a single gradient of the hard
+minimum averages incompatible local modes and zigzags. Ten full normalized
+steps resulted in only `0.749880` net correction norm.
+
+Do not train an MLP to reproduce this vector, and do not proceed to live VLA
+rejoining from an unsafe action. If the research direction continues, first
+test the smallest multi-mode oracle that preserves separate active link/time
+directions and selects a verified branch. Only a verified-safe field output
+can authorize learning or closed-loop recovery.
+
 ## ADR-0073: Execute one action from every verified five-action window
 
 Accepted as the decisive follow-up to `38881`. Recompute a fresh five-action
