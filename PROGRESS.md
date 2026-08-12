@@ -4586,3 +4586,11 @@ Repair only that tensor-rank assertion and retain the four-axis suffix check.
 No simulation label, model, loss, population, split, seed, threshold, or
 configuration changes; the failed run and its empty scientific artifacts are
 not reused.
+
+Retry H100 job `38743` passed all 19 allocation-side tests and stopped before
+label generation or training because the SafeLIBERO `SingleArm` wrapper does
+not expose a `joint_limits` convenience property. Read the seven authoritative
+MuJoCo joint IDs from the registered arm velocity DOFs and their compiled
+`jnt_range` entries instead. This is an apparatus-only source correction; no
+nominal-rollout formula, model, loss, data, split, threshold, or configuration
+changes, and the failed run is not reused.

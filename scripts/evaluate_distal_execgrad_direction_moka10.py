@@ -30,6 +30,7 @@ from main.multilink_ellipsoid.factorized_execution_pilot import (
 from main.multilink_ellipsoid.shadow import (
     _eef_jacobian,
     _geom_jacobians,
+    _raw_model_data,
 )
 from scripts.collect_distal_boundary_generalization_moka10 import (
     _canonical_action,
@@ -132,9 +133,16 @@ def _resolved_rate_nominal_trace(
     if q_start.shape != (7,) or actions.shape != (2, 7):
         raise ValueError("ExecGrad nominal rollout input differs")
     controller = env.robots[0].controller
-    limits = env.robots[0].joint_limits
-    lower = np.asarray(limits[0], dtype=np.float64)
-    upper = np.asarray(limits[1], dtype=np.float64)
+    model, _ = _raw_model_data(env.sim)
+    joint_ids = [int(model.dof_jntid[int(index)]) for index in velocity_indexes]
+    lower = np.asarray(
+        [model.jnt_range[index][0] for index in joint_ids], dtype=np.float64
+    )
+    upper = np.asarray(
+        [model.jnt_range[index][1] for index in joint_ids], dtype=np.float64
+    )
+    if lower.shape != (7,) or upper.shape != (7,) or not np.all(lower < upper):
+        raise ValueError("authoritative Panda joint ranges differ")
     trace = [q_start.copy()]
     damping = float(config["nominal_rollout"]["damping"])
     maximum = float(
