@@ -1390,3 +1390,32 @@ verdict. Producer and validation file SHA-256 values are
 The accepted conclusion is narrow: late scheduling fixes the cancellation
 mechanism, while post-hoc remains the cleanest maximum-survival baseline. It
 does not yet demonstrate prevention of the archived E05 collision.
+
+## Preregistered paired long-horizon ellipsoid-field mechanism gate
+
+The next experiment isolates whether offline counterfactual controller
+rollouts teach a useful physical avoidance direction without first adding an
+MLP, QP, Poisson field, or VLA-flow modification. It replays immutable Table-1
+actions through step 181, then uses the already validated task-rejoining run
+`five-detour-e05-20260812b` as a fixed twenty-action continuation for steps
+182--201. That continuation is authoritative only for this local mechanism
+test and must reproduce its known L5 contact at action 197.
+
+Only the XYZ components of actions 182--186 are perturbed. Every direction is
+smooth, has unit L2 norm, is feasible with both signs at registered radius
+`0.1`, and preserves the five-action endpoint by summing to zero over time.
+Sixty-four paired `+epsilon/-epsilon` cloned-OSC rollouts evaluate the same
+fixed continuation; 48 directional derivatives fit one local 15-dimensional
+utility field and 16 remain untouched for sign/correlation checks. Utility is
+the seven-row long-horizon ellipsoid soft minimum minus terminal EEF and action
+deviation penalties.
+
+At equal final correction norm `0.1`, the learned direction is compared with
+the current short-horizon analytical ellipsoid repulsion, its negative, and 32
+matched random directions. Passing requires held-out Pearson at least `0.5`,
+directional sign accuracy at least `0.65`, exact nonnegative L5--L7 clearance,
+zero raw protected contact, paper CAR pass, terminal EEF error at most 15 mm,
+strictly higher utility than the analytical field, and add-one random p-value
+at most `0.05`. No action executes and no task-completion or generalization
+claim is permitted. The exact next command after a clean commit and live Slurm
+preflight is `sbatch slurm/distal_counterfactual_field_e05.sbatch` on one H100.

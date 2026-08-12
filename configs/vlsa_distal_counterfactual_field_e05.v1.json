@@ -1,0 +1,63 @@
+{
+  "action_space": {
+    "action_limit": 1.0,
+    "corrected_dimensions": [0, 1, 2],
+    "corrected_horizon": 5,
+    "endpoint_preservation": "sum_xyz_correction_over_five_actions_equals_zero"
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "single_archived_e05_state_local_mechanism_test_of_ellipsoid_field_learned_from_paired_long_horizon_cloned_osc_rollouts_not_mlp_not_qp_not_flow_guidance_not_closed_loop_not_task_completion_not_population_generalization_not_formal_safety",
+  "comparators": {
+    "analytical_field_finite_difference_action": 0.05,
+    "matched_random_direction_count": 32,
+    "random_seed": 26081203
+  },
+  "gate": {
+    "heldout_minimum_pearson": 0.5,
+    "heldout_minimum_sign_accuracy": 0.65,
+    "learned_must_beat_fixed_utility": true,
+    "maximum_random_p_value": 0.05,
+    "maximum_terminal_eef_error_m": 0.015,
+    "minimum_exact_clearance_m": 0.0,
+    "paper_car_threshold_m": 0.001,
+    "protected_raw_contact_count": 0
+  },
+  "protected_geometry": {
+    "constraint_count": 7,
+    "end_effector_proxy": "diagnostic_only_unchanged_released_aegis_proxy",
+    "optimizer_clearance_m": 0.0,
+    "source": "accepted_v4_seven_slab_bounds_for_link5_link6_link7"
+  },
+  "protocol_id": "vlsa-distal-counterfactual-field-e05-v1",
+  "reference_continuation": {
+    "result_payload_sha256": "7a2df00d7ed4652f0b61ae02a50eb040894640cfc7bc8620565ea5e7250c94ff",
+    "run_id": "five-detour-e05-20260812b",
+    "source_commit": "f4d3ad3f2c03d94414e4415ed17273c4eb6e650f",
+    "use_executed_action_steps": [182, 201]
+  },
+  "sampling": {
+    "comparison_correction_l2_action": 0.1,
+    "direction_seed": 26081201,
+    "fit_direction_count": 48,
+    "heldout_direction_count": 16,
+    "paired_direction_count": 64,
+    "paired_perturbation_action": 0.1,
+    "ridge": 1e-06,
+    "temporal_smoothing_kernel": [0.25, 0.5, 0.25]
+  },
+  "schema_version": "vlsa_distal_counterfactual_field_e05.v1",
+  "score": {
+    "clearance": "softmin_of_seven_per_row_minima_over_all_twenty_actions",
+    "deviation_weight_m_per_action2": 0.001,
+    "softmin_temperature_m": 0.002,
+    "task_terminal_eef_weight_per_m": 10.0
+  },
+  "state_protocol": {
+    "archived_prefix_last_step": 181,
+    "corrected_action_steps": [182, 183, 184, 185, 186],
+    "fixed_evaluation_steps": [182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201],
+    "known_reference_collision_step": 197
+  }
+}

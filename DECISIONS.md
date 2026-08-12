@@ -1044,3 +1044,22 @@ is consistent with the two becoming equivalent as timing approaches the
 completed sample. Retain late scheduling only if future work specifically
 requires modifying intermediate flow states; otherwise, post-hoc exact-verified
 correction is the simpler and strongest baseline for the archived collision.
+
+## ADR-0055: Learn a local physical action field from paired long-horizon outcomes first
+
+Accepted as the smallest mechanism test for the proposed rollout-supervised
+repulsive field. The geometry backend remains the accepted seven L5--L7
+ellipsoid slabs; Poisson is deliberately deferred. The learned object is not a
+joint trajectory or collision classifier. It is the local action-space
+direction that increases a quantitative long-horizon execution utility.
+
+The task-completing five-action detour run supplies a fixed open-loop
+continuation through its later action-197 collision. Pairing both signs of a
+five-action endpoint-preserving correction against that identical continuation
+allows the learned field to see later physical consequences while avoiding
+policy-query noise. A separate short-horizon analytical ellipsoid field and
+matched random directions determine whether counterfactual learning adds
+information beyond ordinary repulsion or abundant safe directions. This is an
+offline, single-state expressivity test; exact cloned OSC is label generation,
+not the proposed deployment evaluator. Do not train an MLP or modify pi0.5
+unless this strict mechanism gate passes.
