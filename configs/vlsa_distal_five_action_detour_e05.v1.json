@@ -2,7 +2,7 @@
   "case_ids": [
     "vlsa-t1-goal-ii-t0-e05"
   ],
-  "claim_scope": "single_primary_e05_archived_pre_action182_five_action_task_rejoining_posthoc_detour_then_live_frozen_pi05_replanning_not_learned_not_population_generalization_not_formal_safety",
+  "claim_scope": "single_primary_e05_archived_pre_action182_five_action_task_rejoining_posthoc_detour_then_live_frozen_pi05_replanning_with_exact_one_step_receding_filter_not_learned_not_population_generalization_not_formal_safety",
   "finite_difference": {
     "action_dimensions": [
       0,
@@ -47,6 +47,7 @@
   "success_definition": {
     "detour": "fresh_exact_five_action_rollout_has_at_least_1mm_L5_L7_clearance_no_raw_contact_no_paper_car_sum_zero_correction_and_at_least_half_nominal_eef_progress",
     "paper_car": "maximum_active_obstacle_l1_displacement_at_most_0.001_m",
+    "post_detour_safety": "every_executed_action_after_step186_passes_a_fresh_exact_cloned_osc_L5_L7_candidate_check",
     "protected_contact": "none_for_robot0_link5_link6_link7",
     "task": "native_goal_satisfied_within_registered_goal_suite_horizon"
   }

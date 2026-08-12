@@ -9,6 +9,17 @@ model names the authoritative site `gripper0_grip_site`. The attempt is retained
 as apparatus failure. The compatibility retry uses the repository's existing
 `_eef_site_id` resolver and changes no scientific setting.
 
+Clean H100 job `38874` found and executed a verified endpoint-preserving
+five-action detour: the archived minimum improved from `-9.313104 mm` to
+`+1.747199 mm`, XYZ residuals summed exactly to zero, terminal EEF error was
+`11.669 mm`, and nominal progress ratio was `0.8966`. The frozen policy later
+completed the task at action 283, showing that early task rejoining repaired
+the competence failure of the late emergency correction. However, unfiltered
+post-detour AEGIS contacted L5 at action 197 and failed paper CAR at 199. The
+detour is therefore promising but not sufficient; the next matched composition
+keeps the same detour and adds exact receding cloned-OSC filtering only after
+the detour.
+
 ## Field-recovery executable gate apparatus retry (2026-08-12)
 
 H100 array `38848` was canceled after exact inspection when the first completed

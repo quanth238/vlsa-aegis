@@ -119,6 +119,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
   --experiment-config "$REMOTE_REPO/configs/vlsa_distal_five_action_detour_e05.v1.json" \
+  --receding-config "$REMOTE_REPO/configs/vlsa_distal_field_receding_recovery_e05.v1.json" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \
   --port "$POLICY_PORT" \

@@ -335,6 +335,7 @@ def evaluate(
     archived_path: Path,
     geometry_config_path: Path,
     experiment_config_path: Path,
+    receding_config_path: Path,
     expected_commit: str,
     output_path: Path,
     host: str,
@@ -378,6 +379,11 @@ def evaluate(
         load_shadow_config,
     )
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
+    from main.multilink_ellipsoid.sitl_candidate import (
+        DistalSitlCandidateFilter,
+        load_sitl_candidate_config,
+        summarize_sitl_steps,
+    )
 
     started = time.perf_counter_ns()
     archived = _load(archived_path)
@@ -394,6 +400,7 @@ def evaluate(
     case = matches[0]
     validate_case_row(case, repo_root)
     config = load_five_action_detour_config(experiment_config_path)
+    receding_config = load_sitl_candidate_config(receding_config_path)
     geometry_config = load_shadow_config(geometry_config_path)
     source = _git_identity(repo_root, expected_commit)
     allocation = allocation_record()
@@ -460,6 +467,12 @@ def evaluate(
         )
         one_step_probe = SlabbedEightConstraintProbe(
             probe_env, geometry, clearance_m=0.0, active_obstacle_name=obstacle_name
+        )
+        receding_filter = DistalSitlCandidateFilter(
+            receding_config,
+            geometry,
+            probe_env,
+            active_obstacle_name=obstacle_name,
         )
         probe_authority = _contact_model_authority(probe_env, obstacle_name)
 
@@ -604,6 +617,7 @@ def evaluate(
         )
         q1_diag = np.asarray([0.06, 0.12, 0.11], dtype=np.float64)
         native_success = False
+        filter_records = []
         if failure is None:
             for step in range(187, max_steps_for_case(case)):
                 if not action_plan:
@@ -644,7 +658,19 @@ def evaluate(
                     q1_diag=q1_diag,
                     diagnostics_enabled=True,
                 )
-                observation, reward, done, _ = env.step(nominal)
+                executed, filter_record = receding_filter.filter(
+                    env, nominal, step=step
+                )
+                filter_records.append(filter_record)
+                if executed is None:
+                    failure = {
+                        "component": "post_detour_receding_filter",
+                        "step": step,
+                        "reason": "no_exactly_verified_candidate",
+                    }
+                    break
+                observation, reward, done, _ = env.step(executed)
+                receding_filter.verify_executed_transition(env, filter_record)
                 proxy = _eef_proxy(runtime, observation)
                 goal = _goal_progress_snapshot(env, goal_atoms, step=step, previous_values=previous_goal_values)
                 previous_goal_values = goal["values"]
@@ -678,8 +704,10 @@ def evaluate(
                         "step": step,
                         "source": "live_pi05_replan_five_steps_then_released_aegis",
                         "raw": raw.tolist(),
-                        "action": list(nominal),
+                        "nominal_released_aegis_action": list(nominal),
+                        "action": list(executed),
                         "released_aegis_qp": qp_record,
+                        "receding_filter": filter_record,
                         "reward": float(reward),
                         "done": bool(done),
                         "goal_progress": goal,
@@ -720,6 +748,7 @@ def evaluate(
                 "read_only": True,
             },
             "config": config,
+            "receding_config": receding_config,
             "geometry_config": geometry_config,
             "geometry": geometry.geometry_record(env),
             "pairing": pairing,
@@ -732,6 +761,9 @@ def evaluate(
             "policy_server": server_identity,
             "policy_query_count": len(policy_queries),
             "policy_queries": policy_queries,
+            "post_detour_receding_filter_summary": summarize_sitl_steps(
+                filter_records
+            ),
             "action_count": len(action_records),
             "actions": action_records,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},
@@ -785,6 +817,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--archived", type=Path, required=True)
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--experiment-config", type=Path, required=True)
+    parser.add_argument("--receding-config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -796,6 +829,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         archived_path=args.archived.resolve(),
         geometry_config_path=args.geometry_config.resolve(),
         experiment_config_path=args.experiment_config.resolve(),
+        receding_config_path=args.receding_config.resolve(),
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
         host=args.host,

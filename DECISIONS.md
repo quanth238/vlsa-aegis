@@ -20,6 +20,15 @@ next safety-and-task experiment must intervene earlier and/or optimize a longer
 task-aware horizon; late-denoising timing cannot rescue a task mode already
 destroyed by the required approximately `0.89--1.00` normalized correction.
 
+## ADR-0071: Compose the early task-rejoining detour with receding verification
+
+Accepted after H100 job `38874`. The zero-sum five-action detour restored task
+competence and the frozen policy completed, but L5 collision recurred ten
+actions after the detour. Keep the validated detour unchanged and filter each
+subsequent released-AEGIS action with the existing exact cloned-OSC candidate
+filter. This directly tests whether early task preservation plus receding
+physical safety can jointly achieve safe task success; it adds no learning.
+
 ## ADR-0001: Start from the untouched author release
 
 Accepted. The reproduction branch starts at upstream commit `57b1aef`. The
