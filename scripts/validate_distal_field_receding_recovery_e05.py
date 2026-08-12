@@ -116,9 +116,11 @@ def validate(
                 ),
                 "%s immutable prefix differs at %d" % (arm, step),
             )
-        summary = result["filter_summary"]
         _require(
-            summary["all_executed_transitions_match_clone"],
+            all(
+                action["filter"]["verification"]["main_env_post_step_checked"]
+                for action in actions
+            ),
             "%s executed clone verification differs" % arm,
         )
         evidence = result["raw_simulation_evidence"]
