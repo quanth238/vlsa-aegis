@@ -1,0 +1,53 @@
+{
+  "schema_version": "vlsa_distal_query_boundary_coverage.v1",
+  "protocol_id": "vlsa-distal-query-boundary-coverage-v1",
+  "claim_scope": "grouped_real_query_boundary_initially_safe_warning_state_and_nominal_five_action_witness_coverage_audit_not_candidates_not_training_not_QP_not_CBF_not_control_not_generalization",
+  "source": {
+    "selection_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+    "selection_manifest_file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326",
+    "included_splits": ["diagnostic", "train", "validation"],
+    "excluded_splits": ["test"],
+    "episode_grouping_preserved": true,
+    "diagnostic_cases_never_final_claim": ["vlsa-t1-goal-ii-t0-e05", "vlsa-t1-goal-ii-t0-e10"],
+    "final_test_episodes": "new_complete_episodes_reserved_after_coverage"
+  },
+  "state_rule": {
+    "boundaries": "every_real_pi05_query_boundary_before_first_protected_contact",
+    "query_stride_actions": 5,
+    "minimum_initial_proxy_clearance_m": 0.001,
+    "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
+    "require_zero_initial_protected_contact": true,
+    "retention": "all_initially_safe_boundaries_with_unsafe_nominal_prefix"
+  },
+  "nominal_prefix": {
+    "actions": 5,
+    "source": "immutable_released_AEGIS_env_step_inputs_at_bound_query",
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance_m": 1e-12,
+    "safety_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "initial_state_is_eligibility_only": true,
+    "unsafe_if": "any_seven_row_violation_or_protected_contact_or_paper_CAR"
+  },
+  "coverage_report": {
+    "row_identities": [
+      {"row": 0, "link": "L5", "body": "robot0_link5", "slab": 0},
+      {"row": 1, "link": "L5", "body": "robot0_link5", "slab": 1},
+      {"row": 2, "link": "L5", "body": "robot0_link5", "slab": 2},
+      {"row": 3, "link": "L6", "body": "robot0_link6", "slab": 0},
+      {"row": 4, "link": "L6", "body": "robot0_link6", "slab": 1},
+      {"row": 5, "link": "L7", "body": "robot0_link7", "slab": 0},
+      {"row": 6, "link": "L7", "body": "robot0_link7", "slab": 1}
+    ],
+    "near_boundary_band_m": 0.005,
+    "counts": ["retained_state", "nominal_violated_row", "nominal_active_witness", "current_near_boundary"]
+  },
+  "forbidden": {
+    "candidate_execution": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "timeout_as_safe": true
+  }
+}

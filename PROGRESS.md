@@ -1,5 +1,30 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Grouped real-query boundary coverage gate (2026-08-14)
+
+The next data gate is implemented without executing candidates or authorizing
+learning. It enumerates every real pi0.5 query boundary before the first
+protected contact in the 15 diagnostic/train/validation episodes while
+excluding the previously inspected test split. At each boundary it restores
+the immutable released-AEGIS trajectory state, requires the current seven-row
+proxy margin to be at least +1 mm with zero protected contact and paper CAR,
+and evaluates the exact next five archived AEGIS commands over all 25 internal
+MuJoCo substeps per action. A state is retained only when this nominal prefix
+violates a seven-row proxy constraint, protected contact, or CAR.
+
+The producer records the bound policy query index/seed/hash, complete source
+state hash, seven current clearances, seven exact nominal-prefix row minima,
+and the active row/action/substep witness. The validator recomputes retention
+and aggregates explicit L5 slab 0--2, L6 slab 0--1, and L7 slab 0--1 counts.
+Unsupported rows remain zero; nominal far-safe values cannot fill boundary
+coverage. Candidate execution, MLP training, calibration, QP, and closed-loop
+control are forbidden by the versioned contract. Focused local tests and shell
+syntax pass. The local full suite reaches all tests but the desktop runtimes
+lack optional CVXPY; the H100 allocation preflight uses the registered safety
+runtime. The next command is an allocated-H100 E05 canary, followed by the
+15-episode array only if the canary reproduces query 37 / action 185 and its
+known L5 row-1 nominal warning.
+
 ## Query-aligned E05 five-action risk diagnostic implementation (2026-08-14)
 
 The versioned replacement apparatus is implemented without modifying released

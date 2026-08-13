@@ -1,5 +1,29 @@
 # Reproduction decisions
 
+## ADR-0113: Discover grouped warning states only at real policy queries
+
+- Status: accepted, coverage audit active; candidate collection and learning blocked
+- Date: 2026-08-14
+
+Replace arbitrary action-lead selection with an interface-aligned rule. In
+each non-test episode, enumerate every real pi0.5 query boundary before the
+first protected contact. Retain all boundaries whose current state is strictly
+proxy/physically safe but whose exact next five released-AEGIS commands are
+unsafe over internal OSC/MuJoCo substeps. Preserve the policy query hash and
+seed, full simulator/controller state identity, episode group, seven row
+minima, and the active link/row/time witness.
+
+This is a coverage screen only. It neither searches candidates nor infers that
+a retained state is recoverable. After independent aggregation, the unchanged
+37-member structured candidate bank and complete fixed backup may run only on
+retained states. Each state must then contain both safe and unsafe candidates;
+timeouts remain unknown. Before any MLP training, publish per-row state,
+episode, unsafe, safe, near-boundary, and active-witness counts. Missing L6/L7
+or slab support must narrow the claim or trigger collection from additional
+clean episode groups, never synthetic filling. Final generalization uses newly
+reserved complete episodes because the existing test cases have influenced
+method design.
+
 ## ADR-0112: E05 supports direct Monte Carlo risk learning, but only for L5
 
 - Status: accepted, diagnostic gate passing; population learning still blocked
