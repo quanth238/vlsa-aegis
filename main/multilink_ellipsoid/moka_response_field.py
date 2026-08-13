@@ -372,3 +372,50 @@ def predict_response(bundle: Mapping[str, Any], context: Any) -> tuple[Any, Any]
         bundle["response_scale"]
     )
     return values.reshape(20, 7), gradients.reshape(20, 7, 15)
+
+
+def load_frozen_response_model(torch: Any, state_payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Reconstruct an immutable response model for read-only diagnostics."""
+
+    np = _numpy()
+    required = {
+        "feature_mean",
+        "feature_scale",
+        "response_scale",
+        "state_dict",
+        "value_scale",
+    }
+    if not isinstance(state_payload, Mapping) or set(state_payload) != required:
+        raise ValueError("frozen Moka response payload differs")
+    raw_state = state_payload["state_dict"]
+    if not isinstance(raw_state, Mapping) or "network.0.weight" not in raw_state:
+        raise ValueError("frozen Moka response parameters differ")
+    first = np.asarray(raw_state["network.0.weight"], dtype=np.float32)
+    if first.ndim != 2 or first.shape[0] < 1 or first.shape[1] < 1:
+        raise ValueError("frozen Moka response first layer differs")
+    model = build_response_model(torch, int(first.shape[1]), int(first.shape[0]))
+    reference = model.state_dict()
+    if set(reference) != set(raw_state):
+        raise ValueError("frozen Moka response state keys differ")
+    converted = {}
+    for name, tensor in reference.items():
+        value = np.asarray(raw_state[name], dtype=np.float32)
+        if tuple(value.shape) != tuple(tensor.shape):
+            raise ValueError("frozen Moka response tensor shape differs: %s" % name)
+        converted[name] = torch.as_tensor(value, dtype=tensor.dtype)
+    model.load_state_dict(converted)
+    model.eval()
+    feature_mean = np.asarray(state_payload["feature_mean"], dtype=np.float64)
+    feature_scale = np.asarray(state_payload["feature_scale"], dtype=np.float64)
+    if feature_mean.shape != (first.shape[1],) or feature_scale.shape != feature_mean.shape:
+        raise ValueError("frozen Moka response feature statistics differ")
+    if np.any(feature_scale <= 0.0):
+        raise ValueError("frozen Moka response feature scale differs")
+    return {
+        "model": model,
+        "device": torch.device("cpu"),
+        "feature_mean": feature_mean,
+        "feature_scale": feature_scale,
+        "value_scale": float(state_payload["value_scale"]),
+        "response_scale": float(state_payload["response_scale"]),
+    }

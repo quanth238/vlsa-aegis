@@ -1,5 +1,20 @@
 # Reproduction decisions
 
+## ADR-0086: Audit the frozen E05 Moka model before changing it
+
+Accepted before replay. Reconstruct the immutable `39230` model from its
+recorded state payload and replay the identical paired cloned-OSC data. Do not
+call training, alter parameters, enlarge corrections, solve a QP, or execute
+any corrected action.
+
+Diagnose in causal order. First determine whether the MLP fits its own paired
+train and validation response labels. Then measure groupwise support for the
+untouched states using training-only statistics. Finally determine whether
+errors concentrate in near-active link/time/compiled-primitive witnesses or
+at primitive witness switches. Preserve all train/validation/test state
+groups and both physical authorities. Select any later model or data change
+only from this audit rather than from aggregate test failure.
+
 ## ADR-0069: Train only the E05 multi-primitive controller-response pilot
 
 Accepted before launch. E38 demonstrated physical collision-free task success

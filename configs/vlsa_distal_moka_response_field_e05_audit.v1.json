@@ -1,0 +1,37 @@
+{
+  "audit": {
+    "active_thresholds_m": [0.002, 0.005],
+    "meaningful_gradient_norm_m_per_action": 1e-06,
+    "state_support_z_threshold": 3.0
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "frozen_model_no_training_root_cause_audit_not_control_not_retraining_not_formal_safety",
+  "frozen_producer": {
+    "commit": "a505434ea7aed7e55f596e0b61d389e5ac593ed1",
+    "result_file_sha256": "1a8f78a486812fd2cc22fe5e75a40198d13c074be1024abfcae160c36e09ed93",
+    "result_payload_sha256": "3df335aaa06ff54b99b24beabb04cbcf5c693c3349cad7f9bf54f25dacafbde2",
+    "run_id": "moka-response-20260813b"
+  },
+  "forbidden": [
+    "model_training",
+    "model_parameter_change",
+    "larger_correction",
+    "qp",
+    "corrected_execution",
+    "closed_loop"
+  ],
+  "protocol_id": "vlsa-distal-moka-response-field-e05-audit-v1",
+  "replay": {
+    "paired_direction_count_per_state": 32,
+    "paired_perturbation_action": 0.05,
+    "state_steps": [178, 179, 180, 181, 182, 183, 184, 185, 186]
+  },
+  "required_reports": [
+    "train_validation_test_response_accuracy",
+    "state_group_support_distance",
+    "near_active_link_time_primitive_witnesses",
+    "frozen_model_hash_match"
+  ]
+}

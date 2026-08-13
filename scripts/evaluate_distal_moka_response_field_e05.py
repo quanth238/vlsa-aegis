@@ -43,10 +43,17 @@ def _atomic_write(path: Path, value: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
-def _state_context(env: Any, actions: Any, obstacle_boxes: Sequence[Any]) -> Any:
+def _state_context_groups(
+    env: Any, actions: Any, obstacle_boxes: Sequence[Any]
+) -> dict[str, Any]:
     import numpy as np
 
-    from main.multilink_ellipsoid.rollout import _controller_snapshot, _dynamic_state_vector
+    from main.multilink_ellipsoid.rollout import (
+        _auxiliary_sim_snapshot,
+        _base_env,
+        _controller_snapshot,
+        _dynamic_state_vector,
+    )
 
     commands = np.asarray(actions, dtype=np.float64)
     _require(commands.shape == (20, 7), "Moka response context actions differ")
@@ -71,16 +78,55 @@ def _state_context(env: Any, actions: Any, obstacle_boxes: Sequence[Any]) -> Any
         obstacle.extend(np.asarray(box.center, dtype=np.float64).tolist())
         obstacle.extend(np.asarray(box.rotation, dtype=np.float64).reshape(-1).tolist())
         obstacle.extend(np.asarray(box.half_extents_m, dtype=np.float64).tolist())
-    context = np.concatenate(
+    base = _base_env(env)
+    simulator_state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64)
+    auxiliary_state = np.concatenate(
         [
-            dynamic,
-            np.asarray(controller_values, dtype=np.float64),
-            commands.reshape(-1),
-            np.asarray(obstacle, dtype=np.float64),
+            np.asarray(value, dtype=np.float64).reshape(-1)
+            for value in _auxiliary_sim_snapshot(env).values()
         ]
     )
+    environment_clock = np.asarray(
+        [float(base.timestep), float(base.cur_time), float(base.done)],
+        dtype=np.float64,
+    )
+    dynamic_controller = []
+    for snapshot in _controller_snapshot(env):
+        for name in (
+            "goal_pos",
+            "goal_ori",
+            "relative_ori",
+            "ori_ref",
+            "torques",
+            "robot_torques",
+            "gripper_current_action",
+        ):
+            value = snapshot[name]
+            if value is not None:
+                dynamic_controller.extend(
+                    np.asarray(value, dtype=np.float64).reshape(-1).tolist()
+                )
+        dynamic_controller.append(float(snapshot["new_update"]))
+    groups = {
+        "simulator_state": simulator_state,
+        "auxiliary_state": auxiliary_state,
+        "environment_clock": environment_clock,
+        "controller_state": np.asarray(dynamic_controller, dtype=np.float64),
+        "controller_snapshot_duplicate": np.asarray(
+            controller_values, dtype=np.float64
+        ),
+        "nominal_action_chunk": commands.reshape(-1),
+        "obstacle_geometry": np.asarray(obstacle, dtype=np.float64),
+    }
+    context = np.concatenate(list(groups.values()))
+    _require(np.array_equal(context[: dynamic.size], dynamic), "Moka response context regrouping differs")
     _require(np.all(np.isfinite(context)), "Moka response context is nonfinite")
-    return context
+    return groups
+
+
+def _state_context(env: Any, actions: Any, obstacle_boxes: Sequence[Any]) -> Any:
+    groups = _state_context_groups(env, actions, obstacle_boxes)
+    return __import__("numpy").concatenate(list(groups.values()))
 
 
 class MokaContinuationProbe:
@@ -92,13 +138,21 @@ class MokaContinuationProbe:
     def env(self) -> Any:
         return self.one_step_probe.probe_env
 
-    def rollout(self, main_env: Any, actions: Any, *, step_base: int) -> dict[str, Any]:
+    def rollout(
+        self,
+        main_env: Any,
+        actions: Any,
+        *,
+        step_base: int,
+        witness_details: bool = False,
+    ) -> dict[str, Any]:
         import numpy as np
 
         from main.multilink_ellipsoid.moka_response_field import (
             compiled_box_ellipsoids,
             multi_primitive_link_margins,
         )
+        from main.multilink_ellipsoid.barrier import support_gap
         from main.multilink_ellipsoid.obstacle_proxy_audit import (
             compiled_obstacle_boxes,
             evaluate_obstacle_representations,
@@ -111,13 +165,33 @@ class MokaContinuationProbe:
         traces = []
         exact_overlap = []
         contacts = []
+        primitive_indexes = []
+        primitive_names = []
+        primitive_second_gap_m = []
         wall_started = time.perf_counter_ns()
         for offset, command in enumerate(commands):
             self.env.step(command.tolist())
             links = self.one_step_probe.geometry._slabbed_links(self.env)
             boxes = compiled_obstacle_boxes(self.env, self.obstacle_name)
             obstacles = compiled_box_ellipsoids(boxes)
-            traces.append(multi_primitive_link_margins(links, obstacles))
+            margins = multi_primitive_link_margins(links, obstacles)
+            traces.append(margins)
+            if witness_details:
+                action_indexes = []
+                action_names = []
+                action_second = []
+                for link in links:
+                    gaps = np.asarray(
+                        [support_gap(link, obstacle) for obstacle in obstacles],
+                        dtype=np.float64,
+                    )
+                    order = np.argsort(gaps)
+                    action_indexes.append(int(order[0]))
+                    action_names.append(str(obstacles[int(order[0])].geom_name))
+                    action_second.append(float(gaps[int(order[1])] - gaps[int(order[0])]))
+                primitive_indexes.append(action_indexes)
+                primitive_names.append(action_names)
+                primitive_second_gap_m.append(action_second)
             exact = evaluate_obstacle_representations(links, self.one_step_probe.geometry.obstacle, boxes)
             exact_overlap.append(bool(exact["compiled_box_union_any_exact_solid_overlap"]))
             evidence = _protected_contact_evidence(self.env, self.obstacle_name)
@@ -126,7 +200,7 @@ class MokaContinuationProbe:
         elapsed = (time.perf_counter_ns() - wall_started) * 1.0e-9
         trace = np.asarray(traces, dtype=np.float64)
         _require(trace.shape == (20, 7), "Moka response trace differs")
-        return {
+        output = {
             "trace_m": trace,
             "minimum_m": float(np.min(trace)),
             "exact_box_overlap": exact_overlap,
@@ -134,6 +208,13 @@ class MokaContinuationProbe:
             "synchronization": synchronization,
             "env_step_wall_seconds": elapsed,
         }
+        if witness_details:
+            output["primitive_indexes"] = np.asarray(primitive_indexes, dtype=np.int64)
+            output["primitive_names"] = primitive_names
+            output["primitive_second_gap_m"] = np.asarray(
+                primitive_second_gap_m, dtype=np.float64
+            )
+        return output
 
 
 def _public_rollout(value: Mapping[str, Any], *, trace: bool) -> dict[str, Any]:

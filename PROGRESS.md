@@ -1,5 +1,28 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Frozen E05 Moka response-model audit (preregistered, 2026-08-13)
+
+The next gate is read-only diagnosis of the validated `39230` NO-GO. It
+replays the identical nine state groups and 32 paired directions per state,
+reconstructs the exact frozen model from its immutable artifact, and forbids
+training, parameter changes, larger corrections, QPs, corrected execution,
+and closed loop.
+
+The audit reports response accuracy separately for actions `178--182` train,
+`183--184` validation, and `185--186` test, including directions excluded
+from each state's local ridge fit. It decomposes state support into simulator,
+auxiliary, clock, controller, nominal-action, and obstacle-geometry groups.
+For all 140 action-boundary witnesses per state it also records link, time,
+closest compiled Moka primitive, closest/second-closest primitive separation,
+value error, response-row cosine, and near-active membership within 2/5 mm of
+the state minimum. Raw protected contacts and exact box-overlap counts remain
+separate physical diagnostics.
+
+This can distinguish training underfit, state-coverage failure, and
+near-active witness representation/weighting failure. It cannot authorize a
+new model or control experiment; the diagnosed intervention requires a new
+preregistered gate.
+
 ## E05 Moka learned response-field gate (preregistered, 2026-08-13)
 
 The next learning pilot deliberately excludes E38 because its released single
