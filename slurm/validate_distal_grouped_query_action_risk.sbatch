@@ -5,8 +5,8 @@
 #SBATCH --qos=normal
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16G
-#SBATCH --time=00:10:00
+#SBATCH --mem=32G
+#SBATCH --time=00:30:00
 #SBATCH --exclude=worker-0,worker-3
 #SBATCH --no-requeue
 #SBATCH --output=/mnt/data/quanth/slurm_logs/%x-%j.out
@@ -17,6 +17,7 @@ EXPECTED_PRODUCER_COMMIT=${EXPECTED_PRODUCER_COMMIT:?EXPECTED_PRODUCER_COMMIT is
 EXPECTED_VALIDATION_COMMIT=${EXPECTED_VALIDATION_COMMIT:?EXPECTED_VALIDATION_COMMIT is required}
 PRODUCER_ROOT=${PRODUCER_ROOT:?PRODUCER_ROOT is required}
 OUTPUT=${OUTPUT:?OUTPUT is required}
+FREEZE_ROOT=${FREEZE_ROOT:?FREEZE_ROOT is required}
 COVERAGE_ROOT=${COVERAGE_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-query-boundary-coverage/query-coverage-population-20260814a}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 [[ -n "${SLURM_JOB_ID:-}" ]] || { echo "grouped risk validation requires Slurm" >&2; exit 2; }
@@ -33,5 +34,9 @@ cd "$REMOTE_REPO"
   --coverage-root "$COVERAGE_ROOT" \
   --grouped-config "$REMOTE_REPO/configs/vlsa_distal_grouped_query_action_risk.v1.json" \
   --base-config "$REMOTE_REPO/configs/vlsa_distal_query_action_risk_e05.v1.json" \
+  --freeze-config "$REMOTE_REPO/configs/vlsa_distal_grouped_query_action_risk_freeze.v1.json" \
+  --selection-manifest "$REMOTE_REPO/manifests/vlsa_distal_clean_action_risk.v1.jsonl" \
+  --table1-root "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a" \
   --expected-producer-commit "$EXPECTED_PRODUCER_COMMIT" \
-  --expected-validation-commit "$EXPECTED_VALIDATION_COMMIT" --output "$OUTPUT"
+  --expected-validation-commit "$EXPECTED_VALIDATION_COMMIT" \
+  --freeze-root "$FREEZE_ROOT" --output "$OUTPUT"

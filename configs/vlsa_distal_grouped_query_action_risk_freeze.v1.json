@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_grouped_query_action_risk_freeze.v1",
+  "protocol_id": "vlsa-distal-grouped-query-action-risk-freeze-v1",
+  "source": {
+    "grouped_config": "configs/vlsa_distal_grouped_query_action_risk.v1.json",
+    "grouped_config_file_sha256": "af993a572bffa80c39bb04db2f5e58824f7d7e7c91b185906c21278138d29cdd",
+    "grouped_config_payload_sha256": "184422a4021192f9c03563ff2334942fbea816b303238077f7fcc160644ccefa",
+    "episode_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+    "episode_manifest_file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326"
+  },
+  "classification": {
+    "primary_state_precedence": [
+      "proxy_invalid",
+      "no_safe_candidate",
+      "no_known_unsafe_candidate",
+      "usable_mixed_support"
+    ],
+    "timeout_candidates_are_unknown_and_excluded_from_learning": true,
+    "proxy_invalid_if_nonpositive_proxy_risk_has_physical_veto": true,
+    "usable_requires_known_safe_and_known_unsafe_candidates": true
+  },
+  "adequacy": {
+    "claimed_rows": [0, 1, 2, 3, 4, 5, 6],
+    "minimum_usable_train_states": 6,
+    "minimum_usable_validation_states": 2,
+    "per_row": {
+      "minimum_known_safe_candidates": 20,
+      "minimum_known_unsafe_candidates": 20,
+      "minimum_near_boundary_known_candidates": 20,
+      "minimum_active_witness_candidates": 20,
+      "minimum_train_episodes_with_unsafe": 3,
+      "minimum_validation_episodes_with_unsafe": 1,
+      "minimum_train_episodes_with_active_witness": 3,
+      "minimum_validation_episodes_with_active_witness": 1
+    }
+  },
+  "split": {
+    "unit": "complete_episode",
+    "diagnostic_cases": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10"
+    ],
+    "reserved_test_cases": [
+      "vlsa-t1-goal-ii-t2-e42",
+      "vlsa-t1-goal-ii-t3-e42",
+      "vlsa-t1-goal-ii-t3-e44"
+    ],
+    "diagnostic_never_used_for_fit_or_final_claim": true,
+    "reserved_test_has_no_candidate_labels_in_this_freeze": true
+  },
+  "freeze": {
+    "candidate_manifest": "candidate_manifest.jsonl",
+    "state_manifest": "state_manifest.jsonl",
+    "split_manifest": "split_manifest.json",
+    "coverage_snapshot_written_regardless_of_adequacy": true,
+    "training_authorized_only_when_all_adequacy_gates_pass": true,
+    "unknown_candidates_never_enter_candidate_manifest": true
+  },
+  "forbidden_until_prediction_gate": [
+    "QP",
+    "closed_loop_execution",
+    "calibration",
+    "neural_CBF_claim"
+  ]
+}
