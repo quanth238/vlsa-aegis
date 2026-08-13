@@ -23,11 +23,13 @@ die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 [[ -n "${SLURM_JOB_ID:-}" ]] || die "simulation requires Slurm"
 [[ "${SLURM_CPUS_PER_TASK:-}" == 8 && "${SLURM_MEM_PER_NODE:-}" == 65536 ]] || die "allocation differs"
-gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 if [[ "${QUERY_RISK_CPU_CANARY:-0}" == 1 ]]; then
   [[ $(hostname) == worker-1 ]] || die "CPU canary requires registered H100 worker-1"
-  while IFS= read -r line; do [[ "$line" == *H100* ]] || die "CPU canary host inventory differs"; done <<<"$gpu_line"
+  mapfile -t gpu_info < <(find /proc/driver/nvidia/gpus -mindepth 2 -maxdepth 2 -name information -type f -print | sort)
+  [[ ${#gpu_info[@]} -eq 8 ]] || die "CPU canary H100 inventory count differs"
+  for info in "${gpu_info[@]}"; do grep -q H100 "$info" || die "CPU canary host inventory differs"; done
 else
+  gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
   [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "requires exactly one H100"
 fi
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"

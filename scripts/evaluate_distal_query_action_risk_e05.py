@@ -53,22 +53,26 @@ def _allocation_record() -> dict[str, Any]:
     job_id = os.environ.get("SLURM_JOB_ID")
     if not job_id or not job_id.isdigit():
         raise ValueError("query action-risk simulation requires Slurm")
-    output = subprocess.check_output(
-        [
-            "nvidia-smi", "--query-gpu=name,uuid,driver_version",
-            "--format=csv,noheader,nounits",
-        ],
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        timeout=30,
-    ).strip().splitlines()
-    if not output or any("H100" not in line for line in output):
-        raise ValueError("query action-risk simulation requires an H100 host")
     allocated = bool(os.environ.get("SLURM_JOB_GPUS") or os.environ.get("CUDA_VISIBLE_DEVICES"))
-    if allocated and len(output) != 1:
-        raise ValueError("query action-risk GPU allocation must expose exactly one H100")
-    if not allocated and os.environ.get("QUERY_RISK_CPU_CANARY") != "1":
-        raise ValueError("CPU-on-H100 execution is allowed only for an explicit canary")
+    if allocated:
+        output = subprocess.check_output(
+            [
+                "nvidia-smi", "--query-gpu=name,uuid,driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            timeout=30,
+        ).strip().splitlines()
+        if len(output) != 1 or "H100" not in output[0]:
+            raise ValueError("query action-risk GPU allocation must expose exactly one H100")
+    else:
+        if os.environ.get("QUERY_RISK_CPU_CANARY") != "1":
+            raise ValueError("CPU-on-H100 execution is allowed only for an explicit canary")
+        information = sorted(Path("/proc/driver/nvidia/gpus").glob("*/information"))
+        output = [path.read_text().strip().replace("\n", "; ") for path in information]
+        if len(output) != 8 or any("H100" not in item for item in output):
+            raise ValueError("CPU canary is not on the registered eight-H100 worker")
     return {
         "slurm_job_id": job_id,
         "host": socket.gethostname(),
