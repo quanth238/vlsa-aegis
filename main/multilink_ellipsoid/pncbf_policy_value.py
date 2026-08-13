@@ -83,8 +83,6 @@ def exact_suffix_policy_values(
         abs(parsed[-1][2][-1][row_index] - tail_clearance[0][row_index])
         for row_index in range(7)
     )
-    if terminal_boundary_error > tolerance:
-        raise ValueError("policy-value terminal boundary differs")
     tail_h = violation_trace(tail_clearance, safety_buffer_m)
     successor = [max(row[index] for row in tail_h) for index in range(7)]
     tail_step = parsed[-1][0] + parsed[-1][1]
@@ -107,8 +105,6 @@ def exact_suffix_policy_values(
                 for row_index in range(7)
             )
             maximum_boundary_error = max(maximum_boundary_error, boundary_error)
-            if boundary_error > tolerance:
-                raise ValueError("policy-value successor boundary differs")
         records_reversed.append(
             {
                 "state_step": step,
@@ -148,6 +144,7 @@ def exact_suffix_policy_values(
         "terminal_tail_value": [float(item) for item in [max(row[index] for row in tail_h) for index in range(7)]],
         "maximum_bellman_residual": maximum_residual,
         "maximum_successor_boundary_error_m": maximum_boundary_error,
+        "successor_boundaries_consistent": maximum_boundary_error <= tolerance,
         "nonincreasing_along_backup": monotonic,
         "records": records,
     }

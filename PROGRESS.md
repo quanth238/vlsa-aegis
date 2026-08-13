@@ -2685,3 +2685,9 @@ atomic output because the JSON-oriented trace parser rejected the producer's
 NumPy trace object. No result or scientific metric was written. The
 representation-only repair accepts objects exposing `tolist()` and changes no
 trajectory, clearance, value definition, or acceptance threshold.
+
+H100 retry `39408` reached the exact terminal-successor check but stopped
+before atomic output because the strict checker raised on a boundary mismatch
+instead of retaining the failed gate. No complete result was written. The
+fail-recording repair preserves the `1e-12` threshold, reports the measured
+error, and marks successor consistency false rather than discarding a NO-GO.

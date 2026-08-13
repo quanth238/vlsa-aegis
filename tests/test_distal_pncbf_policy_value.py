@@ -76,7 +76,7 @@ class DistalPncbfPolicyValueTest(unittest.TestCase):
                 boundary_tolerance_m=1e-12,
             )
 
-    def test_rejects_terminal_successor_mismatch(self):
+    def test_reports_terminal_successor_mismatch(self):
         windows = [
             {
                 "step": 0,
@@ -84,14 +84,15 @@ class DistalPncbfPolicyValueTest(unittest.TestCase):
                 "selected_clearance_trace_m": [[0.002] * 7, [0.003] * 7],
             },
         ]
-        with self.assertRaisesRegex(ValueError, "terminal boundary"):
-            exact_suffix_policy_values(
-                windows,
-                terminal_tail_clearance_trace_m=[[0.004] * 7],
-                safety_buffer_m=0.001,
-                expected_substeps_per_action=1,
-                boundary_tolerance_m=1e-12,
-            )
+        value = exact_suffix_policy_values(
+            windows,
+            terminal_tail_clearance_trace_m=[[0.004] * 7],
+            safety_buffer_m=0.001,
+            expected_substeps_per_action=1,
+            boundary_tolerance_m=1e-12,
+        )
+        self.assertFalse(value["successor_boundaries_consistent"])
+        self.assertAlmostEqual(value["maximum_successor_boundary_error_m"], 0.001)
 
 
 if __name__ == "__main__":

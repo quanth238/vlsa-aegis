@@ -131,7 +131,8 @@ def validate(
         )
         for key in (
             "records", "terminal_tail_value", "all_decision_states_safe",
-            "maximum_bellman_residual", "nonincreasing_along_backup",
+            "maximum_bellman_residual", "maximum_successor_boundary_error_m",
+            "successor_boundaries_consistent", "nonincreasing_along_backup",
         ):
             _require(reconstructed[key] == policy_value[key], "producer policy value differs: %s" % key)
 
@@ -279,7 +280,8 @@ def validate(
             )
             for key in (
                 "records", "terminal_tail_value", "all_decision_states_safe",
-                "maximum_bellman_residual", "nonincreasing_along_backup",
+                "maximum_bellman_residual", "maximum_successor_boundary_error_m",
+                "successor_boundaries_consistent", "nonincreasing_along_backup",
             ):
                 _require(
                     fresh_policy_value[key] == policy_value[key],

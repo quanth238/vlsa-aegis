@@ -480,6 +480,7 @@ def evaluate(
                 if policy_value is not None
                 and policy_value["all_decision_states_safe"]
                 and policy_value["nonincreasing_along_backup"]
+                and policy_value["successor_boundaries_consistent"]
                 and policy_value["maximum_bellman_residual"] <= tolerance
                 and policy_value["terminal_backup"]["buffer_safe"]
                 else (
