@@ -18,6 +18,12 @@ This is a measurement-definition NO-GO, not lack of action authority. The
 registered correction keeps `k=0` for current-state eligibility and evaluates
 candidate improvement only on future samples after command authority begins.
 
+Producer `39382` confirmed the same +4.496559 mm plateau even after excluding
+`k=0`: the full five-action nominal stayed physically safe and did not reduce
+clearance. The remaining stop was a hysteresis logic error. The +1 to +5 mm
+deadband must keep the backup armed while allowing a freshly verified safe
+nominal; it must not demand a nonzero repulsive improvement.
+
 ## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
 
 The next E02 gate fixes one reproducible continuation policy before learning a

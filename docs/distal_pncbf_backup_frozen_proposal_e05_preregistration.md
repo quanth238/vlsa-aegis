@@ -22,3 +22,9 @@ remains missing.
 Current-state clearance is an eligibility diagnostic. Warning and candidate
 improvement use only samples after the cloned command begins, because a fixed
 safe `k=0` minimum cannot be improved by any candidate action.
+
+Inside the +1 to +5 mm hysteresis deadband, the backup remains armed but may
+execute a freshly physically verified nominal when every repulsive magnitude
+is flat or worse. Hysteresis prevents chattering; it does not require a
+nonzero correction when the nominal prefix already satisfies the activation
+buffer.

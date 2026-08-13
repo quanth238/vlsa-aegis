@@ -43,7 +43,7 @@
     "selection": "smallest_physical_safe_candidate_reaching_activation_buffer_else_best_clearance_improving_physical_safe_candidate",
     "physical_acceptance": "zero_protected_MuJoCo_contact_and_CAR_at_most_1mm",
     "physically_unsafe_nominal_forces_backup": true,
-    "failure": "fail_closed_when_no_physically_safe_clearance_improving_repulsive_candidate",
+    "failure": "fail_closed_when_nominal_below_activation_or_physically_unsafe_and_no_physically_safe_clearance_improving_repulsive_candidate",
     "additional_direction_or_detour_modes": false
   },
   "measurement": {

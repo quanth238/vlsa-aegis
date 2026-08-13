@@ -284,7 +284,10 @@ def evaluate(
                     candidates.append({"requested_correction_l2_action": float(requested), "correction_l2_action": float(np.linalg.norm(applied)), "direction": direction.tolist(), "actions": candidate_actions.tolist(), "record": _backup_summary(record)})
                 chosen = select_repulsive_candidate(candidates, nominal_clearance_m=nominal_margin, activation_clearance_m=activation, paper_car_threshold_m=car_limit)
                 if chosen is None:
-                    failure = {"step": step, "reason": "no_physically_safe_clearance_improving_normal_repulsion"}
+                    if nominal_physical_safe and nominal_margin >= activation:
+                        selected_source = "verified_safe_nominal_inside_hysteresis_deadband"
+                    else:
+                        failure = {"step": step, "reason": "no_physically_safe_clearance_improving_normal_repulsion"}
                 else:
                     selected_actions = np.asarray(chosen["actions"], dtype=np.float64)
                     selected_record = chosen["record"]
@@ -333,7 +336,7 @@ def evaluate(
             "pairing": pairing, "probe_environment": {"disabled_image_observable_count": disabled_images, "osc_controller": "OSC_POSE", "control_frequency_hz": 20},
             "policy_server": server_identity, "policy_queries": policy_queries, "windows": windows, "actions": actions,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},
-            "summary": {"window_count": len(windows), "repulsion_window_count": sum(item["selected_source"] == "hysteretic_normal_repulsion" for item in windows), "all_executed_windows_freshly_physically_verified": verified_selected, "native_task_success": success, "native_task_success_step": goal_summary["first_all_satisfied_step"], "first_protected_contact_step": first_contact, "first_paper_car_step": first_car, "maximum_active_obstacle_l1_displacement_m": maximum_car, "safe_task_success": solved},
+            "summary": {"window_count": len(windows), "repulsion_window_count": sum(item["selected_source"] == "hysteretic_normal_repulsion" for item in windows), "hysteresis_deadband_nominal_window_count": sum(item["selected_source"] == "verified_safe_nominal_inside_hysteresis_deadband" for item in windows), "all_executed_windows_freshly_physically_verified": verified_selected, "native_task_success": success, "native_task_success_step": goal_summary["first_all_satisfied_step"], "first_protected_contact_step": first_contact, "first_paper_car_step": first_car, "maximum_active_obstacle_l1_displacement_m": maximum_car, "safe_task_success": solved},
             "failure": failure, "primary_problem_solved": solved,
             "interpretation": "fixed_backup_policy_safe_task_success" if solved else "fixed_backup_policy_oracle_no_go",
             "video": {"path": str(video_final), "file_sha256": _file_sha256(video_final), "frames_written": len(actions) + 1, "fps": TABLE_VIDEO_FPS},

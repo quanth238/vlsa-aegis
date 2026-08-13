@@ -1,5 +1,13 @@
 # Reproduction decisions
 
+## ADR-0103: An armed backup may execute a verified-safe deadband nominal
+
+Hysteresis is memory, not a mandatory correction. Job `39382` showed a flat,
+physically safe +4.496559 mm nominal and six equally safe repulsive candidates
+inside the +1 to +5 mm deadband. Keep the backup armed, execute the verified
+nominal, and reevaluate next window. Fail closed only below activation or on a
+physically unsafe nominal when no safe improving normal candidate exists.
+
 ## ADR-0102: Separate current-state eligibility from future candidate value
 
 Job `39380` deadlocked at action 262 because immutable `k=0` was the active
