@@ -10,9 +10,9 @@ allocation-audited state below the +1 mm initial boundary.  E05/E10 are
 diagnostic only; three untouched milk-obstacle episodes are the final test.
 
 Each of 18 episodes contributes four states at 20/15/10/5 actions before first
-protected contact.  Exactly 26 candidates per state (nominal plus the fixed
-ledger-independent backup family) execute one action followed by the
-registered 25-action hold.  Seven positive-is-unsafe worst-future proxy risks,
+protected contact.  Exactly 26 proposals per state execute one action, then
+recompute and execute the fixed ledger-independent backup before its registered
+25-action hold.  Seven positive-is-unsafe worst-future proxy risks,
 raw protected contacts, and CAR are recorded at all internal MuJoCo substeps.
 Episode groups never cross splits.  Training remains blocked until every
 requested state is initially safe and has an exactly verified safe candidate.

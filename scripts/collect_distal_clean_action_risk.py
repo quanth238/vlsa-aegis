@@ -83,10 +83,12 @@ def collect(
         _runtime_imports, _settle, read_jsonl, validate_case_row,
     )
     from main.multilink_ellipsoid.clean_action_risk import (
-        RESULT_SCHEMA, canonical, decision_steps, exact_safe, load_cases,
+        RESULT_SCHEMA, canonical, compact_feature_vector, decision_steps, exact_safe, load_cases,
         load_config, risk_from_row_minimum,
     )
-    from main.multilink_ellipsoid.pure_backup import registered_directions
+    from main.multilink_ellipsoid.pure_backup import (
+        registered_directions, select_backup_with_fallback,
+    )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow, allocation_record, load_shadow_config,
@@ -119,13 +121,16 @@ def collect(
     _require(set(actions) == set(range(len(archived["actions"]))), "Table-1 action ledger differs")
     targets = decision_steps(selected, config)
     _require(max(targets) < len(actions), "clean action-risk state exceeds action ledger")
-    env = probe_env = None
+    env = probe_env = backup_env = None
     try:
         env, task, observation, _ = _build_environment(runtime, case, render_resolution=32)
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         probe_env, probe_task, probe_observation, _ = _build_environment(runtime, case, render_resolution=32)
         probe_observation = _settle(probe_env, probe_observation, TABLE_SETTLE_ACTIONS)
+        backup_env, backup_task, backup_observation, _ = _build_environment(runtime, case, render_resolution=32)
+        backup_observation = _settle(backup_env, backup_observation, TABLE_SETTLE_ACTIONS)
         _require(str(task.language) == str(probe_task.language), "probe task differs")
+        _require(str(task.language) == str(backup_task.language), "backup probe task differs")
         obstacle_name, _ = _active_obstacle(env, observation)
         _require(obstacle_name == selected["active_obstacle_name"], "active obstacle differs")
         obstacle_reference = np.asarray(observation["%s_pos" % obstacle_name], dtype=np.float64).copy()
@@ -145,6 +150,13 @@ def collect(
         instrumented = InstrumentedContinuationProbe(
             one_step, obstacle_name, obstacle_reference
         )
+        backup_one_step = SlabbedEightConstraintProbe(
+            backup_env, geometry, clearance_m=0.0, active_obstacle_name=obstacle_name
+        )
+        _disable_images(backup_env)
+        backup_instrumented = InstrumentedContinuationProbe(
+            backup_one_step, obstacle_name, obstacle_reference
+        )
         buffer_m = float(config["risk_target"]["safety_buffer_m"])
         terminal = int(config["candidate_family"]["terminal_hold_actions"])
         expected_substeps = int(config["state_sampling"]["expected_mujoco_substeps_per_action"])
@@ -152,18 +164,83 @@ def collect(
         state_records = []
         rejected_states = []
 
-        def evaluate_candidate(name: str, order: int, action: Any, step: int) -> dict[str, Any]:
+        def rollout_summary(source_env: Any, command: Any, step: int) -> dict[str, Any]:
             commands = np.zeros((1 + terminal, 7), dtype=np.float64)
-            commands[0] = np.asarray(action, dtype=np.float64)
+            commands[0] = np.asarray(command, dtype=np.float64)
+            rollout = backup_instrumented.rollout_internal(
+                source_env, commands, expected_substeps=expected_substeps,
+                boundary_tolerance=tolerance, step_base=step + 1,
+            )
+            trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
+            row_min = np.min(trace, axis=0)
+            return {
+                "row_minimum_clearance_m": row_min.tolist(),
+                "minimum_clearance_m": float(np.min(row_min)),
+                "future_minimum_clearance_m": float(np.min(trace[1:])),
+                "protected_contact_count": len(rollout["protected_contacts"]),
+                "maximum_active_obstacle_l1_displacement_m": float(rollout["maximum_active_obstacle_l1_displacement_m"]),
+                "sample_count": int(trace.shape[0]),
+                "maximum_boundary_equivalence_error_m": float(rollout["maximum_boundary_equivalence_error_m"]),
+            }
+
+        def evaluate_candidate(name: str, order: int, action: Any, step: int) -> dict[str, Any]:
+            proposal = np.asarray(action, dtype=np.float64)
+            one_step.synchronize(env)
+            probe_env.step(proposal.tolist())
+            successor = np.asarray(backup_one_step.clearances(probe_env)[:7], dtype=np.float64)
+            links = geometry._slabbed_links(probe_env)
+            active_row = int(np.argmin(successor))
+            normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
+            normal /= float(np.linalg.norm(normal))
+            backup_definitions: list[tuple[str, Any]] = [("hold", np.zeros(7, dtype=np.float64))]
+            for direction_name, direction in registered_directions(normal):
+                for amplitude in config["candidate_family"]["amplitudes_action"]:
+                    command = np.zeros(7, dtype=np.float64)
+                    command[:3] = np.asarray(direction, dtype=np.float64) * float(amplitude)
+                    backup_definitions.append(("%s_amp_%s" % (direction_name, amplitude), command))
+            _require(
+                len(backup_definitions) == int(config["candidate_family"]["backup_candidate_count"]),
+                "backup candidate count differs",
+            )
+            backup_candidates = []
+            for backup_order, (backup_name, backup_action) in enumerate(backup_definitions):
+                backup_candidates.append({
+                    "name": backup_name, "order": backup_order,
+                    "first_action": np.asarray(backup_action, dtype=np.float64).tolist(),
+                    "record": rollout_summary(probe_env, backup_action, step),
+                })
+            selected, selection_mode = select_backup_with_fallback(
+                backup_candidates, safety_buffer_m=buffer_m,
+                paper_car_threshold_m=float(config["risk_target"]["paper_car_threshold_m"]),
+            )
+            full_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
+            full_commands[0] = proposal
+            full_commands[1] = np.asarray(selected["first_action"], dtype=np.float64)
             rollout = instrumented.rollout_internal(
-                env, commands, expected_substeps=expected_substeps,
+                env, full_commands, expected_substeps=expected_substeps,
                 boundary_tolerance=tolerance, step_base=step,
             )
             trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
             row_min = np.min(trace, axis=0)
             record = {
-                "name": name, "order": int(order), "first_action": commands[0].tolist(),
-                "first_action_sha256": hashlib.sha256(commands[0].tobytes()).hexdigest(),
+                "name": name, "order": int(order), "first_action": proposal.tolist(),
+                "first_action_sha256": hashlib.sha256(proposal.tobytes()).hexdigest(),
+                "successor_clearance_m": successor.tolist(),
+                "backup_state_derived_normal": normal.tolist(),
+                "backup_candidate_count": len(backup_candidates),
+                "backup_safe_candidate_count": sum(
+                    item["record"]["minimum_clearance_m"] >= buffer_m
+                    and item["record"]["protected_contact_count"] == 0
+                    and item["record"]["maximum_active_obstacle_l1_displacement_m"]
+                    <= float(config["risk_target"]["paper_car_threshold_m"])
+                    for item in backup_candidates
+                ),
+                "selected_backup": {
+                    "name": selected["name"], "order": selected["order"],
+                    "first_action": selected["first_action"],
+                    "selection_mode": selection_mode,
+                },
+                "backup_candidates": backup_candidates,
                 "row_minimum_clearance_m": row_min.tolist(),
                 "risk": risk_from_row_minimum(row_min, buffer_m),
                 "minimum_clearance_m": float(np.min(row_min)),
@@ -181,12 +258,22 @@ def collect(
             if step in targets:
                 current = np.asarray(one_step.clearances(env)[:7], dtype=np.float64)
                 contacts = _protected_contact_evidence(env, obstacle_name)["events"]
+                current_obstacle_displacement = float(np.sum(np.abs(
+                    np.asarray(observation["%s_pos" % obstacle_name], dtype=np.float64)
+                    - obstacle_reference
+                )))
                 state_id = "%s-step-%03d" % (selected["case_id"], step)
-                if float(np.min(current)) < float(config["state_sampling"]["minimum_initial_proxy_clearance_m"]) or contacts:
+                if (
+                    float(np.min(current)) < float(config["state_sampling"]["minimum_initial_proxy_clearance_m"])
+                    or contacts
+                    or current_obstacle_displacement
+                    > float(config["state_sampling"]["maximum_initial_active_obstacle_l1_displacement_m"])
+                ):
                     rejected_states.append({
                         "state_id": state_id, "step": step,
                         "initial_clearance_m": current.tolist(),
                         "initial_protected_contacts": contacts,
+                        "initial_active_obstacle_l1_displacement_m": current_obstacle_displacement,
                         "reason": "initial_state_not_strictly_safe",
                     })
                 else:
@@ -202,7 +289,7 @@ def collect(
                             command = np.zeros(7, dtype=np.float64)
                             command[:3] = np.asarray(direction, dtype=np.float64) * float(amplitude)
                             definitions.append(("%s_amp_%s" % (direction_name, amplitude), command))
-                    _require(len(definitions) == int(config["candidate_family"]["candidate_action_count"]), "candidate count differs")
+                    _require(len(definitions) == int(config["candidate_family"]["proposal_count"]), "proposal count differs")
                     candidates = [
                         evaluate_candidate(name, order, command, step)
                         for order, (name, command) in enumerate(definitions)
@@ -210,11 +297,16 @@ def collect(
                     source_state_after = np.asarray(_dynamic_state_vector(env), dtype=np.float64)
                     source_state_mutation = float(np.max(np.abs(source_state_after - source_state_before)))
                     context = _context(env, observation, geometry, current)
+                    for candidate in candidates:
+                        candidate["feature_vector"] = compact_feature_vector(
+                            context, candidate["first_action"]
+                        )
                     safe_count = sum(bool(item["exact_safe"]) for item in candidates)
                     record = {
                         "state_id": state_id, "step": step,
                         "lead_actions_before_contact": int(selected["first_relevant_contact_step"]) - step,
                         "initial_clearance_m": current.tolist(), "active_row": active_row,
+                        "initial_active_obstacle_l1_displacement_m": current_obstacle_displacement,
                         "state_derived_normal": normal.tolist(), "context": context,
                         "candidate_count": len(candidates), "exact_safe_candidate_count": safe_count,
                         "source_state_maximum_mutation": source_state_mutation,
@@ -267,6 +359,8 @@ def collect(
         result["result_payload_sha256"] = _sha256(canonical(result))
         return result
     finally:
+        if backup_env is not None:
+            backup_env.close()
         if probe_env is not None:
             probe_env.close()
         if env is not None:

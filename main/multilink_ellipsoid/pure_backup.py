@@ -135,3 +135,30 @@ def select_verified_backup(
             str(item["name"]),
         ),
     )
+
+
+def select_backup_with_fallback(
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    safety_buffer_m: float,
+    paper_car_threshold_m: float,
+) -> tuple[Mapping[str, Any], str]:
+    """Return a verified candidate or a deterministic maximum-clearance fallback."""
+
+    selected = select_verified_backup(
+        candidates,
+        safety_buffer_m=safety_buffer_m,
+        paper_car_threshold_m=paper_car_threshold_m,
+    )
+    if selected is not None:
+        return selected, "verified_safe"
+    if not candidates:
+        raise ValueError("pure backup candidate family is empty")
+    return min(
+        candidates,
+        key=lambda item: (
+            -float(item["record"]["future_minimum_clearance_m"]),
+            int(item["order"]),
+            str(item["name"]),
+        ),
+    ), "maximum_clearance_fallback"

@@ -12,8 +12,9 @@ initially unsafe states, and the known E38 proxy mismatch are excluded by
 registered evidence rather than post-hoc judgment.  E05/E10 are diagnostic and
 cannot support the final generalization claim.
 
-The fixed ledger-independent backup defines the continuation.  Exact labels
-are seven candidate-plus-backup worst-future proxy risks; raw protected contact
+The fixed ledger-independent backup defines the continuation and is recomputed
+after each candidate.  Exact labels are seven candidate-plus-backup
+worst-future proxy risks; raw protected contact
 and CAR remain separate physical acceptance authorities.  Complete episodes
 are the split unit.  Dataset support must pass before training.  The first
 learned gate is one direct seven-output action-risk MLP without calibration,

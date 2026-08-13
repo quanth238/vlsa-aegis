@@ -43,9 +43,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         _require(result["requested_state_count"] == 4, "requested state count differs")
         _require(all(state["candidate_count"] == 26 for state in result["states"]), "candidate count differs")
         _require(all(
-            candidate["sample_count"] == 651
+            candidate["sample_count"] == 676
             for state in result["states"] for candidate in state["candidates"]
         ), "candidate internal sample count differs")
+        _require(all(
+            candidate["backup_candidate_count"] == 25
+            for state in result["states"] for candidate in state["candidates"]
+        ), "backup candidate count differs")
         hashes.append({
             "case_id": case["case_id"], "file_sha256": _file_sha256(path),
             "result_payload_sha256": claimed,

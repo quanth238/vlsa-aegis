@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from main.multilink_ellipsoid.clean_action_risk import (
+    compact_feature_vector,
     decision_steps,
     exact_safe,
     load_cases,
@@ -62,6 +63,22 @@ class CleanActionRiskTests(unittest.TestCase):
         self.assertEqual(metrics["false_safe_count"], 1)
         self.assertEqual(metrics["recoverable_state_count"], 2)
         self.assertEqual(metrics["supported_recoverable_state_count"], 1)
+
+    def test_compact_feature_has_fixed_dimension(self):
+        context = {
+            "arm_joint_position_rad": [0.0] * 7,
+            "arm_joint_velocity_rad_s": [0.0] * 7,
+            "eef_position_m": [0.0] * 3,
+            "eef_quaternion_xyzw": [0.0] * 4,
+            "controller_snapshot": {"goal_pos": [0.0] * 3, "goal_ori": [0.0] * 9},
+            "obstacle": {"center_m": [0.0] * 3, "rotation": [[0.0] * 3] * 3, "semiaxes_m": [0.0] * 3},
+            "geometry_rows": [
+                {"center_m": [0.0] * 3, "rotation": [[0.0] * 3] * 3,
+                 "semiaxes_m": [0.0] * 3, "current_clearance_m": 0.0}
+                for _ in range(7)
+            ],
+        }
+        self.assertEqual(len(compact_feature_vector(context, [0.0] * 7)), 167)
 
 
 if __name__ == "__main__":

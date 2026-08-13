@@ -6,6 +6,7 @@ from main.multilink_ellipsoid.pure_backup import (
     load_pure_backup_config,
     orthonormal_local_frame,
     registered_directions,
+    select_backup_with_fallback,
     select_verified_backup,
     temporal_profile,
 )
@@ -83,6 +84,33 @@ class PureBackupTests(unittest.TestCase):
                 [candidate], safety_buffer_m=0.001, paper_car_threshold_m=0.001
             )
         )
+
+    def test_complete_policy_has_deterministic_unsafe_fallback(self):
+        candidates = [
+            {
+                "name": "a", "order": 0,
+                "record": {
+                    "minimum_clearance_m": -0.01,
+                    "future_minimum_clearance_m": -0.01,
+                    "protected_contact_count": 2,
+                    "maximum_active_obstacle_l1_displacement_m": 0.0,
+                },
+            },
+            {
+                "name": "b", "order": 1,
+                "record": {
+                    "minimum_clearance_m": -0.005,
+                    "future_minimum_clearance_m": -0.005,
+                    "protected_contact_count": 3,
+                    "maximum_active_obstacle_l1_displacement_m": 0.0,
+                },
+            },
+        ]
+        selected, mode = select_backup_with_fallback(
+            candidates, safety_buffer_m=0.001, paper_car_threshold_m=0.001
+        )
+        self.assertEqual(selected["name"], "b")
+        self.assertEqual(mode, "maximum_clearance_fallback")
 
 
 if __name__ == "__main__":

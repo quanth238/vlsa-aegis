@@ -49,20 +49,25 @@ def load_config(path: Path) -> dict[str, Any]:
         "lead_actions_before_first_protected_contact": [20, 15, 10, 5],
         "include_k0_in_strict_safety": True,
         "minimum_initial_proxy_clearance_m": 0.001,
+        "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
         "expected_mujoco_substeps_per_action": 25,
         "boundary_equivalence_tolerance": 1.0e-12,
     }:
         raise ValueError("clean action-risk state sampling differs")
     candidate = value["candidate_family"]
     if candidate != {
-        "members": "nominal_aegis_plus_hold_plus_world_axes_plus_local_normal_tangents",
+        "proposal_members": "nominal_aegis_plus_hold_plus_world_axes_plus_local_normal_tangents",
+        "backup_members": "hold_plus_world_axes_plus_local_normal_tangents",
         "amplitudes_action": [0.5, 1.0],
-        "candidate_action_count": 26,
-        "execute_candidate_actions": 1,
+        "proposal_count": 26,
+        "backup_candidate_count": 25,
+        "execute_proposal_actions": 1,
+        "execute_selected_backup_actions": 1,
         "terminal_hold_actions": 25,
         "rotation_action": [0.0, 0.0, 0.0],
         "backup_gripper_action": 0.0,
         "vla_ledger_forbidden_from_backup_candidates": True,
+        "no_safe_backup_fallback": "maximum_future_clearance_then_fixed_registered_order",
     }:
         raise ValueError("clean action-risk candidate family differs")
     target = value["risk_target"]
@@ -78,6 +83,8 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("clean action-risk target differs")
     if value["cohort"]["split_unit"] != "complete_episode":
         raise ValueError("clean action-risk split unit differs")
+    if value["model"].get("input_dimension") != 167:
+        raise ValueError("clean action-risk model input dimension differs")
     if value["model"]["output_count"] != 7:
         raise ValueError("clean action-risk model output differs")
     output = json.loads(canonical(value).decode("utf-8"))
@@ -161,6 +168,57 @@ def exact_safe(record: Mapping[str, Any], config: Mapping[str, Any]) -> bool:
         and float(record["maximum_active_obstacle_l1_displacement_m"])
         <= float(config["risk_target"]["paper_car_threshold_m"])
     )
+
+
+def compact_feature_vector(
+    context: Mapping[str, Any], candidate_action: Sequence[float],
+) -> list[float]:
+    """Fixed-size model input; full dynamic state remains replay evidence only."""
+
+    def flatten(value: Any) -> list[float]:
+        if isinstance(value, (list, tuple)):
+            output = []
+            for item in value:
+                output.extend(flatten(item))
+            return output
+        return [float(value)]
+
+    values = []
+    for key, expected in (
+        ("arm_joint_position_rad", 7),
+        ("arm_joint_velocity_rad_s", 7),
+        ("eef_position_m", 3),
+        ("eef_quaternion_xyzw", 4),
+    ):
+        group = [float(item) for item in context[key]]
+        if len(group) != expected:
+            raise ValueError("clean action-risk compact context differs")
+        values.extend(group)
+    controller = context["controller_snapshot"]
+    for key, expected in (("goal_pos", 3), ("goal_ori", 9)):
+        group = flatten(controller[key])
+        if len(group) != expected:
+            raise ValueError("clean action-risk controller context differs")
+        values.extend(group)
+    obstacle = context["obstacle"]
+    values.extend(float(item) for item in obstacle["center_m"])
+    values.extend(flatten(obstacle["rotation"]))
+    values.extend(float(item) for item in obstacle["semiaxes_m"])
+    rows = context["geometry_rows"]
+    if len(rows) != 7:
+        raise ValueError("clean action-risk geometry row count differs")
+    for row in rows:
+        values.extend(float(item) for item in row["center_m"])
+        values.extend(flatten(row["rotation"]))
+        values.extend(float(item) for item in row["semiaxes_m"])
+        values.append(float(row["current_clearance_m"]))
+    action = [float(item) for item in candidate_action]
+    if len(action) != 7:
+        raise ValueError("clean action-risk candidate action differs")
+    values.extend(action)
+    if len(values) != 167 or any(not math.isfinite(item) for item in values):
+        raise ValueError("clean action-risk compact feature dimension differs")
+    return values
 
 
 def prediction_metrics(

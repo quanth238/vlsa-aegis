@@ -27,9 +27,15 @@ Evaluate exactly 26 first actions:
 - positive/negative local obstacle normal and two tangents;
 - magnitudes 0.5 and 1.0 for every nonzero backup direction.
 
-Every candidate is followed by the fixed 25-action zero-motion terminal
-backup.  The VLA action ledger is never an input to the backup candidates or
-their score.  All internal MuJoCo substeps are measured.
+After executing each proposed candidate in a cloned environment, the fixed
+ledger-independent backup is recomputed at the successor.  It evaluates hold,
+world-axis, and local normal/tangent actions, each followed by the fixed
+25-action zero-motion terminal hold.  The selected verified-safe backup action
+is executed before that hold.  If no verified-safe backup candidate exists,
+the complete policy deterministically takes the registered maximum-future-
+clearance fallback and retains the resulting unsafe label.  The VLA action
+ledger is never an input to the backup candidates or their score.  All
+internal MuJoCo substeps are measured.
 
 For seven fixed L5--L7 rows, store positive-is-unsafe risk
 
