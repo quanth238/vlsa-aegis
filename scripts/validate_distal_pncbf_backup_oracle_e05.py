@@ -10,11 +10,13 @@ import os
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
-from scripts.evaluate_distal_pncbf_backup_oracle_e05 import RESULT_SCHEMA, _canonical
-from scripts.evaluate_distal_smooth_field_attribution_e05 import (
-    InstrumentedContinuationProbe,
-    _disable_images,
+from scripts.evaluate_distal_pncbf_backup_oracle_e05 import (
+    RESULT_SCHEMA,
+    _canonical,
+    _primary_internal_rollout,
+    _primary_internal_step,
 )
+from scripts.evaluate_distal_smooth_field_attribution_e05 import _disable_images
 from scripts.evaluate_distal_counterfactual_field_e05 import FixedContinuationProbe
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     ARCHIVED_FILE_SHA256,
@@ -170,9 +172,6 @@ def validate(
             probe_env, geometry, clearance_m=0.0, active_obstacle_name=obstacle_name
         )
         _disable_images(probe_env)
-        instrumented = InstrumentedContinuationProbe(
-            one_step, obstacle_name, initial_obstacle
-        )
         minimum_clearance = float("inf")
         protected_contacts = []
         maximum_car = 0.0
@@ -183,15 +182,26 @@ def validate(
         for item in records:
             step = int(item["step"])
             command = np.asarray(item["action"], dtype=np.float64)
-            evidence = instrumented.rollout_internal(
-                env, command.reshape(1, 7), expected_substeps=expected_substeps,
-                boundary_tolerance=tolerance, step_base=step,
+            observation, reward, done, _, evidence = _primary_internal_step(
+                env,
+                one_step,
+                obstacle_name,
+                initial_obstacle,
+                command,
+                expected_substeps=expected_substeps,
+                boundary_tolerance=tolerance,
+                step=step,
             )
-            fresh_action_clearance_traces[step] = evidence["clearance_trace_m"]
+            if step >= 182:
+                fresh_action_clearance_traces[step] = evidence["clearance_trace_m"]
+                stored_primary = np.asarray(item["primary_clearance_trace_m"], dtype=np.float64)
+                _require(
+                    stored_primary.shape == np.asarray(evidence["clearance_trace_m"]).shape,
+                    "fresh primary trace shape differs",
+                )
             minimum_clearance = min(minimum_clearance, float(evidence["minimum_clearance_m"]))
             protected_contacts.extend(evidence["protected_contacts"])
             maximum_car = max(maximum_car, float(evidence["maximum_active_obstacle_l1_displacement_m"]))
-            observation, reward, done, _ = env.step(command.tolist())
             _require(array_sha256(_dynamic_state_vector(env)) == item["next_state_sha256"], "fresh replay state hash differs")
             _require(bool(done) == bool(item["done"]), "fresh replay task signal differs")
             if done and success_step is None:
@@ -229,12 +239,10 @@ def validate(
                 == (int(policy_value["terminal_backup"]["action_count"]), 7),
                 "terminal backup action shape differs",
             )
-            fresh_terminal = instrumented.rollout_internal(
-                env,
-                terminal_actions,
+            fresh_terminal = _primary_internal_rollout(
+                env, one_step, obstacle_name, initial_obstacle, terminal_actions,
                 expected_substeps=expected_substeps,
-                boundary_tolerance=tolerance,
-                step_base=len(records),
+                boundary_tolerance=tolerance, step_base=len(records),
             )
             fresh_terminal_trace = np.asarray(
                 fresh_terminal["clearance_trace_m"], dtype=np.float64

@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 import time
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 from scripts.evaluate_distal_smooth_field_attribution_e05 import (
     InstrumentedContinuationProbe,
@@ -44,6 +44,142 @@ def _backup_summary(record: Mapping[str, Any]) -> dict[str, Any]:
         if key in record:
             output[key] = _public(record[key])
     return output
+
+
+def _primary_internal_step(
+    env: Any,
+    clearance_probe: Any,
+    obstacle_name: str,
+    obstacle_reference_position_m: Any,
+    action: Any,
+    *,
+    expected_substeps: int,
+    boundary_tolerance: float,
+    step: int,
+) -> Tuple[Any, float, bool, Any, Mapping[str, Any]]:
+    """Execute one primary action while measuring every MuJoCo substep."""
+
+    import numpy as np
+
+    from main.multilink_ellipsoid.sitl_candidate import (
+        _obstacle_root_body_id,
+        _protected_contact_evidence,
+    )
+
+    command = np.asarray(action, dtype=np.float64)
+    _require(command.shape == (7,) and np.all(np.isfinite(command)), "primary action differs")
+    obstacle_id = _obstacle_root_body_id(env.sim.model, obstacle_name)
+    obstacle_reference = np.asarray(obstacle_reference_position_m, dtype=np.float64).reshape(3)
+    clearances = []
+    contacts = []
+    displacements = []
+
+    def measure(substep: int) -> None:
+        values = np.asarray(clearance_probe.clearances(env)[:7], dtype=np.float64)
+        clearances.append(values)
+        evidence = _protected_contact_evidence(env, obstacle_name)
+        for event in evidence["events"]:
+            contacts.append(
+                {
+                    "step": int(step),
+                    "action_offset": 0,
+                    "substep": int(substep),
+                    **event,
+                }
+            )
+        obstacle = np.asarray(env.sim.data.xpos[obstacle_id], dtype=np.float64)
+        displacements.append(float(np.sum(np.abs(obstacle - obstacle_reference))))
+
+    measure(-1)
+    original_step = env.sim.step
+    started = time.perf_counter_ns()
+
+    def instrumented_step(*args: Any, **kwargs: Any) -> Any:
+        output = original_step(*args, **kwargs)
+        measure(len(clearances) - 1)
+        return output
+
+    env.sim.step = instrumented_step
+    try:
+        observation, reward, done, info = env.step(command.tolist())
+    finally:
+        env.sim.step = original_step
+    elapsed = (time.perf_counter_ns() - started) * 1.0e-9
+    _require(len(clearances) == 1 + int(expected_substeps), "primary substep count differs")
+    boundary = np.asarray(clearance_probe.clearances(env)[:7], dtype=np.float64)
+    boundary_error = float(np.max(np.abs(boundary - clearances[-1])))
+    _require(boundary_error <= float(boundary_tolerance), "primary boundary clearance differs")
+    trace = np.asarray(clearances, dtype=np.float64)
+    record = {
+        "clearance_trace_m": trace,
+        "minimum_clearance_m": float(np.min(trace)),
+        "row_minimum_clearance_m": np.min(trace, axis=0),
+        "protected_contacts": contacts,
+        "maximum_active_obstacle_l1_displacement_m": float(max(displacements)),
+        "sample_count": int(trace.shape[0]),
+        "substep_counts": [int(expected_substeps)],
+        "maximum_boundary_equivalence_error_m": boundary_error,
+        "env_step_wall_seconds": elapsed,
+    }
+    return observation, float(reward), bool(done), info, record
+
+
+def _combine_primary_internal_records(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Join consecutive primary one-action traces without duplicating boundaries."""
+
+    import numpy as np
+
+    _require(bool(records), "primary internal rollout is empty")
+    traces = [np.asarray(item["clearance_trace_m"], dtype=np.float64) for item in records]
+    trace = np.concatenate([traces[0]] + [item[1:] for item in traces[1:]], axis=0)
+    return {
+        "clearance_trace_m": trace,
+        "minimum_clearance_m": float(np.min(trace)),
+        "row_minimum_clearance_m": np.min(trace, axis=0),
+        "protected_contacts": [
+            event for item in records for event in item["protected_contacts"]
+        ],
+        "maximum_active_obstacle_l1_displacement_m": max(
+            float(item["maximum_active_obstacle_l1_displacement_m"]) for item in records
+        ),
+        "sample_count": int(trace.shape[0]),
+        "substep_counts": [count for item in records for count in item["substep_counts"]],
+        "maximum_boundary_equivalence_error_m": max(
+            float(item["maximum_boundary_equivalence_error_m"]) for item in records
+        ),
+        "env_step_wall_seconds": sum(float(item["env_step_wall_seconds"]) for item in records),
+    }
+
+
+def _primary_internal_rollout(
+    env: Any,
+    clearance_probe: Any,
+    obstacle_name: str,
+    obstacle_reference_position_m: Any,
+    actions: Any,
+    *,
+    expected_substeps: int,
+    boundary_tolerance: float,
+    step_base: int,
+) -> dict[str, Any]:
+    import numpy as np
+
+    commands = np.asarray(actions, dtype=np.float64)
+    _require(commands.ndim == 2 and commands.shape[1] == 7, "primary rollout shape differs")
+    records = []
+    for offset, command in enumerate(commands):
+        _, _, _, _, record = _primary_internal_step(
+            env,
+            clearance_probe,
+            obstacle_name,
+            obstacle_reference_position_m,
+            command,
+            expected_substeps=expected_substeps,
+            boundary_tolerance=boundary_tolerance,
+            step=step_base + offset,
+        )
+        records.append(record)
+    return _combine_primary_internal_records(records)
 
 
 def evaluate(
@@ -155,20 +291,40 @@ def evaluate(
         def execute(command: Any, step: int, source_name: str) -> bool:
             nonlocal observation, previous_goal, terminal_frame, first_contact, first_car, maximum_car
             command = np.asarray(command, dtype=np.float64)
-            observation, reward, done, _ = env.step(command.tolist())
+            primary_internal = None
+            if config.get("policy_value", {}).get("enabled") is True and step >= 182:
+                observation, reward, done, _, primary_internal = _primary_internal_step(
+                    env,
+                    one_step,
+                    obstacle_name,
+                    initial_obstacle,
+                    command,
+                    expected_substeps=expected_substeps,
+                    boundary_tolerance=tolerance,
+                    step=step,
+                )
+            else:
+                observation, reward, done, _ = env.step(command.tolist())
             goal = _goal_progress_snapshot(env, goal_atoms, step=step, previous_values=previous_goal)
             previous_goal = goal["values"]
             contacts = _detailed_active_obstacle_contacts(env, obstacle_name, step=step, contact_authority=contact_authority)
             protected = [event for event in contacts["events"] if event.get("other", {}).get("classification") == "robot" and _is_protected_event(event)]
+            if primary_internal is not None:
+                protected = list(primary_internal["protected_contacts"]) + protected
             if protected and first_contact is None:
                 first_contact = step
             displacement = float(np.sum(np.abs(np.asarray(observation["%s_pos" % obstacle_name]) - initial_obstacle)))
+            if primary_internal is not None:
+                displacement = max(
+                    displacement,
+                    float(primary_internal["maximum_active_obstacle_l1_displacement_m"]),
+                )
             maximum_car = max(maximum_car, displacement)
             if displacement > car_limit and first_car is None:
                 first_car = step
             terminal_frame = _processed_image(observation, "agentview_image")
             video_writer.append_data(terminal_frame)
-            actions.append({"step": step, "source": source_name, "action": command.tolist(), "reward": float(reward), "done": bool(done), "goal_progress": goal, "protected_contact_events": _public(protected), "active_obstacle_l1_displacement_m": displacement, "next_state_sha256": array_sha256(_dynamic_state_vector(env))})
+            actions.append({"step": step, "source": source_name, "action": command.tolist(), "reward": float(reward), "done": bool(done), "goal_progress": goal, "protected_contact_events": _public(protected), "active_obstacle_l1_displacement_m": displacement, "next_state_sha256": array_sha256(_dynamic_state_vector(env)), "primary_clearance_trace_m": None if primary_internal is None else _public(primary_internal["clearance_trace_m"])})
             return bool(done)
 
         for step in range(182):
@@ -205,6 +361,16 @@ def evaluate(
             _require(not done, "task completed inside initial prefix")
         if initial_policy_value_window is not None:
             initial_policy_value_window["clone_state_max_abs_error"] = max(initial_clone_errors)
+            initial_traces = [
+                np.asarray(item["primary_clearance_trace_m"], dtype=np.float64)
+                for item in actions[-len(initial_prefix):]
+            ]
+            initial_policy_value_window["selected_clearance_trace_m"] = _public(
+                np.concatenate(
+                    [initial_traces[0]] + [item[1:] for item in initial_traces[1:]],
+                    axis=0,
+                )
+            )
 
         client = None
         if frozen_proposal is None:
@@ -340,7 +506,7 @@ def evaluate(
                     boundary_tolerance=tolerance,
                     step_base=step,
                 )
-                window["selected_clearance_trace_m"] = _public(
+                window["selected_cloned_clearance_trace_m"] = _public(
                     selected_trace_record["clearance_trace_m"]
                 )
             windows.append(window)
@@ -359,10 +525,17 @@ def evaluate(
                 if done:
                     break
             window["executed_action_count"] = len(clone_errors)
-            if "selected_clearance_trace_m" in window:
-                window["selected_clearance_trace_m"] = window["selected_clearance_trace_m"][
-                    : 1 + expected_substeps * len(clone_errors)
+            if config.get("policy_value", {}).get("enabled") is True:
+                primary_traces = [
+                    np.asarray(item["primary_clearance_trace_m"], dtype=np.float64)
+                    for item in actions[-len(clone_errors):]
                 ]
+                window["selected_clearance_trace_m"] = _public(
+                    np.concatenate(
+                        [primary_traces[0]] + [item[1:] for item in primary_traces[1:]],
+                        axis=0,
+                    )
+                )
             window["clone_state_max_abs_error"] = max(clone_errors)
             released_geometry["z_fixed"] = np.asarray(qp_records[len(clone_errors) - 1]["z_after"], dtype=np.float64)
             if selected_source == "hysteretic_normal_repulsion":
@@ -390,8 +563,9 @@ def evaluate(
                 )
 
             hold_actions = np.zeros((tail_action_count, 7), dtype=np.float64)
-            tail_record = instrumented.rollout_internal(
-                env, hold_actions, expected_substeps=expected_substeps,
+            tail_record = _primary_internal_rollout(
+                env, one_step, obstacle_name, initial_obstacle, hold_actions,
+                expected_substeps=expected_substeps,
                 boundary_tolerance=tolerance, step_base=len(actions),
             )
             tail_record["current_minimum_clearance_m"] = float(
@@ -416,8 +590,9 @@ def evaluate(
                 direction /= np.linalg.norm(direction)
                 retreat_actions = np.zeros((tail_action_count, 7), dtype=np.float64)
                 retreat_actions[:, :3] = direction * float(terminal["retreat_action_l2_per_action"])
-                tail_record = instrumented.rollout_internal(
-                    env, retreat_actions, expected_substeps=expected_substeps,
+                tail_record = _primary_internal_rollout(
+                    env, one_step, obstacle_name, initial_obstacle, retreat_actions,
+                    expected_substeps=expected_substeps,
                     boundary_tolerance=tolerance, step_base=len(actions),
                 )
                 tail_trace = np.asarray(tail_record["clearance_trace_m"])

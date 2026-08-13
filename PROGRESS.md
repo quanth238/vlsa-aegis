@@ -2691,3 +2691,13 @@ before atomic output because the strict checker raised on a boundary mismatch
 instead of retaining the failed gate. No complete result was written. The
 fail-recording repair preserves the `1e-12` threshold, reports the measured
 error, and marks successor consistency false rather than discarding a NO-GO.
+
+Clean H100 producer `39410` wrote the first complete exact-value result. All
+22 decision states had nonpositive seven-row suffix maxima, Bellman residual
+was zero, the 25-action zero-motion terminal hold remained buffer-safe at
++1.205807 mm, and the 288-action ledger retained zero protected contact/CAR.
+The gate is nevertheless NO-GO: successor-boundary error was 0.255712 mm,
+above `1e-12`. Validator `39411` independently confirmed that stored cloned
+candidate traces differ from the executed primary-policy traces and therefore
+issued no validation artifact. Exact policy values must be labeled from the
+executed policy trajectory; cloned OSC remains the candidate verifier only.

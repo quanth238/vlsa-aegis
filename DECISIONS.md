@@ -1914,3 +1914,14 @@ exact finite-horizon suffix maxima with positive values unsafe. Require the
 discrete Bellman recursion, all values nonpositive, physical contact/CAR pass,
 and a verified terminal tail. Do not train, add a QP, or claim infinite-horizon
 invariance from this gate.
+
+## ADR-0106: Learn policy value from executed-policy traces, not candidate clones
+
+Producer `39410` exposed a 0.255712 mm successor-boundary mismatch and
+validator `39411` localized it to cloned candidate traces versus the actually
+executed primary policy. A PNCBF-style recursion must evaluate one trajectory
+of one fixed policy. Therefore record all seven clearances at every primary
+MuJoCo substep during execution and build suffix maxima only from those
+traces. Keep cloned OSC rollouts solely for rejecting unsafe candidates before
+execution. Do not mix the two measurement streams or relax the `1e-12`
+successor-consistency gate.
