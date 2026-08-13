@@ -1,5 +1,32 @@
 # Reproduction decisions
 
+## ADR-0111: Put the learned filter after released AEGIS and label complete backup risk
+
+- Status: accepted, diagnostic apparatus implemented
+- Date: 2026-08-14
+
+For the first decisive pilot, define the candidate action coordinates as the
+five Cartesian commands output by released AEGIS immediately before OSC. This
+preserves the competent AEGIS/VLA baseline and tests an additive L5--L7 filter
+without feeding a modified command back through the single-EE QP. Bind the
+candidate center to archived query index 37 and executed steps 185--189; store
+the original policy-query hash and seed as provenance. Later raw-VLA insertion
+is a distinct arm and must not be conflated with this diagnostic.
+
+Replace one-action candidate labels with complete five-action Monte Carlo
+labels. A candidate executes all five commands, then a deterministic geometry-
+only backup replans one action at a time until verified stable release,
+physical contact/CAR, or a fixed timeout. Exclude immutable k0 from the
+action-dependent prefix minimum while retaining it as strict state
+eligibility. Timeout cannot be safe. Preserve separate prefix, backup, and
+combined seven-row risks plus raw physical vetoes and exact replay hashes.
+
+Freeze the candidate population before observing outcomes: paired
+normal/tangent directions, constant/front-loaded temporal bases, and
+0.5/1.0/2.0 L2 radii. The diagnostic asks only whether this correct target has
+a nonvacuous learnable boundary at E05. It does not train, use a QP, run closed
+loop, claim generalization, or establish a neural CBF.
+
 ## ADR-0110: Learn query-aligned five-action Monte Carlo backup risk
 
 - Status: accepted, protocol redesign active

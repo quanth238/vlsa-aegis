@@ -1,0 +1,73 @@
+{
+  "schema_version": "vlsa_distal_query_action_risk_e05.v1",
+  "protocol_id": "vlsa-distal-query-action-risk-e05-v1",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "claim_scope": "single_diagnostic_E05_query_boundary_exact_five_action_candidate_plus_complete_fixed_backup_Monte_Carlo_risk_support_not_training_not_QP_not_CBF_not_closed_loop_not_generalization",
+  "state": {
+    "query_boundary_step": 185,
+    "query_index": 37,
+    "candidate_actions": 5,
+    "action_coordinates": "released_AEGIS_output_before_OSC",
+    "minimum_initial_proxy_clearance_m": 0.001,
+    "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance_m": 1e-12
+  },
+  "candidate_family": {
+    "directions": ["normal", "tangent_up", "tangent_side"],
+    "signed_directions": true,
+    "temporal_profiles": ["constant", "front_loaded"],
+    "correction_l2_action": [0.5, 1.0, 2.0],
+    "include_nominal": true,
+    "candidate_count": 37,
+    "action_limit": 1.0,
+    "preserve_rotation_and_gripper": true,
+    "endpoint_preservation": false
+  },
+  "backup_policy": {
+    "policy": "receding_verified_registered_geometry_backup",
+    "directions": "hold_plus_world_axes_plus_local_normal_tangents",
+    "amplitudes_action": [0.5, 1.0],
+    "candidate_count": 25,
+    "selection_lookahead_hold_actions": 5,
+    "execute_selected_actions": 1,
+    "maximum_executed_actions": 10,
+    "terminal_hold_actions": 10,
+    "terminal_release_clearance_m": 0.005,
+    "backup_rotation_and_gripper_action": 0.0,
+    "vla_ledger_forbidden": true,
+    "tie_break": "maximum_future_clearance_then_registered_order",
+    "fallback": "maximum_future_clearance_then_registered_order"
+  },
+  "risk_target": {
+    "output_count": 7,
+    "positive_is_unsafe": true,
+    "safety_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "initial_state_is_eligibility_only": true,
+    "candidate_prefix_excludes_fixed_k0": true,
+    "definition": "max_candidate_prefix_and_complete_backup_violation_per_row",
+    "physical_veto": "protected_MuJoCo_contact_or_paper_CAR",
+    "terminal_statuses": ["SAFE_TERMINAL", "UNSAFE_CONTACT_OR_CAR", "UNKNOWN_TIMEOUT"],
+    "timeout_is_never_safe": true
+  },
+  "diagnostic_gate": {
+    "exact_snapshot_replay": true,
+    "nominal_future_is_unsafe": true,
+    "safe_and_unsafe_candidate_support": true,
+    "at_least_one_safe_terminal": true,
+    "no_timeout_labeled_safe": true,
+    "proxy_safe_physical_collision_count": 0,
+    "training_authorized": false
+  },
+  "forbidden": [
+    "Table1_artifact_change",
+    "login_node_simulation",
+    "timeout_as_safe",
+    "training",
+    "calibration",
+    "QP",
+    "closed_loop_control",
+    "neural_CBF_claim"
+  ]
+}

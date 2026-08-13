@@ -1,5 +1,35 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Query-aligned E05 five-action risk diagnostic implementation (2026-08-14)
+
+The versioned replacement apparatus is implemented without modifying released
+AEGIS or any Table-1 artifact. It restores the exact E05 state before real
+pi0.5 query boundary 185 (query index 37), binds the archived five actions that
+released AEGIS actually sent to OSC, and applies a frozen 37-member structured
+translation bank: nominal plus paired obstacle normal/up/side directions,
+constant/front-loaded unit-L2 temporal profiles, and radii 0.5/1.0/2.0.
+Rotation and gripper commands are preserved, endpoint cancellation is not
+imposed, and every candidate executes all five actions.
+
+After a candidate prefix, the apparatus repeatedly executes a deterministic,
+VLA-ledger-independent registered geometry backup. Each backup step evaluates
+hold, world-axis, and local normal/tangent one-action branches with a fixed
+five-hold lookahead, executes exactly one selected action, and recomputes from
+the changed state. It terminates only as `SAFE_TERMINAL` after +5 mm release
+and a verified ten-action stable hold, `UNSAFE_CONTACT_OR_CAR`, or
+`UNKNOWN_TIMEOUT` after ten backup actions. Fixed k0 is an eligibility check,
+not part of action-dependent prefix risk. Seven candidate-prefix, backup, and
+combined Monte Carlo risks are stored separately; raw contact and CAR remain a
+physical veto. The full diagnostic cannot authorize training by construction.
+
+Local static checks pass (`py_compile`, JSON contract, pure candidate/risk
+checks, shell syntax, and `git diff --check`). The next step is an H100 Slurm
+canary with nominal plus the first away-normal candidate, followed by the full
+37-candidate E05 gate only if snapshot, terminal, and internal-substep binding
+pass. The scientific pass requires dangerous nominal risk, mixed safe/unsafe
+support, at least one safe terminal, no timeout labeled safe, and no
+proxy-safe physical collision.
+
 ## Query-aligned five-action Monte Carlo risk redesign (2026-08-13)
 
 The method draft and data memo supersede the one-action-plus-one-backup-plus-
