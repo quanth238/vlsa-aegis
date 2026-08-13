@@ -30,6 +30,18 @@ pass. The scientific pass requires dangerous nominal risk, mixed safe/unsafe
 support, at least one safe terminal, no timeout labeled safe, and no
 proxy-safe physical collision.
 
+Allocation-backed canary `39607` completed on H100 host `worker-1` in 1:34.
+The explicit CPU canary did not consume another user's allocated accelerator;
+the artifact records all eight host H100 identities and remains non-scientific.
+The apparatus passed: two repeated nominal five-action rollouts were bitwise
+identical in complete dynamic state, every clearance sample, contacts, and
+CAR. State 185 was initially safe at `+12.277061 mm`. The nominal chunk became
+unsafe at `-16.075686 mm`; the first registered radius-0.5 normal correction
+improved it to `-13.105013 mm` but remained unsafe. Both correctly terminated
+as `UNSAFE_CONTACT_OR_CAR`, with no timeout mislabeled safe and no proxy-safe
+physical collision. This authorizes the frozen 37-candidate diagnostic, not
+training. Full allocated-H100 job `39608` is queued from commit `b458bf5`.
+
 ## Query-aligned five-action Monte Carlo risk redesign (2026-08-13)
 
 The method draft and data memo supersede the one-action-plus-one-backup-plus-
