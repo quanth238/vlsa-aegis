@@ -134,7 +134,7 @@ def evaluate(
     case = rows[0]
     validate_case_row(case, repo_root)
     geometry_config = load_shadow_config(geometry_config_path)
-    runtime = _runtime_imports(repo_root)
+    runtime = _runtime_imports()
     env = None
     try:
         env, task, observation, selected_initial_state = _build_environment(
