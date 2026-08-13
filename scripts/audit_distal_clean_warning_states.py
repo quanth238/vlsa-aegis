@@ -45,13 +45,14 @@ def audit(
     audit_cfg = json.loads(audit_config.read_text())
     _require(
         audit_cfg == {
-            "schema_version": "vlsa_distal_clean_warning_state_audit.v1",
-            "protocol_id": "vlsa-distal-clean-warning-state-audit-v1",
+            "schema_version": "vlsa_distal_clean_warning_state_audit.v2",
+            "protocol_id": "vlsa-distal-clean-warning-state-audit-v2",
             "source_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
             "included_splits": ["diagnostic", "train", "validation"],
             "excluded_splits": ["test"],
             "selector": "two_actions_before_first_strict_proxy_boundary_crossing",
             "lead_actions_before_proxy_boundary": 2,
+            "include_state_immediately_before_first_contact_action": True,
             "safety_buffer_m": 0.001,
             "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
             "require_zero_protected_contact_at_selected_state": True,
@@ -100,7 +101,9 @@ def audit(
             env, geometry, clearance_m=0.0, active_obstacle_name=obstacle_name
         )
         trace = []
-        for step in range(contact_step):
+        # ``contact_step`` names the action whose transition first contacts.
+        # Include the still-pre-contact state immediately before that action.
+        for step in range(contact_step + 1):
             clearance = np.asarray(probe.clearances(env)[:7], dtype=np.float64)
             contacts = _protected_contact_evidence(env, obstacle_name)["events"]
             displacement = float(np.sum(np.abs(
@@ -118,19 +121,19 @@ def audit(
                     and displacement <= float(audit_cfg["maximum_initial_active_obstacle_l1_displacement_m"])
                 ),
             })
-            if step < contact_step - 1:
+            if step < contact_step:
                 observation, _, _, _ = env.step(actions[step].tolist())
         selection = select_proxy_boundary_lead_state(
             [item["minimum_clearance_m"] for item in trace],
             [item["physically_valid"] for item in trace],
             safety_buffer_m=float(audit_cfg["safety_buffer_m"]),
             lead_actions=int(audit_cfg["lead_actions_before_proxy_boundary"]),
-            stop_before_step=contact_step,
+            stop_before_step=contact_step + 1,
         )
         if selection["status"] == "selected":
             selection["selected_state"] = trace[int(selection["selected_step"])]
         result = {
-            "schema_version": "vlsa_distal_clean_warning_state_audit_result.v1",
+            "schema_version": "vlsa_distal_clean_warning_state_audit_result.v2",
             "status": "complete",
             "scientific_result": True,
             "case_index": int(case_index),

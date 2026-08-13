@@ -48,7 +48,7 @@ def validate(
         result = _load(path)
         _require(
             result.get("schema_version")
-            == "vlsa_distal_clean_warning_state_audit_result.v1",
+            == "vlsa_distal_clean_warning_state_audit_result.v2",
             "warning-state result schema differs",
         )
         _require(result.get("status") == "complete", "warning-state result incomplete")
@@ -73,9 +73,9 @@ def validate(
         )
         trace = result.get("trace", [])
         contact_step = int(expected_case["first_relevant_contact_step"])
-        _require(len(trace) == contact_step, "warning-state trace length differs")
+        _require(len(trace) == contact_step + 1, "warning-state trace length differs")
         _require(
-            [item.get("step") for item in trace] == list(range(contact_step)),
+            [item.get("step") for item in trace] == list(range(contact_step + 1)),
             "warning-state trace steps differ",
         )
         audit_cfg = result["audit_config"]
@@ -84,7 +84,7 @@ def validate(
             [item["physically_valid"] for item in trace],
             safety_buffer_m=float(audit_cfg["safety_buffer_m"]),
             lead_actions=int(audit_cfg["lead_actions_before_proxy_boundary"]),
-            stop_before_step=contact_step,
+            stop_before_step=contact_step + 1,
         )
         recorded = dict(result["selection"])
         selected_state = recorded.pop("selected_state", None)
@@ -124,7 +124,7 @@ def validate(
         }
     selector_pass = not failures
     output = {
-        "schema_version": "vlsa_distal_clean_warning_state_audit_validation.v1",
+        "schema_version": "vlsa_distal_clean_warning_state_audit_validation.v2",
         "status": "validated",
         "source": _git_identity(repo_root, expected_validation_commit),
         "allocation": allocation_record(),

@@ -46,7 +46,7 @@ cd "$REMOTE_REPO"
   --population-manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
   --selection-manifest "$REMOTE_REPO/manifests/vlsa_distal_clean_action_risk.v1.jsonl" \
   --experiment-config "$REMOTE_REPO/configs/vlsa_distal_clean_action_risk.v1.json" \
-  --audit-config "$REMOTE_REPO/configs/vlsa_distal_clean_warning_state_audit.v1.json" \
+  --audit-config "$REMOTE_REPO/configs/vlsa_distal_clean_warning_state_audit.v2.json" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_clean_action_risk_geometry.v4.json" \
   --table1-root "$TABLE1_ROOT" --case-index "$SLURM_ARRAY_TASK_ID" \
   --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/result.json"

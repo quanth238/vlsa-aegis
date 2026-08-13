@@ -79,6 +79,14 @@ perform no candidate rollout. This is a state-selection test, not evidence for
 action-risk learnability, control, a QP, or a CBF. A selector pass authorizes
 only a later exact candidate-support dataset using the unchanged backup.
 
+H100 array `39576` cannot evaluate this decision because it omitted the state
+immediately before the contact-causing action (`contact_step`). This is an
+action-boundary indexing defect: the archive's contact step labels the action
+transition, not the preceding state. Keep the selector fixed, include states
+`0..contact_step` inclusive in version 2, and rerun. Do not interpret the five
+L6 no-crossing records or train from them. Validator `39594` was canceled
+pending the corrected producer.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

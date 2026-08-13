@@ -112,6 +112,17 @@ EXPECTED_GIT_COMMIT=<commit> RUN_ID=clean-warning-state-canary-20260813j \
   sbatch --array=0%1 slurm/audit_distal_clean_warning_states.sbatch
 ```
 
+H100 canary `39572` reproduced E05 exactly: the first boundary crossing was
+state/action index 186 and the selected index 184 had `+26.138684 mm`, zero
+protected contact, and negligible obstacle motion. Full array `39576`
+completed all 15 artifacts, but review found that its trace stopped at the
+state before action `contact_step-1`; it omitted the still-pre-contact state
+immediately before the contact-causing action. Five apparent L6 warning misses
+are therefore apparatus-only and are not a scientific proxy NO-GO. Pending
+validator `39594` was inspected and canceled before allocation. Version 2
+includes state index `contact_step`, retains the identical frozen selector,
+and must replace the invalid array before interpretation.
+
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
 H100 producer `39376` and fresh action-ledger validator `39378` executed 300
