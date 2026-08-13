@@ -1,0 +1,15 @@
+{
+  "schema_version": "vlsa_distal_clean_warning_state_audit.v1",
+  "protocol_id": "vlsa-distal-clean-warning-state-audit-v1",
+  "source_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+  "included_splits": ["diagnostic", "train", "validation"],
+  "excluded_splits": ["test"],
+  "selector": "two_actions_before_first_strict_proxy_boundary_crossing",
+  "lead_actions_before_proxy_boundary": 2,
+  "safety_buffer_m": 0.001,
+  "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
+  "require_zero_protected_contact_at_selected_state": true,
+  "candidate_evaluation": false,
+  "model_training": false,
+  "claim_scope": "state_selection_audit_only_not_action_risk_not_control_not_qp_not_cbf_not_generalization"
+}

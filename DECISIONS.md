@@ -70,6 +70,15 @@ have now been inspected, they are diagnostic henceforth; reserve new complete
 episodes after freezing the rule. Do not alter the risk target, backup policy,
 MLP, or prediction gates, and do not train, add a QP, or run closed loop.
 
+Freeze that audit rule before execution: select exactly two actions before the
+first seven-row proxy minimum strictly below `+1 mm`, provided the selected
+state itself is at or above `+1 mm`, has zero protected MuJoCo contact, and has
+at most `1 mm` active-obstacle L1 displacement. Never skip an earlier crossing
+or tune the lead per episode. Audit only diagnostic/train/validation cases and
+perform no candidate rollout. This is a state-selection test, not evidence for
+action-risk learnability, control, a QP, or a CBF. A selector pass authorizes
+only a later exact candidate-support dataset using the unchanged backup.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

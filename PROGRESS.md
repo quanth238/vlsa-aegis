@@ -92,6 +92,26 @@ episodes only, then reserve new complete episodes for the final untouched
 test. The already inspected E42/E44 episodes remain diagnostics and cannot
 support a later untouched generalization claim.
 
+The replacement selector is preregistered before its outcomes are observed.
+For each diagnostic/train/validation episode, replay the immutable raw AEGIS
+ledger only until its first protected contact, find the first state whose
+seven-row proxy minimum is strictly below `+1 mm`, and select the state exactly
+two actions earlier. Reject the case rather than shifting the state if that
+selected state is below `+1 mm`, already has protected MuJoCo contact, or has
+more than `1 mm` active-obstacle L1 displacement. This H100 audit evaluates no
+candidates, trains no model, and excludes the current test split. It passes as
+a population selector only if it yields strictly safe pre-contact states
+without case-specific offsets; exact mixed candidate support remains a later
+gate. After freezing the rule, new complete episodes—not E42/E44—must be
+reserved for the final untouched test.
+
+Exact next command after committing and syncing clean source:
+
+```bash
+EXPECTED_GIT_COMMIT=<commit> RUN_ID=clean-warning-state-canary-20260813j \
+  sbatch --array=0%1 slurm/audit_distal_clean_warning_states.sbatch
+```
+
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
 H100 producer `39376` and fresh action-ledger validator `39378` executed 300

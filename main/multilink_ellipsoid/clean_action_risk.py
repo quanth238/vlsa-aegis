@@ -177,6 +177,63 @@ def decision_steps(case: Mapping[str, Any], config: Mapping[str, Any]) -> list[i
     ]
 
 
+def select_proxy_boundary_lead_state(
+    minimum_clearance_m: Sequence[float],
+    physically_valid: Sequence[bool],
+    *,
+    safety_buffer_m: float,
+    lead_actions: int,
+    stop_before_step: int,
+) -> dict[str, Any]:
+    """Select a prevention state relative to the first modeled boundary crossing.
+
+    Values describe states immediately before their same-indexed actions.  The
+    selector depends on geometry and current physical validity, not raw
+    time-to-contact.  It never skips an earlier proxy crossing to choose a more
+    convenient later state.
+    """
+
+    clearance = [float(item) for item in minimum_clearance_m]
+    valid = [bool(item) for item in physically_valid]
+    if len(clearance) != len(valid) or not clearance:
+        raise ValueError("warning-state audit traces differ")
+    if any(not math.isfinite(item) for item in clearance):
+        raise ValueError("warning-state audit clearance is nonfinite")
+    if not 0 < int(stop_before_step) <= len(clearance):
+        raise ValueError("warning-state audit stop step differs")
+    if int(lead_actions) < 1:
+        raise ValueError("warning-state audit lead must be positive")
+    crossing = next(
+        (
+            index
+            for index in range(int(stop_before_step))
+            if clearance[index] < float(safety_buffer_m)
+        ),
+        None,
+    )
+    if crossing is None:
+        return {"status": "no_proxy_boundary_crossing_before_contact"}
+    selected = int(crossing) - int(lead_actions)
+    if selected < 0:
+        return {
+            "status": "boundary_crossing_too_early",
+            "boundary_crossing_step": int(crossing),
+        }
+    if clearance[selected] < float(safety_buffer_m) or not valid[selected]:
+        return {
+            "status": "selected_state_not_strictly_safe",
+            "boundary_crossing_step": int(crossing),
+            "selected_step": int(selected),
+        }
+    return {
+        "status": "selected",
+        "boundary_crossing_step": int(crossing),
+        "selected_step": int(selected),
+        "selected_minimum_clearance_m": clearance[selected],
+        "lead_actions_before_proxy_boundary": int(lead_actions),
+    }
+
+
 def risk_from_row_minimum(
     row_minimum_clearance_m: Sequence[float], safety_buffer_m: float,
 ) -> list[float]:

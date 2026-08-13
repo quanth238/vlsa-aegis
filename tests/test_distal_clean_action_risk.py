@@ -16,6 +16,7 @@ from main.multilink_ellipsoid.clean_action_risk import (
     load_config,
     prediction_metrics,
     risk_from_row_minimum,
+    select_proxy_boundary_lead_state,
 )
 
 
@@ -71,6 +72,25 @@ class CleanActionRiskTests(unittest.TestCase):
         self.assertEqual(metrics["false_safe_count"], 1)
         self.assertEqual(metrics["recoverable_state_count"], 2)
         self.assertEqual(metrics["supported_recoverable_state_count"], 1)
+
+    def test_geometry_boundary_selector_uses_first_crossing(self):
+        result = select_proxy_boundary_lead_state(
+            [0.050, 0.030, 0.020, 0.0009, 0.010],
+            [True] * 5,
+            safety_buffer_m=0.001,
+            lead_actions=2,
+            stop_before_step=5,
+        )
+        self.assertEqual(result["status"], "selected")
+        self.assertEqual(result["boundary_crossing_step"], 3)
+        self.assertEqual(result["selected_step"], 1)
+
+    def test_geometry_boundary_selector_rejects_invalid_state(self):
+        result = select_proxy_boundary_lead_state(
+            [0.050, 0.030, 0.0009], [True, False, True],
+            safety_buffer_m=0.001, lead_actions=1, stop_before_step=3,
+        )
+        self.assertEqual(result["status"], "selected_state_not_strictly_safe")
 
     def test_compact_feature_has_fixed_dimension(self):
         context = {
