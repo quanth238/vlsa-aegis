@@ -1,0 +1,29 @@
+{
+  "case_id": "vlsa-t1-goal-ii-t3-e38",
+  "claim_scope": "matched_read_only_obstacle_representation_audit_on_the_successful_e38_receding_action_ledger_not_a_new_controller_not_perception_deployment_not_population_evidence",
+  "decision": {
+    "partial_proxy_mismatch": "perceived_mvee_negative_raw_contact_zero_and_compiled_box_union_exact_overlap_zero",
+    "strong_perception_mvee_isolation": "partial_proxy_mismatch_and_compiled_box_vertex_mvee_support_gap_nonnegative",
+    "unresolved_robot_proxy": "compiled_box_union_exact_overlap_positive_while_raw_contact_zero"
+  },
+  "measurement": {
+    "expected_mujoco_substeps_per_action": 25,
+    "include_pre_action_108_state": true,
+    "start_action": 108,
+    "stop_at_registered_native_completion": true
+  },
+  "protocol_id": "vlsa-distal-e38-obstacle-proxy-audit-v1",
+  "registered_input": {
+    "receding_result_file_sha256": "50a28bc8cbb09fbc15fefc113acfa968e139463227d2f18113e18173ce7165fa",
+    "receding_result_payload_sha256": "51ead24d0dc6b84e4c8b6ad8b33e318179d3e19ce4a205fdd62ea5b0c2f591e4",
+    "receding_result_relative_path": "repulsion-e38-receding-20260813c/result.json"
+  },
+  "representations": {
+    "fixed_robot_geometry": "accepted_v4_seven_slabbed_L5_L6_L7_ellipsoids",
+    "obstacle_1": "released_frozen_perception_single_MVEE",
+    "obstacle_2": "single_MVEE_fitted_to_all_compiled_collision_box_vertices",
+    "obstacle_3": "exact_solid_intersection_with_union_of_compiled_collision_boxes",
+    "physical_authority": "raw_nonpositive_MuJoCo_protected_contacts"
+  },
+  "schema_version": "vlsa_distal_e38_obstacle_proxy_audit.v1"
+}
