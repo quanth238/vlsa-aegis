@@ -35,6 +35,9 @@ post-intervention suffix is not a task-recovery policy. Result and validation
 payload SHA-256 values are
 `06f03ae1b8879c82a104fde47cfca63f4eddaec42f04e4f87fddfae22646fdec`
 and `3bb1561c2258d65a6be74b4e44a378c25a937f7652026aefa2a5a9a54b4df62a`.
+H100 single-environment media replay `39393` matched all 288 next-state hashes
+and produced 289 uncorrupted frames; its video receipt payload is
+`af9a69f4e6b74941733ff3b60cc2abc754e26ffc414b4472aef0cb47ede187f2`.
 
 ## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
 
