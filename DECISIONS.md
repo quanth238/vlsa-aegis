@@ -29,6 +29,24 @@ allocation and move this tiny network's tensor operations to its allocated
 CPU cores. This is an apparatus repair, not a protocol change; no scientific
 rollout or result existed before the repair.
 
+## ADR-0085: Reject the current E05 Moka response MLP before control
+
+Accepted after clean H100 producer `39230` and independent H100 validator
+`39238`. The model failed both untouched state gates: learned/exact direction
+cosines were `0.676880/0.313475` and paired-response sign accuracies were
+`0.679464/0.517857` at actions `185/186`. Although every learned correction
+increased the reported clearance, it remained colliding and did not robustly
+beat fixed repulsion; only one of six radius/state rows passed all local
+criteria.
+
+Keep this as a strict one-task learning NO-GO. Do not add a QP, increase the
+correction radius, or execute closed loop: those operations cannot repair the
+wrong learned action response. Preserve the exact multi-witness and fixed
+repulsion arms as comparators. The next allowed work is read-only diagnosis of
+train/validation response fit, held-out state support, and active
+link/time/primitive witnesses. Any new training protocol requires a separate
+preregistered gate and must not reinterpret this immutable result.
+
 ## ADR-0083: Test live continuation locally before a complete receding episode
 
 Accepted before release. Gate 0 established that the safe compound prefix

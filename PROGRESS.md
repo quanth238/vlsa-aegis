@@ -36,6 +36,32 @@ H100 allocation; simulator execution, data collection, and training remain
 off the login node. No input, label, split, seed, loss, comparator, threshold,
 or model parameter changes.
 
+Clean H100 producer `39230` completed the frozen retry on `worker-1` in
+24:44 from commit `a505434ea7aed7e55f596e0b61d389e5ac593ed1`; independent
+H100 validator `39238` accepted the immutable artifact. The producer ran 987
+paired/evaluation cloned-OSC rollouts. The learned-versus-exact direction
+cosine was only `0.676880/0.313475` at untouched actions `185/186`, and
+held-out directional sign accuracy was `0.679464/0.517857`; both states miss
+the registered `0.8/0.75` gates.
+
+The learned field improved the conservative multi-primitive minimum at every
+tested radius, but action 185 was consistently worse than fixed repulsion.
+At action 186 it beat fixed repulsion by `0.223611/0.428832 mm` only at radii
+`0.25/0.5`. Only the action-186 radius-0.25 row passed its per-radius checks;
+the complete state gate did not. No candidate removed the approximately
+`58.272 mm` conservative violation or its protected contacts. Therefore the
+validated interpretation is
+`one_task_moka_controller_conditioned_response_strict_no_go`, test-state pass
+count `0/2`. No learned correction executed, and QP/closed-loop work remains
+blocked pending a split/support and near-active-witness response audit.
+
+Result/validation file SHA-256 values are
+`1a8f78a486812fd2cc22fe5e75a40198d13c074be1024abfcae160c36e09ed93` and
+`f7858a73123eb1f9215c75d698ec5172965113bdc228552bbba86e7e762c99e8`;
+payload SHA-256 values are
+`3df335aaa06ff54b99b24beabb04cbcf5c693c3349cad7f9bf54f25dacafbde2` and
+`29b97422329786177bf2cc763801d5fad1803cc36fe6d4bad9f242683a8ff530`.
+
 ## Post-detour live-continuation gate (preregistered, 2026-08-12)
 
 The next experiment is intentionally limited to the missing continuation
