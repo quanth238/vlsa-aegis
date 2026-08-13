@@ -6,7 +6,11 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=00:20:00
+# The complete fixed backup can legitimately use substantially more wall time
+# than the E05 canary when many candidates avoid an early terminal condition.
+# Keep the scientific rollout unchanged and prevent Slurm from censoring the
+# atomic per-state artifact.
+#SBATCH --time=01:00:00
 #SBATCH --exclude=worker-0,worker-3
 #SBATCH --array=0-14%2
 #SBATCH --no-requeue
