@@ -12,10 +12,14 @@ from typing import Any, Mapping, Sequence
 
 
 def _matrix(value: Any, *, columns: int = 7) -> list[list[float]]:
+    if hasattr(value, "tolist"):
+        value = value.tolist()
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
         raise ValueError("policy-value trace must be a sequence")
     output = []
     for row in value:
+        if hasattr(row, "tolist"):
+            row = row.tolist()
         if not isinstance(row, Sequence) or isinstance(row, (str, bytes)):
             raise ValueError("policy-value trace row must be a sequence")
         converted = [float(item) for item in row]

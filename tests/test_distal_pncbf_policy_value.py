@@ -7,6 +7,19 @@ from main.multilink_ellipsoid.pncbf_policy_value import (
 
 
 class DistalPncbfPolicyValueTest(unittest.TestCase):
+    def test_accepts_array_like_trace_without_importing_numpy(self):
+        class ArrayLike:
+            def __init__(self, value):
+                self.value = value
+
+            def tolist(self):
+                return self.value
+
+        self.assertEqual(
+            violation_trace(ArrayLike([[0.002] * 7]), 0.001),
+            [[-0.001] * 7],
+        )
+
     def test_positive_is_unsafe(self):
         self.assertEqual(
             violation_trace([[0.002, 0.001, 0.0, 0.003, 0.004, 0.005, 0.006]], 0.001),

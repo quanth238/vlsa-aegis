@@ -2679,3 +2679,9 @@ result output because the shared instrumented-rollout helper retained an old
 20-action shape cap while the frozen terminal-tail protocol requires 25
 actions. It produced no scientific metric. The apparatus-only repair raises
 that cap to 25 without changing the terminal policy or any executed action.
+
+H100 retry `39406` reached exact policy-value construction but stopped before
+atomic output because the JSON-oriented trace parser rejected the producer's
+NumPy trace object. No result or scientific metric was written. The
+representation-only repair accepts objects exposing `tolist()` and changes no
+trajectory, clearance, value definition, or acceptance threshold.
