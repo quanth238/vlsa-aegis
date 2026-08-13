@@ -2661,3 +2661,15 @@ payload SHA-256 values are
 `63afef1ba2a528a40a8bf149e904e0f2015cf323ed18006c6bee9dfbba0c5918`.
 Jobs `39220--39223` stopped before scientific replay on runtime-call, commit,
 or MVEE-tolerance apparatus errors and support no inference.
+
+## Exact fixed-backup policy-value pilot
+
+The next gate preserves the validated job-39384 E05 backup and adds only the
+missing PNCBF evaluation object: seven exact finite-horizon suffix values at
+every receding decision state, plus a registered verified hold/normal-retreat
+terminal tail. Positive values mean unsafe, `h_j = 0.001 - clearance_j`. The
+pilot requires zero Bellman residual, all decision-state values nonpositive,
+zero protected contact, CAR pass, and a buffer-safe terminal tail. It
+authorizes no model training, QP, neural-CBF, infinite-horizon,
+task-completion, or generalization claim. The preregistration is
+`docs/distal_pncbf_policy_value_e05_preregistration.md`.

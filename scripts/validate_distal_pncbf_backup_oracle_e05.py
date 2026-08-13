@@ -59,6 +59,7 @@ def validate(
     from main.multilink_ellipsoid.pncbf_backup import (
         load_config, physical_safe, select_repulsive_candidate,
     )
+    from main.multilink_ellipsoid.pncbf_policy_value import exact_suffix_policy_values
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow, allocation_record, load_shadow_config,
@@ -118,6 +119,21 @@ def validate(
                 ),
                 "selected repulsion actions differ",
             )
+    if config.get("policy_value", {}).get("enabled") is True:
+        policy_value = result.get("policy_value")
+        _require(isinstance(policy_value, Mapping), "producer policy value is missing")
+        reconstructed = exact_suffix_policy_values(
+            result["windows"],
+            terminal_tail_clearance_trace_m=policy_value["terminal_clearance_trace_m"],
+            safety_buffer_m=float(config["policy_value"]["safety_buffer_m"]),
+            expected_substeps_per_action=expected_substeps,
+            boundary_tolerance_m=tolerance,
+        )
+        for key in (
+            "records", "terminal_tail_value", "all_decision_states_safe",
+            "maximum_bellman_residual", "nonincreasing_along_backup",
+        ):
+            _require(reconstructed[key] == policy_value[key], "producer policy value differs: %s" % key)
 
     archived = _load(archived_path)
     _require(_file_sha256(archived_path) == ARCHIVED_FILE_SHA256, "Table-1 file differs")
@@ -160,6 +176,7 @@ def validate(
         protected_contacts = []
         maximum_car = 0.0
         success_step = None
+        fresh_action_clearance_traces: dict[int, list[list[float]]] = {}
         records = result["actions"]
         _require([item["step"] for item in records] == list(range(len(records))), "action ledger is not contiguous")
         for item in records:
@@ -169,6 +186,7 @@ def validate(
                 env, command.reshape(1, 7), expected_substeps=expected_substeps,
                 boundary_tolerance=tolerance, step_base=step,
             )
+            fresh_action_clearance_traces[step] = evidence["clearance_trace_m"]
             minimum_clearance = min(minimum_clearance, float(evidence["minimum_clearance_m"]))
             protected_contacts.extend(evidence["protected_contacts"])
             maximum_car = max(maximum_car, float(evidence["maximum_active_obstacle_l1_displacement_m"]))
@@ -177,6 +195,100 @@ def validate(
             _require(bool(done) == bool(item["done"]), "fresh replay task signal differs")
             if done and success_step is None:
                 success_step = step
+        fresh_policy_value = None
+        if config.get("policy_value", {}).get("enabled") is True:
+            policy_value = result["policy_value"]
+            fresh_windows = []
+            maximum_stored_trace_error = 0.0
+            for window in result["windows"]:
+                start = int(window["step"])
+                count = int(window["executed_action_count"])
+                pieces = [
+                    np.asarray(fresh_action_clearance_traces[start + offset], dtype=np.float64)
+                    for offset in range(count)
+                ]
+                trace = np.concatenate(
+                    [pieces[0]] + [piece[1:] for piece in pieces[1:]], axis=0
+                )
+                stored_trace = np.asarray(window["selected_clearance_trace_m"], dtype=np.float64)
+                _require(trace.shape == stored_trace.shape, "fresh policy-value window trace shape differs")
+                maximum_stored_trace_error = max(
+                    maximum_stored_trace_error,
+                    float(np.max(np.abs(trace - stored_trace))),
+                )
+                copied = dict(window)
+                copied["selected_clearance_trace_m"] = trace.tolist()
+                fresh_windows.append(copied)
+
+            terminal_actions = np.asarray(
+                policy_value["terminal_backup"]["actions"], dtype=np.float64
+            )
+            _require(
+                terminal_actions.shape
+                == (int(policy_value["terminal_backup"]["action_count"]), 7),
+                "terminal backup action shape differs",
+            )
+            fresh_terminal = instrumented.rollout_internal(
+                env,
+                terminal_actions,
+                expected_substeps=expected_substeps,
+                boundary_tolerance=tolerance,
+                step_base=len(records),
+            )
+            fresh_terminal_trace = np.asarray(
+                fresh_terminal["clearance_trace_m"], dtype=np.float64
+            )
+            stored_terminal_trace = np.asarray(
+                policy_value["terminal_clearance_trace_m"], dtype=np.float64
+            )
+            _require(
+                fresh_terminal_trace.shape == stored_terminal_trace.shape,
+                "fresh terminal policy-value trace shape differs",
+            )
+            maximum_stored_trace_error = max(
+                maximum_stored_trace_error,
+                float(np.max(np.abs(fresh_terminal_trace - stored_terminal_trace))),
+            )
+            _require(
+                maximum_stored_trace_error <= tolerance,
+                "fresh policy-value trace differs from producer",
+            )
+            terminal_future_clearance = float(np.min(fresh_terminal_trace[1:]))
+            terminal_physical_safe = physical_safe(fresh_terminal, car_limit)
+            terminal_buffer_safe = bool(
+                terminal_physical_safe
+                and terminal_future_clearance
+                >= float(config["policy_value"]["safety_buffer_m"])
+            )
+            _require(
+                terminal_physical_safe
+                == bool(policy_value["terminal_backup"]["physically_safe"]),
+                "fresh terminal physical-safety gate differs",
+            )
+            _require(
+                terminal_buffer_safe
+                == bool(policy_value["terminal_backup"]["buffer_safe"]),
+                "fresh terminal buffer gate differs",
+            )
+            fresh_policy_value = exact_suffix_policy_values(
+                fresh_windows,
+                terminal_tail_clearance_trace_m=fresh_terminal_trace.tolist(),
+                safety_buffer_m=float(config["policy_value"]["safety_buffer_m"]),
+                expected_substeps_per_action=expected_substeps,
+                boundary_tolerance_m=tolerance,
+            )
+            for key in (
+                "records", "terminal_tail_value", "all_decision_states_safe",
+                "maximum_bellman_residual", "nonincreasing_along_backup",
+            ):
+                _require(
+                    fresh_policy_value[key] == policy_value[key],
+                    "fresh policy value differs: %s" % key,
+                )
+            fresh_policy_value["maximum_producer_trace_error_m"] = maximum_stored_trace_error
+            fresh_policy_value["terminal_future_minimum_clearance_m"] = terminal_future_clearance
+            fresh_policy_value["terminal_physical_safe"] = terminal_physical_safe
+            fresh_policy_value["terminal_buffer_safe"] = terminal_buffer_safe
         replay_primary = bool(
             success_step is not None and len(protected_contacts) == 0
             and maximum_car <= car_limit and result["failure"] is None
@@ -203,6 +315,7 @@ def validate(
                 "maximum_active_obstacle_l1_displacement_m": maximum_car,
                 "native_task_success_step": success_step,
             },
+            "fresh_policy_value": fresh_policy_value,
             "primary_problem_solved": replay_primary,
             "interpretation": result["interpretation"],
         }

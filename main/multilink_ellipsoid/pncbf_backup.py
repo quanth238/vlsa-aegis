@@ -18,6 +18,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if value.get("protocol_id") not in {
         "vlsa-distal-pncbf-backup-oracle-e05-v1",
         "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1",
+        "vlsa-distal-pncbf-policy-value-e05-v1",
     }:
         raise ValueError("PNCBF backup protocol differs")
     if value.get("case_ids") != ["vlsa-t1-goal-ii-t0-e05"]:
@@ -32,10 +33,24 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("PNCBF backup must contain only normal repulsion")
     if value["backup_policy"]["physically_unsafe_nominal_forces_backup"] is not True:
         raise ValueError("PNCBF backup must reject physically unsafe nominal actions")
-    if value.get("protocol_id") == "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1":
+    if value.get("protocol_id") in {
+        "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1",
+        "vlsa-distal-pncbf-policy-value-e05-v1",
+    }:
         proposal = value["registered_inputs"].get("task_successful_proposal_result", {})
         if proposal.get("slurm_job_id") != "39354":
             raise ValueError("frozen proposal source differs")
+    if value.get("protocol_id") == "vlsa-distal-pncbf-policy-value-e05-v1":
+        policy_value = value.get("policy_value", {})
+        terminal = value.get("terminal_backup", {})
+        if policy_value.get("enabled") is not True:
+            raise ValueError("PNCBF policy-value gate is disabled")
+        if float(policy_value.get("safety_buffer_m", -1.0)) != 0.001:
+            raise ValueError("PNCBF policy-value buffer differs")
+        if terminal.get("ledger_exhaustion_policy") != "verified_zero_motion_hold_then_normal_retreat":
+            raise ValueError("PNCBF terminal policy differs")
+        if int(terminal.get("tail_verification_actions", 0)) < 25:
+            raise ValueError("PNCBF terminal tail is too short")
     if not 0.0 < float(value["warning"]["activation_clearance_m"]) < float(value["warning"]["release_clearance_m"]):
         raise ValueError("PNCBF backup hysteresis thresholds differ")
     output = json.loads(_canonical(value).decode())

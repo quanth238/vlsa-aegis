@@ -1895,3 +1895,22 @@ replace the obstacle with multiple tight primitives/fields and retain raw
 MuJoCo contact as the physical evaluation authority. The exact box-union audit
 is privileged simulation evidence; it validates the diagnosis but is not a
 deployable perception solution or a population safety claim.
+
+## ADR-0105: Evaluate the fixed backup before learning its policy value
+
+The validated E05 job 39384 establishes a useful safety-only backup outcome:
+eight warning-triggered normal-repulsion windows kept every executed prefix
+above the registered 1 mm L5--L7 proxy buffer with zero protected contact and
+CAR pass. It did not complete the task because its frozen proposal ledger
+ended. This is sufficient to test PNCBF-style policy evaluation, but not to
+claim task-compatible control or a neural CBF.
+
+Freeze the exact augmented policy: simulator/controller state, proposal-ledger
+index and tensor, warning latch, fixed candidate magnitudes, deterministic
+tie-breaking, and fail-closed selection. At ledger exhaustion, verify a
+zero-motion hold for 25 actions; if it is unsafe, use the preregistered normal
+retreat. Record all seven per-row internal-substep clearances and construct
+exact finite-horizon suffix maxima with positive values unsafe. Require the
+discrete Bellman recursion, all values nonpositive, physical contact/CAR pass,
+and a verified terminal tail. Do not train, add a QP, or claim infinite-horizon
+invariance from this gate.

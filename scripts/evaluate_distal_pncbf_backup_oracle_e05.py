@@ -66,7 +66,14 @@ def evaluate(
     from main.multilink_ellipsoid.pncbf_backup import (
         future_clearance, load_config, physical_safe, select_repulsive_candidate, update_latch,
     )
+    from main.multilink_ellipsoid.pncbf_policy_value import exact_suffix_policy_values
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
+    from main.multilink_ellipsoid.rollout import (
+        _auxiliary_sim_snapshot,
+        _controller_snapshot,
+        _restore_auxiliary_sim_snapshot,
+        _restore_controller_snapshot,
+    )
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow, allocation_record, load_shadow_config,
     )
@@ -169,12 +176,35 @@ def evaluate(
             _require(not done, "task completed before activation")
         initial_record = instrumented.rollout_internal(env, initial_prefix, expected_substeps=expected_substeps, boundary_tolerance=tolerance, step_base=182)
         _require(physical_safe(initial_record, car_limit), "registered initial prefix is not physically safe")
+        initial_policy_value_window = None
+        if config.get("policy_value", {}).get("enabled") is True:
+            initial_policy_value_window = {
+                "step": 182,
+                "action_count": len(initial_prefix),
+                "executed_action_count": len(initial_prefix),
+                "latch_entering": False,
+                "latch_after_nominal": False,
+                "nominal_physical_safe": True,
+                "physically_unsafe_nominal_forced_backup": False,
+                "frozen_source_nominal_max_abs_error_before_first_intervention": None,
+                "nominal": _backup_summary(initial_record),
+                "candidates": [],
+                "selected_source": "registered_contact_free_initial_repulsion",
+                "selected": _public(_backup_summary(initial_record)),
+                "selected_clearance_trace_m": _public(initial_record["clearance_trace_m"]),
+                "released_aegis_qp_records": [],
+                "clone_state_max_abs_error": 0.0,
+            }
+        initial_clone_errors = []
         for offset, command in enumerate(initial_prefix):
             expected = one_step.transition(env, command)
             done = execute(command, 182 + offset, "registered_contact_free_initial_repulsion")
             error = float(np.max(np.abs(np.asarray(_dynamic_state_vector(env)) - np.asarray(expected["next_state_vector"]))))
             _require(error <= 1.0e-10, "initial execution differs from clone")
+            initial_clone_errors.append(error)
             _require(not done, "task completed inside initial prefix")
+        if initial_policy_value_window is not None:
+            initial_policy_value_window["clone_state_max_abs_error"] = max(initial_clone_errors)
 
         client = None
         if frozen_proposal is None:
@@ -198,9 +228,10 @@ def evaluate(
         q1_diag = np.asarray([0.06, 0.12, 0.11])
         query_index = int(config["state_protocol"]["first_live_policy_query_index"])
         policy_queries = []
-        windows = []
+        windows = [] if initial_policy_value_window is None else [initial_policy_value_window]
         latch = False
         failure = None
+        terminal_trigger = None
         done = False
         repulsion_has_changed_state = False
         for step in range(187, max_steps_for_case(case), 5):
@@ -212,7 +243,14 @@ def evaluate(
                         break
                     execute_count += 1
                 if execute_count == 0:
-                    failure = {"step": step, "reason": "task_successful_proposal_ledger_exhausted"}
+                    if config.get("policy_value", {}).get("enabled") is True:
+                        terminal_trigger = {
+                            "step": len(actions),
+                            "loop_step": step,
+                            "reason": "task_successful_proposal_ledger_exhausted",
+                        }
+                    else:
+                        failure = {"step": step, "reason": "task_successful_proposal_ledger_exhausted"}
                     break
             seed = query_seed(int(case["policy_noise_seed"]), query_index)
             if frozen_proposal is None:
@@ -294,6 +332,17 @@ def evaluate(
                     selected_summary = chosen["record"]
                     selected_source = "hysteretic_normal_repulsion"
             window = {"step": step, "action_count": execute_count, "latch_entering": latch_entering, "latch_after_nominal": latch, "nominal_physical_safe": nominal_physical_safe, "physically_unsafe_nominal_forced_backup": physically_forced, "frozen_source_nominal_max_abs_error_before_first_intervention": source_nominal_max_abs_error, "nominal": _backup_summary(nominal_record), "candidates": candidates, "selected_source": None if failure else selected_source, "selected": None if failure else _public(selected_summary), "released_aegis_qp_records": qp_records}
+            if config.get("policy_value", {}).get("enabled") is True and failure is None:
+                selected_trace_record = instrumented.rollout_internal(
+                    env,
+                    selected_actions,
+                    expected_substeps=expected_substeps,
+                    boundary_tolerance=tolerance,
+                    step_base=step,
+                )
+                window["selected_clearance_trace_m"] = _public(
+                    selected_trace_record["clearance_trace_m"]
+                )
             windows.append(window)
             if failure:
                 break
@@ -310,12 +359,99 @@ def evaluate(
                 if done:
                     break
             window["executed_action_count"] = len(clone_errors)
+            if "selected_clearance_trace_m" in window:
+                window["selected_clearance_trace_m"] = window["selected_clearance_trace_m"][
+                    : 1 + expected_substeps * len(clone_errors)
+                ]
             window["clone_state_max_abs_error"] = max(clone_errors)
             released_geometry["z_fixed"] = np.asarray(qp_records[len(clone_errors) - 1]["z_after"], dtype=np.float64)
             if selected_source == "hysteretic_normal_repulsion":
                 repulsion_has_changed_state = True
             if failure or done:
                 break
+
+        policy_value = None
+        if config.get("policy_value", {}).get("enabled") is True:
+            terminal = config["terminal_backup"]
+            tail_action_count = int(terminal["tail_verification_actions"])
+            primary_state = np.array(env.sim.get_state().flatten(), copy=True)
+            primary_auxiliary = _auxiliary_sim_snapshot(env)
+            primary_controller = _controller_snapshot(env)
+            primary_dynamic = np.array(_dynamic_state_vector(env), copy=True)
+
+            def restore_primary() -> None:
+                env.sim.set_state_from_flattened(primary_state)
+                env.sim.forward()
+                _restore_auxiliary_sim_snapshot(env, primary_auxiliary)
+                _restore_controller_snapshot(env, primary_controller)
+                _require(
+                    np.array_equal(_dynamic_state_vector(env), primary_dynamic),
+                    "terminal backup restore differs",
+                )
+
+            hold_actions = np.zeros((tail_action_count, 7), dtype=np.float64)
+            tail_record = instrumented.rollout_internal(
+                env, hold_actions, expected_substeps=expected_substeps,
+                boundary_tolerance=tolerance, step_base=len(actions),
+            )
+            tail_record["current_minimum_clearance_m"] = float(
+                np.min(np.asarray(tail_record["clearance_trace_m"])[0])
+            )
+            tail_record["future_minimum_clearance_m"] = future_clearance(tail_record)
+            tail_record["future_row_minimum_clearance_m"] = np.min(
+                np.asarray(tail_record["clearance_trace_m"])[1:], axis=0
+            )
+            terminal_safe = physical_safe(tail_record, car_limit) and bool(
+                tail_record["future_minimum_clearance_m"]
+                >= float(config["policy_value"]["safety_buffer_m"])
+            )
+            terminal_selected = "verified_zero_motion_hold"
+            terminal_fallback = "normal_retreat_not_needed_in_this_rollout"
+            terminal_actions = hold_actions
+            if not terminal_safe:
+                restore_primary()
+                links = geometry._slabbed_links(env)
+                active_row = int(np.argmin(np.asarray(tail_record["future_row_minimum_clearance_m"])))
+                direction = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
+                direction /= np.linalg.norm(direction)
+                retreat_actions = np.zeros((tail_action_count, 7), dtype=np.float64)
+                retreat_actions[:, :3] = direction * float(terminal["retreat_action_l2_per_action"])
+                tail_record = instrumented.rollout_internal(
+                    env, retreat_actions, expected_substeps=expected_substeps,
+                    boundary_tolerance=tolerance, step_base=len(actions),
+                )
+                tail_trace = np.asarray(tail_record["clearance_trace_m"])
+                tail_record["current_minimum_clearance_m"] = float(np.min(tail_trace[0]))
+                tail_record["future_minimum_clearance_m"] = future_clearance(tail_record)
+                tail_record["future_row_minimum_clearance_m"] = np.min(tail_trace[1:], axis=0)
+                terminal_safe = physical_safe(tail_record, car_limit) and bool(
+                    tail_record["future_minimum_clearance_m"]
+                    >= float(config["policy_value"]["safety_buffer_m"])
+                )
+                terminal_selected = "registered_normal_retreat"
+                terminal_fallback = "normal_retreat_executed_after_unsafe_hold"
+                terminal_actions = retreat_actions
+            policy_value = exact_suffix_policy_values(
+                windows,
+                terminal_tail_clearance_trace_m=tail_record["clearance_trace_m"],
+                safety_buffer_m=float(config["policy_value"]["safety_buffer_m"]),
+                expected_substeps_per_action=expected_substeps,
+                boundary_tolerance_m=tolerance,
+            )
+            policy_value["terminal_backup"] = {
+                "selected": terminal_selected,
+                "fallback_if_hold_unsafe": terminal_fallback,
+                "action_count": tail_action_count,
+                "actions": terminal_actions.tolist(),
+                "physically_safe": physical_safe(tail_record, car_limit),
+                "buffer_safe": terminal_safe,
+                "rollout": _backup_summary(tail_record),
+            }
+            policy_value["terminal_trigger"] = terminal_trigger
+            policy_value["terminal_clearance_trace_m"] = _public(
+                tail_record["clearance_trace_m"]
+            )
+            restore_primary()
 
         video_writer.close(); video_writer = None
         video_partial.replace(video_final)
@@ -337,8 +473,20 @@ def evaluate(
             "policy_server": server_identity, "policy_queries": policy_queries, "windows": windows, "actions": actions,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},
             "summary": {"window_count": len(windows), "repulsion_window_count": sum(item["selected_source"] == "hysteretic_normal_repulsion" for item in windows), "hysteresis_deadband_nominal_window_count": sum(item["selected_source"] == "verified_safe_nominal_inside_hysteresis_deadband" for item in windows), "all_executed_windows_freshly_physically_verified": verified_selected, "native_task_success": success, "native_task_success_step": goal_summary["first_all_satisfied_step"], "first_protected_contact_step": first_contact, "first_paper_car_step": first_car, "maximum_active_obstacle_l1_displacement_m": maximum_car, "safe_task_success": solved},
+            "policy_value": policy_value,
             "failure": failure, "primary_problem_solved": solved,
-            "interpretation": "fixed_backup_policy_safe_task_success" if solved else "fixed_backup_policy_oracle_no_go",
+            "interpretation": (
+                "finite_horizon_exact_backup_policy_value_pass"
+                if policy_value is not None
+                and policy_value["all_decision_states_safe"]
+                and policy_value["nonincreasing_along_backup"]
+                and policy_value["maximum_bellman_residual"] <= tolerance
+                and policy_value["terminal_backup"]["buffer_safe"]
+                else (
+                    "fixed_backup_policy_safe_task_success"
+                    if solved else "fixed_backup_policy_oracle_no_go"
+                )
+            ),
             "video": {"path": str(video_final), "file_sha256": _file_sha256(video_final), "frames_written": len(actions) + 1, "fps": TABLE_VIDEO_FPS},
             "final_jpg": {"path": str(final_jpg), "file_sha256": _file_sha256(final_jpg)}, "wall_seconds": (time.perf_counter_ns() - started) * 1e-9,
         }
