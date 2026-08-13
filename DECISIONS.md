@@ -1,5 +1,24 @@
 # Reproduction decisions
 
+## ADR-0095: Reject the frozen ranker as avoidance; retain weak ranking evidence
+
+Accepted after H100 producer `39319` and independent validator `39324`. The
+64-direction frozen audit proves the prior `7/8` observation was not solely
+chance: branch accuracy is `49/64` with exact one-sided
+`p=1.21823e-5`. It nevertheless fails the registered reliability requirement
+and selects the physically worse sign `23.44%` of the time.
+
+Do not equate statistically significant ordering with avoidance. Mean
+selected near-active L5 gain is `-0.002563 mm`, and the best available branch
+remains deeply unsafe. The exact-best top-1 selection at N=64 is retained as a
+one-state Best-of-N diagnostic only; it cannot override the failed primary
+gate or establish state generalization.
+
+Do not build a QP, potential-gradient controller, or larger same-state dataset
+from this checkpoint. Any later ranker must use grouped physical states and
+candidate families with meaningful safety spread, then independently test
+both pair ordering and exact selected clearance.
+
 ## ADR-0094: Freeze the scalar model and test 64 new paired directions
 
 Accepted before simulation. Reconstruct the exact direction-conditioned

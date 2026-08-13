@@ -15,6 +15,32 @@ candidates at `N=4/8/16/32/64`, including exact percentile and regret. The
 model, input, state, radius, geometry, horizon, and loss are immutable; no
 training, QP, corrected execution, or closed loop is allowed.
 
+Clean H100 producer `39319` completed on `worker-2` in `217.824 s` from
+commit `5ee79369593c49180c0841c6a0201efc097b825a`; independent H100 validator
+`39324` accepted all `129` rollouts, frozen-model/source bindings, new-
+direction disjointness, primary gates, Best-of-N arithmetic, and hashes.
+
+The frozen model selected the safer branch in `49/64` cases (`0.765625`),
+which is strongly better than chance (one-sided binomial
+`p=1.21823e-5`) but below the registered `0.85` gate. Near-active L5 accuracy
+was identical. Mean selected near-active L5 gain was slightly negative at
+`-0.002563 mm`, so the required positive-gain gate also failed; random sign
+was worse at `-0.046616 mm`.
+
+The model did select the exact best candidate at `N=16/32/64`, including the
+best of all 128 signed physical branches at N=64. That best branch improved
+only `0.093389 mm` and remained deeply unsafe at `-58.178324 mm`. Preserve
+this as a one-state ranking diagnostic, not avoidance efficacy. The validated
+interpretation is `frozen_paired_ranking_signal_fails_large_direction_gate`.
+No training, QP, correction, or execution is authorized from this result.
+
+Result/validation file SHA-256 values are
+`c841ea3cbae7cc8cb02e286ec1dfa2fc94c85cb106d6d263fe956ac5a30e4f03`
+and `caa06f768357493c97139c77325dce881bdfd9736dd1b2be336ccb1eb3e379d0`;
+payload SHA-256 values are
+`8b97733bba6491563cb1b92ad48b613704fd38e4f35ebffbe8ab5e49031333e9`
+and `fb4c67621bd3c68d7f580865afd07a1b7378728dd5f778cc28eabf35cff94ba3`.
+
 ## E05 Moka local nonlinear prediction gate (preregistered, 2026-08-13)
 
 The next gate retains the compact 25D physical witness input and validated
