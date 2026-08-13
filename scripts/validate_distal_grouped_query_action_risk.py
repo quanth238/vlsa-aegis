@@ -185,13 +185,22 @@ def validate(
         row_flags = [{"safe": False, "unsafe": False, "active": False} for _ in range(7)]
         state_candidate_manifest = []
         for observed, definition in zip(candidates, expected):
-            for key in (
-                "name", "order", "direction", "sign", "temporal_profile",
-                "requested_correction_l2_action", "applied_correction_l2_action",
-                "clipped", "actions",
-            ):
+            for key in ("name", "order", "sign", "temporal_profile", "clipped"):
                 _require(observed[key] == definition[key],
                          "grouped query-risk candidate identity differs")
+            for key in (
+                "direction", "requested_correction_l2_action",
+                "applied_correction_l2_action", "actions",
+            ):
+                if observed[key] is None or definition[key] is None:
+                    matches = observed[key] == definition[key]
+                else:
+                    matches = bool(np.allclose(
+                        np.asarray(observed[key], dtype=np.float64),
+                        np.asarray(definition[key], dtype=np.float64),
+                        rtol=0.0, atol=1.0e-12,
+                    ))
+                _require(matches, "grouped query-risk candidate numeric identity differs")
             prefix_trace = np.asarray(observed["prefix"]["clearance_trace_m"], dtype=np.float64)
             _require(prefix_trace.shape == (126, 7),
                      "grouped query-risk prefix trace differs")
@@ -282,6 +291,70 @@ def validate(
             "result_payload_sha256": result["result_payload_sha256"],
             "archived_table1_file_sha256": result["archived_table1"]["file_sha256"],
         })
+
+    # The first table is descriptive coverage across every retained state.  The
+    # adequacy table below is deliberately recomputed from usable mixed-support
+    # states only; proxy-invalid and unsupported states cannot authorize model
+    # training merely by contributing easy far-safe rows.
+    all_state_row_coverage = row_records
+    row_records = [{
+        **identity,
+        "known_safe_candidate_count": 0,
+        "known_unsafe_candidate_count": 0,
+        "unknown_timeout_candidate_count": 0,
+        "near_boundary_known_candidate_count": 0,
+        "active_witness_known_candidate_count": 0,
+        "train_episode_with_unsafe_count": 0,
+        "validation_episode_with_unsafe_count": 0,
+        "train_episode_with_active_witness_count": 0,
+        "validation_episode_with_active_witness_count": 0,
+        "all_split_episode_with_safe_count": 0,
+        "all_split_episode_with_unsafe_count": 0,
+        "all_split_episode_with_active_witness_count": 0,
+    } for identity in ROW_IDENTITIES]
+    usable_state_ids = {
+        item["state_id"] for item in state_records
+        if item["primary_category"] == "usable_mixed_support"
+    }
+    usable_episode_flags: dict[tuple[str, int], dict[str, bool]] = {}
+    for candidate in candidate_manifest:
+        risk = [float(value) for value in candidate["risk"]]
+        outcome = str(candidate["outcome"])
+        active = int(candidate["active_witness_row"])
+        row_records[active]["active_witness_known_candidate_count"] += 1
+        usable_episode_flags.setdefault(
+            (str(candidate["case_id"]), active),
+            {"safe": False, "unsafe": False, "active": False},
+        )["active"] = True
+        for row, value in enumerate(risk):
+            flags = usable_episode_flags.setdefault(
+                (str(candidate["case_id"]), row),
+                {"safe": False, "unsafe": False, "active": False},
+            )
+            if outcome == "safe":
+                row_records[row]["known_safe_candidate_count"] += 1
+                flags["safe"] = True
+            elif outcome == "unsafe" and value > 0.0:
+                row_records[row]["known_unsafe_candidate_count"] += 1
+                flags["unsafe"] = True
+            if abs(value) <= near:
+                row_records[row]["near_boundary_known_candidate_count"] += 1
+    for state in state_records:
+        if state["state_id"] not in usable_state_ids:
+            continue
+        for row in row_records:
+            row["unknown_timeout_candidate_count"] += int(
+                state["unknown_timeout_candidate_count"]
+            )
+    case_split = {str(case["case_id"]): str(case["split"]) for case in selected_cases}
+    for (case_id, row_index), flags in usable_episode_flags.items():
+        row = row_records[row_index]
+        for name in ("safe", "unsafe", "active"):
+            row["all_split_episode_with_%s_count" % name] += int(flags[name])
+        split = case_split[case_id]
+        if split in {"train", "validation"}:
+            row["%s_episode_with_unsafe_count" % split] += int(flags["unsafe"])
+            row["%s_episode_with_active_witness_count" % split] += int(flags["active"])
 
     thresholds = freeze["adequacy"]
     per_row = thresholds["per_row"]
@@ -378,7 +451,8 @@ def validate(
         "states_with_unknown_timeouts": [
             item for item in state_records if item["contains_unknown_timeouts"]
         ],
-        "row_coverage": row_records,
+        "all_state_row_coverage": all_state_row_coverage,
+        "usable_state_row_coverage": row_records,
         "row_adequacy_failures": row_failures,
         "targeted_collection_plan": {
             "required": not passed,
