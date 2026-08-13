@@ -27,6 +27,12 @@ fixed 167D compact input and seven-output MLP; validation episodes alone select
 the checkpoint, E05/E10 remain diagnostic, and no prediction result authorizes
 a QP or closed-loop controller without a later explicit decision.
 
+Canary `39465` rejected two-stage successor cloning because its selected
+backup suffix did not reproduce inside the complete proposal-plus-backup
+rollout. Preserve the policy and candidate family, but evaluate every composed
+branch uninterrupted from the original saved state. Use its successor suffix
+for backup selection and the same branch's full trace for the seven labels.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

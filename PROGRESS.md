@@ -30,6 +30,13 @@ EXPECTED_GIT_COMMIT=<commit> RUN_ID=clean-action-risk-20260813a \
   sbatch slurm/distal_clean_action_risk_collect.sbatch
 ```
 
+H100 canary `39465` failed closed before writing labels because separately
+cloning a proposal successor omitted wrapper/controller execution state: the
+selected backup suffix differed when embedded after the proposal. This is an
+apparatus failure, not a dataset result. The registered repair evaluates every
+`proposal -> backup action -> hold` branch uninterrupted from the same saved
+state and selects the fixed backup using that branch's successor suffix.
+
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
 H100 producer `39376` and fresh action-ledger validator `39378` executed 300

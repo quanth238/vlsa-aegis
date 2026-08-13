@@ -57,6 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ), "candidate feature dimension differs")
         _require(all(
             backup["record"]["sample_count"] == 651
+            and backup["complete_record"]["sample_count"] == 676
             for state in result["states"] for candidate in state["candidates"]
             for backup in candidate["backup_candidates"]
         ), "backup internal sample count differs")
@@ -68,8 +69,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             and bool(candidate["exact_safe"]) == exact_safe(candidate, config)
             for state in result["states"] for candidate in state["candidates"]
         ), "candidate target derivation differs")
-        _require(result["gates"]["proposal_and_selected_backup_replay_consistent"],
-                 "candidate-plus-backup replay differs")
+        _require(result["gates"]["proposal_successor_replay_consistent"],
+                 "candidate proposal replay differs")
+        _require(result["gates"]["all_backup_candidates_evaluated_as_embedded_compositions"],
+                 "backup composition binding differs")
         hashes.append({
             "case_id": case["case_id"], "file_sha256": _file_sha256(path),
             "result_payload_sha256": claimed,
@@ -108,8 +111,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "source_states_unmodified_by_cloned_rollouts": all(
             result["gates"]["source_states_unmodified_by_cloned_rollouts"] for result in accepted
         ),
-        "proposal_and_selected_backup_replay_consistent": all(
-            result["gates"]["proposal_and_selected_backup_replay_consistent"]
+        "proposal_successor_replay_consistent": all(
+            result["gates"]["proposal_successor_replay_consistent"]
+            for result in accepted
+        ),
+        "all_backup_candidates_evaluated_as_embedded_compositions": all(
+            result["gates"]["all_backup_candidates_evaluated_as_embedded_compositions"]
             for result in accepted
         ),
     }

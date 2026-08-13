@@ -27,11 +27,14 @@ Evaluate exactly 26 first actions:
 - positive/negative local obstacle normal and two tangents;
 - magnitudes 0.5 and 1.0 for every nonzero backup direction.
 
-After executing each proposed candidate in a cloned environment, the fixed
-ledger-independent backup is recomputed at the successor.  It evaluates hold,
+After obtaining each proposed candidate's successor geometry, the fixed
+ledger-independent backup is recomputed there. It evaluates hold,
 world-axis, and local normal/tangent actions, each followed by the fixed
-25-action zero-motion terminal hold.  The selected verified-safe backup action
-is executed before that hold.  If no verified-safe backup candidate exists,
+25-action zero-motion terminal hold. Every branch is evaluated as one
+uninterrupted `proposal -> backup action -> hold` cloned-OSC composition; this
+avoids reconstructing an incomplete successor wrapper/controller state. The
+selected verified-safe backup action is the corresponding composed branch. If
+no verified-safe backup candidate exists,
 the complete policy deterministically takes the registered maximum-future-
 clearance fallback and retains the resulting unsafe label.  The VLA action
 ledger is never an input to the backup candidates or their score.  All
@@ -50,8 +53,8 @@ failed support case; it is never silently removed.
 
 Gate A passes only when source files and static eligibility reproduce, every
 accepted state is initially safe, candidate count/order are exact, all labels
-are finite and replayable, the successor and selected backup suffix agree when
-embedded in the complete candidate-plus-backup rollout within `1e-12`, and
+are finite and replayable, every proposal successor agrees across composed
+branches within `1e-12`, and
 every accepted state has physical/proxy-safe support.  Passing authorizes
 training; it is not learned-model evidence.
 

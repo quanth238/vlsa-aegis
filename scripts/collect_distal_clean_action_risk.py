@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from scripts.evaluate_distal_smooth_field_attribution_e05 import (
     InstrumentedContinuationProbe,
@@ -75,6 +75,7 @@ def collect(
     *, repo_root: Path, population_manifest_path: Path, selection_manifest_path: Path,
     experiment_config_path: Path, geometry_config_path: Path,
     table1_root: Path, case_index: int, expected_commit: str,
+    state_limit: Optional[int] = None, proposal_limit: Optional[int] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -120,17 +121,21 @@ def collect(
     }
     _require(set(actions) == set(range(len(archived["actions"]))), "Table-1 action ledger differs")
     targets = decision_steps(selected, config)
+    if state_limit is not None:
+        _require(1 <= int(state_limit) <= len(targets), "canary state limit differs")
+        targets = targets[:int(state_limit)]
+    if proposal_limit is not None:
+        _require(1 <= int(proposal_limit) <= int(config["candidate_family"]["proposal_count"]),
+                 "canary proposal limit differs")
+    full_protocol = state_limit is None and proposal_limit is None
     _require(max(targets) < len(actions), "clean action-risk state exceeds action ledger")
-    env = probe_env = backup_env = None
+    env = probe_env = None
     try:
         env, task, observation, _ = _build_environment(runtime, case, render_resolution=32)
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
         probe_env, probe_task, probe_observation, _ = _build_environment(runtime, case, render_resolution=32)
         probe_observation = _settle(probe_env, probe_observation, TABLE_SETTLE_ACTIONS)
-        backup_env, backup_task, backup_observation, _ = _build_environment(runtime, case, render_resolution=32)
-        backup_observation = _settle(backup_env, backup_observation, TABLE_SETTLE_ACTIONS)
         _require(str(task.language) == str(probe_task.language), "probe task differs")
-        _require(str(task.language) == str(backup_task.language), "backup probe task differs")
         obstacle_name, _ = _active_obstacle(env, observation)
         _require(obstacle_name == selected["active_obstacle_name"], "active obstacle differs")
         obstacle_reference = np.asarray(observation["%s_pos" % obstacle_name], dtype=np.float64).copy()
@@ -150,13 +155,6 @@ def collect(
         instrumented = InstrumentedContinuationProbe(
             one_step, obstacle_name, obstacle_reference
         )
-        backup_one_step = SlabbedEightConstraintProbe(
-            backup_env, geometry, clearance_m=0.0, active_obstacle_name=obstacle_name
-        )
-        _disable_images(backup_env)
-        backup_instrumented = InstrumentedContinuationProbe(
-            backup_one_step, obstacle_name, obstacle_reference
-        )
         buffer_m = float(config["risk_target"]["safety_buffer_m"])
         terminal = int(config["candidate_family"]["terminal_hold_actions"])
         expected_substeps = int(config["state_sampling"]["expected_mujoco_substeps_per_action"])
@@ -164,30 +162,11 @@ def collect(
         state_records = []
         rejected_states = []
 
-        def rollout_summary(source_env: Any, command: Any, step: int) -> dict[str, Any]:
-            commands = np.zeros((1 + terminal, 7), dtype=np.float64)
-            commands[0] = np.asarray(command, dtype=np.float64)
-            rollout = backup_instrumented.rollout_internal(
-                source_env, commands, expected_substeps=expected_substeps,
-                boundary_tolerance=tolerance, step_base=step + 1,
-            )
-            trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
-            row_min = np.min(trace, axis=0)
-            return {
-                "row_minimum_clearance_m": row_min.tolist(),
-                "minimum_clearance_m": float(np.min(row_min)),
-                "future_minimum_clearance_m": float(np.min(trace[1:])),
-                "protected_contact_count": len(rollout["protected_contacts"]),
-                "maximum_active_obstacle_l1_displacement_m": float(rollout["maximum_active_obstacle_l1_displacement_m"]),
-                "sample_count": int(trace.shape[0]),
-                "maximum_boundary_equivalence_error_m": float(rollout["maximum_boundary_equivalence_error_m"]),
-            }
-
         def evaluate_candidate(name: str, order: int, action: Any, step: int) -> dict[str, Any]:
             proposal = np.asarray(action, dtype=np.float64)
             one_step.synchronize(env)
             probe_env.step(proposal.tolist())
-            successor = np.asarray(backup_one_step.clearances(probe_env)[:7], dtype=np.float64)
+            successor = np.asarray(one_step.clearances(probe_env)[:7], dtype=np.float64)
             links = geometry._slabbed_links(probe_env)
             active_row = int(np.argmin(successor))
             normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
@@ -204,57 +183,71 @@ def collect(
             )
             backup_candidates = []
             for backup_order, (backup_name, backup_action) in enumerate(backup_definitions):
+                full_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
+                full_commands[0] = proposal
+                full_commands[1] = np.asarray(backup_action, dtype=np.float64)
+                rollout = instrumented.rollout_internal(
+                    env, full_commands, expected_substeps=expected_substeps,
+                    boundary_tolerance=tolerance, step_base=step,
+                )
+                trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
+                successor_index = expected_substeps
+                successor_error = float(np.max(np.abs(
+                    trace[successor_index] - successor
+                )))
+                _require(successor_error <= tolerance, "proposal successor replay differs")
+                suffix = trace[successor_index:]
+                suffix_future = trace[successor_index + 1:]
+                displacements = np.asarray(
+                    rollout["active_obstacle_l1_displacement_trace_m"], dtype=np.float64
+                )
+                suffix_contacts = sum(
+                    int(item["action_offset"]) >= 1
+                    or (
+                        int(item["action_offset"]) == 0
+                        and int(item["substep"]) == expected_substeps - 1
+                    )
+                    for item in rollout["protected_contacts"]
+                )
+                suffix_row_min = np.min(suffix, axis=0)
                 backup_candidates.append({
                     "name": backup_name, "order": backup_order,
                     "first_action": np.asarray(backup_action, dtype=np.float64).tolist(),
-                    "record": rollout_summary(probe_env, backup_action, step),
+                    "record": {
+                        "row_minimum_clearance_m": suffix_row_min.tolist(),
+                        "minimum_clearance_m": float(np.min(suffix_row_min)),
+                        "future_minimum_clearance_m": float(np.min(suffix_future)),
+                        "protected_contact_count": int(suffix_contacts),
+                        "maximum_active_obstacle_l1_displacement_m": float(
+                            np.max(displacements[successor_index:])
+                        ),
+                        "sample_count": int(suffix.shape[0]),
+                        "maximum_boundary_equivalence_error_m": float(
+                            rollout["maximum_boundary_equivalence_error_m"]
+                        ),
+                    },
+                    "complete_record": {
+                        "row_minimum_clearance_m": np.min(trace, axis=0).tolist(),
+                        "minimum_clearance_m": float(np.min(trace)),
+                        "future_minimum_clearance_m": float(np.min(trace[1:])),
+                        "protected_contact_count": len(rollout["protected_contacts"]),
+                        "protected_contacts": rollout["protected_contacts"],
+                        "maximum_active_obstacle_l1_displacement_m": float(
+                            rollout["maximum_active_obstacle_l1_displacement_m"]
+                        ),
+                        "sample_count": int(trace.shape[0]),
+                        "maximum_boundary_equivalence_error_m": float(
+                            rollout["maximum_boundary_equivalence_error_m"]
+                        ),
+                        "proposal_successor_replay_error_m": successor_error,
+                    },
                 })
             selected, selection_mode = select_backup_with_fallback(
                 backup_candidates, safety_buffer_m=buffer_m,
                 paper_car_threshold_m=float(config["risk_target"]["paper_car_threshold_m"]),
             )
-            full_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
-            full_commands[0] = proposal
-            full_commands[1] = np.asarray(selected["first_action"], dtype=np.float64)
-            rollout = instrumented.rollout_internal(
-                env, full_commands, expected_substeps=expected_substeps,
-                boundary_tolerance=tolerance, step_base=step,
-            )
-            trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
-            row_min = np.min(trace, axis=0)
-            successor_index = expected_substeps
-            successor_replay_error = float(np.max(np.abs(
-                trace[successor_index] - successor
-            )))
-            selected_row_min = np.asarray(
-                selected["record"]["row_minimum_clearance_m"], dtype=np.float64
-            )
-            selected_backup_replay_error = float(np.max(np.abs(
-                np.min(trace[successor_index:], axis=0) - selected_row_min
-            )))
-            selected_contact_count = sum(
-                int(item["action_offset"]) >= 1
-                or (
-                    int(item["action_offset"]) == 0
-                    and int(item["substep"]) == expected_substeps - 1
-                )
-                for item in rollout["protected_contacts"]
-            )
-            selected_contact_count_error = abs(
-                selected_contact_count
-                - int(selected["record"]["protected_contact_count"])
-            )
-            displacement = np.asarray(
-                rollout["active_obstacle_l1_displacement_trace_m"], dtype=np.float64
-            )
-            selected_displacement_error = abs(
-                float(np.max(displacement[successor_index:]))
-                - float(selected["record"]["maximum_active_obstacle_l1_displacement_m"])
-            )
-            _require(successor_replay_error <= tolerance, "proposal successor replay differs")
-            _require(selected_backup_replay_error <= tolerance, "selected backup replay differs")
-            _require(selected_contact_count_error == 0, "selected backup contact replay differs")
-            _require(selected_displacement_error <= tolerance, "selected backup CAR replay differs")
+            complete = selected["complete_record"]
+            row_min = np.asarray(complete["row_minimum_clearance_m"], dtype=np.float64)
             record = {
                 "name": name, "order": int(order), "first_action": proposal.tolist(),
                 "first_action_sha256": hashlib.sha256(proposal.tobytes()).hexdigest(),
@@ -273,20 +266,18 @@ def collect(
                     "first_action": selected["first_action"],
                     "selection_mode": selection_mode,
                 },
-                "proposal_successor_replay_error_m": successor_replay_error,
-                "selected_backup_row_replay_error_m": selected_backup_replay_error,
-                "selected_backup_contact_count_replay_error": selected_contact_count_error,
-                "selected_backup_car_replay_error_m": selected_displacement_error,
+                "proposal_successor_replay_error_m": complete["proposal_successor_replay_error_m"],
+                "selected_backup_evaluated_in_embedded_complete_rollout": True,
                 "backup_candidates": backup_candidates,
                 "row_minimum_clearance_m": row_min.tolist(),
                 "risk": risk_from_row_minimum(row_min, buffer_m),
                 "minimum_clearance_m": float(np.min(row_min)),
-                "future_minimum_clearance_m": float(np.min(trace[1:])),
-                "protected_contact_count": len(rollout["protected_contacts"]),
-                "protected_contacts": rollout["protected_contacts"],
-                "maximum_active_obstacle_l1_displacement_m": float(rollout["maximum_active_obstacle_l1_displacement_m"]),
-                "sample_count": int(trace.shape[0]),
-                "maximum_boundary_equivalence_error_m": float(rollout["maximum_boundary_equivalence_error_m"]),
+                "future_minimum_clearance_m": complete["future_minimum_clearance_m"],
+                "protected_contact_count": complete["protected_contact_count"],
+                "protected_contacts": complete["protected_contacts"],
+                "maximum_active_obstacle_l1_displacement_m": complete["maximum_active_obstacle_l1_displacement_m"],
+                "sample_count": complete["sample_count"],
+                "maximum_boundary_equivalence_error_m": complete["maximum_boundary_equivalence_error_m"],
             }
             record["exact_safe"] = exact_safe(record, config)
             return record
@@ -327,6 +318,8 @@ def collect(
                             command[:3] = np.asarray(direction, dtype=np.float64) * float(amplitude)
                             definitions.append(("%s_amp_%s" % (direction_name, amplitude), command))
                     _require(len(definitions) == int(config["candidate_family"]["proposal_count"]), "proposal count differs")
+                    if proposal_limit is not None:
+                        definitions = definitions[:int(proposal_limit)]
                     candidates = [
                         evaluate_candidate(name, order, command, step)
                         for order, (name, command) in enumerate(definitions)
@@ -364,7 +357,11 @@ def collect(
             "source_task_success_and_car_failure": True,
             "all_requested_states_strictly_initially_safe": len(rejected_states) == 0,
             "all_requested_states_have_exact_safe_support": len(accepted) == len(targets),
-            "candidate_count_and_order_exact": all(item["candidate_count"] == 26 for item in state_records),
+            "candidate_count_and_order_exact": all(
+                item["candidate_count"]
+                == (26 if proposal_limit is None else int(proposal_limit))
+                for item in state_records
+            ),
             "all_candidate_labels_finite": all(
                 np.all(np.isfinite(candidate["risk"]))
                 for state in state_records for candidate in state["candidates"]
@@ -372,17 +369,19 @@ def collect(
             "source_states_unmodified_by_cloned_rollouts": all(
                 state["source_state_maximum_mutation"] == 0.0 for state in state_records
             ),
-            "proposal_and_selected_backup_replay_consistent": all(
+            "proposal_successor_replay_consistent": all(
                 candidate["proposal_successor_replay_error_m"] <= tolerance
-                and candidate["selected_backup_row_replay_error_m"] <= tolerance
-                and candidate["selected_backup_contact_count_replay_error"] == 0
-                and candidate["selected_backup_car_replay_error_m"] <= tolerance
+                for state in state_records for candidate in state["candidates"]
+            ),
+            "all_backup_candidates_evaluated_as_embedded_compositions": all(
+                candidate["selected_backup_evaluated_in_embedded_complete_rollout"]
                 for state in state_records for candidate in state["candidates"]
             ),
         }
         result = {
             "schema_version": RESULT_SCHEMA, "status": "complete",
-            "scientific_result": True, "case_index": int(case_index),
+            "scientific_result": bool(full_protocol), "case_index": int(case_index),
+            "execution_mode": "full_protocol" if full_protocol else "apparatus_canary",
             "case": selected, "source": source, "allocation": allocation_record(),
             "config": config,
             "source_result": {
@@ -395,16 +394,17 @@ def collect(
             "states": state_records, "rejected_states": rejected_states,
             "gates": gates,
             "interpretation": (
-                "clean_exact_action_risk_case_pass" if all(gates.values())
-                else "clean_exact_action_risk_case_no_go"
+                "clean_exact_action_risk_case_pass" if full_protocol and all(gates.values())
+                else "clean_exact_action_risk_apparatus_canary_pass"
+                if (not full_protocol and all(gates.values()))
+                else "clean_exact_action_risk_apparatus_canary_fail"
+                if not full_protocol else "clean_exact_action_risk_case_no_go"
             ),
-            "training_authorized_for_case": all(gates.values()),
+            "training_authorized_for_case": bool(full_protocol and all(gates.values())),
         }
         result["result_payload_sha256"] = _sha256(canonical(result))
         return result
     finally:
-        if backup_env is not None:
-            backup_env.close()
         if probe_env is not None:
             probe_env.close()
         if env is not None:
@@ -421,6 +421,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--table1-root", type=Path, required=True)
     parser.add_argument("--case-index", type=int, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--state-limit", type=int)
+    parser.add_argument("--proposal-limit", type=int)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = collect(
@@ -429,6 +431,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         experiment_config_path=args.experiment_config.resolve(),
         geometry_config_path=args.geometry_config.resolve(), table1_root=args.table1_root.resolve(),
         case_index=args.case_index, expected_commit=args.expected_commit,
+        state_limit=args.state_limit, proposal_limit=args.proposal_limit,
     )
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({
