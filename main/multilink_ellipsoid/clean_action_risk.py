@@ -87,6 +87,31 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("clean action-risk model input dimension differs")
     if value["model"]["output_count"] != 7:
         raise ValueError("clean action-risk model output differs")
+    if value["model"] != {
+        "class": "single_action_conditioned_seven_output_MLP",
+        "input_dimension": 167,
+        "output_count": 7,
+        "hidden_widths": [256, 256, 128],
+        "activation": "silu",
+        "input": "compact_robot_controller_state_candidate_action_obstacle_and_seven_current_geometry_rows",
+        "loss": "boundary_weighted_Huber_on_seven_quantitative_risks",
+        "seed": 20260813,
+        "cpu_threads": 8,
+        "epochs": 1500,
+        "patience": 150,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "gradient_clip_norm": 10.0,
+        "huber_beta_normalized": 0.25,
+        "boundary_scale_m": 0.005,
+        "boundary_weight_multiplier": 4.0,
+        "minimum_target_scale_m": 0.001,
+        "batching": "deterministic_full_batch",
+        "checkpoint_metric": "validation_boundary_weighted_Huber",
+        "early_stopping": "validation_episodes_only",
+        "calibration": "none_in_prediction_gate",
+    }:
+        raise ValueError("clean action-risk model protocol differs")
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = sha256(raw)
     output["config_payload_sha256"] = sha256(canonical(value))

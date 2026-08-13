@@ -234,6 +234,10 @@ def collect(
             )))
             selected_contact_count = sum(
                 int(item["action_offset"]) >= 1
+                or (
+                    int(item["action_offset"]) == 0
+                    and int(item["substep"]) == expected_substeps - 1
+                )
                 for item in rollout["protected_contacts"]
             )
             selected_contact_count_error = abs(

@@ -18,6 +18,10 @@ Episode groups never cross splits.  Training remains blocked until every
 requested state is initially safe and has an exactly verified safe candidate.
 QP and closed loop remain blocked until a later seven-output MLP has zero
 observed false-safes and useful safe-action support on untouched episodes.
+The prediction-only trainer is itself fail-closed: it refuses to start unless
+the independently validated exact dataset records `MLP_training_authorized`.
+Its fixed 167D input, 256/256/128 SiLU architecture, boundary-weighted Huber
+loss, grouped splits, and untouched metrics are registered in the same config.
 
 Exact next command after committing and syncing clean source:
 

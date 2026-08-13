@@ -3,6 +3,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
+try:
+    import torch
+except ImportError:
+    torch = None
+
 from main.multilink_ellipsoid.clean_action_risk import (
     compact_feature_vector,
     decision_steps,
@@ -79,6 +84,14 @@ class CleanActionRiskTests(unittest.TestCase):
             ],
         }
         self.assertEqual(len(compact_feature_vector(context, [0.0] * 7)), 167)
+
+    @unittest.skipIf(torch is None, "torch is optional locally")
+    def test_action_risk_model_has_registered_shape(self):
+        from main.multilink_ellipsoid.action_risk_model import build_model
+
+        model = build_model(torch, 167, [256, 256, 128])
+        output = model(torch.zeros((3, 167), dtype=torch.float32))
+        self.assertEqual(tuple(output.shape), (3, 7))
 
 
 if __name__ == "__main__":

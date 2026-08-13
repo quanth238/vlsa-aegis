@@ -21,6 +21,12 @@ learned gate is one direct seven-output action-risk MLP without calibration,
 QP, or closed-loop execution.  QP remains forbidden until zero observed
 false-safes and useful safe-action support are established on untouched cases.
 
+The model implementation may be prepared before collection, but it cannot
+execute unless the immutable dataset validator authorizes learning. Use one
+fixed 167D compact input and seven-output MLP; validation episodes alone select
+the checkpoint, E05/E10 remain diagnostic, and no prediction result authorizes
+a QP or closed-loop controller without a later explicit decision.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

@@ -61,6 +61,13 @@ Train one action-conditioned MLP with seven quantitative risk outputs.  Every
 state from an episode remains in exactly one of train, validation, test, or
 diagnostic.  No QP, calibration, or closed-loop execution is allowed.
 
+The frozen input is 167-dimensional: measured arm joints/velocities, current
+EEF/controller goals, obstacle geometry, seven current link-ellipsoid rows,
+and the proposed seven-dimensional Cartesian action.  The registered
+`256/256/128` SiLU MLP is trained once with deterministic full-batch AdamW and
+a boundary-weighted Huber loss.  Only validation episodes select the
+checkpoint.  Diagnostic E05/E10 never enter fitting or the final gate.
+
 The learned gate requires on untouched test episodes:
 
 - zero observed false-safe candidates;
