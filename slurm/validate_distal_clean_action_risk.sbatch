@@ -27,6 +27,8 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || { echo "source commit differs" >&2; exit 2; }
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || { echo "source tree is dirty" >&2; exit 2; }
 mkdir "$VALIDATION_ROOT"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_distal_clean_action_risk.py \
   --repo-root "$REMOTE_REPO" --run-root "$RUN_ROOT" \
