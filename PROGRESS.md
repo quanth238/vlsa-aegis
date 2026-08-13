@@ -25,6 +25,27 @@ runtime. The next command is an allocated-H100 E05 canary, followed by the
 15-episode array only if the canary reproduces query 37 / action 185 and its
 known L5 row-1 nominal warning.
 
+Allocated-H100 canary `39628` passed on `worker-2`: E05 retained exactly
+action 185 / query 37, with a current minimum of `+12.277061 mm` and exact
+nominal-prefix minimum of `-16.075686 mm`. The active witness was L5 slab row
+1 at five-action offset 3, internal substep 1. Grouped H100 array `39629`
+then completed all 15 non-test episodes with exactly one valid retained query
+boundary per episode. Independent H100 validator `39650` reproduced all
+retention and row counts.
+
+Coverage is a strict NO-GO for seven-output training. Active witnesses occur
+only on rows 1, 2, and 3: L5 row 1 has 1 active witness / 5 violated states;
+L5 row 2 has 7 / 11; L6 row 3 has 7 / 7. Rows 0 and 4 have zero violation or
+active-witness support, and both L7 rows 5--6 have zero support. The validated
+artifact interpretation is `query_boundary_coverage_incomplete_do_not_train`.
+Validation result file SHA-256 is
+`56ad37586f33f426e6fe920f6a5c5e67527acee81bb59f1d3140cf6d313dbf0c`;
+payload SHA-256 is
+`2c47f1bb17c5de676197ed58c320521c6f5a1d3cf0042f565dbf1ba0a06e14d7`.
+The next allowed action is frozen 37-candidate-plus-complete-backup collection
+on these 15 retained states, reporting safe/unsafe/near-boundary and active
+combined-risk witnesses per row. Training remains unauthorized.
+
 ## Query-aligned E05 five-action risk diagnostic implementation (2026-08-14)
 
 The versioned replacement apparatus is implemented without modifying released

@@ -24,6 +24,16 @@ clean episode groups, never synthetic filling. Final generalization uses newly
 reserved complete episodes because the existing test cases have influenced
 method design.
 
+Allocated-H100 producer array `39629` and independent validator `39650`
+retained one real-query warning state in each of 15/15 episodes, so the state
+rule is usable. The scientific coverage gate nonetheless fails: only L5 rows
+1--2 and L6 row 3 are active/violated. L5 row 0, L6 row 4, and both L7 rows
+have no boundary support. Therefore do not train a nominal seven-output MLP.
+Proceed only to the preregistered structured candidate-plus-complete-backup
+labels at these immutable states; if those counterfactuals still fail to
+populate missing rows, restrict the first learned claim to supported rows or
+collect new clean episode groups with the missing physical mechanisms.
+
 ## ADR-0112: E05 supports direct Monte Carlo risk learning, but only for L5
 
 - Status: accepted, diagnostic gate passing; population learning still blocked
