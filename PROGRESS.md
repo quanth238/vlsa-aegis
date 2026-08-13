@@ -2673,3 +2673,9 @@ zero protected contact, CAR pass, and a buffer-safe terminal tail. It
 authorizes no model training, QP, neural-CBF, infinite-horizon,
 task-completion, or generalization claim. The preregistration is
 `docs/distal_pncbf_policy_value_e05_preregistration.md`.
+
+H100 attempt `39404` passed allocation preflight and stopped before atomic
+result output because the shared instrumented-rollout helper retained an old
+20-action shape cap while the frozen terminal-tail protocol requires 25
+actions. It produced no scientific metric. The apparatus-only repair raises
+that cap to 25 without changing the terminal policy or any executed action.

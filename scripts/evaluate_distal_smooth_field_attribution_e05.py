@@ -118,7 +118,7 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
         _require(
             commands.ndim == 2
             and commands.shape[1] == 7
-            and 1 <= commands.shape[0] <= 20
+            and 1 <= commands.shape[0] <= 25
             and np.all(np.isfinite(commands)),
             "instrumented continuation action shape differs",
         )
