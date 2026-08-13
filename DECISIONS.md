@@ -41,6 +41,11 @@ Full E05 job `39474` found 104/104 exact-safe proposal-plus-backup labels at
 cannot test false-safes. Shift only the registered warning offsets to 5/3/2/1,
 continue to reject unsafe initial states, and require both safe and unsafe
 support in every state before learning.
+Job `39487` localized mixed support to the three-action lead (E05 step 184:
+21 safe, 5 unsafe). Five actions was too early, two actions too late, and one
+action initially outside the safety boundary. Use exactly one three-action-
+lead state per episode. Since E05 remains diagnostic, this does not inspect or
+select on the untouched E42/E44 test outcomes.
 
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 

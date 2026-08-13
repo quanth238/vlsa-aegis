@@ -42,7 +42,10 @@ class CleanActionRiskTests(unittest.TestCase):
     def test_decision_steps_precede_contact(self):
         for case in self.cases:
             steps = decision_steps(case, self.config)
-            self.assertEqual(len(steps), 4)
+            self.assertEqual(len(steps), 1)
+            self.assertEqual(
+                steps[0], int(case["first_relevant_contact_step"]) - 3
+            )
             self.assertTrue(all(step >= 0 for step in steps))
             self.assertTrue(all(step < case["first_relevant_contact_step"] for step in steps))
 

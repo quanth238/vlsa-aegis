@@ -15,8 +15,10 @@ untouched E42/E42/E44 episodes form the final prediction test.
 ## Gate A: exact clean labels
 
 For each selected episode, reconstruct the released AEGIS trajectory and take
-four states 5, 3, 2, and 1 actions before the first protected L5/L6/L7
-contact.  Every state must begin with all seven proxy gaps at least +1 mm and
+one state three actions before the first protected L5/L6/L7 contact. This
+offset was selected using diagnostic E05 only: five actions was uniformly
+safe, two actions was uniformly unsafe, and one action was already outside the
++1 mm initial boundary. Every state must begin with all seven proxy gaps at least +1 mm and
 zero protected MuJoCo contact.
 
 Evaluate exactly 26 first actions:

@@ -9,7 +9,7 @@ contacts, incomplete or invalid MVEEs, the known E38 proxy mismatch, and any
 allocation-audited state below the +1 mm initial boundary.  E05/E10 are
 diagnostic only; three untouched milk-obstacle episodes are the final test.
 
-Each of 18 episodes contributes four states at 5/3/2/1 actions before first
+Each of 18 episodes contributes one state three actions before first
 protected contact.  Exactly 26 proposals per state execute one action, then
 recompute and execute the fixed ledger-independent backup before its registered
 25-action hold.  Seven positive-is-unsafe worst-future proxy risks,
@@ -49,6 +49,11 @@ recoverability but gives no unsafe classification boundary, so the planned
 MLP gate would be vacuous. Do not scale that population. Move the registered
 states to 5/3/2/1 actions before first protected contact, retain strict safe
 `k=0`, and additionally require at least one unsafe candidate per state.
+Near-contact E05 job `39487` then isolated the clean mixed boundary: step 182
+had 26/0 safe/unsafe outcomes, step 184 had 21/5, step 185 had 0/26, and step
+186 was initially below +1 mm. Freeze one state at the three-action lead
+(E05 step 184) for all episodes. E05 is diagnostic-only; untouched test
+outcomes were not used to select this offset.
 
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 

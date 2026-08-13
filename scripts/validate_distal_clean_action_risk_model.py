@@ -68,7 +68,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         >= float(config["prediction_gate"]["minimum_global_safe_recall"]),
         "safe_action_support_every_recoverable_state":
         test["supported_recoverable_state_count"] == test["recoverable_state_count"],
-        "untouched_test_states_all_recoverable": test["recoverable_state_count"] == 12,
+        "untouched_test_states_all_recoverable": test["recoverable_state_count"] == 3,
     }
     _require(gates == result["gates"], "model gates differ")
     _require(bool(all(gates.values())) is result["prediction_gate_pass"], "model pass differs")

@@ -41,7 +41,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload = dict(result)
         claimed = payload.pop("result_payload_sha256")
         _require(sha256(canonical(payload)) == claimed, "case result self-hash differs")
-        _require(result["requested_state_count"] == 4, "requested state count differs")
+        _require(result["requested_state_count"] == 1, "requested state count differs")
         _require(all(state["candidate_count"] == 26 for state in result["states"]), "candidate count differs")
         _require(all(
             candidate["sample_count"] == 676

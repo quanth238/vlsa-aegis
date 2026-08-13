@@ -48,7 +48,7 @@ cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_clean_action_risk tests.test_distal_pncbf_pure_backup -v >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
 extra_args=()
 if [[ -n "$CANARY_STATE_LIMIT" || -n "$CANARY_PROPOSAL_LIMIT" ]]; then
-  [[ "$CANARY_STATE_LIMIT" =~ ^[1-4]$ ]] || die "invalid canary state limit"
+  [[ "$CANARY_STATE_LIMIT" == 1 ]] || die "invalid canary state limit"
   [[ "$CANARY_PROPOSAL_LIMIT" =~ ^([1-9]|1[0-9]|2[0-6])$ ]] || die "invalid canary proposal limit"
   extra_args+=(--state-limit "$CANARY_STATE_LIMIT" --proposal-limit "$CANARY_PROPOSAL_LIMIT")
 fi

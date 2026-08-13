@@ -48,10 +48,7 @@
   },
   "state_sampling": {
     "lead_actions_before_first_protected_contact": [
-      5,
-      3,
-      2,
-      1
+      3
     ],
     "include_k0_in_strict_safety": true,
     "minimum_initial_proxy_clearance_m": 0.001,
