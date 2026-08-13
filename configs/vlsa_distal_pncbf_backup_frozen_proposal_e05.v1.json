@@ -30,7 +30,7 @@
     "maximum_episode_steps_from_manifest": true
   },
   "warning": {
-    "signal": "minimum_five_action_internal_L5_L7_Loewner_proxy_clearance",
+    "signal": "minimum_future_samples_after_k0_five_action_internal_L5_L7_Loewner_proxy_clearance",
     "activation_clearance_m": 0.001,
     "release_clearance_m": 0.005,
     "hysteresis": true

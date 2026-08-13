@@ -60,6 +60,16 @@ def physical_safe(record: Mapping[str, Any], paper_car_threshold_m: float) -> bo
     )
 
 
+def future_clearance(record: Mapping[str, Any]) -> float:
+    """Minimum after command authority begins; exclude the immutable k=0 row."""
+    trace = record.get("clearance_trace_m")
+    if trace is None:
+        return float(record.get("future_minimum_clearance_m", record["minimum_clearance_m"]))
+    if len(trace) <= 1:
+        raise ValueError("future clearance requires at least one executed sample")
+    return min(float(value) for row in trace[1:] for value in row)
+
+
 def select_repulsive_candidate(
     candidates: Sequence[Mapping[str, Any]],
     *, nominal_clearance_m: float,
@@ -70,15 +80,17 @@ def select_repulsive_candidate(
         item
         for item in candidates
         if physical_safe(item["record"], paper_car_threshold_m)
-        and float(item["record"]["minimum_clearance_m"]) > float(nominal_clearance_m) + 1.0e-9
+        and float(item["record"].get("future_minimum_clearance_m", item["record"]["minimum_clearance_m"]))
+        > float(nominal_clearance_m) + 1.0e-9
     ]
     buffered = [
         item
         for item in safe
-        if float(item["record"]["minimum_clearance_m"]) >= float(activation_clearance_m)
+        if float(item["record"].get("future_minimum_clearance_m", item["record"]["minimum_clearance_m"]))
+        >= float(activation_clearance_m)
     ]
     if buffered:
-        return min(buffered, key=lambda item: (float(item["correction_l2_action"]), -float(item["record"]["minimum_clearance_m"])))
+        return min(buffered, key=lambda item: (float(item["correction_l2_action"]), -float(item["record"].get("future_minimum_clearance_m", item["record"]["minimum_clearance_m"]))))
     if safe:
-        return max(safe, key=lambda item: (float(item["record"]["minimum_clearance_m"]), -float(item["correction_l2_action"])))
+        return max(safe, key=lambda item: (float(item["record"].get("future_minimum_clearance_m", item["record"]["minimum_clearance_m"])), -float(item["correction_l2_action"])))
     return None

@@ -34,6 +34,18 @@ def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
 
 
+def _backup_summary(record: Mapping[str, Any]) -> dict[str, Any]:
+    output = _internal_summary(record)
+    for key in (
+        "current_minimum_clearance_m",
+        "future_minimum_clearance_m",
+        "future_row_minimum_clearance_m",
+    ):
+        if key in record:
+            output[key] = _public(record[key])
+    return output
+
+
 def evaluate(
     *, repo_root: Path, manifest_path: Path, archived_path: Path,
     controllability_path: Path, geometry_config_path: Path,
@@ -52,7 +64,7 @@ def evaluate(
         translational_action, validate_case_row,
     )
     from main.multilink_ellipsoid.pncbf_backup import (
-        load_config, physical_safe, select_repulsive_candidate, update_latch,
+        future_clearance, load_config, physical_safe, select_repulsive_candidate, update_latch,
     )
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.shadow import (
@@ -238,7 +250,11 @@ def evaluate(
                 source_nominal_max_abs_error = float(np.max(np.abs(nominal_actions - source_actions)))
                 _require(source_nominal_max_abs_error <= 1.0e-10, "frozen proposal binding differs before intervention")
             nominal_record = instrumented.rollout_internal(env, nominal_actions, expected_substeps=expected_substeps, boundary_tolerance=tolerance, step_base=step)
-            nominal_margin = float(nominal_record["minimum_clearance_m"])
+            nominal_trace = np.asarray(nominal_record["clearance_trace_m"])
+            nominal_record["current_minimum_clearance_m"] = float(np.min(nominal_trace[0]))
+            nominal_record["future_minimum_clearance_m"] = future_clearance(nominal_record)
+            nominal_record["future_row_minimum_clearance_m"] = np.min(nominal_trace[1:], axis=0)
+            nominal_margin = float(nominal_record["future_minimum_clearance_m"])
             nominal_physical_safe = physical_safe(nominal_record, car_limit)
             latch_entering = latch
             latch = update_latch(latch, nominal_margin, activation, release)
@@ -248,10 +264,10 @@ def evaluate(
             candidates = []
             selected_actions = nominal_actions
             selected_record = nominal_record
-            selected_summary = _internal_summary(nominal_record)
+            selected_summary = _backup_summary(nominal_record)
             selected_source = "fresh_pi05_original_aegis_no_warning"
             if latch:
-                active_row = int(np.argmin(np.asarray(nominal_record["row_minimum_clearance_m"])))
+                active_row = int(np.argmin(np.asarray(nominal_record["future_row_minimum_clearance_m"])))
                 links = geometry._slabbed_links(env)
                 direction = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
                 direction /= np.linalg.norm(direction)
@@ -261,7 +277,11 @@ def evaluate(
                     candidate_actions[:, :3] = np.clip(candidate_actions[:, :3] + correction, -1.0, 1.0)
                     applied = candidate_actions[:, :3] - nominal_actions[:, :3]
                     record = instrumented.rollout_internal(env, candidate_actions, expected_substeps=expected_substeps, boundary_tolerance=tolerance, step_base=step)
-                    candidates.append({"requested_correction_l2_action": float(requested), "correction_l2_action": float(np.linalg.norm(applied)), "direction": direction.tolist(), "actions": candidate_actions.tolist(), "record": _internal_summary(record)})
+                    candidate_trace = np.asarray(record["clearance_trace_m"])
+                    record["current_minimum_clearance_m"] = float(np.min(candidate_trace[0]))
+                    record["future_minimum_clearance_m"] = future_clearance(record)
+                    record["future_row_minimum_clearance_m"] = np.min(candidate_trace[1:], axis=0)
+                    candidates.append({"requested_correction_l2_action": float(requested), "correction_l2_action": float(np.linalg.norm(applied)), "direction": direction.tolist(), "actions": candidate_actions.tolist(), "record": _backup_summary(record)})
                 chosen = select_repulsive_candidate(candidates, nominal_clearance_m=nominal_margin, activation_clearance_m=activation, paper_car_threshold_m=car_limit)
                 if chosen is None:
                     failure = {"step": step, "reason": "no_physically_safe_clearance_improving_normal_repulsion"}
@@ -270,7 +290,7 @@ def evaluate(
                     selected_record = chosen["record"]
                     selected_summary = chosen["record"]
                     selected_source = "hysteretic_normal_repulsion"
-            window = {"step": step, "action_count": execute_count, "latch_entering": latch_entering, "latch_after_nominal": latch, "nominal_physical_safe": nominal_physical_safe, "physically_unsafe_nominal_forced_backup": physically_forced, "frozen_source_nominal_max_abs_error_before_first_intervention": source_nominal_max_abs_error, "nominal": _internal_summary(nominal_record), "candidates": candidates, "selected_source": None if failure else selected_source, "selected": None if failure else _public(selected_summary), "released_aegis_qp_records": qp_records}
+            window = {"step": step, "action_count": execute_count, "latch_entering": latch_entering, "latch_after_nominal": latch, "nominal_physical_safe": nominal_physical_safe, "physically_unsafe_nominal_forced_backup": physically_forced, "frozen_source_nominal_max_abs_error_before_first_intervention": source_nominal_max_abs_error, "nominal": _backup_summary(nominal_record), "candidates": candidates, "selected_source": None if failure else selected_source, "selected": None if failure else _public(selected_summary), "released_aegis_qp_records": qp_records}
             windows.append(window)
             if failure:
                 break

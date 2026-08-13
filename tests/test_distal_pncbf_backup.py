@@ -1,6 +1,6 @@
 import unittest
 
-from main.multilink_ellipsoid.pncbf_backup import select_repulsive_candidate, update_latch
+from main.multilink_ellipsoid.pncbf_backup import future_clearance, select_repulsive_candidate, update_latch
 
 
 class PncbfBackupTest(unittest.TestCase):
@@ -8,6 +8,10 @@ class PncbfBackupTest(unittest.TestCase):
         self.assertTrue(update_latch(False, 0.0005, 0.001, 0.005))
         self.assertTrue(update_latch(True, 0.003, 0.001, 0.005))
         self.assertFalse(update_latch(True, 0.006, 0.001, 0.005))
+
+    def test_future_clearance_excludes_fixed_initial_sample(self):
+        record = {"clearance_trace_m": [[0.0045, 0.02], [0.006, 0.021], [0.007, 0.022]]}
+        self.assertEqual(future_clearance(record), 0.006)
 
     def test_selects_smallest_buffered_then_best_safe_improvement(self):
         def item(norm, margin, contacts=0, car=0.0):

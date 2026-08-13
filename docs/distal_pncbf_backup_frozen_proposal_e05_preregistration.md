@@ -18,3 +18,7 @@ after intervention. Passing would show that a physical normal backup can
 turn this task-directed proposal sequence into safe task success. Failing
 localizes whether normal-only support, policy compatibility, or task recovery
 remains missing.
+
+Current-state clearance is an eligibility diagnostic. Warning and candidate
+improvement use only samples after the cloned command begins, because a fixed
+safe `k=0` minimum cannot be improved by any candidate action.

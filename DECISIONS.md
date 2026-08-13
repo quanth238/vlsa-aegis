@@ -1,5 +1,12 @@
 # Reproduction decisions
 
+## ADR-0102: Separate current-state eligibility from future candidate value
+
+Job `39380` deadlocked at action 262 because immutable `k=0` was the active
+minimum for the nominal and all six candidates. Preserve that sample to reject
+an initially colliding prevention state, but exclude it when comparing action
+effects. A command cannot improve geometry that precedes its application.
+
 ## ADR-0101: Freeze a task-successful policy sample before judging backup efficacy
 
 Job `39376` sampled a safe but task-failing pi0.5 realization, so its zero

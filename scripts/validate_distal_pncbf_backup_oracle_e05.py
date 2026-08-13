@@ -97,7 +97,12 @@ def validate(
         if window["selected_source"] == "hysteretic_normal_repulsion":
             expected = select_repulsive_candidate(
                 window["candidates"],
-                nominal_clearance_m=float(window["nominal"]["minimum_clearance_m"]),
+                nominal_clearance_m=float(
+                    window["nominal"].get(
+                        "future_minimum_clearance_m",
+                        window["nominal"]["minimum_clearance_m"],
+                    )
+                ),
                 activation_clearance_m=float(config["warning"]["activation_clearance_m"]),
                 paper_car_threshold_m=car_limit,
             )

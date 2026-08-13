@@ -10,6 +10,14 @@ the task-successful but action-223-colliding proposal ledger from job `39354`
 and changes only the repeated normal backup. This removes stochastic policy
 sample confounding; it is not live VLA feedback after intervention.
 
+Matched producer `39380` and replay validator `39381` applied six contact-free
+repulsive windows but falsely stopped at action 262. The nominal and every
+normal candidate shared the identical +4.496559 mm minimum because the metric
+included immutable `k=0`; the latch was still active below its +5 mm release.
+This is a measurement-definition NO-GO, not lack of action authority. The
+registered correction keeps `k=0` for current-state eligibility and evaluates
+candidate improvement only on future samples after command authority begins.
+
 ## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
 
 The next E02 gate fixes one reproducible continuation policy before learning a
