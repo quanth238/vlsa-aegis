@@ -1,5 +1,20 @@
 # Reproduction decisions
 
+## ADR-0096: Audit controllability before learning a detour selector
+
+Accepted before simulation. The statistically non-random frozen ranker does
+not establish avoidance because all 128 tested local branches remained about
+58 mm proxy-unsafe. Before collecting or training anything else, separate
+initial safety, command timing, Cartesian link authority, proxy conservatism,
+and genuine raw contact at the original action-182 state.
+
+Only if that audit passes, search a generic task-relative detour manifold.
+Compare a soft/free continuous family, strict endpoint-preserving control arm,
+and frozen 54-member finite library under identical state and continuation.
+Acceptance uses internal exact overlap, raw contact, CAR and task compatibility;
+the conservative Loewner support gap is diagnostic. This distinguishes a bad
+manifold from poor discretization before any learned selector is authorized.
+
 ## ADR-0095: Reject the frozen ranker as avoidance; retain weak ranking evidence
 
 Accepted after H100 producer `39319` and independent validator `39324`. The

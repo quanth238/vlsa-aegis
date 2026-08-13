@@ -1,5 +1,23 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Cartesian controllability/manifold oracle (preregistered, 2026-08-13)
+
+The active no-learning gate first audits the archived action-182 state at all
+25 internal MuJoCo substeps per action. It separately records the conservative
+compiled-box Loewner margin, exact robot-ellipsoid/compiled-box overlap, raw
+protected contacts, CAR, and L5--L7 center motion under ten paired basis
+probes. Search proceeds only if the initial state is physically safe, command
+influence precedes raw contact, pre-contact authority reaches 1 mm, and the
+nominal continuation contains a genuine protected contact.
+
+Conditional on controllability, compare a five-dimensional soft/free
+task-relative continuous oracle, a four-dimensional endpoint-preserving
+control arm, and a fixed 54-candidate discretization. A candidate must have no
+exact overlap or protected contact at any internal substep, pass CAR, stay
+within 15 mm terminal EE deviation, and retain at least 50% nominal progress.
+The Loewner proxy is reported but cannot veto a physical pass. Learning,
+ranking, QP, primary corrected execution, live VLA and closed loop are frozen.
+
 ## E05 Moka frozen ranker audit (preregistered, 2026-08-13)
 
 The next gate freezes the validated direction-conditioned scalar checkpoint

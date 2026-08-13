@@ -1,0 +1,47 @@
+{
+  "protocol_id": "vlsa-distal-controllability-manifold-e05-v1",
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_archived_e05_state_no_learning_cartesian_controllability_and_task_relative_detour_manifold_oracle_not_closed_loop_not_task_completion_not_generalization_not_formal_safety",
+  "state": {
+    "step": 182,
+    "evaluation_horizon_actions": 20,
+    "corrected_prefix_actions": 5,
+    "expected_mujoco_substeps_per_action": 25
+  },
+  "authority_audit": {
+    "coefficient_amplitude_action": 0.5,
+    "minimum_previolation_link_center_change_m": 0.001,
+    "influence_tolerance_m": 1e-8
+  },
+  "manifold": {
+    "continuous_arms": ["soft_free_5d", "endpoint_preserving_4d"],
+    "coefficient_bounds_action": [-0.75, 0.75],
+    "maximum_effective_correction_l2_action": 2.0,
+    "differential_evolution_seed": 2026081415,
+    "population_multiplier": 5,
+    "maximum_generations": 8,
+    "polish": true,
+    "finite_library_count": 54,
+    "internal_finalist_count_per_continuous_arm": 10,
+    "finite_library_internal_policy": "verify_all_54"
+  },
+  "gate": {
+    "paper_car_threshold_m": 0.001,
+    "maximum_terminal_eef_error_m": 0.015,
+    "minimum_task_progress_ratio": 0.5,
+    "protected_raw_contact_count": 0,
+    "exact_overlap_sample_count": 0
+  },
+  "optimizer_authority": "exact_compiled_box_ellipsoid_normalized_radial_slack_at_action_boundaries",
+  "acceptance_authority": "all_internal_mujoco_substeps_exact_compiled_box_nonoverlap_zero_protected_contact_and_car_plus_task_compatibility",
+  "proxy_diagnostic": "seven_link_minimum_support_gap_against_fifteen_compiled_box_loewner_ellipsoids",
+  "forbidden": [
+    "model_training",
+    "learned_ranking",
+    "qp",
+    "corrected_primary_execution",
+    "live_vla_query",
+    "closed_loop",
+    "table1_artifact_change"
+  ]
+}
