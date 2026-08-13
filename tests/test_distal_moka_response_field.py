@@ -7,6 +7,33 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MokaResponseFieldTests(unittest.TestCase):
+    def test_secant_radius_ablation_changes_only_physical_radius(self):
+        config = json.loads(
+            (ROOT / "configs/vlsa_distal_moka_secant_radius_e05.v1.json").read_text()
+        )
+        compact = json.loads(
+            (ROOT / "configs/vlsa_distal_moka_compact_input_ablation_e05.v1.json").read_text()
+        )
+        self.assertEqual(config["model"], compact["model"])
+        self.assertEqual(config["input"]["context_groups"], ["nominal_first_five_xyz"])
+        self.assertEqual(config["sampling"]["test_radii_action"], [0.025, 0.0125])
+        self.assertEqual(config["direction_protocol"]["generation_radius_action"], 0.05)
+        self.assertTrue(config["direction_protocol"]["reuse_exact_directions_across_radii"])
+        self.assertIn("input_change", config["forbidden"])
+        self.assertIn("direction_change", config["forbidden"])
+        self.assertIn("qp", config["forbidden"])
+        source = (ROOT / "scripts/evaluate_distal_moka_secant_radius_e05.py").read_text()
+        self.assertIn("for radius in sampling[\"test_radii_action\"]", source)
+        self.assertIn("float(radius) * direction", source)
+        self.assertNotIn("solve_qp", source)
+
+    def test_secant_radius_validator_recomputes_each_gate(self):
+        source = (ROOT / "scripts/validate_distal_moka_secant_radius_e05.py").read_text()
+        self.assertIn('set(reports) == {"0.025", "0.0125"}', source)
+        self.assertIn('report["local_ridge"]["design_rank"] == 15', source)
+        self.assertIn('report["gate"]["checks"] == checks', source)
+        self.assertIn('result.get("passing_radii") == passing', source)
+
     def test_compact_input_ablation_changes_only_the_input(self):
         config = json.loads(
             (

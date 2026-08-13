@@ -1,0 +1,69 @@
+{
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "one_state_compact_input_secant_locality_ablation_not_state_generalization_not_control_not_formal_safety",
+  "direction_protocol": {
+    "generation_radius_action": 0.05,
+    "reuse_exact_directions_across_radii": true
+  },
+  "forbidden": [
+    "input_change",
+    "direction_change",
+    "loss_change",
+    "optimizer_change",
+    "architecture_change",
+    "horizon_change",
+    "qp",
+    "corrected_execution",
+    "closed_loop"
+  ],
+  "gate": {
+    "minimum_fit_response_cosine": 0.9,
+    "minimum_fit_sign_accuracy": 0.85,
+    "minimum_heldout_response_cosine": 0.8,
+    "minimum_heldout_sign_accuracy": 0.85,
+    "minimum_near_active_row_cosine_to_ridge": 0.9,
+    "minimum_ridge_heldout_response_cosine": 0.8,
+    "minimum_ridge_heldout_sign_accuracy": 0.85
+  },
+  "input": {
+    "context_dimension": 15,
+    "context_groups": [
+      "nominal_first_five_xyz"
+    ],
+    "model_input_dimension": 25
+  },
+  "model": {
+    "cpu_threads": 8,
+    "epochs": 4000,
+    "hidden_units": 128,
+    "learning_rate": 0.001,
+    "patience": 300,
+    "response_loss_weight": 2.0,
+    "seed": 2026081301,
+    "weight_decay": 1e-06
+  },
+  "protocol_id": "vlsa-distal-moka-secant-radius-e05-v1",
+  "reference": {
+    "radius_action": 0.05,
+    "result_file_sha256": "a55fd62fe391724c662296ae7e59f67328f163c3980486b37465fdec7955aab1",
+    "result_payload_sha256": "5384c6893e0fefaa6e19bd59c8e13c210a1fe25e04a9e18eb00468325281ecae",
+    "run_id": "compact-input-20260813b"
+  },
+  "sampling": {
+    "direction_seed": 2026081310,
+    "fit_direction_count": 24,
+    "heldout_direction_count": 8,
+    "near_active_threshold_m": 0.002,
+    "paired_direction_count": 32,
+    "ridge": 1e-06,
+    "test_radii_action": [
+      0.025,
+      0.0125
+    ]
+  },
+  "state": {
+    "step": 182
+  }
+}

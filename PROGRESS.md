@@ -1,5 +1,19 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Moka compact-input secant-radius ablation (preregistered, 2026-08-13)
+
+The next gate keeps the validated 25D one-state input and every model,
+geometry, horizon, loss, optimizer, seed, and direction setting fixed. It
+reuses the exact radius-0.05 direction vectors but executes paired cloned-OSC
+rollouts at `0.025` and `0.0125`. This isolates physical secant locality from
+direction support.
+
+For each radius, fit the local ridge teacher and compact MLP independently.
+Require both to predict the same eight fresh directions with cosine at least
+`0.8` and sign accuracy at least `0.85`; also retain the compact fit and
+near-active-row gates. No new state input, QP, correction, or closed-loop
+experiment is allowed.
+
 ## E05 Moka compact-input memorization ablation (preregistered, 2026-08-13)
 
 The next active gate changes exactly one factor from the validated `39230`

@@ -1,5 +1,19 @@
 # Reproduction decisions
 
+## ADR-0090: Change only secant radius after compact-input improvement
+
+Accepted before simulation or training. Keep E05 step 182, the compact 25D
+input, exact 32 direction vectors, 20-action horizon, geometry, model, loss,
+optimizer, seed, and split of 24 fit/eight held-out directions fixed. Reuse
+directions generated under the original radius-0.05 support mask, but execute
+paired perturbations at `0.025` and `0.0125`.
+
+Evaluate the local ridge teacher before interpreting the MLP. A smaller radius
+supports local affine-response learning only if both teacher and compact MLP
+reach the registered held-out cosine/sign gates. Otherwise, do not add state
+inputs, a QP, or control; replace the full-vector affine response target in a
+later gate.
+
 ## ADR-0088: Isolate input representation with one-state memorization
 
 Accepted before training. The frozen audit attributes primary failure to a
