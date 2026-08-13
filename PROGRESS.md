@@ -16,6 +16,11 @@ Exact next command after committing and syncing clean source:
 EXPECTED_GIT_COMMIT=<commit> RUN_ID=soft-prefix-live-replan-e05-20260813a sbatch slurm/distal_soft_prefix_live_replan_e05.sbatch
 ```
 
+H100 job `39352` stopped before simulation because the evaluator imported the
+protected-link predicate from the baseline module instead of its registered
+replay module. The run contains only apparatus-failure evidence. The import was
+corrected and an evaluator-import check was added to allocation preflight.
+
 ## E05 Cartesian controllability/manifold oracle (preregistered, 2026-08-13)
 
 The active no-learning gate first audits the archived action-182 state at all
