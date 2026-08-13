@@ -3077,7 +3077,7 @@ QP, CBF, or invariance. Producer/validation payload SHA-256 values are
 `c98812fc3afae7fa8a4dcc6352cef5eb57524cd79e9055738f9603d81b0a3ef3`
 and `c87b62873cfc14ed46c5224f81a27b37143fad50aab2c5a9c58e71a8b993ab4f`.
 
-## Grouped real-query action-risk coverage (running)
+## Grouped real-query action-risk coverage (validated NO-GO)
 
 The query-boundary producer/validator retained one initially safe real
 five-action query boundary from each of 15 diagnostic/train/validation episode
@@ -3094,10 +3094,40 @@ The first grouped attempt `39657` preserved two complete artifacts, then cases
 2 and 3 hit the 20-minute Slurm wall limit before atomic output. This is an
 infrastructure-censored attempt with no result for those cases. The scientific
 method was not shortened. Commit `553f001` changes only the allocation limit
-to 60 minutes. Uniform H100 array `39669` is running all 15 states with two-job
-concurrency, and independent validator `39674` is registered with an
-`afterok:39669` dependency. The rerun reproduced E05 exactly. E10 is currently
-a retained state-level NO-GO: it has 6 physically verified safe candidates,
-but 20 candidates with nonpositive seven-row proxy risk still violate protected
-MuJoCo contact or CAR. Training, QP, calibration, and closed-loop control
-remain forbidden pending the final per-row validation artifact.
+to 60 minutes.
+
+Uniform H100 array `39669` completed all 15 states. Independent H100 validator
+`39701` checked all result schemas, source/config hashes, archived Table-1
+bindings, candidate identities, stored replay hashes, seven-row traces,
+contacts/CAR, and deterministic replays. All 15 artifacts and replays passed.
+The final state partition is 11 usable mixed-support, one proxy-invalid, and
+three with no safe candidate; no state lacked known unsafe support. The
+proxy-invalid diagnostic is E10, where 20 candidates with nonpositive proxy
+risk nevertheless violate protected contact or CAR. Unknown backup timeouts
+remain censored: 183 candidates across 13 states, none included in the learning
+manifest.
+
+The frozen coverage snapshot contains 234 known candidates from usable states,
+15 state records, and a complete-episode split: 10 train, three validation,
+two diagnostic, and three label-free reserved test episodes. Its status is
+`coverage_no_go_not_for_training`. Rows 0 and 3 pass every preregistered
+coverage threshold. Row 1 lacks one train episode with an active witness; row
+2 has no active-witness samples; rows 4 and 6 have no unsafe, near-boundary, or
+active samples; row 5 has only two near-boundary samples and no unsafe/active
+samples. Therefore only two of seven claimed rows are adequate.
+
+The validated interpretation is
+`grouped_query_action_risk_coverage_no_go_targeted_collection_required`.
+MLP training, calibration, QP, and closed-loop execution remain forbidden.
+Next collection must preserve the exact candidate/backup method while targeting
+L5 rows 1--2, L6 row 1, and both L7 rows across complete train/validation
+episode groups. Validation file/payload SHA-256 values are
+`de33306634feaebe1696a741653026c53d60fa739dc74a6f363c10a64d728bf4`
+and `e8371c866bb9083eebb7d2b2514dcc9f6b32ded6d6657c4d7b2d901a322c8a3c`.
+Frozen candidate/state/split manifest SHA-256 values are
+`380e7e7e3ad82961218778ec150ef962b1a42481d678147f2a360e848d5c77ae`,
+`e473a8e585b0ee76c338582e90dbc3c3a44e4f7f9eb25abc20a6c5da714af1f6`,
+and `ee1d3286568b178b0f7c225a8ec60f41886b724ce01cbed965c55df1d6659567`.
+Validator attempts `39677` and `39698` stopped on coverage-audit numeric and
+field-name apparatus bugs and wrote no accepted validation artifact; they do
+not alter the final scientific result.

@@ -2201,3 +2201,27 @@ the candidate family, backup, target, terminal semantics, or acceptance gate.
 Uniform array `39669` and dependent independent validator `39674` are the
 authoritative population run. Any proxy-safe MuJoCo/CAR violation remains a
 state-level NO-GO and cannot become a safe training label.
+
+## ADR-0112: Freeze the grouped coverage snapshot; reject seven-output training
+
+Accepted after uniform H100 array `39669` and independent H100 validator
+`39701`. Preserve all 15 validated state artifacts and the immutable
+complete-episode split, but mark the snapshot
+`coverage_no_go_not_for_training`. Unknown backup timeouts are censored and
+excluded from the candidate manifest; proxy-invalid and no-safe states remain
+in the state manifest but cannot contribute learning examples.
+
+Only rows 0 (L5 slab 0) and 3 (L6 slab 0) satisfy every preregistered boundary
+coverage threshold. Row 1 lacks a third train active-witness episode, row 2
+has no active witnesses, and rows 4--6 have no meaningful unsafe/active
+support. E10 is retained as a diagnostic proxy-invalid case with 20
+proxy-safe physical vetoes. Three states contain no exact-safe candidate.
+These are distinct population outcomes and must not be repaired by relabeling,
+dropping timeouts, or filling rows with far-safe examples.
+
+Do not train the seven-output action-risk MLP, add calibration, enable a QP,
+or run closed loop from this freeze. Retain the exact real-query candidate and
+complete ledger-independent backup protocol. The only authorized next gate is
+targeted grouped collection for L5 rows 1--2, L6 row 1, and both L7 rows,
+followed by the same independent coverage validator. Reserved test episodes
+remain unlabeled and untouched until the training-coverage gate passes.
