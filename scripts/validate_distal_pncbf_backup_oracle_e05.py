@@ -84,7 +84,7 @@ def validate(
     tolerance = float(config["measurement"]["boundary_equivalence_tolerance"])
     for query in result["policy_queries"]:
         returned = np.asarray(query["returned_actions"], dtype=np.float64)
-        _require(returned.shape == (10, 7), "stored policy chunk differs")
+        _require(returned.ndim == 2 and returned.shape[1] == 7 and 1 <= returned.shape[0] <= 10, "stored policy chunk differs")
         _require(array_sha256(returned) == query["returned_actions_sha256"], "policy chunk hash differs")
     for window in result["windows"]:
         expected_count = int(window["action_count"])

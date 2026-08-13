@@ -38,7 +38,7 @@ def evaluate(
     *, repo_root: Path, manifest_path: Path, archived_path: Path,
     controllability_path: Path, geometry_config_path: Path,
     experiment_config_path: Path, expected_commit: str, host: str,
-    port: int, output_path: Path,
+    port: int, output_path: Path, proposal_result_path: Optional[Path] = None,
 ) -> dict[str, Any]:
     import numpy as np
     from main.evaluate_safelibero_aegis import (
@@ -62,6 +62,16 @@ def evaluate(
 
     started = time.perf_counter_ns()
     config = load_config(experiment_config_path)
+    frozen_proposal = None
+    if proposal_result_path is not None:
+        proposal_registration = config["registered_inputs"].get("task_successful_proposal_result")
+        _require(proposal_registration is not None, "proposal result is not registered")
+        _require(_file_sha256(proposal_result_path) == proposal_registration["file_sha256"], "proposal file differs")
+        frozen_proposal = _load(proposal_result_path)
+        _require(frozen_proposal["result_payload_sha256"] == proposal_registration["result_payload_sha256"], "proposal payload differs")
+        _require(frozen_proposal["source"]["commit"] == proposal_registration["source_commit"], "proposal source differs")
+        _require(frozen_proposal["native_task_success"] is True, "proposal source did not complete task")
+        _require(frozen_proposal["raw_contact_pass"] is False, "proposal source did not contain protected collision")
     registered = config["registered_inputs"]["controllability_result"]
     _require(_file_sha256(controllability_path) == registered["file_sha256"], "controllability file differs")
     control = _validate_registered(controllability_path, registered, "vlsa_distal_controllability_manifold_e05_result.v1")
@@ -154,8 +164,20 @@ def evaluate(
             _require(error <= 1.0e-10, "initial execution differs from clone")
             _require(not done, "task completed inside initial prefix")
 
-        client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, int(port))
-        server_identity = _server_identity(client)
+        client = None
+        if frozen_proposal is None:
+            client = runtime["websocket_client_policy"].WebsocketClientPolicy(host, int(port))
+            server_identity = _server_identity(client)
+        else:
+            server_identity = frozen_proposal["policy_server"]
+            frozen_raw_by_step = {
+                int(item["step"]): np.asarray(item["nominal_raw"], dtype=np.float64)
+                for item in frozen_proposal["live_aegis_records"]
+            }
+            frozen_executed_by_step = {
+                int(item["step"]): np.asarray(item["executed"], dtype=np.float64)
+                for item in frozen_proposal["live_aegis_records"]
+            }
         proxy = _eef_proxy(runtime, observation)
         p2 = np.asarray(perception["mvee_center"], dtype=np.float64)
         z = p2 - np.asarray(proxy["p1"], dtype=np.float64)
@@ -168,15 +190,31 @@ def evaluate(
         latch = False
         failure = None
         done = False
+        repulsion_has_changed_state = False
         for step in range(187, max_steps_for_case(case), 5):
             execute_count = min(5, max_steps_for_case(case) - step)
+            if frozen_proposal is not None:
+                execute_count = 0
+                for offset in range(5):
+                    if step + offset not in frozen_raw_by_step:
+                        break
+                    execute_count += 1
+                if execute_count == 0:
+                    failure = {"step": step, "reason": "task_successful_proposal_ledger_exhausted"}
+                    break
             seed = query_seed(int(case["policy_noise_seed"]), query_index)
-            policy_input = _policy_observation(runtime, observation, task_description=str(task.language), resize_size=224, rng_seed=seed)
-            query_started = time.perf_counter_ns()
-            response = client.infer(policy_input)
-            returned = np.asarray(response["actions"], dtype=np.float64)
-            _require(returned.shape == (int(case["model_action_horizon"]), 7), "policy chunk differs")
-            policy_queries.append({"query_index": query_index, "rng_seed": seed, "returned_actions_sha256": array_sha256(returned), "returned_actions": returned.tolist(), "wall_seconds": (time.perf_counter_ns() - query_started) * 1e-9, "server_timing": response.get("server_timing")})
+            if frozen_proposal is None:
+                policy_input = _policy_observation(runtime, observation, task_description=str(task.language), resize_size=224, rng_seed=seed)
+                query_started = time.perf_counter_ns()
+                response = client.infer(policy_input)
+                returned = np.asarray(response["actions"], dtype=np.float64)
+                _require(returned.shape == (int(case["model_action_horizon"]), 7), "policy chunk differs")
+                policy_queries.append({"query_index": query_index, "rng_seed": seed, "returned_actions_sha256": array_sha256(returned), "returned_actions": returned.tolist(), "wall_seconds": (time.perf_counter_ns() - query_started) * 1e-9, "server_timing": response.get("server_timing")})
+            else:
+                available = [frozen_raw_by_step.get(step + offset) for offset in range(execute_count)]
+                _require(not any(value is None for value in available), "task-successful proposal ledger is noncontiguous")
+                returned = np.asarray(available, dtype=np.float64)
+                policy_queries.append({"query_index": query_index, "rng_seed": seed, "returned_actions_sha256": array_sha256(returned), "returned_actions": returned.tolist(), "wall_seconds": 0.0, "server_timing": None, "source": "registered_task_successful_job_39354_action_ledger"})
             query_index += 1
             one_step.synchronize(env)
             virtual_observation = probe_env.env._get_observations()
@@ -191,6 +229,14 @@ def evaluate(
                 virtual_proxy = _eef_proxy(runtime, virtual_observation)
                 qp_records.append(qp)
             nominal_actions = np.asarray(nominal_actions, dtype=np.float64)
+            source_nominal_max_abs_error = None
+            if frozen_proposal is not None and not repulsion_has_changed_state:
+                source_actions = np.asarray(
+                    [frozen_executed_by_step[step + offset] for offset in range(execute_count)],
+                    dtype=np.float64,
+                )
+                source_nominal_max_abs_error = float(np.max(np.abs(nominal_actions - source_actions)))
+                _require(source_nominal_max_abs_error <= 1.0e-10, "frozen proposal binding differs before intervention")
             nominal_record = instrumented.rollout_internal(env, nominal_actions, expected_substeps=expected_substeps, boundary_tolerance=tolerance, step_base=step)
             nominal_margin = float(nominal_record["minimum_clearance_m"])
             nominal_physical_safe = physical_safe(nominal_record, car_limit)
@@ -224,7 +270,7 @@ def evaluate(
                     selected_record = chosen["record"]
                     selected_summary = chosen["record"]
                     selected_source = "hysteretic_normal_repulsion"
-            window = {"step": step, "action_count": execute_count, "latch_entering": latch_entering, "latch_after_nominal": latch, "nominal_physical_safe": nominal_physical_safe, "physically_unsafe_nominal_forced_backup": physically_forced, "nominal": _internal_summary(nominal_record), "candidates": candidates, "selected_source": None if failure else selected_source, "selected": None if failure else _public(selected_summary), "released_aegis_qp_records": qp_records}
+            window = {"step": step, "action_count": execute_count, "latch_entering": latch_entering, "latch_after_nominal": latch, "nominal_physical_safe": nominal_physical_safe, "physically_unsafe_nominal_forced_backup": physically_forced, "frozen_source_nominal_max_abs_error_before_first_intervention": source_nominal_max_abs_error, "nominal": _internal_summary(nominal_record), "candidates": candidates, "selected_source": None if failure else selected_source, "selected": None if failure else _public(selected_summary), "released_aegis_qp_records": qp_records}
             windows.append(window)
             if failure:
                 break
@@ -243,6 +289,8 @@ def evaluate(
             window["executed_action_count"] = len(clone_errors)
             window["clone_state_max_abs_error"] = max(clone_errors)
             released_geometry["z_fixed"] = np.asarray(qp_records[len(clone_errors) - 1]["z_after"], dtype=np.float64)
+            if selected_source == "hysteretic_normal_repulsion":
+                repulsion_has_changed_state = True
             if failure or done:
                 break
 
@@ -261,6 +309,7 @@ def evaluate(
             "case_id": CASE_ID, "claim_scope": config["claim_scope"], "source": source, "allocation": allocation, "config": config,
             "archived_table1": {"path": str(archived_path), "file_sha256": ARCHIVED_FILE_SHA256, "payload_sha256": ARCHIVED_PAYLOAD_SHA256, "read_only": True},
             "registered_controllability": {"path": str(controllability_path), "file_sha256": _file_sha256(controllability_path), "payload_sha256": control["result_payload_sha256"]},
+            "registered_task_successful_proposal": None if frozen_proposal is None else {"path": str(proposal_result_path), "file_sha256": _file_sha256(proposal_result_path), "payload_sha256": frozen_proposal["result_payload_sha256"], "source_slurm_job_id": frozen_proposal["allocation"]["slurm_job_id"], "native_task_success_step": frozen_proposal["native_task_success_step"], "first_protected_contact": frozen_proposal["physical_safety_after_activation"]["first_protected_contact"]},
             "pairing": pairing, "probe_environment": {"disabled_image_observable_count": disabled_images, "osc_controller": "OSC_POSE", "control_frequency_hz": 20},
             "policy_server": server_identity, "policy_queries": policy_queries, "windows": windows, "actions": actions,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},
@@ -290,8 +339,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--proposal-result", type=Path)
     args = parser.parse_args(argv)
-    result = evaluate(repo_root=args.repo_root.resolve(), manifest_path=args.manifest.resolve(), archived_path=args.archived.resolve(), controllability_path=args.controllability_result.resolve(), geometry_config_path=args.geometry_config.resolve(), experiment_config_path=args.experiment_config.resolve(), expected_commit=args.expected_commit, host=args.host, port=args.port, output_path=args.output.resolve())
+    result = evaluate(repo_root=args.repo_root.resolve(), manifest_path=args.manifest.resolve(), archived_path=args.archived.resolve(), controllability_path=args.controllability_result.resolve(), geometry_config_path=args.geometry_config.resolve(), experiment_config_path=args.experiment_config.resolve(), expected_commit=args.expected_commit, host=args.host, port=args.port, output_path=args.output.resolve(), proposal_result_path=None if args.proposal_result is None else args.proposal_result.resolve())
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({"interpretation": result["interpretation"], "primary_problem_solved": result["primary_problem_solved"], "summary": result["summary"], "failure": result["failure"], "result_payload_sha256": result["result_payload_sha256"]}, sort_keys=True), flush=True)
     return 0

@@ -1,5 +1,15 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
+
+H100 producer `39376` and fresh action-ledger validator `39378` executed 300
+exactly reproduced actions with zero contact/CAR and +19.888 mm minimum proxy
+clearance, but the newly sampled pi0.5 mode made zero task progress. No warning
+activated and no repulsion was applied. The next focused counterfactual freezes
+the task-successful but action-223-colliding proposal ledger from job `39354`
+and changes only the repeated normal backup. This removes stochastic policy
+sample confounding; it is not live VLA feedback after intervention.
+
 ## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
 
 The next E02 gate fixes one reproducible continuation policy before learning a

@@ -21,6 +21,8 @@ PI05_CHECKPOINT=${PI05_CHECKPOINT:-/mnt/data/quanth/cache/openpi/openpi-assets/c
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-pncbf-backup-oracle-e05}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 CONTROLLABILITY_RESULT=${CONTROLLABILITY_RESULT:-/mnt/data/quanth/experiments/vlsa-distal-controllability-manifold-e05-20260813a/result.json}
+EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_pncbf_backup_oracle_e05.v1.json}
+PROPOSAL_RESULT=${PROPOSAL_RESULT:-}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
@@ -32,6 +34,9 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -d "$PI05_CHECKPOINT" && ! -L "$PI05_CHECKPOINT" ]] || die "pi0.5 checkpoint differs"
 [[ "$(sha256sum "$ARCHIVED_TABLE1_RESULT" | awk '{print $1}')" == 273d77cba3fd5b1e457817ad20f8572b5628aeaa8b5b9f768b32e4f095fbad8b ]] || die "Table-1 hash differs"
 [[ "$(sha256sum "$CONTROLLABILITY_RESULT" | awk '{print $1}')" == ddc676f775b19cdf507e88359d086b019f8aea2e3191e6a4c0023cb1109c6d21 ]] || die "controllability result differs"
+if [[ -n "$PROPOSAL_RESULT" ]]; then
+  [[ "$(sha256sum "$PROPOSAL_RESULT" | awk '{print $1}')" == 70494008c6a873803ff9fdf9a9c3925a5d7c2d8d3586fa8124a3eadea65e34a7 ]] || die "task-successful proposal result differs"
+fi
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || die "source commit differs"
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || die "source tree is dirty"
 
@@ -82,17 +87,24 @@ cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_pncbf_backup -v >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
 "$AEGIS_PYTHON" -c 'from scripts.evaluate_distal_pncbf_backup_oracle_e05 import evaluate; from scripts.validate_distal_pncbf_backup_oracle_e05 import validate' >>"$RUN_ROOT/evaluation-preflight.txt" 2>&1
 [[ "$(jq -r .result_payload_sha256 "$CONTROLLABILITY_RESULT")" == 3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98 ]] || die "controllability payload differs"
-(
-  cd "$REMOTE_REPO"
-  exec "$OPENPI_PYTHON" scripts/serve_policy.py --port "$POLICY_PORT" policy:checkpoint --policy.config pi05_libero --policy.dir "$PI05_CHECKPOINT"
-) >"$SERVER_LOG" 2>&1 &
-SERVER_PID=$!
-for _ in $(seq 1 600); do
-  kill -0 "$SERVER_PID" 2>/dev/null || { tail -n 200 "$SERVER_LOG" >&2 || true; die "pi0.5 server exited before healthz"; }
-  if curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/null 2>&1; then break; fi
-  sleep 1
-done
-curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/null || die "pi0.5 healthz failed"
+if [[ -z "$PROPOSAL_RESULT" ]]; then
+  (
+    cd "$REMOTE_REPO"
+    exec "$OPENPI_PYTHON" scripts/serve_policy.py --port "$POLICY_PORT" policy:checkpoint --policy.config pi05_libero --policy.dir "$PI05_CHECKPOINT"
+  ) >"$SERVER_LOG" 2>&1 &
+  SERVER_PID=$!
+  for _ in $(seq 1 600); do
+    kill -0 "$SERVER_PID" 2>/dev/null || { tail -n 200 "$SERVER_LOG" >&2 || true; die "pi0.5 server exited before healthz"; }
+    if curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/null 2>&1; then break; fi
+    sleep 1
+  done
+  curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/null || die "pi0.5 healthz failed"
+fi
+
+proposal_args=()
+if [[ -n "$PROPOSAL_RESULT" ]]; then
+  proposal_args+=(--proposal-result "$PROPOSAL_RESULT")
+fi
 
 "$AEGIS_PYTHON" scripts/evaluate_distal_pncbf_backup_oracle_e05.py \
   --repo-root "$REMOTE_REPO" \
@@ -100,8 +112,9 @@ curl --fail --silent --show-error "http://127.0.0.1:$POLICY_PORT/healthz" >/dev/
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --controllability-result "$CONTROLLABILITY_RESULT" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
-  --experiment-config "$REMOTE_REPO/configs/vlsa_distal_pncbf_backup_oracle_e05.v1.json" \
+  --experiment-config "$EXPERIMENT_CONFIG" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --host 127.0.0.1 \
   --port "$POLICY_PORT" \
+  "${proposal_args[@]}" \
   --output "$RUN_ROOT/result.json"

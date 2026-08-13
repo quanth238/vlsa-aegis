@@ -1,5 +1,14 @@
 # Reproduction decisions
 
+## ADR-0101: Freeze a task-successful policy sample before judging backup efficacy
+
+Job `39376` sampled a safe but task-failing pi0.5 realization, so its zero
+repulsion windows cannot test collision avoidance. Register job `39354`'s
+task-successful, later-colliding Cartesian proposal ledger as the immutable
+counterfactual input. Require exact AEGIS reconstruction before intervention,
+then evaluate only the fixed normal backup. Do not attribute stochastic policy
+failure to the backup or call the frozen suffix live replanning.
+
 ## ADR-0100: Define the backup policy before learning its PNCBF value
 
 Preregister one fixed policy: frozen pi0.5 and original AEGIS, with a

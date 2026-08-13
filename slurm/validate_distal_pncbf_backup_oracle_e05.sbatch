@@ -19,6 +19,7 @@ SOURCE_RUN_ID=${SOURCE_RUN_ID:?SOURCE_RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-pncbf-backup-oracle-e05}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
+EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_pncbf_backup_oracle_e05.v1.json}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
@@ -54,6 +55,6 @@ cd "$REMOTE_REPO"
   --manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
   --archived "$ARCHIVED_TABLE1_RESULT" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
-  --experiment-config "$REMOTE_REPO/configs/vlsa_distal_pncbf_backup_oracle_e05.v1.json" \
+  --experiment-config "$EXPERIMENT_CONFIG" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --output "$RUN_ROOT/validation.json"

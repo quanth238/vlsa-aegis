@@ -15,7 +15,10 @@ def _canonical(value: Any) -> bytes:
 def load_config(path: Path) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
-    if value.get("protocol_id") != "vlsa-distal-pncbf-backup-oracle-e05-v1":
+    if value.get("protocol_id") not in {
+        "vlsa-distal-pncbf-backup-oracle-e05-v1",
+        "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1",
+    }:
         raise ValueError("PNCBF backup protocol differs")
     if value.get("case_ids") != ["vlsa-t1-goal-ii-t0-e05"]:
         raise ValueError("PNCBF backup case differs")
@@ -29,6 +32,10 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("PNCBF backup must contain only normal repulsion")
     if value["backup_policy"]["physically_unsafe_nominal_forces_backup"] is not True:
         raise ValueError("PNCBF backup must reject physically unsafe nominal actions")
+    if value.get("protocol_id") == "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1":
+        proposal = value["registered_inputs"].get("task_successful_proposal_result", {})
+        if proposal.get("slurm_job_id") != "39354":
+            raise ValueError("frozen proposal source differs")
     if not 0.0 < float(value["warning"]["activation_clearance_m"]) < float(value["warning"]["release_clearance_m"]):
         raise ValueError("PNCBF backup hysteresis thresholds differ")
     output = json.loads(_canonical(value).decode())

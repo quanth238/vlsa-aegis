@@ -1,0 +1,62 @@
+{
+  "protocol_id": "vlsa-distal-pncbf-backup-frozen-proposal-e05-v1",
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_e05_matched_task_successful_proposal_ledger_counterfactual_repeated_normal_repulsion_not_live_vla_after_intervention_not_learning_not_qp_not_cbf_not_formal_safety_not_generalization",
+  "registered_inputs": {
+    "controllability_result": {
+      "path": "/mnt/data/quanth/experiments/vlsa-distal-controllability-manifold-e05-20260813a/result.json",
+      "file_sha256": "ddc676f775b19cdf507e88359d086b019f8aea2e3191e6a4c0023cb1109c6d21",
+      "result_payload_sha256": "3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98",
+      "source_commit": "eba0d8baff3f94369012166038f084dc7c5f194c"
+    },
+    "task_successful_proposal_result": {
+      "path": "/mnt/data/quanth/experiments/vlsa-distal-soft-prefix-live-replan-e05/soft-prefix-live-replan-e05-20260813c/result.json",
+      "file_sha256": "70494008c6a873803ff9fdf9a9c3925a5d7c2d8d3586fa8124a3eadea65e34a7",
+      "result_payload_sha256": "df0d1c731255eb0fec89f285146921f911e5f6a124ae1a06673dea12ab7e1c5c",
+      "source_commit": "39a78e70b05a4ca2db7c53faa20b22b89c3c68a4",
+      "slurm_job_id": "39354"
+    },
+    "initial_prefix_arm": "soft_free_5d",
+    "initial_prefix_coefficients": [0.6979806961017749, -0.6214514068014507, 0.5711711073895184, -0.6500084457375009, 0.733209765095035]
+  },
+  "state_protocol": {
+    "archived_prefix_stop_exclusive": 182,
+    "registered_initial_prefix_steps": [182, 183, 184, 185, 186],
+    "live_replanning_start_step": 187,
+    "first_live_policy_query_index": 37,
+    "policy_action_horizon": 10,
+    "lookahead_actions": 5,
+    "execute_prefix_actions": 5,
+    "maximum_episode_steps_from_manifest": true
+  },
+  "warning": {
+    "signal": "minimum_five_action_internal_L5_L7_Loewner_proxy_clearance",
+    "activation_clearance_m": 0.001,
+    "release_clearance_m": 0.005,
+    "hysteresis": true
+  },
+  "backup_policy": {
+    "direction": "current_active_link_center_minus_obstacle_center_normal",
+    "temporal_profile": "constant_over_five_actions",
+    "candidate_correction_l2_action": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0],
+    "action_limit": 1.0,
+    "selection": "smallest_physical_safe_candidate_reaching_activation_buffer_else_best_clearance_improving_physical_safe_candidate",
+    "physical_acceptance": "zero_protected_MuJoCo_contact_and_CAR_at_most_1mm",
+    "physically_unsafe_nominal_forces_backup": true,
+    "failure": "fail_closed_when_no_physically_safe_clearance_improving_repulsive_candidate",
+    "additional_direction_or_detour_modes": false
+  },
+  "measurement": {
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance": 1e-12,
+    "paper_car_threshold_m": 0.001,
+    "physical_authority": "raw_MuJoCo_L5_L6_L7_contact_and_CAR",
+    "optimizer_proxy": "seven_L5_L7_Loewner_rows_reported_separately"
+  },
+  "success": {
+    "primary": "native_task_completion_and_zero_executed_protected_contact_and_CAR",
+    "deadlock": "backup_policy_has_no_physical_safe_clearance_improving_candidate",
+    "no_intervention": "nominal_warning_signal_above_release_or_latch_inactive_above_activation"
+  },
+  "forbidden": ["resample_pi05_policy", "endpoint_preservation", "tangent_or_route_detour", "learned_model", "new_qp", "policy_parameter_change", "table1_artifact_change"]
+}
