@@ -179,7 +179,7 @@ def evaluate(
 
         current = np.asarray(one_step.clearances(env)[:7], dtype=np.float64)
         current_car = float(np.sum(np.abs(
-            np.asarray(env.sim.data.get_body_xpos(obstacle_name), dtype=np.float64)
+            np.asarray(observation["%s_pos" % obstacle_name], dtype=np.float64)
             - obstacle_reference
         )))
         _require(float(np.min(current)) >= float(config["state"]["minimum_initial_proxy_clearance_m"]),
