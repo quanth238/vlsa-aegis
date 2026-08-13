@@ -35,6 +35,43 @@ uses the same repository/SafeLIBERO module and LIBERO configuration contract
 as the accepted producer. This is an apparatus-only fix; no scientific result
 was produced.
 
+Clean H100 producer `39265` completed the final frozen-model audit on
+`worker-1` in 16:44 from commit
+`f6355f490c5b5780e1bdc6ed9dcc0edeec85a993`; independent H100 validator
+`39272` accepted all 585 replay rollouts and the immutable model hash. The
+primary diagnosis is `training_response_underfit`: MLP held-out response
+cosine/sign were only `0.312181/0.572679` on train,
+`0.340293/0.627232` on validation, and `0.098247/0.598661` on test. Value
+RMSE was `34.292/33.266/36.290 mm`; the train value head had 21 false-safes.
+
+State coverage is secondary. The 1,055D input has only five distinct training
+states, 875 dimensions constant across train, and duplicated controller
+state. Test action chunks are `3.617/4.346` nearest-train RMS z, with
+31.4--33.6% of coordinates outside range; action 186 auxiliary state is
+`19.198` nearest-train RMS z. Obstacle geometry is constant and supported.
+
+Near-active switching is rejected as causal. All 54 rows within 2 mm of the
+worst value are the same L5 slab/Moka `g4` pair over actions 188--193; paired
+primitive-switch fraction is zero and the runner-up remains 5.15--6.65 mm
+away. The MLP overestimates these rows by 48.025 mm on average with response
+cosine 0.509. They form only 4.29% of train witnesses. The local ridge teacher
+has useful sign `0.877/0.808/0.779` but cosine only `0.663/0.427/0.379`, so
+finite-radius long-horizon nonlinearity is an additional issue.
+
+Do not add a QP or larger correction. The next gate should require one-state
+and aggregate train fit using compact nonduplicated physical inputs and
+scale-normalized near-active supervision, then separately test secant-radius
+or direction-conditioned response fidelity.
+
+Final result/validation file SHA-256 values are
+`19b754da4c26a9950038463ca1f49e5543f42042ea259764885a84e269450e27` and
+`803a7e09252a114bedfdc9b5a3a8b03d2cacb7db3034dff85f2f86eef932df50`;
+payload SHA-256 values are
+`5e0e80b6163c90e6c28a8b76ef61dd8dcfb112f95c9439322d5d62aff78e178d` and
+`ca73b28abcc82b87c744100cc8a53d730bb795d3508d9850b904af24f3fe59c7`.
+Earlier `39247/39261` is superseded because it lacked the final teacher and
+primitive-switch checks.
+
 ## E05 Moka learned response-field gate (preregistered, 2026-08-13)
 
 The next learning pilot deliberately excludes E38 because its released single

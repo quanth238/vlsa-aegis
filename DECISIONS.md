@@ -15,6 +15,27 @@ at primitive witness switches. Preserve all train/validation/test state
 groups and both physical authorities. Select any later model or data change
 only from this audit rather than from aggregate test failure.
 
+## ADR-0087: Attribute failure to training underfit before state coverage
+
+Accepted after final H100 producer `39265` and validator `39272`. The frozen
+MLP fails paired response prediction on the five physical states it trained
+on, not only on unseen actions 185--186. Do not treat additional episodes as
+the first repair and do not use calibration, QP, or correction magnitude to
+hide an incorrect response field.
+
+The representation is overcomplete and poorly supported: 1,055 inputs, five
+train contexts, 875 constant dimensions, duplicated controller state, raw
+simulator internals, absolute clock, and a shifting twenty-action chunk.
+Critical L5/g4 rows form only 4.29% of the train loss and are optimistically
+wrong by about 48 mm. Preserve that primitive switching is absent. The local
+ridge teacher has useful sign but inadequate held-out cosine, so teacher
+locality and magnitude require a separate test.
+
+Authorize only a prediction-fit gate: compact nonduplicated physical inputs,
+one-state memorization before generalization, scale-normalized near-active
+response weighting, and a separate secant-locality arm. Control remains
+blocked until learned training response passes.
+
 ## ADR-0069: Train only the E05 multi-primitive controller-response pilot
 
 Accepted before launch. E38 demonstrated physical collision-free task success
