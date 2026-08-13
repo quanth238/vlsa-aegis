@@ -63,7 +63,11 @@ def validate(result_path: Path, frozen_result_path: Path, expected_commit: str) 
         _require(report.get("state_count") == count, "audit state count differs")
         for key in ("value_rmse_m", "value_bias_m", "value_maximum_optimism_m"):
             _require(math.isfinite(float(report[key])), "audit metric is nonfinite")
-        for section in ("fit_directional", "heldout_directional"):
+        for section in (
+            "fit_directional",
+            "heldout_directional",
+            "local_ridge_heldout_directional",
+        ):
             for key in ("cosine", "sign_accuracy", "rmse_m_per_action"):
                 _require(math.isfinite(float(report[section][key])), "audit response metric is nonfinite")
     support = result.get("state_support", {}).get("states", [])
@@ -88,6 +92,10 @@ def validate(result_path: Path, frozen_result_path: Path, expected_commit: str) 
             _require(row.get("link_name") in {"robot0_link5", "robot0_link6", "robot0_link7"}, "audit link differs")
             _require(0 <= int(row.get("action_offset")) < 20, "audit horizon differs")
             _require(0 <= int(row.get("primitive_index")) < 15, "audit primitive differs")
+            _require(
+                0.0 <= float(row.get("paired_primitive_switch_fraction")) <= 1.0,
+                "audit primitive switch fraction differs",
+            )
     diagnosis = result.get("diagnosis", {})
     _require(diagnosis.get("correction_or_qp_attempted") is False, "audit attempted control")
     payload = dict(result)

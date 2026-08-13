@@ -24,6 +24,9 @@ row-gradient cosine, and smooth-field direction cosine. State support is
 measured groupwise using training-only means and scales. For each base
 rollout, preserve the closest compiled Moka primitive for every one of the
 `20 x 7` witnesses and report rows within 2 mm and 5 mm of the worst value.
+The per-state ridge/secant teacher must also be tested on the eight paired
+directions excluded from its fit, and paired rollouts record how often the
+closest compiled primitive changes between `+epsilon` and `-epsilon`.
 
 Interpretation is diagnostic:
 

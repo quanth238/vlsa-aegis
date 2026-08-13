@@ -136,6 +136,9 @@ def _aggregate_split(states: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     held_prediction = np.concatenate(
         [np.asarray(state["heldout_prediction"]).reshape(-1) for state in states]
     )
+    exact_held_prediction = np.concatenate(
+        [np.asarray(state["exact_heldout_prediction"]).reshape(-1) for state in states]
+    )
     held_target = np.concatenate(
         [np.asarray(state["heldout_targets_m_per_action"]).reshape(-1) for state in states]
     )
@@ -151,6 +154,9 @@ def _aggregate_split(states: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "value_false_safe_count": int(np.sum((values_predicted >= 0.0) & (values_exact < 0.0))),
         "fit_directional": _direction_metrics(fit_prediction, fit_target),
         "heldout_directional": _direction_metrics(held_prediction, held_target),
+        "local_ridge_heldout_directional": _direction_metrics(
+            exact_held_prediction, held_target
+        ),
         "row_gradient_cosine": _summary(row_cosines),
         "smooth_direction_cosine": _summary(
             [state["smooth_direction_cosine"] for state in states]
@@ -228,6 +234,9 @@ def _near_active_report(
                         "primitive_index": int(state["primitive_indexes"][offset, row]),
                         "primitive_name": str(state["primitive_names"][offset][row]),
                         "primitive_second_gap_m": float(state["primitive_second_gap_m"][offset, row]),
+                        "paired_primitive_switch_fraction": float(
+                            state["paired_primitive_switch_fraction"][offset, row]
+                        ),
                         "predicted_value_m": float(predicted_values[offset, row]),
                         "value_error_m": float(predicted_values[offset, row] - value),
                         "exact_gradient_norm_m_per_action": float(np.linalg.norm(exact_rows[offset, row])),
@@ -254,6 +263,9 @@ def _near_active_report(
             "value_error_m": _summary([row["value_error_m"] for row in selected]),
             "primitive_second_gap_m": _summary(
                 [row["primitive_second_gap_m"] for row in selected]
+            ),
+            "paired_primitive_switch_fraction": _summary(
+                [row["paired_primitive_switch_fraction"] for row in selected]
             ),
             "rows": selected,
         }
@@ -386,19 +398,25 @@ def evaluate(
                 total_probe_wall += float(base["env_step_wall_seconds"])
                 plus = []
                 minus = []
+                plus_primitive_indexes = []
+                minus_primitive_indexes = []
                 for direction in directions:
                     positive = probe.rollout(
                         env,
                         _actions_with_correction(base_actions, epsilon * direction, float(experiment_config["action_space"]["action_limit"])),
                         step_base=step,
+                        witness_details=True,
                     )
                     negative = probe.rollout(
                         env,
                         _actions_with_correction(base_actions, -epsilon * direction, float(experiment_config["action_space"]["action_limit"])),
                         step_base=step,
+                        witness_details=True,
                     )
                     plus.append(positive["trace_m"])
                     minus.append(negative["trace_m"])
+                    plus_primitive_indexes.append(positive["primitive_indexes"])
+                    minus_primitive_indexes.append(negative["primitive_indexes"])
                     total_rollouts += 2
                     total_probe_wall += float(positive["env_step_wall_seconds"]) + float(negative["env_step_wall_seconds"])
                 plus = np.asarray(plus)
@@ -408,6 +426,14 @@ def evaluate(
                 predicted_values, predicted_rows = predict_response(bundle, context)
                 fit_prediction = directions[:fit_count].dot(predicted_rows.reshape(140, 15).T)
                 heldout_prediction = directions[fit_count:].dot(predicted_rows.reshape(140, 15).T)
+                exact_heldout_prediction = directions[fit_count:].dot(
+                    fit["gradients"].reshape(140, 15).T
+                )
+                primitive_switch_fraction = np.mean(
+                    np.asarray(plus_primitive_indexes, dtype=np.int64)
+                    != np.asarray(minus_primitive_indexes, dtype=np.int64),
+                    axis=0,
+                )
                 exact_direction = _soft_direction(base["trace_m"], fit["gradients"].reshape(20, 7, 15), float(experiment_config["score"]["softmin_temperature_m"]))
                 predicted_direction = _soft_direction(predicted_values, predicted_rows, float(experiment_config["score"]["softmin_temperature_m"]))
                 if step in split_config["train_steps"]:
@@ -428,11 +454,13 @@ def evaluate(
                         "fit_prediction": fit_prediction,
                         "heldout_targets_m_per_action": heldout_targets,
                         "heldout_prediction": heldout_prediction,
+                        "exact_heldout_prediction": exact_heldout_prediction,
                         "predicted_rows": predicted_rows,
                         "smooth_direction_cosine": float(np.dot(exact_direction, predicted_direction)),
                         "primitive_indexes": base["primitive_indexes"],
                         "primitive_names": base["primitive_names"],
                         "primitive_second_gap_m": base["primitive_second_gap_m"],
+                        "paired_primitive_switch_fraction": primitive_switch_fraction,
                         "base_contact_count": len(base["protected_contacts"]),
                         "base_exact_overlap_count": int(sum(base["exact_box_overlap"])),
                     }
@@ -451,6 +479,10 @@ def evaluate(
                     "value_bias_m": float(np.mean(state["predicted_values_m"] - state["base_values_m"])),
                     "fit_directional": _direction_metrics(state["fit_prediction"], state["fit_targets_m_per_action"]),
                     "heldout_directional": _direction_metrics(state["heldout_prediction"], state["heldout_targets_m_per_action"]),
+                    "local_ridge_heldout_directional": _direction_metrics(
+                        state["exact_heldout_prediction"],
+                        state["heldout_targets_m_per_action"],
+                    ),
                     "row_gradient_cosine": _summary(_cosine_rows(state["predicted_rows"], state["fit_gradients_m_per_action"])),
                     "smooth_direction_cosine": state["smooth_direction_cosine"],
                     "base_minimum_m": float(np.min(state["base_values_m"])),
