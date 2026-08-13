@@ -90,6 +90,12 @@ def evaluate(
     *, repo_root: Path, population_manifest_path: Path, archived_path: Path,
     geometry_config_path: Path, experiment_config_path: Path,
     expected_commit: str, output_path: Path, candidate_limit: Optional[int] = None,
+    case_id_override: Optional[str] = None,
+    state_step_override: Optional[int] = None,
+    query_index_override: Optional[int] = None,
+    result_schema_override: Optional[str] = None,
+    claim_scope_override: Optional[str] = None,
+    population_binding: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -118,16 +124,20 @@ def evaluate(
     source = _git_identity(repo_root, expected_commit)
     allocation = _allocation_record()
     archived = _load(archived_path)
-    _require(archived["case_id"] == config["case_id"], "archived E05 case differs")
+    target_case_id = config["case_id"] if case_id_override is None else str(case_id_override)
+    _require(archived["case_id"] == target_case_id, "archived query-risk case differs")
     _require(archived["task_success"] is True, "archived E05 task did not succeed")
     rows = [row for row in read_jsonl(population_manifest_path)
-            if row.get("case_id") == config["case_id"]]
+            if row.get("case_id") == target_case_id]
     _require(len(rows) == 1, "E05 population row differs")
     case = rows[0]
     validate_case_row(case, repo_root)
     runtime = _runtime_imports(include_aegis=True)
     geometry_config = load_shadow_config(geometry_config_path)
-    state_step = int(config["state"]["query_boundary_step"])
+    state_step = int(
+        config["state"]["query_boundary_step"]
+        if state_step_override is None else state_step_override
+    )
     horizon = int(config["state"]["candidate_actions"])
     action_rows = {int(item["step"]): item for item in archived["actions"]}
     _require(set(range(state_step + horizon)).issubset(action_rows), "E05 action ledger differs")
@@ -137,8 +147,12 @@ def evaluate(
     )
     nominal = archived_actions[state_step:state_step + horizon]
     _require(nominal.shape == (5, 7), "E05 nominal five-action chunk differs")
-    query = archived["policy_queries"][int(config["state"]["query_index"])]
-    _require(int(query["query_index"]) == int(config["state"]["query_index"]),
+    query_index = int(
+        config["state"]["query_index"]
+        if query_index_override is None else query_index_override
+    )
+    query = archived["policy_queries"][query_index]
+    _require(int(query["query_index"]) == query_index,
              "E05 policy query binding differs")
     _require(int(query["rng_seed"]) == int(case["policy_noise_seed"]) + int(query["query_index"]),
              "E05 policy query seed differs")
@@ -499,11 +513,11 @@ def evaluate(
             ),
         }
         result = {
-            "schema_version": RESULT_SCHEMA,
+            "schema_version": RESULT_SCHEMA if result_schema_override is None else result_schema_override,
             "status": "complete",
             "scientific_result": bool(full_protocol),
             "execution_mode": "full_diagnostic" if full_protocol else "apparatus_canary",
-            "claim_scope": config["claim_scope"],
+            "claim_scope": config["claim_scope"] if claim_scope_override is None else claim_scope_override,
             "source": source,
             "allocation": allocation,
             "config": config,
@@ -561,6 +575,14 @@ def evaluate(
             ),
             "wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,
         }
+        if result_schema_override is not None:
+            result["base_method_config"] = result.pop("config")
+            result["population_binding"] = dict(population_binding or {})
+            result["interpretation"] = (
+                "grouped_query_action_risk_state_pass"
+                if full_protocol and all(gates.values())
+                else "grouped_query_action_risk_state_no_go"
+            )
         result["result_payload_sha256"] = _sha256(canonical(result))
         return result
     finally:
