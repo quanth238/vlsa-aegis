@@ -29,6 +29,12 @@ the default `main` partition with H100 resources and `normal` QOS. The
 launcher-only repair targets that current allocation interface; no audit
 input, frozen model, replay, metric, or interpretation changed.
 
+H100 attempt `39244` stopped before simulator construction because the
+isolated clean worktree was not exported on `PYTHONPATH`. The launcher now
+uses the same repository/SafeLIBERO module and LIBERO configuration contract
+as the accepted producer. This is an apparatus-only fix; no scientific result
+was produced.
+
 ## E05 Moka learned response-field gate (preregistered, 2026-08-13)
 
 The next learning pilot deliberately excludes E38 because its released single

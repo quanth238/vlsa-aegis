@@ -20,6 +20,8 @@ cd "${repo_root}"
 test "$(git rev-parse HEAD)" = "${expected_commit}"
 test -z "$(git status --porcelain --untracked-files=all)"
 test -n "${CUDA_VISIBLE_DEVICES:-}"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+export PYTHONPATH=${repo_root}/safelibero:${repo_root}/main:${repo_root}
 
 /mnt/data/quanth/venvs/safety_vla/main/bin/python \
   scripts/validate_distal_moka_response_field_e05_audit.py \

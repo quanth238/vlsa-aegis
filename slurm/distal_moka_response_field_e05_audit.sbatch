@@ -21,6 +21,18 @@ test "$(git rev-parse HEAD)" = "${expected_commit}"
 test -z "$(git status --porcelain --untracked-files=all)"
 nvidia-smi -L > "${run_root}/allocation-preflight.txt"
 test -n "${CUDA_VISIBLE_DEVICES:-}"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
+export PYTHONPATH=${repo_root}/safelibero:${repo_root}/main:${repo_root}
+export LIBERO_CONFIG_PATH=${run_root}/libero-config
+mkdir -p "${LIBERO_CONFIG_PATH}"
+safelibero_root=${repo_root}/safelibero/libero/libero
+{
+  printf 'benchmark_root: %s\n' "${safelibero_root}"
+  printf 'bddl_files: %s\n' "${safelibero_root}/bddl_files"
+  printf 'init_states: %s\n' "${safelibero_root}/init_files"
+  printf 'datasets: %s\n' "${repo_root}/safelibero/libero/datasets"
+  printf 'assets: %s\n' "${safelibero_root}/assets"
+} > "${LIBERO_CONFIG_PATH}/config.yaml"
 
 /mnt/data/quanth/venvs/safety_vla/main/bin/python \
   scripts/audit_distal_moka_response_field_e05.py \
