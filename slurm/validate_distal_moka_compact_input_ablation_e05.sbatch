@@ -6,6 +6,7 @@
 #SBATCH --mem=16G
 #SBATCH --time=00:20:00
 #SBATCH --qos=normal
+#SBATCH --exclude=worker-0
 #SBATCH --output=/mnt/data/quanth/slurm_logs/vlsa-moka-compact-val-%j.out
 
 set -euo pipefail

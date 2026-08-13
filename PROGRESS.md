@@ -15,6 +15,12 @@ state-conditioned learning because the physical context contains one state.
 No additional state input, weighting change, QP, correction, or closed-loop
 execution is allowed.
 
+H100 attempt `39293` stopped before simulator construction or training. Its
+allocation shell preflight reached `worker-0`, but that node's live
+`/usr/bin/nvidia-smi` is a zero-byte file: the Python allocation-identity
+helper failed with `Exec format error`. The retry excludes only this broken
+node and changes no input, model, label, split, seed, loss, or gate.
+
 ## Frozen E05 Moka response-model audit (preregistered, 2026-08-13)
 
 The next gate is read-only diagnosis of the validated `39230` NO-GO. It

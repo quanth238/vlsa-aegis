@@ -17,6 +17,12 @@ registered tolerance. Report near-active rows separately. Do not add `q`,
 control in this gate. A pass authorizes only the next one-group input ablation;
 a failure selects loss/decoder or secant-locality diagnosis.
 
+Attempt `39293` produced no scientific data because `worker-0` exposes a
+zero-byte `/usr/bin/nvidia-smi`; the allocation identity check failed before
+simulator construction and training. Exclude that exact node for producer and
+validator retries. This is a live-infrastructure repair and does not change
+the preregistered ablation.
+
 ## ADR-0086: Audit the frozen E05 Moka model before changing it
 
 Accepted before replay. Reconstruct the immutable `39230` model from its
