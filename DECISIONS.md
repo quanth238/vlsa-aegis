@@ -1,5 +1,26 @@
 # Reproduction decisions
 
+## ADR-0097: Pass controllability; reject selector training without safe support
+
+Accepted after H100 producer `39333` and independent validator `39338`. The
+action-182 state is initially safe, a modified command influences L5--L7 at
+internal sample 2, exact overlap begins only at sample 132, and registered
+basis probes move link centers by up to 14.244 mm beforehand. Raw contact in
+the nominal continuation confirms the failure is genuine rather than only a
+Loewner-proxy artifact.
+
+Reject the current five-action candidate family as selector supervision. The
+soft/free continuous arm removed every protected contact and passed CAR, but
+all ten finalists retained exact robot-ellipsoid/compiled-box overlap and
+missed the 15 mm terminal bound. Endpoint preservation did the reverse: it
+preserved task geometry while retaining contact and excessive obstacle
+motion. The fixed 54-candidate library had no contact-free candidate.
+
+Do not train a ranker, gate, safety potential, or QP. The next intervention
+must alter the candidate horizon or use a fresh feedback continuation after a
+free detour. Because the soft optimizer reached its registered generation
+limit, retain only a bounded-search NO-GO; do not claim global infeasibility.
+
 ## ADR-0096: Audit controllability before learning a detour selector
 
 Accepted before simulation. The statistically non-random frozen ranker does

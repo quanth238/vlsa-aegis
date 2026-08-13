@@ -18,6 +18,30 @@ within 15 mm terminal EE deviation, and retain at least 50% nominal progress.
 The Loewner proxy is reported but cannot veto a physical pass. Learning,
 ranking, QP, primary corrected execution, live VLA and closed loop are frozen.
 
+Clean H100 producer `39333` completed 702 cloned-OSC rollouts in `57:59` on
+`worker-1`; independent H100 validator `39338` freshly replayed each arm's
+best candidate and passed in `2:21`. The initial state was proxy-safe
+(`+17.229 mm`), exact-overlap-free and contact-free. Command influence began
+at internal sample 2, well before the first exact overlap at sample 132, and
+paired probes moved L5--L7 centers by up to `14.244 mm` before violation. The
+nominal future violation was genuine: 311 exact-overlap and 170 protected-
+contact samples, with minimum proxy `-58.287 mm`. Thus timing and Cartesian
+authority pass.
+
+The candidate-support gate fails. All ten best soft/free finalists were raw-
+contact-free, CAR-safe and progressing, but none met exact ellipsoid/box
+nonoverlap or the 15 mm terminal bound; the best had 202 overlap samples and
+`20.926 mm` terminal error. All ten endpoint-preserving finalists passed the
+terminal/progress gates but retained contact and failed CAR. Exhaustive
+internal checking found no contact-free or CAR-safe candidate among the fixed
+54. The soft optimizer exhausted its registered eight generations, so this is
+a bounded-search NO-GO rather than a proof of global nonexistence. Training
+remains blocked; next change candidate horizon/continuation, not the model.
+
+Result/validation payload SHA-256 values are
+`3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98` and
+`d4713cefffed96c1f8de67b8f46dbf1d335e594c20877faa90fad186f99dfa71`.
+
 ## E05 Moka frozen ranker audit (preregistered, 2026-08-13)
 
 The next gate freezes the validated direction-conditioned scalar checkpoint
