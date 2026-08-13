@@ -235,13 +235,17 @@ def train_response_model(
 
     np = _numpy()
     if not torch.cuda.is_available():
-        raise RuntimeError("Moka response training requires H100 CUDA allocation")
+        raise RuntimeError("Moka response training requires H100 allocation visibility")
     train = _materialize(train_states)
     validation = _materialize(validation_states)
     seed = int(model_config["seed"])
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    device = torch.device("cuda")
+    # The registered Python's PyTorch build predates H100 sm_90 kernels.  The
+    # 128-unit pilot is tiny, so train on allocation CPU while the complete
+    # simulator/data job remains inside the H100 allocation.
+    device = torch.device("cpu")
+    torch.set_num_threads(min(8, int(model_config.get("cpu_threads", 8))))
     feature_mean = np.mean(train["features"], axis=0)
     feature_scale = np.std(train["features"], axis=0)
     feature_scale = np.where(feature_scale >= 1.0e-6, feature_scale, 1.0)

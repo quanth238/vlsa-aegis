@@ -23,6 +23,12 @@ the learned correction. A failure blocks QP and closed-loop work and requires
 separate audits of value prediction, response prediction, and state support.
 A pass supports only subsequent corrected-execution testing under a new gate.
 
+Attempt `39229` exposed only an allocation-runtime incompatibility: the pinned
+evaluation PyTorch has no H100 sm_90 kernels. Preserve the requested H100
+allocation and move this tiny network's tensor operations to its allocated
+CPU cores. This is an apparatus repair, not a protocol change; no scientific
+rollout or result existed before the repair.
+
 ## ADR-0083: Test live continuation locally before a complete receding episode
 
 Accepted before release. Gate 0 established that the safe compound prefix

@@ -28,6 +28,14 @@ raw protected contacts at both test states. No corrected action executes, and
 no QP, closed-loop, task-completion, population-generalization, deployable
 perception, CBF, or formal-safety claim is authorized by this pilot.
 
+H100 attempt `39229` was stopped during startup before any scientific output.
+The pinned evaluation PyTorch reports CUDA architectures only through sm_86
+and cannot launch MLP kernels on H100 sm_90. The MLP has only 128 hidden units,
+so the compatibility retry trains it with eight CPU threads inside the same
+H100 allocation; simulator execution, data collection, and training remain
+off the login node. No input, label, split, seed, loss, comparator, threshold,
+or model parameter changes.
+
 ## Post-detour live-continuation gate (preregistered, 2026-08-12)
 
 The next experiment is intentionally limited to the missing continuation
