@@ -36,6 +36,13 @@ selected backup suffix differed when embedded after the proposal. This is an
 apparatus failure, not a dataset result. The registered repair evaluates every
 `proposal -> backup action -> hold` branch uninterrupted from the same saved
 state and selects the fixed backup using that branch's successor suffix.
+H100 composition canary `39471` passed the corrected apparatus at E05 step 167
+in 1:54: all 25 branches shared the proposal successor within
+`8.326673e-17 m`, the nominal proposal plus selected local-normal backup kept
+`+147.467828 mm` minimum proxy clearance, zero protected contact, and
+negligible CAR. The artifact is correctly marked `scientific_result=false`
+and cannot authorize training. The full case receives a four-hour allocation
+based on this measured rollout cost.
 
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 

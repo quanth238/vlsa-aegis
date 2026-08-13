@@ -32,6 +32,9 @@ backup suffix did not reproduce inside the complete proposal-plus-backup
 rollout. Preserve the policy and candidate family, but evaluate every composed
 branch uninterrupted from the original saved state. Use its successor suffix
 for backup selection and the same branch's full trace for the seven labels.
+Composition canary `39471` passed this binding, so the apparatus may progress
+to a complete four-state diagnostic case. The canary remains non-scientific
+and cannot satisfy any dataset or learning gate.
 
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 

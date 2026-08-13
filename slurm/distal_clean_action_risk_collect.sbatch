@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --time=02:00:00
+#SBATCH --time=04:00:00
 #SBATCH --exclude=worker-0,worker-3
 #SBATCH --array=0-17%2
 #SBATCH --no-requeue
