@@ -347,10 +347,17 @@ def validate(
                 state["unknown_timeout_candidate_count"]
             )
     case_split = {str(case["case_id"]): str(case["split"]) for case in selected_cases}
+    episode_metric_names = {
+        "safe": "safe",
+        "unsafe": "unsafe",
+        "active": "active_witness",
+    }
     for (case_id, row_index), flags in usable_episode_flags.items():
         row = row_records[row_index]
-        for name in ("safe", "unsafe", "active"):
-            row["all_split_episode_with_%s_count" % name] += int(flags[name])
+        for flag_name, metric_name in episode_metric_names.items():
+            row["all_split_episode_with_%s_count" % metric_name] += int(
+                flags[flag_name]
+            )
         split = case_split[case_id]
         if split in {"train", "validation"}:
             row["%s_episode_with_unsafe_count" % split] += int(flags["unsafe"])
