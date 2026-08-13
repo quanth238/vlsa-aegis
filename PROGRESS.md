@@ -1,5 +1,33 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Moka learned response-field gate (preregistered, 2026-08-13)
+
+The next learning pilot deliberately excludes E38 because its released single
+obstacle MVEE remains negative after physical contact has disappeared. It
+returns to the task-valid primary Moka case `vlsa-t1-goal-ii-t0-e05`, keeps
+the frozen VLA, OSC, archived Table-1 actions, action bounds, and accepted
+seven L5--L7 robot ellipsoids unchanged, and replaces only the obstacle
+optimization proxy with all 15 compiled Moka collision boxes. Raw MuJoCo
+protected contact and exact box-union overlap remain separate physical
+diagnostics.
+
+This does not repeat the rejected binary classifier, direct joint predictor,
+or scalar monotone row-weight MLP. For each future action and robot row, one
+state/witness-conditioned MLP predicts the quantitative multi-primitive margin
+and its 15D response to the first five XYZ actions. Paired `+0.05/-0.05`
+twenty-action cloned-OSC rollouts supervise `v^T g_j`. Complete state groups
+are frozen as actions 178--182 train, 183--184 validate, and 185--186 untouched
+test. The later action-197 collision is inside every outcome horizon.
+
+At each test state, learned steering is compared at equal norm with fixed
+multi-primitive repulsion, a privileged exact local-secant ceiling, and 64
+matched random directions. The gate requires direction cosine at least 0.8,
+held-out sign accuracy at least 0.75, at least 0.5 mm exact proxy gain, at
+least 0.1 mm gain over fixed repulsion, matched-random `p<=0.05`, and no new
+raw protected contacts at both test states. No corrected action executes, and
+no QP, closed-loop, task-completion, population-generalization, deployable
+perception, CBF, or formal-safety claim is authorized by this pilot.
+
 ## Post-detour live-continuation gate (preregistered, 2026-08-12)
 
 The next experiment is intentionally limited to the missing continuation

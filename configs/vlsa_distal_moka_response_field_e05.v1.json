@@ -1,0 +1,66 @@
+{
+  "action_space": {
+    "action_limit": 1.0,
+    "corrected_dimensions": [0, 1, 2],
+    "corrected_horizon": 5,
+    "endpoint_preservation": false,
+    "evaluation_horizon": 20
+  },
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "one_task_nearby_state_feasibility_test_of_controller_conditioned_multi_primitive_moka_action_responses_not_episode_generalization_not_closed_loop_not_formal_safety",
+  "comparators": {
+    "exact_local_secant": "ridge_fit_from_all_test_state_paired_rollouts_as_privileged_ceiling",
+    "fixed_repulsion": "current_five_action_multi_primitive_softmin_secant_direction",
+    "learned": "frozen_state_and_witness_conditioned_response_mlp",
+    "random": "matched_feasible_smooth_unit_directions"
+  },
+  "gate": {
+    "maximum_matched_random_p_value": 0.05,
+    "minimum_directional_sign_accuracy": 0.75,
+    "minimum_exact_gain_m": 0.0005,
+    "minimum_learned_exact_oracle_cosine": 0.8,
+    "minimum_learned_fixed_gain_m": 0.0001,
+    "minimum_test_state_pass_count": 2,
+    "require_zero_new_raw_protected_contacts": true
+  },
+  "geometry": {
+    "expected_compiled_moka_box_count": 15,
+    "obstacle_representation": "one_loewner_ellipsoid_per_compiled_moka_collision_box",
+    "physical_acceptance": "raw_mujoco_protected_contacts_and_exact_compiled_box_union_overlap_reported_separately",
+    "robot_ellipsoid_count": 7,
+    "robot_representation": "accepted_v4_seven_slab_bounds_for_link5_link6_link7",
+    "single_obstacle_mvee": "excluded"
+  },
+  "model": {
+    "epochs": 4000,
+    "hidden_units": 128,
+    "learning_rate": 0.001,
+    "patience": 300,
+    "response_loss_weight": 2.0,
+    "seed": 2026081301,
+    "weight_decay": 1e-06
+  },
+  "protocol_id": "vlsa-distal-moka-response-field-e05-v1",
+  "sampling": {
+    "direction_seed": 2026081310,
+    "fit_direction_count": 24,
+    "matched_random_direction_count": 64,
+    "paired_direction_count_per_state": 32,
+    "paired_perturbation_action": 0.05,
+    "random_seed": 2026081320,
+    "ridge": 1e-06,
+    "test_radii_action": [0.1, 0.25, 0.5]
+  },
+  "score": {
+    "hard_acceptance": "minimum_over_20_actions_and_7_robot_rows",
+    "softmin_temperature_m": 0.002,
+    "training_target": "per_action_per_robot_row_minimum_over_15_compiled_moka_box_proxies"
+  },
+  "state_split": {
+    "test_steps": [185, 186],
+    "train_steps": [178, 179, 180, 181, 182],
+    "validation_steps": [183, 184]
+  }
+}

@@ -1,5 +1,28 @@
 # Reproduction decisions
 
+## ADR-0069: Train only the E05 multi-primitive controller-response pilot
+
+Accepted before launch. E38 demonstrated physical collision-free task success
+but also a persistent false-unsafe single-MVEE proxy; training against that
+sign would conflate obstacle representation error with learned steering.
+Return to the validated primary Moka task and represent its obstacle as the
+union proxy of 15 compiled collision boxes. Keep raw MuJoCo contact and exact
+solid overlap separate from the quantitative Loewner-box support gaps used for
+optimization labels.
+
+Do not repeat scalar contact classification, joint-trajectory prediction, or
+monotone weighting of an already available analytical direction. Learn one
+15D controller-conditioned response for each explicit future action/robot-row
+witness from paired long-horizon outcomes. Preserve state-group splits and
+freeze the model before actions 185--186. Learning is justified only if the
+frozen direction beats fixed repulsion and matched random steering while
+tracking the exact local-secant ceiling on both untouched states.
+
+This is a one-task nearby-state feasibility test, not authorization to execute
+the learned correction. A failure blocks QP and closed-loop work and requires
+separate audits of value prediction, response prediction, and state support.
+A pass supports only subsequent corrected-execution testing under a new gate.
+
 ## ADR-0083: Test live continuation locally before a complete receding episode
 
 Accepted before release. Gate 0 established that the safe compound prefix
