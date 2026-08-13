@@ -1,5 +1,27 @@
 # Reproduction decisions
 
+## ADR-0093: Reject both scalar control fields; retain paired ordering as a hypothesis
+
+Accepted after H100 producer `39312` and independent validator `39313`.
+Neither matched model meets the fresh-direction response gate. The
+direction-conditioned scalar has near-active cosine/sign only
+`0.609441/0.833333`; the nonlinear absolute-value model is worse at
+`0.063869/0.479167`. Do not use either as a gradient, QP row, or online
+correction model.
+
+Absolute local value regression is specifically rejected for this pilot. It
+selects the safer branch in only `3/8` tests and has `1.224 mm` worst-margin
+RMSE. The common margin signal overwhelms the small paired response needed for
+steering.
+
+Preserve one narrow positive observation: explicit direction conditioning
+selects the safer +/- branch in `7/8` untouched directions. Its absolute
+worst-margin RMSE (`0.073 mm`) does not beat a zero-response baseline
+(`0.070 mm`), so this supports only a paired-preference hypothesis. Any next
+gate should test preference/ranking across grouped physical states against
+chance and analytical repulsion. Continuous-gradient, QP, and control claims
+remain blocked.
+
 ## ADR-0092: Compare scalar secant prediction with nonlinear local action value
 
 Accepted before training. Keep the compact physical input, E05 action-182

@@ -14,6 +14,36 @@ deltas; its paired values imply a secant. Model width, depth, optimizer, seed,
 state, geometry, and horizon are identical. No additional state input, QP,
 corrected action, or closed-loop execution is allowed.
 
+Clean H100 producer `39312` completed on `worker-2` in `130.628 s` from
+commit `86d23589bf07f07d6bf4be372ca5f095b34325e5`; independent H100 validator
+`39313` accepted all `65` cloned-OSC rollouts, the matched 21,889-parameter
+architectures, exact split/direction binding, metrics, hashes, and gates.
+Neither model passed.
+
+On untouched directions, the direction-conditioned arm reached only
+`0.067122/0.653571` all-witness cosine/sign and
+`0.609441/0.833333` on six near-active witnesses. It nevertheless selected
+the safer positive/negative branch in `7/8` cases and had `0.073 mm` worst-
+margin RMSE. The latter is not meaningful absolute-value improvement: a
+zero-response nominal-margin baseline is slightly better at `0.070 mm`.
+
+The nonlinear local action-value arm was worse for steering: all-witness
+cosine/sign `0.386933/0.586607`, near-active `0.063869/0.479167`, safer-
+branch selection `3/8`, and worst-margin RMSE `1.224 mm`. Direct value
+regression again fits common margin structure without recovering the small
+action-dependent physical response.
+
+The validated interpretation is
+`neither_scalar_nor_nonlinear_local_representation_passes`. Retain only the
+`7/8` paired-ordering result as a hypothesis for a future grouped-state
+preference test. It is not a usable gradient, and QP/control remain blocked.
+Result/validation file SHA-256 values are
+`6d9d49bb7511be8ee325ebbcf94956724ccc7fd3c3cdab0319688d48d7bbbec4`
+and `a691953a2f464738a8f1bc06a1c1fb5b21281ed78b2141a9fb9b229d450a7248`;
+payload SHA-256 values are
+`95937f109842d3adf80a38db2501b81b2b947d7e6a050004ec55a3a94761bef7`
+and `19cab581d87761445807dd512967aeeabd41255ddb64cef6882e6d5e5317a29b`.
+
 ## E05 Moka compact-input secant-radius ablation (preregistered, 2026-08-13)
 
 The next gate keeps the validated 25D one-state input and every model,
