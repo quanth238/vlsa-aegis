@@ -1,5 +1,26 @@
 # AEGIS SafeLIBERO table reproduction
 
+## One-shot repulsive prefix: task recovery passes, safety fails (2026-08-13)
+
+H100 producer `39354` and independent stochastic replay `39358` completed from
+clean commit `39a78e7`. The five-action repulsive prefix was contact-free and
+the frozen VLA completed the task in both runs. With no further L5--L7
+intervention, L5 contact began at action 223 in both runs and CAR failed. The
+primary run completed at action 287; replay completed at 248. The prefix
+therefore delayed the original collision and preserved task recoverability,
+but did not make the continuation safe.
+
+The next gate is not a larger one-shot correction or endpoint-preserving
+detour. Construct an offline policy-conditioned recoverable set from complete
+prefix-plus-continuation rollouts, then test hysteretic warning-triggered
+reapplication. Exact ellipsoid/compiled-box overlap began at action 190, 33
+actions before raw contact, while the more conservative Loewner proxy became
+negative at action 183. Keep these warning and physical authorities separate.
+
+The two matched-seed pi0.5 servers produced different action chunk hashes.
+Future data must record the realized chunk and final claims must account for
+policy randomness.
+
 ## One-shot repulsive-prefix/live-VLA recovery gate (preregistered, 2026-08-13)
 
 Execute the independently validated raw-contact-free `soft_free_5d` prefix at

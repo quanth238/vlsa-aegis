@@ -1,5 +1,22 @@
 # Reproduction decisions
 
+## ADR-0099: Use a policy-conditioned recoverable set, not current-state safety
+
+Accepted after H100 producer `39354` and replay `39358`. A single contact-free
+repulsive prefix preserved native task completion but the live continuation
+returned L5 to contact at action 223 in both runs. Therefore current contact-
+free geometry is not a sufficient safe-set label. Approximate a bounded
+policy-conditioned recoverable set offline: a warning state is positive only
+when a bounded repulsive prefix followed by the realized frozen-policy
+continuation is contact-free and reaches either another positive state or the
+goal. Use the ellipsoid signals as early warning features and raw MuJoCo
+contact/CAR as outcome authorities.
+
+Do not impose five-action endpoint cancellation, enlarge one fixed correction,
+or train from isolated local ranking labels. The next oracle may reapply a
+short repulsive prefix when a hysteretic future-risk warning activates; the VLA
+remains responsible for task progress between interventions.
+
 ## ADR-0098: Do not force task rejoining into the repulsive prefix
 
 Execute one already verified raw-contact-free five-action repulsive prefix and
