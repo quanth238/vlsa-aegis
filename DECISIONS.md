@@ -46,6 +46,11 @@ Job `39487` localized mixed support to the three-action lead (E05 step 184:
 action initially outside the safety boundary. Use exactly one three-action-
 lead state per episode. Since E05 remains diagnostic, this does not inspect or
 select on the untouched E42/E44 test outcomes.
+Array `39490` confirms the cohort cannot yet authorize training: most milk/L5
+states fail initial eligibility, while seven milk/L6 tasks exposed a proposal-
+successor binding failure. Do not reinterpret missing artifacts as negative
+labels. Derive successor geometry from an uninterrupted composed branch and
+rerun an L6 apparatus canary before any dataset retry.
 
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 

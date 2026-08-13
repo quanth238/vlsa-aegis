@@ -106,6 +106,7 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
         expected_substeps: int,
         boundary_tolerance: float,
         step_base: int = 182,
+        sample_callback: Any = None,
     ) -> dict[str, Any]:
         import numpy as np
 
@@ -132,6 +133,7 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
         boundary_clearances = []
         boundary_errors = []
         substep_counts = []
+        callback_samples = []
 
         def measure(action_offset: int, substep: int) -> None:
             values = np.asarray(self.one_step_probe.clearances(self.env)[:7], dtype=np.float64)
@@ -151,6 +153,10 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
                 )
             obstacle = np.asarray(self.env.sim.data.xpos[obstacle_id], dtype=np.float64)
             displacements.append(float(np.sum(np.abs(obstacle - obstacle_reference))))
+            if sample_callback is not None:
+                callback_samples.append(
+                    sample_callback(self.env, int(action_offset), int(substep))
+                )
 
         self.env.sim.forward()
         measure(-1, -1)
@@ -179,7 +185,7 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
             _require(error <= float(boundary_tolerance), "internal/boundary clearance differs")
         elapsed = (time.perf_counter_ns() - started) * 1.0e-9
         trace = np.asarray(clearances, dtype=np.float64)
-        return {
+        output = {
             "clearance_trace_m": trace,
             "minimum_clearance_m": float(np.min(trace)),
             "row_minimum_clearance_m": np.min(trace, axis=0),
@@ -194,6 +200,10 @@ class InstrumentedContinuationProbe(FixedContinuationProbe):
             "synchronization": synchronization,
             "env_step_wall_seconds": elapsed,
         }
+        if sample_callback is not None:
+            _require(len(callback_samples) == len(clearances), "callback sample count differs")
+            output["callback_samples"] = callback_samples
+        return output
 
 
 def _boundary_candidate(

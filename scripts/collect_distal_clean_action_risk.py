@@ -164,12 +164,41 @@ def collect(
 
         def evaluate_candidate(name: str, order: int, action: Any, step: int) -> dict[str, Any]:
             proposal = np.asarray(action, dtype=np.float64)
-            one_step.synchronize(env)
-            probe_env.step(proposal.tolist())
-            successor = np.asarray(one_step.clearances(probe_env)[:7], dtype=np.float64)
-            links = geometry._slabbed_links(probe_env)
+            def successor_geometry(sample_env: Any, action_offset: int, substep: int) -> Any:
+                if action_offset != 0 or substep != expected_substeps - 1:
+                    return None
+                sample_links = geometry._slabbed_links(sample_env)
+                return {
+                    "link_centers_m": [
+                        np.asarray(item.center, dtype=np.float64).tolist()
+                        for item in sample_links
+                    ],
+                    "obstacle_center_m": np.asarray(
+                        geometry.obstacle.center, dtype=np.float64
+                    ).tolist(),
+                }
+            # Evaluate the hold composition first and derive the successor
+            # geometry from that same uninterrupted rollout. A separately
+            # stepped clone is not authoritative because wrapper/controller
+            # bookkeeping may differ across tasks.
+            hold_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
+            hold_commands[0] = proposal
+            hold_rollout = instrumented.rollout_internal(
+                env, hold_commands, expected_substeps=expected_substeps,
+                boundary_tolerance=tolerance, step_base=step,
+                sample_callback=successor_geometry,
+            )
+            hold_trace = np.asarray(
+                hold_rollout["clearance_trace_m"], dtype=np.float64
+            )[:, :7]
+            successor_index = expected_substeps
+            successor = hold_trace[successor_index].copy()
+            successor_sample = hold_rollout["callback_samples"][successor_index]
+            _require(successor_sample is not None, "proposal successor geometry missing")
             active_row = int(np.argmin(successor))
-            normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
+            normal = np.asarray(
+                successor_sample["link_centers_m"][active_row], dtype=np.float64
+            ) - np.asarray(successor_sample["obstacle_center_m"], dtype=np.float64)
             normal /= float(np.linalg.norm(normal))
             backup_definitions: list[tuple[str, Any]] = [("hold", np.zeros(7, dtype=np.float64))]
             for direction_name, direction in registered_directions(normal):
@@ -183,15 +212,18 @@ def collect(
             )
             backup_candidates = []
             for backup_order, (backup_name, backup_action) in enumerate(backup_definitions):
-                full_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
-                full_commands[0] = proposal
-                full_commands[1] = np.asarray(backup_action, dtype=np.float64)
-                rollout = instrumented.rollout_internal(
-                    env, full_commands, expected_substeps=expected_substeps,
-                    boundary_tolerance=tolerance, step_base=step,
-                )
-                trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
-                successor_index = expected_substeps
+                if backup_order == 0:
+                    rollout = hold_rollout
+                    trace = hold_trace
+                else:
+                    full_commands = np.zeros((2 + terminal, 7), dtype=np.float64)
+                    full_commands[0] = proposal
+                    full_commands[1] = np.asarray(backup_action, dtype=np.float64)
+                    rollout = instrumented.rollout_internal(
+                        env, full_commands, expected_substeps=expected_substeps,
+                        boundary_tolerance=tolerance, step_base=step,
+                    )
+                    trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
                 successor_error = float(np.max(np.abs(
                     trace[successor_index] - successor
                 )))

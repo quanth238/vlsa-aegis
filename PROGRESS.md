@@ -54,6 +54,14 @@ had 26/0 safe/unsafe outcomes, step 184 had 21/5, step 185 had 0/26, and step
 186 was initially below +1 mm. Freeze one state at the three-action lead
 (E05 step 184) for all episodes. E05 is diagnostic-only; untouched test
 outcomes were not used to select this offset.
+Grouped H100 array `39490` completed all 18 allocations. E05/E10 again passed
+with 21/5 safe/unsafe candidates. Most milk/L5 states were already outside the
++1 mm initial proxy boundary and were retained as scientific NO-GOs; two milk
+cases passed mixed support. Seven milk/L6 cases stopped before atomic output
+because a separately stepped proposal endpoint did not match the same proposal
+inside a composed branch. These are apparatus failures, not dataset outcomes.
+The repair derives successor clearances and ellipsoid centers from the first
+uninterrupted hold composition and requires all remaining branches to match it.
 
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
