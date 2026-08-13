@@ -1,5 +1,29 @@
 # Reproduction decisions
 
+## ADR-0112: E05 supports direct Monte Carlo risk learning, but only for L5
+
+- Status: accepted, diagnostic gate passing; population learning still blocked
+- Date: 2026-08-14
+
+Allocated-H100 producer `39618` and independent validator `39621` establish
+that the corrected five-action risk object has a nonvacuous boundary at E05:
+2/37 structured candidates are exactly safe, while 35/37 are unsafe or
+fail-closed timeouts. A front-loaded positive-normal radius-2 correction moves
+the worst margin from nominal `-16.075686 mm` to `+2.193830 mm` and passes raw
+contact, CAR, and a ten-action stable hold. Smaller normal radii improve the
+margin but do not reach safety. Therefore the action interface has sufficient
+local authority and the complete risk target is suitable for a grouped-data
+learning test.
+
+Do not train from E05 alone. All 37 active witnesses are the same L5 slab row;
+there is no L6/L7 or cross-episode evidence. Preserve this as a diagnostic and
+advance only to grouped episode collection with real query-boundary discovery,
+the same frozen candidate/backup/terminal semantics, complete episode splits,
+and explicit per-row witness coverage. If L6/L7 support is absent, narrow the
+claim rather than synthesizing or hiding labels. TD, calibration, QP, and
+closed loop remain blocked until the grouped dataset and direct seven-output
+prediction gate pass.
+
 ## ADR-0111: Put the learned filter after released AEGIS and label complete backup risk
 
 - Status: accepted, diagnostic apparatus implemented

@@ -42,6 +42,41 @@ as `UNSAFE_CONTACT_OR_CAR`, with no timeout mislabeled safe and no proxy-safe
 physical collision. This authorizes the frozen 37-candidate diagnostic, not
 training. Full allocated-H100 job `39608` is queued from commit `b458bf5`.
 
+The full mechanism gate passed and was reproduced. CPU-bound Slurm diagnostic
+`39613` evaluated the frozen 37-member population in 6:03; allocated-H100 job
+`39618` reproduced it in 6:15. After removing only allocation/source/timing
+provenance, the two JSON artifacts are byte-identical. The H100 result file
+SHA-256 is `da347b1ab8ee4a9615b80f866aa3628aad80b2777b7a22e267ccda6f719bfb00`
+and its payload SHA-256 is
+`f0a6732968e2dc8ad0561b324d64ab94c4f361240b599ae1f08d345b1dfbc615`.
+
+The population is nonvacuous: 2/37 candidates reached `SAFE_TERMINAL`, 32/37
+hit protected contact or CAR, and 3/37 reached the fixed timeout and remained
+fail-closed. Nominal fell to `-16.075686 mm`. The two safe candidates were
+positive obstacle-normal radius-2 corrections: constant achieved
+`+1.009345 mm`, while front-loaded achieved `+2.193830 mm` with an applied
+norm of `1.961183` after action clipping. Both required zero backup actions
+and passed the ten-action stable hold, raw protected contact, and CAR gates.
+Radius 0.5 remained around `-12--13 mm`; radius 1.0 improved to about
+`-6--7 mm` but did not recover within the registered backup horizon.
+
+Independent validator `39621` passed candidate identity/order, immutable
+Table-1 and policy-query binding, exact 126-sample prefix traces, seven-row
+risk composition, terminal semantics, physical veto reconstruction, timeout
+handling, and mixed support. Validation file SHA-256 is
+`53fcfbda01db3d14f421d4835958ef3466a8098194933a29a10fe9976f634769`;
+payload SHA-256 is
+`be2eaf86795f0f9178ad15fe9c771d1afa6ec8d6a2b3144e6af0dd6781943c10`.
+
+This is a decisive pass for the corrected data object on one E05 L5 state,
+not a learned-filter or L5--L7 generalization pass. Every one of the 37 active
+combined witnesses was slab row 1 (L5); L6/L7 coverage is zero. Training
+remains unauthorized. The next permitted gate is grouped episode collection
+with real query-boundary discovery, the unchanged complete backup/terminal
+semantics, immutable episode splits, and explicit per-row coverage. Unsupported
+episodes and absent L6/L7 witnesses must remain visible rather than being
+dropped or relabeled.
+
 ## Query-aligned five-action Monte Carlo risk redesign (2026-08-13)
 
 The method draft and data memo supersede the one-action-plus-one-backup-plus-
