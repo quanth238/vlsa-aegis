@@ -23,6 +23,12 @@ near-active witness representation/weighting failure. It cannot authorize a
 new model or control experiment; the diagnosed intervention requires a new
 preregistered gate.
 
+Submission was first rejected before allocation because the live cluster no
+longer exposes the historical `studentbatch` partition. Live preflight found
+the default `main` partition with H100 resources and `normal` QOS. The
+launcher-only repair targets that current allocation interface; no audit
+input, frozen model, replay, metric, or interpretation changed.
+
 ## E05 Moka learned response-field gate (preregistered, 2026-08-13)
 
 The next learning pilot deliberately excludes E38 because its released single

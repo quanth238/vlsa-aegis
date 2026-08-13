@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=vlsa-moka-field-audit-val
-#SBATCH --partition=studentbatch
-#SBATCH --gres=gpu:h100:1
+#SBATCH --partition=main
+#SBATCH --gres=gpu:nvidia_h100_80gb_hbm3:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=16G
 #SBATCH --time=00:20:00
+#SBATCH --qos=normal
 #SBATCH --output=/mnt/data/quanth/slurm_logs/vlsa-moka-field-audit-val-%j.out
 
 set -euo pipefail
