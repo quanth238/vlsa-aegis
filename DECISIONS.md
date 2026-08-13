@@ -1,5 +1,53 @@
 # Reproduction decisions
 
+## ADR-0110: Learn query-aligned five-action Monte Carlo backup risk
+
+- Status: accepted, protocol redesign active
+- Date: 2026-08-13
+
+The current research target is the direct seven-output action-risk formulation
+in the method/data memo. It conflicts with both the draft's earlier
+joint-rollout-plus-Poisson formulation and the implemented one-action-plus-hold
+pilot. For the decisive experiment, choose one object: learn exact Monte Carlo
+future risk for a complete five-action candidate followed by a complete fixed
+backup. Do not claim simultaneously that the MLP predicts joint motion.
+
+Use real pi0.5 query boundaries. Center candidates on the exact five raw VLA
+actions actually scheduled from that query, pass every candidate action
+through the unchanged released AEGIS and OSC, and preserve nominal gripper
+commands. Translation and rotation candidate families must be separate
+registered arms because released AEGIS zeroes rotation; mixing them would
+change the controller interface without attribution. Keep the complete 5x7
+chunk in stored data even when the first pilot corrects translation only.
+
+Select warning states adaptively across query boundaries, not by a fixed action
+offset or arbitrary proxy crossing. A retained state must be currently proxy-
+and physically-safe, have dangerous archived nominal continuation, and have at
+least one exact-safe and one exact-unsafe member in the frozen structured
+candidate bank. The bank uses paired signs, fixed radius ladders, smooth time
+profiles, and geometry normal/tangents. State/radius search outcomes are part
+of the population audit; unsupported episodes are reported rather than
+dropped.
+
+After all five candidate actions, execute the same deterministic,
+ledger-independent backup repeatedly. Register its hysteresis, direction and
+magnitude rule, action bounds, gripper hold, tie breaking, and fallback. Define
+`SAFE_TERMINAL` by a release-margin state plus a verified stable hold tail;
+define `UNSAFE_CONTACT_OR_CAR` from protected MuJoCo contact or paper CAR; use
+`UNKNOWN_TIMEOUT` at the fixed horizon and never label it safe. Store separate
+seven-row candidate-prefix, backup, and combined maxima with complete internal
+traces and replay hashes.
+
+Train first from these direct Monte Carlo labels; no target network or TD
+bootstrapping. Ellipsoid rows are the optimization target, while raw contact
+and CAR are separate physical authorities. A proxy-safe/contact-positive
+sample fails the geometry/cohort gate. Episode groups are immutable, inspected
+episodes are diagnostic, and final tests are newly reserved. Require mixed
+support, safe support in every recoverable validation/test state, and active
+coverage by link/row; otherwise restrict the scientific claim. No MLP, QP, or
+closed-loop action is authorized until the replacement dataset validator
+passes.
+
 ## ADR-0109: Gate learning on clean task-successful exact action risks
 
 - Status: accepted, dataset collection active

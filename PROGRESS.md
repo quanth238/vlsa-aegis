@@ -1,5 +1,68 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Query-aligned five-action Monte Carlo risk redesign (2026-08-13)
+
+The method draft and data memo supersede the one-action-plus-one-backup-plus-
+hold pilot. The learned object for the next gate is a direct seven-output,
+backup-policy-conditioned action risk for one complete five-action Cartesian
+chunk. It is not a joint-trajectory predictor, binary contact classifier,
+force imitator, TD target, or QP surrogate.
+
+The prior collector is reproducible apparatus evidence only: it selects a
+single action, executes one backup action, and then holds. That target is not
+the specified
+`five-action candidate -> repeated deterministic backup -> terminal status`
+value. Pending corrected selector job `39598` was inspected and canceled
+before allocation when this mismatch was identified. CPU-only Slurm preflight
+`39599` independently confirmed that allocation-backed MuJoCo work can run on
+the H100 worker pool without consuming a GPU device; no simulation ran on the
+login node.
+
+The replacement data unit starts only at a real pi0.5 query boundary. The
+archived Table-1 artifact stores hashes for each returned ten-action tensor and
+the exact five `nominal_raw` actions actually scheduled before the next query;
+it does not store the unused five returned actions. Therefore archived pilots
+may use only that exact scheduled five-action prefix. New collection must also
+store the complete returned tensor. Every candidate resets the identical full
+simulator/controller snapshot, preserves nominal gripper commands, executes
+all five actions through the unchanged released AEGIS-plus-OSC stack, and is
+then followed by the complete ledger-independent backup until exactly one of
+`SAFE_TERMINAL`, `UNSAFE_CONTACT_OR_CAR`, or `UNKNOWN_TIMEOUT`.
+
+The direct Monte Carlo target is seven fixed slab-row risks
+
+```text
+R_j(x,A) = max(candidate-prefix violation j,
+               complete-backup violation j).
+```
+
+Timeout is never safe. The dataset stores prefix and backup values separately,
+terminal successor state, every internal joint/margin/contact/CAR sample,
+active witnesses, clipping/normalization, policy-query identity, snapshot and
+replay hashes. Ellipsoid risk remains the learned target; raw protected contact
+and CAR are a distinct physical veto. Any proxy-safe physical collision is a
+geometry-cohort failure, not a negative example to hide.
+
+Warning-state discovery is deterministic but adaptive: enumerate real query
+boundaries before first contact and retain an initially safe state only when
+the archived nominal continuation is dangerous and the frozen structured
+candidate bank contains both safe and unsafe outcomes. Report every episode
+without such support. Candidate residuals use paired signs, fixed radius
+ladders, smooth temporal bases, and separate obstacle-normal/tangent/
+translation/rotation arms; independent per-timestep noise is forbidden.
+Physical displacements use scale only, never mean subtraction. Previously
+inspected E05/E10/E42/E44 remain diagnostic. New complete episodes must be
+reserved before final model selection.
+
+Before collection scale-up, one diagnostic H100 oracle must prove all of:
+query/snapshot determinism, mixed candidate support, a complete terminating
+backup, no timeout labeled safe, and nonvacuous near-boundary witnesses. Per-
+row witness coverage must be reported; if L7 has no active/unsafe support, the
+claim must remain L5/L6 rather than silently generalizing to L7. Only a
+validated grouped dataset can authorize the simple seven-output Monte Carlo
+MLP. TD bootstrapping, Poisson geometry, calibration, QP, and closed loop remain
+downstream.
+
 ## Clean task-successful action-risk dataset (preregistered, 2026-08-13)
 
 The next learned-filter gate uses only cases where released AEGIS completed the
