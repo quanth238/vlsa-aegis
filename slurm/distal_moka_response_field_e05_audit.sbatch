@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-repo_root=/home/quanth/working_space/vlsa-aegis-table-repro
+repo_root=${REPO_ROOT:-/home/quanth/working_space/vlsa-aegis-table-repro}
 run_root=${RUN_ROOT:?RUN_ROOT is required}
 expected_commit=${EXPECTED_COMMIT:?EXPECTED_COMMIT is required}
 frozen_result=${FROZEN_RESULT:?FROZEN_RESULT is required}
