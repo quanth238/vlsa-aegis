@@ -1,5 +1,16 @@
 # Reproduction decisions
 
+## ADR-0104: Scale safety learning, not frozen-suffix task claims
+
+Accepted after H100 producer `39384` and validator `39385`. Eight repeated
+normal interventions kept every executed prefix raw-contact/CAR-safe with a
++1.037969 mm minimum proxy margin, but the frozen task-successful proposal
+ledger no longer completed after state-changing corrections. This validates
+the repulsive safe-set mechanism on one E05 counterfactual, not a complete
+backup policy. Next data must come from live policy-conditioned continuations
+created by the filtered states; do not learn a scalar force from the stale
+suffix or increase force magnitude to repair task recovery.
+
 ## ADR-0103: An armed backup may execute a verified-safe deadband nominal
 
 Hysteresis is memory, not a mandatory correction. Job `39382` showed a flat,

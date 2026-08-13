@@ -24,6 +24,18 @@ clearance. The remaining stop was a hysteresis logic error. The +1 to +5 mm
 deadband must keep the backup armed while allowing a freshly verified safe
 nominal; it must not demand a nonzero repulsive improvement.
 
+Final matched H100 producer `39384` and fresh action-ledger validator `39385`
+executed 288 exactly reproduced actions with eight normal-repulsion windows,
+zero protected contact, paper CAR pass, and +1.037969 mm minimum executed
+L5--L7 proxy clearance. The immutable task-successful proposal ledger was
+exhausted at action 292 without native task completion. This is a validated
+safety-mechanism pass and safe-task-success NO-GO: repeated normal repulsion
+can keep this proposal sequence inside the tested safe set, but the frozen
+post-intervention suffix is not a task-recovery policy. Result and validation
+payload SHA-256 values are
+`06f03ae1b8879c82a104fde47cfca63f4eddaec42f04e4f87fddfae22646fdec`
+and `3bb1561c2258d65a6be74b4e44a378c25a937f7652026aefa2a5a9a54b4df62a`.
+
 ## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
 
 The next E02 gate fixes one reproducible continuation policy before learning a
