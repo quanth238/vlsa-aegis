@@ -1,5 +1,14 @@
 # Reproduction decisions
 
+## ADR-0100: Define the backup policy before learning its PNCBF value
+
+Preregister one fixed policy: frozen pi0.5 and original AEGIS, with a
+hysteretic five-action L5--L7 warning and only geometry-normal repulsive
+residuals. The VLA owns task recovery. Raw protected contact and CAR determine
+physical acceptance; ellipsoid clearance activates and ranks the backup but
+does not overwrite physical evidence. Train no value model until this policy
+first completes E05 safely or yields a clearly localized oracle failure.
+
 ## ADR-0099: Use a policy-conditioned recoverable set, not current-state safety
 
 Accepted after H100 producer `39354` and replay `39358`. A single contact-free

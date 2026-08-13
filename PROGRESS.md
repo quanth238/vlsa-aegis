@@ -1,5 +1,15 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Fixed PNCBF-style backup-policy oracle (preregistered, 2026-08-13)
+
+The next E02 gate fixes one reproducible continuation policy before learning a
+maximum-over-time policy value. It retains the registered contact-free prefix,
+then uses fresh frozen pi0.5 plus original AEGIS and a hysteretic five-action
+L5--L7 warning. While active, it tests only constant obstacle-normal repulsion
+at six frozen magnitudes and executes the smallest physically safe buffered
+push, falling back to the best physically safe clearance improvement. There
+are no detour modes, endpoint constraints, model training, or new QP.
+
 ## One-shot repulsive prefix: task recovery passes, safety fails (2026-08-13)
 
 H100 producer `39354` and independent stochastic replay `39358` completed from
