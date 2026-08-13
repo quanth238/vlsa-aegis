@@ -222,6 +222,35 @@ def collect(
             )
             trace = np.asarray(rollout["clearance_trace_m"], dtype=np.float64)[:, :7]
             row_min = np.min(trace, axis=0)
+            successor_index = expected_substeps
+            successor_replay_error = float(np.max(np.abs(
+                trace[successor_index] - successor
+            )))
+            selected_row_min = np.asarray(
+                selected["record"]["row_minimum_clearance_m"], dtype=np.float64
+            )
+            selected_backup_replay_error = float(np.max(np.abs(
+                np.min(trace[successor_index:], axis=0) - selected_row_min
+            )))
+            selected_contact_count = sum(
+                int(item["action_offset"]) >= 1
+                for item in rollout["protected_contacts"]
+            )
+            selected_contact_count_error = abs(
+                selected_contact_count
+                - int(selected["record"]["protected_contact_count"])
+            )
+            displacement = np.asarray(
+                rollout["active_obstacle_l1_displacement_trace_m"], dtype=np.float64
+            )
+            selected_displacement_error = abs(
+                float(np.max(displacement[successor_index:]))
+                - float(selected["record"]["maximum_active_obstacle_l1_displacement_m"])
+            )
+            _require(successor_replay_error <= tolerance, "proposal successor replay differs")
+            _require(selected_backup_replay_error <= tolerance, "selected backup replay differs")
+            _require(selected_contact_count_error == 0, "selected backup contact replay differs")
+            _require(selected_displacement_error <= tolerance, "selected backup CAR replay differs")
             record = {
                 "name": name, "order": int(order), "first_action": proposal.tolist(),
                 "first_action_sha256": hashlib.sha256(proposal.tobytes()).hexdigest(),
@@ -240,6 +269,10 @@ def collect(
                     "first_action": selected["first_action"],
                     "selection_mode": selection_mode,
                 },
+                "proposal_successor_replay_error_m": successor_replay_error,
+                "selected_backup_row_replay_error_m": selected_backup_replay_error,
+                "selected_backup_contact_count_replay_error": selected_contact_count_error,
+                "selected_backup_car_replay_error_m": selected_displacement_error,
                 "backup_candidates": backup_candidates,
                 "row_minimum_clearance_m": row_min.tolist(),
                 "risk": risk_from_row_minimum(row_min, buffer_m),
@@ -334,6 +367,13 @@ def collect(
             ),
             "source_states_unmodified_by_cloned_rollouts": all(
                 state["source_state_maximum_mutation"] == 0.0 for state in state_records
+            ),
+            "proposal_and_selected_backup_replay_consistent": all(
+                candidate["proposal_successor_replay_error_m"] <= tolerance
+                and candidate["selected_backup_row_replay_error_m"] <= tolerance
+                and candidate["selected_backup_contact_count_replay_error"] == 0
+                and candidate["selected_backup_car_replay_error_m"] <= tolerance
+                for state in state_records for candidate in state["candidates"]
             ),
         }
         result = {

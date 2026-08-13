@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Sequence
 
 from main.multilink_ellipsoid.clean_action_risk import (
-    RESULT_SCHEMA, VALIDATION_SCHEMA, canonical, load_cases, load_config, sha256,
+    RESULT_SCHEMA, VALIDATION_SCHEMA, canonical, exact_safe, load_cases,
+    load_config, risk_from_row_minimum, sha256,
 )
 from scripts.replay_distal_three_ellipsoid_multicbf import (
     _atomic_write, _file_sha256, _git_identity, _load, _require,
@@ -50,6 +51,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             candidate["backup_candidate_count"] == 25
             for state in result["states"] for candidate in state["candidates"]
         ), "backup candidate count differs")
+        _require(all(
+            len(candidate["feature_vector"]) == config["model"]["input_dimension"]
+            for state in result["states"] for candidate in state["candidates"]
+        ), "candidate feature dimension differs")
+        _require(all(
+            backup["record"]["sample_count"] == 651
+            for state in result["states"] for candidate in state["candidates"]
+            for backup in candidate["backup_candidates"]
+        ), "backup internal sample count differs")
+        _require(all(
+            candidate["risk"] == risk_from_row_minimum(
+                candidate["row_minimum_clearance_m"],
+                config["risk_target"]["safety_buffer_m"],
+            )
+            and bool(candidate["exact_safe"]) == exact_safe(candidate, config)
+            for state in result["states"] for candidate in state["candidates"]
+        ), "candidate target derivation differs")
+        _require(result["gates"]["proposal_and_selected_backup_replay_consistent"],
+                 "candidate-plus-backup replay differs")
         hashes.append({
             "case_id": case["case_id"], "file_sha256": _file_sha256(path),
             "result_payload_sha256": claimed,
@@ -87,6 +107,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "source_states_unmodified_by_cloned_rollouts": all(
             result["gates"]["source_states_unmodified_by_cloned_rollouts"] for result in accepted
+        ),
+        "proposal_and_selected_backup_replay_consistent": all(
+            result["gates"]["proposal_and_selected_backup_replay_consistent"]
+            for result in accepted
         ),
     }
     passed = all(gates.values())

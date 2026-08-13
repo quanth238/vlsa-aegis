@@ -50,8 +50,10 @@ failed support case; it is never silently removed.
 
 Gate A passes only when source files and static eligibility reproduce, every
 accepted state is initially safe, candidate count/order are exact, all labels
-are finite and replayable, and every accepted state has physical/proxy-safe
-support.  Passing authorizes training; it is not learned-model evidence.
+are finite and replayable, the successor and selected backup suffix agree when
+embedded in the complete candidate-plus-backup rollout within `1e-12`, and
+every accepted state has physical/proxy-safe support.  Passing authorizes
+training; it is not learned-model evidence.
 
 ## Gate B: prediction only
 
