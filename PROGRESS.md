@@ -1,5 +1,31 @@
 # AEGIS SafeLIBERO table reproduction
 
+## Clean task-successful action-risk dataset (preregistered, 2026-08-13)
+
+The next learned-filter gate uses only cases where released AEGIS completed the
+native SafeLIBERO task yet failed paper CAR through an L5/L6/L7 contact.  The
+immutable screen excludes settled contacts, gripper contacts, task/other-object
+contacts, incomplete or invalid MVEEs, the known E38 proxy mismatch, and any
+allocation-audited state below the +1 mm initial boundary.  E05/E10 are
+diagnostic only; three untouched milk-obstacle episodes are the final test.
+
+Each of 18 episodes contributes four states at 20/15/10/5 actions before first
+protected contact.  Exactly 26 candidates per state (nominal plus the fixed
+ledger-independent backup family) execute one action followed by the
+registered 25-action hold.  Seven positive-is-unsafe worst-future proxy risks,
+raw protected contacts, and CAR are recorded at all internal MuJoCo substeps.
+Episode groups never cross splits.  Training remains blocked until every
+requested state is initially safe and has an exactly verified safe candidate.
+QP and closed loop remain blocked until a later seven-output MLP has zero
+observed false-safes and useful safe-action support on untouched episodes.
+
+Exact next command after committing and syncing clean source:
+
+```bash
+EXPECTED_GIT_COMMIT=<commit> RUN_ID=clean-action-risk-20260813a \
+  sbatch slurm/distal_clean_action_risk_collect.sbatch
+```
+
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
 H100 producer `39376` and fresh action-ledger validator `39378` executed 300

@@ -1,0 +1,96 @@
+{
+  "schema_version": "vlsa_distal_clean_action_risk.v1",
+  "protocol_id": "vlsa-distal-clean-action-risk-v1",
+  "claim_scope": "exact_candidate_plus_fixed_ledger_independent_backup_rollout_risks_on_clean_task_successful_L5_L7_collision_cases_then_prediction_only_seven_output_MLP_not_control_not_qp_not_cbf_not_closed_loop_not_population_safety",
+  "source_evidence": {
+    "table1_case_audit_file_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+    "table1_reanalysis_report_file_sha256": "9457175a69b84895cd2c8aa18b3fe29e291992e80178e9a692f66588a4492430",
+    "table1_population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "pure_backup_validation_payload_sha256": "c87b62873cfc14ed46c5224f81a27b37143fad50aab2c5a9c58e71a8b993ab4f"
+  },
+  "cohort": {
+    "selection_manifest_file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326",
+    "split_unit": "complete_episode",
+    "episode_counts": {"train": 10, "validation": 3, "test": 3, "diagnostic": 2},
+    "static_inclusions": [
+      "AEGIS_native_task_success",
+      "AEGIS_paper_CAR_failure",
+      "postcontrol_contact_body_is_exactly_L5_L6_or_L7",
+      "complete_perception_geometry",
+      "positive_h_unmodelled_arm_link_contact"
+    ],
+    "static_exclusions": [
+      "settled_relevant_contact",
+      "gripper_or_end_effector_contact",
+      "task_object_or_other_dynamic_object_contact",
+      "MVEE_materially_invalid_detached_or_solver_inaccurate",
+      "known_E38_wine_bottle_proxy_mismatch"
+    ],
+    "allocation_exclusions": [
+      "initial_L5_L7_proxy_clearance_below_1mm",
+      "initial_protected_MuJoCo_contact",
+      "no_exact_safe_candidate_plus_backup_support"
+    ],
+    "diagnostic_cases_never_final_claim": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10"
+    ],
+    "untouched_test_cases": [
+      "vlsa-t1-goal-ii-t2-e42",
+      "vlsa-t1-goal-ii-t3-e42",
+      "vlsa-t1-goal-ii-t3-e44"
+    ]
+  },
+  "state_sampling": {
+    "lead_actions_before_first_protected_contact": [20, 15, 10, 5],
+    "include_k0_in_strict_safety": true,
+    "minimum_initial_proxy_clearance_m": 0.001,
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance": 1e-12
+  },
+  "candidate_family": {
+    "members": "nominal_aegis_plus_hold_plus_world_axes_plus_local_normal_tangents",
+    "amplitudes_action": [0.5, 1.0],
+    "candidate_action_count": 26,
+    "execute_candidate_actions": 1,
+    "terminal_hold_actions": 25,
+    "rotation_action": [0.0, 0.0, 0.0],
+    "backup_gripper_action": 0.0,
+    "vla_ledger_forbidden_from_backup_candidates": true
+  },
+  "risk_target": {
+    "output_count": 7,
+    "definition": "safety_buffer_m_minus_rollout_minimum_proxy_clearance_m",
+    "positive_is_unsafe": true,
+    "safety_buffer_m": 0.001,
+    "paper_car_threshold_m": 0.001,
+    "physical_acceptance": "zero_protected_MuJoCo_contact_and_CAR_at_most_1mm",
+    "proxy_acceptance": "all_seven_risks_nonpositive"
+  },
+  "model": {
+    "class": "single_action_conditioned_seven_output_MLP",
+    "output_count": 7,
+    "hidden_widths": [256, 256, 128],
+    "activation": "silu",
+    "input": "compact_complete_OSC_state_candidate_action_obstacle_and_seven_current_geometry_rows",
+    "loss": "boundary_weighted_Huber_on_seven_quantitative_risks",
+    "early_stopping": "validation_episodes_only",
+    "calibration": "none_in_prediction_gate"
+  },
+  "prediction_gate": {
+    "zero_observed_false_safe_candidates": true,
+    "minimum_global_safe_recall": 0.5,
+    "safe_action_support_every_recoverable_state": true,
+    "QP_enabled_in_this_gate": false,
+    "closed_loop_enabled_in_this_gate": false
+  },
+  "forbidden": [
+    "Table1_artifact_change",
+    "perception_error_case",
+    "initially_unsafe_state",
+    "episode_leakage_between_splits",
+    "QP_before_prediction_gate",
+    "closed_loop_before_prediction_gate",
+    "neural_CBF_claim"
+  ]
+}

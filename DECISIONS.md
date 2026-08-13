@@ -1,5 +1,25 @@
 # Reproduction decisions
 
+## ADR-0109: Gate learning on clean task-successful exact action risks
+
+- Status: accepted, dataset collection active
+- Date: 2026-08-13
+
+The learned-filter question is restricted to episodes where AEGIS already
+demonstrates native task competence but an L5--L7 contact causes CAR failure.
+Perception failures, settled collisions, gripper/task-object collisions,
+initially unsafe states, and the known E38 proxy mismatch are excluded by
+registered evidence rather than post-hoc judgment.  E05/E10 are diagnostic and
+cannot support the final generalization claim.
+
+The fixed ledger-independent backup defines the continuation.  Exact labels
+are seven candidate-plus-backup worst-future proxy risks; raw protected contact
+and CAR remain separate physical acceptance authorities.  Complete episodes
+are the split unit.  Dataset support must pass before training.  The first
+learned gate is one direct seven-output action-risk MLP without calibration,
+QP, or closed-loop execution.  QP remains forbidden until zero observed
+false-safes and useful safe-action support are established on untouched cases.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated
