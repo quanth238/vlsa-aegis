@@ -1950,3 +1950,13 @@ hold, world-axis and geometry-local candidates, one-action execution, and a
 25-action hold tail. Require deterministic/order-invariant exact evaluation,
 no source-state mutation, seven-row +1 mm support, zero protected contact, and
 paper CAR. Do not train an MLP, add a QP, or claim a neural CBF/invariant set.
+
+Accepted after H100 producer `39443` and independent validator `39444`. The
+pure backup has exact verified support at all three representative states, and
+fresh replay error is zero. The next permitted scientific gate is broader
+policy-consistent rollout collection using this same fixed backup definition,
+with `SAFE_TERMINAL`, `UNSAFE`, and `UNKNOWN` kept distinct. Do not train a
+direct action-risk model until the complete pure-backup oracle demonstrates
+adequate recoverable-state support over grouped episodes. The augmented-policy
+jobs 39422/39424 remain valid evidence but are not pooled with pure-backup
+labels.

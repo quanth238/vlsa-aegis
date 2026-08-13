@@ -2753,3 +2753,17 @@ plate but not inside the native predicate. The final horizontal bowl/plate
 center separation is 35.4439 mm, whereas LIBERO `On` requires less than 30 mm
 and contact. Therefore the run is near-complete/task-compatible but not a
 native-detector false negative.
+
+H100 producer `39443` and independent validator `39444` passed the focused
+pure-backup gate. Fresh replay reproduced every candidate metric with exactly
+zero error. At steps 187/222/288 the finite family contained 25/1/12 verified
+safe candidates; selected world -X, world +Z, and local +normal candidates
+retained minimum 19.887934/2.320242/1.554514 mm proxy clearance over one action
+plus a 25-action hold, with zero protected contacts and negligible
+`2.274852e-8 mm` CAR displacement. Candidate order, repeated replay, source
+state, and ledger-independence gates all passed. This validates the stricter
+pure-backup mechanism at three representative states. It does not yet validate
+a complete receding backup policy, broad safe set, task completion, learning,
+QP, CBF, or invariance. Producer/validation payload SHA-256 values are
+`c98812fc3afae7fa8a4dcc6352cef5eb57524cd79e9055738f9603d81b0a3ef3`
+and `c87b62873cfc14ed46c5224f81a27b37143fad50aab2c5a9c58e71a8b993ab4f`.
