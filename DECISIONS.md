@@ -52,6 +52,24 @@ successor binding failure. Do not reinterpret missing artifacts as negative
 labels. Derive successor geometry from an uninterrupted composed branch and
 rerun an L6 apparatus canary before any dataset retry.
 
+Canary `39512_10` and full grouped H100 array `39516` close that apparatus
+question. Every L6 proposal successor now matches across all 25 embedded
+backup branches with zero error, and all 18 immutable case artifacts are
+complete. Validator `39565` retains a strict dataset NO-GO: seven requested
+states are initially unsafe, only one of three validation states is eligible,
+and the two surviving test states contain only exact-safe candidates. Training
+on this population would be undersupported and testing zero false-safes would
+be vacuous. Keep `MLP_training_authorized=false`.
+
+Reject fixed action offset as the population state selector. “Three actions
+before contact” is not comparable across L5 and L6 trajectories. The next
+permitted change is a no-candidate warning-state audit that defines state
+selection from measured clearance and strict initial physical validity using
+diagnostic/train/validation episodes only. Because the current E42/E44 cases
+have now been inspected, they are diagnostic henceforth; reserve new complete
+episodes after freezing the rule. Do not alter the risk target, backup policy,
+MLP, or prediction gates, and do not train, add a QP, or run closed loop.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

@@ -63,6 +63,35 @@ inside a composed branch. These are apparatus failures, not dataset outcomes.
 The repair derives successor clearances and ellipsoid centers from the first
 uninterrupted hold composition and requires all remaining branches to match it.
 
+H100 L6 canary `39512_10` then passed the repaired binding in `1:40`: all 25
+embedded backup branches reproduced the proposal successor with exactly zero
+clearance error. Full grouped array `39516` completed all 18 case artifacts on
+the H100 pool. The rollout apparatus now works for both L5 and L6: for example,
+E09 produced 11 safe/15 unsafe candidates and E34 produced 16/10, with every
+proposal successor exact, every label finite, and no source-state mutation.
+
+Independent structural validator `39565` nevertheless issued the registered
+dataset NO-GO. Seven of 18 requested states were already outside the strict
++1 mm initial proxy boundary. The surviving split contained 6/10 train states,
+1/3 validation states, and 2/3 test states. Moreover, several accepted L6
+states were uniformly safe (26/0), including both surviving test states, so
+the final false-safe test would be vacuous. Totals were train 115 safe/41
+unsafe candidates, validation 16/10, diagnostic 42/10, and test 52/0. The
+validation payload SHA-256 is
+`6c50d9a3851a8ff7fd07e7326725142d0a012f676a4bb30b6a7f73b7bd6610af`;
+the file SHA-256 is
+`3c26f7771beb5ee3a36828bb3673935e92efd6218e11834ad8b7711cb3967e43`.
+`MLP_training_authorized=false`; QP and closed loop remain forbidden.
+
+The scientific root cause is the state-selection rule, not the exact backup:
+three actions before contact ranged from already unsafe in most L5 episodes to
+roughly +20--32 mm in many L6 episodes. Time-to-contact is not a consistent
+geometry warning coordinate. The next gate must audit a clearance-based,
+strictly pre-contact warning-state rule using diagnostic/train/validation
+episodes only, then reserve new complete episodes for the final untouched
+test. The already inspected E42/E44 episodes remain diagnostics and cannot
+support a later untouched generalization claim.
+
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
 H100 producer `39376` and fresh action-ledger validator `39378` executed 300
