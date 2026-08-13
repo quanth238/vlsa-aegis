@@ -1,5 +1,19 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Moka local nonlinear prediction gate (preregistered, 2026-08-13)
+
+The next gate retains the compact 25D physical witness input and validated
+radius-`0.0125` action-182 protocol. It replays the exact 32 directions from
+job `39305`, trains on directions 0--19, selects checkpoints on 20--23, and
+keeps 24--31 untouched for the scientific test.
+
+Two matched 40-input scalar MLPs isolate output representation. The first
+predicts a central-secant response conditioned on the query direction. The
+second predicts nonlinear absolute margins conditioned on signed action
+deltas; its paired values imply a secant. Model width, depth, optimizer, seed,
+state, geometry, and horizon are identical. No additional state input, QP,
+corrected action, or closed-loop execution is allowed.
+
 ## E05 Moka compact-input secant-radius ablation (preregistered, 2026-08-13)
 
 The next gate keeps the validated 25D one-state input and every model,

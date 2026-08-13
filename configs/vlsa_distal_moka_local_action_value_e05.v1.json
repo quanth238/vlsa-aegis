@@ -1,0 +1,75 @@
+{
+  "protocol_id": "vlsa-distal-moka-local-action-value-e05-v1",
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "one_state_direction_conditioned_scalar_vs_nonlinear_local_action_value_prediction_not_state_generalization_not_control_not_formal_safety",
+  "state": {
+    "step": 182
+  },
+  "sampling": {
+    "radius_action": 0.0125,
+    "generation_radius_action": 0.05,
+    "direction_seed": 2026081310,
+    "paired_direction_count": 32,
+    "train_direction_indexes": [0, 20],
+    "validation_direction_indexes": [20, 24],
+    "test_direction_indexes": [24, 32],
+    "near_active_threshold_m": 0.002
+  },
+  "input": {
+    "compact_context_dimension": 15,
+    "witness_dimension": 25,
+    "direction_or_delta_dimension": 15,
+    "model_input_dimension": 40,
+    "context_groups": [
+      "nominal_first_five_xyz",
+      "time_identity",
+      "link_identity",
+      "query_direction_or_action_delta"
+    ]
+  },
+  "matched_models": {
+    "direction_conditioned_scalar": {
+      "target": "central_secant_response_per_link_time_witness",
+      "query": "unit_direction"
+    },
+    "nonlinear_local_action_value": {
+      "target": "absolute_margin_per_link_time_witness_at_plus_or_minus_delta",
+      "query": "signed_action_delta"
+    }
+  },
+  "model": {
+    "cpu_threads": 8,
+    "epochs": 4000,
+    "hidden_units": 128,
+    "learning_rate": 0.001,
+    "patience": 300,
+    "seed": 2026081301,
+    "weight_decay": 1e-06
+  },
+  "gate": {
+    "minimum_test_response_cosine": 0.8,
+    "minimum_test_response_sign_accuracy": 0.85,
+    "minimum_near_active_response_cosine": 0.8,
+    "minimum_near_active_response_sign_accuracy": 0.85,
+    "minimum_safer_branch_accuracy": 0.875,
+    "maximum_test_worst_margin_rmse_m": 0.001
+  },
+  "reference": {
+    "run_id": "secant-radius-20260813a",
+    "result_file_sha256": "cb7e2aeb65a031f7b665b4aad2d5fa2840f313e51fa4ac52e0752a321dca79a6",
+    "result_payload_sha256": "d74bd14ea877dd9e9b0ae350909691bb23425160d898868b30e8860139aada8e",
+    "directions_float64_sha256": "ebb3a64d63d20e8adffe45e40f2be45e5e9e7fcfde95163fe61bc201368ff5dd"
+  },
+  "forbidden": [
+    "additional_state_input",
+    "direction_change",
+    "radius_change",
+    "geometry_change",
+    "horizon_change",
+    "qp",
+    "corrected_execution",
+    "closed_loop"
+  ]
+}

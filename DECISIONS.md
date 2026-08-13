@@ -1,5 +1,21 @@
 # Reproduction decisions
 
+## ADR-0092: Compare scalar secant prediction with nonlinear local action value
+
+Accepted before training. Keep the compact physical input, E05 action-182
+state, exact 32 direction vectors, radius `0.0125`, twenty-action horizon,
+geometry, seed, optimizer, and model width fixed. Use directions 0--19 for
+training, 20--23 for checkpoint selection, and retain the original 24--31 as
+the untouched test.
+
+Compare two matched scalar networks. One predicts a link/time witness's
+central-secant response conditioned explicitly on the queried direction. The
+other predicts its absolute margin conditioned on the signed local action
+delta; its secant response is derived from paired predictions. Judge both on
+fresh-direction response, nominally near-active witnesses, safer-branch
+selection, and worst-margin error. This changes output representation only;
+additional state inputs, QP, action correction, and closed loop are forbidden.
+
 ## ADR-0091: Reject radius reduction as the repair for the affine teacher
 
 Accepted after H100 producer `39305` and independent validator `39307`.

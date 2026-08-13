@@ -7,6 +7,39 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MokaResponseFieldTests(unittest.TestCase):
+    def test_local_action_value_ablation_is_matched_and_prediction_only(self):
+        config = json.loads(
+            (ROOT / "configs/vlsa_distal_moka_local_action_value_e05.v1.json").read_text()
+        )
+        self.assertEqual(config["sampling"]["radius_action"], 0.0125)
+        self.assertEqual(config["sampling"]["train_direction_indexes"], [0, 20])
+        self.assertEqual(config["sampling"]["validation_direction_indexes"], [20, 24])
+        self.assertEqual(config["sampling"]["test_direction_indexes"], [24, 32])
+        self.assertEqual(config["input"]["model_input_dimension"], 40)
+        self.assertEqual(
+            set(config["matched_models"]),
+            {"direction_conditioned_scalar", "nonlinear_local_action_value"},
+        )
+        self.assertIn("qp", config["forbidden"])
+        source = (ROOT / "scripts/evaluate_distal_moka_local_action_value_e05.py").read_text()
+        self.assertIn("response_model = train_scalar_model", source)
+        self.assertIn("value_model = train_scalar_model", source)
+        self.assertIn('"correction_or_qp_attempted": False', source)
+        self.assertNotIn("solve_qp", source)
+
+    def test_local_action_value_validator_recomputes_model_gates(self):
+        source = (ROOT / "scripts/validate_distal_moka_local_action_value_e05.py").read_text()
+        self.assertIn('set(reports) == {"direction_conditioned_scalar", "nonlinear_local_action_value"}', source)
+        self.assertIn('report["gate"]["checks"] == checks', source)
+        self.assertIn('result.get("passing_models") == passing', source)
+        self.assertIn('len(parameter_counts) == 1', source)
+
+    def test_scalar_model_architecture_is_shared(self):
+        source = (ROOT / "main/multilink_ellipsoid/moka_local_action_value.py").read_text()
+        self.assertEqual(source.count("def build_scalar_model"), 1)
+        self.assertIn("model = build_scalar_model", source)
+        self.assertNotIn("MultiConstraintQp", source)
+
     def test_secant_radius_ablation_changes_only_physical_radius(self):
         config = json.loads(
             (ROOT / "configs/vlsa_distal_moka_secant_radius_e05.v1.json").read_text()
