@@ -1,5 +1,21 @@
 # AEGIS SafeLIBERO table reproduction
 
+## One-shot repulsive-prefix/live-VLA recovery gate (preregistered, 2026-08-13)
+
+Execute the independently validated raw-contact-free `soft_free_5d` prefix at
+E05 actions 182--186 without endpoint preservation, then query frozen pi0.5
+from the changed observation and continue with the unchanged released AEGIS EE
+QP. No additional L5--L7 repulsion, candidate rejection, or stopping is
+allowed. This isolates whether live policy feedback absorbs the displacement.
+All internal substeps after activation report raw protected contacts, CAR,
+Loewner-proxy margins, and exact ellipsoid/compiled-box overlap separately.
+
+Exact next command after committing and syncing clean source:
+
+```bash
+EXPECTED_GIT_COMMIT=<commit> RUN_ID=soft-prefix-live-replan-e05-20260813a sbatch slurm/distal_soft_prefix_live_replan_e05.sbatch
+```
+
 ## E05 Cartesian controllability/manifold oracle (preregistered, 2026-08-13)
 
 The active no-learning gate first audits the archived action-182 state at all

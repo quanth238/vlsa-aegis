@@ -1,5 +1,16 @@
 # Reproduction decisions
 
+## ADR-0098: Do not force task rejoining into the repulsive prefix
+
+Execute one already verified raw-contact-free five-action repulsive prefix and
+release control to fresh frozen pi0.5 observations. Endpoint preservation and
+a task-return penalty are forbidden in the prefix. The VLA is responsible for
+task recovery; the experiment contains no repeated distal intervention.
+Define the practical learning target, if this passes, as a policy-conditioned
+recoverable warning-state set rather than an assumed forward-invariant CBF
+set. Raw MuJoCo protected contacts remain the physical authority and
+conservative ellipsoid overlap remains separate.
+
 ## ADR-0097: Pass controllability; reject selector training without safe support
 
 Accepted after H100 producer `39333` and independent validator `39338`. The

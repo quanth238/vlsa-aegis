@@ -1,0 +1,52 @@
+{
+  "protocol_id": "vlsa-distal-soft-prefix-live-replan-e05-v1",
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "single_e05_contact_free_repulsive_prefix_then_frozen_pi05_and_original_aegis_live_replanning_no_repeated_distal_filter_not_generalization_not_formal_safety",
+  "registered_inputs": {
+    "controllability_result": {
+      "path": "/mnt/data/quanth/experiments/vlsa-distal-controllability-manifold-e05-20260813a/result.json",
+      "file_sha256": "ddc676f775b19cdf507e88359d086b019f8aea2e3191e6a4c0023cb1109c6d21",
+      "result_payload_sha256": "3ac21494a85361377484ab6a951d14ee634ea64e8a05664b334a5028620b6a8b",
+      "source_commit": "eba0d8baff3f94369012166038f084dc7c5f194c"
+    },
+    "selected_arm": "soft_free_5d",
+    "selected_coefficients": [0.6979806961017749, -0.6214514068014507, 0.5711711073895184, -0.6500084457375009, 0.733209765095035],
+    "selected_rule": "matching_internal_finalist_with_minimum_objective"
+  },
+  "state_protocol": {
+    "archived_prefix_stop_exclusive": 182,
+    "repulsive_prefix_steps": [182, 183, 184, 185, 186],
+    "live_replanning_start_step": 187,
+    "first_live_policy_query_index": 37,
+    "execute_actions_per_query": 5,
+    "policy_action_horizon": 10,
+    "maximum_episode_steps_from_manifest": true
+  },
+  "control": {
+    "repulsive_prefix": "registered_soft_free_five_action_candidate_without_endpoint_preservation",
+    "continuation": "fresh_frozen_pi05_query_from_changed_observation_then_original_released_aegis_end_effector_qp",
+    "aegis_direction_release": "reinitialize_from_current_end_effector_proxy_and_immutable_perceived_obstacle",
+    "additional_l5_l7_intervention_after_prefix": false,
+    "stop_on_collision": false
+  },
+  "measurement": {
+    "expected_mujoco_substeps_per_action": 25,
+    "physical_authority": "raw_mujoco_protected_link_contact",
+    "paper_car_threshold_m": 0.001,
+    "ellipsoid_diagnostic": "seven_L5_L7_rows_against_compiled_box_Loewner_proxies_and_exact_robot_ellipsoid_compiled_box_overlap",
+    "measure_internal_substeps_from_action": 182,
+    "video_fps": 20
+  },
+  "success": {
+    "task": "native_BDDL_goal_all_satisfied",
+    "collision": "zero_raw_MuJoCo_contacts_for_protected_L5_L6_L7_after_action_182",
+    "car": "active_obstacle_L1_displacement_at_most_0.001_m",
+    "primary": "task_and_collision_and_car"
+  },
+  "safe_set_interpretation": {
+    "object": "policy_conditioned_recoverable_warning_state_set",
+    "membership_pilot": "a_bounded_contact_free_prefix_followed_by_frozen_pi05_and_AEGIS_replanning_reaches_the_task_without_future_protected_contact_or_CAR",
+    "not_claimed": "forward_invariant_CBF_safe_set"
+  },
+  "forbidden": ["endpoint_preservation", "task_rejoin_penalty_inside_prefix", "repeated_L5_L7_repulsion", "online_candidate_rejection", "model_training", "qp_change", "table1_artifact_change"]
+}
