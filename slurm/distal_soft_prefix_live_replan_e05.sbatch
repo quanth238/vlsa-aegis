@@ -81,6 +81,7 @@ safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_soft_prefix_live_replan -v >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
 "$AEGIS_PYTHON" -c 'from scripts.evaluate_distal_soft_prefix_live_replan_e05 import evaluate' >>"$RUN_ROOT/evaluation-preflight.txt" 2>&1
+[[ "$(jq -r .result_payload_sha256 "$CONTROLLABILITY_RESULT")" == 3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98 ]] || die "controllability payload differs"
 (
   cd "$REMOTE_REPO"
   exec "$OPENPI_PYTHON" scripts/serve_policy.py --port "$POLICY_PORT" policy:checkpoint --policy.config pi05_libero --policy.dir "$PI05_CHECKPOINT"

@@ -21,6 +21,12 @@ protected-link predicate from the baseline module instead of its registered
 replay module. The run contains only apparatus-failure evidence. The import was
 corrected and an evaluator-import check was added to allocation preflight.
 
+H100 job `39353` also stopped before simulation: the registered file SHA was
+correct, but the payload hash copied into the preregistration was incomplete.
+The immutable artifact reported
+`3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98`.
+The registration was corrected and a pre-server payload check was added.
+
 ## E05 Cartesian controllability/manifold oracle (preregistered, 2026-08-13)
 
 The active no-learning gate first audits the archived action-182 state at all

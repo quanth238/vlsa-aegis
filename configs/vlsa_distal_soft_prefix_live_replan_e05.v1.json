@@ -6,7 +6,7 @@
     "controllability_result": {
       "path": "/mnt/data/quanth/experiments/vlsa-distal-controllability-manifold-e05-20260813a/result.json",
       "file_sha256": "ddc676f775b19cdf507e88359d086b019f8aea2e3191e6a4c0023cb1109c6d21",
-      "result_payload_sha256": "3ac21494a85361377484ab6a951d14ee634ea64e8a05664b334a5028620b6a8b",
+      "result_payload_sha256": "3ac21494b469de9a7d60f702e9b6a19f12830ee73e2b2412f309c446496c7e98",
       "source_commit": "eba0d8baff3f94369012166038f084dc7c5f194c"
     },
     "selected_arm": "soft_free_5d",
