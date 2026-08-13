@@ -14,6 +14,35 @@ Require both to predict the same eight fresh directions with cosine at least
 near-active-row gates. No new state input, QP, correction, or closed-loop
 experiment is allowed.
 
+Clean H100 producer `39305` completed on `worker-2` in `222.103 s` from
+commit `b91d81d6815855de06ad0e4027ee80e1275cc21e`; independent H100 validator
+`39307` accepted all `129` cloned-OSC rollouts, immutable direction binding,
+full-rank designs, hashes, and registered arithmetic gates. Neither radius
+passed.
+
+At radius `0.025`, compact-MLP held-out cosine/sign were
+`0.383901/0.748214`; the local ridge ceiling was `0.646382/0.790179`. At
+radius `0.0125`, the MLP improved to `0.708877/0.824107`, but ridge remained
+only `0.664620/0.769643`. Both remained below the registered `0.8/0.85`
+requirements. Within-radius near-active MLP/ridge agreement stayed high
+(`0.963438/0.969130`), while cross-radius near-active ridge cosine was only
+`0.764505`.
+
+The strict interpretation is
+`smaller_secants_do_not_rescue_affine_response_teacher`. The result does not
+justify a larger MLP, additional state inputs, QP, or control. The one-state
+twenty-action response itself is direction- and radius-sensitive; the next
+prediction gate should replace the full-vector affine target with a
+direction-conditioned scalar response or matched nonlinear local action
+value.
+
+Producer result file/payload SHA-256 values are
+`cb7e2aeb65a031f7b665b4aad2d5fa2840f313e51fa4ac52e0752a321dca79a6`
+and `d74bd14ea877dd9e9b0ae350909691bb23425160d898868b30e8860139aada8e`.
+Validation file/payload SHA-256 values are
+`0a89b39a331443fec92bd4a945373865f861c271d8802797e565b23c8b8222a2`
+and `72e9392118ade961c937e50a742e74c63a693a4f3b7f5143671760f17f96e1f7`.
+
 ## E05 Moka compact-input memorization ablation (preregistered, 2026-08-13)
 
 The next active gate changes exactly one factor from the validated `39230`

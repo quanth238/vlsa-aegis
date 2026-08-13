@@ -1,5 +1,26 @@
 # Reproduction decisions
 
+## ADR-0091: Reject radius reduction as the repair for the affine teacher
+
+Accepted after H100 producer `39305` and independent validator `39307`.
+Both smaller-radius experiments reused the exact original 32 directions and
+changed only paired physical perturbation magnitude. Neither the compact MLP
+nor independently fitted local ridge reached the registered held-out
+cosine/sign gates at `0.025` or `0.0125`.
+
+Do not blame model size or reintroduce the rejected 1,055D input. The compact
+model still fits values within `0.652/0.518 mm`, and its six near-active rows
+agree strongly with each within-radius ridge fit. The decisive failure is
+that the ridge teacher itself reaches only `0.646382/0.664620` held-out cosine
+and `0.790179/0.769643` sign accuracy. Its near-active rows also change across
+radii (mean cosine `0.764505`).
+
+Retain compact physical inputs, but replace the assumption that one affine
+140-row response field transfers across fresh perturbation directions. The
+next independent gate may test direction-conditioned scalar secant prediction
+or a matched nonlinear local action-value model using immutable paired data.
+QP, action correction, and closed-loop execution remain blocked.
+
 ## ADR-0090: Change only secant radius after compact-input improvement
 
 Accepted before simulation or training. Keep E05 step 182, the compact 25D
