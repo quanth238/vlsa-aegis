@@ -21,6 +21,33 @@ allocation shell preflight reached `worker-0`, but that node's live
 helper failed with `Exec format error`. The retry excludes only this broken
 node and changes no input, model, label, split, seed, loss, or gate.
 
+Clean H100 producer `39295` completed the one-state ablation on `worker-2` in
+2:10 from commit `f3f7188956e3129287deba90e465345926b48659`;
+independent H100 validator `39298` accepted all 65 replay rollouts and every
+registered arithmetic gate. The strict result is NO-GO, but it isolates two
+causes rather than one.
+
+The compact 25D model improved step-182 fit response cosine from `0.490390`
+to `0.880229`, sign accuracy from `0.759226` to `0.932143`, and value RMSE
+from `32.750 mm` to `0.701 mm`. Its six near-active L5 rows reached mean
+cosine `0.931639` with the local ridge rows. This confirms that the old 1,055D
+redundant input materially caused training underfit.
+
+The prediction gate still fails. Compact held-out response cosine was only
+`0.408501`; the full-rank local ridge teacher was also only `0.449661`, with
+condition number `480.847`. The compact model's fit cosine and all-row ridge
+cosine were `0.880229/0.862107`, below the registered `0.9` thresholds. Thus
+input reduction alone cannot establish a usable response gradient. The next
+one-factor gate should keep compact inputs and test smaller paired secant
+radii before adding state variables, QP, or control.
+
+Producer result file/payload SHA-256 values are
+`a55fd62fe391724c662296ae7e59f67328f163c3980486b37465fdec7955aab1`
+and `5384c6893e0fefaa6e19bd59c8e13c210a1fe25e04a9e18eb00468325281ecae`.
+Validation file/payload SHA-256 values are
+`f5ca20f14e70f16b5978067e95382eb1e9edf3424b39d78f5cbfab532656db39`
+and `6c2a4c50561026d0c72276892653c948a3ed001949eccd402baf901d15609492`.
+
 ## Frozen E05 Moka response-model audit (preregistered, 2026-08-13)
 
 The next gate is read-only diagnosis of the validated `39230` NO-GO. It

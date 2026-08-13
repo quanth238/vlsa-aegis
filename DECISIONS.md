@@ -23,6 +23,24 @@ simulator construction and training. Exclude that exact node for producer and
 validator retries. This is a live-infrastructure repair and does not change
 the preregistered ablation.
 
+## ADR-0089: Retain compact inputs and diagnose secant locality next
+
+Accepted after H100 producer `39295` and independent validator `39298`. The
+25D one-state model materially repairs the rejected representation: value
+RMSE falls to `0.701 mm`, fit-response cosine rises to `0.880229`, and the six
+near-active L5 rows reach `0.931639` cosine with their ridge rows. Do not
+return to raw simulator snapshots, duplicated controller state, or absolute
+obstacle constants.
+
+Keep the result as a strict prediction NO-GO. Fresh-direction cosine is only
+`0.408501`, while the full-rank local ridge teacher is itself only `0.449661`.
+The current `+0.05/-0.05`, 20-action affine response is therefore not a
+reliable local teacher at one fixed physical state. Do not add `q`, `qdot`,
+geometry, weighting, QP, or closed-loop control yet. The next independent
+gate should change only secant radius. If smaller radii do not improve ridge
+held-out response, replace full-vector affine-gradient supervision with a
+direction-conditioned or nonlinear local response target.
+
 ## ADR-0086: Audit the frozen E05 Moka model before changing it
 
 Accepted before replay. Reconstruct the immutable `39230` model from its
