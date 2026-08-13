@@ -1936,3 +1936,17 @@ only the next prediction experiment: approximate the seven policy-conditioned
 values from grouped backup-policy rollouts and test false-safes, recall, and
 action gradients on untouched states. It does not clear a QP, online learned
 filter, neural-CBF/invariance claim, or task-completion experiment.
+## ADR-0108: Audit a pure backup before learning direct action risk
+
+Accepted for H100 evaluation after reviewing the uploaded mathematical system
+specification. Preserve jobs 39422/39424 as valid exact finite-horizon values
+for the registered augmented policy. Do not reinterpret them as values for a
+VLA-ledger-independent backup.
+
+Activate one representative-state audit at E05 steps 187, 222 and 288. The
+validated action ledger may reconstruct the physical/controller state, but it
+is forbidden from the backup action and score. Use a fixed finite family of
+hold, world-axis and geometry-local candidates, one-action execution, and a
+25-action hold tail. Require deterministic/order-invariant exact evaluation,
+no source-state mutation, seven-row +1 mm support, zero protected contact, and
+paper CAR. Do not train an MLP, add a QP, or claim a neural CBF/invariant set.

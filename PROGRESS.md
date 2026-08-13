@@ -2729,3 +2729,27 @@ not task success, invariance, a neural CBF, or generalization. Producer and
 validation payload SHA-256 values are
 `89b8e11f81dd7c39a25c48dc78cc46fff6347292dc4a59aa8ae4d490e9ceaff7`
 and `36170db254c1d495eafe2b3ab2d78fb869c670490dd1801af7098bb2d5261978`.
+## Pure ledger-independent backup audit (active)
+
+The uploaded system specification exposes one material mismatch with the
+validated jobs 39422/39424. Those jobs evaluated a deterministic policy on an
+augmented state containing the immutable pi0.5 proposal ledger. This is valid
+finite-horizon policy evaluation, but it is not the stricter pure backup
+required before collecting reusable policy-value data.
+
+The active gate reconstructs only three representative physical/controller
+states (steps 187, 222 and 288) from the immutable validated ledger. The backup
+itself cannot read the VLA chunk or ledger. It evaluates hold, positive and
+negative world axes, and positive and negative local normal/tangent actions at
+two amplitudes, executes one action, and verifies a 25-action hold at every
+internal substep. Pass requires deterministic replay, candidate-order
+invariance, no source-state mutation, +1 mm seven-row support, zero protected
+contact, and paper CAR at all three states. This is a focused mechanism audit,
+not complete policy, learning, QP, CBF, invariance, task-completion, or
+generalization evidence.
+
+The validated clean video from job 39393 ends with the bowl visually near the
+plate but not inside the native predicate. The final horizontal bowl/plate
+center separation is 35.4439 mm, whereas LIBERO `On` requires less than 30 mm
+and contact. Therefore the run is near-complete/task-compatible but not a
+native-detector false negative.

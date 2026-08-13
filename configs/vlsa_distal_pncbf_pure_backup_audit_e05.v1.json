@@ -1,0 +1,49 @@
+{
+  "protocol_id": "vlsa-distal-pncbf-pure-backup-audit-e05-v1",
+  "case_ids": ["vlsa-t1-goal-ii-t0-e05"],
+  "claim_scope": "representative_state_determinism_and_safe_support_of_a_vla_ledger_independent_finite_candidate_backup_not_complete_policy_not_learning_not_qp_not_cbf_not_invariance_not_task_completion_not_generalization",
+  "registered_source_result": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-pncbf-policy-value-e05/pncbf-policy-value-e05-20260813f/result.json",
+    "file_sha256": "3ae24763189c6832a7f15311aa393ebc68b7eca5230a0b3d470122ddeb874c02",
+    "result_payload_sha256": "89b8e11f81dd7c39a25c48dc78cc46fff6347292dc4a59aa8ae4d490e9ceaff7",
+    "source_commit": "8fa5713d5b253677cf6b94b917e8d78bd56a84db"
+  },
+  "decision_steps": [187, 222, 288],
+  "candidate_family": {
+    "directions": "hold_plus_world_axes_plus_local_normal_tangents",
+    "amplitudes_action": [0.5, 1.0],
+    "translation_scale_m_per_action_unit": 0.05,
+    "execute_actions": 1,
+    "terminal_hold_actions": 25,
+    "rotation_action": [0.0, 0.0, 0.0],
+    "gripper_action": 0.0,
+    "selection": "maximum_verified_future_minimum_clearance_then_fixed_registered_order",
+    "candidate_order_is_semantic_and_fixed": true,
+    "vla_action_or_ledger_is_forbidden_as_policy_input": true
+  },
+  "safety_buffer_m": 0.001,
+  "paper_car_threshold_m": 0.001,
+  "measurement": {
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance": 1e-12,
+    "include_k0_in_strict_safety": true,
+    "physical_authority": "raw_MuJoCo_L5_L6_L7_contact_and_CAR",
+    "proxy_authority": "seven_L5_L7_Loewner_support_gaps"
+  },
+  "gates": {
+    "candidate_order_invariance": true,
+    "repeat_replay_tolerance": 1e-12,
+    "source_state_mutation_tolerance": 0.0,
+    "safe_candidate_support_in_all_states": true,
+    "terminal_hold_safe": true
+  },
+  "forbidden": [
+    "vla_ledger_as_backup_input",
+    "model_training",
+    "qp",
+    "neural_cbf_claim",
+    "infinite_horizon_claim",
+    "task_completion_claim",
+    "table1_artifact_change"
+  ]
+}
