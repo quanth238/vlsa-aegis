@@ -1925,3 +1925,14 @@ MuJoCo substep during execution and build suffix maxima only from those
 traces. Keep cloned OSC rollouts solely for rejecting unsafe candidates before
 execution. Do not mix the two measurement streams or relax the `1e-12`
 successor-consistency gate.
+
+## ADR-0107: Authorize policy-value approximation, not learned control
+
+Accepted after producer `39422` and independent validator `39424`. Exact
+finite-horizon suffix values for the fixed augmented backup are well-defined
+and safe at all 22 recorded decision states. Executed-policy internal traces,
+not cloned candidate traces, are the authoritative value labels. This clears
+only the next prediction experiment: approximate the seven policy-conditioned
+values from grouped backup-policy rollouts and test false-safes, recall, and
+action gradients on untouched states. It does not clear a QP, online learned
+filter, neural-CBF/invariance claim, or task-completion experiment.

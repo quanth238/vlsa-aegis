@@ -2715,3 +2715,17 @@ error, a +1.205807 mm terminal hold, and zero protected contact/CAR. Validator
 rejected derived records using byte-exact floating-point equality. It issued
 no receipt. The validator-only repair retains exact structure/booleans and
 uses the already registered `1e-12` tolerance for numeric leaves.
+
+Final H100 producer `39422` and independent validator `39424` passed. The
+fixed augmented backup generated 22 exact seven-row finite-horizon decision
+values; all 22 were nonpositive, Bellman residual and successor-boundary error
+were exactly zero, and the registered 25-action zero-motion hold retained
++1.205807 mm minimum clearance. Fresh replay reproduced all 288 actions with
++1.037969 mm minimum executed L5--L7 proxy clearance, zero protected contact,
+and paper CAR pass. Maximum producer/validator trace and value discrepancies
+were `9.853229e-16 m` and `7.632783e-16`. The frozen proposal ledger still did
+not complete the native task. This is a finite-horizon policy-evaluation pass,
+not task success, invariance, a neural CBF, or generalization. Producer and
+validation payload SHA-256 values are
+`89b8e11f81dd7c39a25c48dc78cc46fff6347292dc4a59aa8ae4d490e9ceaff7`
+and `36170db254c1d495eafe2b3ab2d78fb869c670490dd1801af7098bb2d5261978`.
