@@ -177,3 +177,50 @@ def predict_scalar(bundle: Mapping[str, Any], features: Any) -> Any:
     with torch.no_grad():
         prediction = bundle["model"](value).reshape(-1).detach().cpu().numpy()
     return prediction * float(bundle["target_scale"]) + float(bundle["target_mean"])
+
+
+def load_frozen_scalar_model(torch: Any, state_payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Reconstruct a scalar model exactly for read-only audits."""
+
+    np = _numpy()
+    required = {
+        "feature_mean",
+        "feature_scale",
+        "target_mean",
+        "target_scale",
+        "state_dict",
+    }
+    if not isinstance(state_payload, Mapping) or set(state_payload) != required:
+        raise ValueError("frozen scalar payload differs")
+    raw_state = state_payload["state_dict"]
+    if not isinstance(raw_state, Mapping) or "0.weight" not in raw_state:
+        raise ValueError("frozen scalar parameters differ")
+    first = np.asarray(raw_state["0.weight"], dtype=np.float32)
+    if first.ndim != 2 or first.shape[0] < 1 or first.shape[1] < 1:
+        raise ValueError("frozen scalar first layer differs")
+    model = build_scalar_model(torch, int(first.shape[1]), int(first.shape[0]))
+    reference = model.state_dict()
+    if set(reference) != set(raw_state):
+        raise ValueError("frozen scalar state keys differ")
+    converted = {}
+    for name, tensor in reference.items():
+        value = np.asarray(raw_state[name], dtype=np.float32)
+        if tuple(value.shape) != tuple(tensor.shape):
+            raise ValueError("frozen scalar tensor shape differs: %s" % name)
+        converted[name] = torch.as_tensor(value, dtype=tensor.dtype)
+    model.load_state_dict(converted)
+    model.eval()
+    feature_mean = np.asarray(state_payload["feature_mean"], dtype=np.float64)
+    feature_scale = np.asarray(state_payload["feature_scale"], dtype=np.float64)
+    if feature_mean.shape != (first.shape[1],) or feature_scale.shape != feature_mean.shape:
+        raise ValueError("frozen scalar feature statistics differ")
+    if np.any(feature_scale <= 0.0):
+        raise ValueError("frozen scalar feature scale differs")
+    return {
+        "model": model,
+        "device": torch.device("cpu"),
+        "feature_mean": feature_mean,
+        "feature_scale": feature_scale,
+        "target_mean": float(state_payload["target_mean"]),
+        "target_scale": float(state_payload["target_scale"]),
+    }

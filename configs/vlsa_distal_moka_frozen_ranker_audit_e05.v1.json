@@ -1,0 +1,44 @@
+{
+  "protocol_id": "vlsa-distal-moka-frozen-ranker-audit-e05-v1",
+  "case_ids": [
+    "vlsa-t1-goal-ii-t0-e05"
+  ],
+  "claim_scope": "one_state_frozen_model_new_direction_ranking_audit_not_state_generalization_not_control_not_formal_safety",
+  "state": {
+    "step": 182
+  },
+  "sampling": {
+    "radius_action": 0.0125,
+    "generation_radius_action": 0.05,
+    "direction_seed": 2026081410,
+    "paired_direction_count": 64,
+    "near_active_threshold_m": 0.002,
+    "random_sign_seed": 2026081411,
+    "random_sign_trials": 10000,
+    "best_of_n_prefixes": [4, 8, 16, 32, 64]
+  },
+  "frozen_model": {
+    "arm": "direction_conditioned_scalar",
+    "result_file_sha256": "6d9d49bb7511be8ee325ebbcf94956724ccc7fd3c3cdab0319688d48d7bbbec4",
+    "result_payload_sha256": "95937f109842d3adf80a38db2501b81b2b947d7e6a050004ec55a3a94761bef7",
+    "model_sha256": "c7a8534e6b3ffe6b82837381f7b7cfa1a6a7ec9ac550de55d32bc57e545219e7"
+  },
+  "gate": {
+    "minimum_branch_accuracy": 0.85,
+    "maximum_one_sided_binomial_p": 0.05,
+    "minimum_mean_selected_near_active_l5_gain_m": 0.0
+  },
+  "forbidden": [
+    "model_training",
+    "model_parameter_change",
+    "input_change",
+    "loss_change",
+    "state_change",
+    "radius_change",
+    "geometry_change",
+    "horizon_change",
+    "qp",
+    "corrected_execution",
+    "closed_loop"
+  ]
+}

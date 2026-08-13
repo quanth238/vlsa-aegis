@@ -7,6 +7,35 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MokaResponseFieldTests(unittest.TestCase):
+    def test_frozen_ranker_audit_changes_only_test_directions(self):
+        config = json.loads(
+            (ROOT / "configs/vlsa_distal_moka_frozen_ranker_audit_e05.v1.json").read_text()
+        )
+        self.assertEqual(config["state"], {"step": 182})
+        self.assertEqual(config["sampling"]["radius_action"], 0.0125)
+        self.assertEqual(config["sampling"]["paired_direction_count"], 64)
+        self.assertEqual(config["sampling"]["best_of_n_prefixes"], [4, 8, 16, 32, 64])
+        self.assertEqual(config["frozen_model"]["arm"], "direction_conditioned_scalar")
+        self.assertIn("model_training", config["forbidden"])
+        self.assertIn("qp", config["forbidden"])
+        source = (ROOT / "scripts/audit_distal_moka_frozen_ranker_e05.py").read_text()
+        self.assertIn("load_frozen_scalar_model", source)
+        self.assertNotIn("train_scalar_model", source)
+        self.assertNotIn("solve_qp", source)
+        self.assertIn('"training_or_control_attempted": False', source)
+
+    def test_frozen_ranker_validator_recomputes_primary_gate(self):
+        source = (ROOT / "scripts/validate_distal_moka_frozen_ranker_audit_e05.py").read_text()
+        self.assertIn("_binomial(successes, count)", source)
+        self.assertIn('metrics["gate"]["checks"] == checks', source)
+        self.assertIn('set(reports) == {"4", "8", "16", "32", "64"}', source)
+
+    def test_frozen_scalar_loader_reconstructs_exact_architecture(self):
+        source = (ROOT / "main/multilink_ellipsoid/moka_local_action_value.py").read_text()
+        self.assertIn("def load_frozen_scalar_model", source)
+        self.assertIn("model = build_scalar_model", source)
+        self.assertIn('"0.weight"', source)
+
     def test_local_action_value_ablation_is_matched_and_prediction_only(self):
         config = json.loads(
             (ROOT / "configs/vlsa_distal_moka_local_action_value_e05.v1.json").read_text()

@@ -1,5 +1,18 @@
 # Reproduction decisions
 
+## ADR-0094: Freeze the scalar model and test 64 new paired directions
+
+Accepted before simulation. Reconstruct the exact direction-conditioned
+checkpoint from validated job `39312`; do not train or alter inputs. At the
+same E05 action-182 state, test 64 new seed-`2026081410` directions and both
+radius-`0.0125` branches using exact cloned-OSC outcomes.
+
+Judge the paired-ranking hypothesis by branch accuracy, exact binomial
+significance against 50%, and near-active L5 gain. Also audit whether ranking
+the model-selected branches actually finds high-clearance candidates as N
+grows. Do not interpret branch ordering as an integrable potential or control
+gradient, and do not solve a QP or execute a selected correction.
+
 ## ADR-0093: Reject both scalar control fields; retain paired ordering as a hypothesis
 
 Accepted after H100 producer `39312` and independent validator `39313`.

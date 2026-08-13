@@ -1,5 +1,20 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Moka frozen ranker audit (preregistered, 2026-08-13)
+
+The next gate freezes the validated direction-conditioned scalar checkpoint
+from job `39312` and changes only evaluation directions. At the identical
+action-182 state and radius `0.0125`, generate 64 new directions using seed
+`2026081410`, replay both signs through cloned OSC, and compare predicted with
+exact twenty-action L5--L7 ordering.
+
+Require at least `0.85` branch accuracy, exact one-sided binomial `p < 0.05`
+against random sign, and positive mean exact gain on the six nominally near-
+active L5 witnesses. Separately test Best-of-N ranking using predicted top
+candidates at `N=4/8/16/32/64`, including exact percentile and regret. The
+model, input, state, radius, geometry, horizon, and loss are immutable; no
+training, QP, corrected execution, or closed loop is allowed.
+
 ## E05 Moka local nonlinear prediction gate (preregistered, 2026-08-13)
 
 The next gate retains the compact 25D physical witness input and validated
