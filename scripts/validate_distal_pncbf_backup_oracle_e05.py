@@ -46,10 +46,40 @@ def _atomic_write(path: Path, value: Mapping[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _maximum_numeric_error(left: Any, right: Any) -> float:
+    """Compare a JSON-like structure exactly except for finite numeric leaves."""
+
+    import math
+
+    if isinstance(left, bool) or isinstance(right, bool):
+        _require(type(left) is type(right) and left == right, "policy-value boolean differs")
+        return 0.0
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        left_value = float(left)
+        right_value = float(right)
+        _require(math.isfinite(left_value) and math.isfinite(right_value), "policy-value number is nonfinite")
+        return abs(left_value - right_value)
+    if isinstance(left, Mapping) or isinstance(right, Mapping):
+        _require(isinstance(left, Mapping) and isinstance(right, Mapping), "policy-value mapping type differs")
+        _require(set(left) == set(right), "policy-value mapping keys differ")
+        return max((_maximum_numeric_error(left[key], right[key]) for key in left), default=0.0)
+    if isinstance(left, Sequence) and not isinstance(left, (str, bytes)):
+        _require(
+            isinstance(right, Sequence)
+            and not isinstance(right, (str, bytes))
+            and len(left) == len(right),
+            "policy-value sequence differs",
+        )
+        return max((_maximum_numeric_error(a, b) for a, b in zip(left, right)), default=0.0)
+    _require(type(left) is type(right) and left == right, "policy-value literal differs")
+    return 0.0
+
+
 def validate(
     *, repo_root: Path, result_path: Path, manifest_path: Path,
     archived_path: Path, geometry_config_path: Path,
     experiment_config_path: Path, expected_commit: str,
+    validator_commit: Optional[str] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -286,16 +316,17 @@ def validate(
                 expected_substeps_per_action=expected_substeps,
                 boundary_tolerance_m=tolerance,
             )
+            maximum_value_error = 0.0
             for key in (
                 "records", "terminal_tail_value", "all_decision_states_safe",
                 "maximum_bellman_residual", "maximum_successor_boundary_error_m",
                 "successor_boundaries_consistent", "nonincreasing_along_backup",
             ):
-                _require(
-                    fresh_policy_value[key] == policy_value[key],
-                    "fresh policy value differs: %s" % key,
-                )
+                error = _maximum_numeric_error(fresh_policy_value[key], policy_value[key])
+                maximum_value_error = max(maximum_value_error, error)
+                _require(error <= tolerance, "fresh policy value differs: %s" % key)
             fresh_policy_value["maximum_producer_trace_error_m"] = maximum_stored_trace_error
+            fresh_policy_value["maximum_producer_value_error"] = maximum_value_error
             fresh_policy_value["terminal_future_minimum_clearance_m"] = terminal_future_clearance
             fresh_policy_value["terminal_physical_safe"] = terminal_physical_safe
             fresh_policy_value["terminal_buffer_safe"] = terminal_buffer_safe
@@ -314,7 +345,7 @@ def validate(
             "status": "validated",
             "scientific_result": True,
             "producer_commit": expected_commit,
-            "validator_source": {"commit": expected_commit},
+            "validator_source": {"commit": validator_commit or expected_commit},
             "allocation": allocation_record(),
             "result_file_sha256": _file_sha256(result_path),
             "result_payload_sha256": claimed,
@@ -347,6 +378,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--experiment-config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--validator-commit")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     value = validate(
@@ -355,6 +387,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         geometry_config_path=args.geometry_config.resolve(),
         experiment_config_path=args.experiment_config.resolve(),
         expected_commit=args.expected_commit,
+        validator_commit=args.validator_commit,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps(value, sort_keys=True), flush=True)

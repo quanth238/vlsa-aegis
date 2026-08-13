@@ -2707,3 +2707,11 @@ before atomic output because the terminal-tail restore omitted the base
 environment clock (`timestep`, `cur_time`, `done`). The dynamic-state equality
 gate caught this apparatus omission. The retry adds those already-defined
 state variables to snapshot/restore and changes no policy or safety metric.
+
+Clean producer `39422` passed the corrected executed-policy value gate with
+22/22 safe decision states, zero Bellman residual, zero successor-boundary
+error, a +1.205807 mm terminal hold, and zero protected contact/CAR. Validator
+`39423` reproduced every primary clearance trace within `1e-12` but then
+rejected derived records using byte-exact floating-point equality. It issued
+no receipt. The validator-only repair retains exact structure/booleans and
+uses the already registered `1e-12` tolerance for numeric leaves.

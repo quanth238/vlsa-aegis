@@ -14,6 +14,7 @@
 set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:-/home/quanth/working_space/vlsa-aegis-pncbf-value}
 EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
+SOURCE_GIT_COMMIT=${SOURCE_GIT_COMMIT:-$EXPECTED_GIT_COMMIT}
 SOURCE_RUN_ID=${SOURCE_RUN_ID:?SOURCE_RUN_ID is required}
 VALIDATION_RUN_ID=${VALIDATION_RUN_ID:?VALIDATION_RUN_ID is required}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
@@ -46,4 +47,6 @@ cd "$REMOTE_REPO"
   --archived /mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_slabbed_ellipsoid_shadow_e05.v4.json" \
   --experiment-config "$REMOTE_REPO/configs/vlsa_distal_pncbf_policy_value_e05.v1.json" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$VALIDATION_ROOT/validation.json"
+  --expected-commit "$SOURCE_GIT_COMMIT" \
+  --validator-commit "$EXPECTED_GIT_COMMIT" \
+  --output "$VALIDATION_ROOT/validation.json"
