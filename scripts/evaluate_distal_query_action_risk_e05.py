@@ -6,7 +6,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import socket
+import subprocess
 from typing import Any, Mapping, Optional, Sequence
 
 from scripts.evaluate_distal_pncbf_backup_oracle_e05 import (
@@ -39,6 +42,46 @@ def _public(value: Any) -> Any:
     return value
 
 
+def _allocation_record() -> dict[str, Any]:
+    """Record either one allocated H100 or a CPU canary on an H100 host.
+
+    MuJoCo/OSC execution is CPU-bound.  A canary may therefore use CPU cores
+    on an H100 worker without consuming another user's allocated accelerator.
+    Full diagnostic jobs continue to request exactly one H100.
+    """
+
+    job_id = os.environ.get("SLURM_JOB_ID")
+    if not job_id or not job_id.isdigit():
+        raise ValueError("query action-risk simulation requires Slurm")
+    output = subprocess.check_output(
+        [
+            "nvidia-smi", "--query-gpu=name,uuid,driver_version",
+            "--format=csv,noheader,nounits",
+        ],
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        timeout=30,
+    ).strip().splitlines()
+    if not output or any("H100" not in line for line in output):
+        raise ValueError("query action-risk simulation requires an H100 host")
+    allocated = bool(os.environ.get("SLURM_JOB_GPUS") or os.environ.get("CUDA_VISIBLE_DEVICES"))
+    if allocated and len(output) != 1:
+        raise ValueError("query action-risk GPU allocation must expose exactly one H100")
+    if not allocated and os.environ.get("QUERY_RISK_CPU_CANARY") != "1":
+        raise ValueError("CPU-on-H100 execution is allowed only for an explicit canary")
+    return {
+        "slurm_job_id": job_id,
+        "host": socket.gethostname(),
+        "execution_mode": "allocated_H100" if allocated else "CPU_canary_on_H100_host",
+        "gpu_device_allocated": allocated,
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "host_H100_inventory": output,
+        "slurm_job_gpus": os.environ.get("SLURM_JOB_GPUS"),
+        "slurm_cpus_per_task": os.environ.get("SLURM_CPUS_PER_TASK"),
+        "slurm_mem_per_node": os.environ.get("SLURM_MEM_PER_NODE"),
+    }
+
+
 def evaluate(
     *, repo_root: Path, population_manifest_path: Path, archived_path: Path,
     geometry_config_path: Path, experiment_config_path: Path,
@@ -63,15 +106,13 @@ def evaluate(
         _dynamic_state_vector, _restore_auxiliary_sim_snapshot,
         _restore_controller_snapshot,
     )
-    from main.multilink_ellipsoid.shadow import (
-        MultilinkEllipsoidShadow, allocation_record, load_shadow_config,
-    )
+    from main.multilink_ellipsoid.shadow import MultilinkEllipsoidShadow, load_shadow_config
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
 
     started = time.perf_counter_ns()
     config = load_config(experiment_config_path)
     source = _git_identity(repo_root, expected_commit)
-    allocation = allocation_record()
+    allocation = _allocation_record()
     archived = _load(archived_path)
     _require(archived["case_id"] == config["case_id"], "archived E05 case differs")
     _require(archived["task_success"] is True, "archived E05 task did not succeed")
