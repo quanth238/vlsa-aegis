@@ -2180,3 +2180,24 @@ direct action-risk model until the complete pure-backup oracle demonstrates
 adequate recoverable-state support over grouped episodes. The augmented-policy
 jobs 39422/39424 remain valid evidence but are not pooled with pure-backup
 labels.
+
+## ADR-0110: Expand boundary coverage before direct action-risk learning
+
+Accepted after the E05 Monte-Carlo target positive control. Use real pi0.5
+five-action query boundaries, identical simulator/controller snapshots, the
+unchanged 37 structured normal/tangent candidates, and the complete fixed
+ledger-independent backup. Retain safe, unsafe, and timeout outcomes
+separately. Require initially safe states, mixed exact safe/unsafe candidate
+support, no ellipsoid-safe physical collision, and report safe, unsafe,
+near-boundary, active-witness, state, and episode counts for every claimed row.
+Unsupported rows are reported rather than populated with easy far-clearance
+samples. Reserve complete test episodes and forbid learning, QP, calibration,
+and closed loop until this coverage gate passes.
+
+H100 canary `39652` passed and reproduced E05. Array `39657` exposed a
+20-minute allocation limit that censored long complete-backup rollouts before
+atomic output. Extend only the Slurm wall limit to 60 minutes; do not modify
+the candidate family, backup, target, terminal semantics, or acceptance gate.
+Uniform array `39669` and dependent independent validator `39674` are the
+authoritative population run. Any proxy-safe MuJoCo/CAR violation remains a
+state-level NO-GO and cannot become a safe training label.

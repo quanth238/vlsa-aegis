@@ -3076,3 +3076,28 @@ a complete receding backup policy, broad safe set, task completion, learning,
 QP, CBF, or invariance. Producer/validation payload SHA-256 values are
 `c98812fc3afae7fa8a4dcc6352cef5eb57524cd79e9055738f9603d81b0a3ef3`
 and `c87b62873cfc14ed46c5224f81a27b37143fad50aab2c5a9c58e71a8b993ab4f`.
+
+## Grouped real-query action-risk coverage (running)
+
+The query-boundary producer/validator retained one initially safe real
+five-action query boundary from each of 15 diagnostic/train/validation episode
+groups. Nominal violation coverage reached only rows 1--3; rows 0 and 4--6
+remain unsupported. This authorizes candidate-plus-complete-backup coverage
+measurement, not training.
+
+H100 canary `39652` reproduced the validated E05 mechanism at action 185: 2
+verified-safe candidates, 32 physical unsafe terminals, and 3 censored backup
+timeouts. All 37 active witnesses were L5 row 1, and no proxy-safe candidate
+had a protected MuJoCo/CAR violation.
+
+The first grouped attempt `39657` preserved two complete artifacts, then cases
+2 and 3 hit the 20-minute Slurm wall limit before atomic output. This is an
+infrastructure-censored attempt with no result for those cases. The scientific
+method was not shortened. Commit `553f001` changes only the allocation limit
+to 60 minutes. Uniform H100 array `39669` is running all 15 states with two-job
+concurrency, and independent validator `39674` is registered with an
+`afterok:39669` dependency. The rerun reproduced E05 exactly. E10 is currently
+a retained state-level NO-GO: it has 6 physically verified safe candidates,
+but 20 candidates with nonpositive seven-row proxy risk still violate protected
+MuJoCo contact or CAR. Training, QP, calibration, and closed-loop control
+remain forbidden pending the final per-row validation artifact.
