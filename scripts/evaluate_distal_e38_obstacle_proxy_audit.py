@@ -184,7 +184,7 @@ def evaluate(
             source_body_names=tuple(sorted({box.body_name for box in initial_boxes})),
             source_geom_names=tuple(box.geom_name for box in initial_boxes),
             relative_padding=1.0e-9,
-            tolerance=1.0e-5,
+            tolerance=1.0e-4,
             max_iterations=50000,
         )
         model, data = _raw_model_data(env.sim)
