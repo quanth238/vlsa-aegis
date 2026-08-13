@@ -46,7 +46,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if value["protocol_id"] != "vlsa-distal-clean-action-risk-v1":
         raise ValueError("clean action-risk protocol differs")
     if value["state_sampling"] != {
-        "lead_actions_before_first_protected_contact": [20, 15, 10, 5],
+        "lead_actions_before_first_protected_contact": [5, 3, 2, 1],
         "include_k0_in_strict_safety": True,
         "minimum_initial_proxy_clearance_m": 0.001,
         "maximum_initial_active_obstacle_l1_displacement_m": 0.001,

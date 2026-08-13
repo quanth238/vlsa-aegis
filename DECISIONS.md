@@ -36,6 +36,12 @@ Composition canary `39471` passed this binding, so the apparatus may progress
 to a complete four-state diagnostic case. The canary remains non-scientific
 and cannot satisfy any dataset or learning gate.
 
+Full E05 job `39474` found 104/104 exact-safe proposal-plus-backup labels at
+20/15/10/5 actions before contact. Reject scale-up from this population: it
+cannot test false-safes. Shift only the registered warning offsets to 5/3/2/1,
+continue to reject unsafe initial states, and require both safe and unsafe
+support in every state before learning.
+
 ## ADR-0104: Scale safety learning, not frozen-suffix task claims
 
 Accepted after H100 producer `39384` and validator `39385`. Eight repeated

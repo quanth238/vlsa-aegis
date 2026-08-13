@@ -11,7 +11,12 @@
   "cohort": {
     "selection_manifest_file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326",
     "split_unit": "complete_episode",
-    "episode_counts": {"train": 10, "validation": 3, "test": 3, "diagnostic": 2},
+    "episode_counts": {
+      "train": 10,
+      "validation": 3,
+      "test": 3,
+      "diagnostic": 2
+    },
     "static_inclusions": [
       "AEGIS_native_task_success",
       "AEGIS_paper_CAR_failure",
@@ -42,7 +47,12 @@
     ]
   },
   "state_sampling": {
-    "lead_actions_before_first_protected_contact": [20, 15, 10, 5],
+    "lead_actions_before_first_protected_contact": [
+      5,
+      3,
+      2,
+      1
+    ],
     "include_k0_in_strict_safety": true,
     "minimum_initial_proxy_clearance_m": 0.001,
     "maximum_initial_active_obstacle_l1_displacement_m": 0.001,
@@ -52,13 +62,20 @@
   "candidate_family": {
     "proposal_members": "nominal_aegis_plus_hold_plus_world_axes_plus_local_normal_tangents",
     "backup_members": "hold_plus_world_axes_plus_local_normal_tangents",
-    "amplitudes_action": [0.5, 1.0],
+    "amplitudes_action": [
+      0.5,
+      1.0
+    ],
     "proposal_count": 26,
     "backup_candidate_count": 25,
     "execute_proposal_actions": 1,
     "execute_selected_backup_actions": 1,
     "terminal_hold_actions": 25,
-    "rotation_action": [0.0, 0.0, 0.0],
+    "rotation_action": [
+      0.0,
+      0.0,
+      0.0
+    ],
     "backup_gripper_action": 0.0,
     "vla_ledger_forbidden_from_backup_candidates": true,
     "no_safe_backup_fallback": "maximum_future_clearance_then_fixed_registered_order"
@@ -76,7 +93,11 @@
     "class": "single_action_conditioned_seven_output_MLP",
     "input_dimension": 167,
     "output_count": 7,
-    "hidden_widths": [256, 256, 128],
+    "hidden_widths": [
+      256,
+      256,
+      128
+    ],
     "activation": "silu",
     "input": "compact_robot_controller_state_candidate_action_obstacle_and_seven_current_geometry_rows",
     "loss": "boundary_weighted_Huber_on_seven_quantitative_risks",

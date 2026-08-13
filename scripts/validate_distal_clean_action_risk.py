@@ -86,12 +86,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "episode_count": 0, "requested_state_count": 0,
             "accepted_state_count": 0, "candidate_count": 0,
             "exact_safe_candidate_count": 0,
+            "exact_unsafe_candidate_count": 0,
         })
         entry["episode_count"] += 1
         entry["requested_state_count"] += result["requested_state_count"]
         entry["accepted_state_count"] += result["accepted_state_count"]
         entry["candidate_count"] += sum(state["candidate_count"] for state in result["states"])
         entry["exact_safe_candidate_count"] += sum(state["exact_safe_candidate_count"] for state in result["states"])
+        entry["exact_unsafe_candidate_count"] += sum(state["exact_unsafe_candidate_count"] for state in result["states"])
         rejected.extend({"case_id": result["case"]["case_id"], **item} for item in result["rejected_states"])
     gates = {
         "all_case_artifacts_complete": len(accepted) == len(cases),
@@ -103,6 +105,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         "all_requested_states_have_exact_safe_support": all(
             result["gates"]["all_requested_states_have_exact_safe_support"] for result in accepted
+        ),
+        "all_requested_states_have_exact_unsafe_support": all(
+            result["gates"]["all_requested_states_have_exact_unsafe_support"] for result in accepted
         ),
         "candidate_labels_complete_and_finite": all(
             result["gates"]["candidate_count_and_order_exact"]

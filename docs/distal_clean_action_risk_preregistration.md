@@ -15,7 +15,7 @@ untouched E42/E42/E44 episodes form the final prediction test.
 ## Gate A: exact clean labels
 
 For each selected episode, reconstruct the released AEGIS trajectory and take
-four states 20, 15, 10, and 5 actions before the first protected L5/L6/L7
+four states 5, 3, 2, and 1 actions before the first protected L5/L6/L7
 contact.  Every state must begin with all seven proxy gaps at least +1 mm and
 zero protected MuJoCo contact.
 
@@ -55,8 +55,9 @@ Gate A passes only when source files and static eligibility reproduce, every
 accepted state is initially safe, candidate count/order are exact, all labels
 are finite and replayable, every proposal successor agrees across composed
 branches within `1e-12`, and
-every accepted state has physical/proxy-safe support.  Passing authorizes
-training; it is not learned-model evidence.
+every accepted state has both physical/proxy-safe and unsafe candidate support.
+Passing authorizes training; it is not learned-model evidence. This mixed
+support requirement prevents a vacuous zero-false-safe prediction result.
 
 ## Gate B: prediction only
 

@@ -332,6 +332,7 @@ def collect(
                             context, candidate["first_action"]
                         )
                     safe_count = sum(bool(item["exact_safe"]) for item in candidates)
+                    unsafe_count = len(candidates) - safe_count
                     record = {
                         "state_id": state_id, "step": step,
                         "lead_actions_before_contact": int(selected["first_relevant_contact_step"]) - step,
@@ -339,6 +340,7 @@ def collect(
                         "initial_active_obstacle_l1_displacement_m": current_obstacle_displacement,
                         "state_derived_normal": normal.tolist(), "context": context,
                         "candidate_count": len(candidates), "exact_safe_candidate_count": safe_count,
+                        "exact_unsafe_candidate_count": unsafe_count,
                         "source_state_maximum_mutation": source_state_mutation,
                         "candidates": candidates,
                     }
@@ -357,6 +359,9 @@ def collect(
             "source_task_success_and_car_failure": True,
             "all_requested_states_strictly_initially_safe": len(rejected_states) == 0,
             "all_requested_states_have_exact_safe_support": len(accepted) == len(targets),
+            "all_requested_states_have_exact_unsafe_support": all(
+                state["exact_unsafe_candidate_count"] > 0 for state in state_records
+            ),
             "candidate_count_and_order_exact": all(
                 item["candidate_count"]
                 == (26 if proposal_limit is None else int(proposal_limit))

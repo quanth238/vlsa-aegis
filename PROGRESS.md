@@ -9,7 +9,7 @@ contacts, incomplete or invalid MVEEs, the known E38 proxy mismatch, and any
 allocation-audited state below the +1 mm initial boundary.  E05/E10 are
 diagnostic only; three untouched milk-obstacle episodes are the final test.
 
-Each of 18 episodes contributes four states at 20/15/10/5 actions before first
+Each of 18 episodes contributes four states at 5/3/2/1 actions before first
 protected contact.  Exactly 26 proposals per state execute one action, then
 recompute and execute the fixed ledger-independent backup before its registered
 25-action hold.  Seven positive-is-unsafe worst-future proxy risks,
@@ -43,6 +43,12 @@ in 1:54: all 25 branches shared the proposal successor within
 negligible CAR. The artifact is correctly marked `scientific_result=false`
 and cannot authorize training. The full case receives a four-hour allocation
 based on this measured rollout cost.
+Full diagnostic E05 job `39474` passed the apparatus in 53:05, but all 104
+proposal-plus-backup candidates were exact-safe. This validates early-state
+recoverability but gives no unsafe classification boundary, so the planned
+MLP gate would be vacuous. Do not scale that population. Move the registered
+states to 5/3/2/1 actions before first protected contact, retain strict safe
+`k=0`, and additionally require at least one unsafe candidate per state.
 
 ## Matched task-successful proposal counterfactual (preregistered, 2026-08-13)
 
