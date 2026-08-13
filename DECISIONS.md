@@ -1534,3 +1534,27 @@ already had zero physical contact, and correction norms were near the maximum.
 First audit why the robot/obstacle proxy remains deeply overlapping after raw
 collision disappears. Also retain the limitation that this is archived-policy
 receding execution, not live stochastic VLA feedback or population evidence.
+
+## ADR-0068: Reject one obstacle MVEE as the E38 certification authority
+
+Accepted after matched H100 producer `39224` and independent validator
+`39225`. Holding the successful action trajectory and seven L5--L7 robot
+ellipsoids fixed, the released perceived MVEE reported `-31.577525 mm`, while
+a privileged MVEE fitted directly to the 21 compiled collision boxes still
+reported `-20.285566 mm`. Exact solid intersection with the compiled box union
+and raw MuJoCo contact both reported zero violations across all 326 matched
+samples.
+
+Interpret this as a proxy-representation failure, not solely a perception
+failure. Perception materially worsens the proxy: its MVEE volume is 8.13969
+times the compiled-vertex MVEE and its center differs by 128.831 mm. But one
+ground-truth enclosing MVEE remains falsely unsafe because it fills empty
+space, and the support-gap calculation adds further conservatism. Therefore do
+not solve E38 by increasing repulsive magnitude until the single MVEE becomes
+positive, and do not train against that sign as physical collision truth.
+
+For the simplest next learning pilot, keep the accepted robot ellipsoids but
+replace the obstacle with multiple tight primitives/fields and retain raw
+MuJoCo contact as the physical evaluation authority. The exact box-union audit
+is privileged simulation evidence; it validates the diagnosis but is not a
+deployable perception solution or a population safety claim.

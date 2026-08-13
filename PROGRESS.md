@@ -2177,3 +2177,38 @@ The video SHA-256 is
 Attempts `39177/39178` stopped respectively before rollout on a config-key
 typo and at terminal completion on a five-step clone-state comparison. They
 are apparatus failures only and produced no scientific result.
+
+The matched obstacle-representation audit is now complete. H100 producer
+`39224` replayed the identical successful E38 action ledger from action 108
+through native completion, measuring the fixed seven L5--L7 robot ellipsoids
+at the pre-action state and all 25 MuJoCo substeps of each of 13 actions. H100
+validator `39225` independently accepted all 326 samples. No controller,
+action, warning rule, or repulsion output changed.
+
+The released perceived single MVEE reproduced `-31.577525 mm`. Replacing it
+with a privileged single MVEE fitted to every vertex of all 21 compiled
+wine-bottle collision boxes improved the report to `-20.285566 mm`, but did
+not remove the false negative. In contrast, exact solid intersection of each
+fixed robot ellipsoid with the union of the 21 compiled boxes found zero
+overlap samples, agreeing with zero raw protected MuJoCo contact samples. The
+closest exact box/ellipsoid pair retained positive dimensionless radial slack
+`0.093303`; this is not claimed as metric clearance.
+
+The perceived MVEE is itself poor: its volume is `8.139691` times the
+compiled-box-vertex MVEE volume, its center is displaced `128.831335 mm`, and
+it does not contain every compiled collision-box vertex. However, ground-truth
+geometry inside one enclosing ellipsoid still reports overlap because the
+single convex envelope contains empty space and the center-line support gap is
+conservative. Therefore the E38 proxy problem is not perception alone. It is
+the composition of inaccurate perception and a single-obstacle-ellipsoid
+representation. A deployable follow-up should use multiple tight obstacle
+primitives or a validated field, not merely refit one ground-truth MVEE.
+
+Result/validation file SHA-256 values are
+`81fe02dd3beaf1eb30d18db306ea4975c0a191226d82401f40b91a6024e95ef6` and
+`51ac65dc7ae29158d7bddfe3c4f2f1e8f9dd0d53786610d1b30f8225e15a81e4`;
+payload SHA-256 values are
+`866db4258e52397aa26bc983fbf154ddd23173e9d0328e4c35da0c9289bf8e5f` and
+`63afef1ba2a528a40a8bf149e904e0f2015cf323ed18006c6bee9dfbba0c5918`.
+Jobs `39220--39223` stopped before scientific replay on runtime-call, commit,
+or MVEE-tolerance apparatus errors and support no inference.
