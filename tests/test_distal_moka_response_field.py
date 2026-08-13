@@ -7,6 +7,37 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MokaResponseFieldTests(unittest.TestCase):
+    def test_compact_input_ablation_changes_only_the_input(self):
+        config = json.loads(
+            (
+                ROOT
+                / "configs/vlsa_distal_moka_compact_input_ablation_e05.v1.json"
+            ).read_text()
+        )
+        baseline = json.loads(
+            (ROOT / "configs/vlsa_distal_moka_response_field_e05.v1.json").read_text()
+        )
+        self.assertEqual(config["model"], baseline["model"])
+        self.assertEqual(config["state"]["step"], 182)
+        self.assertEqual(config["input"]["context_dimension"], 15)
+        self.assertEqual(config["input"]["model_input_dimension"], 25)
+        self.assertEqual(config["input"]["context_groups"], ["nominal_first_five_xyz"])
+        self.assertIn("qp", config["forbidden"])
+        self.assertIn("additional_input_group", config["forbidden"])
+        source = (
+            ROOT / "scripts/evaluate_distal_moka_compact_input_ablation_e05.py"
+        ).read_text()
+        self.assertIn("train_response_model([train_state], [train_state]", source)
+        self.assertNotIn("solve_qp", source)
+
+    def test_compact_input_validator_recomputes_the_gate(self):
+        source = (
+            ROOT / "scripts/validate_distal_moka_compact_input_ablation_e05.py"
+        ).read_text()
+        self.assertIn('ridge.get("design_rank") == 15', source)
+        self.assertIn('result["gate"]["checks"] == checks', source)
+        self.assertIn('result["gate"]["pass"] is bool(all(checks.values()))', source)
+
     def test_audit_forbids_training_qp_and_execution(self):
         root = Path(__file__).resolve().parents[1]
         config = json.loads(

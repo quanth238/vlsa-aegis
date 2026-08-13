@@ -1,5 +1,22 @@
 # Reproduction decisions
 
+## ADR-0088: Isolate input representation with one-state memorization
+
+Accepted before training. The frozen audit attributes primary failure to a
+1,055D redundant representation that cannot fit its own five training states.
+Change only the input: at original training step 182 retain the nominal
+first-five XYZ chunk plus time/link witness identity. Keep the existing
+128-unit architecture, joint value/paired-response objective, AdamW settings,
+seed, and paired cloned-OSC labels unchanged.
+
+Judge capacity against the per-state local ridge reference, not an impossible
+perfect held-out gradient. Require high fit-equation and row-gradient cosine,
+and require held-out performance to reproduce the ridge teacher within the
+registered tolerance. Report near-active rows separately. Do not add `q`,
+`qdot`, controller state, geometry, loss weighting, a QP, or closed-loop
+control in this gate. A pass authorizes only the next one-group input ablation;
+a failure selects loss/decoder or secant-locality diagnosis.
+
 ## ADR-0086: Audit the frozen E05 Moka model before changing it
 
 Accepted before replay. Reconstruct the immutable `39230` model from its

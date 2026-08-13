@@ -1,5 +1,20 @@
 # AEGIS SafeLIBERO table reproduction
 
+## E05 Moka compact-input memorization ablation (preregistered, 2026-08-13)
+
+The next active gate changes exactly one factor from the validated `39230`
+NO-GO: model input. It replays only original training action 182 and trains the
+unchanged 128-unit value/response MLP from the nominal first-five XYZ chunk
+plus time/link identity (`25` inputs rather than `1,055`). All optimizer, loss,
+seed, direction, perturbation, geometry, and rollout settings remain fixed.
+
+This is a capacity/memorization test. It compares the MLP with the attainable
+per-state local ridge response on the same 24 fit and eight held-out paired
+directions, and reports near-active rows separately. It cannot establish
+state-conditioned learning because the physical context contains one state.
+No additional state input, weighting change, QP, correction, or closed-loop
+execution is allowed.
+
 ## Frozen E05 Moka response-model audit (preregistered, 2026-08-13)
 
 The next gate is read-only diagnosis of the validated `39230` NO-GO. It
