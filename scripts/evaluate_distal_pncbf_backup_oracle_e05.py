@@ -206,6 +206,7 @@ def evaluate(
     from main.multilink_ellipsoid.rollout import _dynamic_state_vector
     from main.multilink_ellipsoid.rollout import (
         _auxiliary_sim_snapshot,
+        _base_env,
         _controller_snapshot,
         _restore_auxiliary_sim_snapshot,
         _restore_controller_snapshot,
@@ -550,6 +551,12 @@ def evaluate(
             primary_state = np.array(env.sim.get_state().flatten(), copy=True)
             primary_auxiliary = _auxiliary_sim_snapshot(env)
             primary_controller = _controller_snapshot(env)
+            primary_base = _base_env(env)
+            primary_clock = (
+                int(primary_base.timestep),
+                float(primary_base.cur_time),
+                bool(primary_base.done),
+            )
             primary_dynamic = np.array(_dynamic_state_vector(env), copy=True)
 
             def restore_primary() -> None:
@@ -557,6 +564,9 @@ def evaluate(
                 env.sim.forward()
                 _restore_auxiliary_sim_snapshot(env, primary_auxiliary)
                 _restore_controller_snapshot(env, primary_controller)
+                primary_base.timestep = primary_clock[0]
+                primary_base.cur_time = primary_clock[1]
+                primary_base.done = primary_clock[2]
                 _require(
                     np.array_equal(_dynamic_state_vector(env), primary_dynamic),
                     "terminal backup restore differs",

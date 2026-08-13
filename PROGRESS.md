@@ -2701,3 +2701,9 @@ above `1e-12`. Validator `39411` independently confirmed that stored cloned
 candidate traces differ from the executed primary-policy traces and therefore
 issued no validation artifact. Exact policy values must be labeled from the
 executed policy trajectory; cloned OSC remains the candidate verifier only.
+
+H100 attempt `39419` completed the primary executed-trace episode but stopped
+before atomic output because the terminal-tail restore omitted the base
+environment clock (`timestep`, `cur_time`, `done`). The dynamic-state equality
+gate caught this apparatus omission. The retry adds those already-defined
+state variables to snapshot/restore and changes no policy or safety metric.
