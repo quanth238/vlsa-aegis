@@ -4141,3 +4141,14 @@ warning, population, or formal-safety claim follows. Result and validation
 payload SHA-256 values are
 `421adf1150c74fa7f194f14c54d6a0fa3c8b037efa834ca63a1ba139be871ea5`
 and `7b246dbdbb8f67a3017471289a2cd3cd1421740e292caf004e80775101aa5900`.
+
+ADR-0139 preregisters the no-learning exact normal-magnitude curve pilot. The
+authoritative label remains the seven-row worst future violation over the
+exact final post-AEGIS five-action prefix plus complete fixed backup. Nine
+requested radii from zero through two are evaluated at the first warning state
+of goal-task-2 E42, goal-task-3 E42, and goal-task-3 E44. The apparatus records
+requested/effective magnitude, clipping, prefix/backup risks, active row,
+substep/phase, internal margins, contacts, CAR, terminal status, and replay
+identity. Timeouts remain unknown. Only a safe-support pass can authorize a
+subsequent complete adaptive-magnitude episode; MLP training, denoising
+guidance, QP changes, and new generalization claims remain blocked.

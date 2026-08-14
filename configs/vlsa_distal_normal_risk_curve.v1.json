@@ -1,0 +1,36 @@
+{
+  "schema_version": "vlsa_distal_normal_risk_curve.v1",
+  "protocol_id": "vlsa-distal-normal-risk-curve-v1",
+  "claim_scope": "three_opened_diagnostic_first_warning_states_exact_post_AEGIS_normal_magnitude_curve_with_candidate_plus_fixed_backup_not_training_not_closed_loop_not_generalization",
+  "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+  "selection_manifest": "manifests/vlsa_distal_analytical_repulsion_generalization.v1.jsonl",
+  "warning_steps": [25, 100, 110],
+  "query_indices": [5, 20, 22],
+  "requested_alpha": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+  "direction": "current_closest_slab_outward_normal",
+  "temporal_profile": "front_loaded_unit_L2_5_4_3_2_1",
+  "action_limit": 1.0,
+  "risk_definition": "per_row_maximum_prefix_and_complete_fixed_backup_violation_with_one_mm_buffer",
+  "monotonicity_tolerance_m": 1e-09,
+  "unknown_timeout_handling": "censored_not_safe_not_unsafe_not_used_for_monotonicity",
+  "selection_rule": "smallest_requested_alpha_with_exact_safe_terminal_all_seven_rows_no_protected_contact_and_CAR_pass",
+  "gate": {
+    "required_case_count": 3,
+    "require_exact_replay": true,
+    "require_nominal_unsafe": true,
+    "require_at_least_one_known_safe_alpha_per_case": true,
+    "require_zero_proxy_safe_physical_collision": true,
+    "require_zero_monotonicity_violations_for_global_worst_risk": false
+  },
+  "forbidden": [
+    "Table1_artifact_change",
+    "login_node_simulation_or_validation",
+    "timeout_as_safe_or_unsafe",
+    "learned_magnitude",
+    "denoising_guidance",
+    "QP_change",
+    "closed_loop_control",
+    "generalization_claim",
+    "CBF_or_formal_safety_claim"
+  ]
+}

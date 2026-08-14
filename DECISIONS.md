@@ -3359,3 +3359,38 @@ learned steering, a deployable detector, a CBF, or whole-population safety.
 Result and validation payload SHA-256 values are
 `421adf1150c74fa7f194f14c54d6a0fa3c8b037efa834ca63a1ba139be871ea5`
 and `7b246dbdbb8f67a3017471289a2cd3cd1421740e292caf004e80775101aa5900`.
+
+## ADR-0139: Test exact post-AEGIS normal-magnitude risk curves before learning
+
+- Status: active
+- Date: 2026-08-15
+
+The fixed radius-2 controller establishes outward-normal collision authority
+but not task-compatible magnitude selection. Risk is measured in metres while
+the correction radius is in normalized Cartesian action units; no conversion
+between them is valid. The next no-learning gate therefore measures
+
+\[
+q_j(z,\bar A,\alpha)=
+Q_j^\star\!\left(z,P_{\rm AEGIS}(\bar A+\alpha D_n(z))\right)
+\]
+
+at requested radii `0, 0.25, ..., 2.0`. Every candidate transfers its residual
+to the raw VLA chunk, passes once through the unchanged released AEGIS EE
+filter, executes five OSC actions, and then follows the complete registered
+fixed backup. Prefix and backup risks remain separate; the combined label is
+their per-row maximum violation with the existing 1 mm buffer. Requested,
+clipped pre-AEGIS, and effective post-AEGIS correction norms are all recorded.
+Timeouts are censored as unknown and never participate in monotonicity or safe
+support.
+
+This first mechanism pilot is limited to the first validated warning state of
+the three now-open diagnostic cases: goal-task-2 E42 at step 25, goal-task-3
+E42 at step 100, and goal-task-3 E44 at step 110. It tests whether each curve
+contains a known exact-safe magnitude and whether worst future risk is
+sufficiently monotone to justify one-dimensional minimum-magnitude search. It
+does not rerun complete adaptive episodes, train a model, collect denoising
+states, change a QP, reopen a generalization claim, or establish a CBF. A
+complete adaptive-magnitude episode is authorized only if these exact curves
+contain safe support. Newly untouched natural episodes remain mandatory for
+any later generalization claim.
