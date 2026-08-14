@@ -1,0 +1,48 @@
+{
+  "schema_version": "vlsa_distal_active_boundary_audit.v1",
+  "protocol_id": "vlsa-distal-active-boundary-audit-v1",
+  "claim_scope": "finite_searched_set_row_identifiability_and_empirical_dominance_audit_not_controllability_proof_not_training_not_QP_not_control",
+  "source": {
+    "producer_root": "/mnt/data/quanth/experiments/vlsa-distal-grouped-query-action-risk/grouped-query-risk-population-20260814b",
+    "producer_commit": "553f0018d07def65171ccffae415e786be924a74",
+    "validated_coverage_result": "/mnt/data/quanth/experiments/vlsa-distal-grouped-query-action-risk/grouped-query-risk-validation-20260814c/validation.json",
+    "validated_coverage_file_sha256": "de33306634feaebe1696a741653026c53d60fa739dc74a6f363c10a64d728bf4",
+    "validated_coverage_payload_sha256": "e8371c866bb9083eebb7d2b2514dcc9f6b32ded6d6657c4d7b2d901a322c8a3c",
+    "finite_candidate_count_per_state": 37,
+    "primary_splits": ["train", "validation"],
+    "diagnostic_split_reported_separately": true,
+    "reserved_test_episodes_untouched": true
+  },
+  "finite_search": {
+    "continuous_region": "bounded_five_action_translation_neighborhood_around_the_nominal_AEGIS_chunk",
+    "searched_set": "existing_preregistered_37_member_normal_tangent_temporal_profile_radius_bank",
+    "robust_boundary_margin_m": 0.001,
+    "minimum_meaningful_variation_m": 0.002,
+    "no_crossing_wording": "no_crossing_observed_in_the_finite_searched_set",
+    "no_independent_violation_wording": "empirically_dominated_on_the_audited_state_action_set_not_mathematically_redundant"
+  },
+  "row_questions": {
+    "variation": "finite_known_maximum_minus_minimum_exceeds_minimum_meaningful_variation",
+    "robust_crossing": "known_candidates_witness_Qj_at_most_negative_margin_and_at_least_positive_margin",
+    "global_safe_side": "crossing_state_has_an_exact_safe_candidate_with_Qj_at_most_negative_margin",
+    "independent_violation": "Qj_at_least_positive_margin_while_every_other_row_is_nonpositive",
+    "proxy_validity": "nonpositive_all_row_risk_never_has_protected_contact_or_CAR_veto"
+  },
+  "classification": {
+    "unknown_timeouts_excluded_from_extrema": true,
+    "proxy_invalid_states_separated": true,
+    "no_safe_states_retained_for_controllability_diagnosis": true,
+    "active_witness_not_required_for_per_row_information": true,
+    "mathematical_redundancy_claim_forbidden": true
+  },
+  "forbidden": [
+    "model_training",
+    "new_candidate_execution",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "continuous_controllability_claim",
+    "mathematical_redundancy_claim",
+    "reserved_test_label_access"
+  ]
+}
