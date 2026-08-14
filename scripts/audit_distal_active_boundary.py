@@ -66,7 +66,12 @@ def audit(
         _require(artifact["case_id"] == state["case_id"],
                  "active-boundary state identity differs")
         result_path = Path(artifact["path"])
-        _require(result_path.is_relative_to(producer_root),
+        try:
+            result_path.relative_to(producer_root)
+            inside_producer_root = True
+        except ValueError:
+            inside_producer_root = False
+        _require(inside_producer_root,
                  "active-boundary artifact leaves producer root")
         _require(_file_sha256(result_path) == artifact["file_sha256"],
                  "active-boundary source artifact differs")
