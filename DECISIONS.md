@@ -2766,3 +2766,16 @@ Attempt `40143` stopped during immutable discovery binding because the summary
 uses `payload_sha256` as its digest field. Correct only that schema key and rerun
 against the identical summary digest; no environment or scientific evaluation
 ran. Cancel dependency-blocked validator `40144` exactly.
+
+Attempt `40148` was also pre-simulation apparatus history: the submitted full
+commit string did not match the checked-out source. Cancel validator `40149` and
+do not reuse that run root. Producer `40153` and validator `40154` use the exact
+verified commit and pass.
+
+All four validated trajectories expose one timely row-1 warning state. Advance
+those four states to unchanged adaptive-v3 collection. Preserve E05/E10 as
+diagnostic and E00/E45 as train/validation. Bind the source trajectory's
+outcome-blind policy-noise seed when replaying candidates; this is required to
+reproduce the archived action ledger and is not a new candidate variable.
+Continue to log all seven rows, contacts, CAR, failures, and timeouts, while the
+learned claim remains L5-only and row 2 unsupported.

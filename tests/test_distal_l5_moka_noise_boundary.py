@@ -1,4 +1,5 @@
 import hashlib
+import inspect
 import json
 import tempfile
 import unittest
@@ -45,6 +46,11 @@ class MokaNoiseBoundaryTest(unittest.TestCase):
             ):
                 self.assertEqual(len(case[key]), 64)
                 int(case[key], 16)
+
+    def test_candidate_evaluator_accepts_bound_policy_seed(self):
+        from scripts.evaluate_distal_query_action_risk_e05 import evaluate
+
+        self.assertIn("policy_noise_seed_override", inspect.signature(evaluate).parameters)
 
 
 if __name__ == "__main__":

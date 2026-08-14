@@ -91,6 +91,7 @@ def evaluate(
     geometry_config_path: Path, experiment_config_path: Path,
     expected_commit: str, output_path: Path, candidate_limit: Optional[int] = None,
     case_id_override: Optional[str] = None,
+    policy_noise_seed_override: Optional[int] = None,
     state_step_override: Optional[int] = None,
     query_index_override: Optional[int] = None,
     result_schema_override: Optional[str] = None,
@@ -141,8 +142,10 @@ def evaluate(
     rows = [row for row in read_jsonl(population_manifest_path)
             if row.get("case_id") == target_case_id]
     _require(len(rows) == 1, "E05 population row differs")
-    case = rows[0]
+    case = dict(rows[0])
     validate_case_row(case, repo_root)
+    if policy_noise_seed_override is not None:
+        case["policy_noise_seed"] = int(policy_noise_seed_override)
     runtime = _runtime_imports(include_aegis=True)
     geometry_config = load_shadow_config(geometry_config_path)
     state_step = int(

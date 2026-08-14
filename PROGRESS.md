@@ -3742,3 +3742,25 @@ environment construction because the discovery summary's canonical field is
 named `payload_sha256`, not `result_payload_sha256`; dependent validator
 `40144` is cancelled exactly. The key-name repair binds the same preregistered
 digest and changes no source trajectory, boundary rule, simulation, or gate.
+
+Retry `40148` was rejected by the clean-source gate before environment creation
+because the submitted expected full hash was mistyped; validator `40149` is
+cancelled exactly. Valid producer `40153` and independent validator `40154`
+then completed all four trajectories. Every case has exactly one initially safe
+warning query and L5 row 1 is the nominal active witness in all four. Three of
+four nominal prefixes cross row 1's 1 mm boundary; L6 row 3 is additionally
+violated in those same three prefixes, but it is never the active witness.
+
+This supplies one new row-1 train state (E00) and one new row-1 validation state
+(E45), plus diagnostic E05/E10 positive controls. It does not supply row 2.
+The independently validated result authorizes unchanged adaptive-v3 boundary
+candidate collection on these four exact warning states. The candidate runner
+now accepts the already-bound policy-noise seed from the source trajectory so
+the cloned rollout restores the same ledger; ordinary Table-1 callers remain
+unchanged. Training and every downstream control gate remain blocked until the
+adaptive labels are complete and independently validated.
+
+Boundary validation payload SHA-256 is
+`994fd0921142a38f725b744dca918a89afded410e661aa5b74564302c3b459bf`;
+validation file SHA-256 is
+`77b88ff82d281ca8c8d47a325fa0f575b2e761506fd7256137554edcdbd17975`.

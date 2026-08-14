@@ -124,6 +124,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
         case_id_override=case["case_id"],
+        policy_noise_seed_override=case.get("policy_noise_seed"),
         state_step_override=int(retained["step"]),
         query_index_override=int(retained["query_index"]),
         result_schema_override=RESULT_SCHEMA_V3 if is_v3 else RESULT_SCHEMA,
