@@ -2305,3 +2305,29 @@ accepted actions; and (3) CAR/task outcomes as diagnostics. Keep the terms
 This protocol change cannot rescue the frozen model from jobs 39778/39781,
 because its 29 held-out L5 false-safes fail before the AEGIS or cross-link
 decision. QP and closed-loop execution remain unauthorized.
+
+## ADR-0116: Diagnose action interpolation versus state generalization
+
+- Status: accepted; matched H100 audit active
+- Date: 2026-08-14
+
+Before collecting or retraining a deployment model, use the immutable grouped
+dataset for one matched no-new-simulation diagnostic. Fit the unchanged 86D,
+three-output architecture, symmetric loss, optimizer, seed, and 1,200-epoch
+schedule only on nominal/constant-profile actions from the existing training
+episodes. Evaluate the same frozen model on front-loaded actions in two sets:
+
+1. Test A: held-out actions at the same training states.
+2. Test B: the identical action family at disjoint validation episodes/states.
+
+Use the same zero L5 false-safe, at least 50% L5-safe recall, and support in
+every recoverable state gates for both. If Test A passes and Test B fails,
+classify state generalization/coverage as the primary observed failure. If
+Test A also fails, action interpolation, representation, or model capacity
+remains implicated. This diagnostic opens no reserved test episode, runs no
+simulation, and cannot establish AEGIS compatibility or authorize control.
+
+Do not add asymmetric loss, inference margins, calibration, QP, or new state
+features in this audit. Those changes follow only after isolating the present
+failure. Any future collection must sample around the exact post-AEGIS and
+final-EE-checked executable action and bind its L5 label to that same action.

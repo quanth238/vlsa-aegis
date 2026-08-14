@@ -3235,3 +3235,20 @@ still fails its own L5 gate with 29 held-out false-safes, so no candidate is
 executed and no new simulation/training is authorized. First resolve the L5
 grouped-state prediction failure; only then measure the AEGIS-compatible
 acceptance and cross-link-transfer rates.
+
+## Matched L5 state-generalization diagnostic (active)
+
+The attached advisor feedback refines the current root-cause hypothesis from
+generic model failure to state coverage plus representation. The decisive
+no-new-simulation audit now holds the MLP, labels, seed, optimizer, and action
+family fixed while separating new actions at known states from the same new
+actions at disjoint episode states. Nominal and constant-profile candidates
+from train episodes fit the model; front-loaded candidates form both Test A
+(same states) and Test B (validation episodes). Reserved tests, E05 diagnostic
+training, AEGIS compatibility claims, asymmetric loss, calibration, QP, and
+closed loop remain forbidden.
+
+This audit is deliberately diagnostic. Even a Test-A-pass/Test-B-fail result
+does not repair the deployment mismatch: future data must begin with the VLA
+action passed through released AEGIS, sample/repair around that output, run the
+final AEGIS EE consistency check, and label the exact final executable action.

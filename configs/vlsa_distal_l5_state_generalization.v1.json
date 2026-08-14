@@ -1,0 +1,39 @@
+{
+  "schema_version": "vlsa_distal_l5_state_generalization.v1",
+  "protocol_id": "vlsa-distal-l5-state-generalization-v1",
+  "claim_scope": "matched_no_new_simulation_diagnostic_of_new_actions_at_known_states_versus_same_actions_at_new_episode_states_not_final_model_not_control",
+  "source": {
+    "base_model_config": "configs/vlsa_distal_l5_action_risk_mlp.v1.json",
+    "base_model_config_file_sha256": "ac9df4de3ae8aef526a0d283850a607f173afb49cdba4ac58d99ef0255e4fe0f",
+    "dataset_audit": "/mnt/data/quanth/experiments/vlsa-distal-l5-action-risk/l5-dataset-audit-20260814a/result.json",
+    "dataset_audit_file_sha256": "42c25b44eef2896e85f545b37b387be190ab1951988f2e885e58d8d46968a511",
+    "dataset_audit_payload_sha256": "6759587ad0d867515d712fbb9d25f5b4da9cc45f3c71d6559a3b181b9701bbc7"
+  },
+  "matched_split": {
+    "fit_episode_split": "train",
+    "fit_temporal_profiles": [null, "constant"],
+    "test_A_episode_split": "train",
+    "test_A_temporal_profile": "front_loaded",
+    "test_A_definition": "new_actions_at_known_states",
+    "test_B_episode_split": "validation",
+    "test_B_temporal_profile": "front_loaded",
+    "test_B_definition": "same_action_family_at_new_episode_states",
+    "state_grouping": "complete_episode"
+  },
+  "diagnostic_gate": {
+    "zero_observed_L5_false_safe_candidates": true,
+    "minimum_L5_safe_candidate_recall": 0.5,
+    "safe_support_every_recoverable_state": true
+  },
+  "forbidden": [
+    "new_simulation",
+    "reserved_test_label_access",
+    "diagnostic_E05_training",
+    "asymmetric_loss",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "AEGIS_compatibility_claim",
+    "whole_arm_safety_claim"
+  ]
+}

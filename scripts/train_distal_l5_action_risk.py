@@ -71,6 +71,8 @@ def _load_samples(config: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
             "state_id": sample["state_id"],
             "candidate_name": sample["candidate_name"],
             "candidate_order": sample["candidate_order"],
+            "temporal_profile": candidate["temporal_profile"],
+            "sign": candidate["sign"],
             "feature_vector": feature_vector(
                 initial_clearance=result["state"]["initial_clearance_m"],
                 local_frame=result["state"]["local_frame"],
