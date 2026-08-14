@@ -2864,3 +2864,32 @@ remain blocked. This result shows that row-count coverage alone did not fix
 generalization. The next justified experiment is the already motivated matched
 input audit/model comparison using complete physical/OSC state; do not collect
 more candidates at these same states or train longer first.
+
+## ADR-0130: Match compact and complete physical/OSC inputs before changing loss
+
+- Status: preregistered; H100 ablation pending
+- Date: 2026-08-14
+
+Run exactly two arms on the immutable 43 train and 29 grouped-validation labels:
+the validated compact 86D input and a 354D enumerated physical/controller input.
+Keep both outputs, candidate actions, episode splits, hidden widths, SiLU
+activation, symmetric boundary-weighted Huber loss, optimizer, seed, 2,000
+epochs, and fixed-final checkpoint identical. Normalization is fit separately
+per arm using training episodes only. The compact arm must reproduce frozen job
+40175 to `1e-9 m` before the comparison is accepted.
+
+The 354D contract contains q/dq, current EE pose, OSC goal and every numeric
+field in the recorded controller snapshot, complete nominal and exact final
+candidate chunks, obstacle transform/semiaxes, the three L5 ellipsoid
+transforms, their relative centers/normals/clearances, and the complete numeric
+five-step original-AEGIS projection/intervention record. Nullable `ori_ref` is
+encoded by a presence bit plus a zero-filled 3x3 value. Do not include the raw
+648D simulator dynamic-state vector: it is not in the requested deployable
+feature list and would introduce a high-dimensional simulator-only identifier.
+
+Passing requires zero row-0/row-1 false-safes, predicted-safe support and exact
+all-seven-safe minimum-change selection in all four recoverable validation
+states, safe selection above fixed-seed random, validation RMSE below the
+compact arm, and near-boundary RMSE at most 1 mm. Fresh selected-candidate replay
+is authorized only after every prediction gate passes. Do not change the loss,
+candidate bank, labels, calibration, QP, geometry backend, or control policy.

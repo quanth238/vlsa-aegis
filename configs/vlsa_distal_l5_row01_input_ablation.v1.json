@@ -1,0 +1,81 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_input_ablation.v1",
+  "protocol_id": "vlsa-distal-l5-row01-input-ablation-v1",
+  "claim_scope": "matched_compact_86D_vs_complete_physical_OSC_354D_two_output_L5_row01_prediction_ablation_not_control_not_QP_not_CBF",
+  "source": {
+    "row01_config": "configs/vlsa_distal_l5_row01_selection.v1.json",
+    "row01_config_file_sha256": "9ebb0512308bd8e6faa9b8ee8fa54ea34cdeac2610a979e163cabcc5a67cf7a5",
+    "frozen_compact_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-selection/row01-selection-20260814b/model.json",
+    "frozen_compact_result_file_sha256": "55b422390a5b32059cecaacfb6f0bf46fc3cd24c1fd82e8574328d82fc6e02f9",
+    "frozen_compact_result_payload_sha256": "9f44de2a857507fbe54ea7448fca9d427f7d43dad862e86cad3e228486af54ec"
+  },
+  "arms": {
+    "compact_86D": {
+      "input_dimension": 86,
+      "definition": "validated_compact_input_unchanged"
+    },
+    "complete_physical_OSC_354D": {
+      "input_dimension": 354,
+      "definition": [
+        "arm_q_and_dq",
+        "current_EE_position_and_quaternion",
+        "OSC_goal_pose_and_complete_recorded_controller_memory",
+        "nominal_and_exact_final_candidate_five_action_chunks",
+        "obstacle_center_rotation_and_semiaxes",
+        "three_L5_ellipsoid_centers_rotations_and_semiaxes",
+        "three_L5_obstacle_relative_centers_normals_and_clearances",
+        "original_AEGIS_proposed_actions_intervention_state_QP_status_and_numeric_records"
+      ],
+      "raw_648D_simulator_dynamic_state_excluded": true,
+      "nullable_controller_ori_ref_has_presence_bit_and_zero_filled_3x3_value": true
+    }
+  },
+  "matched": {
+    "labels": "same_43_train_and_29_grouped_validation_candidate_plus_fixed_backup_risks",
+    "splits": "identical_complete_episode_groups",
+    "candidate_actions": "identical_exact_final_original_AEGIS_outputs",
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "loss": "boundary_weighted_symmetric_Huber",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "per_arm_training_episodes_only",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection",
+    "compact_reproduction_maximum_error_m": 1e-9
+  },
+  "gates": {
+    "zero_complete_input_row01_false_safes": true,
+    "complete_input_safe_support_all_four_recoverable_states": true,
+    "all_complete_input_selected_candidates_exact_all_seven_safe": true,
+    "complete_input_selected_safe_rate_better_than_seeded_random": true,
+    "complete_input_validation_RMSE_below_compact": true,
+    "complete_input_near_boundary_RMSE_maximum_m": 0.001,
+    "fresh_exact_replay_required_only_after_all_prediction_gates": true
+  },
+  "interpretation": {
+    "complete_passes": "omitted_recorded_physical_controller_variables_are_supported_as_the_primary_cause",
+    "both_fit_train_fail_validation": "distinct_state_coverage_or_generalization_remains_primary",
+    "complete_improves_but_false_safes_remain": "input_helps_but_safety_loss_or_conservative_uncertainty_is_next",
+    "complete_fails_training": "target_or_model_representation_failure"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "candidate_bank_change",
+    "loss_change",
+    "seed_change",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "Poisson_or_SDF",
+    "reserved_test_access",
+    "neural_CBF_claim"
+  ]
+}

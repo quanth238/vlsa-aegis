@@ -3841,3 +3841,13 @@ and `d5ef9314fc4581026c5299b555be34397085eb689ed58e621e60e61aaebe16fd`;
 payload SHA-256 values are
 `9f44de2a857507fbe54ea7448fca9d427f7d43dad862e86cad3e228486af54ec`
 and `ec5b44f338e871f2a04d5f39d2381c496024f7c0c3158e94228ca99b591dbfff`.
+
+The matched input ablation is preregistered. Frozen artifacts contain every
+requested field: arm q/dq, current and OSC-goal EE pose, recorded controller
+memory, nominal/candidate chunks, obstacle transform and dimensions, L5
+ellipsoid transforms and relative geometry, and five original-AEGIS EE QP
+records. These form an explicit 354D feature vector. The raw 648D simulator
+snapshot is intentionally excluded rather than used as an episode identifier.
+The 86D and 354D arms share the same 43/29 labels, grouped splits, 32--32
+architecture, seed, loss, optimizer, and schedule. No new simulation, candidate,
+target, QP, calibration, or control change is included.
