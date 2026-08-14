@@ -3392,3 +3392,21 @@ groups and three sealed test groups. Known E38 proxy mismatch and gripper-
 contact cases are not admitted merely to reach 20 groups. Collection cannot
 authorize training. Sufficient grouped boundary coverage authorizes only the
 matched no-training 86D/compact/complete-state feature audit.
+
+Allocated-H100 canary `39982` and independent validator `39983` passed on
+`worker-1`. The nine prefix screens found a genuine L5 row-1 bracket: the
+radius-2 outward-normal proposal had `-1.193830 mm` buffered risk while nominal
+had `+16.974327 mm`. Five bisection probes reduced the complete-backup set to
+six unique actions. Authoritative labels contain one exact-safe and five
+known-unsafe candidates, zero timeouts, zero proxy-safe physical collisions,
+and one near-boundary safe action at `-0.064121 mm` risk. Every action and
+backup decision passed the unchanged original AEGIS EE filter.
+
+The producer completed in `222.088 s` (`3:45` Slurm elapsed), versus `381.535
+s` (`6:21`) for the prior 37-candidate E05 positive control: a 41.8% wall-time
+reduction while retaining mixed support. Result/validation payload SHA-256
+values are `fcc58013d2f136760d1cabb5077778571bce54f6cb8dc720104e3c40149abd98`
+and `ff0c7738e70f68f563aa1de2a3dec6dedd781ae088d92cef90bafa2bbc8ad2a2`.
+This authorizes the 15-development-state adaptive array and independent
+validation. It does not authorize feature fitting, MLP training, QP, test
+opening, or closed-loop control.

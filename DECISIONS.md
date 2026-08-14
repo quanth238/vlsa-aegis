@@ -2410,7 +2410,7 @@ population ledger rather than being silently removed.
 
 ## ADR-0119: Replace exhaustive per-state sampling with adaptive boundary labels
 
-- Status: accepted; H100 canary pending
+- Status: accepted after independently validated H100 canary
 - Date: 2026-08-14
 - Supersedes: ADR-0118 only for the broader collection procedure
 
@@ -2434,3 +2434,11 @@ After independent validation, adequate L5 row coverage authorizes only a
 frozen no-training feature audit comparing the existing 86D input, compact
 exact-action input, and compact action plus complete physical state. Training,
 calibration, QP, closed loop, and any CBF or whole-arm claim remain forbidden.
+
+H100 producer `39982` and validator `39983` passed the mechanism gate. Nine
+prefix screens plus five bisection probes retained six unique complete-backup
+labels with one exact-safe and five known-unsafe candidates, no timeout, and no
+proxy-safe physical collision. Runtime was 222.088 seconds, 41.8% below the
+381.535-second exhaustive E05 control. Proceed to the 15 unsealed development
+episodes under the identical protocol; retain every no-bracket, no-safe,
+proxy-invalid, and timeout outcome.
