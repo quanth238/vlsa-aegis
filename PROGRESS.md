@@ -3712,3 +3712,27 @@ validator `40131` remained dependency-blocked. This is retained as apparatus
 history. The environment-only repair changes no trajectory, manifest,
 classification, threshold, or downstream gate and reuses the immutable
 producer artifacts.
+
+Corrected summary `40141` and independent H100 validator `40142` bind the
+immutable producer commit and validate all ten outcomes. Four trajectories are
+clean, task-successful, proxy-valid L5/moka failures: E00, E05, E10, and E45.
+Three additional trajectories complete without L5 contact and three fail the
+task; none is discarded. The 4/10 result passes the preregistered two-state
+discovery gate and authorizes boundary collection, not model training.
+
+E05 and E10 remain diagnostic because those initial states have already shaped
+the method. E00 is assigned to development train and E45 to development
+validation; policy-noise variants are not misrepresented as new unseen initial
+states. A new four-case query-boundary audit is preregistered against the exact
+discovery result hashes. It reuses the accepted seven ellipsoid rows, original
+AEGIS EE action ledger, real five-action query boundaries, and unchanged
+initial-safety/nominal-risk rules. Adaptive labels are allowed only after the
+independent boundary audit retains an initially safe warning state. Training,
+calibration, QP, closed loop, Poisson, and sealed tests remain blocked.
+
+Discovery summary/validation payload SHA-256 values are
+`49143d0f80581a526d47df36ebb381e2739b2b996432d57903cfda5fbe5de99f`
+and `1a0add5cb2e15c0ba4a365ccfea2921ad50be100300253ba39580cdfaf02816b`;
+file SHA-256 values are
+`b97babc6a05d234113891d4dbf64cb47989ddd4a921a22770929a874e502baa0`
+and `240ac17200c71389cfa8fc8de959dd052ea48ddcb59b0b4043dbbacc55db0472`.

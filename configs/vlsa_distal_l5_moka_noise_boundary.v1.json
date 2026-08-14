@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_l5_moka_noise_boundary.v1",
+  "protocol_id": "vlsa-distal-l5-moka-noise-boundary-v1",
+  "claim_scope": "query_boundary_and_adaptive_L5_label_collection_on_independently_validated_task_successful_proxy_valid_task0_moka_noise_trajectories_not_training_not_control_not_population_generalization",
+  "source": {
+    "run_id": "moka-l5-noise-discovery-20260814b",
+    "producer_commit": "9902ee1be328ea1b99262f253b6f12d9548f7898",
+    "summary_file_sha256": "b97babc6a05d234113891d4dbf64cb47989ddd4a921a22770929a874e502baa0",
+    "summary_payload_sha256": "49143d0f80581a526d47df36ebb381e2739b2b996432d57903cfda5fbe5de99f",
+    "validation_file_sha256": "240ac17200c71389cfa8fc8de959dd052ea48ddcb59b0b4043dbbacc55db0472",
+    "validation_payload_sha256": "1a0add5cb2e15c0ba4a365ccfea2921ad50be100300253ba39580cdfaf02816b",
+    "eligible_case_count": 4
+  },
+  "cohort": {
+    "selection_manifest": "manifests/vlsa_distal_l5_moka_noise_boundary.v1.jsonl",
+    "split_unit": "initial_state_and_policy_noise_trajectory",
+    "development_cases": [
+      "vlsa-t1-goal-ii-t0-e00",
+      "vlsa-t1-goal-ii-t0-e45"
+    ],
+    "diagnostic_cases": [
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t0-e10"
+    ],
+    "sealed_test_access": false
+  },
+  "method_bindings": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "query_coverage_config": "configs/vlsa_distal_query_boundary_coverage.v1.json",
+    "query_coverage_config_file_sha256": "f64e6535705ee080f7558ea336f06f3a8c26a6596a4b9bdc19df9ef5d0148d58",
+    "adaptive_config": "configs/vlsa_distal_adaptive_query_action_risk.v3.json",
+    "adaptive_config_file_sha256": "d45b90b34cc6b5ac83dc21bb68f5b35d1df4e87791ce1314fdb99dcc94a9ee2d",
+    "grouped_config": "configs/vlsa_distal_grouped_query_action_risk.v1.json",
+    "grouped_config_file_sha256": "af993a572bffa80c39bb04db2f5e58824f7d7e7c91b185906c21278138d29cdd",
+    "base_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+    "base_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
+    "geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e"
+  },
+  "coverage_rule": {
+    "audit_every_real_five_action_query_before_first_L5_contact": true,
+    "retain_initially_safe_nominally_unsafe_states": true,
+    "diagnostic_cases_never_count_as_unseen_generalization": true,
+    "collect_only_independently_validated_eligible_sources": true
+  },
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "eligibility_weakening": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "Poisson": true,
+    "sealed_test_access": true
+  }
+}

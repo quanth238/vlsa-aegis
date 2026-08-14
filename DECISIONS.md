@@ -2732,3 +2732,32 @@ Producer array `40129` completed all ten simulations. Summary job `40130`
 failed before artifact access because `PYTHONPATH` was not exported; dependent
 validator `40131` is cancelled exactly. Add only the repository import path and
 rerun summary/validation against the unchanged producer root.
+
+## ADR-0128: Advance validated moka trajectories to grouped boundary audit
+
+- Status: accepted after independent H100 discovery validation; boundary audit pending
+- Date: 2026-08-14
+
+Summary `40141` and validator `40142` validate four eligible task-successful,
+proxy-valid L5/moka trajectories from producer `40129`: E00, E05, E10, and E45.
+This passes ADR-0127's discovery gate. It does not establish boundary support or
+authorize learning.
+
+Preserve E05 and E10 as diagnostic initial states because they have repeatedly
+influenced method selection. Use E00 as development train and E45 as development
+validation. The split unit is the initial-state/policy-noise trajectory, and the
+diagnostic variants may not count toward unseen generalization.
+
+At every real five-action query before first L5 contact, audit the exact released
+AEGIS action prefix. Retain only states that are initially proxy/contact/CAR safe
+but whose nominal prefix is unsafe. Bind every source trajectory, summary, and
+validation hash. If retained states exist, run the unchanged adaptive-v3
+normal/tangent coarse screen, per-row two-sided 0.5 mm boundary rule, five exact
+prefix bisections, and candidate-plus-fixed-backup authoritative labels. If no
+retained state exists, record coverage failure rather than changing geometry or
+eligibility.
+
+This experiment may supply distinct row-1 evidence or disprove support in this
+population. Row 2 remains diagnostic unless physically activated. It neither
+changes the accepted ellipsoids nor opens training, calibration, QP, closed loop,
+Poisson, or sealed tests.

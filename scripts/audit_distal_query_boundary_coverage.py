@@ -106,7 +106,7 @@ def audit(
     else:
         selected = dict(selected_case_override)
         _require(
-            selected["split"] in ("train", "validation"),
+            selected["split"] in ("diagnostic", "train", "validation"),
             "targeted query-boundary split differs",
         )
     source_path = table1_root / selected["archived_result_relative_path"]
@@ -120,7 +120,14 @@ def audit(
             if row.get("case_id") == selected["case_id"]]
     _require(len(rows) == 1, "query-boundary population case differs")
     validate_case_row(rows[0], repo_root)
-    case = rows[0]
+    case = dict(rows[0])
+    if selected_case_override is not None and "policy_noise_seed" in selected:
+        _require(
+            int(archived["policy_queries"][0]["rng_seed"])
+            == int(selected["policy_noise_seed"]),
+            "query-boundary overridden policy seed differs from source ledger",
+        )
+        case["policy_noise_seed"] = int(selected["policy_noise_seed"])
     action_rows = {int(item["step"]): item for item in archived["actions"]}
     contact_step = int(selected["first_relevant_contact_step"])
     horizon = int(config["nominal_prefix"]["actions"])
