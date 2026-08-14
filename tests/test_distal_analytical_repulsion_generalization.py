@@ -12,12 +12,31 @@ from main.multilink_ellipsoid.analytical_repulsion_generalization import (
     load_config,
     warning_trigger,
 )
+from scripts.evaluate_distal_analytical_repulsion_generalization import (
+    _contact_link_name,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class AnalyticalRepulsionGeneralizationTest(unittest.TestCase):
+    def test_contact_classification_uses_closest_protected_ancestor(self):
+        class Model:
+            geom_bodyid = [8]
+            body_parentid = [0, 0, 1, 2, 3, 4, 5, 6, 7]
+
+            @staticmethod
+            def body_id2name(body):
+                return {
+                    5: "robot0_link5",
+                    6: "robot0_link6",
+                    7: "robot0_link7",
+                    8: "robot0_gripper_child",
+                }.get(body)
+
+        self.assertEqual(_contact_link_name(Model(), 0), "robot0_link7")
+
     def test_contracts_load(self):
         config = load_config(
             ROOT / "configs/vlsa_distal_analytical_repulsion_generalization.v1.json"

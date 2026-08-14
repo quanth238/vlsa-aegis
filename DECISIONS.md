@@ -3441,3 +3441,12 @@ does not transfer even within an episode; safe task failure means magnitude
 reduction alone does not fix task compatibility and justifies neither an MLP
 nor denoising guidance. MLP training, online curve search, QP changes, CBF
 claims, and new test episodes remain forbidden.
+
+Initial H100 array `40352` retained an apparatus failure in task-3 E42 after
+the episode finished. A genuine distal contact event belonged to a geom below
+L7, whose body ancestry therefore contains L7, L6, and L5. The result writer
+incorrectly required exactly one protected ancestor and raised before atomic
+output. The repair classifies the first protected ancestor while walking from
+the contacted geom toward the root. It does not remove or relabel the contact;
+the rerun must retain it as an L7 safety failure. The incomplete array and
+dependent validator `40355` remain apparatus history.

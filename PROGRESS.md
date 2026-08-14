@@ -4180,3 +4180,11 @@ task timeouts without claiming online adaptation. The strict gate is 3/3 zero
 L5--L7 contact, 3/3 CAR, 3/3 native task completion, no timeout, and lower
 per-case total requested correction than the validated `10/78/62` radius-2
 totals. Learning, denoising, QP changes, and generalization remain blocked.
+
+Initial array `40352` exposed a fail-closed contact-accounting bug after the
+task-3 E42 episode completed: a contacted geom below L7 has L7/L6/L5 in its
+body ancestry, while the writer incorrectly required exactly one protected
+ancestor. The repair selects the closest protected ancestor (L7 here) and
+preserves the contact as scientific failure. No radius, warning, action,
+controller, or acceptance rule changes. Validator `40355` is retained as a
+dependency-cancelled apparatus attempt; a clean full-array rerun is required.

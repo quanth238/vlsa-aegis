@@ -60,23 +60,32 @@ def _archived_actions(result: Mapping[str, Any], start: int, count: int) -> Any:
     return values
 
 
+def _contact_link_name(model: Any, protected_geom_id: int) -> str:
+    """Return the closest protected ancestor of one contacted robot geom.
+
+    A geom attached below L7 has L7, L6, and L5 in its ancestry.  Classification
+    must use the first protected ancestor while walking toward the root; requiring
+    exactly one protected ancestor incorrectly rejects genuine distal contact.
+    """
+
+    targets = ("robot0_link5", "robot0_link6", "robot0_link7")
+    body = int(model.geom_bodyid[int(protected_geom_id)])
+    while body >= 0:
+        name = model.body_id2name(body)
+        if name in targets:
+            return str(name)
+        if body == 0:
+            break
+        body = int(model.body_parentid[body])
+    raise ValueError("protected contact has no L5--L7 ancestor")
+
+
 def _classify_contact_links(env: Any, events: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     model = env.sim.model
     targets = ("robot0_link5", "robot0_link6", "robot0_link7")
     counts = {name: 0 for name in targets}
     for event in events:
-        body = int(model.geom_bodyid[int(event["protected_geom_id"])])
-        lineage = []
-        while body >= 0:
-            name = model.body_id2name(body)
-            if name:
-                lineage.append(str(name))
-            if body == 0:
-                break
-            body = int(model.body_parentid[body])
-        matches = [name for name in targets if name in lineage]
-        _require(len(matches) == 1, "protected-contact link classification differs")
-        counts[matches[0]] += 1
+        counts[_contact_link_name(model, int(event["protected_geom_id"]))] += 1
     return counts
 
 
