@@ -36,6 +36,20 @@ class RowContactAlignmentTest(unittest.TestCase):
         self.assertEqual(samples[1]["substep"], 1)
         self.assertEqual(len(samples[1]["contacts"]), 1)
 
+    def test_repeated_action_boundary_contact_maps_to_previous_sample(self):
+        segment = {
+            "clearance_trace_m": [[0.1] * 7, [0.2] * 7, [-0.2] + [0.2] * 6],
+            "substep_counts": [1, 1],
+            "protected_contacts": [{
+                "step": 11, "substep": -1,
+                "protected_geom_name": "robot0_link5_collision",
+            }],
+        }
+        samples = segment_samples(segment, start_step=10)
+        self.assertEqual(len(samples[0]["contacts"]), 1)
+        self.assertEqual(samples[0]["step"], 10)
+        self.assertEqual(samples[0]["substep"], 0)
+
     def test_proxy_contact_alignment_and_active_row(self):
         records = [{
             "state_id": "state-a",

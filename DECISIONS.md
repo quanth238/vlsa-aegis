@@ -2674,3 +2674,10 @@ model training, calibration, QP, and closed loop remain forbidden. If the
 proxy-valid false-safe count is zero, keep the current ellipsoids and correct
 the data population/claim according to which rows have physical active contact
 witnesses.
+
+Attempt `40106` exposed one source-format boundary convention before producing
+an audit: the next action may record `substep=-1` for the same physical state
+already retained as the previous action's final substep. Map that event to the
+retained previous sample. This is an identity-only apparatus repair; do not
+duplicate the clearance state or change any geometry threshold. Validator
+`40107` was cancelled without running.

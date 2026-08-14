@@ -3641,3 +3641,10 @@ the active row at every physical contact sample, and per-row contact-time
 clearance distributions. Ellipsoid refitting is authorized only if a
 proxy-valid physical false-safe is observed. Otherwise the correction is to
 the population or learned claim, not to introduce Poisson or change geometry.
+
+Initial H100 job `40106` passed its allocation tests and stopped before writing
+an audit because two source traces encode a repeated action-boundary contact as
+`substep=-1`. The combined clearance trace retains that same state as the
+previous action's final substep. The apparatus repair maps this duplicate
+identity to that retained sample; it changes no clearance, contact, population,
+threshold, or decision rule. Dependent validator `40107` was cancelled exactly.

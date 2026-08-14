@@ -103,7 +103,15 @@ def segment_samples(
         step = int(event["step"])
         substep = int(event["substep"])
         offset = step - int(start_step)
-        if not 0 <= offset < len(counts) or not 0 <= substep < counts[offset]:
+        if not 0 <= offset < len(counts):
+            raise ValueError("contact identity is outside trace")
+        # The instrumentation measures each action boundary twice: once as the
+        # preceding action's final MuJoCo substep and once as substep=-1 before
+        # the next command.  The combined trace retains only the former.
+        if substep == -1 and offset > 0:
+            offset -= 1
+            substep = counts[offset] - 1
+        elif not 0 <= substep < counts[offset]:
             raise ValueError("contact identity is outside trace")
         events_by_identity.setdefault((offset, substep), []).append(event)
     output = []
