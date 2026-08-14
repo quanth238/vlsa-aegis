@@ -24,6 +24,7 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-grouped-query-action-risk}
 COVERAGE_ROOT=${COVERAGE_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-query-boundary-coverage/query-coverage-population-20260814a}
 TABLE1_ROOT=${TABLE1_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
+RELEASED_AEGIS_CONSISTENCY=${RELEASED_AEGIS_CONSISTENCY:-0}
 [[ -n "${SLURM_JOB_ID:-}" ]] || { echo "grouped query risk requires Slurm" >&2; exit 2; }
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || { echo "requires exactly one H100" >&2; exit 2; }
@@ -46,6 +47,13 @@ safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 } >"$LIBERO_CONFIG_PATH/config.yaml"
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_grouped_query_action_risk tests.test_distal_query_action_risk -v >"$RUN_ROOT/evaluation-preflight.txt" 2>&1
+extra_args=()
+if [[ "$RELEASED_AEGIS_CONSISTENCY" == 1 ]]; then
+  extra_args+=(--released-aegis-consistency)
+elif [[ "$RELEASED_AEGIS_CONSISTENCY" != 0 ]]; then
+  echo "invalid released AEGIS consistency switch" >&2
+  exit 2
+fi
 "$AEGIS_PYTHON" scripts/collect_distal_grouped_query_action_risk.py \
   --repo-root "$REMOTE_REPO" \
   --population-manifest "$REMOTE_REPO/manifests/vlsa_table1_population.jsonl" \
@@ -54,4 +62,5 @@ cd "$REMOTE_REPO"
   --base-config "$REMOTE_REPO/configs/vlsa_distal_query_action_risk_e05.v1.json" \
   --geometry-config "$REMOTE_REPO/configs/vlsa_distal_clean_action_risk_geometry.v4.json" \
   --table1-root "$TABLE1_ROOT" --case-index "$SLURM_ARRAY_TASK_ID" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/result.json"
+  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$RUN_ROOT/result.json" \
+  "${extra_args[@]}"

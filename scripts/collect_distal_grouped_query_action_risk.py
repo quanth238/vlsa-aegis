@@ -28,6 +28,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--geometry-config", type=Path, required=True)
     parser.add_argument("--table1-root", type=Path, required=True)
     parser.add_argument("--case-index", type=int, required=True)
+    parser.add_argument(
+        "--released-aegis-consistency",
+        action="store_true",
+        help="Transfer each L5 residual to the raw action, then apply original AEGIS once.",
+    )
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -66,6 +71,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         result_schema_override=RESULT_SCHEMA,
         claim_scope_override=config["claim_scope"],
         population_binding=binding,
+        apply_released_aegis_ee_to_all_proposed_actions=bool(
+            args.released_aegis_consistency
+        ),
     )
     result["training_authorized"] = False
     _atomic_write(args.output.resolve(), result)
