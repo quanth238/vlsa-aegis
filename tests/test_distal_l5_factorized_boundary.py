@@ -66,6 +66,11 @@ class FactorizedBoundaryTest(unittest.TestCase):
         self.assertIn("requires exactly one H100", script)
         self.assertIn("--mode aegis", script)
         self.assertIn("collect_distal_l5_factorized_risk.py", script)
+        summary = (
+            self.root / "slurm/summarize_distal_l5_factorized_boundary.sbatch"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#SBATCH --gres=gpu:1", summary)
+        self.assertIn("H100", summary)
 
 
 if __name__ == "__main__":

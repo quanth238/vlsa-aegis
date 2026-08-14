@@ -3955,3 +3955,10 @@ plus fixed-backup labeling. The collection retains every task failure, missing
 boundary, timeout, physical veto, and proxy-invalid case. Training remains
 blocked until independent validation demonstrates known nominal anchors,
 multiple response actions, and prefix/backup boundary support in both splits.
+
+H100 producer array `40201` and independent allocation-backed validator array
+`40202` completed all twelve registered cases. Aggregate attempt `40203` is
+apparatus-only failure: the CPU summary allocation invoked the repository GPU
+provenance recorder and `nvidia-smi` was unavailable. The replacement changes
+only the summary resource request to one H100; producer trajectories, case
+classifications, validations, coverage rules, and forbidden gates are frozen.
