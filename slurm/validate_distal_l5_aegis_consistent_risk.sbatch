@@ -15,6 +15,7 @@ RESULT_PATH=${RESULT_PATH:?RESULT_PATH is required}
 PRODUCER_COMMIT=${PRODUCER_COMMIT:?PRODUCER_COMMIT is required}
 VALIDATOR_COMMIT=${VALIDATOR_COMMIT:?VALIDATOR_COMMIT is required}
 OUTPUT_PATH=${OUTPUT_PATH:?OUTPUT_PATH is required}
+GROUPED_COLLECTION=${GROUPED_COLLECTION:-0}
 PYTHON=${PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 [[ -n "${SLURM_JOB_ID:-}" ]] || { echo "validator requires Slurm" >&2; exit 2; }
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$VALIDATOR_COMMIT" ]] || {
@@ -26,7 +27,14 @@ PYTHON=${PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
+extra_args=()
+if [[ "$GROUPED_COLLECTION" == 1 ]]; then
+  extra_args+=(--grouped-collection)
+elif [[ "$GROUPED_COLLECTION" != 0 ]]; then
+  echo "invalid grouped collection switch" >&2
+  exit 2
+fi
 "$PYTHON" scripts/validate_distal_l5_aegis_consistent_risk.py \
   --repo-root "$REMOTE_REPO" --result "$RESULT_PATH" \
   --producer-commit "$PRODUCER_COMMIT" --validator-commit "$VALIDATOR_COMMIT" \
-  --output "$OUTPUT_PATH"
+  --output "$OUTPUT_PATH" "${extra_args[@]}"

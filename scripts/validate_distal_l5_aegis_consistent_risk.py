@@ -52,20 +52,27 @@ def _check_projection(record: Mapping[str, Any], expected_actions: Any) -> None:
 
 def validate(
     *, repo_root: Path, result_path: Path, producer_commit: str,
-    validator_commit: str,
+    validator_commit: str, grouped_collection: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
     from main.multilink_ellipsoid.query_action_risk import (
-        RESULT_SCHEMA,
+        RESULT_SCHEMA as QUERY_RESULT_SCHEMA,
         combine_row_minima,
         exact_safe,
         risk_from_row_minimum,
     )
+    from main.multilink_ellipsoid.grouped_query_action_risk import (
+        RESULT_SCHEMA as GROUPED_RESULT_SCHEMA,
+    )
 
     validator_source = _git_identity(repo_root, validator_commit)
     result = _load(result_path)
-    _require(result["schema_version"] == RESULT_SCHEMA, "risk result schema differs")
+    expected_schema = (
+        GROUPED_RESULT_SCHEMA if grouped_collection else QUERY_RESULT_SCHEMA
+    )
+    _require(result["schema_version"] == expected_schema,
+             "risk result schema differs")
     _require(result["status"] == "complete", "risk result is incomplete")
     _require(result["scientific_result"] is True, "risk result is not full protocol")
     _require(result["execution_mode"] == "full_diagnostic", "risk execution mode differs")
@@ -192,9 +199,22 @@ def validate(
     _require(summary["proxy_safe_physical_collision_count"]
              == proxy_collision_count == 0,
              "proxy-safe physical collision exists")
-    _require(safe_count > 0 and safe_count < len(candidates),
-             "corrected population lacks mixed safe/unsafe support")
-    _require(all(result["gates"].values()), "producer gates did not all pass")
+    mixed_support = bool(safe_count > 0 and safe_count < len(candidates))
+    if not grouped_collection:
+        _require(mixed_support,
+                 "corrected population lacks mixed safe/unsafe support")
+        _require(all(result["gates"].values()), "producer gates did not all pass")
+    else:
+        for key in (
+            "exact_snapshot_replay",
+            "all_replays_boundary_exact",
+            "timeout_never_labeled_safe",
+            "current_state_safe",
+            "no_proxy_safe_physical_collision",
+            "zero_L5_residual_reproduces_recomputed_released_aegis",
+        ):
+            _require(result["gates"][key] is True,
+                     "grouped producer apparatus gate failed: %s" % key)
 
     output = {
         "schema_version": "vlsa_distal_l5_aegis_consistent_risk_validation.v1",
@@ -216,7 +236,7 @@ def validate(
             "every_prefix_label_bound_to_final_AEGIS_output": True,
             "every_backup_action_passes_original_AEGIS": True,
             "seven_row_geometry_and_L6_L7_diagnostics_present": True,
-            "mixed_safe_unsafe_support": True,
+            "mixed_safe_unsafe_support": mixed_support,
             "no_proxy_safe_physical_collision": True,
         },
         "counts": {
@@ -233,9 +253,18 @@ def validate(
             "used_as_gate": False,
             "reason": "counterfactuals_are_bound_to_the_exact_recomputed_replay_state",
         },
-        "interpretation": "validated_L5_residual_before_original_AEGIS_nonvacuous_risk_population",
+        "interpretation": (
+            "validated_grouped_L5_AEGIS_action_contract_"
+            + ("mixed_support" if mixed_support else "support_failure_retained")
+            if grouped_collection else
+            "validated_L5_residual_before_original_AEGIS_nonvacuous_risk_population"
+        ),
         "training_authorized": False,
-        "next_gate": "collect_more_episode_grouped_recoverable_L5_boundary_states_with_the_same_action_contract",
+        "next_gate": (
+            "aggregate_grouped_action_contract_and_boundary_coverage"
+            if grouped_collection else
+            "collect_more_episode_grouped_recoverable_L5_boundary_states_with_the_same_action_contract"
+        ),
     }
     output["validation_payload_sha256"] = _sha256(canonical(output))
     return output
@@ -247,6 +276,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--producer-commit", required=True)
     parser.add_argument("--validator-commit", required=True)
+    parser.add_argument(
+        "--grouped-collection",
+        action="store_true",
+        help="Validate a grouped artifact while retaining states without mixed support.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     output = validate(
@@ -254,9 +288,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         result_path=args.result.resolve(),
         producer_commit=args.producer_commit,
         validator_commit=args.validator_commit,
+        grouped_collection=bool(args.grouped_collection),
     )
     _atomic_write(args.output.resolve(), output)
-    print(json.dumps(output, sort_keys=True), flush=True)
+    print(json.dumps({
+        "status": output["status"],
+        "interpretation": output["interpretation"],
+        "counts": output["counts"],
+        "checks": output["checks"],
+        "validation_payload_sha256": output["validation_payload_sha256"],
+    }, sort_keys=True), flush=True)
     return 0
 
 
