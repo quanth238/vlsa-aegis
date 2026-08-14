@@ -2539,3 +2539,9 @@ local interpolation diagnostics only. E05 is excluded from fitting and
 reported as a positive control; unknown timeouts, the proxy-invalid state, and
 sealed tests are not admitted. The model and its gradients cannot enable a QP
 or closed-loop execution regardless of its diagnostic metrics.
+
+Attempt `40048` ended before training when the loader tried to cast the null
+legacy correction-norm field on adaptive midpoint candidates. The exact final
+post-AEGIS norm already exists in each candidate's validated residual binding.
+The representation-only repair uses that field and preserves the complete
+preregistered diagnostic.

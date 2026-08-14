@@ -3501,3 +3501,10 @@ interpolation reporting. E05 is an excluded positive control, all timeouts and
 the proxy-invalid state remain excluded, and the three sealed test episodes
 remain unopened. The run has no deployment pass gate and cannot authorize
 calibration, QP, or closed-loop execution.
+
+Initial H100 job `40048` passed its unit preflight but stopped before model
+construction because adaptive midpoint records intentionally leave the legacy
+top-level correction norm null and bind the authoritative final norm inside
+`residual_binding`. This is an apparatus representation failure with no fitted
+weights or scientific metric. The retry reads that existing authoritative
+field; it changes no sample, action, target, split, feature, model, or gate.

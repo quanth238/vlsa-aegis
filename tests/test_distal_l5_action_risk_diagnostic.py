@@ -4,6 +4,7 @@ from pathlib import Path
 from main.multilink_ellipsoid.l5_action_risk_diagnostic import (
     load_config, split_train_actions,
 )
+from scripts.train_distal_l5_action_risk_diagnostic import _applied_correction_l2
 
 
 class L5ActionRiskDiagnosticTests(unittest.TestCase):
@@ -36,6 +37,12 @@ class L5ActionRiskDiagnosticTests(unittest.TestCase):
             {(item["state_id"], item["candidate_name"]) for item in fit},
             {("a", "a1"), ("b", "b0"), ("c", "c7")},
         )
+
+    def test_adaptive_midpoint_norm_uses_final_residual_binding(self):
+        self.assertEqual(_applied_correction_l2({
+            "applied_correction_l2_action": None,
+            "residual_binding": {"applied_residual_l2_action": 1.25},
+        }), 1.25)
 
 
 if __name__ == "__main__":

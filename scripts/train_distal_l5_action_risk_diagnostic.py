@@ -22,6 +22,15 @@ def _arrays(samples: Sequence[Mapping[str, Any]]) -> tuple[Any, Any]:
     )
 
 
+def _applied_correction_l2(candidate: Mapping[str, Any]) -> float:
+    """Read the final post-AEGIS residual norm for all candidate definitions."""
+
+    value = candidate.get("applied_correction_l2_action")
+    if value is None:
+        value = candidate["residual_binding"]["applied_residual_l2_action"]
+    return float(value)
+
+
 def load_samples(config: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     from main.multilink_ellipsoid.l5_action_risk import feature_vector
     from main.multilink_ellipsoid.l5_action_risk_diagnostic import (
@@ -89,9 +98,7 @@ def load_samples(config: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
                 "risk_all_rows": [float(value) for value in candidate["combined_risk"]],
                 "exact_safe": bool(candidate["exact_safe"]),
                 "physical_veto": bool(candidate["physical_veto"]),
-                "applied_correction_l2_action": float(
-                    candidate["applied_correction_l2_action"]
-                ),
+                "applied_correction_l2_action": _applied_correction_l2(candidate),
             })
     train = [item for item in all_samples if item["split"] == "train"]
     train_fit, action_heldout = split_train_actions(train)
