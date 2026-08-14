@@ -66,9 +66,10 @@ def validate(
     )
     _require(result["config"] == coverage_config,
              "targeted coverage method config differs")
-    _require(result["retained_state_count"] == 1,
-             "targeted extension must retain exactly one state per episode")
-    _require(len(result["retained_states"]) == 1,
+    _require(result["retained_state_count"] in (0, 1),
+             "targeted extension retained more than one state per episode")
+    _require(len(result["retained_states"])
+             == result["retained_state_count"],
              "targeted retained state list differs")
     for record in result["boundary_records"]:
         current = record["current"]
@@ -105,6 +106,7 @@ def validate(
              "targeted row coverage differs")
     _require(result["candidate_execution_performed"] is False,
              "targeted coverage executed candidates")
+    eligible = result["retained_state_count"] == 1
     output = {
         "schema_version": "vlsa_distal_l5_targeted_query_boundary_validation.v1",
         "status": "complete",
@@ -118,17 +120,23 @@ def validate(
         "validator_source": _git_identity(repo_root, validator_commit),
         "case_id": result["case"]["case_id"],
         "split": result["case"]["split"],
-        "state_id": result["retained_states"][0]["state_id"],
+        "state_id": (
+            result["retained_states"][0]["state_id"] if eligible else None
+        ),
         "checks": {
             "payload_self_hash": True,
             "target_manifest_binding": True,
             "static_case_binding": True,
-            "initial_state_safe": True,
-            "nominal_prefix_unsafe": True,
-            "one_state_per_episode": True,
+            "retained_states_recomputed": True,
+            "at_most_one_state_per_episode": True,
             "candidate_execution_absent": True,
         },
-        "next_gate": "run_immutable_adaptive_v3_boundary_collection",
+        "eligible_for_adaptive_collection": eligible,
+        "next_gate": (
+            "run_immutable_adaptive_v3_boundary_collection"
+            if eligible else
+            "retain_as_no_eligible_warning_state"
+        ),
         "training_authorized": False,
     }
     output["validation_payload_sha256"] = _sha256(canonical(output))
