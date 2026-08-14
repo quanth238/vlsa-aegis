@@ -4210,3 +4210,16 @@ and `f58cd571e37701fc12607cff15df224fd42df07037d6121ddaf2f7cdcbdf9c43`;
 payload SHA-256 values are
 `3df38b493281aac8af34d27704a8f76d0a537b6d808c62985236137094447ae8`
 and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.
+
+ADR-0141 preregisters the strict task-3 E42 step-105 recoverability gate. The
+clean `40357` executed ledger is replayed through step 104, while the exact
+query-21 raw and released-AEGIS nominal actions are reconstructed from recorded
+QP contexts. Source clearances and nominal projection must reproduce within
+`1e-9`. The unchanged nine normal candidates then receive authoritative
+five-action-prefix plus complete-fixed-backup labels. Unknown timeouts remain
+inadmissible, and the oracle selects the known exact-safe candidate with
+minimum realized post-AEGIS L2 command deviation. It does not execute the
+selection. This is the smallest test of whether state-dependent finite-bank
+governance could have prevented the step-108 L6 collision. MLP training,
+denoising, QP changes, closed loop, direction expansion, and generalization
+remain blocked pending independent H100 validation.

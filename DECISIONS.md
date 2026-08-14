@@ -3487,3 +3487,37 @@ and `f58cd571e37701fc12607cff15df224fd42df07037d6121ddaf2f7cdcbdf9c43`;
 payload SHA-256 values are
 `3df38b493281aac8af34d27704a8f76d0a537b6d808c62985236137094447ae8`
 and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.
+
+## ADR-0141: Test the registered normal candidate bank at the first unsafe later warning
+
+- Status: preregistered; H100 result pending
+- Date: 2026-08-15
+
+ADR-0140 identifies task-3 E42 step `105` as the first later warning where the
+first-warning radius `0.75` is already forecast unsafe. Raw L6 contact begins
+at step `108` only because the diagnostic deliberately executed that known
+unsafe proposal. Before implementing a complete adaptive episode, test whether
+the unchanged nine-point normal bank contains any known-safe action at this
+changed physical/controller state.
+
+The source is immutable clean result `40357` case 01 with file SHA-256
+`4afe40e0754f05749d4ea4aaa71e924018262bfd3d98283027699e53bb574142`
+and payload SHA-256
+`162109aacc5aa4fccd84c22fabe62e758894d64a723505346609d69f4d48f0d5`.
+Because that artifact did not store a standalone step-105 MuJoCo snapshot or
+the returned VLA tensor, the apparatus replays its exact executed actions
+through step 104 and reconstructs the exact raw/post-AEGIS nominal chunk from
+the recorded query-21 QP contexts. Replayed seven-row clearance and nominal
+post-AEGIS actions must match the source within `1e-9` before any candidate
+outcome is interpreted.
+
+The candidate bank, temporal profile, action limits, original released AEGIS
+EE filter, five-action prefix, complete fixed backup, seven-row `1 mm` target,
+protected-contact authority, CAR threshold, and timeout censorship remain
+identical to ADR-0139. All nine candidates are evaluated because the earlier
+task-3 curves are non-monotonic. Selection is by minimum realized post-AEGIS
+L2 command change among known exact-safe candidates, not by requested radius.
+This gate performs no selected-action execution. If no normal candidate is
+safe, only then may a future-witness/controller-aware direction audit be
+preregistered. Learning, denoising, QP changes, closed loop, generalization,
+and CBF claims remain forbidden.
