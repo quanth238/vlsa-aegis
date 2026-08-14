@@ -451,12 +451,41 @@ def evaluate(
                     break
             if not done_in_chunk:
                 observed_final = np.asarray(_dynamic_state_vector(env), dtype=np.float64)
-                clone_error = float(np.max(np.abs(observed_final - predicted_final)))
+                absolute_error = np.abs(observed_final - predicted_final)
+                clone_error = float(np.max(absolute_error))
+                maximum_index = int(np.argmax(absolute_error))
+                observed_simulator = np.asarray(
+                    env.sim.get_state().flatten(), dtype=np.float64
+                )
+                predicted_simulator = np.asarray(
+                    probe_env.sim.get_state().flatten(), dtype=np.float64
+                )
+                simulator_error = float(
+                    np.max(np.abs(observed_simulator - predicted_simulator))
+                )
                 clone_execution_errors_m.append(clone_error)
                 _require(
                     clone_error
                     <= float(config["execution"]["boundary_equivalence_tolerance_m"]),
-                    "selected cloned rollout and execution differ: %.17g" % clone_error,
+                    (
+                        "selected cloned rollout and execution differ: "
+                        "step=%d source=%s full_error=%.17g index=%d "
+                        "simulator_error=%.17g predicted_minimum=%.17g "
+                        "predicted_contacts=%d predicted_car=%.17g"
+                    ) % (
+                        step,
+                        source_name,
+                        clone_error,
+                        maximum_index,
+                        simulator_error,
+                        float(selected_prediction["minimum_clearance_m"]),
+                        len(selected_prediction["protected_contacts"]),
+                        float(
+                            selected_prediction[
+                                "maximum_active_obstacle_l1_displacement_m"
+                            ]
+                        ),
+                    ),
                 )
             if selected_z_after is not None:
                 live_z = np.asarray(selected_z_after, dtype=np.float64).copy()
