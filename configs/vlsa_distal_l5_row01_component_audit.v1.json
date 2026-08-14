@@ -1,0 +1,75 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_component_audit.v1",
+  "protocol_id": "vlsa-distal-l5-row01-component-audit-v1",
+  "claim_scope": "frozen_prefix_backup_component_and_E39_action_response_audit_not_control_not_QP_not_CBF",
+  "source": {
+    "relative_audit_config": "configs/vlsa_distal_l5_row01_relative_root_cause.v1.json",
+    "relative_audit_config_file_sha256": "ffe3d38fbd74eacfed804f04c1db565f28f6ecb121543f60e78619d06df46063",
+    "frozen_relative_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-relative-root-cause/relative-root-cause-20260814a/result.json",
+    "frozen_relative_result_file_sha256": "564b49b6e474cc37e1ea0902b2afec5ec6593dfa524c1260a8f3a98045bc296c",
+    "frozen_relative_result_payload_sha256": "7b16bc1f8097fc411245d283317e8d7062591342612e4c244cdb38d950f56be7"
+  },
+  "targets": {
+    "prefix": "maximum_row_violation_over_exact_five_action_OSC_prefix",
+    "backup": "maximum_row_violation_over_observed_fixed_backup_only",
+    "combined": "elementwise_max_of_prefix_and_backup_when_backup_is_observed",
+    "missing_backup": "censored_because_prefix_terminated_before_backup_not_a_regression_label",
+    "learned_rows": [0, 1]
+  },
+  "matched_model": {
+    "class": "two_output_relative_134D_component_MLP",
+    "input_dimension": 134,
+    "output_count": 2,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "training_episodes_only_per_component",
+    "checkpoint": "fixed_final_epoch_no_validation_selection"
+  },
+  "E39_curve": {
+    "validation_state_contains": "t2-e39",
+    "nearest_training_rule": "minimum_relative_state_RMS_z_among_states_with_at_least_four_known_actions",
+    "curve_coordinate": "registered_applied_correction_l2_action",
+    "minimum_unique_coordinates": 4,
+    "components": ["prefix", "backup", "combined"],
+    "comparison": "least_squares_slope_per_row_and_component"
+  },
+  "gates": {
+    "zero_prefix_validation_false_safes": true,
+    "zero_backup_validation_false_safes_on_observed_backup": true,
+    "prefix_near_boundary_RMSE_maximum_m": 0.001,
+    "backup_near_boundary_RMSE_maximum_m": 0.001,
+    "zero_structured_combined_false_safes": true,
+    "structured_safe_selection_all_four_recoverable_states": true,
+    "E39_all_identifiable_slope_signs_match_nearest_training_curve": true,
+    "reserved_test_episodes_unopened": true
+  },
+  "interpretation": {
+    "components_pass_combined_fails": "hard_maximum_or_mode_selection_is_the_remaining_problem",
+    "prefix_fails": "collect_prefix_dominated_boundary_transitions",
+    "backup_fails": "collect_complete_fixed_backup_boundary_transitions",
+    "E39_slope_differs": "collect_local_action_response_curves_across_more_states",
+    "all_pass": "structured_component_value_is_supported_for_Best_of_N_validation"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "uncensored_imputation_of_missing_backup",
+    "candidate_bank_change",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "Poisson_or_SDF",
+    "reserved_test_access",
+    "gradient_claim",
+    "neural_CBF_claim"
+  ]
+}

@@ -3913,3 +3913,12 @@ and `febd9e70b5bda801dcead4acd4cefef07b17b7d0044fa1c148a4b621b9741824`;
 payload SHA-256 values are
 `7b16bc1f8097fc411245d283317e8d7062591342612e4c244cdb38d950f56be7`
 and `adfa8060b0df65cf726ecd18473e92b18c85e7d931335401dd4efb651ead745a`.
+
+ADR-0132 preregisters the requested last audit before new simulation. Existing
+traces supply exact prefix risk for every known action and backup risk only when
+the fixed backup actually ran; absent backup values remain censored. Two matched
+134D models predict the components independently, their hard maximum is tested
+against the direct combined model, and every false-safe is attributed to its
+active phase. E39's exact component slopes are compared with the nearest
+response-capable training state. This will decide whether new collection must
+target prefix, backup, or local action-response diversity.

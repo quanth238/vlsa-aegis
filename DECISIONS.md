@@ -2983,3 +2983,26 @@ prefix risk and backup continuation risk as separate heads and combine them by
 a hard maximum for acceptance. First validate Best-of-N candidate selection;
 only after it passes may action gradients be tested against exact paired
 directions. Calibration, QP, and closed loop remain blocked.
+
+## ADR-0132: Audit prefix and backup components before new collection
+
+- Status: preregistered; frozen-trace H100 audit pending
+- Date: 2026-08-14
+
+Before collecting another rollout, decompose the immutable row-0/row-1 target
+into exact five-action prefix risk and observed fixed-backup risk. A missing
+backup value means the prefix terminated before backup execution and remains a
+censored value; it is never imputed. Fit two matched 134D component MLPs using
+the ADR-0131 representation, architecture, symmetric Huber loss, seed, and
+schedule. Evaluate prefix and backup errors separately, then form the structured
+prediction by their elementwise hard maximum.
+
+Attribute each direct and structured false-safe to the exact active row and
+prefix/backup phase. For E39, select the nearest training state among states
+with at least four distinct registered correction magnitudes, and compare
+least-squares slopes of prefix, backup, and combined risk versus correction
+norm for both rows. This audit determines whether the component maps fail,
+whether their maximum is uniquely responsible, or whether E39 has a genuinely
+different local action response. It changes no state, action, label, candidate,
+controller, or split and opens no sealed episode. QP, calibration, gradient,
+closed-loop, and neural-CBF claims remain forbidden.
