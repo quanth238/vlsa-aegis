@@ -19,6 +19,7 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-query-action-risk-e05}
 TABLE1_RESULT=${TABLE1_RESULT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
 CANDIDATE_LIMIT=${CANDIDATE_LIMIT:-}
+RELEASED_AEGIS_CONSISTENCY=${RELEASED_AEGIS_CONSISTENCY:-0}
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 [[ -n "${SLURM_JOB_ID:-}" ]] || die "simulation requires Slurm"
@@ -55,6 +56,11 @@ extra_args=()
 if [[ -n "$CANDIDATE_LIMIT" ]]; then
   [[ "$CANDIDATE_LIMIT" =~ ^([1-9]|[12][0-9]|3[0-7])$ ]] || die "invalid candidate limit"
   extra_args+=(--candidate-limit "$CANDIDATE_LIMIT")
+fi
+if [[ "$RELEASED_AEGIS_CONSISTENCY" == 1 ]]; then
+  extra_args+=(--released-aegis-consistency)
+elif [[ "$RELEASED_AEGIS_CONSISTENCY" != 0 ]]; then
+  die "invalid released AEGIS consistency switch"
 fi
 "$AEGIS_PYTHON" scripts/evaluate_distal_query_action_risk_e05.py \
   --repo-root "$REMOTE_REPO" \

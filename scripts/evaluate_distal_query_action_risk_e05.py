@@ -100,13 +100,15 @@ def evaluate(
         Callable[[Sequence[Sequence[float]], Mapping[str, Sequence[float]], Mapping[str, Any]], Sequence[Mapping[str, Any]]]
     ] = None,
     candidate_protocol_binding: Optional[Mapping[str, Any]] = None,
+    apply_released_aegis_ee_to_all_proposed_actions: bool = False,
 ) -> dict[str, Any]:
     import time
     import numpy as np
 
     from main.evaluate_safelibero_aegis import (
         TABLE_SETTLE_ACTIONS, _active_obstacle, _build_environment,
-        _runtime_imports, _settle, read_jsonl, validate_case_row,
+        _aegis_action, _eef_proxy, _runtime_imports, _settle, read_jsonl,
+        validate_case_row,
     )
     from main.multilink_ellipsoid.pure_backup import (
         orthonormal_local_frame, registered_directions, select_backup_with_fallback,
@@ -245,6 +247,105 @@ def evaluate(
         backup_config = config["backup_policy"]
         records = []
 
+        source_aegis_z = None
+        if apply_released_aegis_ee_to_all_proposed_actions:
+            _require(state_step > 0, "AEGIS-consistent query state must follow an action")
+            previous_qp = action_rows[state_step - 1].get("qp", {})
+            _require("z_after" in previous_qp,
+                     "archived AEGIS virtual direction is unavailable")
+            source_aegis_z = np.asarray(previous_qp["z_after"], dtype=np.float64)
+            _require(source_aegis_z.shape == (3,) and np.all(np.isfinite(source_aegis_z)),
+                     "archived AEGIS virtual direction differs")
+
+        def project_through_released_aegis(
+            main_env: Any,
+            proposed_actions: Any,
+            initial_z: Any,
+        ) -> tuple[Any, dict[str, Any]]:
+            """Project a proposed sequence through the unchanged released EE filter.
+
+            The auxiliary environment is synchronized to the exact candidate state,
+            so later EE constraints are evaluated after earlier projected actions.
+            The virtual direction is controller memory and is therefore supplied and
+            returned explicitly rather than inferred from MuJoCo state.
+            """
+
+            proposed = np.asarray(proposed_actions, dtype=np.float64)
+            _require(proposed.ndim == 2 and proposed.shape[1] == 7,
+                     "AEGIS consistency proposal shape differs")
+            if not apply_released_aegis_ee_to_all_proposed_actions:
+                return proposed.copy(), {
+                    "enabled": False,
+                    "proposed_actions": proposed.tolist(),
+                    "executed_actions": proposed.tolist(),
+                    "maximum_absolute_action_change": 0.0,
+                    "z_before": None,
+                    "z_after_by_action": [],
+                    "qp_records": [],
+                }
+            z = np.asarray(initial_z, dtype=np.float64).copy()
+            _require(z.shape == (3,) and np.all(np.isfinite(z)),
+                     "AEGIS consistency initial direction differs")
+            one_step.synchronize(main_env)
+            virtual_observation = probe_env.env._get_observations()
+            released_geometry = {
+                "p2": np.asarray(perception["mvee_center"], dtype=np.float64),
+                "R2": np.asarray(perception["mvee_rotation"], dtype=np.float64),
+                "Q2_diag": np.asarray(perception["mvee_semiaxes"], dtype=np.float64),
+                "z_fixed": z.copy(),
+            }
+            q1_diag = np.asarray([0.06, 0.12, 0.11], dtype=np.float64)
+            executed_actions = []
+            qp_records = []
+            z_after_by_action = []
+            for proposed_action in proposed:
+                proxy = _eef_proxy(runtime, virtual_observation)
+                executed, qp = _aegis_action(
+                    runtime,
+                    nominal_translational=proposed_action,
+                    proxy=proxy,
+                    geometry=released_geometry,
+                    q1_diag=q1_diag,
+                    diagnostics_enabled=True,
+                )
+                executed_array = np.asarray(executed, dtype=np.float64)
+                _require(executed_array.shape == (7,) and np.all(np.isfinite(executed_array)),
+                         "AEGIS consistency output differs")
+                virtual_observation, _, _, _ = probe_env.step(executed_array.tolist())
+                executed_actions.append(executed_array)
+                qp_records.append(qp)
+                z_after_by_action.append(
+                    np.asarray(released_geometry["z_fixed"], dtype=np.float64).copy()
+                )
+            executed_array = np.asarray(executed_actions, dtype=np.float64)
+            return executed_array, {
+                "enabled": True,
+                "contract": "propose_after_released_AEGIS_then_reapply_unchanged_released_AEGIS_sequentially_and_label_exact_output",
+                "proposed_actions": proposed.tolist(),
+                "executed_actions": executed_array.tolist(),
+                "maximum_absolute_action_change": float(
+                    np.max(np.abs(executed_array - proposed))
+                ),
+                "correction_l2_action": float(np.linalg.norm(executed_array - proposed)),
+                "z_before": z.tolist(),
+                "z_after_by_action": [item.tolist() for item in z_after_by_action],
+                "qp_records": qp_records,
+            }
+
+        def rollout_projected_prefix(
+            proposed_actions: Any,
+            initial_z: Any,
+        ) -> tuple[dict[str, Any], Any, dict[str, Any]]:
+            executed, consistency = project_through_released_aegis(
+                env, proposed_actions, initial_z
+            )
+            rollout = _primary_internal_rollout(
+                env, one_step, obstacle_name, obstacle_reference, executed,
+                expected_substeps=expected_substeps, boundary_tolerance=tolerance,
+                step_base=state_step,
+            )
+            return rollout, executed, consistency
+
         def summarize_rollout(record: Mapping[str, Any], *, exclude_k0: bool) -> dict[str, Any]:
             trace = np.asarray(record["clearance_trace_m"], dtype=np.float64)[:, :7]
             evaluated = trace[1:] if exclude_k0 else trace
@@ -271,10 +372,8 @@ def evaluate(
         determinism_runs = []
         for replay_index in range(2):
             restore_source()
-            replay = _primary_internal_rollout(
-                env, one_step, obstacle_name, obstacle_reference, nominal,
-                expected_substeps=expected_substeps, boundary_tolerance=tolerance,
-                step_base=state_step,
+            replay, replay_actions, replay_consistency = rollout_projected_prefix(
+                nominal, source_aegis_z,
             )
             determinism_runs.append({
                 "replay_index": replay_index,
@@ -287,6 +386,8 @@ def evaluate(
                 "maximum_active_obstacle_l1_displacement_m": float(
                     replay["maximum_active_obstacle_l1_displacement_m"]
                 ),
+                "executed_actions": replay_actions,
+                "aegis_consistency": replay_consistency,
             })
         determinism = {
             "next_state_maximum_absolute_error": float(np.max(np.abs(
@@ -307,6 +408,14 @@ def evaluate(
             "next_state_sha256": [
                 item["next_state_sha256"] for item in determinism_runs
             ],
+            "executed_action_maximum_absolute_error": float(np.max(np.abs(
+                determinism_runs[0]["executed_actions"]
+                - determinism_runs[1]["executed_actions"]
+            ))),
+            "nominal_archived_action_maximum_absolute_error": float(np.max(np.abs(
+                determinism_runs[0]["executed_actions"] - nominal
+            ))),
+            "aegis_consistency": determinism_runs[0]["aegis_consistency"],
         }
         restore_source()
 
@@ -314,10 +423,12 @@ def evaluate(
             restore_source()
             restore_error = float(np.max(np.abs(_dynamic_state_vector(env) - source_dynamic)))
             candidate_actions = np.asarray(definition["actions"], dtype=np.float64)
-            prefix = _primary_internal_rollout(
-                env, one_step, obstacle_name, obstacle_reference, candidate_actions,
-                expected_substeps=expected_substeps, boundary_tolerance=tolerance,
-                step_base=state_step,
+            prefix, executed_candidate_actions, candidate_aegis = rollout_projected_prefix(
+                candidate_actions, source_aegis_z,
+            )
+            current_aegis_z = (
+                np.asarray(candidate_aegis["z_after_by_action"][-1], dtype=np.float64)
+                if candidate_aegis["enabled"] else None
             )
             prefix_summary = summarize_rollout(prefix, exclude_k0=True)
             prefix_physical_veto = bool(
@@ -335,8 +446,11 @@ def evaluate(
                     break
                 current_backup = np.asarray(one_step.clearances(env)[:7], dtype=np.float64)
                 if float(np.min(current_backup)) >= float(backup_config["terminal_release_clearance_m"]):
-                    hold_actions = np.zeros(
+                    proposed_hold_actions = np.zeros(
                         (int(backup_config["terminal_hold_actions"]), 7), dtype=np.float64
+                    )
+                    hold_actions, hold_aegis = project_through_released_aegis(
+                        env, proposed_hold_actions, current_aegis_z
                     )
                     hold = instrumented.rollout_internal(
                         env, hold_actions, expected_substeps=expected_substeps,
@@ -349,7 +463,12 @@ def evaluate(
                         and hold_summary["maximum_active_obstacle_l1_displacement_m"] <= car_limit
                     )
                     if hold_safe:
-                        terminal_hold = hold_summary
+                        terminal_hold = {
+                            **hold_summary,
+                            "proposed_actions": proposed_hold_actions.tolist(),
+                            "executed_actions": hold_actions.tolist(),
+                            "aegis_consistency": hold_aegis,
+                        }
                         terminal_status = "SAFE_TERMINAL"
                         terminal_reason = "release_margin_plus_verified_stable_hold"
                         break
@@ -375,11 +494,14 @@ def evaluate(
                          "registered backup candidate count differs")
                 branches = []
                 for order, (name, command) in enumerate(commands):
-                    branch_actions = np.zeros(
+                    proposed_branch_actions = np.zeros(
                         (1 + int(backup_config["selection_lookahead_hold_actions"]), 7),
                         dtype=np.float64,
                     )
-                    branch_actions[0] = command
+                    proposed_branch_actions[0] = command
+                    branch_actions, branch_aegis = project_through_released_aegis(
+                        env, proposed_branch_actions, current_aegis_z
+                    )
                     branch = instrumented.rollout_internal(
                         env, branch_actions, expected_substeps=expected_substeps,
                         boundary_tolerance=tolerance,
@@ -390,7 +512,9 @@ def evaluate(
                     branches.append({
                         "name": name,
                         "order": order,
-                        "first_action": command.tolist(),
+                        "first_action": branch_actions[0].tolist(),
+                        "proposed_first_action": command.tolist(),
+                        "aegis_consistency": branch_aegis,
                         "record": {
                             **branch_summary,
                             "future_minimum_clearance_m": float(np.min(trace[1:])),
@@ -400,6 +524,11 @@ def evaluate(
                     branches, safety_buffer_m=buffer_m, paper_car_threshold_m=car_limit
                 )
                 selected_action = np.asarray(selected["first_action"], dtype=np.float64)
+                if selected["aegis_consistency"]["enabled"]:
+                    current_aegis_z = np.asarray(
+                        selected["aegis_consistency"]["z_after_by_action"][0],
+                        dtype=np.float64,
+                    )
                 actual = _primary_internal_rollout(
                     env, one_step, obstacle_name, obstacle_reference,
                     selected_action.reshape(1, 7), expected_substeps=expected_substeps,
@@ -417,6 +546,8 @@ def evaluate(
                     "selected_name": selected["name"],
                     "selected_order": selected["order"],
                     "selected_action": selected["first_action"],
+                    "selected_proposed_action": selected["proposed_first_action"],
+                    "selected_aegis_consistency": selected["aegis_consistency"],
                     "selected_branch": selected["record"],
                     "actual": actual_summary,
                 })
@@ -458,6 +589,9 @@ def evaluate(
             physical_veto = bool(prefix_physical_veto or backup_contacts > 0 or backup_car > car_limit)
             record = {
                 **definition,
+                "proposed_actions": candidate_actions.tolist(),
+                "actions": executed_candidate_actions.tolist(),
+                "aegis_consistency": candidate_aegis,
                 "source_snapshot_sha256": source_hash,
                 "source_restore_maximum_error": restore_error,
                 "prefix": prefix_summary,
@@ -504,6 +638,11 @@ def evaluate(
                 and determinism["clearance_trace_maximum_absolute_error_m"] == 0.0
                 and determinism["contacts_identical"]
                 and determinism["CAR_maximum_absolute_error_m"] == 0.0
+                and determinism["executed_action_maximum_absolute_error"] == 0.0
+            ),
+            "nominal_released_aegis_is_idempotent": bool(
+                not apply_released_aegis_ee_to_all_proposed_actions
+                or determinism["nominal_archived_action_maximum_absolute_error"] <= 1.0e-10
             ),
             "query_boundary_is_initially_safe": float(np.min(current)) >= buffer_m,
             "nominal_future_is_unsafe": not records[0]["exact_safe"],
@@ -539,6 +678,24 @@ def evaluate(
                 "read_only": True,
             },
             "policy_query": query,
+            "action_contract": {
+                "released_aegis_ee_enabled": bool(
+                    apply_released_aegis_ee_to_all_proposed_actions
+                ),
+                "candidate_coordinates": (
+                    "proposed_post_AEGIS_residual_before_final_released_AEGIS_consistency_filter"
+                    if apply_released_aegis_ee_to_all_proposed_actions
+                    else config["state"]["action_coordinates"]
+                ),
+                "risk_label_coordinates": (
+                    "exact_final_released_AEGIS_output_executed_by_OSC"
+                    if apply_released_aegis_ee_to_all_proposed_actions
+                    else config["state"]["action_coordinates"]
+                ),
+                "source_virtual_direction": (
+                    None if source_aegis_z is None else source_aegis_z.tolist()
+                ),
+            },
             "determinism_replay": determinism,
             "nominal_five_action_chunk": nominal.tolist(),
             "nominal_five_action_chunk_sha256": hashlib.sha256(nominal.tobytes()).hexdigest(),
@@ -616,6 +773,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--experiment-config", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--candidate-limit", type=int)
+    parser.add_argument(
+        "--released-aegis-consistency",
+        action="store_true",
+        help="Reapply the unchanged released EE filter to every proposed prefix and backup action.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = evaluate(
@@ -627,6 +789,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         expected_commit=args.expected_commit,
         output_path=args.output.resolve(),
         candidate_limit=args.candidate_limit,
+        apply_released_aegis_ee_to_all_proposed_actions=bool(
+            args.released_aegis_consistency
+        ),
     )
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({
