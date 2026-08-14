@@ -101,6 +101,7 @@ def evaluate(
     ] = None,
     candidate_protocol_binding: Optional[Mapping[str, Any]] = None,
     apply_released_aegis_ee_to_all_proposed_actions: bool = False,
+    adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -220,6 +221,24 @@ def evaluate(
         active_row = int(np.argmin(current))
         normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
         frame = orthonormal_local_frame(normal)
+        state_context = None
+        if adaptive_boundary_config is not None:
+            from scripts.collect_distal_clean_action_risk import _context
+
+            state_context = _context(env, observation, geometry, current)
+            for row_context, link in zip(state_context["geometry_rows"], links):
+                relative = (
+                    np.asarray(link.center, dtype=np.float64)
+                    - np.asarray(geometry.obstacle.center, dtype=np.float64)
+                )
+                relative_norm = float(np.linalg.norm(relative))
+                _require(relative_norm > 0.0,
+                         "adaptive link-obstacle relative center is degenerate")
+                row_context["obstacle_relative_center_m"] = relative.tolist()
+                row_context["outward_normal"] = (
+                    relative / relative_norm
+                ).tolist()
+            state_context["local_frame"] = _public(frame)
         base = _base_env(env)
         source_state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64).copy()
         source_auxiliary = _auxiliary_sim_snapshot(env)
@@ -356,6 +375,8 @@ def evaluate(
         def rollout_projected_prefix(
             proposed_actions: Any,
             initial_z: Any,
+            *,
+            stop_after_physical_veto: bool = False,
         ) -> tuple[dict[str, Any], Any, dict[str, Any]]:
             executed, consistency = project_through_released_aegis(
                 env, proposed_actions, initial_z
@@ -364,6 +385,8 @@ def evaluate(
                 env, one_step, obstacle_name, obstacle_reference, executed,
                 expected_substeps=expected_substeps, boundary_tolerance=tolerance,
                 step_base=state_step,
+                stop_after_physical_veto=stop_after_physical_veto,
+                paper_car_threshold_m=car_limit,
             )
             return rollout, executed, consistency
 
@@ -499,6 +522,125 @@ def evaluate(
         }
         restore_source()
 
+        adaptive_sampling = None
+        if adaptive_boundary_config is not None:
+            from main.multilink_ellipsoid.adaptive_query_action_risk import (
+                midpoint_definition, select_bracket,
+            )
+
+            screening_config = adaptive_boundary_config["screening"]
+            _require(len(definitions) == int(screening_config["coarse_candidate_count"]),
+                     "adaptive coarse definition count differs")
+
+            def screen_definition(definition: Mapping[str, Any]) -> dict[str, Any]:
+                restore_source()
+                candidate_actions = np.asarray(
+                    definition["actions"], dtype=np.float64
+                )
+                if apply_released_aegis_ee_to_all_proposed_actions:
+                    candidate_pre_aegis, residual_binding = (
+                        raw_action_with_post_aegis_residual(candidate_actions)
+                    )
+                else:
+                    candidate_pre_aegis = candidate_actions
+                    residual_binding = None
+                prefix, executed, consistency = rollout_projected_prefix(
+                    candidate_pre_aegis,
+                    source_aegis_z,
+                    stop_after_physical_veto=bool(
+                        screening_config["stop_prefix_after_contact_or_CAR"]
+                    ),
+                )
+                summary = summarize_rollout(prefix, exclude_k0=True)
+                risk = risk_from_row_minimum(
+                    summary["row_minimum_clearance_m"], buffer_m
+                )
+                rows = [int(row) for row in screening_config["risk_rows"]]
+                scalar = max(float(risk[row]) for row in rows)
+                physical_veto = bool(
+                    summary["protected_contact_count"] > 0
+                    or summary["maximum_active_obstacle_l1_displacement_m"]
+                    > car_limit
+                )
+                screen_safe = bool(
+                    not physical_veto
+                    and scalar <= float(screening_config["safe_threshold_m"])
+                )
+                screen_unsafe = bool(
+                    physical_veto
+                    or scalar > float(screening_config["unsafe_threshold_m"])
+                )
+                _require(screen_safe != screen_unsafe,
+                         "adaptive screen classification is ambiguous")
+                return {
+                    "definition": _public(definition),
+                    "post_aegis_candidate_before_consistency": candidate_actions.tolist(),
+                    "proposed_actions": candidate_pre_aegis.tolist(),
+                    "exact_final_post_aegis_actions": executed.tolist(),
+                    "aegis_consistency": consistency,
+                    "residual_binding": residual_binding,
+                    "prefix": summary,
+                    "prefix_risk": risk,
+                    "L5_prefix_risk_m": scalar,
+                    "physical_veto": physical_veto,
+                    "screen_safe": screen_safe,
+                    "screen_unsafe": screen_unsafe,
+                    "executed_prefix_action_count": len(summary["substep_counts"]),
+                }
+
+            coarse_records = [screen_definition(definition)
+                              for definition in definitions]
+            bracket = select_bracket(coarse_records)
+            bisection_records = []
+            if bracket is not None:
+                safe_record = coarse_records[int(bracket[0])]
+                unsafe_record = coarse_records[int(bracket[1])]
+                next_order = max(int(item["order"]) for item in definitions) + 1
+                for iteration in range(int(screening_config["bisection_iterations"])):
+                    middle_definition = midpoint_definition(
+                        safe_record["definition"], unsafe_record["definition"],
+                        iteration=iteration, order=next_order + iteration,
+                    )
+                    middle_record = screen_definition(middle_definition)
+                    bisection_records.append(middle_record)
+                    if middle_record["screen_safe"]:
+                        safe_record = middle_record
+                    else:
+                        unsafe_record = middle_record
+                requested = [definitions[0], safe_record["definition"],
+                             unsafe_record["definition"]]
+                requested.extend(item["definition"] for item in bisection_records)
+            else:
+                safe_record = unsafe_record = None
+                requested = [definitions[0]]
+            retained = []
+            seen_actions = set()
+            for definition in requested:
+                actions = np.asarray(definition["actions"], dtype=np.float64)
+                digest = hashlib.sha256(actions.tobytes()).hexdigest()
+                if digest in seen_actions:
+                    continue
+                seen_actions.add(digest)
+                retained.append(dict(definition))
+            _require(
+                len(retained)
+                <= int(screening_config["maximum_authoritative_candidates"]),
+                "adaptive authoritative candidate count differs",
+            )
+            definitions = retained
+            adaptive_sampling = {
+                "config": adaptive_boundary_config,
+                "coarse_screening_records": coarse_records,
+                "bracket_found": bracket is not None,
+                "initial_bracket_indices": None if bracket is None else list(bracket),
+                "bisection_records": bisection_records,
+                "retained_authoritative_candidate_names": [
+                    item["name"] for item in definitions
+                ],
+                "retained_authoritative_candidate_count": len(definitions),
+                "complete_backup_not_run_for_screening_only_candidates": True,
+            }
+
         for definition in definitions:
             restore_source()
             restore_error = float(np.max(np.abs(_dynamic_state_vector(env) - source_dynamic)))
@@ -512,6 +654,7 @@ def evaluate(
                 residual_binding = None
             prefix, executed_candidate_actions, candidate_aegis = rollout_projected_prefix(
                 candidate_pre_aegis, source_aegis_z,
+                stop_after_physical_veto=adaptive_boundary_config is not None,
             )
             current_aegis_z = (
                 np.asarray(candidate_aegis["z_after_by_action"][-1], dtype=np.float64)
@@ -805,6 +948,7 @@ def evaluate(
                 "initial_active_obstacle_l1_displacement_m": current_car,
                 "active_row": active_row,
                 "local_frame": frame,
+                "physical_context": state_context,
             },
             "candidate_count": len(records),
             "candidates": _public(records),
@@ -845,6 +989,8 @@ def evaluate(
             result["candidate_protocol_binding"] = _public(
                 candidate_protocol_binding
             )
+        if adaptive_sampling is not None:
+            result["adaptive_boundary_sampling"] = _public(adaptive_sampling)
         if result_schema_override is not None:
             result["base_method_config"] = result.pop("config")
             result["population_binding"] = dict(population_binding or {})

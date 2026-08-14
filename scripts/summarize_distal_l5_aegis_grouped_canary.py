@@ -18,12 +18,14 @@ def summarize(
     validation_paths: Sequence[Path], producer_commit: str,
     validator_commit: str, summary_commit: str, expected_count: int = 2,
     required_splits: Sequence[str] = ("train", "validation"),
+    result_schema: Optional[str] = None,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.grouped_query_action_risk import RESULT_SCHEMA
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
         LEARNED_L5_ROWS, row_coverage, state_classification,
     )
 
+    expected_schema = RESULT_SCHEMA if result_schema is None else str(result_schema)
     _require(len(result_paths) == len(validation_paths) == int(expected_count),
              "grouped summary paired artifact count differs")
     states = []
@@ -31,7 +33,7 @@ def summarize(
     for result_path, validation_path in zip(result_paths, validation_paths):
         result = _load(result_path)
         validation = _load(validation_path)
-        _require(result["schema_version"] == RESULT_SCHEMA,
+        _require(result["schema_version"] == expected_schema,
                  "grouped result schema differs")
         _require(result["source"]["commit"] == producer_commit,
                  "grouped producer commit differs")

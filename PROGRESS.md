@@ -3365,3 +3365,30 @@ E19/E22 validation payload SHA-256 values are
 and `771fc58e70423b721e5a3e2c9911f952147fea2da8c6905200c48ef41d471f1c`.
 Training, calibration, QP, reserved-test access, and closed loop remain
 blocked.
+
+## Adaptive post-AEGIS L5 boundary collection (preregistered)
+
+The exhaustive 37-candidate population launch `39957` was inspected and
+cancelled after three completed cases when the collection design changed; its
+completed artifacts remain immutable apparatus history and no outcome was
+dropped. The replacement prioritizes distinct states over repeated expensive
+backup rollouts at one state.
+
+At each of the 15 unsealed clean episode groups, the adaptive collector first
+executes nine fixed normal/tangent five-action candidates through the original
+AEGIS EE filter and exact OSC. Prefix screening stops after the first
+high-level action that records protected contact or CAR failure. If both sides
+of the L5 boundary are present, five direct action-space bisection probes refine
+the bracket. Only nominal, the final bracket endpoints, and the bisection
+samples—at most eight actions—receive the complete fixed-backup rollout that
+defines the authoritative seven-row risk label. If no prefix bracket exists,
+the state is retained with its nominal label and explicit support failure.
+
+Every artifact records the final post-AEGIS action and EE-QP trace, q/dq,
+complete simulator/controller context, EE pose, L5--obstacle relative centers
+and normals, all seven proxy rows, raw contacts, CAR, and censored timeouts.
+The clean manifest contains only 18 eligible episode groups: 15 development
+groups and three sealed test groups. Known E38 proxy mismatch and gripper-
+contact cases are not admitted merely to reach 20 groups. Collection cannot
+authorize training. Sufficient grouped boundary coverage authorizes only the
+matched no-training 86D/compact/complete-state feature audit.

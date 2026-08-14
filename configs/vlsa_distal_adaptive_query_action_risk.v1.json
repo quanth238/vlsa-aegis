@@ -1,0 +1,79 @@
+{
+  "schema_version": "vlsa_distal_adaptive_query_action_risk.v1",
+  "protocol_id": "vlsa-distal-adaptive-query-action-risk-v1",
+  "claim_scope": "adaptive_prefix_screening_then_exact_candidate_plus_complete_backup_L5_risk_labels_not_training_not_QP_not_control_not_CBF",
+  "cohort": {
+    "source_episode_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+    "available_clean_episode_groups": 18,
+    "development_episode_groups": 15,
+    "sealed_test_episode_groups": 3,
+    "split_unit": "complete_episode",
+    "note": "The preregistered clean cohort contains 18 groups; known E38 proxy mismatch and gripper-contact cases remain excluded rather than used to manufacture 20 groups."
+  },
+  "screening": {
+    "coarse_candidate_count": 9,
+    "coarse_candidates": [
+      "nominal",
+      "normal_pos_front_loaded_r1.0",
+      "normal_neg_front_loaded_r1.0",
+      "tangent_up_pos_front_loaded_r1.0",
+      "tangent_up_neg_front_loaded_r1.0",
+      "tangent_side_pos_front_loaded_r1.0",
+      "tangent_side_neg_front_loaded_r1.0",
+      "normal_pos_front_loaded_r2.0",
+      "normal_neg_front_loaded_r2.0"
+    ],
+    "risk_rows": [0, 1, 2],
+    "risk_scalar": "maximum_L5_prefix_risk",
+    "safe_threshold_m": 0.0,
+    "unsafe_threshold_m": 0.0,
+    "physical_veto_is_unsafe": true,
+    "stop_prefix_after_contact_or_CAR": true,
+    "bracket_selection": "minimum_action_L2_then_boundary_distance_then_order",
+    "bisection_iterations": 5,
+    "retain_nominal": true,
+    "maximum_authoritative_candidates": 8
+  },
+  "authoritative_labels": {
+    "candidate": "exact_final_post_AEGIS_five_action_chunk",
+    "rollout": "candidate_prefix_plus_complete_fixed_backup",
+    "complete_backup_only_for_retained_candidates": true,
+    "unknown_timeout_is_censored": true,
+    "original_AEGIS_EE_QP_recorded": true,
+    "L6_L7_contact_is_diagnostic": true
+  },
+  "feature_audit": {
+    "models": [
+      "existing_86D",
+      "compact_exact_action",
+      "compact_exact_action_plus_complete_physical_state"
+    ],
+    "record": [
+      "exact_final_post_AEGIS_action",
+      "arm_q_and_dq",
+      "L5_obstacle_relative_geometry",
+      "current_clearances_and_normals",
+      "EE_and_OSC_state",
+      "AEGIS_EE_QP_records"
+    ],
+    "coverage_gate": {
+      "minimum_train_known_candidates": 40,
+      "minimum_validation_known_candidates": 12,
+      "minimum_known_safe_candidates_per_L5_row": 10,
+      "minimum_known_unsafe_candidates_per_L5_row": 10,
+      "minimum_near_boundary_candidates_per_L5_row": 8,
+      "minimum_train_useful_boundary_states_per_L5_row": 3,
+      "minimum_validation_useful_boundary_states_per_L5_row": 1
+    },
+    "no_training_in_collection_gate": true
+  },
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "test_episode_opening": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "CBF_claim": true
+  }
+}

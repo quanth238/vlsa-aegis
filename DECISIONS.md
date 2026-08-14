@@ -2407,3 +2407,30 @@ contract. It does not authorize training the three-output L5 MLP, because two
 claimed outputs remain unsupported. Timeouts must remain censored and cannot
 be counted as unsafe examples. Failed/no-support states must remain in the
 population ledger rather than being silently removed.
+
+## ADR-0119: Replace exhaustive per-state sampling with adaptive boundary labels
+
+- Status: accepted; H100 canary pending
+- Date: 2026-08-14
+- Supersedes: ADR-0118 only for the broader collection procedure
+
+The complete fixed backup remains the authoritative Monte-Carlo target, but it
+is no longer executed for all 37 proposals at every state. Screen nine fixed
+normal/tangent proposals with the exact five-action prefix, stop after a
+physical veto, identify the closest observed safe/unsafe L5 pair, and perform
+five action-space bisection probes. Run the complete backup only for the
+nominal and retained boundary samples. Unknown timeouts remain censored;
+proxy-invalid, no-safe, and no-bracket states remain visible.
+
+This change tests state generalization rather than spending most of the budget
+on redundant actions at one state. It preserves the single original-AEGIS
+composition, exact final-action labels, immutable episode splits, seven-row
+diagnostics, MuJoCo contact, and CAR. The three sealed test episodes remain
+unopened. Because the clean cohort has 18 groups rather than the requested
+20--30, this is a 15-development-state feasibility collection; known-invalid
+episodes cannot enlarge it.
+
+After independent validation, adequate L5 row coverage authorizes only a
+frozen no-training feature audit comparing the existing 86D input, compact
+exact-action input, and compact action plus complete physical state. Training,
+calibration, QP, closed loop, and any CBF or whole-arm claim remain forbidden.

@@ -67,6 +67,7 @@ def _validate_proxy_validity(
 def validate(
     *, repo_root: Path, result_path: Path, producer_commit: str,
     validator_commit: str, grouped_collection: bool = False,
+    adaptive_collection: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -79,10 +80,18 @@ def validate(
     from main.multilink_ellipsoid.grouped_query_action_risk import (
         RESULT_SCHEMA as GROUPED_RESULT_SCHEMA,
     )
+    from main.multilink_ellipsoid.adaptive_query_action_risk import (
+        RESULT_SCHEMA as ADAPTIVE_RESULT_SCHEMA,
+        load_config as load_adaptive_config,
+    )
 
     validator_source = _git_identity(repo_root, validator_commit)
     result = _load(result_path)
+    _require(not (grouped_collection and adaptive_collection),
+             "risk validation collection mode is ambiguous")
+    grouped_semantics = bool(grouped_collection or adaptive_collection)
     expected_schema = (
+        ADAPTIVE_RESULT_SCHEMA if adaptive_collection else
         GROUPED_RESULT_SCHEMA if grouped_collection else QUERY_RESULT_SCHEMA
     )
     _require(result["schema_version"] == expected_schema,
@@ -132,13 +141,160 @@ def validate(
              "raw nominal hash differs")
 
     candidates = result["candidates"]
-    _require(len(candidates) == result["candidate_count"] == 37,
-             "full candidate population differs")
+    if adaptive_collection:
+        adaptive = result["adaptive_boundary_sampling"]
+        adaptive_config = load_adaptive_config(
+            repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+        )
+        _require(adaptive["config"] == adaptive_config,
+                 "adaptive embedded config differs")
+        _require(result["population_binding"]["adaptive_config"] == adaptive_config,
+                 "adaptive population config binding differs")
+        _require(
+            len(candidates) == result["candidate_count"]
+            == adaptive["retained_authoritative_candidate_count"]
+            and 1 <= len(candidates)
+            <= int(adaptive_config["screening"][
+                "maximum_authoritative_candidates"
+            ]),
+            "adaptive authoritative candidate population differs",
+        )
+    else:
+        _require(len(candidates) == result["candidate_count"] == 37,
+                 "full candidate population differs")
     risk_config = (
-        result["base_method_config"] if grouped_collection else result["config"]
+        result["base_method_config"] if grouped_semantics else result["config"]
     )
     buffer_m = float(risk_config["risk_target"]["safety_buffer_m"])
     car_limit = float(risk_config["risk_target"]["paper_car_threshold_m"])
+    if adaptive_collection:
+        from main.multilink_ellipsoid.adaptive_query_action_risk import (
+            midpoint_definition, select_bracket,
+        )
+
+        context = result["state"]["physical_context"]
+        _require(
+            len(context["arm_joint_position_rad"]) == 7
+            and len(context["arm_joint_velocity_rad_s"]) == 7
+            and len(context["eef_position_m"]) == 3
+            and len(context["eef_quaternion_xyzw"]) == 4
+            and len(context["geometry_rows"]) == 7,
+            "adaptive physical context differs",
+        )
+        for row in context["geometry_rows"]:
+            _require(
+                len(row["obstacle_relative_center_m"]) == 3
+                and len(row["outward_normal"]) == 3,
+                "adaptive relative geometry differs",
+            )
+        coarse = adaptive["coarse_screening_records"]
+        _require(len(coarse) == int(adaptive_config["screening"][
+            "coarse_candidate_count"
+        ]), "adaptive screening count differs")
+        from main.multilink_ellipsoid.adaptive_query_action_risk import (
+            coarse_candidate_definitions,
+        )
+        expected_coarse = coarse_candidate_definitions(
+            nominal,
+            result["state"]["local_frame"],
+            risk_config,
+            adaptive_config,
+        )
+        _require(
+            [record["definition"] for record in coarse] == expected_coarse,
+            "adaptive coarse candidate bank differs",
+        )
+
+        def validate_screen(record: Mapping[str, Any]) -> None:
+            executed = np.asarray(
+                record["exact_final_post_aegis_actions"], dtype=np.float64
+            )
+            _require(executed.shape == (5, 7),
+                     "adaptive screened action shape differs")
+            _check_projection(record, executed)
+            trace = np.asarray(
+                record["prefix"]["clearance_trace_m"], dtype=np.float64
+            )
+            substeps = [int(value) for value in record["prefix"]["substep_counts"]]
+            _require(
+                trace.shape == (1 + sum(substeps), 7)
+                and all(value == 25 for value in substeps)
+                and len(substeps) == int(record["executed_prefix_action_count"]),
+                "adaptive screening prefix shape differs",
+            )
+            row_minimum = np.min(trace[1:], axis=0)
+            risk = risk_from_row_minimum(row_minimum, buffer_m)
+            _require(
+                _array_equal(row_minimum, record["prefix"][
+                    "row_minimum_clearance_m"
+                ])
+                and risk == record["prefix_risk"],
+                "adaptive screening risk differs",
+            )
+            scalar = max(float(risk[row]) for row in (0, 1, 2))
+            physical = bool(
+                record["prefix"]["protected_contact_count"] > 0
+                or record["prefix"][
+                    "maximum_active_obstacle_l1_displacement_m"
+                ] > car_limit
+            )
+            _require(
+                float(record["L5_prefix_risk_m"]) == scalar
+                and bool(record["physical_veto"]) == physical
+                and bool(record["screen_safe"]) == (
+                    not physical and scalar <= 0.0
+                )
+                and bool(record["screen_unsafe"]) == (
+                    physical or scalar > 0.0
+                ),
+                "adaptive screening classification differs",
+            )
+            _require("backup" not in record,
+                     "screening-only candidate contains backup label")
+
+        for record in coarse:
+            validate_screen(record)
+        expected_bracket = select_bracket(coarse)
+        _require(
+            bool(adaptive["bracket_found"]) == (expected_bracket is not None)
+            and adaptive["initial_bracket_indices"] == (
+                None if expected_bracket is None else list(expected_bracket)
+            ),
+            "adaptive bracket selection differs",
+        )
+        bisected = adaptive["bisection_records"]
+        if expected_bracket is None:
+            _require(not bisected and len(candidates) == 1,
+                     "adaptive unbracketed state retained extra labels")
+        else:
+            _require(len(bisected) == int(adaptive_config["screening"][
+                "bisection_iterations"
+            ]), "adaptive bisection count differs")
+            safe_record = coarse[int(expected_bracket[0])]
+            unsafe_record = coarse[int(expected_bracket[1])]
+            for iteration, record in enumerate(bisected):
+                validate_screen(record)
+                expected = midpoint_definition(
+                    safe_record["definition"], unsafe_record["definition"],
+                    iteration=iteration,
+                    order=int(record["definition"]["order"]),
+                )
+                _require(
+                    _array_equal(expected["actions"], record["definition"]["actions"]),
+                    "adaptive bisection midpoint differs",
+                )
+                if record["screen_safe"]:
+                    safe_record = record
+                else:
+                    unsafe_record = record
+        _require(
+            adaptive["retained_authoritative_candidate_names"]
+            == [candidate["name"] for candidate in candidates]
+            and adaptive[
+                "complete_backup_not_run_for_screening_only_candidates"
+            ] is True,
+            "adaptive retained candidate binding differs",
+        )
     safe_count = known_unsafe_count = timeout_count = proxy_collision_count = 0
     witness_counts = [0] * 7
     for index, candidate in enumerate(candidates):
@@ -161,7 +317,12 @@ def validate(
                      "nominal candidate differs from recomputed original AEGIS")
 
         trace = np.asarray(candidate["prefix"]["clearance_trace_m"], dtype=np.float64)
-        _require(trace.shape == (126, 7), "prefix trace shape differs")
+        substeps = [int(value) for value in candidate["prefix"]["substep_counts"]]
+        _require(
+            trace.shape == (1 + sum(substeps), 7)
+            and all(value == 25 for value in substeps),
+            "prefix trace shape differs",
+        )
         prefix_row = np.min(trace[1:], axis=0)
         _require(_array_equal(prefix_row, candidate["prefix"]["row_minimum_clearance_m"]),
                  "prefix row minima differ")
@@ -216,7 +377,7 @@ def validate(
     _require(summary["row_active_witness_counts"] == witness_counts,
              "active witness count differs")
     _validate_proxy_validity(
-        grouped_collection=grouped_collection,
+        grouped_collection=grouped_semantics,
         reported_count=summary["proxy_safe_physical_collision_count"],
         observed_count=proxy_collision_count,
         producer_zero_gate=result["gates"][
@@ -224,7 +385,7 @@ def validate(
         ],
     )
     mixed_support = bool(safe_count > 0 and known_unsafe_count > 0)
-    if not grouped_collection:
+    if not grouped_semantics:
         _require(mixed_support,
                  "corrected population lacks mixed safe/unsafe support")
         _require(all(result["gates"].values()), "producer gates did not all pass")
@@ -261,6 +422,7 @@ def validate(
             "seven_row_geometry_and_L6_L7_diagnostics_present": True,
             "mixed_safe_unsafe_support": mixed_support,
             "no_proxy_safe_physical_collision": proxy_collision_count == 0,
+            "adaptive_boundary_protocol": bool(adaptive_collection),
         },
         "counts": {
             "candidates": len(candidates),
@@ -280,13 +442,13 @@ def validate(
         "interpretation": (
             "validated_grouped_L5_AEGIS_action_contract_"
             + ("mixed_support" if mixed_support else "support_failure_retained")
-            if grouped_collection else
+            if grouped_semantics else
             "validated_L5_residual_before_original_AEGIS_nonvacuous_risk_population"
         ),
         "training_authorized": False,
         "next_gate": (
             "aggregate_grouped_action_contract_and_boundary_coverage"
-            if grouped_collection else
+            if grouped_semantics else
             "collect_more_episode_grouped_recoverable_L5_boundary_states_with_the_same_action_contract"
         ),
     }
@@ -305,6 +467,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Validate a grouped artifact while retaining states without mixed support.",
     )
+    parser.add_argument(
+        "--adaptive-collection",
+        action="store_true",
+        help="Validate variable-count adaptive boundary artifacts.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     output = validate(
@@ -313,6 +480,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         producer_commit=args.producer_commit,
         validator_commit=args.validator_commit,
         grouped_collection=bool(args.grouped_collection),
+        adaptive_collection=bool(args.adaptive_collection),
     )
     _atomic_write(args.output.resolve(), output)
     print(json.dumps({

@@ -22,11 +22,14 @@ def _add_coverage(left: list[dict[str, int]], right: list[dict[str, int]]) -> No
 
 def summarize_population(
     *, repo_root: Path, producer_root: Path, producer_commit: str,
-    validator_commit: str, summary_commit: str,
+    validator_commit: str, summary_commit: str, adaptive: bool = False,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
         row_coverage, state_classification, training_eligible_state,
         training_readiness,
+    )
+    from main.multilink_ellipsoid.adaptive_query_action_risk import (
+        RESULT_SCHEMA as ADAPTIVE_RESULT_SCHEMA,
     )
 
     indices = list(range(15))
@@ -43,6 +46,7 @@ def summarize_population(
         summary_commit=summary_commit,
         expected_count=15,
         required_splits=("diagnostic", "train", "validation"),
+        result_schema=ADAPTIVE_RESULT_SCHEMA if adaptive else None,
     )
     by_split: dict[str, list[dict[str, int]]] = {}
     eligible_by_split: dict[str, list[dict[str, int]]] = {}
@@ -78,15 +82,44 @@ def summarize_population(
                     and record["near_boundary_known_candidate_count"] > 0):
                 useful_by_split[split][row] += 1
 
-    thresholds = {
-        "minimum_train_samples": 100,
-        "minimum_validation_samples": 40,
-        "minimum_known_safe_candidates_per_row": 20,
-        "minimum_known_unsafe_candidates_per_row": 20,
-        "minimum_near_boundary_candidates_per_row": 20,
-        "minimum_train_useful_boundary_states_per_row": 3,
-        "minimum_validation_useful_boundary_states_per_row": 1,
-    }
+    if adaptive:
+        adaptive_config = _load(
+            repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+        )
+        registered = adaptive_config["feature_audit"]["coverage_gate"]
+        thresholds = {
+            "minimum_train_samples": int(
+                registered["minimum_train_known_candidates"]
+            ),
+            "minimum_validation_samples": int(
+                registered["minimum_validation_known_candidates"]
+            ),
+            "minimum_known_safe_candidates_per_row": int(
+                registered["minimum_known_safe_candidates_per_L5_row"]
+            ),
+            "minimum_known_unsafe_candidates_per_row": int(
+                registered["minimum_known_unsafe_candidates_per_L5_row"]
+            ),
+            "minimum_near_boundary_candidates_per_row": int(
+                registered["minimum_near_boundary_candidates_per_L5_row"]
+            ),
+            "minimum_train_useful_boundary_states_per_row": int(
+                registered["minimum_train_useful_boundary_states_per_L5_row"]
+            ),
+            "minimum_validation_useful_boundary_states_per_row": int(
+                registered["minimum_validation_useful_boundary_states_per_L5_row"]
+            ),
+        }
+    else:
+        thresholds = {
+            "minimum_train_samples": 100,
+            "minimum_validation_samples": 40,
+            "minimum_known_safe_candidates_per_row": 20,
+            "minimum_known_unsafe_candidates_per_row": 20,
+            "minimum_near_boundary_candidates_per_row": 20,
+            "minimum_train_useful_boundary_states_per_row": 3,
+            "minimum_validation_useful_boundary_states_per_row": 1,
+        }
     fit_row_coverage = [
         {key: 0 for key in eligible_by_split["train"][row]}
         for row in range(7)
@@ -101,8 +134,13 @@ def summarize_population(
         known_candidates=known_candidates_by_split,
         thresholds=thresholds,
     )
+    coverage_authorizes_feature_audit = bool(training_authorized)
     output.update({
-        "schema_version": "vlsa_distal_l5_aegis_grouped_population_summary.v1",
+        "schema_version": (
+            "vlsa_distal_l5_aegis_adaptive_population_summary.v1"
+            if adaptive else
+            "vlsa_distal_l5_aegis_grouped_population_summary.v1"
+        ),
         "coverage_by_split": by_split,
         "training_eligible_coverage_by_split": eligible_by_split,
         "fit_row_coverage": fit_row_coverage,
@@ -112,13 +150,39 @@ def summarize_population(
         "training_readiness_thresholds": thresholds,
         "sample_gates": sample_gates,
         "learned_row_gates": row_gates,
-        "training_authorized": training_authorized,
+        "coverage_authorizes_feature_audit": coverage_authorizes_feature_audit,
+        "training_authorized": False if adaptive else training_authorized,
         "next_gate": (
+            "run_frozen_no_training_matched_feature_audit"
+            if adaptive and coverage_authorizes_feature_audit else
+            "target_additional_episode_states_for_failed_adaptive_L5_coverage_gates"
+            if adaptive else
             "freeze_episode_grouped_dataset_before_training"
             if training_authorized else
             "target_additional_episode_states_for_failed_L5_row_gates"
         ),
     })
+    if adaptive:
+        output["adaptive_sampling"] = {
+            "state_count": len(result_paths),
+            "bracketed_state_count": sum(
+                bool(_load(path)["adaptive_boundary_sampling"]["bracket_found"])
+                for path in result_paths
+            ),
+            "coarse_prefix_rollout_count": sum(
+                len(_load(path)["adaptive_boundary_sampling"][
+                    "coarse_screening_records"
+                ]) for path in result_paths
+            ),
+            "bisection_prefix_rollout_count": sum(
+                len(_load(path)["adaptive_boundary_sampling"][
+                    "bisection_records"
+                ]) for path in result_paths
+            ),
+            "authoritative_complete_backup_candidate_count": sum(
+                int(_load(path)["candidate_count"]) for path in result_paths
+            ),
+        }
     output.pop("result_payload_sha256", None)
     output["result_payload_sha256"] = _sha256(canonical(output))
     return output
@@ -132,6 +196,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--validator-commit", required=True)
     parser.add_argument("--summary-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--adaptive", action="store_true")
     args = parser.parse_args(argv)
     output = summarize_population(
         repo_root=args.repo_root.resolve(),
@@ -139,6 +204,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         producer_commit=args.producer_commit,
         validator_commit=args.validator_commit,
         summary_commit=args.summary_commit,
+        adaptive=bool(args.adaptive),
     )
     _atomic_write(args.output.resolve(), output)
     print({

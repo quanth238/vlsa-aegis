@@ -161,6 +161,8 @@ def _primary_internal_rollout(
     expected_substeps: int,
     boundary_tolerance: float,
     step_base: int,
+    stop_after_physical_veto: bool = False,
+    paper_car_threshold_m: Optional[float] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -179,6 +181,15 @@ def _primary_internal_rollout(
             step=step_base + offset,
         )
         records.append(record)
+        if stop_after_physical_veto:
+            _require(paper_car_threshold_m is not None,
+                     "early-stop CAR threshold is absent")
+            if (
+                bool(record["protected_contacts"])
+                or float(record["maximum_active_obstacle_l1_displacement_m"])
+                > float(paper_car_threshold_m)
+            ):
+                break
     return _combine_primary_internal_records(records)
 
 
