@@ -4223,3 +4223,11 @@ selection. This is the smallest test of whether state-dependent finite-bank
 governance could have prevented the step-108 L6 collision. MLP training,
 denoising, QP changes, closed loop, direction expansion, and generalization
 remain blocked pending independent H100 validation.
+
+Producer `40365` and validator `40366` are retained as apparatus history, not
+scientific evidence. They reproduced the exact post-AEGIS action but fitted
+the slab templates for the first time at step 105, reversing the longitudinal
+identity of L5 rows 0 and 2 relative to the source episode. The opt-in repair
+primes slab templates at the settled initial state before action replay, as the
+source episode did. The registered candidate bank and every scientific gate
+remain unchanged; a replacement allocation is required before interpretation.

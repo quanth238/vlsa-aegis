@@ -103,6 +103,7 @@ def evaluate(
     candidate_protocol_binding: Optional[Mapping[str, Any]] = None,
     apply_released_aegis_ee_to_all_proposed_actions: bool = False,
     adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
+    prime_slabbed_geometry_at_initial_state: bool = False,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -207,6 +208,24 @@ def evaluate(
         instrumented = InstrumentedContinuationProbe(
             one_step, obstacle_name, obstacle_reference
         )
+        geometry_initialization = None
+        if prime_slabbed_geometry_at_initial_state:
+            # Slab identities are defined when the rigid body-local templates
+            # are first fitted.  The dominant PCA axis has a deterministic
+            # world-frame sign, so first fitting after a large link rotation
+            # can reverse the longitudinal row order even though the physical
+            # union is unchanged.  Long-running source episodes fit the slabs
+            # at their initial state.  Prime the templates here before replay
+            # when an experiment must reproduce those row identities exactly.
+            initial_links = geometry._slabbed_links(env, include_certificates=True)
+            geometry_initialization = {
+                "phase": "settled_initial_state_before_action_replay",
+                "row_body_names": [link.body_name for link in initial_links],
+                "row_partition_indices": [
+                    int((link.enclosure_certificate or {})["partition_index"])
+                    for link in initial_links
+                ],
+            }
         for step in range(state_step):
             observation, _, done, _ = env.step(archived_actions[step].tolist())
             _require(not done, "E05 completed before query boundary")
@@ -1000,6 +1019,7 @@ def evaluate(
                 "local_frame": frame,
                 "physical_context": state_context,
             },
+            "geometry_initialization": geometry_initialization,
             "candidate_count": len(records),
             "candidates": _public(records),
             "summary": {

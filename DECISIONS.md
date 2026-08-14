@@ -3490,7 +3490,7 @@ and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.
 
 ## ADR-0141: Test the registered normal candidate bank at the first unsafe later warning
 
-- Status: preregistered; H100 result pending
+- Status: preregistered; replacement H100 result pending after apparatus-only row-identity repair
 - Date: 2026-08-15
 
 ADR-0140 identifies task-3 E42 step `105` as the first later warning where the
@@ -3521,3 +3521,16 @@ This gate performs no selected-action execution. If no normal candidate is
 safe, only then may a future-witness/controller-aware direction audit be
 preregistered. Learning, denoising, QP changes, closed loop, generalization,
 and CBF claims remain forbidden.
+
+Initial producer `40365` and independent validator `40366` completed candidate
+evaluation but failed the source-state provenance gate. The exact nominal
+post-AEGIS chunk reproduced bit-for-bit, and the seven source clearances were
+identical as an unordered physical set, but L5 slab rows 0 and 2 were reversed.
+The cause is apparatus-only: slab templates are fitted lazily, and the
+world-signed dominant PCA axis can reverse longitudinal part indices when the
+first fit occurs after the link rotates. The source episode first fitted the
+slabs at its initial state; the replay harness first fitted them at step 105.
+The repair primes the same rigid body-local slab templates at the settled
+initial state before replay. It changes no action, candidate, geometry union,
+threshold, backup, physical veto, or selection rule. Attempts `40365/40366`
+remain immutable apparatus history and cannot support a scientific verdict.

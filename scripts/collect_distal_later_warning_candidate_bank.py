@@ -96,6 +96,7 @@ def collect(
         ),
         candidate_protocol_binding=config,
         apply_released_aegis_ee_to_all_proposed_actions=True,
+        prime_slabbed_geometry_at_initial_state=True,
     )
 
     nominal = np.asarray(result["nominal_five_action_chunk"], dtype=np.float64)
