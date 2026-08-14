@@ -1,0 +1,36 @@
+{
+  "schema_version": "vlsa_distal_l5_moka_noise_adaptive_summary.v1",
+  "protocol_id": "vlsa-distal-l5-moka-noise-adaptive-summary-v1",
+  "claim_scope": "aggregate_independently_validated_adaptive_v3_labels_from_task0_moka_noise_trajectories_with_prior_development_coverage_not_training_not_control",
+  "source": {
+    "boundary_validation_file_sha256": "77b88ff82d281ca8c8d47a325fa0f575b2e761506fd7256137554edcdbd17975",
+    "boundary_validation_payload_sha256": "994fd0921142a38f725b744dca918a89afded410e661aa5b74564302c3b459bf",
+    "parent_summary_file_sha256": "fa0289336f4d4b948d84d544a9b4506e24937108efa2fddef360db10d3f3bee0",
+    "parent_summary_payload_sha256": "d32eac3ffd59976809ed862ac0dfe4f13abc282c1801a00e63345bf8b913a008",
+    "case_count": 4
+  },
+  "thresholds": {
+    "minimum_train_samples": 40,
+    "minimum_validation_samples": 12,
+    "minimum_known_safe_candidates_per_row": 10,
+    "minimum_known_unsafe_candidates_per_row": 10,
+    "minimum_near_boundary_candidates_per_row": 8,
+    "minimum_train_useful_boundary_states_per_row": 3,
+    "minimum_validation_useful_boundary_states_per_row": 1
+  },
+  "decision": {
+    "diagnostic_cases_excluded_from_generalization_counts": true,
+    "all_failures_and_timeouts_retained": true,
+    "row2_training_gate_remains_required_for_three_output_claim": true,
+    "no_training_authorized_by_summary": true
+  },
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "timeout_as_label": true,
+    "diagnostic_as_unseen": true,
+    "training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}

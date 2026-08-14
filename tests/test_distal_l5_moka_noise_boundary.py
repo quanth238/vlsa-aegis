@@ -52,6 +52,12 @@ class MokaNoiseBoundaryTest(unittest.TestCase):
 
         self.assertIn("policy_noise_seed_override", inspect.signature(evaluate).parameters)
 
+    def test_adaptive_summary_keeps_three_output_gate(self):
+        path = REPO_ROOT / "configs/vlsa_distal_l5_moka_noise_adaptive_summary.v1.json"
+        value = json.loads(path.read_text())
+        self.assertTrue(value["decision"]["row2_training_gate_remains_required_for_three_output_claim"])
+        self.assertTrue(value["forbidden"]["training"])
+
 
 if __name__ == "__main__":
     unittest.main()
