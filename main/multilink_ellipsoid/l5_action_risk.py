@@ -305,3 +305,59 @@ def predict(bundle: Mapping[str, Any], features: Any) -> Any:
     with torch.no_grad():
         output = bundle["model"](normalized).detach().cpu().numpy()
     return output * bundle["target_scale"] + bundle["target_mean"]
+
+
+def load_frozen_bundle(
+    torch: Any, payload: Mapping[str, Any], model_config: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Reconstruct the immutable three-output L5 predictor for replay."""
+
+    import numpy as np
+
+    required = {
+        "feature_mean", "feature_scale", "target_mean", "target_scale",
+        "state_dict",
+    }
+    if not isinstance(payload, Mapping) or set(payload) != required:
+        raise ValueError("L5 action-risk frozen payload differs")
+    model = build_model(
+        torch, int(model_config["input_dimension"]),
+        model_config["hidden_widths"],
+    )
+    template = model.state_dict()
+    recorded = payload["state_dict"]
+    if not isinstance(recorded, Mapping) or set(recorded) != set(template):
+        raise ValueError("L5 action-risk frozen state keys differ")
+    state = {}
+    for name, value in template.items():
+        raw = torch.as_tensor(recorded[name], dtype=value.dtype)
+        if raw.shape != value.shape:
+            raise ValueError("L5 action-risk frozen parameter shape differs")
+        state[name] = raw
+    model.load_state_dict(state)
+    model.eval()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    bundle = {
+        "model": model,
+        "device": device,
+        "feature_mean": np.asarray(payload["feature_mean"], dtype=np.float64),
+        "feature_scale": np.asarray(payload["feature_scale"], dtype=np.float64),
+        "target_mean": np.asarray(payload["target_mean"], dtype=np.float64),
+        "target_scale": np.asarray(payload["target_scale"], dtype=np.float64),
+    }
+    if (
+        bundle["feature_mean"].shape
+        != (int(model_config["input_dimension"]),)
+        or bundle["feature_scale"].shape != bundle["feature_mean"].shape
+        or bundle["target_mean"].shape != (3,)
+        or bundle["target_scale"].shape != (3,)
+        or not all(np.all(np.isfinite(item)) for item in (
+            bundle["feature_mean"], bundle["feature_scale"],
+            bundle["target_mean"], bundle["target_scale"],
+        ))
+        or np.any(bundle["feature_scale"] <= 0.0)
+        or np.any(bundle["target_scale"] <= 0.0)
+    ):
+        raise ValueError("L5 action-risk frozen normalization differs")
+    return bundle
