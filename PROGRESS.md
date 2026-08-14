@@ -3648,3 +3648,35 @@ an audit because two source traces encode a repeated action-boundary contact as
 previous action's final substep. The apparatus repair maps this duplicate
 identity to that retained sample; it changes no clearance, contact, population,
 threshold, or decision rule. Dependent validator `40107` was cancelled exactly.
+
+Final H100 producer `40111` and independent validator `40112` completed the
+read-only alignment over 57,275 future substep samples from proxy-valid states;
+the validator reproduced the analysis exactly. There are zero physical-contact
+false-safes at zero margin and zero physical-contact false-safes at the 1 mm
+certification buffer. Therefore the accepted ellipsoid geometry passes this
+population audit and neither refitting nor Poisson is authorized.
+
+Physical witness identity resolves the coverage ambiguity. The 376 L5 contact
+samples activate row counts `[258,118,0]`: all 118 row-1 witnesses come from
+the E05 moka state, while all 258 row-0 witnesses come from six task-2 milk
+states. Row 2 is never the active contact witness, although it lies within 1 mm
+at 17 contact samples. L6 has 686 physical contact samples, all on row 3, from
+four task-3 states; L7 has no contact sample. Conservative proxy-only overlap is
+large (13,009 L5 and 5,003 L6 samples) and is reported separately rather than
+misclassified as unsafe geometry evidence.
+
+Including the already-separated proxy-invalid state creates 68 apparent
+physical false-safes; excluding it restores zero. This localizes that failure
+to the invalid obstacle proxy, not the L5--L7 arm ellipsoids. The corrected data
+action is therefore new, clean E05-like/task-0 row-1 episode groups. More
+task-2 sampling cannot supply row 1. Row 2 remains an exact diagnostic monitor
+without a learned-generalization claim until a population physically activates
+it. A row-0-only model may remain a mechanism diagnostic, but it cannot solve
+the primary E05 row-1 collision. Training, QP, and closed loop remain blocked.
+
+Final audit/validation payload SHA-256 values are
+`479f097fe05e1bb18139e75f3f4c3280ffafbeb27e614d766a3061d478dde4d5`
+and `b87abcbe8ca62fe9893c9235b9201d548f3dac226313d1b615d6ac807be8ead5`;
+file SHA-256 values are
+`ba6913ddb74a2bf9246e85dcf49d739962ed06fcbe9f93ef099dcd2590106e24`
+and `67a20857667d406cb87c2cd5ca5599b579ee1da39a3054a339d03544c2e6d621`.

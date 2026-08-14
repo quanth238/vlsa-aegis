@@ -2650,7 +2650,7 @@ loop remain blocked.
 
 ## ADR-0126: Audit physical contact alignment before changing the safety field
 
-- Status: accepted; H100 read-only audit pending
+- Status: accepted after independent H100 validation; geometry unchanged
 - Date: 2026-08-14
 
 Do not infer an ellipsoid defect from absent row-1/row-2 validation states.
@@ -2681,3 +2681,25 @@ already retained as the previous action's final substep. Map that event to the
 retained previous sample. This is an identity-only apparatus repair; do not
 duplicate the clearance state or change any geometry threshold. Validator
 `40107` was cancelled without running.
+
+Final producer `40111` and independent validator `40112` pass the preregistered
+gate. Across 57,275 proxy-valid future samples, every raw L5/L6 contact has a
+nonpositive corresponding-link ellipsoid row and every contact is also inside
+the 1 mm certification buffer. Keep the current ellipsoids; do not introduce
+Poisson as a response to this coverage result.
+
+Revise the data interpretation by physical mechanism. L5 row 0 is the active
+contact witness in six task-2 milk states (258 samples). L5 row 1 is the active
+witness only in the E05 task-0 moka state (118 samples). L5 row 2 has no active
+contact witness. Thus, the task-2 extension was a valid row-0 extension but
+could not possibly validate the E05 row-1 mechanism. Future row-1 collection
+must use distinct, proxy-valid E05-like/task-0 physical states and preserve
+episode grouping. Do not force row-2 learned balance from unrelated data; keep
+it as an exact monitored constraint until a declared deployment population
+provides an independent physical witness.
+
+The one proxy-invalid state alone introduces 68 apparent false-safe samples
+when included. Continue excluding it from geometry/learning claims and report
+it as a perception/proxy failure. A row-0-only learned model is permitted only
+as a mechanism diagnostic and cannot be presented as solving E05. No learned
+filter, QP, or closed-loop gate is opened by this audit.
