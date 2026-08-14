@@ -1,0 +1,84 @@
+{
+  "schema_version": "vlsa_distal_l5_action_risk_mlp.v1",
+  "protocol_id": "vlsa-distal-l5-action-risk-mlp-v1",
+  "claim_scope": "prediction_only_three_output_L5_candidate_plus_complete_backup_risk_feasibility_not_L5_L7_safety_not_QP_not_control_not_CBF",
+  "source": {
+    "grouped_validation": "/mnt/data/quanth/experiments/vlsa-distal-grouped-query-action-risk/grouped-query-risk-validation-20260814c/validation.json",
+    "grouped_validation_file_sha256": "de33306634feaebe1696a741653026c53d60fa739dc74a6f363c10a64d728bf4",
+    "grouped_validation_payload_sha256": "e8371c866bb9083eebb7d2b2514dcc9f6b32ded6d6657c4d7b2d901a322c8a3c",
+    "active_boundary_audit": "/mnt/data/quanth/experiments/vlsa-distal-active-boundary-audit/finite-set-audit-20260814c/result.json",
+    "active_boundary_audit_file_sha256": "f137a52605955d13ab1235f62cd727564f083508efc4d60eb3d0ae8060efb772",
+    "active_boundary_audit_payload_sha256": "c5e3e572166c706f8be0f9e3ff31c61d42de4b527500c6618e423d8c711c562f",
+    "active_boundary_validation": "/mnt/data/quanth/experiments/vlsa-distal-active-boundary-audit/finite-set-audit-20260814c/validation.json",
+    "active_boundary_validation_file_sha256": "daee504c437f7c7c65c7535e8dd35f0271c3eae838172df0910081f059331b1e",
+    "active_boundary_validation_payload_sha256": "800991933f35a720c0455f8be644957b11c1536f7991ff2d360196f9590c7601",
+    "frozen_dataset_root": "/mnt/data/quanth/experiments/vlsa-distal-grouped-query-action-risk/grouped-query-risk-freeze-20260814c",
+    "candidate_manifest_file_sha256": "380e7e7e3ad82961218778ec150ef962b1a42481d678147f2a360e848d5c77ae",
+    "state_manifest_file_sha256": "e473a8e585b0ee76c338582e90dbc3c3a44e4f7f9eb25abc20a6c5da714af1f6",
+    "split_manifest_file_sha256": "ee1d3286568b178b0f7c225a8ec60f41886b724ce01cbed965c55df1d6659567"
+  },
+  "learned_scope": {
+    "rows": [0, 1, 2],
+    "link": "L5",
+    "output_count": 3,
+    "rows_3_to_6": "excluded_from_learning_but_logged_and_required_as_exact_physical_veto",
+    "diagnostic_cases_excluded_from_fit": true,
+    "reserved_test_cases_unopened": true
+  },
+  "dataset_gate": {
+    "minimum_train_samples": 100,
+    "minimum_validation_samples": 40,
+    "minimum_known_safe_candidates_per_row": 20,
+    "minimum_known_unsafe_candidates_per_row": 20,
+    "minimum_near_boundary_candidates_per_row": 20,
+    "near_boundary_absolute_risk_m": 0.005,
+    "minimum_train_useful_boundary_states_per_row": 3,
+    "minimum_validation_useful_boundary_states_per_row": 1,
+    "unknown_timeouts_excluded": true,
+    "split_unit": "complete_episode"
+  },
+  "features": {
+    "input_dimension": 86,
+    "definition": "seven_current_clearances_plus_local_frame_plus_nominal_five_action_chunk_plus_candidate_minus_nominal_five_action_chunk",
+    "current_clearance_count": 7,
+    "local_frame_count": 9,
+    "nominal_action_count": 35,
+    "candidate_residual_count": 35
+  },
+  "model": {
+    "class": "single_action_conditioned_three_output_MLP",
+    "input_dimension": 86,
+    "output_count": 3,
+    "hidden_widths": [128, 128, 64],
+    "activation": "silu",
+    "loss": "boundary_weighted_symmetric_Huber",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 1200,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "batching": "deterministic_full_batch",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection"
+  },
+  "prediction_gate": {
+    "evaluation_split": "validation_complete_episode_groups_not_used_for_gradient_updates",
+    "zero_observed_L5_false_safe_candidates": true,
+    "minimum_exact_safe_candidate_recall": 0.5,
+    "safe_action_support_every_recoverable_state": true,
+    "selected_candidate_requires_all_seven_proxy_rows_nonpositive_zero_protected_contact_and_CAR_pass": true
+  },
+  "forbidden": [
+    "rows_3_to_6_learned_safety_claim",
+    "reserved_test_label_access",
+    "diagnostic_E05_training",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "neural_CBF_claim"
+  ]
+}
