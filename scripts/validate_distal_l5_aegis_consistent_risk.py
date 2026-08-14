@@ -120,8 +120,11 @@ def validate(
     candidates = result["candidates"]
     _require(len(candidates) == result["candidate_count"] == 37,
              "full candidate population differs")
-    buffer_m = float(result["config"]["risk_target"]["safety_buffer_m"])
-    car_limit = float(result["config"]["risk_target"]["paper_car_threshold_m"])
+    risk_config = (
+        result["base_method_config"] if grouped_collection else result["config"]
+    )
+    buffer_m = float(risk_config["risk_target"]["safety_buffer_m"])
+    car_limit = float(risk_config["risk_target"]["paper_car_threshold_m"])
     safe_count = timeout_count = proxy_collision_count = 0
     witness_counts = [0] * 7
     for index, candidate in enumerate(candidates):
