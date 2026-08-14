@@ -3042,7 +3042,7 @@ baseline and crossing point produce zero false-safes and 4/4 support.
 
 ## ADR-0133: Collect grouped anchors before fitting policy-conditioned B plus Delta
 
-- Status: preregistered; H100 collection pending
+- Status: completed; passive grouped collection is a coverage NO-GO
 - Date: 2026-08-14
 
 The factorized model is specified as
@@ -3069,3 +3069,24 @@ validation. The first learned gate will evaluate `Delta` as a direction/ranker
 against fixed repulsion and matched random selection. Only afterward may
 `B+Delta` be tested as an absolute safety gate. QP, calibration, closed loop,
 Poisson, whole-arm, and neural-CBF claims remain forbidden.
+
+H100 producer array `40201` completed all twelve registered trajectories at
+commit `334bbffb76ff1221e0de320a268afe76d39860fb`; independent validator array
+`40202` reproduced every classification. Eleven trajectories completed their
+task without L5 contact and one task-0 training trajectory failed the task.
+Consequently no case entered warning-state/action-risk collection: both splits
+have zero known nominal anchors, zero response curves, and zero prefix- or
+backup-dominated boundary states. Replacement summary `40229` ran on H100 at
+commit `ff86928aea179db8d42399d7c8da3757e3e958ce` after CPU-only attempt `40203`
+failed in provenance collection before writing an artifact.
+
+This is a deployment-coverage result, not a rejection of the factorization.
+Changing policy noise across arbitrary unused episodes mostly produces safe
+task trajectories, so passive trajectory sampling is too sparse to identify
+the rare L5 transition. Training on this extension would add no boundary data
+and is forbidden. The next collection decision must be explicit: either expand
+the passive episode population substantially, or run a mechanism-only active
+state/obstacle perturbation pilot around existing E39/E45 warning states. The
+latter is more efficient but cannot be presented as independent deployment
+generalization; final validation would still require untouched natural
+episodes. No model, QP, calibration, or closed-loop job follows this NO-GO.

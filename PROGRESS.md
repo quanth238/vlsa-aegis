@@ -3962,3 +3962,19 @@ apparatus-only failure: the CPU summary allocation invoked the repository GPU
 provenance recorder and `nvidia-smi` was unavailable. The replacement changes
 only the summary resource request to one H100; producer trajectories, case
 classifications, validations, coverage rules, and forbidden gates are frozen.
+
+Replacement H100 summary `40229` completes ADR-0133. Classification is eleven
+`TASK_SUCCESS_NO_L5_CONTACT` and one `TASK_FAILURE`; no trajectory is eligible
+for warning-boundary collection. Train and validation therefore each have zero
+known nominal/four-response states and zero prefix/backup boundary states.
+Only artifact completeness, sealed-episode preservation, and zero proxy-safe
+physical collisions pass. Factorized training remains unauthorized.
+
+The validated summary is
+`/mnt/data/quanth/experiments/vlsa-distal-l5-factorized-boundary/l5-factorized-boundary-20260814a/summary.json`.
+Its file SHA-256 is
+`2ac16449e75b3f4b9ffb09ab70aed5db22aa9082d34582bc699c1dcdb11e993d`
+and payload SHA-256 is
+`598d9d8dcdd79f3a3e0dbcbf78573bf3b040bda0ea44fdd1d0d0d6452364e6b5`.
+This establishes that passive unused-episode/noise sampling is inefficient for
+the rare L5 boundary; it does not test or reject the anchored `B+Delta` model.
