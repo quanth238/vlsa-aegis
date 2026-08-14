@@ -79,6 +79,19 @@ def validate_results(
             )
         _require(result["warning_count"] == len(result["interventions"]),
                  "warning count differs")
+        _require(
+            result["render_context"]["probe_constructed_before_main_renderer"] is True,
+            "render construction order differs",
+        )
+        _require(
+            float(result["frame_integrity_maximum_neighbor_difference"])
+            <= float(
+                config["execution"][
+                    "camera_integrity_maximum_normalized_neighbor_difference"
+                ]
+            ),
+            "camera frame integrity differs",
+        )
         clone_error = result["clone_execution_maximum_absolute_error"]
         _require(
             result["clone_execution_mismatch_count"]
@@ -123,6 +136,9 @@ def validate_results(
             "clone_execution_mismatch_count": result["clone_execution_mismatch_count"],
             "clone_execution_maximum_boundary_clearance_error_m": result[
                 "clone_execution_maximum_boundary_clearance_error_m"
+            ],
+            "frame_integrity_maximum_neighbor_difference": result[
+                "frame_integrity_maximum_neighbor_difference"
             ],
             "contact_samples_by_link": result["contact_samples_by_link"],
         })

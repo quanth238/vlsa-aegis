@@ -14,6 +14,24 @@ CASE_SCHEMA = "vlsa_distal_analytical_repulsion_generalization_case.v1"
 RESULT_SCHEMA = "vlsa_distal_analytical_repulsion_generalization_result.v1"
 
 
+def frame_integrity_metrics(frame: Any) -> dict[str, float]:
+    """Detect the dense row/column corruption caused by a stale OSMesa buffer."""
+
+    import numpy as np
+
+    values = np.asarray(frame)
+    if values.ndim != 3 or values.shape[2] != 3 or values.dtype != np.uint8:
+        raise ValueError("simulation video frame must be HWC uint8 RGB")
+    signed = values.astype(np.int16)
+    horizontal = float(np.mean(np.abs(signed[:, 1:] - signed[:, :-1]))) / 255.0
+    vertical = float(np.mean(np.abs(signed[1:] - signed[:-1]))) / 255.0
+    return {
+        "horizontal_neighbor_difference": horizontal,
+        "vertical_neighbor_difference": vertical,
+        "maximum_neighbor_difference": max(horizontal, vertical),
+    }
+
+
 def canonical(value: Any) -> bytes:
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,

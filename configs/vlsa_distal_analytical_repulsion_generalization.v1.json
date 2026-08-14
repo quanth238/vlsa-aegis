@@ -48,6 +48,9 @@
     "expected_mujoco_substeps_per_action": 25,
     "boundary_equivalence_tolerance_m": 1e-9,
     "clone_execution_equivalence_is_diagnostic_not_acceptance": true,
+    "construct_image_disabled_probe_before_main_renderer": true,
+    "probe_render_resolution": 32,
+    "camera_integrity_maximum_normalized_neighbor_difference": 0.15,
     "video_fps": 20
   },
   "measurement": {

@@ -4082,12 +4082,14 @@ goal-task-3 E42 completes (step 111, one intervention). Goal-task-2 E42 times
 out at 300 actions after ten interventions, and goal-task-3 E44 times out at
 300 after one. Both remain physically active rather than deadlocked.
 
-The strict safe-task gate is therefore a NO-GO, while collision-only transfer
-is a 3/3 positive mechanism result. Actual compiled-geometry overlap is zero in
-all cases, but conservative proxy minima are `-11.073`, `-12.050`, and
-`-18.283 mm`. Full cloned state can diverge strongly during object interaction,
-yet final seven-row boundary discrepancies remain below `4.359e-7 m`; actual
-MuJoCo measurements remain authoritative. Summary and validation are at
+The originally reported safe-task NO-GO and collision-only transfer verdict are
+withdrawn as controller evidence. A visual audit found dense interleaved
+corruption in both the video and separately written terminal JPEG, whereas the
+immutable Table 1 video for the same case is valid. The 32px probe renderer was
+constructed after the 1024px main renderer in the same OSMesa process, corrupting
+subsequent main camera observations supplied to live pi0.5. Contact/CAR records
+remain artifacts, but the closed-loop task comparison is confounded. Summary
+and validation are retained as invalidated apparatus history at
 `/mnt/data/quanth/experiments/vlsa-distal-analytical-repulsion-generalization/analytical-repulsion-generalization-20260815c/`.
 Their file SHA-256 values are
 `88092b4f7fd0c6fdff371f6264441e1252d1ba10faf23c673f40d93571ce000a`
@@ -4103,3 +4105,10 @@ transcodes to H.264 Main/level-3.1, yuv420p, fast-start, max width 512 and CRF
 30, then decodes every frame and emits a manifest. Verified portable outputs
 are 4.10/0.829/1.86 MB. Future video delivery must use this gate and must not
 link raw experiment MP4s directly.
+
+Portable transcoding did not repair the visual content. Root-cause inspection
+showed corruption before encoding. The evaluator now creates and disables the
+small probe renderer before creating the main renderer, and every raw frame is
+checked with a normalized adjacent-pixel integrity metric before video writing
+or policy use. The unchanged three-case H100 experiment must be rerun; neither
+the prior task verdict nor the collision-generalization claim is final.

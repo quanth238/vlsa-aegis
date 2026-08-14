@@ -124,6 +124,7 @@ def evaluate(
     from main.multilink_ellipsoid.analytical_repulsion_generalization import (
         RESULT_SCHEMA,
         corrected_proposal,
+        frame_integrity_metrics,
         load_cases,
         load_config,
         warning_trigger,
@@ -166,14 +167,20 @@ def evaluate(
     video_final = output_path.with_name("episode.mp4")
     final_jpg = output_path.with_name("final.jpg")
     try:
+        probe_env, probe_task, probe_observation, probe_initial_state = _build_environment(
+            runtime,
+            case,
+            render_resolution=int(config["execution"]["probe_render_resolution"]),
+        )
+        probe_observation = _settle(probe_env, probe_observation, TABLE_SETTLE_ACTIONS)
+        disabled_probe_images = _disable_images(probe_env)
+        # OSMesa's offscreen context is process-global in this LIBERO stack.
+        # Construct the image-disabled probe first and the 1024px main renderer
+        # last, so the small probe buffer cannot corrupt later policy images.
         env, task, observation, selected_initial_state = _build_environment(
             runtime, case, render_resolution=TABLE_RENDER_RESOLUTION
         )
         observation = _settle(env, observation, TABLE_SETTLE_ACTIONS)
-        probe_env, probe_task, probe_observation, probe_initial_state = _build_environment(
-            runtime, case, render_resolution=32
-        )
-        probe_observation = _settle(probe_env, probe_observation, TABLE_SETTLE_ACTIONS)
         _require(str(task.language) == str(probe_task.language), "probe task differs")
         _require(np.array_equal(np.asarray(selected_initial_state), np.asarray(probe_initial_state)),
                  "probe initial state differs")
@@ -213,7 +220,6 @@ def evaluate(
             probe_env, geometry, clearance_m=0.0,
             active_obstacle_name=obstacle_name,
         )
-        _disable_images(probe_env)
         instrumented = InstrumentedContinuationProbe(
             one_step, obstacle_name, obstacle_reference
         )
@@ -237,6 +243,19 @@ def evaluate(
             output_params=["-crf", "18", "-movflags", "+faststart"],
         )
         terminal_frame = _processed_image(observation, "agentview_image")
+        frame_integrity_records = [
+            {"step": -1, **frame_integrity_metrics(terminal_frame)}
+        ]
+        frame_integrity_limit = float(
+            config["execution"][
+                "camera_integrity_maximum_normalized_neighbor_difference"
+            ]
+        )
+        _require(
+            frame_integrity_records[-1]["maximum_neighbor_difference"]
+            <= frame_integrity_limit,
+            "initial camera frame integrity failed",
+        )
         video_writer.append_data(terminal_frame)
         action_records = []
         query_records = []
@@ -434,6 +453,19 @@ def evaluate(
                     and _is_protected_event(event)
                 ]
                 terminal_frame = _processed_image(observation, "agentview_image")
+                frame_integrity = {
+                    "step": int(current_step),
+                    **frame_integrity_metrics(terminal_frame),
+                }
+                frame_integrity_records.append(frame_integrity)
+                _require(
+                    frame_integrity["maximum_neighbor_difference"]
+                    <= frame_integrity_limit,
+                    "camera frame integrity failed at step %d: %.9f" % (
+                        current_step,
+                        frame_integrity["maximum_neighbor_difference"],
+                    ),
+                )
                 video_writer.append_data(terminal_frame)
                 terminal_eef_positions.append(
                     np.asarray(observation["robot0_eef_pos"], dtype=np.float64)
@@ -564,6 +596,20 @@ def evaluate(
                 bool(row["proposal"]["clipped"]) for row in interventions
             ),
             "interventions": interventions,
+            "render_context": {
+                "probe_constructed_before_main_renderer": True,
+                "disabled_probe_image_observables": int(disabled_probe_images),
+                "probe_render_resolution": int(
+                    config["execution"]["probe_render_resolution"]
+                ),
+                "main_render_resolution": int(TABLE_RENDER_RESOLUTION),
+            },
+            "frame_integrity_limit": frame_integrity_limit,
+            "frame_integrity_maximum_neighbor_difference": max(
+                float(row["maximum_neighbor_difference"])
+                for row in frame_integrity_records
+            ),
+            "frame_integrity_records": frame_integrity_records,
             "clone_execution_maximum_absolute_error": (
                 None if not clone_execution_errors_m
                 else max(clone_execution_errors_m)

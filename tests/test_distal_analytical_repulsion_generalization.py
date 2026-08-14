@@ -6,6 +6,7 @@ import unittest
 from main.multilink_ellipsoid.analytical_repulsion_generalization import (
     aggregate_case_results,
     corrected_proposal,
+    frame_integrity_metrics,
     front_loaded_profile,
     load_cases,
     load_config,
@@ -79,6 +80,20 @@ class AnalyticalRepulsionGeneralizationTest(unittest.TestCase):
         summary = aggregate_case_results(rows, config)
         self.assertFalse(summary["strict_gate_pass"])
         self.assertEqual(summary["safe_task_success_count"], 2)
+
+    def test_frame_integrity_rejects_dense_checkerboard(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy is validated in the registered H100 runtime")
+
+        smooth = np.zeros((32, 32, 3), dtype=np.uint8)
+        checker = np.indices((32, 32)).sum(axis=0) % 2
+        checker = np.repeat((checker * 255).astype(np.uint8)[..., None], 3, axis=2)
+        self.assertEqual(frame_integrity_metrics(smooth)["maximum_neighbor_difference"], 0.0)
+        self.assertGreater(
+            frame_integrity_metrics(checker)["maximum_neighbor_difference"], 0.99
+        )
 
 
 if __name__ == "__main__":

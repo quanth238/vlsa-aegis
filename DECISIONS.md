@@ -3282,12 +3282,12 @@ margins reach `-11.073`, `-12.050`, and `-18.283 mm`; thus proxy warning
 conservatism likely contributes to over-intervention and must be separated from
 physical collision prevention.
 
-The strict three-case gate is therefore a NO-GO. Do not train a direction
-selector: the frozen analytical normal already prevents all observed contacts.
-The next justified question is how to gate or scale this same repulsion so that
-it preserves task competence, using untouched complete episodes and live VLA
-feedback. Any such study must freeze its warning/magnitude rule before outcomes
-and compare against this radius-2 ceiling.
+This verdict is superseded by the camera-integrity audit in ADR-0137. The
+contact measurements remain observed facts, but task completion and live-VLA
+continuation from job `40285` are not valid evidence because the policy received
+corrupted camera frames after the probe renderer was constructed. No controller
+conclusion may be drawn until the identical frozen three-case gate is rerun with
+validated images.
 
 ## ADR-0137: Require portable playback validation before video handoff
 
@@ -3299,14 +3299,33 @@ their remote/local hashes matched, the files were 96/34/28 MB and failed in-app
 playback. Container existence and checksums are therefore insufficient video
 acceptance criteria.
 
+The codec was not the root cause. Full transcoding and decoding preserved the
+same horizontally interleaved image corruption, and the independently written
+terminal JPEG is also corrupted. The valid immutable Table 1 video for the same
+case decodes normally. The generalization evaluator constructed a 1024px main
+`OffScreenRenderEnv` and then a 32px probe `OffScreenRenderEnv` in one OSMesa
+process. The second offscreen context replaced the process-global buffer used
+by subsequent main observations. Those damaged observations were written to
+video and sent to live pi0.5, invalidating the task-preservation result.
+
+The apparatus repair constructs and image-disables the 32px probe first, then
+constructs the 1024px main renderer last. A normalized adjacent-pixel integrity
+metric is checked on the initial frame and every executed frame; dense buffer
+interleaving fails closed before a scientific result is written. The frozen
+repulsion rule, cases, seeds, warning logic, action horizon, and safety/task gate
+remain unchanged for the required rerun.
+
 All future simulation-video handoffs must first run
 `slurm/finalize_simulation_videos.sbatch` on H100. It generates bounded-width
 H.264 Main/level-3.1, yuv420p, fast-start, silent MP4 files, fully decodes every
 output with ffmpeg, and writes an immutable size/hash manifest. Raw experiment
 videos remain scientific artifacts but must not be used as the delivered copy.
 
-H100 job `40296` validates the repaired delivery files at 512-pixel maximum
+H100 job `40296` validates the portable encoding mechanics at 512-pixel maximum
 width and CRF 30. Sizes are 4.10/0.829/1.86 MB and SHA-256 values are
 `db2a15afabdc384558949dd1ee6f6398488b5483dcf7debea6822dd5d496893a`,
 `51fc327420a364fd3845be4387aba4d532b013dd116c0dd3df310dd54689971f`,
 and `ef2efe0568024fa5171a5b7fc14c3aefce2579ad88b6d12927061c2137649f3a`.
+They are not valid visual evidence because source-frame corruption precedes
+encoding. Future handoff requires both the runtime frame-integrity gate and the
+portable full-decode gate.
