@@ -16,6 +16,8 @@ set -euo pipefail
 VIDEO_ROOT=${VIDEO_ROOT:?VIDEO_ROOT is required}
 OUTPUT_DIR_NAME=${OUTPUT_DIR_NAME:-portable-v1}
 FFMPEG_BIN=${FFMPEG_BIN:-/mnt/data/quanth/venvs/safety_vla/main/lib/python3.8/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux64-v4.2.2}
+VIDEO_MAX_WIDTH=${VIDEO_MAX_WIDTH:-512}
+VIDEO_CRF=${VIDEO_CRF:-30}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 [[ -n "${SLURM_JOB_ID:-}" ]] || die "video finalization requires Slurm"
@@ -23,6 +25,10 @@ case "${SLURMD_NODENAME:-}" in login*|login-restricted*) die "login node forbidd
 case "$VIDEO_ROOT" in /mnt/data/quanth/experiments/*) ;; *) die "unsafe VIDEO_ROOT" ;; esac
 case "$OUTPUT_DIR_NAME" in ""|*/*|*[!A-Za-z0-9._-]*) die "unsafe OUTPUT_DIR_NAME" ;; esac
 [[ -x "$FFMPEG_BIN" ]] || die "ffmpeg binary is missing"
+case "$VIDEO_MAX_WIDTH" in ""|*[!0-9]*) die "unsafe VIDEO_MAX_WIDTH" ;; esac
+case "$VIDEO_CRF" in ""|*[!0-9]*) die "unsafe VIDEO_CRF" ;; esac
+[[ $VIDEO_MAX_WIDTH -ge 128 && $VIDEO_MAX_WIDTH -le 1920 ]] || die "VIDEO_MAX_WIDTH differs"
+[[ $VIDEO_CRF -ge 18 && $VIDEO_CRF -le 40 ]] || die "VIDEO_CRF differs"
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "requires exactly one H100"
 
@@ -42,7 +48,9 @@ for case_root in "$VIDEO_ROOT"/case-*; do
   [[ ! -e "$output" ]] || die "portable output already exists"
   "$FFMPEG_BIN" -nostdin -hide_banner -loglevel error \
     -i "$input" \
-    -c:v libx264 -preset medium -crf 28 \
+    -vf "scale='min(${VIDEO_MAX_WIDTH},iw)':-2" \
+    -c:v libx264 -preset medium -crf "$VIDEO_CRF" \
+    -profile:v main -level:v 3.1 \
     -pix_fmt yuv420p -movflags +faststart -an \
     "$output"
   # A successful full decode is mandatory; container existence is insufficient.
