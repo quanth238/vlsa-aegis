@@ -3993,3 +3993,23 @@ ordering, and Best-of-N amplitude selection—not an unrestricted action-space
 gradient. A pass authorizes only a small active direction pilot; a failure
 stops this formulation. QP, calibration, closed loop, nominal-risk learning,
 and sealed-test access remain forbidden.
+
+H100 jobs `40237`/`40238` complete ADR-0134. Independent replay reproduces all
+predictions exactly and confirms architectural `Delta(z,0)=0`. Validation
+response RMSE is `18.134943 mm` versus `19.091172 mm` for the zero-change
+baseline. Improvement-sign accuracy is 15/15, safe/unsafe ordering is 16/16,
+and all non-tied pair ordering is 45/45, but magnitude errors produce three
+false-safes. Predicted-safe support is only 1/2 recoverable states, and the
+minimum-correction selected action is exact-safe in 0/2.
+
+The best-ranked action is exact-safe in both recoverable states but is exactly
+the strongest registered path candidate in both. Since the frozen bank varies
+only amplitude along one chosen path, this does not beat fixed analytical
+repulsion or demonstrate a transferable direction. The exact-anchor scalar
+`Delta` formulation is a strict NO-GO, and the capped active perturbation pilot
+is not authorized. Result/validation file SHA-256 values are
+`f7c58e33a51d47df1b069a1491ac8f9e761754503d56fbc9ad6eee81e4df1131`
+and `7ec80fbfa9bd14b7b28fd2078a0c7b319b110d1f712d1246553e35e67c378cb5`;
+payload SHA-256 values are
+`434b17096bbe500509f3c18729c71adc07bebb314c57e06ecfa5569bcb905bdc`
+and `6d9a224ee8297e3439e9e259ef6edd7b2543f09112ef325115d7de5495d1a940`.

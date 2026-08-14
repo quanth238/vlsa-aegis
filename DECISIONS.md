@@ -3093,7 +3093,7 @@ episodes. No model, QP, calibration, or closed-loop job follows this NO-GO.
 
 ## ADR-0134: Test action response with an exact nominal-risk anchor
 
-- Status: preregistered
+- Status: completed; exact-anchor scalar response is a strict NO-GO
 - Date: 2026-08-14
 
 Do not launch active state or obstacle perturbation after ADR-0133. The frozen
@@ -3128,3 +3128,30 @@ candidate when both are safe. A pass authorizes only a small capped active
 direction pilot. A failure stops the exact-anchor `Delta` formulation before
 new collection. Nominal-risk learning, calibration, QP, closed loop, sealed
 tests, and neural-CBF claims remain blocked.
+
+H100 producer `40237` and independent replay validator `40238` complete the
+gate with exactly zero prediction-replay error and exactly zero architectural
+response at zero correction. The result is a strict NO-GO for the scalar
+exact-anchor `Delta` predictor. Validation response RMSE is `18.134943 mm`,
+only slightly below the `19.091172 mm` zero-change baseline. Although all 15
+improvement signs, all 16 safe/unsafe pairs, and all 45 non-tied candidate
+pairs are ordered correctly, the response magnitude is not transferable: the
+model creates three false-safes, supports only one of two recoverable states,
+and its minimum-correction acceptance is exact-safe in zero of two.
+
+The ordering result is not sufficient to authorize active perturbation. Each
+state varies only the amplitude along one monotonic registered path. The
+top-ranked candidate is the strongest registered repulsion in both recoverable
+validation states, so the learned ranking adds no detour or task-preservation
+value beyond the fixed strongest-amplitude baseline. It does outperform random
+amplitude ranking, but that is the expected consequence of learning monotonic
+amplitude on this bank, not evidence of a general physical action direction.
+
+Therefore do not launch the active-boundary pilot under this formulation. The
+useful surviving observation is narrower: existing data reliably identify that
+more motion along the already-chosen path improves risk. They do not identify
+how much is safe or which independent direction should be chosen. Any next
+learning proposal must add independently varied physical directions and be
+formulated as a candidate ranker/multimodal proposal only if it demonstrates
+value beyond the registered analytical repulsion. Absolute safety acceptance,
+QP, calibration, closed loop, and sealed tests remain blocked.
