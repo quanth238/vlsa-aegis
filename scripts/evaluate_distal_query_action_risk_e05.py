@@ -107,7 +107,7 @@ def evaluate(
 
     from main.evaluate_safelibero_aegis import (
         TABLE_SETTLE_ACTIONS, _active_obstacle, _build_environment,
-        _aegis_action, _eef_proxy, _runtime_imports, _settle, read_jsonl,
+        _aegis_action, _runtime_imports, _settle, read_jsonl,
         validate_case_row,
     )
     from main.multilink_ellipsoid.pure_backup import (
@@ -123,6 +123,7 @@ def evaluate(
         _restore_controller_snapshot,
     )
     from main.multilink_ellipsoid.shadow import MultilinkEllipsoidShadow, load_shadow_config
+    from main.multilink_ellipsoid.shadow import _released_aegis_end_effector_ellipsoid
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
 
     started = time.perf_counter_ns()
@@ -286,8 +287,9 @@ def evaluate(
             z = np.asarray(initial_z, dtype=np.float64).copy()
             _require(z.shape == (3,) and np.all(np.isfinite(z)),
                      "AEGIS consistency initial direction differs")
-            one_step.synchronize(main_env)
-            virtual_observation = probe_env.env._get_observations()
+            synchronization = one_step.synchronize(main_env)
+            _require(synchronization["maximum_absolute_error"] == 0.0,
+                     "AEGIS consistency clone state differs")
             released_geometry = {
                 "p2": np.asarray(perception["mvee_center"], dtype=np.float64),
                 "R2": np.asarray(perception["mvee_rotation"], dtype=np.float64),
@@ -299,7 +301,8 @@ def evaluate(
             qp_records = []
             z_after_by_action = []
             for proposed_action in proposed:
-                proxy = _eef_proxy(runtime, virtual_observation)
+                eef = _released_aegis_end_effector_ellipsoid(probe_env)
+                proxy = {"p1": eef.center, "R1": eef.rotation}
                 executed, qp = _aegis_action(
                     runtime,
                     nominal_translational=proposed_action,
@@ -311,7 +314,7 @@ def evaluate(
                 executed_array = np.asarray(executed, dtype=np.float64)
                 _require(executed_array.shape == (7,) and np.all(np.isfinite(executed_array)),
                          "AEGIS consistency output differs")
-                virtual_observation, _, _, _ = probe_env.step(executed_array.tolist())
+                probe_env.step(executed_array.tolist())
                 executed_actions.append(executed_array)
                 qp_records.append(qp)
                 z_after_by_action.append(
@@ -330,6 +333,7 @@ def evaluate(
                 "z_before": z.tolist(),
                 "z_after_by_action": [item.tolist() for item in z_after_by_action],
                 "qp_records": qp_records,
+                "synchronization": synchronization,
             }
 
         def rollout_projected_prefix(
