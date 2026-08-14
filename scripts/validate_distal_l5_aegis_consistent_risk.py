@@ -50,6 +50,20 @@ def _check_projection(record: Mapping[str, Any], expected_actions: Any) -> None:
                  "released AEGIS QP output differs from executed action")
 
 
+def _validate_proxy_validity(
+    *, grouped_collection: bool, reported_count: int, observed_count: int,
+    producer_zero_gate: bool,
+) -> None:
+    """Separate a retained scientific proxy failure from apparatus corruption."""
+    _require(int(reported_count) == int(observed_count),
+             "proxy-safe physical collision count differs")
+    _require(bool(producer_zero_gate) == (int(observed_count) == 0),
+             "proxy-validity gate differs from observed count")
+    if not grouped_collection:
+        _require(int(observed_count) == 0,
+                 "proxy-safe physical collision exists")
+
+
 def validate(
     *, repo_root: Path, result_path: Path, producer_commit: str,
     validator_commit: str, grouped_collection: bool = False,
@@ -201,9 +215,14 @@ def validate(
              "timeout count differs")
     _require(summary["row_active_witness_counts"] == witness_counts,
              "active witness count differs")
-    _require(summary["proxy_safe_physical_collision_count"]
-             == proxy_collision_count == 0,
-             "proxy-safe physical collision exists")
+    _validate_proxy_validity(
+        grouped_collection=grouped_collection,
+        reported_count=summary["proxy_safe_physical_collision_count"],
+        observed_count=proxy_collision_count,
+        producer_zero_gate=result["gates"][
+            "proxy_safe_physical_collision_count_zero"
+        ],
+    )
     mixed_support = bool(safe_count > 0 and known_unsafe_count > 0)
     if not grouped_collection:
         _require(mixed_support,
@@ -215,7 +234,6 @@ def validate(
             "all_replays_boundary_exact",
             "no_timeout_labeled_safe",
             "query_boundary_is_initially_safe",
-            "proxy_safe_physical_collision_count_zero",
             "zero_L5_residual_reproduces_recomputed_released_aegis",
         ):
             _require(result["gates"][key] is True,
@@ -242,7 +260,7 @@ def validate(
             "every_backup_action_passes_original_AEGIS": True,
             "seven_row_geometry_and_L6_L7_diagnostics_present": True,
             "mixed_safe_unsafe_support": mixed_support,
-            "no_proxy_safe_physical_collision": True,
+            "no_proxy_safe_physical_collision": proxy_collision_count == 0,
         },
         "counts": {
             "candidates": len(candidates),
