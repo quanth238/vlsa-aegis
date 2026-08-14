@@ -26,7 +26,8 @@ test ! -e "$OUTPUT" || { echo "output exists" >&2; exit 2; }
 mkdir -p "$(dirname "$OUTPUT")"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -m unittest tests.test_distal_l5_action_risk -v
+"$AEGIS_PYTHON" -m unittest discover \
+  -s tests -p 'test_distal_l5_action_risk.py' -v
 "$AEGIS_PYTHON" scripts/train_distal_l5_action_risk.py \
   --repo-root "$REMOTE_REPO" \
   --config "$REMOTE_REPO/configs/vlsa_distal_l5_action_risk_mlp.v1.json" \
