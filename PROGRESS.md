@@ -3589,3 +3589,39 @@ coverage exists. Symmetric Huber also retains one row-1 false-safe on fitted
 data and is not a conservative gate. Audit/validation payload SHA-256 values
 are `d25bcca06d7d463887daf0e34e39bf0ac00690b120ed372492296b93302a18c1`
 and `40692ccb9932d252d86a06a96f2276573ca14ab026fa3bda227f55f1eadb920a`.
+
+## Targeted L5 boundary-state extension (2026-08-14)
+
+Five previously unused, clean, task-successful task-2 L5-contact episode
+groups were preregistered without inspecting their row outcomes. Training uses
+E04/E27/E49 and validation uses E14/E39; the sealed E42 test episode and all
+completed Table-1 artifacts remain untouched. H100 query-state producers
+`40067` and independent validators `40068` found one reproducible, initially
+safe real five-action warning boundary in every episode.
+
+H100 adaptive producers `40077`, independent validators `40078`, and aggregate
+job `40079` then applied the unchanged v3 candidate bank, per-row 0.5 mm
+controllability rule, five complete-prefix bisections, authoritative
+candidate-plus-fixed-backup labels, and original AEGIS EE compatibility gate.
+The five state classifications are: E27 and E39 usable mixed support; E04 and
+E14 no safe candidate; E49 unknown-only. All 12 timeouts remain censored
+(`7` train, `5` validation); no state or failed candidate was discarded and no
+proxy-safe physical collision was observed.
+
+The registered extra row-0 train requirement passed: E27 adds one independent
+useful training boundary state, and E39 adds one validation boundary state.
+However, every targetable boundary in this extension was L5 row 0. Cumulative
+useful boundary-state counts are now `[3,2,1]` for training and `[3,0,0]` for
+validation. Consequently, the row-0 learned-row gate passes, while row-1 and
+row-2 train/validation state-support gates remain strict failures. The known
+candidate count also remains below the registered training minimum (`38 <
+40`).
+
+This exhausts the obvious unused clean task-2 L5-contact cohort and establishes
+that repeating its collection cannot identify rows 1--2. It does not establish
+that those rows are physically irrelevant. The matched feature ablation,
+retraining, calibration, QP, closed loop, and sealed tests remain blocked. The
+next experiment requires an explicit population decision: preregister a new
+task-3 active-boundary discovery cohort, generate new clean task-3 episodes, or
+narrow the first learned claim to row 0. Aggregate `summary.json` SHA-256 is
+`d32eac3ffd59976809ed862ac0dfe4f13abc282c1801a00e63345bf8b913a008`.

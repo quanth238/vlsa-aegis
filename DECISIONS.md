@@ -2617,3 +2617,33 @@ The retained fitted row-1 false-safe also means symmetric regression alone is
 not a safety certificate. Audit/validation payload SHA-256 values are
 `d25bcca06d7d463887daf0e34e39bf0ac00690b120ed372492296b93302a18c1`
 and `40692ccb9932d252d86a06a96f2276573ca14ab026fa3bda227f55f1eadb920a`.
+
+## ADR-0125: Stop task-2 expansion after the targeted row-coverage test
+
+- Status: accepted after independent H100 validation; row 0 extended, rows 1--2 NO-GO
+- Date: 2026-08-14
+
+Preregister five unused, clean, task-successful task-2 L5-contact groups before
+inspecting their row outcomes. Preserve the existing adaptive-v3 candidate
+family, controllability threshold, complete backup label, AEGIS EE gate,
+episode grouping, timeout censoring, and sealed tests. The purpose is to seek
+distinct row-1/row-2 boundary states plus one additional row-0 training state,
+not to add more candidates at known states.
+
+Jobs `40067`/`40068` independently validated one real, initially safe warning
+query in every selected episode. Jobs `40077`/`40078` and summary job `40079`
+then retained two mixed-support states, two no-safe states, one unknown-only
+state, and all 12 censored timeouts. E27 supplies the requested extra row-0
+training state and E39 a row-0 validation state. No row-1 or row-2 targetable
+boundary was found; cumulative useful state counts are `[3,2,1]` train and
+`[3,0,0]` validation.
+
+Interpret this as population-specific evidence, not a universal redundancy
+claim. The remaining unused task-2 cohort repeats row-0 mechanics, so further
+sampling there is not authorized as a row-1/row-2 remedy. Do not substitute
+CAR-only task-3 episodes or open sealed tests without a new preregistered
+population definition. The legitimate next choices are: active-boundary
+discovery in a separately declared task-3 cohort, new clean task-3 rollouts,
+or narrowing the learned feasibility claim to row 0. Until one is chosen and
+validated, the feature ablation, model training, calibration, QP, and closed
+loop remain blocked.
