@@ -3978,3 +3978,18 @@ and payload SHA-256 is
 `598d9d8dcdd79f3a3e0dbcbf78573bf3b040bda0ea44fdd1d0d0d6452364e6b5`.
 This establishes that passive unused-episode/noise sampling is inefficient for
 the rare L5 boundary; it does not test or reject the anchored `B+Delta` model.
+
+ADR-0134 preregisters the cheapest remaining factorization test. The frozen
+authoritative data are restricted to states with an exact nominal combined-risk
+anchor plus at least four response actions: 3/3 grouped train/validation states
+and 14/15 non-nominal responses. A 32--32 MLP predicts only
+`Delta = Q(A) - Q(A_nominal)` and is architecturally zero at zero correction.
+The exact nominal anchor is supplied at evaluation, isolating action response
+from baseline-risk prediction. No new simulation is launched.
+
+Each state contains amplitudes along one registered bisection path, so the
+experiment tests held-out-state risk change, improvement sign, safe/unsafe
+ordering, and Best-of-N amplitude selection—not an unrestricted action-space
+gradient. A pass authorizes only a small active direction pilot; a failure
+stops this formulation. QP, calibration, closed loop, nominal-risk learning,
+and sealed-test access remain forbidden.

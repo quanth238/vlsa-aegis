@@ -3090,3 +3090,41 @@ state/obstacle perturbation pilot around existing E39/E45 warning states. The
 latter is more efficient but cannot be presented as independent deployment
 generalization; final validation would still require untouched natural
 episodes. No model, QP, calibration, or closed-loop job follows this NO-GO.
+
+## ADR-0134: Test action response with an exact nominal-risk anchor
+
+- Status: preregistered
+- Date: 2026-08-14
+
+Do not launch active state or obstacle perturbation after ADR-0133. The frozen
+rollouts permit a cheaper diagnostic that removes nominal-risk prediction from
+the experiment. For every state with one authoritative nominal candidate and
+at least four response actions, define
+
+`B*_j = Q_j(z, A_nominal)` and
+`Delta*_j = Q_j(z, A) - B*_j`.
+
+The two-output model receives rigid-frame relative context and the exact
+candidate-minus-nominal action. Network subtraction enforces
+`Delta_theta(z, 0) = 0`. The exact `B*` is supplied at validation, so failure
+cannot be attributed to estimating the nominal-risk offset. Episode splits,
+actions, labels, model width, seed, optimizer, and fixed final epoch remain
+unchanged.
+
+Only three train and three validation states satisfy the anchor/response rule,
+with 14 and 15 non-nominal responses. Their actions are bisection amplitudes
+along one registered physical correction path per state. This gate therefore
+measures response magnitude, improvement sign, safe/unsafe ordering, and
+amplitude selection; it cannot establish a general 15-dimensional steering
+direction. The largest-amplitude registered candidate and fixed-seed random
+amplitude selection are reported as baselines. No unavailable direction label
+is invented.
+
+Passing requires lower response RMSE than the zero-change baseline, at least
+80% improvement-sign accuracy, at least 85% safe/unsafe pair ordering, safe
+support and exact-safe selection in every recoverable validation state, a safe
+selection rate above random, and no larger correction than the strongest path
+candidate when both are safe. A pass authorizes only a small capped active
+direction pilot. A failure stops the exact-anchor `Delta` formulation before
+new collection. Nominal-risk learning, calibration, QP, closed loop, sealed
+tests, and neural-CBF claims remain blocked.

@@ -1,0 +1,88 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_oracle_anchor_delta.v1",
+  "protocol_id": "vlsa-distal-l5-row01-oracle-anchor-delta-v1",
+  "claim_scope": "frozen_rollout_exact_nominal_anchor_delta_response_mechanism_diagnostic_not_deployable_safety_filter_not_control_not_QP_not_CBF",
+  "source": {
+    "component_audit_config": "configs/vlsa_distal_l5_row01_component_audit.v1.json",
+    "component_audit_config_file_sha256": "1ca3bbdf6cd8f5a4e1cabdf6e94e1eded04adc27684caadef8e2352d4b6837b2",
+    "frozen_component_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-component-audit/component-audit-20260814a/result.json",
+    "frozen_component_result_file_sha256": "d42acbaed425530a036ecb8a03456b3e5298980e9632e64d3a74f43ad62fc245",
+    "frozen_component_result_payload_sha256": "cb82a161b138b421c6a7ea64937c9d9d9f33599289709e3de10e119f10617220"
+  },
+  "dataset": {
+    "anchor": "authoritative_combined_row01_risk_of_candidate_named_nominal_with_order_zero",
+    "response_target": "candidate_combined_row01_risk_minus_same_state_exact_nominal_anchor",
+    "minimum_non_nominal_responses_per_state": 4,
+    "expected_state_counts": {"train": 3, "validation": 3},
+    "expected_candidate_counts_including_anchor": {"train": 17, "validation": 18},
+    "expected_response_counts": {"train": 14, "validation": 15},
+    "episode_splits": "unchanged_grouped_splits_from_ADR_0129",
+    "excluded": "states_without_authoritative_nominal_anchor_or_four_response_actions",
+    "sealed_test_episodes": "unopened"
+  },
+  "representation": {
+    "context_dimension": 99,
+    "residual_action_dimension": 35,
+    "input_dimension": 134,
+    "context": "relative_134D_indices_0_to_54_and_90_to_133",
+    "residual": "relative_candidate_action_indices_55_to_89_minus_nominal_indices_20_to_54",
+    "zero_response": "Delta_theta_context_zero_equals_zero_by_network_subtraction",
+    "normalization": "training_context_mean_std_and_residual_scale_only_RMS",
+    "target_normalization": "training_response_scale_only_no_mean"
+  },
+  "model": {
+    "class": "exact_anchor_two_output_delta_MLP",
+    "output_count": 2,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "checkpoint": "fixed_final_epoch_no_validation_selection"
+  },
+  "evaluation": {
+    "learned_rows": [0, 1],
+    "improvement_sign_deadband_m": 0.0001,
+    "near_boundary_threshold_m": 0.005,
+    "random_seed": 20260814,
+    "random_draws_per_state": 4096,
+    "selection": "minimum_correction_among_exact_anchor_plus_predicted_delta_safe_candidates",
+    "registered_repulsion_comparator": "largest_applied_correction_on_the_authoritative_bisection_path",
+    "direction_scope": "amplitude_response_along_one_registered_path_per_state_not_general_15D_direction"
+  },
+  "gates": {
+    "validation_delta_RMSE_below_zero_change_baseline": true,
+    "validation_improvement_sign_accuracy_minimum": 0.8,
+    "validation_safe_unsafe_pair_order_accuracy_minimum": 0.85,
+    "predicted_safe_support_every_recoverable_validation_state": true,
+    "selected_exact_row01_safe_every_recoverable_validation_state": true,
+    "selected_safe_rate_above_seeded_random": true,
+    "task_preserving_win_or_tie_vs_strongest_registered_path_every_recoverable_state": true,
+    "architectural_zero_response_maximum_error_m": 1e-12,
+    "reserved_test_episodes_unopened": true
+  },
+  "interpretation": {
+    "pass": "authorize_only_a_small_capped_active_boundary_direction_pilot_then_require_natural_unseen_episodes",
+    "fail": "stop_the_exact_anchor_delta_response_formulation_before_new_collection",
+    "limitation": "passing_only_supports_local_registered_path_response_not_absolute_nominal_risk_or_general_action_space_steering"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "active_state_or_obstacle_perturbation",
+    "nominal_anchor_prediction",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "Poisson_or_SDF",
+    "reserved_test_access",
+    "general_15D_gradient_claim",
+    "neural_CBF_claim"
+  ]
+}
