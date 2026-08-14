@@ -2703,3 +2703,27 @@ when included. Continue excluding it from geometry/learning claims and report
 it as a perception/proxy failure. A row-0-only learned model is permitted only
 as a mechanism diagnostic and cannot be presented as solving E05. No learned
 filter, QP, or closed-loop gate is opened by this audit.
+
+## ADR-0127: Generate new task-0 moka trajectories without weakening eligibility
+
+- Status: preregistered; H100 discovery pending
+- Date: 2026-08-14
+
+The immutable Table-1 population cannot provide another clean E05-like row-1
+group: E05 is the only task-successful proxy-valid task-0 L5/moka contact. Do
+not reinterpret task-failed E15/E20 as clean deployment episodes and do not
+change the accepted ellipsoids merely to manufacture row balance.
+
+Run original AEGIS on all ten frozen task-0 level-II moka initial states with
+one new outcome-blind pi0.5 noise schedule per state. Preserve the complete
+state, task, action horizon, original EE QP, perception, diagnostics, and
+frozen labels. The new run root is separate from Table 1 and all outcomes are
+retained. Eligibility requires native task success, proxy validity, no settled
+or dynamic task/other contact, and a post-control L5 contact. L6/L7 remain
+diagnostic rather than eligible.
+
+At least two new eligible distinct initial states authorize only the unchanged
+AEGIS-consistent boundary collector. Fewer than two is a deployment-coverage
+failure and blocks training; it is not a failure of the learned method because
+no model is trained. No sealed test, Poisson/SDF backend, calibration, learned
+QP, or closed-loop experiment is authorized by this discovery population.

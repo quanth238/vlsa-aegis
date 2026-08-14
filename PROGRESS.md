@@ -3680,3 +3680,27 @@ and `b87abcbe8ca62fe9893c9235b9201d548f3dac226313d1b615d6ac807be8ead5`;
 file SHA-256 values are
 `ba6913ddb74a2bf9246e85dcf49d739962ed06fcbe9f93ef099dcd2590106e24`
 and `67a20857667d406cb87c2cd5ca5599b579ee1da39a3054a339d03544c2e6d621`.
+
+## Task-0 moka noise-discovery population (2026-08-14)
+
+The immutable 50-episode task-0 Table-1 audit contains exactly one clean,
+task-successful, proxy-valid L5/moka contact case: E05. E10 is L6, while the
+other task-0 L5/moka contacts occur only in task-failed episodes. Admitting
+those failures would silently weaken the declared deployment cohort, so they
+remain excluded. No Table-1 result or sealed episode is modified or opened.
+
+ADR-0127 preregisters ten new development trajectories, one for each task-0
+level-II moka initial state. The simulator state, frozen pi0.5, released AEGIS
+EE correction, perception, five-action execution, and 300-action horizon stay
+unchanged. Only the outcome-blind policy-noise seed changes according to
+`2026081400 + 1024 * episode_index`. Each trajectory is its own group and every
+failure, timeout, task failure, proxy-invalid result, L6/L7 contact, and
+no-contact result is retained.
+
+Only complete native-task-success trajectories with a valid proxy, no settled
+or dynamic task/other contact, and a post-control `robot0_link5` moka contact
+are eligible for the unchanged controllable-boundary collector. At least two
+new distinct initial states are required before that downstream job is
+authorized. This is development-only coverage discovery, not learned-filter
+evidence. MLP training, calibration, QP, closed loop, Poisson/SDF replacement,
+and sealed-test access remain forbidden.

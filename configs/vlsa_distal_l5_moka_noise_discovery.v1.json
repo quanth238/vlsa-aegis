@@ -1,0 +1,56 @@
+{
+  "schema_version": "vlsa_distal_l5_moka_noise_discovery.v1",
+  "protocol_id": "vlsa-distal-l5-moka-noise-discovery-20260814a",
+  "claim_scope": "development-only discovery of new task-successful proxy-valid L5 moka trajectories; not a safety-filter or generalization result",
+  "source": {
+    "table1_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_case_audit_file_sha256": "acfbb7d3d3f2ebfccb556807a8f980fcc35f0510b7ef148deda5a7080573a7e8",
+    "frozen_label_manifest_file_sha256": "f9a862f28f168f02de4e0987e37d297de24b167ae50fb96c7f8243a76916880e",
+    "immutable_table1_artifacts_modified": false
+  },
+  "selection": {
+    "suite": "safelibero_goal",
+    "safety_level": "II",
+    "logical_task_index": 0,
+    "active_obstacle": "moka_pot_obstacle_1",
+    "episode_indices": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45],
+    "selection_basis": "all ten frozen task-0 level-II initial states whose active obstacle is the moka pot",
+    "outcome_blind_noise_seed_rule": "2026081400 + 1024 * episode_index",
+    "array_tasks": 10,
+    "maximum_concurrent_h100s": 2
+  },
+  "execution": {
+    "arm": "original_AEGIS_pi05_plus_aegis_translational",
+    "frozen_vla": true,
+    "original_aegis_ee_correction_enabled": true,
+    "failure_diagnostics_enabled": true,
+    "policy_noise_changed_from_table1": true,
+    "environment_initial_state_changed_from_table1": false,
+    "maximum_steps": 300,
+    "replan_steps": 5,
+    "simulation_device": "exactly_one_H100",
+    "groundingdino_device": "cpu"
+  },
+  "classification": {
+    "eligible": "complete_task_success_proxy_valid_postcontrol_robot0_link5_contact_without_dynamic_task_or_dynamic_other_contact",
+    "proxy_material_enclosure_limit": 1.01,
+    "proxy_cloud_active_xy_limit_m": 0.1,
+    "settled_contacts_are_ineligible": true,
+    "link6_link7_contacts_are_diagnostic_not_eligible": true,
+    "failures_and_timeouts_retained": true,
+    "no_eligible_case_outcome": "coverage_failure_not_method_failure"
+  },
+  "downstream_gate": {
+    "minimum_new_eligible_distinct_initial_states": 2,
+    "next_action_if_pass": "freeze eligible groups then run unchanged AEGIS-consistent controllable-boundary collection",
+    "next_action_if_fail": "report immutable deployment coverage failure; do not train"
+  },
+  "forbidden": [
+    "sealed_test_access",
+    "Table1_artifact_mutation",
+    "ellipsoid_refitting",
+    "Poisson_or_SDF_substitution",
+    "MLP_training",
+    "QP_or_closed_loop_learning_claim"
+  ]
+}
