@@ -20,6 +20,7 @@ SOURCE_URL=${SOURCE_URL:-}
   echo "source preparation requires Slurm" >&2
   exit 2
 }
+fresh_clone=0
 if [[ ! -d "$REMOTE_REPO" ]]; then
   [[ -n "$SOURCE_URL" ]] || {
     echo "worker-local source is missing and SOURCE_URL is unset: $REMOTE_REPO" >&2
@@ -27,12 +28,14 @@ if [[ ! -d "$REMOTE_REPO" ]]; then
   }
   mkdir -p "$(dirname "$REMOTE_REPO")"
   git clone --filter=blob:none --no-checkout "$SOURCE_URL" "$REMOTE_REPO"
+  fresh_clone=1
 fi
-[[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || {
-  echo "worker-local source is dirty" >&2
-  exit 2
-}
-
+if [[ "$fresh_clone" == 0 ]]; then
+  [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || {
+    echo "worker-local source is dirty" >&2
+    exit 2
+  }
+fi
 git -C "$REMOTE_REPO" fetch origin "$VALIDATOR_BRANCH"
 git -C "$REMOTE_REPO" checkout --detach "$VALIDATOR_COMMIT"
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$VALIDATOR_COMMIT" ]] || {
