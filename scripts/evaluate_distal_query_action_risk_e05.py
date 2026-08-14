@@ -159,9 +159,9 @@ def evaluate(
         [action_rows[step]["nominal_translational"] for step in range(len(action_rows))],
         dtype=np.float64,
     )
-    nominal = archived_actions[state_step:state_step + horizon]
+    archived_nominal = archived_actions[state_step:state_step + horizon]
     nominal_raw = archived_raw_actions[state_step:state_step + horizon]
-    _require(nominal.shape == (5, 7), "E05 nominal five-action chunk differs")
+    _require(archived_nominal.shape == (5, 7), "E05 nominal five-action chunk differs")
     _require(nominal_raw.shape == (5, 7), "E05 raw nominal five-action chunk differs")
     query_index = int(
         config["state"]["query_index"]
@@ -220,19 +220,6 @@ def evaluate(
         active_row = int(np.argmin(current))
         normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
         frame = orthonormal_local_frame(normal)
-        definitions = (
-            candidate_definitions(nominal, frame, config)
-            if candidate_definitions_override is None
-            else list(candidate_definitions_override(nominal, frame, config))
-        )
-        _require(len(definitions) > 0, "query action-risk candidate override is empty")
-        _require(definitions[0]["name"] == "nominal",
-                 "query action-risk nominal candidate must remain first")
-        if candidate_limit is not None:
-            _require(1 <= int(candidate_limit) <= len(definitions), "candidate canary limit differs")
-            definitions = definitions[:int(candidate_limit)]
-        full_protocol = candidate_limit is None
-
         base = _base_env(env)
         source_state = np.asarray(env.sim.get_state().flatten(), dtype=np.float64).copy()
         source_auxiliary = _auxiliary_sim_snapshot(env)
@@ -414,6 +401,27 @@ def evaluate(
                 "proposed_pre_aegis_actions": proposed_raw.tolist(),
             }
 
+        if apply_released_aegis_ee_to_all_proposed_actions:
+            nominal, nominal_projection = project_through_released_aegis(
+                env, nominal_raw, source_aegis_z
+            )
+        else:
+            nominal = archived_nominal.copy()
+            nominal_projection = None
+        definitions = (
+            candidate_definitions(nominal, frame, config)
+            if candidate_definitions_override is None
+            else list(candidate_definitions_override(nominal, frame, config))
+        )
+        _require(len(definitions) > 0, "query action-risk candidate override is empty")
+        _require(definitions[0]["name"] == "nominal",
+                 "query action-risk nominal candidate must remain first")
+        if candidate_limit is not None:
+            _require(1 <= int(candidate_limit) <= len(definitions),
+                     "candidate canary limit differs")
+            definitions = definitions[:int(candidate_limit)]
+        full_protocol = candidate_limit is None
+
         def summarize_rollout(record: Mapping[str, Any], *, exclude_k0: bool) -> dict[str, Any]:
             trace = np.asarray(record["clearance_trace_m"], dtype=np.float64)[:, :7]
             evaluated = trace[1:] if exclude_k0 else trace
@@ -482,6 +490,9 @@ def evaluate(
                 - determinism_runs[1]["executed_actions"]
             ))),
             "nominal_archived_action_maximum_absolute_error": float(np.max(np.abs(
+                determinism_runs[0]["executed_actions"] - archived_nominal
+            ))),
+            "nominal_recomputed_action_maximum_absolute_error": float(np.max(np.abs(
                 determinism_runs[0]["executed_actions"] - nominal
             ))),
             "aegis_consistency": determinism_runs[0]["aegis_consistency"],
@@ -718,9 +729,9 @@ def evaluate(
                 and determinism["CAR_maximum_absolute_error_m"] == 0.0
                 and determinism["executed_action_maximum_absolute_error"] == 0.0
             ),
-            "zero_L5_residual_reproduces_released_aegis": bool(
+            "zero_L5_residual_reproduces_recomputed_released_aegis": bool(
                 not apply_released_aegis_ee_to_all_proposed_actions
-                or determinism["nominal_archived_action_maximum_absolute_error"] <= 1.0e-10
+                or determinism["nominal_recomputed_action_maximum_absolute_error"] == 0.0
             ),
             "query_boundary_is_initially_safe": float(np.min(current)) >= buffer_m,
             "nominal_future_is_unsafe": not records[0]["exact_safe"],
@@ -777,6 +788,11 @@ def evaluate(
             "determinism_replay": determinism,
             "nominal_five_action_chunk": nominal.tolist(),
             "nominal_five_action_chunk_sha256": hashlib.sha256(nominal.tobytes()).hexdigest(),
+            "archived_post_aegis_five_action_chunk": archived_nominal.tolist(),
+            "archived_post_aegis_five_action_chunk_sha256": hashlib.sha256(
+                archived_nominal.tobytes()
+            ).hexdigest(),
+            "recomputed_nominal_projection": nominal_projection,
             "nominal_raw_translational_five_action_chunk": nominal_raw.tolist(),
             "nominal_raw_translational_five_action_chunk_sha256": hashlib.sha256(
                 nominal_raw.tobytes()
