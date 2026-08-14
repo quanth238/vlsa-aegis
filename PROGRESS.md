@@ -4231,3 +4231,23 @@ identity of L5 rows 0 and 2 relative to the source episode. The opt-in repair
 primes slab templates at the settled initial state before action replay, as the
 source episode did. The registered candidate bank and every scientific gate
 remain unchanged; a replacement allocation is required before interpretation.
+
+Replacement H100 producer `40368` and independent validator `40369` pass the
+repaired provenance gate (`4.441e-16 m` clearance replay error; exact nominal
+post-AEGIS action) and retain a strict registered NO-GO. Zero of nine normal
+candidates is seven-row proxy-safe, one radius-1.5 rollout is an unknown
+timeout, and all known active witnesses are L6 row 3. No minimum-intervention
+candidate can therefore be selected under the preregistered `1 mm` ellipsoid
+rule.
+
+This does not reject physical normal repulsion. Radius 1.75 and 2.0 both reach
+a stable terminal with zero protected MuJoCo contact and negligible CAR, but
+the L6 row-3 proxy remains violated by 10.263 mm and 6.346 mm. The core audit
+therefore isolates the blocker to quantitative proxy certification rather
+than direction or correction authority. Training the future-risk MLP on the
+current seven-row target, adding a QP, or increasing magnitude is not
+authorized. The next experiment must validate a physical row-3 target or an
+explicit conservative mapping between the slab proxy and compiled collision
+geometry. Result/validation payload SHA-256 values are
+`78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5`
+and `1a469cf99cdfaa2d26ed019b7df409e1c47fd46cdc9677f4cb8f437ba5cc5bc6`.

@@ -3490,7 +3490,7 @@ and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.
 
 ## ADR-0141: Test the registered normal candidate bank at the first unsafe later warning
 
-- Status: preregistered; replacement H100 result pending after apparatus-only row-identity repair
+- Status: complete; strict proxy-certified recoverability NO-GO with physical-authority positive control
 - Date: 2026-08-15
 
 ADR-0140 identifies task-3 E42 step `105` as the first later warning where the
@@ -3534,3 +3534,29 @@ The repair primes the same rigid body-local slab templates at the settled
 initial state before replay. It changes no action, candidate, geometry union,
 threshold, backup, physical veto, or selection rule. Attempts `40365/40366`
 remain immutable apparatus history and cannot support a scientific verdict.
+
+Replacement H100 producer `40368` and independent validator `40369` reproduce
+the source state to `4.441e-16 m` and the nominal post-AEGIS action exactly.
+The strict registered gate fails because none of the nine candidates maintains
+the seven-row `1 mm` ellipsoid boundary. One radius-1.5 candidate times out;
+the other eight are known proxy-unsafe, all with L6 row 3 as the active witness.
+Consequently the specified proxy-governed system has no admissible selection
+at this later warning and cannot yet support MLP training or closed-loop use.
+
+The physical evidence must be reported separately. Requested radii 1.75 and
+2.0 complete the five-action prefix plus fixed backup with zero protected
+MuJoCo contact, negligible CAR (`<1.861e-12 m`), and a stable terminal. They
+are rejected only because L6 row 3 reaches `-10.263 mm` and `-6.346 mm`
+ellipsoid clearance, respectively. Thus the registered normal bank has enough
+physical authority to prevent this collision, while the conservative slab
+proxy cannot certify the physically safe candidates. The next decisive gate
+must audit or replace the row-3 quantitative target against compiled collision
+geometry before any learned future-risk model is trained. It is not a larger
+normal magnitude, QP, denoising, or learned direction experiment.
+
+Result/validation file SHA-256 values are
+`f23b934ab4ddc2c0ddf830538561550f51bf1a7336ddef0e2c28b371e45c193d`
+and `7745df484c178daea6c5435486fc219cdc908fb0ba9ab16f658685f12ca88df3`;
+payload SHA-256 values are
+`78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5`
+and `1a469cf99cdfaa2d26ed019b7df409e1c47fd46cdc9677f4cb8f437ba5cc5bc6`.
