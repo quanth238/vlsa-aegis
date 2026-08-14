@@ -3704,3 +3704,11 @@ new distinct initial states are required before that downstream job is
 authorized. This is development-only coverage discovery, not learned-filter
 evidence. MLP training, calibration, QP, closed loop, Poisson/SDF replacement,
 and sealed-test access remain forbidden.
+
+H100 producer array `40129` completed all ten original-AEGIS trajectories with
+successful exits. Dependent summary attempt `40130` stopped before reading any
+result because its allocation omitted the repository from `PYTHONPATH`;
+validator `40131` remained dependency-blocked. This is retained as apparatus
+history. The environment-only repair changes no trajectory, manifest,
+classification, threshold, or downstream gate and reuses the immutable
+producer artifacts.

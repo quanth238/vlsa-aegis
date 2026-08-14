@@ -23,6 +23,8 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]]
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
 [[ -f "$RUN_ROOT/summary.json" && ! -e "$RUN_ROOT/validation.json" ]]
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+export PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_distal_l5_moka_noise_discovery.py \
   --run-root "$RUN_ROOT" --summary "$RUN_ROOT/summary.json" \

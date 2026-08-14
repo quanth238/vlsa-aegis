@@ -2727,3 +2727,8 @@ AEGIS-consistent boundary collector. Fewer than two is a deployment-coverage
 failure and blocks training; it is not a failure of the learned method because
 no model is trained. No sealed test, Poisson/SDF backend, calibration, learned
 QP, or closed-loop experiment is authorized by this discovery population.
+
+Producer array `40129` completed all ten simulations. Summary job `40130`
+failed before artifact access because `PYTHONPATH` was not exported; dependent
+validator `40131` is cancelled exactly. Add only the repository import path and
+rerun summary/validation against the unchanged producer root.
