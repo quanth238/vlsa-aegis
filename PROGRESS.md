@@ -3131,3 +3131,35 @@ and `ee1d3286568b178b0f7c225a8ec60f41886b724ce01cbed965c55df1d6659567`.
 Validator attempts `39677` and `39698` stopped on coverage-audit numeric and
 field-name apparatus bugs and wrote no accepted validation artifact; they do
 not alter the final scientific result.
+
+## Finite-set active-boundary identifiability audit
+
+H100 producer `39725` and independent H100 validator `39726` audited all 37
+already-executed actions at the 13 train/validation states without training or
+new simulation. Unknown timeouts were excluded from extrema, reserved test
+episodes remained untouched, and every source/result/hash and per-state row
+metric reproduced exactly.
+
+Rows 0--3 all show meaningful action variation and a robust two-sided boundary
+with a globally safe negative-side action. This corrects the earlier coverage
+diagnosis: rows 1 and 2 are informative despite not always being the globally
+active witness. Rows 0/1/2/3 have useful-boundary support in 6/4/4/4 states.
+Rows 0, 1 and 3 also have 7/1/5 independent-violation state witnesses. Row 2
+has no independent-violation counterexample and is therefore only empirically
+dominated on this audited set, not mathematically redundant.
+
+Only rows 4--6 require targeted active search. Row 4 and row 6 vary at every
+state but never cross the robust boundary in the finite set. Row 5 crosses in
+one no-safe state but never has a globally safe negative-side action in that
+same crossing state. No proxy-invalid candidate occurs in the primary
+train/validation audit; E10 remains a separate diagnostic proxy failure.
+Training and new collection remain unauthorized until the targeted search
+determines whether rows 4--6 have deployment-supported useful boundaries.
+
+Producer/validation file SHA-256 values are
+`f137a52605955d13ab1235f62cd727564f083508efc4d60eb3d0ae8060efb772`
+and `daee504c437f7c7c65c7535e8dd35f0271c3eae838172df0910081f059331b1e`;
+validation payload SHA-256 is
+`800991933f35a720c0455f8be644957b11c1536f7991ff2d360196f9590c7601`.
+Attempts `39723` and `39724` stopped before output on Python-3.8 path API and
+mistyped expected-commit apparatus errors and support no scientific inference.

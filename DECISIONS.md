@@ -2225,3 +2225,24 @@ complete ledger-independent backup protocol. The only authorized next gate is
 targeted grouped collection for L5 rows 1--2, L6 row 1, and both L7 rows,
 followed by the same independent coverage validator. Reserved test episodes
 remain unlabeled and untouched until the training-coverage gate passes.
+
+## ADR-0113: Replace equal active-witness coverage with row identifiability
+
+Accepted after H100 producer `39725` and independent H100 validator `39726`.
+Preserve the grouped v1 freeze as an immutable learning NO-GO, but do not
+require each safety row to become the global active witness. A row is useful
+when the audited executable action set contains a robust safe/unsafe crossing
+and the safe side is globally feasible across all seven rows and physical
+verification. Independent-violation witnesses diagnose empirical domination;
+their absence is not proof of mathematical redundancy.
+
+On the frozen train/validation actions, rows 0--3 have useful globally safe
+two-sided boundaries. Row 2 has no independent-violation witness and is only
+empirically dominated on this finite audited set. Rows 4 and 6 vary but do not
+cross the robust boundary; row 5 crosses only in a state with no globally safe
+candidate. Do not train or resume broad passive collection. The only
+authorized next gate is a bounded active search for rows 4--6 using executable
+five-action candidates, the unchanged complete backup, and the same physical
+verification. If useful boundaries remain absent, resolve the safety scope or
+expand the deployment distribution rather than manufacture balanced rows.
+Reserved test episodes remain untouched.
