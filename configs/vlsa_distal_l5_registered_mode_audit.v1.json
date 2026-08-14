@@ -1,0 +1,53 @@
+{
+  "schema_version": "vlsa_distal_l5_registered_mode_audit.v1",
+  "protocol_id": "vlsa-distal-l5-registered-mode-audit-v1",
+  "claim_scope": "read_only_existing_artifact_audit_of_state_dependent_L5_prefix_correction_modes_not_learning_not_complete_policy_value_not_control_not_CBF",
+  "sources": {
+    "row01_selection_config": "configs/vlsa_distal_l5_row01_selection.v1.json",
+    "row01_selection_config_file_sha256": "9ebb0512308bd8e6faa9b8ee8fa54ea34cdeac2610a979e163cabcc5a67cf7a5",
+    "adaptive_v3_config": "configs/vlsa_distal_adaptive_query_action_risk.v3.json",
+    "adaptive_v3_config_file_sha256": "d45b90b34cc6b5ac83dc21bb68f5b35d1df4e87791ce1314fdb99dcc94a9ee2d"
+  },
+  "population": {
+    "expected_unique_proxy_valid_state_count": 16,
+    "coarse_candidates_per_state": 12,
+    "state_source": "unique_source_results_in_the_frozen_ADR_0129_grouped_train_validation_population",
+    "sealed_test_episodes": "unopened",
+    "duplicates": "one_record_per_unique_state_id_and_source_result"
+  },
+  "comparisons": {
+    "strongest_analytical_repulsion": "normal_pos_front_loaded_r2.0",
+    "matched_requested_radius_1_modes": [
+      "normal_pos_front_loaded_r1.0",
+      "normal_neg_front_loaded_r1.0",
+      "tangent_up_pos_front_loaded_r1.0",
+      "tangent_up_neg_front_loaded_r1.0",
+      "tangent_side_pos_constant_r1.0",
+      "tangent_side_neg_constant_r1.0"
+    ],
+    "all_registered_non_nominal_modes": "all_eleven_v3_coarse_recipes",
+    "risk": "maximum_prefix_risk_over_L5_rows_0_1_2_lower_is_better",
+    "zero_margin_safe": "maximum_L5_prefix_risk_at_most_zero_and_no_physical_veto",
+    "registered_buffer_safe": "stored_screen_safe_with_0.5mm_two_sided_epsilon",
+    "material_improvement_m": 0.001,
+    "norm_fairness": "matched_set_has_requested_L2_radius_1_but_applied_norm_and_clipping_are_reported"
+  },
+  "decision": {
+    "analytical_repulsion_sufficient": "strongest_normal_is_zero_margin_safe_in_every_state_where_any_registered_mode_is_zero_margin_safe",
+    "state_dependent_modes_observed": "an_independent_matched_radius_1_tangent_rescues_at_least_one_state_where_radius_1_normal_pos_fails_or_distinct_mode_families_win_by_at_least_1mm_across_states",
+    "learned_selector_authorized": false,
+    "reason_learning_remains_blocked": "coarse_modes_have_exact_five_action_prefix_labels_but_not_complete_candidate_plus_backup_labels_for_every_mode"
+  },
+  "forbidden": [
+    "new_simulation",
+    "new_candidate_execution",
+    "model_training",
+    "active_perturbation_collection",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "sealed_test_access",
+    "complete_policy_value_claim",
+    "neural_CBF_claim"
+  ]
+}

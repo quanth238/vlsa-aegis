@@ -4013,3 +4013,17 @@ and `7ec80fbfa9bd14b7b28fd2078a0c7b319b110d1f712d1246553e35e67c378cb5`;
 payload SHA-256 values are
 `434b17096bbe500509f3c18729c71adc07bebb314c57e06ecfa5569bcb905bdc`
 and `6d9a224ee8297e3439e9e259ef6edd7b2543f09112ef325115d7de5495d1a940`.
+
+ADR-0135 preregisters a no-learning, no-simulation audit of all 12 stored v3
+coarse prefix screens across the 16 proxy-valid grouped states. It compares the
+strongest outward-normal radius-2 proposal against every registered mode and
+separately compares six requested-radius-one normal/up/side proposals. Exact
+applied norm, clipping, L5 rows 0--2, physical veto, and the stored 0.5 mm
+screen gate remain explicit.
+
+The audit decides whether analytical repulsion supplies every observed prefix
+safe solution or whether independent tangential/temporal modes rescue states.
+Because complete fixed-backup outcomes exist only for the selected bisection
+path, this audit cannot authorize learning even if prefix mode diversity is
+found. Training, active collection, QP, calibration, closed loop, and sealed
+tests remain frozen.

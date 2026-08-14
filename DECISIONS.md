@@ -3155,3 +3155,35 @@ learning proposal must add independently varied physical directions and be
 formulated as a candidate ranker/multimodal proposal only if it demonstrates
 value beyond the registered analytical repulsion. Absolute safety acceptance,
 QP, calibration, closed loop, and sealed tests remain blocked.
+
+## ADR-0135: Audit whether registered physical modes vary by state
+
+- Status: preregistered
+- Date: 2026-08-14
+
+Pause learning and new data collection after ADR-0134. Reuse the immutable
+coarse-screen traces from the 16 proxy-valid grouped row-0/row-1 states to ask
+whether a learned mode selector has a physical role at all. Each state already
+contains nominal, positive/negative obstacle normal, upward tangent, side
+tangent, and fixed-mixture proposals.
+
+The primary comparison is the strongest analytical outward normal
+`normal_pos_front_loaded_r2.0`. A matched requested-radius-one comparison keeps
+positive/negative normal, upward tangent, and side tangent separate. Applied
+norm and clipping are reported because action bounds can break exact norm
+matching. Risk is the maximum exact five-action prefix violation over L5 rows
+0--2, and physical contact/CAR remains a veto.
+
+The audit asks two distinct questions. First, does the strongest outward normal
+pass in every observed state where any registered coarse mode passes? Second,
+at matched requested radius one, does a tangent rescue a state where outward
+normal fails, or do multiple mode families beat normal by at least 1 mm across
+states? The first supports analytical repulsion; the second is preliminary
+evidence for state-dependent proposal selection.
+
+These artifacts do not contain complete candidate-plus-backup labels for all
+coarse modes. Therefore even a positive prefix-diversity finding cannot
+authorize a learned selector or policy-value claim. It can only justify a later
+small matched-mode complete-rollout experiment after advisor review. No new
+simulation, model training, active perturbation, QP, calibration, closed loop,
+or sealed-test access is authorized here.
