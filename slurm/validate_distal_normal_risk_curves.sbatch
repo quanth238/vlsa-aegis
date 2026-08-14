@@ -24,6 +24,8 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]]
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]]
 for index in 00 01 02; do [[ -s "$RUN_ROOT/case-$index/result.json" ]]; done
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_distal_normal_risk_curves.py \
   --config "$REMOTE_REPO/configs/vlsa_distal_normal_risk_curve.v1.json" \
