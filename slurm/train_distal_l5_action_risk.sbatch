@@ -24,6 +24,7 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || { echo "source is dirty" >&2; exit 2; }
 test ! -e "$OUTPUT" || { echo "output exists" >&2; exit 2; }
 mkdir -p "$(dirname "$OUTPUT")"
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover \
