@@ -2838,3 +2838,29 @@ Producer attempt `40173` stopped before model construction on a nullable receipt
 alias for correction norm; dependent `40174` is cancelled. Fall back to the
 already validated `residual_binding.applied_residual_l2_action` only when the
 top-level alias is null. This is apparatus repair, not a protocol change.
+
+H100 producer `40175` and independent prediction replay `40176` complete the
+fixed experiment at commit `07f855f0488d138e1c453223e9e47f238e251d58`.
+The result is a strict prediction-and-selection NO-GO. The model fits the 43
+training labels to `0.164472 mm` RMSE, but grouped validation RMSE is
+`14.716616 mm` (`17.939185/10.551929 mm` by row) and contains 16 row-0/row-1
+false-safes among 29 labels. The validator reproduces every prediction exactly.
+
+All four recoverable validation states contain an exact-safe candidate and at
+least one candidate predicted safe, but minimum-change learned selection is
+exact-safe in only one: E22. It selects truly unsafe candidates in E37
+(`+1.630478 mm` row-0 violation), E39 (`+3.838207 mm` row-0 violation), and E45
+(`+9.017434 mm` row-1 violation; nominal selected). It also predicts all six
+candidates safe in unrecoverable E34 and chooses an unsafe nominal action.
+Original AEGIS EE projection compatibility passes for every selection, so the
+failure is learned grouped risk prediction rather than bypassing AEGIS.
+
+The selected exact-safe rate is `25%`, statistically and practically
+indistinguishable here from the preregistered seeded-random bank rate
+`24.5768%`. Do not interpret the Boolean greater-than check as evidence of an
+advantage. Because the prerequisite zero-false-safe prediction gate fails,
+fresh selected-action simulation, QP, calibration, and closed-loop execution
+remain blocked. This result shows that row-count coverage alone did not fix
+generalization. The next justified experiment is the already motivated matched
+input audit/model comparison using complete physical/OSC state; do not collect
+more candidates at these same states or train longer first.

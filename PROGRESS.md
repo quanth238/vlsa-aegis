@@ -3813,3 +3813,31 @@ correction norm while retaining the numeric norm in its validated residual
 binding. Dependent validator `40174` is cancelled exactly. The loader-only
 repair uses the residual value when the optional top-level alias is null; it
 changes no sample, feature, target, split, model, seed, selection, or gate.
+
+H100 producer `40175` and independent validator `40176` completed the fixed
+two-output selection experiment on worker-2. The 3,906-parameter model retained the exact
+43/29 train/validation populations and validator replay error is exactly zero.
+Training RMSE is `0.164472 mm`, while disjoint grouped-validation RMSE is
+`14.716616 mm` with row RMSEs `17.939185/10.551929 mm`; 16 of 29 validation
+actions are dangerous row-0/row-1 false-safes.
+
+The action bank is not the blocker: all four recoverable states contain two
+exact-safe candidates. The MLP supports all four only in the weak sense that it
+predicts something safe, but its closest predicted-safe action is exact-safe
+only for E22. E37, E39, and E45 selections violate row 0/1 by
+`1.630478/3.838207/9.017434 mm`; E34 is unrecoverable and the MLP still selects
+its unsafe nominal candidate. All selected actions retain original AEGIS EE
+compatibility. Exact-safe selection is `1/4 = 25%`, essentially the same as the
+fixed-seed random-bank rate `24.5768%`.
+
+The prediction gate fails, so no fresh selected-action OSC replay is authorized
+and no unsafe action is executed merely to reproduce an already authoritative
+label. The result narrows the root cause: the model learns the local training
+map but the compact 86D representation/data support does not transfer to
+grouped states. Candidate selection, QP, calibration, closed loop, and learned
+row-2/L6/L7 claims remain NO-GO. Model/validation file SHA-256 values are
+`55b422390a5b32059cecaacfb6f0bf46fc3cd24c1fd82e8574328d82fc6e02f9`
+and `d5ef9314fc4581026c5299b555be34397085eb689ed58e621e60e61aaebe16fd`;
+payload SHA-256 values are
+`9f44de2a857507fbe54ea7448fca9d427f7d43dad862e86cad3e228486af54ec`
+and `ec5b44f338e871f2a04d5f39d2381c496024f7c0c3158e94228ca99b591dbfff`.
