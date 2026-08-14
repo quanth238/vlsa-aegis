@@ -3362,7 +3362,7 @@ and `7b246dbdbb8f67a3017471289a2cd3cd1421740e292caf004e80775101aa5900`.
 
 ## ADR-0139: Test exact post-AEGIS normal-magnitude risk curves before learning
 
-- Status: active
+- Status: completed; safe-support gate passes, monotone bisection remains unsupported
 - Date: 2026-08-15
 
 The fixed radius-2 controller establishes outward-normal collision authority
@@ -3394,3 +3394,23 @@ states, change a QP, reopen a generalization claim, or establish a CBF. A
 complete adaptive-magnitude episode is authorized only if these exact curves
 contain safe support. Newly untouched natural episodes remain mandatory for
 any later generalization claim.
+
+H100 producers `40339`--`40341` and independent validator `40348` completed
+all 27 registered points. Every diagnostic state contains a known exact-safe
+magnitude: the smallest requested/effective post-AEGIS L2 magnitudes are
+`1.25/1.065836` for goal-task-2 E42, `0.75/0.711527` for goal-task-3 E42,
+and `1.75/1.585015` for goal-task-3 E44. None of the 27 proposals clipped.
+The nine complete-backup timeouts remain censored unknown rather than being
+relabeled unsafe. Goal-task-2 E42 is monotone over all known points; the two
+task-3 curves each contain one measured monotonicity reversal, including a
+3.368 mm risk increase from requested radius `1.0` to `1.25` in E42.
+Consequently, safe support authorizes a complete adaptive-magnitude oracle
+comparison using conservative registered grid search, but not monotone
+bisection, direct risk-to-force conversion, an MLP, or flow guidance.
+
+Summary/validation file SHA-256 values are
+`c02b37766c4d8b6b8268b5f29869fd8002466b4ed2614065e8668f7c218c6c37`
+and `83d4e42f06d19e0bd0e904267e289cf9cb4e2fad1866913fc689ddb1a52affc2`;
+payload SHA-256 values are
+`a046bc854e32f8cf297cc00efd57d74d3f67467daedbb5fabe5100df40a1f4bc`
+and `9829b9fc84205077980766fdf44d026cde5f2a63ff427ca2e9e9145143bbbd46`.

@@ -4152,3 +4152,21 @@ substep/phase, internal margins, contacts, CAR, terminal status, and replay
 identity. Timeouts remain unknown. Only a safe-support pass can authorize a
 subsequent complete adaptive-magnitude episode; MLP training, denoising
 guidance, QP changes, and new generalization claims remain blocked.
+
+H100 producers `40339`--`40341` and independent validator `40348` complete the
+ADR-0139 exact-curve gate. All three diagnostic first-warning states contain a
+known safe magnitude. The minimum requested/effective post-AEGIS L2 values are
+`1.25/1.065836`, `0.75/0.711527`, and `1.75/1.585015` for task-2 E42,
+task-3 E42, and task-3 E44 respectively; no candidate clipped. Nine of 27
+complete-backup evaluations timed out and remain unknown. Task-2 E42 is
+monotone on known points, while both task-3 cases have one risk reversal, so
+the next complete-episode oracle must choose the first exactly verified-safe
+point on the fixed grid rather than assume bisection or map millimetres of risk
+to normalized action magnitude. This is a mechanism GO for adaptive magnitude
+testing only. MLP training, denoising guidance, QP changes, and generalization
+claims remain blocked. Summary/validation file SHA-256 values are
+`c02b37766c4d8b6b8268b5f29869fd8002466b4ed2614065e8668f7c218c6c37`
+and `83d4e42f06d19e0bd0e904267e289cf9cb4e2fad1866913fc689ddb1a52affc2`;
+payload SHA-256 values are
+`a046bc854e32f8cf297cc00efd57d74d3f67467daedbb5fabe5100df40a1f4bc`
+and `9829b9fc84205077980766fdf44d026cde5f2a63ff427ca2e9e9145143bbbd46`.
