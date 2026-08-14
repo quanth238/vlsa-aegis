@@ -27,9 +27,15 @@ class L5ActionRiskTest(unittest.TestCase):
 
     def test_metrics_separate_l5_false_safe_and_physical_veto(self):
         samples = [
-            {"state_id": "a", "risk_l5": [-0.1, -0.1, -0.1], "exact_safe": True},
-            {"state_id": "a", "risk_l5": [0.1, -0.1, -0.1], "exact_safe": False},
-            {"state_id": "b", "risk_l5": [-0.1, -0.1, -0.1], "exact_safe": False},
+            {"state_id": "a", "risk_l5": [-0.1, -0.1, -0.1], "exact_safe": True,
+             "applied_correction_l2_action": 0.2, "candidate_order": 1,
+             "candidate_name": "safe"},
+            {"state_id": "a", "risk_l5": [0.1, -0.1, -0.1], "exact_safe": False,
+             "applied_correction_l2_action": 0.0, "candidate_order": 0,
+             "candidate_name": "false-safe"},
+            {"state_id": "b", "risk_l5": [-0.1, -0.1, -0.1], "exact_safe": False,
+             "applied_correction_l2_action": 0.1, "candidate_order": 2,
+             "candidate_name": "physical-veto"},
         ]
         metrics = prediction_metrics([
             [-0.1, -0.1, -0.1], [-0.1, -0.1, -0.1], [-0.1, -0.1, -0.1]
@@ -37,6 +43,7 @@ class L5ActionRiskTest(unittest.TestCase):
         self.assertEqual(metrics["L5_false_safe_count"], 1)
         self.assertEqual(metrics["predicted_L5_safe_but_all_seven_physical_veto_count"], 2)
         self.assertEqual(metrics["supported_recoverable_state_count"], 1)
+        self.assertTrue(metrics["all_selected_candidates_exact_all_seven_safe"])
 
 
 if __name__ == "__main__":
