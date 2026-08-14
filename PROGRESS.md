@@ -3794,3 +3794,15 @@ blocked rather than manufacturing row-2 data.
 Scoped summary payload/file SHA-256 values are
 `9f3a98f96ff7c9995bb04aaa1e9f2b686f7e9f99ceaf5380a4ab0de4ef588c03`
 and `3b873cef172e37a1e6d24827860ad54c4b20a248168302cb205f22c93be0e342`.
+
+The requested learned-correction feasibility test is preregistered as a strict
+two-output L5 row-0/row-1 candidate selector. It binds the three immutable
+summary payloads, 43 train and 29 disjoint validation labels, useful-state
+counts `[3,3]` train and `[3,1]` validation, the existing compact 86D input,
+and the fixed 32--32 MLP. Prediction determines only which registered candidate
+to propose; exact all-seven ellipsoid/contact/CAR checks and the original AEGIS
+EE projection remain vetoes. Row 2, L6, and L7 are diagnostic only and cannot
+support a learned-safety claim. The passing gate requires zero selected
+row-0/row-1 false-safes and safe support in every one of the four recoverable
+validation states before fresh replay. QP, calibration, closed loop, and sealed
+tests remain blocked.

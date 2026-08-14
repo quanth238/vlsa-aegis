@@ -2799,3 +2799,37 @@ feature audit, with row 2 calculated and logged exactly. Do not train the
 three-output L5 model, add calibration/QP/closed loop, or open sealed episodes.
 If the intended claim still requires learned row 2, collect a physical
 population that activates its boundary first.
+
+## ADR-0129: Restrict the first learned correction test to L5 rows 0--1
+
+- Status: preregistered; H100 prediction/selection pending
+- Date: 2026-08-14
+
+The user narrows the learned claim together with its acceptance gate. The
+validated population supplies three useful train states for each of L5 rows 0
+and 1 and three/one disjoint validation states for rows 0/1. Row 2 remains
+unsupported and is not a learned output. This authorizes one fixed two-output
+capacity-and-selection experiment; it does not authorize a three-output L5 or
+whole-arm claim.
+
+Fit the existing compact 86D action-conditioned architecture with two outputs
+and unchanged deterministic symmetric boundary-weighted Huber training. Use
+all 43 known train labels and 29 known grouped-validation labels from the
+immutable base, targeted, and scoped moka sources. Exclude timeouts,
+proxy-invalid states, and the E00 candidate stopped only by an out-of-scope L6
+contact. Preserve complete episode grouping and do not open reserved tests.
+
+At each validation state, accept candidates only when both predicted L5 risks
+are nonpositive, then choose the minimum registered correction norm. Compare
+with the closest exact-safe oracle, raw AEGIS record, and 1,024 fixed-seed
+random bank draws. Passing requires zero row-0/row-1 false-safes, predicted-safe
+support in all four recoverable validation states, every selected action to
+pass all seven exact ellipsoid rows, protected MuJoCo contacts, CAR, and the
+unchanged original AEGIS EE projection, and a selected safe rate above random.
+Any selection in an unrecoverable state that transfers collision to row 2,
+L6, or L7 is a failure rather than a silently discarded sample.
+
+Only a complete prediction gate authorizes fresh H100 replay of each selected
+candidate. Candidate selection is tested before gradients: calibration, QP,
+closed-loop execution, neural-CBF language, and learned row-2/L6/L7 claims
+remain forbidden.
