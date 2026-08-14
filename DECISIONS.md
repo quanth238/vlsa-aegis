@@ -2779,3 +2779,23 @@ outcome-blind policy-noise seed when replaying candidates; this is required to
 reproduce the archived action ledger and is not a new candidate variable.
 Continue to log all seven rows, contacts, CAR, failures, and timeouts, while the
 learned claim remains L5-only and row 2 unsupported.
+
+Adaptive producer `40158` and validator `40159` pass. E00 and E45 provide the
+required new row-1 train/validation boundary states; E05/E10 remain no-safe
+diagnostics. Preserve every candidate and failure.
+
+Do not apply the generic seven-link physical-veto classification to the scoped
+L5 learning target. E00's nominal candidate stops on an L6-only raw contact
+while all L5 risks are safe. Because the stopped rollout has no complete backup,
+censor it for L5 rather than label it safe or unsafe. Continue reporting that
+L6 contact as cross-link failure evidence. L5 contact and CAR remain hard L5
+physical vetoes. This realizes the declared rule that L6/L7 are outside the L5
+decision but inside evaluation; it does not waive them for a future whole-arm
+claim.
+
+Scoped summary `40172` passes the complete row-0 and row-1 coverage gates but
+row 2 remains unsupported. Authorize only a preregistered matched row-0/row-1
+feature audit, with row 2 calculated and logged exactly. Do not train the
+three-output L5 model, add calibration/QP/closed loop, or open sealed episodes.
+If the intended claim still requires learned row 2, collect a physical
+population that activates its boundary first.

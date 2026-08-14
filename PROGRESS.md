@@ -3764,3 +3764,33 @@ Boundary validation payload SHA-256 is
 `994fd0921142a38f725b744dca918a89afded410e661aa5b74564302c3b459bf`;
 validation file SHA-256 is
 `77b88ff82d281ca8c8d47a325fa0f575b2e761506fd7256137554edcdbd17975`.
+
+Adaptive-v3 producer `40158` and independent H100 validator `40159` completed
+all four warning states with no timeout. E00 train and E45 validation each have
+two-sided row-1 support: after L5-scoped censoring E00 contributes three safe
+and two unsafe complete candidates, while E45 contributes two safe and four
+unsafe candidates. Diagnostic E05/E10 have no globally safe candidate in the
+frozen bank and remain explicit no-safe states.
+
+The broad all-protected summary `40168` initially classified E00 as proxy
+invalid. The exact cause is one nominal-prefix `robot0_link6_collision` contact
+at action 164/substep 24 while L6 rows remain positive (row-3 minimum 7.417 mm).
+This is a real L6 proxy miss exposed by the new trajectory, but it is outside
+the declared learned-L5 acceptance rule. It is not silently called safe: the
+early-stopped candidate is censored/unknown for L5 because it lacks a complete
+backup rollout, and the L6 contact is retained as a cross-link diagnostic.
+Rows 0--2 have no observed proxy-safe L5 physical contact in this extension.
+
+H100 summary `40172` applies exactly that declared L5 scope. Cumulative known
+candidate counts become 43 train and 29 validation. Useful boundary-state
+counts become `[3,3,1]` train and `[3,1,0]` validation for L5 rows 0/1/2.
+Consequently rows 0 and 1 pass every registered sample and state-support gate,
+while row 2 still fails both train and validation state support. A matched
+row-0/row-1 feature audit is now scientifically supported with row 2 retained
+as an exact diagnostic monitor. The requested three-output L5 MLP is not yet
+authorized; training, calibration, QP, closed loop, and sealed tests remain
+blocked rather than manufacturing row-2 data.
+
+Scoped summary payload/file SHA-256 values are
+`9f3a98f96ff7c9995bb04aaa1e9f2b686f7e9f99ceaf5380a4ab0de4ef588c03`
+and `3b873cef172e37a1e6d24827860ad54c4b20a248168302cb205f22c93be0e342`.
