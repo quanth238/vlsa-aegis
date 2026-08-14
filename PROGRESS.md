@@ -3210,3 +3210,28 @@ dataset support or the physical veto. QP, calibration, reserved-test opening,
 and closed-loop execution remain blocked. The strong train/validation gap
 localizes the next question to grouped-state generalization/representation;
 training longer cannot establish the missing safety gate.
+
+## L5-only acceptance-rule refinement
+
+The next feasibility claim is now narrower than the validated 39778/39781
+analysis: learn only L5 rows 0--2 and combine the final candidate with the
+released AEGIS EE constraint. L6/L7 no longer belong to the scoped decision
+rule; they remain compulsory diagnostic traces for collision transfer. The
+primary reported outcomes will be L5 success and accepted-action L6/L7 contact,
+with CAR and native task completion reported separately. No whole-arm or
+L5--L7 learned-safety claim is permitted.
+
+A read-only schema audit found that the immutable grouped candidates are
+released-AEGIS outputs followed by post-AEGIS structured residuals. They store
+seven distal risks, protected contacts, and CAR, but no released EE-QP record
+for the modified candidate. Therefore existing artifacts cannot be relabeled
+as AEGIS-compatible. Any future control artifact must bind the EE-QP input,
+output, status, modification norm, final executed action hash, and final-action
+L5 prediction. L6/L7 link-specific contact transfer must remain separately
+countable.
+
+This refinement changes no existing result: the current three-output model
+still fails its own L5 gate with 29 held-out false-safes, so no candidate is
+executed and no new simulation/training is authorized. First resolve the L5
+grouped-state prediction failure; only then measure the AEGIS-compatible
+acceptance and cross-link-transfer rates.

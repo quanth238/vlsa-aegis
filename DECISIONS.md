@@ -2273,3 +2273,35 @@ next scientific intervention must address grouped-state prediction
 generalization/representation while preserving the frozen labels and splits;
 additional epochs or a larger correction cannot repair this validated
 false-safe failure.
+
+## ADR-0115: Make L6/L7 transfer diagnostic in the L5-only feasibility claim
+
+- Status: accepted for the next control gate; prediction remains blocked
+- Date: 2026-08-14
+- Supersedes: ADR-0114 only for the future action-acceptance rule
+
+Narrow the first control claim to **learned L5 collision avoidance under the
+released AEGIS end-effector constraint**. The learned decision has exactly
+three risk outputs (L5 rows 0--2). L6/L7 rows are not learned constraints and
+do not reject an action in this scoped feasibility arm; instead, their exact
+ellipsoid traces and MuJoCo contacts are mandatory diagnostic outcomes. Report
+accepted-action L6/L7 contact as cross-link collision transfer, not as a false
+safe of the stated L5 predictor and not as whole-arm safety.
+
+The existing grouped artifacts cannot yet establish AEGIS EE compatibility of
+a corrected candidate. They store actions in released-AEGIS output coordinates,
+but the structured L5 residual is applied afterward and no released EE-QP
+input/output record is stored for that modified action. Do not infer that a
+modified candidate remains AEGIS-compatible merely because its nominal parent
+was filtered. The future gate must record the original EE-QP check on the final
+candidate and bind the learned L5 prediction to the exact final executed action.
+If the EE filter materially changes the candidate, recompute L5 risk on that
+output or reject it; never evaluate one action and execute another.
+
+Report separately: (1) L5 success (final action predicted L5-safe, AEGIS EE
+compatible, and no evaluated L5 contact); (2) L6/L7 cross-link transfer among
+accepted actions; and (3) CAR/task outcomes as diagnostics. Keep the terms
+`whole-arm safety filter`, `L5--L7 safety`, and `collision-safe VLA` forbidden.
+This protocol change cannot rescue the frozen model from jobs 39778/39781,
+because its 29 held-out L5 false-safes fail before the AEGIS or cross-link
+decision. QP and closed-loop execution remain unauthorized.
