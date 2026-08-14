@@ -154,6 +154,7 @@ def _empty_group(group: str, rows: Sequence[int]) -> dict[str, Any]:
         "contact_within_buffer_count_by_row": [0] * len(rows),
         "contact_clearance_by_row_m": [[] for _ in rows],
         "contact_state_ids": [],
+        "active_contact_witness_count_by_state": {},
         "unmapped_contact_event_count": 0,
     }
 
@@ -208,6 +209,10 @@ def summarize_samples(
                 )
                 active = min(range(len(values)), key=lambda index: values[index])
                 summary["active_contact_witness_count_by_row"][active] += 1
+                state_counts = summary["active_contact_witness_count_by_state"].setdefault(
+                    state_id, [0] * len(rows)
+                )
+                state_counts[active] += 1
                 for local, value in enumerate(values):
                     summary["contact_overlap_count_by_row"][local] += int(value <= overlap)
                     summary["contact_within_buffer_count_by_row"][local] += int(
@@ -216,6 +221,12 @@ def summarize_samples(
                     summary["contact_clearance_by_row_m"][local].append(value)
     for summary in by_group.values():
         summary["contact_state_ids"] = sorted(set(summary["contact_state_ids"]))
+        summary["active_contact_witness_count_by_state"] = [
+            {"state_id": state_id, "count_by_row": counts}
+            for state_id, counts in sorted(
+                summary["active_contact_witness_count_by_state"].items()
+            )
+        ]
         distributions = []
         for values in summary.pop("contact_clearance_by_row_m"):
             ordered = sorted(values)

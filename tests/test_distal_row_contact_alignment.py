@@ -63,6 +63,9 @@ class RowContactAlignmentTest(unittest.TestCase):
         self.assertEqual(l5["raw_contact_sample_count"], 1)
         self.assertEqual(l5["proxy_false_safe_contact_sample_count"], 0)
         self.assertEqual(l5["active_contact_witness_count_by_row"], [0, 1, 0])
+        self.assertEqual(l5["active_contact_witness_count_by_state"], [{
+            "state_id": "state-a", "count_by_row": [0, 1, 0],
+        }])
         self.assertEqual(result["physical_active_contact_witness_rows"]["L5"], [1])
         self.assertEqual(
             decision(result)["primary_root_cause"],
