@@ -3288,3 +3288,25 @@ The next justified question is how to gate or scale this same repulsion so that
 it preserves task competence, using untouched complete episodes and live VLA
 feedback. Any such study must freeze its warning/magnitude rule before outcomes
 and compare against this radius-2 ceiling.
+
+## ADR-0137: Require portable playback validation before video handoff
+
+- Status: completed
+- Date: 2026-08-15
+
+The first user-facing handoff linked the raw experiment MP4 files. Although
+their remote/local hashes matched, the files were 96/34/28 MB and failed in-app
+playback. Container existence and checksums are therefore insufficient video
+acceptance criteria.
+
+All future simulation-video handoffs must first run
+`slurm/finalize_simulation_videos.sbatch` on H100. It generates bounded-width
+H.264 Main/level-3.1, yuv420p, fast-start, silent MP4 files, fully decodes every
+output with ffmpeg, and writes an immutable size/hash manifest. Raw experiment
+videos remain scientific artifacts but must not be used as the delivered copy.
+
+H100 job `40296` validates the repaired delivery files at 512-pixel maximum
+width and CRF 30. Sizes are 4.10/0.829/1.86 MB and SHA-256 values are
+`db2a15afabdc384558949dd1ee6f6398488b5483dcf7debea6822dd5d496893a`,
+`51fc327420a364fd3845be4387aba4d532b013dd116c0dd3df310dd54689971f`,
+and `ef2efe0568024fa5171a5b7fc14c3aefce2579ad88b6d12927061c2137649f3a`.

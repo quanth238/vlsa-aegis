@@ -4095,3 +4095,11 @@ and `f9a490ba8599bae5ae909e15c95e30e8dff235b0e47acefcbfb2ea1a619974d9`;
 payload SHA-256 values are
 `56caf77d007b82caf405147c503fa176433f4ede81176462af4397f1d372b6ba`
 and `9ceccc9df2f5322b164ce1f4c0cb552d4ad1afba2ef1528d48d9cd6f340ab394`.
+
+The initial video handoff failed in-app despite matching raw artifact hashes;
+the raw MP4s were 96/34/28 MB and had not passed a delivery-specific full-decode
+gate. ADR-0137 adds `slurm/finalize_simulation_videos.sbatch`. H100 job `40296`
+transcodes to H.264 Main/level-3.1, yuv420p, fast-start, max width 512 and CRF
+30, then decodes every frame and emits a manifest. Verified portable outputs
+are 4.10/0.829/1.86 MB. Future video delivery must use this gate and must not
+link raw experiment MP4s directly.
