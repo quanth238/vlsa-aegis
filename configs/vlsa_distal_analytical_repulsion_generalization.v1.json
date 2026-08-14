@@ -1,0 +1,80 @@
+{
+  "schema_version": "vlsa_distal_analytical_repulsion_generalization.v1",
+  "protocol_id": "vlsa-distal-analytical-repulsion-generalization-v1",
+  "claim_scope": "three_preexisting_sealed_task_successful_collision_cases_oracle_triggered_fixed_analytical_repulsion_with_live_frozen_pi05_replanning_not_population_generalization_not_deployable_warning_not_formal_safety",
+  "population": {
+    "selection_manifest": "manifests/vlsa_distal_analytical_repulsion_generalization.v1.jsonl",
+    "case_count": 3,
+    "split_unit": "complete_episode",
+    "repulsion_outcomes_unopened_at_preregistration": true,
+    "tasks": ["safelibero_goal_t2", "safelibero_goal_t3"],
+    "expected_baseline_contact_bodies": ["robot0_link5", "robot0_link6", "robot0_link6"]
+  },
+  "pairing": {
+    "initial_state": "immutable_table1",
+    "observation": "immutable_table1_until_first_intervention",
+    "policy_noise": "immutable_per_query_seed_schedule",
+    "replan_steps": 5,
+    "policy_action_horizon": 10,
+    "raw_comparator": "immutable_released_AEGIS_result"
+  },
+  "warning_oracle": {
+    "evaluation": "exact_cloned_OSC_five_post_AEGIS_actions_all_internal_substeps",
+    "buffer_m": 0.001,
+    "protected_contact_limit": 0,
+    "paper_car_threshold_m": 0.001,
+    "include_initial_state": true,
+    "trigger": "any_proxy_row_below_buffer_or_protected_contact_or_CAR",
+    "deployment_claim": false
+  },
+  "fixed_repulsion": {
+    "spatial_direction": "outward_center_normal_of_current_closest_L5_L7_slab",
+    "temporal_profile": "front_loaded_unit_L2_5_4_3_2_1",
+    "requested_correction_l2_action": 2.0,
+    "corrected_dimensions": [0, 1, 2],
+    "action_limit": 1.0,
+    "apply_after_nominal_released_AEGIS": true,
+    "reapply_unchanged_released_AEGIS_sequentially": true,
+    "execute_even_if_corrected_oracle_remains_unsafe": true,
+    "adaptive_magnitude": false,
+    "tangent_or_mode_search": false
+  },
+  "execution": {
+    "live_frozen_pi05_replanning": true,
+    "execute_actions_per_query": 5,
+    "maximum_steps_from_table1_manifest": true,
+    "stop_on_native_task_completion": true,
+    "stop_on_collision_or_CAR": false,
+    "expected_mujoco_substeps_per_action": 25,
+    "boundary_equivalence_tolerance_m": 1e-12,
+    "video_fps": 20
+  },
+  "measurement": {
+    "learned_scope": "none",
+    "proxy_rows": "seven_L5_L7_slabs",
+    "raw_contact_authority": "MuJoCo_nonpositive_active_obstacle_contact",
+    "report_contact_by_link": true,
+    "report_task_success": true,
+    "report_intervention_count_norm_and_clipping": true,
+    "report_timeout_and_terminal_25_action_EE_motion": true,
+    "report_original_AEGIS_EE_QP": true
+  },
+  "gate": {
+    "required_case_count": 3,
+    "require_zero_L5_L7_contact_all_cases": true,
+    "require_paper_CAR_all_cases": true,
+    "require_native_task_completion_all_cases": true,
+    "require_no_collision_transfer": true,
+    "require_no_timeout": true
+  },
+  "forbidden": [
+    "test_outcome_dependent_tuning",
+    "learned_direction",
+    "learned_magnitude",
+    "QP_change",
+    "Table1_artifact_change",
+    "population_generalization_claim",
+    "deployable_warning_claim",
+    "CBF_or_formal_safety_claim"
+  ]
+}

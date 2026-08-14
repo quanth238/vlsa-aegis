@@ -4047,3 +4047,14 @@ and `7f9bba4371eab1cb631a936aea7261fcdb67d402e28cf65abc305c7dbc118b26`;
 payload SHA-256 values are
 `3541886f642409883ca12ba2bc0ee5dfe24628a94b4a743269a282c2bd6da352`
 and `38fe30211687847d3b274186df279d38ca497dcdae45bc6fb7829704feaa3ac0`.
+
+ADR-0136 is preregistered before opening any repulsion outcome on the three
+previously sealed complete episodes. It freezes one oracle-triggered controller:
+exact five-action cloned-OSC warning at +1 mm, fixed closest-slab outward normal,
+front-loaded unit-L2 radius 2, action clipping, unchanged released AEGIS EE QP,
+execute five, and live frozen-pi0.5 replanning. Goal-task-2 E42 and goal-task-3
+E42/E44 provide one historical L5 and two historical L6 collisions while raw
+AEGIS completed each task. The paired full-episode gate reports L5/L6/L7
+contacts, CAR, native task completion, clipping, timeout, terminal motion, and
+video. A strict pass requires safe task success in all three; no tuning,
+learning, QP change, deployable-warning claim, or population claim is permitted.

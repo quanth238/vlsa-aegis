@@ -3211,3 +3211,33 @@ to the simpler analytical story: verified predictive normal repulsion followed
 by VLA replanning, with task compatibility and complete continuation as the
 remaining questions. Learned selection should be reconsidered only if future
 matched-norm, complete-rollout evidence exposes genuine mode-dependent rescue.
+
+## ADR-0136: Test frozen analytical repulsion on sealed complete episodes
+
+- Status: preregistered; H100 execution pending
+- Date: 2026-08-14
+
+Open the three episode groups sealed by ADR-0109 only after freezing the
+algorithm. The cases are goal-task-2 E42 (historical L5 contact) and goal-task-3
+E42/E44 (historical L6 contact). Their immutable released-AEGIS results are the
+paired task-successful collision controls. No development or test outcome may
+change the method after this registration.
+
+At every real five-action query boundary, an exact cloned-OSC rollout of the
+nominal post-AEGIS prefix supplies a privileged warning only. If any of seven
+L5--L7 rows falls below +1 mm, a protected MuJoCo contact occurs, or paper CAR
+would fail, apply exactly the previously registered
+`normal_pos_front_loaded_r2.0` correction. The normal points from the obstacle
+proxy center to the currently closest L5--L7 slab center; the unit-L2 temporal
+profile is 5:4:3:2:1; XYZ is clipped at [-1,1]; and the unchanged released
+AEGIS EE QP is applied sequentially once more. Magnitude, threshold, temporal
+profile, and direction cannot adapt. Execute five actions, query frozen pi0.5
+from the changed observation, and repeat through task completion or horizon.
+
+The strict gate requires all three episodes to complete the native task with
+zero raw L5--L7 contact, paper CAR pass, no collision transfer, and no timeout.
+Every intervention norm and clipping event is retained. Failure in any case is
+a NO-GO for this fixed controller. A pass supports only transfer of the
+analytical correction mechanism under privileged prediction: it is not an
+unbiased population result, deployable warning detector, CBF, or formal safety
+claim. Learning, QP changes, and outcome-dependent retuning remain forbidden.
