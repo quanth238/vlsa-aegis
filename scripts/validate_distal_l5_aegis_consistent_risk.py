@@ -125,7 +125,7 @@ def validate(
     )
     buffer_m = float(risk_config["risk_target"]["safety_buffer_m"])
     car_limit = float(risk_config["risk_target"]["paper_car_threshold_m"])
-    safe_count = timeout_count = proxy_collision_count = 0
+    safe_count = known_unsafe_count = timeout_count = proxy_collision_count = 0
     witness_counts = [0] * 7
     for index, candidate in enumerate(candidates):
         actions = np.asarray(candidate["actions"], dtype=np.float64)
@@ -169,6 +169,8 @@ def validate(
         if candidate["terminal_status"] == "UNKNOWN_TIMEOUT":
             timeout_count += 1
             _require(candidate["exact_safe"] is False, "timeout labeled safe")
+        elif not bool(candidate["exact_safe"]):
+            known_unsafe_count += 1
         safe_count += int(candidate["exact_safe"])
         witness_counts[int(np.argmin(combined))] += 1
         proxy_safe_physical = bool(
@@ -202,7 +204,7 @@ def validate(
     _require(summary["proxy_safe_physical_collision_count"]
              == proxy_collision_count == 0,
              "proxy-safe physical collision exists")
-    mixed_support = bool(safe_count > 0 and safe_count < len(candidates))
+    mixed_support = bool(safe_count > 0 and known_unsafe_count > 0)
     if not grouped_collection:
         _require(mixed_support,
                  "corrected population lacks mixed safe/unsafe support")
@@ -245,6 +247,7 @@ def validate(
         "counts": {
             "candidates": len(candidates),
             "safe": safe_count,
+            "known_unsafe": known_unsafe_count,
             "unsafe_or_timeout": len(candidates) - safe_count,
             "timeouts": timeout_count,
             "active_witness_by_row": witness_counts,
