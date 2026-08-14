@@ -3515,3 +3515,10 @@ kernel for H100. It stopped before an optimizer step or result artifact;
 dependent validator `40055` was cancelled exactly. The runtime-only retry uses
 the registered OpenPI Python whose PyTorch supports H100, without changing any
 scientific setting.
+
+OpenPI-runtime attempt `40057` then stopped in repository preflight because
+module-style unittest loading resolved an unrelated installed `tests` package.
+It never imported the training script or constructed a model; dependent
+validator `40058` was cancelled exactly. The retry uses repository-local
+unittest discovery, identical to the existing validated OpenPI training
+apparatus, with no protocol change.

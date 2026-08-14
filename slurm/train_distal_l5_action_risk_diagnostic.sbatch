@@ -33,7 +33,8 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-"$AEGIS_PYTHON" -m unittest tests.test_distal_l5_action_risk_diagnostic -v
+"$AEGIS_PYTHON" -m unittest discover \
+  -s tests -p 'test_distal_l5_action_risk_diagnostic.py' -v
 "$AEGIS_PYTHON" scripts/train_distal_l5_action_risk_diagnostic.py \
   --repo-root "$REMOTE_REPO" \
   --config "$REMOTE_REPO/configs/vlsa_distal_l5_action_risk_diagnostic.v1.json" \

@@ -2550,3 +2550,7 @@ Retry `40054` then stopped before its first optimizer update because the
 evaluation environment's PyTorch lacks H100 `sm_90` kernels. Use the registered
 OpenPI Python for both producer and replay validator. This is an allocation-
 runtime correction only; the model and protocol remain frozen.
+
+Attempt `40057` exposed only an OpenPI namespace collision in module-style unit
+test loading. Use `unittest discover -s tests` so the allocation executes the
+repository's test file. No training code ran and no scientific setting changes.
