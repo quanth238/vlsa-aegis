@@ -135,6 +135,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                for item in result["target_row_summary"])
         else "bounded_active_search_no_useful_boundary_observed_in_job"
     )
+    # ``evaluate`` hashes its base result before this wrapper adds the active
+    # search binding and summaries.  Remove that intermediate hash so the
+    # final digest covers exactly the final payload once.
+    result.pop("result_payload_sha256", None)
     result["result_payload_sha256"] = _sha256(canonical(result))
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({
