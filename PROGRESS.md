@@ -3736,3 +3736,9 @@ and `1a0add5cb2e15c0ba4a365ccfea2921ad50be100300253ba39580cdfaf02816b`;
 file SHA-256 values are
 `b97babc6a05d234113891d4dbf64cb47989ddd4a921a22770929a874e502baa0`
 and `240ac17200c71389cfa8fc8de959dd052ea48ddcb59b0b4043dbbacc55db0472`.
+
+Initial boundary array `40143` failed in the source-binding preflight before
+environment construction because the discovery summary's canonical field is
+named `payload_sha256`, not `result_payload_sha256`; dependent validator
+`40144` is cancelled exactly. The key-name repair binds the same preregistered
+digest and changes no source trajectory, boundary rule, simulation, or gate.

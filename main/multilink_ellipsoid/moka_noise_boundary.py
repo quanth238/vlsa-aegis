@@ -123,7 +123,7 @@ def validate_discovery_binding(
         raise ValueError("moka discovery validation file differs")
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     validation = json.loads(validation_path.read_text(encoding="utf-8"))
-    if summary["result_payload_sha256"] != source["summary_payload_sha256"]:
+    if summary["payload_sha256"] != source["summary_payload_sha256"]:
         raise ValueError("moka discovery summary payload differs")
     if validation["payload_sha256"] != source["validation_payload_sha256"]:
         raise ValueError("moka discovery validation payload differs")

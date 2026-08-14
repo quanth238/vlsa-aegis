@@ -2761,3 +2761,8 @@ This experiment may supply distinct row-1 evidence or disprove support in this
 population. Row 2 remains diagnostic unless physically activated. It neither
 changes the accepted ellipsoids nor opens training, calibration, QP, closed loop,
 Poisson, or sealed tests.
+
+Attempt `40143` stopped during immutable discovery binding because the summary
+uses `payload_sha256` as its digest field. Correct only that schema key and rerun
+against the identical summary digest; no environment or scientific evaluation
+ran. Cancel dependency-blocked validator `40144` exactly.
