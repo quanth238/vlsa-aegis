@@ -25,7 +25,8 @@ def summarize_population(
     validator_commit: str, summary_commit: str,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
-        row_coverage, training_readiness,
+        row_coverage, state_classification, training_eligible_state,
+        training_readiness,
     )
 
     indices = list(range(15))
@@ -44,7 +45,9 @@ def summarize_population(
         required_splits=("diagnostic", "train", "validation"),
     )
     by_split: dict[str, list[dict[str, int]]] = {}
+    eligible_by_split: dict[str, list[dict[str, int]]] = {}
     useful_by_split: dict[str, list[int]] = {}
+    all_known_candidates_by_split: dict[str, int] = {}
     known_candidates_by_split: dict[str, int] = {}
     for result_path in result_paths:
         result = _load(result_path)
@@ -52,13 +55,23 @@ def summarize_population(
         coverage = row_coverage(result["candidates"])
         if split not in by_split:
             by_split[split] = [{key: 0 for key in record} for record in coverage]
+            eligible_by_split[split] = [
+                {key: 0 for key in record} for record in coverage
+            ]
             useful_by_split[split] = [0] * 7
+            all_known_candidates_by_split[split] = 0
             known_candidates_by_split[split] = 0
         _add_coverage(by_split[split], coverage)
-        known_candidates_by_split[split] += sum(
+        known_count = sum(
             candidate["terminal_status"] != "UNKNOWN_TIMEOUT"
             for candidate in result["candidates"]
         )
+        all_known_candidates_by_split[split] += known_count
+        classification = state_classification(result["candidates"])
+        if not training_eligible_state(classification):
+            continue
+        _add_coverage(eligible_by_split[split], coverage)
+        known_candidates_by_split[split] += known_count
         for row, record in enumerate(coverage):
             if (record["known_safe_candidate_count"] > 0
                     and record["known_unsafe_candidate_count"] > 0
@@ -75,11 +88,11 @@ def summarize_population(
         "minimum_validation_useful_boundary_states_per_row": 1,
     }
     fit_row_coverage = [
-        {key: 0 for key in by_split["train"][row]}
+        {key: 0 for key in eligible_by_split["train"][row]}
         for row in range(7)
     ]
-    _add_coverage(fit_row_coverage, by_split["train"])
-    _add_coverage(fit_row_coverage, by_split["validation"])
+    _add_coverage(fit_row_coverage, eligible_by_split["train"])
+    _add_coverage(fit_row_coverage, eligible_by_split["validation"])
     sample_gates, row_gates, training_authorized = training_readiness(
         # Diagnostic cases remain positive controls and cannot satisfy a
         # train/validation learning gate.
@@ -91,8 +104,10 @@ def summarize_population(
     output.update({
         "schema_version": "vlsa_distal_l5_aegis_grouped_population_summary.v1",
         "coverage_by_split": by_split,
+        "training_eligible_coverage_by_split": eligible_by_split,
         "fit_row_coverage": fit_row_coverage,
         "useful_boundary_state_count_by_split": useful_by_split,
+        "all_known_candidate_count_by_split": all_known_candidates_by_split,
         "known_candidate_count_by_split": known_candidates_by_split,
         "training_readiness_thresholds": thresholds,
         "sample_gates": sample_gates,

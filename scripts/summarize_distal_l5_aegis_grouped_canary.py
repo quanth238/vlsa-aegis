@@ -85,6 +85,10 @@ def summarize(
     observed_splits = {state["split"] for state in states}
     _require(set(required_splits).issubset(observed_splits),
              "grouped summary required splits differ")
+    _require(len({state["case_id"] for state in states}) == len(states),
+             "grouped summary contains duplicate episodes")
+    _require(len({state["state_id"] for state in states}) == len(states),
+             "grouped summary contains duplicate states")
     mixed = sum(state["classification"] == "usable_mixed_support" for state in states)
     output = {
         "schema_version": "vlsa_distal_l5_aegis_grouped_canary_summary.v1",

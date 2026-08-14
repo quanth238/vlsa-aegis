@@ -9,6 +9,11 @@ ROW_COUNT = 7
 LEARNED_L5_ROWS = (0, 1, 2)
 
 
+def training_eligible_state(classification: str) -> bool:
+    """Proxy-invalid geometry cannot supervise the learned ellipsoid risk."""
+    return str(classification) != "proxy_invalid"
+
+
 def candidate_outcome(candidate: Mapping[str, Any]) -> str:
     status = candidate["terminal_status"]
     if status == "UNKNOWN_TIMEOUT":

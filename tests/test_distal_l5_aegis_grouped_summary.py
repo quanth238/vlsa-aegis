@@ -1,7 +1,8 @@
 import unittest
 
 from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
-    candidate_outcome, row_coverage, state_classification, training_readiness,
+    candidate_outcome, row_coverage, state_classification,
+    training_eligible_state, training_readiness,
 )
 
 
@@ -77,6 +78,11 @@ class L5AegisGroupedSummaryTests(unittest.TestCase):
         )
         self.assertFalse(authorized)
         self.assertFalse(gates[2]["passes"])
+
+    def test_proxy_invalid_state_is_not_training_eligible(self):
+        self.assertFalse(training_eligible_state("proxy_invalid"))
+        self.assertTrue(training_eligible_state("usable_mixed_support"))
+        self.assertTrue(training_eligible_state("no_safe_candidate"))
 
 
 if __name__ == "__main__":
