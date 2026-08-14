@@ -23,7 +23,7 @@ def _add_coverage(left: list[dict[str, int]], right: list[dict[str, int]]) -> No
 def summarize_population(
     *, repo_root: Path, producer_root: Path, producer_commit: str,
     validator_commit: str, summary_commit: str, adaptive: bool = False,
-    adaptive_v2: bool = False,
+    adaptive_v2: bool = False, adaptive_v3: bool = False,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
         row_coverage, state_classification, training_eligible_state,
@@ -34,11 +34,15 @@ def summarize_population(
     )
     from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
         RESULT_SCHEMA as ADAPTIVE_V2_RESULT_SCHEMA,
+        RESULT_SCHEMA_V3 as ADAPTIVE_V3_RESULT_SCHEMA,
     )
 
-    _require(not (adaptive and adaptive_v2),
+    _require(sum(bool(value) for value in (
+        adaptive, adaptive_v2, adaptive_v3,
+    )) <= 1,
              "adaptive population summary mode is ambiguous")
-    adaptive_any = bool(adaptive or adaptive_v2)
+    adaptive_per_row = bool(adaptive_v2 or adaptive_v3)
+    adaptive_any = bool(adaptive or adaptive_per_row)
 
     indices = list(range(15))
     result_paths = [producer_root / ("case-%02d" % index) / "result.json"
@@ -55,6 +59,7 @@ def summarize_population(
         expected_count=15,
         required_splits=("diagnostic", "train", "validation"),
         result_schema=(
+            ADAPTIVE_V3_RESULT_SCHEMA if adaptive_v3 else
             ADAPTIVE_V2_RESULT_SCHEMA if adaptive_v2 else
             ADAPTIVE_RESULT_SCHEMA if adaptive else None
         ),
@@ -96,6 +101,8 @@ def summarize_population(
     if adaptive_any:
         adaptive_config = _load(
             repo_root / (
+                "configs/vlsa_distal_adaptive_query_action_risk.v3.json"
+                if adaptive_v3 else
                 "configs/vlsa_distal_adaptive_query_action_risk.v2.json"
                 if adaptive_v2 else
                 "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
@@ -152,6 +159,8 @@ def summarize_population(
     coverage_authorizes_feature_audit = bool(training_authorized)
     output.update({
         "schema_version": (
+            "vlsa_distal_l5_aegis_adaptive_population_summary.v3"
+            if adaptive_v3 else
             "vlsa_distal_l5_aegis_adaptive_population_summary.v2"
             if adaptive_v2 else
             "vlsa_distal_l5_aegis_adaptive_population_summary.v1"
@@ -181,7 +190,7 @@ def summarize_population(
     })
     if adaptive_any:
         output["adaptive_sampling"] = {
-            "protocol_version": 2 if adaptive_v2 else 1,
+            "protocol_version": 3 if adaptive_v3 else 2 if adaptive_v2 else 1,
             "state_count": len(result_paths),
             "bracketed_state_count": sum(
                 bool(_load(path)["adaptive_boundary_sampling"]["bracket_found"])
@@ -201,7 +210,7 @@ def summarize_population(
                 int(_load(path)["candidate_count"]) for path in result_paths
             ),
         }
-        if adaptive_v2:
+        if adaptive_per_row:
             output["adaptive_sampling"]["target_row_state_counts"] = [
                 sum(
                     _load(path)["adaptive_boundary_sampling"]["target_row"] == row
@@ -233,6 +242,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--adaptive", action="store_true")
     parser.add_argument("--adaptive-v2", action="store_true")
+    parser.add_argument("--adaptive-v3", action="store_true")
     args = parser.parse_args(argv)
     output = summarize_population(
         repo_root=args.repo_root.resolve(),
@@ -242,6 +252,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         summary_commit=args.summary_commit,
         adaptive=bool(args.adaptive),
         adaptive_v2=bool(args.adaptive_v2),
+        adaptive_v3=bool(args.adaptive_v3),
     )
     _atomic_write(args.output.resolve(), output)
     print({

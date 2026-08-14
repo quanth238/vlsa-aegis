@@ -2471,7 +2471,7 @@ dropped and no bisection was fabricated.
 
 ## ADR-0121: Restore the validated recovery arm without relaxing support
 
-- Status: accepted; v3 H100 canary pending
+- Status: accepted after independently validated H100 canary
 - Date: 2026-08-14
 
 Version 2 accidentally replaced the v1 canary's front-loaded radius-2 normal
@@ -2486,3 +2486,10 @@ per-row definition, safe-endpoint rule, bisection count, authoritative rollout,
 or downstream gate. The v2 NO-GO remains immutable. The grouped 15-state pilot
 may launch only if an independent H100 v3 canary reconstructs the row-1 bracket
 and validates both known-safe and known-unsafe retained labels.
+
+H100 producer `39989` and validator `39990` passed. Row 1 spanned
+`-1.193830 mm` to `+24.347685 mm`, five bisections retained six authoritative
+labels with one exact-safe and five known-unsafe actions, and every original-
+AEGIS/action/backup/physical check passed. Proceed to all 15 unsealed
+development groups with v3 and classify every support failure, timeout, and
+proxy-invalid state. No learning is authorized by the canary.

@@ -3445,3 +3445,18 @@ the 12-candidate budget, fixed mixtures, per-row selection, 0.5 mm thresholds,
 bisection, and authoritative complete-backup labels. A v3 E05 H100 canary must
 recover the registered row-1 bracket before the 15-development-state array is
 launched.
+
+H100 producer `39989` and independent validator `39990` passed that v3 gate on
+`worker-1` in `3:43`. The restored front-loaded radius-2 arm supplied a globally
+L5-safe row-1 endpoint at `-1.193830 mm`; row 1 also reached `+24.347685 mm` on
+the positive side. Row 2 independently exhibited coarse two-sided support, but
+row 1 was correctly selected because it had the largest nominal risk. Five
+bisections yielded six unique authoritative labels: one exact-safe and five
+known-unsafe, zero timeouts, zero proxy-safe physical collisions, and six row-1
+active witnesses. All final actions and backup decisions passed the unchanged
+original AEGIS EE filter. Result/validation payload SHA-256 values are
+`d93c3aecfcab4a3e9b742275f8b7e069a97fd8ef28250aa95853624ceb622474`
+and `0c10df85f79df2b6925b2114c60ba18dcd0e04f9551d45d8fd9d9fd8c289e218`.
+The 15 unsealed development groups are now authorized under v3. Training,
+feature fitting, calibration, QP, closed loop, and sealed-test access remain
+blocked until grouped coverage and dataset-freeze gates complete.

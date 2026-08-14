@@ -19,6 +19,7 @@ OUTPUT_PATH=${OUTPUT_PATH:?OUTPUT_PATH is required}
 PYTHON=${PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 ADAPTIVE=${ADAPTIVE:-0}
 ADAPTIVE_V2=${ADAPTIVE_V2:-0}
+ADAPTIVE_V3=${ADAPTIVE_V3:-0}
 [[ -n "${SLURM_JOB_ID:-}" ]] || { echo "population summary requires Slurm" >&2; exit 2; }
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$SUMMARY_COMMIT" ]] || {
   echo "population summary source differs" >&2; exit 2;
@@ -40,5 +41,8 @@ if [[ "$ADAPTIVE" == 1 ]]; then
 fi
 if [[ "$ADAPTIVE_V2" == 1 ]]; then
   args+=(--adaptive-v2)
+fi
+if [[ "$ADAPTIVE_V3" == 1 ]]; then
+  args+=(--adaptive-v3)
 fi
 "$PYTHON" scripts/summarize_distal_l5_aegis_grouped_population.py "${args[@]}"
