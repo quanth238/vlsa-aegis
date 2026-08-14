@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 
 from main.multilink_ellipsoid.l5_row01_relative_root_cause import (
-    RELATIVE_DIMENSION, STATE_INDICES, load_config, relative_feature_vector,
-    witness_phase,
+    RELATIVE_DIMENSION, STATE_INDICES, load_config, load_relative_bundle,
+    relative_feature_vector, witness_phase,
 )
 
 
@@ -89,6 +89,32 @@ class RelativeRootCauseTest(unittest.TestCase):
             "combined_risk": [0.1, 0.3, 0, 0, 0, 0, 0],
         }
         self.assertEqual(witness_phase(candidate), ["prefix", "backup"])
+
+    def test_relative_loader_rejects_legacy_dimension(self):
+        try:
+            import torch
+        except ImportError:
+            self.skipTest("torch is validated inside the allocated H100 runtime")
+
+        config = load_config(
+            Path(__file__).resolve().parents[1]
+            / "configs/vlsa_distal_l5_row01_relative_root_cause.v1.json"
+        )
+        model = torch.nn.Sequential(
+            torch.nn.Linear(RELATIVE_DIMENSION, 32), torch.nn.SiLU(),
+            torch.nn.Linear(32, 32), torch.nn.SiLU(), torch.nn.Linear(32, 2),
+        )
+        payload = {
+            "feature_mean": [0.0] * RELATIVE_DIMENSION,
+            "feature_scale": [1.0] * RELATIVE_DIMENSION,
+            "target_mean": [0.0, 0.0], "target_scale": [1.0, 1.0],
+            "state_dict": {
+                name: value.detach().numpy().tolist()
+                for name, value in sorted(model.state_dict().items())
+            },
+        }
+        bundle = load_relative_bundle(torch, payload, config["matched_MLP"])
+        self.assertEqual(bundle["feature_mean"].shape, (RELATIVE_DIMENSION,))
 
 
 if __name__ == "__main__":

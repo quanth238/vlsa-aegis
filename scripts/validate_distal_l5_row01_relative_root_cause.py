@@ -22,10 +22,10 @@ def validate(
 
     from main.multilink_ellipsoid.l5_row01_input_ablation import ablation_metrics
     from main.multilink_ellipsoid.l5_row01_relative_root_cause import (
-        VALIDATION_SCHEMA, knn_predict, load_config, payload_sha256, ridge_predict,
-        support_audit,
+        VALIDATION_SCHEMA, knn_predict, load_config, load_relative_bundle,
+        payload_sha256, ridge_predict, support_audit,
     )
-    from main.multilink_ellipsoid.l5_row01_selection import load_frozen_bundle, predict
+    from main.multilink_ellipsoid.l5_row01_selection import predict
     from scripts.train_distal_l5_row01_relative_root_cause import arrays, load_samples
 
     config = load_config(config_path)
@@ -37,8 +37,9 @@ def validate(
     samples, _ = load_samples(config, repo_root)
     train_x, train_y = arrays(samples["train"])
     validation_x, validation_y = arrays(samples["validation"])
-    bundle = load_frozen_bundle(torch, result["relative_model"]["state_payload"],
-                                config["matched_MLP"])
+    bundle = load_relative_bundle(
+        torch, result["relative_model"]["state_payload"], config["matched_MLP"]
+    )
     replay = {
         "relative_MLP": {
             "train": predict(bundle, train_x),

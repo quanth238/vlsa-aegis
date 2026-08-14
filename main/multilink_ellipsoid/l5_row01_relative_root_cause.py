@@ -202,6 +202,46 @@ def ridge_predict(train_x: Any, train_y: Any, query_x: Any, ridge_lambda: float)
     return query_design @ coefficients
 
 
+def load_relative_bundle(torch: Any, payload: Mapping[str, Any], model_config: Mapping[str, Any]) -> dict[str, Any]:
+    """Load the frozen 134D model without the legacy 86D shape assumption."""
+
+    import numpy as np
+
+    from main.multilink_ellipsoid.l5_row01_selection import build_model
+
+    model = build_model(torch, RELATIVE_DIMENSION, model_config["hidden_widths"])
+    template = model.state_dict()
+    if set(payload) != {
+        "feature_mean", "feature_scale", "target_mean", "target_scale", "state_dict"
+    } or set(payload["state_dict"]) != set(template):
+        raise ValueError("relative frozen payload differs")
+    state = {}
+    for name, value in template.items():
+        raw = torch.as_tensor(payload["state_dict"][name], dtype=value.dtype)
+        if raw.shape != value.shape:
+            raise ValueError("relative frozen parameter shape differs")
+        state[name] = raw
+    model.load_state_dict(state)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device).eval()
+    output = {
+        "model": model,
+        "device": device,
+        "feature_mean": np.asarray(payload["feature_mean"], dtype=np.float64),
+        "feature_scale": np.asarray(payload["feature_scale"], dtype=np.float64),
+        "target_mean": np.asarray(payload["target_mean"], dtype=np.float64),
+        "target_scale": np.asarray(payload["target_scale"], dtype=np.float64),
+    }
+    if (
+        output["feature_mean"].shape != (RELATIVE_DIMENSION,)
+        or output["feature_scale"].shape != (RELATIVE_DIMENSION,)
+        or output["target_mean"].shape != (2,)
+        or output["target_scale"].shape != (2,)
+    ):
+        raise ValueError("relative frozen normalization shape differs")
+    return output
+
+
 def support_audit(
     train_x: Any, train_y: Any, train_samples: Sequence[Mapping[str, Any]],
     validation_x: Any, validation_y: Any,
