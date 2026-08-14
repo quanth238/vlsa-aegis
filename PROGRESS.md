@@ -3508,3 +3508,10 @@ top-level correction norm null and bind the authoritative final norm inside
 `residual_binding`. This is an apparatus representation failure with no fitted
 weights or scientific metric. The retry reads that existing authoritative
 field; it changes no sample, action, target, split, feature, model, or gate.
+
+Retry `40054` passed the repaired data preflight and reached the first model
+forward pass, but the evaluation Python's legacy PyTorch binary has no `sm_90`
+kernel for H100. It stopped before an optimizer step or result artifact;
+dependent validator `40055` was cancelled exactly. The runtime-only retry uses
+the registered OpenPI Python whose PyTorch supports H100, without changing any
+scientific setting.

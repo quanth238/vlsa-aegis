@@ -15,7 +15,7 @@ set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:?REMOTE_REPO is required}
 EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
 OUTPUT=${OUTPUT:?OUTPUT is required}
-AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
+AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/openpi/bin/python}
 [[ -n "${SLURM_JOB_ID:-}" ]] || { echo "L5 diagnostic training requires Slurm" >&2; exit 2; }
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || {

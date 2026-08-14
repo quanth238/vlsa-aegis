@@ -2545,3 +2545,8 @@ legacy correction-norm field on adaptive midpoint candidates. The exact final
 post-AEGIS norm already exists in each candidate's validated residual binding.
 The representation-only repair uses that field and preserves the complete
 preregistered diagnostic.
+
+Retry `40054` then stopped before its first optimizer update because the
+evaluation environment's PyTorch lacks H100 `sm_90` kernels. Use the registered
+OpenPI Python for both producer and replay validator. This is an allocation-
+runtime correction only; the model and protocol remain frozen.
