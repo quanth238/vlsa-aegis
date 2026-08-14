@@ -3564,3 +3564,28 @@ row-1/row-2 validation boundary states, and zero row-1/row-2 fit active
 witnesses. The audit also records—but does not claim to identify—the omitted
 joint/OSC/controller-state hypothesis and the non-conservative symmetric-loss
 risk. No retraining, calibration, QP, control, or test access is authorized.
+
+H100 audit `40063` and independent recomputation `40064` completed on
+`worker-1` and exactly reproduced the analysis. Train and same-state action
+holdout RMSE are `0.186811 mm` and `0.231658 mm`, but complete grouped
+validation RMSE is `31.405546 mm`, a `135.569x` increase. Supported grouped
+row-0 near-boundary error is `16.696x` its same-state counterpart, and E05
+row-1 near-boundary error is `71.677x`. This hierarchy rejects model capacity
+as the primary failure and identifies insufficient grouped state plus active
+boundary coverage as the primary root cause.
+
+The distribution audit agrees: all six action holdouts share a fitted state
+and have zero state-context distance, whereas grouped validation has no fitted
+state, reaches `1.536` nearest-state-context RMS z and places up to 23/86 input
+dimensions outside the fitted range. E05 is more extreme: state-context and
+nominal-action distances are `3.489` and `3.797` RMS z, with 33/86 dimensions
+outside the train range. This coincides with useful boundary-state counts
+`[2,2,1]` train and `[2,0,0]` validation and active fit witnesses `[25,0,0]`.
+
+The result is not evidence that data is the only issue. The 86D input omits
+recorded q/dq, EEF pose, OSC goals/controller memory, obstacle pose, and
+per-row transforms; causality requires a matched complete-input ablation after
+coverage exists. Symmetric Huber also retains one row-1 false-safe on fitted
+data and is not a conservative gate. Audit/validation payload SHA-256 values
+are `d25bcca06d7d463887daf0e34e39bf0ac00690b120ed372492296b93302a18c1`
+and `40692ccb9932d252d86a06a96f2276573ca14ab026fa3bda227f55f1eadb920a`.

@@ -2580,7 +2580,7 @@ and `6c9691b79d1a9c43a1adccf53389c761f85f01b9e7b68d3d5d95428939028f6a`.
 
 ## ADR-0124: Audit coverage before changing the diagnostic model
 
-- Status: accepted; frozen H100 audit pending
+- Status: accepted after independent H100 recomputation
 - Date: 2026-08-14
 
 Do not infer that all unseen-state failure comes from data merely because the
@@ -2599,3 +2599,21 @@ complete-input ablation. Likewise, any train false-safe is reported as evidence
 that symmetric Huber regression is not itself a conservative safety gate. The
 only authorized conclusion is a ranked root-cause diagnosis; no model change,
 test access, calibration, QP, or closed-loop execution follows automatically.
+
+Jobs `40063` and `40064` validate the primary diagnosis as insufficient grouped
+state and active-boundary coverage. Same-state action interpolation remains
+sub-millimetre, while grouped validation error rises `135.569x`; E05 row-1
+near-boundary error rises `71.677x`. Row-1/row-2 validation boundary-state
+counts and fit active witnesses are both zero. E05 is far outside the fitted
+86D support, with 33 dimensions beyond the train range and state-context RMS-z
+distance `3.489`.
+
+Do not simplify this to “the MLP is fine” or “more random data.” The justified
+intervention is more distinct, controllable row-1/row-2 boundary states, plus
+the registered missing row-0 train state. After those exist, run a matched 86D
+versus complete-physical-state input ablation. The current audit cannot
+identify whether the omitted controller variables are additionally causal.
+The retained fitted row-1 false-safe also means symmetric regression alone is
+not a safety certificate. Audit/validation payload SHA-256 values are
+`d25bcca06d7d463887daf0e34e39bf0ac00690b120ed372492296b93302a18c1`
+and `40692ccb9932d252d86a06a96f2276573ca14ab026fa3bda227f55f1eadb920a`.
