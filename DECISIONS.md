@@ -2914,7 +2914,7 @@ calibration, closed loop, or sealed-test access is authorized by this result.
 
 ## ADR-0131: Separate rigid-frame representation from state-support failure
 
-- Status: preregistered; H100 frozen-data audit pending
+- Status: completed; representation helps but strict safety remains NO-GO
 - Date: 2026-08-14
 
 The current evidence proves grouped-state failure but does not separately prove
@@ -2945,3 +2945,41 @@ supports new independent boundary collection; nearby inconsistent targets plus
 witness switching instead motivates structured prefix/backup or time-resolved
 outputs. No simulation, new label, calibration, QP, closed loop, Poisson, or
 sealed-test access is authorized.
+
+H100 producer `40186` completed the frozen-data audit at preregistered commit
+`8457ccd8d501e826c7e020022ac4fbde0fc0237e`. Validator `40187` failed only
+because it reused a legacy loader with an 86D normalization assertion; it did
+not write validation output or alter the producer. Validator-only commit
+`7ae89a630fd5aec0128d7f93c5efd4d6ebd4a2c7` removes that hard-coded shape, and
+independent validator `40188` reproduces every model and baseline prediction
+with exactly `0.0 m` maximum error.
+
+Rigid-frame features improve the safety-relevant part of the map but do not
+solve it. Relative-MLP near-boundary RMSE is `4.476086 mm` versus `7.220164 mm`
+for complete 354D, false-safes fall from 13 to 6, and exact-safe selection rises
+from 1/4 to 2/4. Overall validation RMSE worsens from `11.427894 mm` to
+`14.417849 mm`; E45 has no predicted-safe candidate and E39 retains an unsafe
+selection. KNN and ridge are worse (`16.255683/54.821087 mm` RMSE and 0/4 safe
+selections), so the frozen samples do not contain a simple transferable local
+map that a different optimizer was missing.
+
+The state audit separates two failures. E45 is far from training at `1.284`
+RMS z over the 64 state features, has 14 features outside the train range, and
+its corrected candidates are prefix-dominated while their nearest training
+examples are backup-dominated; target gaps are roughly 40--49 mm. This is a
+clear missing E05-like state/phase-support failure. E39 is close (`0.266` RMS z,
+one feature outside range) and retains the same backup witness phase, yet
+nearest candidate target gaps still reach several millimetres and learned
+selection violates row 0 by `3.838207 mm`. This is state-conditioned nonlinear
+action-response variation, not merely absolute-frame aliasing. Global nearest-
+candidate witness-phase disagreement is only `20.69%`, so hard prefix/backup
+switching is important for E45 but is not the sole population-wide cause.
+
+Retain rigid-frame features as the better boundary representation, but do not
+claim they yield a correct gradient. Next collect additional independent row-1
+E05-like prefix-warning states and row-0 E39-like boundary states, explicitly
+covering prefix and backup risk sources. The next predictor should expose
+prefix risk and backup continuation risk as separate heads and combine them by
+a hard maximum for acceptance. First validate Best-of-N candidate selection;
+only after it passes may action gradients be tested against exact paired
+directions. Calibration, QP, and closed loop remain blocked.

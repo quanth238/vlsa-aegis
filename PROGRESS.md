@@ -3888,3 +3888,28 @@ baselines plus the frozen 354D arm. Nearest-state support and prefix-versus-
 backup witness switching are reported separately. Only this audit can decide
 whether representation alone plausibly repairs transfer or whether additional
 independent boundary states/structured rollout targets are mandatory.
+
+H100 producer `40186` and final independent validator `40188` completed the
+relative root-cause audit; validator `40187` is retained as apparatus history
+for its legacy 86D loader assertion. Prediction replay error is exactly zero.
+The invariant 134D MLP improves near-boundary RMSE `7.220164 -> 4.476086 mm`,
+false-safes `13 -> 6`, and exact-safe selection `1/4 -> 2/4` relative to the
+complete 354D model, but overall RMSE worsens `11.427894 -> 14.417849 mm`, safe
+support remains only 3/4, and every strict prediction gate fails. KNN and ridge
+select no safe action in any recoverable state.
+
+The failure is now localized. E45 is unsupported (`1.284` nearest-state RMS z,
+14/64 state features outside range) and changes from nearest backup witnesses
+to prefix witnesses. E39 is nearby (`0.266` RMS z, 1/64 outside) with the same
+backup witness phase, yet still has millimetre-scale candidate-response error.
+Thus limited independent state/action-response coverage is primary; rigid-frame
+representation is useful but insufficient, and prefix/backup switching is a
+localized secondary cause rather than the sole explanation. No fresh replay,
+QP, calibration, closed loop, or sealed-test access is authorized.
+
+Result/validation file SHA-256 values are
+`564b49b6e474cc37e1ea0902b2afec5ec6593dfa524c1260a8f3a98045bc296c`
+and `febd9e70b5bda801dcead4acd4cefef07b17b7d0044fa1c148a4b621b9741824`;
+payload SHA-256 values are
+`7b16bc1f8097fc411245d283317e8d7062591342612e4c244cdb38d950f56be7`
+and `adfa8060b0df65cf726ecd18473e92b18c85e7d931335401dd4efb651ead745a`.
