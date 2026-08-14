@@ -14,15 +14,20 @@ set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:?REMOTE_REPO is required}
 VALIDATOR_BRANCH=${VALIDATOR_BRANCH:?VALIDATOR_BRANCH is required}
 VALIDATOR_COMMIT=${VALIDATOR_COMMIT:?VALIDATOR_COMMIT is required}
+SOURCE_URL=${SOURCE_URL:-}
 
 [[ -n "${SLURM_JOB_ID:-}" ]] || {
   echo "source preparation requires Slurm" >&2
   exit 2
 }
-[[ -d "$REMOTE_REPO" ]] || {
-  echo "worker-local source is missing: $REMOTE_REPO" >&2
-  exit 2
-}
+if [[ ! -d "$REMOTE_REPO" ]]; then
+  [[ -n "$SOURCE_URL" ]] || {
+    echo "worker-local source is missing and SOURCE_URL is unset: $REMOTE_REPO" >&2
+    exit 2
+  }
+  mkdir -p "$(dirname "$REMOTE_REPO")"
+  git clone --filter=blob:none --no-checkout "$SOURCE_URL" "$REMOTE_REPO"
+fi
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || {
   echo "worker-local source is dirty" >&2
   exit 2
