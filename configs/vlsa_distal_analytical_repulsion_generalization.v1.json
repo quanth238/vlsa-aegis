@@ -46,7 +46,7 @@
     "stop_on_native_task_completion": true,
     "stop_on_collision_or_CAR": false,
     "expected_mujoco_substeps_per_action": 25,
-    "boundary_equivalence_tolerance_m": 1e-12,
+    "boundary_equivalence_tolerance_m": 1e-9,
     "video_fps": 20
   },
   "measurement": {

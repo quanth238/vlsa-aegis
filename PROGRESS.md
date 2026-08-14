@@ -4058,3 +4058,10 @@ AEGIS completed each task. The paired full-episode gate reports L5/L6/L7
 contacts, CAR, native task completion, clipping, timeout, terminal motion, and
 video. A strict pass requires safe task success in all three; no tuning,
 learning, QP change, deployable-warning claim, or population claim is permitted.
+
+Producer attempts `40263` and `40271` are retained as apparatus failures with
+no scientific results. They exposed byte-exact clone/execution checking and a
+too-tight `1e-12` tolerance: the actual maximum discrepancies were only
+`2.397738e-12` and `2.416745e-12`. Before opening any repulsion outcome, the
+apparatus tolerance is amended to `1e-9` and the exact errors are added to the
+result and validator. This does not change the frozen controller or gate.

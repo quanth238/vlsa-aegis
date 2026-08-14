@@ -3241,3 +3241,12 @@ a NO-GO for this fixed controller. A pass supports only transfer of the
 analytical correction mechanism under privileged prediction: it is not an
 unbiased population result, deployable warning detector, CBF, or formal safety
 claim. Learning, QP changes, and outcome-dependent retuning remain forbidden.
+
+Pre-outcome apparatus amendment (2026-08-15): producer arrays `40263` and
+`40271` stopped before writing any scientific result because byte-exact replay
+equality and then the preregistered `1e-12` absolute tolerance rejected
+clone/execution roundoff of `2.397738e-12` and `2.416745e-12`. The tolerance is
+changed once to `1e-9`, still six orders below the 1 mm safety buffer. The
+measured maximum is now recorded and independently validated. Cases, actions,
+warning threshold, safety acceptance, repulsion direction/magnitude/profile,
+AEGIS QP, policy seeds, and strict three-of-three gate are unchanged.
