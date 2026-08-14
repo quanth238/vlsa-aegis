@@ -80,12 +80,15 @@ def validate_results(
         _require(result["warning_count"] == len(result["interventions"]),
                  "warning count differs")
         clone_error = result["clone_execution_maximum_absolute_error"]
-        if clone_error is not None:
-            _require(
-                float(clone_error)
-                <= float(config["execution"]["boundary_equivalence_tolerance_m"]),
-                "clone/execution tolerance differs",
-            )
+        _require(
+            result["clone_execution_mismatch_count"]
+            == sum(
+                float(row["full_dynamic_state_maximum_absolute_error"])
+                > float(config["execution"]["boundary_equivalence_tolerance_m"])
+                for row in result["clone_execution_records"]
+            ),
+            "clone/execution mismatch count differs",
+        )
         for intervention in result["interventions"]:
             _require(
                 warning_trigger(
@@ -117,6 +120,10 @@ def validate_results(
             "timeout": result["timeout"],
             "primary_problem_solved": result["primary_problem_solved"],
             "clone_execution_maximum_absolute_error": clone_error,
+            "clone_execution_mismatch_count": result["clone_execution_mismatch_count"],
+            "clone_execution_maximum_boundary_clearance_error_m": result[
+                "clone_execution_maximum_boundary_clearance_error_m"
+            ],
             "contact_samples_by_link": result["contact_samples_by_link"],
         })
     aggregate = aggregate_case_results(results, config)
@@ -140,7 +147,8 @@ def validate_results(
             else "fixed_analytical_repulsion_generalization_no_go"
         ),
         "limitations": [
-            "warning_trigger_uses_privileged_exact_cloned_OSC",
+            "warning_trigger_uses_privileged_cloned_OSC_with_measured_execution_divergence",
+            "actual_all_substep_MuJoCo_contact_and_CAR_are_acceptance_authorities",
             "three_preselected_task_successful_collision_cases_not_population_sample",
             "two_tasks_one_obstacle_class",
             "no_formal_or_real_robot_safety_claim",

@@ -19,7 +19,7 @@
     "raw_comparator": "immutable_released_AEGIS_result"
   },
   "warning_oracle": {
-    "evaluation": "exact_cloned_OSC_five_post_AEGIS_actions_all_internal_substeps",
+    "evaluation": "privileged_cloned_OSC_five_post_AEGIS_actions_all_internal_substeps_with_observed_execution_fidelity_audit",
     "buffer_m": 0.001,
     "protected_contact_limit": 0,
     "paper_car_threshold_m": 0.001,
@@ -47,6 +47,7 @@
     "stop_on_collision_or_CAR": false,
     "expected_mujoco_substeps_per_action": 25,
     "boundary_equivalence_tolerance_m": 1e-9,
+    "clone_execution_equivalence_is_diagnostic_not_acceptance": true,
     "video_fps": 20
   },
   "measurement": {

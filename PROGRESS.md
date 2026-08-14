@@ -4065,3 +4065,11 @@ too-tight `1e-12` tolerance: the actual maximum discrepancies were only
 `2.397738e-12` and `2.416745e-12`. Before opening any repulsion outcome, the
 apparatus tolerance is amended to `1e-9` and the exact errors are added to the
 result and validator. This does not change the frozen controller or gate.
+
+Attempt `40275` then revealed non-roundoff clone divergence during an unchanged
+raw-AEGIS grasp/contact transition at step 105: simulator-state error reached
+`0.0133021` even though the five commands began from an exactly synchronized
+snapshot. This is retained as apparatus evidence. Clone/execution state and
+seven-row boundary errors are now diagnostics rather than abort conditions;
+actual all-substep MuJoCo contacts, CAR, and native task completion remain the
+strict scientific gate. The fixed analytical controller is unchanged.

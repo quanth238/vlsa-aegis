@@ -40,7 +40,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if value["pairing"]["replan_steps"] != 5:
         raise ValueError("analytical-repulsion replan stride differs")
     if value["warning_oracle"] != {
-        "evaluation": "exact_cloned_OSC_five_post_AEGIS_actions_all_internal_substeps",
+        "evaluation": "privileged_cloned_OSC_five_post_AEGIS_actions_all_internal_substeps_with_observed_execution_fidelity_audit",
         "buffer_m": 0.001,
         "protected_contact_limit": 0,
         "paper_car_threshold_m": 0.001,

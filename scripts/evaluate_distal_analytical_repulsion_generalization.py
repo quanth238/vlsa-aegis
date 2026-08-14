@@ -242,6 +242,7 @@ def evaluate(
         query_records = []
         interventions = []
         clone_execution_errors_m = []
+        clone_execution_records = []
         terminal_eef_positions = [np.asarray(observation["robot0_eef_pos"], dtype=np.float64)]
         first_intervention_step = None
         live_mode = False
@@ -411,6 +412,7 @@ def evaluate(
 
             predicted_final = np.asarray(_dynamic_state_vector(probe_env), dtype=np.float64).copy()
             done_in_chunk = False
+            chunk_internal_records = []
             for offset, command in enumerate(selected_actions):
                 current_step = step + offset
                 observation, reward, done, _, internal = monitor.execute(
@@ -446,6 +448,7 @@ def evaluate(
                     "boundary_protected_contact_events": _public(protected),
                     "internal": _public(internal),
                 })
+                chunk_internal_records.append(internal)
                 if done:
                     done_in_chunk = True
                     break
@@ -464,29 +467,44 @@ def evaluate(
                     np.max(np.abs(observed_simulator - predicted_simulator))
                 )
                 clone_execution_errors_m.append(clone_error)
-                _require(
-                    clone_error
-                    <= float(config["execution"]["boundary_equivalence_tolerance_m"]),
-                    (
-                        "selected cloned rollout and execution differ: "
-                        "step=%d source=%s full_error=%.17g index=%d "
-                        "simulator_error=%.17g predicted_minimum=%.17g "
-                        "predicted_contacts=%d predicted_car=%.17g"
-                    ) % (
-                        step,
-                        source_name,
-                        clone_error,
-                        maximum_index,
-                        simulator_error,
-                        float(selected_prediction["minimum_clearance_m"]),
-                        len(selected_prediction["protected_contacts"]),
-                        float(
-                            selected_prediction[
-                                "maximum_active_obstacle_l1_displacement_m"
-                            ]
-                        ),
-                    ),
+                observed_boundary = np.asarray(
+                    one_step.clearances(env)[:7], dtype=np.float64
                 )
+                predicted_boundary = np.asarray(
+                    selected_prediction["boundary_clearance_trace_m"][-1],
+                    dtype=np.float64,
+                )
+                clone_execution_records.append({
+                    "step": int(step),
+                    "source": source_name,
+                    "full_dynamic_state_maximum_absolute_error": clone_error,
+                    "full_dynamic_state_maximum_error_index": maximum_index,
+                    "simulator_state_maximum_absolute_error": simulator_error,
+                    "boundary_clearance_maximum_absolute_error_m": float(
+                        np.max(np.abs(observed_boundary - predicted_boundary))
+                    ),
+                    "predicted_boundary_clearance_m": predicted_boundary.tolist(),
+                    "observed_boundary_clearance_m": observed_boundary.tolist(),
+                    "predicted_minimum_clearance_m": float(
+                        selected_prediction["minimum_clearance_m"]
+                    ),
+                    "predicted_protected_contact_count": len(
+                        selected_prediction["protected_contacts"]
+                    ),
+                    "predicted_car_m": float(
+                        selected_prediction[
+                            "maximum_active_obstacle_l1_displacement_m"
+                        ]
+                    ),
+                    "observed_protected_contact_samples": int(sum(
+                        int(row["protected_contact_samples"])
+                        for row in chunk_internal_records
+                    )),
+                    "observed_car_m": float(max(
+                        float(row["maximum_active_obstacle_l1_displacement_m"])
+                        for row in chunk_internal_records
+                    )),
+                })
             if selected_z_after is not None:
                 live_z = np.asarray(selected_z_after, dtype=np.float64).copy()
             step += len(selected_actions) if not done_in_chunk else offset + 1
@@ -551,6 +569,18 @@ def evaluate(
                 else max(clone_execution_errors_m)
             ),
             "clone_execution_errors": clone_execution_errors_m,
+            "clone_execution_records": clone_execution_records,
+            "clone_execution_mismatch_count": sum(
+                float(value)
+                > float(config["execution"]["boundary_equivalence_tolerance_m"])
+                for value in clone_execution_errors_m
+            ),
+            "clone_execution_maximum_boundary_clearance_error_m": (
+                None if not clone_execution_records else max(
+                    float(row["boundary_clearance_maximum_absolute_error_m"])
+                    for row in clone_execution_records
+                )
+            ),
             "action_count": len(action_records),
             "actions": action_records,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},

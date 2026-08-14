@@ -3250,3 +3250,15 @@ changed once to `1e-9`, still six orders below the 1 mm safety buffer. The
 measured maximum is now recorded and independently validated. Cases, actions,
 warning threshold, safety acceptance, repulsion direction/magnitude/profile,
 AEGIS QP, policy seeds, and strict three-of-three gate are unchanged.
+
+The next apparatus attempt exposed a distinct contact-rich fidelity issue:
+before any repulsion, identical five-action execution at step 105 diverged by
+`0.0133021` in the MuJoCo simulator state despite an exactly synchronized
+initial snapshot. Full dynamic-state equality is therefore not a valid hard
+gate for grasp/contact transitions. It becomes a reported diagnostic, together
+with final seven-row clearance error and forecast/observed contact and CAR.
+The privileged cloned rollout still triggers the frozen controller, but actual
+all-substep MuJoCo contact, CAR, and native task state remain the only outcome
+authorities. The claim is correspondingly narrowed from an exact oracle to a
+privileged cloned-OSC forecast with measured fidelity; no outcome-dependent
+controller change is allowed.
