@@ -3851,3 +3851,29 @@ snapshot is intentionally excluded rather than used as an episode identifier.
 The 86D and 354D arms share the same 43/29 labels, grouped splits, 32--32
 architecture, seed, loss, optimizer, and schedule. No new simulation, candidate,
 target, QP, calibration, or control change is included.
+
+H100 producer `40181` and independent validator `40182` completed the matched
+input ablation at commit `cc996f5a0ecd93baed35a4b926ebe22adf884624`.
+The compact arm exactly reproduces frozen job `40175`, and the independent
+validator reproduces every prediction from both arms with `0.0 m` maximum
+error. The 354D input lowers grouped-validation RMSE from `14.716616 mm` to
+`11.427894 mm` and near-boundary RMSE from `10.135355 mm` to `7.220164 mm`;
+false-safes fall from 16 to 13. This is a real but insufficient input benefit.
+
+Both arms fit the same training population closely (`0.164472 mm` compact and
+`0.112910 mm` complete RMSE) but fail on disjoint physical states. The complete
+arm rejects every candidate in recoverable E37, retains unsafe selections in
+E39/E45, and remains exact-safe in only E22: exact-safe selection is still
+`1/4 = 25%`, versus the fixed-seed random-bank rate `24.5768%`. It therefore
+fails zero false-safes, 4/4 support, all-seven-safe selection, and the 1 mm
+near-boundary gate. Omitted inputs contribute error, but do not explain the
+grouped failure; state/episode coverage or state-generalizing representation is
+the dominant unresolved issue. Fresh replay, calibration, QP, closed loop, and
+sealed tests remain blocked.
+
+Result/validation file SHA-256 values are
+`7c9c4f95221ff025ff9da568ad031b78ae582f91f4a9a9060711fce581072312`
+and `0e6d4af9829d4221543af0425ec379b2f5356c0d92b4e834cb103eb844dfa956`;
+payload SHA-256 values are
+`927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e`
+and `2f97054344d31b31a290b88013e6867ee7b8f025b9308c97d896684c27a2468c`.

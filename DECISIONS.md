@@ -2867,7 +2867,7 @@ more candidates at these same states or train longer first.
 
 ## ADR-0130: Match compact and complete physical/OSC inputs before changing loss
 
-- Status: preregistered; H100 ablation pending
+- Status: completed; strict prediction/selection NO-GO
 - Date: 2026-08-14
 
 Run exactly two arms on the immutable 43 train and 29 grouped-validation labels:
@@ -2893,3 +2893,21 @@ states, safe selection above fixed-seed random, validation RMSE below the
 compact arm, and near-boundary RMSE at most 1 mm. Fresh selected-candidate replay
 is authorized only after every prediction gate passes. Do not change the loss,
 candidate bank, labels, calibration, QP, geometry backend, or control policy.
+
+H100 producer `40181` and independent validator `40182` complete the fixed
+comparison at commit `cc996f5a0ecd93baed35a4b926ebe22adf884624`.
+The compact arm reproduces job `40175` exactly and independent prediction replay
+error is zero. Complete physical/OSC input improves validation RMSE from
+`14.716616 mm` to `11.427894 mm`, near-boundary RMSE from `10.135355 mm` to
+`7.220164 mm`, and false-safes from 16 to 13. It nevertheless supports only
+three of four recoverable states, selects an exact-safe candidate in only one,
+and remains effectively tied with random selection (`25%` versus `24.5768%`).
+
+The decisive split is training versus grouped validation: compact/complete
+training RMSE is only `0.164472/0.112910 mm`, while grouped-state error is two
+orders of magnitude larger. Thus the omitted fields were useful but not the
+root solution. Do not add a one-sided buffer merely to erase false-safes: the
+complete model already loses E37 safe support. The next intervention must first
+increase distinct state/episode support or test a representation designed to
+transfer relative physical structure across states. No fresh replay, QP,
+calibration, closed loop, or sealed-test access is authorized by this result.
