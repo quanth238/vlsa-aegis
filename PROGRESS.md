@@ -3922,3 +3922,26 @@ against the direct combined model, and every false-safe is attributed to its
 active phase. E39's exact component slopes are compared with the nearest
 response-capable training state. This will decide whether new collection must
 target prefix, backup, or local action-response diversity.
+
+H100 producer `40190` and independent validator `40191` complete ADR-0132 with
+zero replay error. Prefix and backup predictors both fail grouped validation:
+prefix has `14.357290 mm` RMSE, `9.369379 mm` near-boundary RMSE, and 7 false-
+safes; backup has `8.752153/5.309479 mm` and 9 false-safes. Their hard maximum
+has 9 false-safes and only 2/4 exact-safe selections, so mechanism switching is
+not the sole failure. Every one of the direct relative model's six false-safes
+is backup-dominated.
+
+E39 nevertheless has the same safety-improving slope sign as response-capable
+training state E27 for all six identifiable row/component curves. This supports
+learning action-induced risk change or ranking, while rejecting the present
+absolute safety gate. The next collection should span backup crossings across
+new E39-like states and prefix crossings across E45-like states; the next model
+should separate state baseline from action-induced change. No QP, calibration,
+gradient claim, closed loop, or sealed test is authorized.
+
+Result/validation file SHA-256 values are
+`d42acbaed425530a036ecb8a03456b3e5298980e9632e64d3a74f43ad62fc245`
+and `57683263c435477cca0549a2e672d18204b3b80b3603ce380d635db2eb3d03ae`;
+payload SHA-256 values are
+`cb82a161b138b421c6a7ea64937c9d9d9f33599289709e3de10e119f10617220`
+and `c0325c701592166258ef7805cd263f727b4106b236d520f635f45932ab25df41`.

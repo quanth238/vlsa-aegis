@@ -2986,7 +2986,7 @@ directions. Calibration, QP, and closed loop remain blocked.
 
 ## ADR-0132: Audit prefix and backup components before new collection
 
-- Status: preregistered; frozen-trace H100 audit pending
+- Status: completed; both component predictors fail grouped safety
 - Date: 2026-08-14
 
 Before collecting another rollout, decompose the immutable row-0/row-1 target
@@ -3006,3 +3006,36 @@ whether their maximum is uniquely responsible, or whether E39 has a genuinely
 different local action response. It changes no state, action, label, candidate,
 controller, or split and opens no sealed episode. QP, calibration, gradient,
 closed-loop, and neural-CBF claims remain forbidden.
+
+H100 producer `40190` and independent validator `40191` complete the audit at
+commit `32f194670c302695d0070dbd297011dc85fd5354`, with exactly zero prediction
+replay error. Prefix labels cover all 43/29 train/validation actions; observed
+backup labels cover only 28/25 because missing backups remain censored.
+
+Both components fail independently. Prefix validation RMSE/near-boundary RMSE
+is `14.357290/9.369379 mm` with 7 false-safes and `53.85%` safe recall. Backup
+is better on average (`8.752153/5.309479 mm`) but has 9 false-safes. Their hard
+maximum has `14.073917 mm` RMSE, `8.505896 mm` near-boundary RMSE, 9 false-
+safes, and only 2/4 exact-safe selections. Therefore target switching is not
+the root by itself, and separate heads are not yet justified as a safety fix.
+All six false-safes of the better direct relative model are backup-dominated;
+the structured heads create eight backup and one prefix false-safe.
+
+E39 supplies the important positive mechanism evidence. Its nearest training
+state with a real response curve is E27 at `0.342` RMS z. All six identifiable
+prefix/backup/combined slope signs for rows 0/1 agree. E39 row-0 combined slope
+is `-0.019415` m risk per action-norm versus `-0.015002` for E27; prefix slopes
+are `-0.019647/-0.021133`. Thus the physical correction direction transfers,
+while offset, magnitude, and the safe crossing point remain state-dependent.
+
+The next data/model hypothesis should factor each component as a state baseline
+plus action-induced change,
+
+`Q_j(z,A) = B_j(z) + Delta_j(z,A-A_nominal)`,
+
+using paired/bisection candidates to supervise `Delta_j` and absolute rollout
+labels to supervise `B_j`. Collection must prioritize distinct E39-like states
+with complete backup safe/unsafe crossings and E45-like prefix-dominated states,
+not additional random actions at current snapshots. This may support a useful
+ranking/steering direction, but absolute acceptance remains blocked until the
+baseline and crossing point produce zero false-safes and 4/4 support.
