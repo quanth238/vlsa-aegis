@@ -2911,3 +2911,37 @@ complete model already loses E37 safe support. The next intervention must first
 increase distinct state/episode support or test a representation designed to
 transfer relative physical structure across states. No fresh replay, QP,
 calibration, closed loop, or sealed-test access is authorized by this result.
+
+## ADR-0131: Separate rigid-frame representation from state-support failure
+
+- Status: preregistered; H100 frozen-data audit pending
+- Date: 2026-08-14
+
+The current evidence proves grouped-state failure but does not separately prove
+the two proposed causes: too few independent states and a non-invariant flat
+input. The existing 86D arm is already partially relative (clearances plus one
+normal/tangent frame), while its action vectors remain in the global VLA frame.
+The 354D arm adds complete state but mixes absolute world transforms with only
+43 labels. Calling representation the root cause without one further matched
+audit would therefore overstate the evidence.
+
+On the unchanged 43 train and 29 grouped-validation labels, compare the frozen
+354D result against one 134D physics-aligned two-output MLP, five-neighbor
+regression, and fixed-ridge regression. The 134D representation keeps q/dq,
+expresses OSC error and both five-action chunks in the obstacle frame, and
+expresses each learned L5 row's obstacle pose and outward normal in that
+ellipsoid's frame. A synthetic rigid-transform test must establish exact
+feature invariance. Keep the MLP widths, loss, optimizer, seed, and training
+schedule identical to ADR-0130.
+
+Audit nearest distinct training-state and candidate distances using training
+normalization only. Also record whether each row's worst rollout value comes
+from the candidate prefix or fixed backup and whether that witness phase changes
+at the nearest training candidate. The representation hypothesis passes only
+with zero false-safes, safe support and exact-safe selection in all four
+recoverable states, near-boundary RMSE at most 1 mm, and lower RMSE than the
+frozen 354D arm. Failure with close training fit but distant grouped states
+supports new independent boundary collection; nearby inconsistent targets plus
+witness switching instead motivates structured prefix/backup or time-resolved
+outputs. No simulation, new label, calibration, QP, closed loop, Poisson, or
+sealed-test access is authorized.

@@ -1,0 +1,93 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_relative_root_cause.v1",
+  "protocol_id": "vlsa-distal-l5-row01-relative-root-cause-v1",
+  "claim_scope": "frozen_data_relative_representation_and_state_support_audit_not_control_not_QP_not_CBF",
+  "source": {
+    "input_ablation_config": "configs/vlsa_distal_l5_row01_input_ablation.v1.json",
+    "input_ablation_config_file_sha256": "229173890a6550942a914221ca6b4f5665d62e6a84666a3dbeb140c8c1a93445",
+    "frozen_input_ablation_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-input-ablation/input-ablation-20260814a/result.json",
+    "frozen_input_ablation_result_file_sha256": "7c9c4f95221ff025ff9da568ad031b78ae582f91f4a9a9060711fce581072312",
+    "frozen_input_ablation_result_payload_sha256": "927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e"
+  },
+  "relative_input": {
+    "input_dimension": 134,
+    "common_state": [
+      "arm_q_and_dq",
+      "OSC_goal_position_error_in_obstacle_frame",
+      "OSC_relative_orientation_error_in_obstacle_frame"
+    ],
+    "actions": "nominal_and_exact_candidate_translation_and_rotation_vectors_in_obstacle_frame_with_gripper_unchanged",
+    "per_row": [
+      "obstacle_center_and_rotation_in_L5_ellipsoid_frame",
+      "ellipsoid_and_obstacle_semiaxes",
+      "current_clearance",
+      "outward_normal_in_L5_ellipsoid_frame"
+    ],
+    "learned_rows": [0, 1],
+    "global_rigid_transform_removed_from_geometry_and_action_vectors": true
+  },
+  "matched_MLP": {
+    "class": "two_output_relative_geometry_MLP",
+    "input_dimension": 134,
+    "output_count": 2,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "training_episodes_only",
+    "checkpoint": "fixed_final_epoch_no_validation_selection"
+  },
+  "baselines": {
+    "KNN": {
+      "k": 5,
+      "distance": "RMS_training_z_score_in_relative_134D",
+      "weight": "inverse_distance_plus_1e-6"
+    },
+    "ridge": {
+      "lambda": 0.001,
+      "features": "training_z_scored_relative_134D",
+      "intercept_unregularized": true
+    }
+  },
+  "audit": {
+    "state_feature_indices": "0:20_and_90:134",
+    "state_distance": "nearest_distinct_training_state_RMS_z_using_unique_states",
+    "sample_distance": "nearest_training_candidate_RMS_z_in_relative_134D",
+    "witness_phase": "candidate_prefix_or_fixed_backup_source_of_each_row_maximum_risk",
+    "near_boundary_threshold_m": 0.005
+  },
+  "interpretation": {
+    "relative_passes_strict_gate": "relative_representation_can_resolve_current_grouped_population",
+    "relative_improves_but_fails_safety": "representation_contributes_but_does_not_remove_state_support_failure",
+    "all_models_fail_with_large_state_distance": "additional_independent_boundary_states_are_required",
+    "nearby_labels_disagree_and_witness_phase_switches": "worst_horizon_target_or_backup_switching_requires_structured_outputs",
+    "relative_fails_training": "relative_feature_or_model_target_representation_is_inadequate"
+  },
+  "gates": {
+    "zero_relative_false_safes": true,
+    "relative_safe_support_all_four_recoverable_states": true,
+    "relative_exact_safe_selection_all_four": true,
+    "relative_near_boundary_RMSE_maximum_m": 0.001,
+    "relative_validation_RMSE_below_complete_354D": true,
+    "reserved_test_episodes_unopened": true
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "candidate_bank_change",
+    "loss_change",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "Poisson_or_SDF",
+    "reserved_test_access",
+    "neural_CBF_claim"
+  ]
+}

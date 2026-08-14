@@ -3877,3 +3877,14 @@ and `0e6d4af9829d4221543af0425ec379b2f5356c0d92b4e834cb103eb844dfa956`;
 payload SHA-256 values are
 `927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e`
 and `2f97054344d31b31a290b88013e6867ee7b8f025b9308c97d896684c27a2468c`.
+
+The remaining root-cause audit is preregistered without new simulation. It
+corrects an important overstatement: compact 86D is already partly relative,
+so a genuinely invariant test must rotate both geometry and Cartesian action
+vectors into attached physical frames. The new 134D arm uses obstacle-frame
+OSC/action quantities and per-row ellipsoid-frame geometry, retains the exact
+43/29 labels and training recipe, and is compared with fixed KNN/ridge
+baselines plus the frozen 354D arm. Nearest-state support and prefix-versus-
+backup witness switching are reported separately. Only this audit can decide
+whether representation alone plausibly repairs transfer or whether additional
+independent boundary states/structured rollout targets are mandatory.
