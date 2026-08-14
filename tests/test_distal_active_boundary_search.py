@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 
 from main.multilink_ellipsoid.active_boundary_search import (
-    candidate_definitions, load_config, summarize_target_rows, target_job,
+    aggregate_search_rows, candidate_definitions, load_config,
+    summarize_target_rows, target_job,
 )
 
 
@@ -58,6 +59,34 @@ class ActiveBoundarySearchTest(unittest.TestCase):
         summary = summarize_target_rows(candidates, [4, 5, 6], 0.001)
         self.assertTrue(all(item["known_candidate_count"] == 2 for item in summary))
         self.assertTrue(all(item["useful_boundary_observed_within_job"] for item in summary))
+
+    def test_aggregate_reports_witnesses_not_continuous_extrema(self):
+        def result(index, state, profile, maximum, useful):
+            rows = []
+            for row in (4, 5, 6):
+                rows.append({
+                    "row": row,
+                    "witnessed_maximum_Q_m": maximum if row == 5 else -0.01,
+                    "maximum_candidate_name": "candidate-%d" % index,
+                    "robust_positive_side_observed": row == 5 and maximum >= 0.001,
+                    "useful_boundary_observed_combined": row == 5 and useful,
+                })
+            return {
+                "active_boundary_job": {
+                    "state_id": state, "split": "train",
+                    "temporal_profile": profile,
+                },
+                "target_row_summary": rows,
+            }
+        aggregate = aggregate_search_rows([
+            result(0, "state-a", "constant", 0.002, True),
+            result(1, "state-a", "front_loaded", 0.003, True),
+            result(2, "state-b", "constant", -0.001, False),
+        ], [4, 5, 6])
+        row5 = aggregate[1]
+        self.assertEqual(row5["useful_boundary_state_ids"], ["state-a"])
+        self.assertEqual(row5["witnessed_maximum_Q_m"], 0.003)
+        self.assertEqual(row5["maximum_witness"]["temporal_profile"], "front_loaded")
 
 
 if __name__ == "__main__":

@@ -205,3 +205,51 @@ def summarize_target_rows(
             and row["globally_safe_robust_negative_side_observed"]
         )
     return output
+
+
+def aggregate_search_rows(
+    job_results: Sequence[Mapping[str, Any]], target_rows: Sequence[int]
+) -> list[dict[str, Any]]:
+    """Aggregate witnessed support across profiles without claiming extrema."""
+
+    output = []
+    for row in target_rows:
+        observations = []
+        for result in job_results:
+            matches = [
+                item for item in result["target_row_summary"]
+                if int(item["row"]) == int(row)
+            ]
+            if len(matches) != 1:
+                raise ValueError("active boundary aggregate row differs")
+            observations.append((result["active_boundary_job"], matches[0]))
+        known_maxima = [
+            (float(item["witnessed_maximum_Q_m"]), job, item)
+            for job, item in observations
+            if item["witnessed_maximum_Q_m"] is not None
+        ]
+        maximum = None if not known_maxima else max(known_maxima, key=lambda item: item[0])
+        useful_states = sorted({
+            str(job["state_id"]) for job, item in observations
+            if bool(item["useful_boundary_observed_combined"])
+        })
+        positive_states = sorted({
+            str(job["state_id"]) for job, item in observations
+            if bool(item["robust_positive_side_observed"])
+        })
+        output.append({
+            "row": int(row),
+            "job_count": len(observations),
+            "state_count": len({str(job["state_id"]) for job, _ in observations}),
+            "robust_positive_side_state_ids": positive_states,
+            "useful_boundary_state_ids": useful_states,
+            "useful_boundary_observed": bool(useful_states),
+            "witnessed_maximum_Q_m": None if maximum is None else maximum[0],
+            "maximum_witness": None if maximum is None else {
+                "state_id": maximum[1]["state_id"],
+                "split": maximum[1]["split"],
+                "temporal_profile": maximum[1]["temporal_profile"],
+                "candidate_name": maximum[2]["maximum_candidate_name"],
+            },
+        })
+    return output
