@@ -14,7 +14,7 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 
 
 def _applied_correction_l2(candidate: Mapping[str, Any]) -> float:
-    if "applied_correction_l2_action" in candidate:
+    if candidate.get("applied_correction_l2_action") is not None:
         return float(candidate["applied_correction_l2_action"])
     if candidate.get("residual_binding") is not None:
         return float(candidate["residual_binding"]["applied_residual_l2_action"])

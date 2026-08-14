@@ -8,6 +8,7 @@ import numpy as np
 from main.multilink_ellipsoid.l5_row01_selection import (
     load_config, payload_sha256, selection_metrics,
 )
+from scripts.train_distal_l5_row01_selection import _applied_correction_l2
 
 
 class L5Row01SelectionTest(unittest.TestCase):
@@ -70,6 +71,12 @@ class L5Row01SelectionTest(unittest.TestCase):
     def test_payload_hash_ignores_only_self_hash(self):
         value = {"a": 1, "result_payload_sha256": "ignored"}
         self.assertEqual(payload_sha256(value), payload_sha256({"a": 1}))
+
+    def test_null_top_level_norm_falls_back_to_residual_binding(self):
+        self.assertEqual(_applied_correction_l2({
+            "applied_correction_l2_action": None,
+            "residual_binding": {"applied_residual_l2_action": 0.25},
+        }), 0.25)
 
 
 if __name__ == "__main__":

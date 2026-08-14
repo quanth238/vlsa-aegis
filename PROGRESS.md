@@ -3806,3 +3806,10 @@ support a learned-safety claim. The passing gate requires zero selected
 row-0/row-1 false-safes and safe support in every one of the four recoverable
 validation states before fresh replay. QP, calibration, closed loop, and sealed
 tests remain blocked.
+
+Initial H100 producer `40173` passed allocation tests and stopped before model
+construction because one immutable candidate stores a null top-level applied
+correction norm while retaining the numeric norm in its validated residual
+binding. Dependent validator `40174` is cancelled exactly. The loader-only
+repair uses the residual value when the optional top-level alias is null; it
+changes no sample, feature, target, split, model, seed, selection, or gate.

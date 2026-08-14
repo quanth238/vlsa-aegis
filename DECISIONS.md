@@ -2833,3 +2833,8 @@ Only a complete prediction gate authorizes fresh H100 replay of each selected
 candidate. Candidate selection is tested before gradients: calibration, QP,
 closed-loop execution, neural-CBF language, and learned row-2/L6/L7 claims
 remain forbidden.
+
+Producer attempt `40173` stopped before model construction on a nullable receipt
+alias for correction norm; dependent `40174` is cancelled. Fall back to the
+already validated `residual_binding.applied_residual_l2_action` only when the
+top-level alias is null. This is apparatus repair, not a protocol change.
