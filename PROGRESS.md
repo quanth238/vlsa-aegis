@@ -3476,8 +3476,9 @@ is independent-state support, not raw action count. Useful train boundary-state
 counts are only 2/2/1 versus the registered minimum 3; validation counts are
 2/0/0 versus minimum 1. Moreover, the fit population has 25 row-0 active
 witnesses but zero row-1 or row-2 active witnesses. Known train candidates are
-32 versus the minimum 40. Therefore neither feature fitting nor MLP training is
-authorized, and no dataset split is frozen as learning-ready.
+32 versus the minimum 40. Therefore neither the generalization feature gate nor
+deployment-gated MLP training is authorized, and no dataset split is frozen as
+learning-ready.
 
 Summary file/payload SHA-256 values are
 `1c93d3f3e815c7f7dfa0eed824f145221ba549c6642bda491fd14f1794eaf0d7`
@@ -3486,3 +3487,17 @@ The only supported next collection is additional grouped physical states that
 make L5 rows 1 and 2 active and controllable, plus at least one additional
 row-0 train state. Repeating more actions at these 15 states would not repair
 the identifiability failure. Sealed test episodes remain unopened.
+
+The learning decision is subsequently narrowed: this population is a GO for a
+capacity/implementation diagnostic but remains a NO-GO for a generalizable
+safety filter. The preregistered diagnostic fits one small three-output L5 MLP
+on 26 known train actions. In each train state with at least two labels, the
+largest registered candidate order is held out without consulting its target,
+yielding six same-state action-interpolation tests spanning target rows 0/1/2
+in counts 3/1/2. Sixteen known validation actions remain episode-grouped; only
+the ten actions from the two validation states with actual row-0 boundary
+support form the row-0 generalization diagnostic. Rows 1--2 receive only local
+interpolation reporting. E05 is an excluded positive control, all timeouts and
+the proxy-invalid state remain excluded, and the three sealed test episodes
+remain unopened. The run has no deployment pass gate and cannot authorize
+calibration, QP, or closed-loop execution.

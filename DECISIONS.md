@@ -2515,5 +2515,27 @@ missing row active, admit a globally safe endpoint, and cross the same fixed
 such states, either expand the declared task/obstacle distribution or narrow
 the learned claim; do not synthesize balanced rows. The current artifacts are
 frozen as a validated mechanism-pilot snapshot but not as a learning-ready
-dataset. Feature fitting, MLP training, calibration, QP, closed loop, and
-sealed-test access remain blocked.
+dataset. Deployment-gated feature fitting and MLP training, calibration, QP,
+closed loop, and sealed-test access remain blocked.
+
+## ADR-0123: Permit diagnostic training without weakening deployment gates
+
+- Status: accepted; H100 diagnostic pending
+- Date: 2026-08-14
+
+The grouped coverage NO-GO does not prevent a smaller capacity experiment. A
+fixed 32--32 three-output MLP may fit the known train labels and be tested on
+actions held out within the same physical states. This asks whether the
+implementation can interpolate the learned L5 action-risk surface; it does not
+ask whether the filter generalizes to new row-1/row-2 boundary states.
+
+The split is deterministic and label-independent: for every train state with
+at least two known candidates, hold out the candidate with the largest
+registered order. Fit the remaining 26 and evaluate six action-held-out
+candidates, including target rows 0/1/2. Keep all 16 validation labels grouped
+by episode, but make a generalization statement only for row 0 on the two
+validation states that actually contain its two-sided boundary. Rows 1--2 are
+local interpolation diagnostics only. E05 is excluded from fitting and
+reported as a positive control; unknown timeouts, the proxy-invalid state, and
+sealed tests are not admitted. The model and its gradients cannot enable a QP
+or closed-loop execution regardless of its diagnostic metrics.
