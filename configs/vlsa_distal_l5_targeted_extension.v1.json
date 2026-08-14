@@ -1,0 +1,72 @@
+{
+  "schema_version": "vlsa_distal_l5_targeted_extension.v1",
+  "protocol_id": "vlsa-distal-l5-targeted-extension-v1",
+  "claim_scope": "five_preregistered_unused_clean_episode_groups_extend_L5_row_boundary_coverage_using_the_immutable_adaptive_v3_method_not_training_not_QP_not_control_not_test_access",
+  "target_population": {
+    "manifest": "manifests/vlsa_distal_l5_targeted_extension.v1.jsonl",
+    "manifest_file_sha256": "6824c1c239d881e7faf2a0e92d7e52fb426ea693b0dc517d82141df3ef28725f",
+    "episode_count": 5,
+    "split_counts": {
+      "train": 3,
+      "validation": 2
+    },
+    "one_state_per_episode": true,
+    "case_ids_in_registered_order": [
+      "vlsa-t1-goal-ii-t2-e04",
+      "vlsa-t1-goal-ii-t2-e27",
+      "vlsa-t1-goal-ii-t2-e49",
+      "vlsa-t1-goal-ii-t2-e14",
+      "vlsa-t1-goal-ii-t2-e39"
+    ],
+    "split_assignment_fixed_before_rollout_labels": true,
+    "selection_rule": "unused_AEGIS_task_successful_clean_L5_contact_episode_groups_from_the_declared_Table1_population",
+    "no_row_label_used_for_selection": true
+  },
+  "parent_method": {
+    "clean_config": "configs/vlsa_distal_clean_action_risk.v1.json",
+    "clean_config_file_sha256": "5ccf522fa597b6831bc16bc7b58d515463daa1eaa0b25c2c2c72c39478e61770",
+    "coverage_config": "configs/vlsa_distal_query_boundary_coverage.v1.json",
+    "coverage_config_file_sha256": "f64e6535705ee080f7558ea336f06f3a8c26a6596a4b9bdc19df9ef5d0148d58",
+    "grouped_config": "configs/vlsa_distal_grouped_query_action_risk.v1.json",
+    "grouped_config_file_sha256": "af993a572bffa80c39bb04db2f5e58824f7d7e7c91b185906c21278138d29cdd",
+    "adaptive_config": "configs/vlsa_distal_adaptive_query_action_risk.v3.json",
+    "adaptive_config_file_sha256": "d45b90b34cc6b5ac83dc21bb68f5b35d1df4e87791ce1314fdb99dcc94a9ee2d",
+    "candidate_bank_unchanged": true,
+    "per_row_controllability_epsilon_unchanged": true,
+    "bisection_protocol_unchanged": true,
+    "candidate_plus_fixed_backup_target_unchanged": true,
+    "original_AEGIS_EE_filter_unchanged": true,
+    "timeout_semantics_unchanged": true
+  },
+  "parent_population": {
+    "run_id": "adaptive-query-risk-v3-population-20260814a",
+    "summary_file_sha256": "1c93d3f3e815c7f7dfa0eed824f145221ba549c6642bda491fd14f1794eaf0d7",
+    "summary_payload_sha256": "5babbf5ec8b2dda200897a35d0fafd75f30f32800eef3ae212d8cadf3655e0a4",
+    "train_useful_boundary_state_counts_by_L5_row": [2, 2, 1],
+    "validation_useful_boundary_state_counts_by_L5_row": [2, 0, 0],
+    "fit_active_witness_counts_by_L5_row": [25, 0, 0]
+  },
+  "requested_coverage": {
+    "collect_distinct_controllable_row_1_and_row_2_states": true,
+    "collect_one_additional_row_0_train_state": true,
+    "retain_no_support_states": true,
+    "retain_proxy_invalid_states": true,
+    "timeouts_are_censored_unknown": true,
+    "aggregate_with_parent_only_after_independent_validation": true
+  },
+  "sealed_test_cases": [
+    "vlsa-t1-goal-ii-t2-e42",
+    "vlsa-t1-goal-ii-t3-e42",
+    "vlsa-t1-goal-ii-t3-e44"
+  ],
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "sealed_test_episode_opening": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "timeout_as_safe": true,
+    "dropping_failed_states": true
+  }
+}

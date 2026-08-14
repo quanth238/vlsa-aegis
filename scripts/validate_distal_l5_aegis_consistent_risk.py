@@ -121,6 +121,36 @@ def validate(
     _require(_sha256(canonical(payload)) == claimed_payload,
              "risk result payload self-hash differs")
 
+    targeted_binding = result.get("population_binding", {}).get(
+        "targeted_extension"
+    )
+    if targeted_binding is not None:
+        from main.multilink_ellipsoid.targeted_l5_boundary_extension import (
+            load_cases as load_target_cases,
+            load_config as load_target_config,
+        )
+        target_config_path = (
+            repo_root / "configs/vlsa_distal_l5_targeted_extension.v1.json"
+        )
+        target_manifest_path = (
+            repo_root / "manifests/vlsa_distal_l5_targeted_extension.v1.jsonl"
+        )
+        target_config = load_target_config(
+            target_config_path, repo_root=repo_root
+        )
+        target_cases = load_target_cases(target_manifest_path, target_config)
+        target_index = int(targeted_binding["target_case_index"])
+        _require(
+            targeted_binding["config"] == target_config
+            and targeted_binding["target_manifest_file_sha256"]
+            == target_config["target_population"]["manifest_file_sha256"]
+            and targeted_binding["target_case"] == target_cases[target_index]
+            and result["population_binding"]["case"]
+            == target_cases[target_index]
+            and targeted_binding["parent_configs_used_for_method_only"] is True,
+            "targeted extension binding differs",
+        )
+
     contract = result["action_contract"]
     _require(contract["released_aegis_ee_enabled"] is True,
              "original AEGIS EE filter is not enabled")
@@ -484,6 +514,7 @@ def validate(
             "adaptive_boundary_protocol": bool(adaptive_semantics),
             "adaptive_per_row_protocol_v2": bool(adaptive_collection_v2),
             "adaptive_per_row_protocol_v3": bool(adaptive_collection_v3),
+            "targeted_extension_binding": targeted_binding is not None,
         },
         "counts": {
             "candidates": len(candidates),

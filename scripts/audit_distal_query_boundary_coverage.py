@@ -61,6 +61,8 @@ def audit(
     *, repo_root: Path, population_manifest: Path, selection_manifest: Path,
     experiment_config: Path, coverage_config: Path, geometry_config: Path,
     table1_root: Path, case_index: int, expected_commit: str,
+    selected_case_override: Mapping[str, Any] | None = None,
+    targeted_extension_binding: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -83,13 +85,30 @@ def audit(
 
     selection_cfg = load_config(experiment_config)
     config = load_coverage_config(coverage_config)
-    cases = [
-        item for item in load_cases(selection_manifest, selection_cfg)
-        if item["split"] in config["source"]["included_splits"]
-    ]
-    _require(len(cases) == 15, "query-boundary coverage case count differs")
-    _require(0 <= int(case_index) < len(cases), "query-boundary case index differs")
-    selected = cases[int(case_index)]
+    if selected_case_override is None:
+        cases = [
+            item for item in load_cases(selection_manifest, selection_cfg)
+            if item["split"] in config["source"]["included_splits"]
+        ]
+        expected_count = sum(
+            int(selection_cfg["cohort"]["episode_counts"][split])
+            for split in config["source"]["included_splits"]
+        )
+        _require(
+            len(cases) == expected_count,
+            "query-boundary coverage case count differs",
+        )
+        _require(
+            0 <= int(case_index) < len(cases),
+            "query-boundary case index differs",
+        )
+        selected = cases[int(case_index)]
+    else:
+        selected = dict(selected_case_override)
+        _require(
+            selected["split"] in ("train", "validation"),
+            "targeted query-boundary split differs",
+        )
     source_path = table1_root / selected["archived_result_relative_path"]
     _require(_file_sha256(source_path) == selected["archived_result_file_sha256"],
              "query-boundary source file differs")
@@ -255,6 +274,10 @@ def audit(
             "QP_authorized": False,
             "closed_loop_authorized": False,
         }
+        if targeted_extension_binding is not None:
+            result["targeted_extension_binding"] = dict(
+                targeted_extension_binding
+            )
         result["result_payload_sha256"] = _sha256(_canonical(result))
         return result
     finally:

@@ -35,6 +35,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--case-index", type=int, required=True)
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--target-config", type=Path)
+    parser.add_argument("--target-manifest", type=Path)
     args = parser.parse_args(argv)
     grouped = load_grouped_config(args.grouped_config.resolve())
     adaptive_raw = json.loads(args.adaptive_config.resolve().read_text())
@@ -56,6 +58,46 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
              "adaptive v2 collector requires one retained state")
     retained = coverage["retained_states"][0]
     case = coverage["case"]
+    targeted_binding = None
+    if args.target_config is not None or args.target_manifest is not None:
+        _require(
+            args.target_config is not None and args.target_manifest is not None,
+            "targeted extension arguments are incomplete",
+        )
+        from main.multilink_ellipsoid.targeted_l5_boundary_extension import (
+            load_cases as load_target_cases,
+            load_config as load_target_config,
+        )
+        target_config = load_target_config(
+            args.target_config.resolve(), repo_root=args.repo_root.resolve()
+        )
+        target_cases = load_target_cases(
+            args.target_manifest.resolve(), target_config
+        )
+        _require(
+            0 <= int(args.case_index) < len(target_cases),
+            "targeted adaptive case index differs",
+        )
+        _require(
+            target_cases[int(args.case_index)] == case,
+            "targeted adaptive coverage case differs",
+        )
+        _require(
+            coverage.get("targeted_extension_binding", {}).get(
+                "target_case"
+            ) == case,
+            "targeted adaptive coverage binding differs",
+        )
+        targeted_binding = {
+            "config": target_config,
+            "target_manifest": str(args.target_manifest.resolve()),
+            "target_manifest_file_sha256": target_config[
+                "target_population"
+            ]["manifest_file_sha256"],
+            "target_case_index": int(args.case_index),
+            "target_case": case,
+            "parent_configs_used_for_method_only": True,
+        }
     archived = args.table1_root.resolve() / case["archived_result_relative_path"]
     binding = {
         "adaptive_config": adaptive,
@@ -67,6 +109,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "case": case,
         "retained_state": retained,
     }
+    if targeted_binding is not None:
+        binding["targeted_extension"] = targeted_binding
 
     def definitions(nominal, frame, base):
         return coarse_candidate_definitions(nominal, frame, base, adaptive)
