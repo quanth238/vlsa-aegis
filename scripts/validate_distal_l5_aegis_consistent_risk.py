@@ -211,9 +211,9 @@ def validate(
         for key in (
             "exact_snapshot_replay",
             "all_replays_boundary_exact",
-            "timeout_never_labeled_safe",
-            "current_state_safe",
-            "no_proxy_safe_physical_collision",
+            "no_timeout_labeled_safe",
+            "query_boundary_is_initially_safe",
+            "proxy_safe_physical_collision_count_zero",
             "zero_L5_residual_reproduces_recomputed_released_aegis",
         ):
             _require(result["gates"][key] is True,
