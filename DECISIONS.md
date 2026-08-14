@@ -2520,7 +2520,7 @@ closed loop, and sealed-test access remain blocked.
 
 ## ADR-0123: Permit diagnostic training without weakening deployment gates
 
-- Status: accepted; H100 diagnostic pending
+- Status: accepted; H100 diagnostic validated, deployment gate remains NO-GO
 - Date: 2026-08-14
 
 The grouped coverage NO-GO does not prevent a smaller capacity experiment. A
@@ -2554,3 +2554,26 @@ runtime correction only; the model and protocol remain frozen.
 Attempt `40057` exposed only an OpenPI namespace collision in module-style unit
 test loading. Use `unittest discover -s tests` so the allocation executes the
 repository's test file. No training code ran and no scientific setting changes.
+
+Producer `40060` and independent replay validator `40061` completed the frozen
+diagnostic on one H100 with exactly zero prediction-replay discrepancy. The
+small model demonstrates local action interpolation: six same-state holdouts
+have `0.231658 mm` overall RMSE. This is not a safety pass because row 1 has one
+per-row false-safe even in that local test.
+
+Row 0 supplies the only grouped mechanism evidence justified by the coverage
+audit. On ten boundary actions from two disjoint supported validation states,
+it has zero false-safes, `90%` boundary-side accuracy, `2.750499 mm`
+near-boundary RMSE, `75%` exact-safe recall, and safe support in both states.
+The broader grouped result must not be collapsed into that claim: unsupported
+rows 1 and 2 each have six false-safes, and the excluded E05 positive control
+retains no predicted-safe candidate although an exact-safe candidate exists.
+
+Therefore the experiment validates only implementation capacity plus limited
+row-0 state transfer. It rejects generalizable three-output L5 filtering from
+the current population. Do not train longer, calibrate, open sealed tests,
+construct a QP, or run closed loop. Collect new episode groups whose exact
+post-AEGIS action family crosses controllable row-1 and row-2 boundaries, then
+repeat the grouped gate. Result and validation payload SHA-256 values are
+`3ed16bcbdb445f5fda5f8a854ca5ef3fc7b2b1091ebe61b94f10ea1bbb620342`
+and `6c9691b79d1a9c43a1adccf53389c761f85f01b9e7b68d3d5d95428939028f6a`.

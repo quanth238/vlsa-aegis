@@ -3522,3 +3522,32 @@ It never imported the training script or constructed a model; dependent
 validator `40058` was cancelled exactly. The retry uses repository-local
 unittest discovery, identical to the existing validated OpenPI training
 apparatus, with no protocol change.
+
+H100 diagnostic producer `40060` and independent replay validator `40061`
+completed on `worker-1` at commit
+`30bded7078ed701267185f7633839577e9ae1c2e`. The fixed 3,939-parameter
+three-output L5 MLP fit 26 actions and was evaluated on six label-independent
+same-state action holdouts, 16 episode-grouped validation actions, the ten
+row-0 boundary actions from two supported validation states, and the excluded
+six-action E05 positive control. The replay validator reproduced every
+prediction exactly (`0.0 m` maximum discrepancy).
+
+The capacity mechanism is positive but not deployable. Same-state action
+holdout RMSE was `0.231658 mm` overall, with row RMSEs
+`0.178035/0.198677/0.299712 mm`; row 1 still had one per-row false-safe and row
+2 one false-unsafe. On the only supported grouped claim, row 0 had zero
+false-safes, `90%` boundary-side accuracy, `2.750499 mm` near-boundary RMSE,
+`75%` exact-safe recall, and predicted-safe support in both recoverable states.
+The complete grouped validation remains a strict NO-GO: rows 1 and 2 each
+produced six false-safes, and E05's exact-safe candidate was rejected. This
+confirms that the compact model can interpolate local actions and has limited
+row-0 transfer, while the missing row-1/row-2 state coverage prevents a
+generalizable L5 safety-filter claim. Calibration, QP, closed loop, and sealed
+test access remain blocked; the next data action is new episode-grouped,
+controllable row-1/row-2 boundary states, not more actions or epochs at the
+existing states.
+
+Model/result/validation payload SHA-256 values are
+`e7d307cb54a96523e4058d8b523a4391b0fb441b99ef862745adbdf3612310ca`,
+`3ed16bcbdb445f5fda5f8a854ca5ef3fc7b2b1091ebe61b94f10ea1bbb620342`,
+and `6c9691b79d1a9c43a1adccf53389c761f85f01b9e7b68d3d5d95428939028f6a`.
