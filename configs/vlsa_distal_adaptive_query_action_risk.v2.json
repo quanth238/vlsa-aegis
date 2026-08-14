@@ -1,0 +1,74 @@
+{
+  "schema_version": "vlsa_distal_adaptive_query_action_risk.v2",
+  "protocol_id": "vlsa-distal-adaptive-query-action-risk-v2",
+  "claim_scope": "per_row_controllable_adaptive_prefix_screening_then_exact_candidate_plus_complete_backup_L5_risk_labels_not_training_not_QP_not_control_not_CBF",
+  "cohort": {
+    "source_episode_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+    "available_clean_episode_groups": 18,
+    "development_episode_groups": 15,
+    "sealed_test_episode_groups": 3,
+    "split_unit": "complete_episode",
+    "mechanism_pilot": true
+  },
+  "screening": {
+    "coarse_candidate_count": 12,
+    "mixture_seed": 20260814,
+    "candidate_recipes": [
+      {"name": "nominal", "source": "nominal", "coefficients": null, "temporal_profile": null, "radius": 0.0},
+      {"name": "normal_pos_front_loaded_r1.0", "source": "axis", "coefficients": [1.0, 0.0, 0.0], "temporal_profile": "front_loaded", "radius": 1.0},
+      {"name": "normal_neg_front_loaded_r1.0", "source": "axis", "coefficients": [-1.0, 0.0, 0.0], "temporal_profile": "front_loaded", "radius": 1.0},
+      {"name": "normal_pos_constant_r2.0", "source": "axis", "coefficients": [1.0, 0.0, 0.0], "temporal_profile": "constant", "radius": 2.0},
+      {"name": "normal_neg_constant_r2.0", "source": "axis", "coefficients": [-1.0, 0.0, 0.0], "temporal_profile": "constant", "radius": 2.0},
+      {"name": "tangent_up_pos_front_loaded_r1.0", "source": "axis", "coefficients": [0.0, 1.0, 0.0], "temporal_profile": "front_loaded", "radius": 1.0},
+      {"name": "tangent_up_neg_front_loaded_r1.0", "source": "axis", "coefficients": [0.0, -1.0, 0.0], "temporal_profile": "front_loaded", "radius": 1.0},
+      {"name": "tangent_side_pos_constant_r1.0", "source": "axis", "coefficients": [0.0, 0.0, 1.0], "temporal_profile": "constant", "radius": 1.0},
+      {"name": "tangent_side_neg_constant_r1.0", "source": "axis", "coefficients": [0.0, 0.0, -1.0], "temporal_profile": "constant", "radius": 1.0},
+      {"name": "mixture_seed20260814_0_front_loaded_r1.0", "source": "fixed_seed_mixture", "coefficients": [0.7986858599269543, 0.5460501850013364, 0.04565335416054794], "temporal_profile": "front_loaded", "radius": 1.0},
+      {"name": "mixture_seed20260814_1_constant_r1.5", "source": "fixed_seed_mixture", "coefficients": [0.2754155249977587, 0.6855100021783391, 0.5983220765546371], "temporal_profile": "constant", "radius": 1.5},
+      {"name": "mixture_seed20260814_2_front_loaded_r2.0", "source": "fixed_seed_mixture", "coefficients": [0.7307650814232421, -0.8825666189168602, 0.16895332087302695], "temporal_profile": "front_loaded", "radius": 2.0}
+    ],
+    "risk_rows": [0, 1, 2],
+    "two_sided_epsilon_m": 0.0005,
+    "target_row": "highest_nominal_risk_among_rows_with_global_safe_and_row_positive_coarse_support",
+    "safe_endpoint": "globally_L5_safe_no_physical_veto_and_target_row_below_negative_epsilon",
+    "unsafe_endpoint": "target_row_above_positive_epsilon",
+    "coarse_stop_prefix_after_contact_or_CAR": true,
+    "bisection_executes_complete_prefix": true,
+    "bracket_selection": "minimum_action_L2_then_target_boundary_distance_then_order",
+    "bisection_iterations": 5,
+    "retain_nominal": true,
+    "maximum_authoritative_candidates": 8
+  },
+  "authoritative_labels": {
+    "candidate": "exact_final_post_AEGIS_five_action_chunk",
+    "rollout": "candidate_prefix_plus_complete_fixed_backup_unless_physical_veto",
+    "complete_backup_only_for_retained_candidates": true,
+    "unknown_timeout_is_censored": true,
+    "original_AEGIS_EE_QP_recorded": true,
+    "all_three_L5_rows_recorded": true,
+    "L6_L7_contact_is_diagnostic": true
+  },
+  "feature_audit": {
+    "models": ["existing_86D", "compact_exact_action", "compact_exact_action_plus_complete_physical_state"],
+    "record": ["exact_final_post_AEGIS_action", "arm_q_and_dq", "L5_obstacle_relative_geometry", "current_clearances_and_normals", "EE_and_OSC_state", "AEGIS_EE_QP_records"],
+    "coverage_gate": {
+      "minimum_train_known_candidates": 40,
+      "minimum_validation_known_candidates": 12,
+      "minimum_known_safe_candidates_per_L5_row": 10,
+      "minimum_known_unsafe_candidates_per_L5_row": 10,
+      "minimum_near_boundary_candidates_per_L5_row": 8,
+      "minimum_train_useful_boundary_states_per_L5_row": 3,
+      "minimum_validation_useful_boundary_states_per_L5_row": 1
+    },
+    "no_training_in_collection_gate": true
+  },
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "test_episode_opening": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true,
+    "CBF_claim": true
+  }
+}

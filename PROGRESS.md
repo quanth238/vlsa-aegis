@@ -3410,3 +3410,20 @@ and `ff0c7738e70f68f563aa1de2a3dec6dedd781ae088d92cef90bafa2bbc8ad2a2`.
 This authorizes the 15-development-state adaptive array and independent
 validation. It does not authorize feature fitting, MLP training, QP, test
 opening, or closed-loop control.
+
+The population protocol is refined to v2 before scale-up. Twelve coarse
+proposals include nominal, paired normal/tangent axes, two temporal profiles,
+three correction amplitudes, and three fixed-seed normal--tangent mixtures.
+For each state the artifact reports observed negative/positive support for
+each L5 row separately. A row is controllable only when the coarse set contains
+a physical-veto-free action with all L5 risks below `-0.5 mm` and another
+action with that row above `+0.5 mm`. Among controllable rows, the row with the
+largest nominal risk becomes the registered target; five complete-prefix
+bisection probes refine only that row. All three L5 targets and rows 3--6 are
+still recorded by the authoritative retained candidate-plus-backup rollouts.
+
+This v2 change prevents the hard maximum from silently choosing every training
+boundary. States without a globally safe endpoint or row-positive endpoint
+remain explicit no-support/unrecoverable cases. The passed v1 canary remains
+immutable cost-hierarchy evidence; one new v2 E05 H100 canary is required
+before the grouped array.

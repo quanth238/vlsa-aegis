@@ -68,6 +68,7 @@ def validate(
     *, repo_root: Path, result_path: Path, producer_commit: str,
     validator_commit: str, grouped_collection: bool = False,
     adaptive_collection: bool = False,
+    adaptive_collection_v2: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -84,13 +85,22 @@ def validate(
         RESULT_SCHEMA as ADAPTIVE_RESULT_SCHEMA,
         load_config as load_adaptive_config,
     )
+    from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
+        RESULT_SCHEMA as ADAPTIVE_V2_RESULT_SCHEMA,
+        load_config as load_adaptive_v2_config,
+    )
 
     validator_source = _git_identity(repo_root, validator_commit)
     result = _load(result_path)
-    _require(not (grouped_collection and adaptive_collection),
+    _require(
+        sum(bool(value) for value in (
+            grouped_collection, adaptive_collection, adaptive_collection_v2,
+        )) <= 1,
              "risk validation collection mode is ambiguous")
-    grouped_semantics = bool(grouped_collection or adaptive_collection)
+    adaptive_semantics = bool(adaptive_collection or adaptive_collection_v2)
+    grouped_semantics = bool(grouped_collection or adaptive_semantics)
     expected_schema = (
+        ADAPTIVE_V2_RESULT_SCHEMA if adaptive_collection_v2 else
         ADAPTIVE_RESULT_SCHEMA if adaptive_collection else
         GROUPED_RESULT_SCHEMA if grouped_collection else QUERY_RESULT_SCHEMA
     )
@@ -141,10 +151,16 @@ def validate(
              "raw nominal hash differs")
 
     candidates = result["candidates"]
-    if adaptive_collection:
+    if adaptive_semantics:
         adaptive = result["adaptive_boundary_sampling"]
-        adaptive_config = load_adaptive_config(
-            repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+        adaptive_config = (
+            load_adaptive_v2_config(
+                repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v2.json"
+            )
+            if adaptive_collection_v2 else
+            load_adaptive_config(
+                repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+            )
         )
         _require(adaptive["config"] == adaptive_config,
                  "adaptive embedded config differs")
@@ -167,10 +183,21 @@ def validate(
     )
     buffer_m = float(risk_config["risk_target"]["safety_buffer_m"])
     car_limit = float(risk_config["risk_target"]["paper_car_threshold_m"])
-    if adaptive_collection:
-        from main.multilink_ellipsoid.adaptive_query_action_risk import (
-            midpoint_definition, select_bracket,
-        )
+    if adaptive_semantics:
+        if adaptive_collection_v2:
+            from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
+                choose_target_row,
+                coarse_candidate_definitions,
+                midpoint_definition,
+                row_support,
+                select_row_bracket,
+            )
+        else:
+            from main.multilink_ellipsoid.adaptive_query_action_risk import (
+                coarse_candidate_definitions,
+                midpoint_definition,
+                select_bracket,
+            )
 
         context = result["state"]["physical_context"]
         _require(
@@ -191,9 +218,6 @@ def validate(
         _require(len(coarse) == int(adaptive_config["screening"][
             "coarse_candidate_count"
         ]), "adaptive screening count differs")
-        from main.multilink_ellipsoid.adaptive_query_action_risk import (
-            coarse_candidate_definitions,
-        )
         expected_coarse = coarse_candidate_definitions(
             nominal,
             result["state"]["local_frame"],
@@ -254,7 +278,29 @@ def validate(
 
         for record in coarse:
             validate_screen(record)
-        expected_bracket = select_bracket(coarse)
+        if adaptive_collection_v2:
+            expected_support = row_support(
+                coarse, float(adaptive_config["screening"]["two_sided_epsilon_m"])
+            )
+            expected_target = choose_target_row(coarse, expected_support)
+            expected_bracket = (
+                None if expected_target is None else
+                select_row_bracket(
+                    coarse,
+                    row=int(expected_target),
+                    epsilon_m=float(adaptive_config["screening"][
+                        "two_sided_epsilon_m"
+                    ]),
+                )
+            )
+            _require(
+                adaptive["per_row_coarse_support"] == expected_support
+                and adaptive["target_row"] == expected_target,
+                "adaptive v2 per-row support differs",
+            )
+        else:
+            expected_target = None
+            expected_bracket = select_bracket(coarse)
         _require(
             bool(adaptive["bracket_found"]) == (expected_bracket is not None)
             and adaptive["initial_bracket_indices"] == (
@@ -280,10 +326,13 @@ def validate(
                     order=int(record["definition"]["order"]),
                 )
                 _require(
-                    _array_equal(expected["actions"], record["definition"]["actions"]),
+                    expected == record["definition"],
                     "adaptive bisection midpoint differs",
                 )
-                if record["screen_safe"]:
+                if (
+                    float(record["prefix_risk"][int(expected_target)]) <= 0.0
+                    if adaptive_collection_v2 else record["screen_safe"]
+                ):
                     safe_record = record
                 else:
                     unsafe_record = record
@@ -422,7 +471,8 @@ def validate(
             "seven_row_geometry_and_L6_L7_diagnostics_present": True,
             "mixed_safe_unsafe_support": mixed_support,
             "no_proxy_safe_physical_collision": proxy_collision_count == 0,
-            "adaptive_boundary_protocol": bool(adaptive_collection),
+            "adaptive_boundary_protocol": bool(adaptive_semantics),
+            "adaptive_per_row_protocol_v2": bool(adaptive_collection_v2),
         },
         "counts": {
             "candidates": len(candidates),
@@ -472,6 +522,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Validate variable-count adaptive boundary artifacts.",
     )
+    parser.add_argument(
+        "--adaptive-collection-v2",
+        action="store_true",
+        help="Validate per-row variable-count adaptive boundary artifacts.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     output = validate(
@@ -481,6 +536,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         validator_commit=args.validator_commit,
         grouped_collection=bool(args.grouped_collection),
         adaptive_collection=bool(args.adaptive_collection),
+        adaptive_collection_v2=bool(args.adaptive_collection_v2),
     )
     _atomic_write(args.output.resolve(), output)
     print(json.dumps({

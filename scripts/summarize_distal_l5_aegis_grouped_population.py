@@ -23,6 +23,7 @@ def _add_coverage(left: list[dict[str, int]], right: list[dict[str, int]]) -> No
 def summarize_population(
     *, repo_root: Path, producer_root: Path, producer_commit: str,
     validator_commit: str, summary_commit: str, adaptive: bool = False,
+    adaptive_v2: bool = False,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
         row_coverage, state_classification, training_eligible_state,
@@ -31,6 +32,13 @@ def summarize_population(
     from main.multilink_ellipsoid.adaptive_query_action_risk import (
         RESULT_SCHEMA as ADAPTIVE_RESULT_SCHEMA,
     )
+    from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
+        RESULT_SCHEMA as ADAPTIVE_V2_RESULT_SCHEMA,
+    )
+
+    _require(not (adaptive and adaptive_v2),
+             "adaptive population summary mode is ambiguous")
+    adaptive_any = bool(adaptive or adaptive_v2)
 
     indices = list(range(15))
     result_paths = [producer_root / ("case-%02d" % index) / "result.json"
@@ -46,7 +54,10 @@ def summarize_population(
         summary_commit=summary_commit,
         expected_count=15,
         required_splits=("diagnostic", "train", "validation"),
-        result_schema=ADAPTIVE_RESULT_SCHEMA if adaptive else None,
+        result_schema=(
+            ADAPTIVE_V2_RESULT_SCHEMA if adaptive_v2 else
+            ADAPTIVE_RESULT_SCHEMA if adaptive else None
+        ),
     )
     by_split: dict[str, list[dict[str, int]]] = {}
     eligible_by_split: dict[str, list[dict[str, int]]] = {}
@@ -82,9 +93,13 @@ def summarize_population(
                     and record["near_boundary_known_candidate_count"] > 0):
                 useful_by_split[split][row] += 1
 
-    if adaptive:
+    if adaptive_any:
         adaptive_config = _load(
-            repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+            repo_root / (
+                "configs/vlsa_distal_adaptive_query_action_risk.v2.json"
+                if adaptive_v2 else
+                "configs/vlsa_distal_adaptive_query_action_risk.v1.json"
+            )
         )
         registered = adaptive_config["feature_audit"]["coverage_gate"]
         thresholds = {
@@ -137,6 +152,8 @@ def summarize_population(
     coverage_authorizes_feature_audit = bool(training_authorized)
     output.update({
         "schema_version": (
+            "vlsa_distal_l5_aegis_adaptive_population_summary.v2"
+            if adaptive_v2 else
             "vlsa_distal_l5_aegis_adaptive_population_summary.v1"
             if adaptive else
             "vlsa_distal_l5_aegis_grouped_population_summary.v1"
@@ -151,19 +168,20 @@ def summarize_population(
         "sample_gates": sample_gates,
         "learned_row_gates": row_gates,
         "coverage_authorizes_feature_audit": coverage_authorizes_feature_audit,
-        "training_authorized": False if adaptive else training_authorized,
+        "training_authorized": False if adaptive_any else training_authorized,
         "next_gate": (
             "run_frozen_no_training_matched_feature_audit"
-            if adaptive and coverage_authorizes_feature_audit else
+            if adaptive_any and coverage_authorizes_feature_audit else
             "target_additional_episode_states_for_failed_adaptive_L5_coverage_gates"
-            if adaptive else
+            if adaptive_any else
             "freeze_episode_grouped_dataset_before_training"
             if training_authorized else
             "target_additional_episode_states_for_failed_L5_row_gates"
         ),
     })
-    if adaptive:
+    if adaptive_any:
         output["adaptive_sampling"] = {
+            "protocol_version": 2 if adaptive_v2 else 1,
             "state_count": len(result_paths),
             "bracketed_state_count": sum(
                 bool(_load(path)["adaptive_boundary_sampling"]["bracket_found"])
@@ -183,6 +201,23 @@ def summarize_population(
                 int(_load(path)["candidate_count"]) for path in result_paths
             ),
         }
+        if adaptive_v2:
+            output["adaptive_sampling"]["target_row_state_counts"] = [
+                sum(
+                    _load(path)["adaptive_boundary_sampling"]["target_row"] == row
+                    for path in result_paths
+                )
+                for row in range(3)
+            ]
+            output["adaptive_sampling"][
+                "controllable_coarse_state_counts_by_L5_row"
+            ] = [
+                sum(bool(_load(path)["adaptive_boundary_sampling"][
+                    "per_row_coarse_support"
+                ][row]["controllable_with_global_safe_endpoint"])
+                    for path in result_paths)
+                for row in range(3)
+            ]
     output.pop("result_payload_sha256", None)
     output["result_payload_sha256"] = _sha256(canonical(output))
     return output
@@ -197,6 +232,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--summary-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--adaptive", action="store_true")
+    parser.add_argument("--adaptive-v2", action="store_true")
     args = parser.parse_args(argv)
     output = summarize_population(
         repo_root=args.repo_root.resolve(),
@@ -205,6 +241,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         validator_commit=args.validator_commit,
         summary_commit=args.summary_commit,
         adaptive=bool(args.adaptive),
+        adaptive_v2=bool(args.adaptive_v2),
     )
     _atomic_write(args.output.resolve(), output)
     print({

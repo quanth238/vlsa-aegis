@@ -524,15 +524,28 @@ def evaluate(
 
         adaptive_sampling = None
         if adaptive_boundary_config is not None:
-            from main.multilink_ellipsoid.adaptive_query_action_risk import (
-                midpoint_definition, select_bracket,
-            )
-
             screening_config = adaptive_boundary_config["screening"]
+            adaptive_v2 = bool(
+                adaptive_boundary_config.get("schema_version")
+                == "vlsa_distal_adaptive_query_action_risk.v2"
+            )
+            if adaptive_v2:
+                from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
+                    choose_target_row,
+                    midpoint_definition,
+                    row_support,
+                    select_row_bracket,
+                )
+            else:
+                from main.multilink_ellipsoid.adaptive_query_action_risk import (
+                    midpoint_definition, select_bracket,
+                )
             _require(len(definitions) == int(screening_config["coarse_candidate_count"]),
                      "adaptive coarse definition count differs")
 
-            def screen_definition(definition: Mapping[str, Any]) -> dict[str, Any]:
+            def screen_definition(
+                definition: Mapping[str, Any], *, stop_after_veto: bool,
+            ) -> dict[str, Any]:
                 restore_source()
                 candidate_actions = np.asarray(
                     definition["actions"], dtype=np.float64
@@ -547,9 +560,7 @@ def evaluate(
                 prefix, executed, consistency = rollout_projected_prefix(
                     candidate_pre_aegis,
                     source_aegis_z,
-                    stop_after_physical_veto=bool(
-                        screening_config["stop_prefix_after_contact_or_CAR"]
-                    ),
+                    stop_after_physical_veto=bool(stop_after_veto),
                 )
                 summary = summarize_rollout(prefix, exclude_k0=True)
                 risk = risk_from_row_minimum(
@@ -564,11 +575,11 @@ def evaluate(
                 )
                 screen_safe = bool(
                     not physical_veto
-                    and scalar <= float(screening_config["safe_threshold_m"])
+                    and scalar <= float(screening_config.get("safe_threshold_m", 0.0))
                 )
                 screen_unsafe = bool(
                     physical_veto
-                    or scalar > float(screening_config["unsafe_threshold_m"])
+                    or scalar > float(screening_config.get("unsafe_threshold_m", 0.0))
                 )
                 _require(screen_safe != screen_unsafe,
                          "adaptive screen classification is ambiguous")
@@ -588,9 +599,34 @@ def evaluate(
                     "executed_prefix_action_count": len(summary["substep_counts"]),
                 }
 
-            coarse_records = [screen_definition(definition)
-                              for definition in definitions]
-            bracket = select_bracket(coarse_records)
+            coarse_stop = bool(
+                screening_config[
+                    "coarse_stop_prefix_after_contact_or_CAR"
+                    if adaptive_v2 else "stop_prefix_after_contact_or_CAR"
+                ]
+            )
+            coarse_records = [
+                screen_definition(definition, stop_after_veto=coarse_stop)
+                for definition in definitions
+            ]
+            if adaptive_v2:
+                support = row_support(
+                    coarse_records,
+                    float(screening_config["two_sided_epsilon_m"]),
+                )
+                target_row = choose_target_row(coarse_records, support)
+                bracket = (
+                    None if target_row is None else
+                    select_row_bracket(
+                        coarse_records,
+                        row=int(target_row),
+                        epsilon_m=float(screening_config["two_sided_epsilon_m"]),
+                    )
+                )
+            else:
+                support = None
+                target_row = None
+                bracket = select_bracket(coarse_records)
             bisection_records = []
             if bracket is not None:
                 safe_record = coarse_records[int(bracket[0])]
@@ -601,9 +637,15 @@ def evaluate(
                         safe_record["definition"], unsafe_record["definition"],
                         iteration=iteration, order=next_order + iteration,
                     )
-                    middle_record = screen_definition(middle_definition)
+                    middle_record = screen_definition(
+                        middle_definition,
+                        stop_after_veto=False if adaptive_v2 else coarse_stop,
+                    )
                     bisection_records.append(middle_record)
-                    if middle_record["screen_safe"]:
+                    if (
+                        float(middle_record["prefix_risk"][int(target_row)]) <= 0.0
+                        if adaptive_v2 else middle_record["screen_safe"]
+                    ):
                         safe_record = middle_record
                     else:
                         unsafe_record = middle_record
@@ -631,6 +673,8 @@ def evaluate(
             adaptive_sampling = {
                 "config": adaptive_boundary_config,
                 "coarse_screening_records": coarse_records,
+                "per_row_coarse_support": support,
+                "target_row": target_row,
                 "bracket_found": bracket is not None,
                 "initial_bracket_indices": None if bracket is None else list(bracket),
                 "bisection_records": bisection_records,
