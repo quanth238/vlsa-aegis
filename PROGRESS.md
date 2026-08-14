@@ -3945,3 +3945,13 @@ and `57683263c435477cca0549a2e672d18204b3b80b3603ce380d635db2eb3d03ae`;
 payload SHA-256 values are
 `cb82a161b138b421c6a7ea64937c9d9d9f33599289709e3de10e119f10617220`
 and `c0325c701592166258ef7805cd263f727b4106b236d520f635f45932ab25df41`.
+
+ADR-0133 preregisters the factorized data gate rather than fitting a biased
+baseline model. Twelve unused initial states across task-0 moka and task-2 milk
+have fixed outcome-blind policy seeds and grouped 8/4 train/validation splits;
+four additional initial episodes remain unopened. Eligible trajectories flow
+through unchanged real-query warning-state discovery and adaptive-v3 candidate
+plus fixed-backup labeling. The collection retains every task failure, missing
+boundary, timeout, physical veto, and proxy-invalid case. Training remains
+blocked until independent validation demonstrates known nominal anchors,
+multiple response actions, and prefix/backup boundary support in both splits.

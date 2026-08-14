@@ -1,0 +1,81 @@
+{
+  "schema_version": "vlsa_distal_l5_factorized_boundary.v1",
+  "protocol_id": "vlsa-distal-l5-factorized-boundary-v1",
+  "claim_scope": "grouped_unused_state_collection_for_policy_conditioned_L5_nominal_risk_and_anchored_action_response_not_training_not_QP_not_control_not_CBF",
+  "population": {
+    "manifest": "manifests/vlsa_distal_l5_factorized_boundary.v1.jsonl",
+    "manifest_file_sha256": "cd6b486d0981a434e829524812d988fa937774888f756148a79771ec522da2c7",
+    "table1_manifest": "manifests/vlsa_table1_population.jsonl",
+    "table1_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "case_count": 12,
+    "train_case_count": 8,
+    "validation_case_count": 4,
+    "tasks": [0, 2],
+    "unused_initial_episode_indices_per_task": [1, 6, 11, 16, 21, 26],
+    "split_unit": "task_and_initial_episode",
+    "policy_noise_seed_fixed_before_outcomes": true,
+    "reserved_unopened_initial_episode_indices_per_task": [31, 36]
+  },
+  "execution": {
+    "original_AEGIS_EE_correction_enabled": true,
+    "maximum_steps": 300,
+    "replan_steps": 5,
+    "exactly_one_H100_per_case": true,
+    "failures_and_timeouts_retained": true,
+    "task_success_required_for_learning_population": true,
+    "proxy_valid_L5_contact_required_for_boundary_collection": true
+  },
+  "method_bindings": {
+    "clean_config": "configs/vlsa_distal_clean_action_risk.v1.json",
+    "clean_config_file_sha256": "5ccf522fa597b6831bc16bc7b58d515463daa1eaa0b25c2c2c72c39478e61770",
+    "query_coverage_config": "configs/vlsa_distal_query_boundary_coverage.v1.json",
+    "query_coverage_config_file_sha256": "f64e6535705ee080f7558ea336f06f3a8c26a6596a4b9bdc19df9ef5d0148d58",
+    "grouped_config": "configs/vlsa_distal_grouped_query_action_risk.v1.json",
+    "grouped_config_file_sha256": "af993a572bffa80c39bb04db2f5e58824f7d7e7c91b185906c21278138d29cdd",
+    "adaptive_config": "configs/vlsa_distal_adaptive_query_action_risk.v3.json",
+    "adaptive_config_file_sha256": "d45b90b34cc6b5ac83dc21bb68f5b35d1df4e87791ce1314fdb99dcc94a9ee2d",
+    "base_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+    "base_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
+    "geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e"
+  },
+  "collection": {
+    "one_real_five_action_query_boundary_per_eligible_episode": true,
+    "adaptive_v3_candidate_bank_unchanged": true,
+    "five_bisection_iterations": true,
+    "complete_fixed_backup_for_retained_candidates": true,
+    "prefix_contact_or_CAR_stops_before_backup": true,
+    "missing_backup_is_censored": true,
+    "all_L5_rows_and_L6_L7_contacts_recorded": true,
+    "original_AEGIS_EE_projection_applied_to_every_candidate": true
+  },
+  "coverage_gate_before_learning": {
+    "minimum_new_train_states_with_known_nominal_and_four_responses": 2,
+    "minimum_new_validation_states_with_known_nominal_and_four_responses": 1,
+    "minimum_train_prefix_dominated_boundary_states": 1,
+    "minimum_validation_prefix_dominated_boundary_states": 1,
+    "minimum_train_backup_dominated_boundary_states": 1,
+    "minimum_validation_backup_dominated_boundary_states": 1,
+    "zero_proxy_safe_physical_collisions": true,
+    "all_timeouts_censored": true
+  },
+  "next_model_if_coverage_passes": {
+    "equation": "Q_j(z,A)=B_j(z,A_nominal)+Delta_j(z,A_nominal,A-A_nominal)",
+    "architectural_anchor": "Delta_j(z,A_nominal,0)=0",
+    "baseline_supervision": "known_nominal_candidate_plus_fixed_backup_risk",
+    "response_supervision": "paired_and_bisection_candidate_risk_minus_nominal_risk",
+    "first_gate": "Delta_direction_selection_beats_fixed_repulsion_and_matched_random",
+    "second_gate": "B_plus_Delta_zero_false_safes_and_safe_support"
+  },
+  "forbidden": [
+    "Table1_artifact_mutation",
+    "reserved_episode_access",
+    "training_before_coverage_gate",
+    "timeout_imputation",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "Poisson_or_SDF",
+    "whole_arm_or_neural_CBF_claim"
+  ]
+}

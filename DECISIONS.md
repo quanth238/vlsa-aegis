@@ -3039,3 +3039,33 @@ with complete backup safe/unsafe crossings and E45-like prefix-dominated states,
 not additional random actions at current snapshots. This may support a useful
 ranking/steering direction, but absolute acceptance remains blocked until the
 baseline and crossing point produce zero false-safes and 4/4 support.
+
+## ADR-0133: Collect grouped anchors before fitting policy-conditioned B plus Delta
+
+- Status: preregistered; H100 collection pending
+- Date: 2026-08-14
+
+The factorized model is specified as
+
+`Q_j(z,A) = B_j(z,A_nominal) + Delta_j(z,A_nominal,A-A_nominal)`,
+
+with `Delta_j(z,A_nominal,0)=0` enforced architecturally. This prevents policy
+noise from giving one state-only baseline inconsistent nominal targets. The
+current frozen population is not sufficient for a fair fit: only five training
+states contain a known nominal candidate plus complete authoritative target.
+
+Before training, collect twelve outcome-blind trajectories from unused initial
+states in task-0 moka and task-2 milk. Eight complete task/episode groups are
+fixed as train and four as validation; episodes 31 and 36 in each task remain
+unopened for a later final gate. Every eligible task-successful, proxy-valid L5
+trajectory uses a real five-action query boundary, the unchanged adaptive-v3
+candidate bank, five bisections, original AEGIS EE projection, and candidate-
+plus-fixed-backup labels. Missing backup after prefix contact/CAR is censored.
+
+Training is authorized only if the new population supplies at least two train
+and one validation states with a known nominal plus four response actions, and
+both prefix- and backup-dominated two-sided boundaries occur in train and
+validation. The first learned gate will evaluate `Delta` as a direction/ranker
+against fixed repulsion and matched random selection. Only afterward may
+`B+Delta` be tested as an absolute safety gate. QP, calibration, closed loop,
+Poisson, whole-arm, and neural-CBF claims remain forbidden.
