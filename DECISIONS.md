@@ -2348,3 +2348,39 @@ shows state transfer is the dominant observed degradation, not the only one.
 Proceed by increasing distinct deployment-distributed, post-AEGIS executable
 states and representing relative L5--obstacle/controller state. Do not merely
 increase candidate density at existing states or train longer.
+## ADR-0117: Compose the L5 residual before one original AEGIS pass
+
+- Status: accepted after independent H100 validation
+- Date: 2026-08-14
+
+The restricted learned system keeps the released AEGIS EE constraint enabled,
+but it must not apply AEGIS twice. The released filter is stateful: besides its
+Cartesian output, each QP advances an auxiliary virtual direction. H100 canary
+`39825` showed that reapplying AEGIS to its own archived outputs changes later
+actions by up to `2.829361e-3` action units even with no L5 residual. Therefore
+the rejected composition is `VLA -> AEGIS -> L5 residual -> AEGIS`.
+
+The accepted opt-in composition is:
+
+```
+raw VLA action + bounded L5 residual -> one unchanged released AEGIS pass
+-> exact OSC rollout label
+```
+
+At zero L5 residual this is exactly the recomputed released-AEGIS baseline at
+the restored state. Candidate and backup actions both pass through the same
+released EE filter, and every stored risk label binds to its final AEGIS output.
+The immutable Table 1 action ledger remains read-only. Its archived action may
+differ slightly from a counterfactual replay because the replay state is not
+reinterpreted as the historical physical state; that difference is reported as
+a diagnostic and never silently used as a baseline equality gate.
+
+H100-host canary `39831` passed exact repeated state, clearance, contact, CAR,
+and executed-action replay, and its zero-residual arm exactly reproduced the
+recomputed original-AEGIS actions. Full producer `39832` and independent
+validator `39846` then passed the same contract for all 37 E05 candidates.
+The population contains two exact-safe candidates, 33 contact/CAR failures,
+and two censored timeouts; all 37 active witnesses are L5 row 1. This freezes
+E05 as a nonvacuous diagnostic positive control and authorizes only
+episode-grouped collection with the identical action contract. It does not
+authorize training, calibration, QP, or closed-loop execution.

@@ -3276,3 +3276,50 @@ No simulator ran, no reserved test label opened, and AEGIS compatibility was
 not claimed. The next data collection should prioritize distinct post-AEGIS
 states and relative/controller-state features rather than additional actions
 at the current states. QP and closed loop remain blocked.
+## AEGIS-consistent L5 action-label contract
+
+The first H100-host canary `39819` correctly rejected the initial implementation:
+the cloned EE proxy was read from a stale observation cache, producing
+nondeterministic actions and state transitions. Canary `39822` restored exact
+clone determinism but exposed a frame mismatch: robosuite defines EE position
+from the grip site and EE orientation from the robot-model EEF body. Canary
+`39825` used that exact mixed-frame definition and showed the remaining issue
+was conceptual rather than numerical: released AEGIS is not idempotent because
+its virtual direction changes at every QP.
+
+The implementation now transfers the structured L5 residual from the
+recomputed post-AEGIS action to the corresponding raw VLA action, then applies
+the original AEGIS filter exactly once. H100-host job `39831` passed the action
+contract: repeated executed actions, complete controller state, every internal
+clearance sample, contacts, and CAR were exactly identical, and a zero L5
+residual reproduced the recomputed released-AEGIS baseline with zero error.
+Its artifact file/payload SHA-256 values are
+`438ffd7eefa3e52beac53a1e2d0ac5a2a4be8e22d4e5e8026cdd036120d2a459`
+and `3e877644ac58e3262c25af1cd2d8904663b0bb044d66a320510fc3bd7656194b`.
+The two-candidate canary intentionally does not establish mixed support.
+
+Full 37-candidate H100 positive-control job `39832` completed on `worker-2` at
+commit `8ffe6ed1325b2df57b4a1a03017f09a4c66e6665` in 381.535 seconds. All ten
+producer gates passed. The population contains two exact-safe candidates,
+33 contact/CAR failures, and two censored `UNKNOWN_TIMEOUT` candidates. No
+proxy-safe candidate physically collided. All 37 active witnesses are L5 row
+1, so the result is nonvacuous but not row-complete. Result file/payload
+SHA-256 values are
+`73aa2734630b57a2768cc56a04e7b4c56e68437c927c2519b18cdaf5af9e3d94`
+and `900e3b26a600246e1285c0c17c935b30b3f9ec9f1615e134df31d9819f074387`.
+
+Independent Slurm validator `39846` on `worker-2` passed all eight contract
+checks: payload integrity, original AEGIS enabled, exact zero-residual
+baseline, every prefix label bound to its final AEGIS output, every backup
+action passed through AEGIS, seven-row diagnostics present, mixed support,
+and no proxy-safe physical collision. Validation payload SHA-256 is
+`ea3eef230284f5e563534a50cf3ff0197ef0d4258e437a12ea1cde2f6d39b603`.
+The failed validator launch `39840` and source-prep launch `39844` are cluster
+apparatus failures only: `/home` is worker-local and Slurm's `--wrap` used
+`/bin/sh`; jobs `39845`/`39846` established the reproducible worker-local
+source preparation path.
+
+Training, calibration, QP, reserved-test access, and closed loop remain
+blocked. The exact next command is the AEGIS-consistent grouped H100 canary on
+one train and one validation episode; it must retain failed/no-support states
+and validate the final executed-action bindings before any wider array.
