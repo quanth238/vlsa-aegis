@@ -2577,3 +2577,25 @@ post-AEGIS action family crosses controllable row-1 and row-2 boundaries, then
 repeat the grouped gate. Result and validation payload SHA-256 values are
 `3ed16bcbdb445f5fda5f8a854ca5ef3fc7b2b1091ebe61b94f10ea1bbb620342`
 and `6c9691b79d1a9c43a1adccf53389c761f85f01b9e7b68d3d5d95428939028f6a`.
+
+## ADR-0124: Audit coverage before changing the diagnostic model
+
+- Status: accepted; frozen H100 audit pending
+- Date: 2026-08-14
+
+Do not infer that all unseen-state failure comes from data merely because the
+coverage gate failed. Freeze the validated model and labels, then compare its
+error hierarchy across fitted actions, held-out actions at fitted states, and
+disjoint physical states. A model-capacity failure should remain visible on
+train or same-state holdout. A state-coverage failure should instead show good
+same-state interpolation and a large grouped-state error increase coincident
+with missing row-specific boundary states and active witnesses.
+
+The audit measures support in the actual 86D feature groups and explicitly
+records that q, dq, EEF pose, OSC goals/controller memory, obstacle pose, and
+per-row ellipsoid transforms exist in the authoritative artifacts but are not
+inputs to this model. It cannot prove those omissions causal without a matched
+complete-input ablation. Likewise, any train false-safe is reported as evidence
+that symmetric Huber regression is not itself a conservative safety gate. The
+only authorized conclusion is a ranked root-cause diagnosis; no model change,
+test access, calibration, QP, or closed-loop execution follows automatically.

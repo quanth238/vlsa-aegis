@@ -3551,3 +3551,16 @@ Model/result/validation payload SHA-256 values are
 `e7d307cb54a96523e4058d8b523a4391b0fb441b99ef862745adbdf3612310ca`,
 `3ed16bcbdb445f5fda5f8a854ca5ef3fc7b2b1091ebe61b94f10ea1bbb620342`,
 and `6c9691b79d1a9c43a1adccf53389c761f85f01b9e7b68d3d5d95428939028f6a`.
+
+A frozen no-training root-cause audit is preregistered to distinguish model
+capacity from state coverage without opening sealed tests. It compares train,
+same-state action holdout, grouped validation, supported grouped row 0, and E05
+errors; measures nearest fitted support separately for the 16D geometry
+context, 35D nominal action, 51D combined state context, 35D candidate
+residual, and full 86D input; and binds the existing grouped coverage counts.
+The primary data-coverage diagnosis requires sub-millimetre train and
+same-state action error, at least a tenfold grouped error increase, zero
+row-1/row-2 validation boundary states, and zero row-1/row-2 fit active
+witnesses. The audit also records—but does not claim to identify—the omitted
+joint/OSC/controller-state hypothesis and the non-conservative symmetric-loss
+risk. No retraining, calibration, QP, control, or test access is authorized.
