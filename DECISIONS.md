@@ -2493,3 +2493,27 @@ labels with one exact-safe and five known-unsafe actions, and every original-
 AEGIS/action/backup/physical check passed. Proceed to all 15 unsealed
 development groups with v3 and classify every support failure, timeout, and
 proxy-invalid state. No learning is authorized by the canary.
+
+## ADR-0122: Reject action-count sufficiency and target active state diversity
+
+- Status: accepted after complete grouped H100 validation
+- Date: 2026-08-14
+
+Jobs `39993`, `39996`, and `39997` completed the preregistered 15-group v3
+mechanism pilot. Although all three L5 rows meet the aggregate known-safe,
+known-unsafe, and near-boundary candidate-count thresholds, none meets the
+train state-diversity gate; rows 1 and 2 also lack any validation boundary
+state and any active witness in the eligible fit population. The population
+contains only five usable mixed-support states, while six are no-safe, three
+are unknown-only, and one is proxy-invalid.
+
+This distinguishes action coverage from state identifiability. Additional
+actions at the same states are not authorized as the remedy. Future collection
+must add complete episode groups whose post-AEGIS warning states make the
+missing row active, admit a globally safe endpoint, and cross the same fixed
+0.5 mm per-row boundary. If the existing deployment distribution cannot expose
+such states, either expand the declared task/obstacle distribution or narrow
+the learned claim; do not synthesize balanced rows. The current artifacts are
+frozen as a validated mechanism-pilot snapshot but not as a learning-ready
+dataset. Feature fitting, MLP training, calibration, QP, closed loop, and
+sealed-test access remain blocked.

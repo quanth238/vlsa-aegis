@@ -3460,3 +3460,29 @@ and `0c10df85f79df2b6925b2114c60ba18dcd0e04f9551d45d8fd9d9fd8c289e218`.
 The 15 unsealed development groups are now authorized under v3. Training,
 feature fitting, calibration, QP, closed loop, and sealed-test access remain
 blocked until grouped coverage and dataset-freeze gates complete.
+
+Grouped H100 producer array `39993`, independent validator array `39996`, and
+summary job `39997` completed all 15 unsealed groups without apparatus failure.
+The immutable population contains 80 authoritative candidate-plus-backup
+labels and 20 censored timeouts. State classification is five usable mixed-
+support, six no-safe-candidate, three unknown-only, and one proxy-invalid. No
+state, failed action, or timeout was discarded. Thirteen states had a coarse
+per-row bracket; target rows were 0/1/2 in 6/5/2 states respectively.
+
+The result is a strict coverage NO-GO. Candidate-count gates pass for all three
+L5 rows on the eligible train+validation labels: rows 0/1/2 have 32/33/26 known
+safe, 16/15/22 known unsafe, and 23/20/23 near-boundary candidates. The failure
+is independent-state support, not raw action count. Useful train boundary-state
+counts are only 2/2/1 versus the registered minimum 3; validation counts are
+2/0/0 versus minimum 1. Moreover, the fit population has 25 row-0 active
+witnesses but zero row-1 or row-2 active witnesses. Known train candidates are
+32 versus the minimum 40. Therefore neither feature fitting nor MLP training is
+authorized, and no dataset split is frozen as learning-ready.
+
+Summary file/payload SHA-256 values are
+`1c93d3f3e815c7f7dfa0eed824f145221ba549c6642bda491fd14f1794eaf0d7`
+and `5babbf5ec8b2dda200897a35d0fafd75f30f32800eef3ae212d8cadf3655e0a4`.
+The only supported next collection is additional grouped physical states that
+make L5 rows 1 and 2 active and controllable, plus at least one additional
+row-0 train state. Repeating more actions at these 15 states would not repair
+the identifiability failure. Sealed test episodes remain unopened.
