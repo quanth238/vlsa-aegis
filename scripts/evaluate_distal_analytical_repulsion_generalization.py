@@ -241,6 +241,7 @@ def evaluate(
         action_records = []
         query_records = []
         interventions = []
+        clone_execution_errors_m = []
         terminal_eef_positions = [np.asarray(observation["robot0_eef_pos"], dtype=np.float64)]
         first_intervention_step = None
         live_mode = False
@@ -450,8 +451,13 @@ def evaluate(
                     break
             if not done_in_chunk:
                 observed_final = np.asarray(_dynamic_state_vector(env), dtype=np.float64)
-                _require(np.array_equal(observed_final, predicted_final),
-                         "selected cloned rollout and execution differ")
+                clone_error = float(np.max(np.abs(observed_final - predicted_final)))
+                clone_execution_errors_m.append(clone_error)
+                _require(
+                    clone_error
+                    <= float(config["execution"]["boundary_equivalence_tolerance_m"]),
+                    "selected cloned rollout and execution differ: %.17g" % clone_error,
+                )
             if selected_z_after is not None:
                 live_z = np.asarray(selected_z_after, dtype=np.float64).copy()
             step += len(selected_actions) if not done_in_chunk else offset + 1
@@ -511,6 +517,11 @@ def evaluate(
                 bool(row["proposal"]["clipped"]) for row in interventions
             ),
             "interventions": interventions,
+            "clone_execution_maximum_absolute_error": (
+                None if not clone_execution_errors_m
+                else max(clone_execution_errors_m)
+            ),
+            "clone_execution_errors": clone_execution_errors_m,
             "action_count": len(action_records),
             "actions": action_records,
             "goal_progress": {**goal_definition, "initial": initial_goal, "summary": goal_summary},

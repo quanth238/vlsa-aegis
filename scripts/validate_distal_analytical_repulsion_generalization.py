@@ -79,6 +79,13 @@ def validate_results(
             )
         _require(result["warning_count"] == len(result["interventions"]),
                  "warning count differs")
+        clone_error = result["clone_execution_maximum_absolute_error"]
+        if clone_error is not None:
+            _require(
+                float(clone_error)
+                <= float(config["execution"]["boundary_equivalence_tolerance_m"]),
+                "clone/execution tolerance differs",
+            )
         for intervention in result["interventions"]:
             _require(
                 warning_trigger(
@@ -109,6 +116,7 @@ def validate_results(
             "native_task_success": result["native_task_success"],
             "timeout": result["timeout"],
             "primary_problem_solved": result["primary_problem_solved"],
+            "clone_execution_maximum_absolute_error": clone_error,
             "contact_samples_by_link": result["contact_samples_by_link"],
         })
     aggregate = aggregate_case_results(results, config)
