@@ -122,8 +122,11 @@ def evaluate(
         _dynamic_state_vector, _restore_auxiliary_sim_snapshot,
         _restore_controller_snapshot,
     )
-    from main.multilink_ellipsoid.shadow import MultilinkEllipsoidShadow, load_shadow_config
-    from main.multilink_ellipsoid.shadow import _released_aegis_end_effector_ellipsoid
+    from main.multilink_ellipsoid.shadow import (
+        MultilinkEllipsoidShadow,
+        _eef_site_id,
+        load_shadow_config,
+    )
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
 
     started = time.perf_counter_ns()
@@ -301,8 +304,29 @@ def evaluate(
             qp_records = []
             z_after_by_action = []
             for proposed_action in proposed:
-                eef = _released_aegis_end_effector_ellipsoid(probe_env)
-                proxy = {"p1": eef.center, "R1": eef.rotation}
+                # Match robosuite's released observation semantics exactly:
+                # EE position is the grip site, while EE orientation is the
+                # robot-model EEF body quaternion.  The grip site's own xmat
+                # has a fixed frame offset and is not an interchangeable proxy.
+                site_position = np.asarray(
+                    probe_env.sim.data.site_xpos[_eef_site_id(probe_env)],
+                    dtype=np.float64,
+                )
+                eef_body_name = probe_env.robots[0].robot_model.eef_name
+                quaternion_wxyz = np.asarray(
+                    probe_env.sim.data.get_body_xquat(eef_body_name),
+                    dtype=np.float64,
+                )
+                quaternion_xyzw = quaternion_wxyz[[1, 2, 3, 0]]
+                rotation = runtime["Rotation"].from_quat(
+                    quaternion_xyzw
+                ).as_matrix()
+                proxy = {
+                    "p1": site_position + rotation @ np.asarray(
+                        [0.0, 0.0, -0.08], dtype=np.float64
+                    ),
+                    "R1": rotation,
+                }
                 executed, qp = _aegis_action(
                     runtime,
                     nominal_translational=proposed_action,
