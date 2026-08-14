@@ -21,6 +21,10 @@
   "decision": {
     "diagnostic_cases_excluded_from_generalization_counts": true,
     "all_failures_and_timeouts_retained": true,
+    "learned_outputs": [0, 1, 2],
+    "L6_L7_contacts_are_diagnostic_not_L5_acceptance_constraints": true,
+    "candidate_stopped_only_by_L6_L7_contact_is_censored_for_L5": true,
+    "L5_contact_and_CAR_remain_L5_physical_vetoes": true,
     "row2_training_gate_remains_required_for_three_output_claim": true,
     "no_training_authorized_by_summary": true
   },

@@ -34,6 +34,66 @@ def _add(left: list[dict[str, int]], right: list[dict[str, int]]) -> None:
             aggregate[key] += int(value)
 
 
+def _protected_contacts(candidate: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    contacts = list(candidate.get("prefix", {}).get("protected_contacts", []))
+    contacts.extend(candidate.get("backup", {}).get("protected_contacts", []))
+    return contacts
+
+
+def _maximum_car(candidate: Mapping[str, Any]) -> float:
+    return max(
+        float(candidate.get("prefix", {}).get(
+            "maximum_active_obstacle_l1_displacement_m", 0.0
+        )),
+        float(candidate.get("backup", {}).get(
+            "maximum_active_obstacle_l1_displacement_m", 0.0
+        )),
+    )
+
+
+def l5_scoped_candidate_outcome(candidate: Mapping[str, Any]) -> str:
+    """Classify L5 while censoring an incomplete L6/L7-only termination."""
+    if candidate["terminal_status"] == "UNKNOWN_TIMEOUT":
+        return "unknown_timeout"
+    l5_risk = max(float(value) for value in candidate["combined_risk"][:3])
+    l5_contact = any(
+        "robot0_link5" in str(contact.get("protected_geom_name", ""))
+        for contact in _protected_contacts(candidate)
+    )
+    car_failure = _maximum_car(candidate) > 0.001
+    if l5_risk > 0.0 or l5_contact or car_failure:
+        return "unsafe"
+    if bool(candidate.get("physical_veto")):
+        return "unknown_out_of_scope_contact"
+    return "safe"
+
+
+def l5_scoped_state_classification(candidates: Sequence[Mapping[str, Any]]) -> str:
+    outcomes = [l5_scoped_candidate_outcome(candidate) for candidate in candidates]
+    proxy_invalid = any(
+        max(float(value) for value in candidate["combined_risk"][:3]) <= 0.0
+        and (
+            any(
+                "robot0_link5" in str(contact.get("protected_geom_name", ""))
+                for contact in _protected_contacts(candidate)
+            )
+            or _maximum_car(candidate) > 0.001
+        )
+        for candidate, outcome in zip(candidates, outcomes)
+        if outcome not in ("unknown_timeout", "unknown_out_of_scope_contact")
+    )
+    if proxy_invalid:
+        return "proxy_invalid"
+    known = set(outcomes)
+    if "safe" in known and "unsafe" in known:
+        return "usable_mixed_support"
+    if "unsafe" in known and "safe" not in known:
+        return "no_safe_candidate"
+    if "safe" in known and "unsafe" not in known:
+        return "no_known_unsafe_candidate"
+    return "unknown_only"
+
+
 def summarize(
     *, repo_root: Path, producer_root: Path, boundary_root: Path,
     discovery_root: Path, parent_summary_path: Path,
@@ -114,13 +174,17 @@ def summarize(
                  "moka adaptive case binding differs")
         split = case["split"]
         candidates = result["candidates"]
-        coverage = row_coverage(candidates)
+        all_protected_classification = state_classification(candidates)
+        outcomes = [l5_scoped_candidate_outcome(item) for item in candidates]
+        scoped_candidates = [
+            item for item, outcome in zip(candidates, outcomes)
+            if outcome != "unknown_out_of_scope_contact"
+        ]
+        coverage = row_coverage(scoped_candidates)
         _add(coverage_by_split[split], coverage)
-        known_count = sum(
-            item["terminal_status"] != "UNKNOWN_TIMEOUT" for item in candidates
-        )
+        known_count = sum(outcome in ("safe", "unsafe") for outcome in outcomes)
         all_known_by_split[split] += known_count
-        classification = state_classification(candidates)
+        classification = l5_scoped_state_classification(candidates)
         if training_eligible_state(classification):
             _add(eligible_by_split[split], coverage)
             known_by_split[split] += known_count
@@ -138,10 +202,11 @@ def summarize(
             "state_id": result["population_binding"]["retained_state"]["state_id"],
             "target_row": result["adaptive_boundary_sampling"]["target_row"],
             "classification": classification,
-            "safe_candidate_count": sum(bool(item["exact_safe"]) for item in candidates),
-            "known_unsafe_candidate_count": sum(
-                item["terminal_status"] != "UNKNOWN_TIMEOUT"
-                and not bool(item["exact_safe"]) for item in candidates
+            "all_protected_classification": all_protected_classification,
+            "safe_candidate_count": outcomes.count("safe"),
+            "known_unsafe_candidate_count": outcomes.count("unsafe"),
+            "out_of_scope_contact_censored_count": outcomes.count(
+                "unknown_out_of_scope_contact"
             ),
             "unknown_timeout_count": sum(
                 item["terminal_status"] == "UNKNOWN_TIMEOUT" for item in candidates

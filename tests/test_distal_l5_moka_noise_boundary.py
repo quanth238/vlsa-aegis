@@ -58,6 +58,33 @@ class MokaNoiseBoundaryTest(unittest.TestCase):
         self.assertTrue(value["decision"]["row2_training_gate_remains_required_for_three_output_claim"])
         self.assertTrue(value["forbidden"]["training"])
 
+    def test_l6_only_termination_is_censored_for_l5(self):
+        from scripts.summarize_distal_l5_moka_noise_adaptive import (
+            l5_scoped_candidate_outcome,
+        )
+
+        candidate = {
+            "terminal_status": "UNSAFE_CONTACT_OR_CAR",
+            "combined_risk": [-0.01] * 7,
+            "physical_veto": True,
+            "prefix": {
+                "maximum_active_obstacle_l1_displacement_m": 0.0,
+                "protected_contacts": [{
+                    "protected_geom_name": "robot0_link6_collision"
+                }],
+            },
+            "backup": {
+                "maximum_active_obstacle_l1_displacement_m": 0.0,
+                "protected_contacts": [],
+            },
+        }
+        self.assertEqual(
+            l5_scoped_candidate_outcome(candidate),
+            "unknown_out_of_scope_contact",
+        )
+        candidate["combined_risk"][1] = 0.002
+        self.assertEqual(l5_scoped_candidate_outcome(candidate), "unsafe")
+
 
 if __name__ == "__main__":
     unittest.main()
