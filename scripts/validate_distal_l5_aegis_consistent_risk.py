@@ -69,6 +69,7 @@ def validate(
     validator_commit: str, grouped_collection: bool = False,
     adaptive_collection: bool = False,
     adaptive_collection_v2: bool = False,
+    adaptive_collection_v3: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -87,7 +88,9 @@ def validate(
     )
     from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
         RESULT_SCHEMA as ADAPTIVE_V2_RESULT_SCHEMA,
+        RESULT_SCHEMA_V3 as ADAPTIVE_V3_RESULT_SCHEMA,
         load_config as load_adaptive_v2_config,
+        load_config_v3 as load_adaptive_v3_config,
     )
 
     validator_source = _git_identity(repo_root, validator_commit)
@@ -95,11 +98,14 @@ def validate(
     _require(
         sum(bool(value) for value in (
             grouped_collection, adaptive_collection, adaptive_collection_v2,
+            adaptive_collection_v3,
         )) <= 1,
              "risk validation collection mode is ambiguous")
-    adaptive_semantics = bool(adaptive_collection or adaptive_collection_v2)
+    adaptive_per_row = bool(adaptive_collection_v2 or adaptive_collection_v3)
+    adaptive_semantics = bool(adaptive_collection or adaptive_per_row)
     grouped_semantics = bool(grouped_collection or adaptive_semantics)
     expected_schema = (
+        ADAPTIVE_V3_RESULT_SCHEMA if adaptive_collection_v3 else
         ADAPTIVE_V2_RESULT_SCHEMA if adaptive_collection_v2 else
         ADAPTIVE_RESULT_SCHEMA if adaptive_collection else
         GROUPED_RESULT_SCHEMA if grouped_collection else QUERY_RESULT_SCHEMA
@@ -154,6 +160,10 @@ def validate(
     if adaptive_semantics:
         adaptive = result["adaptive_boundary_sampling"]
         adaptive_config = (
+            load_adaptive_v3_config(
+                repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v3.json"
+            )
+            if adaptive_collection_v3 else
             load_adaptive_v2_config(
                 repo_root / "configs/vlsa_distal_adaptive_query_action_risk.v2.json"
             )
@@ -184,7 +194,7 @@ def validate(
     buffer_m = float(risk_config["risk_target"]["safety_buffer_m"])
     car_limit = float(risk_config["risk_target"]["paper_car_threshold_m"])
     if adaptive_semantics:
-        if adaptive_collection_v2:
+        if adaptive_per_row:
             from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
                 choose_target_row,
                 coarse_candidate_definitions,
@@ -278,7 +288,7 @@ def validate(
 
         for record in coarse:
             validate_screen(record)
-        if adaptive_collection_v2:
+        if adaptive_per_row:
             expected_support = row_support(
                 coarse, float(adaptive_config["screening"]["two_sided_epsilon_m"])
             )
@@ -331,7 +341,7 @@ def validate(
                 )
                 if (
                     float(record["prefix_risk"][int(expected_target)]) <= 0.0
-                    if adaptive_collection_v2 else record["screen_safe"]
+                    if adaptive_per_row else record["screen_safe"]
                 ):
                     safe_record = record
                 else:
@@ -473,6 +483,7 @@ def validate(
             "no_proxy_safe_physical_collision": proxy_collision_count == 0,
             "adaptive_boundary_protocol": bool(adaptive_semantics),
             "adaptive_per_row_protocol_v2": bool(adaptive_collection_v2),
+            "adaptive_per_row_protocol_v3": bool(adaptive_collection_v3),
         },
         "counts": {
             "candidates": len(candidates),
@@ -527,6 +538,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Validate per-row variable-count adaptive boundary artifacts.",
     )
+    parser.add_argument(
+        "--adaptive-collection-v3",
+        action="store_true",
+        help="Validate per-row adaptive artifacts with recovery positive control.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     output = validate(
@@ -537,6 +553,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         grouped_collection=bool(args.grouped_collection),
         adaptive_collection=bool(args.adaptive_collection),
         adaptive_collection_v2=bool(args.adaptive_collection_v2),
+        adaptive_collection_v3=bool(args.adaptive_collection_v3),
     )
     _atomic_write(args.output.resolve(), output)
     print(json.dumps({

@@ -14,6 +14,8 @@ from .query_action_risk import temporal_profile
 
 CONFIG_SCHEMA = "vlsa_distal_adaptive_query_action_risk.v2"
 RESULT_SCHEMA = "vlsa_distal_adaptive_query_action_risk_result.v2"
+CONFIG_SCHEMA_V3 = "vlsa_distal_adaptive_query_action_risk.v3"
+RESULT_SCHEMA_V3 = "vlsa_distal_adaptive_query_action_risk_result.v3"
 
 
 def canonical(value: Any) -> bytes:
@@ -23,6 +25,14 @@ def canonical(value: Any) -> bytes:
 
 
 def load_config(path: Path) -> dict[str, Any]:
+    return _load_config(path, version=2)
+
+
+def load_config_v3(path: Path) -> dict[str, Any]:
+    return _load_config(path, version=3)
+
+
+def _load_config(path: Path, *, version: int) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
     required = {
@@ -30,11 +40,13 @@ def load_config(path: Path) -> dict[str, Any]:
         "screening", "authoritative_labels", "feature_audit", "forbidden",
     }
     if not isinstance(value, dict) or set(value) != required:
-        raise ValueError("adaptive v2 config keys differ")
-    if value["schema_version"] != CONFIG_SCHEMA:
-        raise ValueError("adaptive v2 config schema differs")
-    if value["protocol_id"] != "vlsa-distal-adaptive-query-action-risk-v2":
-        raise ValueError("adaptive v2 protocol differs")
+        raise ValueError("adaptive v%d config keys differ" % int(version))
+    expected_schema = CONFIG_SCHEMA if int(version) == 2 else CONFIG_SCHEMA_V3
+    expected_protocol = "vlsa-distal-adaptive-query-action-risk-v%d" % int(version)
+    if value["schema_version"] != expected_schema:
+        raise ValueError("adaptive v%d config schema differs" % int(version))
+    if value["protocol_id"] != expected_protocol:
+        raise ValueError("adaptive v%d protocol differs" % int(version))
     cohort = value["cohort"]
     if cohort != {
         "source_episode_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
@@ -44,7 +56,7 @@ def load_config(path: Path) -> dict[str, Any]:
         "split_unit": "complete_episode",
         "mechanism_pilot": True,
     }:
-        raise ValueError("adaptive v2 cohort differs")
+        raise ValueError("adaptive v%d cohort differs" % int(version))
     screening = value["screening"]
     if set(screening) != {
         "coarse_candidate_count", "mixture_seed", "candidate_recipes",
@@ -54,7 +66,7 @@ def load_config(path: Path) -> dict[str, Any]:
         "bisection_iterations", "retain_nominal",
         "maximum_authoritative_candidates",
     }:
-        raise ValueError("adaptive v2 screening keys differ")
+        raise ValueError("adaptive v%d screening keys differ" % int(version))
     if (
         int(screening["coarse_candidate_count"]) != 12
         or int(screening["mixture_seed"]) != 20260814
@@ -74,15 +86,15 @@ def load_config(path: Path) -> dict[str, Any]:
         or screening["bracket_selection"]
         != "minimum_action_L2_then_target_boundary_distance_then_order"
     ):
-        raise ValueError("adaptive v2 screening protocol differs")
+        raise ValueError("adaptive v%d screening protocol differs" % int(version))
     recipes = screening["candidate_recipes"]
     if recipes[0] != {
         "name": "nominal", "source": "nominal", "coefficients": None,
         "temporal_profile": None, "radius": 0.0,
     }:
-        raise ValueError("adaptive v2 nominal recipe differs")
+        raise ValueError("adaptive v%d nominal recipe differs" % int(version))
     if len({str(item["name"]) for item in recipes}) != len(recipes):
-        raise ValueError("adaptive v2 recipe names are not unique")
+        raise ValueError("adaptive v%d recipe names are not unique" % int(version))
     for recipe in recipes[1:]:
         if (
             recipe["source"] not in ("axis", "fixed_seed_mixture")
@@ -90,7 +102,42 @@ def load_config(path: Path) -> dict[str, Any]:
             or recipe["temporal_profile"] not in ("constant", "front_loaded")
             or float(recipe["radius"]) <= 0.0
         ):
-            raise ValueError("adaptive v2 candidate recipe differs")
+            raise ValueError("adaptive v%d candidate recipe differs" % int(version))
+    expected_axes = [
+        ("normal_pos_front_loaded_r1.0", [1.0, 0.0, 0.0], "front_loaded", 1.0),
+        ("normal_neg_front_loaded_r1.0", [-1.0, 0.0, 0.0], "front_loaded", 1.0),
+        (
+            "normal_pos_%s_r2.0" % (
+                "constant" if int(version) == 2 else "front_loaded"
+            ),
+            [1.0, 0.0, 0.0],
+            "constant" if int(version) == 2 else "front_loaded",
+            2.0,
+        ),
+        (
+            "normal_neg_%s_r2.0" % (
+                "constant" if int(version) == 2 else "front_loaded"
+            ),
+            [-1.0, 0.0, 0.0],
+            "constant" if int(version) == 2 else "front_loaded",
+            2.0,
+        ),
+        ("tangent_up_pos_front_loaded_r1.0", [0.0, 1.0, 0.0], "front_loaded", 1.0),
+        ("tangent_up_neg_front_loaded_r1.0", [0.0, -1.0, 0.0], "front_loaded", 1.0),
+        ("tangent_side_pos_constant_r1.0", [0.0, 0.0, 1.0], "constant", 1.0),
+        ("tangent_side_neg_constant_r1.0", [0.0, 0.0, -1.0], "constant", 1.0),
+    ]
+    observed_axes = [
+        (
+            str(recipe["name"]),
+            [float(value) for value in recipe["coefficients"]],
+            str(recipe["temporal_profile"]),
+            float(recipe["radius"]),
+        )
+        for recipe in recipes if recipe["source"] == "axis"
+    ]
+    if observed_axes != expected_axes:
+        raise ValueError("adaptive v%d axis recipes differ" % int(version))
     generator = random.Random(int(screening["mixture_seed"]))
     generated = [
         [generator.uniform(0.25, 1.0), generator.uniform(-1.0, 1.0),
@@ -102,7 +149,19 @@ def load_config(path: Path) -> dict[str, Any]:
         for recipe in recipes if recipe["source"] == "fixed_seed_mixture"
     ]
     if observed != generated:
-        raise ValueError("adaptive v2 fixed-seed mixtures differ")
+        raise ValueError("adaptive v%d fixed-seed mixtures differ" % int(version))
+    expected_mixtures = [
+        ("mixture_seed20260814_0_front_loaded_r1.0", "front_loaded", 1.0),
+        ("mixture_seed20260814_1_constant_r1.5", "constant", 1.5),
+        ("mixture_seed20260814_2_front_loaded_r2.0", "front_loaded", 2.0),
+    ]
+    observed_mixtures = [
+        (str(recipe["name"]), str(recipe["temporal_profile"]),
+         float(recipe["radius"]))
+        for recipe in recipes if recipe["source"] == "fixed_seed_mixture"
+    ]
+    if observed_mixtures != expected_mixtures:
+        raise ValueError("adaptive v%d mixture recipes differ" % int(version))
     if value["authoritative_labels"] != {
         "candidate": "exact_final_post_AEGIS_five_action_chunk",
         "rollout": "candidate_prefix_plus_complete_fixed_backup_unless_physical_veto",
@@ -112,7 +171,7 @@ def load_config(path: Path) -> dict[str, Any]:
         "all_three_L5_rows_recorded": True,
         "L6_L7_contact_is_diagnostic": True,
     }:
-        raise ValueError("adaptive v2 authoritative labels differ")
+        raise ValueError("adaptive v%d authoritative labels differ" % int(version))
     feature = value["feature_audit"]
     if (
         feature.get("models") != [
@@ -135,7 +194,7 @@ def load_config(path: Path) -> dict[str, Any]:
         }
         or feature.get("no_training_in_collection_gate") is not True
     ):
-        raise ValueError("adaptive v2 feature audit differs")
+        raise ValueError("adaptive v%d feature audit differs" % int(version))
     if value["forbidden"] != {
         "Table1_artifact_change": True,
         "test_episode_opening": True,
@@ -145,7 +204,7 @@ def load_config(path: Path) -> dict[str, Any]:
         "closed_loop": True,
         "CBF_claim": True,
     }:
-        raise ValueError("adaptive v2 forbidden set differs")
+        raise ValueError("adaptive v%d forbidden set differs" % int(version))
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(canonical(value)).hexdigest()

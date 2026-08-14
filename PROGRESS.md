@@ -3425,5 +3425,23 @@ still recorded by the authoritative retained candidate-plus-backup rollouts.
 This v2 change prevents the hard maximum from silently choosing every training
 boundary. States without a globally safe endpoint or row-positive endpoint
 remain explicit no-support/unrecoverable cases. The passed v1 canary remains
-immutable cost-hierarchy evidence; one new v2 E05 H100 canary is required
-before the grouped array.
+immutable cost-hierarchy evidence.
+
+H100 producer `39986` and independent validator `39987` correctly retained a
+per-row support NO-GO on E05. Row 1 ranged from `+23.019862 mm` to only
+`-0.009707 mm`, so it did not cross the preregistered `-0.5 mm` safe endpoint;
+rows 0 and 2 stayed negative throughout. The collector therefore selected no
+target row, ran no bisection, and retained only the unsafe nominal action. This
+is valid negative scientific evidence, not an apparatus failure. Result and
+validation payload SHA-256 values are
+`faffdf6b39b6dcb4472f745b6b53b92a63db8f588a422d0a8384ba3a329d060c`
+and `9a49836facb0ed44e5afc44731f9ec636e22bff817ef12529338ff731bd33169`.
+
+The audit localized the failure to one candidate-bank substitution: v2 used a
+constant radius-2 normal proposal, whereas the immutable v1 evidence found its
+verified-safe endpoint with the front-loaded radius-2 normal proposal
+(`-1.193830 mm`). Version 3 restores that known recovery arm while preserving
+the 12-candidate budget, fixed mixtures, per-row selection, 0.5 mm thresholds,
+bisection, and authoritative complete-backup labels. A v3 E05 H100 canary must
+recover the registered row-1 bracket before the 15-development-state array is
+launched.

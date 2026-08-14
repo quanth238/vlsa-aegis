@@ -6,6 +6,7 @@ from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
     choose_target_row,
     coarse_candidate_definitions,
     load_config,
+    load_config_v3,
     midpoint_definition,
     row_support,
     select_row_bracket,
@@ -54,6 +55,23 @@ class AdaptiveBoundaryV2Tests(unittest.TestCase):
         self.assertEqual(
             {item["requested_correction_l2_action"] for item in bank[1:]},
             {1.0, 1.5, 2.0},
+        )
+
+    def test_v3_restores_known_front_loaded_radius_two_recovery_arm(self):
+        config = load_config_v3(
+            Path("configs/vlsa_distal_adaptive_query_action_risk.v3.json")
+        )
+        names = [
+            item["name"] for item in config["screening"]["candidate_recipes"]
+        ]
+        self.assertIn("normal_pos_front_loaded_r2.0", names)
+        self.assertNotIn("normal_pos_constant_r2.0", names)
+        self.assertEqual(
+            {
+                item["temporal_profile"]
+                for item in config["screening"]["candidate_recipes"][1:]
+            },
+            {"constant", "front_loaded"},
         )
 
     def test_target_row_requires_global_safe_and_row_positive_support(self):

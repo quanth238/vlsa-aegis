@@ -525,11 +525,14 @@ def evaluate(
         adaptive_sampling = None
         if adaptive_boundary_config is not None:
             screening_config = adaptive_boundary_config["screening"]
-            adaptive_v2 = bool(
+            adaptive_per_row = bool(
                 adaptive_boundary_config.get("schema_version")
-                == "vlsa_distal_adaptive_query_action_risk.v2"
+                in (
+                    "vlsa_distal_adaptive_query_action_risk.v2",
+                    "vlsa_distal_adaptive_query_action_risk.v3",
+                )
             )
-            if adaptive_v2:
+            if adaptive_per_row:
                 from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
                     choose_target_row,
                     midpoint_definition,
@@ -602,14 +605,14 @@ def evaluate(
             coarse_stop = bool(
                 screening_config[
                     "coarse_stop_prefix_after_contact_or_CAR"
-                    if adaptive_v2 else "stop_prefix_after_contact_or_CAR"
+                    if adaptive_per_row else "stop_prefix_after_contact_or_CAR"
                 ]
             )
             coarse_records = [
                 screen_definition(definition, stop_after_veto=coarse_stop)
                 for definition in definitions
             ]
-            if adaptive_v2:
+            if adaptive_per_row:
                 support = row_support(
                     coarse_records,
                     float(screening_config["two_sided_epsilon_m"]),
@@ -639,12 +642,12 @@ def evaluate(
                     )
                     middle_record = screen_definition(
                         middle_definition,
-                        stop_after_veto=False if adaptive_v2 else coarse_stop,
+                        stop_after_veto=False if adaptive_per_row else coarse_stop,
                     )
                     bisection_records.append(middle_record)
                     if (
                         float(middle_record["prefix_risk"][int(target_row)]) <= 0.0
-                        if adaptive_v2 else middle_record["screen_safe"]
+                        if adaptive_per_row else middle_record["screen_safe"]
                     ):
                         safe_record = middle_record
                     else:

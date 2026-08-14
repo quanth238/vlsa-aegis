@@ -2445,7 +2445,7 @@ proxy-invalid, and timeout outcome.
 
 ## ADR-0120: Identify one explicit controllable L5 row per state
 
-- Status: accepted; v2 H100 canary pending
+- Status: accepted; v2 support NO-GO retained, v3 recovery-arm canary pending
 - Date: 2026-08-14
 
 The v1 hard maximum is adequate for proving adaptive runtime and mixed support,
@@ -2463,3 +2463,26 @@ vetoes remain known unsafe rather than timeouts, and every unsupported state is
 retained. This is a mechanism pilot on 15 development groups, not a population
 generalization claim. No training may start from v2 collection alone; it must
 first pass coverage and the matched no-training feature audit.
+
+H100 producer `39986` and validator `39987` validated the v2 implementation but
+found no registered two-sided row: its best row-1 negative endpoint was only
+`-0.009707 mm`, short of the fixed `-0.5 mm` gate. No state or failure was
+dropped and no bisection was fabricated.
+
+## ADR-0121: Restore the validated recovery arm without relaxing support
+
+- Status: accepted; v3 H100 canary pending
+- Date: 2026-08-14
+
+Version 2 accidentally replaced the v1 canary's front-loaded radius-2 normal
+proposal with a constant-profile radius-2 proposal. This is a candidate-family
+omission, not evidence against per-row controllability: the immutable v1 result
+already measured `-1.193830 mm` for the former, while v2 measured only
+`-0.009707 mm` for the latter at the identical E05 state.
+
+Version 3 restores the front-loaded radius-2 positive and negative normal arms
+inside the same 12-candidate budget. It changes no epsilon, action limit,
+per-row definition, safe-endpoint rule, bisection count, authoritative rollout,
+or downstream gate. The v2 NO-GO remains immutable. The grouped 15-state pilot
+may launch only if an independent H100 v3 canary reconstructs the row-1 bracket
+and validates both known-safe and known-unsafe retained labels.

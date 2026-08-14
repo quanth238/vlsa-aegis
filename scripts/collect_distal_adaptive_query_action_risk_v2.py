@@ -16,7 +16,8 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     from main.multilink_ellipsoid.adaptive_query_action_risk_v2 import (
-        RESULT_SCHEMA, coarse_candidate_definitions, load_config,
+        CONFIG_SCHEMA_V3, RESULT_SCHEMA, RESULT_SCHEMA_V3,
+        coarse_candidate_definitions, load_config, load_config_v3,
     )
     from main.multilink_ellipsoid.grouped_query_action_risk import (
         load_config as load_grouped_config,
@@ -36,7 +37,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     grouped = load_grouped_config(args.grouped_config.resolve())
-    adaptive = load_config(args.adaptive_config.resolve())
+    adaptive_raw = json.loads(args.adaptive_config.resolve().read_text())
+    is_v3 = adaptive_raw.get("schema_version") == CONFIG_SCHEMA_V3
+    adaptive = (
+        load_config_v3(args.adaptive_config.resolve())
+        if is_v3 else load_config(args.adaptive_config.resolve())
+    )
     _require(
         _file_sha256(args.base_config.resolve())
         == grouped["method"]["base_config_file_sha256"],
@@ -76,7 +82,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         case_id_override=case["case_id"],
         state_step_override=int(retained["step"]),
         query_index_override=int(retained["query_index"]),
-        result_schema_override=RESULT_SCHEMA,
+        result_schema_override=RESULT_SCHEMA_V3 if is_v3 else RESULT_SCHEMA,
         claim_scope_override=adaptive["claim_scope"],
         population_binding=binding,
         candidate_definitions_override=definitions,
