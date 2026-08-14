@@ -4112,3 +4112,32 @@ small probe renderer before creating the main renderer, and every raw frame is
 checked with a normalized adjacent-pixel integrity metric before video writing
 or policy use. The unchanged three-case H100 experiment must be rerun; neither
 the prior task verdict nor the collision-generalization claim is final.
+
+Corrected H100 producer `40303` and independent validator `40304` reran the
+identical frozen three-case gate after commit `6225456`. Raw-frame integrity
+passes throughout: maximum normalized adjacent-pixel scores are `0.007512`,
+`0.008730`, and `0.008682`, all well below the fail-closed threshold `0.15`.
+The three terminal JPEGs and macOS QuickLook decodes of the delivered videos
+are visually clean. H100 finalizer `40319` also fully decodes the bounded-width
+H.264 deliverables. Their byte sizes and SHA-256 values are:
+
+- case 0, goal-task-2 E42: `70,059`,
+  `c95d0c7bb26b39cbe1f4162289c1014b92832a27b39bf78c71bc00a7ea8e5391`;
+- case 1, goal-task-3 E42: `131,278`,
+  `9c9bfe490a63a66550fff87bdfeb37b82e999eef19b3aaf9f2d621abf1d9a66a`;
+- case 2, goal-task-3 E44: `137,515`,
+  `d008ee25ffd02fb17bbf8cb5f29ecf72c7d409d3b5e97297cbd7457a2be6a38f`.
+
+The corrected scientific conclusion remains a strict safe-task NO-GO, but the
+valid case-level outcomes differ from the corrupted run. All three episodes
+have zero raw L5--L7 contact and pass CAR. Goal-task-2 E42 completes after five
+interventions. Goal-task-3 E42 times out after 39 interventions and goal-task-3
+E44 after 31; neither completes. Thus analytical repulsion transfers as a
+collision-prevention mechanism on these three sealed cases, but safe task
+success is only 1/3. The remaining failure is over-intervention/task
+compatibility under a conservative warning signal, not insufficient repulsive
+authority or video corruption. No learned selector, QP change, deployable
+warning, population, or formal-safety claim follows. Result and validation
+payload SHA-256 values are
+`421adf1150c74fa7f194f14c54d6a0fa3c8b037efa834ca63a1ba139be871ea5`
+and `7b246dbdbb8f67a3017471289a2cd3cd1421740e292caf004e80775101aa5900`.

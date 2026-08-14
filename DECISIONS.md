@@ -3329,3 +3329,33 @@ and `ef2efe0568024fa5171a5b7fc14c3aefce2579ad88b6d12927061c2137649f3a`.
 They are not valid visual evidence because source-frame corruption precedes
 encoding. Future handoff requires both the runtime frame-integrity gate and the
 portable full-decode gate.
+
+## ADR-0138: Accept corrected renderer rerun; reject safe-task generalization
+
+- Status: completed
+- Date: 2026-08-15
+
+H100 producer `40303` and independent validator `40304` reran the unchanged
+ADR-0136 controller after the ADR-0137 renderer repair. Every raw frame passes
+the runtime integrity gate; per-case maxima are `0.007512`, `0.008730`, and
+`0.008682` against threshold `0.15`. Visual inspection of terminal JPEGs and
+macOS QuickLook-decoded video frames is clean. H100 finalizer `40319` fully
+decodes all three portable H.264 outputs. The video apparatus gate therefore
+passes, and run `40285` remains invalidated history rather than evidence.
+
+The corrected run eliminates raw L5--L7 contact and passes CAR in 3/3 sealed
+episodes, but native task completion is 1/3. Goal-task-2 E42 completes after
+five interventions; goal-task-3 E42 and E44 time out after 39 and 31
+interventions. The strict safe-task gate is therefore NO-GO. This supports only
+the collision-prevention authority of fixed outward-normal repulsion under a
+privileged cloned-OSC warning. It rejects the current fixed radius-2 warning
+and intervention schedule as a task-preserving general controller.
+
+The root issue after repairing observation integrity is excessive repeated
+intervention, not failure to push the arm away. The next scientific change, if
+authorized, must isolate warning calibration/hysteresis and bounded repulsion
+magnitude on new untouched complete episodes. It must not be described as
+learned steering, a deployable detector, a CBF, or whole-population safety.
+Result and validation payload SHA-256 values are
+`421adf1150c74fa7f194f14c54d6a0fa3c8b037efa834ca63a1ba139be871ea5`
+and `7b246dbdbb8f67a3017471289a2cd3cd1421740e292caf004e80775101aa5900`.
