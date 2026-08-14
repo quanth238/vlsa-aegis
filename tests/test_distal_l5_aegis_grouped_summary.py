@@ -1,7 +1,7 @@
 import unittest
 
 from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
-    candidate_outcome, row_coverage, state_classification,
+    candidate_outcome, row_coverage, state_classification, training_readiness,
 )
 
 
@@ -47,6 +47,36 @@ class L5AegisGroupedSummaryTests(unittest.TestCase):
         self.assertEqual(rows[0]["near_boundary_known_candidate_count"], 2)
         self.assertEqual(rows[0]["active_witness_known_candidate_count"], 2)
         self.assertEqual(rows[0]["unknown_timeout_candidate_count"], 1)
+
+    def test_training_requires_every_claimed_row(self):
+        rows = [{
+            "known_safe_candidate_count": 25,
+            "known_unsafe_candidate_count": 25,
+            "near_boundary_known_candidate_count": 25,
+        } for _ in range(7)]
+        useful = {"train": [3] * 7, "validation": [1] * 7}
+        counts = {"train": 100, "validation": 40}
+        thresholds = {
+            "minimum_train_samples": 100,
+            "minimum_validation_samples": 40,
+            "minimum_known_safe_candidates_per_row": 20,
+            "minimum_known_unsafe_candidates_per_row": 20,
+            "minimum_near_boundary_candidates_per_row": 20,
+            "minimum_train_useful_boundary_states_per_row": 3,
+            "minimum_validation_useful_boundary_states_per_row": 1,
+        }
+        _, gates, authorized = training_readiness(
+            aggregate_rows=rows, useful_boundary_states=useful,
+            known_candidates=counts, thresholds=thresholds,
+        )
+        self.assertTrue(authorized)
+        rows[2]["known_unsafe_candidate_count"] = 0
+        _, gates, authorized = training_readiness(
+            aggregate_rows=rows, useful_boundary_states=useful,
+            known_candidates=counts, thresholds=thresholds,
+        )
+        self.assertFalse(authorized)
+        self.assertFalse(gates[2]["passes"])
 
 
 if __name__ == "__main__":

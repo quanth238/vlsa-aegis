@@ -16,15 +16,16 @@ from scripts.validate_distal_l5_aegis_consistent_risk import canonical
 def summarize(
     *, repo_root: Path, result_paths: Sequence[Path],
     validation_paths: Sequence[Path], producer_commit: str,
-    validator_commit: str, summary_commit: str,
+    validator_commit: str, summary_commit: str, expected_count: int = 2,
+    required_splits: Sequence[str] = ("train", "validation"),
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.grouped_query_action_risk import RESULT_SCHEMA
     from main.multilink_ellipsoid.l5_aegis_grouped_summary import (
         LEARNED_L5_ROWS, row_coverage, state_classification,
     )
 
-    _require(len(result_paths) == len(validation_paths) == 2,
-             "grouped canary requires exactly two paired artifacts")
+    _require(len(result_paths) == len(validation_paths) == int(expected_count),
+             "grouped summary paired artifact count differs")
     states = []
     rows = [None] * 7
     for result_path, validation_path in zip(result_paths, validation_paths):
@@ -81,8 +82,9 @@ def summarize(
             "validation_file_sha256": _file_sha256(validation_path),
             "validation_payload_sha256": validation["validation_payload_sha256"],
         })
-    _require({state["split"] for state in states} == {"train", "validation"},
-             "grouped canary split pairing differs")
+    observed_splits = {state["split"] for state in states}
+    _require(set(required_splits).issubset(observed_splits),
+             "grouped summary required splits differ")
     mixed = sum(state["classification"] == "usable_mixed_support" for state in states)
     output = {
         "schema_version": "vlsa_distal_l5_aegis_grouped_canary_summary.v1",
