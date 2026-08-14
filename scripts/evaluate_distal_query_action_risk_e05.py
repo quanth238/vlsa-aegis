@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 from scripts.evaluate_distal_pncbf_backup_oracle_e05 import (
     _combine_primary_internal_records,
@@ -96,6 +96,10 @@ def evaluate(
     result_schema_override: Optional[str] = None,
     claim_scope_override: Optional[str] = None,
     population_binding: Optional[Mapping[str, Any]] = None,
+    candidate_definitions_override: Optional[
+        Callable[[Sequence[Sequence[float]], Mapping[str, Sequence[float]], Mapping[str, Any]], Sequence[Mapping[str, Any]]]
+    ] = None,
+    candidate_protocol_binding: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -204,7 +208,14 @@ def evaluate(
         active_row = int(np.argmin(current))
         normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
         frame = orthonormal_local_frame(normal)
-        definitions = candidate_definitions(nominal, frame, config)
+        definitions = (
+            candidate_definitions(nominal, frame, config)
+            if candidate_definitions_override is None
+            else list(candidate_definitions_override(nominal, frame, config))
+        )
+        _require(len(definitions) > 0, "query action-risk candidate override is empty")
+        _require(definitions[0]["name"] == "nominal",
+                 "query action-risk nominal candidate must remain first")
         if candidate_limit is not None:
             _require(1 <= int(candidate_limit) <= len(definitions), "candidate canary limit differs")
             definitions = definitions[:int(candidate_limit)]
@@ -575,6 +586,10 @@ def evaluate(
             ),
             "wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,
         }
+        if candidate_protocol_binding is not None:
+            result["candidate_protocol_binding"] = _public(
+                candidate_protocol_binding
+            )
         if result_schema_override is not None:
             result["base_method_config"] = result.pop("config")
             result["population_binding"] = dict(population_binding or {})
