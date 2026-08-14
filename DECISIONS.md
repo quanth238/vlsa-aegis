@@ -2246,3 +2246,30 @@ five-action candidates, the unchanged complete backup, and the same physical
 verification. If useful boundaries remain absent, resolve the safety scope or
 expand the deployment distribution rather than manufacture balanced rows.
 Reserved test episodes remain untouched.
+
+## ADR-0114: Restrict the first learned claim to L5, retain seven-row vetoes
+
+- Status: accepted; prediction gate validated NO-GO
+- Date: 2026-08-14
+
+For the first feasibility test, learn only L5 rows 0--2. Rows 3--6 are outside
+the learned claim and loss, but every accepted action must still pass all seven
+exact ellipsoid rows, protected MuJoCo contact, and paper CAR. This tests the
+actual E05 L5 mechanism without manufacturing L6/L7 learning support or
+claiming learned whole-arm safety.
+
+The immutable grouped dataset passes the restricted coverage gate (H100 job
+`39759`), so the three-output MLP experiment is scientifically interpretable.
+The frozen model nevertheless fails: producer `39778` reports 29 held-out L5
+false-safes despite 75% exact-safe recall and support in all 3/3 recoverable
+validation states. Independent H100 validator `39781` reproduces all
+predictions and metrics with zero error. Therefore the current compact
+state/action representation plus plain regression MLP is rejected for safety
+filtering even at the narrowed L5 scope.
+
+Do not soften the zero-false-safe gate, add a QP, open reserved test episodes,
+or run closed loop. Rows 3--6 remain physical vetoes, not ignored hazards. The
+next scientific intervention must address grouped-state prediction
+generalization/representation while preserving the frozen labels and splits;
+additional epochs or a larger correction cannot repair this validated
+false-safe failure.

@@ -3163,3 +3163,50 @@ validation payload SHA-256 is
 `800991933f35a720c0455f8be644957b11c1536f7991ff2d360196f9590c7601`.
 Attempts `39723` and `39724` stopped before output on Python-3.8 path API and
 mistyped expected-commit apparatus errors and support no scientific inference.
+
+## Restricted three-output L5 action-risk feasibility gate
+
+The user narrowed the learned claim to the three L5 rows (rows 0--2). Rows
+3--6 are excluded from the MLP target, but remain mandatory exact ellipsoid,
+protected-contact, and paper-CAR vetoes. The abandoned row-4--6 active-search
+array `39745` completed only its first two tasks; the remaining exact jobs and
+their validators were canceled after exact job inspection when the scope
+changed. No accepted row-4--6 search result was produced and no artifact was
+deleted.
+
+H100 dataset audit `39759` authorized this restricted prediction experiment on
+the immutable grouped data: 140 training and 60 validation candidates, with
+E05 retained only as a diagnostic positive control and reserved test episodes
+unopened. Each learned row has two-sided boundary support in both grouped
+splits. The dataset result file/payload SHA-256 values are
+`42c25b44eef2896e85f545b37b387be190ab1951988f2e885e58d8d46968a511`
+and `6759587ad0d867515d712fbb9d25f5b4da9cc45f3c71d6559a3b181b9701bbc7`.
+
+H100 training job `39778` completed the fixed 86D, 36,099-parameter,
+three-output MLP after 1,200 preregistered epochs. It fit the training set
+closely (0.635 mm RMSE, one false-safe, 100% exact-safe recall), but failed
+grouped validation badly: 34.587 mm RMSE, 54.062 mm near-boundary RMSE, and 29
+L5 false-safe candidates. It recalled 6/8 exact globally safe candidates and
+retained a predicted-safe/exact-safe action in all 3/3 recoverable validation
+states, but zero false-safes is the mandatory first gate. Rows 3--6 physically
+vetoed 30 candidates that appeared L5-safe, confirming that excluded rows
+cannot be ignored at acceptance time.
+
+Independent H100 replay `39781` reconstructed the frozen JSON weights and
+recomputed every train/validation prediction with exactly zero discrepancy.
+It reproduced every metric and the strict interpretation
+`three_output_L5_action_risk_prediction_no_go`. The model result file/payload,
+model, and validation file/payload SHA-256 values are respectively
+`132fc7fe2683aad59c96aa1cfbce71f3fac2c58440a03fc8c1b86791c062dc52`,
+`1c3146c5bcf28aee3347f157188f05b58f1e455bfdfccea5665debc3317a3a52`,
+`3b337d6fc73b965ca8c10665178c90b540ba61a14c55bf54eb10e3e32a5043b0`,
+`b46649b1be66637ec6019efa1968c18f4f017bbaa3dc694d39fd5cede728d6ba`,
+and `02f3722a3a0faf4680bc7cc56eb694efc9fbf2a84678f7380669dd42b45b8c3a`.
+Jobs `39765`, `39769`, `39773`, and `39774` are retained as pre-result runtime,
+test-discovery, source-binding, and deterministic-cuBLAS apparatus failures.
+
+The restricted feasibility test therefore fails at learned prediction, not at
+dataset support or the physical veto. QP, calibration, reserved-test opening,
+and closed-loop execution remain blocked. The strong train/validation gap
+localizes the next question to grouped-state generalization/representation;
+training longer cannot establish the missing safety gate.
