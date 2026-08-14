@@ -3214,7 +3214,7 @@ matched-norm, complete-rollout evidence exposes genuine mode-dependent rescue.
 
 ## ADR-0136: Test frozen analytical repulsion on sealed complete episodes
 
-- Status: preregistered; H100 execution pending
+- Status: completed; collision prevention transfers, strict safe-task gate fails
 - Date: 2026-08-14
 
 Open the three episode groups sealed by ADR-0109 only after freezing the
@@ -3262,3 +3262,29 @@ all-substep MuJoCo contact, CAR, and native task state remain the only outcome
 authorities. The claim is correspondingly narrowed from an exact oracle to a
 privileged cloned-OSC forecast with measured fidelity; no outcome-dependent
 controller change is allowed.
+
+Final H100 producer array `40285` and independent validator `40286` complete
+all three frozen episodes. The analytical correction eliminates every raw
+L5--L7 contact and passes CAR in 3/3 cases. This is positive evidence that the
+outward-normal mechanism transfers from the development cases to one sealed L5
+and two sealed L6 collision episodes. It is not a safe-task controller: native
+task completion is only 1/3. Goal-task-3 E42 succeeds after one intervention;
+goal-task-2 E42 times out after ten radius-2 interventions, and goal-task-3 E44
+times out after one. Neither timeout is classified as a static deadlock.
+
+The main failure is task compatibility, not insufficient collision authority.
+Case E42/task-2 receives repeated early and late interventions from step 25,
+including two clipped corrections, and never satisfies its task predicate.
+Case E44/task-3 shows that even one large correction can move the frozen VLA
+onto a continuation that stays physically active but does not finish. Exact
+compiled-obstacle overlap remains zero in every case, while conservative proxy
+margins reach `-11.073`, `-12.050`, and `-18.283 mm`; thus proxy warning
+conservatism likely contributes to over-intervention and must be separated from
+physical collision prevention.
+
+The strict three-case gate is therefore a NO-GO. Do not train a direction
+selector: the frozen analytical normal already prevents all observed contacts.
+The next justified question is how to gate or scale this same repulsion so that
+it preserves task competence, using untouched complete episodes and live VLA
+feedback. Any such study must freeze its warning/magnitude rule before outcomes
+and compare against this radius-2 ceiling.

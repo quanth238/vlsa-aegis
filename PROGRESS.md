@@ -4073,3 +4073,25 @@ snapshot. This is retained as apparatus evidence. Clone/execution state and
 seven-row boundary errors are now diagnostics rather than abort conditions;
 actual all-substep MuJoCo contacts, CAR, and native task completion remain the
 strict scientific gate. The fixed analytical controller is unchanged.
+
+Final H100 producer `40285` and independent validator `40286` complete the
+three sealed full episodes. Fixed radius-2 outward-normal repulsion removes all
+L5--L7 contacts and passes CAR in 3/3, compared with collision and CAR failure
+in all three immutable raw-AEGIS controls. Task preservation fails: only
+goal-task-3 E42 completes (step 111, one intervention). Goal-task-2 E42 times
+out at 300 actions after ten interventions, and goal-task-3 E44 times out at
+300 after one. Both remain physically active rather than deadlocked.
+
+The strict safe-task gate is therefore a NO-GO, while collision-only transfer
+is a 3/3 positive mechanism result. Actual compiled-geometry overlap is zero in
+all cases, but conservative proxy minima are `-11.073`, `-12.050`, and
+`-18.283 mm`. Full cloned state can diverge strongly during object interaction,
+yet final seven-row boundary discrepancies remain below `4.359e-7 m`; actual
+MuJoCo measurements remain authoritative. Summary and validation are at
+`/mnt/data/quanth/experiments/vlsa-distal-analytical-repulsion-generalization/analytical-repulsion-generalization-20260815c/`.
+Their file SHA-256 values are
+`88092b4f7fd0c6fdff371f6264441e1252d1ba10faf23c673f40d93571ce000a`
+and `f9a490ba8599bae5ae909e15c95e30e8dff235b0e47acefcbfb2ea1a619974d9`;
+payload SHA-256 values are
+`56caf77d007b82caf405147c503fa176433f4ede81176462af4397f1d372b6ba`
+and `9ceccc9df2f5322b164ce1f4c0cb552d4ad1afba2ef1528d48d9cd6f340ab394`.
