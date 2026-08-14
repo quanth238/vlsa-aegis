@@ -155,8 +155,14 @@ def evaluate(
         [action_rows[step]["executed"] for step in range(len(action_rows))],
         dtype=np.float64,
     )
+    archived_raw_actions = np.asarray(
+        [action_rows[step]["nominal_translational"] for step in range(len(action_rows))],
+        dtype=np.float64,
+    )
     nominal = archived_actions[state_step:state_step + horizon]
+    nominal_raw = archived_raw_actions[state_step:state_step + horizon]
     _require(nominal.shape == (5, 7), "E05 nominal five-action chunk differs")
+    _require(nominal_raw.shape == (5, 7), "E05 raw nominal five-action chunk differs")
     query_index = int(
         config["state"]["query_index"]
         if query_index_override is None else query_index_override
@@ -374,6 +380,40 @@ def evaluate(
             )
             return rollout, executed, consistency
 
+        def raw_action_with_post_aegis_residual(
+            post_aegis_candidate: Any,
+        ) -> tuple[Any, dict[str, Any]]:
+            """Apply the L5 residual before the single released AEGIS pass.
+
+            Candidate geometry is defined relative to the archived AEGIS output,
+            but re-filtering that output is not baseline-compatible because the
+            released QP also evolves an auxiliary virtual direction.  Transfer
+            only the candidate displacement to the corresponding raw VLA action.
+            """
+
+            candidate = np.asarray(post_aegis_candidate, dtype=np.float64)
+            _require(candidate.shape == nominal.shape,
+                     "post-AEGIS residual candidate shape differs")
+            residual = candidate - nominal
+            _require(np.max(np.abs(residual[:, 3:])) <= 1.0e-12,
+                     "L5 candidate changes rotation or gripper")
+            proposed_raw = nominal_raw.copy()
+            # The released baseline does not clip the raw VLA translation
+            # before its QP.  Clipping here would break the zero-residual arm.
+            proposed_raw[:, :3] += residual[:, :3]
+            applied_residual = proposed_raw - nominal_raw
+            return proposed_raw, {
+                "contract": "transfer_post_AEGIS_L5_displacement_to_raw_VLA_then_apply_original_AEGIS_once",
+                "archived_post_aegis_actions": nominal.tolist(),
+                "archived_raw_actions": nominal_raw.tolist(),
+                "requested_residual": residual.tolist(),
+                "applied_residual": applied_residual.tolist(),
+                "requested_residual_l2_action": float(np.linalg.norm(residual)),
+                "applied_residual_l2_action": float(np.linalg.norm(applied_residual)),
+                "pre_aegis_action_clipped": False,
+                "proposed_pre_aegis_actions": proposed_raw.tolist(),
+            }
+
         def summarize_rollout(record: Mapping[str, Any], *, exclude_k0: bool) -> dict[str, Any]:
             trace = np.asarray(record["clearance_trace_m"], dtype=np.float64)[:, :7]
             evaluated = trace[1:] if exclude_k0 else trace
@@ -401,7 +441,8 @@ def evaluate(
         for replay_index in range(2):
             restore_source()
             replay, replay_actions, replay_consistency = rollout_projected_prefix(
-                nominal, source_aegis_z,
+                nominal_raw if apply_released_aegis_ee_to_all_proposed_actions else nominal,
+                source_aegis_z,
             )
             determinism_runs.append({
                 "replay_index": replay_index,
@@ -451,8 +492,15 @@ def evaluate(
             restore_source()
             restore_error = float(np.max(np.abs(_dynamic_state_vector(env) - source_dynamic)))
             candidate_actions = np.asarray(definition["actions"], dtype=np.float64)
+            if apply_released_aegis_ee_to_all_proposed_actions:
+                candidate_pre_aegis, residual_binding = raw_action_with_post_aegis_residual(
+                    candidate_actions
+                )
+            else:
+                candidate_pre_aegis = candidate_actions
+                residual_binding = None
             prefix, executed_candidate_actions, candidate_aegis = rollout_projected_prefix(
-                candidate_actions, source_aegis_z,
+                candidate_pre_aegis, source_aegis_z,
             )
             current_aegis_z = (
                 np.asarray(candidate_aegis["z_after_by_action"][-1], dtype=np.float64)
@@ -617,9 +665,11 @@ def evaluate(
             physical_veto = bool(prefix_physical_veto or backup_contacts > 0 or backup_car > car_limit)
             record = {
                 **definition,
-                "proposed_actions": candidate_actions.tolist(),
+                "post_aegis_candidate_before_consistency": candidate_actions.tolist(),
+                "proposed_actions": candidate_pre_aegis.tolist(),
                 "actions": executed_candidate_actions.tolist(),
                 "aegis_consistency": candidate_aegis,
+                "residual_binding": residual_binding,
                 "source_snapshot_sha256": source_hash,
                 "source_restore_maximum_error": restore_error,
                 "prefix": prefix_summary,
@@ -668,7 +718,7 @@ def evaluate(
                 and determinism["CAR_maximum_absolute_error_m"] == 0.0
                 and determinism["executed_action_maximum_absolute_error"] == 0.0
             ),
-            "nominal_released_aegis_is_idempotent": bool(
+            "zero_L5_residual_reproduces_released_aegis": bool(
                 not apply_released_aegis_ee_to_all_proposed_actions
                 or determinism["nominal_archived_action_maximum_absolute_error"] <= 1.0e-10
             ),
@@ -711,7 +761,7 @@ def evaluate(
                     apply_released_aegis_ee_to_all_proposed_actions
                 ),
                 "candidate_coordinates": (
-                    "proposed_post_AEGIS_residual_before_final_released_AEGIS_consistency_filter"
+                    "post_AEGIS_L5_residual_transferred_to_raw_VLA_action_before_single_released_AEGIS_pass"
                     if apply_released_aegis_ee_to_all_proposed_actions
                     else config["state"]["action_coordinates"]
                 ),
@@ -727,6 +777,10 @@ def evaluate(
             "determinism_replay": determinism,
             "nominal_five_action_chunk": nominal.tolist(),
             "nominal_five_action_chunk_sha256": hashlib.sha256(nominal.tobytes()).hexdigest(),
+            "nominal_raw_translational_five_action_chunk": nominal_raw.tolist(),
+            "nominal_raw_translational_five_action_chunk_sha256": hashlib.sha256(
+                nominal_raw.tobytes()
+            ).hexdigest(),
             "state": {
                 "step": state_step,
                 "source_snapshot_sha256": source_hash,
