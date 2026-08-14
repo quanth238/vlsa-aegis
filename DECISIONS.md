@@ -2308,7 +2308,7 @@ decision. QP and closed-loop execution remain unauthorized.
 
 ## ADR-0116: Diagnose action interpolation versus state generalization
 
-- Status: accepted; matched H100 audit active
+- Status: accepted; independently validated strict NO-GO
 - Date: 2026-08-14
 
 Before collecting or retraining a deployment model, use the immutable grouped
@@ -2331,3 +2331,20 @@ Do not add asymmetric loss, inference margins, calibration, QP, or new state
 features in this audit. Those changes follow only after isolating the present
 failure. Any future collection must sample around the exact post-AEGIS and
 final-EE-checked executable action and bind its L5 label to that same action.
+
+H100 producer `39809` and independent validator `39810` completed the matched
+audit with exactly zero prediction-replay discrepancy. Test A was close but
+failed the strict gate: one L5 false-safe among 67 held-out actions, 2.883 mm
+RMSE, 100% L5-safe recall, and support in 7/7 recoverable known states. Test B
+failed materially: 14 false-safes among 27 matched actions, 35.955 mm RMSE,
+75% recall, and support in 3/3 recoverable new states. All 14 Test-B
+false-safes occurred at one unseen state; row-wise optimistic errors affected
+L5 rows 1 and 2.
+
+The formal registered interpretation remains
+`known_state_action_interpolation_also_fails_representation_or_action_coverage_not_excluded`
+because Test A did not reach zero false-safes. The effect size nevertheless
+shows state transfer is the dominant observed degradation, not the only one.
+Proceed by increasing distinct deployment-distributed, post-AEGIS executable
+states and representing relative L5--obstacle/controller state. Do not merely
+increase candidate density at existing states or train longer.

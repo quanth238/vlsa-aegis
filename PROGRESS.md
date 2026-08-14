@@ -3236,7 +3236,7 @@ executed and no new simulation/training is authorized. First resolve the L5
 grouped-state prediction failure; only then measure the AEGIS-compatible
 acceptance and cross-link-transfer rates.
 
-## Matched L5 state-generalization diagnostic (active)
+## Matched L5 state-generalization diagnostic (validated NO-GO)
 
 The attached advisor feedback refines the current root-cause hypothesis from
 generic model failure to state coverage plus representation. The decisive
@@ -3252,3 +3252,27 @@ This audit is deliberately diagnostic. Even a Test-A-pass/Test-B-fail result
 does not repair the deployment mismatch: future data must begin with the VLA
 action passed through released AEGIS, sample/repair around that output, run the
 final AEGIS EE consistency check, and label the exact final executable action.
+
+H100 producer `39809` fit 73 nominal/constant-profile examples and evaluated
+67 held-out front-loaded actions across the same seven states (Test A) plus 27
+front-loaded actions across three disjoint validation states (Test B). Test A
+had one false-safe, 2.883 mm RMSE, 2.392 mm near-boundary RMSE, 100% L5-safe
+recall, and support in 7/7 recoverable states. Test B had 14 false-safes,
+35.955 mm RMSE, 54.552 mm near-boundary RMSE, 75% recall, and support in 3/3
+recoverable states. Every Test-B false-safe occurred at E34; row-level errors
+affected rows 1 and 2. Thus both strict gates fail, but the roughly 12.5x RMSE
+increase and 14x false-safe increase identify unseen-state transfer as the
+dominant degradation.
+
+Independent H100 validator `39810` reconstructed the frozen model and
+recomputed every prediction/metric with zero error. Producer file/payload,
+model, and validation file/payload SHA-256 values are
+`473a35c21f13abf5f70cf83e69e2d5f5fbabb60951c953a1d4f6c43a6eb00152`,
+`d2e77a4efb0be9c11ecebd5157c7cb1baf48c3c70f8b47f24af5b6b4ff396fb3`,
+`553d24e6c106040edcc6327a481890b671575e82369aa785985c6a6b9cfdedd6`,
+`86c7997d32994b9d69c93e2691dfe57b54950c047191ed95ccdb24a71b37bd2b`,
+and `e5e58c8f45390f896505efc9aaa7624996053dcf63fb101237350e4c6a8c6f6e`.
+No simulator ran, no reserved test label opened, and AEGIS compatibility was
+not claimed. The next data collection should prioritize distinct post-AEGIS
+states and relative/controller-state features rather than additional actions
+at the current states. QP and closed loop remain blocked.
