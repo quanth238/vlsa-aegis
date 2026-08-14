@@ -3625,3 +3625,19 @@ next experiment requires an explicit population decision: preregister a new
 task-3 active-boundary discovery cohort, generate new clean task-3 episodes, or
 narrow the first learned claim to row 0. Aggregate `summary.json` SHA-256 is
 `d32eac3ffd59976809ed862ac0dfe4f13abc282c1801a00e63345bf8b913a008`.
+
+A read-only row/contact alignment audit is now preregistered before any proxy
+change. It binds the independently validated 15-state adaptive-v3 development
+population and five-state targeted extension, opens no sealed test episode,
+and runs no new simulation. For every unique exact screening prefix and every
+authoritative candidate/selected-backup substep, it aligns raw MuJoCo L5--L7
+contacts with the simultaneous seven-row ellipsoid trace. Proxy-invalid states
+remain a separate diagnostic and observed timeout prefixes remain geometry
+evidence without becoming complete rollout labels.
+
+The primary geometry gate is zero physical contact samples whose corresponding
+link-row minimum is positive. It also reports conservative proxy-only overlap,
+the active row at every physical contact sample, and per-row contact-time
+clearance distributions. Ellipsoid refitting is authorized only if a
+proxy-valid physical false-safe is observed. Otherwise the correction is to
+the population or learned claim, not to introduce Poisson or change geometry.

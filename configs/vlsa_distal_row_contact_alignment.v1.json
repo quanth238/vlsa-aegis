@@ -1,0 +1,67 @@
+{
+  "schema_version": "vlsa_distal_row_contact_alignment.v1",
+  "protocol_id": "vlsa-distal-row-contact-alignment-v1",
+  "claim_scope": "read_only_substep_alignment_of_existing_ellipsoid_rows_and_raw_mujoco_contacts_not_geometry_change_not_training_not_control",
+  "source_populations": [
+    {
+      "name": "adaptive_v3_development",
+      "expected_summary_schema": "vlsa_distal_l5_aegis_adaptive_population_summary.v3",
+      "expected_summary_payload_sha256": "5babbf5ec8b2dda200897a35d0fafd75f30f32800eef3ae212d8cadf3655e0a4",
+      "expected_state_count": 15,
+      "allowed_splits": ["diagnostic", "train", "validation"]
+    },
+    {
+      "name": "targeted_task2_extension",
+      "expected_summary_schema": "vlsa_distal_l5_targeted_extension_summary.v1",
+      "expected_summary_payload_sha256": "d32eac3ffd59976809ed862ac0dfe4f13abc282c1801a00e63345bf8b913a008",
+      "expected_state_count": 5,
+      "allowed_splits": ["train", "validation"]
+    }
+  ],
+  "geometry_contract": {
+    "row_groups": {
+      "L5": [0, 1, 2],
+      "L6": [3, 4],
+      "L7": [5, 6]
+    },
+    "protected_geom_to_group": {
+      "robot0_link5_collision": "L5",
+      "robot0_link6_collision": "L6",
+      "robot0_link7_collision": "L7"
+    },
+    "physical_contact_distance_threshold_m": 0.0,
+    "proxy_overlap_threshold_m": 0.0,
+    "certification_buffer_m": 0.001,
+    "near_boundary_absolute_clearance_m": 0.005,
+    "proxy_invalid_policy": "separate_diagnostic_never_support_geometry_claim"
+  },
+  "trace_contract": {
+    "include_unique_coarse_and_bisection_prefixes": true,
+    "include_authoritative_candidate_prefixes": true,
+    "include_executed_backup_actions": true,
+    "include_terminal_holds": true,
+    "deduplicate_prefix_by_state_and_exact_final_action": true,
+    "exclude_repeated_segment_initial_sample": true,
+    "retain_unknown_timeout_observed_prefixes": true,
+    "do_not_count_unexecuted_backup_branches": true
+  },
+  "decision_contract": {
+    "geometry_revision_required_if_any_proxy_valid_contact_sample_has_positive_corresponding_link_proxy_minimum": true,
+    "poisson_not_authorized_if_proxy_false_safe_count_is_zero": true,
+    "row_is_physically_witnessed_only_if_active_at_a_corresponding_link_contact_sample": true,
+    "lack_of_active_contact_witness_does_not_prove_row_redundant": true,
+    "population_fix_if_physical_row_witness_exists_without_grouped_validation_boundary_support": "collect_same_mechanism_episode_groups",
+    "claim_fix_if_no_physical_witness_exists": "retain_exact_diagnostic_monitoring_and_do_not_claim_learned_generalization"
+  },
+  "forbidden": {
+    "Table1_artifact_change": true,
+    "sealed_test_access": true,
+    "new_simulation": true,
+    "ellipsoid_refit_before_audit": true,
+    "Poisson": true,
+    "model_training": true,
+    "calibration": true,
+    "QP": true,
+    "closed_loop": true
+  }
+}

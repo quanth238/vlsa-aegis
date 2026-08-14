@@ -2647,3 +2647,30 @@ discovery in a separately declared task-3 cohort, new clean task-3 rollouts,
 or narrowing the learned feasibility claim to row 0. Until one is chosen and
 validated, the feature ablation, model training, calibration, QP, and closed
 loop remain blocked.
+
+## ADR-0126: Audit physical contact alignment before changing the safety field
+
+- Status: accepted; H100 read-only audit pending
+- Date: 2026-08-14
+
+Do not infer an ellipsoid defect from absent row-1/row-2 validation states.
+Reuse the existing independently validated internal-substep traces from all 20
+unsealed development/targeted states. Deduplicate exact prefix actions, retain
+authoritative executed backup actions and terminal holds, exclude unexecuted
+backup branches, and keep observed timeout prefixes without treating them as
+complete safety labels.
+
+For a physical L5, L6, or L7 contact, compare only the simultaneous rows bound
+to that physical link. A physical contact with positive corresponding-link
+row minimum is a proxy false-safe and authorizes a geometry audit/refit. A
+negative proxy value without raw contact is conservative overlap, not a false-
+safe. The closest corresponding row at a contact substep is a physical active
+witness; its absence from grouped validation identifies population coverage,
+not automatically geometry failure or row redundancy.
+
+Proxy-invalid states are reported separately and cannot support the geometry
+gate. The audit opens no sealed tests and performs no new simulation. Poisson,
+model training, calibration, QP, and closed loop remain forbidden. If the
+proxy-valid false-safe count is zero, keep the current ellipsoids and correct
+the data population/claim according to which rows have physical active contact
+witnesses.
