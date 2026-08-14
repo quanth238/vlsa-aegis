@@ -3323,3 +3323,45 @@ Training, calibration, QP, reserved-test access, and closed loop remain
 blocked. The exact next command is the AEGIS-consistent grouped H100 canary on
 one train and one validation episode; it must retain failed/no-support states
 and validate the final executed-action bindings before any wider array.
+
+## AEGIS-consistent grouped L5 canary
+
+The first grouped submission `39853` is retained as apparatus failure only:
+both tasks reached `worker-0`, where a one-GPU allocation exposed multiple
+H100s, and the exact-one-H100 preflight rejected them before simulation or
+artifact creation. Replacement producer array `39902` therefore retained the
+original `worker-0,worker-3` exclusion and ran sequentially on `worker-2`.
+E19 train completed in 35:55 and E22 validation in 48:28 from clean producer
+commit `04613c3ee2f5e03b3cf606b3fa089d87401f0793`.
+
+Independent validator attempts `39903` and `39931` exposed grouped-schema-only
+apparatus mismatches (`base_method_config` and grouped gate names). Validator
+`39935` then exposed that a timeout must not create mixed support. No producer
+artifact changed. Final validator commit
+`5f31c96ff668eeee4483f44925c98c132b13551a` explicitly separates
+`UNKNOWN_TIMEOUT` from known unsafe candidates; final jobs `39939` and `39940`
+passed every action-contract check, and summary job `39941` completed.
+
+Both states have genuine mixed support without dropping failures:
+
+- E19 train: 15 exact-safe, 7 known-unsafe, 15 unknown timeouts;
+- E22 validation: 4 exact-safe, 9 known-unsafe, 24 unknown timeouts.
+
+Across 74 candidates, L5 row 0 has 19 known-safe, 16 known-unsafe, 15
+near-boundary, and 35 active-witness examples across both episodes. Rows 1--6
+have 35 known-safe and zero known-unsafe, near-boundary, or active-witness
+examples; all 39 timeouts remain censored for every row. Thus the corrected
+AEGIS action-label contract transfers across one train and one validation
+episode, but the canary identifies only row 0. It does not authorize the
+three-output L5 MLP yet. The next gate is broader episode-grouped collection
+with the identical contract, targeted toward real controllable boundaries for
+L5 rows 1 and 2; rows 3--6 remain diagnostics.
+
+Summary file/payload SHA-256 values are
+`4447be21ec3ef3f9626a7427fd1d0d8d5c5715f108b8651612687f9bccead108`
+and `5376fcd112ea2c2938eb44879f296515135b817c27295d082c717abd3382cee7`.
+E19/E22 validation payload SHA-256 values are
+`93c769a573ec862137e99dedb932c4a314c6d8c96c02372cfbde7874def72ffa`
+and `771fc58e70423b721e5a3e2c9911f952147fea2da8c6905200c48ef41d471f1c`.
+Training, calibration, QP, reserved-test access, and closed loop remain
+blocked.

@@ -2384,3 +2384,26 @@ and two censored timeouts; all 37 active witnesses are L5 row 1. This freezes
 E05 as a nonvacuous diagnostic positive control and authorizes only
 episode-grouped collection with the identical action contract. It does not
 authorize training, calibration, QP, or closed-loop execution.
+
+## ADR-0118: Expand AEGIS-consistent collection only after grouped support audit
+
+- Status: accepted after independently validated grouped canary
+- Date: 2026-08-14
+
+The corrected composition from ADR-0117 must be tested across disjoint episode
+states before broad collection or learning. The two-state canary therefore
+uses one train episode (E19) and one validation episode (E22), executes all 37
+candidates through one unchanged released AEGIS pass, and retains exact-safe,
+known-unsafe, and `UNKNOWN_TIMEOUT` outcomes as separate categories.
+
+Producer `39902`, validators `39939`/`39940`, and summary `39941` passed this
+gate. E19 has 15 safe, 7 known-unsafe, and 15 unknown candidates; E22 has 4
+safe, 9 known-unsafe, and 24 unknown candidates. Both are usable mixed-support
+states. The support is nevertheless specific to L5 row 0: rows 1 and 2 never
+cross or approach their boundary, and rows 3--6 remain diagnostic-only.
+
+This result authorizes broader grouped collection under the identical action
+contract. It does not authorize training the three-output L5 MLP, because two
+claimed outputs remain unsupported. Timeouts must remain censored and cannot
+be counted as unsafe examples. Failed/no-support states must remain in the
+population ledger rather than being silently removed.
