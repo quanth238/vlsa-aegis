@@ -93,6 +93,10 @@ def evaluate(
     host: str,
     port: int,
     output_path: Path,
+    requested_radius_override: Optional[float] = None,
+    result_schema_override: Optional[str] = None,
+    claim_scope_override: Optional[str] = None,
+    controller_binding: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -396,7 +400,11 @@ def evaluate(
                 )
                 proposal = corrected_proposal(
                     nominal, outward,
-                    radius=float(config["fixed_repulsion"]["requested_correction_l2_action"]),
+                    radius=float(
+                        config["fixed_repulsion"]["requested_correction_l2_action"]
+                        if requested_radius_override is None
+                        else requested_radius_override
+                    ),
                     action_limit=float(config["fixed_repulsion"]["action_limit"]),
                 )
                 selected_actions, selected_z_after, correction_qp = project_through_aegis(
@@ -423,7 +431,11 @@ def evaluate(
                     "correction_qp_records": _public(correction_qp),
                 }
                 interventions.append(intervention)
-                source_name = "fixed_front_loaded_radius2_outward_normal_plus_original_AEGIS"
+                source_name = (
+                    "fixed_front_loaded_radius2_outward_normal_plus_original_AEGIS"
+                    if requested_radius_override is None
+                    else "first_warning_calibrated_outward_normal_plus_original_AEGIS"
+                )
                 if first_intervention_step is None:
                     first_intervention_step = step
                     live_mode = True
@@ -566,12 +578,21 @@ def evaluate(
         )
         primary = bool(native_success and contact_pass and car_pass and not timeout)
         result = {
-            "schema_version": RESULT_SCHEMA,
+            "schema_version": (
+                RESULT_SCHEMA if result_schema_override is None
+                else str(result_schema_override)
+            ),
             "status": "complete",
             "scientific_result": True,
             "case_id": selected["case_id"],
             "case_index": int(case_index),
-            "claim_scope": config["claim_scope"],
+            "claim_scope": (
+                config["claim_scope"] if claim_scope_override is None
+                else str(claim_scope_override)
+            ),
+            "controller_binding": (
+                None if controller_binding is None else _public(controller_binding)
+            ),
             "source": source,
             "allocation": allocation,
             "config": config,

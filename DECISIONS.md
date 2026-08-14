@@ -3414,3 +3414,30 @@ and `83d4e42f06d19e0bd0e904267e289cf9cb4e2fad1866913fc689ddb1a52affc2`;
 payload SHA-256 values are
 `a046bc854e32f8cf297cc00efd57d74d3f67467daedbb5fabe5100df40a1f4bc`
 and `9829b9fc84205077980766fdf44d026cde5f2a63ff427ca2e9e9145143bbbd46`.
+
+## ADR-0140: Test first-warning-calibrated magnitude through complete episodes
+
+- Status: preregistered; H100 complete-episode diagnostic pending
+- Date: 2026-08-15
+
+ADR-0139 establishes safe support but not an online magnitude predictor. Before
+paying for nine complete backup evaluations at every warning, isolate whether
+the fixed radius `2.0` caused task failure through excessive intervention. For
+each now-open diagnostic episode, freeze the smallest exactly safe requested
+radius found at its first warning: `1.25` for task-2 E42, `0.75` for task-3
+E42, and `1.75` for task-3 E44. Reuse that one case-specific radius at every
+later privileged five-action warning while preserving the normal, temporal
+profile, original released AEGIS EE filter, live frozen-pi0.5 replanning,
+internal-substep measurements, contact/CAR authority, and video-integrity gate.
+
+This is an outcome-tuned diagnostic on opened cases, not online adaptation or
+generalization. It is paired against the validated radius-2 result
+`40303/40304`, whose intervention counts are `5/39/31` and total requested
+correction norms are `10/78/62`. Passing requires all three episodes to remain
+contact-free, pass CAR, complete the native task without timeout, and use less
+total requested correction than the paired fixed controller. Failure will
+distinguish two outcomes: collision/CAR failure means the first-warning scale
+does not transfer even within an episode; safe task failure means magnitude
+reduction alone does not fix task compatibility and justifies neither an MLP
+nor denoising guidance. MLP training, online curve search, QP changes, CBF
+claims, and new test episodes remain forbidden.

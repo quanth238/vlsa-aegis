@@ -1,0 +1,41 @@
+{
+  "schema_version": "vlsa_distal_first_warning_calibrated_repulsion.v1",
+  "protocol_id": "vlsa-distal-first-warning-calibrated-repulsion-v1",
+  "claim_scope": "opened_three_case_diagnostic_of_first_warning_minimum_safe_normal_magnitude_reused_at_later_warnings_not_online_adaptation_not_generalization",
+  "base_episode_config": "configs/vlsa_distal_analytical_repulsion_generalization.v1.json",
+  "risk_curve_run": "/mnt/data/quanth/experiments/vlsa-distal-normal-risk-curve/normal-risk-curve-20260815a",
+  "risk_curve_summary_payload_sha256": "a046bc854e32f8cf297cc00efd57d74d3f67467daedbb5fabe5100df40a1f4bc",
+  "case_ids": [
+    "vlsa-t1-goal-ii-t2-e42",
+    "vlsa-t1-goal-ii-t3-e42",
+    "vlsa-t1-goal-ii-t3-e44"
+  ],
+  "requested_radius_by_case": [1.25, 0.75, 1.75],
+  "selection_rule": "smallest_requested_first_warning_grid_point_with_exact_safe_candidate_plus_fixed_backup",
+  "reuse_rule": "freeze_selected_case_radius_for_every_later_warning_in_same_complete_episode",
+  "comparison": {
+    "controller": "validated_fixed_radius_2_complete_episode_run_40303_40304",
+    "summary_payload_sha256": "421adf1150c74fa7f194f14c54d6a0fa3c8b037efa834ca63a1ba139be871ea5",
+    "intervention_count_by_case": [5, 39, 31],
+    "total_requested_correction_l2_action_by_case": [10.0, 78.0, 62.0],
+    "native_task_success_by_case": [true, false, false],
+    "raw_L5_L7_contact_pass_by_case": [true, true, true],
+    "paper_car_pass_by_case": [true, true, true]
+  },
+  "gate": {
+    "required_case_count": 3,
+    "require_zero_L5_L7_contact_all_cases": true,
+    "require_paper_CAR_all_cases": true,
+    "require_native_task_completion_all_cases": true,
+    "require_no_timeout": true,
+    "require_strictly_smaller_total_requested_correction_than_radius_2": true
+  },
+  "forbidden": [
+    "generalization_claim",
+    "online_risk_curve_recomputation_claim",
+    "learned_magnitude",
+    "denoising_guidance",
+    "QP_change",
+    "CBF_or_formal_safety_claim"
+  ]
+}

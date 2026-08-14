@@ -4170,3 +4170,13 @@ and `83d4e42f06d19e0bd0e904267e289cf9cb4e2fad1866913fc689ddb1a52affc2`;
 payload SHA-256 values are
 `a046bc854e32f8cf297cc00efd57d74d3f67467daedbb5fabe5100df40a1f4bc`
 and `9829b9fc84205077980766fdf44d026cde5f2a63ff427ca2e9e9145143bbbd46`.
+
+ADR-0140 preregisters the cheapest complete-episode magnitude diagnostic. It
+freezes each opened case's first-warning minimum exact-safe requested radius
+(`1.25/0.75/1.75`) and reuses it at every later warning. All other controller,
+AEGIS, replanning, measurement, rendering, and acceptance settings match the
+validated radius-2 run. This tests whether excessive magnitude caused the two
+task timeouts without claiming online adaptation. The strict gate is 3/3 zero
+L5--L7 contact, 3/3 CAR, 3/3 native task completion, no timeout, and lower
+per-case total requested correction than the validated `10/78/62` radius-2
+totals. Learning, denoising, QP changes, and generalization remain blocked.
