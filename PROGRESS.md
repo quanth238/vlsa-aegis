@@ -4182,9 +4182,31 @@ per-case total requested correction than the validated `10/78/62` radius-2
 totals. Learning, denoising, QP changes, and generalization remain blocked.
 
 Initial array `40352` exposed a fail-closed contact-accounting bug after the
-task-3 E42 episode completed: a contacted geom below L7 has L7/L6/L5 in its
-body ancestry, while the writer incorrectly required exactly one protected
-ancestor. The repair selects the closest protected ancestor (L7 here) and
-preserves the contact as scientific failure. No radius, warning, action,
-controller, or acceptance rule changes. Validator `40355` is retained as a
-dependency-cancelled apparatus attempt; a clean full-array rerun is required.
+task-3 E42 episode completed: a distal contact geom can have multiple protected
+ancestors, while the writer incorrectly required exactly one. The repair
+selects the closest protected ancestor and preserves the contact as scientific
+failure. No radius, warning, action, controller, or acceptance rule changes.
+Validator `40355` is retained as a dependency-cancelled apparatus attempt.
+
+Clean H100 array `40357` and independent validator `40360` retain a strict
+first-warning-calibrated magnitude NO-GO. Task-2 E42 is contact/CAR-safe but
+times out after 12 radius-1.25 interventions (total requested norm `15`, versus
+`10` for radius 2). Task-3 E42 completes but collides with L6 at step 108,
+after the radius-0.75 proposal was already forecast unsafe at its second
+warning at step 105; CAR also fails. Task-3 E44 is contact/CAR-safe but times
+out after 33 radius-1.75 interventions (total `57.75`, versus `62`). Safe task
+success is `0/3`.
+
+The first-warning magnitude is therefore not reusable across the later states
+created by live VLA replanning. The next oracle must measure the risk curve at
+later warning states, starting with task-3 E42 step 105, and abstain or invoke
+backup if no magnitude passes. No MLP, denoising, or QP is authorized. Attempt
+`40352` also produced a different task-2 continuation under the same request
+seeds, so future task comparisons require within-allocation paired arms or
+repeated policy samples rather than treating separate policy-server launches
+as exact stochastic pairs. Summary/validation file SHA-256 values are
+`e8c3e0986ddde226330c1db182a59dbbeec7fb6d5d7d170c560df5b7defd48dd`
+and `f58cd571e37701fc12607cff15df224fd42df07037d6121ddaf2f7cdcbdf9c43`;
+payload SHA-256 values are
+`3df38b493281aac8af34d27704a8f76d0a537b6d808c62985236137094447ae8`
+and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.

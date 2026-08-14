@@ -3417,7 +3417,7 @@ and `9829b9fc84205077980766fdf44d026cde5f2a63ff427ca2e9e9145143bbbd46`.
 
 ## ADR-0140: Test first-warning-calibrated magnitude through complete episodes
 
-- Status: preregistered; H100 complete-episode diagnostic pending
+- Status: completed; fixed per-episode calibration is a strict NO-GO
 - Date: 2026-08-15
 
 ADR-0139 establishes safe support but not an online magnitude predictor. Before
@@ -3443,10 +3443,47 @@ nor denoising guidance. MLP training, online curve search, QP changes, CBF
 claims, and new test episodes remain forbidden.
 
 Initial H100 array `40352` retained an apparatus failure in task-3 E42 after
-the episode finished. A genuine distal contact event belonged to a geom below
-L7, whose body ancestry therefore contains L7, L6, and L5. The result writer
-incorrectly required exactly one protected ancestor and raised before atomic
-output. The repair classifies the first protected ancestor while walking from
-the contacted geom toward the root. It does not remove or relabel the contact;
-the rerun must retain it as an L7 safety failure. The incomplete array and
+the episode finished. A genuine distal contact geom can have more than one of
+L5--L7 in its body ancestry. The result writer incorrectly required exactly
+one protected ancestor and raised before atomic output. The repair classifies
+the first protected ancestor while walking from the contacted geom toward the
+root. It does not remove or relabel the contact. The incomplete array and
 dependent validator `40355` remain apparatus history.
+
+Clean H100 array `40357` and independent validator `40360` complete the gate.
+Task-2 E42 remains contact-free and passes CAR but times out after 12 radius-1.25
+interventions; total requested correction is `15`, exceeding the validated
+radius-2 total `10`. Task-3 E42 completes, but radius `0.75` is already
+forecast unsafe at the second warning (step 105), and raw L6 contact begins at
+step 108 with 31 samples and CAR failure. Task-3 E44 remains contact-free and
+passes CAR but times out after 33 radius-1.75 interventions. Its total requested
+correction is `57.75` versus `62` for radius 2. Aggregate safe task success is
+`0/3`; the strict gate fails.
+
+The root result is not that magnitude is irrelevant. It is that the minimum
+safe magnitude is state-dependent: a radius certified at the first warning
+cannot be reused after VLA replanning changes the physical state. The E42
+collision is not a missed warning—the controller knowingly executed a later
+forecast-unsafe radius because this diagnostic froze the first-warning scale.
+E44 also contains several forecast-unsafe corrected prefixes without raw
+contact, exposing continuing proxy conservatism. The next decisive oracle is
+therefore an exact risk curve at later warning states (beginning with task-3
+E42 step 105), with abstention/backup whenever no registered magnitude is safe.
+It is not MLP training or direct risk-to-force conversion.
+
+One repeatability limitation is retained. In incomplete attempt `40352`,
+task-2 E42 completed with seven interventions, whereas clean rerun `40357`
+timed out with twelve. The paired initial state and executed actions through
+the first intervention are identical, but the first live pi0.5 response hash
+differs despite the same registered request seed. Final task-preservation
+comparisons therefore require within-allocation paired policy arms or repeated
+policy samples; separate server launches are not an exact stochastic pair.
+This does not change the strict NO-GO because clean task-3 E42 physically
+collides and the other two clean cases time out.
+
+Summary/validation file SHA-256 values are
+`e8c3e0986ddde226330c1db182a59dbbeec7fb6d5d7d170c560df5b7defd48dd`
+and `f58cd571e37701fc12607cff15df224fd42df07037d6121ddaf2f7cdcbdf9c43`;
+payload SHA-256 values are
+`3df38b493281aac8af34d27704a8f76d0a537b6d808c62985236137094447ae8`
+and `0e9c6e90487c6561dc8b09a0ec31d68502d328fe91216dcf656fd3e2bc27fa55`.
