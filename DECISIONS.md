@@ -3158,7 +3158,7 @@ QP, calibration, closed loop, and sealed tests remain blocked.
 
 ## ADR-0135: Audit whether registered physical modes vary by state
 
-- Status: preregistered
+- Status: completed; analytical normal dominates the observed prefix population
 - Date: 2026-08-14
 
 Pause learning and new data collection after ADR-0134. Reuse the immutable
@@ -3187,3 +3187,27 @@ authorize a learned selector or policy-value claim. It can only justify a later
 small matched-mode complete-rollout experiment after advisor review. No new
 simulation, model training, active perturbation, QP, calibration, closed loop,
 or sealed-test access is authorized here.
+
+H100 artifact audit `40244` and independent replay `40245` reproduce all 192
+stored coarse prefix probes across 16 states. The strongest outward-normal
+radius-2 proposal is the lowest-risk registered mode in all 16 states. Fourteen
+states contain at least one zero-margin prefix-safe mode, and the same outward
+normal is safe in all fourteen. In the remaining two states no registered mode
+is safe. No tangent or mixture rescues a failure of the strongest normal.
+
+At requested radius one, normal wins 13 states, upward tangent two, and side
+tangent one. Only one tangential winner beats positive normal by at least 1 mm,
+and none changes an unsafe normal result into a safe one. This is not meaningful
+state-dependent detour evidence. The current artifact population therefore
+does not justify learning a candidate-mode selector: the selector would learn
+to choose the same strongest analytical normal already available explicitly.
+
+This does not establish that radius-2 normal is a satisfactory controller.
+Sixty-six non-nominal coarse proposals experienced action clipping, radius 2 is
+a large correction, and the audit covers only the five-action prefix. It does
+not measure complete fixed-backup safety, live VLA recovery, intervention norm,
+or task preservation for every mode. The research should consequently pivot
+to the simpler analytical story: verified predictive normal repulsion followed
+by VLA replanning, with task compatibility and complete continuation as the
+remaining questions. Learned selection should be reconsidered only if future
+matched-norm, complete-rollout evidence exposes genuine mode-dependent rescue.

@@ -4027,3 +4027,23 @@ Because complete fixed-backup outcomes exist only for the selected bisection
 path, this audit cannot authorize learning even if prefix mode diversity is
 found. Training, active collection, QP, calibration, closed loop, and sealed
 tests remain frozen.
+
+H100 audit `40244` and independent validator `40245` complete ADR-0135 without
+new simulation or labels. Across 16 states and 192 stored prefix probes,
+`normal_pos_front_loaded_r2.0` is the exact lowest-risk registered proposal in
+16/16. Any proposal is zero-margin safe in 14/16 states; the strongest normal
+is safe in the same 14/16, and no alternative rescues either remaining state.
+
+Within the requested-radius-one subset, normal/up/side win 13/2/1 states, but
+no tangent turns an unsafe positive-normal result safe and only one tangent
+improves risk by at least 1 mm. Sixty-six non-nominal proposals were clipped.
+The evidence therefore rejects learned mode selection for the current bank and
+supports analytical outward-normal repulsion as the prefix baseline. Complete
+continuation and task compatibility remain unevaluated across modes, so no
+policy-value, learned-filter, QP, closed-loop, or general safety claim follows.
+Result/validation file SHA-256 values are
+`8b1e04744f3266939b211cd1a896d9fb995291aaf890b43f7c3b9f68d52b8dac`
+and `7f9bba4371eab1cb631a936aea7261fcdb67d402e28cf65abc305c7dbc118b26`;
+payload SHA-256 values are
+`3541886f642409883ca12ba2bc0ee5dfe24628a94b4a743269a282c2bd6da352`
+and `38fe30211687847d3b274186df279d38ca497dcdae45bc6fb7829704feaa3ac0`.
