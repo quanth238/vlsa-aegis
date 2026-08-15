@@ -4642,3 +4642,12 @@ learnable population; it does not authorize training. If it passes, expand
 grouped collection with the same rule and reserve episodes before comparing
 9D against minimal direct-L5 context. If it fails, scan query timing rather
 than adding model features or candidates. Learning and control remain blocked.
+
+Producer `40776` encountered a released-proxy apparatus failure before
+candidate simulation for task-3 E21: the archived MVEE orientation missed the
+strict proper-rotation constructor tolerance. The exact compiled-box L5 target
+does not use this orientation. Apply the previously validated SVD
+canonicalization only to this diagnostic comparator, record it in the state
+artifact, and require a full clean-commit restart. Retain all partial outputs
+and the failed dependent jobs as apparatus history. Scientific settings and
+the `3/5` gate do not change.

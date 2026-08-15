@@ -47,6 +47,17 @@ def _case(index, group, candidates):
 
 
 class ExactGroupBoundaryTest(unittest.TestCase):
+    def test_query_risk_canonicalizes_archived_perception_rotation(self):
+        source = (
+            ROOT / "scripts/evaluate_distal_query_action_risk_e05.py"
+        ).read_text()
+        self.assertIn(
+            "_canonicalize_perception_ellipsoid_rotation(", source,
+        )
+        self.assertNotIn(
+            '"R2": perception["mvee_rotation"]', source,
+        )
+
     def test_frozen_contract_and_warning_steps(self):
         config = load_config(CONFIG)
         cases = load_cases(ROOT / config["selection_manifest"], config)

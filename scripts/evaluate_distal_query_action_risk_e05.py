@@ -197,11 +197,19 @@ def evaluate(
             observation["%s_pos" % obstacle_name], dtype=np.float64
         ).copy()
         perception = archived["perception"]
+        from scripts.audit_distal_palm_primitive_case import (
+            _canonicalize_perception_ellipsoid_rotation,
+        )
+        perception_rotation, perception_rotation_record = (
+            _canonicalize_perception_ellipsoid_rotation(
+                perception["mvee_rotation"]
+            )
+        )
         geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
             geometry_config,
             {
                 "p2": perception["mvee_center"],
-                "R2": perception["mvee_rotation"],
+                "R2": perception_rotation,
                 "Q2_diag": perception["mvee_semiaxes"],
                 "record": {"label": perception["obstacle_label"]},
             },
@@ -348,7 +356,7 @@ def evaluate(
                      "AEGIS consistency clone state differs")
             released_geometry = {
                 "p2": np.asarray(perception["mvee_center"], dtype=np.float64),
-                "R2": np.asarray(perception["mvee_rotation"], dtype=np.float64),
+                "R2": np.asarray(perception_rotation, dtype=np.float64),
                 "Q2_diag": np.asarray(perception["mvee_semiaxes"], dtype=np.float64),
                 "z_fixed": z.copy(),
             }
@@ -1037,6 +1045,9 @@ def evaluate(
                 "active_row": active_row,
                 "local_frame": frame,
                 "candidate_frame_binding": _public(frame_binding),
+                "perception_rotation_canonicalization": (
+                    perception_rotation_record
+                ),
                 "physical_context": state_context,
                 "initial_proxy_gate_bypassed_for_empirical_relabel": bool(
                     allow_initial_proxy_unsafe_for_empirical_relabel

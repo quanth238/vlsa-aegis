@@ -5030,3 +5030,18 @@ would pass the stricter same-bank gate; `3/5` only authorizes a broader grouped
 collection using the same earlier-query rule. MLP training, feature comparison,
 candidate selection/execution, calibration, QP, denoising, closed loop, sealed
 tests, deployment, and formal safety claims remain forbidden.
+
+Initial producer array `40776` is retained as apparatus history. Three early
+tasks completed, one task rejected before candidate simulation because its
+archived diagnostic obstacle-MVEE rotation was orthogonal within tolerance but
+not strict enough for the geometry constructor, and the final task was still
+running when the failure was diagnosed. Canonicalize the archived MVEE basis
+to its nearest proper rotation before constructing the released-proxy
+comparator, as already validated in the compiled-geometry audit. The exact
+compiled-box target does not use this orientation. Require a clean-commit full
+restart; no state, action, candidate, target, or gate changes.
+
+The incomplete producer outputs are diagnostic only: E02 at step 210 is
+already exact-target unsafe, while E10 step 140 and E22 step 15 are one-sided
+safe. This suggests the useful boundary lies between registered query times,
+but no coverage verdict is allowed until the clean independent replay finishes.
