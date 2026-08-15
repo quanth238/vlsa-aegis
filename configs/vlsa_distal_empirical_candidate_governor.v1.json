@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_empirical_candidate_governor.v1",
+  "protocol_id": "vlsa-distal-empirical-candidate-governor-v1",
+  "claim_scope": "four_opened_state_no_learning_oracle_test_of_minimum_intervention_selection_with_empirical_L6_geometry_not_execution_not_generalization",
+  "population_manifest": "manifests/vlsa_table1_population.jsonl",
+  "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+  "geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+  "empirical_l6_proxy_config": "configs/vlsa_distal_l6_empirical_proxy.v1.json",
+  "empirical_l6_proxy_config_file_sha256": "244ad8fa2317fab46319ec804d9379be0dc5a976fbeb5a9774ecfc95b677a672",
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t2-e42",
+      "state_step": 25,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-normal-risk-curve/normal-risk-curve-20260815a/case-00/result.json",
+      "source_result_file_sha256": "be7a01a2242c659cb43b568ee327499c4c4f22a5d306b780b75e0168a488b21a",
+      "source_result_payload_sha256": "3372eb5d7f75a877a0daefd2c9072260aa7920d15b156aad90b095b8b860f43b",
+      "slab_initialization": "query_state_matching_source",
+      "candidate_names": ["nominal", "normal_alpha_0.25", "normal_alpha_0.50", "normal_alpha_0.75", "normal_alpha_1.00", "normal_alpha_1.25", "normal_alpha_1.50", "normal_alpha_1.75", "normal_alpha_2.00"]
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e42",
+      "state_step": 100,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-normal-risk-curve/normal-risk-curve-20260815a/case-01/result.json",
+      "source_result_file_sha256": "5836f79e2b19758451822cc5de670ced6ddcffe18196ede232700ca1a75f02a7",
+      "source_result_payload_sha256": "f797cdb24dcbe2cc8595580b094773195f060ccc10232f417825e8be2528bfc1",
+      "slab_initialization": "query_state_matching_source",
+      "candidate_names": ["nominal", "normal_alpha_0.25", "normal_alpha_0.50", "normal_alpha_0.75", "normal_alpha_1.00", "normal_alpha_1.25", "normal_alpha_1.50", "normal_alpha_1.75", "normal_alpha_2.00"]
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e44",
+      "state_step": 110,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-normal-risk-curve/normal-risk-curve-20260815a/case-02/result.json",
+      "source_result_file_sha256": "27423295832860239242443ab9df381f5d6595740249284be7b0746e2ce2b39f",
+      "source_result_payload_sha256": "36a282a9745b1ff2ae375f5d8ce9f70a85a56aa83f01514fb6c8524829eecfd1",
+      "slab_initialization": "query_state_matching_source",
+      "candidate_names": ["nominal", "normal_alpha_0.25", "normal_alpha_0.50", "normal_alpha_0.75", "normal_alpha_1.00", "normal_alpha_1.25", "normal_alpha_1.50", "normal_alpha_1.75", "normal_alpha_2.00"]
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e42",
+      "state_step": 105,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-later-warning-candidate-bank/later-warning-candidate-bank-20260815b/result.json",
+      "source_result_file_sha256": "f23b934ab4ddc2c0ddf830538561550f51bf1a7336ddef0e2c28b371e45c193d",
+      "source_result_payload_sha256": "78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5",
+      "slab_initialization": "settled_initial_state_matching_source",
+      "candidate_names": ["nominal", "normal_alpha_0.25", "normal_alpha_0.50", "normal_alpha_0.75", "normal_alpha_1.00", "normal_alpha_1.25", "normal_alpha_1.50", "normal_alpha_1.75", "normal_alpha_2.00"]
+    }
+  ],
+  "gate": {
+    "require_case_count": 4,
+    "require_candidate_count": 36,
+    "require_initial_states_safe": true,
+    "source_replay_tolerance_m": 1e-09,
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10
+  },
+  "forbidden": [
+    "new_candidate_or_action_change",
+    "selected_action_execution",
+    "MLP_QP_denoising_or_closed_loop",
+    "certified_geometry_or_formal_safety_claim",
+    "deployment_or_generalization_claim",
+    "sealed_test_access"
+  ]
+}

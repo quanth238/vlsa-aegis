@@ -3682,3 +3682,35 @@ and `2738d6250e780f517a448c3e6347572527805b9ee15cba7ae5899d9ec04e0a33`;
 payload SHA-256 values are
 `f175c28699eb8f08eb6e6dcc32be1de57b581f10e1d59f9e481943d1d849fdc0`
 and `c25e5f48a85276bcd6ad5e9717b0906f8874f7b758d83d89bb8972d54734fe85`.
+
+## ADR-0144: Test minimum-intervention finite-bank governance before learning
+
+- Status: preregistered; H100 oracle replay pending
+- Date: 2026-08-15
+
+The empirical L6 geometry gate removes the known opened-state label mismatch,
+but it does not establish that adaptive normal magnitude is useful. Before
+training a future-risk model, replay the complete nine-candidate normal banks
+at four already opened warning states: task-2 E42 step 25, task-3 E42 step
+100, task-3 E44 step 110, and the later task-3 E42 step 105 state. Each bank
+contains the nominal action and registered magnitudes `0.25, ..., 2.0`; no
+candidate or controller command is regenerated or changed.
+
+Each immutable post-AEGIS five-action prefix and complete fixed backup is
+replayed at every internal MuJoCo substep. Candidate risk uses exact compiled
+obstacle boxes, the frozen empirical `0.98` scale for L6 rows 3--4, and the
+unchanged L5/L7 rows. Raw protected MuJoCo contact and CAR remain physical
+vetoes, the original AEGIS EE projection remains in every source action, and
+unknown timeouts remain inadmissible. The oracle chooses the physically stable
+candidate with nonpositive empirical risk and minimum realized post-AEGIS
+action correction, not minimum requested magnitude.
+
+Passing requires exact source replay, initially safe states, detection of all
+stored raw-contact controls, acceptance of all stable contact-free controls,
+safe support in all four states, a safe radius-2 control in all four states,
+and a strictly smaller selected realized correction than radius 2 in every
+state. This is a no-learning, no-execution mechanism test of the proposed
+finite candidate governor. It does not authorize an MLP, selected-action
+execution, denoising guidance, closed loop, deployment, generalization, or a
+formal safety claim. If it fails, the complete-candidate future-risk governor
+is not ready for learning even with the repaired geometry target.

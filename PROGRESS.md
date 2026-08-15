@@ -4300,3 +4300,13 @@ labels only. It is not an enclosing bound and does not support formal safety.
 Result/validation payload SHA-256 values are
 `f175c28699eb8f08eb6e6dcc32be1de57b581f10e1d59f9e481943d1d849fdc0`
 and `c25e5f48a85276bcd6ad5e9717b0906f8874f7b758d83d89bb8972d54734fe85`.
+
+ADR-0144 preregisters the next core-algorithm mechanism test. Four immutable
+opened warning states contribute 36 existing post-AEGIS normal candidates.
+The audit replays each five-action prefix and fixed backup using exact compiled
+obstacle boxes plus the frozen empirical L6 scale, then selects the safe stable
+candidate with minimum realized post-AEGIS correction. The strict gate requires
+all stored contact and stable controls to be classified correctly, safe support
+in `4/4` states, and a selected correction strictly smaller than always using
+radius 2 in every state. No action is executed and no model is trained. H100
+producer and independent validation are pending.

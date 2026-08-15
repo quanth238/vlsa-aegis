@@ -79,6 +79,7 @@ def _evaluate_case(
         compiled_obstacle_boxes,
         evaluate_obstacle_representations,
     )
+    from main.multilink_ellipsoid.l6_proxy_scale_audit import rescale_row_slacks
     from main.multilink_ellipsoid.rollout import (
         _auxiliary_sim_snapshot,
         _base_env,
@@ -176,11 +177,27 @@ def _evaluate_case(
         controllers = _controller_snapshot(env)
         clock = (int(base.timestep), float(base.cur_time), bool(base.done))
 
+        empirical_proxy = audit_config.get("empirical_l6_proxy")
+
+        def empirical_slacks(values: Sequence[float]) -> list[float]:
+            if empirical_proxy is None:
+                return [float(item) for item in values]
+            return rescale_row_slacks(
+                values,
+                scale=float(empirical_proxy["uniform_semiaxis_scale"]),
+                scaled_rows=empirical_proxy["scaled_rows"],
+            )
+
         initial_representation = evaluate_obstacle_representations(
             geometry._slabbed_links(env),
             geometry.obstacle,
             compiled_obstacle_boxes(env, obstacle_name),
             overlap_tolerance=float(audit_config["gate"]["compiled_overlap_tolerance"]),
+        )
+        initial_slacks = empirical_slacks(
+            initial_representation[
+                "compiled_box_union_row_minimum_normalized_radial_slack"
+            ]
         )
         initial_contacts = _protected_contact_evidence(env, obstacle_name)
 
@@ -224,14 +241,23 @@ def _evaluate_case(
                 proxy_trace.append(np.asarray(
                     audit["perceived_mvee_row_clearance_m"], dtype=np.float64
                 ))
-                exact_slack_trace.append(np.asarray(
-                    audit["compiled_box_union_row_minimum_normalized_radial_slack"],
+                scaled_slacks = np.asarray(
+                    empirical_slacks(
+                        audit[
+                            "compiled_box_union_row_minimum_normalized_radial_slack"
+                        ]
+                    ),
                     dtype=np.float64,
-                ))
-                exact_overlap_trace.append(np.asarray(
-                    audit["compiled_box_union_row_any_exact_solid_overlap"],
-                    dtype=bool,
-                ))
+                )
+                exact_slack_trace.append(scaled_slacks)
+                exact_overlap_trace.append(
+                    np.asarray(
+                        audit["compiled_box_union_row_any_exact_solid_overlap"],
+                        dtype=bool,
+                    )
+                    if empirical_proxy is None
+                    else scaled_slacks <= 0.0
+                )
                 evidence = _protected_contact_evidence(env, obstacle_name)
                 for event in evidence["events"]:
                     contacts.append({
@@ -288,6 +314,9 @@ def _evaluate_case(
                 "case_id": case_config["case_id"],
                 "name": candidate_name,
                 "requested_alpha": float(candidate["requested_alpha"]),
+                "source_effective_post_AEGIS_correction_l2_action": float(
+                    candidate.get("effective_post_AEGIS_correction_l2_action", 0.0)
+                ),
                 "source_terminal_status": candidate["terminal_status"],
                 "source_physical_veto": bool(candidate["physical_veto"]),
                 "source_raw_protected_contact_count": source_contacts,
@@ -312,6 +341,7 @@ def _evaluate_case(
                 "compiled_box_risk": float(-np.min(slack)),
                 "compiled_box_any_exact_overlap": any_exact_overlap,
                 "compiled_box_safe_terminal": compiled_safe_terminal,
+                "empirical_l6_proxy": empirical_proxy,
                 "sample_count": int(len(proxy_trace)),
                 "action_count": len(actions),
                 "phase_sample_counts": {
@@ -343,12 +373,14 @@ def _evaluate_case(
             "state_hash_matches": state_hash_matches,
             "initial_clearance_replay_error_m": initial_clearance_error,
             "initial_compiled_box_minimum_normalized_radial_slack": float(
-                initial_representation[
-                    "compiled_box_union_minimum_normalized_radial_slack"
-                ]
+                min(initial_slacks)
             ),
             "initial_compiled_box_any_exact_overlap": bool(
-                initial_representation["compiled_box_union_any_exact_solid_overlap"]
+                initial_representation[
+                    "compiled_box_union_any_exact_solid_overlap"
+                ]
+                if empirical_proxy is None
+                else min(initial_slacks) <= 0.0
             ),
             "initial_raw_protected_contact_count": int(
                 initial_contacts["nonpositive_protected_contact_count"]
