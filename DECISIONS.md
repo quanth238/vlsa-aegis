@@ -4187,3 +4187,22 @@ problem. Replay the unchanged 1,600-case availability audit with all four
 finger geoms explicitly registered. Require zero unmapped robot contact events
 before any palm/finger fit. Population, clean eligibility, support thresholds,
 and all downstream prohibitions remain unchanged.
+
+H100 producer `40513` and validator `40514` pass the corrected taxonomy with
+zero case mismatch and zero unmapped contact events. Palm/L5/L6 remain the
+only availability-ready groups. Palm is only minimally supported (`3` clean
+episodes, `2` task-level groups); L5 and L6 have `20` and `16` clean episodes.
+No finger pad/base except finger-1 base has even one clean task-successful
+contact cohort, and finger-1 base has only `2` episodes in one group. L7 also
+has no clean support.
+
+Do not treat the larger raw EE failure count as a larger supervised dataset.
+Proceed with a tighter palm geometry audit while retaining finger/L7 as
+analytic and raw-contact diagnostics. A future shared constraint-conditioned
+pilot may claim learned palm/L5/L6 risk only after palm geometry and two-sided
+boundary support pass; it cannot claim learned fingers, L7, or whole-arm
+safety from this population.
+
+Result/validation payload SHA-256 values are
+`a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466`
+and `b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88`.

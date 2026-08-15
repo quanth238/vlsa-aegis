@@ -4597,3 +4597,22 @@ geometry and avoids recreating a single oversized finger ellipsoid. Result
 and validation payload SHA-256 values are
 `a861c47e5a854fb6b278f2659aa55627a7c16689e8819f9bbbd7c9eb39af594e`
 and `5ff6d96eb21c64d83d72d08bdd33bb3288fa113eb60c677a31cc8df11e4973cc`.
+
+Corrected H100 producer `40513` and independent validator `40514` reproduce
+the exact-geom v2 taxonomy over all 1,600 cases with zero mismatch and zero
+unmapped robot contacts. The base/pad split confirms that raw EE contact
+frequency is not equivalent to clean learning support. Palm remains minimally
+supported at 3 clean episodes / 2 task-level groups / 40 matched controls.
+Finger-1 base is 2/1/14; finger-1 pad, finger-2 base, and finger-2 pad have
+zero clean task-successful contacts despite total contact-episode counts of
+5, 44, and 15 for the latter three groups. L5 remains 20/5/113, L6
+16/3/56, and L7 has no clean support.
+
+The supported first geometry pilot is therefore palm + existing L5/L6, not
+all EE or whole-arm constraints. Finger and L7 remain explicit analytic and
+physical-contact diagnostics until new independent boundaries exist. Palm
+still needs a tighter-primitive physical false-safe/false-unsafe audit before
+candidate-plus-backup boundary collection; training stays blocked. Result and
+validation payload SHA-256 values are
+`a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466`
+and `b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88`.
