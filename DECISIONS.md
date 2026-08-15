@@ -4410,3 +4410,18 @@ only the same-bank grouped collection. A one-sided group triggers candidate-
 bank or warning-state revision. Geometry/contact contradiction triggers
 apparatus NO-GO. MLP training, calibration, QP, denoising, closed loop, test
 access, deployment, metric-clearance, and formal-safety claims remain blocked.
+
+H100 chain `40706/40707/40708` executes ADR-0159 exactly. Independent
+scientific replay matches all three cases and the exact target has zero
+physical false-safes, so the frozen geometry remains usable. The candidate
+bank does not identify all three boundaries: palm is 0/9 safe, L5 is 2 safe /
+4 unsafe / 3 unknown, and L6 is 9/9 safe. Therefore do not train and do not
+launch the same-bank population. Preserve L5 E19 as the positive two-sided
+control. Next locate an initially valid palm state with recoverable safe and
+unsafe actions and an initially valid L6 state genuinely near its boundary;
+only then run another capped no-learning support canary.
+
+The strict apparatus flag also records a `1.564e-7 m` legacy released-proxy
+replay discrepancy for L6 with exact source-state and producer/replay
+reproduction. Audit or separate that legacy tolerance in the next apparatus
+revision, but do not treat it as the cause of missing palm/L6 support.

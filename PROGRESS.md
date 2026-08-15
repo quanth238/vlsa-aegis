@@ -4779,3 +4779,19 @@ contacts, and CAR. The apparatus may authorize only a broader episode-grouped
 collection, and only if each palm/L5/L6 bank contains known safe and unsafe
 target outcomes with zero represented-geometry physical false-safes. It cannot
 authorize training or control.
+
+H100 producer `40706`, independent replay `40707`, and verifier `40708`
+complete all 27 candidates with exact scientific reproduction and zero
+represented-geometry physical false-safes. The common bank is nevertheless
+NO-GO for scaling or training. L5 E19 has useful two-sided support (2 safe,
+4 unsafe, 3 timeouts; 4 near-boundary). Palm E09 is one-sided unsafe (0 safe,
+9 unsafe; 3 near-boundary). L6 E09 is one-sided safe and far from its target
+boundary (9 safe, 0 unsafe; 0 near-boundary).
+
+The L6 legacy released-proxy diagnostic differs by `1.564e-7 m` from its old
+`1e-9 m` replay tolerance despite an exact state hash; this makes the strict
+apparatus flag false but cannot explain the one-sided exact target. Validation
+status is `apparatus_no_go`; grouped collection, MLP training, QP, and closed
+loop remain unauthorized. Validation file/payload SHA-256 values are
+`8d3f3e3fee6cb41236c256f181694e07fcb6ea5223670846f20d14d5035d698f`
+and `614389369ac78bc7f223b7eda6270d920278d6ec92e7fe43527941bad59ee96b`.
