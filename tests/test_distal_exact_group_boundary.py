@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/vlsa_distal_exact_group_boundary_canary.v1.json"
 NO_QP_CONFIG = ROOT / "configs/vlsa_distal_no_qp_l5_boundary_canary.v1.json"
 GENERIC_CONFIG = ROOT / "configs/vlsa_distal_generic_l5_boundary_canary.v1.json"
+OFFSET_COVERAGE_CONFIG = (
+    ROOT / "configs/vlsa_distal_generic_l5_offset_coverage_canary.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -118,6 +121,24 @@ class ExactGroupBoundaryTest(unittest.TestCase):
             for row in candidates
         ))
 
+    def test_offset_coverage_canary_uses_earlier_independent_query_states(self):
+        config = load_config(OFFSET_COVERAGE_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(
+            [warning_step(case, config) for case in cases],
+            [210, 140, 15, 90, 60],
+        )
+        self.assertEqual(len({case["task_level_group_id"] for case in cases}), 5)
+        self.assertTrue(all(
+            15 <= case["first_target_contact_step"] - case["state_step"] <= 18
+            for case in cases
+        ))
+        self.assertFalse(
+            config["candidate_bank"][
+                "released_AEGIS_EE_applied_to_every_candidate"
+            ]
+        )
+
     def test_two_sided_bank_authorizes_only_grouped_collection(self):
         config = load_config(CONFIG)
         rows = []
@@ -142,6 +163,20 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertTrue(summary["apparatus_pass"])
         self.assertFalse(summary["same_bank_grouped_collection_authorized"])
         self.assertEqual(summary["per_case"][0]["unknown_timeout_count"], 1)
+
+    def test_optional_targeted_coverage_gate_does_not_authorize_same_bank(self):
+        config = load_config(OFFSET_COVERAGE_CONFIG)
+        rows = []
+        for index in range(5):
+            candidates = [_candidate("L5", 0.2) for _ in range(13)]
+            if index < 3:
+                candidates[0] = _candidate("L5", -0.1)
+            rows.append(_case(index, "L5", candidates))
+        summary = summarize_cases(rows, config)
+        self.assertEqual(summary["two_sided_case_count"], 3)
+        self.assertTrue(summary["targeted_coverage_canary_pass"])
+        self.assertFalse(summary["same_bank_grouped_collection_authorized"])
+        self.assertFalse(summary["training_authorized"])
 
     def test_contact_with_positive_target_slack_fails_apparatus(self):
         config = load_config(CONFIG)

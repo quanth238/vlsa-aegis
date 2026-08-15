@@ -4621,3 +4621,24 @@ select a feature causally. Close ADR-0163 as completed and advance only to
 targeted independent two-sided exact-L5 boundary collection, followed by the
 matched 9D versus minimal direct-L5-context ablation. The anchor, calibration,
 correction, QP, denoising, closed loop, and sealed tests remain forbidden.
+
+## ADR-0164: Test earlier natural query boundaries before broader collection
+
+- Status: preregistered; allocation evidence pending
+- Date: 2026-08-15
+
+The offset audit requires independent state-boundary coverage, but the prior
+five-state bank intervened only `2--11` actions before observed L5 contact and
+was mostly one-sided unsafe. Select five unused development episodes from five
+independent task/level groups and move only the query boundary earlier, to
+`15--18` actions before first L5 contact. Preserve the exact L5 target, direct
+no-QP candidate execution, OSC, fixed backup, 13 generic symmetric Cartesian
+candidates, physical checks, and timeout censoring.
+
+Require all initial states to be exact-L5 positive and contact-free, exact
+independent replay, zero physical false-safes, and at least three two-sided
+states. This threshold diagnoses whether earlier intervention can produce a
+learnable population; it does not authorize training. If it passes, expand
+grouped collection with the same rule and reserve episodes before comparing
+9D against minimal direct-L5 context. If it fails, scan query timing rather
+than adding model features or candidates. Learning and control remain blocked.

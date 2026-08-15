@@ -84,7 +84,9 @@ def validate(
         "status": (
             "passed_same_bank" if producer_summary[
                 "same_bank_grouped_collection_authorized"
-            ] else "apparatus_pass_bank_revision_required"
+            ] else "passed_targeted_coverage_canary"
+            if producer_summary["targeted_coverage_canary_pass"]
+            else "apparatus_pass_bank_revision_required"
             if producer_summary["apparatus_pass"] else "apparatus_no_go"
         ),
         "scientific_result": False,
@@ -101,12 +103,17 @@ def validate(
         "same_bank_grouped_collection_authorized": producer_summary[
             "same_bank_grouped_collection_authorized"
         ],
+        "targeted_coverage_canary_pass": producer_summary[
+            "targeted_coverage_canary_pass"
+        ],
         "training_authorized": False,
         "QP_authorized": False,
         "closed_loop_authorized": False,
         "interpretation": (
             "exact_group_boundary_apparatus_and_three_group_bank_pass"
             if producer_summary["same_bank_grouped_collection_authorized"]
+            else "earlier_query_targeted_L5_coverage_canary_pass"
+            if producer_summary["targeted_coverage_canary_pass"]
             else "exact_group_boundary_apparatus_pass_but_candidate_bank_needs_revision"
             if producer_summary["apparatus_pass"]
             else "exact_group_boundary_apparatus_no_go"

@@ -158,6 +158,15 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         and replay_gate and proxy_false_safe == 0
     )
     same_bank = bool(apparatus and all(item["target_two_sided_support"] for item in summaries))
+    two_sided_case_count = sum(
+        bool(item["target_two_sided_support"]) for item in summaries
+    )
+    targeted_required = int(config["gate"].get(
+        "required_two_sided_case_count", len(summaries),
+    ))
+    targeted_coverage = bool(
+        apparatus and two_sided_case_count >= targeted_required
+    )
     return {
         "case_count": len(cases),
         "candidate_count": sum(item["candidate_count"] for item in summaries),
@@ -167,8 +176,11 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             "legacy_source_proxy_replay", "strict"
         ),
         "physical_false_safe_count": proxy_false_safe,
+        "two_sided_case_count": two_sided_case_count,
+        "required_two_sided_case_count": targeted_required,
         "per_case": summaries,
         "apparatus_pass": apparatus,
+        "targeted_coverage_canary_pass": targeted_coverage,
         "same_bank_grouped_collection_authorized": same_bank,
         "training_authorized": False,
         "QP_authorized": False,

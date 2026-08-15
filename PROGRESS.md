@@ -5010,3 +5010,23 @@ and `52774507eff7ec7127f13a08545287243f4b6af434fa5f4fd4bc00d2f220ce7e`;
 payload SHA-256 values are
 `c49624c96765ac6d37ce54520337a254439df9c0d2d675c6c84920826005fea8`
 and `0f599c0d160f54b6dc9d4699e3a9540123eb2f1b51a0599b7e0d3ab49d006557`.
+
+## Earlier-query L5 offset-coverage canary (preregistered, 2026-08-15)
+
+Test whether intervention timing, rather than more actions at the four old
+states, supplies the missing independent boundaries. Freeze five new
+development episodes from five task/level groups with observed L5 contact and
+select real VLA query boundaries `15--18` actions before first contact. Each
+state receives the unchanged 13-candidate nominal plus symmetric world-axis
+bank at radii `0.5/1.5`, direct no-QP Cartesian execution through the unchanged
+OSC, and the exact compiled-box three-row L5 candidate-plus-complete-backup
+target. Original source replay, initially positive exact L5 slack, contacts,
+CAR, and timeout censoring remain mandatory.
+
+This is a targeted coverage canary, not training. Require apparatus validity,
+zero represented-geometry physical false-safes, and two-sided exact L5 support
+in at least `3/5` independent task/level groups. All five two-sided states
+would pass the stricter same-bank gate; `3/5` only authorizes a broader grouped
+collection using the same earlier-query rule. MLP training, feature comparison,
+candidate selection/execution, calibration, QP, denoising, closed loop, sealed
+tests, deployment, and formal safety claims remain forbidden.
