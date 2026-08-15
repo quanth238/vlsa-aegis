@@ -3850,3 +3850,20 @@ ablation because it changes only generic capacity control and does not assume
 monotone physics. The realized-curve audit remains useful but moves downstream:
 only if weight decay alone is insufficient and the audit passes may the
 monotonic arm run. No hyperparameter sweep is authorized on validation data.
+
+ADR-0145 H100 producer array `40437` and independent validator `40438`
+complete all 13 cases and 117 candidates, but the strict dataset gate is
+NO-GO. Raw-contact detection, stable-control acceptance, empirical initial
+safety, timeout censoring, split counts, and 10/3 recoverability all pass.
+Only four states have known safe and unsafe candidate-plus-backup outcomes;
+nine states contain no known unsafe candidate, so two-sided boundary support
+fails. Weight-decay and monotonic training are therefore not authorized.
+
+The exact-replay gate also fails only on task-3 cases 07--10. Their simulator
+state hashes, initial clearance, and CAR replay exactly, while the deprecated
+proxy-clearance comparison differs by at most `1.7459027434885144e-7 m`, above
+the frozen `1e-9 m` equality tolerance. Audit this numerical proxy discrepancy
+separately; relaxing it cannot repair the independent two-sided-support
+failure. Preserve every case and timeout. Collect distinct states where the
+complete fixed backup yields both a known unsafe nominal/weak correction and a
+verified-safe stronger correction before any training or loss ablation.

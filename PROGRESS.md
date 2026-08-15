@@ -4364,3 +4364,13 @@ training diagnostic after ADR-0145 is now no weight decay versus the established
 AdamW `1e-4` weight decay, with every other factor frozen. The monotonicity
 audit and loss remain prepared but are secondary; they cannot precede the
 ordinary weight-decay attribution test.
+
+H100 jobs `40437/40438` complete the grouped empirical candidate-risk dataset
+with 13 cases, 117 candidates, 16 raw-contact controls, 65 stable controls, and
+36 censored timeouts. The gate is strict NO-GO: only 4/13 states are two-sided;
+the remaining nine have no known unsafe candidate after the complete fixed
+backup. Four task-3 cases also exceed the frozen old-proxy replay tolerance by
+only `1.6e-8--1.75e-7 m` despite exact state hashes and CAR. Training—including
+the weight-decay ablation—remains blocked. Validation file/payload SHA-256 are
+`f5c9e06412d4074ae940fdcbfcf04b334b966ff0f0616dba85b8559f4ac814bd`
+and `66b97b944ab8008b1e86feeca441dd4cbea85dc08eb781786b9135820f791f21`.
