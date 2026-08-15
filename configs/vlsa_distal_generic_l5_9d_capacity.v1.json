@@ -1,0 +1,110 @@
+{
+  "schema_version": "vlsa_distal_generic_l5_9d_capacity.v1",
+  "protocol_id": "vlsa-distal-generic-l5-9d-capacity-v1",
+  "claim_scope": "leave_one_state_out_capacity_diagnostic_for_three_compiled_geometry_L5_future_risks_using_the_previously_best_9D_relative_endpoint_input_not_a_safety_filter_not_control_not_QP_not_CBF",
+  "sources": {
+    "validation_file": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-boundary/generic-l5-boundary-canary-20260815b/validation.json",
+    "validation_file_sha256": "8c147a39625d5a2827bf84fa39a2d251d8fd11faef72328e265dacd08634c620",
+    "validation_payload_sha256": "bf20e5b48ecd951f5f0325c9fddf9eb2a04dbf2f0e0d1f3e905fce649d7bd9fd",
+    "producer_root": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-boundary/generic-l5-boundary-canary-20260815b/producer",
+    "case_artifacts": {
+      "vlsa-t1-goal-i-t0-e02": {
+        "filename": "vlsa-t1-goal-i-t0-e02.json",
+        "file_sha256": "9182be2b2f66e9a680d0a1710dd7658fae87538ed84e92a1498c725c15ebcb54",
+        "payload_sha256": "345e0ae126e08918006c0b35da89038a510a49be7db540bdb2b7c8dcaa879886"
+      },
+      "vlsa-t1-goal-ii-t0-e05": {
+        "filename": "vlsa-t1-goal-ii-t0-e05.json",
+        "file_sha256": "fdfef0bae0fa48dba7f8ac41c3b0c3300d771ab5baa6cfe6318b077ca50d531d",
+        "payload_sha256": "2e225648d35123035d1799bcdb0cf7203048412c3145df83e0837785212c9219"
+      },
+      "vlsa-t1-goal-ii-t2-e19": {
+        "filename": "vlsa-t1-goal-ii-t2-e19.json",
+        "file_sha256": "32dde5cdf9b3f0daa46bdf3f44b4b6faee321a5bb4f44d0da39758f12d96594a",
+        "payload_sha256": "b4ff9f18e3c66226fab83cd5896e21d287e2d8723f2d7da349ebfb1eff19319c"
+      },
+      "vlsa-t1-goal-ii-t3-e14": {
+        "filename": "vlsa-t1-goal-ii-t3-e14.json",
+        "file_sha256": "ad06198e10bbd4eb0065df0887ae6343a7b20214381e9e294ab15fba8c8b0b0b",
+        "payload_sha256": "daf8c9fd608f8b65b94dac9590543728e8c7ca05df695130e35a1467f00ffdff"
+      },
+      "vlsa-t1-spatial-i-t3-e03": {
+        "filename": "vlsa-t1-spatial-i-t3-e03.json",
+        "file_sha256": "809f66bd153d12f3bb3e86a7e2b05689fe0c579382595e7aacd9a2e7d2700d97",
+        "payload_sha256": "f1941062b52ecdcf297c07316482614396040251a5ef797219f5d35fd66ef19f"
+      }
+    }
+  },
+  "dataset": {
+    "prevention_case_ids": [
+      "vlsa-t1-spatial-i-t3-e03",
+      "vlsa-t1-goal-ii-t0-e05",
+      "vlsa-t1-goal-ii-t2-e19",
+      "vlsa-t1-goal-ii-t3-e14"
+    ],
+    "recovery_case_id": "vlsa-t1-goal-i-t0-e02",
+    "expected_known_candidate_counts": {
+      "vlsa-t1-spatial-i-t3-e03": 13,
+      "vlsa-t1-goal-i-t0-e02": 8,
+      "vlsa-t1-goal-ii-t0-e05": 11,
+      "vlsa-t1-goal-ii-t2-e19": 11,
+      "vlsa-t1-goal-ii-t3-e14": 12
+    },
+    "L5_row_indices": [1, 2, 3],
+    "target": "negative_minimum_dimensionless_compiled_box_radial_slack_for_each_L5_primitive_over_registered_candidate_plus_backup_terminal",
+    "unknown_timeouts": "masked_not_safe_not_unsafe",
+    "split": "leave_one_complete_prevention_state_out",
+    "state_balanced_loss_and_normalization": true
+  },
+  "features": {
+    "input_dimension": 9,
+    "definition": "P_start_minus_obstacle_center_P_commanded_end_minus_obstacle_center_and_obstacle_semiaxes",
+    "translation_scale_m_per_action_unit": 0.05,
+    "P_commanded_end": "P_start_plus_0.05_times_sum_of_five_exact_executed_XYZ_commands",
+    "future_executed_state_excluded": true
+  },
+  "model": {
+    "class": "three_output_relative_endpoint_MLP",
+    "input_dimension": 9,
+    "output_count": 3,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale": 0.05,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale": 0.01,
+    "normalization": "training_states_only_state_balanced",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection"
+  },
+  "metrics": {
+    "near_boundary_abs_risk": 0.05,
+    "report_row_and_global_RMSE": true,
+    "report_false_safe_and_safe_support": true,
+    "report_within_state_ranking_and_improvement_direction": true
+  },
+  "decision": {
+    "purpose": "distinguish_local_action_response_learning_from_unseen_state_transfer_failure",
+    "cannot_authorize_control": true,
+    "next_if_direction_and_ranking_pass_but_threshold_fails": "collect_multiple_independent_two_sided_boundary_states",
+    "next_if_training_and_ranking_fail": "revisit_target_or_representation_before_more_collection"
+  },
+  "forbidden": [
+    "new_simulation",
+    "timeout_relabeling",
+    "recovery_state_in_prevention_training_or_claim",
+    "validation_model_selection",
+    "calibration",
+    "candidate_correction",
+    "QP",
+    "denoising_guidance",
+    "closed_loop_execution",
+    "sealed_test_access",
+    "deployment_or_CBF_claim"
+  ]
+}

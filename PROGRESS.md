@@ -4883,3 +4883,30 @@ collection, 9D MLP training, candidate correction, QP, denoising, and closed
 loop remain unauthorized. Validation file/payload SHA-256 values are
 `8c147a39625d5a2827bf84fa39a2d251d8fd11faef72328e265dacd08634c620`
 and `bf20e5b48ecd951f5f0325c9fddf9eb2a04dbf2f0e0d1f3e905fce649d7bd9fd`.
+
+## Generic L5 9D capacity diagnostic (preregistered, 2026-08-15)
+
+At the user's request, use the failed support population only for a narrowly
+scoped capacity diagnostic. This does not override the support NO-GO and
+cannot authorize correction or control. The model uses the previously best
+9D representation: current EE position and the commanded five-action endpoint
+relative to the recorded obstacle center, plus recorded obstacle semiaxes. It
+predicts the three exact compiled-geometry L5 primitive future violations;
+their maximum is the reported worst-future violation.
+
+E03, E05, E19, and E14 are prevention states and are evaluated by four-fold
+leave-one-state-out prediction. E02 is initially outside the target safe set
+and is excluded from prevention training and claims; a model fit on all four
+prevention states reports E02 only as a recovery diagnostic. Unknown timeouts
+are masked, candidates remain grouped by state, and loss and normalization
+weight each training state equally. Architecture and training match the prior
+9D diagnostic: 32--32 SiLU MLP, boundary-weighted symmetric Huber, AdamW,
+weight decay `1e-4`, seed `20260814`, and a fixed final epoch.
+
+The decisive outputs are unseen-state row/global error, false-safes, safe
+support, within-state improvement-direction accuracy, and safe/unsafe
+ordering. This diagnostic may show whether local action response is learnable;
+it cannot validate threshold transfer because only E14 has two-sided support.
+New simulation, calibration, correction, QP, denoising guidance, closed loop,
+and sealed test access remain forbidden. The next step is one H100 producer
+and one dependent independent H100 retraining validator from a clean commit.

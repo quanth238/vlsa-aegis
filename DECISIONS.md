@@ -4525,3 +4525,30 @@ Any next data gate must first construct a small union of independently defined
 candidate families and demonstrate safe/unsafe support without selecting
 candidates from model predictions. Prediction and correction remain separate
 gates.
+
+## ADR-0162: Permit only a frozen 9D capacity diagnostic on one-sided data
+
+- Status: preregistered; allocation evidence pending
+- Date: 2026-08-15
+
+The ADR-0161 population is still NO-GO for a learned filter, but its known
+one-sided labels can answer a narrower implementation question. Train the
+previously best compact relative-endpoint MLP only as a capacity diagnostic.
+Predict the three represented L5 primitive risks and compute global risk by a
+hard maximum. Use complete leave-one-state-out prevention folds over E03,
+E05, E19, and E14. Exclude initially unsafe E02 from prevention fitting and
+claims and report it separately as recovery. Mask every timeout and weight
+each physical state equally in normalization and loss.
+
+Freeze the architecture, optimizer, seed, symmetric boundary-weighted Huber,
+and ordinary `1e-4` weight decay. Do not select checkpoints or hyperparameters
+using held-out states. Independently retrain every fold and reproduce stored
+predictions. Report magnitude, threshold, ranking, and improvement-direction
+metrics separately: strong ranking with false-safes means action response is
+partly learnable but independent two-sided boundary states are still required;
+weak ranking means revisit the target or input representation before spending
+on collection.
+
+This exception authorizes training only for diagnosis. It does not change the
+ADR-0161 support result and cannot authorize candidate execution, calibration,
+QP, denoising guidance, closed loop, test access, deployment, or a CBF claim.
