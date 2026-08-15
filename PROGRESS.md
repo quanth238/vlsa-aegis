@@ -4462,3 +4462,20 @@ quantity is added. Data, split, architecture, symmetric loss, AdamW `1e-4`,
 seed, optimizer, schedule, and checkpoint remain identical. This directly
 tests whether the missing state-dependent risk offset is explained by current
 L5 proximity.
+
+H100 producer `40498` and independent validator `40499` complete the 12D arm
+with zero replay error. Adding the current clearances lowers training RMSE to
+`0.621411 mm` but catastrophically raises grouped-validation RMSE to
+`21.860198 mm` and near-boundary error to `14.856301 mm`, versus 9D
+`7.305681/6.150915 mm`. False-safes fall from 6 to 3 and exact-safe selection
+rises from `1/4` to `2/4`, but this is again concentrated conservatism: support
+falls from `4/4` to `3/4`. The staged experiment therefore stops. The 9D
+obstacle-relative endpoint model remains the best predictive representation,
+but its six false-safes and `1/4` minimum-correction selection keep control
+blocked. Audit train/validation support of the three clearance features before
+testing any additional input. Result/validation file SHA-256 values are
+`4028c007ef977dffa5b76083149005aa7d0cddac01536d3cde7a193e8ee0fdc1`
+and `43037e29048d7515e189bf90e14c1e1edd776481d1207bcbc6d72fca74977971`;
+payload SHA-256 values are
+`3d24979b3f54590e194a0f36aac34d821aa8890f1afecfc775ccbb3956e9d5ee`
+and `defe40572bd7f339d5c501f653debf59cb967ab0fce3999cfa4935b70c62e67f`.

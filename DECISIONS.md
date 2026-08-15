@@ -4027,3 +4027,24 @@ and checkpoint fixed. The group is useful only if it lowers validation RMSE by
 at least 10%, does not increase false-safes, and retains `4/4` support. All
 remaining inputs and every control experiment remain blocked pending this
 attribution result.
+
+H100 producer `40498` and independent validator `40499` reject the clearance
+addition with zero replay error. The 12D model obtains `0.621411 mm` training
+RMSE but `21.860198 mm` grouped-validation RMSE and `14.856301 mm`
+near-boundary RMSE. It has 3 false-safes and exact-safe selection in `2/4`
+states, but loses safe support in one recoverable state (`3/4`). These apparent
+safety gains come from stronger rejection, not better transferable risk
+prediction.
+
+Stop the feature-growth sequence here. The 9D obstacle-relative start/end and
+semiaxis representation is the best current arm: it has the lowest validation
+and near-boundary error and support in `4/4`, although it still has six
+false-safes and only `1/4` correct minimum-correction selection. The next step
+is a no-training train/validation range and state-distance audit of the three
+clearance inputs. The result does not prove that clearance is physically
+irrelevant; it shows that adding absolute clearance to this sparse grouped
+dataset creates harmful state extrapolation.
+
+Result/validation payload SHA-256 values are
+`3d24979b3f54590e194a0f36aac34d821aa8890f1afecfc775ccbb3956e9d5ee`
+and `defe40572bd7f339d5c501f653debf59cb967ab0fce3999cfa4935b70c62e67f`.
