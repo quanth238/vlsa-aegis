@@ -4452,3 +4452,10 @@ and an MLP cannot repair it. If all states are two-sided, collect additional
 episode-grouped boundaries and only then train a finite-candidate future-risk
 selector. Palm/L6 extension, QP, closed loop, and broad safety claims remain
 downstream.
+
+Initial no-QP producer `40714_3` failed before simulator construction because
+the E19 archived-result file SHA-256 in the newly written manifest was a
+copying error. Keep the entire `20260815a` chain as apparatus history. Correct
+only that immutable file binding, then restart producer, replay, and verifier
+from one clean commit and new root. Do not change states, candidates, QP mode,
+target, continuation, or gates.

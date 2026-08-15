@@ -4815,3 +4815,10 @@ in every state. A legacy released-proxy replay discrepancy is diagnostic only;
 exact source-state hashes plus independent exact scientific reproduction remain
 mandatory. Even a pass authorizes only broader no-QP L5 data collection, not
 training or control.
+
+Initial producer array `40714` is retained as apparatus history. Case index 3
+(L5 E19) failed before simulation because its new selection-manifest file hash
+was copied incorrectly; the immutable archived payload hash and every
+scientific setting were correct. The repair binds the already validated exact
+Table-1 file SHA-256 and requires a new clean commit/root rather than mixing
+old-commit successful cases with the replacement.
