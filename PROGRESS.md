@@ -4334,3 +4334,11 @@ strict gate requires two-sided support and recoverability in all `13/13`
 states with zero missed raw-contact controls and no rejected stable controls.
 Training remains blocked until independent H100 validation passes; diagnostic
 and test episodes remain unopened.
+
+H100 canary `40429` is retained as an apparatus-only preflight failure. The
+reused source collector rejected task-2 E19 before candidate simulation because
+its old perception-MVEE initial-clearance check was still active. ADR-0145 uses
+the empirical compiled target for initial eligibility. The repair bypasses only
+the obsolete proxy check in the opt-in empirical collector; initial MuJoCo
+contact, CAR, empirical overlap, candidates, actions, AEGIS, backup, and all
+registered gates remain unchanged.

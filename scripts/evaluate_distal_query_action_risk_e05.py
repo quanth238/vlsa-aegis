@@ -105,6 +105,7 @@ def evaluate(
     adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
     prime_slabbed_geometry_at_initial_state: bool = False,
     capture_physical_context: bool = False,
+    allow_initial_proxy_unsafe_for_empirical_relabel: bool = False,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -236,8 +237,9 @@ def evaluate(
             np.asarray(observation["%s_pos" % obstacle_name], dtype=np.float64)
             - obstacle_reference
         )))
-        _require(float(np.min(current)) >= float(config["state"]["minimum_initial_proxy_clearance_m"]),
-                 "E05 query boundary is initially proxy-unsafe")
+        if not allow_initial_proxy_unsafe_for_empirical_relabel:
+            _require(float(np.min(current)) >= float(config["state"]["minimum_initial_proxy_clearance_m"]),
+                     "E05 query boundary is initially proxy-unsafe")
         _require(current_car <= float(config["state"]["maximum_initial_active_obstacle_l1_displacement_m"]),
                  "E05 query boundary already fails CAR")
         links = geometry._slabbed_links(env)
@@ -1019,6 +1021,9 @@ def evaluate(
                 "active_row": active_row,
                 "local_frame": frame,
                 "physical_context": state_context,
+                "initial_proxy_gate_bypassed_for_empirical_relabel": bool(
+                    allow_initial_proxy_unsafe_for_empirical_relabel
+                ),
             },
             "geometry_initialization": geometry_initialization,
             "candidate_count": len(records),

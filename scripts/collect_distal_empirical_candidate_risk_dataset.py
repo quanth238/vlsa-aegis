@@ -98,6 +98,7 @@ def collect(
         candidate_protocol_binding=curve_binding,
         apply_released_aegis_ee_to_all_proposed_actions=True,
         capture_physical_context=True,
+        allow_initial_proxy_unsafe_for_empirical_relabel=True,
     )
     nominal = np.asarray(raw["nominal_five_action_chunk"], dtype=np.float64)
     for candidate in raw["candidates"]:

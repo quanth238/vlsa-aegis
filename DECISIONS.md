@@ -3785,3 +3785,14 @@ requires target or state-coverage repair; it must not be hidden by dropping
 states or timeouts. Test episodes, selected-action execution, QP, denoising,
 closed loop, metric-clearance, deployment, generalization, and formal-safety
 claims remain forbidden.
+
+The first apparatus canary, H100 job `40429`, stopped before candidate
+simulation because the reused source collector still required the deprecated
+perception-MVEE initial clearance to exceed one millimetre. ADR-0145 defines
+initial eligibility using the compiled-box empirical target precisely because
+the old proxy is being replaced. Amend the collector once to bypass only that
+old proxy preflight in this opt-in path. Initial raw contact and CAR checks stay
+active, and the independently replayed empirical initial-state gate remains
+mandatory. No state, candidate, action, AEGIS behavior, backup, target, or
+acceptance threshold changes. Job `40429` is apparatus history, not a
+scientific result.
