@@ -3994,3 +3994,36 @@ is useful only if validation RMSE improves by at least 10% over the 6D arm,
 false-safes do not increase, and support does not decrease. If insufficient,
 append only the three current L5 clearances next. No new simulation or control
 is authorized.
+
+H100 producer `40496` and independent validator `40497` complete ADR-0149
+with zero replay error. The compact relative representation obtains
+`0.866652 mm` train RMSE, `7.305681 mm` grouped-validation RMSE, and
+`6.150915 mm` near-boundary RMSE. It improves validation RMSE by `54.53%`
+over 6D and by `36.07%` over 354D. Validation false-safes remain 6, while
+safe support improves to `4/4`. Thus obstacle-relative endpoint geometry is a
+genuinely useful input group, not merely a source of conservatism.
+
+The arm is still not a safety filter: selecting the minimum predicted-safe
+correction is exact-safe in only `1/4` states. Continue the staged attribution
+by appending only current L5 row-0/1/2 clearances, producing 12 dimensions.
+Keep all other exclusions and hyperparameters fixed.
+
+Result/validation payload SHA-256 values are
+`ddad0193514daec83f074b9db047bc70734f7ebbe46b3cad8ef6e63122307f8a`
+and `551b2c3537419a074fb7b1b30c8dac2f491fdca0b1537cb5fed5dfc0733ae5a7`.
+
+## ADR-0150: Append only current L5 clearance
+
+- Status: preregistered; H100 matched ablation pending
+- Date: 2026-08-15
+
+Add the smallest state quantity directly tied to the prediction target. The
+new input is the validated 9D obstacle-relative endpoint representation plus
+current ellipsoid clearances for L5 rows 0, 1, and 2. It is 12D total. These
+values are measured at the current state and do not leak the rollout target.
+
+Keep data, groups, architecture, loss, AdamW `1e-4`, seed, optimizer, schedule,
+and checkpoint fixed. The group is useful only if it lowers validation RMSE by
+at least 10%, does not increase false-safes, and retains `4/4` support. All
+remaining inputs and every control experiment remain blocked pending this
+attribution result.

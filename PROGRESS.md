@@ -4439,3 +4439,26 @@ schedule, and checkpoint are retained. Obstacle rotation, q/dq, controller
 state, link-row poses/normals, intermediate waypoints, action rotation/gripper,
 and future execution state remain excluded. If this group is insufficient,
 the next single addition will be only the three current L5 clearances.
+
+H100 producer `40496` and independent validator `40497` complete the 9D arm
+with zero replay error. Train/grouped-validation RMSE is
+`0.866652/7.305681 mm`; near-boundary validation RMSE is `6.150915 mm`.
+Compared with 6D, validation RMSE improves by `54.53%`, false-safes remain 6,
+and support rises from `3/4` to `4/4`. It also outperforms the frozen 354D
+model's `11.427894 mm` validation RMSE and 13 false-safes. Nevertheless,
+minimum-correction exact-safe selection remains only `1/4`; prediction/control
+gates stay blocked. The next staged arm appends only three current L5
+clearances, for 12 total dimensions. Result/validation file SHA-256 values are
+`ad558908dfb3bb33a0eae9109dbf9f6f521350ddca2f4c0d40c8f1e3a978fc31`
+and `877de338c0a60d28c1bc6f9bd43a37650ebb1eed62a0d96ea877bca1dac13008`;
+payload SHA-256 values are
+`ddad0193514daec83f074b9db047bc70734f7ebbe46b3cad8ef6e63122307f8a`
+and `551b2c3537419a074fb7b1b30c8dac2f491fdca0b1537cb5fed5dfc0733ae5a7`.
+
+ADR-0150 freezes the third staged arm. It appends only the three current L5
+row clearances to the validated 9D obstacle-relative endpoint input, producing
+12 dimensions. No other physical, controller, action-path, or future-state
+quantity is added. Data, split, architecture, symmetric loss, AdamW `1e-4`,
+seed, optimizer, schedule, and checkpoint remain identical. This directly
+tests whether the missing state-dependent risk offset is explained by current
+L5 proximity.
