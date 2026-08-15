@@ -4402,3 +4402,16 @@ and `f4f62998cb5a2a09d20a64823ea32a517a7980d425e1dc44e0cd12df5ed4596d`;
 payload SHA-256 values are
 `d466cd3b211ea7b460a2b21de9b773c9eef269cad1017e72cd5fcb398150d978`
 and `3620f87398a7f30b457b571a57f64c64147f3fccac01fee8ed0c5aee5b2db6fd`.
+
+ADR-0148 now begins the requested gradual input ablation on those same frozen
+labels. Its first arm is intentionally only six dimensions:
+`[P_start, P_end]`, with
+`P_end=P_start+0.05*sum_k(A_post_AEGIS[k,xyz])`. The `0.05 m/action-unit`
+registered OSC scale is applied without subtracting a normalization mean. The
+endpoint is computed from commands available before execution; actual future
+EE position and every other rollout quantity are forbidden inputs. The 43/29
+labels, episode split, 32--32 network, symmetric loss, seed, AdamW `1e-4`,
+optimizer, schedule, and final checkpoint remain matched to the frozen 354D
+comparator. If this arm is insufficient, the next single addition is only
+obstacle-relative position and dimensions. No new simulation or control is
+authorized.

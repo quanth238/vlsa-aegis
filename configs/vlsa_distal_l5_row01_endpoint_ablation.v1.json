@@ -1,0 +1,59 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_endpoint_ablation.v1",
+  "protocol_id": "vlsa-distal-l5-row01-endpoint-ablation-v1",
+  "claim_scope": "six_dimensional_EE_start_and_commanded_end_input_ablation_for_two_output_L5_row01_future_worst_violation_not_control_not_QP_not_CBF",
+  "source": {
+    "input_ablation_config": "configs/vlsa_distal_l5_row01_input_ablation.v1.json",
+    "input_ablation_config_file_sha256": "229173890a6550942a914221ca6b4f5665d62e6a84666a3dbeb140c8c1a93445",
+    "frozen_input_ablation_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-input-ablation/input-ablation-20260814a/result.json",
+    "frozen_input_ablation_result_file_sha256": "7c9c4f95221ff025ff9da568ad031b78ae582f91f4a9a9060711fce581072312",
+    "frozen_input_ablation_result_payload_sha256": "927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e"
+  },
+  "endpoint": {
+    "input_dimension": 6,
+    "definition": "world_frame_current_EE_position_plus_commanded_endpoint_from_exact_final_five_post_AEGIS_translation_commands",
+    "translation_scale_m_per_action_unit": 0.05,
+    "equation": "P_end=P_start+0.05*sum_k(A_post_AEGIS[k,xyz])",
+    "no_executed_future_EE_position_or_other_rollout_quantity": true,
+    "physical_displacement_uses_scale_only_without_normalization_mean": true
+  },
+  "matched_model": {
+    "class": "two_output_endpoint_only_MLP",
+    "input_dimension": 6,
+    "output_count": 2,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "training_episodes_only",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection",
+    "labels": "same_43_train_and_29_grouped_validation_candidate_plus_fixed_backup_future_worst_violation_rows_0_1"
+  },
+  "decision": {
+    "minimum_relative_validation_RMSE_improvement_over_complete_354D": 0.1,
+    "promising_requires_strictly_fewer_false_safes": true,
+    "promising_requires_no_loss_of_supported_states": true,
+    "next_if_insufficient": "add_only_obstacle_relative_position_and_dimensions_then_repeat"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "executed_future_EE_position_input",
+    "dataset_or_split_change",
+    "architecture_or_loss_change",
+    "hyperparameter_sweep",
+    "monotonic_or_optimistic_loss",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "reserved_test_access",
+    "deployment_or_neural_CBF_claim"
+  ]
+}

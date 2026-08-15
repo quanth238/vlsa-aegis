@@ -3918,3 +3918,37 @@ a separate hypothesis and cannot create missing unseen-state information.
 Result/validation payload SHA-256 values are
 `d466cd3b211ea7b460a2b21de9b773c9eef269cad1017e72cd5fcb398150d978`
 and `3620f87398a7f30b457b571a57f64c64147f3fccac01fee8ed0c5aee5b2db6fd`.
+
+## ADR-0148: Begin gradual input ablation with EE start and commanded endpoint
+
+- Status: preregistered; H100 matched ablation pending
+- Date: 2026-08-15
+
+Test the user's smallest proposed input before adding any state group. For each
+existing candidate define
+
+```
+x = [P_start, P_end]
+P_end = P_start + 0.05 * sum_k(A_post_AEGIS[k, xyz]).
+```
+
+The exact final five post-AEGIS commands are known before execution. The
+registered `0.05 m/action-unit` Cartesian scale is applied to displacement
+only; no normalization mean is subtracted. Do not use the observed executed
+endpoint or another future rollout quantity, which would leak the target.
+
+Freeze the same 43 training and 29 grouped-validation risk labels, episode
+split, 32--32 SiLU architecture, symmetric boundary-weighted Huber loss, seed,
+AdamW `1e-4`, optimizer, learning rate, 2000 epochs, training-only
+normalization, and final checkpoint as the immutable 354D comparator. Call
+the endpoint representation promising only if it improves grouped-validation
+RMSE by at least 10%, strictly reduces false-safes, and does not lose supported
+recoverable states. Regardless of outcome, it cannot pass a safety or control
+gate.
+
+If the six-dimensional arm is insufficient, add exactly one group next:
+obstacle-relative position and dimensions. Do not jump directly to joint,
+controller, geometry-row, waypoint, rotation, or gripper features; this staged
+order is intended to identify which physical input first improves transfer.
+New simulation, loss changes, hyperparameter sweeps, calibration, QP, closed
+loop, sealed tests, deployment, and CBF claims remain forbidden.
