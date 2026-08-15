@@ -321,8 +321,7 @@ def run(*, repo_root: Path, config_path: Path, expected_commit: str) -> dict[str
     )
 
     config = load_config(config_path)
-    identity = _git_identity(repo_root)
-    _require(identity["commit"] == expected_commit and not identity["dirty"], "generic L5 Q/V source is not immutable")
+    _git_identity(repo_root, expected_commit)
     cases, source_record = load_samples(config)
     boundary_ids = [str(item) for item in config["dataset"]["boundary_case_ids"]]
     auxiliary_ids = [str(item) for item in config["dataset"]["safe_auxiliary_case_ids"]]

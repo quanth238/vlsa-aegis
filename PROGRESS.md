@@ -5152,3 +5152,9 @@ Scoped producer `40857` then stopped before training because its direct module
 test name assumed `tests` was a package; validator `40858` was canceled. Bind
 both jobs to `unittest discover` with the same single test filename, matching
 the repository's existing Slurm scripts. This is test-loader apparatus only.
+
+Producer `40859` passed the scoped allocation tests but called the repository
+git-identity helper with an outdated signature and stopped before loading any
+artifact or training. Validator `40860` was canceled. The one-line repair
+passes the already registered expected commit to that helper; no scientific
+setting changes.

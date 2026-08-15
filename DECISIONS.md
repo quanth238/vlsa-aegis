@@ -4759,3 +4759,10 @@ in the remote checkout. Use the repository's established discovery form
 `unittest discover -s tests -p test_generic_l5_qv_diagnostic.py` in producer
 and validator, cancel dependency-impossible `40858`, and restart. No data,
 model, or decision setting changes.
+
+Producer `40859` passed all five allocation tests and then stopped before data
+loading because the new wrapper called the existing `_git_identity` helper
+with its obsolete one-argument signature. Pass the preregistered expected
+commit as the required second argument, cancel dependency-impossible validator
+`40860`, and restart cleanly. This one-line source-binding repair changes no
+data or scientific computation.
