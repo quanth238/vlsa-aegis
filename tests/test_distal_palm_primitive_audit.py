@@ -58,6 +58,74 @@ class PalmPrimitiveAuditTests(unittest.TestCase):
             config["gate"]["require_tight_control_acceptance_better_than_released"]
         )
 
+    def test_exact_compiled_variant_uses_no_obstacle_ellipsoid(self):
+        from main.multilink_ellipsoid.palm_primitive_audit import load_config
+
+        root = Path(__file__).resolve().parents[1]
+        config = load_config(
+            root / "configs/vlsa_distal_exact_compiled_geometry_audit.v1.json",
+            repo_root=root,
+        )
+        exact = config["exact_compiled_obstacle"]
+        self.assertEqual(
+            exact["representation"],
+            "exact_bound_constrained_ellipsoid_box_radial_slack",
+        )
+        self.assertEqual(exact["supported_obstacle_geom_kinds"], ["box"])
+        self.assertEqual(exact["units"], "dimensionless_not_metric_clearance")
+        self.assertFalse(exact["fit_uses_contact_outcomes"])
+        self.assertEqual(
+            config["comparators"]["primary_obstacle_proxy"],
+            "exact_live_compiled_MuJoCo_collision_boxes_no_obstacle_MVEE",
+        )
+
+    def test_exact_compiled_summary_requires_each_group(self):
+        from main.multilink_ellipsoid.palm_primitive_audit import (
+            load_config,
+            summarize_case_records,
+        )
+
+        root = Path(__file__).resolve().parents[1]
+        config = load_config(
+            root / "configs/vlsa_distal_exact_compiled_geometry_audit.v1.json",
+            repo_root=root,
+        )
+        records = []
+        for index, case_id in enumerate(
+            config["cohort"]["contact_case_ids"]
+            + config["cohort"]["control_case_ids"]
+        ):
+            positive = index == 0
+            records.append({
+                "case_id": case_id,
+                "replay": {"fidelity_pass": True},
+                "exact_compiled_geometry": {
+                    "robot_primitive_certificate_pass": True,
+                    "group_raw_contact_sample_count": {
+                        "palm": int(positive),
+                        "L5": int(positive),
+                        "L6": int(positive),
+                    },
+                    "group_physical_false_safe_sample_count": {
+                        "palm": 0, "L5": 0, "L6": 0,
+                    },
+                    "group_episode_minimum_normalized_radial_slack": {
+                        "palm": -0.1 if positive else 0.1,
+                        "L5": -0.1 if positive else 0.1,
+                        "L6": -0.1 if positive else 0.1,
+                    },
+                },
+            })
+        self.assertTrue(
+            summarize_case_records(records, config)["geometry_gate_pass"]
+        )
+        records[0]["exact_compiled_geometry"][
+            "group_physical_false_safe_sample_count"
+        ]["L6"] = 1
+        self.assertFalse(
+            summarize_case_records(records, config)["geometry_gate_pass"]
+        )
+
     def test_summary_passes_only_with_zero_false_safes(self):
         from main.multilink_ellipsoid.palm_primitive_audit import (
             summarize_case_records,

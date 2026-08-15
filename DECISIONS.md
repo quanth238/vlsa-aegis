@@ -4299,3 +4299,41 @@ contact probability from raw complete candidate-plus-backup rollouts. Do not
 silently mix these two targets. In either case, the certified tight palm may
 remain as relative-geometry input, but it is not an end-to-end safety value
 with the released perception MVEE.
+
+## ADR-0158: Freeze exact compiled-box radial slack for palm/L5/L6
+
+- Status: preregistered; paired H100 canary pending
+- Date: 2026-08-15
+
+Do not fit another obstacle ellipsoid. The existing active-set solver already
+computes, without iterative tolerance, the exact represented-geometry value
+
+```
+h(E, B) = sqrt(min_{u in [-1,1]^3}
+  (c_B + R_B D_B u - c_E)^T S_E^-1
+  (c_B + R_B D_B u - c_E)) - 1.
+```
+
+This value is dimensionless: positive means the represented robot ellipsoid
+and solid compiled box are separated, zero is their exact boundary, and
+negative means overlap. The obstacle target is the minimum over every live,
+contact-capable compiled MuJoCo box. No perception MVEE and no enclosing
+ellipsoid union participates. Unsupported obstacle geom kinds fail closed
+before replay; a later convex-distance backend must be preregistered if the
+population contains them.
+
+Keep the outcome-independent certified tight palm MVEE and the frozen
+certified L5/L6 slab primitives. The paired canary replays immutable E09 and
+E01 from the same Table-1 state/action ledgers at every internal MuJoCo
+substep. E09 contains observed palm, L5, and L6 contacts; E01 is contact-free.
+The canary asks only whether every observed group contact has `h <= 0`, every
+primitive certificate and exact replay passes, and the control retains
+positive represented clearance. Raw MuJoCo contacts remain the independent
+physical authority.
+
+Only a passing canary permits the complete frozen 3-contact/40-control palm
+cohort and subsequent independent L5/L6 controls. Boundary collection and
+the three-output future-risk MLP remain blocked until the complete geometry
+gate passes. Gradient correction, QP, denoising, closed loop, deployment,
+metric-clearance, and formal safety claims remain forbidden. This is a
+privileged-simulation mechanism target; perception geometry is downstream.

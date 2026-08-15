@@ -22,9 +22,11 @@ from .shadow import _geom_kind, _name, _numpy, _raw_model_data
 CONFIG_SCHEMA = "vlsa_distal_palm_primitive_audit.v1"
 CONFIG_SCHEMA_V2 = "vlsa_distal_palm_primitive_compiled_obstacle_audit.v1"
 CONFIG_SCHEMA_V3 = "vlsa_distal_palm_primitive_tracked_obstacle_audit.v1"
+CONFIG_SCHEMA_V4 = "vlsa_distal_exact_compiled_geometry_audit.v1"
 RESULT_SCHEMA = "vlsa_distal_palm_primitive_case_result.v1"
 RESULT_SCHEMA_V2 = "vlsa_distal_palm_primitive_case_result.v2"
 RESULT_SCHEMA_V3 = "vlsa_distal_palm_primitive_case_result.v3"
+RESULT_SCHEMA_V4 = "vlsa_distal_exact_compiled_geometry_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_palm_primitive_audit_validation.v1"
 
 
@@ -56,10 +58,15 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
         "schema_version", "protocol_id", "base_config",
         "base_config_file_sha256", "claim_scope", "comparators",
     }
-    optional_variant_keys = {"compiled_obstacle", "tracked_obstacle", "gate_override"}
+    optional_variant_keys = {
+        "compiled_obstacle", "tracked_obstacle", "exact_compiled_obstacle",
+        "gate_override",
+    }
     if (
         isinstance(value, dict)
-        and value.get("schema_version") in {CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3}
+        and value.get("schema_version") in {
+            CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4,
+        }
         and compact_variant_keys.issubset(value)
         and set(value).issubset(compact_variant_keys | optional_variant_keys)
     ):
@@ -81,6 +88,8 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
             updates["compiled_obstacle"] = value["compiled_obstacle"]
         if "tracked_obstacle" in value:
             updates["tracked_obstacle"] = value["tracked_obstacle"]
+        if "exact_compiled_obstacle" in value:
+            updates["exact_compiled_obstacle"] = value["exact_compiled_obstacle"]
         base.update(updates)
         if "gate_override" in value:
             base["gate"].update(value["gate_override"])
@@ -94,12 +103,15 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
         expected.add("compiled_obstacle")
     if value.get("schema_version") == CONFIG_SCHEMA_V3:
         expected.add("tracked_obstacle")
+    if value.get("schema_version") == CONFIG_SCHEMA_V4:
+        expected.add("exact_compiled_obstacle")
     if not isinstance(value, dict) or set(value) != expected:
         raise ValueError("palm primitive audit config keys differ")
     variants = {
         CONFIG_SCHEMA: "vlsa-distal-palm-primitive-audit-v1",
         CONFIG_SCHEMA_V2: "vlsa-distal-palm-primitive-compiled-obstacle-audit-v1",
         CONFIG_SCHEMA_V3: "vlsa-distal-palm-primitive-tracked-obstacle-audit-v1",
+        CONFIG_SCHEMA_V4: "vlsa-distal-exact-compiled-geometry-audit-v1",
     }
     if (
         variants.get(value["schema_version"]) != value["protocol_id"]
@@ -122,6 +134,23 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
             "population_manifest_file_sha256"
         ]:
             raise ValueError("palm primitive population manifest differs")
+        if value.get("schema_version") == CONFIG_SCHEMA_V4:
+            exact = value["exact_compiled_obstacle"]
+            geometry_path = Path(repo_root) / str(exact["robot_geometry_config"])
+            if file_sha256(geometry_path) != exact["robot_geometry_config_file_sha256"]:
+                raise ValueError("exact compiled robot geometry config differs")
+            if exact.get("representation") != (
+                "exact_bound_constrained_ellipsoid_box_radial_slack"
+            ):
+                raise ValueError("exact compiled obstacle representation differs")
+            if exact.get("supported_obstacle_geom_kinds") != ["box"]:
+                raise ValueError("exact compiled obstacle geom support differs")
+            if exact.get("groups") != {
+                "palm": ["gripper0_hand_collision"],
+                "L5": ["robot0_link5_collision"],
+                "L6": ["robot0_link6_collision"],
+            }:
+                raise ValueError("exact compiled geometry groups differ")
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(canonical(value)).hexdigest()
@@ -374,6 +403,9 @@ def summarize_case_records(
 ) -> dict[str, Any]:
     """Aggregate the frozen cohort without dropping failures or controls."""
 
+    if config.get("schema_version") == CONFIG_SCHEMA_V4:
+        return _summarize_exact_compiled_case_records(records, config)
+
     expected_contacts = set(config["cohort"]["contact_case_ids"])
     expected_controls = set(config["cohort"]["control_case_ids"])
     by_id = {str(item["case_id"]): item for item in records}
@@ -447,5 +479,97 @@ def summarize_case_records(
             "tight_palm_geometry_validated_boundary_collection_may_begin"
             if pass_gate else
             "tight_palm_geometry_no_go_boundary_collection_blocked"
+        ),
+    }
+
+
+def _summarize_exact_compiled_case_records(
+    records: Sequence[Mapping[str, Any]], config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Aggregate the exact compiled-box geometry gate by physical group."""
+
+    expected_contacts = set(config["cohort"]["contact_case_ids"])
+    expected_controls = set(config["cohort"]["control_case_ids"])
+    by_id = {str(item["case_id"]): item for item in records}
+    expected = expected_contacts | expected_controls
+    if set(by_id) != expected or len(by_id) != len(records):
+        raise ValueError("exact compiled geometry case population differs")
+    groups = tuple(config["exact_compiled_obstacle"]["robot_rows"])
+    contact_samples = {
+        group: sum(
+            int(item["exact_compiled_geometry"][
+                "group_raw_contact_sample_count"
+            ][group])
+            for item in records
+        )
+        for group in groups
+    }
+    false_safes = {
+        group: sum(
+            int(item["exact_compiled_geometry"][
+                "group_physical_false_safe_sample_count"
+            ][group])
+            for item in records
+        )
+        for group in groups
+    }
+    positive_controls = {
+        group: sum(
+            int(
+                item["exact_compiled_geometry"][
+                    "group_raw_contact_sample_count"
+                ][group] == 0
+                and item["exact_compiled_geometry"][
+                    "group_episode_minimum_normalized_radial_slack"
+                ][group] > 0.0
+            )
+            for item in records
+        )
+        for group in groups
+    }
+    gate = config["gate"]
+    required_groups = tuple(gate["required_observed_contact_groups"])
+    pass_gate = bool(
+        len(records) == len(expected)
+        and all(bool(item["replay"]["fidelity_pass"]) for item in records)
+        and all(
+            bool(item["exact_compiled_geometry"][
+                "robot_primitive_certificate_pass"
+            ])
+            for item in records
+        )
+        and all(contact_samples[group] > 0 for group in required_groups)
+        and all(
+            false_safes[group]
+            <= int(gate["maximum_exact_group_false_safe_samples"])
+            for group in groups
+        )
+        and all(
+            positive_controls[group]
+            >= int(gate["minimum_exact_group_positive_control_episodes"])
+            for group in groups
+        )
+    )
+    return {
+        "case_count": len(records),
+        "contact_episode_count": len(expected_contacts),
+        "control_episode_count": len(expected_controls),
+        "group_raw_contact_sample_count": contact_samples,
+        "group_physical_false_safe_sample_count": false_safes,
+        "group_positive_control_episode_count": positive_controls,
+        "all_replays_exact": all(
+            bool(item["replay"]["fidelity_pass"]) for item in records
+        ),
+        "all_robot_primitive_certificates_pass": all(
+            bool(item["exact_compiled_geometry"][
+                "robot_primitive_certificate_pass"
+            ])
+            for item in records
+        ),
+        "geometry_gate_pass": pass_gate,
+        "interpretation": (
+            "exact_compiled_geometry_validated_boundary_collection_may_begin"
+            if pass_gate else
+            "exact_compiled_geometry_no_go_boundary_collection_blocked"
         ),
     }

@@ -61,6 +61,7 @@ def evaluate_case(
         RESULT_SCHEMA,
         RESULT_SCHEMA_V2,
         RESULT_SCHEMA_V3,
+        RESULT_SCHEMA_V4,
         compiled_obstacle_templates,
         file_sha256,
         fit_compiled_mesh_geom,
@@ -70,8 +71,14 @@ def evaluate_case(
         world_ellipsoid,
     )
     from main.multilink_ellipsoid.shadow import (
+        MultilinkEllipsoidShadow,
         _released_aegis_end_effector_ellipsoid,
         allocation_record,
+        load_shadow_config,
+    )
+    from main.multilink_ellipsoid.obstacle_proxy_audit import (
+        compiled_obstacle_boxes,
+        minimum_ellipsoid_quadratic_over_box,
     )
 
     started = time.perf_counter_ns()
@@ -244,9 +251,31 @@ def evaluate_case(
                 tolerance=float(compiled_fit["khachiyan_tolerance"]),
                 max_iterations=int(compiled_fit["khachiyan_max_iterations"]),
             )
+        exact_compiled_config = config.get("exact_compiled_obstacle")
+        exact_shadow = None
+        exact_distal_certificate_pass = None
+        if exact_compiled_config is not None:
+            geometry_path = repo_root / str(
+                exact_compiled_config["robot_geometry_config"]
+            )
+            geometry_config = load_shadow_config(geometry_path)
+            exact_shadow = MultilinkEllipsoidShadow(geometry_config, obstacle)
+            # Fit and freeze the certified link primitives at the paired settled
+            # state. Later measurements update only their rigid world poses.
+            certified_distal = exact_shadow._slabbed_links(
+                env, include_certificates=True
+            )
+            exact_distal_certificate_pass = all(
+                bool((row.enclosure_certificate or {}).get("verified"))
+                for row in certified_distal[:5]
+            )
+            # Fail closed before replay if the active obstacle contains anything
+            # except the registered compiled box representation.
+            compiled_obstacle_boxes(env, obstacle_name)
         overlap_tolerance = float(config["gate"]["support_gap_tolerance_m"])
         point_tolerance = float(config["gate"]["contact_point_tolerance"])
         trace_rows: list[list[Any]] = []
+        exact_trace_rows: list[dict[str, Any]] = []
         contact_witnesses: list[dict[str, Any]] = []
         action_boundary_palm_steps: set[int] = set()
         maximum_obstacle_displacement = 0.0
@@ -287,6 +316,25 @@ def evaluate_case(
                     float(support_gap(tight, world_ellipsoid(env, item)))
                     for item in compiled_templates
                 )
+            elif exact_shadow is not None:
+                boxes = compiled_obstacle_boxes(env, obstacle_name)
+                distal = exact_shadow._slabbed_links(env)
+                robot_rows = [tight] + distal[:5]
+                row_slack = [
+                    min(
+                        math.sqrt(
+                            minimum_ellipsoid_quadratic_over_box(row, box)
+                        ) - 1.0
+                        for box in boxes
+                    )
+                    for row in robot_rows
+                ]
+                row_map = exact_compiled_config["robot_rows"]
+                group_slack = {
+                    group: min(row_slack[int(index)] for index in indices)
+                    for group, indices in row_map.items()
+                }
+                primary_gap = float(group_slack["palm"])
             else:
                 primary_gap = tight_gap
             contacts = _detailed_active_obstacle_contacts(
@@ -302,6 +350,31 @@ def evaluate_case(
                 and event.get("other", {}).get("geom_name") == geom_name
             ]
             palm_contact = bool(palm_events)
+            if exact_shadow is not None:
+                geom_to_group = {
+                    geom_name: group
+                    for group, geom_names in exact_compiled_config["groups"].items()
+                    for geom_name in geom_names
+                }
+                group_contact_events = {group: 0 for group in row_map}
+                for event in contacts["events"]:
+                    if event.get("other", {}).get("classification") != "robot":
+                        continue
+                    group = geom_to_group.get(
+                        event.get("other", {}).get("geom_name")
+                    )
+                    if group is not None:
+                        group_contact_events[group] += 1
+                exact_trace_rows.append({
+                    "action_index": int(action_index),
+                    "substep_index": int(substep_index),
+                    "row_normalized_radial_slack": [float(x) for x in row_slack],
+                    "group_minimum_normalized_radial_slack": {
+                        key: float(value) for key, value in group_slack.items()
+                    },
+                    "group_contact_event_count": group_contact_events,
+                    "compiled_box_count": len(boxes),
+                })
             displacement = float(np.sum(np.abs(
                 np.asarray(env.sim.data.xpos[contact_authority["active_obstacle_root_body_id"]], dtype=np.float64)
                 - obstacle_reference
@@ -423,10 +496,81 @@ def evaluate_case(
         released_false_unsafe = int(np.count_nonzero(
             (~contact_flags) & (released_gaps <= 0.0)
         ))
+        exact_geometry = None
+        if exact_shadow is not None:
+            exact_groups = tuple(exact_compiled_config["robot_rows"])
+            group_minima = {
+                group: min(
+                    float(row["group_minimum_normalized_radial_slack"][group])
+                    for row in exact_trace_rows
+                )
+                for group in exact_groups
+            }
+            group_contact_samples = {
+                group: sum(
+                    int(row["group_contact_event_count"][group] > 0)
+                    for row in exact_trace_rows
+                )
+                for group in exact_groups
+            }
+            group_false_safes = {
+                group: sum(
+                    int(
+                        row["group_contact_event_count"][group] > 0
+                        and row["group_minimum_normalized_radial_slack"][group]
+                        > overlap_tolerance
+                    )
+                    for row in exact_trace_rows
+                )
+                for group in exact_groups
+            }
+            group_contact_free_positive = {
+                group: sum(
+                    int(
+                        row["group_contact_event_count"][group] == 0
+                        and row["group_minimum_normalized_radial_slack"][group]
+                        > 0.0
+                    )
+                    for row in exact_trace_rows
+                )
+                for group in exact_groups
+            }
+            exact_geometry = {
+                "representation": (
+                    "exact_bound_constrained_ellipsoid_box_radial_slack"
+                ),
+                "units": "dimensionless_not_metric_clearance",
+                "positive_is_separated": True,
+                "zero_is_touching": True,
+                "negative_is_overlap": True,
+                "robot_row_order": [
+                    "palm", "L5_slab_0", "L5_slab_1", "L5_slab_2",
+                    "L6_slab_0", "L6_slab_1",
+                ],
+                "group_episode_minimum_normalized_radial_slack": group_minima,
+                "group_raw_contact_sample_count": group_contact_samples,
+                "group_physical_false_safe_sample_count": group_false_safes,
+                "group_contact_free_positive_sample_count": (
+                    group_contact_free_positive
+                ),
+                "compiled_box_count": int(
+                    exact_trace_rows[0]["compiled_box_count"]
+                ),
+                "unsupported_compiled_obstacle_geoms": [],
+                "trace_sha256": hashlib.sha256(
+                    _canonical(exact_trace_rows)
+                ).hexdigest(),
+                "fit_uses_contact_outcomes": False,
+                "privileged_simulation_geometry": True,
+                "robot_primitive_certificate_pass": bool(
+                    certificate_pass and exact_distal_certificate_pass
+                ),
+            }
         released_volume = float(4.0 * math.pi * np.prod([0.06, 0.12, 0.11]) / 3.0)
         trace_sha = hashlib.sha256(_canonical(trace_rows)).hexdigest()
         result = {
             "schema_version": (
+                RESULT_SCHEMA_V4 if exact_shadow is not None else
                 RESULT_SCHEMA_V3 if tracked_obstacle_template is not None else
                 RESULT_SCHEMA_V2 if compiled_templates is not None else RESULT_SCHEMA
             ),
@@ -508,13 +652,23 @@ def evaluate_case(
             },
             "tight_primitive": {
                 "obstacle_representation": (
+                    "exact_live_compiled_MuJoCo_collision_boxes"
+                    if exact_shadow is not None else
                     "released_shape_live_exact_obstacle_root_pose"
                     if tracked_obstacle_template is not None else
                     "live_certified_compiled_obstacle_geom_union"
                     if compiled_templates is not None else
                     "static_released_AEGIS_perception_MVEE"
                 ),
-                "episode_minimum_support_gap_m": float(np.min(primary_gaps)),
+                **(
+                    {
+                        "episode_minimum_normalized_radial_slack": float(
+                            np.min(primary_gaps)
+                        )
+                    }
+                    if exact_shadow is not None else
+                    {"episode_minimum_support_gap_m": float(np.min(primary_gaps))}
+                ),
                 "overlap_sample_count": int(np.count_nonzero(primary_gaps <= 0.0)),
                 "physical_false_safe_sample_count": tight_false_safe,
                 "contact_free_overlap_sample_count": tight_false_unsafe,
@@ -539,6 +693,8 @@ def evaluate_case(
             "closed_loop_authorized": False,
             "wall_seconds": (time.perf_counter_ns() - started) * 1.0e-9,
         }
+        if exact_geometry is not None:
+            result["exact_compiled_geometry"] = exact_geometry
         result["result_payload_sha256"] = payload_sha256(result)
         return result
     finally:
@@ -561,16 +717,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         case_index=args.case_index,
     )
     _atomic_write(args.output.resolve(), result)
-    print(json.dumps({
+    summary = {
         "case_id": result["case_id"],
         "expected_class": result["expected_class"],
         "fidelity_pass": result["replay"]["fidelity_pass"],
         "palm_contact_samples": result["physical_contact"]["internal_palm_contact_sample_count"],
         "tight_false_safes": result["tight_primitive"]["physical_false_safe_sample_count"],
-        "tight_minimum_gap_m": result["tight_primitive"]["episode_minimum_support_gap_m"],
         "released_minimum_gap_m": result["released_proxy"]["episode_minimum_support_gap_m"],
         "result_payload_sha256": result["result_payload_sha256"],
-    }, sort_keys=True), flush=True)
+    }
+    if result.get("exact_compiled_geometry") is not None:
+        summary["tight_minimum_value"] = result["tight_primitive"][
+            "episode_minimum_normalized_radial_slack"
+        ]
+        summary["tight_minimum_units"] = "dimensionless_not_metric_clearance"
+    else:
+        summary["tight_minimum_gap_m"] = result["tight_primitive"][
+            "episode_minimum_support_gap_m"
+        ]
+    print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 
 

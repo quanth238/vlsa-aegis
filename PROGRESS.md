@@ -4689,3 +4689,20 @@ compiled obstacle geometry (for example FCL/GJK). The simpler alternative is
 to change the finite-candidate risk target to raw future MuJoCo contact
 probability; that would be a distinct preregistered method, not a repair of
 this continuous ellipsoid-margin gate.
+
+## Exact compiled-box palm/L5/L6 gate (preregistered, 2026-08-15)
+
+ADR-0158 removes the failed obstacle representation rather than fitting a new
+one. The registered active-set box solver computes exact dimensionless radial
+slack between each certified robot ellipsoid and every live compiled obstacle
+box. Inspection of the paired E09/E01 compiled canaries found 21/11
+contact-capable obstacle geoms, all boxes. Any non-box encountered later is a
+fail-closed unsupported case, not an approximation.
+
+The first H100 canary replays E09 (observed palm, L5, and L6 contacts) and E01
+(matched contact-free control) at every internal substep using the certified
+tight palm and frozen certified L5/L6 slab rows. It requires exact replay,
+valid robot enclosure certificates, zero represented-geometry false-safes for
+all three groups, and positive control clearance. No obstacle MVEE or compiled-
+geom ellipsoid union is used. Training and control remain blocked pending this
+canary and the subsequent full independent geometry gate.

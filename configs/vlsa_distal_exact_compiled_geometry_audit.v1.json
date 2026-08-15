@@ -1,0 +1,45 @@
+{
+  "schema_version": "vlsa_distal_exact_compiled_geometry_audit.v1",
+  "protocol_id": "vlsa-distal-exact-compiled-geometry-audit-v1",
+  "base_config": "configs/vlsa_distal_palm_primitive_audit.v1.json",
+  "base_config_file_sha256": "a0116f2609e1827e1ff804ac95e0097279944f7e67238b989f9ebc1c49baa4c2",
+  "claim_scope": "Development-only final geometry-mechanism gate for a certified tight palm primitive and the frozen certified L5/L6 slab primitives against exact live compiled MuJoCo obstacle boxes. The dimensionless radial slack is privileged simulation information and is not metric clearance, deployable perception, a learned predictor, control, or formal safety.",
+  "exact_compiled_obstacle": {
+    "representation": "exact_bound_constrained_ellipsoid_box_radial_slack",
+    "supported_obstacle_geom_kinds": ["box"],
+    "unsupported_geom_policy": "fail_closed_before_replay",
+    "robot_geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "robot_geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e",
+    "robot_rows": {
+      "palm": [0],
+      "L5": [1, 2, 3],
+      "L6": [4, 5]
+    },
+    "groups": {
+      "palm": ["gripper0_hand_collision"],
+      "L5": ["robot0_link5_collision"],
+      "L6": ["robot0_link6_collision"]
+    },
+    "value": "h=sqrt(min_box_quadratic)-1",
+    "units": "dimensionless_not_metric_clearance",
+    "multiple_obstacles": "minimum_over_compiled_contact_capable_boxes",
+    "fit_uses_contact_outcomes": false,
+    "privileged_simulation_geometry": true
+  },
+  "gate_override": {
+    "minimum_tight_safe_controls": 1,
+    "maximum_exact_group_false_safe_samples": 0,
+    "minimum_exact_group_positive_control_episodes": 1,
+    "required_observed_contact_groups": ["palm", "L5", "L6"]
+  },
+  "comparators": {
+    "primary_robot_proxy": "certified_tight_palm_plus_certified_L5_L6_slab_primitives",
+    "primary_obstacle_proxy": "exact_live_compiled_MuJoCo_collision_boxes_no_obstacle_MVEE",
+    "released_robot_proxy": {
+      "center": "robot0_grip_site_plus_local_[0,0,-0.08]_m",
+      "semiaxes_m": [0.06, 0.12, 0.11]
+    },
+    "released_obstacle_proxy": "static_released_AEGIS_perception_MVEE_diagnostic_only",
+    "physical_authority": "raw_MuJoCo_active_obstacle_contacts_for_palm_L5_L6"
+  }
+}

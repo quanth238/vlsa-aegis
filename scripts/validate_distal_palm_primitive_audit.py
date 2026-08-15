@@ -28,6 +28,7 @@ def validate(
         RESULT_SCHEMA,
         RESULT_SCHEMA_V2,
         RESULT_SCHEMA_V3,
+        RESULT_SCHEMA_V4,
         VALIDATION_SCHEMA,
         canonical,
         load_config,
@@ -50,6 +51,7 @@ def validate(
             _require(record_path.is_file(), "palm audit case result is missing")
             record = _load(record_path)
             expected_schema = (
+                RESULT_SCHEMA_V4 if "exact_compiled_obstacle" in config else
                 RESULT_SCHEMA_V3 if "tracked_obstacle" in config else
                 RESULT_SCHEMA_V2 if "compiled_obstacle" in config else RESULT_SCHEMA
             )
