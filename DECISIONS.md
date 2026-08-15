@@ -4282,3 +4282,20 @@ Require the E09/E01 canary to reproduce replay, detect every palm contact, keep
 E01 predicted safe, and improve control acceptance over the unchanged released
 proxy. Only then run the 3/40 independent replay. This remains a simulation
 label mechanism, not deployable perception or learned safety.
+
+H100 canary `40541` is a strict NO-GO for ADR-0157. E01 is accepted at
+`+5.673 mm` with zero contact, but every one of E09's 28 raw palm-contact
+samples remains false-safe and the first-contact gap stays `+25.427 mm`.
+Therefore exact pose tracking does not repair the released obstacle shape.
+Stop before the full cohort and do not inflate/shift the obstacle MVEE from
+these outcomes.
+
+The next scientific choice is now explicit. If the intended target remains a
+quantitative future violation, first integrate and validate a consistent
+compiled-geometry distance backend such as FCL/GJK. If the intended online
+controller is the finite candidate governor without gradients or QP, a
+separate experiment may instead learn constraint-conditioned future physical
+contact probability from raw complete candidate-plus-backup rollouts. Do not
+silently mix these two targets. In either case, the certified tight palm may
+remain as relative-geometry input, but it is not an end-to-end safety value
+with the released perception MVEE.

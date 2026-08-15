@@ -4672,3 +4672,20 @@ current exact MuJoCo root-body transform; no shape, scale, buffer, or threshold
 is fitted. The E09/E01 canary must have zero false-safes and accept E01 more
 often than the unchanged released robot/static-obstacle comparator before the
 full cohort is allowed.
+
+H100 pose-tracked canary `40541` rejects ADR-0157. Replay is exact and E01
+remains correctly accepted at `+5.673 mm`, but E09 still has 28/28 physical
+false-safe contact samples; its first-contact primary gap is unchanged at
+`+25.427 mm`. Thus neither stale obstacle pose nor the palm enclosure causes
+the false-safe. The released obstacle point-cloud MVEE does not cover the
+compiled wine-bottle collision surface involved in the palm contact. The full
+3/40 replay, boundary collection, and training are stopped.
+
+The palm evidence itself remains positive but narrower: its compiled-vertex
+certificate passes, all 28 contact witnesses lie inside it, and it removes the
+released EE false-unsafe on E01. To preserve a quantitative future-violation
+target, the next geometry backend must provide a validated distance to actual
+compiled obstacle geometry (for example FCL/GJK). The simpler alternative is
+to change the finite-candidate risk target to raw future MuJoCo contact
+probability; that would be a distinct preregistered method, not a repair of
+this continuous ellipsoid-margin gate.
