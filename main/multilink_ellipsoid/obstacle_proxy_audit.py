@@ -13,6 +13,11 @@ import itertools
 import math
 from typing import Any, Sequence
 
+try:  # Keep configuration-only imports usable on the lightweight desktop Python.
+    import numpy as _np
+except ImportError:  # pragma: no cover - allocation dependency
+    _np = None
+
 from .barrier import support_gap
 from .geometry import Ellipsoid, primitive_bounding_radii
 from .shadow import _geom_kind, _name, _numpy, _raw_model_data
@@ -143,10 +148,8 @@ def _batched_active_set_kernel(
 ) -> Any:
     """Numba-compatible exact 3-D active-set enumeration."""
 
-    import numpy as np
-
-    output = np.empty(
-        (robot_centers.shape[0], box_centers.shape[0]), dtype=np.float64,
+    output = _np.empty(
+        (robot_centers.shape[0], box_centers.shape[0]), dtype=_np.float64,
     )
     for robot_index in range(robot_centers.shape[0]):
         inverse = inverse_shapes[robot_index]
@@ -157,15 +160,15 @@ def _batched_active_set_kernel(
             hessian = rotation.T @ inverse @ rotation
             linear = rotation.T @ inverse @ offset
             constant = offset @ inverse @ offset
-            best = np.inf
+            best = _np.inf
             for code in range(27):
                 remainder = code
-                state = np.empty(3, dtype=np.int64)
+                state = _np.empty(3, dtype=_np.int64)
                 for coordinate in range(3):
                     state[coordinate] = remainder % 3 - 1
                     remainder //= 3
-                local = np.zeros(3, dtype=np.float64)
-                free = np.empty(3, dtype=np.int64)
+                local = _np.zeros(3, dtype=_np.float64)
+                free = _np.empty(3, dtype=_np.int64)
                 free_count = 0
                 for coordinate in range(3):
                     if state[coordinate] == 0:
@@ -206,7 +209,7 @@ def _batched_active_set_kernel(
                         and -half[j] - 1.0e-12 <= local[j] <= half[j] + 1.0e-12
                     )
                 elif free_count == 3:
-                    local = np.linalg.solve(hessian, -linear)
+                    local = _np.linalg.solve(hessian, -linear)
                     for coordinate in range(3):
                         valid = valid and (
                             -half[coordinate] - 1.0e-12
