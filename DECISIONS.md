@@ -3744,3 +3744,44 @@ and `9404193775f57b19384d65cd4301fa56186be08bee28c8fcadb97ce30dcebc54`;
 payload SHA-256 values are
 `287fdf6547f28bd44e4ed2dc3bbbd247107522f12db942861fa33af0f2307bc6`
 and `45179b197f9eb4f897ec2167106a7a2de22a2da214693211d9c4a0bad0c2dabc`.
+
+## ADR-0145: Collect grouped empirical candidate-risk curves before training
+
+- Status: preregistered; H100 collection pending
+- Date: 2026-08-15
+
+ADR-0144 establishes that exact finite-bank governance reduces intervention on
+four opened states. The next unresolved question is whether the scalar future
+risk of each complete candidate is learnable across independent physical
+states. Freeze the same nine normal magnitudes, released AEGIS EE projection,
+five-action prefix, complete fixed backup, exact compiled obstacle boxes, and
+empirical `0.98` L6 row scale. No direction, action, backup, or threshold may
+change during collection.
+
+Use the existing clean action-risk cohort but open only its ten training and
+three validation episodes. Diagnostic and test episodes are excluded. For each
+episode, select one actual five-action VLA query boundary by
+
+```
+floor((first_relevant_contact_step - 3) / 5) * 5.
+```
+
+This preserves real query alignment while placing the nominal five-action
+chunk close to the known collision. Reconstruct the archived nominal action,
+generate magnitudes `0, .25, ..., 2`, pass every proposal sequentially through
+the unchanged AEGIS EE filter, and execute the exact prefix plus fixed backup.
+Capture complete robot/controller context and the exact final five actions that
+reach OSC. Relabel every internal substep using compiled obstacle boxes and the
+frozen empirical robot proxy; raw MuJoCo L5--L7 contact and CAR remain physical
+authorities.
+
+The strict dataset gate requires 13 cases and 117 candidates, exact replay,
+empirically safe initial states, detection of every raw-contact control,
+acceptance of every stable contact-free control, two-sided known safe/unsafe
+support at every state, recoverability in all ten training and all three
+validation states, and censored timeout handling. Passing authorizes only a
+prediction-only scalar candidate-risk MLP with episode-grouped splits. Failure
+requires target or state-coverage repair; it must not be hidden by dropping
+states or timeouts. Test episodes, selected-action execution, QP, denoising,
+closed loop, metric-clearance, deployment, generalization, and formal-safety
+claims remain forbidden.

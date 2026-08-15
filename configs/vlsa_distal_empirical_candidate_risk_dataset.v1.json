@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_empirical_candidate_risk_dataset.v1",
+  "protocol_id": "vlsa-distal-empirical-candidate-risk-dataset-v1",
+  "claim_scope": "grouped_thirteen_development_episode_empirical_normal_candidate_risk_dataset_gate_not_prediction_not_control_not_generalization",
+  "population_manifest": "manifests/vlsa_table1_population.jsonl",
+  "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selection_manifest": "manifests/vlsa_distal_clean_action_risk.v1.jsonl",
+  "selection_manifest_file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326",
+  "included_splits": ["train", "validation"],
+  "episode_counts": {"train": 10, "validation": 3},
+  "state_selection": {
+    "unit": "real_five_action_VLA_query_boundary",
+    "lead_actions_before_first_protected_contact": 3,
+    "formula": "floor((first_relevant_contact_step-3)/5)*5",
+    "include_k0": true,
+    "minimum_initial_empirical_slack": 0.0
+  },
+  "candidate_bank": {
+    "requested_alpha": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+    "direction": "current_closest_slab_outward_normal",
+    "temporal_profile": "front_loaded_unit_L2_5_4_3_2_1",
+    "action_limit": 1.0,
+    "released_AEGIS_EE_applied_to_every_candidate": true,
+    "selection_cost": "realized_post_AEGIS_five_action_L2"
+  },
+  "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+  "base_risk_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
+  "geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+  "geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+  "empirical_l6_proxy_config": "configs/vlsa_distal_l6_empirical_proxy.v1.json",
+  "empirical_l6_proxy_config_file_sha256": "244ad8fa2317fab46319ec804d9379be0dc5a976fbeb5a9774ecfc95b677a672",
+  "risk_target": {
+    "primary": "negative_minimum_empirical_normalized_radial_slack_over_prefix_plus_fixed_backup",
+    "positive_is_unsafe": true,
+    "physical_authority": "raw_MuJoCo_L5_L6_L7_contact_and_paper_CAR",
+    "unknown_timeout": "censored_not_safe_not_unsafe",
+    "output": "one_scalar_per_complete_candidate",
+    "metric_clearance_claim": false
+  },
+  "gate": {
+    "require_case_count": 13,
+    "require_candidate_count": 117,
+    "source_replay_tolerance_m": 1e-9,
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10,
+    "minimum_recoverable_train_states": 10,
+    "minimum_recoverable_validation_states": 3
+  },
+  "forbidden": [
+    "diagnostic_or_test_episode_access",
+    "timeout_as_safe_or_unsafe",
+    "selected_action_execution",
+    "MLP_before_dataset_gate",
+    "QP_denoising_or_closed_loop",
+    "metric_clearance_formal_safety_deployment_or_generalization_claim"
+  ]
+}

@@ -104,6 +104,7 @@ def evaluate(
     apply_released_aegis_ee_to_all_proposed_actions: bool = False,
     adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
     prime_slabbed_geometry_at_initial_state: bool = False,
+    capture_physical_context: bool = False,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -244,7 +245,7 @@ def evaluate(
         normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
         frame = orthonormal_local_frame(normal)
         state_context = None
-        if adaptive_boundary_config is not None:
+        if adaptive_boundary_config is not None or capture_physical_context:
             from scripts.collect_distal_clean_action_risk import _context
 
             state_context = _context(env, observation, geometry, current)

@@ -4323,3 +4323,14 @@ preservation, or generalization; those require grouped independent states.
 Result/validation payload SHA-256 values are
 `287fdf6547f28bd44e4ed2dc3bbbd247107522f12db942861fa33af0f2307bc6`
 and `45179b197f9eb4f897ec2167106a7a2de22a2da214693211d9c4a0bad0c2dabc`.
+
+ADR-0145 preregisters the grouped dataset gate for the learned candidate-risk
+stage. Ten training and three validation episodes from the clean cohort each
+contribute one real five-action query boundary and the unchanged nine-point
+normal bank. Every candidate receives a complete prefix-plus-fixed-backup
+rollout, compiled-box/empirical-L6 scalar risk, full physical/controller
+context, exact post-AEGIS actions, raw contact, CAR, and timeout status. The
+strict gate requires two-sided support and recoverability in all `13/13`
+states with zero missed raw-contact controls and no rejected stable controls.
+Training remains blocked until independent H100 validation passes; diagnostic
+and test episodes remain unopened.

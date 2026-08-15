@@ -188,10 +188,12 @@ def _evaluate_case(
                 scaled_rows=empirical_proxy["scaled_rows"],
             )
 
+        initial_links = geometry._slabbed_links(env)
+        initial_boxes = compiled_obstacle_boxes(env, obstacle_name)
         initial_representation = evaluate_obstacle_representations(
-            geometry._slabbed_links(env),
+            initial_links,
             geometry.obstacle,
-            compiled_obstacle_boxes(env, obstacle_name),
+            initial_boxes,
             overlap_tolerance=float(audit_config["gate"]["compiled_overlap_tolerance"]),
         )
         initial_slacks = empirical_slacks(
@@ -317,6 +319,7 @@ def _evaluate_case(
                 "source_effective_post_AEGIS_correction_l2_action": float(
                     candidate.get("effective_post_AEGIS_correction_l2_action", 0.0)
                 ),
+                "source_executed_actions": candidate["actions"],
                 "source_terminal_status": candidate["terminal_status"],
                 "source_physical_veto": bool(candidate["physical_veto"]),
                 "source_raw_protected_contact_count": source_contacts,
@@ -369,6 +372,26 @@ def _evaluate_case(
             "source_result_file_sha256": case_config["source_result_file_sha256"],
             "source_result_payload_sha256": case_config["source_result_payload_sha256"],
             "source_snapshot_sha256": source["state"]["source_snapshot_sha256"],
+            "physical_context": source["state"].get("physical_context"),
+            "source_nominal_five_action_chunk": source["nominal_five_action_chunk"],
+            "initial_compiled_obstacle_boxes": [box.to_record() for box in initial_boxes],
+            "initial_empirical_robot_rows": [
+                {
+                    "body_name": str(link.body_name),
+                    "center_m": np.asarray(link.center, dtype=np.float64).tolist(),
+                    "rotation": np.asarray(link.rotation, dtype=np.float64).tolist(),
+                    "semiaxes_m": (
+                        np.asarray(link.semiaxes_m, dtype=np.float64)
+                        * (
+                            float(empirical_proxy["uniform_semiaxis_scale"])
+                            if empirical_proxy is not None
+                            and index in set(int(value) for value in empirical_proxy["scaled_rows"])
+                            else 1.0
+                        )
+                    ).tolist(),
+                }
+                for index, link in enumerate(initial_links)
+            ],
             "replayed_snapshot_sha256": source_hash,
             "state_hash_matches": state_hash_matches,
             "initial_clearance_replay_error_m": initial_clearance_error,
