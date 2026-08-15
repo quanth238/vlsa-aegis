@@ -4130,3 +4130,29 @@ latter as a mechanism pilot, not four-task generalization.
 Result/validation payload SHA-256 values are
 `f343348e281b6db7f60f7dc3a7fb1f00700e54a64c98420aa6f119d66d2700fc`
 and `cf8cd4b52d6db5983ab93b7d861a548aea37f5041e5de68f3af42158f8488e06`.
+
+## ADR-0153: audit physical EE primitives before replacing the released proxy
+
+- Status: preregistered; allocated immutable-artifact audit pending
+- Date: 2026-08-15
+
+Do not infer that the oversized released EE ellipsoid supplies more learnable
+data merely because AEGIS has many CAR failures.  First scan all 1,600
+immutable Table-1 AEGIS contact artifacts and classify exact active-obstacle
+contacts into palm, finger-1, finger-2, L5, L6, and L7 groups.  Preserve raw
+geom identities and report unmapped robot contacts rather than forcing them
+into a registered group.
+
+Clean geometry controls must be complete native-task-successful, proxy-valid,
+initially safe, and free of active-obstacle contact by dynamic task or other
+objects.  Physical robot contact is authoritative even without paper CAR.
+Each candidate primitive needs at least three clean contacts from two distinct
+task/level groups and three matched clean contact-free controls before a
+tighter-geometry audit is allowed.  This audit does not fit semiaxes or choose
+a clearance threshold after observing the population.
+
+If palm or finger coverage passes, the next gate fits and independently
+validates tighter physical primitives against the frozen contact/contact-free
+controls.  Only then may independent two-sided candidate-plus-backup boundary
+collection begin.  The released EE proxy stays unchanged in the baseline arm;
+training, QP, closed loop, and whole-arm/CBF claims remain blocked.

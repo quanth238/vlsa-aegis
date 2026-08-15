@@ -4559,3 +4559,23 @@ and `18d2c5f660c11fb8e0642d16e4a10a4016f5b9a7738960fa095a5d79d18d61b7`;
 payload SHA-256 values are
 `f343348e281b6db7f60f7dc3a7fb1f00700e54a64c98420aa6f119d66d2700fc`
 and `cf8cd4b52d6db5983ab93b7d861a548aea37f5041e5de68f3af42158f8488e06`.
+
+## Full-population EE/distal primitive availability audit (preregistered, 2026-08-15)
+
+The L5-only four-task audit is not the correct population gate for the proposed
+shared constraint-conditioned model.  The released AEGIS proxy covers a large
+end-effector volume, while the physical contact authority records the exact
+palm and finger collision geoms.  Before fitting a tighter proxy or collecting
+candidate actions, the new audit scans all 1,600 immutable AEGIS Table-1
+episodes and keeps palm, finger-1, finger-2, L5, L6, and L7 contacts separate.
+
+The audit requires complete task-successful, proxy-valid, initially safe,
+non-dynamic-confounded episodes for a clean contact control.  Paper CAR is
+reported but is not required because a physical contact can be real without
+moving the obstacle beyond the CAR threshold.  Every unmapped robot geom is
+reported.  A primitive is ready only for a subsequent geometry audit when it
+has at least three clean contact episodes across two task/level groups and
+three matched clean contact-free controls.  This gate runs no simulation,
+fits no primitive, collects no boundary labels, and authorizes no training or
+control.  Its next question is strictly whether the larger EE population
+contains independent physical controls for tighter palm/finger geometry.
