@@ -4841,3 +4841,22 @@ choose initially positive states whose nominal exact risk is near zero and use
 a small generic symmetric Cartesian action basis. It remains a no-learning
 support gate. Only independently reproduced, episode-grouped two-sided support
 can authorize training a compact constraint-conditioned future-risk model.
+
+## Generic Cartesian L5 future-risk support canary (preregistered, 2026-08-15)
+
+The next support canary freezes the exact compiled-box candidate-plus-complete-
+continuation target and changes only state/action excitation. Five explicit
+real query boundaries are E03/60, E02/215, E05/185, E19/25, and E14/120. Each
+bank contains nominal plus uniform five-action translation corrections along
+world `+/-x`, `+/-y`, and `+/-z` at L2 radii `0.5` and `1.5`, for 13 candidates.
+The basis does not use obstacle normals, rollout outcomes, learned directions,
+or task-specific route labels.
+
+Released AEGIS EE-QP and every learned QP remain disabled in the proposed arm;
+actions are clipped only to the registered bounds and sent to the unchanged
+OSC. Training, candidate selection/execution, gradients, calibration,
+denoising, closed loop, and sealed tests remain forbidden. The canary must
+independently reproduce all 65 outcomes, start positive/contact-free in every
+state, have zero represented-geometry physical false-safes, and expose known
+safe and unsafe L5 actions in every state. Passing authorizes only broader
+episode-grouped collection for a matched 9D relative-endpoint risk model.

@@ -28,7 +28,11 @@ def collect(
     import numpy as np
 
     from main.multilink_ellipsoid.exact_group_boundary import (
-        CASE_SCHEMA, load_cases, load_config, payload_sha256, warning_step,
+        CASE_SCHEMA, GENERIC_L5_CONFIG_SCHEMA, load_cases, load_config,
+        payload_sha256, warning_step,
+    )
+    from main.multilink_ellipsoid.generic_action_boundary import (
+        candidate_definitions as generic_candidate_definitions,
     )
     from main.multilink_ellipsoid.normal_risk_curve import (
         RESULT_SCHEMA as CURVE_RESULT_SCHEMA, candidate_definitions,
@@ -131,6 +135,7 @@ def collect(
         }
 
     bank = config["candidate_bank"]
+    generic_bank = config["schema_version"] == GENERIC_L5_CONFIG_SCHEMA
     source_path = run_root / "source-curve.json"
     raw = evaluate(
         repo_root=repo_root,
@@ -153,12 +158,18 @@ def collect(
             "split": selected["split"],
             "sealed_test_access": False,
         },
-        candidate_definitions_override=lambda nominal, frame, _base: candidate_definitions(
-            nominal, frame, bank,
+        candidate_definitions_override=lambda nominal, frame, _base: (
+            generic_candidate_definitions(nominal, bank)
+            if generic_bank else candidate_definitions(nominal, frame, bank)
         ),
         candidate_protocol_binding={
-            "requested_alpha": bank["requested_alpha"],
-            "direction": bank["direction"],
+            "candidate_basis": (
+                "symmetric_world_Cartesian_axes"
+                if generic_bank else bank["direction"]
+            ),
+            "radii_or_alpha": (
+                bank["radii"] if generic_bank else bank["requested_alpha"]
+            ),
             "temporal_profile": bank["temporal_profile"],
             "released_AEGIS_EE_applied_to_every_candidate": bool(
                 bank["released_AEGIS_EE_applied_to_every_candidate"]

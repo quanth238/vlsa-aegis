@@ -4475,3 +4475,30 @@ normal geometry. This tests whether generic executable actions identify the
 future-risk function before any model is trained. A later learned model must
 predict per-constraint values, with the global worst violation computed as
 their maximum; steering and gradients remain downstream.
+
+## ADR-0161: Identify future risk with generic symmetric Cartesian actions
+
+- Status: preregistered; paired H100 canary pending
+- Date: 2026-08-15
+
+Keep the exact controller-conditioned target from ADR-0160 and change no
+geometry, controller, continuation, timeout handling, or acceptance rule.
+Replace the failed outward-normal magnitude coordinate with the smallest
+registered geometry-independent basis: uniform five-action translations along
+each signed world Cartesian axis at two radii. Rotation and gripper commands
+remain byte-identical to the frozen nominal chunk.
+
+Move four warning states to the adjacent real five-action query boundary most
+likely to retain positive initial exact slack while placing nominal future risk
+near zero; retain E19/25 as the two-sided positive control. Explicit state
+steps are part of the immutable manifest, not selected from canary outcomes.
+Require positive/contact-free initial target state, exact source hash,
+independent exact replay, zero target/contact contradictions, and known safe
+and unsafe L5 candidates in all five states.
+
+This gate contains no MLP. If it passes, collect more independent episode
+groups using the same basis and train the existing compact 9D relative-endpoint
+formulation against per-constraint exact future violation. If it fails, do not
+train: the selected state timing or simple Cartesian basis still does not
+identify the target. In either case, QP, learned gradients, denoising guidance,
+selected-action execution, and closed-loop claims remain blocked.

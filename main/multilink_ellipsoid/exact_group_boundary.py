@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_canary.v1"
 NO_QP_L5_CONFIG_SCHEMA = "vlsa_distal_no_qp_l5_boundary_canary.v1"
+GENERIC_L5_CONFIG_SCHEMA = "vlsa_distal_generic_l5_boundary_canary.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -32,17 +33,26 @@ def load_config(path: Path) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
     schema = value.get("schema_version")
-    if schema not in (CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA):
+    if schema not in (
+        CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
+    ):
         raise ValueError("exact-group boundary config schema differs")
-    expected_protocol = (
-        "vlsa-distal-exact-group-boundary-canary-v1"
-        if schema == CONFIG_SCHEMA
-        else "vlsa-distal-no-qp-l5-boundary-canary-v1"
-    )
+    expected_protocol = {
+        CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-canary-v1",
+        NO_QP_L5_CONFIG_SCHEMA: "vlsa-distal-no-qp-l5-boundary-canary-v1",
+        GENERIC_L5_CONFIG_SCHEMA: "vlsa-distal-generic-l5-boundary-canary-v1",
+    }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
-    if [float(item) for item in bank["requested_alpha"]] != [
+    if schema == GENERIC_L5_CONFIG_SCHEMA:
+        if [float(item) for item in bank["radii"]] != [0.5, 1.5]:
+            raise ValueError("generic exact-group boundary radii differ")
+        if bank["axis_order"] != ["x", "y", "z"]:
+            raise ValueError("generic exact-group boundary axes differ")
+        if bank["sign_order"] != [-1, 1]:
+            raise ValueError("generic exact-group boundary signs differ")
+    elif [float(item) for item in bank["requested_alpha"]] != [
         0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0,
     ]:
         raise ValueError("exact-group boundary alpha bank differs")
@@ -72,6 +82,11 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
+    if config.get("schema_version") == GENERIC_L5_CONFIG_SCHEMA:
+        step = int(case["state_step"])
+        if step < 0 or step % 5:
+            raise ValueError("generic exact-group state step differs")
+        return step
     lead = int(config["state_selection"]["lead_actions_before_first_target_contact"])
     step = int(math.floor((int(case["first_target_contact_step"]) - lead) / 5.0) * 5)
     if step < 0 or step % 5:

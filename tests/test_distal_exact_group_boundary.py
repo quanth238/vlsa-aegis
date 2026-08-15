@@ -6,11 +6,13 @@ from pathlib import Path
 from main.multilink_ellipsoid.exact_group_boundary import (
     GROUPS, load_cases, load_config, summarize_cases, warning_step,
 )
+from main.multilink_ellipsoid.generic_action_boundary import candidate_definitions
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs/vlsa_distal_exact_group_boundary_canary.v1.json"
 NO_QP_CONFIG = ROOT / "configs/vlsa_distal_no_qp_l5_boundary_canary.v1.json"
+GENERIC_CONFIG = ROOT / "configs/vlsa_distal_generic_l5_boundary_canary.v1.json"
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -79,6 +81,42 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertTrue(summary["source_state_hash_exact"])
         self.assertTrue(summary["apparatus_pass"])
         self.assertTrue(summary["same_bank_grouped_collection_authorized"])
+
+    def test_generic_l5_contract_uses_explicit_query_states(self):
+        config = load_config(GENERIC_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(
+            [warning_step(case, config) for case in cases],
+            [60, 215, 185, 25, 120],
+        )
+        self.assertFalse(
+            config["candidate_bank"][
+                "released_AEGIS_EE_applied_to_every_candidate"
+            ]
+        )
+
+    def test_generic_l5_candidates_are_symmetric_and_leave_non_xyz_fixed(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy unavailable in the local structural environment")
+
+        config = load_config(GENERIC_CONFIG)
+        nominal = np.zeros((5, 7), dtype=np.float64)
+        candidates = candidate_definitions(nominal, config["candidate_bank"])
+        self.assertEqual(len(candidates), 13)
+        self.assertEqual(candidates[0]["name"], "nominal")
+        by_name = {row["name"]: np.asarray(row["actions"]) for row in candidates}
+        for radius in (0.5, 1.5):
+            for axis in ("x", "y", "z"):
+                self.assertTrue(np.allclose(
+                    by_name["%s_pos_r%0.2f" % (axis, radius)][:, :3],
+                    -by_name["%s_neg_r%0.2f" % (axis, radius)][:, :3],
+                ))
+        self.assertTrue(all(
+            np.array_equal(np.asarray(row["actions"])[:, 3:], nominal[:, 3:])
+            for row in candidates
+        ))
 
     def test_two_sided_bank_authorizes_only_grouped_collection(self):
         config = load_config(CONFIG)
