@@ -3952,3 +3952,45 @@ controller, geometry-row, waypoint, rotation, or gripper features; this staged
 order is intended to identify which physical input first improves transfer.
 New simulation, loss changes, hyperparameter sweeps, calibration, QP, closed
 loop, sealed tests, deployment, and CBF claims remain forbidden.
+
+H100 producer `40494` and independent validator `40495` complete the matched
+6D test with zero replay error. Endpoint-only training RMSE is `0.814920 mm`,
+already 7.2 times the frozen 354D `0.112910 mm`; grouped-validation RMSE is
+`16.068010 mm`, 40.60% worse than `11.427894 mm`. Near-boundary validation
+RMSE is `13.871146 mm` versus `7.220164 mm`. Endpoint-only reduces false-safes
+from 13 to 6 by becoming more conservative, but it does not improve supported
+recoverable states (`3/4`) or exact-safe selection (`1/4`).
+
+Therefore start/end alone is insufficient. Preserve the staged ablation and
+add exactly one physical group next: represent commanded start/end relative
+to the obstacle center and append the three obstacle semiaxes, for 9 total
+features. Do not yet add obstacle rotation, joint state, controller memory,
+link rows, intermediate waypoints, rotation actions, or gripper state.
+
+Result/validation payload SHA-256 values are
+`e9c31a9b314d7c0d0ed7b8e64813466f766281a30399db591ad6652f4ad5a601`
+and `6c38ec9946591a6a12d71e229e79741b4ce4f0d87480e1898f9665f1fd973ec0`.
+
+## ADR-0149: Add only obstacle-relative endpoint geometry
+
+- Status: preregistered; H100 matched ablation pending
+- Date: 2026-08-15
+
+The 6D endpoint arm is insufficient but reduces false-safes through
+conservatism. Test the smallest physical context likely to disambiguate the
+same Cartesian endpoint across scenes:
+
+```
+x = [P_start - c_obstacle,
+     P_end - c_obstacle,
+     obstacle_semiaxes].
+```
+
+This is nine dimensions. Keep all labels, splits, architecture, loss, AdamW
+`1e-4`, seed, optimizer, schedule, and checkpoint fixed. Obstacle rotation,
+joint/controller state, L5 row transforms/normals, intermediate waypoints,
+rotation/gripper commands, and future rollout state remain excluded. The group
+is useful only if validation RMSE improves by at least 10% over the 6D arm,
+false-safes do not increase, and support does not decrease. If insufficient,
+append only the three current L5 clearances next. No new simulation or control
+is authorized.

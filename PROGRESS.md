@@ -4415,3 +4415,27 @@ optimizer, schedule, and final checkpoint remain matched to the frozen 354D
 comparator. If this arm is insufficient, the next single addition is only
 obstacle-relative position and dimensions. No new simulation or control is
 authorized.
+
+H100 producer `40494` and independent validator `40495` complete the 6D arm
+with zero prediction replay error. Endpoint-only train/grouped-validation RMSE
+is `0.814920/16.068010 mm`, compared with frozen 354D
+`0.112910/11.427894 mm`. Near-boundary validation RMSE worsens from
+`7.220164` to `13.871146 mm`. The simpler model is more conservative—its
+false-safes fall from 13 to 6—but support remains `3/4` and exact-safe
+selection remains `1/4`. Thus endpoint-only does not resolve transfer and
+also loses within-training information. The next staged arm adds only
+obstacle-relative endpoint coordinates and obstacle semiaxes, remaining 9D.
+Result/validation file SHA-256 values are
+`1e46bb48d892372dde9f1d8c0cd12c4a0cad7fe355da9557e09b9452c3479c90`
+and `d37fbc203809167f14410dabb1dff3df8e1e14a0cd2598addf8d7dc575bcdbf0`;
+payload SHA-256 values are
+`e9c31a9b314d7c0d0ed7b8e64813466f766281a30399db591ad6652f4ad5a601`
+and `6c38ec9946591a6a12d71e229e79741b4ce4f0d87480e1898f9665f1fd973ec0`.
+
+ADR-0149 freezes the second staged arm. It uses only nine inputs:
+`[P_start-c_obstacle, P_end-c_obstacle, obstacle_semiaxes]`. The same command
+endpoint, labels, episode groups, model, loss, regularization, seed, optimizer,
+schedule, and checkpoint are retained. Obstacle rotation, q/dq, controller
+state, link-row poses/normals, intermediate waypoints, action rotation/gripper,
+and future execution state remain excluded. If this group is insufficient,
+the next single addition will be only the three current L5 clearances.

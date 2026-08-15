@@ -1,0 +1,62 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_obstacle_endpoint_ablation.v1",
+  "protocol_id": "vlsa-distal-l5-row01-obstacle-endpoint-ablation-v1",
+  "claim_scope": "nine_dimensional_obstacle_relative_EE_start_end_and_semiaxes_input_ablation_for_two_output_L5_row01_future_worst_violation_not_control_not_QP_not_CBF",
+  "source": {
+    "input_ablation_config": "configs/vlsa_distal_l5_row01_input_ablation.v1.json",
+    "input_ablation_config_file_sha256": "229173890a6550942a914221ca6b4f5665d62e6a84666a3dbeb140c8c1a93445",
+    "frozen_input_ablation_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-input-ablation/input-ablation-20260814a/result.json",
+    "frozen_input_ablation_result_file_sha256": "7c9c4f95221ff025ff9da568ad031b78ae582f91f4a9a9060711fce581072312",
+    "frozen_input_ablation_result_payload_sha256": "927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e",
+    "frozen_endpoint_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-endpoint/endpoint-20260815a/result.json",
+    "frozen_endpoint_result_file_sha256": "1e46bb48d892372dde9f1d8c0cd12c4a0cad7fe355da9557e09b9452c3479c90",
+    "frozen_endpoint_result_payload_sha256": "e9c31a9b314d7c0d0ed7b8e64813466f766281a30399db591ad6652f4ad5a601"
+  },
+  "features": {
+    "input_dimension": 9,
+    "definition": "P_start_minus_obstacle_center_P_end_minus_obstacle_center_and_obstacle_semiaxes",
+    "translation_scale_m_per_action_unit": 0.05,
+    "obstacle_rotation_excluded": true,
+    "executed_future_state_excluded": true
+  },
+  "matched_model": {
+    "class": "two_output_obstacle_relative_endpoint_MLP",
+    "input_dimension": 9,
+    "output_count": 2,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "training_episodes_only",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection"
+  },
+  "decision": {
+    "minimum_relative_validation_RMSE_improvement_over_endpoint_6D": 0.1,
+    "promising_requires_no_more_false_safes": true,
+    "promising_requires_no_loss_of_supported_states": true,
+    "next_if_insufficient": "append_only_three_current_L5_clearances"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "obstacle_rotation_input",
+    "joint_or_controller_input",
+    "link_row_pose_or_normal_input",
+    "intermediate_waypoint_input",
+    "rotation_or_gripper_action_input",
+    "executed_future_state_input",
+    "loss_or_hyperparameter_change",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "reserved_test_access",
+    "deployment_or_CBF_claim"
+  ]
+}
