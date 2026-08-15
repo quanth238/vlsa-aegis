@@ -5140,3 +5140,10 @@ imports to fail even though the registered AEGIS Python is used by the actual
 training command. Validator `40853` was canceled after its dependency became
 impossible. The apparatus-only repair binds the full gate to the registered
 AEGIS Python path and leaves the scientific protocol unchanged.
+
+Replacement `40854` ran 522 repository tests in the registered environment;
+the sole remaining error was the unrelated five-action-detour test's optional
+`cvxpy` import. No training executed, and validator `40855` was canceled. The
+final apparatus repair uses the same scoped byte-compilation and
+experiment-specific unit preflight as the earlier validated training jobs.
+Scientific inputs, targets, arms, and decision rules remain frozen.

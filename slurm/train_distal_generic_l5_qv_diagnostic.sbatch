@@ -25,7 +25,11 @@ mkdir -p "$(dirname "$OUTPUT")"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
-PATH="$(dirname "$AEGIS_PYTHON"):$PATH" ./init.sh
+"$AEGIS_PYTHON" -m py_compile \
+  main/multilink_ellipsoid/generic_l5_qv_diagnostic.py \
+  scripts/train_distal_generic_l5_qv_diagnostic.py \
+  scripts/validate_distal_generic_l5_qv_diagnostic.py
+"$AEGIS_PYTHON" -m unittest tests.test_generic_l5_qv_diagnostic -v
 "$AEGIS_PYTHON" scripts/train_distal_generic_l5_qv_diagnostic.py \
   --repo-root "$REMOTE_REPO" \
   --config "$REMOTE_REPO/configs/vlsa_distal_generic_l5_qv_diagnostic.v1.json" \

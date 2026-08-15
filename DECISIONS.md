@@ -4742,3 +4742,12 @@ dependency-impossible validator `40853`, prepend the registered AEGIS Python
 directory only while running `init.sh`, and restart from a clean immutable
 commit. Data, folds, features, models, losses, seeds, metrics, and gates do not
 change.
+
+Replacement producer `40854` is also apparatus history with no training
+result. Binding `init.sh` to the AEGIS environment resolved the NumPy/Torch/
+Numba failures and ran 522 tests, but the only remaining pre-existing endpoint
+detour test imports optional `cvxpy`, which this registered environment does
+not install. Follow the established training-job preflight: byte-compile the
+new module/producer/validator and run the five experiment-specific tests in
+the allocation. Cancel dependency-impossible validator `40855` and restart
+cleanly. This does not change any scientific setting.
