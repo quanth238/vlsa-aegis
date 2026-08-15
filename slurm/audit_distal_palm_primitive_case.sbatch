@@ -18,9 +18,11 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -n "${SLURM_JOB_ID:-}" && $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || exit 2
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" && -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || exit 2
 case_id=$(
-  "$AEGIS_PYTHON" - "$CONFIG_PATH" "$SLURM_ARRAY_TASK_ID" <<'PY'
-import json,sys
-c=json.load(open(sys.argv[1]))["cohort"]
+  PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO "$AEGIS_PYTHON" - "$CONFIG_PATH" "$SLURM_ARRAY_TASK_ID" "$REMOTE_REPO" <<'PY'
+import sys
+from pathlib import Path
+from main.multilink_ellipsoid.palm_primitive_audit import load_config
+c=load_config(Path(sys.argv[1]), repo_root=Path(sys.argv[3]))["cohort"]
 ids=c["contact_case_ids"]+c["control_case_ids"]
 print(ids[int(sys.argv[2])])
 PY
