@@ -4528,7 +4528,7 @@ gates.
 
 ## ADR-0162: Permit only a frozen 9D capacity diagnostic on one-sided data
 
-- Status: preregistered; allocation evidence pending
+- Status: completed; strict NO-GO for unseen-state threshold prediction
 - Date: 2026-08-15
 
 The ADR-0161 population is still NO-GO for a learned filter, but its known
@@ -4564,3 +4564,20 @@ candidate ranking but predicts no safe support; one-sided folds produce 28
 false-safes. Add per-fold training metrics before attributing this to
 memorization/state transfer rather than within-state fit. This changes only
 the report schema and requires a clean restart.
+
+Final H100 producer `40768` and independent retraining validator `40769` have
+zero prediction or model-retraining discrepancy. The model fits familiar
+states (per-fold training global RMSE `0.0059--0.0168`) but fails the held-out
+boundary (global RMSE `0.4823`, 28 false-safes, six false-unsafes, zero safe
+recall, and zero exact-safe selections). It preserves useful ordering in E05
+and E14 but transfers the wrong absolute offset; E03 also loses response
+direction.
+
+Reject both immediate control and the claim that ordinary weight decay or MLP
+capacity is the bottleneck. Four states cannot establish state-level transfer,
+and 9D EE endpoint geometry omits the L5 configuration that defines the risk.
+Before collecting a large population, audit 9D feature aliasing against exact
+current L5 row geometry. Then add independent two-sided states and compare 9D
+with one minimal direct-L5 relative-geometry input arm. Calibration cannot
+repair this result because the model already rejects every safe held-out E14
+candidate.

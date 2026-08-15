@@ -4927,3 +4927,38 @@ useful local ordering but a badly transferred state offset. Before finalizing
 the root-cause classification, add stored per-fold training metrics to prove
 whether the same fixed model fits its training states. This is reporting-only;
 all data, outputs, loss, seed, and gates remain unchanged.
+
+Final reporting producer `40768` and independent validator `40769` complete on
+H100 with zero frozen-prediction and zero independent-retraining error. The
+strict result is NO-GO for unseen-state future-risk prediction. Across 47
+known prevention candidates, leave-one-state-out global RMSE is `0.482336`
+dimensionless, near-boundary RMSE is `0.403215`, false-safes are `28`, all six
+exact-safe actions are rejected, and no held-out state yields an exact-safe
+selected action. The three row RMSE values are `0.613482`, `0.510484`, and
+`1.011665`.
+
+This is not an optimization-capacity failure on familiar states. Per-fold
+training global RMSE ranges only `0.005874--0.016806`, training rank
+correlation is `0.9789--0.9977`, and training improvement-direction accuracy
+is `0.875--0.939`. On held-out E05 and E14, rank correlation remains
+`0.9273/0.8811` and improvement direction is `0.9/1.0`; nevertheless the
+absolute offset is wrong, making all E05 candidates falsely safe and all six
+safe E14 candidates falsely unsafe. E03 transfer also loses direction
+(`0.4167`) and rank (`0.2198`).
+
+Therefore the 9D endpoint representation learns local action ordering but is
+not sufficient, with four independent prevention states, to identify the
+absolute controller-conditioned L5 boundary. The evidence supports a combined
+root cause: too few independent state-level boundaries and missing direct L5
+configuration/relative-geometry context in the 9D EE-only state descriptor.
+Do not add a conservative buffer: it would worsen the already zero safe recall.
+Do not enable correction. The next useful gate is a no-training alias/support
+audit followed by additional independent two-sided states; only then compare
+9D against the smallest direct-L5 relative-geometry addition.
+
+Final result/validation file SHA-256 values are
+`874c49a7d5e98cde2762b1b6ab02f8e76231421160f1d55adaafddf2a0d6a2c3`
+and `59d0ea5568a629931dceda1df24699ea849db0a9d4f24bd9b31e3f6bd1690b2b`;
+payload SHA-256 values are
+`a64b1c8f2c6371fbf762b00dc64a744a63291cc6891c77d0dffc50d19703597d`
+and `edd95278c9e23918aa8544ac924d540090b8944ab0a35644f5581cc33f7a4dbd`.
