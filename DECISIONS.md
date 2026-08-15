@@ -4478,7 +4478,7 @@ their maximum; steering and gradients remain downstream.
 
 ## ADR-0161: Identify future risk with generic symmetric Cartesian actions
 
-- Status: preregistered; paired H100 canary pending
+- Status: completed; strict NO-GO for the generic axis bank
 - Date: 2026-08-15
 
 Keep the exact controller-conditioned target from ADR-0160 and change no
@@ -4509,3 +4509,19 @@ Retain all four completed sibling cases as apparatus history and restart the
 whole chain. Bind only E14 to the preceding complete query boundary E14/115;
 this is the deterministic ledger-validity repair and does not change the
 generic basis, exact risk target, OSC, continuation, or acceptance gates.
+
+Replacement chain `40739/40740/40741` reproduces all 65 scientific outcomes
+exactly and records zero represented-geometry physical false-safes. It fails
+the support gate: only E14 is two-sided (`6` safe, `6` unsafe, `1` unknown),
+while E03/E02/E05/E19 contain zero safe candidates. E19 has eleven known
+near-boundary candidates but none crosses the complete future-risk boundary;
+E02 is already exact-target unsafe at the initial state.
+
+Do not train the 9D relative-endpoint model from this population. The failure
+is upstream of learning: the finite action family contains no accepted safe
+label in four states. The normal bank previously found E03/E19 safe outcomes,
+whereas the generic axis bank finds E14, so neither basis alone is sufficient.
+Any next data gate must first construct a small union of independently defined
+candidate families and demonstrate safe/unsafe support without selecting
+candidates from model predictions. Prediction and correction remain separate
+gates.

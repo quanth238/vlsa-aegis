@@ -4867,3 +4867,19 @@ successful episode ledger ends at action 121. Cases 0--3 completed but remain
 apparatus history. The correction binds E14 to its preceding complete real
 five-action query at step 115 and requires a full clean-commit restart; no
 candidate, target, controller, continuation, timeout, or gate setting changes.
+
+Clean replacement producer `40739`, independent replay `40740`, and verifier
+`40741` complete all 65 candidates with exact scientific reproduction, exact
+state hashes, certified robot primitives, and zero represented-geometry
+physical false-safes. The generic basis is nevertheless strict NO-GO. Per-case
+safe/unsafe/unknown/near-boundary counts are E03 `0/13/0/0`, E02 `0/8/5/0`,
+E05 `0/11/2/0`, E19 `0/11/2/11`, and E14 `6/6/1/5`. Only E14 has two-sided
+support. E02 remains initially outside the exact target safe set with slack
+`-0.090868`; the other initial slacks are positive.
+
+The exact target and replay apparatus remain valid, but uniform signed world-
+axis corrections do not expose safe actions in four of five states. Broader
+collection, 9D MLP training, candidate correction, QP, denoising, and closed
+loop remain unauthorized. Validation file/payload SHA-256 values are
+`8c147a39625d5a2827bf84fa39a2d251d8fd11faef72328e265dacd08634c620`
+and `bf20e5b48ecd951f5f0325c9fddf9eb2a04dbf2f0e0d1f3e905fce649d7bd9fd`.
