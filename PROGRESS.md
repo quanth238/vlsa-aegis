@@ -4534,3 +4534,28 @@ training contains clean cases from at least two other tasks. Only after all
 four folds pass may two-sided boundary collection begin. New simulation,
 training, candidate selection, calibration, QP, closed loop, and generalization
 claims remain forbidden pending H100 audit and independent replay.
+
+H100 audit `40505` and independent validator `40506` reproduce all 400 cases
+and reject the proposed four-fold population before any new rollout or
+training. Exactly 12 clean task-successful L5 cases exist: task 0 Level II has
+2, task 2 Level II has 8, and task 3 Level II has 2. Every Level-I task has
+zero, and task 1 has zero at either level. Consequently all four held-out-task
+folds fail the preregistered requirement of one clean test case per held-out
+level. The remaining classifications are 268 task-success/no-CAR, 88 task
+failures, 13 proxy-invalid/incomplete, 9 non-L5 distal contacts, 5 dynamic
+out-of-scope contacts, and 5 CAR failures without L5--L7 contact.
+
+This is a deployment-population identifiability failure, not an MLP result.
+Do not retrain the 9D model and do not balance the absent cohorts by duplicating
+actions. The four-fold recommendation requires either a prospectively expanded
+task/obstacle population that genuinely produces clean L5 boundaries in all
+held-out task/level cohorts, or a narrowed Level-II mechanism claim over the
+supported tasks. Merely changing policy noise to hunt rare collisions in
+Level I would alter the trajectory distribution and still would not guarantee
+task-compatible two-sided boundary support, so it is not launched silently.
+Result/validation file SHA-256 values are
+`07b3c5f2a6e19aa7ea1c8e4bf75e2f85ff3dd0b0015daec8e0a915f6cf8b1585`
+and `18d2c5f660c11fb8e0642d16e4a10a4016f5b9a7738960fa095a5d79d18d61b7`;
+payload SHA-256 values are
+`f343348e281b6db7f60f7dc3a7fb1f00700e54a64c98420aa6f119d66d2700fc`
+and `cf8cd4b52d6db5983ab93b7d861a548aea37f5041e5de68f3af42158f8488e06`.

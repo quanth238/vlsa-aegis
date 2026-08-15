@@ -4110,3 +4110,23 @@ trajectories only for the missing task/level cohorts, then repeat this audit.
 If all folds have immutable support, proceed to independent-state two-sided
 boundary collection with state-balanced sampling. The availability audit uses
 no new rollout and cannot establish prediction or safety.
+
+H100 jobs `40505/40506` independently reproduce a strict population NO-GO.
+The 400 immutable Goal-suite cases contain 12 clean task-successful L5 cases,
+all in Level II: task 0 has 2, task 2 has 8, task 3 has 2, and task 1 has 0.
+All four Level-I cohorts have 0. Thus no held-out task has clean L5 test support
+at both obstacle levels, and none of the four folds is scientifically
+evaluable as registered.
+
+Do not proceed to state-balanced 9D retraining. Repeated candidate actions
+cannot create missing task/level states. Also do not silently search new
+policy-noise seeds merely to manufacture failures; that changes the population
+and may select on the outcome. The next study-design decision is external to
+the model: prospectively expand obstacle/task configurations with outcome-
+blind collection and a newly reserved test cohort, or narrow the first claim
+to the naturally supported Level-II tasks. The current evidence supports the
+latter as a mechanism pilot, not four-task generalization.
+
+Result/validation payload SHA-256 values are
+`f343348e281b6db7f60f7dc3a7fb1f00700e54a64c98420aa6f119d66d2700fc`
+and `cf8cd4b52d6db5983ab93b7d861a548aea37f5041e5de68f3af42158f8488e06`.
