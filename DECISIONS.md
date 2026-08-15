@@ -3870,7 +3870,7 @@ verified-safe stronger correction before any training or loss ablation.
 
 ## ADR-0147: Test weight decay on the older frozen 354D future-risk MLP
 
-- Status: preregistered; H100 matched ablation pending
+- Status: complete; ordinary weight decay rejected as root-cause repair
 - Date: 2026-08-15
 
 The user's regularization question refers to the validated older model whose
@@ -3893,3 +3893,28 @@ state support. Regardless of outcome, this two-arm diagnostic cannot pass a
 safety or control gate. New simulation, monotonic or optimistic loss,
 calibration, QP, closed loop, sealed tests, deployment, and neural-CBF claims
 remain forbidden.
+
+H100 producer `40489` and independent validator `40490` reproduce the frozen
+`1e-4` arm and both stored models with zero prediction error. The matched
+results are:
+
+| Metric | Decay 0 | Decay `1e-4` |
+|---|---:|---:|
+| Train RMSE | 0.112900 mm | 0.112910 mm |
+| Grouped-validation RMSE | 11.429146 mm | 11.427894 mm |
+| Near-boundary RMSE | 7.218239 mm | 7.220164 mm |
+| Validation false-safes | 13 | 13 |
+| Supported recoverable states | 3/4 | 3/4 |
+| Exact-safe selections | 1/4 | 1/4 |
+
+The established decay improves grouped-validation RMSE by only `0.001252 mm`
+(`0.01095%`), worsens near-boundary RMSE slightly, and changes no safety or
+support outcome. This falsifies ordinary weight decay as an explanation for
+the large grouped-state generalization gap. Do not tune decay further on the
+same validation episodes. The next intervention must address independent
+state coverage or state/action-response representation; monotonic loss remains
+a separate hypothesis and cannot create missing unseen-state information.
+
+Result/validation payload SHA-256 values are
+`d466cd3b211ea7b460a2b21de9b773c9eef269cad1017e72cd5fcb398150d978`
+and `3620f87398a7f30b457b571a57f64c64147f3fccac01fee8ed0c5aee5b2db6fd`.

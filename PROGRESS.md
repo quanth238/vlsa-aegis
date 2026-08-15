@@ -4386,3 +4386,19 @@ arm must reproduce the frozen job-40181 validation predictions within `1e-9`.
 This no-simulation diagnostic asks only whether ordinary weight decay explains
 the train/unseen gap. It cannot authorize fresh replay, calibration, a QP,
 closed-loop control, sealed-test access, deployment, or a CBF claim.
+
+H100 producer `40489` and independent validator `40490` complete that matched
+test with zero reproduction and independent prediction-replay error. Without
+decay, train/grouped-validation RMSE is `0.112900/11.429146 mm`; with the
+established `1e-4`, it is `0.112910/11.427894 mm`. The validation change is
+only `-0.001252 mm` or `0.01095%`. Near-boundary RMSE is effectively unchanged
+(`7.218239` versus `7.220164 mm`), and both arms retain 13 false-safes, safe
+support in `3/4` recoverable states, and an exact-safe selection rate of
+`1/4`. Ordinary weight decay therefore does not explain or repair the
+`0.1 mm` train versus `11 mm` grouped-state gap. Prediction, replay, QP, and
+control gates remain blocked. Result/validation file SHA-256 values are
+`9a72b09b804b50eb498028200d13b14d75fae3e70aa8151e2333a64e02a5d6f8`
+and `f4f62998cb5a2a09d20a64823ea32a517a7980d425e1dc44e0cd12df5ed4596d`;
+payload SHA-256 values are
+`d466cd3b211ea7b460a2b21de9b773c9eef269cad1017e72cd5fcb398150d978`
+and `3620f87398a7f30b457b571a57f64c64147f3fccac01fee8ed0c5aee5b2db6fd`.
