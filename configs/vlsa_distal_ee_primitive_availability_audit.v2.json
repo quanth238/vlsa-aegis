@@ -1,0 +1,98 @@
+{
+  "schema_version": "vlsa_distal_ee_primitive_availability_audit.v2",
+  "protocol_id": "vlsa-distal-ee-primitive-availability-audit-v2",
+  "claim_scope": "immutable_full_Table1_contact_availability_audit_with_separate_palm_finger_base_finger_pad_and_distal_primitives_before_geometry_or_learning",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a",
+    "arm": "pi05_plus_aegis_translational",
+    "immutable_source_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
+  },
+  "population": {
+    "suites": [
+      "safelibero_spatial",
+      "safelibero_goal",
+      "safelibero_object",
+      "safelibero_long"
+    ],
+    "logical_tasks": [0, 1, 2, 3],
+    "safety_levels": ["I", "II"],
+    "episodes_per_task_level": 50,
+    "expected_case_count": 1600
+  },
+  "constraint_groups": [
+    {
+      "name": "palm",
+      "body_names": ["robot0_right_hand"],
+      "geom_names": ["gripper0_hand_collision"]
+    },
+    {
+      "name": "finger1_base",
+      "body_names": [],
+      "geom_names": ["gripper0_finger1_collision"]
+    },
+    {
+      "name": "finger1_pad",
+      "body_names": ["gripper0_finger_joint1_tip"],
+      "geom_names": ["gripper0_finger1_pad_collision"]
+    },
+    {
+      "name": "finger2_base",
+      "body_names": [],
+      "geom_names": ["gripper0_finger2_collision"]
+    },
+    {
+      "name": "finger2_pad",
+      "body_names": ["gripper0_finger_joint2_tip"],
+      "geom_names": ["gripper0_finger2_pad_collision"]
+    },
+    {
+      "name": "L5",
+      "body_names": ["robot0_link5"],
+      "geom_names": ["robot0_link5_collision"]
+    },
+    {
+      "name": "L6",
+      "body_names": ["robot0_link6"],
+      "geom_names": ["robot0_link6_collision"]
+    },
+    {
+      "name": "L7",
+      "body_names": ["robot0_link7"],
+      "geom_names": ["robot0_link7_collision"]
+    }
+  ],
+  "clean_contact_eligibility": {
+    "complete_scientific_result": true,
+    "native_AEGIS_task_success": true,
+    "proxy_geometry_valid": true,
+    "no_settled_relevant_contact": true,
+    "no_dynamic_task_or_other_contact": true,
+    "minimum_first_contact_step": 4,
+    "paper_CAR_failure_required": false
+  },
+  "geometry_audit_gate": {
+    "minimum_clean_contact_episodes": 3,
+    "minimum_distinct_task_level_groups": 2,
+    "minimum_matched_contact_free_controls": 3,
+    "requires_tighter_primitive_false_safe_audit_before_boundary_collection": true
+  },
+  "contact_semantics": {
+    "active_obstacle_robot_contact": "undesired_physical_contact",
+    "task_object_or_other_dynamic_contact_with_active_obstacle": "confounded_out_of_scope_for_EE_primitive_fit",
+    "each_contact_capable_compiled_EE_geom_is_a_separate_primitive": true,
+    "unmapped_robot_geoms_must_be_reported": true
+  },
+  "next_if_ready": "fit_and_validate_each_supported_compiled_EE_primitive_against_contact_and_matched_contact_free_controls_then_collect_two_sided_candidate_plus_backup_boundaries",
+  "forbidden": [
+    "new_simulation",
+    "primitive_fitting_or_threshold_tuning_from_this_audit",
+    "rollout_label_collection",
+    "model_training",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "whole_arm_or_CBF_claim"
+  ]
+}

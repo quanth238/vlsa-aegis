@@ -4579,3 +4579,21 @@ three matched clean contact-free controls.  This gate runs no simulation,
 fits no primitive, collects no boundary labels, and authorizes no training or
 control.  Its next question is strictly whether the larger EE population
 contains independent physical controls for tighter palm/finger geometry.
+
+H100 producer `40509` and independent validator `40510` reproduce all 1,600
+classifications with zero mismatch. Clean task-successful contact support is
+3 palm episodes across two task/level groups, 20 L5 episodes across five
+groups, and 16 L6 episodes across three groups; these pass the preregistered
+availability threshold with 40/113/56 matched contact-free controls. The
+registered finger-1/2 base geoms provide only 2/0 clean episodes, and L7 has
+none. Training and boundary collection remain blocked.
+
+The fail-closed unmapped ledger exposed two additional contact-capable geoms:
+`gripper0_finger1_pad_collision` has 296 contact events and
+`gripper0_finger2_pad_collision` has 151. They were not counted as negative
+controls. Before fitting EE geometry, a v2 taxonomy audit now preregisters
+each base and pad geom as a separate primitive. This preserves tighter
+geometry and avoids recreating a single oversized finger ellipsoid. Result
+and validation payload SHA-256 values are
+`a861c47e5a854fb6b278f2659aa55627a7c16689e8819f9bbbd7c9eb39af594e`
+and `5ff6d96eb21c64d83d72d08bdd33bb3288fa113eb60c677a31cc8df11e4973cc`.

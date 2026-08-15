@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from main.multilink_ellipsoid.ee_primitive_availability import (
-    classify_robot_group, contact_evidence, summarize_records,
+    classify_robot_group, contact_evidence, load_config, summarize_records,
 )
 
 
@@ -29,6 +29,15 @@ def config():
 
 
 class EEPrimitiveAvailabilityTest(unittest.TestCase):
+    def test_both_registered_config_versions_load(self):
+        root = Path(__file__).resolve().parents[1]
+        for version in ("v1", "v2"):
+            loaded = load_config(
+                root / "configs" / f"vlsa_distal_ee_primitive_availability_audit.{version}.json",
+                repo_root=root,
+            )
+            self.assertEqual(loaded["schema_version"].rsplit(".", 1)[-1], version)
+
     def test_exact_geom_maps_finger_without_body_alias(self):
         self.assertEqual(
             classify_robot_group(

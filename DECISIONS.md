@@ -4156,3 +4156,34 @@ validates tighter physical primitives against the frozen contact/contact-free
 controls.  Only then may independent two-sided candidate-plus-backup boundary
 collection begin.  The released EE proxy stays unchanged in the baseline arm;
 training, QP, closed loop, and whole-arm/CBF claims remain blocked.
+
+H100 jobs `40509/40510` validate the full audit with zero case mismatch. Palm,
+L5, and L6 pass only the availability gate: clean contacts/cohorts/controls
+are `3/2/40`, `20/5/113`, and `16/3/56`. Finger-1 base has `2/1/14`,
+finger-2 base `0/0/0`, and L7 `0/0/0`, so those do not pass. The result does
+not authorize boundary collection or training.
+
+The unmapped-contact requirement correctly identifies 296 finger-1-pad and
+151 finger-2-pad events. They cannot be ignored or admitted as contact-free
+controls. ADR-0154 therefore amends only the physical taxonomy: palm,
+finger-1 base, finger-1 pad, finger-2 base, finger-2 pad, L5, L6, and L7 are
+separate exact geom groups. The same 1,600 immutable artifacts and thresholds
+must be replayed before any geometry fit. This correction is motivated by
+complete compiled-geom coverage, not by improving a learned outcome.
+
+Result/validation payload SHA-256 values are
+`a861c47e5a854fb6b278f2659aa55627a7c16689e8819f9bbbd7c9eb39af594e`
+and `5ff6d96eb21c64d83d72d08bdd33bb3288fa113eb60c677a31cc8df11e4973cc`.
+
+## ADR-0154: split finger base and pad primitives before geometry fitting
+
+- Status: preregistered; allocated immutable-artifact replay pending
+- Date: 2026-08-15
+
+Use one constraint identity per contact-capable compiled EE geom. A finger
+base and its tip pad are separate rigid physical primitives; combining them
+into one enclosing ellipsoid could recreate the released proxy's empty-space
+problem. Replay the unchanged 1,600-case availability audit with all four
+finger geoms explicitly registered. Require zero unmapped robot contact events
+before any palm/finger fit. Population, clean eligibility, support thresholds,
+and all downstream prohibitions remain unchanged.

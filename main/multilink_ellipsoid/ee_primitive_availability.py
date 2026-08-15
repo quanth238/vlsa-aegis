@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_distal_ee_primitive_availability_audit.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_ee_primitive_availability_audit.v2"
 RESULT_SCHEMA = "vlsa_distal_ee_primitive_availability_audit_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_ee_primitive_availability_audit_validation.v1"
 CONTACT_SCHEMA = "vlsa_table1_active_obstacle_contacts.v3"
@@ -50,14 +51,27 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
         raise ValueError("EE primitive availability config keys differ")
     population = value["population"]
     names = [str(item["name"]) for item in value["constraint_groups"]]
+    variants = {
+        CONFIG_SCHEMA: (
+            "vlsa-distal-ee-primitive-availability-audit-v1",
+            ["palm", "finger1", "finger2", "L5", "L6", "L7"],
+        ),
+        CONFIG_SCHEMA_V2: (
+            "vlsa-distal-ee-primitive-availability-audit-v2",
+            [
+                "palm", "finger1_base", "finger1_pad", "finger2_base",
+                "finger2_pad", "L5", "L6", "L7",
+            ],
+        ),
+    }
+    variant = variants.get(value["schema_version"])
     if (
-        value["schema_version"] != CONFIG_SCHEMA
-        or value["protocol_id"]
-        != "vlsa-distal-ee-primitive-availability-audit-v1"
+        variant is None
+        or value["protocol_id"] != variant[0]
         or population["expected_case_count"] != 1600
         or population["logical_tasks"] != [0, 1, 2, 3]
         or population["safety_levels"] != ["I", "II"]
-        or names != ["palm", "finger1", "finger2", "L5", "L6", "L7"]
+        or names != variant[1]
         or len(names) != len(set(names))
     ):
         raise ValueError("EE primitive availability protocol differs")
