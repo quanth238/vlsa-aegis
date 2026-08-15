@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_weight_decay_ablation.v1",
+  "protocol_id": "vlsa-distal-l5-row01-weight-decay-ablation-v1",
+  "claim_scope": "matched_weight_decay_only_ablation_on_frozen_354D_two_output_L5_row01_future_worst_violation_MLP_not_control_not_QP_not_CBF",
+  "source": {
+    "input_ablation_config": "configs/vlsa_distal_l5_row01_input_ablation.v1.json",
+    "input_ablation_config_file_sha256": "229173890a6550942a914221ca6b4f5665d62e6a84666a3dbeb140c8c1a93445",
+    "frozen_input_ablation_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-input-ablation/input-ablation-20260814a/result.json",
+    "frozen_input_ablation_result_file_sha256": "7c9c4f95221ff025ff9da568ad031b78ae582f91f4a9a9060711fce581072312",
+    "frozen_input_ablation_result_payload_sha256": "927e3b5421257f8e311029522416c4aa2528639c0ca7faf42fec7b2bccb3414e"
+  },
+  "arms": {
+    "no_weight_decay": {
+      "weight_decay": 0.0
+    },
+    "established_weight_decay": {
+      "weight_decay": 0.0001
+    }
+  },
+  "matched": {
+    "input": "complete_physical_OSC_354D",
+    "input_dimension": 354,
+    "labels": "same_43_train_and_29_grouped_validation_candidate_plus_fixed_backup_future_worst_violation_rows_0_1",
+    "splits": "identical_complete_episode_groups",
+    "candidate_actions": "identical_exact_final_original_AEGIS_outputs",
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "loss": "boundary_weighted_symmetric_Huber",
+    "seed": 20260814,
+    "optimizer": "AdamW",
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale_m": 0.005,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale_m": 0.001,
+    "normalization": "training_episodes_only",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection",
+    "established_prediction_reproduction_maximum_error_m": 1e-9
+  },
+  "decision": {
+    "minimum_relative_validation_RMSE_improvement": 0.1,
+    "material_help_requires_strictly_fewer_false_safes": true,
+    "material_help_requires_no_loss_of_supported_states": true,
+    "interpretation_if_not_material": "weight_decay_is_not_the_root_cause_of_the_0.1mm_train_vs_11mm_grouped_validation_gap"
+  },
+  "forbidden": [
+    "new_simulation_labels",
+    "data_or_split_change",
+    "input_change",
+    "architecture_change",
+    "loss_change",
+    "seed_change",
+    "optimizer_or_schedule_change",
+    "monotonic_regularization",
+    "optimistic_penalty",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "reserved_test_access",
+    "deployment_or_neural_CBF_claim"
+  ]
+}

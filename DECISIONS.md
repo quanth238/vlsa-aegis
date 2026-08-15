@@ -3867,3 +3867,29 @@ separately; relaxing it cannot repair the independent two-sided-support
 failure. Preserve every case and timeout. Collect distinct states where the
 complete fixed backup yields both a known unsafe nominal/weak correction and a
 verified-safe stronger correction before any training or loss ablation.
+
+## ADR-0147: Test weight decay on the older frozen 354D future-risk MLP
+
+- Status: preregistered; H100 matched ablation pending
+- Date: 2026-08-15
+
+The user's regularization question refers to the validated older model whose
+complete 354D physical/OSC input achieved about `0.113 mm` training RMSE but
+`11.428 mm` grouped-validation RMSE. It does not refer to training on the new
+ADR-0145 dataset. Because all required labels already exist, this is a bounded
+prediction-only diagnostic and requires no new simulator collection.
+
+Freeze the 43 training and 29 validation labels, complete input, episode
+groups, candidate actions, training-only normalization, 32--32 SiLU network,
+symmetric boundary-weighted Huber loss, seed `20260814`, AdamW optimizer,
+learning rate `1e-3`, gradient clipping, 2000 epochs, and fixed final epoch.
+Compare only `weight_decay=0` with the established `weight_decay=1e-4`. The
+established arm must reproduce the immutable job-40181 predictions within
+`1e-9` or the experiment stops as apparatus failure.
+
+Call weight decay materially helpful only if it lowers grouped-validation RMSE
+by at least 10%, strictly reduces false-safes, and does not reduce recoverable
+state support. Regardless of outcome, this two-arm diagnostic cannot pass a
+safety or control gate. New simulation, monotonic or optimistic loss,
+calibration, QP, closed loop, sealed tests, deployment, and neural-CBF claims
+remain forbidden.

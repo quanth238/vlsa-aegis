@@ -4374,3 +4374,15 @@ only `1.6e-8--1.75e-7 m` despite exact state hashes and CAR. Training—includin
 the weight-decay ablation—remains blocked. Validation file/payload SHA-256 are
 `f5c9e06412d4074ae940fdcbfcf04b334b966ff0f0616dba85b8559f4ac814bd`
 and `66b97b944ab8008b1e86feeca441dd4cbea85dc08eb781786b9135820f791f21`.
+
+The requested weight-decay check is now separated from ADR-0145. It uses the
+older immutable 354D two-output L5 row-0/1 future-worst-violation dataset that
+produced `0.112910 mm` training RMSE and `11.427894 mm` grouped-validation
+RMSE. The preregistered arms use AdamW weight decay `0` and `1e-4`; all 43/29
+labels, complete physical/OSC features, grouped episode split, normalization,
+32--32 SiLU network, symmetric boundary-weighted Huber loss, seed, optimizer,
+learning rate, 2000 epochs, and final checkpoint are identical. The `1e-4`
+arm must reproduce the frozen job-40181 validation predictions within `1e-9`.
+This no-simulation diagnostic asks only whether ordinary weight decay explains
+the train/unseen gap. It cannot authorize fresh replay, calibration, a QP,
+closed-loop control, sealed-test access, deployment, or a CBF claim.
