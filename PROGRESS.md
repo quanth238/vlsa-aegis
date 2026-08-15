@@ -4738,3 +4738,10 @@ regression tests cover reflected and invalid bases. Because artifacts are
 commit-bound, the full 34-case producer/replay/verifier will be restarted from
 one clean repaired commit rather than mixing the completed old-commit cases
 with replacements.
+
+Replacement producer/replay/verifier jobs `40606/40607/40608` are bound to
+clean repair commit `be26b3d` and a new immutable `20260815b` artifact root.
+Producer `40606` started two H100 tasks concurrently; `40607` and `40608`
+remain correctly dependency-blocked. The unchanged scientific gate still
+requires all 34 producer cases, all 34 independent replays, and aggregate
+verification before boundary collection is authorized.

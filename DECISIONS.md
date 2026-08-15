@@ -4371,3 +4371,8 @@ sign (and only negligible serialization drift) preserves the ellipsoid shape
 and cannot alter the exact compiled-box target. Do not combine output across
 the old and repaired commits: restart the complete 34-case producer and its
 independent replay, then apply the unchanged aggregate gate.
+
+The commit-consistent replacement chain is `40606/40607/40608`, rooted at
+`exact-compiled-geometry-population-20260815b` and bound to `be26b3d`. Keep
+`40562` plus its never-satisfied dependents as immutable apparatus history;
+only the replacement verifier may authorize the next boundary-data gate.
