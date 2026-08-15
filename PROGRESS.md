@@ -4717,3 +4717,12 @@ and exact state/action replay. A batched Numba implementation of the identical
 paired replay to about 1.7 minutes per episode. The unified final gate now
 contains all 31 unique clean palm/L5/L6 contact episodes and three shared
 matched contact-free controls; it changes coverage, not the target or fit.
+
+Optimization attempt `40556` failed before simulation on a Numba import
+opcode, and `40558` failed the exact-commit preflight after a control-plane
+commit-string typo. Correct replacement `40560` passes the batched-versus-
+scalar exact-arithmetic unit test and reproduces the canary minima and contact
+counts exactly in `1:45/1:40`. Final producer/replay/verifier jobs
+`40562/40563/40564` are running from clean commit `2c84f96`, capped at two
+H100s. The first completed population case, spatial-I task-3 E03, reproduces
+83 L5 and 193 L6 contact samples with zero physical false-safes.

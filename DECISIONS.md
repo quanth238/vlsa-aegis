@@ -4348,3 +4348,17 @@ replay is exact. Thus the obstacle MVEE and enclosing-union failures are
 removed without threshold fitting. This authorizes only an optimized exact-
 arithmetic replay of that 31/3 cohort and independent validation; learning and
 control remain blocked.
+
+Optimization attempt `40556` failed its allocation-side unit preflight before
+simulation because Numba does not permit an import opcode inside a compiled
+kernel. Replacement `40558` failed the clean-source preflight because the
+submitted full commit string was mistyped. Both are retained apparatus
+history. Correct replacement `40560` passes the scalar-versus-batched exact-
+arithmetic test and reproduces every canary value, reducing E09/E01 wall time
+to `1:45/1:40`. No scientific setting changed.
+
+The final unified producer `40562`, dependent independent replay `40563`, and
+aggregate verifier `40564` are submitted from exact clean commit `2c84f96`.
+The cohort contains all 31 unique availability-audit clean palm/L5/L6 contact
+episodes and three shared matched contact-free controls. Arrays are capped at
+two H100s; training remains blocked until verifier `40564` passes.
