@@ -3796,3 +3796,14 @@ active, and the independently replayed empirical initial-state gate remains
 mandatory. No state, candidate, action, AEGIS behavior, backup, target, or
 acceptance threshold changes. Job `40429` is apparatus history, not a
 scientific result.
+
+Replacement apparatus canary `40432` completes on one H100. It reproduces the
+task-2 E19 source exactly, captures a non-null complete controller context,
+four compiled obstacle boxes, seven empirical robot rows, and all nine exact
+post-AEGIS five-action chunks. The empirical initial state is non-overlapping
+and raw-contact-free. The bank contains three known unsafe contact candidates,
+four censored timeouts, and two stable safe candidates. This validates the
+collection and relabel apparatus without contributing scientific population
+evidence. Full producer array `40437` and dependent independent validator
+`40438` are submitted from exact commit
+`e373a43090c6dc785a99a31a70a5d9fa240e87b8`.

@@ -4342,3 +4342,10 @@ the empirical compiled target for initial eligibility. The repair bypasses only
 the obsolete proxy check in the opt-in empirical collector; initial MuJoCo
 contact, CAR, empirical overlap, candidates, actions, AEGIS, backup, and all
 registered gates remain unchanged.
+
+Replacement H100 canary `40432` passes the complete collection path on task-2
+E19: exact replay, initially safe empirical geometry, full context, four
+compiled boxes, seven robot rows, and a two-sided bank with two stable safe
+candidates. The artifact is marked apparatus-only. Full 13-case producer array
+`40437` and dependent validator `40438` are now submitted with at most two H100
+tasks concurrently from exact commit `e373a43`.
