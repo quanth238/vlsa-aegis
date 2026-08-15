@@ -4584,7 +4584,7 @@ candidate.
 
 ## ADR-0163: Separate nominal-risk offset from action response before collection
 
-- Status: preregistered; allocation evidence pending
+- Status: completed; offset-dominant diagnostic passes, control remains blocked
 - Date: 2026-08-15
 
 Freeze the `40768/40769` models, predictions, labels, folds, and candidate
@@ -4607,3 +4607,17 @@ geometry addition. If anchoring does not rescue threshold behavior, expand
 action-response coverage and revisit the representation before more training.
 Calibration, candidate correction, QP, denoising guidance, closed loop,
 sealed-test access, deployment, and a CBF claim remain forbidden.
+
+H100 audit `40772` and independent validator `40773` pass the diagnostic:
+anchoring reduces global RMSE by `77.75%` (`0.482336` to `0.107334`), removes
+20 false-safes and all six false-unsafes, and recovers all six exact-safe E14
+candidates. Classify nominal state-offset transfer as the primary measured
+failure.
+
+Do not mistake this for an online solution. Eight false-safes remain, exact
+safe selection occurs in only the one recoverable held-out state, and E03's
+action response remains poor. The four-state pairwise alias statistics cannot
+select a feature causally. Close ADR-0163 as completed and advance only to
+targeted independent two-sided exact-L5 boundary collection, followed by the
+matched 9D versus minimal direct-L5-context ablation. The anchor, calibration,
+correction, QP, denoising, closed loop, and sealed tests remain forbidden.

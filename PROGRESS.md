@@ -4987,3 +4987,26 @@ action-response representation or coverage also fails. The exact anchor is
 forbidden online; correction, calibration, QP, denoising, closed loop, and
 sealed-test access remain blocked. One H100 audit plus a dependent independent
 validator are the next allocation-backed jobs.
+
+H100 audit `40772` and independent validator `40773` reproduce the audit
+exactly and pass the offset-dominant diagnostic. Oracle nominal anchoring cuts
+global RMSE from `0.482336` to `0.107334` dimensionless (ratio `0.222529`),
+near-boundary RMSE from `0.403215` to `0.092133`, false-safes from `28` to
+`8`, and false-unsafes from `6` to `0`; safe recall rises from `0/6` to
+`6/6`. This proves that incorrect state-conditioned nominal-risk offset is
+the largest measured component of the frozen 9D failure.
+
+Anchoring is not a learned solution. Eight unsafe candidates remain falsely
+safe, only the one recoverable held-out state yields an exact-safe selection,
+and E03 retains near-random anchored rank (`0.04396`). Pairwise distances and
+correlations cover only four states and are descriptive; they do not isolate
+one missing feature. The action response therefore still needs independent
+coverage. Proceed to targeted, grouped, two-sided exact-L5 boundary collection
+and only then run the matched 9D versus minimal direct-L5-context ablation.
+Calibration, correction, QP, denoising, closed loop, and sealed tests remain
+blocked. Result/validation file SHA-256 values are
+`99d7f27da2733041ce85ff4b5e6d32cb0e8c1e94d0d13dd5223208257d4c801d`
+and `52774507eff7ec7127f13a08545287243f4b6af434fa5f4fd4bc00d2f220ce7e`;
+payload SHA-256 values are
+`c49624c96765ac6d37ce54520337a254439df9c0d2d675c6c84920826005fea8`
+and `0f599c0d160f54b6dc9d4699e3a9540123eb2f1b51a0599b7e0d3ab49d006557`.
