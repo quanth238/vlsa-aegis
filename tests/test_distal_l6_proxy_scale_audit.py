@@ -4,6 +4,7 @@ from pathlib import Path
 from main.multilink_ellipsoid.l6_proxy_scale_audit import (
     audit_source,
     load_config,
+    load_empirical_proxy_config,
     rescale_row_slacks,
 )
 
@@ -15,6 +16,13 @@ class L6ProxyScaleAuditTest(unittest.TestCase):
     def test_config(self):
         config = load_config(ROOT / "configs/vlsa_distal_l6_proxy_scale_audit.v1.json")
         self.assertEqual(config["calibration"]["scaled_rows"], [3, 4])
+
+    def test_frozen_empirical_proxy(self):
+        config = load_empirical_proxy_config(
+            ROOT / "configs/vlsa_distal_l6_empirical_proxy.v1.json"
+        )
+        self.assertEqual(config["uniform_semiaxis_scale"], 0.98)
+        self.assertEqual(config["certificate_status"], "heuristic_non_enclosing_empirical_proxy")
 
     def test_uniform_scale_transform(self):
         values = rescale_row_slacks(

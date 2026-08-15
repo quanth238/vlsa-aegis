@@ -4289,3 +4289,14 @@ slack transformation requires no new action or simulator rollout. A scale
 below one is explicitly non-enclosing and empirical; raw MuJoCo contact stays
 the final authority. Learning and control remain blocked pending H100
 validation.
+
+H100 producer `40389` and independent validator `40390` pass ADR-0143. The
+largest registered L6 scale that separates all controls is `0.98`: it improves
+stable contact-free recall from `3/4` to `4/4`, preserves all `3/3` raw-contact
+detections, retains safe support in `2/2` opened states, and does not relabel
+the timeout. The scale is frozen in
+`configs/vlsa_distal_l6_empirical_proxy.v1.json` for opt-in simulation risk
+labels only. It is not an enclosing bound and does not support formal safety.
+Result/validation payload SHA-256 values are
+`f175c28699eb8f08eb6e6dcc32be1de57b581f10e1d59f9e481943d1d849fdc0`
+and `c25e5f48a85276bcd6ad5e9717b0906f8874f7b758d83d89bb8972d54734fe85`.

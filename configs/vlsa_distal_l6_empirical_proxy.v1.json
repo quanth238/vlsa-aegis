@@ -1,0 +1,20 @@
+{
+  "schema_version": "vlsa_distal_l6_empirical_proxy.v1",
+  "protocol_id": "vlsa-distal-l6-empirical-proxy-v1",
+  "claim_scope": "opt_in_simulation_only_empirical_L6_future_risk_label_geometry_not_mesh_enclosure_not_formal_safety",
+  "scaled_rows": [3, 4],
+  "scaled_physical_group": "L6",
+  "uniform_semiaxis_scale": 0.98,
+  "obstacle_geometry": "exact_contact_capable_compiled_MuJoCo_box_union",
+  "certificate_status": "heuristic_non_enclosing_empirical_proxy",
+  "selection_result": "/mnt/data/quanth/experiments/vlsa-distal-l6-proxy-scale-audit/l6-proxy-scale-audit-20260815a/result.json",
+  "selection_result_file_sha256": "11109d129b9e988d78eb85fb1cdd2c263520fba67aa65349080264dfd1cfe797",
+  "selection_result_payload_sha256": "f175c28699eb8f08eb6e6dcc32be1de57b581f10e1d59f9e481943d1d849fdc0",
+  "verification_authority": "raw_MuJoCo_L5_L6_L7_contact_and_CAR",
+  "forbidden": [
+    "certified_mesh_enclosure_claim",
+    "formal_safety_or_CBF_claim",
+    "replace_original_AEGIS_EE_constraint",
+    "deployment_or_population_generalization_claim"
+  ]
+}

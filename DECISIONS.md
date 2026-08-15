@@ -3637,7 +3637,7 @@ and `d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f`.
 
 ## ADR-0143: Calibrate a small empirical L6 proxy shrink as infrastructure
 
-- Status: preregistered; H100 result pending
+- Status: completed; empirical mechanism gate passes
 - Date: 2026-08-15
 
 The geometry mismatch is not the intended research contribution. Calibrate a
@@ -3663,3 +3663,22 @@ freezing that opt-in scale for a later simulation mechanism pilot with raw
 MuJoCo contact as final authority. It does not authorize a formal safety/CBF
 claim, deployment, sealed-test use, MLP training, QP, denoising, or closed
 loop.
+
+H100 producer `40389` and independent validator `40390` reproduce the original
+scale-1 stable recall of `3/4`. Scales `0.995`, `0.99`, and `0.985` also retain
+only `3/4`; scale `0.98` is the largest registered value that accepts all
+`4/4` stable contact-free controls while still detecting all `3/3` raw-contact
+controls, retaining safe support in both states, and leaving the timeout
+unknown. Freeze `0.98` for L6 rows 3--4 only in the opt-in empirical risk-label
+config. The original AEGIS EE constraint and L5/L7 geometry remain unchanged.
+
+This resolves the opened-state proxy blocker for a simulation mechanism pilot,
+not for a safety certificate. The scaled ellipsoids are intentionally
+non-enclosing; every later selected action must still be evaluated with raw
+MuJoCo L5--L7 contact and CAR, and newly reserved episodes are required before
+any generalization claim. Result/validation file SHA-256 values are
+`11109d129b9e988d78eb85fb1cdd2c263520fba67aa65349080264dfd1cfe797`
+and `2738d6250e780f517a448c3e6347572527805b9ee15cba7ae5899d9ec04e0a33`;
+payload SHA-256 values are
+`f175c28699eb8f08eb6e6dcc32be1de57b581f10e1d59f9e481943d1d849fdc0`
+and `c25e5f48a85276bcd6ad5e9717b0906f8874f7b758d83d89bb8972d54734fe85`.

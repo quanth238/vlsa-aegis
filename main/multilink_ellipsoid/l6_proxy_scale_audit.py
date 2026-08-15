@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 CONFIG_SCHEMA = "vlsa_distal_l6_proxy_scale_audit.v1"
 RESULT_SCHEMA = "vlsa_distal_l6_proxy_scale_audit_result.v1"
+EMPIRICAL_PROXY_SCHEMA = "vlsa_distal_l6_empirical_proxy.v1"
 
 
 def canonical(value: Any) -> bytes:
@@ -61,6 +62,38 @@ def load_config(path: Path) -> dict[str, Any]:
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(canonical(value)).hexdigest()
     return output
+
+
+def load_empirical_proxy_config(path: Path) -> dict[str, Any]:
+    """Load the frozen opt-in empirical L6 label geometry."""
+
+    value = json.loads(Path(path).read_text())
+    required = {
+        "schema_version",
+        "protocol_id",
+        "claim_scope",
+        "scaled_rows",
+        "scaled_physical_group",
+        "uniform_semiaxis_scale",
+        "obstacle_geometry",
+        "certificate_status",
+        "selection_result",
+        "selection_result_file_sha256",
+        "selection_result_payload_sha256",
+        "verification_authority",
+        "forbidden",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise ValueError("empirical L6 proxy config keys differ")
+    if value["schema_version"] != EMPIRICAL_PROXY_SCHEMA:
+        raise ValueError("empirical L6 proxy schema differs")
+    if value["protocol_id"] != "vlsa-distal-l6-empirical-proxy-v1":
+        raise ValueError("empirical L6 proxy protocol differs")
+    if value["scaled_rows"] != [3, 4] or float(value["uniform_semiaxis_scale"]) != 0.98:
+        raise ValueError("empirical L6 proxy scale differs")
+    if value["certificate_status"] != "heuristic_non_enclosing_empirical_proxy":
+        raise ValueError("empirical L6 proxy certificate status differs")
+    return value
 
 
 def rescale_row_slacks(
