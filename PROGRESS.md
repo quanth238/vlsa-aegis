@@ -4917,3 +4917,13 @@ indices assumed the six-entry aggregate trace layout. Candidate artifacts use
 the seven-entry link-row layout (`L5[0:3]`, `L6[3:5]`, `L7[5:7]`). Correct
 only this schema binding and restart both jobs from a clean commit; data,
 targets, splits, model, and scientific interpretation remain unchanged.
+
+Corrected producer `40766` and independent retraining validator `40767`
+complete exactly. The held-out result already rejects threshold transfer: 28
+false-safes, 6 false-unsafes, zero recall of the six exact-safe E14 actions,
+and 0/4 exact-safe selections. Within E14 the risk rank remains strong
+(`0.8811`) and all 36 safe/unsafe pairs are ordered correctly, indicating
+useful local ordering but a badly transferred state offset. Before finalizing
+the root-cause classification, add stored per-fold training metrics to prove
+whether the same fixed model fits its training states. This is reporting-only;
+all data, outputs, loss, seed, and gates remain unchanged.

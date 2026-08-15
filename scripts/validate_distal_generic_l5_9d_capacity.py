@@ -59,6 +59,17 @@ def validate(
             "generic L5 model hash differs",
         )
         bundle = load_bundle(torch, payload, config["model"])
+        frozen_train_prediction = predict(bundle, arrays(train_samples)[0])
+        stored_train_prediction = np.asarray(stored["train_prediction"], dtype=np.float64)
+        replay_maximum_error = max(
+            replay_maximum_error,
+            float(np.max(np.abs(frozen_train_prediction - stored_train_prediction))),
+        )
+        train_metrics = diagnostic_metrics(
+            train_samples, frozen_train_prediction,
+            near_boundary_abs_risk=float(config["metrics"]["near_boundary_abs_risk"]),
+        )
+        _require(train_metrics == stored["train_metrics"], "generic L5 train metrics differ")
         frozen_prediction = predict(bundle, arrays(validation_samples)[0])
         stored_prediction = np.asarray(stored["validation_prediction"], dtype=np.float64)
         replay_maximum_error = max(

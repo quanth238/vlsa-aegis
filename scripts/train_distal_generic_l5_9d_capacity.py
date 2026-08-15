@@ -274,6 +274,10 @@ def run(*, repo_root: Path, config_path: Path, expected_commit: str) -> dict[str
         ]
         validation_samples = list(grouped[held_out])
         trained = train_fold(train_samples, validation_samples, config["model"])
+        train_metrics = diagnostic_metrics(
+            train_samples, trained["train_prediction"],
+            near_boundary_abs_risk=float(config["metrics"]["near_boundary_abs_risk"]),
+        )
         metrics = diagnostic_metrics(
             validation_samples, trained["validation_prediction"],
             near_boundary_abs_risk=float(config["metrics"]["near_boundary_abs_risk"]),
@@ -288,6 +292,7 @@ def run(*, repo_root: Path, config_path: Path, expected_commit: str) -> dict[str
             )},
             "train_prediction": trained["train_prediction"],
             "validation_prediction": trained["validation_prediction"],
+            "train_metrics": train_metrics,
             "metrics": metrics,
         })
         all_predictions.extend(trained["validation_prediction"])

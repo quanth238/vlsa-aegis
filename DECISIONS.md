@@ -4557,3 +4557,10 @@ Producer `40764` passed its allocation tests but rejected the artifact before
 training because the candidate row vector has seven link entries, not the
 six-entry aggregate trace layout. Bind L5 to candidate rows `0:3` and retain
 the failed job as apparatus history. No scientific setting changes.
+
+Corrected jobs `40766/40767` reproduce training independently and reject
+held-out threshold transfer. The only two-sided held-out fold (E14) preserves
+candidate ranking but predicts no safe support; one-sided folds produce 28
+false-safes. Add per-fold training metrics before attributing this to
+memorization/state transfer rather than within-state fit. This changes only
+the report schema and requires a clean restart.
