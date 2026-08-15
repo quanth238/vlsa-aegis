@@ -4358,3 +4358,9 @@ normal profile; requested alpha, clipped/direction-changing candidates, and
 timeouts cannot silently define monotonic training pairs. Minimum intervention
 remains a constrained candidate-selection rule, while a conservative
 false-safe penalty is deferred to a separate attributable experiment.
+
+The regularization order is corrected after user review. The first matched
+training diagnostic after ADR-0145 is now no weight decay versus the established
+AdamW `1e-4` weight decay, with every other factor frozen. The monotonicity
+audit and loss remain prepared but are secondary; they cannot precede the
+ordinary weight-decay attribution test.

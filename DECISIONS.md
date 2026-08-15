@@ -3840,3 +3840,13 @@ error penalty is a separate later ablation only if prediction is otherwise
 useful; combining it immediately with monotonicity would confound attribution
 and could achieve zero false-safes by rejecting every action. QP, denoising,
 closed loop, and sealed tests remain blocked.
+
+Priority refinement: isolate ordinary weight decay before adding the monotonic
+term. On the identical authorized dataset, representation, grouped split,
+normalization, architecture, initialization seed, optimizer, learning rate,
+schedule, and boundary-weighted risk loss, compare AdamW `weight_decay=0`
+against the established `weight_decay=1e-4`. This is the first training
+ablation because it changes only generic capacity control and does not assume
+monotone physics. The realized-curve audit remains useful but moves downstream:
+only if weight decay alone is insufficient and the audit passes may the
+monotonic arm run. No hyperparameter sweep is authorized on validation data.
