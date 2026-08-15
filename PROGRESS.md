@@ -4962,3 +4962,28 @@ and `59d0ea5568a629931dceda1df24699ea849db0a9d4f24bd9b31e3f6bd1690b2b`;
 payload SHA-256 values are
 `a64b1c8f2c6371fbf762b00dc64a744a63291cc6891c77d0dffc50d19703597d`
 and `edd95278c9e23918aa8544ac924d540090b8944ab0a35644f5581cc33f7a4dbd`.
+
+## Generic L5 9D offset/alias audit (preregistered, 2026-08-15)
+
+Before new simulation or training, audit the frozen `40768/40769` predictions
+to separate an incorrect state-dependent nominal-risk offset from an
+incorrect action-response model. For each held-out state, construct the
+privileged diagnostic
+
+`Q_anchor(A) = Q_exact(A_nominal) + Q_hat(A) - Q_hat(A_nominal)`.
+
+Compare anchored and original RMSE, false-safes, safe recall, and exact-safe
+selection. Also compare pairwise state distances in the 9D endpoint input,
+direct L5 primitive pose/shape relative to the obstacle, and `q/qdot` against
+nominal-risk gaps and exact candidate-response disagreement. With only four
+states, pairwise correlations are descriptive support/alias evidence, not a
+generalization claim.
+
+The preregistered offset-dominant rule requires anchored RMSE at most half of
+the original, fewer false-safes, and improved safe recall. A pass authorizes
+only targeted collection of independent two-sided states followed by a
+matched 9D versus minimal-direct-L5 input ablation. A failure means the
+action-response representation or coverage also fails. The exact anchor is
+forbidden online; correction, calibration, QP, denoising, closed loop, and
+sealed-test access remain blocked. One H100 audit plus a dependent independent
+validator are the next allocation-backed jobs.

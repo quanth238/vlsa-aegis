@@ -1,0 +1,48 @@
+{
+  "schema_version": "vlsa_distal_generic_l5_9d_alias_audit.v1",
+  "protocol_id": "vlsa-distal-generic-l5-9d-alias-audit-v1",
+  "claim_scope": "no_training_diagnostic_of_state_offset_action_response_and_omitted_direct_L5_context_for_the_frozen_9D_future_risk_models_not_control_not_safety_filter",
+  "sources": {
+    "capacity_config": "configs/vlsa_distal_generic_l5_9d_capacity.v1.json",
+    "capacity_config_file_sha256": "b0bc9492bed9f7b117eefea92dc1ea18652c3ad359e84b79f64b7f8193987422",
+    "capacity_config_payload_sha256": "2d0d9ef6f75f6fc2faf44805f7c3466b17191d22d60efc1920faa2b974078834",
+    "capacity_result": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-9d-capacity/generic-l5-9d-capacity-20260815c/result.json",
+    "capacity_result_file_sha256": "874c49a7d5e98cde2762b1b6ab02f8e76231421160f1d55adaafddf2a0d6a2c3",
+    "capacity_result_payload_sha256": "a64b1c8f2c6371fbf762b00dc64a744a63291cc6891c77d0dffc50d19703597d",
+    "capacity_validation": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-9d-capacity/generic-l5-9d-capacity-20260815c/validation.json",
+    "capacity_validation_file_sha256": "59d0ea5568a629931dceda1df24699ea849db0a9d4f24bd9b31e3f6bd1690b2b",
+    "capacity_validation_payload_sha256": "edd95278c9e23918aa8544ac924d540090b8944ab0a35644f5581cc33f7a4dbd",
+    "capacity_producer_commit": "2fbab161ac926cfcef10dc3490f664ad6fc5fb85"
+  },
+  "audit": {
+    "prevention_state_count": 4,
+    "oracle_anchor": "exact_nominal_row_risk_plus_frozen_predicted_candidate_delta",
+    "state_descriptors": [
+      "nominal_9D_relative_EE_endpoint",
+      "three_L5_relative_centers_rotations_and_semiaxes",
+      "q_and_qdot"
+    ],
+    "pairwise_action_response": "common_known_candidate_risk_change_from_nominal",
+    "near_boundary_abs_risk": 0.05
+  },
+  "decision": {
+    "offset_dominant_requires_anchored_RMSE_ratio_at_most": 0.5,
+    "offset_dominant_requires_fewer_false_safes": true,
+    "offset_dominant_requires_safe_recall_improvement": true,
+    "next_if_offset_dominant": "collect_independent_two_sided_states_then_compare_9D_with_minimal_direct_L5_relative_geometry",
+    "next_if_response_also_fails": "expand_action_response_coverage_and_revisit_representation_before_training"
+  },
+  "forbidden": [
+    "new_simulation",
+    "model_training_or_finetuning",
+    "hyperparameter_selection",
+    "oracle_anchor_at_runtime",
+    "calibration",
+    "candidate_correction",
+    "QP",
+    "denoising_guidance",
+    "closed_loop_execution",
+    "sealed_test_access",
+    "deployment_or_CBF_claim"
+  ]
+}

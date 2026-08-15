@@ -4581,3 +4581,29 @@ current L5 row geometry. Then add independent two-sided states and compare 9D
 with one minimal direct-L5 relative-geometry input arm. Calibration cannot
 repair this result because the model already rejects every safe held-out E14
 candidate.
+
+## ADR-0163: Separate nominal-risk offset from action response before collection
+
+- Status: preregistered; allocation evidence pending
+- Date: 2026-08-15
+
+Freeze the `40768/40769` models, predictions, labels, folds, and candidate
+actions. Perform no training and no new simulation. At every held-out state,
+use the exact nominal row risk only as a privileged diagnostic anchor:
+
+`Q_anchor(A) = Q_exact(A_nominal) + Q_hat(A) - Q_hat(A_nominal)`.
+
+This preserves the frozen model's candidate response while removing its
+nominal state-offset error. Classify offset failure as dominant only if the
+anchor reduces global RMSE by at least half, reduces false-safes, and improves
+safe recall. Independently describe whether states that are close in the 9D
+EE-endpoint input remain far in direct L5 pose/shape or `q/qdot`, and whether
+their exact action-response curves disagree.
+
+The anchor cannot be supplied at deployment and does not authorize a safety
+filter. If offset is dominant, collect independent two-sided states and then
+compare the frozen 9D representation with the smallest direct-L5 relative
+geometry addition. If anchoring does not rescue threshold behavior, expand
+action-response coverage and revisit the representation before more training.
+Calibration, candidate correction, QP, denoising guidance, closed loop,
+sealed-test access, deployment, and a CBF claim remain forbidden.
