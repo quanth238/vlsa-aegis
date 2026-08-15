@@ -4206,3 +4206,25 @@ safety from this population.
 Result/validation payload SHA-256 values are
 `a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466`
 and `b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88`.
+
+## ADR-0155: fit palm geometry from the compiled collision geom only
+
+- Status: preregistered; allocated replay pending
+- Date: 2026-08-15
+
+Fit a tight palm primitive from `gripper0_hand_collision` compiled mesh
+vertices without inspecting contact labels. Freeze the three clean palm
+contact cases and all 40 matched clean contact-free controls selected by the
+validated v2 availability audit. Replay the exact released-AEGIS actions and
+measure the fitted palm primitive, released EE proxy, and raw palm contact at
+every internal MuJoCo substep.
+
+Require a certified enclosure of all compiled palm vertices, exact replay of
+the frozen action-boundary contact ledger, reproduction of three internal
+palm-contact episodes and 40 internally contact-free controls, and zero
+physical false-safe samples for the tight primitive. Report contact-free
+acceptance for both tight and released proxies without tuning geometry to the
+controls. A pass authorizes only two-sided boundary collection for palm, L5,
+and L6; training still waits for grouped boundary coverage. A failure keeps
+collection blocked and identifies whether the remaining error is replay,
+robot primitive, or the unchanged obstacle perception proxy.

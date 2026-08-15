@@ -1,0 +1,117 @@
+{
+  "schema_version": "vlsa_distal_palm_primitive_audit.v1",
+  "protocol_id": "vlsa-distal-palm-primitive-audit-v1",
+  "claim_scope": "Development-only validation of a certified tight palm ellipsoid against frozen clean palm-contact episodes and matched contact-free controls. This does not validate fingers, L5-L7, a learned predictor, control, deployment, or formal safety.",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a",
+    "availability_result": "/mnt/data/quanth/experiments/vlsa-distal-ee-primitive-availability/ee-primitive-availability-20260815b/result.json",
+    "availability_result_file_sha256": "53533b4ec7a48e3fba7b5a6047f53cc1e06f8e821d26ee64356b1d0f053e58a1",
+    "availability_result_payload_sha256": "a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466",
+    "availability_validation": "/mnt/data/quanth/experiments/vlsa-distal-ee-primitive-availability/ee-primitive-availability-20260815b/validation.json",
+    "availability_validation_file_sha256": "af678a577cfc6de69209617fcbac0e0af72eb0d9a3dc125f8ef7194ddffac437",
+    "availability_validation_payload_sha256": "b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88"
+  },
+  "cohort": {
+    "contact_case_ids": [
+      "vlsa-t1-spatial-i-t3-e09",
+      "vlsa-t1-spatial-i-t3-e27",
+      "vlsa-t1-goal-i-t3-e21"
+    ],
+    "control_case_ids": [
+      "vlsa-t1-spatial-i-t3-e01",
+      "vlsa-t1-spatial-i-t3-e04",
+      "vlsa-t1-spatial-i-t3-e13",
+      "vlsa-t1-spatial-i-t3-e19",
+      "vlsa-t1-spatial-i-t3-e22",
+      "vlsa-t1-spatial-i-t3-e25",
+      "vlsa-t1-spatial-i-t3-e28",
+      "vlsa-t1-spatial-i-t3-e31",
+      "vlsa-t1-spatial-i-t3-e33",
+      "vlsa-t1-spatial-i-t3-e34",
+      "vlsa-t1-spatial-i-t3-e36",
+      "vlsa-t1-spatial-i-t3-e37",
+      "vlsa-t1-spatial-i-t3-e43",
+      "vlsa-t1-spatial-i-t3-e46",
+      "vlsa-t1-goal-i-t3-e00",
+      "vlsa-t1-goal-i-t3-e03",
+      "vlsa-t1-goal-i-t3-e05",
+      "vlsa-t1-goal-i-t3-e07",
+      "vlsa-t1-goal-i-t3-e08",
+      "vlsa-t1-goal-i-t3-e10",
+      "vlsa-t1-goal-i-t3-e11",
+      "vlsa-t1-goal-i-t3-e14",
+      "vlsa-t1-goal-i-t3-e15",
+      "vlsa-t1-goal-i-t3-e16",
+      "vlsa-t1-goal-i-t3-e17",
+      "vlsa-t1-goal-i-t3-e18",
+      "vlsa-t1-goal-i-t3-e23",
+      "vlsa-t1-goal-i-t3-e25",
+      "vlsa-t1-goal-i-t3-e26",
+      "vlsa-t1-goal-i-t3-e28",
+      "vlsa-t1-goal-i-t3-e30",
+      "vlsa-t1-goal-i-t3-e31",
+      "vlsa-t1-goal-i-t3-e33",
+      "vlsa-t1-goal-i-t3-e36",
+      "vlsa-t1-goal-i-t3-e38",
+      "vlsa-t1-goal-i-t3-e40",
+      "vlsa-t1-goal-i-t3-e43",
+      "vlsa-t1-goal-i-t3-e45",
+      "vlsa-t1-goal-i-t3-e48",
+      "vlsa-t1-goal-i-t3-e49"
+    ],
+    "selection_source": "immutable_v2_availability_audit_clean_palm_contacts_and_all_matched_contact_free_controls",
+    "outcomes_used_for_primitive_fit": false
+  },
+  "primitive": {
+    "geom_name": "gripper0_hand_collision",
+    "fit_source": "compiled_collision_mesh_vertices_only",
+    "fit": {
+      "method": "khachiyan_mvee_exact_vertex_inflation",
+      "relative_padding": 1e-9,
+      "khachiyan_tolerance": 0.0001,
+      "khachiyan_max_iterations": 20000
+    }
+  },
+  "replay": {
+    "actions": "immutable_released_AEGIS_env_step_input_ledger",
+    "measurement": "every_internal_MuJoCo_substep_plus_action_boundary",
+    "expected_mujoco_substeps_per_action": 25,
+    "state_tolerance": 1e-12,
+    "scalar_tolerance": 1e-12,
+    "policy_queries": "forbidden"
+  },
+  "gate": {
+    "required_contact_episodes": 3,
+    "required_control_episodes": 40,
+    "maximum_physical_false_safe_samples": 0,
+    "support_gap_tolerance_m": 1e-9,
+    "vertex_containment_tolerance": 1e-12,
+    "contact_point_tolerance": 0.05,
+    "control_false_unsafe_rate": "reported_not_tuned"
+  },
+  "comparators": {
+    "released_robot_proxy": {
+      "center": "robot0_grip_site_plus_local_[0,0,-0.08]_m",
+      "semiaxes_m": [0.06, 0.12, 0.11]
+    },
+    "obstacle_proxy": "unchanged_released_AEGIS_perception_MVEE",
+    "physical_authority": "raw_MuJoCo_active_obstacle_contact_with_gripper0_hand_collision"
+  },
+  "next_if_pass": {
+    "boundary_groups": ["palm", "L5", "L6"],
+    "action": "collect_grouped_two_sided_candidate_plus_fixed_backup_boundaries_before_shared_constraint_conditioned_training"
+  },
+  "forbidden": [
+    "contact_outcome_tuning_of_palm_fit",
+    "finger_or_L7_learned_claim",
+    "candidate_boundary_collection_before_geometry_gate",
+    "MLP_training_before_boundary_coverage",
+    "QP",
+    "denoising_guidance",
+    "closed_loop_control",
+    "sealed_test_access",
+    "deployment_or_formal_safety_claim"
+  ]
+}

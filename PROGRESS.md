@@ -4616,3 +4616,23 @@ candidate-plus-backup boundary collection; training stays blocked. Result and
 validation payload SHA-256 values are
 `a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466`
 and `b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88`.
+
+## Tight compiled-palm primitive gate (preregistered, 2026-08-15)
+
+ADR-0155 implements the next allowed geometry-only experiment. It fits one
+certified minimum-volume enclosing ellipsoid to the compiled vertices of
+`gripper0_hand_collision`; the three palm-contact outcomes and 40 matched
+contact-free controls are never used to choose its center, rotation, or
+semiaxes. The immutable released-AEGIS action ledgers are replayed from their
+paired simulator states, and tight-palm and released-EE support gaps are
+measured at every one of the 25 internal MuJoCo substeps per action. Raw palm
+contact remains the physical authority.
+
+The strict gate requires exact replay of all 43 episodes, reproduction of all
+three palm-contact episodes and all 40 internally contact-free controls, a
+verified compiled-vertex enclosure certificate, and zero tight-primitive
+physical false-safe samples. Control false-unsafes and the released-proxy
+comparison are reported but do not tune the fit. Only a passing independent
+replay authorizes grouped two-sided candidate-plus-fixed-backup boundary
+collection for palm, L5, and L6. MLP training, QP, denoising, closed loop,
+finger/L7 learning, deployment, and formal safety claims remain blocked.
