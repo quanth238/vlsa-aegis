@@ -28,7 +28,20 @@ PY
 output="$OUTPUT_DIR/$case_id.json"
 test ! -e "$output" || exit 2
 mkdir -p "$OUTPUT_DIR"
-export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO MUJOCO_GL=egl
+run_root="$OUTPUT_DIR/.runtime-${SLURM_ARRAY_JOB_ID}-${SLURM_ARRAY_TASK_ID}"
+test ! -e "$run_root" || exit 2
+mkdir "$run_root"
+export LIBERO_CONFIG_PATH="$run_root/libero-config"
+mkdir "$LIBERO_CONFIG_PATH"
+safelibero_root=$REMOTE_REPO/safelibero/libero/libero
+{
+  printf 'benchmark_root: %s\n' "$safelibero_root"
+  printf 'bddl_files: %s\n' "$safelibero_root/bddl_files"
+  printf 'init_states: %s\n' "$safelibero_root/init_files"
+  printf 'datasets: %s\n' "$REMOTE_REPO/safelibero/libero/datasets"
+  printf 'assets: %s\n' "$safelibero_root/assets"
+} >"$LIBERO_CONFIG_PATH/config.yaml"
+export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_distal_palm_primitive_audit.py' -v
 "$AEGIS_PYTHON" scripts/audit_distal_palm_primitive_case.py \
