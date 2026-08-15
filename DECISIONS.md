@@ -4376,3 +4376,13 @@ The commit-consistent replacement chain is `40606/40607/40608`, rooted at
 `exact-compiled-geometry-population-20260815b` and bound to `be26b3d`. Keep
 `40562` plus its never-satisfied dependents as immutable apparatus history;
 only the replacement verifier may authorize the next boundary-data gate.
+
+Verifier `40608` authorizes the next gate. Exact producer/replay evidence over
+34 cases has zero physical false-safe samples for palm, L5, and L6, reproduces
+all 31 registered contact episodes, and preserves positive clearance in all
+three controls. Freeze this dimensionless compiled-box radial-slack target;
+do not revise its threshold from future boundary outcomes. Next collect
+episode-grouped, initially valid, two-sided candidate-plus-fixed-backup
+boundaries for palm/L5/L6. Do not train merely from the contact cohort: the
+MLP gate still requires independently validated near-boundary safe/unsafe
+support and untouched episode splits.

@@ -4745,3 +4745,17 @@ Producer `40606` started two H100 tasks concurrently; `40607` and `40608`
 remain correctly dependency-blocked. The unchanged scientific gate still
 requires all 34 producer cases, all 34 independent replays, and aggregate
 verification before boundary collection is authorized.
+
+Replacement chain `40606/40607/40608` completes and verifier `40608` passes.
+All 34 producer artifacts and all 34 independently replayed artifacts are
+present; all replay and robot-primitive certificates pass. Across 31 contact
+episodes, raw-contact sample counts are palm `249`, L5 `3641`, and L6 `1539`,
+with zero represented-geometry physical false-safes in every group. All three
+matched contact-free controls retain positive exact represented clearance for
+all three groups. Validation payload SHA-256 is
+`cef3825f63b55e39db11c8a5d0618b6caf93c6d9c84c577b0ce80ac2ee637ca6`
+and file SHA-256 is
+`ffab8da0984b90b86edbb955de4ab35c66da9b159b71fb4abff12a52d29c6bda`.
+The exact compiled-box target is now frozen and palm/L5/L6 boundary collection
+is authorized. Training, QP, denoising, and closed-loop control remain blocked
+until grouped two-sided boundary coverage is independently validated.
