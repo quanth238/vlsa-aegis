@@ -4048,3 +4048,24 @@ dataset creates harmful state extrapolation.
 Result/validation payload SHA-256 values are
 `3d24979b3f54590e194a0f36aac34d821aa8890f1afecfc775ccbb3956e9d5ee`
 and `defe40572bd7f339d5c501f653debf59cb967ab0fce3999cfa4935b70c62e67f`.
+
+## ADR-0151: audit clearance support at the physical-state level
+
+- Status: preregistered; allocated audit and independent replay pending
+- Date: 2026-08-15
+
+Do not add another input or retrain after the failed 12D arm. First audit the
+train/validation distribution of its three added clearances using immutable
+9D and 12D artifacts. Collapse candidate actions by `state_id` and require the
+clearance vector to be bitwise identical inside each state. Use distinct-state
+training moments and ranges for validation z distances; report the original
+candidate-weighted normalization separately because unequal candidates per
+state can distort it.
+
+Relate this support audit to frozen per-state errors and safe support. If the
+state that loses support, or the states where 12D degrades most, are outside
+the training range or far from all training states, retain 9D and prioritize
+new independent state coverage. If validation clearances are well supported
+but 12D still degrades, investigate representation/model interaction instead.
+Either outcome is diagnostic only: four validation states cannot establish a
+causal relationship, and the audit authorizes no training or control.

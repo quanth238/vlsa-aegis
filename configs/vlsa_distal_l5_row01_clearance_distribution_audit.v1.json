@@ -1,0 +1,44 @@
+{
+  "schema_version": "vlsa_distal_l5_row01_clearance_distribution_audit.v1",
+  "protocol_id": "vlsa-distal-l5-row01-clearance-distribution-audit-v1",
+  "claim_scope": "state_balanced_train_validation_distribution_audit_of_three_current_L5_clearance_inputs_no_training_no_control",
+  "source": {
+    "clearance_endpoint_config": "configs/vlsa_distal_l5_row01_clearance_endpoint_ablation.v1.json",
+    "clearance_endpoint_config_file_sha256": "a307802c45b552f9a766ee3148227ee8b780e5d54ee8c55819883a47f5aeb1b1",
+    "frozen_obstacle_endpoint_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-obstacle-endpoint/obstacle-endpoint-20260815a/result.json",
+    "frozen_obstacle_endpoint_result_file_sha256": "ad558908dfb3bb33a0eae9109dbf9f6f521350ddca2f4c0d40c8f1e3a978fc31",
+    "frozen_obstacle_endpoint_result_payload_sha256": "ddad0193514daec83f074b9db047bc70734f7ebbe46b3cad8ef6e63122307f8a",
+    "frozen_clearance_endpoint_result": "/mnt/data/quanth/experiments/vlsa-distal-l5-row01-clearance-endpoint/clearance-endpoint-20260815a/result.json",
+    "frozen_clearance_endpoint_result_file_sha256": "4028c007ef977dffa5b76083149005aa7d0cddac01536d3cde7a193e8ee0fdc1",
+    "frozen_clearance_endpoint_result_payload_sha256": "3d24979b3f54590e194a0f36aac34d821aa8890f1afecfc775ccbb3956e9d5ee"
+  },
+  "audit": {
+    "clearance_feature_indices": [9, 10, 11],
+    "clearance_rows": [0, 1, 2],
+    "state_balanced": true,
+    "state_identity_field": "state_id",
+    "within_state_bitwise_equality_required": true,
+    "training_standard_deviation_floor_m": 1e-6,
+    "range_tolerance_m": 1e-12,
+    "high_nearest_training_state_z_distance": 2.0
+  },
+  "required_outputs": [
+    "distinct_state_and_candidate_counts",
+    "per_row_train_state_minimum_maximum_mean_and_standard_deviation",
+    "candidate_weighted_versus_state_balanced_train_statistics",
+    "per_validation_state_range_and_z_distance",
+    "per_validation_state_9D_and_12D_error_false_safe_and_support_change",
+    "association_between_clearance_shift_and_12D_error_change"
+  ],
+  "forbidden": [
+    "new_simulation",
+    "model_training_or_retraining",
+    "feature_addition",
+    "loss_or_hyperparameter_change",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "reserved_test_access",
+    "causal_claim_from_distribution_association"
+  ]
+}

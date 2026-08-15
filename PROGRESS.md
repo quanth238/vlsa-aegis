@@ -4479,3 +4479,16 @@ and `43037e29048d7515e189bf90e14c1e1edd776481d1207bcbc6d72fca74977971`;
 payload SHA-256 values are
 `3d24979b3f54590e194a0f36aac34d821aa8890f1afecfc775ccbb3956e9d5ee`
 and `defe40572bd7f339d5c501f653debf59cb967ab0fce3999cfa4935b70c62e67f`.
+
+ADR-0151 preregisters the requested no-training distribution audit before any
+new input or model change. The frozen 9D and 12D predictions, labels, and
+episode splits are bound by file and payload hashes. Because the three current
+L5 clearances are constant across every candidate from one simulator state,
+the audit counts each physical state once rather than treating 43/29 action
+labels as independent clearance observations. It reports per-row training
+ranges, state-balanced and candidate-weighted moments, validation range and
+nearest-state z distances, and per-state 9D-to-12D changes in error,
+false-safes, and safe support. This can establish an association between
+clearance shift and model degradation, not a causal root cause. New
+simulation, retraining, feature addition, calibration, QP, closed loop, and
+sealed-test access remain forbidden pending allocated-H100 reproduction.
