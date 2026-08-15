@@ -46,6 +46,9 @@ safelibero_root=$REMOTE_REPO/safelibero/libero/libero
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_distal_palm_primitive_audit.py' -v
+if [[ "$CONFIG_PATH" == *vlsa_distal_exact_compiled_geometry_audit.v1.json ]]; then
+  "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_obstacle_proxy_audit.py' -v
+fi
 "$AEGIS_PYTHON" scripts/audit_distal_palm_primitive_case.py \
   --repo-root "$REMOTE_REPO" \
   --config "$CONFIG_PATH" \

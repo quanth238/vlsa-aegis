@@ -23,6 +23,9 @@ mkdir -p "$(dirname "$OUTPUT")"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_distal_palm_primitive_audit.py' -v
+if [[ "$CONFIG_PATH" == *vlsa_distal_exact_compiled_geometry_audit.v1.json ]]; then
+  "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_obstacle_proxy_audit.py' -v
+fi
 "$AEGIS_PYTHON" scripts/validate_distal_palm_primitive_audit.py \
   --repo-root "$REMOTE_REPO" \
   --config "$CONFIG_PATH" \

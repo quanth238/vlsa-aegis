@@ -523,7 +523,7 @@ def _summarize_exact_compiled_case_records(
                     "group_episode_minimum_normalized_radial_slack"
                 ][group] > 0.0
             )
-            for item in records
+            for item in (by_id[case_id] for case_id in sorted(expected_controls))
         )
         for group in groups
     }

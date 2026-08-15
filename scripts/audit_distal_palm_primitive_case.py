@@ -78,7 +78,7 @@ def evaluate_case(
     )
     from main.multilink_ellipsoid.obstacle_proxy_audit import (
         compiled_obstacle_boxes,
-        minimum_ellipsoid_quadratic_over_box,
+        minimum_ellipsoid_quadratics_over_boxes,
     )
 
     started = time.perf_counter_ns()
@@ -254,6 +254,7 @@ def evaluate_case(
         exact_compiled_config = config.get("exact_compiled_obstacle")
         exact_shadow = None
         exact_distal_certificate_pass = None
+        exact_robot_primitive_records = None
         if exact_compiled_config is not None:
             geometry_path = repo_root / str(
                 exact_compiled_config["robot_geometry_config"]
@@ -269,6 +270,10 @@ def evaluate_case(
                 bool((row.enclosure_certificate or {}).get("verified"))
                 for row in certified_distal[:5]
             )
+            exact_robot_primitive_records = [
+                template_record,
+                *[row.to_record() for row in certified_distal[:5]],
+            ]
             # Fail closed before replay if the active obstacle contains anything
             # except the registered compiled box representation.
             compiled_obstacle_boxes(env, obstacle_name)
@@ -320,15 +325,12 @@ def evaluate_case(
                 boxes = compiled_obstacle_boxes(env, obstacle_name)
                 distal = exact_shadow._slabbed_links(env)
                 robot_rows = [tight] + distal[:5]
-                row_slack = [
-                    min(
-                        math.sqrt(
-                            minimum_ellipsoid_quadratic_over_box(row, box)
-                        ) - 1.0
-                        for box in boxes
-                    )
-                    for row in robot_rows
-                ]
+                pair_quadratics = minimum_ellipsoid_quadratics_over_boxes(
+                    robot_rows, boxes,
+                )
+                row_slack = (
+                    np.sqrt(np.min(pair_quadratics, axis=1)) - 1.0
+                ).tolist()
                 row_map = exact_compiled_config["robot_rows"]
                 group_slack = {
                     group: min(row_slack[int(index)] for index in indices)
@@ -565,6 +567,7 @@ def evaluate_case(
                 "robot_primitive_certificate_pass": bool(
                     certificate_pass and exact_distal_certificate_pass
                 ),
+                "robot_primitive_records": exact_robot_primitive_records,
             }
         released_volume = float(4.0 * math.pi * np.prod([0.06, 0.12, 0.11]) / 3.0)
         trace_sha = hashlib.sha256(_canonical(trace_rows)).hexdigest()

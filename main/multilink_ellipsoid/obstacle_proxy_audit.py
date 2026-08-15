@@ -19,6 +19,9 @@ from .shadow import _geom_kind, _name, _numpy, _raw_model_data
 from .sitl_candidate import _body_lineage, _obstacle_root_body_id
 
 
+_BATCH_ACTIVE_SET_KERNEL = None
+
+
 @dataclass(frozen=True)
 class CompiledObstacleBox:
     """One live MuJoCo collision box belonging to the active obstacle."""
@@ -129,6 +132,136 @@ def minimum_ellipsoid_quadratic_over_box(robot: Ellipsoid, box: CompiledObstacle
     if not math.isfinite(best):
         raise ValueError("ellipsoid-box quadratic minimization failed")
     return max(0.0, best)
+
+
+def _batched_active_set_kernel(
+    robot_centers: Any,
+    inverse_shapes: Any,
+    box_centers: Any,
+    box_rotations: Any,
+    box_half_extents: Any,
+) -> Any:
+    """Numba-compatible exact 3-D active-set enumeration."""
+
+    import numpy as np
+
+    output = np.empty(
+        (robot_centers.shape[0], box_centers.shape[0]), dtype=np.float64,
+    )
+    for robot_index in range(robot_centers.shape[0]):
+        inverse = inverse_shapes[robot_index]
+        for box_index in range(box_centers.shape[0]):
+            rotation = box_rotations[box_index]
+            half = box_half_extents[box_index]
+            offset = box_centers[box_index] - robot_centers[robot_index]
+            hessian = rotation.T @ inverse @ rotation
+            linear = rotation.T @ inverse @ offset
+            constant = offset @ inverse @ offset
+            best = np.inf
+            for code in range(27):
+                remainder = code
+                state = np.empty(3, dtype=np.int64)
+                for coordinate in range(3):
+                    state[coordinate] = remainder % 3 - 1
+                    remainder //= 3
+                local = np.zeros(3, dtype=np.float64)
+                free = np.empty(3, dtype=np.int64)
+                free_count = 0
+                for coordinate in range(3):
+                    if state[coordinate] == 0:
+                        free[free_count] = coordinate
+                        free_count += 1
+                    else:
+                        local[coordinate] = state[coordinate] * half[coordinate]
+                valid = True
+                if free_count == 1:
+                    i = free[0]
+                    rhs = -linear[i]
+                    for fixed in range(3):
+                        if state[fixed] != 0:
+                            rhs -= hessian[i, fixed] * local[fixed]
+                    local[i] = rhs / hessian[i, i]
+                    valid = -half[i] - 1.0e-12 <= local[i] <= half[i] + 1.0e-12
+                elif free_count == 2:
+                    i = free[0]
+                    j = free[1]
+                    rhs_i = -linear[i]
+                    rhs_j = -linear[j]
+                    for fixed in range(3):
+                        if state[fixed] != 0:
+                            rhs_i -= hessian[i, fixed] * local[fixed]
+                            rhs_j -= hessian[j, fixed] * local[fixed]
+                    determinant = (
+                        hessian[i, i] * hessian[j, j]
+                        - hessian[i, j] * hessian[j, i]
+                    )
+                    local[i] = (
+                        rhs_i * hessian[j, j] - hessian[i, j] * rhs_j
+                    ) / determinant
+                    local[j] = (
+                        hessian[i, i] * rhs_j - rhs_i * hessian[j, i]
+                    ) / determinant
+                    valid = (
+                        -half[i] - 1.0e-12 <= local[i] <= half[i] + 1.0e-12
+                        and -half[j] - 1.0e-12 <= local[j] <= half[j] + 1.0e-12
+                    )
+                elif free_count == 3:
+                    local = np.linalg.solve(hessian, -linear)
+                    for coordinate in range(3):
+                        valid = valid and (
+                            -half[coordinate] - 1.0e-12
+                            <= local[coordinate]
+                            <= half[coordinate] + 1.0e-12
+                        )
+                if valid:
+                    value = (
+                        local @ hessian @ local
+                        + 2.0 * linear @ local
+                        + constant
+                    )
+                    if value < best:
+                        best = value
+            output[robot_index, box_index] = max(0.0, best)
+    return output
+
+
+def minimum_ellipsoid_quadratics_over_boxes(
+    robots: Sequence[Ellipsoid], boxes: Sequence[CompiledObstacleBox],
+) -> Any:
+    """Return the exact pairwise quadratic matrix with one compiled call.
+
+    The mathematical target is identical to
+    :func:`minimum_ellipsoid_quadratic_over_box`; batching only removes Python
+    overhead from internal-substep replay. Numba is an allocation dependency,
+    not a new approximation.
+    """
+
+    if not robots or not boxes:
+        raise ValueError("batched ellipsoid-box evaluation requires both inputs")
+    np = _numpy()
+    global _BATCH_ACTIVE_SET_KERNEL
+    if _BATCH_ACTIVE_SET_KERNEL is None:
+        try:
+            from numba import njit
+        except ImportError as error:  # pragma: no cover - allocation dependency
+            raise RuntimeError("batched exact box evaluation requires Numba") from error
+        _BATCH_ACTIVE_SET_KERNEL = njit(cache=False)(_batched_active_set_kernel)
+    robot_centers = np.asarray([row.center for row in robots], dtype=np.float64)
+    inverse_shapes = np.asarray(
+        [np.linalg.inv(row.shape_matrix()) for row in robots], dtype=np.float64,
+    )
+    box_centers = np.asarray([box.center for box in boxes], dtype=np.float64)
+    box_rotations = np.asarray([box.rotation for box in boxes], dtype=np.float64)
+    box_half_extents = np.asarray(
+        [box.half_extents_m for box in boxes], dtype=np.float64,
+    )
+    values = _BATCH_ACTIVE_SET_KERNEL(
+        robot_centers, inverse_shapes, box_centers, box_rotations,
+        box_half_extents,
+    )
+    if values.shape != (len(robots), len(boxes)) or not np.all(np.isfinite(values)):
+        raise ValueError("batched ellipsoid-box evaluation failed")
+    return values
 
 
 def evaluate_obstacle_representations(

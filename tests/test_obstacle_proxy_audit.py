@@ -7,6 +7,7 @@ from main.multilink_ellipsoid.obstacle_proxy_audit import (
     CompiledObstacleBox,
     evaluate_obstacle_representations,
     minimum_ellipsoid_quadratic_over_box,
+    minimum_ellipsoid_quadratics_over_boxes,
 )
 
 
@@ -85,6 +86,28 @@ class ObstacleProxyAuditTest(unittest.TestCase):
         self.assertEqual(
             record["compiled_box_union_row_any_exact_solid_overlap"][6], False
         )
+
+    def test_batched_active_set_exactly_matches_scalar_solver(self):
+        robots = [
+            Ellipsoid(
+                np.asarray([0.1, -0.2, 0.3]), np.eye(3),
+                np.asarray([0.4, 0.2, 0.1]),
+            ),
+            Ellipsoid(
+                np.asarray([-0.3, 0.15, 0.2]), np.eye(3),
+                np.asarray([0.15, 0.25, 0.35]),
+            ),
+        ]
+        boxes = [
+            self._box((0.65, 0.05, 0.35), half=(0.08, 0.12, 0.07)),
+            self._box((-0.2, 0.2, 0.2), half=(0.05, 0.09, 0.11)),
+        ]
+        batched = minimum_ellipsoid_quadratics_over_boxes(robots, boxes)
+        scalar = np.asarray([
+            [minimum_ellipsoid_quadratic_over_box(robot, box) for box in boxes]
+            for robot in robots
+        ])
+        np.testing.assert_allclose(batched, scalar, rtol=0.0, atol=1.0e-12)
 
 
 if __name__ == "__main__":

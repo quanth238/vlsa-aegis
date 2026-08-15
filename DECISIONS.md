@@ -4337,3 +4337,13 @@ the three-output future-risk MLP remain blocked until the complete geometry
 gate passes. Gradient correction, QP, denoising, closed loop, deployment,
 metric-clearance, and formal safety claims remain forbidden. This is a
 privileged-simulation mechanism target; perception geometry is downstream.
+
+H100 canary array `40548` passes the paired represented-geometry mechanism
+gate. E09 reproduces 28 palm, 169 L5, and 2 L6 contact samples; every contact
+has nonpositive exact radial slack, with group episode minima
+`-0.056608/-0.322074/-0.037365` for palm/L5/L6. Contact-free E01 has positive
+minima `+0.753981/+0.047423/+0.217761`, all primitive certificates pass, and
+replay is exact. Thus the obstacle MVEE and enclosing-union failures are
+removed without threshold fitting. This authorizes only an optimized exact-
+arithmetic replay and the complete independent geometry cohort; learning and
+control remain blocked.
