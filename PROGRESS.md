@@ -5089,3 +5089,20 @@ Q-plus-V auxiliary model, batching half query Q records and half random
 fixed-policy interior V records with episode/state balancing. This directly
 tests whether trajectory-wide state coverage reduces the dominant unseen-state
 risk-offset error. Correction and control remain blocked.
+
+H100 producer `40822`, independent replay `40823`, and validator `40824`
+complete exactly. The PNCBF-inspired labeling apparatus passes: all 65
+candidates reproduce, 936 controller action-boundary contexts are complete,
+361 known backup/terminal-hold states are eligible value samples, and the
+maximum exact Bellman residual is zero. No represented-geometry physical
+false-safe occurs.
+
+The population gate remains NO-GO. E10, E22, and E00 are two-sided, but E02
+starts outside the exact L5 safe set (`-0.086143` normalized radial slack) and
+E21 is safe-only. Therefore the preregistered all-initially-safe apparatus and
+targeted-coverage gate fail despite `3/5` two-sided cases. Preserve E02 as
+recovery and E21 as safe-region auxiliary data. The action-boundary value
+dataset is valid implementation evidence, but matched Q-plus-V training is not
+authorized until prospectively selected independent initially-safe boundary
+episodes provide grouped train/validation/test support. Validation file SHA-256
+is `3789e2e5bc199fc1013ac41f41d85ba4579bff20f3adc79f518ea07ee7b30cae`.

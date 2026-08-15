@@ -4671,7 +4671,7 @@ oracle timing localization is development-data construction only.
 
 ## ADR-0166: Add exact control-time policy-value states before changing the MLP
 
-- Status: preregistered; dependent on independent ADR-0165 completion
+- Status: completed; labeling apparatus passes, population/training gate NO-GO
 - Date: 2026-08-15
 
 The official PNCBF code samples initial and random intermediate states from
@@ -4692,3 +4692,15 @@ Bellman residual, and remains conditional on ADR-0165's `3/5` support gate. A
 later Q-only versus Q-plus-V comparison must freeze Q labels, episode splits,
 capacity, seeds, optimizer, and test states. This gate performs no training and
 authorizes no action selection, QP, guidance, closed loop, or barrier claim.
+
+Producer `40822`, replay `40823`, and validator `40824` validate the trajectory
+apparatus exactly: 936 action-boundary contexts, 361 eligible fixed-policy
+value states, zero Bellman residual, exact independent reproduction, and zero
+physical false-safes. Close the implementation subgate as passing.
+
+Do not launch matched training from this population. The scientific population
+gate is still NO-GO because E02 is initially unsafe and E21 lacks two-sided
+support; only E10/E22/E00 are valid two-sided prevention states. Retain every
+case under its proper role and prospectively collect independent initially-safe
+boundary episodes with frozen selection rules and untouched episode-level
+validation/test groups. QP, calibration, denoising, and control remain blocked.
