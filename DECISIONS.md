@@ -4704,3 +4704,33 @@ support; only E10/E22/E00 are valid two-sided prevention states. Retain every
 case under its proper role and prospectively collect independent initially-safe
 boundary episodes with frozen selection rules and untouched episode-level
 validation/test groups. QP, calibration, denoising, and control remain blocked.
+
+## ADR-0167: Permit one matched Q-only versus Q-plus-V mechanism diagnostic
+
+- Status: preregistered; allocation evidence pending
+- Date: 2026-08-16
+
+The user explicitly authorizes a diagnostic exception to test whether the
+already validated action-boundary values address the measured unseen-state
+nominal-risk offset. This does not relax ADR-0166's population NO-GO and cannot
+authorize a safety filter.
+
+Use E10, E22, and E00 as leave-one-two-sided-episode-group-out query folds;
+include safe-only E21 as training auxiliary data and retain initially unsafe
+E02 only as a recovery diagnostic. Censor all timeouts. Compare identical
+models, seeds, optimizer, weight decay, query labels, normalization, and
+capacity. Both arms use a compact direct-L5 state encoder and five-action XYZ
+endpoint displacement. The `q_only` arm trains only the query-risk head; the
+`q_plus_v` arm adds exact known backup/terminal-hold suffix-value supervision
+to the same state encoder. Query and value losses are independently
+state-balanced so hundreds of correlated boundaries cannot overwhelm an
+episode.
+
+Classify trajectory-value supervision as useful mechanism evidence only if it
+reduces leave-one-group-out RMSE by at least 25%, strictly reduces false-safes,
+and does not lose safe-state support. Whether it passes or fails, correction,
+calibration, QP, denoising, closed loop, sealed tests, deployment, and a CBF
+claim remain forbidden. A pass authorizes only prospective initially-safe,
+two-sided grouped collection and repetition of the prediction gate; a failure
+rejects scaling this supervision before revising state representation or
+natural-state coverage.

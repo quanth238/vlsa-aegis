@@ -1,0 +1,117 @@
+{
+  "schema_version": "vlsa_distal_generic_l5_qv_diagnostic.v1",
+  "protocol_id": "vlsa-distal-generic-l5-qv-diagnostic-v1",
+  "claim_scope": "User-authorized development-only diagnostic exception comparing identical direct-L5 Q networks with and without exact fixed-policy interior V supervision. It tests whether trajectory-wide value labels reduce unseen-state future-risk offset. It is not a training-data sufficiency, safety-filter, correction, deployment, CBF, task-generalization, or formal safety claim.",
+  "sources": {
+    "producer_root": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-trajectory-value/generic-l5-trajectory-value-canary-20260815a/producer",
+    "validation_file": "/mnt/data/quanth/experiments/vlsa-distal-generic-l5-trajectory-value/generic-l5-trajectory-value-canary-20260815a/validation.json",
+    "validation_file_sha256": "3789e2e5bc199fc1013ac41f41d85ba4579bff20f3adc79f518ea07ee7b30cae",
+    "validation_payload_sha256": "ade80ca14787a9d0adc31342acb5b692a0f1c54b623eb35e18050ca1489aba0a",
+    "case_artifacts": {
+      "vlsa-t1-goal-i-t0-e02": {
+        "filename": "vlsa-t1-goal-i-t0-e02.json",
+        "file_sha256": "34e2a690c60159d4209e3edc29395102ce1f0253bf154435a2f1a85105b2d6cb",
+        "payload_sha256": "78d8e8e05618c3c5b8135aaded8bb38e95ac82a22473a840313dbc0887ae28a9"
+      },
+      "vlsa-t1-goal-ii-t0-e10": {
+        "filename": "vlsa-t1-goal-ii-t0-e10.json",
+        "file_sha256": "372006267ed765e68e0542a39c9087a608e62a5f83fdfea545206f370d83170e",
+        "payload_sha256": "709d859cf9d88be0337af17596924f35875f5609f99fa5a341a4db81db2e3710"
+      },
+      "vlsa-t1-goal-ii-t2-e22": {
+        "filename": "vlsa-t1-goal-ii-t2-e22.json",
+        "file_sha256": "f5f2e8fc6c35165b0fb77f0c41ce46ed4e1938a9fd24e99bbdb88fe0aed00a17",
+        "payload_sha256": "4d672f3f46990c8b92d6f470531937a59c9f8185580b33a5d21cbb9ff3b48989"
+      },
+      "vlsa-t1-goal-ii-t3-e21": {
+        "filename": "vlsa-t1-goal-ii-t3-e21.json",
+        "file_sha256": "ab250a59760efd1a6507ab38d92301d4667306f6b57e5940c267ff2cde1b3dc5",
+        "payload_sha256": "8fcf88fa0fd4e4971efeda48832d8c0ae166435f611fe3e7e74f8fb66951b241"
+      },
+      "vlsa-t1-spatial-i-t3-e00": {
+        "filename": "vlsa-t1-spatial-i-t3-e00.json",
+        "file_sha256": "53ad469f86b7ef25b6822561c20e38ab5bf1d4914434ff9b6da2a891a61f92ba",
+        "payload_sha256": "fc8a18c0394a7b59fea1c04c02cf9421e86c3ea40b4cb07948cdab7efc8ebf4e"
+      }
+    }
+  },
+  "dataset": {
+    "boundary_case_ids": [
+      "vlsa-t1-goal-ii-t0-e10",
+      "vlsa-t1-goal-ii-t2-e22",
+      "vlsa-t1-spatial-i-t3-e00"
+    ],
+    "safe_auxiliary_case_ids": ["vlsa-t1-goal-ii-t3-e21"],
+    "recovery_case_ids": ["vlsa-t1-goal-i-t0-e02"],
+    "L5_row_indices": [1, 2, 3],
+    "query_target": "exact_candidate_plus_complete_fixed_backup_L5_future_violation",
+    "value_target": "exact_reverse_suffix_L5_value_at_known_backup_or_terminal_hold_action_boundaries",
+    "unknown_timeouts": "censored_not_training_or_evaluation_labels",
+    "folds": "leave_one_two_sided_episode_group_out; safe_only_E21_is_training_auxiliary; initially_unsafe_E02_is_recovery_diagnostic_only",
+    "expected_counts": {
+      "vlsa-t1-goal-i-t0-e02": {"known_query": 7, "unknown_query": 6, "eligible_value": 23},
+      "vlsa-t1-goal-ii-t0-e10": {"known_query": 13, "unknown_query": 0, "eligible_value": 135},
+      "vlsa-t1-goal-ii-t2-e22": {"known_query": 4, "unknown_query": 9, "eligible_value": 23},
+      "vlsa-t1-goal-ii-t3-e21": {"known_query": 3, "unknown_query": 10, "eligible_value": 47},
+      "vlsa-t1-spatial-i-t3-e00": {"known_query": 13, "unknown_query": 0, "eligible_value": 133}
+    }
+  },
+  "features": {
+    "state_dimension": 15,
+    "action_dimension": 3,
+    "translation_scale_m_per_action_unit": 0.05,
+    "state_definition": "current closest exact L5 primitive center relative to compiled-obstacle AABB; primitive semiaxes; obstacle AABB half-extents; all three current L5 slacks; active-row one-hot",
+    "action_definition": "metric XYZ endpoint displacement from the complete five-action candidate chunk",
+    "future_state_excluded": true,
+    "normalization": "training query episodes only; state and action separately; identical for Q-only and Q-plus-V"
+  },
+  "model": {
+    "arms": ["q_only", "q_plus_v"],
+    "architecture": "identical shared_state_encoder_plus_Q_head_plus_V_head; Q-only sets V loss to zero",
+    "hidden_width": 32,
+    "seed": 20260816,
+    "epochs": 5000,
+    "learning_rate": 0.003,
+    "weight_decay": 0.0001,
+    "minimum_target_scale": 0.05,
+    "huber_beta_normalized": 0.5,
+    "boundary_weight_multiplier": 2.0,
+    "boundary_scale": 0.05,
+    "value_loss_weight": 1.0,
+    "gradient_clip_norm": 5.0,
+    "cpu_threads": 8,
+    "batching": "deterministic full-batch with Q and V each state-balanced; equal Q/V loss weight approximates matched half-Q half-V sampling"
+  },
+  "metrics": {
+    "primary": [
+      "held_out_query_RMSE",
+      "held_out_query_mean_signed_error",
+      "false_safe_count",
+      "safe_recall",
+      "safe_support_state_count"
+    ],
+    "report": ["per_fold_train_metrics", "per_fold_validation_metrics", "E02_recovery_diagnostic"]
+  },
+  "decision": {
+    "q_plus_v_improvement_rule": {
+      "maximum_RMSE_ratio": 0.75,
+      "require_strictly_fewer_false_safes": true,
+      "require_no_loss_of_safe_support": true
+    },
+    "pass_scope": "mechanism evidence that interior fixed-policy value supervision reduces the measured unseen-state offset; it does not authorize control",
+    "next_if_pass": "collect prospectively selected initially-safe two-sided grouped episodes and rerun matched prediction gate",
+    "next_if_fail": "do not scale trajectory-value supervision; revise state representation or natural-state coverage before more training"
+  },
+  "forbidden": [
+    "sealed_test_access",
+    "timeout_as_safe_or_unsafe",
+    "internal_MuJoCo_substeps_as_IID_training_states",
+    "prefix_states_without_remaining_chunk_context_as_V_samples",
+    "candidate_selection_or_execution",
+    "calibration",
+    "QP_or_gradient_correction",
+    "denoising_guidance",
+    "closed_loop_control",
+    "deployment_or_CBF_claim"
+  ]
+}

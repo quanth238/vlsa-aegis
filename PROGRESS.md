@@ -5106,3 +5106,30 @@ dataset is valid implementation evidence, but matched Q-plus-V training is not
 authorized until prospectively selected independent initially-safe boundary
 episodes provide grouped train/validation/test support. Validation file SHA-256
 is `3789e2e5bc199fc1013ac41f41d85ba4579bff20f3adc79f518ea07ee7b30cae`.
+
+## Matched direct-L5 Q versus Q-plus-V diagnostic (preregistered, 2026-08-16)
+
+The user authorizes one diagnostic exception on the immutable ADR-0166
+artifacts. It asks a single causal question: does exact interior fixed-policy
+value supervision reduce the dominant unseen-state future-risk offset?
+
+Freeze E10/E22/E00 as leave-one-two-sided-group-out folds, add E21 only to each
+training fold as safe-region auxiliary data, and retain E02 only as an
+initially-unsafe recovery diagnostic. Unknown timeouts remain censored. The
+matched arms have identical state encoder, Q and V heads, optimizer, `1e-4`
+weight decay, seed, schedule, normalization, and exact query labels. The only
+changed factor is value-loss weight: zero for Q-only and one for Q-plus-V.
+Normalization is fit from query training groups only in both arms; Q and V
+losses are separately state-balanced.
+
+The 15D direct-L5 state feature contains the current closest exact L5 primitive
+center relative to the compiled-obstacle AABB, primitive shape, obstacle size,
+all three current L5 slacks, and active-row identity. The action feature is the
+metric XYZ endpoint displacement of the complete five-action chunk. This is a
+development diagnostic, not a final representation claim.
+
+Require Q-plus-V leave-one-group-out RMSE at most 75% of Q-only, strictly fewer
+false-safes, and no loss of safe-support states. Even a pass cannot authorize
+action selection or control because there are only three two-sided episode
+groups and no untouched two-sided test population. H100 producer plus
+independent deterministic retraining validation are the next jobs.
