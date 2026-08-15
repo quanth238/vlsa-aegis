@@ -4751,3 +4751,11 @@ not install. Follow the established training-job preflight: byte-compile the
 new module/producer/validator and run the five experiment-specific tests in
 the allocation. Cancel dependency-impossible validator `40855` and restart
 cleanly. This does not change any scientific setting.
+
+Scoped-preflight producer `40857` is apparatus history with no training
+result. It stopped in two seconds because `python -m unittest
+tests.test_generic_l5_qv_diagnostic` assumes `tests` is an importable package
+in the remote checkout. Use the repository's established discovery form
+`unittest discover -s tests -p test_generic_l5_qv_diagnostic.py` in producer
+and validator, cancel dependency-impossible `40858`, and restart. No data,
+model, or decision setting changes.

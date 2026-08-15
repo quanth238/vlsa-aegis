@@ -5147,3 +5147,8 @@ the sole remaining error was the unrelated five-action-detour test's optional
 final apparatus repair uses the same scoped byte-compilation and
 experiment-specific unit preflight as the earlier validated training jobs.
 Scientific inputs, targets, arms, and decision rules remain frozen.
+
+Scoped producer `40857` then stopped before training because its direct module
+test name assumed `tests` was a package; validator `40858` was canceled. Bind
+both jobs to `unittest discover` with the same single test filename, matching
+the repository's existing Slurm scripts. This is test-loader apparatus only.

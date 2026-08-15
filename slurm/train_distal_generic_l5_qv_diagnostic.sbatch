@@ -29,7 +29,7 @@ cd "$REMOTE_REPO"
   main/multilink_ellipsoid/generic_l5_qv_diagnostic.py \
   scripts/train_distal_generic_l5_qv_diagnostic.py \
   scripts/validate_distal_generic_l5_qv_diagnostic.py
-"$AEGIS_PYTHON" -m unittest tests.test_generic_l5_qv_diagnostic -v
+"$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_generic_l5_qv_diagnostic.py' -v
 "$AEGIS_PYTHON" scripts/train_distal_generic_l5_qv_diagnostic.py \
   --repo-root "$REMOTE_REPO" \
   --config "$REMOTE_REPO/configs/vlsa_distal_generic_l5_qv_diagnostic.v1.json" \
