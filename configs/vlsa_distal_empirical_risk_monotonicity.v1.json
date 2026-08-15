@@ -1,0 +1,38 @@
+{
+  "schema_version": "vlsa_distal_empirical_risk_monotonicity.v1",
+  "protocol_id": "vlsa-distal-empirical-risk-monotonicity-v1",
+  "claim_scope": "realized_post_AEGIS_normal_path_monotonicity_audit_not_prediction_not_control",
+  "dataset_config": "configs/vlsa_distal_empirical_candidate_risk_dataset.v1.json",
+  "dataset_config_file_sha256": "0052cdb71fb0e7f9a2bc8e7fa0cf5cc006eb012a2eba7dc233301426ae6471bd",
+  "risk_field": "compiled_box_risk",
+  "positive_is_unsafe": true,
+  "realized_coordinate": "projection_of_executed_five_action_delta_onto_registered_normal_temporal_profile",
+  "alignment": {
+    "minimum_cosine": 0.99,
+    "maximum_off_axis_fraction": 0.05,
+    "minimum_effective_alpha_increment": 1e-09,
+    "exclude_source_clipping": true
+  },
+  "monotonicity": {
+    "expected_order": "nonincreasing_risk_with_increasing_effective_outward_alpha",
+    "risk_tolerance": 1e-09,
+    "unknown_timeouts": "excluded_and_reported",
+    "direction_changing_or_clipped_candidates": "excluded_and_reported"
+  },
+  "gate": {
+    "require_dataset_strict_gate": true,
+    "minimum_train_states_with_eligible_pair": 10,
+    "minimum_validation_states_with_eligible_pair": 3,
+    "minimum_train_eligible_pairs": 10,
+    "minimum_validation_eligible_pairs": 3,
+    "require_zero_train_monotonicity_violations": true,
+    "require_zero_validation_monotonicity_violations": true
+  },
+  "forbidden": [
+    "timeout_as_known_label",
+    "requested_alpha_as_realized_coordinate",
+    "direction_changing_pair_as_monotonic_supervision",
+    "MLP_training_before_audit_and_independent_validation",
+    "optimistic_penalty_QP_denoising_closed_loop_or_sealed_test"
+  ]
+}
