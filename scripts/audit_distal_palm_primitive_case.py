@@ -126,10 +126,18 @@ def evaluate_case(
     _require(case_id in availability_by_id, "palm audit case lacks availability record")
     availability_record = availability_by_id[case_id]
     if expected_class == "contact":
-        _require(
-            "palm" in availability_record["eligible_clean_contact_groups"],
-            "palm audit positive is not an eligible palm contact",
-        )
+        if config.get("exact_compiled_obstacle") is not None:
+            eligible = set(availability_record["eligible_clean_contact_groups"])
+            required = set(config["exact_compiled_obstacle"]["groups"])
+            _require(
+                bool(eligible & required),
+                "exact geometry positive lacks an eligible palm/L5/L6 contact",
+            )
+        else:
+            _require(
+                "palm" in availability_record["eligible_clean_contact_groups"],
+                "palm audit positive is not an eligible palm contact",
+            )
     else:
         _require(
             bool(availability_record["eligible_clean_contact_free_control"]),

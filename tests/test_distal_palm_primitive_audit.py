@@ -74,6 +74,8 @@ class PalmPrimitiveAuditTests(unittest.TestCase):
         self.assertEqual(exact["supported_obstacle_geom_kinds"], ["box"])
         self.assertEqual(exact["units"], "dimensionless_not_metric_clearance")
         self.assertFalse(exact["fit_uses_contact_outcomes"])
+        self.assertEqual(len(config["cohort"]["contact_case_ids"]), 31)
+        self.assertEqual(len(config["cohort"]["control_case_ids"]), 3)
         self.assertEqual(
             config["comparators"]["primary_obstacle_proxy"],
             "exact_live_compiled_MuJoCo_collision_boxes_no_obstacle_MVEE",
@@ -91,11 +93,12 @@ class PalmPrimitiveAuditTests(unittest.TestCase):
             repo_root=root,
         )
         records = []
-        for index, case_id in enumerate(
+        contacts = set(config["cohort"]["contact_case_ids"])
+        for case_id in (
             config["cohort"]["contact_case_ids"]
             + config["cohort"]["control_case_ids"]
         ):
-            positive = index == 0
+            positive = case_id in contacts
             records.append({
                 "case_id": case_id,
                 "replay": {"fidelity_pass": True},

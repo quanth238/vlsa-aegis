@@ -4331,8 +4331,9 @@ primitive certificate and exact replay passes, and the control retains
 positive represented clearance. Raw MuJoCo contacts remain the independent
 physical authority.
 
-Only a passing canary permits the complete frozen 3-contact/40-control palm
-cohort and subsequent independent L5/L6 controls. Boundary collection and
+Only a passing canary permits the unified final cohort: all 31 unique clean
+palm/L5/L6 contact episodes plus three shared matched contact-free controls.
+Boundary collection and
 the three-output future-risk MLP remain blocked until the complete geometry
 gate passes. Gradient correction, QP, denoising, closed loop, deployment,
 metric-clearance, and formal safety claims remain forbidden. This is a
@@ -4345,5 +4346,5 @@ has nonpositive exact radial slack, with group episode minima
 minima `+0.753981/+0.047423/+0.217761`, all primitive certificates pass, and
 replay is exact. Thus the obstacle MVEE and enclosing-union failures are
 removed without threshold fitting. This authorizes only an optimized exact-
-arithmetic replay and the complete independent geometry cohort; learning and
+arithmetic replay of that 31/3 cohort and independent validation; learning and
 control remain blocked.

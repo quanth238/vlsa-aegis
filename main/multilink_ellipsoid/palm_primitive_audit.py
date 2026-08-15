@@ -60,7 +60,7 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
     }
     optional_variant_keys = {
         "compiled_obstacle", "tracked_obstacle", "exact_compiled_obstacle",
-        "gate_override",
+        "cohort_override", "gate_override",
     }
     if (
         isinstance(value, dict)
@@ -90,6 +90,8 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
             updates["tracked_obstacle"] = value["tracked_obstacle"]
         if "exact_compiled_obstacle" in value:
             updates["exact_compiled_obstacle"] = value["exact_compiled_obstacle"]
+        if "cohort_override" in value:
+            updates["cohort"] = value["cohort_override"]
         base.update(updates)
         if "gate_override" in value:
             base["gate"].update(value["gate_override"])
@@ -527,6 +529,15 @@ def _summarize_exact_compiled_case_records(
         )
         for group in groups
     }
+    contact_episodes_reproduced = sum(
+        int(any(
+            int(by_id[case_id]["exact_compiled_geometry"][
+                "group_raw_contact_sample_count"
+            ][group]) > 0
+            for group in groups
+        ))
+        for case_id in sorted(expected_contacts)
+    )
     gate = config["gate"]
     required_groups = tuple(gate["required_observed_contact_groups"])
     pass_gate = bool(
@@ -538,6 +549,7 @@ def _summarize_exact_compiled_case_records(
             ])
             for item in records
         )
+        and contact_episodes_reproduced == len(expected_contacts)
         and all(contact_samples[group] > 0 for group in required_groups)
         and all(
             false_safes[group]
@@ -554,6 +566,7 @@ def _summarize_exact_compiled_case_records(
         "case_count": len(records),
         "contact_episode_count": len(expected_contacts),
         "control_episode_count": len(expected_controls),
+        "contact_episodes_reproduced": contact_episodes_reproduced,
         "group_raw_contact_sample_count": contact_samples,
         "group_physical_false_safe_sample_count": false_safes,
         "group_positive_control_episode_count": positive_controls,

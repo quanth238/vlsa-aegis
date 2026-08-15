@@ -4713,5 +4713,7 @@ dimensionless radial slacks are `-0.056608`, `-0.322074`, and `-0.037365`.
 Contact-free E01 remains positive for all three groups at `+0.753981`,
 `+0.047423`, and `+0.217761`. Both cases pass all robot primitive certificates
 and exact state/action replay. A batched Numba implementation of the identical
-27-active-set arithmetic is now being checked against the scalar solver before
-the full 3/40 cohort; it changes runtime only, not the registered target.
+27-active-set arithmetic reproduces the scalar solver exactly and reduces the
+paired replay to about 1.7 minutes per episode. The unified final gate now
+contains all 31 unique clean palm/L5/L6 contact episodes and three shared
+matched contact-free controls; it changes coverage, not the target or fit.
