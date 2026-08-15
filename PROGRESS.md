@@ -5133,3 +5133,10 @@ false-safes, and no loss of safe-support states. Even a pass cannot authorize
 action selection or control because there are only three two-sided episode
 groups and no untouched two-sided test population. H100 producer plus
 independent deterministic retraining validation are the next jobs.
+
+Producer `40852` ran on H100 but stopped in allocation preflight before any
+training. `init.sh` used `/usr/bin/python3`, causing 20 pre-existing NumPy
+imports to fail even though the registered AEGIS Python is used by the actual
+training command. Validator `40853` was canceled after its dependency became
+impossible. The apparatus-only repair binds the full gate to the registered
+AEGIS Python path and leaves the scientific protocol unchanged.

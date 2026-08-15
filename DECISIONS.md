@@ -4734,3 +4734,11 @@ claim remain forbidden. A pass authorizes only prospective initially-safe,
 two-sided grouped collection and repetition of the prediction gate; a failure
 rejects scaling this supervision before revising state representation or
 natural-state coverage.
+
+Initial H100 producer `40852` is retained as apparatus history. It stopped
+before training because `init.sh` resolved the allocation's system Python,
+which lacks NumPy, instead of the registered AEGIS environment. Cancel the
+dependency-impossible validator `40853`, prepend the registered AEGIS Python
+directory only while running `init.sh`, and restart from a clean immutable
+commit. Data, folds, features, models, losses, seeds, metrics, and gates do not
+change.
