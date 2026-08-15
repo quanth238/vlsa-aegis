@@ -19,8 +19,11 @@ RUN_ID=${RUN_ID:?}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-distal-empirical-candidate-risk-dataset}
 TABLE1_ROOT=${TABLE1_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
+EXPECTED_ARRAY_TASK_COUNT=${EXPECTED_ARRAY_TASK_COUNT:-13}
+APPARATUS_CANARY=${APPARATUS_CANARY:-0}
 die() { printf '%s\n' "$*" >&2; exit 1; }
-[[ -n "${SLURM_JOB_ID:-}" && "${SLURM_ARRAY_TASK_COUNT:-}" == 13 ]] || die "Slurm array differs"
+[[ -n "${SLURM_JOB_ID:-}" && "${SLURM_ARRAY_TASK_COUNT:-}" == "$EXPECTED_ARRAY_TASK_COUNT" ]] || die "Slurm array differs"
+[[ "$APPARATUS_CANARY" == 0 || "$APPARATUS_CANARY" == 1 ]] || die "canary flag differs"
 case "${SLURMD_NODENAME:-}" in login*|login-restricted*) die "login node forbidden" ;; esac
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "requires exactly one H100"
@@ -48,6 +51,8 @@ cd "$REMOTE_REPO"
   tests.test_distal_empirical_candidate_governor \
   tests.test_distal_l6_proxy_scale_audit \
   tests.test_distal_compiled_box_risk_target_audit -v >"$RUN_ROOT/preflight.txt" 2>&1
+canary_args=()
+if [[ "$APPARATUS_CANARY" == 1 ]]; then canary_args+=(--apparatus-canary); fi
 "$AEGIS_PYTHON" scripts/collect_distal_empirical_candidate_risk_dataset.py \
   --repo-root "$REMOTE_REPO" \
   --table1-root "$TABLE1_ROOT" \
@@ -55,4 +60,5 @@ cd "$REMOTE_REPO"
   --case-index "$SLURM_ARRAY_TASK_ID" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
   --run-root "$RUN_ROOT" \
-  --output "$RUN_ROOT/result.json"
+  --output "$RUN_ROOT/result.json" \
+  "${canary_args[@]}"

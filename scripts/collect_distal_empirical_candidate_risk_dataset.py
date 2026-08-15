@@ -24,6 +24,7 @@ def _canonical(value: Any) -> bytes:
 def collect(
     *, repo_root: Path, table1_root: Path, config_path: Path,
     case_index: int, expected_commit: str, run_root: Path,
+    apparatus_canary: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -114,6 +115,10 @@ def collect(
         )
     raw["curve_summary"] = curve_summary(raw["candidates"], tolerance_m=1.0e-9)
     raw["dataset_config_payload_sha256"] = config["config_payload_sha256"]
+    raw["scientific_result"] = not apparatus_canary
+    raw["execution_mode"] = (
+        "apparatus_canary" if apparatus_canary else "full_grouped_collection"
+    )
     raw.pop("result_payload_sha256", None)
     raw["result_payload_sha256"] = _sha256(_canonical(raw))
     _atomic_write(source_path, raw)
@@ -138,7 +143,10 @@ def collect(
     value = {
         "schema_version": CASE_RESULT_SCHEMA,
         "status": "complete",
-        "scientific_result": True,
+        "scientific_result": not apparatus_canary,
+        "execution_mode": (
+            "apparatus_canary" if apparatus_canary else "full_grouped_collection"
+        ),
         "claim_scope": config["claim_scope"],
         "source": _git_identity(repo_root, expected_commit),
         "allocation": raw["allocation"],
@@ -172,6 +180,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--apparatus-canary", action="store_true")
     args = parser.parse_args(argv)
     value = collect(
         repo_root=args.repo_root.resolve(),
@@ -180,6 +189,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         case_index=args.case_index,
         expected_commit=args.expected_commit,
         run_root=args.run_root.resolve(),
+        apparatus_canary=args.apparatus_canary,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps({
