@@ -3563,7 +3563,7 @@ and `1a469cf99cdfaa2d26ed019b7df409e1c47fd46cdc9677f4cb8f437ba5cc5bc6`.
 
 ## ADR-0142: Audit a compiled-box future-risk target before learning
 
-- Status: preregistered; H100 result pending
+- Status: completed; strict target gate NO-GO
 - Date: 2026-08-15
 
 ADR-0141 proves that the registered normal bank has physical collision
@@ -3610,3 +3610,27 @@ rejects stable candidates, the fixed robot slabs or compiled-box target remain
 too conservative. Learning, calibration, QP, denoising, selected-action
 execution, closed loop, metric-distance, deployment, and generalization claims
 remain forbidden regardless of outcome.
+
+H100 producer `40387` and independent validator `40388` reproduce both source
+states, all proxy minima, CAR outcomes, and physical vetoes. Both initial
+states are compiled-box non-overlapping and contact-free. The compiled-box
+target detects all three raw-contact controls with zero physical false-safes
+and retains a known safe candidate in both states. It rescues E44 radius 1.25
+and E42 radius 2.0: their perception-MVEE minima are `-6.390 mm` and
+`-6.346 mm`, while compiled-box normalized slacks are `+0.022739` and
+`+0.036349`.
+
+The preregistered three-rescue gate nevertheless fails. E42 radius 1.75 is a
+stable, CAR-pass, raw-contact-free rollout, but the fixed L6 row-3 slab still
+overlaps the exact obstacle boxes in 24 internal samples and reaches normalized
+slack `-0.015667`. Thus replacing the obstacle MVEE fixes two false rejections
+but not the complete target: the conservative fixed robot slab remains a
+boundary-recall problem. Do not train the future-risk model on this target.
+The next geometry gate must replace or refine the L6 robot-side proxy with
+compiled collision geoms or validated tight primitives while retaining the
+same contact controls. Result/validation file SHA-256 values are
+`430980069b0b7e5a1ae9f4b19affce876b44b2ffffe559f209a9326bda0ca463`
+and `77226287dca3a0f79eb38cd3ed4d85b809d90274d7a0268225e1a8c6e9314ac2`;
+payload SHA-256 values are
+`b80c81aacd9d954d892492a4ffc3fd0ae0d2c498ea23d6de147e458f63ff763b`
+and `d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f`.

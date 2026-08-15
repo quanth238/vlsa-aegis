@@ -4264,3 +4264,18 @@ false-safes, safe initial states, safe support in both states, and recovery of a
 actions with perception-MVEE solid overlap at zero buffer. The source's 1 mm
 operational buffer is logged separately. No threshold is fitted, no action is
 changed, and MLP/QP/denoising/closed-loop work remains blocked.
+
+H100 producer `40387` and independent validator `40388` complete ADR-0142.
+Source replay and initial-state eligibility pass. Exact compiled-box overlap
+detects all 3/3 raw-contact controls with zero physical false-safes and keeps
+safe support in 2/2 states. It rescues two perception-MVEE-rejected stable
+actions: E44 radius 1.25 (`-6.390 mm` MVEE, `+0.022739` dimensionless compiled
+slack) and E42 radius 2.0 (`-6.346 mm`, `+0.036349`). The strict gate remains
+NO-GO because E42 radius 1.75 is raw-contact-free and stable but the fixed L6
+row-3 slab overlaps the exact obstacle boxes for 24 substeps (`-0.015667`
+minimum normalized slack). Obstacle MVEE conservatism is real but not the only
+target error; the next audit must tighten or replace the robot-side L6 proxy.
+Learning, QP, denoising, and closed-loop work remain blocked. Result/validation
+payload SHA-256 values are
+`b80c81aacd9d954d892492a4ffc3fd0ae0d2c498ea23d6de147e458f63ff763b`
+and `d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f`.
