@@ -4310,3 +4310,16 @@ all stored contact and stable controls to be classified correctly, safe support
 in `4/4` states, and a selected correction strictly smaller than always using
 radius 2 in every state. No action is executed and no model is trained. H100
 producer and independent validation are pending.
+
+H100 producer `40404` and independent validator `40405` pass ADR-0144. The
+empirical target detects all `10/10` raw-contact controls, accepts all `16/16`
+stable controls, retains safe support in `4/4` states, and leaves ten timeouts
+unknown. The selected requested magnitudes are `1.25/0.75/1.25/1.75`, all
+strictly below radius 2 in realized post-AEGIS action L2. Mean realized
+intervention decreases from `1.789281` to `1.064623` (`40.50%`). This validates
+the exact finite-bank minimum-intervention governor as a mechanism on opened
+states. It does not yet validate candidate-risk learning, execution-level task
+preservation, or generalization; those require grouped independent states.
+Result/validation payload SHA-256 values are
+`287fdf6547f28bd44e4ed2dc3bbbd247107522f12db942861fa33af0f2307bc6`
+and `45179b197f9eb4f897ec2167106a7a2de22a2da214693211d9c4a0bad0c2dabc`.

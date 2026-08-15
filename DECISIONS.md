@@ -3685,7 +3685,7 @@ and `c25e5f48a85276bcd6ad5e9717b0906f8874f7b758d83d89bb8972d54734fe85`.
 
 ## ADR-0144: Test minimum-intervention finite-bank governance before learning
 
-- Status: preregistered; H100 oracle replay pending
+- Status: completed; strict oracle mechanism gate passes
 - Date: 2026-08-15
 
 The empirical L6 geometry gate removes the known opened-state label mismatch,
@@ -3714,3 +3714,33 @@ finite candidate governor. It does not authorize an MLP, selected-action
 execution, denoising guidance, closed loop, deployment, generalization, or a
 formal safety claim. If it fails, the complete-candidate future-risk governor
 is not ready for learning even with the repaired geometry target.
+
+H100 producer `40404` and independent validator `40405` pass every registered
+gate. Across all 36 candidates, the empirical target detects all `10/10`
+raw-contact controls, accepts all `16/16` stable contact-free controls, and
+keeps all ten timeouts unknown. Every state has safe support and a safe radius-2
+control. The minimum realized-correction choices are:
+
+| State | Requested magnitude | Realized post-AEGIS L2 | Radius-2 L2 |
+|---|---:|---:|---:|
+| task-2 E42 step 25 | 1.25 | 1.065836 | 1.795073 |
+| task-3 E42 step 100 | 0.75 | 0.711527 | 1.933886 |
+| task-3 E44 step 110 | 1.25 | 1.104189 | 1.827801 |
+| task-3 E42 step 105 | 1.75 | 1.376942 | 1.600365 |
+
+Mean realized intervention falls from `1.789281` to `1.064623`, a `0.724658`
+absolute or `40.50%` relative reduction. Thus the exact future-risk candidate
+governor adds clear value over always applying maximum repulsion on these four
+opened states. This supports the core algorithmic decomposition—generate a
+small physical bank, predict complete candidate-plus-backup risk, and select
+the least-modifying safe candidate—but does not yet validate a learned risk
+model, selected-action task preservation, or generalization. The next gate is
+grouped independent-state candidate-risk learning with raw contact/CAR
+verification; a QP and denoising guidance remain unnecessary.
+
+Result/validation file SHA-256 values are
+`9b3454d60498f52bb1713ef645328c4434bb92582c2ef3da828b77fe113a8283`
+and `9404193775f57b19384d65cd4301fa56186be08bee28c8fcadb97ce30dcebc54`;
+payload SHA-256 values are
+`287fdf6547f28bd44e4ed2dc3bbbd247107522f12db942861fa33af0f2307bc6`
+and `45179b197f9eb4f897ec2167106a7a2de22a2da214693211d9c4a0bad0c2dabc`.
