@@ -4846,7 +4846,7 @@ can authorize training a compact constraint-conditioned future-risk model.
 
 The next support canary freezes the exact compiled-box candidate-plus-complete-
 continuation target and changes only state/action excitation. Five explicit
-real query boundaries are E03/60, E02/215, E05/185, E19/25, and E14/120. Each
+real query boundaries are E03/60, E02/215, E05/185, E19/25, and E14/115. Each
 bank contains nominal plus uniform five-action translation corrections along
 world `+/-x`, `+/-y`, and `+/-z` at L2 radii `0.5` and `1.5`, for 13 candidates.
 The basis does not use obstacle normals, rollout outcomes, learned directions,
@@ -4860,3 +4860,10 @@ independently reproduce all 65 outcomes, start positive/contact-free in every
 state, have zero represented-geometry physical false-safes, and expose known
 safe and unsafe L5 actions in every state. Passing authorizes only broader
 episode-grouped collection for a matched 9D relative-endpoint risk model.
+
+Initial producer `40732_4` rejected E14 before candidate simulation because
+the preregistered step 120 requires archived actions through 124, while the
+successful episode ledger ends at action 121. Cases 0--3 completed but remain
+apparatus history. The correction binds E14 to its preceding complete real
+five-action query at step 115 and requires a full clean-commit restart; no
+candidate, target, controller, continuation, timeout, or gate setting changes.

@@ -87,7 +87,7 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         cases = load_cases(ROOT / config["selection_manifest"], config)
         self.assertEqual(
             [warning_step(case, config) for case in cases],
-            [60, 215, 185, 25, 120],
+            [60, 215, 185, 25, 115],
         )
         self.assertFalse(
             config["candidate_bank"][

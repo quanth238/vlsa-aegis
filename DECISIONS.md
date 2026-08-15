@@ -4488,7 +4488,7 @@ registered geometry-independent basis: uniform five-action translations along
 each signed world Cartesian axis at two radii. Rotation and gripper commands
 remain byte-identical to the frozen nominal chunk.
 
-Move four warning states to the adjacent real five-action query boundary most
+Move four warning states to the adjacent complete real five-action query boundary most
 likely to retain positive initial exact slack while placing nominal future risk
 near zero; retain E19/25 as the two-sided positive control. Explicit state
 steps are part of the immutable manifest, not selected from canary outcomes.
@@ -4502,3 +4502,10 @@ formulation against per-constraint exact future violation. If it fails, do not
 train: the selected state timing or simple Cartesian basis still does not
 identify the target. In either case, QP, learned gradients, denoising guidance,
 selected-action execution, and closed-loop claims remain blocked.
+
+Initial producer `40732_4` fails before candidate simulation because E14/120
+does not have a complete five-action archived suffix: the ledger ends at 121.
+Retain all four completed sibling cases as apparatus history and restart the
+whole chain. Bind only E14 to the preceding complete query boundary E14/115;
+this is the deterministic ledger-validity repair and does not change the
+generic basis, exact risk target, OSC, continuation, or acceptance gates.

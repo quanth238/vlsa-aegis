@@ -5,7 +5,7 @@
   "population_manifest": "manifests/vlsa_table1_population.jsonl",
   "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
   "selection_manifest": "manifests/vlsa_distal_generic_l5_boundary_canary.v1.jsonl",
-  "selection_manifest_file_sha256": "0b4c8ad58de7e4e8f6e0fa88c983b3acf21435c8775f6cade5b0e37863a5d5ee",
+  "selection_manifest_file_sha256": "bdc2e13fab7d09cb35af09920492eb8edd0f6e85e47183d161b49dec6f6eb278",
   "target_group_sequence": [
     "L5",
     "L5",
