@@ -23,6 +23,39 @@ def _canonical(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _canonicalize_perception_ellipsoid_rotation(value: Any) -> tuple[Any, dict[str, Any]]:
+    """Return the nearest proper rotation for a diagnostic MVEE orientation.
+
+    MVEE eigenvectors are defined only up to a column sign, so an otherwise
+    valid archived orientation may have determinant -1.  Small serialization
+    drift can also make an archived basis miss the strict Ellipsoid tolerance.
+    The exact compiled-box target never uses this orientation; canonicalizing
+    it keeps the released-perception comparator available without changing the
+    represented ellipsoid axes.
+    """
+    import numpy as np
+
+    rotation = np.asarray(value, dtype=np.float64)
+    if rotation.shape != (3, 3) or not np.all(np.isfinite(rotation)):
+        raise ValueError("perception MVEE rotation must be a finite 3x3 matrix")
+    gram_error = float(np.linalg.norm(rotation.T @ rotation - np.eye(3), ord=np.inf))
+    determinant = float(np.linalg.det(rotation))
+    if gram_error > 1.0e-5 or abs(abs(determinant) - 1.0) > 1.0e-5:
+        raise ValueError("perception MVEE rotation is not an orthogonal basis")
+    left, _, right_t = np.linalg.svd(rotation)
+    projected = left @ right_t
+    if float(np.linalg.det(projected)) < 0.0:
+        left[:, -1] *= -1.0
+        projected = left @ right_t
+    return projected, {
+        "original_determinant": determinant,
+        "original_orthogonality_error_inf": gram_error,
+        "canonicalized": bool(
+            gram_error > 1.0e-8 or determinant < 0.0
+        ),
+    }
+
+
 def _expected_palm_steps(contact_path: Path, geom_name: str) -> set[int]:
     with gzip.open(contact_path, "rt", encoding="utf-8") as stream:
         artifact = json.load(stream)
@@ -223,9 +256,14 @@ def evaluate_case(
             <= 1.0 + float(config["gate"]["vertex_containment_tolerance"])
         )
         perception = archived["perception"]
+        perception_rotation, perception_rotation_record = (
+            _canonicalize_perception_ellipsoid_rotation(
+                perception["mvee_rotation"]
+            )
+        )
         obstacle = Ellipsoid(
             center=perception["mvee_center"],
-            rotation=perception["mvee_rotation"],
+            rotation=perception_rotation,
             semiaxes_m=perception["mvee_semiaxes"],
             body_name=obstacle_name,
             geom_name="released_aegis_perception_mvee",
@@ -685,6 +723,7 @@ def evaluate_case(
                 "contact_free_overlap_sample_count": tight_false_unsafe,
             },
             "tight_with_released_obstacle_proxy": {
+                "rotation_canonicalization": perception_rotation_record,
                 "episode_minimum_support_gap_m": float(np.min(tight_gaps)),
                 "overlap_sample_count": int(np.count_nonzero(tight_gaps <= 0.0)),
                 "physical_false_safe_sample_count": static_obstacle_false_safe,

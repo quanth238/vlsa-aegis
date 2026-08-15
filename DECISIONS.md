@@ -4362,3 +4362,12 @@ aggregate verifier `40564` are submitted from exact clean commit `2c84f96`.
 The cohort contains all 31 unique availability-audit clean palm/L5/L6 contact
 episodes and three shared matched contact-free controls. Arrays are capped at
 two H100s; training remains blocked until verifier `40564` passes.
+
+Producer `40562` is retained as apparatus history rather than scientific
+evidence. Three cases stopped before replay measurements because an unused
+released-obstacle MVEE comparator supplied an orthogonal basis with determinant
+`-1`, which the proper-rotation data class rejected. Canonicalizing the column
+sign (and only negligible serialization drift) preserves the ellipsoid shape
+and cannot alter the exact compiled-box target. Do not combine output across
+the old and repaired commits: restart the complete 34-case producer and its
+independent replay, then apply the unchanged aggregate gate.

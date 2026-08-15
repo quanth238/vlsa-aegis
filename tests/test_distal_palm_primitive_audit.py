@@ -5,6 +5,32 @@ import unittest
 
 
 class PalmPrimitiveAuditTests(unittest.TestCase):
+    def test_diagnostic_perception_rotation_is_canonicalized_without_changing_axes(self):
+        import numpy as np
+
+        from scripts.audit_distal_palm_primitive_case import (
+            _canonicalize_perception_ellipsoid_rotation,
+        )
+
+        reflected = np.diag([1.0, 1.0, -1.0])
+        rotation, record = _canonicalize_perception_ellipsoid_rotation(reflected)
+        self.assertAlmostEqual(float(np.linalg.det(rotation)), 1.0)
+        np.testing.assert_allclose(rotation @ rotation.T, np.eye(3), atol=1.0e-12)
+        np.testing.assert_allclose(
+            reflected @ reflected.T, rotation @ rotation.T, atol=1.0e-12,
+        )
+        self.assertTrue(record["canonicalized"])
+
+    def test_diagnostic_perception_rotation_rejects_nonorthogonal_input(self):
+        import numpy as np
+
+        from scripts.audit_distal_palm_primitive_case import (
+            _canonicalize_perception_ellipsoid_rotation,
+        )
+
+        with self.assertRaisesRegex(ValueError, "not an orthogonal basis"):
+            _canonicalize_perception_ellipsoid_rotation(np.diag([1.0, 1.0, 0.9]))
+
     def _config(self):
         root = Path(__file__).resolve().parents[1]
         return json.loads(

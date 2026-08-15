@@ -4726,3 +4726,15 @@ counts exactly in `1:45/1:40`. Final producer/replay/verifier jobs
 `40562/40563/40564` are running from clean commit `2c84f96`, capped at two
 H100s. The first completed population case, spatial-I task-3 E03, reproduces
 83 L5 and 193 L6 contact samples with zero physical false-safes.
+
+Population producer `40562` exposed an apparatus-only compatibility defect in
+three archived cases (array indices 22, 26, and 30): a diagnostic released-
+perception MVEE orientation was an orthogonal reflection, while the generic
+`Ellipsoid` record requires a proper rotation. The exact compiled-box target
+does not use that obstacle MVEE. The repair canonicalizes only this diagnostic
+orientation to its nearest proper basis, records the original determinant and
+orthogonality error, and leaves the exact palm/L5/L6 target unchanged. Local
+regression tests cover reflected and invalid bases. Because artifacts are
+commit-bound, the full 34-case producer/replay/verifier will be restarted from
+one clean repaired commit rather than mixing the completed old-commit cases
+with replacements.
