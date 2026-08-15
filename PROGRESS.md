@@ -5180,3 +5180,18 @@ two-sided query-state collection with untouched episode groups; only after
 that should a prediction model be tested again. Result/validation file hashes
 are `f6c8807e16e70f8069f888688052c4ff00cc3f638d4d33ef515b957de8a2a7fa`
 and `44a684098c109394f4968fc3047dbfec6fd5e614fff9027e4353f91693af1590`.
+
+ADR-0168 preregisters the prospective Q-only data gate. Ten previously unused
+L5-contact episodes are frozen into six train, two validation, and two test
+episode groups before any candidate outcomes are generated. Each episode uses
+the deterministic real-query boundary
+`floor((first_L5_contact_step-5)/5)*5`; outcome-driven query retiming and split
+movement are forbidden. The exact compiled-box L5 target, 13 symmetric direct
+Cartesian candidates, unchanged OSC, complete fixed continuation, contact/CAR
+checks, and timeout censoring remain identical to ADR-0164--0166, while V
+supervision, candidate correction, and QP are removed. Q-only prediction may
+run only if all ten frozen states are initially positive/contact-free and the
+split has at least 4/2/2 independently two-sided train/validation/test states
+with zero represented-geometry physical false-safes. Validation/test episodes
+remain excluded from normalization and fitting; test is used once after the
+Q-only model and checkpoint rule are frozen.

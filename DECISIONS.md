@@ -4798,3 +4798,15 @@ and `44a684098c109394f4968fc3047dbfec6fd5e614fff9027e4353f91693af1590`;
 payload SHA-256 values are
 `c8ad935b19ad25f1d8d4689375ce5f254c4f5abff4b2566783f857ce73cc65de`
 and `a9155b26be740f230ca15dc216f28f208cf36c6ab643028938cc85d3258d0dca`.
+
+ADR-0168 freezes prospective independent-state collection before another
+model is trained. Use ten previously unused physical episodes with immutable
+6/2/2 train/validation/test membership and exactly one query selected by the
+fixed five-action pre-contact rule. Do not use candidate labels to move the
+query, replace an episode, or rebalance a split. Preserve every initially
+unsafe state, one-sided bank, timeout, contact, and CAR failure in the gate.
+Only a zero-contradiction population with at least 4/2/2 two-sided states may
+authorize the existing Q-only future-risk prediction test. V targets and loss
+tuning are rejected for this gate; learned correction, QP, denoising, closed
+loop, deployment, and a CBF claim remain forbidden regardless of collection
+outcome.

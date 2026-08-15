@@ -82,7 +82,9 @@ def validate(
     validation = {
         "schema_version": VALIDATION_SCHEMA,
         "status": (
-            "passed_same_bank" if producer_summary[
+            "passed_q_only_prediction_coverage"
+            if producer_summary["q_only_prediction_gate_authorized"]
+            else "passed_same_bank" if producer_summary[
                 "same_bank_grouped_collection_authorized"
             ] else "passed_targeted_coverage_canary"
             if producer_summary["targeted_coverage_canary_pass"]
@@ -106,11 +108,15 @@ def validate(
         "targeted_coverage_canary_pass": producer_summary[
             "targeted_coverage_canary_pass"
         ],
-        "training_authorized": False,
+        "training_authorized": producer_summary[
+            "q_only_prediction_gate_authorized"
+        ],
         "QP_authorized": False,
         "closed_loop_authorized": False,
         "interpretation": (
-            "exact_group_boundary_apparatus_and_three_group_bank_pass"
+            "prospective_initially_safe_two_sided_split_coverage_authorizes_Q_only_prediction_gate"
+            if producer_summary["q_only_prediction_gate_authorized"]
+            else "exact_group_boundary_apparatus_and_three_group_bank_pass"
             if producer_summary["same_bank_grouped_collection_authorized"]
             else "earlier_query_targeted_L5_coverage_canary_pass"
             if producer_summary["targeted_coverage_canary_pass"]

@@ -22,6 +22,9 @@ TIMING_LOCALIZATION_CONFIG = (
 TRAJECTORY_VALUE_CONFIG = (
     ROOT / "configs/vlsa_distal_generic_l5_trajectory_value_canary.v1.json"
 )
+PROSPECTIVE_CONFIG = (
+    ROOT / "configs/vlsa_distal_prospective_l5_boundary_population.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -193,6 +196,50 @@ class ExactGroupBoundaryTest(unittest.TestCase):
             current["trajectory_policy_value"]["internal_substeps"],
             "label_authority_only",
         )
+
+    def test_prospective_population_freezes_episode_splits_before_outcomes(self):
+        config = load_config(PROSPECTIVE_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(len(cases), 10)
+        self.assertEqual(
+            [case["split"] for case in cases],
+            ["train"] * 6 + ["validation"] * 2 + ["test"] * 2,
+        )
+        self.assertEqual(len({case["episode_group_id"] for case in cases}), 10)
+        self.assertTrue(all(
+            case["prospective_split_frozen_before_candidate_outcomes"] is True
+            and case["state_step"]
+            == ((case["first_target_contact_step"] - 5) // 5) * 5
+            for case in cases
+        ))
+        self.assertFalse(config["learned_correction_QP_enabled"])
+        self.assertIn("V_loss_or_V_supervision", config["forbidden"])
+
+    def test_prospective_split_gate_requires_two_sided_validation_and_test(self):
+        config = load_config(PROSPECTIVE_CONFIG)
+        splits = ["train"] * 6 + ["validation"] * 2 + ["test"] * 2
+        rows = []
+        for index, split in enumerate(splits):
+            candidates = [_candidate("L5", 0.2) for _ in range(13)]
+            if index < 4 or split != "train":
+                candidates[0] = _candidate("L5", -0.1)
+            row = _case(index, "L5", candidates)
+            row["selection"]["split"] = split
+            rows.append(row)
+        summary = summarize_cases(rows, config)
+        self.assertTrue(summary["apparatus_pass"])
+        self.assertEqual(
+            summary["prospective_split_summary"]["train"]["two_sided_case_count"],
+            4,
+        )
+        self.assertTrue(summary["q_only_prediction_gate_authorized"])
+        self.assertTrue(summary["training_authorized"])
+        rows[-1]["exact_case"]["candidates"] = [
+            _candidate("L5", 0.2) for _ in range(13)
+        ]
+        blocked = summarize_cases(rows, config)
+        self.assertFalse(blocked["q_only_prediction_gate_authorized"])
+        self.assertFalse(blocked["training_authorized"])
 
     def test_two_sided_bank_authorizes_only_grouped_collection(self):
         config = load_config(CONFIG)

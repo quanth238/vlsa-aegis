@@ -13,6 +13,7 @@ CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_canary.v1"
 NO_QP_L5_CONFIG_SCHEMA = "vlsa_distal_no_qp_l5_boundary_canary.v1"
 GENERIC_L5_CONFIG_SCHEMA = "vlsa_distal_generic_l5_boundary_canary.v1"
 TRAJECTORY_VALUE_CONFIG_SCHEMA = "vlsa_distal_generic_l5_trajectory_value_canary.v1"
+PROSPECTIVE_L5_CONFIG_SCHEMA = "vlsa_distal_prospective_l5_boundary_population.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -36,7 +37,7 @@ def load_config(path: Path) -> dict[str, Any]:
     schema = value.get("schema_version")
     if schema not in (
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
-        TRAJECTORY_VALUE_CONFIG_SCHEMA,
+        TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -44,11 +45,15 @@ def load_config(path: Path) -> dict[str, Any]:
         NO_QP_L5_CONFIG_SCHEMA: "vlsa-distal-no-qp-l5-boundary-canary-v1",
         GENERIC_L5_CONFIG_SCHEMA: "vlsa-distal-generic-l5-boundary-canary-v1",
         TRAJECTORY_VALUE_CONFIG_SCHEMA: "vlsa-distal-generic-l5-trajectory-value-canary-v1",
+        PROSPECTIVE_L5_CONFIG_SCHEMA: "vlsa-distal-prospective-l5-boundary-population-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
-    if schema in (GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA):
+    if schema in (
+        GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+        PROSPECTIVE_L5_CONFIG_SCHEMA,
+    ):
         if [float(item) for item in bank["radii"]] != [0.5, 1.5]:
             raise ValueError("generic exact-group boundary radii differ")
         if bank["axis_order"] != ["x", "y", "z"]:
@@ -87,14 +92,33 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
     expected_groups = list(config.get("target_group_sequence", GROUPS))
     if [case["target_group"] for case in cases] != expected_groups:
         raise ValueError("exact-group boundary target cases differ")
-    if len({case["task_level_group_id"] for case in cases}) != len(cases):
+    grouping_key = (
+        "episode_group_id"
+        if config["schema_version"] == PROSPECTIVE_L5_CONFIG_SCHEMA
+        else "task_level_group_id"
+    )
+    if len({case[grouping_key] for case in cases}) != len(cases):
         raise ValueError("exact-group boundary episode groups are not independent")
+    if config["schema_version"] == PROSPECTIVE_L5_CONFIG_SCHEMA:
+        required = config["gate"]["required_split_case_count"]
+        observed = {
+            split: sum(case["split"] == split for case in cases)
+            for split in ("train", "validation", "test")
+        }
+        if observed != {key: int(value) for key, value in required.items()}:
+            raise ValueError("prospective exact-group split counts differ")
+        if not all(
+            case.get("prospective_split_frozen_before_candidate_outcomes") is True
+            for case in cases
+        ):
+            raise ValueError("prospective exact-group split was not frozen")
     return cases
 
 
 def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
     if config.get("schema_version") in (
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+        PROSPECTIVE_L5_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
@@ -188,6 +212,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
                 )
         summaries.append({
             "case_id": case["case_id"],
+            "split": str(case["selection"].get("split", "development")),
             "target_group": target,
             "candidate_count": len(candidates),
             "known_candidate_count": len(known),
@@ -239,6 +264,52 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     targeted_coverage = bool(
         apparatus and two_sided_case_count >= targeted_required
     )
+    prospective_mode = (
+        config.get("schema_version") == PROSPECTIVE_L5_CONFIG_SCHEMA
+    )
+    per_split: dict[str, Any] = {}
+    prospective_gate = False
+    if prospective_mode:
+        required_two_sided = config["gate"]["required_two_sided_by_split"]
+        required_initially_safe = config["gate"]["required_initially_safe_by_split"]
+        for split in ("train", "validation", "test"):
+            rows = [item for item in summaries if item["split"] == split]
+            per_split[split] = {
+                "case_count": len(rows),
+                "initially_safe_case_count": sum(
+                    item["initial_target_slack"] > 0.0
+                    and item["initial_target_contact_count"] == 0
+                    for item in rows
+                ),
+                "two_sided_case_count": sum(
+                    bool(item["target_two_sided_support"]) for item in rows
+                ),
+                "known_candidate_count": sum(
+                    int(item["known_candidate_count"]) for item in rows
+                ),
+                "safe_candidate_count": sum(
+                    int(item["target_safe_candidate_count"]) for item in rows
+                ),
+                "unsafe_candidate_count": sum(
+                    int(item["target_unsafe_candidate_count"]) for item in rows
+                ),
+                "unknown_timeout_count": sum(
+                    int(item["unknown_timeout_count"]) for item in rows
+                ),
+            }
+        prospective_gate = bool(
+            apparatus
+            and proxy_false_safe <= int(config["gate"][
+                "required_maximum_physical_false_safe_count"
+            ])
+            and all(
+                per_split[split]["initially_safe_case_count"]
+                >= int(required_initially_safe[split])
+                and per_split[split]["two_sided_case_count"]
+                >= int(required_two_sided[split])
+                for split in ("train", "validation", "test")
+            )
+        )
     return {
         "case_count": len(cases),
         "candidate_count": sum(item["candidate_count"] for item in summaries),
@@ -258,10 +329,13 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         "two_sided_case_count": two_sided_case_count,
         "required_two_sided_case_count": targeted_required,
         "per_case": summaries,
+        "prospective_split_gate_enabled": prospective_mode,
+        "prospective_split_summary": per_split,
+        "q_only_prediction_gate_authorized": prospective_gate,
         "apparatus_pass": apparatus,
         "targeted_coverage_canary_pass": targeted_coverage,
         "same_bank_grouped_collection_authorized": same_bank,
-        "training_authorized": False,
+        "training_authorized": prospective_gate,
         "QP_authorized": False,
         "closed_loop_authorized": False,
     }

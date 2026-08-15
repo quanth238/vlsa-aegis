@@ -29,7 +29,7 @@ def collect(
 
     from main.multilink_ellipsoid.exact_group_boundary import (
         CASE_SCHEMA, GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
-        load_cases, load_config,
+        PROSPECTIVE_L5_CONFIG_SCHEMA, load_cases, load_config,
         payload_sha256, warning_step,
     )
     from main.multilink_ellipsoid.generic_action_boundary import (
@@ -138,6 +138,7 @@ def collect(
     bank = config["candidate_bank"]
     generic_bank = config["schema_version"] in (
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+        PROSPECTIVE_L5_CONFIG_SCHEMA,
     )
     source_path = run_root / "source-curve.json"
     raw = evaluate(
