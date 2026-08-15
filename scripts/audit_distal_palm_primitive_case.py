@@ -60,6 +60,7 @@ def evaluate_case(
     from main.multilink_ellipsoid.palm_primitive_audit import (
         RESULT_SCHEMA,
         RESULT_SCHEMA_V2,
+        RESULT_SCHEMA_V3,
         compiled_obstacle_templates,
         file_sha256,
         fit_compiled_mesh_geom,
@@ -216,6 +217,23 @@ def evaluate_case(
             bound_source="released_aegis_perception_mvee",
         )
         contact_authority = _contact_model_authority(env, obstacle_name)
+        tracked_obstacle_template = None
+        if "tracked_obstacle" in config:
+            root_id = int(contact_authority["active_obstacle_root_body_id"])
+            root_rotation = np.asarray(
+                env.sim.data.xmat[root_id], dtype=np.float64,
+            ).reshape(3, 3)
+            root_position = np.asarray(
+                env.sim.data.xpos[root_id], dtype=np.float64,
+            )
+            tracked_obstacle_template = {
+                "root_body_id": root_id,
+                "center_local_m": (
+                    root_rotation.T @ (obstacle.center - root_position)
+                ),
+                "rotation_local": root_rotation.T @ obstacle.rotation,
+                "semiaxes_m": obstacle.semiaxes_m.copy(),
+            }
         compiled_templates = None
         if "compiled_obstacle" in config:
             compiled_fit = config["compiled_obstacle"]["fit"]
@@ -239,13 +257,38 @@ def evaluate_case(
             released = _released_aegis_end_effector_ellipsoid(env)
             tight_gap = float(support_gap(tight, obstacle))
             released_gap = float(support_gap(released, obstacle))
-            compiled_gap = (
-                min(
+            if tracked_obstacle_template is not None:
+                root_id = int(tracked_obstacle_template["root_body_id"])
+                root_rotation = np.asarray(
+                    env.sim.data.xmat[root_id], dtype=np.float64,
+                ).reshape(3, 3)
+                root_position = np.asarray(
+                    env.sim.data.xpos[root_id], dtype=np.float64,
+                )
+                primary_obstacle = Ellipsoid(
+                    center=(
+                        root_position
+                        + root_rotation
+                        @ tracked_obstacle_template["center_local_m"]
+                    ),
+                    rotation=(
+                        root_rotation
+                        @ tracked_obstacle_template["rotation_local"]
+                    ),
+                    semiaxes_m=tracked_obstacle_template["semiaxes_m"],
+                    body_id=root_id,
+                    body_name=obstacle_name,
+                    geom_name="pose_tracked_released_aegis_perception_mvee",
+                    bound_source="released_shape_exact_simulator_pose_tracking",
+                )
+                primary_gap = float(support_gap(tight, primary_obstacle))
+            elif compiled_templates is not None:
+                primary_gap = min(
                     float(support_gap(tight, world_ellipsoid(env, item)))
                     for item in compiled_templates
                 )
-                if compiled_templates is not None else tight_gap
-            )
+            else:
+                primary_gap = tight_gap
             contacts = _detailed_active_obstacle_contacts(
                 env,
                 obstacle_name,
@@ -266,7 +309,7 @@ def evaluate_case(
             maximum_obstacle_displacement = max(maximum_obstacle_displacement, displacement)
             trace_rows.append([
                 int(action_index), int(substep_index), tight_gap, released_gap,
-                compiled_gap, palm_contact, len(palm_events), displacement,
+                primary_gap, palm_contact, len(palm_events), displacement,
             ])
             for event in palm_events:
                 position = [float(item) for item in event["position"]]
@@ -278,7 +321,7 @@ def evaluate_case(
                     "position_m": position,
                     "obstacle_geom_name": str(event["obstacle"]["geom_name"]),
                     "tight_support_gap_m": tight_gap,
-                    "compiled_obstacle_union_support_gap_m": compiled_gap,
+                    "primary_obstacle_support_gap_m": primary_gap,
                     "released_support_gap_m": released_gap,
                     "tight_contact_point_quadratic": quadratic,
                     "tight_contact_point_inside": bool(quadratic <= 1.0 + point_tolerance),
@@ -360,10 +403,10 @@ def evaluate_case(
             replay_errors.append("action_boundary_palm_steps")
         tight_gaps = np.asarray([float(row[2]) for row in trace_rows], dtype=np.float64)
         released_gaps = np.asarray([float(row[3]) for row in trace_rows], dtype=np.float64)
-        compiled_gaps = np.asarray([float(row[4]) for row in trace_rows], dtype=np.float64)
+        primary_gaps = np.asarray([float(row[4]) for row in trace_rows], dtype=np.float64)
         contact_flags = np.asarray([bool(row[5]) for row in trace_rows], dtype=bool)
         tight_false_safe = int(np.count_nonzero(
-            contact_flags & (compiled_gaps > overlap_tolerance)
+            contact_flags & (primary_gaps > overlap_tolerance)
         ))
         static_obstacle_false_safe = int(np.count_nonzero(
             contact_flags & (tight_gaps > overlap_tolerance)
@@ -372,7 +415,7 @@ def evaluate_case(
             contact_flags & (released_gaps > overlap_tolerance)
         ))
         tight_false_unsafe = int(np.count_nonzero(
-            (~contact_flags) & (compiled_gaps <= 0.0)
+            (~contact_flags) & (primary_gaps <= 0.0)
         ))
         static_obstacle_false_unsafe = int(np.count_nonzero(
             (~contact_flags) & (tight_gaps <= 0.0)
@@ -384,6 +427,7 @@ def evaluate_case(
         trace_sha = hashlib.sha256(_canonical(trace_rows)).hexdigest()
         result = {
             "schema_version": (
+                RESULT_SCHEMA_V3 if tracked_obstacle_template is not None else
                 RESULT_SCHEMA_V2 if compiled_templates is not None else RESULT_SCHEMA
             ),
             "status": "complete",
@@ -430,6 +474,17 @@ def evaluate_case(
                 }
                 if compiled_templates is not None else None
             ),
+            "tracked_obstacle_binding": (
+                {
+                    "root_body_id": int(tracked_obstacle_template["root_body_id"]),
+                    "center_local_m": tracked_obstacle_template["center_local_m"].tolist(),
+                    "rotation_local": tracked_obstacle_template["rotation_local"].tolist(),
+                    "semiaxes_m": tracked_obstacle_template["semiaxes_m"].tolist(),
+                    "shape_or_threshold_tuning_from_contacts": False,
+                    "privileged_simulation_pose": True,
+                }
+                if tracked_obstacle_template is not None else None
+            ),
             "replay": {
                 "fidelity_pass": bool(not pairing_errors and not replay_errors),
                 "pairing_errors": pairing_errors,
@@ -453,12 +508,14 @@ def evaluate_case(
             },
             "tight_primitive": {
                 "obstacle_representation": (
+                    "released_shape_live_exact_obstacle_root_pose"
+                    if tracked_obstacle_template is not None else
                     "live_certified_compiled_obstacle_geom_union"
                     if compiled_templates is not None else
                     "static_released_AEGIS_perception_MVEE"
                 ),
-                "episode_minimum_support_gap_m": float(np.min(compiled_gaps)),
-                "overlap_sample_count": int(np.count_nonzero(compiled_gaps <= 0.0)),
+                "episode_minimum_support_gap_m": float(np.min(primary_gaps)),
+                "overlap_sample_count": int(np.count_nonzero(primary_gaps <= 0.0)),
                 "physical_false_safe_sample_count": tight_false_safe,
                 "contact_free_overlap_sample_count": tight_false_unsafe,
             },

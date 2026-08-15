@@ -21,8 +21,10 @@ from .shadow import _geom_kind, _name, _numpy, _raw_model_data
 
 CONFIG_SCHEMA = "vlsa_distal_palm_primitive_audit.v1"
 CONFIG_SCHEMA_V2 = "vlsa_distal_palm_primitive_compiled_obstacle_audit.v1"
+CONFIG_SCHEMA_V3 = "vlsa_distal_palm_primitive_tracked_obstacle_audit.v1"
 RESULT_SCHEMA = "vlsa_distal_palm_primitive_case_result.v1"
 RESULT_SCHEMA_V2 = "vlsa_distal_palm_primitive_case_result.v2"
+RESULT_SCHEMA_V3 = "vlsa_distal_palm_primitive_case_result.v3"
 VALIDATION_SCHEMA = "vlsa_distal_palm_primitive_audit_validation.v1"
 
 
@@ -50,15 +52,16 @@ def file_sha256(path: Path) -> str:
 def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
-    compact_v2_keys = {
+    compact_variant_keys = {
         "schema_version", "protocol_id", "base_config",
-        "base_config_file_sha256", "claim_scope", "compiled_obstacle",
-        "comparators",
+        "base_config_file_sha256", "claim_scope", "comparators",
     }
+    optional_variant_keys = {"compiled_obstacle", "tracked_obstacle", "gate_override"}
     if (
         isinstance(value, dict)
-        and value.get("schema_version") == CONFIG_SCHEMA_V2
-        and set(value) == compact_v2_keys
+        and value.get("schema_version") in {CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3}
+        and compact_variant_keys.issubset(value)
+        and set(value).issubset(compact_variant_keys | optional_variant_keys)
     ):
         if repo_root is None:
             raise ValueError("compiled-obstacle palm config requires repo_root")
@@ -68,13 +71,19 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
         base = load_config(base_path, repo_root=repo_root)
         base.pop("config_file_sha256", None)
         base.pop("config_payload_sha256", None)
-        base.update({
+        updates = {
             "schema_version": value["schema_version"],
             "protocol_id": value["protocol_id"],
             "claim_scope": value["claim_scope"],
-            "compiled_obstacle": value["compiled_obstacle"],
             "comparators": value["comparators"],
-        })
+        }
+        if "compiled_obstacle" in value:
+            updates["compiled_obstacle"] = value["compiled_obstacle"]
+        if "tracked_obstacle" in value:
+            updates["tracked_obstacle"] = value["tracked_obstacle"]
+        base.update(updates)
+        if "gate_override" in value:
+            base["gate"].update(value["gate_override"])
         value = base
     expected = {
         "schema_version", "protocol_id", "claim_scope", "source", "cohort",
@@ -83,11 +92,14 @@ def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
     }
     if value.get("schema_version") == CONFIG_SCHEMA_V2:
         expected.add("compiled_obstacle")
+    if value.get("schema_version") == CONFIG_SCHEMA_V3:
+        expected.add("tracked_obstacle")
     if not isinstance(value, dict) or set(value) != expected:
         raise ValueError("palm primitive audit config keys differ")
     variants = {
         CONFIG_SCHEMA: "vlsa-distal-palm-primitive-audit-v1",
         CONFIG_SCHEMA_V2: "vlsa-distal-palm-primitive-compiled-obstacle-audit-v1",
+        CONFIG_SCHEMA_V3: "vlsa-distal-palm-primitive-tracked-obstacle-audit-v1",
     }
     if (
         variants.get(value["schema_version"]) != value["protocol_id"]
@@ -409,6 +421,11 @@ def summarize_case_records(
         and palm_contact_samples > 0
         and tight_false_safe == int(gate["maximum_physical_false_safe_samples"])
         and all(bool(item["primitive_fit"]["certificate_pass"]) for item in records)
+        and tight_safe_controls >= int(gate.get("minimum_tight_safe_controls", 0))
+        and (
+            not bool(gate.get("require_tight_control_acceptance_better_than_released", False))
+            or tight_safe_controls > released_safe_controls
+        )
     )
     return {
         "case_count": len(records),

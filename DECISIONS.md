@@ -4257,3 +4257,28 @@ primitive supplies usable quantitative simulation labels. Run E09/E01 first;
 only if it has zero physical false-safes, exact replay, and accepts the control
 may the unchanged 3/40 population and independent replay proceed. Even a full
 pass authorizes boundary collection for palm/L5/L6, not training or control.
+
+Compiled-union canary `40539` passes contact detection but fails usefulness:
+E09 has zero false-safes and `-70.002 mm` minimum primary gap, while contact-
+free E01 is rejected for 768 samples with `-21.824 mm` minimum. This is the
+expected conservatism of intersecting separately enclosing volumes, not a
+license to tune their scales from two outcomes. Stop this arm before the full
+43-case array.
+
+## ADR-0157: track the frozen obstacle MVEE pose without changing its shape
+
+- Status: preregistered; two-case allocated canary pending
+- Date: 2026-08-15
+
+Keep the tight palm, released obstacle-MVEE shape, cohort, actions, raw-contact
+authority, and zero-false-safe requirement unchanged. At the settled state,
+record the obstacle MVEE center and rotation in the active obstacle root-body
+frame. During replay, update only that rigid pose from exact MuJoCo state. Do
+not change semiaxes, threshold, clearance buffer, or fit based on contacts.
+
+This privileged pose-tracking audit directly tests the canary diagnosis that
+the released static obstacle proxy became stale after physical displacement.
+Require the E09/E01 canary to reproduce replay, detect every palm contact, keep
+E01 predicted safe, and improve control acceptance over the unchanged released
+proxy. Only then run the 3/40 independent replay. This remains a simulation
+label mechanism, not deployable perception or learned safety.

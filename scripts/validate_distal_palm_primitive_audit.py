@@ -27,6 +27,7 @@ def validate(
     from main.multilink_ellipsoid.palm_primitive_audit import (
         RESULT_SCHEMA,
         RESULT_SCHEMA_V2,
+        RESULT_SCHEMA_V3,
         VALIDATION_SCHEMA,
         canonical,
         load_config,
@@ -49,6 +50,7 @@ def validate(
             _require(record_path.is_file(), "palm audit case result is missing")
             record = _load(record_path)
             expected_schema = (
+                RESULT_SCHEMA_V3 if "tracked_obstacle" in config else
                 RESULT_SCHEMA_V2 if "compiled_obstacle" in config else RESULT_SCHEMA
             )
             _require(record.get("schema_version") == expected_schema,

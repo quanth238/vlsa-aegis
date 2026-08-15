@@ -1,0 +1,28 @@
+{
+  "schema_version": "vlsa_distal_palm_primitive_tracked_obstacle_audit.v1",
+  "protocol_id": "vlsa-distal-palm-primitive-tracked-obstacle-audit-v1",
+  "base_config": "configs/vlsa_distal_palm_primitive_audit.v1.json",
+  "base_config_file_sha256": "a0116f2609e1827e1ff804ac95e0097279944f7e67238b989f9ebc1c49baa4c2",
+  "claim_scope": "Development-only validation of a certified tight palm primitive against a rigidly pose-tracked released obstacle MVEE. The obstacle pose is privileged simulator state; this isolates stale-pose error but does not validate deployable perception, learning, control, or formal safety.",
+  "tracked_obstacle": {
+    "shape": "unchanged_released_AEGIS_perception_MVEE",
+    "initial_binding": "settled_MVEE_pose_relative_to_active_obstacle_root_body",
+    "pose_update": "exact_current_MuJoCo_obstacle_root_body_pose",
+    "shape_or_threshold_tuning_from_contacts": false,
+    "privileged_simulation_pose": true
+  },
+  "gate_override": {
+    "minimum_tight_safe_controls": 1,
+    "require_tight_control_acceptance_better_than_released": true
+  },
+  "comparators": {
+    "primary_robot_proxy": "certified_gripper0_hand_collision_mesh_MVEE",
+    "primary_obstacle_proxy": "released_AEGIS_perception_MVEE_rigidly_updated_from_current_obstacle_pose",
+    "released_robot_proxy": {
+      "center": "robot0_grip_site_plus_local_[0,0,-0.08]_m",
+      "semiaxes_m": [0.06, 0.12, 0.11]
+    },
+    "released_obstacle_proxy": "static_released_AEGIS_perception_MVEE",
+    "physical_authority": "raw_MuJoCo_active_obstacle_contact_with_gripper0_hand_collision"
+  }
+}

@@ -41,6 +41,23 @@ class PalmPrimitiveAuditTests(unittest.TestCase):
         self.assertFalse(config["compiled_obstacle"]["fit_uses_contact_outcomes"])
         self.assertIn("privileged simulation", config["claim_scope"])
 
+    def test_tracked_obstacle_variant_changes_only_pose_authority_and_gate(self):
+        from main.multilink_ellipsoid.palm_primitive_audit import load_config
+
+        root = Path(__file__).resolve().parents[1]
+        config = load_config(
+            root / "configs/vlsa_distal_palm_primitive_tracked_obstacle_audit.v1.json",
+            repo_root=root,
+        )
+        self.assertEqual(len(config["cohort"]["contact_case_ids"]), 3)
+        self.assertFalse(
+            config["tracked_obstacle"]["shape_or_threshold_tuning_from_contacts"]
+        )
+        self.assertEqual(config["gate"]["minimum_tight_safe_controls"], 1)
+        self.assertTrue(
+            config["gate"]["require_tight_control_acceptance_better_than_released"]
+        )
+
     def test_summary_passes_only_with_zero_false_safes(self):
         from main.multilink_ellipsoid.palm_primitive_audit import (
             summarize_case_records,

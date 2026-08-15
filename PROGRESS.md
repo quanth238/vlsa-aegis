@@ -4657,3 +4657,18 @@ registered exact or Loewner bounds. This is privileged simulation geometry,
 not deployable perception. The identical 3/40 cohort, archived actions,
 internal-substep sampling, raw contacts, and strict zero-false-safe gate stay
 fixed. A passing canary is required before the full independent replay.
+
+H100 compiled-union canary `40539` catches all 28 E09 palm-contact samples
+with zero false-safes, but it is unusably conservative on E01: the physically
+contact-free control has a `-21.824 mm` minimum and 768 proxy-overlap samples.
+The registered union encloses 21 wine-bottle or 11 mug geoms independently;
+overlap of those enclosing volumes is not equivalent to physical contact.
+Do not shrink or threshold this union after observing the control.
+
+ADR-0157 therefore tests only the stale-pose hypothesis. The released
+obstacle MVEE shape is frozen at the settled state and expressed once in the
+active obstacle root-body frame. At every substep, its pose is updated by the
+current exact MuJoCo root-body transform; no shape, scale, buffer, or threshold
+is fitted. The E09/E01 canary must have zero false-safes and accept E01 more
+often than the unchanged released robot/static-obstacle comparator before the
+full cohort is allowed.
