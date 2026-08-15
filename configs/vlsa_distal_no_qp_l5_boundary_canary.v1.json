@@ -1,0 +1,81 @@
+{
+  "schema_version": "vlsa_distal_no_qp_l5_boundary_canary.v1",
+  "protocol_id": "vlsa-distal-no-qp-l5-boundary-canary-v1",
+  "claim_scope": "Development-only five-state direct Cartesian candidate-to-OSC L5 boundary canary with every safety QP bypassed in the proposed arm. This is not training, prediction, control, generalization, deployment, or a formal safety claim.",
+  "population_manifest": "manifests/vlsa_table1_population.jsonl",
+  "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selection_manifest": "manifests/vlsa_distal_no_qp_l5_boundary_canary.v1.jsonl",
+  "selection_manifest_file_sha256": "bacf65f05172025821b6c7d70a600db0485e3a2ef18eb819e1bdf1612e7fcd3b",
+  "target_group_sequence": ["L5", "L5", "L5", "L5", "L5"],
+  "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+  "base_risk_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
+  "source_geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+  "source_geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+  "exact_geometry_validation": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-exact-compiled-geometry/exact-compiled-geometry-population-20260815b/validation.json",
+    "file_sha256": "ffab8da0984b90b86edbb955de4ab35c66da9b159b71fb4abff12a52d29c6bda",
+    "validation_payload_sha256": "cef3825f63b55e39db11c8a5d0618b6caf93c6d9c84c577b0ce80ac2ee637ca6",
+    "boundary_collection_authorized": true
+  },
+  "state_selection": {
+    "unit": "real_five_action_VLA_query_boundary_on_archived_AEGIS_state",
+    "lead_actions_before_first_target_contact": 3,
+    "formula": "floor((first_target_contact_step-3)/5)*5",
+    "include_k0": true,
+    "require_initial_target_group_positive_and_contact_free": true
+  },
+  "candidate_bank": {
+    "requested_alpha": [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0],
+    "direction": "target_group_closest_exact_compiled_box_center_outward_normal",
+    "temporal_profile": "front_loaded_unit_L2_5_4_3_2_1",
+    "action_limit": 1.0,
+    "released_AEGIS_EE_applied_to_every_candidate": false,
+    "candidate_execution": "direct_clipped_Cartesian_VLA_action_to_unchanged_OSC",
+    "selection_cost": "direct_five_action_L2_from_nominal_VLA_chunk"
+  },
+  "exact_group_target": {
+    "robot_geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "robot_geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e",
+    "palm_geom_name": "gripper0_hand_collision",
+    "palm_fit": {
+      "relative_padding": 1e-9,
+      "khachiyan_tolerance": 0.0001,
+      "khachiyan_max_iterations": 20000
+    },
+    "group_order": ["palm", "L5", "L6"],
+    "robot_rows": {"palm": [0], "L5": [1, 2, 3], "L6": [4, 5]},
+    "groups": {
+      "palm": ["gripper0_hand_collision"],
+      "L5": ["robot0_link5_collision"],
+      "L6": ["robot0_link6_collision"]
+    },
+    "value": "h=sqrt(min_box_quadratic)-1",
+    "units": "dimensionless_not_metric_clearance"
+  },
+  "risk_target": {
+    "primary": "negative_minimum_exact_L5_radial_slack_over_direct_five_action_prefix_plus_complete_fixed_backup",
+    "positive_is_unsafe": true,
+    "unknown_timeout": "censored_not_safe_not_unsafe",
+    "physical_authority": "raw_MuJoCo_palm_L5_L6_contacts_and_paper_CAR"
+  },
+  "gate": {
+    "required_case_count": 5,
+    "required_candidates_per_case": 9,
+    "source_replay_tolerance_m": 1e-9,
+    "legacy_source_proxy_replay": "diagnostic_only",
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10,
+    "near_boundary_abs_slack": 0.05
+  },
+  "learned_correction_QP_enabled": false,
+  "forbidden": [
+    "safety_QP_in_proposed_candidate_execution",
+    "sealed_test_access",
+    "timeout_as_safe_or_unsafe",
+    "MLP_training",
+    "denoising_guidance",
+    "selected_action_execution",
+    "closed_loop_control",
+    "metric_clearance_or_formal_safety_claim"
+  ]
+}

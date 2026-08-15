@@ -55,8 +55,13 @@ def validate(
                      "exact-group source commit differs")
             _require(record.get("result_payload_sha256") == payload_sha256(record),
                      "exact-group result payload differs")
-            _require(record.get("original_AEGIS_EE_QP_enabled") is True,
-                     "original AEGIS EE-QP was disabled")
+            expected_aegis = bool(
+                config["candidate_bank"][
+                    "released_AEGIS_EE_applied_to_every_candidate"
+                ]
+            )
+            _require(record.get("original_AEGIS_EE_QP_enabled") is expected_aegis,
+                     "original AEGIS EE-QP execution mode differs")
             _require(record.get("learned_correction_QP_enabled") is False,
                      "learned correction QP was enabled")
             output.append(record)

@@ -160,10 +160,14 @@ def collect(
             "requested_alpha": bank["requested_alpha"],
             "direction": bank["direction"],
             "temporal_profile": bank["temporal_profile"],
-            "released_AEGIS_EE_applied_to_every_candidate": True,
+            "released_AEGIS_EE_applied_to_every_candidate": bool(
+                bank["released_AEGIS_EE_applied_to_every_candidate"]
+            ),
             "learned_correction_QP_enabled": False,
         },
-        apply_released_aegis_ee_to_all_proposed_actions=True,
+        apply_released_aegis_ee_to_all_proposed_actions=bool(
+            bank["released_AEGIS_EE_applied_to_every_candidate"]
+        ),
         capture_physical_context=True,
         local_frame_provider=local_frame_provider,
         allow_initial_proxy_unsafe_for_empirical_relabel=True,
@@ -217,7 +221,9 @@ def collect(
             "result_payload_sha256": raw["result_payload_sha256"],
         },
         "exact_case": exact_case,
-        "original_AEGIS_EE_QP_enabled": True,
+        "original_AEGIS_EE_QP_enabled": bool(
+            bank["released_AEGIS_EE_applied_to_every_candidate"]
+        ),
         "learned_correction_QP_enabled": False,
         "training_authorized_for_case": False,
     }

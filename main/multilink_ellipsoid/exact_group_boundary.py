@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_canary.v1"
+NO_QP_L5_CONFIG_SCHEMA = "vlsa_distal_no_qp_l5_boundary_canary.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -30,17 +31,24 @@ def payload_sha256(value: Mapping[str, Any], key: str = "result_payload_sha256")
 def load_config(path: Path) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
-    if value.get("schema_version") != CONFIG_SCHEMA:
+    schema = value.get("schema_version")
+    if schema not in (CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA):
         raise ValueError("exact-group boundary config schema differs")
-    if value.get("protocol_id") != "vlsa-distal-exact-group-boundary-canary-v1":
+    expected_protocol = (
+        "vlsa-distal-exact-group-boundary-canary-v1"
+        if schema == CONFIG_SCHEMA
+        else "vlsa-distal-no-qp-l5-boundary-canary-v1"
+    )
+    if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
     if [float(item) for item in bank["requested_alpha"]] != [
         0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0,
     ]:
         raise ValueError("exact-group boundary alpha bank differs")
-    if bank["released_AEGIS_EE_applied_to_every_candidate"] is not True:
-        raise ValueError("released AEGIS EE-QP must remain enabled")
+    expected_aegis = schema == CONFIG_SCHEMA
+    if bank["released_AEGIS_EE_applied_to_every_candidate"] is not expected_aegis:
+        raise ValueError("released AEGIS EE-QP execution mode differs")
     if value["learned_correction_QP_enabled"] is not False:
         raise ValueError("learned correction QP must remain disabled")
     if value["exact_group_target"]["group_order"] != list(GROUPS):
@@ -55,7 +63,8 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
     cases = [json.loads(line) for line in Path(path).read_text().splitlines() if line]
     if len(cases) != int(config["gate"]["required_case_count"]):
         raise ValueError("exact-group boundary case count differs")
-    if [case["target_group"] for case in cases] != list(GROUPS):
+    expected_groups = list(config.get("target_group_sequence", GROUPS))
+    if [case["target_group"] for case in cases] != expected_groups:
         raise ValueError("exact-group boundary target cases differ")
     if len({case["task_level_group_id"] for case in cases}) != len(cases):
         raise ValueError("exact-group boundary episode groups are not independent")
@@ -75,6 +84,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     summaries = []
     proxy_false_safe = 0
     replay_pass = True
+    source_state_hash_pass = True
     for case in cases:
         target = str(case["selection"]["target_group"])
         initial = case["exact_case"]["exact_group_target"]
@@ -100,6 +110,9 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         )
         proxy_false_safe += false_safe
         replay_pass = replay_pass and bool(case["exact_case"]["source_replay_exact"])
+        source_state_hash_pass = source_state_hash_pass and bool(
+            case["exact_case"]["state_hash_matches"]
+        )
         summaries.append({
             "case_id": case["case_id"],
             "target_group": target,
@@ -115,6 +128,11 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             "robot_primitive_certificate_pass": bool(initial["robot_primitive_certificate_pass"]),
             "physical_false_safe_count": false_safe,
         })
+    replay_gate = (
+        source_state_hash_pass
+        if config["gate"].get("legacy_source_proxy_replay") == "diagnostic_only"
+        else replay_pass
+    )
     apparatus = bool(
         len(cases) == int(config["gate"]["required_case_count"])
         and all(item["candidate_count"] == int(config["gate"]["required_candidates_per_case"])
@@ -122,13 +140,17 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         and all(item["robot_primitive_certificate_pass"] for item in summaries)
         and all(item["initial_target_slack"] > 0.0 and item["initial_target_contact_count"] == 0
                 for item in summaries)
-        and replay_pass and proxy_false_safe == 0
+        and replay_gate and proxy_false_safe == 0
     )
     same_bank = bool(apparatus and all(item["target_two_sided_support"] for item in summaries))
     return {
         "case_count": len(cases),
         "candidate_count": sum(item["candidate_count"] for item in summaries),
         "source_replay_exact": replay_pass,
+        "source_state_hash_exact": source_state_hash_pass,
+        "legacy_source_proxy_replay": config["gate"].get(
+            "legacy_source_proxy_replay", "strict"
+        ),
         "physical_false_safe_count": proxy_false_safe,
         "per_case": summaries,
         "apparatus_pass": apparatus,

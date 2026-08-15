@@ -4795,3 +4795,23 @@ status is `apparatus_no_go`; grouped collection, MLP training, QP, and closed
 loop remain unauthorized. Validation file/payload SHA-256 values are
 `8d3f3e3fee6cb41236c256f181694e07fcb6ea5223670846f20d14d5035d698f`
 and `614389369ac78bc7f223b7eda6270d920278d6ec92e7fe43527941bad59ee96b`.
+
+## Direct no-QP L5 boundary canary (preregistered, 2026-08-15)
+
+To isolate the core learned-candidate hypothesis, the next canary removes all
+safety QPs from the proposed candidate execution. The frozen VLA supplies the
+nominal five actions; nine target-relative outward-normal magnitudes are
+clipped only to the registered action bounds and passed directly to the
+unchanged OSC. Released AEGIS remains an archived baseline comparator and is
+not applied to these candidates. No learned QP, gradient correction, MLP,
+denoising guidance, or selected action execution participates.
+
+Five initially valid development states span five independent task/level
+groups and target only L5. Each retains the exact candidate-plus-fixed-backup
+future-risk target, compiled-box geometry, raw palm/L5/L6 contacts, CAR,
+timeouts, and complete internal-substep traces. The apparatus question is only
+whether direct Cartesian candidates produce known safe and unsafe L5 outcomes
+in every state. A legacy released-proxy replay discrepancy is diagnostic only;
+exact source-state hashes plus independent exact scientific reproduction remain
+mandatory. Even a pass authorizes only broader no-QP L5 data collection, not
+training or control.

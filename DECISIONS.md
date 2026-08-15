@@ -4425,3 +4425,30 @@ The strict apparatus flag also records a `1.564e-7 m` legacy released-proxy
 replay discrepancy for L6 with exact source-state and producer/replay
 reproduction. Audit or separate that legacy tolerance in the next apparatus
 revision, but do not treat it as the cause of missing palm/L6 support.
+
+## ADR-0160: Isolate direct Cartesian L5 candidate controllability without QP
+
+- Status: preregistered; paired H100 canary pending
+- Date: 2026-08-15
+
+Stop combining the learned-risk question with released AEGIS action
+projection. In the proposed diagnostic arm, apply the frozen VLA chunk plus
+each registered outward-normal correction directly to the unchanged OSC after
+ordinary action-bound clipping. Disable released AEGIS EE-QP and every new
+safety QP in this arm. Retain released AEGIS only as the immutable baseline
+that generated the saved warning states and as a later comparator.
+
+Use one L5 warning state from each of five development task/level groups. The
+same exact compiled-box L5 target and complete fixed continuation remain the
+authority. Require initially positive/contact-free target state, exact source
+state reproduction, independent producer/replay equality, zero exact-target
+physical false-safes, and known safe/unsafe L5 candidates in every state.
+Timeouts remain unknown. The old released-proxy scalar tolerance no longer
+vetoes this experiment when the exact state and scientific artifacts reproduce.
+
+This is the final support test before learning. If direct candidates are still
+one-sided, the chosen normal-only action family or timing lacks controllability
+and an MLP cannot repair it. If all states are two-sided, collect additional
+episode-grouped boundaries and only then train a finite-candidate future-risk
+selector. Palm/L6 extension, QP, closed loop, and broad safety claims remain
+downstream.
