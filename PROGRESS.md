@@ -5045,3 +5045,22 @@ The incomplete producer outputs are diagnostic only: E02 at step 210 is
 already exact-target unsafe, while E10 step 140 and E22 step 15 are one-sided
 safe. This suggests the useful boundary lies between registered query times,
 but no coverage verdict is allowed until the clean independent replay finishes.
+
+## L5 query-time localization canary (preregistered, 2026-08-15)
+
+Conditioned on exact independent completion of ADR-0164, change only the
+development query boundary using its one-sided classification: move initially
+unsafe E02 from step `210` to `200`; move safe-only E10/E22/E21 from
+`140/15/90` to `150/25/100`; retain two-sided E00 at step `60`. Preserve the
+same five episodes, 13 generic candidates, direct no-QP OSC execution, exact
+compiled-box L5 candidate-plus-backup targets, physical checks, and timeout
+censoring.
+
+Require all five initial states to be exact-target positive/contact-free, zero
+physical false-safes, exact independent replay, and at least `3/5` two-sided
+states. Passing closes the action-controllability/data-identifiability gate and
+authorizes only a larger grouped development collection with prospectively
+sealed episodes. Failure rejects fixed-query localization for this candidate
+family and requires either a within-query adaptive boundary search or a study
+redesign. Training, correction, QP, denoising, closed loop, and test access
+remain blocked.

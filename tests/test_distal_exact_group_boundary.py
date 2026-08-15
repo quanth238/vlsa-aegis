@@ -16,6 +16,9 @@ GENERIC_CONFIG = ROOT / "configs/vlsa_distal_generic_l5_boundary_canary.v1.json"
 OFFSET_COVERAGE_CONFIG = (
     ROOT / "configs/vlsa_distal_generic_l5_offset_coverage_canary.v1.json"
 )
+TIMING_LOCALIZATION_CONFIG = (
+    ROOT / "configs/vlsa_distal_generic_l5_timing_localization_canary.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -149,6 +152,23 @@ class ExactGroupBoundaryTest(unittest.TestCase):
                 "released_AEGIS_EE_applied_to_every_candidate"
             ]
         )
+
+    def test_timing_localization_changes_only_registered_query_steps(self):
+        previous = load_config(OFFSET_COVERAGE_CONFIG)
+        current = load_config(TIMING_LOCALIZATION_CONFIG)
+        previous_cases = load_cases(ROOT / previous["selection_manifest"], previous)
+        current_cases = load_cases(ROOT / current["selection_manifest"], current)
+        self.assertEqual(
+            [case["case_id"] for case in current_cases],
+            [case["case_id"] for case in previous_cases],
+        )
+        self.assertEqual(
+            [warning_step(case, current) for case in current_cases],
+            [200, 150, 25, 100, 60],
+        )
+        self.assertEqual(current["candidate_bank"], previous["candidate_bank"])
+        self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
+        self.assertEqual(current["risk_target"], previous["risk_target"])
 
     def test_two_sided_bank_authorizes_only_grouped_collection(self):
         config = load_config(CONFIG)

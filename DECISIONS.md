@@ -4651,3 +4651,20 @@ canonicalization only to this diagnostic comparator, record it in the state
 artifact, and require a full clean-commit restart. Retain all partial outputs
 and the failed dependent jobs as apparatus history. Scientific settings and
 the `3/5` gate do not change.
+
+## ADR-0165: Localize the controllable L5 boundary by query time only
+
+- Status: preregistered; dependent on independent ADR-0164 completion
+- Date: 2026-08-15
+
+ADR-0164 producer observations place E10/E22/E21 on the safe side, E02 beyond
+the initial safe set, and E00 on a two-sided boundary. Use these development
+outcomes only to move the registered real-query step: `210->200`, `140->150`,
+`15->25`, `90->100`, and retain `60`. Do not alter candidates, target,
+controller, backup, physical authority, or gates.
+
+At least three independent two-sided states, all initially positive and
+contact-free, with exact replay and zero physical false-safes, are required.
+This can authorize broader grouped data collection but not MLP training or
+control. Test episodes must later use a frozen outcome-blind warning rule;
+oracle timing localization is development-data construction only.
