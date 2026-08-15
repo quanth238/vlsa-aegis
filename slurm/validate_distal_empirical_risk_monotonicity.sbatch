@@ -23,14 +23,14 @@ gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]]
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]]
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]]
-[[ -s "$RUN_ROOT/summary.json" && -s "$RUN_ROOT/monotonicity.json" ]]
+[[ -s "$RUN_ROOT/validation.json" && -s "$RUN_ROOT/monotonicity.json" ]]
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/safelibero:$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_distal_empirical_risk_monotonicity.py \
   --repo-root "$REMOTE_REPO" \
   --run-root "$RUN_ROOT" \
-  --dataset-summary "$RUN_ROOT/summary.json" \
+  --dataset-summary "$RUN_ROOT/validation.json" \
   --audit "$RUN_ROOT/monotonicity.json" \
   --config "$REMOTE_REPO/configs/vlsa_distal_empirical_risk_monotonicity.v1.json" \
   --expected-commit "$EXPECTED_GIT_COMMIT" \
