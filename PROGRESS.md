@@ -5158,3 +5158,25 @@ git-identity helper with an outdated signature and stopped before loading any
 artifact or training. Validator `40860` was canceled. The one-line repair
 passes the already registered expected commit to that helper; no scientific
 setting changes.
+
+Clean H100 producer `40861` and validator `40862` complete with zero frozen
+prediction and zero independent-retraining discrepancy. The matched result is
+strict NO-GO for the trajectory-value auxiliary:
+
+- Q-only: RMSE `0.226469`, seven false-safes, zero false-unsafes, safe recall
+  `21/21`, support `3/3`.
+- Q-plus-V: RMSE `0.291339`, seven false-safes, zero false-unsafes, safe recall
+  `21/21`, support `3/3`.
+- Q-plus-V increases RMSE by `28.64%` and shifts mean signed error from
+  `-0.075153` to `-0.211084`, making unseen predictions more optimistic.
+- Familiar-group Q RMSE remains `0.00406--0.00904` across both arms, confirming
+  capacity to fit the available training groups.
+
+Therefore, adding 361 correlated backup/hold value labels does not create the
+missing independent state-level information. It worsens the offset without
+changing threshold errors. Do not tune the V loss, add correction, or enable a
+QP. The next valid data action is prospective independent initially-safe,
+two-sided query-state collection with untouched episode groups; only after
+that should a prediction model be tested again. Result/validation file hashes
+are `f6c8807e16e70f8069f888688052c4ff00cc3f638d4d33ef515b957de8a2a7fa`
+and `44a684098c109394f4968fc3047dbfec6fd5e614fff9027e4353f91693af1590`.

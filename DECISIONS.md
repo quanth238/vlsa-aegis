@@ -4707,7 +4707,7 @@ validation/test groups. QP, calibration, denoising, and control remain blocked.
 
 ## ADR-0167: Permit one matched Q-only versus Q-plus-V mechanism diagnostic
 
-- Status: preregistered; allocation evidence pending
+- Status: completed; strict mechanism NO-GO, control remains blocked
 - Date: 2026-08-16
 
 The user explicitly authorizes a diagnostic exception to test whether the
@@ -4766,3 +4766,35 @@ with its obsolete one-argument signature. Pass the preregistered expected
 commit as the required second argument, cancel dependency-impossible validator
 `40860`, and restart cleanly. This one-line source-binding repair changes no
 data or scientific computation.
+
+Clean H100 producer `40861` and independent deterministic retraining validator
+`40862` complete exactly from commit
+`bb2fda7c4282bac234d88fc00346fb97252227ed`. Frozen prediction and independent
+retraining maximum errors are both zero.
+
+The auxiliary trajectory-value hypothesis fails. Leave-one-two-sided-group-out
+Q-only RMSE is `0.226469` dimensionless with seven false-safes, while Q-plus-V
+RMSE is `0.291339` (a `28.64%` increase) with the same seven false-safes. Both
+retain all 21 safe candidates and support in all three states, but Q-plus-V
+shifts mean signed error from `-0.075153` to a more dangerous `-0.211084`.
+Training RMSE remains only `0.00406--0.00794` for Q-plus-V and
+`0.00595--0.00904` for Q-only, so the shared auxiliary does not repair
+unseen-state transfer despite fitting known groups.
+
+Reject scaling this Q-plus-V formulation. The fixed-policy interior states are
+correlated within the same few episode groups and their state-only direct-L5
+descriptor omits controller/phase information that can determine continuation
+risk; they add samples but not new independent natural-state support. This is
+evidence against the tested shared-supervision object, not against exact
+future-risk targets or policy values in general. Do not tune its loss weight
+on these held-out groups. Return to prospective independent initially-safe,
+two-sided query-state collection and reserve untouched groups before another
+prediction test. Correction, calibration, QP, denoising, closed loop, and CBF
+claims remain blocked.
+
+Result/validation file SHA-256 values are
+`f6c8807e16e70f8069f888688052c4ff00cc3f638d4d33ef515b957de8a2a7fa`
+and `44a684098c109394f4968fc3047dbfec6fd5e614fff9027e4353f91693af1590`;
+payload SHA-256 values are
+`c8ad935b19ad25f1d8d4689375ce5f254c4f5abff4b2566783f857ce73cc65de`
+and `a9155b26be740f230ca15dc216f28f208cf36c6ab643028938cc85d3258d0dca`.
