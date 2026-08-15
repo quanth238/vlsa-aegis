@@ -28,7 +28,8 @@ def collect(
     import numpy as np
 
     from main.multilink_ellipsoid.exact_group_boundary import (
-        CASE_SCHEMA, GENERIC_L5_CONFIG_SCHEMA, load_cases, load_config,
+        CASE_SCHEMA, GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+        load_cases, load_config,
         payload_sha256, warning_step,
     )
     from main.multilink_ellipsoid.generic_action_boundary import (
@@ -135,7 +136,9 @@ def collect(
         }
 
     bank = config["candidate_bank"]
-    generic_bank = config["schema_version"] == GENERIC_L5_CONFIG_SCHEMA
+    generic_bank = config["schema_version"] in (
+        GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+    )
     source_path = run_root / "source-curve.json"
     raw = evaluate(
         repo_root=repo_root,
@@ -209,7 +212,11 @@ def collect(
             "slab_initialization": "query_state_matching_source",
             "candidate_names": [row["name"] for row in raw["candidates"]],
         },
-        audit_config={"gate": config["gate"], "exact_group_target": exact_cfg},
+        audit_config={
+            "gate": config["gate"],
+            "exact_group_target": exact_cfg,
+            "trajectory_policy_value": config.get("trajectory_policy_value"),
+        },
     )
     value = {
         "schema_version": CASE_SCHEMA,

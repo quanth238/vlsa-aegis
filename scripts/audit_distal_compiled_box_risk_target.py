@@ -63,6 +63,10 @@ def _evaluate_case(
 ) -> dict[str, Any]:
     import numpy as np
 
+    from main.multilink_ellipsoid.pncbf_policy_value import (
+        exact_group_action_boundary_values,
+    )
+
     from main.evaluate_safelibero_aegis import (
         TABLE_SETTLE_ACTIONS,
         _active_obstacle,
@@ -246,6 +250,11 @@ def _evaluate_case(
         clock = (int(base.timestep), float(base.cur_time), bool(base.done))
 
         empirical_proxy = audit_config.get("empirical_l6_proxy")
+        trajectory_value_config = audit_config.get("trajectory_policy_value")
+        capture_action_boundaries = bool(
+            trajectory_value_config
+            and trajectory_value_config.get("capture_action_boundaries") is True
+        )
 
         def empirical_slacks(values: Sequence[float]) -> list[float]:
             if empirical_proxy is None:
@@ -336,6 +345,7 @@ def _evaluate_case(
             candidate = by_name[candidate_name]
             actions, phases = candidate_action_sequence(candidate)
             restore_source()
+            observation = base._get_observations()
             proxy_trace = []
             exact_slack_trace = []
             exact_overlap_trace = []
@@ -344,6 +354,7 @@ def _evaluate_case(
             sample_phases = []
             exact_group_trace = []
             exact_group_contacts = {group: [] for group in exact_group_order}
+            action_boundaries = []
 
             def measure(phase: str, action_offset: int, substep: int) -> None:
                 links = geometry._slabbed_links(env)
@@ -411,6 +422,72 @@ def _evaluate_case(
                 sample_phases.append(phase)
 
             for action_offset, (action, phase) in enumerate(zip(actions, phases)):
+                if capture_action_boundaries:
+                    _require(exact_target is not None, "trajectory-value exact target is absent")
+                    current_exact = exact_group_measurement(
+                        state_step + int(action_offset)
+                    )
+                    robot = env.robots[0]
+                    qpos_indexes = getattr(robot, "_ref_joint_pos_indexes", None)
+                    qvel_indexes = getattr(robot, "_ref_joint_vel_indexes", None)
+                    _require(
+                        qpos_indexes is not None and len(qpos_indexes) == 7,
+                        "trajectory-value arm qpos indexes differ",
+                    )
+                    _require(
+                        qvel_indexes is not None and len(qvel_indexes) == 7,
+                        "trajectory-value arm qvel indexes differ",
+                    )
+                    exact_palm = world_ellipsoid(env, exact_palm_template)
+                    exact_distal_rows = exact_shadow._slabbed_links(env)[:5]
+                    exact_robot_rows = [exact_palm] + exact_distal_rows
+                    action_public = np.asarray(action, dtype=np.float64).tolist()
+                    action_boundaries.append({
+                        "action_offset": int(action_offset),
+                        "state_step": state_step + int(action_offset),
+                        "phase": str(phase),
+                        "executed_action": action_public,
+                        "executed_action_sha256": hashlib.sha256(
+                            np.asarray(action, dtype=np.float64).tobytes()
+                        ).hexdigest(),
+                        "dynamic_state": np.asarray(
+                            _dynamic_state_vector(env), dtype=np.float64
+                        ).tolist(),
+                        "arm_joint_position_rad": np.asarray(
+                            env.sim.data.qpos[list(qpos_indexes)], dtype=np.float64
+                        ).tolist(),
+                        "arm_joint_velocity_rad_s": np.asarray(
+                            env.sim.data.qvel[list(qvel_indexes)], dtype=np.float64
+                        ).tolist(),
+                        "eef_position_m": np.asarray(
+                            observation["robot0_eef_pos"], dtype=np.float64
+                        ).tolist(),
+                        "eef_quaternion_xyzw": np.asarray(
+                            observation["robot0_eef_quat"], dtype=np.float64
+                        ).tolist(),
+                        "controller_snapshot": _public(_controller_snapshot(env)[0]),
+                        "exact_robot_rows": [
+                            {
+                                "body_name": str(row.body_name),
+                                "center_m": np.asarray(row.center, dtype=np.float64).tolist(),
+                                "rotation": np.asarray(row.rotation, dtype=np.float64).tolist(),
+                                "semiaxes_m": np.asarray(
+                                    row.semiaxes_m, dtype=np.float64
+                                ).tolist(),
+                            }
+                            for row in exact_robot_rows
+                        ],
+                        "compiled_obstacle_boxes": [
+                            box.to_record()
+                            for box in compiled_obstacle_boxes(env, obstacle_name)
+                        ],
+                        "row_normalized_radial_slack": current_exact[
+                            "row_normalized_radial_slack"
+                        ],
+                        "group_normalized_radial_slack": current_exact[
+                            "group_normalized_radial_slack"
+                        ],
+                    })
                 count_before = len(proxy_trace)
                 original_step = env.sim.step
 
@@ -421,7 +498,7 @@ def _evaluate_case(
 
                 env.sim.step = instrumented_step
                 try:
-                    env.step(action)
+                    observation, _, _, _ = env.step(action)
                 finally:
                     env.sim.step = original_step
                 _require(
@@ -498,6 +575,25 @@ def _evaluate_case(
                     ),
                     "trace": exact_group_trace,
                 }
+                if capture_action_boundaries:
+                    trajectory_value = exact_group_action_boundary_values(
+                        action_boundaries,
+                        exact_group_trace,
+                        group_order=exact_group_order,
+                    )
+                    eligible_phases = set(
+                        str(item)
+                        for item in trajectory_value_config[
+                            "value_training_phases"
+                        ]
+                    )
+                    for record in trajectory_value["records"]:
+                        record["training_sample_eligible"] = bool(
+                            candidate["terminal_status"] != "UNKNOWN_TIMEOUT"
+                            and record["phase"] in eligible_phases
+                        )
+                    exact_group_record["action_boundaries"] = action_boundaries
+                    exact_group_record["trajectory_policy_value"] = trajectory_value
             candidate_records.append({
                 "case_id": case_config["case_id"],
                 "name": candidate_name,

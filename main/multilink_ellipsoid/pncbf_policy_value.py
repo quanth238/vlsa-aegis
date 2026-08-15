@@ -11,6 +11,118 @@ import math
 from typing import Any, Mapping, Sequence
 
 
+def exact_group_action_boundary_values(
+    boundary_records: Sequence[Mapping[str, Any]],
+    substep_trace: Sequence[Mapping[str, Any]],
+    *,
+    group_order: Sequence[str],
+) -> dict[str, Any]:
+    """Construct exact finite-horizon values at controller action boundaries.
+
+    ``boundary_records`` are control-time states sampled before each executed
+    action.  ``substep_trace`` remains the safety authority and contains every
+    MuJoCo substep produced by that action.  This deliberately avoids treating
+    highly correlated internal simulator substeps as independent training
+    states while retaining their worst violation in each value target.
+
+    The sign convention is positive-is-unsafe:
+    ``c_j = -normalized_radial_slack_j``.
+    """
+
+    groups = [str(item) for item in group_order]
+    if not groups or len(groups) != len(set(groups)):
+        raise ValueError("exact-group policy-value group order differs")
+    if not boundary_records:
+        raise ValueError("exact-group policy-value has no action boundaries")
+
+    parsed_boundaries = []
+    previous_offset = None
+    for raw in boundary_records:
+        offset = int(raw["action_offset"])
+        phase = str(raw["phase"])
+        if previous_offset is not None and offset != previous_offset + 1:
+            raise ValueError("exact-group action boundaries are not contiguous")
+        previous_offset = offset
+        slacks = raw["group_normalized_radial_slack"]
+        if set(slacks) != set(groups):
+            raise ValueError("exact-group boundary slack keys differ")
+        current = {group: float(slacks[group]) for group in groups}
+        if not all(math.isfinite(item) for item in current.values()):
+            raise ValueError("exact-group boundary slack is not finite")
+        parsed_boundaries.append((offset, phase, current))
+
+    samples_by_offset: dict[int, list[Mapping[str, Any]]] = {
+        offset: [] for offset, _, _ in parsed_boundaries
+    }
+    for raw in substep_trace:
+        offset = int(raw["action_offset"])
+        if offset not in samples_by_offset:
+            raise ValueError("exact-group substep has no action boundary")
+        slacks = raw["group_normalized_radial_slack"]
+        if set(slacks) != set(groups):
+            raise ValueError("exact-group substep slack keys differ")
+        samples_by_offset[offset].append(raw)
+    if any(not samples for samples in samples_by_offset.values()):
+        raise ValueError("exact-group action has no internal substeps")
+
+    successor: dict[str, float] | None = None
+    records_reversed = []
+    for offset, phase, current_slack in reversed(parsed_boundaries):
+        action_max = {}
+        for group in groups:
+            action_max[group] = max(
+                [-current_slack[group]]
+                + [
+                    -float(sample["group_normalized_radial_slack"][group])
+                    for sample in samples_by_offset[offset]
+                ]
+            )
+        value = dict(action_max) if successor is None else {
+            group: max(action_max[group], successor[group]) for group in groups
+        }
+        residual = max(
+            abs(
+                value[group]
+                - (
+                    action_max[group]
+                    if successor is None
+                    else max(action_max[group], successor[group])
+                )
+            )
+            for group in groups
+        )
+        records_reversed.append({
+            "action_offset": offset,
+            "phase": phase,
+            "current_violation": {
+                group: -current_slack[group] for group in groups
+            },
+            "action_max_violation": action_max,
+            "successor_value": None if successor is None else dict(successor),
+            "value": value,
+            "bellman_residual": residual,
+            "all_groups_safe": max(value.values()) <= 0.0,
+        })
+        successor = value
+
+    records = list(reversed(records_reversed))
+    return {
+        "schema_version": "distal_exact_group_action_boundary_value.v1",
+        "sign_convention": "c_j=-normalized_radial_slack_j; positive_is_unsafe",
+        "value_definition": "V_j(z_t)=max_over_exact_candidate_plus_continuation_c_j",
+        "finite_horizon_only": True,
+        "group_order": groups,
+        "action_boundary_count": len(records),
+        "safe_action_boundary_count": sum(
+            bool(item["all_groups_safe"]) for item in records
+        ),
+        "maximum_bellman_residual": max(
+            float(item["bellman_residual"]) for item in records
+        ),
+        "records": records,
+    }
+
+
 def _matrix(value: Any, *, columns: int = 7) -> list[list[float]]:
     if hasattr(value, "tolist"):
         value = value.tolist()

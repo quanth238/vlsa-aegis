@@ -5064,3 +5064,28 @@ sealed episodes. Failure rejects fixed-query localization for this candidate
 family and requires either a within-query adaptive boundary search or a study
 redesign. Training, correction, QP, denoising, closed loop, and test access
 remain blocked.
+
+## PNCBF-inspired action-boundary trajectory-value canary (preregistered, 2026-08-15)
+
+Review of the official PNCBF implementation isolates a missing data-design
+property rather than a new collision target: it samples many initial and
+random interior control-time states from complete fixed-policy trajectories.
+The current L5 diagnostic instead has many actions at few query snapshots.
+
+Conditioned on ADR-0165, rerun its identical states and candidates with one
+additive capture mode. Record complete robot/controller state, exact compiled-
+box geometry, action, phase, and hash before every controller action. Internal
+MuJoCo substeps remain label authority only. Compute the exact reverse suffix
+value `V_j(z_t) = max_{s >= t} -h_j(z_s)` at action boundaries.
+
+Only known `backup` and `terminal_hold` boundaries are eligible value samples.
+Prefix interior states are excluded because their state does not identify the
+remaining open-loop chunk. Timeouts stay censored. Exact Bellman residual must
+be zero, contexts complete, replay exact, and ADR-0165 must still pass `3/5`
+two-sided states.
+
+After an apparatus pass, compare the same Q-only model with a matched shared
+Q-plus-V auxiliary model, batching half query Q records and half random
+fixed-policy interior V records with episode/state balancing. This directly
+tests whether trajectory-wide state coverage reduces the dominant unseen-state
+risk-offset error. Correction and control remain blocked.

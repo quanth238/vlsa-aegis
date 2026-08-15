@@ -1,12 +1,58 @@
+import json
 import unittest
 
 from main.multilink_ellipsoid.pncbf_policy_value import (
+    exact_group_action_boundary_values,
     exact_suffix_policy_values,
     violation_trace,
 )
 
 
 class DistalPncbfPolicyValueTest(unittest.TestCase):
+    def test_exact_group_values_sample_action_boundaries_not_substeps(self):
+        boundaries = [
+            {
+                "action_offset": 0,
+                "phase": "prefix",
+                "group_normalized_radial_slack": {"L5": 0.3, "L6": 0.5},
+            },
+            {
+                "action_offset": 1,
+                "phase": "backup",
+                "group_normalized_radial_slack": {"L5": 0.2, "L6": 0.4},
+            },
+        ]
+        trace = [
+            {
+                "action_offset": 0,
+                "phase": "prefix",
+                "substep": 0,
+                "group_normalized_radial_slack": {"L5": 0.1, "L6": 0.3},
+            },
+            {
+                "action_offset": 0,
+                "phase": "prefix",
+                "substep": 1,
+                "group_normalized_radial_slack": {"L5": -0.2, "L6": 0.2},
+            },
+            {
+                "action_offset": 1,
+                "phase": "backup",
+                "substep": 0,
+                "group_normalized_radial_slack": {"L5": 0.4, "L6": -0.1},
+            },
+        ]
+        value = exact_group_action_boundary_values(
+            boundaries, trace, group_order=("L5", "L6"),
+        )
+        json.dumps(value, allow_nan=False)
+        self.assertEqual(value["action_boundary_count"], 2)
+        self.assertEqual(value["maximum_bellman_residual"], 0.0)
+        self.assertAlmostEqual(value["records"][0]["value"]["L5"], 0.2)
+        self.assertAlmostEqual(value["records"][0]["value"]["L6"], 0.1)
+        self.assertAlmostEqual(value["records"][1]["value"]["L5"], -0.2)
+        self.assertAlmostEqual(value["records"][1]["value"]["L6"], 0.1)
+
     def test_accepts_array_like_trace_without_importing_numpy(self):
         class ArrayLike:
             def __init__(self, value):

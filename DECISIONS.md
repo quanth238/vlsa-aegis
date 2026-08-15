@@ -4668,3 +4668,27 @@ contact-free, with exact replay and zero physical false-safes, are required.
 This can authorize broader grouped data collection but not MLP training or
 control. Test episodes must later use a frozen outcome-blind warning rule;
 oracle timing localization is development-data construction only.
+
+## ADR-0166: Add exact control-time policy-value states before changing the MLP
+
+- Status: preregistered; dependent on independent ADR-0165 completion
+- Date: 2026-08-15
+
+The official PNCBF code samples initial and random intermediate states from
+complete fixed-policy trajectories. Our artifacts instead provide many actions
+around few query states, so local response fits while state-risk offsets fail
+to transfer. Adopt only the sampling/value idea: record exact action-boundary
+contexts along candidate-plus-fixed-backup rollouts and construct per-group
+reverse suffix maxima with positive values unsafe.
+
+Internal MuJoCo substeps remain label authority, not IID training states. Only
+deterministic backup and terminal-hold boundaries are eligible initially.
+Prefix states are excluded unless the remaining action suffix and phase are in
+the input; timeouts are censored. Since complete continuations are available,
+do not add target bootstrapping, discount curriculum, or target networks.
+
+The apparatus requires independent replay, complete contexts, and zero exact
+Bellman residual, and remains conditional on ADR-0165's `3/5` support gate. A
+later Q-only versus Q-plus-V comparison must freeze Q labels, episode splits,
+capacity, seeds, optimizer, and test states. This gate performs no training and
+authorizes no action selection, QP, guidance, closed loop, or barrier claim.

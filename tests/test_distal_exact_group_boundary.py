@@ -19,6 +19,9 @@ OFFSET_COVERAGE_CONFIG = (
 TIMING_LOCALIZATION_CONFIG = (
     ROOT / "configs/vlsa_distal_generic_l5_timing_localization_canary.v1.json"
 )
+TRAJECTORY_VALUE_CONFIG = (
+    ROOT / "configs/vlsa_distal_generic_l5_trajectory_value_canary.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -169,6 +172,27 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertEqual(current["candidate_bank"], previous["candidate_bank"])
         self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
         self.assertEqual(current["risk_target"], previous["risk_target"])
+
+    def test_trajectory_value_canary_changes_only_capture_contract(self):
+        previous = load_config(TIMING_LOCALIZATION_CONFIG)
+        current = load_config(TRAJECTORY_VALUE_CONFIG)
+        self.assertEqual(current["candidate_bank"], previous["candidate_bank"])
+        self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
+        self.assertEqual(current["risk_target"], previous["risk_target"])
+        self.assertEqual(
+            [warning_step(case, current) for case in load_cases(
+                ROOT / current["selection_manifest"], current,
+            )],
+            [200, 150, 25, 100, 60],
+        )
+        self.assertEqual(
+            current["trajectory_policy_value"]["value_training_phases"],
+            ["backup", "terminal_hold"],
+        )
+        self.assertEqual(
+            current["trajectory_policy_value"]["internal_substeps"],
+            "label_authority_only",
+        )
 
     def test_two_sided_bank_authorizes_only_grouped_collection(self):
         config = load_config(CONFIG)

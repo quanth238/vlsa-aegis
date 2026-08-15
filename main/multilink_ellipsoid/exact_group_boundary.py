@@ -12,6 +12,7 @@ from typing import Any, Mapping, Sequence
 CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_canary.v1"
 NO_QP_L5_CONFIG_SCHEMA = "vlsa_distal_no_qp_l5_boundary_canary.v1"
 GENERIC_L5_CONFIG_SCHEMA = "vlsa_distal_generic_l5_boundary_canary.v1"
+TRAJECTORY_VALUE_CONFIG_SCHEMA = "vlsa_distal_generic_l5_trajectory_value_canary.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -35,17 +36,19 @@ def load_config(path: Path) -> dict[str, Any]:
     schema = value.get("schema_version")
     if schema not in (
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
+        TRAJECTORY_VALUE_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
         CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-canary-v1",
         NO_QP_L5_CONFIG_SCHEMA: "vlsa-distal-no-qp-l5-boundary-canary-v1",
         GENERIC_L5_CONFIG_SCHEMA: "vlsa-distal-generic-l5-boundary-canary-v1",
+        TRAJECTORY_VALUE_CONFIG_SCHEMA: "vlsa-distal-generic-l5-trajectory-value-canary-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
-    if schema == GENERIC_L5_CONFIG_SCHEMA:
+    if schema in (GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA):
         if [float(item) for item in bank["radii"]] != [0.5, 1.5]:
             raise ValueError("generic exact-group boundary radii differ")
         if bank["axis_order"] != ["x", "y", "z"]:
@@ -63,6 +66,14 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("learned correction QP must remain disabled")
     if value["exact_group_target"]["group_order"] != list(GROUPS):
         raise ValueError("exact-group order differs")
+    if schema == TRAJECTORY_VALUE_CONFIG_SCHEMA:
+        trajectory = value.get("trajectory_policy_value", {})
+        if trajectory.get("capture_action_boundaries") is not True:
+            raise ValueError("trajectory-value action-boundary capture differs")
+        if trajectory.get("value_training_phases") != ["backup", "terminal_hold"]:
+            raise ValueError("trajectory-value fixed-policy phases differ")
+        if trajectory.get("internal_substeps") != "label_authority_only":
+            raise ValueError("trajectory-value substep sampling differs")
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(canonical(value)).hexdigest()
@@ -82,7 +93,9 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
-    if config.get("schema_version") == GENERIC_L5_CONFIG_SCHEMA:
+    if config.get("schema_version") in (
+        GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
+    ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
             raise ValueError("generic exact-group state step differs")
@@ -100,6 +113,12 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     proxy_false_safe = 0
     replay_pass = True
     source_state_hash_pass = True
+    trajectory_mode = config.get("schema_version") == TRAJECTORY_VALUE_CONFIG_SCHEMA
+    trajectory_candidate_count = 0
+    trajectory_action_boundary_count = 0
+    trajectory_eligible_value_state_count = 0
+    trajectory_maximum_bellman_residual = 0.0
+    trajectory_context_complete = True
     for case in cases:
         target = str(case["selection"]["target_group"])
         initial = case["exact_case"]["exact_group_target"]
@@ -128,6 +147,45 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         source_state_hash_pass = source_state_hash_pass and bool(
             case["exact_case"]["state_hash_matches"]
         )
+        if trajectory_mode:
+            required_context = {
+                "dynamic_state", "arm_joint_position_rad",
+                "arm_joint_velocity_rad_s", "eef_position_m",
+                "eef_quaternion_xyzw", "controller_snapshot",
+                "exact_robot_rows", "compiled_obstacle_boxes",
+                "group_normalized_radial_slack", "executed_action",
+            }
+            for candidate in candidates:
+                exact = candidate["exact_group_target"]
+                boundaries = exact.get("action_boundaries", [])
+                trajectory = exact.get("trajectory_policy_value", {})
+                records = trajectory.get("records", [])
+                trajectory_candidate_count += 1
+                trajectory_action_boundary_count += len(boundaries)
+                trajectory_eligible_value_state_count += sum(
+                    bool(record.get("training_sample_eligible"))
+                    for record in records
+                )
+                trajectory_maximum_bellman_residual = max(
+                    trajectory_maximum_bellman_residual,
+                    float(trajectory.get("maximum_bellman_residual", math.inf)),
+                )
+                trajectory_context_complete = bool(
+                    trajectory_context_complete
+                    and len(boundaries) == int(candidate["action_count"])
+                    and len(records) == len(boundaries)
+                    and all(required_context.issubset(boundary) for boundary in boundaries)
+                    and all(
+                        bool(record.get("training_sample_eligible"))
+                        == bool(
+                            exact["known_outcome"]
+                            and record["phase"] in config[
+                                "trajectory_policy_value"
+                            ]["value_training_phases"]
+                        )
+                        for record in records
+                    )
+                )
         summaries.append({
             "case_id": case["case_id"],
             "target_group": target,
@@ -148,6 +206,19 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         if config["gate"].get("legacy_source_proxy_replay") == "diagnostic_only"
         else replay_pass
     )
+    trajectory_apparatus_pass = bool(
+        not trajectory_mode
+        or (
+            trajectory_candidate_count == sum(
+                len(case["exact_case"]["candidates"]) for case in cases
+            )
+            and trajectory_context_complete
+            and trajectory_maximum_bellman_residual <= float(
+                config["gate"]["required_maximum_bellman_residual"]
+            )
+            and trajectory_eligible_value_state_count > 0
+        )
+    )
     apparatus = bool(
         len(cases) == int(config["gate"]["required_case_count"])
         and all(item["candidate_count"] == int(config["gate"]["required_candidates_per_case"])
@@ -156,6 +227,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         and all(item["initial_target_slack"] > 0.0 and item["initial_target_contact_count"] == 0
                 for item in summaries)
         and replay_gate and proxy_false_safe == 0
+        and trajectory_apparatus_pass
     )
     same_bank = bool(apparatus and all(item["target_two_sided_support"] for item in summaries))
     two_sided_case_count = sum(
@@ -176,6 +248,13 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             "legacy_source_proxy_replay", "strict"
         ),
         "physical_false_safe_count": proxy_false_safe,
+        "trajectory_policy_value_enabled": trajectory_mode,
+        "trajectory_policy_value_apparatus_pass": trajectory_apparatus_pass,
+        "trajectory_candidate_count": trajectory_candidate_count,
+        "trajectory_action_boundary_count": trajectory_action_boundary_count,
+        "trajectory_eligible_value_state_count": trajectory_eligible_value_state_count,
+        "trajectory_context_complete": trajectory_context_complete,
+        "trajectory_maximum_bellman_residual": trajectory_maximum_bellman_residual,
         "two_sided_case_count": two_sided_case_count,
         "required_two_sided_case_count": targeted_required,
         "per_case": summaries,
