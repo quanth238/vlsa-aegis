@@ -67,6 +67,8 @@ def _evaluate_case(
         TABLE_SETTLE_ACTIONS,
         _active_obstacle,
         _build_environment,
+        _contact_model_authority,
+        _detailed_active_obstacle_contacts,
         _runtime_imports,
         _settle,
         read_jsonl,
@@ -78,6 +80,11 @@ def _evaluate_case(
     from main.multilink_ellipsoid.obstacle_proxy_audit import (
         compiled_obstacle_boxes,
         evaluate_obstacle_representations,
+        minimum_ellipsoid_quadratics_over_boxes,
+    )
+    from main.multilink_ellipsoid.palm_primitive_audit import (
+        fit_compiled_mesh_geom,
+        world_ellipsoid,
     )
     from main.multilink_ellipsoid.l6_proxy_scale_audit import rescale_row_slacks
     from main.multilink_ellipsoid.rollout import (
@@ -139,11 +146,19 @@ def _evaluate_case(
             observation[obstacle_name + "_pos"], dtype=np.float64
         ).copy()
         perception = archived["perception"]
+        from scripts.audit_distal_palm_primitive_case import (
+            _canonicalize_perception_ellipsoid_rotation,
+        )
+        perception_rotation, perception_rotation_record = (
+            _canonicalize_perception_ellipsoid_rotation(
+                perception["mvee_rotation"]
+            )
+        )
         geometry = MultilinkEllipsoidShadow.from_aegis_geometry(
             geometry_config,
             {
                 "p2": perception["mvee_center"],
-                "R2": perception["mvee_rotation"],
+                "R2": perception_rotation,
                 "Q2_diag": perception["mvee_semiaxes"],
                 "record": {"label": perception["obstacle_label"]},
             },
@@ -155,6 +170,59 @@ def _evaluate_case(
             geometry._slabbed_links(env, include_certificates=True)
         elif case_config["slab_initialization"] != "query_state_matching_source":
             raise ValueError("compiled-box slab initialization differs")
+
+        exact_target = audit_config.get("exact_group_target")
+        exact_shadow = None
+        exact_palm_template = None
+        exact_group_order: list[str] = []
+        exact_group_rows: dict[str, list[int]] = {}
+        exact_geom_to_group: dict[str, str] = {}
+        exact_certificate_pass = None
+        contact_authority = None
+        if exact_target is not None:
+            exact_geometry_path = repo_root / str(
+                exact_target["robot_geometry_config"]
+            )
+            exact_geometry_config = load_shadow_config(exact_geometry_path)
+            exact_shadow = MultilinkEllipsoidShadow.from_aegis_geometry(
+                exact_geometry_config,
+                {
+                    "p2": perception["mvee_center"],
+                    "R2": perception_rotation,
+                    "Q2_diag": perception["mvee_semiaxes"],
+                    "record": {"label": perception["obstacle_label"]},
+                },
+            )
+            palm_fit = exact_target["palm_fit"]
+            exact_palm_template = fit_compiled_mesh_geom(
+                env,
+                str(exact_target["palm_geom_name"]),
+                relative_padding=float(palm_fit["relative_padding"]),
+                tolerance=float(palm_fit["khachiyan_tolerance"]),
+                max_iterations=int(palm_fit["khachiyan_max_iterations"]),
+            )
+            exact_distal = exact_shadow._slabbed_links(
+                env, include_certificates=True
+            )[:5]
+            exact_certificate_pass = bool(
+                (exact_palm_template.enclosure_certificate or {}).get("verified")
+                and all(
+                    bool((row.enclosure_certificate or {}).get("verified"))
+                    for row in exact_distal
+                )
+            )
+            exact_group_order = list(exact_target["group_order"])
+            exact_group_rows = {
+                str(group): [int(index) for index in indices]
+                for group, indices in exact_target["robot_rows"].items()
+            }
+            exact_geom_to_group = {
+                str(geom_name): str(group)
+                for group, geom_names in exact_target["groups"].items()
+                for geom_name in geom_names
+            }
+            compiled_obstacle_boxes(env, obstacle_name)
+            contact_authority = _contact_model_authority(env, obstacle_name)
 
         action_rows = {int(row["step"]): row for row in archived["actions"]}
         state_step = int(case_config["state_step"])
@@ -188,6 +256,47 @@ def _evaluate_case(
                 scaled_rows=empirical_proxy["scaled_rows"],
             )
 
+        def exact_group_measurement(step: int) -> Optional[dict[str, Any]]:
+            if exact_target is None:
+                return None
+            palm = world_ellipsoid(env, exact_palm_template)
+            distal = exact_shadow._slabbed_links(env)[:5]
+            robot_rows = [palm] + distal
+            boxes = compiled_obstacle_boxes(env, obstacle_name)
+            pair_quadratics = minimum_ellipsoid_quadratics_over_boxes(
+                robot_rows, boxes,
+            )
+            row_slack = np.sqrt(np.min(pair_quadratics, axis=1)) - 1.0
+            group_slack = {
+                group: float(min(row_slack[index] for index in indices))
+                for group, indices in exact_group_rows.items()
+            }
+            contacts = _detailed_active_obstacle_contacts(
+                env,
+                obstacle_name,
+                step=int(step),
+                contact_authority=contact_authority,
+            )
+            _require(
+                contacts["status"] == "available",
+                "exact-group contact evidence unavailable",
+            )
+            group_events = {group: [] for group in exact_group_order}
+            for event in contacts["events"]:
+                if event.get("other", {}).get("classification") != "robot":
+                    continue
+                group = exact_geom_to_group.get(
+                    str(event.get("other", {}).get("geom_name"))
+                )
+                if group is not None:
+                    group_events[group].append(event)
+            return {
+                "row_normalized_radial_slack": row_slack.tolist(),
+                "group_normalized_radial_slack": group_slack,
+                "group_contact_events": group_events,
+                "compiled_box_count": len(boxes),
+            }
+
         initial_links = geometry._slabbed_links(env)
         initial_boxes = compiled_obstacle_boxes(env, obstacle_name)
         initial_representation = evaluate_obstacle_representations(
@@ -202,6 +311,7 @@ def _evaluate_case(
             ]
         )
         initial_contacts = _protected_contact_evidence(env, obstacle_name)
+        initial_exact_group = exact_group_measurement(state_step)
 
         def restore_source() -> None:
             env.sim.set_state_from_flattened(simulator_state)
@@ -232,6 +342,8 @@ def _evaluate_case(
             contacts = []
             displacements = []
             sample_phases = []
+            exact_group_trace = []
+            exact_group_contacts = {group: [] for group in exact_group_order}
 
             def measure(phase: str, action_offset: int, substep: int) -> None:
                 links = geometry._slabbed_links(env)
@@ -268,6 +380,32 @@ def _evaluate_case(
                         "substep": int(substep),
                         **event,
                     })
+                exact_sample = exact_group_measurement(
+                    state_step + int(action_offset)
+                )
+                if exact_sample is not None:
+                    exact_group_trace.append({
+                        "phase": phase,
+                        "action_offset": int(action_offset),
+                        "substep": int(substep),
+                        "row_normalized_radial_slack": exact_sample[
+                            "row_normalized_radial_slack"
+                        ],
+                        "group_normalized_radial_slack": exact_sample[
+                            "group_normalized_radial_slack"
+                        ],
+                        "compiled_box_count": exact_sample["compiled_box_count"],
+                    })
+                    for group, events in exact_sample[
+                        "group_contact_events"
+                    ].items():
+                        for event in events:
+                            exact_group_contacts[group].append({
+                                "phase": phase,
+                                "action_offset": int(action_offset),
+                                "substep": int(substep),
+                                **event,
+                            })
                 obstacle = np.asarray(env.sim.data.xpos[obstacle_id], dtype=np.float64)
                 displacements.append(float(np.sum(np.abs(obstacle - obstacle_reference))))
                 sample_phases.append(phase)
@@ -312,6 +450,54 @@ def _evaluate_case(
                 and not contacts
                 and replay_car <= car_limit
             )
+            exact_group_record = None
+            if exact_target is not None:
+                _require(
+                    len(exact_group_trace) == len(proxy_trace),
+                    "exact-group trace length differs",
+                )
+                group_minimum = {
+                    group: min(
+                        float(sample["group_normalized_radial_slack"][group])
+                        for sample in exact_group_trace
+                    )
+                    for group in exact_group_order
+                }
+                phase_minimum = {
+                    phase: {
+                        group: min(
+                            float(sample["group_normalized_radial_slack"][group])
+                            for sample in exact_group_trace
+                            if sample["phase"] == phase
+                        )
+                        for group in exact_group_order
+                    }
+                    for phase in ("prefix", "backup", "terminal_hold")
+                    if any(sample["phase"] == phase for sample in exact_group_trace)
+                }
+                group_contact_count = {
+                    group: len(events)
+                    for group, events in exact_group_contacts.items()
+                }
+                exact_group_record = {
+                    "group_order": exact_group_order,
+                    "group_minimum_normalized_radial_slack": group_minimum,
+                    "group_future_violation": {
+                        group: -float(value)
+                        for group, value in group_minimum.items()
+                    },
+                    "phase_group_minimum_normalized_radial_slack": phase_minimum,
+                    "group_contact_sample_count": group_contact_count,
+                    "group_contact_events": exact_group_contacts,
+                    "known_outcome": candidate["terminal_status"] != "UNKNOWN_TIMEOUT",
+                    "safe_terminal": bool(
+                        candidate["terminal_status"] == "SAFE_TERMINAL"
+                        and min(group_minimum.values()) > 0.0
+                        and sum(group_contact_count.values()) == 0
+                        and replay_car <= car_limit
+                    ),
+                    "trace": exact_group_trace,
+                }
             candidate_records.append({
                 "case_id": case_config["case_id"],
                 "name": candidate_name,
@@ -344,6 +530,7 @@ def _evaluate_case(
                 "compiled_box_risk": float(-np.min(slack)),
                 "compiled_box_any_exact_overlap": any_exact_overlap,
                 "compiled_box_safe_terminal": compiled_safe_terminal,
+                "exact_group_target": exact_group_record,
                 "empirical_l6_proxy": empirical_proxy,
                 "sample_count": int(len(proxy_trace)),
                 "action_count": len(actions),
@@ -407,6 +594,30 @@ def _evaluate_case(
             ),
             "initial_raw_protected_contact_count": int(
                 initial_contacts["nonpositive_protected_contact_count"]
+            ),
+            "perception_rotation_canonicalization": perception_rotation_record,
+            "exact_group_target": (
+                None
+                if exact_target is None
+                else {
+                    "group_order": exact_group_order,
+                    "robot_primitive_certificate_pass": exact_certificate_pass,
+                    "initial_row_normalized_radial_slack": initial_exact_group[
+                        "row_normalized_radial_slack"
+                    ],
+                    "initial_group_normalized_radial_slack": initial_exact_group[
+                        "group_normalized_radial_slack"
+                    ],
+                    "initial_group_contact_sample_count": {
+                        group: len(events)
+                        for group, events in initial_exact_group[
+                            "group_contact_events"
+                        ].items()
+                    },
+                    "compiled_box_count": initial_exact_group[
+                        "compiled_box_count"
+                    ],
+                }
             ),
             "source_replay_exact": source_replay_exact,
             "candidates": candidate_records,

@@ -4386,3 +4386,27 @@ episode-grouped, initially valid, two-sided candidate-plus-fixed-backup
 boundaries for palm/L5/L6. Do not train merely from the contact cohort: the
 MLP gate still requires independently validated near-boundary safe/unsafe
 support and untouched episode splits.
+
+## ADR-0159: Three-group exact boundary apparatus before population collection
+
+- Status: preregistered; paired H100 canary pending
+- Date: 2026-08-15
+
+Before scaling collection, run one independent development state for each
+authorized group: palm, L5, and L6. Select the last real five-action query
+boundary at least three actions before the first registered target-group
+contact. Generate the unchanged nine normal magnitudes, but derive the normal
+from the target group's closest exact robot-ellipsoid/compiled-box pair.
+
+Retain the frozen VLA, exact state/noise/action binding, released AEGIS EE-QP,
+five-action prefix, and complete fixed backup. The released EE-QP is applied
+once to every proposal; no learned whole-body QP participates. Exact compiled-
+box group slack, raw group contacts, CAR, phases, failures, clipping, and
+timeouts are all retained at every internal substep. The source and an
+independent replay must match exactly.
+
+Passing the apparatus plus two-sided support for all three small banks permits
+only the same-bank grouped collection. A one-sided group triggers candidate-
+bank or warning-state revision. Geometry/contact contradiction triggers
+apparatus NO-GO. MLP training, calibration, QP, denoising, closed loop, test
+access, deployment, metric-clearance, and formal-safety claims remain blocked.

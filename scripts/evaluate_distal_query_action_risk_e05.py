@@ -105,6 +105,9 @@ def evaluate(
     adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
     prime_slabbed_geometry_at_initial_state: bool = False,
     capture_physical_context: bool = False,
+    local_frame_provider: Optional[
+        Callable[[Any, str, Any], Mapping[str, Any]]
+    ] = None,
     allow_initial_proxy_unsafe_for_empirical_relabel: bool = False,
 ) -> dict[str, Any]:
     import time
@@ -245,6 +248,19 @@ def evaluate(
         links = geometry._slabbed_links(env)
         active_row = int(np.argmin(current))
         normal = np.asarray(links[active_row].center) - np.asarray(geometry.obstacle.center)
+        frame_binding = {
+            "source": "released_proxy_active_distal_row_center_direction",
+            "active_row": active_row,
+            "normal": normal.tolist(),
+        }
+        if local_frame_provider is not None:
+            frame_binding = dict(local_frame_provider(env, obstacle_name, geometry))
+            normal = np.asarray(frame_binding["normal"], dtype=np.float64)
+            _require(
+                normal.shape == (3,) and np.all(np.isfinite(normal))
+                and float(np.linalg.norm(normal)) > 0.0,
+                "candidate local-frame provider returned an invalid normal",
+            )
         frame = orthonormal_local_frame(normal)
         state_context = None
         if adaptive_boundary_config is not None or capture_physical_context:
@@ -1020,6 +1036,7 @@ def evaluate(
                 "initial_active_obstacle_l1_displacement_m": current_car,
                 "active_row": active_row,
                 "local_frame": frame,
+                "candidate_frame_binding": _public(frame_binding),
                 "physical_context": state_context,
                 "initial_proxy_gate_bypassed_for_empirical_relabel": bool(
                     allow_initial_proxy_unsafe_for_empirical_relabel

@@ -4759,3 +4759,23 @@ and file SHA-256 is
 The exact compiled-box target is now frozen and palm/L5/L6 boundary collection
 is authorized. Training, QP, denoising, and closed-loop control remain blocked
 until grouped two-sided boundary coverage is independently validated.
+
+## Exact palm/L5/L6 boundary apparatus canary (preregistered, 2026-08-15)
+
+The next phase is frozen to three independent development query states: palm
+E09 at step 20, L5 E19 at step 25, and L6 E09 at step 110. At each state, nine
+front-loaded outward-normal magnitudes are generated from the target group's
+closest certified robot primitive and exact compiled obstacle box. Every
+proposal passes through the original released AEGIS EE-QP exactly once, then
+the resulting five actions and unchanged complete fixed backup are replayed.
+The new learned correction QP, MLP training, denoising guidance, selected-
+action execution, closed loop, and sealed tests remain disabled.
+
+Authoritative labels are the internal-substep minimum exact dimensionless
+radial slack and raw MuJoCo contact/CAR evidence, with prefix and backup phases
+retained and timeouts censored. An independent H100 replay must reproduce all
+27 candidates, all primitive certificates, actions, states, exact traces,
+contacts, and CAR. The apparatus may authorize only a broader episode-grouped
+collection, and only if each palm/L5/L6 bank contains known safe and unsafe
+target outcomes with zero represented-geometry physical false-safes. It cannot
+authorize training or control.
