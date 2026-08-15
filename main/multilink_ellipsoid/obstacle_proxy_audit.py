@@ -189,6 +189,22 @@ def evaluate_obstacle_representations(
                 overlaps.append(row)
     closest = min(exact_rows, key=lambda item: item["normalized_radial_slack"])
     closest_loewner = min(loewner_rows, key=lambda item: item["support_gap_m"])
+    row_minimum_slack = [
+        min(
+            item["normalized_radial_slack"]
+            for item in exact_rows
+            if int(item["link_index"]) == link_index
+        )
+        for link_index in range(7)
+    ]
+    row_overlap = [
+        any(
+            bool(item["exact_solid_overlap"])
+            for item in exact_rows
+            if int(item["link_index"]) == link_index
+        )
+        for link_index in range(7)
+    ]
     return {
         "perceived_mvee_row_clearance_m": perceived.tolist(),
         "perceived_mvee_minimum_clearance_m": float(np.min(perceived)),
@@ -197,6 +213,8 @@ def evaluate_obstacle_representations(
         ),
         "compiled_box_union_any_exact_solid_overlap": bool(overlaps),
         "compiled_box_union_exact_overlap_count": len(overlaps),
+        "compiled_box_union_row_minimum_normalized_radial_slack": row_minimum_slack,
+        "compiled_box_union_row_any_exact_solid_overlap": row_overlap,
         "compiled_box_union_closest_pair": closest,
         "compiled_box_loewner_minimum_support_gap_m": float(
             closest_loewner["support_gap_m"]

@@ -1,0 +1,65 @@
+{
+  "schema_version": "vlsa_distal_compiled_box_risk_target_audit.v1",
+  "protocol_id": "vlsa-distal-compiled-box-risk-target-audit-v1",
+  "claim_scope": "opened_two_state_no_learning_mechanism_audit_of_whether_exact_compiled_obstacle_boxes_rescue_physically_safe_L6_candidates_rejected_by_the_released_perception_MVEE",
+  "population_manifest": "manifests/vlsa_table1_population.jsonl",
+  "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+  "geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e44",
+      "state_step": 110,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-normal-risk-curve/normal-risk-curve-20260815a/case-02/result.json",
+      "source_result_file_sha256": "27423295832860239242443ab9df381f5d6595740249284be7b0746e2ce2b39f",
+      "source_result_payload_sha256": "36a282a9745b1ff2ae375f5d8ce9f70a85a56aa83f01514fb6c8524829eecfd1",
+      "slab_initialization": "query_state_matching_source",
+      "candidate_names": [
+        "nominal",
+        "normal_alpha_0.75",
+        "normal_alpha_1.25",
+        "normal_alpha_1.75"
+      ]
+    },
+    {
+      "case_id": "vlsa-t1-goal-ii-t3-e42",
+      "state_step": 105,
+      "source_result": "/mnt/data/quanth/experiments/vlsa-distal-later-warning-candidate-bank/later-warning-candidate-bank-20260815b/result.json",
+      "source_result_file_sha256": "f23b934ab4ddc2c0ddf830538561550f51bf1a7336ddef0e2c28b371e45c193d",
+      "source_result_payload_sha256": "78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5",
+      "slab_initialization": "settled_initial_state_matching_source",
+      "candidate_names": [
+        "normal_alpha_1.25",
+        "normal_alpha_1.50",
+        "normal_alpha_1.75",
+        "normal_alpha_2.00"
+      ]
+    }
+  ],
+  "target": {
+    "compiled_obstacle_source": "mujoco_contact_capable_box_union",
+    "positive_is_unsafe": true,
+    "risk_definition": "negative_minimum_normalized_radial_slack",
+    "risk_units": "dimensionless_not_metric_clearance",
+    "robot_geometry": "unchanged_seven_certified_L5_L6_L7_slab_ellipsoids"
+  },
+  "gate": {
+    "require_case_count": 2,
+    "require_candidate_count": 8,
+    "minimum_contact_controls": 3,
+    "minimum_safe_terminal_controls": 4,
+    "minimum_proxy_rejected_safe_rescued": 3,
+    "require_initial_states_safe": true,
+    "source_replay_tolerance_m": 1e-09,
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10
+  },
+  "forbidden": [
+    "candidate_search_or_action_change",
+    "learned_model_or_calibration",
+    "QP_or_denoising_guidance",
+    "selected_action_execution_or_closed_loop",
+    "metric_clearance_claim_for_normalized_radial_slack",
+    "deployment_or_generalization_claim"
+  ]
+}

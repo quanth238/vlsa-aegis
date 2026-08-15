@@ -4251,3 +4251,16 @@ explicit conservative mapping between the slab proxy and compiled collision
 geometry. Result/validation payload SHA-256 values are
 `78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5`
 and `1a469cf99cdfaa2d26ed019b7df409e1c47fd46cdc9677f4cb8f437ba5cc5bc6`.
+
+ADR-0142 preregisters the next no-learning target-validity audit. It replays
+eight immutable candidate-plus-backup ledgers from opened L6 states E44 step
+110 and E42 step 105, retaining three raw-contact controls, four stable
+contact-free controls, and one censored timeout. The seven robot slabs remain
+unchanged; only the released obstacle MVEE is compared with exact solid
+intersection against the compiled contact-capable obstacle-box union at every
+internal MuJoCo substep. The resulting normalized radial slack is
+dimensionless, not metric clearance. Passing requires zero physical
+false-safes, safe initial states, safe support in both states, and recovery of at least three stable
+actions with perception-MVEE solid overlap at zero buffer. The source's 1 mm
+operational buffer is logged separately. No threshold is fitted, no action is
+changed, and MLP/QP/denoising/closed-loop work remains blocked.

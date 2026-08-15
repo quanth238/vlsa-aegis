@@ -5,6 +5,7 @@ import numpy as np
 from main.multilink_ellipsoid.geometry import Ellipsoid
 from main.multilink_ellipsoid.obstacle_proxy_audit import (
     CompiledObstacleBox,
+    evaluate_obstacle_representations,
     minimum_ellipsoid_quadratic_over_box,
 )
 
@@ -65,6 +66,25 @@ class ObstacleProxyAuditTest(unittest.TestCase):
         # The active-set optimum cannot be worse than a restricted dense line.
         self.assertLessEqual(exact, dense + 1.0e-12)
         self.assertGreaterEqual(exact, 0.0)
+
+    def test_representation_audit_reports_per_row_exact_values(self):
+        links = [
+            Ellipsoid(np.asarray([float(index) * 3.0, 0.0, 0.0]), np.eye(3), np.ones(3))
+            for index in range(7)
+        ]
+        perceived = Ellipsoid(np.asarray([0.0, 5.0, 0.0]), np.eye(3), np.ones(3))
+        record = evaluate_obstacle_representations(
+            links, perceived, [self._box((1.25, 0.0, 0.0))]
+        )
+        self.assertEqual(
+            len(record["compiled_box_union_row_minimum_normalized_radial_slack"]), 7
+        )
+        self.assertEqual(
+            record["compiled_box_union_row_any_exact_solid_overlap"][0], True
+        )
+        self.assertEqual(
+            record["compiled_box_union_row_any_exact_solid_overlap"][6], False
+        )
 
 
 if __name__ == "__main__":

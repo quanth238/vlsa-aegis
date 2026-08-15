@@ -3560,3 +3560,53 @@ and `7745df484c178daea6c5435486fc219cdc908fb0ba9ab16f658685f12ca88df3`;
 payload SHA-256 values are
 `78cce6f36970a01d44d898ba21ae3ba84cf98d9619a3053f7470b8f26e4051c5`
 and `1a469cf99cdfaa2d26ed019b7df409e1c47fd46cdc9677f4cb8f437ba5cc5bc6`.
+
+## ADR-0142: Audit a compiled-box future-risk target before learning
+
+- Status: preregistered; H100 result pending
+- Date: 2026-08-15
+
+ADR-0141 proves that the registered normal bank has physical collision
+authority at task-3 E42 step 105, but the released single-obstacle perception
+MVEE rejects both stable contact-free candidates. Do not fit an arbitrary
+millimetre offset to one opened state. Instead, keep the seven certified robot
+slab ellipsoids fixed and replace only the obstacle MVEE in a read-only label
+audit with the exact union of contact-capable compiled MuJoCo boxes.
+
+For robot ellipsoid `j`, obstacle box `b`, and internal substep `k`, define
+the exact bound-constrained quadratic and dimensionless risk
+
+```
+d_norm(j,b,k) = sqrt(min_{x in box_b} (x-c_j)^T S_j^-1 (x-c_j)) - 1
+q_box = -min_{j,b,k} d_norm(j,b,k).
+```
+
+Positive `q_box` means exact solid overlap between the registered robot
+ellipsoid and at least one compiled obstacle box. It is deterministic and
+continuous piecewise, but it is not metric clearance and must not be reported
+in millimetres.
+
+The fixed diagnostic population contains eight existing, post-AEGIS candidate
+ledgers from two already opened L6 states. E44 step 110 contributes nominal,
+radius 0.75, 1.25, and 1.75; E42 step 105 contributes radius 1.25, 1.50,
+1.75, and 2.00. These provide three known-contact controls, four stable
+contact-free controls, including at least three perception-MVEE-rejected
+actions, and one timeout that remains unknown. Every exact prefix, selected
+backup action, and terminal-hold action is replayed from its immutable source
+snapshot while proxy rows, raw contacts, CAR, and compiled-box overlap are
+measured at every MuJoCo substep.
+
+The gate requires exact source-state/proxy/CAR/physical-veto replay, compiled
+non-overlap and zero raw protected contact at both fixed initial states,
+compiled overlap for every raw-contact control, zero compiled overlap for all stable
+contact-free controls, useful compiled-box-safe support in both states, rescue
+of at least three stable actions whose perception-MVEE solid overlap is
+negative at zero buffer, and no timeout labeled safe. The source's separate
+one-millimetre operational buffer is logged but is not used to manufacture a
+geometry mismatch between the two obstacle representations.
+If it passes, this authorizes only a simulation-oracle candidate-governor
+target test. If it misses a raw contact, the target is unsafe. If it still
+rejects stable candidates, the fixed robot slabs or compiled-box target remain
+too conservative. Learning, calibration, QP, denoising, selected-action
+execution, closed loop, metric-distance, deployment, and generalization claims
+remain forbidden regardless of outcome.
