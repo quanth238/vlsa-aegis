@@ -4279,3 +4279,13 @@ Learning, QP, denoising, and closed-loop work remain blocked. Result/validation
 payload SHA-256 values are
 `b80c81aacd9d954d892492a4ffc3fd0ae0d2c498ea23d6de147e458f63ff763b`
 and `d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f`.
+
+ADR-0143 preregisters a narrow L6-only geometry heuristic. On the eight
+validated ADR-0142 controls, sweep uniform L6 semiaxis scales
+`[1, .995, .99, .985, .98]` and choose the largest scale that preserves all
+three raw-contact detections while accepting all four stable contact-free
+rollouts and retaining safe support in both opened states. The analytical
+slack transformation requires no new action or simulator rollout. A scale
+below one is explicitly non-enclosing and empirical; raw MuJoCo contact stays
+the final authority. Learning and control remain blocked pending H100
+validation.

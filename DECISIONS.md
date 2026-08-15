@@ -3634,3 +3634,32 @@ and `77226287dca3a0f79eb38cd3ed4d85b809d90274d7a0268225e1a8c6e9314ac2`;
 payload SHA-256 values are
 `b80c81aacd9d954d892492a4ffc3fd0ae0d2c498ea23d6de147e458f63ff763b`
 and `d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f`.
+
+## ADR-0143: Calibrate a small empirical L6 proxy shrink as infrastructure
+
+- Status: preregistered; H100 result pending
+- Date: 2026-08-15
+
+The geometry mismatch is not the intended research contribution. Calibrate a
+transparent development-only heuristic on the immutable ADR-0142 controls:
+uniformly scale the two L6 robot-proxy semiaxes by the largest factor in
+`[1.0, 0.995, 0.99, 0.985, 0.98]` that detects every raw-contact control,
+accepts every stable contact-free control, keeps safe support in both opened
+states, and leaves the timeout unknown. L5, L7, obstacle boxes, candidate
+actions, backup, contacts, CAR, and AEGIS remain unchanged.
+
+For original normalized radial slack `d`, uniform semiaxis scale `s` gives the
+exact transformed value
+
+```
+d_scaled = (d + 1) / s - 1.
+```
+
+This finite sweep is permitted only because the user explicitly treats proxy
+geometry as heuristic infrastructure. Any `s < 1` invalidates the original
+mesh-enclosure certificate and must be labeled an empirical non-enclosing
+proxy. The maximum permitted shrink is two percent. Passing authorizes only
+freezing that opt-in scale for a later simulation mechanism pilot with raw
+MuJoCo contact as final authority. It does not authorize a formal safety/CBF
+claim, deployment, sealed-test use, MLP training, QP, denoising, or closed
+loop.

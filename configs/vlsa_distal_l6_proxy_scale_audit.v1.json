@@ -1,0 +1,34 @@
+{
+  "schema_version": "vlsa_distal_l6_proxy_scale_audit.v1",
+  "protocol_id": "vlsa-distal-l6-proxy-scale-audit-v1",
+  "claim_scope": "opened_two_state_development_only_empirical_L6_proxy_scale_calibration_not_certified_geometry_not_learning_not_control_not_generalization",
+  "source_result": "/mnt/data/quanth/experiments/vlsa-distal-compiled-box-risk-target-audit/compiled-box-risk-target-audit-20260815a/result.json",
+  "source_result_file_sha256": "430980069b0b7e5a1ae9f4b19affce876b44b2ffffe559f209a9326bda0ca463",
+  "source_result_payload_sha256": "b80c81aacd9d954d892492a4ffc3fd0ae0d2c498ea23d6de147e458f63ff763b",
+  "source_validation": "/mnt/data/quanth/experiments/vlsa-distal-compiled-box-risk-target-audit/compiled-box-risk-target-audit-20260815a/validation.json",
+  "source_validation_file_sha256": "77226287dca3a0f79eb38cd3ed4d85b809d90274d7a0268225e1a8c6e9314ac2",
+  "source_validation_payload_sha256": "d49fa478d0a14d840c6e30a69fab78024f6de0c28b4423361a6c123272b7b60f",
+  "calibration": {
+    "candidate_scales_descending": [1.0, 0.995, 0.99, 0.985, 0.98],
+    "scaled_rows": [3, 4],
+    "scaled_physical_group": "L6",
+    "transformation": "d_scaled=(d_original+1)/scale-1",
+    "selection": "largest_scale_passing_all_opened_development_controls",
+    "certificate_status": "heuristic_non_enclosing_empirical_proxy"
+  },
+  "gate": {
+    "require_case_count": 2,
+    "require_candidate_count": 8,
+    "require_baseline_stable_recall_count": 3,
+    "require_stable_contact_free_recall_count": 4,
+    "minimum_allowed_scale": 0.98
+  },
+  "forbidden": [
+    "certified_mesh_enclosure_claim",
+    "formal_safety_or_CBF_claim",
+    "new_action_or_rollout_generation",
+    "MLP_QP_denoising_or_closed_loop",
+    "deployment_or_generalization_claim",
+    "sealed_test_access"
+  ]
+}
