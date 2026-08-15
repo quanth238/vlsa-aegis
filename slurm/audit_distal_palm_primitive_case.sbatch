@@ -12,7 +12,7 @@
 #SBATCH --output=/mnt/data/quanth/slurm_logs/%x-%A_%a.out
 set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:?}; EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?}; OUTPUT_DIR=${OUTPUT_DIR:?}
-AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/openpi/bin/python}
+AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_distal_palm_primitive_audit.v1.json}
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
 [[ -n "${SLURM_JOB_ID:-}" && $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || exit 2
