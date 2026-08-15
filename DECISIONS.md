@@ -4069,3 +4069,24 @@ new independent state coverage. If validation clearances are well supported
 but 12D still degrades, investigate representation/model interaction instead.
 Either outcome is diagnostic only: four validation states cannot establish a
 causal relationship, and the audit authorizes no training or control.
+
+Allocated H100 audit `40500` and independent validator `40501` support the
+first branch only for the catastrophic E45 failure. E45 row-1 current
+clearance is `7.792309 mm`, outside the training range
+`22.185141--74.254913 mm` and `-2.39844 sigma`; 12D raises state RMSE by
+`38.427610 mm` and removes the safe candidates found by 9D. The other five
+validation states retain their prior support behavior, and two other
+out-of-range states do not degrade comparably. Pearson correlation `0.8049`
+is therefore not sufficient as a broad claim; rank correlation is `-0.0857`.
+
+Conclude that clearance extrapolation explains the 12D support loss, not the
+complete remaining generalization problem. Keep the validated 9D
+obstacle-relative endpoint representation as the current best arm. If and
+only if current clearances are revisited, collect independent states below the
+present row-1 minimum and fit state-balanced normalization/sampling before a
+matched rerun. Do not add another feature, train, calibrate, or control from
+this audit.
+
+Result/validation payload SHA-256 values are
+`923c7dc1458ceb4e17b7ec9f1cb9293c9ded55b23fa7e4deacc90f857315db5a`
+and `aa4ddd904266aff15db73ca7ef65f1569b523e53aba291dae08020ee415e7c8a`.

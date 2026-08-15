@@ -4492,3 +4492,30 @@ false-safes, and safe support. This can establish an association between
 clearance shift and model degradation, not a causal root cause. New
 simulation, retraining, feature addition, calibration, QP, closed loop, and
 sealed-test access remain forbidden pending allocated-H100 reproduction.
+
+H100 audit `40500` and independent validator `40501` reproduce the frozen
+artifacts exactly. The 43/29 candidates collapse to only 10/6 distinct
+physical states, of which four validation states are recoverable. Three of six
+validation states have at least one clearance outside the distinct-training-
+state range. The decisive support loss is E45: its L5 row-1 clearance is
+`7.792309 mm`, below the entire `22.185141--74.254913 mm` training range and
+at `-2.39844` state-balanced standard deviations. There the 12D model loses
+all predicted-safe support and its per-state RMSE rises from `9.271008` to
+`47.698618 mm` (`+38.427610 mm`). No other validation state loses support.
+
+The association is specific, not universal. Across only six states Pearson
+distance/error correlation is `0.8049`, dominated by E45, while Spearman is
+`-0.0857`; two other out-of-range states improve or change negligibly. Thus
+the audit supports clearance extrapolation as the cause of the catastrophic
+E45 failure, but does not establish clearance shift as the root of every
+unseen-state error. Candidate-weighted training means also differ from
+state-balanced means by `+10.477/-1.710/-12.213 mm` for rows 0/1/2, exposing
+unequal state duplication in ordinary normalization. Retain the 9D model;
+do not add inputs or train. If clearances are revisited, first add independent
+low-row-1-clearance training states and use state-balanced sampling or
+normalization. Result/validation file SHA-256 values are
+`5607de7fcc395718f1a257746932469de4ac9edc3badd4122c01d7e4963cdd99`
+and `24986f31b52155c6d0eec543659b1a54f03ddd61f7aecb7ded4c93546e46ba1e`;
+payload SHA-256 values are
+`923c7dc1458ceb4e17b7ec9f1cb9293c9ded55b23fa7e4deacc90f857315db5a`
+and `aa4ddd904266aff15db73ca7ef65f1569b523e53aba291dae08020ee415e7c8a`.
