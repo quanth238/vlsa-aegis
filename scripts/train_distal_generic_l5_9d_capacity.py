@@ -74,7 +74,7 @@ def load_samples(
             if not bool(candidate["exact_group_target"]["known_outcome"]):
                 continue
             row_slack = candidate["compiled_box_row_minimum_normalized_radial_slack"]
-            _require(len(row_slack) == 6, "generic L5 row target shape differs")
+            _require(len(row_slack) == 7, "generic L5 row target shape differs")
             risk_rows = [-float(row_slack[index]) for index in row_indices]
             actions = candidate["source_executed_actions"]
             sample = {

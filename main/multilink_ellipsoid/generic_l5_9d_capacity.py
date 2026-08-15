@@ -45,7 +45,7 @@ def load_config(path: Path) -> dict[str, Any]:
         or value["model"]["output_count"] != OUTPUT_COUNT
         or value["model"]["hidden_widths"] != [32, 32]
         or value["model"]["seed"] != 20260814
-        or value["dataset"]["L5_row_indices"] != [1, 2, 3]
+        or value["dataset"]["L5_row_indices"] != [0, 1, 2]
         or len(value["dataset"]["prevention_case_ids"]) != 4
     ):
         raise ValueError("generic L5 9D protocol differs")

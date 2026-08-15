@@ -4552,3 +4552,8 @@ on collection.
 This exception authorizes training only for diagnosis. It does not change the
 ADR-0161 support result and cannot authorize candidate execution, calibration,
 QP, denoising guidance, closed loop, test access, deployment, or a CBF claim.
+
+Producer `40764` passed its allocation tests but rejected the artifact before
+training because the candidate row vector has seven link entries, not the
+six-entry aggregate trace layout. Bind L5 to candidate rows `0:3` and retain
+the failed job as apparatus history. No scientific setting changes.

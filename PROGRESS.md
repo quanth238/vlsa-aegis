@@ -4910,3 +4910,10 @@ it cannot validate threshold transfer because only E14 has two-sided support.
 New simulation, calibration, correction, QP, denoising guidance, closed loop,
 and sealed test access remain forbidden. The next step is one H100 producer
 and one dependent independent H100 retraining validator from a clean commit.
+
+Initial producer `40764` is retained as apparatus history. Allocation tests
+passed, then extraction stopped before training because the preregistered row
+indices assumed the six-entry aggregate trace layout. Candidate artifacts use
+the seven-entry link-row layout (`L5[0:3]`, `L6[3:5]`, `L7[5:7]`). Correct
+only this schema binding and restart both jobs from a clean commit; data,
+targets, splits, model, and scientific interpretation remain unchanged.

@@ -15,7 +15,7 @@ class GenericL59DCapacityTest(unittest.TestCase):
     def test_config_freezes_diagnostic_only_protocol(self):
         config = load_config(CONFIG)
         self.assertEqual(config["model"]["output_count"], 3)
-        self.assertEqual(config["dataset"]["L5_row_indices"], [1, 2, 3])
+        self.assertEqual(config["dataset"]["L5_row_indices"], [0, 1, 2])
         self.assertIn("candidate_correction", config["forbidden"])
 
     def test_feature_uses_start_and_commanded_endpoint_relative_to_obstacle(self):

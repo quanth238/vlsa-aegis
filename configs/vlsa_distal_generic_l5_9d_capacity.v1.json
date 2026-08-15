@@ -50,7 +50,7 @@
       "vlsa-t1-goal-ii-t2-e19": 11,
       "vlsa-t1-goal-ii-t3-e14": 12
     },
-    "L5_row_indices": [1, 2, 3],
+    "L5_row_indices": [0, 1, 2],
     "target": "negative_minimum_dimensionless_compiled_box_radial_slack_for_each_L5_primitive_over_registered_candidate_plus_backup_terminal",
     "unknown_timeouts": "masked_not_safe_not_unsafe",
     "split": "leave_one_complete_prevention_state_out",
