@@ -4349,3 +4349,12 @@ compiled boxes, seven robot rows, and a two-sided bank with two stable safe
 candidates. The artifact is marked apparatus-only. Full 13-case producer array
 `40437` and dependent validator `40438` are now submitted with at most two H100
 tasks concurrently from exact commit `e373a43`.
+
+Regularization is now the prioritized post-collection diagnostic, without
+interrupting ADR-0145. ADR-0146 freezes a matched standard-versus-monotonic
+ablation conditional on the grouped dataset passing. The audit uses the exact
+state input and realized post-AEGIS correction projected onto the registered
+normal profile; requested alpha, clipped/direction-changing candidates, and
+timeouts cannot silently define monotonic training pairs. Minimum intervention
+remains a constrained candidate-selection rule, while a conservative
+false-safe penalty is deferred to a separate attributable experiment.

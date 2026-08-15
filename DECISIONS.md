@@ -3807,3 +3807,36 @@ collection and relabel apparatus without contributing scientific population
 evidence. Full producer array `40437` and dependent independent validator
 `40438` are submitted from exact commit
 `e373a43090c6dc785a99a31a70a5d9fa240e87b8`.
+
+## ADR-0146: Treat monotonicity as a validated regularizer, not a substitute for state
+
+- Status: planned; blocked on ADR-0145 validation
+- Date: 2026-08-15
+
+The learned target remains the controller-conditioned scalar risk
+`q*(z,A)`. Complete physical/controller context and the exact five actions
+reaching OSC are mandatory inputs: no regularizer can identify different
+risks for aliased states. Candidate selection also remains unit-consistent:
+among candidates predicted below the registered safety threshold, select the
+smallest realized post-AEGIS action change. Do not add risk and action norm in
+one weighted objective.
+
+Before training, audit every same-state, known non-timeout curve. Requested
+alpha is not the monotonic coordinate after sequential AEGIS. Reconstruct the
+realized correction relative to alpha zero, project it onto the registered
+normal temporal profile, and report its off-axis residual, clipping, and AEGIS
+status. Only pairs that preserve the registered direction may support the
+physics hypothesis that increasing effective outward correction does not
+increase risk. Unknown timeouts and direction-changing pairs are excluded from
+the monotonic loss but remain reported.
+
+If ADR-0145 passes and the training curves empirically support this ordering,
+run one matched ablation: boundary-weighted risk regression plus AdamW versus
+the identical model with a soft pairwise monotonic hinge. Keep inputs, grouped
+splits, normalization, architecture, optimizer, seeds, and schedule identical.
+Report ordinary/near-boundary error, monotonic violations, threshold error,
+false-safes, safe recall, and recoverable-state support. A one-sided optimistic
+error penalty is a separate later ablation only if prediction is otherwise
+useful; combining it immediately with monotonicity would confound attribution
+and could achieve zero false-safes by rejecting every action. QP, denoising,
+closed loop, and sealed tests remain blocked.
