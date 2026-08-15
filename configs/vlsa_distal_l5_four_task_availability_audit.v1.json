@@ -1,0 +1,47 @@
+{
+  "schema_version": "vlsa_distal_l5_four_task_availability_audit.v1",
+  "protocol_id": "vlsa-distal-l5-four-task-availability-audit-v1",
+  "claim_scope": "immutable_Goal_suite_task_and_obstacle_level_availability_audit_before_new_boundary_collection_not_training_not_control",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a",
+    "arm": "pi05_plus_aegis_translational",
+    "immutable_source_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
+  },
+  "population": {
+    "suite": "safelibero_goal",
+    "logical_tasks": [0, 1, 2, 3],
+    "safety_levels": ["I", "II"],
+    "episodes_per_task_level": 50,
+    "expected_case_count": 400,
+    "fold_definition": "hold_out_one_logical_task_and_both_of_its_safety_levels"
+  },
+  "clean_L5_eligibility": {
+    "complete_scientific_result": true,
+    "native_AEGIS_task_success": true,
+    "paper_CAR_failure": true,
+    "proxy_geometry_valid": true,
+    "robot0_link5_active_obstacle_contact": true,
+    "no_settled_relevant_contact": true,
+    "no_dynamic_task_or_other_contact": true,
+    "minimum_first_L5_contact_step": 4
+  },
+  "fold_gate": {
+    "minimum_eligible_test_cases_per_level": 1,
+    "minimum_distinct_eligible_training_tasks": 2,
+    "both_levels_of_held_out_task_excluded_from_training": true,
+    "all_four_folds_must_be_feasible_before_four_fold_claim": true
+  },
+  "next_if_infeasible": "collect_new_outcome_blind_AEGIS_trajectories_only_for_missing_task_level_cohorts_then_repeat_availability_audit",
+  "forbidden": [
+    "new_simulation",
+    "rollout_label_collection",
+    "model_training",
+    "state_or_candidate_selection_using_future_fold_labels",
+    "calibration",
+    "QP",
+    "closed_loop_execution",
+    "generalization_or_CBF_claim"
+  ]
+}

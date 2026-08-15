@@ -4090,3 +4090,23 @@ this audit.
 Result/validation payload SHA-256 values are
 `923c7dc1458ceb4e17b7ec9f1cb9293c9ded55b23fa7e4deacc90f857315db5a`
 and `aa4ddd904266aff15db73ca7ef65f1569b523e53aba291dae08020ee415e7c8a`.
+
+## ADR-0152: audit four-task/two-level cohort availability before collection
+
+- Status: preregistered; allocated immutable-artifact audit pending
+- Date: 2026-08-15
+
+The requested train-on-three/test-on-fourth protocol cannot be inferred from
+the current 18 clean episodes: they cover only Goal Level-II tasks 0, 2, and
+3. Before launching new simulation, inspect all 400 immutable Goal-suite AEGIS
+results and their hash-bound contact artifacts. Classify each task/level case
+with the existing clean L5 rules. Define four folds a priori; holding out a
+task excludes both Level I and Level II from training.
+
+Require at least one clean test case in each held-out level and clean training
+support from at least two other tasks. If a fold lacks support, do not train or
+manufacture balance with repeated actions. Generate new outcome-blind AEGIS
+trajectories only for the missing task/level cohorts, then repeat this audit.
+If all folds have immutable support, proceed to independent-state two-sided
+boundary collection with state-balanced sampling. The availability audit uses
+no new rollout and cannot establish prediction or safety.

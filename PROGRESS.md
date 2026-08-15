@@ -4519,3 +4519,18 @@ and `24986f31b52155c6d0eec543659b1a54f03ddd61f7aecb7ded4c93546e46ba1e`;
 payload SHA-256 values are
 `923c7dc1458ceb4e17b7ec9f1cb9293c9ded55b23fa7e4deacc90f857315db5a`
 and `aa4ddd904266aff15db73ca7ef65f1569b523e53aba291dae08020ee415e7c8a`.
+
+ADR-0152 begins the recommended task-generalization sequence with a mandatory
+availability audit rather than immediately generating or training on more
+actions. The existing 18-case clean manifest covers only Goal Level-II tasks
+0, 2, and 3, so it cannot support four-fold task holdout with both obstacle
+levels excluded. The new no-simulation gate scans all 400 immutable released-
+AEGIS Goal-suite episodes (four tasks, two levels, 50 episodes each), validates
+result/contact hashes, and classifies clean task-successful L5 cases using the
+same proxy-valid, no-initial-contact, no-dynamic-contact rules. For each fold,
+one logical task and both its levels are excluded from training. A fold is
+available only when each held-out level has at least one clean L5 case and
+training contains clean cases from at least two other tasks. Only after all
+four folds pass may two-sided boundary collection begin. New simulation,
+training, candidate selection, calibration, QP, closed loop, and generalization
+claims remain forbidden pending H100 audit and independent replay.
