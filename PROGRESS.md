@@ -4636,3 +4636,24 @@ comparison are reported but do not tune the fit. Only a passing independent
 replay authorizes grouped two-sided candidate-plus-fixed-backup boundary
 collection for palm, L5, and L6. MLP training, QP, denoising, closed loop,
 finger/L7 learning, deployment, and formal safety claims remain blocked.
+
+H100 canary `40531` reproduces the positive E09 replay and contact-free E01
+control exactly. The palm fit is only `0.411428` of the released EE-proxy
+volume. E01 changes from a released-proxy minimum of `-36.861 mm` to a tight-
+palm minimum of `+5.673 mm`, with zero raw palm contact. In E09, all 28 raw
+palm-contact samples have contact points inside the certified tight primitive,
+but the tight-palm/static-obstacle-MVEE support gap is positive at every raw
+contact sample (the first is `+25.427 mm`); even the released EE proxy reports
+`+9.257 mm` there. Thus the registered end-to-end static-obstacle gate is an
+immediate NO-GO, while the robot-side palm fit passes its enclosure evidence.
+The full 43-case static-proxy replay is not launched because its zero-false-
+safe gate is already impossible.
+
+ADR-0156 preregisters the isolated replacement: keep the tight palm fixed and
+represent the moving active obstacle as a union of one certified enclosing
+ellipsoid per contact-capable compiled collision geom. Mesh bounds use the
+same outcome-independent compiled-vertex MVEE; standard primitives use their
+registered exact or Loewner bounds. This is privileged simulation geometry,
+not deployable perception. The identical 3/40 cohort, archived actions,
+internal-substep sampling, raw contacts, and strict zero-false-safe gate stay
+fixed. A passing canary is required before the full independent replay.

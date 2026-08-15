@@ -59,6 +59,8 @@ def evaluate_case(
     from main.multilink_ellipsoid.geometry import Ellipsoid
     from main.multilink_ellipsoid.palm_primitive_audit import (
         RESULT_SCHEMA,
+        RESULT_SCHEMA_V2,
+        compiled_obstacle_templates,
         file_sha256,
         fit_compiled_mesh_geom,
         load_config,
@@ -214,6 +216,16 @@ def evaluate_case(
             bound_source="released_aegis_perception_mvee",
         )
         contact_authority = _contact_model_authority(env, obstacle_name)
+        compiled_templates = None
+        if "compiled_obstacle" in config:
+            compiled_fit = config["compiled_obstacle"]["fit"]
+            compiled_templates = compiled_obstacle_templates(
+                env,
+                obstacle_name,
+                relative_padding=float(compiled_fit["relative_padding"]),
+                tolerance=float(compiled_fit["khachiyan_tolerance"]),
+                max_iterations=int(compiled_fit["khachiyan_max_iterations"]),
+            )
         overlap_tolerance = float(config["gate"]["support_gap_tolerance_m"])
         point_tolerance = float(config["gate"]["contact_point_tolerance"])
         trace_rows: list[list[Any]] = []
@@ -227,6 +239,13 @@ def evaluate_case(
             released = _released_aegis_end_effector_ellipsoid(env)
             tight_gap = float(support_gap(tight, obstacle))
             released_gap = float(support_gap(released, obstacle))
+            compiled_gap = (
+                min(
+                    float(support_gap(tight, world_ellipsoid(env, item)))
+                    for item in compiled_templates
+                )
+                if compiled_templates is not None else tight_gap
+            )
             contacts = _detailed_active_obstacle_contacts(
                 env,
                 obstacle_name,
@@ -247,7 +266,7 @@ def evaluate_case(
             maximum_obstacle_displacement = max(maximum_obstacle_displacement, displacement)
             trace_rows.append([
                 int(action_index), int(substep_index), tight_gap, released_gap,
-                palm_contact, len(palm_events), displacement,
+                compiled_gap, palm_contact, len(palm_events), displacement,
             ])
             for event in palm_events:
                 position = [float(item) for item in event["position"]]
@@ -259,6 +278,7 @@ def evaluate_case(
                     "position_m": position,
                     "obstacle_geom_name": str(event["obstacle"]["geom_name"]),
                     "tight_support_gap_m": tight_gap,
+                    "compiled_obstacle_union_support_gap_m": compiled_gap,
                     "released_support_gap_m": released_gap,
                     "tight_contact_point_quadratic": quadratic,
                     "tight_contact_point_inside": bool(quadratic <= 1.0 + point_tolerance),
@@ -338,22 +358,34 @@ def evaluate_case(
         boundary_steps_match = action_boundary_palm_steps == expected_palm_steps
         if not boundary_steps_match:
             replay_errors.append("action_boundary_palm_steps")
-        trace = np.asarray(trace_rows, dtype=object)
         tight_gaps = np.asarray([float(row[2]) for row in trace_rows], dtype=np.float64)
         released_gaps = np.asarray([float(row[3]) for row in trace_rows], dtype=np.float64)
-        contact_flags = np.asarray([bool(row[4]) for row in trace_rows], dtype=bool)
-        tight_false_safe = int(np.count_nonzero(contact_flags & (tight_gaps > overlap_tolerance)))
+        compiled_gaps = np.asarray([float(row[4]) for row in trace_rows], dtype=np.float64)
+        contact_flags = np.asarray([bool(row[5]) for row in trace_rows], dtype=bool)
+        tight_false_safe = int(np.count_nonzero(
+            contact_flags & (compiled_gaps > overlap_tolerance)
+        ))
+        static_obstacle_false_safe = int(np.count_nonzero(
+            contact_flags & (tight_gaps > overlap_tolerance)
+        ))
         released_false_safe = int(np.count_nonzero(
             contact_flags & (released_gaps > overlap_tolerance)
         ))
-        tight_false_unsafe = int(np.count_nonzero((~contact_flags) & (tight_gaps <= 0.0)))
+        tight_false_unsafe = int(np.count_nonzero(
+            (~contact_flags) & (compiled_gaps <= 0.0)
+        ))
+        static_obstacle_false_unsafe = int(np.count_nonzero(
+            (~contact_flags) & (tight_gaps <= 0.0)
+        ))
         released_false_unsafe = int(np.count_nonzero(
             (~contact_flags) & (released_gaps <= 0.0)
         ))
         released_volume = float(4.0 * math.pi * np.prod([0.06, 0.12, 0.11]) / 3.0)
         trace_sha = hashlib.sha256(_canonical(trace_rows)).hexdigest()
         result = {
-            "schema_version": RESULT_SCHEMA,
+            "schema_version": (
+                RESULT_SCHEMA_V2 if compiled_templates is not None else RESULT_SCHEMA
+            ),
             "status": "complete",
             "scientific_result": True,
             "claim_scope": config["claim_scope"],
@@ -389,6 +421,15 @@ def evaluate_case(
                     float(template_record["volume_m3"]) / released_volume
                 ),
             },
+            "compiled_obstacle_fit": (
+                {
+                    "geom_count": len(compiled_templates),
+                    "templates": [item.to_record() for item in compiled_templates],
+                    "fit_uses_contact_outcomes": False,
+                    "privileged_simulation_geometry": True,
+                }
+                if compiled_templates is not None else None
+            ),
             "replay": {
                 "fidelity_pass": bool(not pairing_errors and not replay_errors),
                 "pairing_errors": pairing_errors,
@@ -411,10 +452,21 @@ def evaluate_case(
                 ),
             },
             "tight_primitive": {
-                "episode_minimum_support_gap_m": float(np.min(tight_gaps)),
-                "overlap_sample_count": int(np.count_nonzero(tight_gaps <= 0.0)),
+                "obstacle_representation": (
+                    "live_certified_compiled_obstacle_geom_union"
+                    if compiled_templates is not None else
+                    "static_released_AEGIS_perception_MVEE"
+                ),
+                "episode_minimum_support_gap_m": float(np.min(compiled_gaps)),
+                "overlap_sample_count": int(np.count_nonzero(compiled_gaps <= 0.0)),
                 "physical_false_safe_sample_count": tight_false_safe,
                 "contact_free_overlap_sample_count": tight_false_unsafe,
+            },
+            "tight_with_released_obstacle_proxy": {
+                "episode_minimum_support_gap_m": float(np.min(tight_gaps)),
+                "overlap_sample_count": int(np.count_nonzero(tight_gaps <= 0.0)),
+                "physical_false_safe_sample_count": static_obstacle_false_safe,
+                "contact_free_overlap_sample_count": static_obstacle_false_unsafe,
             },
             "released_proxy": {
                 "episode_minimum_support_gap_m": float(np.min(released_gaps)),

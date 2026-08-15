@@ -26,6 +26,7 @@ def validate(
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.palm_primitive_audit import (
         RESULT_SCHEMA,
+        RESULT_SCHEMA_V2,
         VALIDATION_SCHEMA,
         canonical,
         load_config,
@@ -47,7 +48,10 @@ def validate(
             record_path = path / (str(case_id) + ".json")
             _require(record_path.is_file(), "palm audit case result is missing")
             record = _load(record_path)
-            _require(record.get("schema_version") == RESULT_SCHEMA,
+            expected_schema = (
+                RESULT_SCHEMA_V2 if "compiled_obstacle" in config else RESULT_SCHEMA
+            )
+            _require(record.get("schema_version") == expected_schema,
                      "palm audit case schema differs")
             _require(record.get("case_id") == case_id,
                      "palm audit case identity differs")

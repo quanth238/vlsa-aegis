@@ -20,7 +20,9 @@ from .shadow import _geom_kind, _name, _numpy, _raw_model_data
 
 
 CONFIG_SCHEMA = "vlsa_distal_palm_primitive_audit.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_palm_primitive_compiled_obstacle_audit.v1"
 RESULT_SCHEMA = "vlsa_distal_palm_primitive_case_result.v1"
+RESULT_SCHEMA_V2 = "vlsa_distal_palm_primitive_case_result.v2"
 VALIDATION_SCHEMA = "vlsa_distal_palm_primitive_audit_validation.v1"
 
 
@@ -48,16 +50,47 @@ def file_sha256(path: Path) -> str:
 def load_config(path: Path, *, repo_root: Path | None = None) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
+    compact_v2_keys = {
+        "schema_version", "protocol_id", "base_config",
+        "base_config_file_sha256", "claim_scope", "compiled_obstacle",
+        "comparators",
+    }
+    if (
+        isinstance(value, dict)
+        and value.get("schema_version") == CONFIG_SCHEMA_V2
+        and set(value) == compact_v2_keys
+    ):
+        if repo_root is None:
+            raise ValueError("compiled-obstacle palm config requires repo_root")
+        base_path = Path(repo_root) / str(value["base_config"])
+        if file_sha256(base_path) != value["base_config_file_sha256"]:
+            raise ValueError("compiled-obstacle palm base config differs")
+        base = load_config(base_path, repo_root=repo_root)
+        base.pop("config_file_sha256", None)
+        base.pop("config_payload_sha256", None)
+        base.update({
+            "schema_version": value["schema_version"],
+            "protocol_id": value["protocol_id"],
+            "claim_scope": value["claim_scope"],
+            "compiled_obstacle": value["compiled_obstacle"],
+            "comparators": value["comparators"],
+        })
+        value = base
     expected = {
         "schema_version", "protocol_id", "claim_scope", "source", "cohort",
         "primitive", "replay", "gate", "comparators", "next_if_pass",
         "forbidden",
     }
+    if value.get("schema_version") == CONFIG_SCHEMA_V2:
+        expected.add("compiled_obstacle")
     if not isinstance(value, dict) or set(value) != expected:
         raise ValueError("palm primitive audit config keys differ")
+    variants = {
+        CONFIG_SCHEMA: "vlsa-distal-palm-primitive-audit-v1",
+        CONFIG_SCHEMA_V2: "vlsa-distal-palm-primitive-compiled-obstacle-audit-v1",
+    }
     if (
-        value["schema_version"] != CONFIG_SCHEMA
-        or value["protocol_id"] != "vlsa-distal-palm-primitive-audit-v1"
+        variants.get(value["schema_version"]) != value["protocol_id"]
         or value["primitive"]["geom_name"] != "gripper0_hand_collision"
         or value["primitive"]["fit_source"]
         != "compiled_collision_mesh_vertices_only"
@@ -96,6 +129,7 @@ class CompiledGeomEllipsoidTemplate:
     semiaxes_m: Any
     enclosure_certificate: Mapping[str, Any]
     geom_rbound_m: float
+    bound_source: str = "certified_compiled_mesh_mvee"
 
     def to_record(self) -> dict[str, Any]:
         return {
@@ -107,6 +141,7 @@ class CompiledGeomEllipsoidTemplate:
             "rotation_local": self.rotation_local.tolist(),
             "semiaxes_m": self.semiaxes_m.tolist(),
             "geom_rbound_m": float(self.geom_rbound_m),
+            "bound_source": self.bound_source,
             "volume_m3": float(
                 4.0 * math.pi * float(_numpy().prod(self.semiaxes_m)) / 3.0
             ),
@@ -190,7 +225,92 @@ def fit_compiled_mesh_geom(
         semiaxes_m=fitted.semiaxes_m,
         enclosure_certificate=dict(fitted.enclosure_certificate or {}),
         geom_rbound_m=rbound,
+        bound_source="certified_compiled_mesh_mvee",
     )
+
+
+def fit_compiled_primitive_geom(
+    env: Any, geom_name: str,
+) -> CompiledGeomEllipsoidTemplate:
+    """Construct the registered closed-form enclosure of one primitive geom."""
+
+    np = _numpy()
+    from .geometry import primitive_bounding_radii, primitive_enclosure_certificate
+
+    model, _ = _raw_model_data(env.sim)
+    matches = [
+        geom_id for geom_id in range(int(model.ngeom))
+        if _name(env.sim.model, "geom", geom_id) == geom_name
+    ]
+    if len(matches) != 1:
+        raise ValueError("compiled obstacle geom identity is not unique")
+    geom_id = int(matches[0])
+    kind = _geom_kind(int(model.geom_type[geom_id]))
+    if kind == "mesh":
+        raise ValueError("mesh geoms require compiled-vertex fitting")
+    size = np.asarray(model.geom_size[geom_id], dtype=np.float64)
+    rbound = float(model.geom_rbound[geom_id])
+    semiaxes, source = primitive_bounding_radii(kind, size, rbound)
+    certificate = primitive_enclosure_certificate(
+        kind, size, rbound, semiaxes, source,
+    )
+    body_id = int(model.geom_bodyid[geom_id])
+    body_name = _name(env.sim.model, "body", body_id) or "unnamed_body_%d" % body_id
+    return CompiledGeomEllipsoidTemplate(
+        geom_id=geom_id,
+        geom_name=geom_name,
+        body_id=body_id,
+        body_name=body_name,
+        center_local_m=np.zeros(3, dtype=np.float64),
+        rotation_local=np.eye(3, dtype=np.float64),
+        semiaxes_m=semiaxes,
+        enclosure_certificate=certificate,
+        geom_rbound_m=rbound,
+        bound_source=source,
+    )
+
+
+def compiled_obstacle_templates(
+    env: Any,
+    active_obstacle_name: str,
+    *,
+    relative_padding: float,
+    tolerance: float,
+    max_iterations: int,
+) -> list[CompiledGeomEllipsoidTemplate]:
+    """Fit one certified live bound per contact-capable obstacle geom."""
+
+    from .sitl_candidate import _body_lineage, _obstacle_root_body_id
+
+    model, _ = _raw_model_data(env.sim)
+    root_id = _obstacle_root_body_id(env.sim.model, active_obstacle_name)
+    output = []
+    for geom_id in range(int(model.ngeom)):
+        body_id = int(model.geom_bodyid[geom_id])
+        if root_id not in _body_lineage(model, body_id):
+            continue
+        if (
+            int(model.geom_contype[geom_id]) == 0
+            and int(model.geom_conaffinity[geom_id]) == 0
+        ):
+            continue
+        geom_name = _name(env.sim.model, "geom", geom_id)
+        if not geom_name:
+            raise ValueError("compiled obstacle geom has no name")
+        kind = _geom_kind(int(model.geom_type[geom_id]))
+        if kind == "mesh":
+            template = fit_compiled_mesh_geom(
+                env, geom_name,
+                relative_padding=relative_padding,
+                tolerance=tolerance,
+                max_iterations=max_iterations,
+            )
+        else:
+            template = fit_compiled_primitive_geom(env, geom_name)
+        output.append(template)
+    if not output:
+        raise ValueError("active obstacle has no contact-capable compiled geoms")
+    return output
 
 
 def world_ellipsoid(
@@ -217,7 +337,7 @@ def world_ellipsoid(
         body_name=template.body_name,
         geom_id=template.geom_id,
         geom_name=template.geom_name,
-        bound_source="certified_compiled_palm_mesh_mvee",
+        bound_source=template.bound_source,
         source_rbound_m=template.geom_rbound_m,
         source_geom_kind="mesh",
         source_body_names=(template.body_name,),

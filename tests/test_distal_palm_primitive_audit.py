@@ -28,6 +28,19 @@ class PalmPrimitiveAuditTests(unittest.TestCase):
             "compiled_collision_mesh_vertices_only",
         )
 
+    def test_compiled_obstacle_variant_preserves_frozen_cohort(self):
+        from main.multilink_ellipsoid.palm_primitive_audit import load_config
+
+        root = Path(__file__).resolve().parents[1]
+        config = load_config(
+            root / "configs/vlsa_distal_palm_primitive_compiled_obstacle_audit.v1.json",
+            repo_root=root,
+        )
+        self.assertEqual(len(config["cohort"]["contact_case_ids"]), 3)
+        self.assertEqual(len(config["cohort"]["control_case_ids"]), 40)
+        self.assertFalse(config["compiled_obstacle"]["fit_uses_contact_outcomes"])
+        self.assertIn("privileged simulation", config["claim_scope"])
+
     def test_summary_passes_only_with_zero_false_safes(self):
         from main.multilink_ellipsoid.palm_primitive_audit import (
             summarize_case_records,

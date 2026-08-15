@@ -4228,3 +4228,32 @@ controls. A pass authorizes only two-sided boundary collection for palm, L5,
 and L6; training still waits for grouped boundary coverage. A failure keeps
 collection blocked and identifies whether the remaining error is replay,
 robot primitive, or the unchanged obstacle perception proxy.
+
+Canary `40531` resolves that ambiguity before the full array. E09 contains 28
+internal raw palm-contact samples and every contact point lies inside the
+certified tight palm primitive, but the unchanged static obstacle MVEE is
+separated at all 28 samples. The first contact has tight/static-MVEE support
+gap `+25.427 mm`; the released EE proxy is also falsely separated by
+`+9.257 mm`. Conversely, the contact-free E01 control changes from
+`-36.861 mm` under the released proxy to `+5.673 mm` with the tight palm.
+Therefore ADR-0155 is a strict end-to-end NO-GO caused by the obstacle side,
+not evidence against the compiled palm fit. Do not spend 43 replays on a gate
+that the first positive already disproves.
+
+## ADR-0156: isolate palm with live compiled-obstacle primitive union
+
+- Status: preregistered; two-case allocated canary pending
+- Date: 2026-08-15
+
+Keep the ADR-0155 palm fit, cohort, actions, replay, and raw-contact authority
+unchanged. Replace only the static released obstacle MVEE in the primary
+diagnostic with a live union of certified bounds for every contact-capable
+compiled obstacle geom. Meshes receive outcome-independent compiled-vertex
+MVEEs; sphere/ellipsoid/capsule/cylinder/box primitives use the registered
+exact or Loewner enclosure. Retain both released proxies as comparators.
+
+This is privileged simulator geometry and can validate only whether the palm
+primitive supplies usable quantitative simulation labels. Run E09/E01 first;
+only if it has zero physical false-safes, exact replay, and accepts the control
+may the unchanged 3/40 population and independent replay proceed. Even a full
+pass authorizes boundary collection for palm/L5/L6, not training or control.
