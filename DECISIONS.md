@@ -4428,7 +4428,7 @@ revision, but do not treat it as the cause of missing palm/L6 support.
 
 ## ADR-0160: Isolate direct Cartesian L5 candidate controllability without QP
 
-- Status: preregistered; paired H100 canary pending
+- Status: completed; strict NO-GO for the normal-only bank
 - Date: 2026-08-15
 
 Stop combining the learned-risk question with released AEGIS action
@@ -4459,3 +4459,19 @@ copying error. Keep the entire `20260815a` chain as apparatus history. Correct
 only that immutable file binding, then restart producer, replay, and verifier
 from one clean commit and new root. Do not change states, candidates, QP mode,
 target, continuation, or gates.
+
+Clean chain `40721/40722/40723` reproduces every exact scientific artifact and
+has zero represented-geometry physical false-safes, but fails the preregistered
+support gate. Only two of five states are two-sided. One selected state is
+initially outside the exact target safe set, and two states remain safe across
+all known normal magnitudes. Therefore do not train, calibrate, add a QP, or
+interpret normal magnitude as the final action coordinate.
+
+Retain the exact candidate-plus-fixed-continuation worst-future-violation
+target. The next attributable change is candidate/state excitation only:
+select initially positive states with nominal exact risk near the boundary and
+apply a small deterministic symmetric Cartesian basis independent of obstacle
+normal geometry. This tests whether generic executable actions identify the
+future-risk function before any model is trained. A later learned model must
+predict per-constraint values, with the global worst violation computed as
+their maximum; steering and gradients remain downstream.

@@ -4822,3 +4822,22 @@ was copied incorrectly; the immutable archived payload hash and every
 scientific setting were correct. The repair binds the already validated exact
 Table-1 file SHA-256 and requires a new clean commit/root rather than mixing
 old-commit successful cases with the replacement.
+
+Clean replacement producer `40721`, independent replay `40722`, and verifier
+`40723` complete all five cases and 45 candidates with exact scientific
+reproduction and zero represented-geometry physical false-safes. The frozen
+normal-only bank is nevertheless strict NO-GO: only E03 and E19 have two-sided
+L5 support; E05 and E14 are one-sided safe; E02 starts with negative exact
+target slack and then yields three known unsafe plus six unknown timeout
+outcomes. Counts by case are E03 `7/2/0`, E02 `0/3/6`, E05 `9/0/0`, E19
+`2/4/3`, and E14 `8/0/1` for safe/unsafe/unknown. Training and control remain
+blocked. Validation file/payload SHA-256 values are
+`2e2d76cc128fc6b137b6fbabf7082e58c55a46d5b889cc2b33cc95c426307e31`
+and `7fe647edb06f4648d498b5a88d2c6d1301f571425d25511d80f7bc460dce6a94`.
+
+The result rejects normal magnitude as the sole data-excitation coordinate;
+it does not reject the exact worst-future-violation target. The next gate must
+choose initially positive states whose nominal exact risk is near zero and use
+a small generic symmetric Cartesian action basis. It remains a no-learning
+support gate. Only independently reproduced, episode-grouped two-sided support
+can authorize training a compact constraint-conditioned future-risk model.
