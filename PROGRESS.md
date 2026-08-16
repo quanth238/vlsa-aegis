@@ -6038,3 +6038,57 @@ unsafe / 0 unknown`, and has ten globally physical-safe candidates. Both use
 the frozen 13-bank, raw pi0.5 nominal chunk, disabled released EE-QP, unchanged
 OSC, and full fixed continuation. Independent full-population validation remains
 the authority before either root is counted in the final coverage gate.
+
+## 2026-08-17: Targeted palm/L6 collection and diagnostic Q-only verdict
+
+The final targeted palm/L6 collection is complete. Producer/replay arrays
+`41391/41392`, retained-rejection repair jobs `41455/41456`, and independent
+validator `41459` preserve all fourteen frozen root episodes under
+`/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-extension/pi05-palm-l6-extension-20260817a`.
+Twelve roots produced complete 13-candidate whole-body shards and two roots were
+retained as preregistered scientific rejections because their restored warning
+snapshots already failed CAR before candidate execution: validation palm
+`vlsa-t1-goal-ii-t1-e36` and test L6 `vlsa-t1-spatial-i-t3-e24`. Nothing was
+replaced. The successful roots contain 156 candidate rollouts: 94 known safe,
+42 known unsafe, and 20 UNKNOWN timeouts. Independent producer/replay scientific
+views agree exactly, and represented-geometry physical false-safes are zero.
+Validation file SHA-256 is
+`9c4f69c3a342f575c6b69e126653266d242f6d511860d7f2226be01a39721caa`.
+
+The combined 36-root audit completed in job `41461` at
+`/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/combined_coverage_audit.json`.
+It retains all 580 candidate slots, including 489 known outcomes, 91 UNKNOWN
+timeouts, three initially-unsafe recovery cases, and both CAR rejections.
+Prevention two-sided train/validation/test support is L5 `6/3/4`, palm `5/2/3`,
+L6 `3/2/0`, diagnostic EE `8/3/4`, and diagnostic L7 `1/0/0`. Global safe
+support passes in every recoverable held-out state and physical false-safes
+remain zero. The coverage gate is nevertheless scientific NO-GO because L6
+does not reach `4/2/2`; the two rejected roots also keep the full-cohort
+apparatus-completeness flag false rather than being silently discarded. Audit
+file SHA-256 is
+`c36aa3ebde2abcfddc18c7deb69dd1b986c7a8097d32618dd29fd6107b1e5de6`.
+
+As explicitly authorized, H100 job `41463` trained the fixed diagnostic Q-only
+arms despite under-coverage, and independent H100 job `41464` reproduced every
+model and prediction exactly. Eligible initially-safe known data comprise
+18/6/9 train/validation/test states and 232/89/132 candidates; UNKNOWN timeouts
+and recovery roots are excluded from fitting, and normalization is train-only.
+The shared 135D constraint-conditioned model fits train global RMSE `0.028646`
+but transfers poorly: validation/test global RMSE is `0.520684/0.590234`,
+near-boundary RMSE is `0.569030/0.575875`, and rank Spearman is
+`0.114709/0.336843`. It provides predicted-safe support in all 15 held-out
+states but selects unsafe actions in two validation and four test states. The
+matched 9D and 33D arms also fail held-out safety; their test RMSE values are
+`0.738850` and `0.612150`, respectively. Result and independent-validation file
+SHA-256 values are
+`90a85e05f4d3927054073860bc76121cd28363c7bbd19a0509b3fc0b15368e25`
+and `0bb302cd044dfe5bc5f2257b591851f5bd40d679c4ad8b3f2817c1fe45b732f7`.
+
+Both required correction gates fail: per-constraint coverage is false and
+held-out prediction is false. Therefore no candidate correction, QP,
+denoising, or closed-loop action-selection run was enabled. The completed
+workflow validates the collection/training apparatus and the local predictive
+signal, but rejects the current model as an unseen-state whole-body safety
+filter. The next data priority, if continued, is prospectively frozen,
+initially-safe L6 boundary support in training and especially untouched test
+task groups; palm and L5 no longer need generic expansion for this gate.

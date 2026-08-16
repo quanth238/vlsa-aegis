@@ -5591,7 +5591,7 @@ coverage and held-out prediction gates both pass.
 
 ## ADR-0187: Preserve targeted outcomes and separate recovery from prevention
 
-- Status: collection in progress
+- Status: complete; scientific NO-GO for correction
 - Date: 2026-08-17
 
 Accept robust source-prep `41389` and exact failed-runtime archival `41390` as
@@ -5613,3 +5613,34 @@ Treat the legacy source-proxy replay field as diagnostic exactly as
 preregistered. A sub-micrometre legacy proxy discrepancy cannot replace the
 authoritative restored-state hash and independent producer/replay scientific
 artifact comparison. Do not relax any tolerance or suppress the diagnostic.
+
+Accept targeted producer/replay `41391/41392`, retained-rejection repairs
+`41455/41456`, and validator `41459` as the final ADR-0187 evidence. Twelve of
+fourteen frozen roots produced complete whole-body candidate shards. Preserve
+validation palm `vlsa-t1-goal-ii-t1-e36` and test L6
+`vlsa-t1-spatial-i-t3-e24` as scientific rejections because their restored
+warning snapshots already fail CAR; do not replace, retime, or reinterpret
+them. Independent scientific replay is exact for all fourteen registered
+roots, and represented-geometry physical false-safes are zero.
+
+Accept combined audit `41461` as the external coverage verdict. L5 `6/3/4`
+and palm `5/2/3` satisfy the frozen prevention two-sided `4/2/2` minimum, while
+L6 `3/2/0` fails. Diagnostic EE is `8/3/4` and diagnostic L7 is `1/0/0`.
+Global safe-candidate support passes every recoverable held-out state, but it
+cannot override the missing L6 boundary support. Keep `training_authorized`
+and `correction_authorized` false.
+
+Accept diagnostic trainer `41463` and independent retrainer/validator `41464`
+as the required Q-only capacity/transfer test under inadequate coverage. The
+shared 135D arm has validation/test global RMSE `0.520684/0.590234`,
+near-boundary RMSE `0.569030/0.575875`, and rank Spearman
+`0.114709/0.336843`; it selects two validation and four test false-safe
+actions despite safe support in every held-out state. Independent model and
+prediction reproduction is exact. This is evidence of local fitting and failed
+unseen-state transfer, not authorization for a safety filter.
+
+Do not execute finite-bank correction, QP, denoising, or closed loop: both the
+external per-constraint coverage gate and the held-out prediction gate are
+false. If work continues, add only prospectively frozen, initially-safe,
+two-sided L6 roots—especially untouched test task groups—while preserving all
+current palm/L5, recovery, one-sided, timeout, and rejection evidence.
