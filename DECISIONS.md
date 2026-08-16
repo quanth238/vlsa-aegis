@@ -5163,3 +5163,17 @@ the evaluator module instead of its established owner,
 these jobs as apparatus history. Repair only the import owner, cover the
 binding with a structural test, and rerun from a new immutable commit/root with
 the complete ADR-0176 scientific contract unchanged.
+
+Clean producer/replay `41016`/`41017` and validator `41018` pass ADR-0176 from
+immutable commit `6a17b99599428494b1ac654117fed24d9f5ca6f4`. Independent replay
+is scientifically exact; the E00 L5 bank remains `4 safe / 21 unsafe / 2
+unknown`, initial slack is `0.305562`, and physical false-safes are zero. The
+five future-risk groups, nine initial primitives, per-substep EE/palm poses,
+and all action-boundary contexts are complete. The 299 action boundaries yield
+144 eligible known value states with zero Bellman residual.
+
+Freeze this additive schema for all new prospective shards. It authorizes only
+same-bank grouped collection with train/validation/test episode identities
+fixed before outcomes. It does not authorize MLP training, candidate
+selection, QP, denoising, or closed loop; Q-only training still requires the
+independent `4/2/2` initially-safe two-sided split gate.

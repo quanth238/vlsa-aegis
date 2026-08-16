@@ -5539,3 +5539,21 @@ the whole-body auditor imported `_eef_site_id` from
 `main.multilink_ellipsoid.shadow`. Validator `41013` is dependency-impossible.
 The repair changes only that import binding and adds a structural regression;
 state, candidates, execution, geometry, labels, and all gates remain frozen.
+
+Clean replacement producer `41016`, independent replay `41017`, and validator
+`41018` complete from immutable commit
+`6a17b99599428494b1ac654117fed24d9f5ca6f4`. ADR-0176 passes its additive
+schema gate. The canary preserves E00 step 65 and all 27 registered candidates,
+including `4 safe / 21 unsafe / 2 unknown` and four near-boundary candidates.
+Producer/replay scientific content is exact, the initial L5 slack remains
+`0.305562`, and represented-geometry physical false-safes remain zero.
+
+The artifact now records all five named future-risk groups
+`end_effector/palm/L5/L6/L7`, nine initial robot primitives, complete internal
+substep EE/palm poses, and complete action-boundary joint/OSC/exact-geometry
+contexts. It contains 299 action boundaries and 144 eligible known
+backup/terminal-hold value states with zero Bellman residual. Freeze this
+schema for prospective grouped collection. This is apparatus authorization,
+not MLP training or control authorization. Validation file/payload SHA-256
+values are `1d194577aad3cd07ee28961ab90361b7f1d151d5fbf8ef23137915469a808b18`
+and `52cb2d67775788e07e92d30422b3fa494eaa100b58a5d67452f9ab506f9eea96`.
