@@ -5346,3 +5346,9 @@ pre-simulation apparatus history. Their allocation-only regression caught a
 receipt-format mismatch: config serialization changed `2.0` to `2`, changing
 only generated name suffix `r2.0` to `r2`. Restore the frozen floating literal;
 do not rename the ADR-0179 bank or alter action magnitudes.
+
+Accept paired canaries `41108`/`41109` as the repaired collection-apparatus
+gate: exact frozen names, 13 candidates, complete superset schema, and equal
+scientific views. Preserve their case-0 shards. Launch only indices 1--15 in
+producer `41110` and replay `41111`, followed by validator `41112`; do not
+recollect case 0.

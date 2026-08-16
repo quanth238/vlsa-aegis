@@ -5735,3 +5735,11 @@ integer `2`, so the native generator emitted receipt suffix `r2` while the
 immutable selected names from ADR-0179 use `r2.0`. Restore the exact registered
 floating receipt `2.0`; the numerical magnitude and every candidate action are
 unchanged. Require the allocation regression to pass before simulation.
+
+Paired case-0 H100 canaries `41108`/`41109` pass in 8:27/8:25 from
+commit `e52b79348507a66f7f87b8f502423c44999ea975`. Both write schema-valid
+E09 shards with the exact frozen 13 names, all known outcomes, complete
+end-effector/palm/L5/L6/L7 superset records, and equal scientific views.
+Preserve case 0 and run only missing indices 1--15 as producer `41110` and
+independent replay `41111`, each at `%1`, with full validator `41112` after
+both arrays. The progressive root remains `whole-body-extension-20260816c`.
