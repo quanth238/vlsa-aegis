@@ -5421,3 +5421,11 @@ dependent validator `40979` were submitted from clean detached commit
 so at most two H100 equivalents run concurrently. Artifacts are written to
 `/mnt/data/quanth/experiments/vlsa-distal-spatial-t3-timing-localization/spatial-t3-timing-localization-20260816a`.
 The VinUni login node is used only for Slurm and read-only inspection.
+
+Arrays `40977`/`40978` rejected all cases before candidate simulation because
+the development manifest added timing suffixes to immutable archived case IDs;
+validator `40979` therefore became dependency-impossible. The exact logs show
+`archived query-risk case differs`. Preserve the failed root as apparatus
+history. The repair restores original case IDs only and requires a new clean
+commit/root; query steps, candidate bank, labels, OSC, continuation, and gates
+remain frozen.

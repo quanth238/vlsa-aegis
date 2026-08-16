@@ -5,7 +5,7 @@
   "population_manifest": "manifests/vlsa_table1_population.jsonl",
   "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
   "selection_manifest": "manifests/vlsa_distal_spatial_i_t3_timing_localization.v1.jsonl",
-  "selection_manifest_file_sha256": "c11711b9abdd5b0024c7c2066576327eaa1576329aea95a2f309205aa2247157",
+  "selection_manifest_file_sha256": "a05a4b2959f57fbe0a47ac9d81182313bdcade0340af65e5316c711af624b613",
   "target_group_sequence": ["L5", "L5", "L5"],
   "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
   "base_risk_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",

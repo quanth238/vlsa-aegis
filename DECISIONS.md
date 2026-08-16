@@ -5061,3 +5061,10 @@ validator `40979` from commit
 any next scientific change. If timing passes `3/3`, freeze it for new episode
 groups; if timing fails, preserve these labels and preregister broader
 candidate excitation only on the opened development states.
+
+The initial arrays rejected all cases before candidate simulation because the
+development manifest appended timing suffixes to `case_id`, while the archived
+ledger correctly binds the immutable original episode identity. Preserve this
+as apparatus history, restore the three original case IDs, and rerun from a
+clean commit and new artifact root. This repair changes no episode, query step,
+candidate, target, controller, continuation, or gate.
