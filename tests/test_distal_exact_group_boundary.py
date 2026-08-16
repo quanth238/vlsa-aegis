@@ -28,6 +28,9 @@ PROSPECTIVE_CONFIG = (
 SPATIAL_PROGRESSIVE_CONFIG = (
     ROOT / "configs/vlsa_distal_spatial_i_t3_progressive_boundary_extension.v1.json"
 )
+SPATIAL_TIMING_CONFIG = (
+    ROOT / "configs/vlsa_distal_spatial_i_t3_timing_localization.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -229,6 +232,37 @@ class ExactGroupBoundaryTest(unittest.TestCase):
                 "vlsa-t1-spatial-i-t3-e04", "vlsa-t1-spatial-i-t3-e13",
             },
         )
+
+    def test_spatial_timing_localization_changes_only_opened_development_steps(self):
+        previous = load_config(SPATIAL_PROGRESSIVE_CONFIG)
+        current = load_config(SPATIAL_TIMING_CONFIG)
+        previous_by_episode = {
+            case["episode_group_id"]: case
+            for case in load_cases(ROOT / previous["selection_manifest"], previous)
+            if case["split"] == "train"
+        }
+        current_cases = load_cases(ROOT / current["selection_manifest"], current)
+        self.assertEqual(
+            [case["episode_group_id"] for case in current_cases],
+            [
+                "vlsa-t1-spatial-i-t3-e00",
+                "vlsa-t1-spatial-i-t3-e03",
+                "vlsa-t1-spatial-i-t3-e15",
+            ],
+        )
+        self.assertEqual(
+            [warning_step(case, current) for case in current_cases],
+            [65, 55, 65],
+        )
+        self.assertTrue(all(
+            case["state_step"]
+            == previous_by_episode[case["episode_group_id"]]["state_step"] - 5
+            for case in current_cases
+        ))
+        self.assertEqual(current["candidate_bank"], previous["candidate_bank"])
+        self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
+        self.assertEqual(current["risk_target"], previous["risk_target"])
+        self.assertFalse(current["learned_correction_QP_enabled"])
 
     def test_prospective_population_can_capture_policy_value_contexts(self):
         value = json.loads(SPATIAL_PROGRESSIVE_CONFIG.read_text())

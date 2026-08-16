@@ -5033,3 +5033,24 @@ before splitting new episode groups. Do not tune Q/V losses, add correction or
 QP, enable denoising/closed loop, or use GPU labels. The prepared PNCBF-aligned
 Q/V implementation remains blocked until future artifacts contain both
 two-sided query boundaries and controller-boundary value contexts.
+
+## ADR-0174: Change timing before changing candidate excitation
+
+- Status: preregistered; development mechanism gate
+- Date: 2026-08-16
+
+Do not change state timing and the action bank in the same first follow-up.
+Use only opened E00/E03/E15 and move each query one complete VLA chunk earlier
+than ADR-0171 (`65/55/65`). Retain the identical 13-action symmetric Cartesian
+bank, exact candidate-plus-complete-continuation L5 value, direct unchanged
+OSC, no released candidate EE-QP, no learned QP, timeout censoring, and physical
+verification. This identifies whether insufficient intervention lead time is
+the primary cause of the zero two-sided Spatial-I support.
+
+Require initially positive exact L5 slack and a safe/unsafe bracket in all
+three development episodes. This is candidate-procedure development only and
+can authorize a later frozen prospective collection, never training directly.
+If any state remains one-sided, next expand the registered spatial/temporal
+candidate excitation at these opened states while keeping the newly measured
+timing fixed. Validation/test episodes, Q/V losses, correction, QP, denoising,
+closed loop, and GPU-generated labels remain forbidden.

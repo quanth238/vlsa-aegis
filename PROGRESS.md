@@ -5395,3 +5395,22 @@ the next scientific change must target state timing or candidate excitation,
 not model tuning. Validation file/payload SHA-256 values are
 `cc16e7dcaa791b47eb3a35930f83bd381daaa32a18c6c5c9c2262564aeaadc0d`
 and `f6c15c2a6161473c77caddbcbb9743d30dcbf78d7906e4c55e3b7165cddc391d`.
+
+## Spatial-I task-3 timing-localization pilot (preregistered, 2026-08-16)
+
+ADR-0174 isolates timing before changing the candidate family. It reuses only
+the three opened development episodes E00/E03/E15 and shifts each registered
+query exactly one complete five-action chunk earlier: `70->65`, `60->55`, and
+`70->65`. The exact compiled-box target, 13 symmetric world-axis candidates,
+direct no-QP Cartesian execution, unchanged OSC, complete fixed continuation,
+timeout censoring, and physical contact/CAR audit are unchanged. No validation
+or test episode is accessed.
+
+This single-factor gate asks whether ADR-0171 failed because intervention was
+one VLA query too late. A mechanism pass requires all three new query states to
+be initially exact-L5 safe, exact independent replay, zero represented-geometry
+physical false-safes, and safe/unsafe candidate support in `3/3`. A pass freezes
+this warning-offset rule before prospective episode-grouped collection. A
+failure authorizes only a separate broader candidate-excitation pilot; it does
+not authorize MLP training, Q/V tuning, correction, QP, denoising, closed loop,
+GPU labels, or a safety/CBF claim.
