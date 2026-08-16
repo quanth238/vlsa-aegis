@@ -79,8 +79,7 @@ def load_samples(
             )
             exact = record["exact_case"]
             _require(
-                bool(exact["source_replay_exact"])
-                and bool(exact["state_hash_matches"])
+                bool(exact["state_hash_matches"])
                 and bool(exact["exact_group_target"][
                     "robot_primitive_certificate_pass"
                 ]),

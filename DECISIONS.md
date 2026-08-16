@@ -5405,3 +5405,11 @@ This experiment may answer only whether the MLP fits training risk and
 transfers to the opened validation states. It cannot authorize test access,
 action selection, QP, calibration, denoising, closed loop, deployment, or a
 CBF/formal-safety claim irrespective of its metrics.
+
+Treat trainer `41251` as pre-fit apparatus history. It rejected an eligible
+case because the diagnostic loader promoted the legacy source-proxy replay
+flag to an authority, contrary to ADR-0180. Independent producer/replay
+scientific equality and exact state hashes remain the binding authorities.
+Remove only that redundant condition, retain every payload/state/certificate
+check, and rerun from a clean immutable commit. Do not alter the data, model,
+loss, seed, split, or metrics.

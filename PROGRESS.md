@@ -5787,3 +5787,12 @@ AdamW weight decay `1e-4`, fixed seed, and 2,000 epochs. Validation labels do
 not choose a checkpoint or hyperparameter. Report RMSE, boundary error,
 false-safes, safe recall, ordering, and virtual safe support. Test, correction,
 QP, calibration, denoising, and closed-loop execution remain blocked.
+
+Initial diagnostic trainer `41251` passes structural tests and fails before
+sample construction or fitting because the loader incorrectly requires the
+legacy `source_replay_exact` proxy flag. ADR-0180 explicitly classifies that
+flag as diagnostic-only: independent producer/replay scientific views are
+equal and state hashes are exact. Remove only this redundant loader check;
+continue requiring immutable payloads, independent validation, state hashes,
+primitive certificates, initial physical safety, and timeout censoring. The
+failure produces no result/checkpoint and changes no scientific factor.
