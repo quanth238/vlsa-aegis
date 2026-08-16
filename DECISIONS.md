@@ -5264,3 +5264,21 @@ while all represented physical groups are safe. Keep that proxy diagnostic
 rather than treating it as physical authority. Use only opened development
 evidence to select a coverage-preserving candidate bank, then prospectively
 target EE, palm, L6, and L7 warning mechanisms with newly sealed test groups.
+
+## ADR-0179: Freeze a symmetric coverage-preserving 13-candidate bank
+
+- Status: preregistered; allocation-backed artifact selection required
+- Date: 2026-08-16
+
+Use only the four opened ADR-0177 training states to reduce the validated
+27-candidate local-frame grid. Require nominal plus six exact opposite
+direction pairs and preserve every full-bank development safe, unsafe, and
+two-sided support property at group, row, represented-global, and
+physical-global levels. If no such 13-candidate bank exists, retain 27.
+
+Rank feasible banks deterministically by known-outcome count, supported
+near-boundary count, direction covariance determinant, and effective/requested
+correction ratio. Validation/test outcomes must not enter selection. They may
+be evaluated only after the selected names are frozen and are diagnostic
+because those cases are already opened. The resulting bank changes future
+collection cost only; it does not authorize training or control.

@@ -5644,3 +5644,19 @@ target missing EE, palm, L6, and L7 mechanisms; unsupported heads remain
 diagnostic. Audit file/payload SHA-256 values are
 `4c9cf8859e6e74d0a3f8724d1cd8ea391388a325e82d2024aea77cf4c5020be7`
 and `1eafe2a49289028f97ca5e861cd1d26412cb565ccfd83005becb97f9456cb220`.
+
+## Coverage-preserving 13-candidate bank (preregistered, 2026-08-16)
+
+ADR-0179 reduces the opened 27-candidate grid without using validation or test
+outcomes for selection. The bank must contain nominal plus six exact
+opposite-direction pairs. Across all four ADR-0177 training states it must
+preserve every safe, unsafe, and two-sided group/row/global support property
+observed in the full bank, including physical- and represented-global safe
+support. Infeasible reductions are reported rather than forced.
+
+Among feasible banks, the deterministic training-only objective first
+maximizes known outcomes, then near-boundary samples on supported constraints,
+direction covariance determinant, and the effective/requested correction
+ratio. Existing validation/test states are evaluated only after the bank is
+frozen and remain diagnostic; their labels cannot change the selection. This
+is a data-collection efficiency decision, not prediction or control evidence.
