@@ -5054,3 +5054,10 @@ If any state remains one-sided, next expand the registered spatial/temporal
 candidate excitation at these opened states while keeping the newly measured
 timing fixed. Validation/test episodes, Q/V losses, correction, QP, denoising,
 closed loop, and GPU-generated labels remain forbidden.
+
+Run the frozen gate as producer `40977`, independent replay `40978`, and
+validator `40979` from commit
+`9f60bda64759dc873c95c76cce827dc590c406b6`. Inspect `validation.json` before
+any next scientific change. If timing passes `3/3`, freeze it for new episode
+groups; if timing fails, preserve these labels and preregister broader
+candidate excitation only on the opened development states.

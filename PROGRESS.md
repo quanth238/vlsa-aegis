@@ -5414,3 +5414,10 @@ this warning-offset rule before prospective episode-grouped collection. A
 failure authorizes only a separate broader candidate-excitation pilot; it does
 not authorize MLP training, Q/V tuning, correction, QP, denoising, closed loop,
 GPU labels, or a safety/CBF claim.
+
+Immutable H100 producer array `40977`, independent replay array `40978`, and
+dependent validator `40979` were submitted from clean detached commit
+`9f60bda64759dc873c95c76cce827dc590c406b6`. Each array is capped at one GPU,
+so at most two H100 equivalents run concurrently. Artifacts are written to
+`/mnt/data/quanth/experiments/vlsa-distal-spatial-t3-timing-localization/spatial-t3-timing-localization-20260816a`.
+The VinUni login node is used only for Slurm and read-only inspection.
