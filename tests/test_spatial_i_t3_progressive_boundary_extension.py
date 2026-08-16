@@ -36,6 +36,25 @@ class SpatialIT3ProgressiveBoundaryExtensionTest(unittest.TestCase):
             self.assertIn(by_id[case_id]["split"], ("validation", "test"))
         self.assertTrue(all(case["prospective_split_frozen_before_candidate_outcomes"] for case in cases))
 
+    def test_active_obstacle_bindings_match_archived_episode_contracts(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        config = load_config(
+            root / "configs/vlsa_distal_spatial_i_t3_progressive_boundary_extension.v1.json"
+        )
+        cases = load_cases(root / config["selection_manifest"], config)
+        self.assertEqual(
+            {case["case_id"]: case["active_obstacle_name"] for case in cases},
+            {
+                "vlsa-t1-spatial-i-t3-e00": "wine_bottle_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e03": "wine_bottle_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e15": "wine_bottle_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e01": "red_coffee_mug_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e04": "red_coffee_mug_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e02": "yellow_book_obstacle_1",
+                "vlsa-t1-spatial-i-t3-e13": "red_coffee_mug_obstacle_1",
+            },
+        )
+
     def test_gate_requires_every_new_group_to_be_two_sided(self) -> None:
         root = Path(__file__).resolve().parents[1]
         config = load_config(

@@ -5324,8 +5324,9 @@ and `e84bd4c1d0b65b489b3922cdcd8712c33c6f69a649367c526eede6340462d9e7`.
 ADR-0171 adds seven immutable episode shards without replacing the existing
 prospective dataset. Previously opened E00, E03, and E15 are training-only.
 Candidate-outcome-untouched E01/E04 are frozen as validation and E02/E13 as
-test before the new bank runs. All are Spatial-I task 3 with the same wine-
-bottle obstacle mechanism. The three contact episodes use the last complete
+test before the new bank runs. All are Spatial-I task 3; the archived active
+obstacle binding is preserved per episode rather than forced to the training
+episodes' wine-bottle obstacle. The three contact episodes use the last complete
 five-action query boundary strictly before archived L5 contact; untouched
 holdouts use the common preregistered action-60 boundary.
 

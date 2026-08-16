@@ -4961,3 +4961,13 @@ Producer/replay arrays `40930`/`40931` bind the immutable source commit
 and incomplete v1 source clone are apparatus history only; no simulator case
 was launched from them. The live QOS submit-count limit delayed only the
 dependent validator submission and does not relax or alter the protocol.
+
+Arrays `40930`/`40931` completed the three training shards, then both rejected
+E01 before candidate simulation because the manifest incorrectly assigned the
+training episodes' wine-bottle active obstacle to every holdout. Exact archived
+contracts identify E01/E04/E13 with `red_coffee_mug_obstacle_1` and E02 with
+`yellow_book_obstacle_1`. Correct only these immutable source bindings, retain
+the successful training shards, and rerun only missing holdout indices from a
+clean commit. State steps, splits, candidates, targets, controller, labels, and
+gates do not change; the corrected holdouts also test obstacle-instance transfer
+within the frozen Spatial-I task-3 population.
