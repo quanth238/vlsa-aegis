@@ -5857,3 +5857,25 @@ translational five-action chunk. The evaluator now exposes this as an opt-in
 nominal source while preserving the historical post-AEGIS default for every
 immutable artifact and legacy caller. This prevents “QP disabled” from being
 mistaken for “raw pi0.5 nominal” without invalidating prior evidence.
+
+CPU audit `41287` completes the new episode classification from immutable
+commit `dac85fd215baacd9a5b60388442a40797b77ed44`. It reads the same 24 root
+groups / 424 candidates, retains 353 known outcomes and all 71 UNKNOWN
+timeouts, and leaves the scientific gate NO-GO. Exact two-sided episode counts
+remain L5 `5/3/4`, L6 `1/2/0`, palm `2/0/0`, diagnostic EE `6/1/3`, and
+diagnostic L7 `0/0/0` over train/validation/test. The new classifications show:
+
+- palm: train `13` initially safe (`11` safe-only, `2` two-sided, `7`
+  timeout-limited), validation `4/4` safe-only, test `6/6` safe-only;
+- L6: train `14` initially safe (`13` safe-only, `1` two-sided, `7`
+  timeout-limited), validation `2` safe-only / `2` two-sided, test `6/6`
+  safe-only;
+- L5 already passes and must not trigger additive collection.
+
+The apparatus, exact replay/state hashes, complete contexts, zero physical
+false-safes, and global holdout safe support all remain passing. The immutable
+audit artifact SHA-256 is
+`74a311dd632c822ba8004a7aeadb99306c813624e9b598735fc91641e2c5dea4`.
+The next frozen cohort therefore targets only the missing palm `+2/+2/+2`
+and L6 `+3/+0/+2` two-sided root-episode deficits, with extra prospective
+groups allowed for one-sided yield but never selected after labels.

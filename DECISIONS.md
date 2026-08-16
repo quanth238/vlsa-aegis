@@ -5469,3 +5469,17 @@ For all new direct/no-QP candidate data, bind the candidate-bank nominal to
 the raw pi0.5 translational chunk. Preserve the evaluator's historical
 post-AEGIS default for old configurations and artifacts. This is a protocol
 clarification, not a reinterpretation or rewrite of existing data.
+
+Allocation-backed audit `41287` validates ADR-0184. It preserves all 24 root
+episodes, 424 candidates, and 71 UNKNOWN timeouts and reports the required
+per-constraint episode classes. Palm support is `2/0/0` and L6 support is
+`1/2/0`; palm validation/test and L6 test are wholly safe-only among known
+outcomes. L5 is already `5/3/4`. Therefore freeze only new palm and L6 root
+episodes before candidate outcomes. Do not add L5 episodes, tune the model,
+or use validation/test labels to choose warning time or candidate bank.
+
+The minimum remaining two-sided deficits are palm `+2/+2/+2` and L6
+`+3/+0/+2` across train/validation/test. Because prospective states may remain
+one-sided or time out, preregister more episode identities than these minima
+without replacing any failure. Every new direct/no-QP case must explicitly
+record raw pi0.5 as its nominal action source.
