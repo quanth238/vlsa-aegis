@@ -48,6 +48,9 @@ WHOLE_BODY_PROSPECTIVE_CONFIG = (
 WHOLE_BODY_EXTENSION_CONFIG = (
     ROOT / "configs/vlsa_distal_whole_body_progressive_extension.v1.json"
 )
+TARGETED_PI05_CONFIG = (
+    ROOT / "configs/vlsa_distal_pi05_palm_l6_targeted_extension.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -79,6 +82,25 @@ def _case(index, group, candidates):
 
 
 class ExactGroupBoundaryTest(unittest.TestCase):
+    def test_targeted_pi05_collection_freezes_raw_nominal_and_strict_splits(self):
+        config = load_config(TARGETED_PI05_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(len(cases), 14)
+        self.assertEqual(
+            [case["split"] for case in cases],
+            ["train"] * 3 + ["validation"] * 3 + ["test"] * 3
+            + ["train"] * 4 + ["test"],
+        )
+        self.assertEqual(
+            config["state_selection"]["nominal_action_source"],
+            "raw_pi05_nominal_translational",
+        )
+        self.assertFalse(
+            config["candidate_bank"]["released_AEGIS_EE_applied_to_every_candidate"]
+        )
+        self.assertEqual(config["candidate_bank"]["candidate_count_per_job"], 13)
+        self.assertFalse(config["learned_correction_QP_enabled"])
+
     def test_collector_can_bind_raw_pi05_state_to_paired_geometry_only(self):
         source = (
             ROOT / "scripts/collect_distal_exact_group_boundary.py"

@@ -5958,3 +5958,12 @@ candidate outcome was opened and no simulation ran. The deterministic repair
 reserves multi-target roots for the later scarce target whenever exclusive
 palm roots already satisfy the requested count; all source records, splits,
 counts, warning rules, and scientific settings remain unchanged.
+
+Clean freezer `41305` passes from commit
+`de857ca91be3e089f83e2f57f08249c0f349c55b`. The committed manifest SHA-256
+is `3f4182a08b2eca8b87b1b906bdf99c90a3752b8e925d739f3e74026f2e5be500`.
+It contains exactly 14 unique roots with the frozen `7/3/4` split, palm
+`3/3/3`, L6 `4/0/1`, one warning state per root, task-level-group isolation
+inside the new cohort, raw pi0.5 nominal actions, and no candidate-outcome
+access. The targeted collection configuration inherits the validated
+whole-body superset and 13-bank unchanged.

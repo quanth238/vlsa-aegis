@@ -5547,3 +5547,11 @@ L6-train sources. Treat this as selection-apparatus history, not science. When
 an abundant earlier target has enough exclusive roots, reserve multi-target
 sources for the later scarce target. This rule uses only validated natural
 contact availability and never reads candidate outcomes.
+
+Accept clean freezer `41305`. Commit its exact 14-line manifest before any
+counterfactual run. The manifest is frozen at SHA-256
+`3f4182a08b2eca8b87b1b906bdf99c90a3752b8e925d739f3e74026f2e5be500`
+and realizes `7/3/4` roots with palm `3/3/3` and L6 `4/0/1`. Do not replace a
+case if it is one-sided, initially unsafe, times out, or fails. Launch paired
+producer/replay arrays only from a clean commit containing this manifest and
+the inherited no-QP whole-body collection configuration.

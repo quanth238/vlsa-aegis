@@ -1,0 +1,68 @@
+{
+  "schema_version": "vlsa_distal_targeted_pi05_palm_l6_extension.v1",
+  "protocol_id": "vlsa-distal-targeted-pi05-palm-l6-extension-v1",
+  "claim_scope": "Prospective fourteen-root palm/L6 boundary collection from frozen raw-pi0.5 natural-contact sources. It preserves the frozen 13-bank, no-QP direct Cartesian execution, unchanged OSC, complete continuation, UNKNOWN censoring, raw contacts/CAR, and separate EE/palm/L5/L6/L7 future-risk traces. It cannot authorize prediction or correction without later combined gates.",
+  "base_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",
+  "base_config_file_sha256": "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d",
+  "source_audit": {
+    "validated_source_root": "/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-source-audit/pi05-palm-l6-source-audit-20260817b",
+    "validation_file_sha256": "06a502f51a03935993dd32370d900363e73e0a1bd09211701b3847e14f6a3eb9",
+    "validation_payload_sha256": "f3a4d96ccc8441b9a2830fec6cb7b1bbd139a74bd7e9be909355d5055efb2bdd",
+    "cohort_freeze_job": "41305",
+    "cohort_selection_result_payload_sha256": "303e75d0ac9eeb6c41d5594e7493e410c232d91dc449ebc9d5c9a993338097bd",
+    "candidate_outcomes_accessed": false
+  },
+  "selection_manifest": "manifests/vlsa_distal_pi05_palm_l6_targeted_extension.v1.jsonl",
+  "selection_manifest_file_sha256": "3f4182a08b2eca8b87b1b906bdf99c90a3752b8e925d739f3e74026f2e5be500",
+  "target_group_sequence": [
+    "palm", "palm", "palm",
+    "palm", "palm", "palm",
+    "palm", "palm", "palm",
+    "L6", "L6", "L6", "L6", "L6"
+  ],
+  "state_selection": {
+    "unit": "one_natural_raw_pi05_warning_query_per_frozen_root_episode_before_first_target_contact",
+    "explicit_state_step_in_manifest": true,
+    "require_initial_target_group_positive_and_contact_free": true,
+    "require_initial_all_physical_groups_positive_and_contact_free": true,
+    "require_archived_task_success": false,
+    "nominal_action_source": "raw_pi05_nominal_translational",
+    "selection_rule": "floor((first_target_raw_contact_step-5)/5)*5",
+    "selection_evidence": "validated_raw_MuJoCo_contact_ledger_only_no_counterfactual_candidate_outcomes",
+    "candidate_outcomes_used_for_state_selection": false,
+    "episode_split_frozen_before_candidate_outcomes": true,
+    "split_counts": {"train": 7, "validation": 3, "test": 4},
+    "test_use": "coverage_then_one_time_fixed_Q_only_evaluation_never_fit_normalization_or_checkpoint_selection"
+  },
+  "gate": {
+    "required_case_count": 14,
+    "required_candidates_per_case": 13,
+    "source_replay_tolerance_m": 1e-9,
+    "legacy_source_proxy_replay": "diagnostic_only",
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10,
+    "near_boundary_abs_slack": 0.05,
+    "required_two_sided_case_count": 0,
+    "required_two_sided_by_split": {"train": 0, "validation": 0, "test": 0},
+    "required_initially_safe_by_split": {"train": 7, "validation": 3, "test": 4},
+    "required_split_case_count": {"train": 7, "validation": 3, "test": 4},
+    "required_maximum_physical_false_safe_count": 0,
+    "required_maximum_bellman_residual": 0,
+    "required_action_boundary_context_completeness": 1
+  },
+  "training_authorization_mode": "combined_24_state_external_audit_only",
+  "learned_correction_QP_enabled": false,
+  "forbidden": [
+    "candidate_outcome_driven_query_retiming",
+    "episode_or_task_group_movement_between_splits",
+    "dropping_or_replacing_one_sided_initially_unsafe_timeout_or_failed_cases",
+    "post_AEGIS_action_as_raw_pi05_nominal",
+    "released_AEGIS_EE_QP_or_learned_QP",
+    "timeout_as_safe_or_unsafe",
+    "training_before_independent_collection_validation",
+    "correction_before_both_coverage_and_prediction_gates_pass",
+    "monotonic_regularization_calibration_V_loss_or_denoising",
+    "EE_proxy_as_physical_contact_certificate",
+    "formal_safety_or_CBF_claim"
+  ]
+}
