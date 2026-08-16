@@ -5068,3 +5068,6 @@ ledger correctly binds the immutable original episode identity. Preserve this
 as apparatus history, restore the three original case IDs, and rerun from a
 clean commit and new artifact root. This repair changes no episode, query step,
 candidate, target, controller, continuation, or gate.
+
+Replacement jobs `40984`/`40985`/`40986` bind the identity-only repair commit
+`aa411cb560bc3f43ec53e95a0edfb6337f166d81` and a fresh `20260816b` root.

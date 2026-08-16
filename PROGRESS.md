@@ -5429,3 +5429,8 @@ validator `40979` therefore became dependency-impossible. The exact logs show
 history. The repair restores original case IDs only and requires a new clean
 commit/root; query steps, candidate bank, labels, OSC, continuation, and gates
 remain frozen.
+
+Clean replacement producer `40984`, independent replay `40985`, and validator
+`40986` run only the repaired manifest from immutable commit
+`aa411cb560bc3f43ec53e95a0edfb6337f166d81` and new artifact root
+`/mnt/data/quanth/experiments/vlsa-distal-spatial-t3-timing-localization/spatial-t3-timing-localization-20260816b`.
