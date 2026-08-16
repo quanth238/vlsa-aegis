@@ -1,0 +1,58 @@
+{
+  "schema_version": "vlsa_distal_prospective_l5_context_ablation.v1",
+  "protocol_id": "vlsa-distal-prospective-l5-context-ablation-v1",
+  "claim_scope": "opened_test_root_cause_ablation_of_relative_endpoint_9D_versus_causal_direct_L5_OSC_33D_not_new_generalization_evidence_not_control_not_QP_not_CBF",
+  "sources": {
+    "base_config_relative_path": "configs/vlsa_distal_prospective_l5_q_only_diagnostic.v1.json",
+    "frozen_result_file": "/mnt/data/quanth/experiments/vlsa-distal-prospective-l5-q-only-diagnostic/prospective-l5-q-only-diagnostic-20260816a/result.json",
+    "frozen_result_file_sha256": "ede647acee5d14d657b4a17f7b1b794a880c521ad9c4ab0250678881ef1e16fc",
+    "frozen_result_payload_sha256": "cdea244eb9d56be01b9ecad94adfcae9392519db46ce20a48323c173df9264f0",
+    "frozen_validation_file": "/mnt/data/quanth/experiments/vlsa-distal-prospective-l5-q-only-diagnostic/prospective-l5-q-only-diagnostic-20260816a/validation.json",
+    "frozen_validation_file_sha256": "44f2231477e0324df1261dd153a3c5b431a30602d9dc339eb45f55f7a80cf9d7",
+    "frozen_validation_payload_sha256": "2b82bf1d0cd4ecbd67adbd8eb12286b14236704154deb8f73cd30d20529b4851"
+  },
+  "arms": {
+    "relative_endpoint_9D": {
+      "input_dimension": 9,
+      "definition": "frozen_ADR_0169_relative_endpoint_feature"
+    },
+    "direct_L5_OSC_33D": {
+      "input_dimension": 33,
+      "definition": "relative_endpoint_9D_plus_three_exact_current_L5_centers_relative_to_compiled_obstacle_AABB_center_plus_three_L5_semiaxes_plus_three_exact_current_L5_slacks_plus_OSC_position_error",
+      "initial_L5_primitive_row_indices": [0, 1, 2],
+      "initial_exact_slack_indices": [1, 2, 3],
+      "future_executed_state_excluded": true,
+      "released_proxy_normals_excluded": true
+    }
+  },
+  "matched_factors": {
+    "same_samples_labels_splits": true,
+    "same_three_output_architecture": true,
+    "same_hidden_widths_activation": true,
+    "same_loss_optimizer_seed_epochs": true,
+    "same_train_only_state_balanced_normalization": true,
+    "validation_and_test_not_used_for_selection": true
+  },
+  "decision": {
+    "maximum_test_RMSE_ratio_to_9D": 0.75,
+    "require_strictly_fewer_test_false_safes": true,
+    "require_strictly_better_test_improvement_direction": true,
+    "require_no_validation_or_test_support_loss": true,
+    "strong_maximum_false_safe_count": 0,
+    "strong_minimum_safe_recall": 0.9,
+    "strong_required_safe_support_state_count": 2,
+    "strong_maximum_near_boundary_global_RMSE": 0.1
+  },
+  "forbidden": [
+    "new_simulation_or_relabeling",
+    "validation_or_test_normalization",
+    "validation_checkpoint_selection_or_hyperparameter_tuning",
+    "asymmetric_loss_or_calibration",
+    "V_targets_or_loss",
+    "candidate_selection_or_correction",
+    "QP_or_gradient_correction",
+    "denoising_guidance",
+    "closed_loop_execution",
+    "deployment_generalization_or_CBF_claim"
+  ]
+}

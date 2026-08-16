@@ -4884,3 +4884,25 @@ test may compare the frozen 9D endpoint representation with one minimal direct
 L5-relative-context representation, using newly untouched validation/test
 groups. QP, calibration, denoising, closed loop, deployment, and CBF claims
 remain blocked.
+
+## ADR-0170: Permit one matched causal-context root-cause ablation
+
+- Status: preregistered; opened-test diagnostic only
+- Date: 2026-08-16
+
+The user authorizes the next matched experiment to determine whether omitted
+current L5/controller context caused the ADR-0169 E15 failure. Reproduce the
+frozen 9D arm exactly and compare it with a 33D arm containing the same 9D
+feature plus current centers and semiaxes of the three certified L5
+primitives, exact current L5 slacks, and OSC position error. Centers are
+expressed relative to the AABB center of exact compiled obstacle boxes. No
+future rollout state or stale released-proxy normal may enter the input.
+
+Only input dimensionality changes. Samples, labels, split, architecture,
+hidden widths, output heads, loss, optimizer, weight decay, seed, epochs,
+normalization, checkpoint rule, and metrics remain identical. The 9D arm
+must reproduce ADR-0169 predictions within `1e-9`, and an independent H100
+validator must reproduce both arms. This opened-test audit can identify a
+representation effect but cannot establish unseen-task generalization.
+Candidate correction, QP, calibration, denoising, closed loop, deployment,
+and CBF claims remain forbidden.

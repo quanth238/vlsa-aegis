@@ -5276,3 +5276,20 @@ closed loop remain blocked. Result/validation file SHA-256 values are
 payload SHA-256 values are
 `cdea244eb9d56be01b9ecad94adfcae9392519db46ce20a48323c173df9264f0` and
 `2b82bf1d0cd4ecbd67adbd8eb12286b14236704154deb8f73cd30d20529b4851`.
+
+## Matched L5 context root-cause ablation (preregistered, 2026-08-16)
+
+ADR-0170 freezes every ADR-0169 sample, target, split, model width, loss,
+optimizer, seed, schedule, weight decay, and train-only normalization. It
+compares the reproduced 9D relative-endpoint input against one causal 33D
+input that adds only current exact three-row L5 geometry and OSC position
+error. Stale released-proxy normals and all future executed states are
+excluded.
+
+Because E15 has already been opened, this is a root-cause ablation rather
+than new generalization evidence. A material representation effect requires
+at least 25% lower test RMSE, fewer test false-safes, better test improvement
+direction, and no support loss. The original prediction gate remains zero
+false-safes, at least 90% safe recall, 2/2 support, and near-boundary RMSE at
+most 0.1 on validation and test. Correction, QP, calibration, denoising,
+closed loop, deployment, and CBF claims remain blocked regardless of result.
