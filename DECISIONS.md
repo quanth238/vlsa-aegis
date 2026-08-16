@@ -5570,3 +5570,9 @@ after checking file hash, payload hash, case identity, geometry-only role, and
 `state_or_action_source=false`. This is an apparatus repair, not a protocol
 change. Chain `41307/41308/41309` is retained as failed apparatus history and
 must not be interpreted scientifically.
+
+Do not use queued chain `41318/41321/41322/41323/41324`: it is bound to an
+incorrect expanded commit hash and is dependency-impossible before simulation.
+The authoritative repair is full commit
+`80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1`, with clean collection chain
+`41327/41328/41329/41330/41331`.

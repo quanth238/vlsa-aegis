@@ -5986,3 +5986,10 @@ it cannot supply state/actions, and records that provenance in the exact case.
 The frozen 14 roots, `7/3/4` split, 13-bank, no-QP execution, OSC, continuation,
 and timeout policy are unchanged. Failed tasks in the initial chain remain
 apparatus history; no candidate outcomes from them are used.
+
+Queued repair chain `41318/41321/41322/41323/41324` is also apparatus history:
+its source-prep binding expanded short commit `80f45ef` to the wrong full hash,
+so it cannot create its source tree or reach simulation. The verified immutable
+repair commit is `80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1`. Clean source-prep/retry-prep
+jobs are `41327/41328`; the dependent replacement producer, replay, and
+validator are `41329/41330/41331`.
