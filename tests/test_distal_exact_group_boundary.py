@@ -42,6 +42,9 @@ SPATIAL_E00_EXCITATION_CONFIG = (
 WHOLE_BODY_SUPERSET_CONFIG = (
     ROOT / "configs/vlsa_distal_e00_whole_body_superset_canary.v1.json"
 )
+WHOLE_BODY_PROSPECTIVE_CONFIG = (
+    ROOT / "configs/vlsa_distal_whole_body_prospective_population.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -106,6 +109,30 @@ class ExactGroupBoundaryTest(unittest.TestCase):
             config["artifact_superset"]["capture_internal_substep_palm_pose"]
         )
         self.assertTrue(config["trajectory_policy_value"]["capture_action_boundaries"])
+        self.assertFalse(config["learned_correction_QP_enabled"])
+
+    def test_whole_body_prospective_split_is_frozen_before_outcomes(self):
+        config = load_config(WHOLE_BODY_PROSPECTIVE_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(
+            [case["split"] for case in cases],
+            ["train"] * 4 + ["validation"] * 2 + ["test"] * 2,
+        )
+        self.assertEqual(
+            [warning_step(case, config) for case in cases],
+            [115, 70, 25, 130, 185, 25, 80, 65],
+        )
+        self.assertEqual(
+            config["exact_group_target"]["group_order"],
+            list(WHOLE_BODY_GROUPS),
+        )
+        self.assertEqual(config["gate"]["required_two_sided_by_split"], {
+            "train": 4, "validation": 2, "test": 2,
+        })
+        self.assertTrue(all(
+            case["prospective_split_frozen_before_candidate_outcomes"]
+            for case in cases
+        ))
         self.assertFalse(config["learned_correction_QP_enabled"])
 
     def test_released_ee_proxy_uses_body_orientation_not_grip_site_xmat(self):

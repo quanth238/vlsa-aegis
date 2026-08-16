@@ -17,6 +17,7 @@ PROSPECTIVE_L5_CONFIG_SCHEMA = "vlsa_distal_prospective_l5_boundary_population.v
 DEVELOPMENT_L5_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_search.v1"
 DEVELOPMENT_EXCITATION_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_excitation.v1"
 WHOLE_BODY_SUPERSET_CONFIG_SCHEMA = "vlsa_distal_whole_body_superset_canary.v1"
+WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA = "vlsa_distal_whole_body_prospective_population.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -43,7 +44,7 @@ def load_config(path: Path) -> dict[str, Any]:
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         DEVELOPMENT_L5_CONFIG_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
-        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA, WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -55,12 +56,14 @@ def load_config(path: Path) -> dict[str, Any]:
         DEVELOPMENT_L5_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-search-v1",
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-excitation-v1",
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA: "vlsa-distal-whole-body-superset-canary-v1",
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA: "vlsa-distal-whole-body-prospective-population-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
     if schema in (
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
     ):
         expected_grid = {
             "kind": "local_frame_grid",
@@ -102,12 +105,18 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("learned correction QP must remain disabled")
     expected_group_order = (
         list(WHOLE_BODY_GROUPS)
-        if schema == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA
+        if schema in (
+            WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+            WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        )
         else list(GROUPS)
     )
     if value["exact_group_target"]["group_order"] != expected_group_order:
         raise ValueError("exact-group order differs")
-    if schema == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA:
+    if schema in (
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+    ):
         exact = value["exact_group_target"]
         if (
             exact.get("include_released_aegis_end_effector_proxy") is not True
@@ -154,12 +163,16 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
             PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
             DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+            WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         )
         else "task_level_group_id"
     )
     if len({case[grouping_key] for case in cases}) != len(cases):
         raise ValueError("exact-group boundary episode groups are not independent")
-    if config["schema_version"] == PROSPECTIVE_L5_CONFIG_SCHEMA:
+    if config["schema_version"] in (
+        PROSPECTIVE_L5_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+    ):
         if not isinstance(
             config["state_selection"].get("require_archived_task_success", True),
             bool,
@@ -186,6 +199,7 @@ def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
@@ -211,7 +225,10 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     trajectory_maximum_bellman_residual = 0.0
     trajectory_context_complete = True
     artifact_superset_mode = (
-        config.get("schema_version") == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA
+        config.get("schema_version") in (
+            WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+            WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        )
     )
     artifact_superset_complete = True
     for case in cases:
@@ -362,7 +379,10 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         apparatus and two_sided_case_count >= targeted_required
     )
     prospective_mode = (
-        config.get("schema_version") == PROSPECTIVE_L5_CONFIG_SCHEMA
+        config.get("schema_version") in (
+            PROSPECTIVE_L5_CONFIG_SCHEMA,
+            WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        )
     )
     per_split: dict[str, Any] = {}
     prospective_gate = False

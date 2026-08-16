@@ -5177,3 +5177,32 @@ same-bank grouped collection with train/validation/test episode identities
 fixed before outcomes. It does not authorize MLP training, candidate
 selection, QP, denoising, or closed loop; Q-only training still requires the
 independent `4/2/2` initially-safe two-sided split gate.
+
+## ADR-0177: Prospectively collect the first whole-body Q-only coverage cohort
+
+- Status: preregistered; allocation-backed population gate required
+- Date: 2026-08-16
+
+Freeze ADR-0176's additive artifact contract and ADR-0175's local-frame
+27-candidate bank. Select eight independent archived real VLA query states
+before any new candidate outcome and freeze them as four train, two validation,
+and two test episode groups. The cohort deliberately spans two benchmark
+suites, four task-level groups, three obstacle families, and target-conditioned
+L5/L6 warning states. This is a minimum mechanism cohort under the deadline,
+not the final paper population.
+
+Execute each complete candidate directly through the unchanged OSC with no
+released candidate EE-QP and label the full candidate-plus-fixed-continuation
+future. Store per-constraint end-effector/palm/L5/L6/L7 risk rather than a
+collapsed maximum, and retain requested, clipped effective, and nominal chunks,
+action-boundary controller state, internal-substep geometry, contacts, CAR,
+phase, and timeout. Preserve each valid case as an immutable shard.
+
+Q-only training is authorized only after exact producer/replay agreement, all
+states initially target-safe, zero represented-geometry physical false-safes,
+and `4/2/2` two-sided target support. Validation/test never enter fitting or
+normalization. A failed state is not replaced after observing its candidate
+outcomes; it remains evidence and only a separately preregistered progressive
+extension may add new episode groups. Prediction, candidate selection,
+correction, QP, calibration, denoising, and closed-loop execution remain
+blocked until their later gates.

@@ -32,6 +32,7 @@ def collect(
         DEVELOPMENT_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         load_cases, load_config,
         payload_sha256, warning_step,
     )
@@ -167,6 +168,7 @@ def collect(
     )
     grid_bank = config["schema_version"] in (
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+        WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
     )
 
     def definitions(nominal, frame, _base):

@@ -5557,3 +5557,24 @@ schema for prospective grouped collection. This is apparatus authorization,
 not MLP training or control authorization. Validation file/payload SHA-256
 values are `1d194577aad3cd07ee28961ab90361b7f1d151d5fbf8ef23137915469a808b18`
 and `52cb2d67775788e07e92d30422b3fa494eaa100b58a5d67452f9ab506f9eea96`.
+
+## Whole-body prospective Q-only coverage cohort (preregistered, 2026-08-16)
+
+ADR-0177 freezes the passing ADR-0176 superset schema and begins the minimum
+independent population needed for the first Q-only prediction gate. Eight
+candidate-outcome-untouched archived episode groups are split before outcomes
+as `4 train / 2 validation / 2 test`. They span Spatial-I and Goal-II tasks,
+milk, moka-pot, and wine-bottle obstacles, and L5- and L6-conditioned warning
+states. Each state receives the unchanged nominal-plus-26 local
+normal/tangent grid at requested L2 `2.0`, direct clipped Cartesian execution,
+unchanged OSC, and the complete fixed continuation.
+
+Every shard stores separate end-effector, palm, L5, L6, and L7 future risks,
+all internal-substep physical evidence, and complete action-boundary context.
+Candidate outcomes may not retime states or move episodes across splits.
+Timeouts remain unknown. Training is authorized only if all eight states are
+initially target-safe, independent replay is exact, represented-geometry
+physical false-safes are zero, and two-sided target support reaches exactly
+`4/2/2`. One-sided and failed cases remain in the audit and trigger targeted
+progressive extension rather than model tuning. QP, correction, calibration,
+denoising, and closed-loop use remain blocked.
