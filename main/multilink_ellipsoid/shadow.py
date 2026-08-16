@@ -661,10 +661,7 @@ def _released_aegis_end_effector_ellipsoid(env: Any) -> Ellipsoid:
     # The released AEGIS proxy uses the robot-model EEF body orientation while
     # its position is anchored at the grip site.  The grip site's own xmat has
     # a fixed frame offset and is not an interchangeable orientation source.
-    eef_body_name = str(env.robots[0].robot_model.eef_name)
-    rotation = np.asarray(
-        data.get_body_xmat(eef_body_name), dtype=np.float64
-    ).reshape(3, 3)
+    rotation = np.asarray(data.xmat[body_id], dtype=np.float64).reshape(3, 3)
     center = np.asarray(data.site_xpos[site_id], dtype=np.float64) + rotation @ np.asarray(
         [0.0, 0.0, -0.08], dtype=np.float64
     )

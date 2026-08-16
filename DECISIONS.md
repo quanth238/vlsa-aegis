@@ -5147,3 +5147,11 @@ poses, complete action-boundary contexts, zero Bellman residual, and no change
 to the registered L5 outcomes. Only then may new prospective episode shards be
 collected with this schema. MLP training, candidate execution, QP, denoising,
 and closed loop remain blocked.
+
+Initial jobs `41008`/`41009` failed before candidate simulation after all
+scoped tests passed: the schema code called the legacy `MjData.get_body_xmat`
+method, which is absent from the installed modern MuJoCo binding. `41010` is
+dependency-impossible. This is apparatus-only. Read the identical EEF site
+body orientation from indexed `data.xmat[body_id]` (and `xquat[body_id]` for
+the recorded quaternion), then rerun from a new immutable commit/root without
+changing any state, action, geometry, controller, continuation, or gate.

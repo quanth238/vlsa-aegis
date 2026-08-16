@@ -113,7 +113,7 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         start = source.index("def _released_aegis_end_effector_ellipsoid")
         end = source.index("\ndef _resolved_rate_nominal", start)
         helper = source[start:end]
-        self.assertIn("data.get_body_xmat(eef_body_name)", helper)
+        self.assertIn("data.xmat[body_id]", helper)
         self.assertNotIn("data.site_xmat[site_id]", helper)
 
     def test_frozen_contract_and_warning_steps(self):

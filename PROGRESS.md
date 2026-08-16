@@ -5523,3 +5523,11 @@ overwritten or falsely relabeled as EE-complete. Run one independent E00
 allocation-backed schema canary, then use the passing superset contract for all
 new grouped shards so later EE, palm, L5, L6, L7, or policy-value ablations do
 not require repeating those rollouts. Training and control remain blocked.
+
+Initial superset producer/replay `41008`/`41009` are apparatus history only.
+Both passed all scoped tests and stopped before candidate simulation because
+the modern MuJoCo `MjData` exposes body rotation through indexed `xmat`, not
+the legacy `get_body_xmat` convenience method. Validator `41010` is
+dependency-impossible. Replace only that API access with the equivalent
+site-body `xmat`/`xquat` arrays, keep every scientific setting fixed, and use a
+new immutable commit and artifact root.

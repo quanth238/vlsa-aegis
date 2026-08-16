@@ -103,6 +103,7 @@ def _evaluate_case(
     )
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow,
+        _raw_model_data,
         load_shadow_config,
     )
     from main.multilink_ellipsoid.sitl_candidate import (
@@ -281,13 +282,13 @@ def _evaluate_case(
             """Build the unchanged released AEGIS EE proxy from live MuJoCo state."""
 
             site_id = int(_eef_site_id(env))
+            model, data = _raw_model_data(env.sim)
+            body_id = int(model.site_bodyid[site_id])
             site_position = np.asarray(
-                env.sim.data.site_xpos[site_id], dtype=np.float64
+                data.site_xpos[site_id], dtype=np.float64
             ).copy()
             eef_body_name = str(env.robots[0].robot_model.eef_name)
-            quaternion_wxyz = np.asarray(
-                env.sim.data.get_body_xquat(eef_body_name), dtype=np.float64
-            )
+            quaternion_wxyz = np.asarray(data.xquat[body_id], dtype=np.float64)
             quaternion_xyzw = quaternion_wxyz[[1, 2, 3, 0]]
             rotation = runtime["Rotation"].from_quat(quaternion_xyzw).as_matrix()
             center = site_position + rotation @ np.asarray(
@@ -297,6 +298,7 @@ def _evaluate_case(
                 center=center,
                 rotation=rotation,
                 semiaxes_m=np.asarray([0.06, 0.12, 0.11], dtype=np.float64),
+                body_id=body_id,
                 body_name="robot0_end_effector",
                 geom_name="released_aegis_end_effector_proxy",
                 bound_source="released_aegis_end_effector_proxy",
