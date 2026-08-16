@@ -21,9 +21,9 @@ def run(
     expected_commit: str,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
-        RESULT_SCHEMA, file_sha256, payload_sha256, scientific_view,
+        RESULT_SCHEMA, cpu_allocation_record, file_sha256, payload_sha256,
+        scientific_view,
     )
-    from main.multilink_ellipsoid.shadow import allocation_record
 
     identity = _git_identity(repo_root, expected_commit)
     producer = _load(producer_path)
@@ -50,7 +50,7 @@ def run(
         "status": "complete",
         "scientific_result": True,
         "source": identity,
-        "allocation": allocation_record(),
+        "allocation": cpu_allocation_record(),
         "producer": {
             "path": str(producer_path),
             "file_sha256": file_sha256(producer_path),
@@ -96,4 +96,3 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

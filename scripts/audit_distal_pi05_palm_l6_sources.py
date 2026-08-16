@@ -130,10 +130,9 @@ def run(
     expected_commit: str,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
-        RESULT_SCHEMA, excluded_case_ids, load_config, load_population,
-        payload_sha256, summarize,
+        RESULT_SCHEMA, cpu_allocation_record, excluded_case_ids, load_config,
+        load_population, payload_sha256, summarize,
     )
-    from main.multilink_ellipsoid.shadow import allocation_record
 
     identity = _git_identity(repo_root, expected_commit)
     config = load_config(config_path, repo_root=repo_root)
@@ -153,7 +152,7 @@ def run(
         "scientific_result": True,
         "claim_scope": config["claim_scope"],
         "source": identity,
-        "allocation": allocation_record(),
+        "allocation": cpu_allocation_record(),
         "config": config,
         "summary": summarize(records),
         "excluded_case_count": len(excluded),
@@ -190,4 +189,3 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

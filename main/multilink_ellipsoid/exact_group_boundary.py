@@ -19,6 +19,7 @@ DEVELOPMENT_EXCITATION_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_develop
 WHOLE_BODY_SUPERSET_CONFIG_SCHEMA = "vlsa_distal_whole_body_superset_canary.v1"
 WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA = "vlsa_distal_whole_body_prospective_population.v1"
 WHOLE_BODY_EXTENSION_CONFIG_SCHEMA = "vlsa_distal_whole_body_progressive_extension.v1"
+TARGETED_PI05_CONFIG_SCHEMA = "vlsa_distal_targeted_pi05_palm_l6_extension.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -41,12 +42,45 @@ def load_config(path: Path) -> dict[str, Any]:
     raw = Path(path).read_bytes()
     value = json.loads(raw)
     schema = value.get("schema_version")
+    if schema == TARGETED_PI05_CONFIG_SCHEMA:
+        expected = {
+            "schema_version", "protocol_id", "claim_scope", "base_config",
+            "base_config_file_sha256", "source_audit", "selection_manifest",
+            "selection_manifest_file_sha256", "target_group_sequence",
+            "state_selection", "gate", "training_authorization_mode",
+            "learned_correction_QP_enabled", "forbidden",
+        }
+        if set(value) != expected:
+            raise ValueError("targeted pi05 exact-group config keys differ")
+        base_path = Path(path).resolve().parents[1] / str(value["base_config"])
+        base_raw = base_path.read_bytes()
+        if hashlib.sha256(base_raw).hexdigest() != value["base_config_file_sha256"]:
+            raise ValueError("targeted pi05 base config differs")
+        base = json.loads(base_raw)
+        if base.get("schema_version") != WHOLE_BODY_EXTENSION_CONFIG_SCHEMA:
+            raise ValueError("targeted pi05 base schema differs")
+        expanded = dict(base)
+        for key in (
+            "schema_version", "protocol_id", "claim_scope",
+            "selection_manifest", "selection_manifest_file_sha256",
+            "target_group_sequence", "state_selection", "gate",
+            "training_authorization_mode", "learned_correction_QP_enabled",
+            "forbidden",
+        ):
+            expanded[key] = value[key]
+        expanded["base_config_binding"] = {
+            "path": value["base_config"],
+            "file_sha256": value["base_config_file_sha256"],
+        }
+        expanded["source_audit"] = value["source_audit"]
+        value = expanded
     if schema not in (
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         DEVELOPMENT_L5_CONFIG_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA, WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -60,6 +94,7 @@ def load_config(path: Path) -> dict[str, Any]:
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA: "vlsa-distal-whole-body-superset-canary-v1",
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA: "vlsa-distal-whole-body-prospective-population-v1",
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA: "vlsa-distal-whole-body-progressive-extension-v1",
+        TARGETED_PI05_CONFIG_SCHEMA: "vlsa-distal-targeted-pi05-palm-l6-extension-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
@@ -87,7 +122,9 @@ def load_config(path: Path) -> dict[str, Any]:
         }
         if bank != expected_grid:
             raise ValueError("development excitation candidate bank differs")
-    elif schema == WHOLE_BODY_EXTENSION_CONFIG_SCHEMA:
+    elif schema in (
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA, TARGETED_PI05_CONFIG_SCHEMA,
+    ):
         names = list(bank.get("selected_candidate_names", []))
         if (
             bank.get("kind") != "frozen_local_frame_grid_subset"
@@ -124,6 +161,7 @@ def load_config(path: Path) -> dict[str, Any]:
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
             WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+            TARGETED_PI05_CONFIG_SCHEMA,
         )
         else list(GROUPS)
     )
@@ -133,6 +171,7 @@ def load_config(path: Path) -> dict[str, Any]:
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
     ):
         exact = value["exact_group_target"]
         if (
@@ -182,6 +221,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
             WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+            TARGETED_PI05_CONFIG_SCHEMA,
         )
         else "task_level_group_id"
     )
@@ -191,6 +231,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
         PROSPECTIVE_L5_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
     ):
         if not isinstance(
             config["state_selection"].get("require_archived_task_success", True),
@@ -220,6 +261,7 @@ def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
@@ -249,6 +291,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
             WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+            TARGETED_PI05_CONFIG_SCHEMA,
         )
     )
     artifact_superset_complete = True
@@ -363,7 +406,9 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
                     and int(initial["initial_group_contact_sample_count"][group]) == 0
                     for group in ("palm", "L5", "L6", "L7")
                 )
-                if config.get("schema_version") == WHOLE_BODY_EXTENSION_CONFIG_SCHEMA
+                if config.get("schema_version") in (
+                    WHOLE_BODY_EXTENSION_CONFIG_SCHEMA, TARGETED_PI05_CONFIG_SCHEMA,
+                )
                 else True
             ),
             "robot_primitive_certificate_pass": bool(initial["robot_primitive_certificate_pass"]),
@@ -395,7 +440,9 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         and all(item["initial_target_slack"] > 0.0 and item["initial_target_contact_count"] == 0
                 for item in summaries)
         and (
-            config.get("schema_version") != WHOLE_BODY_EXTENSION_CONFIG_SCHEMA
+            config.get("schema_version") not in (
+                WHOLE_BODY_EXTENSION_CONFIG_SCHEMA, TARGETED_PI05_CONFIG_SCHEMA,
+            )
             or all(item["initial_physical_groups_safe"] for item in summaries)
         )
         and replay_gate and proxy_false_safe == 0
@@ -417,6 +464,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             PROSPECTIVE_L5_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
             WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+            TARGETED_PI05_CONFIG_SCHEMA,
         )
     )
     per_split: dict[str, Any] = {}

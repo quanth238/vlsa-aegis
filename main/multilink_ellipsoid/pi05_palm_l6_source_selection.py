@@ -11,13 +11,32 @@ from __future__ import annotations
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
+import socket
 from typing import Any, Mapping, Sequence
 
 
 CONFIG_SCHEMA = "vlsa_distal_pi05_palm_l6_source_audit.v1"
 RESULT_SCHEMA = "vlsa_distal_pi05_palm_l6_source_audit_result.v1"
 TARGET_GROUPS = ("palm", "L6")
+
+
+def cpu_allocation_record() -> dict[str, Any]:
+    """Record a strict Slurm CPU allocation without requiring a GPU."""
+    job_id = os.environ.get("SLURM_JOB_ID")
+    if not job_id or not job_id.isdigit():
+        raise ValueError("pi05 source audit requires a Slurm allocation")
+    if os.environ.get("SLURM_JOB_GPUS") or os.environ.get("CUDA_VISIBLE_DEVICES"):
+        raise ValueError("pi05 source audit must remain CPU-only")
+    return {
+        "slurm_job_id": job_id,
+        "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
+        "slurm_array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
+        "host": socket.gethostname(),
+        "device": {"type": "cpu"},
+        "allocated_cpus": os.environ.get("SLURM_CPUS_PER_TASK"),
+    }
 
 
 def canonical(value: Any) -> bytes:

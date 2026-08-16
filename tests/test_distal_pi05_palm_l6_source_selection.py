@@ -1,11 +1,12 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
 from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
     _raw_action_contract, _warning_step, excluded_case_ids, load_config,
-    scientific_view,
+    cpu_allocation_record, scientific_view,
 )
 
 
@@ -70,6 +71,15 @@ class Pi05PalmL6SourceSelectionTest(unittest.TestCase):
         left = {**common, "allocation": {"job": 1}}
         right = {**common, "allocation": {"job": 2}}
         self.assertEqual(scientific_view(left), scientific_view(right))
+
+    def test_cpu_allocation_receipt_rejects_non_slurm(self):
+        old = os.environ.pop("SLURM_JOB_ID", None)
+        try:
+            with self.assertRaisesRegex(ValueError, "requires a Slurm allocation"):
+                cpu_allocation_record()
+        finally:
+            if old is not None:
+                os.environ["SLURM_JOB_ID"] = old
 
 
 if __name__ == "__main__":

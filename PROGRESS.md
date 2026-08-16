@@ -5912,3 +5912,16 @@ while the paired AEGIS perception is explicitly provenance-bound as backup and
 diagnostic-EE geometry only. Legacy callers remain unchanged. An independent
 source-audit validator compares allocation-independent scientific views before
 any cohort manifest is frozen.
+
+Initial source scans `41292`/`41293` complete the expensive 1,600-case read,
+then reject before writing results because the reused shadow allocation receipt
+requires an H100 even for a read-only CPU audit. Dependent validator `41296`
+is consequently dependency-impossible. Preserve these jobs as post-scan
+apparatus history. The repair records a strict Slurm CPU receipt and changes no
+source case, eligibility rule, exclusion, warning time, or scientific field.
+
+The next apparatus commit also prepares a deterministic cohort freezer and a
+compact inherited exact-group configuration. The freezer requires validated
+independent source views, assigns complete task-level groups to exactly one
+split, selects unique root episodes without reading candidate outcomes, and
+fails rather than silently replacing a missing palm/L6 source.

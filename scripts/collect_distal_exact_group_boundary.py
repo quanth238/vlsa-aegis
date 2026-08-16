@@ -57,6 +57,7 @@ def collect(
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
         load_cases, load_config,
         payload_sha256, warning_step,
     )
@@ -238,6 +239,7 @@ def collect(
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
         WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+        TARGETED_PI05_CONFIG_SCHEMA,
     )
 
     def definitions(nominal, frame, _base):
