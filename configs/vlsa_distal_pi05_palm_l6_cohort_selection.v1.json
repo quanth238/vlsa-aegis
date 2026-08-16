@@ -1,0 +1,57 @@
+{
+  "schema_version": "vlsa_distal_pi05_palm_l6_cohort_selection.v1",
+  "protocol_id": "vlsa-distal-pi05-palm-l6-cohort-selection-v1",
+  "claim_scope": "Prospective freeze of fourteen candidate-outcome-untouched natural raw-pi0.5 warning roots targeted only at missing palm/L6 boundary mechanisms. Task-level groups are disjoint within this additive cohort. This is selection only, not counterfactual simulation, training, correction, QP, denoising, deployment, certification, or a CBF claim.",
+  "source_audit": {
+    "producer_path": "/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-source-audit/pi05-palm-l6-source-audit-20260817b/result.json",
+    "producer_file_sha256": "1c2224594cf2556d58360c383ac6ac5a639a87792aaf5583feab35089ed8299a",
+    "producer_payload_sha256": "43726186871f8978425087dfb0137a9715a515922a243d278426c568ddb2afe7",
+    "replay_path": "/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-source-audit/pi05-palm-l6-source-audit-20260817b/replay.json",
+    "replay_file_sha256": "c29f2b37dcb91f4552bb392875842f439152ef37d7370904b9dc6877d81e80bc",
+    "replay_payload_sha256": "4b3506d0c79ef5ca5c56558df405f615b315163149500dc03478e5d04f2c99d0",
+    "validation_path": "/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-source-audit/pi05-palm-l6-source-audit-20260817b/validation.json",
+    "validation_file_sha256": "06a502f51a03935993dd32370d900363e73e0a1bd09211701b3847e14f6a3eb9",
+    "validation_payload_sha256": "f3a4d96ccc8441b9a2830fec6cb7b1bbd139a74bd7e9be909355d5055efb2bdd"
+  },
+  "split_task_level_groups": {
+    "train": [
+      "vlsa-t1-goal-i-t1",
+      "vlsa-t1-long-i-t2",
+      "vlsa-t1-spatial-i-t0",
+      "vlsa-t1-goal-ii-t3"
+    ],
+    "validation": [
+      "vlsa-t1-goal-i-t2",
+      "vlsa-t1-long-ii-t2",
+      "vlsa-t1-goal-ii-t1"
+    ],
+    "test": [
+      "vlsa-t1-spatial-i-t2",
+      "vlsa-t1-long-ii-t3",
+      "vlsa-t1-spatial-i-t3"
+    ]
+  },
+  "target_order": ["palm", "L6"],
+  "target_split_counts": {
+    "palm": {"train": 3, "validation": 3, "test": 3},
+    "L6": {"train": 4, "validation": 0, "test": 1}
+  },
+  "selection_rule": {
+    "one_state_per_root_episode": true,
+    "candidate_outcomes_accessed": false,
+    "ranking": "task_success_first_then_deterministic_SHA256_case_rank",
+    "task_level_group_balance": "round_robin_within_each_target_and_split",
+    "warning_time": "latest_complete_raw_pi05_five_action_query_before_first_target_contact",
+    "why_fourteen": "all_five_available_untouched_L6_sources_plus_three_palm_roots_per_split_to_cover_missing_mechanisms_without_generic_collection"
+  },
+  "forbidden": [
+    "counterfactual_candidate_outcome_access_before_freeze",
+    "case_or_split_replacement_after_outcomes",
+    "candidate_or_state_cross_split",
+    "generic_non_targeted_collection",
+    "post_AEGIS_action_as_raw_pi05_nominal",
+    "released_AEGIS_EE_QP",
+    "timeout_as_safe_or_unsafe",
+    "training_correction_QP_denoising_or_closed_loop"
+  ]
+}

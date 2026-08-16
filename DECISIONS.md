@@ -5510,3 +5510,33 @@ outcome, but mark the experiment diagnostic if any claimed head remains below
 coverage. Enable finite-bank correction only when both the coverage gate and
 held-out prediction gate pass; otherwise record a scientific NO-GO without
 executing correction.
+
+## ADR-0186: Freeze the available palm/L6 cohort and held-out Q-only gate
+
+- Status: preregistered; candidate outcomes unopened
+- Date: 2026-08-17
+
+Accept CPU source audits `41298`/`41299` and validator `41300` as immutable
+natural-pi0.5 source evidence. They independently inspect all 1,600 roots and
+agree on 228 eligible palm episodes but only five eligible L6 episodes across
+two task-level groups. Candidate labels were not accessed. Do not broaden to
+generic L5 states or silently manufacture L6 coverage.
+
+Freeze fourteen unique roots before counterfactual outcomes: palm `3/3/3` and
+L6 `4/0/1` across train/validation/test. Assign every task-level group in this
+additive cohort to one split only, use one raw-contact-derived warning snapshot
+per episode, and preserve all outcomes. Apply the unchanged frozen 13-bank to
+the raw pi0.5 nominal action, disable the released EE-QP, keep the OSC and
+complete continuation fixed, retain UNKNOWN timeouts, and record the complete
+EE/palm/L5/L6/L7 artifact superset plus raw contacts/CAR.
+
+Preregister the Q-only prediction protocol before collection. Fit the 9D,
+33D, and shared 135D arms on train roots only with the existing fixed
+architecture, symmetric loss, seed, 2,000 epochs, and AdamW weight decay
+`1e-4`; normalize from train only and open test once after the fixed final
+model. Run this prediction test even when `4/2/2` fails, but label it
+diagnostic. The prediction gate requires no held-out false-safe selection,
+predicted-safe support for every recoverable held-out state, near-boundary
+RMSE at most `0.1`, rank Spearman at least `0.5` in both held-out splits, and
+exact independent source replay. Execute finite-bank correction only if this
+prediction gate and the external per-constraint coverage gate both pass.

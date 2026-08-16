@@ -5925,3 +5925,28 @@ compact inherited exact-group configuration. The freezer requires validated
 independent source views, assigns complete task-level groups to exactly one
 split, selects unique root episodes without reading candidate outcomes, and
 fails rather than silently replacing a missing palm/L6 source.
+
+Clean CPU producer `41298`, independent replay `41299`, and validator `41300`
+complete ADR-0185 from immutable commit
+`dba5935125dfa1c1f2cd2e92b6cda94f7c09c076`. Both audits independently read
+all 1,600 natural pi0.5 roots and agree exactly. The audit retains 232 eligible
+outcome-untouched sources: 228 palm roots across 15 task-level groups and five
+L6 roots across two task-level groups (one root contains both targets). It
+accessed no counterfactual candidate outcome. The five L6 sources are the
+measured availability ceiling in this immutable population, so the additive
+cohort freezes all of them rather than inventing generic states.
+
+The prospective additive cohort is frozen before candidate outcomes at 14
+unique roots: palm `3/3/3` and L6 `4/0/1` over train/validation/test. Within
+this cohort every task-level group belongs to exactly one split. This targets
+only the measured palm/L6 deficits, uses one raw-contact-derived warning time
+per root, and deliberately permits a final under-covered result: if the
+available L6 test root is not two-sided, the Q-only run still proceeds as an
+explicit diagnostic and correction remains blocked.
+
+The final Q-only prediction protocol is also frozen before these outcomes. It
+retains the 9D, 33D, and shared 135D per-constraint arms, symmetric loss,
+AdamW weight decay `1e-4`, train-only normalization, fixed 2,000-epoch model,
+UNKNOWN censoring, and one-time validation/test evaluation. Correction can be
+authorized only by the conjunction of the external coverage gate and the
+held-out prediction gate; under-coverage never becomes a safety claim.

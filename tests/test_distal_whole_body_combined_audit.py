@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+import json
+import tempfile
 from pathlib import Path
 
 from main.multilink_ellipsoid.whole_body_combined_audit import (
@@ -44,6 +46,21 @@ def _summary(*, unsafe=False, palm=(4, 2, 2), l5=(4, 2, 2), l6=(4, 2, 2)):
 
 
 class WholeBodyCombinedAuditTest(unittest.TestCase):
+    def test_v2_accepts_one_additive_targeted_source(self):
+        value = json.loads(CONFIG.read_text())
+        value["schema_version"] = "vlsa_distal_whole_body_combined_audit.v2"
+        value["protocol_id"] = "vlsa-distal-whole-body-combined-audit-v2"
+        value["required_split_case_count"] = {
+            "train": 20, "validation": 6, "test": 6,
+        }
+        value["sources"].append(dict(value["sources"][0], name="targeted"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(value))
+            loaded = load_config(path)
+        self.assertEqual(len(loaded["sources"]), 3)
+        self.assertEqual(loaded["required_split_case_count"]["train"], 20)
+
     def test_clean_supported_cohort_authorizes_q_only_training(self):
         config = load_config(CONFIG)
         gate = evaluate_gate(

@@ -10,6 +10,7 @@ from main.multilink_ellipsoid.whole_body_support_audit import canonical
 
 
 CONFIG_SCHEMA = "vlsa_distal_whole_body_combined_audit.v1"
+CONFIG_SCHEMA_V2 = "vlsa_distal_whole_body_combined_audit.v2"
 RESULT_SCHEMA = "vlsa_distal_whole_body_combined_audit_result.v1"
 
 
@@ -22,9 +23,14 @@ def payload_sha256(value: Mapping[str, Any], key: str) -> str:
 def load_config(path: Any) -> dict[str, Any]:
     raw = path.read_bytes()
     value = json.loads(raw)
-    if value.get("schema_version") != CONFIG_SCHEMA:
+    schema = value.get("schema_version")
+    if schema not in (CONFIG_SCHEMA, CONFIG_SCHEMA_V2):
         raise ValueError("combined whole-body audit schema differs")
-    if value.get("protocol_id") != "vlsa-distal-whole-body-combined-audit-v1":
+    expected_protocol = {
+        CONFIG_SCHEMA: "vlsa-distal-whole-body-combined-audit-v1",
+        CONFIG_SCHEMA_V2: "vlsa-distal-whole-body-combined-audit-v2",
+    }[schema]
+    if value.get("protocol_id") != expected_protocol:
         raise ValueError("combined whole-body audit protocol differs")
     if value.get("group_order") != [
         "end_effector", "palm", "L5", "L6", "L7",
@@ -34,9 +40,16 @@ def load_config(path: Any) -> dict[str, Any]:
         raise ValueError("combined whole-body claimed groups differ")
     if value.get("diagnostic_groups") != ["end_effector", "L7"]:
         raise ValueError("combined whole-body diagnostic groups differ")
-    if value.get("required_split_case_count") != {
-        "train": 16, "validation": 4, "test": 4,
-    }:
+    required_counts = value.get("required_split_case_count")
+    if (
+        not isinstance(required_counts, dict)
+        or set(required_counts) != {"train", "validation", "test"}
+        or any(int(count) <= 0 for count in required_counts.values())
+        or (
+            schema == CONFIG_SCHEMA
+            and required_counts != {"train": 16, "validation": 4, "test": 4}
+        )
+    ):
         raise ValueError("combined whole-body split counts differ")
     if value.get("minimum_two_sided_state_count") != {
         "train": 4, "validation": 2, "test": 2,
@@ -48,7 +61,8 @@ def load_config(path: Any) -> dict[str, Any]:
         "every_prevention_state_positive_and_contact_free_for_palm_L5_L6_L7"
     ):
         raise ValueError("combined whole-body initial-safety rule differs")
-    if len(value.get("sources", [])) != 2:
+    expected_source_count = 2 if schema == CONFIG_SCHEMA else 3
+    if len(value.get("sources", [])) != expected_source_count:
         raise ValueError("combined whole-body source count differs")
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
