@@ -33,7 +33,11 @@ def _retained_initial_car_rejection(
     )
     from scripts.evaluate_distal_query_action_risk_e05 import _allocation_record
 
-    expected_reason = "%s query boundary already fails CAR" % selected["case_id"]
+    # The shared evaluator intentionally reports its registered apparatus label
+    # (E05), not the prospective episode id. Keep this match exact so only the
+    # known pre-candidate CAR rejection is serialized; every other ValueError
+    # remains a hard apparatus failure.
+    expected_reason = "E05 query boundary already fails CAR"
     if (
         config.get("schema_version") != TARGETED_PI05_CONFIG_SCHEMA
         or reason != expected_reason

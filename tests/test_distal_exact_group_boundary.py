@@ -18,6 +18,9 @@ from main.multilink_ellipsoid.generic_action_boundary import candidate_definitio
 from scripts.audit_distal_compiled_box_risk_target import (
     _resolved_perception_source,
 )
+from scripts.collect_distal_exact_group_boundary import (
+    _retained_initial_car_rejection,
+)
 from scripts.validate_distal_exact_group_boundary import validate
 
 
@@ -158,6 +161,34 @@ class ExactGroupBoundaryTest(unittest.TestCase):
             summary["prospective_split_summary"]["train"]["initially_safe_case_count"],
             0,
         )
+
+    def test_targeted_collector_retains_exact_e05_initial_car_rejection(self):
+        config = load_config(TARGETED_PI05_CONFIG)
+        selection = load_cases(ROOT / config["selection_manifest"], config)[0]
+        with patch(
+            "scripts.collect_distal_exact_group_boundary._git_identity",
+            return_value={"commit": "c" * 40, "dirty": False},
+        ), patch(
+            "scripts.evaluate_distal_query_action_risk_e05._allocation_record",
+            return_value={},
+        ):
+            record = _retained_initial_car_rejection(
+                repo_root=ROOT, expected_commit="c" * 40, config=config,
+                case_index=0, selected=selection,
+                state_step=int(selection["state_step"]),
+                reason="E05 query boundary already fails CAR",
+            )
+        self.assertEqual(
+            record["status"], "retained_scientific_rejection_initial_CAR",
+        )
+        self.assertFalse(record["rejection"]["candidate_outcomes_observed"])
+        with self.assertRaisesRegex(ValueError, "unrelated apparatus failure"):
+            _retained_initial_car_rejection(
+                repo_root=ROOT, expected_commit="c" * 40, config=config,
+                case_index=0, selected=selection,
+                state_step=int(selection["state_step"]),
+                reason="unrelated apparatus failure",
+            )
 
     def test_targeted_validator_preserves_progressive_rejection_commits(self):
         config = load_config(TARGETED_PI05_CONFIG)
