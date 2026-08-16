@@ -5282,3 +5282,17 @@ correction ratio. Validation/test outcomes must not enter selection. They may
 be evaluated only after the selected names are frozen and are diagnostic
 because those cases are already opened. The resulting bank changes future
 collection cost only; it does not authorize training or control.
+
+Job `41064` passes ADR-0179 from immutable commit
+`9574f755eaa58b4c6a1b96eae5ee86d6894dc6d9`. Freeze its selected 13 names for
+new prospective groups. The bank is nominal plus six exact opposite pairs,
+comes from 1,171 feasible reductions, and preserves all full-bank training
+safe/unsafe/two-sided and global-support requirements. Its post-freeze opened
+holdout diagnostic also preserves every previously observed L5, L6, EE, and
+global-support state, but that evidence is not used for final testing.
+
+Use the 13-bank unchanged for new validation and sealed test episodes. Do not
+retime or expand it in response to their outcomes. One-sided cases still
+remain evidence and cannot be repaired by bank selection after observation.
+The next cohort must therefore improve state/mechanism selection, especially
+for palm, L6, and L7, rather than adding more actions per existing state.

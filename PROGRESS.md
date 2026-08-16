@@ -5660,3 +5660,21 @@ direction covariance determinant, and the effective/requested correction
 ratio. Existing validation/test states are evaluated only after the bank is
 frozen and remain diagnostic; their labels cannot change the selection. This
 is a data-collection efficiency decision, not prediction or control evidence.
+
+CPU allocation job `41064` completes ADR-0179 from immutable commit
+`9574f755eaa58b4c6a1b96eae5ee86d6894dc6d9`. Of 1,716 possible choices of
+six opposite pairs, 1,171 preserve every registered development support
+property. The selected nominal-plus-12 bank retains all training group
+two-sided counts (`L5=2`, diagnostic EE `=1`), represented-global safe support
+in two states, and physical-global safe support in three states while reducing
+known development labels from 74 to 40. It also preserves the opened
+validation/test L5, L6, EE, and global support exactly in the diagnostic
+post-selection check.
+
+The frozen candidate names are recorded in the selection artifact; selection
+uses no validation/test label. Its score is 40 known labels, 19 supported
+near-boundary incidences, direction determinant `5.5`, and mean
+effective/requested ratio `0.873340494819`. Use this bank unchanged for newly
+sealed episode groups. Selection file/payload SHA-256 values are
+`ee286ac855d9ed35f6067058b8374e9048099e967e44c2dbd03452e02a9895b9`
+and `c376f46fec9e1bcdcf2958aa0a2a90100638e510a6aa7967344d63d04b9739cf`.
