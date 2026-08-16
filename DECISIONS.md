@@ -5121,3 +5121,29 @@ grouped collection. Do not train on this opened development case or treat the
 nineteen clipped proposals as requested-norm examples; record both requested
 and effective post-clipping actions. Training remains conditional on an
 independently validated `4/2/2` two-sided train/validation/test population.
+
+## ADR-0176: Freeze an EE/palm/L5--L7 superset artifact before new collection
+
+- Status: preregistered; allocation-backed schema canary required
+- Date: 2026-08-16
+
+Do not launch the prospective grouped population with an L5-only artifact.
+Preserve ADR-0175's state, candidate bank, actions, controller, continuation,
+and label authority, but add a future-proof record with five separately named
+constraint groups: the unchanged released AEGIS end-effector proxy, certified
+tight palm, L5, L6, and L7. Store their complete internal-substep risk traces,
+EE and palm poses per substep, requested/nominal/effective action chunks, raw
+contacts/CAR/phase/timeout outcomes, and joint/OSC/exact-geometry context at
+every action boundary.
+
+The EE proxy is not a physical contact certificate and must never be merged
+with the tight palm target. Raw MuJoCo palm/L5--L7 contacts and CAR remain the
+physical authorities; the EE proxy is retained so future work can compare or
+replace the released AEGIS EE constraint without recollecting trajectories.
+Existing shards remain valid for their original L5/palm claim but are not
+EE-complete. One E00 producer/replay/validator canary must prove exact replay,
+all five risk heads, nine initial robot primitives, complete substep EE/palm
+poses, complete action-boundary contexts, zero Bellman residual, and no change
+to the registered L5 outcomes. Only then may new prospective episode shards be
+collected with this schema. MLP training, candidate execution, QP, denoising,
+and closed loop remain blocked.

@@ -73,6 +73,7 @@ def _evaluate_case(
         _build_environment,
         _contact_model_authority,
         _detailed_active_obstacle_contacts,
+        _eef_site_id,
         _runtime_imports,
         _settle,
         read_jsonl,
@@ -90,6 +91,7 @@ def _evaluate_case(
         fit_compiled_mesh_geom,
         world_ellipsoid,
     )
+    from main.multilink_ellipsoid.geometry import Ellipsoid
     from main.multilink_ellipsoid.l6_proxy_scale_audit import rescale_row_slacks
     from main.multilink_ellipsoid.rollout import (
         _auxiliary_sim_snapshot,
@@ -182,6 +184,8 @@ def _evaluate_case(
         exact_group_rows: dict[str, list[int]] = {}
         exact_geom_to_group: dict[str, str] = {}
         exact_certificate_pass = None
+        exact_include_released_ee = False
+        exact_distal_row_count = 5
         contact_authority = None
         if exact_target is not None:
             exact_geometry_path = repo_root / str(
@@ -205,9 +209,13 @@ def _evaluate_case(
                 tolerance=float(palm_fit["khachiyan_tolerance"]),
                 max_iterations=int(palm_fit["khachiyan_max_iterations"]),
             )
+            exact_include_released_ee = bool(
+                exact_target.get("include_released_aegis_end_effector_proxy", False)
+            )
+            exact_distal_row_count = int(exact_target.get("distal_row_count", 5))
             exact_distal = exact_shadow._slabbed_links(
                 env, include_certificates=True
-            )[:5]
+            )[:exact_distal_row_count]
             exact_certificate_pass = bool(
                 (exact_palm_template.enclosure_certificate or {}).get("verified")
                 and all(
@@ -251,9 +259,13 @@ def _evaluate_case(
 
         empirical_proxy = audit_config.get("empirical_l6_proxy")
         trajectory_value_config = audit_config.get("trajectory_policy_value")
+        artifact_superset = audit_config.get("artifact_superset") or {}
         capture_action_boundaries = bool(
-            trajectory_value_config
-            and trajectory_value_config.get("capture_action_boundaries") is True
+            (
+                trajectory_value_config
+                and trajectory_value_config.get("capture_action_boundaries") is True
+            )
+            or artifact_superset.get("capture_action_boundary_context") is True
         )
 
         def empirical_slacks(values: Sequence[float]) -> list[float]:
@@ -265,12 +277,63 @@ def _evaluate_case(
                 scaled_rows=empirical_proxy["scaled_rows"],
             )
 
+        def released_ee_row() -> tuple[Any, dict[str, Any]]:
+            """Build the unchanged released AEGIS EE proxy from live MuJoCo state."""
+
+            site_id = int(_eef_site_id(env))
+            site_position = np.asarray(
+                env.sim.data.site_xpos[site_id], dtype=np.float64
+            ).copy()
+            eef_body_name = str(env.robots[0].robot_model.eef_name)
+            quaternion_wxyz = np.asarray(
+                env.sim.data.get_body_xquat(eef_body_name), dtype=np.float64
+            )
+            quaternion_xyzw = quaternion_wxyz[[1, 2, 3, 0]]
+            rotation = runtime["Rotation"].from_quat(quaternion_xyzw).as_matrix()
+            center = site_position + rotation @ np.asarray(
+                [0.0, 0.0, -0.08], dtype=np.float64
+            )
+            row = Ellipsoid(
+                center=center,
+                rotation=rotation,
+                semiaxes_m=np.asarray([0.06, 0.12, 0.11], dtype=np.float64),
+                body_name="robot0_end_effector",
+                geom_name="released_aegis_end_effector_proxy",
+                bound_source="released_aegis_end_effector_proxy",
+                source_body_names=(eef_body_name,),
+            )
+            return row, {
+                "eef_site_position_m": site_position.tolist(),
+                "eef_body_quaternion_xyzw": quaternion_xyzw.tolist(),
+                "ee_proxy_center_m": center.tolist(),
+                "ee_proxy_rotation": rotation.tolist(),
+                "ee_proxy_semiaxes_m": [0.06, 0.12, 0.11],
+            }
+
+        def exact_robot_rows() -> tuple[list[Any], Optional[dict[str, Any]]]:
+            palm = world_ellipsoid(env, exact_palm_template)
+            distal = exact_shadow._slabbed_links(env)[:exact_distal_row_count]
+            rows = [palm] + distal
+            ee_pose = None
+            if exact_include_released_ee:
+                ee, ee_pose = released_ee_row()
+                rows = [ee] + rows
+            return rows, ee_pose
+
+        def robot_row_record(row: Any) -> dict[str, Any]:
+            return {
+                "body_name": str(row.body_name),
+                "geom_name": str(row.geom_name),
+                "bound_source": str(row.bound_source),
+                "center_m": np.asarray(row.center, dtype=np.float64).tolist(),
+                "rotation": np.asarray(row.rotation, dtype=np.float64).tolist(),
+                "semiaxes_m": np.asarray(row.semiaxes_m, dtype=np.float64).tolist(),
+            }
+
         def exact_group_measurement(step: int) -> Optional[dict[str, Any]]:
             if exact_target is None:
                 return None
-            palm = world_ellipsoid(env, exact_palm_template)
-            distal = exact_shadow._slabbed_links(env)[:5]
-            robot_rows = [palm] + distal
+            robot_rows, ee_pose = exact_robot_rows()
             boxes = compiled_obstacle_boxes(env, obstacle_name)
             pair_quadratics = minimum_ellipsoid_quadratics_over_boxes(
                 robot_rows, boxes,
@@ -304,6 +367,17 @@ def _evaluate_case(
                 "group_normalized_radial_slack": group_slack,
                 "group_contact_events": group_events,
                 "compiled_box_count": len(boxes),
+                "ee_pose": ee_pose,
+                "palm_pose": {
+                    "center_m": np.asarray(
+                        robot_rows[1 if exact_include_released_ee else 0].center,
+                        dtype=np.float64,
+                    ).tolist(),
+                    "rotation": np.asarray(
+                        robot_rows[1 if exact_include_released_ee else 0].rotation,
+                        dtype=np.float64,
+                    ).tolist(),
+                },
             }
 
         initial_links = geometry._slabbed_links(env)
@@ -321,6 +395,11 @@ def _evaluate_case(
         )
         initial_contacts = _protected_contact_evidence(env, obstacle_name)
         initial_exact_group = exact_group_measurement(state_step)
+        initial_exact_robot_rows = None
+        initial_ee_pose = None
+        if exact_target is not None:
+            initial_rows, initial_ee_pose = exact_robot_rows()
+            initial_exact_robot_rows = [robot_row_record(row) for row in initial_rows]
 
         def restore_source() -> None:
             env.sim.set_state_from_flattened(simulator_state)
@@ -395,7 +474,7 @@ def _evaluate_case(
                     state_step + int(action_offset)
                 )
                 if exact_sample is not None:
-                    exact_group_trace.append({
+                    trace_record = {
                         "phase": phase,
                         "action_offset": int(action_offset),
                         "substep": int(substep),
@@ -406,7 +485,12 @@ def _evaluate_case(
                             "group_normalized_radial_slack"
                         ],
                         "compiled_box_count": exact_sample["compiled_box_count"],
-                    })
+                    }
+                    if artifact_superset.get("capture_internal_substep_ee_pose") is True:
+                        trace_record["ee_pose"] = exact_sample["ee_pose"]
+                    if artifact_superset.get("capture_internal_substep_palm_pose") is True:
+                        trace_record["palm_pose"] = exact_sample["palm_pose"]
+                    exact_group_trace.append(trace_record)
                     for group, events in exact_sample[
                         "group_contact_events"
                     ].items():
@@ -438,9 +522,7 @@ def _evaluate_case(
                         qvel_indexes is not None and len(qvel_indexes) == 7,
                         "trajectory-value arm qvel indexes differ",
                     )
-                    exact_palm = world_ellipsoid(env, exact_palm_template)
-                    exact_distal_rows = exact_shadow._slabbed_links(env)[:5]
-                    exact_robot_rows = [exact_palm] + exact_distal_rows
+                    boundary_robot_rows, boundary_ee_pose = exact_robot_rows()
                     action_public = np.asarray(action, dtype=np.float64).tolist()
                     action_boundaries.append({
                         "action_offset": int(action_offset),
@@ -467,16 +549,9 @@ def _evaluate_case(
                         ).tolist(),
                         "controller_snapshot": _public(_controller_snapshot(env)[0]),
                         "exact_robot_rows": [
-                            {
-                                "body_name": str(row.body_name),
-                                "center_m": np.asarray(row.center, dtype=np.float64).tolist(),
-                                "rotation": np.asarray(row.rotation, dtype=np.float64).tolist(),
-                                "semiaxes_m": np.asarray(
-                                    row.semiaxes_m, dtype=np.float64
-                                ).tolist(),
-                            }
-                            for row in exact_robot_rows
+                            robot_row_record(row) for row in boundary_robot_rows
                         ],
+                        "ee_pose": boundary_ee_pose,
                         "compiled_obstacle_boxes": [
                             box.to_record()
                             for box in compiled_obstacle_boxes(env, obstacle_name)
@@ -558,6 +633,9 @@ def _evaluate_case(
                 }
                 exact_group_record = {
                     "group_order": exact_group_order,
+                    "group_representation": exact_target.get(
+                        "group_representation", {}
+                    ),
                     "group_minimum_normalized_radial_slack": group_minimum,
                     "group_future_violation": {
                         group: -float(value)
@@ -656,6 +734,7 @@ def _evaluate_case(
             "source_result_payload_sha256": case_config["source_result_payload_sha256"],
             "source_snapshot_sha256": source["state"]["source_snapshot_sha256"],
             "physical_context": source["state"].get("physical_context"),
+            "artifact_superset_contract": artifact_superset or None,
             "source_nominal_five_action_chunk": source["nominal_five_action_chunk"],
             "initial_compiled_obstacle_boxes": [box.to_record() for box in initial_boxes],
             "initial_empirical_robot_rows": [
@@ -675,6 +754,8 @@ def _evaluate_case(
                 }
                 for index, link in enumerate(initial_links)
             ],
+            "initial_exact_robot_rows": initial_exact_robot_rows,
+            "initial_ee_pose": initial_ee_pose,
             "replayed_snapshot_sha256": source_hash,
             "state_hash_matches": state_hash_matches,
             "initial_clearance_replay_error_m": initial_clearance_error,
@@ -697,6 +778,9 @@ def _evaluate_case(
                 if exact_target is None
                 else {
                     "group_order": exact_group_order,
+                    "group_representation": exact_target.get(
+                        "group_representation", {}
+                    ),
                     "robot_primitive_certificate_pass": exact_certificate_pass,
                     "initial_row_normalized_radial_slack": initial_exact_group[
                         "row_normalized_radial_slack"

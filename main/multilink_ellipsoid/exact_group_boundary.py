@@ -1,4 +1,4 @@
-"""Contracts for the palm/L5/L6 exact-geometry boundary canary."""
+"""Contracts for exact-geometry grouped boundary collection."""
 
 from __future__ import annotations
 
@@ -16,9 +16,11 @@ TRAJECTORY_VALUE_CONFIG_SCHEMA = "vlsa_distal_generic_l5_trajectory_value_canary
 PROSPECTIVE_L5_CONFIG_SCHEMA = "vlsa_distal_prospective_l5_boundary_population.v1"
 DEVELOPMENT_L5_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_search.v1"
 DEVELOPMENT_EXCITATION_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_excitation.v1"
+WHOLE_BODY_SUPERSET_CONFIG_SCHEMA = "vlsa_distal_whole_body_superset_canary.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
+WHOLE_BODY_GROUPS = ("end_effector", "palm", "L5", "L6", "L7")
 
 
 def canonical(value: Any) -> bytes:
@@ -41,6 +43,7 @@ def load_config(path: Path) -> dict[str, Any]:
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         DEVELOPMENT_L5_CONFIG_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -51,11 +54,14 @@ def load_config(path: Path) -> dict[str, Any]:
         PROSPECTIVE_L5_CONFIG_SCHEMA: "vlsa-distal-prospective-l5-boundary-population-v1",
         DEVELOPMENT_L5_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-search-v1",
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-excitation-v1",
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA: "vlsa-distal-whole-body-superset-canary-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
-    if schema == DEVELOPMENT_EXCITATION_CONFIG_SCHEMA:
+    if schema in (
+        DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+    ):
         expected_grid = {
             "kind": "local_frame_grid",
             "spatial_basis": ["normal", "tangent_up", "tangent_side"],
@@ -94,8 +100,33 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("released AEGIS EE-QP execution mode differs")
     if value["learned_correction_QP_enabled"] is not False:
         raise ValueError("learned correction QP must remain disabled")
-    if value["exact_group_target"]["group_order"] != list(GROUPS):
+    expected_group_order = (
+        list(WHOLE_BODY_GROUPS)
+        if schema == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA
+        else list(GROUPS)
+    )
+    if value["exact_group_target"]["group_order"] != expected_group_order:
         raise ValueError("exact-group order differs")
+    if schema == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA:
+        exact = value["exact_group_target"]
+        if (
+            exact.get("include_released_aegis_end_effector_proxy") is not True
+            or int(exact.get("distal_row_count", 0)) != 7
+            or exact.get("robot_rows") != {
+                "end_effector": [0], "palm": [1],
+                "L5": [2, 3, 4], "L6": [5, 6], "L7": [7, 8],
+            }
+            or exact.get("groups", {}).get("end_effector") != []
+        ):
+            raise ValueError("whole-body superset geometry contract differs")
+        trace = value.get("artifact_superset", {})
+        if (
+            trace.get("capture_internal_substep_ee_pose") is not True
+            or trace.get("capture_internal_substep_palm_pose") is not True
+            or trace.get("capture_action_boundary_context") is not True
+            or trace.get("store_all_group_risks") != list(WHOLE_BODY_GROUPS)
+        ):
+            raise ValueError("whole-body superset trace contract differs")
     if value.get("trajectory_policy_value") is not None:
         trajectory = value["trajectory_policy_value"]
         if trajectory.get("capture_action_boundaries") is not True:
@@ -122,6 +153,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
         if config["schema_version"] in (
             PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
             DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
+            WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         )
         else "task_level_group_id"
     )
@@ -153,6 +185,7 @@ def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
@@ -177,6 +210,10 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     trajectory_eligible_value_state_count = 0
     trajectory_maximum_bellman_residual = 0.0
     trajectory_context_complete = True
+    artifact_superset_mode = (
+        config.get("schema_version") == WHOLE_BODY_SUPERSET_CONFIG_SCHEMA
+    )
+    artifact_superset_complete = True
     for case in cases:
         target = str(case["selection"]["target_group"])
         initial = case["exact_case"]["exact_group_target"]
@@ -195,16 +232,39 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             row for row in known
             if abs(float(row["exact_group_target"]["group_minimum_normalized_radial_slack"][target])) <= near
         ]
+        configured_groups = tuple(config["exact_group_target"]["group_order"])
         false_safe = sum(
             int(row["exact_group_target"]["group_contact_sample_count"][group]) > 0
             and float(row["exact_group_target"]["group_minimum_normalized_radial_slack"][group]) > 0.0
-            for row in known for group in GROUPS
+            for row in known for group in configured_groups
         )
         proxy_false_safe += false_safe
         replay_pass = replay_pass and bool(case["exact_case"]["source_replay_exact"])
         source_state_hash_pass = source_state_hash_pass and bool(
             case["exact_case"]["state_hash_matches"]
         )
+        if artifact_superset_mode:
+            exact_case = case["exact_case"]
+            configured = set(config["exact_group_target"]["group_order"])
+            artifact_superset_complete = bool(
+                artifact_superset_complete
+                and exact_case.get("artifact_superset_contract")
+                == config["artifact_superset"]
+                and len(exact_case.get("initial_exact_robot_rows") or []) == 9
+                and exact_case.get("initial_ee_pose") is not None
+                and all(
+                    set(row["exact_group_target"]["group_future_violation"])
+                    == configured
+                    and all(
+                        sample.get("ee_pose") is not None
+                        and sample.get("palm_pose") is not None
+                        and set(sample["group_normalized_radial_slack"])
+                        == configured
+                        for sample in row["exact_group_target"]["trace"]
+                    )
+                    for row in candidates
+                )
+            )
         if trajectory_mode:
             required_context = {
                 "dynamic_state", "arm_joint_position_rad",
@@ -213,6 +273,8 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
                 "exact_robot_rows", "compiled_obstacle_boxes",
                 "group_normalized_radial_slack", "executed_action",
             }
+            if artifact_superset_mode:
+                required_context.add("ee_pose")
             for candidate in candidates:
                 exact = candidate["exact_group_target"]
                 boundaries = exact.get("action_boundaries", [])
@@ -287,6 +349,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
                 for item in summaries)
         and replay_gate and proxy_false_safe == 0
         and trajectory_apparatus_pass
+        and (not artifact_superset_mode or artifact_superset_complete)
     )
     same_bank = bool(apparatus and all(item["target_two_sided_support"] for item in summaries))
     two_sided_case_count = sum(
@@ -360,6 +423,8 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         "trajectory_eligible_value_state_count": trajectory_eligible_value_state_count,
         "trajectory_context_complete": trajectory_context_complete,
         "trajectory_maximum_bellman_residual": trajectory_maximum_bellman_residual,
+        "artifact_superset_enabled": artifact_superset_mode,
+        "artifact_superset_complete": artifact_superset_complete,
         "two_sided_case_count": two_sided_case_count,
         "required_two_sided_case_count": targeted_required,
         "per_case": summaries,

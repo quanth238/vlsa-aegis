@@ -5499,3 +5499,27 @@ step-65 timing and local normal/tangent grid before prospectively splitting new
 episode groups. Validation file/payload SHA-256 values are
 `4421a5097e7b65cca2c1da1e4983096c83566849bd5da4a946d0ee794cc18c96`
 and `20d71b81f2d7335c7974d26e0a69f15766e09cf444d35b825e8a144183438f68`.
+
+### 2026-08-16 — freeze the whole-body superset artifact before population collection
+
+The validated ADR-0175 artifact already stores exact tight-palm future-risk
+traces and initial EE/joint/OSC context, but it does not store an explicit
+released-EE future-risk head or EE/palm poses at every internal MuJoCo
+substep. Those missing quantities cannot be recovered exactly from the saved
+L5 scalar traces alone.
+
+ADR-0176 therefore changes only the artifact schema before the expensive
+prospective population is launched. The registered E00 step, 27 candidates,
+direct clipped Cartesian execution, unchanged OSC, fixed continuation,
+timeouts, contacts, and CAR remain fixed. Every candidate now records separate
+future violations for `end_effector`, `palm`, `L5`, `L6`, and `L7`; EE and palm
+poses at every internal substep; and complete joint/controller/exact-geometry
+contexts at action boundaries. The released EE proxy remains a diagnostic
+AEGIS representation, while raw MuJoCo palm/L5--L7 contacts and CAR remain the
+physical authorities.
+
+Existing validated shards remain immutable L5/palm evidence and are not
+overwritten or falsely relabeled as EE-complete. Run one independent E00
+allocation-backed schema canary, then use the passing superset contract for all
+new grouped shards so later EE, palm, L5, L6, L7, or policy-value ablations do
+not require repeating those rollouts. Training and control remain blocked.

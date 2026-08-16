@@ -31,6 +31,7 @@ def collect(
         CASE_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         DEVELOPMENT_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
+        WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         load_cases, load_config,
         payload_sha256, warning_step,
     )
@@ -50,7 +51,8 @@ def collect(
         fit_compiled_mesh_geom, world_ellipsoid,
     )
     from main.multilink_ellipsoid.shadow import (
-        MultilinkEllipsoidShadow, load_shadow_config,
+        MultilinkEllipsoidShadow, _released_aegis_end_effector_ellipsoid,
+        load_shadow_config,
     )
 
     config = load_config(config_path)
@@ -119,8 +121,12 @@ def collect(
             )
             provider_cache["shadow"]._slabbed_links(env, include_certificates=True)
         palm = world_ellipsoid(env, provider_cache["palm"])
-        distal = provider_cache["shadow"]._slabbed_links(env)[:5]
+        distal = provider_cache["shadow"]._slabbed_links(env)[
+            :int(exact_cfg.get("distal_row_count", 5))
+        ]
         rows = [palm] + distal
+        if exact_cfg.get("include_released_aegis_end_effector_proxy") is True:
+            rows = [_released_aegis_end_effector_ellipsoid(env)] + rows
         indices = exact_cfg["robot_rows"][selected["target_group"]]
         target_rows = [rows[int(index)] for index in indices]
         boxes = compiled_obstacle_boxes(env, obstacle_name)
@@ -159,7 +165,9 @@ def collect(
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
     )
-    grid_bank = config["schema_version"] == DEVELOPMENT_EXCITATION_CONFIG_SCHEMA
+    grid_bank = config["schema_version"] in (
+        DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
+    )
 
     def definitions(nominal, frame, _base):
         if grid_bank:
@@ -250,6 +258,7 @@ def collect(
             "gate": config["gate"],
             "exact_group_target": exact_cfg,
             "trajectory_policy_value": config.get("trajectory_policy_value"),
+            "artifact_superset": config.get("artifact_superset"),
         },
     )
     value = {

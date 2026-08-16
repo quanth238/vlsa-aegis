@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 
 from main.multilink_ellipsoid.exact_group_boundary import (
-    GROUPS, load_cases, load_config, summarize_cases, warning_step,
+    GROUPS, WHOLE_BODY_GROUPS, load_cases, load_config, summarize_cases,
+    warning_step,
 )
 from main.multilink_ellipsoid.active_boundary_search import (
     candidate_definitions as grid_candidate_definitions,
@@ -37,6 +38,9 @@ SPATIAL_TIMING_CONFIG = (
 )
 SPATIAL_E00_EXCITATION_CONFIG = (
     ROOT / "configs/vlsa_distal_spatial_i_t3_e00_candidate_excitation.v1.json"
+)
+WHOLE_BODY_SUPERSET_CONFIG = (
+    ROOT / "configs/vlsa_distal_e00_whole_body_superset_canary.v1.json"
 )
 
 
@@ -79,6 +83,38 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertNotIn(
             '"R2": perception["mvee_rotation"]', source,
         )
+
+    def test_whole_body_superset_freezes_ee_palm_and_distal_records(self):
+        config = load_config(WHOLE_BODY_SUPERSET_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual([warning_step(case, config) for case in cases], [65])
+        self.assertEqual(
+            config["exact_group_target"]["group_order"],
+            list(WHOLE_BODY_GROUPS),
+        )
+        self.assertEqual(
+            config["exact_group_target"]["robot_rows"],
+            {
+                "end_effector": [0], "palm": [1],
+                "L5": [2, 3, 4], "L6": [5, 6], "L7": [7, 8],
+            },
+        )
+        self.assertTrue(
+            config["artifact_superset"]["capture_internal_substep_ee_pose"]
+        )
+        self.assertTrue(
+            config["artifact_superset"]["capture_internal_substep_palm_pose"]
+        )
+        self.assertTrue(config["trajectory_policy_value"]["capture_action_boundaries"])
+        self.assertFalse(config["learned_correction_QP_enabled"])
+
+    def test_released_ee_proxy_uses_body_orientation_not_grip_site_xmat(self):
+        source = (ROOT / "main/multilink_ellipsoid/shadow.py").read_text()
+        start = source.index("def _released_aegis_end_effector_ellipsoid")
+        end = source.index("\ndef _resolved_rate_nominal", start)
+        helper = source[start:end]
+        self.assertIn("data.get_body_xmat(eef_body_name)", helper)
+        self.assertNotIn("data.site_xmat[site_id]", helper)
 
     def test_frozen_contract_and_warning_steps(self):
         config = load_config(CONFIG)
