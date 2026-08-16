@@ -5010,3 +5010,26 @@ the supported split without changing states or candidates. Correction, QP,
 denoising, closed loop, deployment, formal CBF claims, and GPU-generated labels
 remain forbidden. GPU simulation is a separate engineering optimization and
 must match CPU MuJoCo state/risk/contact classifications before use.
+
+## ADR-0173: Reject the frozen Spatial-I bank as boundary-identifying data
+
+- Status: validated scientific NO-GO
+- Date: 2026-08-16
+
+Replacement jobs `40960`/`40961` and validator `40962` complete all seven
+ADR-0171 cases with exact independent replay and zero represented-geometry
+physical false-safes. The apparatus is valid, but the registered population
+fails every two-sided split gate: `0/3` train, `0/2` validation, and `0/2`
+test. E00 and E15 also begin exact-target unsafe; E03 is all-unsafe; E01 is
+all-timeout; E04 is safe/timeout; E02 and E13 are all-safe. Do not train the
+matched 9D/33D Q-only model on this extension and do not reinterpret one-sided
+or timeout labels as boundary evidence.
+
+Preserve the progressive shards as auxiliary unsafe, safe, timeout, and
+recovery evidence. The failure localizes the next change to prospective
+boundary identification: choose initially safe warning times and/or a broader
+registered Cartesian candidate family that produces safe and unsafe actions
+before splitting new episode groups. Do not tune Q/V losses, add correction or
+QP, enable denoising/closed loop, or use GPU labels. The prepared PNCBF-aligned
+Q/V implementation remains blocked until future artifacts contain both
+two-sided query boundaries and controller-boundary value contexts.

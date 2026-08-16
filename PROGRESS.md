@@ -5378,3 +5378,20 @@ normalization and candidate-level false-safe/support gates. It cannot run
 until an independently replayed source contains trajectory contexts and
 adequate two-sided episode coverage. CPU MuJoCo remains label authority; no
 GPU simulator output is admitted without a separate exact equivalence canary.
+
+Replacement E02 producer `40960`, independent replay `40961`, and validator
+`40962` completed from immutable commit
+`2c0995b5a6f2eb0cfa3dad99b624e07da351d63f`. All seven progressive shards
+replay exactly and retain zero represented-geometry physical false-safes, but
+ADR-0171 is a strict data NO-GO. Two training states begin inside the exact L5
+violation set (E00 `-0.255325`, E15 `-0.145699`), and no split contains a
+two-sided state. Train candidates are `0 safe / 39 unsafe`; validation has
+`4 safe / 0 unsafe / 22 unknown`; test has `26 safe / 0 unsafe`. E03 is
+initially safe but all 13 candidates are unsafe; E01 is entirely timeout;
+E04 is safe/timeout; E02 and E13 are safe-only. Consequently the frozen bank
+does not identify an L5 decision boundary in this task family, and matched
+9D/33D Q-only training is not authorized. Preserve every shard and failure;
+the next scientific change must target state timing or candidate excitation,
+not model tuning. Validation file/payload SHA-256 values are
+`cc16e7dcaa791b47eb3a35930f83bd381daaa32a18c6c5c9c2262564aeaadc0d`
+and `f6c15c2a6161473c77caddbcbb9743d30dcbf78d7906e4c55e3b7165cddc391d`.
