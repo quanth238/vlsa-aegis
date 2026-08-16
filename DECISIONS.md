@@ -4887,7 +4887,7 @@ remain blocked.
 
 ## ADR-0170: Permit one matched causal-context root-cause ablation
 
-- Status: preregistered; opened-test diagnostic only
+- Status: completed; representation helps but prediction gate remains NO-GO
 - Date: 2026-08-16
 
 The user authorizes the next matched experiment to determine whether omitted
@@ -4906,3 +4906,29 @@ validator must reproduce both arms. This opened-test audit can identify a
 representation effect but cannot establish unseen-task generalization.
 Candidate correction, QP, calibration, denoising, closed loop, deployment,
 and CBF claims remain forbidden.
+
+### ADR-0170 result
+
+H100 producer `40926` and independent retraining validator `40927` reproduce
+both arms exactly from commit
+`9619110dc9d30e1d03da00b9b221d355b9a0e4ab`; the 9D arm also reproduces
+ADR-0169 with zero prediction discrepancy. The 33D context reduces opened-test
+global RMSE from `1.680067` to `0.936041` (44.3%) and near-boundary RMSE from
+`1.750582` to `1.059791`, while improvement-direction accuracy rises from
+`3/12` to `7/12`. This establishes a real representation effect.
+
+The safety prediction gate still fails decisively. Test false-safes remain
+`12`, all 13 E15 candidates are predicted safe although only one is exactly
+safe, and minimum-intervention selection still chooses the unsafe nominal
+action. E15 rank improves from `-0.3352` to `+0.3022`, but the exact safe
+`y_pos_r1.50` candidate is not selected. Validation RMSE also worsens from
+`0.037133` to `0.073641`, although validation retains zero false-safes.
+
+Every validation and test sample has at least one input coordinate outside
+the training range; for 33D, 25.85% of test feature elements are outside it.
+Therefore omitted current context was a secondary problem, while missing
+two-sided task-family boundary coverage remains primary. Do not tune the 33D
+model on opened E15 or add a conservative buffer. Preserve both arms and next
+collect prospectively grouped, initially safe, two-sided boundaries from
+multiple task/level mechanisms, especially Spatial-I task-3-like states, with
+new untouched validation and test groups.

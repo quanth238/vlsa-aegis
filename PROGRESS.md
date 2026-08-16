@@ -5293,3 +5293,28 @@ direction, and no support loss. The original prediction gate remains zero
 false-safes, at least 90% safe recall, 2/2 support, and near-boundary RMSE at
 most 0.1 on validation and test. Correction, QP, calibration, denoising,
 closed loop, deployment, and CBF claims remain blocked regardless of result.
+
+H100 producer `40926` and independent validator `40927` completed ADR-0170
+from immutable commit `9619110dc9d30e1d03da00b9b221d355b9a0e4ab` with zero
+frozen-prediction and zero independent-retraining discrepancy. The exact 9D
+baseline is reproduced. Adding causal current L5/OSC context lowers opened-test
+global RMSE `1.680067 -> 0.936041`, lowers near-boundary RMSE
+`1.750582 -> 1.059791`, and improves direction accuracy `0.25 -> 0.5833`.
+
+The verdict is nevertheless strict prediction NO-GO: false-safes stay at
+`12`, all of them in E15; all 13 E15 actions are predicted safe although only
+`y_pos_r1.50` is exactly safe, and the inferred minimum-intervention action is
+still unsafe nominal. Validation remains zero-false-safe but its RMSE worsens
+`0.037133 -> 0.073641`. All held-out samples have at least one coordinate
+outside the training range, and 25.85% of 33D test feature elements are
+outside it. Direct context is useful but cannot substitute for independent
+two-sided task-family boundary data. New prospective Spatial-I-like and other
+task-level boundaries with untouched validation/test groups are required
+before another prediction gate; correction and QP remain blocked.
+
+Result/validation file SHA-256 values are
+`10976f191c1471199e8882637ba85e2364d899980415fd774865bcf40f776479`
+and `44a051c9e115c0bbec10645f8bc26b47af084a17b509a688837af0501502acb0`;
+payload SHA-256 values are
+`ea8ff0f63e219dc301c98b2e8fbfec9186348bb12dd3174aad034c50515f6e06`
+and `e84bd4c1d0b65b489b3922cdcd8712c33c6f69a649367c526eede6340462d9e7`.
