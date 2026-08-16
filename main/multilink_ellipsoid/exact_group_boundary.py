@@ -71,8 +71,8 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("learned correction QP must remain disabled")
     if value["exact_group_target"]["group_order"] != list(GROUPS):
         raise ValueError("exact-group order differs")
-    if schema == TRAJECTORY_VALUE_CONFIG_SCHEMA:
-        trajectory = value.get("trajectory_policy_value", {})
+    if value.get("trajectory_policy_value") is not None:
+        trajectory = value["trajectory_policy_value"]
         if trajectory.get("capture_action_boundaries") is not True:
             raise ValueError("trajectory-value action-boundary capture differs")
         if trajectory.get("value_training_phases") != ["backup", "terminal_hold"]:
@@ -100,6 +100,11 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
     if len({case[grouping_key] for case in cases}) != len(cases):
         raise ValueError("exact-group boundary episode groups are not independent")
     if config["schema_version"] == PROSPECTIVE_L5_CONFIG_SCHEMA:
+        if not isinstance(
+            config["state_selection"].get("require_archived_task_success", True),
+            bool,
+        ):
+            raise ValueError("prospective archived task-success precondition differs")
         required = config["gate"]["required_split_case_count"]
         observed = {
             split: sum(case["split"] == split for case in cases)
@@ -137,7 +142,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
     proxy_false_safe = 0
     replay_pass = True
     source_state_hash_pass = True
-    trajectory_mode = config.get("schema_version") == TRAJECTORY_VALUE_CONFIG_SCHEMA
+    trajectory_mode = config.get("trajectory_policy_value") is not None
     trajectory_candidate_count = 0
     trajectory_action_boundary_count = 0
     trajectory_eligible_value_state_count = 0

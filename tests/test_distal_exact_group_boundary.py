@@ -25,6 +25,9 @@ TRAJECTORY_VALUE_CONFIG = (
 PROSPECTIVE_CONFIG = (
     ROOT / "configs/vlsa_distal_prospective_l5_boundary_population.v1.json"
 )
+SPATIAL_PROGRESSIVE_CONFIG = (
+    ROOT / "configs/vlsa_distal_spatial_i_t3_progressive_boundary_extension.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -214,6 +217,38 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         ))
         self.assertFalse(config["learned_correction_QP_enabled"])
         self.assertIn("V_loss_or_V_supervision", config["forbidden"])
+
+    def test_spatial_progressive_population_does_not_require_task_success(self):
+        config = load_config(SPATIAL_PROGRESSIVE_CONFIG)
+        self.assertFalse(config["state_selection"]["require_archived_task_success"])
+        self.assertEqual(
+            set(config["progressive_historical_source_commits"]),
+            {
+                "vlsa-t1-spatial-i-t3-e00", "vlsa-t1-spatial-i-t3-e03",
+                "vlsa-t1-spatial-i-t3-e15", "vlsa-t1-spatial-i-t3-e01",
+                "vlsa-t1-spatial-i-t3-e04", "vlsa-t1-spatial-i-t3-e13",
+            },
+        )
+
+    def test_prospective_population_can_capture_policy_value_contexts(self):
+        value = json.loads(SPATIAL_PROGRESSIVE_CONFIG.read_text())
+        value["trajectory_policy_value"] = {
+            "capture_action_boundaries": True,
+            "training_state_unit": "controller_action_boundary",
+            "value_training_phases": ["backup", "terminal_hold"],
+            "internal_substeps": "label_authority_only",
+            "target": "exact_reverse_suffix_maximum_positive_is_unsafe",
+            "timeouts": "censored_not_training_samples",
+            "prefix_state_rule": "exclude_unless_remaining_action_suffix_and_phase_are_explicitly_conditioned",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(value))
+            loaded = load_config(path)
+        self.assertEqual(
+            loaded["trajectory_policy_value"]["value_training_phases"],
+            ["backup", "terminal_hold"],
+        )
 
     def test_prospective_split_gate_requires_two_sided_validation_and_test(self):
         config = load_config(PROSPECTIVE_CONFIG)

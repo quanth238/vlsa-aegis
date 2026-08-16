@@ -109,6 +109,7 @@ def evaluate(
         Callable[[Any, str, Any], Mapping[str, Any]]
     ] = None,
     allow_initial_proxy_unsafe_for_empirical_relabel: bool = False,
+    require_archived_task_success: bool = True,
 ) -> dict[str, Any]:
     import time
     import numpy as np
@@ -144,7 +145,9 @@ def evaluate(
     archived = _load(archived_path)
     target_case_id = config["case_id"] if case_id_override is None else str(case_id_override)
     _require(archived["case_id"] == target_case_id, "archived query-risk case differs")
-    _require(archived["task_success"] is True, "archived E05 task did not succeed")
+    _require(isinstance(archived.get("task_success"), bool), "archived task outcome differs")
+    if require_archived_task_success:
+        _require(archived["task_success"] is True, "archived E05 task did not succeed")
     rows = [row for row in read_jsonl(population_manifest_path)
             if row.get("case_id") == target_case_id]
     _require(len(rows) == 1, "E05 population row differs")

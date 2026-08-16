@@ -7,6 +7,14 @@
   "selection_manifest": "manifests/vlsa_distal_spatial_i_t3_progressive_boundary_extension.v1.jsonl",
   "selection_manifest_file_sha256": "71ae1be39395c012aae82edbaff71d4f63ccb84b85a5cfaabef3e976aab65203",
   "target_group_sequence": ["L5", "L5", "L5", "L5", "L5", "L5", "L5"],
+  "progressive_historical_source_commits": {
+    "vlsa-t1-spatial-i-t3-e00": "7c98b333611f39d76f1409953b84fc85c76cf7ae",
+    "vlsa-t1-spatial-i-t3-e03": "7c98b333611f39d76f1409953b84fc85c76cf7ae",
+    "vlsa-t1-spatial-i-t3-e15": "7c98b333611f39d76f1409953b84fc85c76cf7ae",
+    "vlsa-t1-spatial-i-t3-e01": "526615a8f865f3f2caf8270632c0e75e756cb88e",
+    "vlsa-t1-spatial-i-t3-e04": "526615a8f865f3f2caf8270632c0e75e756cb88e",
+    "vlsa-t1-spatial-i-t3-e13": "526615a8f865f3f2caf8270632c0e75e756cb88e"
+  },
   "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
   "base_risk_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
   "source_geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
@@ -21,6 +29,7 @@
     "unit": "one_real_five_action_VLA_query_boundary_per_independent_archived_AEGIS_episode",
     "explicit_state_step_in_manifest": true,
     "require_initial_target_group_positive_and_contact_free": true,
+    "require_archived_task_success": false,
     "training_contact_rule": "last_complete_five_action_query_strictly_before_archived_L5_contact",
     "untouched_holdout_rule": "common_action_60_frozen_before_candidate_outcomes",
     "candidate_outcomes_used_for_state_selection": false,

@@ -4971,3 +4971,42 @@ the successful training shards, and rerun only missing holdout indices from a
 clean commit. State steps, splits, candidates, targets, controller, labels, and
 gates do not change; the corrected holdouts also test obstacle-instance transfer
 within the frozen Spatial-I task-3 population.
+
+Six of seven progressive cases now exist in both producer and replay roots.
+E02 was rejected before candidate simulation only because a reused evaluator
+required `archived.task_success=true`. Remove that unregistered precondition
+for ADR-0171 while retaining the archived task outcome as provenance. The
+selected E02 state must still pass every registered initial-state, exact
+geometry, contact, CAR, ledger, controller, continuation, and replay check.
+Do not rerun or replace the six valid shards. Bind their historical source
+commits explicitly and rerun only missing E02 from the repair commit.
+
+## ADR-0172: Prepare policy-conditioned Q/V learning, conditional on data
+
+- Status: implementation prepared; training blocked by ADR-0171 and value-context coverage
+- Date: 2026-08-16
+
+Adopt the paper-faithful interpretation that the MLP is not an OSC execution
+predictor. The controlled plant includes OSC, MuJoCo robot dynamics, contacts,
+and a fixed complete continuation policy. Learn positive-is-unsafe finite
+horizon values at controller action boundaries. The authoritative query target
+is the first exact Bellman suffix record, which includes current-state risk,
+the complete five-action candidate prefix, and the fixed continuation.
+
+The implementation provides a constraint-conditioned state feature, the full
+five-action Cartesian translation feature, exact Q/V dataset extraction,
+unknown-timeout censoring, independent episode/state coverage checks, and a
+matched Q-only versus shared Q-plus-V MLP. Internal MuJoCo substeps remain
+label authority only. State/constraint pairs are balanced, normalization uses
+training episodes only, and the test split is evaluated once after the fixed
+training schedule. A prediction pass requires zero candidate-level false-safes,
+safe support in every recoverable held-out state, bounded near-boundary error,
+and Q-plus-V not worsening Q-only.
+
+This ADR does not authorize training on ADR-0171 artifacts because that run
+does not capture policy-value boundary contexts. After the Q-only coverage
+verdict, a dependent progressive trajectory-context enrichment may be run on
+the supported split without changing states or candidates. Correction, QP,
+denoising, closed loop, deployment, formal CBF claims, and GPU-generated labels
+remain forbidden. GPU simulation is a separate engineering optimization and
+must match CPU MuJoCo state/risk/contact classifications before use.

@@ -186,6 +186,9 @@ def collect(
         capture_physical_context=True,
         local_frame_provider=local_frame_provider,
         allow_initial_proxy_unsafe_for_empirical_relabel=True,
+        require_archived_task_success=bool(
+            config["state_selection"].get("require_archived_task_success", True)
+        ),
     )
     nominal = np.asarray(raw["nominal_five_action_chunk"], dtype=np.float64)
     for candidate in raw["candidates"]:

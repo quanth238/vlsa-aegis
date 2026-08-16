@@ -51,7 +51,9 @@ def validate(
                      "exact-group case result schema differs")
             _require(record.get("case_id") == case["case_id"],
                      "exact-group case identity differs")
-            _require(record.get("source", {}).get("commit") == expected_commit,
+            historical = config.get("progressive_historical_source_commits", {})
+            case_expected_commit = str(historical.get(case["case_id"], expected_commit))
+            _require(record.get("source", {}).get("commit") == case_expected_commit,
                      "exact-group source commit differs")
             _require(record.get("result_payload_sha256") == payload_sha256(record),
                      "exact-group result payload differs")
@@ -94,6 +96,14 @@ def validate(
         "scientific_result": False,
         "claim_scope": config["claim_scope"],
         "source": _git_identity(repo_root, expected_commit),
+        "progressive_case_source_commits": {
+            case["case_id"]: str(
+                config.get("progressive_historical_source_commits", {}).get(
+                    case["case_id"], expected_commit,
+                )
+            )
+            for case in cases
+        },
         "allocation": producer[0]["allocation"],
         "config": config,
         "independent_replay": {

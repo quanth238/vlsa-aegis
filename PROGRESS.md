@@ -5346,3 +5346,35 @@ transfer was truncated and its v1 clone is retained as apparatus history;
 the experiment uses the verified incremental bundle and clean v2 source.
 Validator submission is pending only because the live QOS submit-count limit
 was reached; it must be added with `afterok:40930:40931` when capacity opens.
+
+Replacement arrays `40947`/`40948` preserved the three original training
+shards and completed E01, E04, and E13 independently. E02 alone was rejected
+before candidate simulation because the reused E05 evaluator required the
+archived VLA episode to have native task success. That precondition is absent
+from ADR-0171: this is a state/action future-risk dataset, and the registered
+gate already requires an initially safe, contact-free, reproducible query
+state. The six completed shards remain immutable. The repair makes archived
+task success configurable, freezes it to `false` only for this progressive
+data gate, and retains the exact state, action, continuation, OSC, geometry,
+contact, CAR, timeout, and split requirements. Historical per-case source
+commits are bound explicitly so progressive shards are validated rather than
+overwritten.
+
+The PNCBF-aligned learning implementation is prepared but not yet authorized
+to run. It treats OSC, robot dynamics, contacts, and the fixed continuation as
+the plant and extracts exact controller-boundary targets
+
+\[
+V_j^\pi(z_t)=\max_{s\ge t}c_j(z_s),\qquad
+Q_j^\pi(z,A)=\max\{c_j\text{ during the prefix},V_j^\pi(z^+)\}.
+\]
+
+The query target is the first exact Bellman record, not a joint trajectory or
+one-step OSC prediction. Only backup/terminal-hold controller boundaries are
+eligible state-value samples; prefix states, internal substeps, and timeouts
+are not promoted to independent training states. The constraint-conditioned
+trainer compares matched Q-only and shared Q-plus-V arms with train-only
+normalization and candidate-level false-safe/support gates. It cannot run
+until an independently replayed source contains trajectory contexts and
+adequate two-sided episode coverage. CPU MuJoCo remains label authority; no
+GPU simulator output is admitted without a separate exact equivalence canary.
