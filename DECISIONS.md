@@ -5582,3 +5582,9 @@ artifacts with `bind_distal_whole_body_final_gate.py`. The binder must derive
 split counts from the three frozen cohort configs and verify every validation
 payload. It is an apparatus/provenance tool only; undercoverage still forces a
 diagnostic model label, and correction still requires both independent gates.
+
+Use dependency chain `41336 -> 41339 -> 41340 -> 41341 -> 41342 -> 41343` for
+the final source, combined coverage audit, Q binding, fixed Q-only fit, and
+independent retrain. The chain is allowed to produce a diagnostic Q result when
+coverage fails. It must not schedule or execute correction unless the recorded
+coverage and held-out prediction gates both pass.

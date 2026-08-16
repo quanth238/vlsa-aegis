@@ -6000,3 +6000,11 @@ targeted = `21/7/10`), binds the third validation file and payload, and writes
 the v2 coverage config. After the coverage audit it binds that exact audit to
 the frozen Q-only protocol. This avoids manual hash transcription and does not
 alter coverage, model, loss, split, or correction criteria.
+
+The post-collection workflow is dependency-scheduled rather than left for a
+manual handoff. Final source-prep `41336` binds commit
+`578278a5a253bacfcb00faf3d184299baf6d9e20`; coverage binder/audit jobs are
+`41339/41340`; Q-only binder/trainer/independent retrainer are
+`41341/41342/41343`. These jobs run only after clean validator `41331` passes.
+Training therefore still runs when coverage is scientifically under-supported,
+but the result is labeled diagnostic and cannot authorize correction.
