@@ -5206,3 +5206,22 @@ outcomes; it remains evidence and only a separately preregistered progressive
 extension may add new episode groups. Prediction, candidate selection,
 correction, QP, calibration, denoising, and closed-loop execution remain
 blocked until their later gates.
+
+Allocation-backed producer `41021`, independent replay `41023`, and validator
+`41024` complete ADR-0177. Accept the apparatus and all eight immutable
+episode shards: every state is initially target-safe; replay and state hashes
+are exact; the additive end-effector/palm/L5/L6/L7 contract and controller
+contexts are complete; Bellman residual is zero; and represented-geometry
+physical false-safes are zero. Retain all 216 candidate outcomes, including 50
+unknown timeouts.
+
+Classify ADR-0177 as `apparatus_pass_bank_revision_required`, not training
+authorization. Target-group two-sided support is only `2/4 train, 2/2
+validation, 2/2 test`: training E00 has no known safe candidate and training
+E35 has no unsafe candidate. Do not discard, replace, or rerun either state.
+Use the already stored superset traces for a read-only per-constraint and
+global-safe-support audit, freeze a high-yield 13-candidate subset using only
+opened training/development evidence, and prospectively add independent
+episode groups toward the 24-state `16/4/4` checkpoint. Q-only training,
+correction, QP, calibration, denoising, and closed-loop execution remain
+blocked.

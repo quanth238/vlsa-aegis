@@ -5578,3 +5578,25 @@ physical false-safes are zero, and two-sided target support reaches exactly
 `4/2/2`. One-sided and failed cases remain in the audit and trigger targeted
 progressive extension rather than model tuning. QP, correction, calibration,
 denoising, and closed-loop use remain blocked.
+
+Producer array `41021`, independent replay array `41023`, and validator
+`41024` completed all eight ADR-0177 states. The apparatus and artifact gates
+pass: all eight states are initially target-safe, producer/replay scientific
+content and state hashes agree exactly, represented-geometry physical
+false-safes are zero, the whole-body superset and action-boundary context are
+complete, and the maximum Bellman residual is zero. All 216 candidates are
+retained: 166 have known outcomes (`95 safe / 71 unsafe`) and 50 are unknown
+timeouts.
+
+The strict training-coverage gate does not pass. Target-group two-sided
+coverage is `2/4 train, 2/2 validation, 2/2 test`, rather than the registered
+`4/2/2`. Training E00 is unsafe-only among known candidates (`0 safe / 10
+unsafe / 17 unknown`) and training E35 is safe-only (`22 safe / 0 unsafe / 5
+unknown`); both remain immutable evidence. This is a boundary-coverage
+shortfall, not a replay, geometry, or label failure. Preserve every shard,
+derive per-row/per-group and global-safe support from the stored superset
+traces without recollection, freeze a development-selected 13-candidate bank,
+and add prospectively registered independent states toward the 24-state
+checkpoint before Q-only training. Validation file/payload SHA-256 values are
+`d4d1d73625b6f95fda47de157d1d27583ecbfcec57a4a010be26fea0174b95c6`
+and `82a260e138140f8d371c95f5d947141d13fa6970660bca4e9e717375d50d1c2d`.
