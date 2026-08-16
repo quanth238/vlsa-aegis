@@ -5243,3 +5243,36 @@ test false-safes, at least 90% safe recall, support in both states of each
 split, and near-boundary RMSE at most 0.1 dimensionless. Regardless of result,
 the failed `4/2/2` population gate means correction, calibration, QP,
 denoising, closed loop, deployment, and a CBF claim remain forbidden.
+
+H100 producer `40920` and independent retraining validator `40921` complete
+exactly from commit `9325907685b5fbd338bd67bd53f5f5e0dd95784b` with zero frozen
+prediction and zero independent-retraining discrepancy. The diagnostic is
+strict NO-GO:
+
+- Training: global/near-boundary RMSE `0.022422/0.016691`, zero false-safes,
+  safe recall `1.0`, support `6/6`, rank `0.98246`.
+- Validation: `0.037133/0.065182`, zero false-safes, safe recall `1.0`,
+  support `2/2`, rank `0.83455`.
+- Test: `1.680067/1.750582`, 12 false-safes, one false-unsafe, safe recall
+  `0.8`, rank `-0.67892`, and improvement-direction accuracy `0.25`.
+
+The sole two-sided validation state E37 belongs to the Goal-II task-2 family
+that supplies all three two-sided training states E24/E29/E32. The sole
+two-sided test state E15 belongs to Spatial-I task-3; there the model predicts
+all 13 candidates safe although only one is safe, selects unsafe nominal, and
+ranks the exact safe `y_pos_r1.50` response incorrectly. Thus an episode-level
+split alone did not create task-level boundary-mechanism generalization. The
+9D endpoint representation also omits direct L5/controller configuration that
+can distinguish these responses.
+
+Do not tune this model on E15, reuse test for checkpoint selection, or add a
+conservative buffer that would hide its wrong ranking. The next defensible
+gate requires two-sided training boundaries across multiple task/level groups
+and a matched 9D versus minimal direct-L5-context representation comparison
+with new untouched validation/test groups. Correction, QP, denoising, and
+closed loop remain blocked. Result/validation file SHA-256 values are
+`ede647acee5d14d657b4a17f7b1b794a880c521ad9c4ab0250678881ef1e16fc` and
+`44f2231477e0324df1261dd153a3c5b431a30602d9dc339eb45f55f7a80cf9d7`;
+payload SHA-256 values are
+`cdea244eb9d56be01b9ecad94adfcae9392519db46ce20a48323c173df9264f0` and
+`2b82bf1d0cd4ecbd67adbd8eb12286b14236704154deb8f73cd30d20529b4851`.

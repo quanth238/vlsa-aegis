@@ -4858,3 +4858,29 @@ both validation and test. Even a pass cannot authorize candidate selection or
 control because each held-out split contains only one two-sided state. V
 targets, calibration, optimistic penalties, correction, QP, denoising, closed
 loop, deployment, and CBF claims remain forbidden.
+
+### ADR-0169 result
+
+H100 producer `40920` and independent validator `40921` reproduce the frozen
+model and predictions exactly from commit
+`9325907685b5fbd338bd67bd53f5f5e0dd95784b`. Reject the transfer hypothesis.
+Validation passes every diagnostic threshold with global RMSE `0.037133` and
+zero false-safes, but the one-time test has global RMSE `1.680067`, 12
+false-safes, one false-unsafe, safe recall `0.8`, negative rank correlation
+`-0.67892`, and improvement-direction accuracy `0.25`.
+
+This split reveals why the apparent validation result is misleading. All
+two-sided training states and the two-sided validation state are Goal-II
+task-2 episodes; the two-sided test state is Spatial-I task-3. The model fits
+and transfers within one task-level boundary mechanism but does not transfer
+to the distinct test mechanism. Safe-only states from other groups do not
+supply the missing threshold response. The 9D endpoint representation may
+also alias different L5/controller states.
+
+Do not tune against the opened test, add a safety buffer, or enable action
+selection. Require future prospective training data to include independent
+two-sided boundaries from multiple task/level groups. The next matched model
+test may compare the frozen 9D endpoint representation with one minimal direct
+L5-relative-context representation, using newly untouched validation/test
+groups. QP, calibration, denoising, closed loop, deployment, and CBF claims
+remain blocked.
