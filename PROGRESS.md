@@ -5706,3 +5706,14 @@ zero represented-geometry physical false-safes, at least `4/2/2` two-sided
 support for every claimed group, and global safe support in every recoverable
 validation/test state. One-sided, initially unsafe, timeout, contact/CAR, and
 failed cases remain evidence and are never replaced.
+
+Immutable commit `9d6ee2888bc8c287ca0924b06ad951d959e70cc2`
+launches H100 producer array `41066`, independent replay array `41067`, and
+dependent validator `41068` from clean remote source
+`/home/quanth/working_space/vlsa-aegis-wholebody-extension-9d6ee28-v3`.
+The artifact root is
+`/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816a`.
+Both arrays are capped at one live task each, so the workflow uses at most two
+H100 equivalents, 16 CPUs, and 128 GB memory. Preserve completed per-case
+JSONs as progressive shards and rerun only exact missing/schema-invalid
+indices after inspection.

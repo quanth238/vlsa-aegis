@@ -5326,3 +5326,10 @@ coverage; it is hard-blocked from authorizing training alone. After exact
 independent replay, combine it with immutable ADR-0177 and require at least
 `4/2/2` two-sided states for every claimed group plus global safe support in
 every recoverable holdout state. Unsupported heads remain diagnostic.
+
+Producer `41066`, independent replay `41067`, and validator `41068` are
+submitted from immutable commit
+`9d6ee2888bc8c287ca0924b06ad951d959e70cc2`. The two arrays each run at `%1`,
+which is the maximum safe concurrency under the two-H100/16-CPU ceiling. Do
+not restart the population root; retain every valid shard and retry only an
+exact failed/missing index after classifying its log.
