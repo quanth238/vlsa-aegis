@@ -4810,3 +4810,28 @@ authorize the existing Q-only future-risk prediction test. V targets and loss
 tuning are rejected for this gate; learned correction, QP, denoising, closed
 loop, deployment, and a CBF claim remain forbidden regardless of collection
 outcome.
+
+## ADR-0168 result: apparatus pass, prospective population NO-GO
+
+- Status: completed; Q-only training remains blocked
+- Date: 2026-08-16
+
+Producer `40889`, independent replay `40900`, and validator `40902` complete
+all ten frozen episode groups and 130 registered candidates from commit
+`e9a81257a6b9e8853b59a87b873ba4ad9927b595`. All states are initially safe,
+robot primitive certificates pass, physical false-safes are zero, source
+state hashes are exact, and independent replay has zero mismatched cases.
+
+Reject training from this population because split-wise two-sided coverage is
+only `3/6` train, `1/2` validation, and `1/2` test, below the frozen `4/2/2`
+gate. This is not a simulator, label, or replay failure. It is a candidate
+support/state-coverage failure: five independently selected states are
+safe-only under the registered 13-action bank. Repeating more actions at the
+same states would not create independent state-level threshold evidence.
+
+Keep all artifacts as progressive immutable data, but do not use validation
+or test outcomes for normalization, feature selection, or model fitting. A
+new collection decision must prospectively add independent boundary states or
+preregister a broader action bank; it must not outcome-retime or move any
+existing frozen episode between splits. Q-only training, V tuning, correction,
+QP, denoising, closed loop, deployment, and CBF claims remain blocked.

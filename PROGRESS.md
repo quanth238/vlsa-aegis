@@ -5195,3 +5195,31 @@ split has at least 4/2/2 independently two-sided train/validation/test states
 with zero represented-geometry physical false-safes. Validation/test episodes
 remain excluded from normalization and fitting; test is used once after the
 Q-only model and checkpoint rule are frozen.
+
+## Prospective L5 Q-only population gate (validated, 2026-08-16)
+
+H100 producer array `40889`, independent replay array `40900`, and validator
+`40902` completed from immutable commit
+`e9a81257a6b9e8853b59a87b873ba4ad9927b595`. All ten frozen states are
+initially exact-target safe and contact-free, all 130 candidates are retained,
+the exact compiled-box target has zero represented-geometry physical
+false-safes, and independent replay reproduces every scientific result with
+zero mismatched cases. The collection apparatus therefore passes.
+
+The prospective population is nevertheless a strict scientific NO-GO for
+Q-only training. Two-sided state coverage is `3/6` train, `1/2` validation,
+and `1/2` test versus the preregistered `4/2/2` minimum. Known
+safe/unsafe/unknown candidate counts are `32/7/39`, `14/3/9`, and `5/12/9`
+for train, validation, and test respectively. The remaining five states are
+safe-only under the registered bank, so their action samples cannot identify
+the safe/unsafe threshold at those states.
+
+Do not train the Q-only MLP, tune V, add correction, enable a QP, denoise, or
+run closed loop from this population. Preserve every producer and replay JSON
+as an immutable progressive shard. The next valid data action is a separately
+preregistered prospective extension that adds independent initially-safe
+states and/or revises the generic candidate bank while keeping existing
+validation/test outcomes out of fitting and normalization. Validation
+file/payload SHA-256 values are
+`f8339258611bb1c89678beb56f46fa9f1e800c816b944f4329640eb9014e29ed` and
+`55dc45efc1a44bd6b54eb86ce64ada5b72bdaeedcba399455be291f4bb6132c0`.
