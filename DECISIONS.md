@@ -5081,3 +5081,25 @@ change only candidate excitation in the next opened-development gate. A useful
 candidate expansion should include mixed Cartesian directions and an
 early/front-loaded temporal profile, then retain only exact candidate-plus-
 continuation labels. Validation/test groups and learning/control remain blocked.
+
+## ADR-0175: Broaden only E00 candidate excitation
+
+- Status: preregistered; development mechanism gate
+- Date: 2026-08-16
+
+Hold opened E00 at the validated initially-safe step 65 from ADR-0174. Replace
+only its 13 symmetric world-axis candidates with nominal plus the complete
+26-direction `{-1,0,1}^3` grid expressed in an orthonormal local frame:
+outward L5--obstacle normal, projected world-up tangent, and side tangent.
+Normalize every nonzero mixture and apply a front-loaded five-action
+translation correction of requested L2 norm 2.0. Do not preserve the endpoint.
+
+Retain direct clipped Cartesian actions, unchanged OSC, no released candidate
+EE-QP, exact compiled-box L5 candidate-plus-complete-fixed-continuation risk,
+timeout censoring, raw contacts, and paper CAR. Require E00 to remain initially
+safe and to contain known exact-safe and unsafe candidates under exact
+independent replay with zero represented-geometry physical false-safes. This
+single opened-development gate may freeze a candidate procedure for new
+prospective groups; it cannot authorize MLP training or control. If it fails,
+do not tune the MLP: the registered five-action candidate region still lacks a
+safe action for E00.

@@ -5451,3 +5451,24 @@ at opened E00 step 65; Q-only training and all control remain blocked.
 Validation file/payload SHA-256 values are
 `5aea93705ac2fa44a8df79536ddb9e8428cd196bf00f9d3a1785319641d11212`
 and `c41f697cb6458065b849401b2294123a82cbae8191c556370d425b8acf7f5ed8`.
+
+## Spatial-I E00 candidate-excitation pilot (preregistered, 2026-08-16)
+
+ADR-0175 holds opened E00 at the validated initially-safe step 65 and changes
+only candidate excitation. The former 13 symmetric world-axis candidates are
+replaced by nominal plus all 26 normalized directions in the local
+L5--obstacle frame spanned by outward normal, upward tangent, and side tangent.
+Every correction uses the registered front-loaded five-action profile with
+requested L2 norm 2.0. Rotation/gripper, direct no-QP Cartesian execution,
+unchanged OSC, exact compiled-box candidate-plus-complete-continuation target,
+timeouts, contacts, and CAR remain frozen.
+
+The mechanism gate asks only whether the registered family contains at least
+one exact-safe and one unsafe E00 candidate with positive initial L5 slack,
+exact independent replay, and zero represented-geometry physical false-safes.
+It uses no validation/test episode and cannot authorize training directly. A
+pass freezes the timing and candidate procedure for prospective grouped
+collection; a failure shows that this five-action action region still lacks
+safe support and requires revisiting intervention horizon or timing before
+learning. Q/V training, correction, QP, denoising, closed loop, and GPU labels
+remain blocked.

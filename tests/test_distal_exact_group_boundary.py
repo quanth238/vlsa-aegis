@@ -1,3 +1,4 @@
+import itertools
 import json
 import tempfile
 import unittest
@@ -5,6 +6,9 @@ from pathlib import Path
 
 from main.multilink_ellipsoid.exact_group_boundary import (
     GROUPS, load_cases, load_config, summarize_cases, warning_step,
+)
+from main.multilink_ellipsoid.active_boundary_search import (
+    candidate_definitions as grid_candidate_definitions,
 )
 from main.multilink_ellipsoid.generic_action_boundary import candidate_definitions
 
@@ -30,6 +34,9 @@ SPATIAL_PROGRESSIVE_CONFIG = (
 )
 SPATIAL_TIMING_CONFIG = (
     ROOT / "configs/vlsa_distal_spatial_i_t3_timing_localization.v1.json"
+)
+SPATIAL_E00_EXCITATION_CONFIG = (
+    ROOT / "configs/vlsa_distal_spatial_i_t3_e00_candidate_excitation.v1.json"
 )
 
 
@@ -263,6 +270,48 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
         self.assertEqual(current["risk_target"], previous["risk_target"])
         self.assertFalse(current["learned_correction_QP_enabled"])
+
+    def test_spatial_e00_excitation_changes_only_candidate_coverage(self):
+        previous = load_config(SPATIAL_TIMING_CONFIG)
+        current = load_config(SPATIAL_E00_EXCITATION_CONFIG)
+        cases = load_cases(ROOT / current["selection_manifest"], current)
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(cases[0]["episode_group_id"], "vlsa-t1-spatial-i-t3-e00")
+        self.assertEqual(warning_step(cases[0], current), 65)
+        self.assertEqual(current["exact_group_target"], previous["exact_group_target"])
+        self.assertEqual(current["risk_target"], previous["risk_target"])
+        self.assertFalse(current["learned_correction_QP_enabled"])
+
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy unavailable in the local structural environment")
+        nominal = np.zeros((5, 7), dtype=np.float64)
+        frame = {
+            "normal": [1.0, 0.0, 0.0],
+            "tangent_up": [0.0, 1.0, 0.0],
+            "tangent_side": [0.0, 0.0, 1.0],
+        }
+        candidates = grid_candidate_definitions(
+            nominal,
+            frame,
+            {"finite_search": current["candidate_bank"]},
+            current["candidate_bank"]["temporal_profile"],
+        )
+        self.assertEqual(len(candidates), 27)
+        self.assertEqual(candidates[0]["name"], "nominal")
+        self.assertTrue(all(
+            np.array_equal(np.asarray(row["actions"])[:, 3:], nominal[:, 3:])
+            for row in candidates
+        ))
+        self.assertEqual(
+            {tuple(row["spatial_coefficients"]) for row in candidates[1:]},
+            {
+                coefficients
+                for coefficients in itertools.product((-1, 0, 1), repeat=3)
+                if coefficients != (0, 0, 0)
+            },
+        )
 
     def test_prospective_population_can_capture_policy_value_contexts(self):
         value = json.loads(SPATIAL_PROGRESSIVE_CONFIG.read_text())

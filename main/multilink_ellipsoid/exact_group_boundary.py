@@ -15,6 +15,7 @@ GENERIC_L5_CONFIG_SCHEMA = "vlsa_distal_generic_l5_boundary_canary.v1"
 TRAJECTORY_VALUE_CONFIG_SCHEMA = "vlsa_distal_generic_l5_trajectory_value_canary.v1"
 PROSPECTIVE_L5_CONFIG_SCHEMA = "vlsa_distal_prospective_l5_boundary_population.v1"
 DEVELOPMENT_L5_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_search.v1"
+DEVELOPMENT_EXCITATION_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_excitation.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -39,7 +40,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if schema not in (
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
-        DEVELOPMENT_L5_CONFIG_SCHEMA,
+        DEVELOPMENT_L5_CONFIG_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -49,11 +50,32 @@ def load_config(path: Path) -> dict[str, Any]:
         TRAJECTORY_VALUE_CONFIG_SCHEMA: "vlsa-distal-generic-l5-trajectory-value-canary-v1",
         PROSPECTIVE_L5_CONFIG_SCHEMA: "vlsa-distal-prospective-l5-boundary-population-v1",
         DEVELOPMENT_L5_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-search-v1",
+        DEVELOPMENT_EXCITATION_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-excitation-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
     bank = value["candidate_bank"]
-    if schema in (
+    if schema == DEVELOPMENT_EXCITATION_CONFIG_SCHEMA:
+        expected_grid = {
+            "kind": "local_frame_grid",
+            "spatial_basis": ["normal", "tangent_up", "tangent_side"],
+            "coefficient_grid": [-1, 0, 1],
+            "exclude_all_zero": True,
+            "spatial_direction_count": 26,
+            "correction_l2_action": 2.0,
+            "action_limit": 1.0,
+            "include_nominal": True,
+            "candidate_count_per_job": 27,
+            "endpoint_preservation": False,
+            "preserve_rotation_and_gripper": True,
+            "temporal_profile": "front_loaded",
+            "released_AEGIS_EE_applied_to_every_candidate": False,
+            "candidate_execution": "direct_clipped_Cartesian_VLA_action_to_unchanged_OSC",
+            "selection_cost": "direct_five_action_L2_from_nominal_VLA_chunk",
+        }
+        if bank != expected_grid:
+            raise ValueError("development excitation candidate bank differs")
+    elif schema in (
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
     ):
@@ -99,6 +121,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
         "episode_group_id"
         if config["schema_version"] in (
             PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
+            DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         )
         else "task_level_group_id"
     )
@@ -129,6 +152,7 @@ def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
     if config.get("schema_version") in (
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
+        DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:

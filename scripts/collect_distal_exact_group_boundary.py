@@ -28,13 +28,17 @@ def collect(
     import numpy as np
 
     from main.multilink_ellipsoid.exact_group_boundary import (
-        CASE_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
+        CASE_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
+        DEVELOPMENT_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         load_cases, load_config,
         payload_sha256, warning_step,
     )
     from main.multilink_ellipsoid.generic_action_boundary import (
         candidate_definitions as generic_candidate_definitions,
+    )
+    from main.multilink_ellipsoid.active_boundary_search import (
+        candidate_definitions as grid_candidate_definitions,
     )
     from main.multilink_ellipsoid.normal_risk_curve import (
         RESULT_SCHEMA as CURVE_RESULT_SCHEMA, candidate_definitions,
@@ -127,8 +131,22 @@ def collect(
         normal = np.asarray(row.center, dtype=np.float64) - np.asarray(box.center, dtype=np.float64)
         norm = float(np.linalg.norm(normal))
         _require(norm > 1.0e-12, "exact-group outward normal is degenerate")
+        normal = normal / norm
+        tangent_up = np.asarray([0.0, 0.0, 1.0], dtype=np.float64)
+        tangent_up = tangent_up - float(tangent_up @ normal) * normal
+        tangent_norm = float(np.linalg.norm(tangent_up))
+        if tangent_norm <= 1.0e-12:
+            fallback = np.eye(3, dtype=np.float64)[int(np.argmin(np.abs(normal)))]
+            tangent_up = fallback - float(fallback @ normal) * normal
+            tangent_norm = float(np.linalg.norm(tangent_up))
+        _require(tangent_norm > 1.0e-12, "exact-group upward tangent is degenerate")
+        tangent_up = tangent_up / tangent_norm
+        tangent_side = np.cross(normal, tangent_up)
+        tangent_side = tangent_side / float(np.linalg.norm(tangent_side))
         return {
-            "normal": (normal / norm).tolist(),
+            "normal": normal.tolist(),
+            "tangent_up": tangent_up.tolist(),
+            "tangent_side": tangent_side.tolist(),
             "source": "target_group_closest_exact_compiled_box_center_outward_normal",
             "target_group": selected["target_group"],
             "closest_robot_row": int(indices[int(local_index)]),
@@ -141,6 +159,17 @@ def collect(
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
     )
+    grid_bank = config["schema_version"] == DEVELOPMENT_EXCITATION_CONFIG_SCHEMA
+
+    def definitions(nominal, frame, _base):
+        if grid_bank:
+            return grid_candidate_definitions(
+                nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
+            )
+        if generic_bank:
+            return generic_candidate_definitions(nominal, bank)
+        return candidate_definitions(nominal, frame, bank)
+
     source_path = run_root / "source-curve.json"
     raw = evaluate(
         repo_root=repo_root,
@@ -163,17 +192,17 @@ def collect(
             "split": selected["split"],
             "sealed_test_access": False,
         },
-        candidate_definitions_override=lambda nominal, frame, _base: (
-            generic_candidate_definitions(nominal, bank)
-            if generic_bank else candidate_definitions(nominal, frame, bank)
-        ),
+        candidate_definitions_override=definitions,
         candidate_protocol_binding={
             "candidate_basis": (
-                "symmetric_world_Cartesian_axes"
+                "geometry_conditioned_normal_tangent_grid"
+                if grid_bank else "symmetric_world_Cartesian_axes"
                 if generic_bank else bank["direction"]
             ),
             "radii_or_alpha": (
-                bank["radii"] if generic_bank else bank["requested_alpha"]
+                [bank["correction_l2_action"]]
+                if grid_bank else bank["radii"]
+                if generic_bank else bank["requested_alpha"]
             ),
             "temporal_profile": bank["temporal_profile"],
             "released_AEGIS_EE_applied_to_every_candidate": bool(
