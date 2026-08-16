@@ -6,6 +6,7 @@
     "vlsa-t1-long-i-t2-e40": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-spatial-i-t0-e19": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-goal-i-t2-e43": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
+    "vlsa-t1-goal-ii-t1-e36": "3f3e0c2b1d9d597fa356e12f7ecad722517b08d3",
     "vlsa-t1-long-ii-t2-e13": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-long-ii-t3-e46": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-spatial-i-t2-e22": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
@@ -13,8 +14,7 @@
     "vlsa-t1-goal-ii-t3-e31": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-goal-ii-t3-e00": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
     "vlsa-t1-goal-ii-t3-e40": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
-    "vlsa-t1-goal-ii-t3-e43": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
-    "vlsa-t1-spatial-i-t3-e24": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1"
+    "vlsa-t1-goal-ii-t3-e43": "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1"
   },
   "claim_scope": "Prospective fourteen-root palm/L6 boundary collection from frozen raw-pi0.5 natural-contact sources. It preserves the frozen 13-bank, no-QP direct Cartesian execution, unchanged OSC, complete continuation, UNKNOWN censoring, raw contacts/CAR, and separate EE/palm/L5/L6/L7 future-risk traces. It cannot authorize prediction or correction without later combined gates.",
   "base_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",

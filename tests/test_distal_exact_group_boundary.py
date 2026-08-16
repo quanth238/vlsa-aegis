@@ -111,11 +111,19 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertEqual(len(historical), 13)
         self.assertEqual(
             [case["case_id"] for case in cases if case["case_id"] not in historical],
-            ["vlsa-t1-goal-ii-t1-e36"],
+            ["vlsa-t1-spatial-i-t3-e24"],
         )
-        self.assertEqual(set(historical.values()), {
-            "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
-        })
+        self.assertEqual(
+            historical["vlsa-t1-goal-ii-t1-e36"],
+            "3f3e0c2b1d9d597fa356e12f7ecad722517b08d3",
+        )
+        self.assertEqual(
+            {
+                commit for case_id, commit in historical.items()
+                if case_id != "vlsa-t1-goal-ii-t1-e36"
+            },
+            {"80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1"},
+        )
 
     def test_collector_can_bind_raw_pi05_state_to_paired_geometry_only(self):
         source = (
