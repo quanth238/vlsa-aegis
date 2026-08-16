@@ -1,13 +1,15 @@
 import itertools
 import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from main.multilink_ellipsoid.exact_group_boundary import (
-    GROUPS, WHOLE_BODY_GROUPS, load_cases, load_config, summarize_cases,
-    warning_step,
+    CASE_SCHEMA, GROUPS, WHOLE_BODY_GROUPS, load_cases, load_config,
+    payload_sha256, summarize_cases, warning_step,
 )
 from main.multilink_ellipsoid.active_boundary_search import (
     candidate_definitions as grid_candidate_definitions,
@@ -16,6 +18,7 @@ from main.multilink_ellipsoid.generic_action_boundary import candidate_definitio
 from scripts.audit_distal_compiled_box_risk_target import (
     _resolved_perception_source,
 )
+from scripts.validate_distal_exact_group_boundary import validate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,6 +107,15 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(config["candidate_bank"]["candidate_count_per_job"], 13)
         self.assertFalse(config["learned_correction_QP_enabled"])
+        historical = config["progressive_historical_source_commits"]
+        self.assertEqual(len(historical), 13)
+        self.assertEqual(
+            [case["case_id"] for case in cases if case["case_id"] not in historical],
+            ["vlsa-t1-goal-ii-t1-e36"],
+        )
+        self.assertEqual(set(historical.values()), {
+            "80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1",
+        })
 
     def test_collector_can_bind_raw_pi05_state_to_paired_geometry_only(self):
         source = (
@@ -112,6 +124,82 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertIn('selected.get("aegis_geometry_result_relative_path")', source)
         self.assertIn('"state_or_action_source": False', source)
         self.assertIn("nominal_action_source=config[\"state_selection\"].get(", source)
+
+    def test_targeted_initial_car_rejections_are_retained_not_counted(self):
+        config = load_config(TARGETED_PI05_CONFIG)
+        selections = load_cases(ROOT / config["selection_manifest"], config)
+        records = []
+        for index, selection in enumerate(selections):
+            records.append({
+                "case_id": selection["case_id"],
+                "selection": selection,
+                "status": "retained_scientific_rejection_initial_CAR",
+                "rejection": {
+                    "code": "initial_active_obstacle_CAR_exceeds_registered_limit",
+                    "reason": "%s query boundary already fails CAR" % selection["case_id"],
+                    "candidate_outcomes_observed": False,
+                    "retained": True,
+                },
+            })
+        summary = summarize_cases(records, config)
+        self.assertEqual(summary["retained_scientific_rejection_count"], 14)
+        self.assertEqual(summary["candidate_count"], 0)
+        self.assertFalse(summary["apparatus_pass"])
+        self.assertFalse(summary["q_only_prediction_gate_authorized"])
+        self.assertEqual(
+            summary["prospective_split_summary"]["train"]["initially_safe_case_count"],
+            0,
+        )
+
+    def test_targeted_validator_preserves_progressive_rejection_commits(self):
+        config = load_config(TARGETED_PI05_CONFIG)
+        selections = load_cases(ROOT / config["selection_manifest"], config)
+        current = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+        ).strip()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            producer = root / "producer"
+            replay = root / "replay"
+            producer.mkdir()
+            replay.mkdir()
+            for selection in selections:
+                case_id = selection["case_id"]
+                commit = config["progressive_historical_source_commits"].get(
+                    case_id, current,
+                )
+                record = {
+                    "schema_version": CASE_SCHEMA,
+                    "status": "retained_scientific_rejection_initial_CAR",
+                    "case_id": case_id,
+                    "selection": selection,
+                    "source": {"commit": commit},
+                    "allocation": {},
+                    "exact_case": None,
+                    "rejection": {
+                        "code": "initial_active_obstacle_CAR_exceeds_registered_limit",
+                        "reason": "%s query boundary already fails CAR" % case_id,
+                        "candidate_outcomes_observed": False,
+                        "retained": True,
+                    },
+                    "original_AEGIS_EE_QP_enabled": False,
+                    "learned_correction_QP_enabled": False,
+                }
+                record["result_payload_sha256"] = payload_sha256(record)
+                for path in (producer, replay):
+                    (path / (case_id + ".json")).write_text(json.dumps(record))
+            with patch(
+                "scripts.validate_distal_exact_group_boundary._git_identity",
+                return_value={"commit": current, "dirty": False},
+            ):
+                result = validate(
+                    repo_root=ROOT, config_path=TARGETED_PI05_CONFIG,
+                    producer_dir=producer, replay_dir=replay,
+                    expected_commit=current,
+                )
+        self.assertTrue(result["independent_replay"]["exact_scientific_reproduction"])
+        self.assertEqual(result["summary"]["retained_scientific_rejection_count"], 14)
+        self.assertFalse(result["summary"]["apparatus_pass"])
 
     def test_compiled_target_resolves_paired_geometry_for_raw_pi05_source(self):
         geometry = {

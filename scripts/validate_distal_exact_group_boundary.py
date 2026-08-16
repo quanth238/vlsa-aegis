@@ -17,10 +17,10 @@ def _scientific_view(record: Mapping[str, Any]) -> dict[str, Any]:
     value = json.loads(json.dumps(record))
     for key in ("allocation", "source", "result_payload_sha256"):
         value.pop(key, None)
-    curve = value.get("source_curve", {})
+    curve = value.get("source_curve") or {}
     for key in ("path", "file_sha256", "result_payload_sha256"):
         curve.pop(key, None)
-    exact = value.get("exact_case", {})
+    exact = value.get("exact_case") or {}
     for key in (
         "source_result", "source_result_file_sha256",
         "source_result_payload_sha256",

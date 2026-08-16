@@ -43,14 +43,15 @@ def load_config(path: Path) -> dict[str, Any]:
     value = json.loads(raw)
     schema = value.get("schema_version")
     if schema == TARGETED_PI05_CONFIG_SCHEMA:
-        expected = {
+        required = {
             "schema_version", "protocol_id", "claim_scope", "base_config",
             "base_config_file_sha256", "source_audit", "selection_manifest",
             "selection_manifest_file_sha256", "target_group_sequence",
             "state_selection", "gate", "training_authorization_mode",
             "learned_correction_QP_enabled", "forbidden",
         }
-        if set(value) != expected:
+        allowed = required | {"progressive_historical_source_commits"}
+        if not required.issubset(value) or set(value) - allowed:
             raise ValueError("targeted pi05 exact-group config keys differ")
         base_path = Path(path).resolve().parents[1] / str(value["base_config"])
         base_raw = base_path.read_bytes()
@@ -73,6 +74,19 @@ def load_config(path: Path) -> dict[str, Any]:
             "file_sha256": value["base_config_file_sha256"],
         }
         expanded["source_audit"] = value["source_audit"]
+        if value.get("progressive_historical_source_commits") is not None:
+            historical = value["progressive_historical_source_commits"]
+            if (
+                not isinstance(historical, dict)
+                or not all(
+                    isinstance(case_id, str)
+                    and isinstance(commit, str)
+                    and len(commit) == 40
+                    for case_id, commit in historical.items()
+                )
+            ):
+                raise ValueError("targeted pi05 historical source commits differ")
+            expanded["progressive_historical_source_commits"] = historical
         value = expanded
     if schema not in (
         CONFIG_SCHEMA, NO_QP_L5_CONFIG_SCHEMA, GENERIC_L5_CONFIG_SCHEMA,
@@ -295,8 +309,53 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         )
     )
     artifact_superset_complete = True
+    retained_rejections = []
+    successful_cases = []
     for case in cases:
         target = str(case["selection"]["target_group"])
+        if case.get("status", "complete") != "complete":
+            rejection = case.get("rejection") or {}
+            if (
+                case.get("status") != "retained_scientific_rejection_initial_CAR"
+                or rejection.get("code")
+                != "initial_active_obstacle_CAR_exceeds_registered_limit"
+                or rejection.get("candidate_outcomes_observed") is not False
+                or rejection.get("retained") is not True
+            ):
+                raise ValueError("exact-group retained rejection differs")
+            retained_rejections.append({
+                "case_id": case["case_id"],
+                "split": str(case["selection"].get("split", "development")),
+                "target_group": target,
+                "status": case["status"],
+                "code": rejection["code"],
+                "reason": rejection["reason"],
+            })
+            replay_pass = False
+            source_state_hash_pass = False
+            artifact_superset_complete = False
+            trajectory_context_complete = False
+            summaries.append({
+                "case_id": case["case_id"],
+                "split": str(case["selection"].get("split", "development")),
+                "target_group": target,
+                "status": case["status"],
+                "candidate_count": 0,
+                "known_candidate_count": 0,
+                "unknown_timeout_count": 0,
+                "target_safe_candidate_count": 0,
+                "target_unsafe_candidate_count": 0,
+                "target_near_boundary_candidate_count": 0,
+                "target_two_sided_support": False,
+                "initial_target_slack": None,
+                "initial_target_contact_count": None,
+                "initial_physical_groups_safe": False,
+                "robot_primitive_certificate_pass": False,
+                "physical_false_safe_count": 0,
+                "retained_rejection": rejection["code"],
+            })
+            continue
+        successful_cases.append(case)
         initial = case["exact_case"]["exact_group_target"]
         candidates = case["exact_case"]["candidates"]
         known = [
@@ -420,10 +479,12 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         else replay_pass
     )
     trajectory_apparatus_pass = bool(
+        not retained_rejections
+        and (
         not trajectory_mode
         or (
             trajectory_candidate_count == sum(
-                len(case["exact_case"]["candidates"]) for case in cases
+                len(case["exact_case"]["candidates"]) for case in successful_cases
             )
             and trajectory_context_complete
             and trajectory_maximum_bellman_residual <= float(
@@ -431,8 +492,11 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             )
             and trajectory_eligible_value_state_count > 0
         )
+        )
     )
     apparatus = bool(
+        not retained_rejections
+        and
         len(cases) == int(config["gate"]["required_case_count"])
         and all(item["candidate_count"] == int(config["gate"]["required_candidates_per_case"])
                 for item in summaries)
@@ -477,8 +541,18 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             per_split[split] = {
                 "case_count": len(rows),
                 "initially_safe_case_count": sum(
-                    item["initial_target_slack"] > 0.0
-                    and item["initial_target_contact_count"] == 0
+                    (
+                        bool(item["initial_physical_groups_safe"])
+                        if config.get("schema_version") in (
+                            WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
+                            TARGETED_PI05_CONFIG_SCHEMA,
+                        )
+                        else (
+                            item["initial_target_slack"] is not None
+                            and item["initial_target_slack"] > 0.0
+                            and item["initial_target_contact_count"] == 0
+                        )
+                    )
                     for item in rows
                 ),
                 "two_sided_case_count": sum(
@@ -530,6 +604,8 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         "trajectory_maximum_bellman_residual": trajectory_maximum_bellman_residual,
         "artifact_superset_enabled": artifact_superset_mode,
         "artifact_superset_complete": artifact_superset_complete,
+        "retained_scientific_rejection_count": len(retained_rejections),
+        "retained_scientific_rejections": retained_rejections,
         "two_sided_case_count": two_sided_case_count,
         "required_two_sided_case_count": targeted_required,
         "per_case": summaries,

@@ -34,6 +34,7 @@ def load_samples(
     }
     case_records = []
     excluded = []
+    rejected = []
     for source in config["sources"]:
         cohort_path = repo_root / source["cohort_config"]
         _require(
@@ -61,6 +62,9 @@ def load_samples(
             and int(validation["summary"]["physical_false_safe_count"]) == 0,
             "whole-body diagnostic validation payload differs",
         )
+        progressive_commits = validation.get(
+            "progressive_case_source_commits", {}
+        )
         for selection in selections:
             split = str(selection["split"])
             if split not in output:
@@ -68,15 +72,32 @@ def load_samples(
             case_id = str(selection["case_id"])
             path = root / "producer" / (case_id + ".json")
             record = _load(path)
+            expected_case_commit = str(
+                progressive_commits.get(case_id, source["artifact_commit"])
+            )
             _require(
                 record.get("schema_version") == CASE_SCHEMA
                 and record.get("case_id") == case_id
                 and record.get("source", {}).get("commit")
-                == source["artifact_commit"]
+                == expected_case_commit
                 and record.get("result_payload_sha256")
                 == source_payload_sha256(record),
                 "whole-body diagnostic case payload differs",
             )
+            if record.get("status") != "complete":
+                rejection = record.get("rejection") or {}
+                _require(
+                    record.get("status")
+                    == "retained_scientific_rejection_initial_CAR"
+                    and rejection.get("retained") is True
+                    and rejection.get("candidate_outcomes_observed") is False,
+                    "whole-body diagnostic retained rejection differs",
+                )
+                rejected.append({
+                    "case_id": case_id, "split": split,
+                    "reason": rejection["code"],
+                })
+                continue
             exact = record["exact_case"]
             _require(
                 bool(exact["state_hash_matches"])
@@ -149,6 +170,7 @@ def load_samples(
     return output, {
         "cases": case_records,
         "excluded_initially_unsafe_cases": excluded,
+        "excluded_retained_scientific_rejections": rejected,
         "test_artifacts_accessed": False,
     }
 

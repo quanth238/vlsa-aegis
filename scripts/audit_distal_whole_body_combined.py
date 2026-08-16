@@ -52,6 +52,7 @@ def audit(
     context_complete = True
     maximum_bellman_residual = 0.0
     seen_case_ids = set()
+    retained_rejections = []
     for source in combined["sources"]:
         cohort_path = repo_root / source["cohort_config"]
         _require(
@@ -82,6 +83,9 @@ def audit(
 
         producer_records = []
         replay_records = []
+        progressive_commits = validation.get(
+            "progressive_case_source_commits", {}
+        )
         for selection in selections:
             case_id = selection["case_id"]
             _require(case_id not in seen_case_ids, "combined case identity repeats")
@@ -93,8 +97,11 @@ def audit(
                          "combined case schema differs")
                 _require(record.get("case_id") == case_id,
                          "combined case identity differs")
+                expected_case_commit = str(
+                    progressive_commits.get(case_id, source["artifact_commit"])
+                )
                 _require(record.get("source", {}).get("commit")
-                         == source["artifact_commit"],
+                         == expected_case_commit,
                          "combined case artifact commit differs")
                 _require(record.get("result_payload_sha256")
                          == artifact_payload_sha256(record),
@@ -110,7 +117,26 @@ def audit(
             != artifact_canonical(_scientific_view(right))
         ]
         _require(not mismatches, "combined independent replay differs")
-        all_records.extend(producer_records)
+        for record in producer_records:
+            if record.get("status") == "complete":
+                all_records.append(record)
+            else:
+                rejection = record.get("rejection") or {}
+                _require(
+                    record.get("status")
+                    == "retained_scientific_rejection_initial_CAR"
+                    and rejection.get("retained") is True
+                    and rejection.get("candidate_outcomes_observed") is False,
+                    "combined retained scientific rejection differs",
+                )
+                retained_rejections.append({
+                    "case_id": record["case_id"],
+                    "split": record["selection"]["split"],
+                    "target_group": record["selection"]["target_group"],
+                    "code": rejection["code"],
+                    "reason": rejection["reason"],
+                    "source": source["name"],
+                })
         summary = validation["summary"]
         independent = validation.get("independent_replay", {})
         replay_exact = bool(
@@ -140,6 +166,14 @@ def audit(
                 "validation_payload_sha256"
             ],
             "independent_replay_exact": not mismatches,
+            "usable_complete_case_count": sum(
+                record.get("status") == "complete"
+                for record in producer_records
+            ),
+            "retained_scientific_rejection_count": sum(
+                record.get("status") != "complete"
+                for record in producer_records
+            ),
         })
 
     summary = audit_cases(all_records, support_config)
@@ -159,6 +193,8 @@ def audit(
         "source": _git_identity(repo_root, expected_audit_commit),
         "combined_config": combined,
         "source_bindings": bindings,
+        "retained_scientific_rejections": retained_rejections,
+        "retained_scientific_rejection_count": len(retained_rejections),
         "summary": summary,
         "gate": gate,
         "training_authorized": bool(gate["training_authorized"]),

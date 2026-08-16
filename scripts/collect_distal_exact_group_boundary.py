@@ -21,6 +21,61 @@ def _canonical(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _retained_initial_car_rejection(
+    *, repo_root: Path, expected_commit: str, config: Mapping[str, Any],
+    case_index: int, selected: Mapping[str, Any], state_step: int,
+    reason: str,
+) -> dict[str, Any]:
+    """Serialize a frozen warning state rejected before candidate execution."""
+
+    from main.multilink_ellipsoid.exact_group_boundary import (
+        CASE_SCHEMA, TARGETED_PI05_CONFIG_SCHEMA, payload_sha256,
+    )
+    from scripts.evaluate_distal_query_action_risk_e05 import _allocation_record
+
+    expected_reason = "%s query boundary already fails CAR" % selected["case_id"]
+    if (
+        config.get("schema_version") != TARGETED_PI05_CONFIG_SCHEMA
+        or reason != expected_reason
+    ):
+        raise ValueError(reason)
+    bank = config["candidate_bank"]
+    value = {
+        "schema_version": CASE_SCHEMA,
+        "status": "retained_scientific_rejection_initial_CAR",
+        "scientific_result": False,
+        "claim_scope": config["claim_scope"],
+        "source": _git_identity(repo_root, expected_commit),
+        "allocation": _allocation_record(),
+        "config_file_sha256": config["config_file_sha256"],
+        "config_payload_sha256": config["config_payload_sha256"],
+        "case_index": int(case_index),
+        "case_id": selected["case_id"],
+        "selection": dict(selected),
+        "state_step": int(state_step),
+        "query_index": int(state_step) // 5,
+        "source_curve": None,
+        "exact_case": None,
+        "rejection": {
+            "code": "initial_active_obstacle_CAR_exceeds_registered_limit",
+            "reason": reason,
+            "stage": "restored_source_state_before_candidate_execution",
+            "candidate_outcomes_observed": False,
+            "candidate_count": 0,
+            "retained": True,
+            "prevention_eligible": False,
+            "training_eligible": False,
+        },
+        "original_AEGIS_EE_QP_enabled": bool(
+            bank["released_AEGIS_EE_applied_to_every_candidate"]
+        ),
+        "learned_correction_QP_enabled": False,
+        "training_authorized_for_case": False,
+    }
+    value["result_payload_sha256"] = payload_sha256(value)
+    return value
+
+
 def _frozen_grid_subset_candidates(
     nominal: Sequence[Sequence[float]], frame: Mapping[str, Sequence[float]],
     bank: Mapping[str, Any],
@@ -255,62 +310,69 @@ def collect(
         return candidate_definitions(nominal, frame, bank)
 
     source_path = run_root / "source-curve.json"
-    raw = evaluate(
-        repo_root=repo_root,
-        population_manifest_path=population_path,
-        archived_path=archived_path,
-        geometry_config_path=source_geometry_path,
-        experiment_config_path=base_risk_path,
-        expected_commit=expected_commit,
-        output_path=source_path,
-        case_id_override=selected["case_id"],
-        state_step_override=state_step,
-        query_index_override=state_step // 5,
-        result_schema_override=CURVE_RESULT_SCHEMA,
-        claim_scope_override=config["claim_scope"],
-        population_binding={
-            "case_index": int(case_index),
-            "selection": selected,
-            "selection_manifest": str(selection_path),
-            "selection_manifest_sha256": _file_sha256(selection_path),
-            "split": selected["split"],
-            "sealed_test_access": False,
-        },
-        candidate_definitions_override=definitions,
-        candidate_protocol_binding={
-            "candidate_basis": (
-                "geometry_conditioned_normal_tangent_grid"
-                if grid_bank else "symmetric_world_Cartesian_axes"
-                if generic_bank else bank["direction"]
-            ),
-            "radii_or_alpha": (
-                [bank["correction_l2_action"]]
-                if grid_bank else bank["radii"]
-                if generic_bank else bank["requested_alpha"]
-            ),
-            "temporal_profile": bank["temporal_profile"],
-            "released_AEGIS_EE_applied_to_every_candidate": bool(
+    try:
+        raw = evaluate(
+            repo_root=repo_root,
+            population_manifest_path=population_path,
+            archived_path=archived_path,
+            geometry_config_path=source_geometry_path,
+            experiment_config_path=base_risk_path,
+            expected_commit=expected_commit,
+            output_path=source_path,
+            case_id_override=selected["case_id"],
+            state_step_override=state_step,
+            query_index_override=state_step // 5,
+            result_schema_override=CURVE_RESULT_SCHEMA,
+            claim_scope_override=config["claim_scope"],
+            population_binding={
+                "case_index": int(case_index),
+                "selection": selected,
+                "selection_manifest": str(selection_path),
+                "selection_manifest_sha256": _file_sha256(selection_path),
+                "split": selected["split"],
+                "sealed_test_access": False,
+            },
+            candidate_definitions_override=definitions,
+            candidate_protocol_binding={
+                "candidate_basis": (
+                    "geometry_conditioned_normal_tangent_grid"
+                    if grid_bank else "symmetric_world_Cartesian_axes"
+                    if generic_bank else bank["direction"]
+                ),
+                "radii_or_alpha": (
+                    [bank["correction_l2_action"]]
+                    if grid_bank else bank["radii"]
+                    if generic_bank else bank["requested_alpha"]
+                ),
+                "temporal_profile": bank["temporal_profile"],
+                "released_AEGIS_EE_applied_to_every_candidate": bool(
+                    bank["released_AEGIS_EE_applied_to_every_candidate"]
+                ),
+                "learned_correction_QP_enabled": False,
+            },
+            apply_released_aegis_ee_to_all_proposed_actions=bool(
                 bank["released_AEGIS_EE_applied_to_every_candidate"]
             ),
-            "learned_correction_QP_enabled": False,
-        },
-        apply_released_aegis_ee_to_all_proposed_actions=bool(
-            bank["released_AEGIS_EE_applied_to_every_candidate"]
-        ),
-        capture_physical_context=True,
-        local_frame_provider=local_frame_provider,
-        nominal_action_source=config["state_selection"].get(
-            "nominal_action_source"
-        ),
-        perception_override=(
-            perception if perception_source_binding is not None else None
-        ),
-        perception_source_binding=perception_source_binding,
-        allow_initial_proxy_unsafe_for_empirical_relabel=True,
-        require_archived_task_success=bool(
-            config["state_selection"].get("require_archived_task_success", True)
-        ),
-    )
+            capture_physical_context=True,
+            local_frame_provider=local_frame_provider,
+            nominal_action_source=config["state_selection"].get(
+                "nominal_action_source"
+            ),
+            perception_override=(
+                perception if perception_source_binding is not None else None
+            ),
+            perception_source_binding=perception_source_binding,
+            allow_initial_proxy_unsafe_for_empirical_relabel=True,
+            require_archived_task_success=bool(
+                config["state_selection"].get("require_archived_task_success", True)
+            ),
+        )
+    except ValueError as error:
+        return _retained_initial_car_rejection(
+            repo_root=repo_root, expected_commit=expected_commit, config=config,
+            case_index=case_index, selected=selected, state_step=state_step,
+            reason=str(error),
+        )
     nominal = np.asarray(raw["nominal_five_action_chunk"], dtype=np.float64)
     for candidate in raw["candidates"]:
         actions = np.asarray(candidate["actions"], dtype=np.float64)
@@ -394,13 +456,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         run_root=args.run_root.resolve(),
     )
     _atomic_write(args.output.resolve(), value)
-    print(json.dumps({
+    summary = {
+        "status": value["status"],
         "case_id": value["case_id"],
         "target_group": value["selection"]["target_group"],
         "state_step": value["state_step"],
-        "source_replay_exact": value["exact_case"]["source_replay_exact"],
         "result_payload_sha256": value["result_payload_sha256"],
-    }, sort_keys=True), flush=True)
+    }
+    if value.get("exact_case") is not None:
+        summary["source_replay_exact"] = value["exact_case"]["source_replay_exact"]
+    else:
+        summary["rejection"] = value["rejection"]
+    print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 
 
