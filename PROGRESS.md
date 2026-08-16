@@ -6008,3 +6008,33 @@ manual handoff. Final source-prep `41336` binds commit
 `41341/41342/41343`. These jobs run only after clean validator `41331` passes.
 Training therefore still runs when coverage is scientifically under-supported,
 but the result is labeled diagnostic and cannot authorize correction.
+
+The preceding replacement chains through `41378` are retained as pre-simulation
+source-transfer apparatus history. They failed on shell portability, incorrect
+or unreachable commit bindings, or a partial clone missing required Git blobs;
+none produced a final scientific case shard. Robust source-prep job `41389`
+fetched the named remote branch without blob filtering, verified immutable
+collection commit `80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1`, and created clean source
+`/home/quanth/working_space/vlsa-aegis-palm-l6-80f45ef-v15`. Exact archival job
+`41390` moved only the 28 failed runtime directories under the existing artifact
+root and preserved every completed artifact.
+
+Clean paired collection is now producer array `41391`, independent replay array
+`41392`, and dependent validator `41393` at
+`/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-extension/pi05-palm-l6-extension-20260817a`.
+The final automatically chained workflow is source-prep `41396`, coverage binder
+`41399`, combined audit `41400`, Q binding `41401`, fixed Q-only trainer `41402`,
+and independent retrainer/validator `41403`. It binds final audit/training commit
+`578278a5a253bacfcb00faf3d184299baf6d9e20` and still executes the Q-only test
+when coverage is under-supported.
+
+The first completed paired root, `vlsa-t1-goal-i-t1-e19`, is a valid retained
+recovery/one-sided diagnostic rather than prevention evidence: its registered
+palm snapshot has initial normalized radial slack `-0.250159`, 12 known
+palm-unsafe candidates, zero palm-safe candidates, and one UNKNOWN timeout. The
+second paired root, `vlsa-t1-long-i-t2-e40`, supplies the intended prevention
+boundary: it is initially safe across palm/L5/L6/L7, has palm `10 safe / 3
+unsafe / 0 unknown`, and has ten globally physical-safe candidates. Both use
+the frozen 13-bank, raw pi0.5 nominal chunk, disabled released EE-QP, unchanged
+OSC, and full fixed continuation. Independent full-population validation remains
+the authority before either root is counted in the final coverage gate.

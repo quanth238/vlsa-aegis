@@ -5588,3 +5588,28 @@ the final source, combined coverage audit, Q binding, fixed Q-only fit, and
 independent retrain. The chain is allowed to produce a diagnostic Q result when
 coverage fails. It must not schedule or execute correction unless the recorded
 coverage and held-out prediction gates both pass.
+
+## ADR-0187: Preserve targeted outcomes and separate recovery from prevention
+
+- Status: collection in progress
+- Date: 2026-08-17
+
+Accept robust source-prep `41389` and exact failed-runtime archival `41390` as
+apparatus-only repairs. The authoritative clean collection is `41391/41392` with
+validator `41393`; the final coverage/Q-only chain is
+`41396 -> 41399 -> 41400 -> 41401 -> 41402 -> 41403`. These jobs change no
+registered root, split, warning time, candidate, controller, continuation,
+timeout rule, model, loss, or scientific gate.
+
+Retain `vlsa-t1-goal-i-t1-e19` even though its frozen warning snapshot is already
+palm-unsafe and its known candidates are palm unsafe-only. Classify it as a
+recovery/one-sided diagnostic and exclude it from prevention coverage and model
+fit. Do not replace it after seeing the outcome. Retain
+`vlsa-t1-long-i-t2-e40` as initially-safe palm two-sided prevention evidence,
+subject to the independent full-population validator. Continue all 14 frozen
+roots before drawing the combined coverage verdict.
+
+Treat the legacy source-proxy replay field as diagnostic exactly as
+preregistered. A sub-micrometre legacy proxy discrepancy cannot replace the
+authoritative restored-state hash and independent producer/replay scientific
+artifact comparison. Do not relax any tolerance or suppress the diagnostic.
