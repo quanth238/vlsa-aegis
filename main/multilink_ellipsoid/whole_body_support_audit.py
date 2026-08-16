@@ -60,6 +60,8 @@ def _blank_coverage() -> dict[str, Any]:
         "active_witness_candidate_count": 0,
         "two_sided_state_count": 0,
         "two_sided_state_ids": [],
+        "prevention_two_sided_state_count": 0,
+        "prevention_two_sided_state_ids": [],
         "state_count": 0,
         "episode_count": 0,
     }
@@ -337,6 +339,14 @@ def audit_cases(
                 if source["two_sided_support"]:
                     target["two_sided_state_ids"].append(row["case_id"])
             target["two_sided_state_count"] = len(target["two_sided_state_ids"])
+            target["prevention_two_sided_state_ids"] = [
+                row["case_id"] for row in split_cases
+                if bool(row["initially_safe_across_physical_groups"])
+                and bool(row["per_group"][group]["two_sided_support"])
+            ]
+            target["prevention_two_sided_state_count"] = len(
+                target["prevention_two_sided_state_ids"]
+            )
             episode_rows: dict[str, list[dict[str, Any]]] = {}
             for case_row in split_cases:
                 episode_rows.setdefault(

@@ -15,7 +15,10 @@ CONFIG = ROOT / "configs/vlsa_distal_whole_body_combined_audit.v1.json"
 
 
 def _coverage(count):
-    return {"two_sided_state_count": count}
+    return {
+        "two_sided_state_count": count,
+        "prevention_two_sided_state_count": count,
+    }
 
 
 def _summary(*, unsafe=False, palm=(4, 2, 2), l5=(4, 2, 2), l6=(4, 2, 2)):
@@ -53,6 +56,9 @@ class WholeBodyCombinedAuditTest(unittest.TestCase):
         value["required_split_case_count"] = {
             "train": 20, "validation": 6, "test": 6,
         }
+        value["initially_unsafe_policy"] = (
+            "retain_as_recovery_diagnostic_exclude_from_prevention_coverage_and_fit"
+        )
         value["sources"].append(dict(value["sources"][0], name="targeted"))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
@@ -60,6 +66,31 @@ class WholeBodyCombinedAuditTest(unittest.TestCase):
             loaded = load_config(path)
         self.assertEqual(len(loaded["sources"]), 3)
         self.assertEqual(loaded["required_split_case_count"]["train"], 20)
+
+    def test_v2_retains_recovery_without_counting_it_as_prevention(self):
+        value = json.loads(CONFIG.read_text())
+        value["schema_version"] = "vlsa_distal_whole_body_combined_audit.v2"
+        value["protocol_id"] = "vlsa-distal-whole-body-combined-audit-v2"
+        value["initially_unsafe_policy"] = (
+            "retain_as_recovery_diagnostic_exclude_from_prevention_coverage_and_fit"
+        )
+        value["sources"].append(dict(value["sources"][0], name="targeted"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(value))
+            config = load_config(path)
+        summary = _summary(unsafe=True)
+        gate = evaluate_gate(
+            summary, config, source_replay_exact=True,
+            source_state_hash_exact=True, physical_false_safe_count=0,
+            context_complete=True, maximum_bellman_residual=0.0,
+        )
+        self.assertTrue(gate["training_authorized"])
+        self.assertEqual(gate["initially_unsafe_case_ids"], ["train-0"])
+        self.assertEqual(
+            gate["coverage_count_semantics"],
+            "prevention_two_sided_state_count",
+        )
 
     def test_clean_supported_cohort_authorizes_q_only_training(self):
         config = load_config(CONFIG)

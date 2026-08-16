@@ -5555,3 +5555,18 @@ and realizes `7/3/4` roots with palm `3/3/3` and L6 `4/0/1`. Do not replace a
 case if it is one-sided, initially unsafe, times out, or fails. Launch paired
 producer/replay arrays only from a clean commit containing this manifest and
 the inherited no-QP whole-body collection configuration.
+
+For the final combined gate, count `prevention_two_sided_state_count`, not raw
+two-sided states from already-unsafe snapshots. Retain every initially unsafe
+root as a recovery diagnostic, exclude it from prevention coverage and fit,
+and report its identity. This does not relax physical checks: all counted
+prevention states still require positive, contact-free palm/L5/L6/L7 geometry,
+exact replay/context, and zero represented-geometry physical false-safes.
+
+For targeted raw-pi0.5 collection, the archived pi0.5 result remains the sole
+state and action authority. When its perception status is `not_run`, exact-risk
+replay may resolve only the manifest-bound paired AEGIS perception artifact,
+after checking file hash, payload hash, case identity, geometry-only role, and
+`state_or_action_source=false`. This is an apparatus repair, not a protocol
+change. Chain `41307/41308/41309` is retained as failed apparatus history and
+must not be interpreted scientifically.

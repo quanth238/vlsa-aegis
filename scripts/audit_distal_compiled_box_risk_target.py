@@ -57,6 +57,49 @@ def _candidate_source_contacts(candidate: Mapping[str, Any]) -> int:
     )
 
 
+def _resolved_perception_source(
+    source: Mapping[str, Any], archived: Mapping[str, Any]
+) -> tuple[dict[str, Any], Optional[dict[str, Any]]]:
+    """Resolve the geometry-only AEGIS perception paired to a raw pi0.5 ledger."""
+
+    binding = source["archived_table1"].get("perception_source_binding")
+    if binding is None:
+        perception = archived.get("perception")
+        _require(isinstance(perception, dict), "compiled-box perception differs")
+        return dict(perception), None
+
+    _require(isinstance(binding, dict), "compiled-box perception binding differs")
+    _require(
+        binding.get("role") == "fixed_backup_and_diagnostic_EE_geometry_only",
+        "compiled-box perception binding role differs",
+    )
+    _require(
+        binding.get("state_or_action_source") is False,
+        "compiled-box perception binding changes state or action source",
+    )
+    geometry_path = Path(binding["path"])
+    _require(
+        _file_sha256(geometry_path) == binding["file_sha256"],
+        "compiled-box paired perception file differs",
+    )
+    geometry_archived = _load(geometry_path)
+    _require(
+        geometry_archived["result_payload_sha256"]
+        == binding["result_payload_sha256"],
+        "compiled-box paired perception payload differs",
+    )
+    _require(
+        geometry_archived["case_id"] == archived["case_id"],
+        "compiled-box paired perception case differs",
+    )
+    perception = geometry_archived.get("perception")
+    _require(
+        isinstance(perception, dict),
+        "compiled-box paired perception differs",
+    )
+    return dict(perception), dict(binding)
+
+
 def _evaluate_case(
     *, repo_root: Path, population_manifest: Path, geometry_config_path: Path,
     case_config: Mapping[str, Any], audit_config: Mapping[str, Any],
@@ -128,6 +171,9 @@ def _evaluate_case(
     archived = _load(archived_path)
     _require(archived["result_payload_sha256"] == source["archived_table1"]["result_payload_sha256"],
              "compiled-box archived payload differs")
+    perception, perception_source_binding = _resolved_perception_source(
+        source, archived
+    )
 
     rows = [
         row for row in read_jsonl(population_manifest)
@@ -152,7 +198,6 @@ def _evaluate_case(
         obstacle_reference = np.asarray(
             observation[obstacle_name + "_pos"], dtype=np.float64
         ).copy()
-        perception = archived["perception"]
         from scripts.audit_distal_palm_primitive_case import (
             _canonicalize_perception_ellipsoid_rotation,
         )
@@ -774,6 +819,7 @@ def _evaluate_case(
             "initial_raw_protected_contact_count": int(
                 initial_contacts["nonpositive_protected_contact_count"]
             ),
+            "perception_source_binding": perception_source_binding,
             "perception_rotation_canonicalization": perception_rotation_record,
             "exact_group_target": (
                 None

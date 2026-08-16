@@ -1,4 +1,5 @@
 import itertools
+import hashlib
 import json
 import tempfile
 import unittest
@@ -12,6 +13,9 @@ from main.multilink_ellipsoid.active_boundary_search import (
     candidate_definitions as grid_candidate_definitions,
 )
 from main.multilink_ellipsoid.generic_action_boundary import candidate_definitions
+from scripts.audit_distal_compiled_box_risk_target import (
+    _resolved_perception_source,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +112,38 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertIn('selected.get("aegis_geometry_result_relative_path")', source)
         self.assertIn('"state_or_action_source": False', source)
         self.assertIn("nominal_action_source=config[\"state_selection\"].get(", source)
+
+    def test_compiled_target_resolves_paired_geometry_for_raw_pi05_source(self):
+        geometry = {
+            "case_id": "case-0",
+            "result_payload_sha256": "geometry-payload",
+            "perception": {
+                "mvee_center": [0.0, 0.0, 0.0],
+                "mvee_rotation": [[1.0, 0.0, 0.0]] * 3,
+                "mvee_semiaxes": [1.0, 1.0, 1.0],
+                "obstacle_label": "obstacle",
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "geometry.json"
+            path.write_text(json.dumps(geometry))
+            source = {
+                "archived_table1": {
+                    "perception_source_binding": {
+                        "role": "fixed_backup_and_diagnostic_EE_geometry_only",
+                        "state_or_action_source": False,
+                        "path": str(path),
+                        "file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                        "result_payload_sha256": "geometry-payload",
+                    }
+                }
+            }
+            perception, binding = _resolved_perception_source(
+                source,
+                {"case_id": "case-0", "perception": {"status": "not_run"}},
+            )
+        self.assertEqual(perception["obstacle_label"], "obstacle")
+        self.assertFalse(binding["state_or_action_source"])
 
     def test_query_risk_canonicalizes_archived_perception_rotation(self):
         source = (

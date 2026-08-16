@@ -61,6 +61,10 @@ def load_config(path: Any) -> dict[str, Any]:
         "every_prevention_state_positive_and_contact_free_for_palm_L5_L6_L7"
     ):
         raise ValueError("combined whole-body initial-safety rule differs")
+    if schema == CONFIG_SCHEMA_V2 and value.get("initially_unsafe_policy") != (
+        "retain_as_recovery_diagnostic_exclude_from_prevention_coverage_and_fit"
+    ):
+        raise ValueError("combined whole-body recovery-state policy differs")
     expected_source_count = 2 if schema == CONFIG_SCHEMA else 3
     if len(value.get("sources", [])) != expected_source_count:
         raise ValueError("combined whole-body source count differs")
@@ -84,11 +88,16 @@ def evaluate_gate(
         for split, required in required_splits.items()
     )
 
+    coverage_count_key = (
+        "prevention_two_sided_state_count"
+        if config.get("schema_version") == CONFIG_SCHEMA_V2
+        else "two_sided_state_count"
+    )
     group_gates = {}
     for group in config["group_order"]:
         counts = {
             split: int(split_summary[split]["per_group"][group][
-                "two_sided_state_count"
+                coverage_count_key
             ])
             for split in required_splits
         }
@@ -130,7 +139,12 @@ def evaluate_gate(
         group_gates[group]["passes"]
         for group in config["claimed_physical_groups"]
     )
-    initial_safety_pass = not unsafe
+    initial_safety_pass = bool(
+        not unsafe
+        or config.get("initially_unsafe_policy") == (
+            "retain_as_recovery_diagnostic_exclude_from_prevention_coverage_and_fit"
+        )
+    )
     global_safe_support_pass = not any(missing_global_safe.values())
     training_authorized = bool(
         apparatus_pass and split_count_pass and initial_safety_pass
@@ -142,6 +156,7 @@ def evaluate_gate(
         "initial_safety_pass": initial_safety_pass,
         "initially_unsafe_case_ids": unsafe,
         "group_gates": group_gates,
+        "coverage_count_semantics": coverage_count_key,
         "claimed_groups_pass": claimed_groups_pass,
         "missing_global_safe_case_ids": missing_global_safe,
         "global_safe_support_pass": global_safe_support_pass,

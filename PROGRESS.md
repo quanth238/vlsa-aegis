@@ -5967,3 +5967,22 @@ It contains exactly 14 unique roots with the frozen `7/3/4` split, palm
 inside the new cohort, raw pi0.5 nominal actions, and no candidate-outcome
 access. The targeted collection configuration inherits the validated
 whole-body superset and 13-bank unchanged.
+
+The final combined-audit implementation now distinguishes raw two-sided states
+from prevention two-sided states. A root counts toward the `4/2/2` gate only
+when its snapshot is initially safe across palm/L5/L6/L7 and its known
+candidates straddle the named constraint. Initially unsafe roots remain fully
+reported as recovery diagnostics but do not enter prevention coverage or
+training. This fixes the prior coarse all-roots initial-safety veto without
+dropping any evidence.
+
+The first targeted producer/replay chain `41307/41308/41309` exposed an
+apparatus-only raw-pi0.5 geometry binding defect before any final case shard was
+written. The source curves correctly used raw pi0.5 state/actions and stored the
+paired AEGIS result only as fixed diagnostic geometry, but the compiled-target
+replay attempted to read MVEE fields from the raw pi0.5 ledger. The repair now
+resolves and hash-validates the registered geometry-only binding, verifies that
+it cannot supply state/actions, and records that provenance in the exact case.
+The frozen 14 roots, `7/3/4` split, 13-bank, no-QP execution, OSC, continuation,
+and timeout policy are unchanged. Failed tasks in the initial chain remain
+apparatus history; no candidate outcomes from them are used.

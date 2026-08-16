@@ -79,6 +79,9 @@ class WholeBodySupportAuditTest(unittest.TestCase):
         self.assertTrue(case["global_support"]["physical_two_sided_support"])
         split = result["split_summary"]["train"]
         self.assertEqual(split["per_group"]["L5"]["two_sided_state_count"], 1)
+        self.assertEqual(
+            split["per_group"]["L5"]["prevention_two_sided_state_count"], 1,
+        )
         classification = split["per_group"]["L5"][
             "episode_group_classification"
         ]
@@ -88,6 +91,19 @@ class WholeBodySupportAuditTest(unittest.TestCase):
         self.assertEqual(classification["safe_only_episode_count"], 0)
         self.assertEqual(split["per_row"]["3"]["two_sided_state_count"], 1)
         self.assertEqual(split["physical_global_safe_support_state_count"], 1)
+
+    def test_initially_unsafe_recovery_does_not_count_as_prevention_boundary(self):
+        case = _case()
+        case["exact_case"]["exact_group_target"][
+            "initial_group_normalized_radial_slack"
+        ]["palm"] = -0.1
+        split = audit_cases([case], load_audit_config(CONFIG))[
+            "split_summary"
+        ]["train"]
+        self.assertEqual(split["per_group"]["L5"]["two_sided_state_count"], 1)
+        self.assertEqual(
+            split["per_group"]["L5"]["prevention_two_sided_state_count"], 0,
+        )
 
     def test_physical_global_support_is_separate_from_ee_proxy(self):
         case = _case()
