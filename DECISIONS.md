@@ -5340,3 +5340,9 @@ subset's post-filter count before evaluating a candidate. Repair only the
 adapter boundary by generating the native 27-bank receipt before selecting
 the immutable 13 names. Use a clean commit and replacement root; do not reuse
 or clean the failed root.
+
+Retain replacement `41075`/`41076` and validator `41077` as a second
+pre-simulation apparatus history. Their allocation-only regression caught a
+receipt-format mismatch: config serialization changed `2.0` to `2`, changing
+only generated name suffix `r2.0` to `r2`. Restore the frozen floating literal;
+do not rename the ADR-0179 bank or alter action magnitudes.

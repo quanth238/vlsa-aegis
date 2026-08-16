@@ -5727,3 +5727,11 @@ apparatus history. The repair generates the unchanged 27 definitions under
 their native receipt, then selects the already frozen 13 names in order and
 asserts a final count of 13. It changes no state, action, split, target, OSC,
 continuation, or gate and is covered by an allocation-capable regression.
+
+Replacement arrays `41075`/`41076` and canceled validator `41077` are also
+apparatus history with no candidate rollout. The new allocation regression
+correctly exposed that JSON generation had serialized the requested norm as
+integer `2`, so the native generator emitted receipt suffix `r2` while the
+immutable selected names from ADR-0179 use `r2.0`. Restore the exact registered
+floating receipt `2.0`; the numerical magnitude and every candidate action are
+unchanged. Require the allocation regression to pass before simulation.

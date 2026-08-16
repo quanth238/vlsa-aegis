@@ -65,7 +65,7 @@
     ],
     "exclude_all_zero": true,
     "spatial_direction_count": 12,
-    "correction_l2_action": 2,
+    "correction_l2_action": 2.0,
     "action_limit": 1,
     "include_nominal": true,
     "candidate_count_per_job": 13,
