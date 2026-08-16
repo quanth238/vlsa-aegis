@@ -79,6 +79,14 @@ def _case(index, group, candidates):
 
 
 class ExactGroupBoundaryTest(unittest.TestCase):
+    def test_collector_can_bind_raw_pi05_state_to_paired_geometry_only(self):
+        source = (
+            ROOT / "scripts/collect_distal_exact_group_boundary.py"
+        ).read_text()
+        self.assertIn('selected.get("aegis_geometry_result_relative_path")', source)
+        self.assertIn('"state_or_action_source": False', source)
+        self.assertIn("nominal_action_source=config[\"state_selection\"].get(", source)
+
     def test_query_risk_canonicalizes_archived_perception_rotation(self):
         source = (
             ROOT / "scripts/evaluate_distal_query_action_risk_e05.py"

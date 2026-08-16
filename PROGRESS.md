@@ -5899,3 +5899,16 @@ The user's final gate is explicit: Q-only training/evaluation proceeds even if
 the new combined `4/2/2` coverage gate fails, but such a result is diagnostic.
 Finite-bank action correction remains forbidden unless both coverage and
 held-out prediction pass.
+
+Immutable source-audit commit `457cbd15eda2e501521e14c9a448dc7cd815a9ff`
+is pushed. Source-prep job `41291` created the correct clean worktree but its
+wrapper failed only because the submitted expected commit was abbreviated;
+retain it as apparatus history. Independent CPU audits `41292` and `41293`
+now scan the 1,600 natural pi0.5 results into separate immutable outputs.
+
+The collector apparatus is extended only by an opt-in perception binding for
+natural pi0.5: replay state and nominal actions remain from the pi0.5 result,
+while the paired AEGIS perception is explicitly provenance-bound as backup and
+diagnostic-EE geometry only. Legacy callers remain unchanged. An independent
+source-audit validator compares allocation-independent scientific views before
+any cohort manifest is frozen.

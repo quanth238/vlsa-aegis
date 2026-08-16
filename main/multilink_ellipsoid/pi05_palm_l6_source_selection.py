@@ -187,3 +187,22 @@ def summarize(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "eligible_by_target_group": per_group,
         "candidate_outcomes_accessed": False,
     }
+
+
+def scientific_view(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the allocation-independent source-selection evidence."""
+    return {
+        "schema_version": result["schema_version"],
+        "status": result["status"],
+        "scientific_result": result["scientific_result"],
+        "claim_scope": result["claim_scope"],
+        "config_payload_sha256": result["config"]["config_payload_sha256"],
+        "summary": result["summary"],
+        "excluded_case_count": result["excluded_case_count"],
+        "records": result["records"],
+        "new_simulation_performed": result["new_simulation_performed"],
+        "candidate_outcomes_accessed": result["candidate_outcomes_accessed"],
+        "boundary_collection_authorized": result["boundary_collection_authorized"],
+        "training_authorized": result["training_authorized"],
+        "correction_authorized": result["correction_authorized"],
+    }

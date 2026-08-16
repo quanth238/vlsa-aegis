@@ -5,6 +5,7 @@ from pathlib import Path
 
 from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
     _raw_action_contract, _warning_step, excluded_case_ids, load_config,
+    scientific_view,
 )
 
 
@@ -54,6 +55,21 @@ class Pi05PalmL6SourceSelectionTest(unittest.TestCase):
         identities = excluded_case_ids(ROOT, config)
         self.assertIn("vlsa-t1-spatial-i-t3-e09", identities)
         self.assertGreater(len(identities), 10)
+
+    def test_scientific_view_ignores_allocation_identity(self):
+        common = {
+            "schema_version": "schema", "status": "complete",
+            "scientific_result": True, "claim_scope": "scope",
+            "config": {"config_payload_sha256": "config"},
+            "summary": {}, "excluded_case_count": 1, "records": [],
+            "new_simulation_performed": False,
+            "candidate_outcomes_accessed": False,
+            "boundary_collection_authorized": False,
+            "training_authorized": False, "correction_authorized": False,
+        }
+        left = {**common, "allocation": {"job": 1}}
+        right = {**common, "allocation": {"job": 2}}
+        self.assertEqual(scientific_view(left), scientific_view(right))
 
 
 if __name__ == "__main__":

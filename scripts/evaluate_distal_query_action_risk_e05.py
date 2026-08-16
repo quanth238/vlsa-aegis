@@ -137,6 +137,8 @@ def evaluate(
     local_frame_provider: Optional[
         Callable[[Any, str, Any], Mapping[str, Any]]
     ] = None,
+    perception_override: Optional[Mapping[str, Any]] = None,
+    perception_source_binding: Optional[Mapping[str, Any]] = None,
     allow_initial_proxy_unsafe_for_empirical_relabel: bool = False,
     require_archived_task_success: bool = True,
 ) -> dict[str, Any]:
@@ -232,7 +234,18 @@ def evaluate(
         obstacle_reference = np.asarray(
             observation["%s_pos" % obstacle_name], dtype=np.float64
         ).copy()
-        perception = archived["perception"]
+        if perception_override is not None:
+            _require(
+                resolved_nominal_action_source == RAW_PI05_NOMINAL,
+                "perception override requires raw pi05 nominal actions",
+            )
+            _require(
+                perception_source_binding is not None,
+                "perception override provenance is missing",
+            )
+            perception = dict(perception_override)
+        else:
+            perception = archived["perception"]
         from scripts.audit_distal_palm_primitive_case import (
             _canonicalize_perception_ellipsoid_rotation,
         )
@@ -1046,6 +1059,11 @@ def evaluate(
                 "file_sha256": _file_sha256(archived_path),
                 "result_payload_sha256": archived["result_payload_sha256"],
                 "read_only": True,
+                "perception_source_binding": (
+                    None
+                    if perception_source_binding is None
+                    else dict(perception_source_binding)
+                ),
             },
             "policy_query": query,
             "action_contract": {

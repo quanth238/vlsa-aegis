@@ -20,6 +20,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class QueryActionRiskTest(unittest.TestCase):
+    def test_raw_pi05_perception_override_is_opt_in_and_provenanced(self):
+        source = (
+            ROOT / "scripts/evaluate_distal_query_action_risk_e05.py"
+        ).read_text()
+        self.assertIn("perception_override: Optional[Mapping[str, Any]]", source)
+        self.assertIn("resolved_nominal_action_source == RAW_PI05_NOMINAL", source)
+        self.assertIn('"perception_source_binding"', source)
+
     def test_config_and_candidate_bank(self):
         config = load_config(ROOT / "configs/vlsa_distal_query_action_risk_e05.v1.json")
         nominal = np.zeros((5, 7), dtype=np.float64)

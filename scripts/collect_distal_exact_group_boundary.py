@@ -128,6 +128,37 @@ def collect(
     archived = _load(archived_path)
     _require(archived["result_payload_sha256"] == selected["archived_result_payload_sha256"],
              "exact-group archived payload differs")
+    perception = archived.get("perception")
+    perception_source_binding = None
+    geometry_relative = selected.get("aegis_geometry_result_relative_path")
+    if geometry_relative is not None:
+        geometry_path = table1_root / str(geometry_relative)
+        _require(
+            _file_sha256(geometry_path)
+            == selected["aegis_geometry_result_file_sha256"],
+            "exact-group paired AEGIS geometry source differs",
+        )
+        geometry_archived = _load(geometry_path)
+        _require(
+            geometry_archived["result_payload_sha256"]
+            == selected["aegis_geometry_result_payload_sha256"],
+            "exact-group paired AEGIS geometry payload differs",
+        )
+        _require(
+            geometry_archived["case_id"] == archived["case_id"],
+            "exact-group paired AEGIS geometry case differs",
+        )
+        perception = geometry_archived["perception"]
+        perception_source_binding = {
+            "role": "fixed_backup_and_diagnostic_EE_geometry_only",
+            "state_or_action_source": False,
+            "path": str(geometry_path),
+            "file_sha256": selected["aegis_geometry_result_file_sha256"],
+            "result_payload_sha256": selected[
+                "aegis_geometry_result_payload_sha256"
+            ],
+        }
+    _require(isinstance(perception, dict), "exact-group perception source differs")
 
     exact_cfg = config["exact_group_target"]
     exact_shadow_config = load_shadow_config(exact_geometry_path)
@@ -136,7 +167,6 @@ def collect(
     def local_frame_provider(env: Any, obstacle_name: str, source_geometry: Any) -> dict[str, Any]:
         del source_geometry
         if not provider_cache:
-            perception = archived["perception"]
             from scripts.audit_distal_palm_primitive_case import (
                 _canonicalize_perception_ellipsoid_rotation,
             )
@@ -267,6 +297,13 @@ def collect(
         ),
         capture_physical_context=True,
         local_frame_provider=local_frame_provider,
+        nominal_action_source=config["state_selection"].get(
+            "nominal_action_source"
+        ),
+        perception_override=(
+            perception if perception_source_binding is not None else None
+        ),
+        perception_source_binding=perception_source_binding,
         allow_initial_proxy_unsafe_for_empirical_relabel=True,
         require_archived_task_success=bool(
             config["state_selection"].get("require_archived_task_success", True)
