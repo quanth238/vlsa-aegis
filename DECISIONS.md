@@ -5296,3 +5296,33 @@ retime or expand it in response to their outcomes. One-sided cases still
 remain evidence and cannot be repaired by bank selection after observation.
 The next cohort must therefore improve state/mechanism selection, especially
 for palm, L6, and L7, rather than adding more actions per existing state.
+
+## ADR-0180: Add 16 prospectively frozen states toward the 24-state checkpoint
+
+- Status: preregistered; allocation-backed collection and independent replay required
+- Date: 2026-08-16
+
+Preserve all eight ADR-0177 cases and add 16 independent episodes as ten
+training, two validation, and four sealed-test groups. Freeze identities,
+splits, active obstacles, source hashes, and query steps before any new
+candidate outcome. Select each query from the archived raw-contact ledger at
+`floor((first represented physical contact - 5)/5)*5`, using the earliest
+palm/L5/L6/L7 contact so prevention states must start physically safe across
+all four groups.
+
+Use the ADR-0179 13-candidate bank unchanged. Do not use holdout labels to
+retime states or alter the bank. Run direct clipped Cartesian candidate chunks
+through unchanged OSC and the complete fixed continuation, with no released
+candidate EE-QP and no learned QP. Retain the complete ADR-0176 additive
+contract: per-group and per-row risk, effective/nominal/requested chunks,
+controller/action-boundary state, internal geometry, contacts, CAR, phase, and
+UNKNOWN timeouts.
+
+Target three palm, nine L6, and four L5 episodes because these are the natural
+clean mechanisms supported by the 1,600-episode audit. Continue recording L7,
+but do not claim or synthetically force an L7 head when no clean natural L7
+contacts exist. The extension validator can certify only apparatus and
+coverage; it is hard-blocked from authorizing training alone. After exact
+independent replay, combine it with immutable ADR-0177 and require at least
+`4/2/2` two-sided states for every claimed group plus global safe support in
+every recoverable holdout state. Unsupported heads remain diagnostic.

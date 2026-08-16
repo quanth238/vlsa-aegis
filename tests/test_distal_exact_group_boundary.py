@@ -45,6 +45,9 @@ WHOLE_BODY_SUPERSET_CONFIG = (
 WHOLE_BODY_PROSPECTIVE_CONFIG = (
     ROOT / "configs/vlsa_distal_whole_body_prospective_population.v1.json"
 )
+WHOLE_BODY_EXTENSION_CONFIG = (
+    ROOT / "configs/vlsa_distal_whole_body_progressive_extension.v1.json"
+)
 
 
 def _candidate(group, slack, *, known=True, contact=0):
@@ -129,6 +132,29 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertEqual(config["gate"]["required_two_sided_by_split"], {
             "train": 4, "validation": 2, "test": 2,
         })
+        self.assertTrue(all(
+            case["prospective_split_frozen_before_candidate_outcomes"]
+            for case in cases
+        ))
+        self.assertFalse(config["learned_correction_QP_enabled"])
+
+    def test_whole_body_extension_is_progressive_and_cannot_authorize_alone(self):
+        config = load_config(WHOLE_BODY_EXTENSION_CONFIG)
+        cases = load_cases(ROOT / config["selection_manifest"], config)
+        self.assertEqual(
+            [case["split"] for case in cases],
+            ["train"] * 10 + ["validation"] * 2 + ["test"] * 4,
+        )
+        self.assertEqual(
+            [warning_step(case, config) for case in cases],
+            [20, 25, 130, 105, 105, 100, 150, 55, 220, 20, 110, 180, 65, 115, 25, 105],
+        )
+        self.assertEqual(config["candidate_bank"]["candidate_count_per_job"], 13)
+        self.assertEqual(len(config["candidate_bank"]["selected_candidate_names"]), 13)
+        self.assertEqual(
+            config["training_authorization_mode"],
+            "combined_24_state_external_audit_only",
+        )
         self.assertTrue(all(
             case["prospective_split_frozen_before_candidate_outcomes"]
             for case in cases

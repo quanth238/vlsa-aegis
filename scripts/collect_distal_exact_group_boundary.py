@@ -33,6 +33,7 @@ def collect(
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
         load_cases, load_config,
         payload_sha256, warning_step,
     )
@@ -79,6 +80,20 @@ def collect(
              "exact geometry validation payload differs")
     _require(validation_value["boundary_collection_authorized"] is True,
              "exact geometry did not authorize boundary collection")
+    bank_binding = config["candidate_bank"]
+    if bank_binding.get("selection_artifact") is not None:
+        bank_selection_path = Path(bank_binding["selection_artifact"])
+        _require(
+            _file_sha256(bank_selection_path)
+            == bank_binding["selection_artifact_file_sha256"],
+            "frozen candidate-bank selection file differs",
+        )
+        bank_selection = _load(bank_selection_path)
+        _require(
+            bank_selection.get("selection_payload_sha256")
+            == bank_binding["selection_artifact_payload_sha256"],
+            "frozen candidate-bank selection payload differs",
+        )
 
     cases = load_cases(selection_path, config)
     _require(0 <= int(case_index) < len(cases), "exact-group case index differs")
@@ -169,13 +184,21 @@ def collect(
     grid_bank = config["schema_version"] in (
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA, WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
     )
 
     def definitions(nominal, frame, _base):
         if grid_bank:
-            return grid_candidate_definitions(
+            rows = grid_candidate_definitions(
                 nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
             )
+            selected = bank.get("selected_candidate_names")
+            if selected is None:
+                return rows
+            by_name = {row["name"]: row for row in rows}
+            if set(selected) - set(by_name):
+                raise ValueError("frozen candidate name is unavailable")
+            return [by_name[name] for name in selected]
         if generic_bank:
             return generic_candidate_definitions(nominal, bank)
         return candidate_definitions(nominal, frame, bank)

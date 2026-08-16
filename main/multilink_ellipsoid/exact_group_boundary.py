@@ -18,6 +18,7 @@ DEVELOPMENT_L5_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_sea
 DEVELOPMENT_EXCITATION_CONFIG_SCHEMA = "vlsa_distal_exact_group_boundary_development_excitation.v1"
 WHOLE_BODY_SUPERSET_CONFIG_SCHEMA = "vlsa_distal_whole_body_superset_canary.v1"
 WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA = "vlsa_distal_whole_body_prospective_population.v1"
+WHOLE_BODY_EXTENSION_CONFIG_SCHEMA = "vlsa_distal_whole_body_progressive_extension.v1"
 CASE_SCHEMA = "vlsa_distal_exact_group_boundary_case_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_exact_group_boundary_validation.v1"
 GROUPS = ("palm", "L5", "L6")
@@ -45,6 +46,7 @@ def load_config(path: Path) -> dict[str, Any]:
         TRAJECTORY_VALUE_CONFIG_SCHEMA, PROSPECTIVE_L5_CONFIG_SCHEMA,
         DEVELOPMENT_L5_CONFIG_SCHEMA, DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA, WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
     ):
         raise ValueError("exact-group boundary config schema differs")
     expected_protocol = {
@@ -57,6 +59,7 @@ def load_config(path: Path) -> dict[str, Any]:
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA: "vlsa-distal-exact-group-boundary-development-excitation-v1",
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA: "vlsa-distal-whole-body-superset-canary-v1",
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA: "vlsa-distal-whole-body-prospective-population-v1",
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA: "vlsa-distal-whole-body-progressive-extension-v1",
     }[schema]
     if value.get("protocol_id") != expected_protocol:
         raise ValueError("exact-group boundary protocol differs")
@@ -84,6 +87,18 @@ def load_config(path: Path) -> dict[str, Any]:
         }
         if bank != expected_grid:
             raise ValueError("development excitation candidate bank differs")
+    elif schema == WHOLE_BODY_EXTENSION_CONFIG_SCHEMA:
+        names = list(bank.get("selected_candidate_names", []))
+        if (
+            bank.get("kind") != "frozen_local_frame_grid_subset"
+            or bank.get("spatial_basis") != ["normal", "tangent_up", "tangent_side"]
+            or bank.get("coefficient_grid") != [-1, 0, 1]
+            or int(bank.get("spatial_direction_count", 0)) != 12
+            or int(bank.get("candidate_count_per_job", 0)) != 13
+            or len(names) != 13 or names[0] != "nominal"
+            or len(set(names)) != 13
+        ):
+            raise ValueError("whole-body extension candidate bank differs")
     elif schema in (
         GENERIC_L5_CONFIG_SCHEMA, TRAJECTORY_VALUE_CONFIG_SCHEMA,
         PROSPECTIVE_L5_CONFIG_SCHEMA, DEVELOPMENT_L5_CONFIG_SCHEMA,
@@ -108,6 +123,7 @@ def load_config(path: Path) -> dict[str, Any]:
         if schema in (
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+            WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
         )
         else list(GROUPS)
     )
@@ -116,6 +132,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if schema in (
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
     ):
         exact = value["exact_group_target"]
         if (
@@ -164,6 +181,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
             DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+            WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
         )
         else "task_level_group_id"
     )
@@ -172,6 +190,7 @@ def load_cases(path: Path, config: Mapping[str, Any]) -> list[dict[str, Any]]:
     if config["schema_version"] in (
         PROSPECTIVE_L5_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
     ):
         if not isinstance(
             config["state_selection"].get("require_archived_task_success", True),
@@ -200,6 +219,7 @@ def warning_step(case: Mapping[str, Any], config: Mapping[str, Any]) -> int:
         DEVELOPMENT_EXCITATION_CONFIG_SCHEMA,
         WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
         WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+        WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
     ):
         step = int(case["state_step"])
         if step < 0 or step % 5:
@@ -228,6 +248,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         config.get("schema_version") in (
             WHOLE_BODY_SUPERSET_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+            WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
         )
     )
     artifact_superset_complete = True
@@ -336,6 +357,15 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
             "target_two_sided_support": bool(safe and unsafe),
             "initial_target_slack": float(initial["initial_group_normalized_radial_slack"][target]),
             "initial_target_contact_count": int(initial["initial_group_contact_sample_count"][target]),
+            "initial_physical_groups_safe": (
+                all(
+                    float(initial["initial_group_normalized_radial_slack"][group]) > 0.0
+                    and int(initial["initial_group_contact_sample_count"][group]) == 0
+                    for group in ("palm", "L5", "L6", "L7")
+                )
+                if config.get("schema_version") == WHOLE_BODY_EXTENSION_CONFIG_SCHEMA
+                else True
+            ),
             "robot_primitive_certificate_pass": bool(initial["robot_primitive_certificate_pass"]),
             "physical_false_safe_count": false_safe,
         })
@@ -364,6 +394,10 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         and all(item["robot_primitive_certificate_pass"] for item in summaries)
         and all(item["initial_target_slack"] > 0.0 and item["initial_target_contact_count"] == 0
                 for item in summaries)
+        and (
+            config.get("schema_version") != WHOLE_BODY_EXTENSION_CONFIG_SCHEMA
+            or all(item["initial_physical_groups_safe"] for item in summaries)
+        )
         and replay_gate and proxy_false_safe == 0
         and trajectory_apparatus_pass
         and (not artifact_superset_mode or artifact_superset_complete)
@@ -382,6 +416,7 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
         config.get("schema_version") in (
             PROSPECTIVE_L5_CONFIG_SCHEMA,
             WHOLE_BODY_PROSPECTIVE_CONFIG_SCHEMA,
+            WHOLE_BODY_EXTENSION_CONFIG_SCHEMA,
         )
     )
     per_split: dict[str, Any] = {}
@@ -427,6 +462,8 @@ def summarize_cases(cases: Sequence[Mapping[str, Any]], config: Mapping[str, Any
                 for split in ("train", "validation", "test")
             )
         )
+        if config.get("training_authorization_mode") == "combined_24_state_external_audit_only":
+            prospective_gate = False
     return {
         "case_count": len(cases),
         "candidate_count": sum(item["candidate_count"] for item in summaries),

@@ -5678,3 +5678,31 @@ effective/requested ratio `0.873340494819`. Use this bank unchanged for newly
 sealed episode groups. Selection file/payload SHA-256 values are
 `ee286ac855d9ed35f6067058b8374e9048099e967e44c2dbd03452e02a9895b9`
 and `c376f46fec9e1bcdcf2958aa0a2a90100638e510a6aa7967344d63d04b9739cf`.
+
+## Additive 16-state whole-body extension (preregistered, 2026-08-16)
+
+ADR-0180 freezes 16 additional candidate-outcome-untouched archived episode
+groups as `10 train / 2 validation / 4 sealed test`, producing a combined
+24-state checkpoint of `16/4/4` when joined with immutable ADR-0177. State
+timing is derived only from the earliest raw represented-physical contact in
+the archived ledger, never from counterfactual candidate outcomes. Every
+state is one real five-action query before that contact and must begin safe
+for palm/L5/L6/L7, not merely for its target group.
+
+The cohort targets the supported missing mechanisms exposed by ADR-0178:
+three palm, nine L6, and four L5 warning episodes. L7 remains recorded in the
+whole-body superset but diagnostic because the 1,600-episode availability
+audit found no clean natural L7-contact population; it is not filled with
+artificial far-safe samples. The frozen ADR-0179 nominal-plus-12 bank is used
+unchanged. This halves per-state rollout cost while preserving all opened
+development support properties.
+
+The extension records separate end-effector, palm, L5, L6, and L7 risks,
+complete nine-row and controller contexts, raw contacts, CAR, and UNKNOWN
+timeouts under direct no-QP Cartesian execution and unchanged OSC. It cannot
+authorize training by itself. Only a new combined 24-state audit may authorize
+supported per-constraint Q-only heads after exact producer/replay equality,
+zero represented-geometry physical false-safes, at least `4/2/2` two-sided
+support for every claimed group, and global safe support in every recoverable
+validation/test state. One-sided, initially unsafe, timeout, contact/CAR, and
+failed cases remain evidence and are never replaced.

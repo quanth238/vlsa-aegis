@@ -1,0 +1,269 @@
+{
+  "schema_version": "vlsa_distal_whole_body_progressive_extension.v1",
+  "protocol_id": "vlsa-distal-whole-body-progressive-extension-v1",
+  "claim_scope": "Additive prospective whole-body artifact-superset collection from 16 candidate-outcome-untouched episode groups toward the preregistered 24-state checkpoint. It records per-constraint future risk and physical authorities but cannot authorize training by itself; only a combined audit with immutable Stage 0 may do so.",
+  "population_manifest": "manifests/vlsa_table1_population.jsonl",
+  "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+  "selection_manifest": "manifests/vlsa_distal_whole_body_progressive_extension.v1.jsonl",
+  "selection_manifest_file_sha256": "2edccf116afa7468c94e44fd875e3dc005d513fdd87c86cdb3c1e3f385b74cbe",
+  "target_group_sequence": [
+    "palm",
+    "palm",
+    "palm",
+    "L6",
+    "L6",
+    "L6",
+    "L6",
+    "L6",
+    "L5",
+    "L5",
+    "L6",
+    "L6",
+    "L6",
+    "L6",
+    "L5",
+    "L5"
+  ],
+  "base_risk_config": "configs/vlsa_distal_query_action_risk_e05.v1.json",
+  "base_risk_config_file_sha256": "fe29ac8353f34c4fe723d8f4e455fa2d0a333eba1f21ca154126b6e2a112f98c",
+  "source_geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+  "source_geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+  "exact_geometry_validation": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-exact-compiled-geometry/exact-compiled-geometry-population-20260815b/validation.json",
+    "file_sha256": "ffab8da0984b90b86edbb955de4ab35c66da9b159b71fb4abff12a52d29c6bda",
+    "validation_payload_sha256": "cef3825f63b55e39db11c8a5d0618b6caf93c6d9c84c577b0ce80ac2ee637ca6",
+    "boundary_collection_authorized": true
+  },
+  "state_selection": {
+    "unit": "one_real_five_action_VLA_query_before_the_earliest_represented_physical_contact_per_independent_archived_episode",
+    "explicit_state_step_in_manifest": true,
+    "require_initial_target_group_positive_and_contact_free": true,
+    "require_initial_all_physical_groups_positive_and_contact_free": true,
+    "require_archived_task_success": true,
+    "selection_rule": "floor((first_represented_physical_contact_step-5)/5)*5",
+    "selection_evidence": "raw_MuJoCo_contact_ledger_only_no_counterfactual_candidate_outcomes",
+    "candidate_outcomes_used_for_state_selection": false,
+    "episode_split_frozen_before_candidate_outcomes": true,
+    "split_counts": {
+      "train": 10,
+      "validation": 2,
+      "test": 4
+    },
+    "test_use": "sealed_until_combined_24_state_checkpoint_and_one_time_final_Q_only_evaluation"
+  },
+  "candidate_bank": {
+    "kind": "frozen_local_frame_grid_subset",
+    "spatial_basis": [
+      "normal",
+      "tangent_up",
+      "tangent_side"
+    ],
+    "coefficient_grid": [
+      -1,
+      0,
+      1
+    ],
+    "exclude_all_zero": true,
+    "spatial_direction_count": 12,
+    "correction_l2_action": 2,
+    "action_limit": 1,
+    "include_nominal": true,
+    "candidate_count_per_job": 13,
+    "endpoint_preservation": false,
+    "preserve_rotation_and_gripper": true,
+    "temporal_profile": "front_loaded",
+    "released_AEGIS_EE_applied_to_every_candidate": false,
+    "candidate_execution": "direct_clipped_Cartesian_VLA_action_to_unchanged_OSC",
+    "selection_cost": "direct_five_action_L2_from_nominal_VLA_chunk",
+    "selected_candidate_names": [
+      "nominal",
+      "grid_m1_m1_m1_front_loaded_r2.0",
+      "grid_p1_p1_p1_front_loaded_r2.0",
+      "grid_m1_m1_z0_front_loaded_r2.0",
+      "grid_p1_p1_z0_front_loaded_r2.0",
+      "grid_m1_z0_m1_front_loaded_r2.0",
+      "grid_p1_z0_p1_front_loaded_r2.0",
+      "grid_m1_p1_z0_front_loaded_r2.0",
+      "grid_p1_m1_z0_front_loaded_r2.0",
+      "grid_z0_m1_m1_front_loaded_r2.0",
+      "grid_z0_p1_p1_front_loaded_r2.0",
+      "grid_z0_z0_m1_front_loaded_r2.0",
+      "grid_z0_z0_p1_front_loaded_r2.0"
+    ],
+    "selection_artifact": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/candidate_bank_selection.json",
+    "selection_artifact_file_sha256": "ee286ac855d9ed35f6067058b8374e9048099e967e44c2dbd03452e02a9895b9",
+    "selection_artifact_payload_sha256": "c376f46fec9e1bcdcf2958aa0a2a90100638e510a6aa7967344d63d04b9739cf",
+    "selection_data_scope": "opened_Stage_0_training_split_only",
+    "holdout_outcomes_used_for_selection": false
+  },
+  "exact_group_target": {
+    "robot_geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "robot_geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e",
+    "palm_geom_name": "gripper0_hand_collision",
+    "palm_fit": {
+      "relative_padding": 1e-9,
+      "khachiyan_tolerance": 0.0001,
+      "khachiyan_max_iterations": 20000
+    },
+    "include_released_aegis_end_effector_proxy": true,
+    "distal_row_count": 7,
+    "group_order": [
+      "end_effector",
+      "palm",
+      "L5",
+      "L6",
+      "L7"
+    ],
+    "robot_rows": {
+      "end_effector": [
+        0
+      ],
+      "palm": [
+        1
+      ],
+      "L5": [
+        2,
+        3,
+        4
+      ],
+      "L6": [
+        5,
+        6
+      ],
+      "L7": [
+        7,
+        8
+      ]
+    },
+    "groups": {
+      "end_effector": [],
+      "palm": [
+        "gripper0_hand_collision"
+      ],
+      "L5": [
+        "robot0_link5_collision"
+      ],
+      "L6": [
+        "robot0_link6_collision"
+      ],
+      "L7": [
+        "robot0_link7_collision"
+      ]
+    },
+    "group_representation": {
+      "end_effector": "unchanged_released_AEGIS_pose_oriented_proxy_diagnostic_not_physical_contact_authority",
+      "palm": "certified_tight_compiled_gripper0_hand_collision_MVEE",
+      "L5": "certified_slabbed_compiled_link5_collision_MVEEs",
+      "L6": "certified_slabbed_compiled_link6_collision_MVEEs",
+      "L7": "certified_slabbed_compiled_link7_collision_MVEEs"
+    },
+    "value": "h=sqrt(min_box_quadratic)-1",
+    "units": "dimensionless_not_metric_clearance"
+  },
+  "artifact_superset": {
+    "capture_internal_substep_ee_pose": true,
+    "capture_internal_substep_palm_pose": true,
+    "capture_action_boundary_context": true,
+    "store_all_group_risks": [
+      "end_effector",
+      "palm",
+      "L5",
+      "L6",
+      "L7"
+    ],
+    "store_requested_nominal_and_effective_actions": true,
+    "store_joint_and_controller_context": true,
+    "store_compiled_obstacle_geometry": true,
+    "store_raw_contacts_CAR_phase_and_timeout": true,
+    "purpose": "allow_future_Q_or_policy_value_heads_without_recollecting_the_same_rollouts"
+  },
+  "trajectory_policy_value": {
+    "capture_action_boundaries": true,
+    "training_state_unit": "controller_action_boundary",
+    "value_training_phases": [
+      "backup",
+      "terminal_hold"
+    ],
+    "internal_substeps": "label_authority_only",
+    "target": "exact_reverse_suffix_maximum_positive_is_unsafe",
+    "timeouts": "censored_not_training_samples",
+    "prefix_state_rule": "exclude_unless_remaining_action_suffix_and_phase_are_explicitly_conditioned",
+    "batching_for_later_matched_test": "no_training_during_collection_gate"
+  },
+  "risk_target": {
+    "primary": "per_group_worst_future_violation_over_direct_five_action_prefix_plus_complete_fixed_backup",
+    "per_constraint_first": true,
+    "global_worst": "maximum_over_per_constraint_future_violations",
+    "positive_is_unsafe": true,
+    "unknown_timeout": "censored_not_safe_not_unsafe",
+    "physical_authority": "raw_MuJoCo_palm_L5_L6_L7_contacts_and_paper_CAR_with_EE_proxy_reported_separately"
+  },
+  "gate": {
+    "required_case_count": 16,
+    "required_candidates_per_case": 13,
+    "source_replay_tolerance_m": 1e-9,
+    "legacy_source_proxy_replay": "diagnostic_only",
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10,
+    "near_boundary_abs_slack": 0.05,
+    "required_two_sided_case_count": 0,
+    "required_two_sided_by_split": {
+      "train": 0,
+      "validation": 0,
+      "test": 0
+    },
+    "required_initially_safe_by_split": {
+      "train": 10,
+      "validation": 2,
+      "test": 4
+    },
+    "required_split_case_count": {
+      "train": 10,
+      "validation": 2,
+      "test": 4
+    },
+    "required_maximum_physical_false_safe_count": 0,
+    "required_maximum_bellman_residual": 0,
+    "required_action_boundary_context_completeness": 1,
+    "combined_24_state_checkpoint": {
+      "total_split_counts": {
+        "train": 16,
+        "validation": 4,
+        "test": 4
+      },
+      "minimum_two_sided_support_per_claimed_group": {
+        "train": 4,
+        "validation": 2,
+        "test": 2
+      },
+      "global_safe_candidate_required_in_every_recoverable_validation_and_test_state": true
+    }
+  },
+  "learned_correction_QP_enabled": false,
+  "forbidden": [
+    "candidate_outcome_driven_query_retiming",
+    "episode_movement_between_splits",
+    "timeout_as_safe_or_unsafe",
+    "MLP_training_before_split_coverage_pass",
+    "candidate_selection_or_execution",
+    "learned_correction_or_QP",
+    "uncertainty_calibration_or_monotonic_regularization",
+    "denoising_guidance_or_closed_loop_control",
+    "EE_proxy_as_physical_contact_certificate",
+    "formal_safety_or_CBF_claim",
+    "standalone_extension_training_authorization",
+    "opening_sealed_test_case_outcomes_before_checkpoint",
+    "dropping_or_replacing_one_sided_or_failed_cases",
+    "L7_claim_without_natural_boundary_support"
+  ],
+  "training_authorization_mode": "combined_24_state_external_audit_only",
+  "progressive_collection": {
+    "immutable_stage_0_root": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a",
+    "immutable_stage_0_validation_file_sha256": "d4d1d73625b6f95fda47de157d1d27583ecbfcec57a4a010be26fea0174b95c6",
+    "immutable_stage_0_validation_payload_sha256": "82a260e138140f8d371c95f5d947141d13fa6970660bca4e9e717375d50d1c2d",
+    "extension_case_count": 16,
+    "combined_state_count": 24,
+    "preserve_all_one_sided_initially_unsafe_timeout_contact_CAR_and_failed_states": true,
+    "rerun_only_missing_or_schema_invalid_shards": true
+  }
+}
