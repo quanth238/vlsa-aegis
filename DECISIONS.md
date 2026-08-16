@@ -5352,3 +5352,30 @@ gate: exact frozen names, 13 candidates, complete superset schema, and equal
 scientific views. Preserve their case-0 shards. Launch only indices 1--15 in
 producer `41110` and replay `41111`, followed by validator `41112`; do not
 recollect case 0.
+
+## ADR-0181: Gate training with a read-only combined 24-state audit
+
+- Status: preregistered; allocation-backed audit required
+- Date: 2026-08-16
+
+Accept `41110`/`41111`/`41112` as immutable ADR-0180 evidence. Independent
+scientific replay is exact, state hashes and artifact contexts are complete,
+Bellman residual is zero, and physical false-safes are zero. Do not reinterpret
+the two initially unsafe training states or 29 UNKNOWN timeouts as apparatus
+failures. The extension's target-only support (`4/1/1` across train,
+validation, test) cannot authorize training by itself.
+
+Run one read-only combined audit over all eight immutable ADR-0177 states and
+all 16 immutable ADR-0180 states. Bind both cohort configs, artifact commits,
+and validation hashes separately because their frozen banks differ. Recompute
+support from complete traces rather than adding target-only validator counts.
+Require split counts `16/4/4`, every prevention state initially safe across
+palm/L5/L6/L7, exact replay and controller context, zero physical false-safes,
+at least `4/2/2` two-sided states for each claimed palm/L5/L6 head, and a
+physical-global safe candidate in every initially-safe holdout state.
+
+Keep end-effector diagnostic because its released proxy is not physical
+contact authority. Keep L7 diagnostic because the availability audit found no
+clean natural boundary population. If any gate fails, authorize no Q-only
+training under this protocol and use the exact deficit to preregister additive
+states; do not tune a model on incomplete coverage.

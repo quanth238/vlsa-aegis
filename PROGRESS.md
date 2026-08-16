@@ -5743,3 +5743,24 @@ end-effector/palm/L5/L6/L7 superset records, and equal scientific views.
 Preserve case 0 and run only missing indices 1--15 as producer `41110` and
 independent replay `41111`, each at `%1`, with full validator `41112` after
 both arrays. The progressive root remains `whole-body-extension-20260816c`.
+
+Producer `41110`, replay `41111`, and validator `41112` complete successfully.
+All 16 producer/replay scientific views agree, all 208 candidates are
+retained, the whole-body/controller superset is complete, Bellman residual is
+zero, and represented-geometry physical false-safes remain zero. There are 29
+UNKNOWN timeouts. The target-group result is intentionally retained as a
+scientific NO-GO: two frozen training states are initially unsafe, while
+target two-sided support is only `4/10` train, `1/2` validation, and `1/4`
+test. These outcomes are data, not apparatus failures, and no state is dropped
+or replaced.
+
+ADR-0181 preregisters the required read-only combined audit over immutable
+ADR-0177 and ADR-0180 roots. It independently binds each cohort config,
+artifact commit, validation file/payload hash, producer/replay pair, and then
+recomputes the common per-group/per-row/global support summary across all 24
+states. Palm, L5, and L6 are the preregistered physical claim heads;
+end-effector and L7 remain diagnostic. Training requires every prevention
+state to be initially safe, zero physical false-safes, exact replay/context,
+split counts `16/4/4`, per-claimed-group two-sided support `4/2/2`, and global
+physical-safe candidates in every initially-safe validation/test state. This
+audit performs no fitting and cannot silently discard unsafe or timeout data.

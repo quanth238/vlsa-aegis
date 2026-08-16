@@ -1,0 +1,39 @@
+{
+  "schema_version": "vlsa_distal_whole_body_combined_audit.v1",
+  "protocol_id": "vlsa-distal-whole-body-combined-audit-v1",
+  "claim_scope": "Read-only combined 24-state whole-body future-risk coverage gate over immutable ADR-0177 and ADR-0180 artifacts. This performs no training, prediction, correction, QP, denoising, closed loop, deployment, certification, or CBF claim.",
+  "support_audit_config": "configs/vlsa_distal_whole_body_support_audit.v1.json",
+  "support_audit_config_file_sha256": "05ff2115fa0ff4d4ce11f5d97dcac40c41c5ad45a3aea26c148dd97583036d86",
+  "group_order": ["end_effector", "palm", "L5", "L6", "L7"],
+  "claimed_physical_groups": ["palm", "L5", "L6"],
+  "diagnostic_groups": ["end_effector", "L7"],
+  "required_split_case_count": {"train": 16, "validation": 4, "test": 4},
+  "minimum_two_sided_state_count": {"train": 4, "validation": 2, "test": 2},
+  "initial_safety_rule": "every_prevention_state_positive_and_contact_free_for_palm_L5_L6_L7",
+  "global_safe_support_rule": "every_initially_safe_validation_and_test_state_has_a_physical_global_safe_candidate",
+  "timeout_rule": "UNKNOWN_excluded_from_safe_unsafe_support",
+  "sources": [
+    {
+      "name": "ADR-0177-stage-0",
+      "cohort_config": "configs/vlsa_distal_whole_body_prospective_population.v1.json",
+      "cohort_config_file_sha256": "5bde1f7dea32b45fed09863973bc70e4950055a98714fe0f4afa8d5093e13367",
+      "artifact_root": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a",
+      "artifact_commit": "00973e8f443841cef219eb7f9135f1d8b7fc49c0",
+      "validation_file_sha256": "d4d1d73625b6f95fda47de157d1d27583ecbfcec57a4a010be26fea0174b95c6",
+      "validation_payload_sha256": "82a260e138140f8d371c95f5d947141d13fa6970660bca4e9e717375d50d1c2d"
+    },
+    {
+      "name": "ADR-0180-extension",
+      "cohort_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",
+      "cohort_config_file_sha256": "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d",
+      "artifact_root": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c",
+      "artifact_commit": "e52b79348507a66f7f87b8f502423c44999ea975",
+      "validation_file_sha256": "f9437f9394fdfa38954d6155994a6632f8daa27d0a0dc1f76e2e0842539ab702",
+      "validation_payload_sha256": "f024ff9423e7f3fbba71fc56c81e3e6660d7458d7606522d02b1df6f810633ee"
+    }
+  ],
+  "training_authorized": false,
+  "correction_authorized": false,
+  "QP_authorized": false,
+  "closed_loop_authorized": false
+}
