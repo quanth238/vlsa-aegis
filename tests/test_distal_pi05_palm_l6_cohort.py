@@ -13,6 +13,26 @@ def _record(case_id, group, target, *, success=True):
 
 
 class Pi05PalmL6CohortTest(unittest.TestCase):
+    def test_abundant_palm_selection_reserves_multi_target_l6_source(self):
+        config = {
+            "target_order": ["palm", "L6"],
+            "split_task_level_groups": {
+                "train": ["g0", "g1"], "validation": [], "test": [],
+            },
+            "target_split_counts": {
+                "palm": {"train": 1, "validation": 0, "test": 0},
+                "L6": {"train": 1, "validation": 0, "test": 0},
+            },
+        }
+        exclusive = _record("p0", "g0", "palm")
+        shared = _record("shared", "g1", "palm")
+        shared["eligible_target_groups"] = ["palm", "L6"]
+        chosen = choose_records([exclusive, shared], config)
+        self.assertEqual(
+            [(row["case_id"], row["target_group"]) for row in chosen],
+            [("p0", "palm"), ("shared", "L6")],
+        )
+
     def test_selection_respects_strict_groups_and_unique_cases(self):
         config = {
             "target_order": ["palm", "L6"],
@@ -54,4 +74,3 @@ class Pi05PalmL6CohortTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

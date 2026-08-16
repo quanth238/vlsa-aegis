@@ -71,35 +71,45 @@ def choose_records(
 ) -> list[dict[str, Any]]:
     chosen: list[dict[str, Any]] = []
     used_cases: set[str] = set()
-    for target in config["target_order"]:
+    target_order = list(config["target_order"])
+    for target_index, target in enumerate(target_order):
+        later_targets = set(target_order[target_index + 1:])
         for split in SPLITS:
             allowed = set(config["split_task_level_groups"][split])
             count = int(config["target_split_counts"][target][split])
-            by_group: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
-            for record in records:
-                if (
-                    target in record.get("eligible_target_groups", [])
-                    and record["task_level_group_id"] in allowed
-                    and record["case_id"] not in used_cases
-                ):
-                    by_group[str(record["task_level_group_id"])].append(record)
-            for rows in by_group.values():
-                rows.sort(key=lambda row: _rank(row, target))
-            selected: list[Mapping[str, Any]] = []
-            group_names = sorted(by_group)
-            depth = 0
-            while len(selected) < count:
-                added = False
-                for group in group_names:
-                    rows = by_group[group]
-                    if depth < len(rows):
-                        selected.append(rows[depth])
-                        added = True
-                        if len(selected) == count:
-                            break
-                if not added:
-                    break
-                depth += 1
+            def select(*, reserve_later: bool) -> list[Mapping[str, Any]]:
+                by_group: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+                for record in records:
+                    eligible = set(record.get("eligible_target_groups", []))
+                    if (
+                        target in eligible
+                        and record["task_level_group_id"] in allowed
+                        and record["case_id"] not in used_cases
+                        and not (reserve_later and eligible.intersection(later_targets))
+                    ):
+                        by_group[str(record["task_level_group_id"])].append(record)
+                for rows in by_group.values():
+                    rows.sort(key=lambda row: _rank(row, target))
+                selected: list[Mapping[str, Any]] = []
+                group_names = sorted(by_group)
+                depth = 0
+                while len(selected) < count:
+                    added = False
+                    for group in group_names:
+                        rows = by_group[group]
+                        if depth < len(rows):
+                            selected.append(rows[depth])
+                            added = True
+                            if len(selected) == count:
+                                break
+                    if not added:
+                        break
+                    depth += 1
+                return selected
+
+            selected = select(reserve_later=True)
+            if len(selected) != count:
+                selected = select(reserve_later=False)
             if len(selected) != count:
                 raise ValueError(
                     f"insufficient eligible {target} {split} source episodes: "

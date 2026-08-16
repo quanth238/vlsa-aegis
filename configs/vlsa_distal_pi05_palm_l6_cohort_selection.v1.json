@@ -39,6 +39,7 @@
   "selection_rule": {
     "one_state_per_root_episode": true,
     "candidate_outcomes_accessed": false,
+    "reserve_multi_target_sources_for_later_scarce_target": true,
     "ranking": "task_success_first_then_deterministic_SHA256_case_rank",
     "task_level_group_balance": "round_robin_within_each_target_and_split",
     "warning_time": "latest_complete_raw_pi05_five_action_query_before_first_target_contact",

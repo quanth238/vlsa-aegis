@@ -5950,3 +5950,11 @@ AdamW weight decay `1e-4`, train-only normalization, fixed 2,000-epoch model,
 UNKNOWN censoring, and one-time validation/test evaluation. Correction can be
 authorized only by the conjunction of the external coverage gate and the
 held-out prediction gate; under-coverage never becomes a safety claim.
+
+Initial freezer `41303` is pre-simulation apparatus history. It revealed that
+the one natural root eligible for both palm and L6 was consumed by the abundant
+palm pool, leaving only three of four registered L6-train identities. No
+candidate outcome was opened and no simulation ran. The deterministic repair
+reserves multi-target roots for the later scarce target whenever exclusive
+palm roots already satisfy the requested count; all source records, splits,
+counts, warning rules, and scientific settings remain unchanged.

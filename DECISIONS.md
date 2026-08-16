@@ -5540,3 +5540,10 @@ predicted-safe support for every recoverable held-out state, near-boundary
 RMSE at most `0.1`, rank Spearman at least `0.5` in both held-out splits, and
 exact independent source replay. Execute finite-bank correction only if this
 prediction gate and the external per-constraint coverage gate both pass.
+
+Freezer `41303` rejected before writing a manifest because its target-order
+loop selected the only palm+L6 root as palm, exhausting one of four scarce
+L6-train sources. Treat this as selection-apparatus history, not science. When
+an abundant earlier target has enough exclusive roots, reserve multi-target
+sources for the later scarce target. This rule uses only validated natural
+contact availability and never reads candidate outcomes.
