@@ -5600,3 +5600,22 @@ and add prospectively registered independent states toward the 24-state
 checkpoint before Q-only training. Validation file/payload SHA-256 values are
 `d4d1d73625b6f95fda47de157d1d27583ecbfcec57a4a010be26fea0174b95c6`
 and `82a260e138140f8d371c95f5d947141d13fa6970660bca4e9e717375d50d1c2d`.
+
+## Whole-body per-constraint support audit (preregistered, 2026-08-16)
+
+ADR-0178 derives the missing per-row, per-group, and global-support accounting
+from the immutable ADR-0177 producer/replay artifacts. It performs no new
+simulation and does not alter or reinterpret an UNKNOWN timeout. For every
+known candidate it verifies the stored group future risk against the minimum
+of the complete nine-row trace, then reports safe, unsafe, near-boundary,
+active-witness, two-sided-state, state, and episode counts for the released EE
+proxy, palm, L5, L6, L7, and all nine rows.
+
+The audit reports two distinct global gates. Represented-global support
+includes all five stored risk groups. Physical-global support excludes the
+diagnostic EE proxy and requires nonpositive palm/L5/L6/L7 risks, no stored
+group or raw protected contact, CAR pass, and no physical veto. Independent
+producer/replay equality and the immutable ADR-0177 validation hashes are
+mandatory. The result may guide development-only candidate-bank and cohort
+design, but it cannot authorize training, correction, QP, denoising, or
+closed-loop execution.

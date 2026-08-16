@@ -1,0 +1,25 @@
+{
+  "schema_version": "vlsa_distal_whole_body_support_audit.v1",
+  "protocol_id": "vlsa-distal-whole-body-support-audit-v1",
+  "claim_scope": "Read-only per-constraint and global-support audit of immutable ADR-0177 whole-body counterfactual artifacts. This performs no simulation, training, prediction, correction, QP, denoising, closed loop, deployment, certification, or CBF claim.",
+  "source_validation_file_sha256": "d4d1d73625b6f95fda47de157d1d27583ecbfcec57a4a010be26fea0174b95c6",
+  "source_validation_payload_sha256": "82a260e138140f8d371c95f5d947141d13fa6970660bca4e9e717375d50d1c2d",
+  "group_order": ["end_effector", "palm", "L5", "L6", "L7"],
+  "physical_group_order": ["palm", "L5", "L6", "L7"],
+  "robot_rows": {
+    "end_effector": [0],
+    "palm": [1],
+    "L5": [2, 3, 4],
+    "L6": [5, 6],
+    "L7": [7, 8]
+  },
+  "near_boundary_abs_slack": 0.05,
+  "paper_car_threshold_m": 0.001,
+  "risk_trace_consistency_tolerance": 1e-12,
+  "two_sided_rule": "strict_Q_negative_and_positive_known_outcomes",
+  "global_represented_safe_rule": "all_five_group_Q_nonpositive_and_zero_group_contact",
+  "global_physical_safe_rule": "palm_L5_L6_L7_Q_nonpositive_zero_group_and_raw_contact_CAR_pass_no_physical_veto",
+  "timeout_rule": "UNKNOWN_excluded_from_safe_unsafe_support",
+  "released_end_effector_rule": "diagnostic_proxy_reported_separately_from_physical_global_support",
+  "training_authorized": false
+}

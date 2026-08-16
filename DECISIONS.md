@@ -5225,3 +5225,24 @@ opened training/development evidence, and prospectively add independent
 episode groups toward the 24-state `16/4/4` checkpoint. Q-only training,
 correction, QP, calibration, denoising, and closed-loop execution remain
 blocked.
+
+## ADR-0178: Audit whole-body constraint and global support without recollection
+
+- Status: preregistered; allocation-backed read-only audit required
+- Date: 2026-08-16
+
+Do not launch another simulator population from target-group counts alone.
+The ADR-0177 shards already store complete end-effector/palm/L5/L6/L7 and
+nine-row traces. Verify those traces independently and derive strict
+two-sided support (`Q < 0` and `Q > 0`) for every group and row, keeping all
+timeouts UNKNOWN. Report active witnesses and near-boundary counts rather than
+using far-safe examples to fill unsupported heads.
+
+Keep represented-global and physical-global support separate. The released EE
+proxy participates only in represented-global diagnostics. Physical-global
+safe support requires palm/L5/L6/L7 nonviolation, zero group and raw protected
+contact, CAR pass, and no physical veto. Bind the audit to the immutable
+ADR-0177 validation file and payload hashes and require exact producer/replay
+equality. This read-only result can determine the next constraint-targeted
+cohort and whether a 13-candidate subset preserves useful brackets. It cannot
+authorize MLP training or control.
