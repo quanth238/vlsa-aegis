@@ -5619,3 +5619,28 @@ producer/replay equality and the immutable ADR-0177 validation hashes are
 mandatory. The result may guide development-only candidate-bank and cohort
 design, but it cannot authorize training, correction, QP, denoising, or
 closed-loop execution.
+
+CPU allocation job `41063` completed ADR-0178 in 30 seconds from immutable
+commit `57ac6127fbab1431a69f4bea9f17d6fde67a7519`. It verifies exact
+producer/replay equality for all eight states and all 216 candidates, retains
+166 known outcomes and 50 UNKNOWN timeouts, and reproduces every stored group
+risk from the complete nine-row traces.
+
+The audit shows that the earlier target-group result understated the useful
+L5/global evidence but also confirms that the current population is not a
+whole-body training set. Strict two-sided group-state counts for
+`end_effector/palm/L5/L6/L7` are respectively `1/0/2/0/0` in train,
+`0/0/2/1/0` in validation, and `1/0/2/0/0` in test. Palm and L7 are entirely
+safe-only with zero near-boundary and zero active-witness candidates; L6 has a
+single validation boundary and no training boundary. The diagnostic EE proxy
+has limited train/test boundaries but E35 remains proxy-unsafe for every known
+candidate despite being physically safe for palm/L5/L6/L7.
+
+Physical-global safe support exists in `3/4 train, 2/2 validation, 2/2 test`
+states and physical-global two-sided support in `2/4, 2/2, 2/2` states.
+Represented-global safe support, which additionally includes the diagnostic EE
+proxy, is only `2/4, 2/2, 2/2`. Therefore the next prospective cohort must
+target missing EE, palm, L6, and L7 mechanisms; unsupported heads remain
+diagnostic. Audit file/payload SHA-256 values are
+`4c9cf8859e6e74d0a3f8724d1cd8ea391388a325e82d2024aea77cf4c5020be7`
+and `1eafe2a49289028f97ca5e861cd1d26412cb565ccfd83005becb97f9456cb220`.

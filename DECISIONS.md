@@ -5246,3 +5246,21 @@ ADR-0177 validation file and payload hashes and require exact producer/replay
 equality. This read-only result can determine the next constraint-targeted
 cohort and whether a 13-candidate subset preserves useful brackets. It cannot
 authorize MLP training or control.
+
+Job `41063` passes ADR-0178 from immutable commit
+`57ac6127fbab1431a69f4bea9f17d6fde67a7519` with exact producer/replay
+agreement and valid trace-derived risks. Accept the result as the authoritative
+coverage account for ADR-0177. Per-group two-sided state counts
+`end_effector/palm/L5/L6/L7` are `1/0/2/0/0` train, `0/0/2/1/0`
+validation, and `1/0/2/0/0` test. Palm and L7 have no boundary or active
+witness at all; L6 has no training boundary. Do not train a whole-body model
+from this population and do not fill unsupported groups with far-safe samples.
+
+Retain the stronger mechanism evidence separately: physical-global safe
+candidate support exists in `3/4, 2/2, 2/2` states and physical-global
+two-sided support in `2/4, 2/2, 2/2`. The released EE proxy reduces train
+represented-global safe support to `2/4` and makes E35 represented-unsafe
+while all represented physical groups are safe. Keep that proxy diagnostic
+rather than treating it as physical authority. Use only opened development
+evidence to select a coverage-preserving candidate bank, then prospectively
+target EE, palm, L6, and L7 warning mechanisms with newly sealed test groups.
