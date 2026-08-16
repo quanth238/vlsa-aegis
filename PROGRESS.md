@@ -5993,3 +5993,10 @@ so it cannot create its source tree or reach simulation. The verified immutable
 repair commit is `80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1`. Clean source-prep/retry-prep
 jobs are `41327/41328`; the dependent replacement producer, replay, and
 validator are `41329/41330/41331`.
+
+A hash-checked final-gate binder is now prepared. After targeted validation it
+derives the actual combined split arithmetic (`14/4/6` existing plus `7/3/4`
+targeted = `21/7/10`), binds the third validation file and payload, and writes
+the v2 coverage config. After the coverage audit it binds that exact audit to
+the frozen Q-only protocol. This avoids manual hash transcription and does not
+alter coverage, model, loss, split, or correction criteria.

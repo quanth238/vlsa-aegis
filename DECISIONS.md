@@ -5576,3 +5576,9 @@ incorrect expanded commit hash and is dependency-impossible before simulation.
 The authoritative repair is full commit
 `80f45ef8156b4b5d9cf8be6d8ddd2fad2cdadeb1`, with clean collection chain
 `41327/41328/41329/41330/41331`.
+
+Generate the final v2 combined-audit config and Q-only binding from validated
+artifacts with `bind_distal_whole_body_final_gate.py`. The binder must derive
+split counts from the three frozen cohort configs and verify every validation
+payload. It is an apparatus/provenance tool only; undercoverage still forces a
+diagnostic model label, and correction still requires both independent gates.
