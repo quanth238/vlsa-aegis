@@ -161,6 +161,31 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         ))
         self.assertFalse(config["learned_correction_QP_enabled"])
 
+    def test_whole_body_extension_generates_exact_frozen_13_bank(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy unavailable in the local structural environment")
+        from scripts.collect_distal_exact_group_boundary import (
+            _frozen_grid_subset_candidates,
+        )
+
+        config = load_config(WHOLE_BODY_EXTENSION_CONFIG)
+        rows = _frozen_grid_subset_candidates(
+            np.zeros((5, 7), dtype=np.float64),
+            {
+                "normal": [1.0, 0.0, 0.0],
+                "tangent_up": [0.0, 1.0, 0.0],
+                "tangent_side": [0.0, 0.0, 1.0],
+            },
+            config["candidate_bank"],
+        )
+        self.assertEqual(
+            [row["name"] for row in rows],
+            config["candidate_bank"]["selected_candidate_names"],
+        )
+        self.assertEqual(len(rows), 13)
+
     def test_released_ee_proxy_uses_body_orientation_not_grip_site_xmat(self):
         source = (ROOT / "main/multilink_ellipsoid/shadow.py").read_text()
         start = source.index("def _released_aegis_end_effector_ellipsoid")

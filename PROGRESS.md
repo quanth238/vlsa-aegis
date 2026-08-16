@@ -5717,3 +5717,13 @@ Both arrays are capped at one live task each, so the workflow uses at most two
 H100 equivalents, 16 CPUs, and 128 GB memory. Preserve completed per-case
 JSONs as progressive shards and rerun only exact missing/schema-invalid
 indices after inspection.
+
+Initial arrays `41066`/`41067` failed indices 0--1 before candidate rollout
+and index 2 was canceled; validator `41068` was canceled. All scoped
+allocation tests passed. The frozen-subset wrapper passed the registered
+13-count into the underlying full-grid generator, whose internal invariant
+correctly requires 27 entries before filtering. Preserve the first root as
+apparatus history. The repair generates the unchanged 27 definitions under
+their native receipt, then selects the already frozen 13 names in order and
+asserts a final count of 13. It changes no state, action, split, target, OSC,
+continuation, or gate and is covered by an allocation-capable regression.

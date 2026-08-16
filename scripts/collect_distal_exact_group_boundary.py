@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from scripts.audit_distal_compiled_box_risk_target import _evaluate_case
 from scripts.evaluate_distal_query_action_risk_e05 import evaluate
@@ -19,6 +19,29 @@ def _canonical(value: Any) -> bytes:
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), allow_nan=False,
     ).encode("utf-8")
+
+
+def _frozen_grid_subset_candidates(
+    nominal: Sequence[Sequence[float]], frame: Mapping[str, Sequence[float]],
+    bank: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    from main.multilink_ellipsoid.active_boundary_search import (
+        candidate_definitions as grid_candidate_definitions,
+    )
+
+    generation_bank = dict(bank)
+    generation_bank["candidate_count_per_job"] = 27
+    rows = grid_candidate_definitions(
+        nominal, frame, {"finite_search": generation_bank}, bank["temporal_profile"]
+    )
+    selected = list(bank["selected_candidate_names"])
+    by_name = {row["name"]: row for row in rows}
+    if set(selected) - set(by_name):
+        raise ValueError("frozen candidate name is unavailable")
+    output = [by_name[name] for name in selected]
+    if len(output) != int(bank["candidate_count_per_job"]):
+        raise ValueError("frozen candidate subset count differs")
+    return output
 
 
 def collect(
@@ -189,16 +212,12 @@ def collect(
 
     def definitions(nominal, frame, _base):
         if grid_bank:
+            if bank.get("selected_candidate_names") is not None:
+                return _frozen_grid_subset_candidates(nominal, frame, bank)
             rows = grid_candidate_definitions(
                 nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
             )
-            selected = bank.get("selected_candidate_names")
-            if selected is None:
-                return rows
-            by_name = {row["name"]: row for row in rows}
-            if set(selected) - set(by_name):
-                raise ValueError("frozen candidate name is unavailable")
-            return [by_name[name] for name in selected]
+            return rows
         if generic_bank:
             return generic_candidate_definitions(nominal, bank)
         return candidate_definitions(nominal, frame, bank)

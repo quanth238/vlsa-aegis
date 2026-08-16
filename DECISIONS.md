@@ -5333,3 +5333,10 @@ submitted from immutable commit
 which is the maximum safe concurrency under the two-H100/16-CPU ceiling. Do
 not restart the population root; retain every valid shard and retry only an
 exact failed/missing index after classifying its log.
+
+Treat `41066`/`41067` and canceled validator `41068` as apparatus history.
+They produced no final case JSON: the full-grid generator rejected the
+subset's post-filter count before evaluating a candidate. Repair only the
+adapter boundary by generating the native 27-bank receipt before selecting
+the immutable 13 names. Use a clean commit and replacement root; do not reuse
+or clean the failed root.
