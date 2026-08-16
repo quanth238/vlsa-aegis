@@ -111,6 +111,7 @@ def candidate_definitions(
         "spatial_coefficients": None,
         "sign": 0,
         "temporal_profile": None,
+        "requested_alpha": 0.0,
         "requested_correction_l2_action": 0.0,
         "applied_correction_l2_action": 0.0,
         "clipped": False,
@@ -149,6 +150,7 @@ def candidate_definitions(
             "spatial_coefficients": [int(item) for item in coefficients],
             "sign": None,
             "temporal_profile": temporal_profile_name,
+            "requested_alpha": float(search["correction_l2_action"]),
             "requested_correction_l2_action": float(
                 search["correction_l2_action"]
             ),

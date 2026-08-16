@@ -300,6 +300,10 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         )
         self.assertEqual(len(candidates), 27)
         self.assertEqual(candidates[0]["name"], "nominal")
+        self.assertEqual(candidates[0]["requested_alpha"], 0.0)
+        self.assertTrue(all(
+            row["requested_alpha"] == 2.0 for row in candidates[1:]
+        ))
         self.assertTrue(all(
             np.array_equal(np.asarray(row["actions"])[:, 3:], nominal[:, 3:])
             for row in candidates

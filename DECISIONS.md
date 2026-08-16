@@ -5103,3 +5103,11 @@ single opened-development gate may freeze a candidate procedure for new
 prospective groups; it cannot authorize MLP training or control. If it fails,
 do not tune the MLP: the registered five-action candidate region still lacks a
 safe action for E00.
+
+Producer/replay `40995`/`40996` are retained as apparatus failures. Both
+passed preflight and candidate simulation but the shared exact auditor rejected
+the grid receipt because it lacked the legacy scalar key `requested_alpha`.
+Add that field as an exact alias of requested correction L2 norm; do not alter
+the candidates or reinterpret the failed runs. Validator `40997` cannot run.
+Submit replacements from a new immutable commit/root after local contract
+tests pass.

@@ -5472,3 +5472,13 @@ collection; a failure shows that this five-action action region still lacks
 safe support and requires revisiting intervention horizon or timing before
 learning. Q/V training, correction, QP, denoising, closed loop, and GPU labels
 remain blocked.
+
+Initial producer/replay jobs `40995`/`40996` passed all allocation tests and
+generated the candidate rollouts, then both stopped before exact aggregation
+because the reused compiled-box auditor requires the legacy receipt alias
+`requested_alpha`, while the new grid emitted only the equivalent
+`requested_correction_l2_action`. No scientific artifact was accepted and
+validator `40997` is dependency-impossible. The apparatus-only repair adds the
+alias (`0` for nominal, `2.0` for every grid candidate) without changing any
+action, state, target, rollout, or gate. The retry must use a new clean commit
+and artifact root.
