@@ -71,6 +71,16 @@ def _strict_two_sided(values: Sequence[float]) -> bool:
     )
 
 
+def _support_classification(*, safe: int, unsafe: int) -> str:
+    if safe > 0 and unsafe > 0:
+        return "two_sided"
+    if safe > 0:
+        return "safe_only"
+    if unsafe > 0:
+        return "unsafe_only"
+    return "no_known_outcome"
+
+
 def _minimum_row_slacks(candidate: Mapping[str, Any], row_count: int) -> list[float]:
     trace = candidate["exact_group_target"]["trace"]
     if not trace:
@@ -81,6 +91,26 @@ def _minimum_row_slacks(candidate: Mapping[str, Any], row_count: int) -> list[fl
         if len(values) != row_count:
             raise ValueError("whole-body trace row count differs")
         output = [min(left, float(right)) for left, right in zip(output, values)]
+    return output
+
+
+def _raw_contact_pair_records(candidate: Mapping[str, Any]) -> list[dict[str, Any]]:
+    output = []
+    for event in candidate.get("raw_protected_contacts", []):
+        protected = str(event.get("protected_geom_name", ""))
+        obstacle = str(event.get("obstacle_geom_name", ""))
+        if not protected or not obstacle:
+            raise ValueError("whole-body raw contact lacks compiled geom names")
+        output.append({
+            "candidate_name": str(candidate["name"]),
+            "pair": "%s ↔ %s" % (protected, obstacle),
+            "protected_geom_name": protected,
+            "obstacle_geom_name": obstacle,
+            "phase": event.get("phase"),
+            "action_offset": event.get("action_offset"),
+            "substep": event.get("substep"),
+            "distance_m": float(event["distance_m"]),
+        })
     return output
 
 
@@ -124,6 +154,7 @@ def audit_cases(
         physical_global_unsafe = 0
         active_group_counts = {group: 0 for group in groups}
         active_row_counts = {str(row): 0 for row in range(row_count)}
+        raw_contact_pair_records = []
 
         for candidate in known:
             target = candidate["exact_group_target"]
@@ -193,6 +224,7 @@ def audit_cases(
             represented_global_unsafe += int(represented_unsafe)
             physical_global_safe += int(physical_safe)
             physical_global_unsafe += int(physical_unsafe)
+            raw_contact_pair_records.extend(_raw_contact_pair_records(candidate))
 
         for group in groups:
             group_counts[group]["active_witness_candidate_count"] = (
@@ -200,6 +232,18 @@ def audit_cases(
             )
             group_counts[group]["two_sided_support"] = _strict_two_sided(
                 group_values[group]
+            )
+            group_counts[group]["initially_safe"] = bool(
+                initial_slack[group] > 0.0 and initial_contact[group] == 0
+            )
+            group_counts[group]["support_classification"] = (
+                _support_classification(
+                    safe=int(group_counts[group]["safe_candidate_count"]),
+                    unsafe=int(group_counts[group]["unsafe_candidate_count"]),
+                )
+            )
+            group_counts[group]["timeout_limited"] = bool(
+                len(exact_case["candidates"]) > len(known)
             )
         for row in range(row_count):
             row_counts[str(row)]["active_witness_candidate_count"] = (
@@ -226,6 +270,37 @@ def audit_cases(
             ),
             "per_group": group_counts,
             "per_row": row_counts,
+            "constraint_report": {
+                group: {
+                    "initially_safe": bool(
+                        group_counts[group]["initially_safe"]
+                    ),
+                    "safe_candidate_count": int(
+                        group_counts[group]["safe_candidate_count"]
+                    ),
+                    "unsafe_candidate_count": int(
+                        group_counts[group]["unsafe_candidate_count"]
+                    ),
+                    "unknown_candidate_count": (
+                        len(exact_case["candidates"]) - len(known)
+                    ),
+                    "two_sided_support": bool(
+                        group_counts[group]["two_sided_support"]
+                    ),
+                    "support_classification": str(
+                        group_counts[group]["support_classification"]
+                    ),
+                    "timeout_limited": bool(
+                        group_counts[group]["timeout_limited"]
+                    ),
+                }
+                for group in groups
+            },
+            "raw_contact_pair_sample_count": len(raw_contact_pair_records),
+            "raw_contact_pairs": sorted({
+                str(item["pair"]) for item in raw_contact_pair_records
+            }),
+            "raw_contact_pair_records": raw_contact_pair_records,
             "global_support": {
                 "represented_safe_candidate_count": represented_global_safe,
                 "represented_unsafe_candidate_count": represented_global_unsafe,
@@ -262,6 +337,55 @@ def audit_cases(
                 if source["two_sided_support"]:
                     target["two_sided_state_ids"].append(row["case_id"])
             target["two_sided_state_count"] = len(target["two_sided_state_ids"])
+            episode_rows: dict[str, list[dict[str, Any]]] = {}
+            for case_row in split_cases:
+                episode_rows.setdefault(
+                    str(case_row["episode_group_id"]), []
+                ).append(case_row)
+            episode_classes = {
+                "initially_safe": [],
+                "initially_unsafe": [],
+                "safe_only": [],
+                "unsafe_only": [],
+                "two_sided": [],
+                "mixed_across_one_sided_states": [],
+                "no_known_outcome": [],
+                "timeout_limited": [],
+            }
+            for episode_id, state_rows in episode_rows.items():
+                prevention = [
+                    row for row in state_rows
+                    if bool(row["per_group"][group]["initially_safe"])
+                ]
+                if prevention:
+                    episode_classes["initially_safe"].append(episode_id)
+                else:
+                    episode_classes["initially_unsafe"].append(episode_id)
+                if any(int(row["unknown_timeout_count"]) > 0 for row in state_rows):
+                    episode_classes["timeout_limited"].append(episode_id)
+                if not prevention:
+                    continue
+                state_classes = {
+                    str(row["per_group"][group]["support_classification"])
+                    for row in prevention
+                }
+                if "two_sided" in state_classes:
+                    episode_classes["two_sided"].append(episode_id)
+                elif "safe_only" in state_classes and "unsafe_only" in state_classes:
+                    episode_classes["mixed_across_one_sided_states"].append(
+                        episode_id
+                    )
+                elif "safe_only" in state_classes:
+                    episode_classes["safe_only"].append(episode_id)
+                elif "unsafe_only" in state_classes:
+                    episode_classes["unsafe_only"].append(episode_id)
+                else:
+                    episode_classes["no_known_outcome"].append(episode_id)
+            target["episode_group_classification"] = {
+                "%s_episode_count" % key: len(value)
+                for key, value in episode_classes.items()
+            }
+            target["episode_group_ids_by_classification"] = episode_classes
         for row_index in range(row_count):
             target = rows_summary[str(row_index)]
             target["constraint_group"] = row_to_group[row_index]

@@ -5841,3 +5841,19 @@ outcomes. Count EE, palm, L5, L6, and L7 independently, require physical-global
 safe support separately, and keep timeouts UNKNOWN. Prioritize palm and L6
 train/test deficits; L5 already passes its preregistered coverage gate. The EE
 proxy and L7 remain diagnostic until their geometry/support gates change.
+
+The next step is intentionally narrower than the earlier warning-localizer
+draft. First rerun the immutable combined audit with episode-group
+classifications for every constraint: initially safe, safe-only, unsafe-only,
+two-sided, and timeout-limited. Then freeze only additive palm and L6 root
+episodes into train/validation/test before candidate labels. L5 already has
+`5/3/4` two-sided support and will not trigger generic recollection; L7 and the
+released EE proxy remain diagnostic. The existing 13-bank, exact
+candidate-plus-continuation target, unchanged OSC, UNKNOWN timeout semantics,
+and complete whole-body superset remain unchanged.
+
+New direct/no-QP data must explicitly bind its nominal to the raw pi0.5
+translational five-action chunk. The evaluator now exposes this as an opt-in
+nominal source while preserving the historical post-AEGIS default for every
+immutable artifact and legacy caller. This prevents “QP disabled” from being
+mistaken for “raw pi0.5 nominal” without invalidating prior evidence.

@@ -5444,3 +5444,28 @@ their candidate labels. Target the exact deficits: palm train/validation/test
 and L6 train/test; do not spend the deadline budget recollecting already
 supported L5 boundaries. Existing data are immutable auxiliary evidence and
 must not be discarded or rerun.
+
+## ADR-0184: Fill only measured palm/L6 coverage deficits
+
+- Status: preregistered; read-only classification audit first
+- Date: 2026-08-17
+
+Do not introduce a new general warning-state pipeline, change the MLP, render
+videos, or enable any QP during this phase. Recompute the immutable 24-root
+dataset separately for EE, palm, L5, L6, and L7, reporting initially-safe,
+safe-only, unsafe-only, two-sided, and timeout-limited root episode counts.
+Use that table as the only authority for additive collection.
+
+Current strict two-sided evidence already establishes L5 `5/3/4`, L6
+`1/2/0`, palm `2/0/0`, diagnostic EE `6/1/3`, and diagnostic L7 `0/0/0` over
+train/validation/test. Therefore new episode identities must target palm and
+L6 mechanisms only, with complete splits frozen before candidate outcomes.
+Retain every one-sided, initially-unsafe, failed, and timeout case. Apply the
+unchanged frozen 13-bank, keep timeouts UNKNOWN, and require initially-safe
+prevention snapshots plus global safe support on recoverable holdouts. L5 is
+not recollected merely to increase sample count; EE/L7 remain diagnostic.
+
+For all new direct/no-QP candidate data, bind the candidate-bank nominal to
+the raw pi0.5 translational chunk. Preserve the evaluator's historical
+post-AEGIS default for old configurations and artifacts. This is a protocol
+clarification, not a reinterpretation or rewrite of existing data.

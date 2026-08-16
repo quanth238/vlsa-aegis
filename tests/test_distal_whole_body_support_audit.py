@@ -79,6 +79,13 @@ class WholeBodySupportAuditTest(unittest.TestCase):
         self.assertTrue(case["global_support"]["physical_two_sided_support"])
         split = result["split_summary"]["train"]
         self.assertEqual(split["per_group"]["L5"]["two_sided_state_count"], 1)
+        classification = split["per_group"]["L5"][
+            "episode_group_classification"
+        ]
+        self.assertEqual(classification["initially_safe_episode_count"], 1)
+        self.assertEqual(classification["two_sided_episode_count"], 1)
+        self.assertEqual(classification["timeout_limited_episode_count"], 1)
+        self.assertEqual(classification["safe_only_episode_count"], 0)
         self.assertEqual(split["per_row"]["3"]["two_sided_state_count"], 1)
         self.assertEqual(split["physical_global_safe_support_state_count"], 1)
 
@@ -90,6 +97,32 @@ class WholeBodySupportAuditTest(unittest.TestCase):
         result = audit_cases([case], load_audit_config(CONFIG))["per_case"][0]
         self.assertEqual(result["global_support"]["represented_safe_candidate_count"], 0)
         self.assertGreater(result["global_support"]["physical_safe_candidate_count"], 0)
+
+    def test_reports_constraints_and_exact_compiled_contact_names(self):
+        case = _case()
+        candidate = case["exact_case"]["candidates"][1]
+        candidate["raw_protected_contact_sample_count"] = 1
+        candidate["raw_protected_contacts"] = [{
+            "protected_geom_name": "robot0_link5_collision",
+            "obstacle_geom_name": "moka_pot_obstacle_1_g2",
+            "phase": "prefix",
+            "action_offset": 2,
+            "substep": 4,
+            "distance_m": -0.0001,
+        }]
+        result = audit_cases([case], load_audit_config(CONFIG))["per_case"][0]
+        self.assertEqual(
+            result["raw_contact_pairs"],
+            ["robot0_link5_collision ↔ moka_pot_obstacle_1_g2"],
+        )
+        self.assertEqual(result["constraint_report"]["L5"]["unknown_candidate_count"], 1)
+        self.assertEqual(
+            result["constraint_report"]["L5"]["support_classification"],
+            "two_sided",
+        )
+        self.assertTrue(result["constraint_report"]["L5"]["initially_safe"])
+        self.assertTrue(result["constraint_report"]["L5"]["timeout_limited"])
+        self.assertTrue(result["constraint_report"]["L5"]["two_sided_support"])
 
 
 if __name__ == "__main__":

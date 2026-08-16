@@ -26,6 +26,34 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 )
 
 
+ARCHIVED_POST_AEGIS_NOMINAL = "archived_post_aegis_executed"
+RAW_PI05_NOMINAL = "raw_pi05_nominal_translational"
+
+
+def resolve_nominal_action_source(
+    source: Optional[str], *, released_aegis_enabled: bool,
+) -> str:
+    """Resolve the candidate-bank nominal without changing legacy callers.
+
+    Existing AEGIS-consistent callers always begin with the raw policy action
+    and project it once through the released filter.  Existing direct/no-QP
+    callers historically used the archived post-AEGIS command.  New
+    predictive-risk collection must opt in to the raw pi0.5 source explicitly.
+    """
+
+    resolved = (
+        RAW_PI05_NOMINAL if released_aegis_enabled
+        else ARCHIVED_POST_AEGIS_NOMINAL
+    ) if source is None else str(source)
+    if resolved not in {ARCHIVED_POST_AEGIS_NOMINAL, RAW_PI05_NOMINAL}:
+        raise ValueError("query action-risk nominal action source differs")
+    if released_aegis_enabled and resolved != RAW_PI05_NOMINAL:
+        raise ValueError(
+            "released AEGIS consistency requires the raw pi0.5 nominal source"
+        )
+    return resolved
+
+
 def _public(value: Any) -> Any:
     try:
         import numpy as np
@@ -102,6 +130,7 @@ def evaluate(
     ] = None,
     candidate_protocol_binding: Optional[Mapping[str, Any]] = None,
     apply_released_aegis_ee_to_all_proposed_actions: bool = False,
+    nominal_action_source: Optional[str] = None,
     adaptive_boundary_config: Optional[Mapping[str, Any]] = None,
     prime_slabbed_geometry_at_initial_state: bool = False,
     capture_physical_context: bool = False,
@@ -139,6 +168,10 @@ def evaluate(
     from main.multilink_ellipsoid.sitl_candidate import SlabbedEightConstraintProbe
 
     started = time.perf_counter_ns()
+    resolved_nominal_action_source = resolve_nominal_action_source(
+        nominal_action_source,
+        released_aegis_enabled=apply_released_aegis_ee_to_all_proposed_actions,
+    )
     config = load_config(experiment_config_path)
     source = _git_identity(repo_root, expected_commit)
     allocation = _allocation_record()
@@ -480,6 +513,9 @@ def evaluate(
             nominal, nominal_projection = project_through_released_aegis(
                 env, nominal_raw, source_aegis_z
             )
+        elif resolved_nominal_action_source == RAW_PI05_NOMINAL:
+            nominal = nominal_raw.copy()
+            nominal_projection = None
         else:
             nominal = archived_nominal.copy()
             nominal_projection = None
@@ -566,6 +602,9 @@ def evaluate(
             ))),
             "nominal_archived_action_maximum_absolute_error": float(np.max(np.abs(
                 determinism_runs[0]["executed_actions"] - archived_nominal
+            ))),
+            "nominal_raw_action_maximum_absolute_error": float(np.max(np.abs(
+                determinism_runs[0]["executed_actions"] - nominal_raw
             ))),
             "nominal_recomputed_action_maximum_absolute_error": float(np.max(np.abs(
                 determinism_runs[0]["executed_actions"] - nominal
@@ -1010,6 +1049,7 @@ def evaluate(
             },
             "policy_query": query,
             "action_contract": {
+                "nominal_action_source": resolved_nominal_action_source,
                 "released_aegis_ee_enabled": bool(
                     apply_released_aegis_ee_to_all_proposed_actions
                 ),
@@ -1129,6 +1169,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Reapply the unchanged released EE filter to every proposed prefix and backup action.",
     )
+    parser.add_argument(
+        "--nominal-action-source",
+        choices=(ARCHIVED_POST_AEGIS_NOMINAL, RAW_PI05_NOMINAL),
+        help=(
+            "Explicit candidate-bank nominal. New no-QP predictive-risk data "
+            "must use raw_pi05_nominal_translational; omission preserves legacy "
+            "artifact behavior."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     result = evaluate(
@@ -1143,6 +1192,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         apply_released_aegis_ee_to_all_proposed_actions=bool(
             args.released_aegis_consistency
         ),
+        nominal_action_source=args.nominal_action_source,
     )
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({
