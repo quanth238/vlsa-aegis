@@ -5318,3 +5318,21 @@ and `44a051c9e115c0bbec10645f8bc26b47af084a17b509a688837af0501502acb0`;
 payload SHA-256 values are
 `ea8ff0f63e219dc301c98b2e8fbfec9186348bb12dd3174aad034c50515f6e06`
 and `e84bd4c1d0b65b489b3922cdcd8712c33c6f69a649367c526eede6340462d9e7`.
+
+## Spatial-I task-3 progressive boundary extension (preregistered, 2026-08-16)
+
+ADR-0171 adds seven immutable episode shards without replacing the existing
+prospective dataset. Previously opened E00, E03, and E15 are training-only.
+Candidate-outcome-untouched E01/E04 are frozen as validation and E02/E13 as
+test before the new bank runs. All are Spatial-I task 3 with the same wine-
+bottle obstacle mechanism. The three contact episodes use the last complete
+five-action query boundary strictly before archived L5 contact; untouched
+holdouts use the common preregistered action-60 boundary.
+
+The exact compiled-box target, direct unchanged OSC execution, complete fixed
+continuation, 13 symmetric Cartesian candidates, timeout censoring, and
+contact/CAR authority remain unchanged. All seven states must be initially
+safe and independently reproduced, with two-sided action support in `3/3`
+train, `2/2` validation, and `2/2` test and zero physical false-safes. Only
+that data gate authorizes matched 9D/33D Q-only retraining. QP, correction,
+calibration, denoising, and closed loop remain blocked.

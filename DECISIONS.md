@@ -4932,3 +4932,26 @@ model on opened E15 or add a conservative buffer. Preserve both arms and next
 collect prospectively grouped, initially safe, two-sided boundaries from
 multiple task/level mechanisms, especially Spatial-I task-3-like states, with
 new untouched validation and test groups.
+
+## ADR-0171: Progressively add Spatial-I task-3 boundary groups
+
+- Status: preregistered; data gate before retraining
+- Date: 2026-08-16
+
+Do not restart or overwrite ADR-0168 artifacts. Add seven separately hashed
+Spatial-I task-3 episode shards. E00, E03, and opened E15 may be used only for
+training. Freeze candidate-outcome-untouched E01/E04 as validation and E02/E13
+as test. This preserves the earlier diagnostic evidence while ensuring that
+the next evaluation groups have not influenced feature, loss, checkpoint, or
+candidate decisions.
+
+Use the frozen 13-action generic Cartesian bank, direct no-QP execution,
+unchanged OSC, exact candidate-plus-complete-continuation L5 labels, and
+unknown timeout censoring. The contact training episodes use a deterministic
+last-query-before-contact rule; all untouched holdouts use action 60, fixed
+before outcomes. Require every one of the seven states to be initially safe
+and two-sided with zero represented-geometry physical false-safes and exact
+independent replay. If any split misses support, report the data NO-GO and do
+not train. If the gate passes, merge only training shards with existing
+training data and run the unchanged matched 9D/33D Q-only gate once on the new
+validation/test groups. Correction and QP remain forbidden.
