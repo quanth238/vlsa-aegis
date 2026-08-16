@@ -5071,3 +5071,13 @@ candidate, target, controller, continuation, or gate.
 
 Replacement jobs `40984`/`40985`/`40986` bind the identity-only repair commit
 `aa411cb560bc3f43ec53e95a0edfb6337f166d81` and a fresh `20260816b` root.
+
+ADR-0174 is a validated partial mechanism pass but strict coverage NO-GO.
+One-query-earlier timing makes every state initially safe and recovers exact
+two-sided support in E03 and E15, proving that intervention lead time mattered.
+E00 remains all-unsafe/unknown under the frozen 13-action bank, so do not move
+timing earlier again or train on the `2/3` population. Hold E00 at step 65 and
+change only candidate excitation in the next opened-development gate. A useful
+candidate expansion should include mixed Cartesian directions and an
+early/front-loaded temporal profile, then retain only exact candidate-plus-
+continuation labels. Validation/test groups and learning/control remain blocked.

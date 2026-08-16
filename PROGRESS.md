@@ -5434,3 +5434,20 @@ Clean replacement producer `40984`, independent replay `40985`, and validator
 `40986` run only the repaired manifest from immutable commit
 `aa411cb560bc3f43ec53e95a0edfb6337f166d81` and new artifact root
 `/mnt/data/quanth/experiments/vlsa-distal-spatial-t3-timing-localization/spatial-t3-timing-localization-20260816b`.
+
+Replacement jobs `40984`/`40985` and validator `40986` completed exactly.
+Moving one VLA query earlier fixed initial-state validity in all `3/3` cases
+and produced two-sided boundaries in E03 (`3 safe / 10 unsafe`) and E15
+(`1 safe / 12 unsafe`). E00 remained one-sided with `0 safe / 12 unsafe / 1
+unknown`, despite positive initial slack `0.305562`. E03/E15 initial slacks were
+`1.193103`/`0.796033`. Independent replay is exact, all 39 candidates are
+retained, and represented-geometry physical false-safes remain zero.
+
+The strict `3/3` gate therefore fails at `2/3`. Timing was a real cause—it
+removed both initially unsafe states and recovered two boundaries—but timing
+alone is insufficient for E00. Preserve these validated labels. The next
+single-factor experiment may broaden spatial/temporal candidate excitation only
+at opened E00 step 65; Q-only training and all control remain blocked.
+Validation file/payload SHA-256 values are
+`5aea93705ac2fa44a8df79536ddb9e8428cd196bf00f9d3a1785319641d11212`
+and `c41f697cb6458065b849401b2294123a82cbae8191c556370d425b8acf7f5ed8`.
