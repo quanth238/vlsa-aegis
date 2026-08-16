@@ -5796,3 +5796,48 @@ equal and state hashes are exact. Remove only this redundant loader check;
 continue requiring immutable payloads, independent validation, state hashes,
 primitive certificates, initial physical safety, and timeout censoring. The
 failure produces no result/checkpoint and changes no scientific factor.
+
+Clean source worktree `41255`, H100 trainer `41256`, and independent H100
+retrainer/validator `41257` complete from immutable repair commit
+`9b03e046e08ed0949a005ab4a77b8f1541d688d1`. The validator reports exact model
+and prediction reproduction, no test-artifact access, and no authorization for
+training claims, correction, QP, or closed loop. The diagnostic fits 12
+eligible train states / 173 known candidates and evaluates four validation
+states / 63 known candidates; shared row supervision contains 1,038 train and
+378 validation samples.
+
+The diagnostic confirms capacity but rejects state-transfer readiness. The
+33D L5/OSC arm is the best L5 value predictor on validation at global RMSE
+`0.257113` and near-boundary RMSE `0.195521`, but still has nine false-safes
+and its least-modifying selection is exact-safe in only `3/4` states. The 9D
+arm has validation RMSE `0.373440`, seven false-safes, and `3/4` selected-safe
+states. The shared palm/L5/L6 model fits train RMSE `0.025278`, then degrades to
+validation RMSE `0.345089`, 14 global false-safes, safe recall `0.780488`, and
+`3/4` selected-safe states. Its validation group RMSE/false-safe counts are
+palm `0.513024/0`, L5 `0.366173/5`, and L6 `0.356442/14`; palm is safe-only in
+validation, so its zero false-safes do not test a boundary. This is positive
+implementation evidence but scientific NO-GO for unseen-state safe selection.
+
+The completed ADR-0181 read-only audit contains 24 root episode groups, 424
+candidates, 353 known outcomes, and 71 UNKNOWN timeouts. The frozen split is
+actually `14/4/6`, not the planned `16/4/4`; E21 and E02 are initially unsafe
+recovery cases. Strict per-group two-sided train/validation/test state counts
+are L5 `5/3/4`, L6 `1/2/0`, palm `2/0/0`, diagnostic EE `6/1/3`, and diagnostic
+L7 `0/0/0`. Row support localizes further: row 2 has `0/0/0`, row 3 `3/2/3`,
+row 4 `3/2/3`, row 5 `1/2/0`, and row 6 `0/0/0`. Global physical-safe support
+exists in every validation/test state and physical false-safes remain zero.
+The data apparatus and represented geometry therefore pass; the decisive
+blocker is per-constraint warning-state/boundary coverage.
+
+## Targeted per-constraint warning-time extension (next protocol)
+
+Preserve every existing safe, unsafe, recovery, one-sided, failure, and timeout
+shard. On opened development episodes, scan earlier/later query boundaries only
+to localize one frozen warning snapshot per root episode. The selected snapshot
+must be initially safe across all represented physical groups and should make
+the frozen bank straddle the target constraint boundary. New validation/test
+episode identities and target constraints must be frozen before their candidate
+outcomes. Count EE, palm, L5, L6, and L7 independently, require physical-global
+safe support separately, and keep timeouts UNKNOWN. Prioritize palm and L6
+train/test deficits; L5 already passes its preregistered coverage gate. The EE
+proxy and L7 remain diagnostic until their geometry/support gates change.

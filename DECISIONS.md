@@ -5413,3 +5413,34 @@ scientific equality and exact state hashes remain the binding authorities.
 Remove only that redundant condition, retain every payload/state/certificate
 check, and rerun from a clean immutable commit. Do not alter the data, model,
 loss, seed, split, or metrics.
+
+## ADR-0183: Treat warning-time/per-constraint coverage as the next bottleneck
+
+- Status: diagnostic validated; additive collection required
+- Date: 2026-08-17
+
+Accept H100 trainer `41256` and independent retrainer/validator `41257` as
+capacity/state-transfer evidence only. Exact reproduction and strong training
+fit show that the implementation can learn stored counterfactual risk. The
+large validation errors and false-safes—especially 14 shared-global and 14 L6
+false-safes—show that the current population does not support safe unseen-state
+selection. Do not tune losses, change ellipsoids, or enable correction/QP to
+mask this coverage failure.
+
+Interpret every state independently per constraint. A state that is two-sided
+for EE but safe-only for L6 contributes EE boundary evidence and L6 safe-anchor
+evidence, not L6 boundary evidence. Global acceptance remains the conjunction
+of all claimed physical constraints. Raw contacts/CAR remain physical
+authorities; the released EE proxy remains diagnostic. Preserve UNKNOWN
+timeouts as unknown and retain initially unsafe E21/E02 as recovery audits.
+
+For the next additive cohort, use natural raw-contact timing to identify the
+active compiled robot geom, scan query boundaries only on opened development
+episodes, and freeze one initially-safe, target-two-sided warning snapshot per
+root episode. The scan may inspect several candidate query times, but the
+training population must not count those correlated times as independent
+states. Freeze validation/test episode groups and the 13-bank before observing
+their candidate labels. Target the exact deficits: palm train/validation/test
+and L6 train/test; do not spend the deadline budget recollecting already
+supported L5 boundaries. Existing data are immutable auxiliary evidence and
+must not be discarded or rerun.
