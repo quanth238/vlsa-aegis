@@ -5336,3 +5336,12 @@ safe and independently reproduced, with two-sided action support in `3/3`
 train, `2/2` validation, and `2/2` test and zero physical false-safes. Only
 that data gate authorizes matched 9D/33D Q-only retraining. QP, correction,
 calibration, denoising, and closed loop remain blocked.
+
+Immutable H100 producer array `40930` and independent replay array `40931`
+were submitted from clean detached commit
+`7c98b333611f39d76f1409953b84fc85c76cf7ae`; one task from each array is
+running on worker-2 with `%1` array concurrency. The first full source-bundle
+transfer was truncated and its v1 clone is retained as apparatus history;
+the experiment uses the verified incremental bundle and clean v2 source.
+Validator submission is pending only because the live QOS submit-count limit
+was reached; it must be added with `afterok:40930:40931` when capacity opens.

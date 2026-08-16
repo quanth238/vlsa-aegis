@@ -4955,3 +4955,9 @@ independent replay. If any split misses support, report the data NO-GO and do
 not train. If the gate passes, merge only training shards with existing
 training data and run the unchanged matched 9D/33D Q-only gate once on the new
 validation/test groups. Correction and QP remain forbidden.
+
+Producer/replay arrays `40930`/`40931` bind the immutable source commit
+`7c98b333611f39d76f1409953b84fc85c76cf7ae`. The failed full-bundle transfer
+and incomplete v1 source clone are apparatus history only; no simulator case
+was launched from them. The live QOS submit-count limit delayed only the
+dependent validator submission and does not relax or alter the protocol.
