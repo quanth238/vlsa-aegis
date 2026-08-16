@@ -5483,3 +5483,30 @@ The minimum remaining two-sided deficits are palm `+2/+2/+2` and L6
 one-sided or time out, preregister more episode identities than these minima
 without replacing any failure. Every new direct/no-QP case must explicitly
 record raw pi0.5 as its nominal action source.
+
+## ADR-0185: Select missing palm/L6 sources from natural pi0.5
+
+- Status: preregistered; read-only source audit first
+- Date: 2026-08-17
+
+Do not reinterpret the old AEGIS contact-availability audit as natural pi0.5
+evidence. Read the immutable `pi05_translational` arm directly, require
+`executed == nominal_translational == env_step_input`, zero correction, null
+QP, and one complete five-action chunk. Use raw MuJoCo geom names to identify
+palm and L6 contacts. Exclude every root episode already appearing in a
+committed counterfactual manifest.
+
+Register one warning state per eligible root episode at
+`floor((first_target_raw_contact_step-5)/5)*5`. This rule uses natural-contact
+timing only and cannot inspect candidate outcomes. The paired AEGIS result may
+supply the unchanged backup/diagnostic obstacle perception because natural
+pi0.5 deliberately did not run perception; it cannot supply state or action.
+Freeze target identities and complete train/validation/test groups in a new
+manifest before launching the unchanged 13-bank.
+
+After collection and independent replay, run the combined per-constraint
+coverage audit. Train and evaluate the Q-only model regardless of that audit's
+outcome, but mark the experiment diagnostic if any claimed head remains below
+coverage. Enable finite-bank correction only when both the coverage gate and
+held-out prediction gate pass; otherwise record a scientific NO-GO without
+executing correction.

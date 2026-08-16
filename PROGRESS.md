@@ -5879,3 +5879,23 @@ audit artifact SHA-256 is
 The next frozen cohort therefore targets only the missing palm `+2/+2/+2`
 and L6 `+3/+0/+2` two-sided root-episode deficits, with extra prospective
 groups allowed for one-sided yield but never selected after labels.
+
+## Natural-pi0.5 palm/L6 source audit (in progress, 2026-08-17)
+
+ADR-0185 implements a separate read-only source audit over all 1,600 immutable
+natural `pi05_translational` Table-1 arms. It excludes every case already named
+by a committed counterfactual manifest, requires the raw action ledger to have
+zero correction and no QP, maps raw compiled contact geoms, and registers at
+most one warning boundary per root episode. Candidate outcomes are not read.
+
+The natural pi0.5 result is the simulator-state and nominal-action authority.
+Its paired AEGIS result supplies only the frozen obstacle perception used by
+the existing backup policy and diagnostic released-EE proxy; it is not an
+action or state source. The exact palm/L5/L6/L7 labels remain compiled-box
+targets. After the allocation-backed audit, eligible palm/L6 identities and
+strict splits will be committed before any 13-bank rollout is launched.
+
+The user's final gate is explicit: Q-only training/evaluation proceeds even if
+the new combined `4/2/2` coverage gate fails, but such a result is diagnostic.
+Finite-bank action correction remains forbidden unless both coverage and
+held-out prediction pass.

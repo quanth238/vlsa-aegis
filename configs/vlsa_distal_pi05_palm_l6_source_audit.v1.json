@@ -1,0 +1,112 @@
+{
+  "schema_version": "vlsa_distal_pi05_palm_l6_source_audit.v1",
+  "protocol_id": "vlsa-distal-pi05-palm-l6-source-audit-v1",
+  "claim_scope": "Read-only audit of immutable natural raw-pi0.5 Table-1 contact episodes to identify outcome-untouched palm/L6 warning sources. It performs no counterfactual simulation, fitting, selection, or control.",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a",
+    "arm": "pi05_translational",
+    "nominal_action_source": "raw_pi05_nominal_translational",
+    "released_AEGIS_EE_QP_enabled": false,
+    "paired_AEGIS_perception_use": "static_backup_and_diagnostic_EE_geometry_only_not_action_or_state_source",
+    "immutable_source_commit": "57b1aef306f212aea3574b0a3b64aa1a3d8f5e4b"
+  },
+  "population": {
+    "expected_case_count": 1600,
+    "unit": "complete_root_episode",
+    "candidate_outcomes_used": false
+  },
+  "constraint_groups": [
+    {
+      "name": "palm",
+      "body_names": ["robot0_right_hand"],
+      "geom_names": ["gripper0_hand_collision"]
+    },
+    {
+      "name": "finger1_base",
+      "body_names": [],
+      "geom_names": ["gripper0_finger1_collision"]
+    },
+    {
+      "name": "finger1_pad",
+      "body_names": ["gripper0_finger_joint1_tip"],
+      "geom_names": ["gripper0_finger1_pad_collision"]
+    },
+    {
+      "name": "finger2_base",
+      "body_names": [],
+      "geom_names": ["gripper0_finger2_collision"]
+    },
+    {
+      "name": "finger2_pad",
+      "body_names": ["gripper0_finger_joint2_tip"],
+      "geom_names": ["gripper0_finger2_pad_collision"]
+    },
+    {
+      "name": "L5",
+      "body_names": ["robot0_link5"],
+      "geom_names": ["robot0_link5_collision"]
+    },
+    {
+      "name": "L6",
+      "body_names": ["robot0_link6"],
+      "geom_names": ["robot0_link6_collision"]
+    },
+    {
+      "name": "L7",
+      "body_names": ["robot0_link7"],
+      "geom_names": ["robot0_link7_collision"]
+    }
+  ],
+  "target_groups": ["palm", "L6"],
+  "eligibility": {
+    "complete_scientific_pi05_result": true,
+    "raw_action_invariance_required": true,
+    "paired_AEGIS_perception_required_for_frozen_backup_geometry": true,
+    "no_settled_robot_or_dynamic_contact": true,
+    "no_dynamic_task_or_other_contact": true,
+    "minimum_first_target_contact_step": 10,
+    "task_success_required": false,
+    "complete_five_action_chunk_required": true
+  },
+  "previous_candidate_manifests": [
+    {"path": "manifests/vlsa_distal_analytical_repulsion_generalization.v1.jsonl", "file_sha256": "8ebe6333146ad81adba37fd53b1538d11b702e3c3e8a4891acdf245be5d56901"},
+    {"path": "manifests/vlsa_distal_clean_action_risk.v1.jsonl", "file_sha256": "8db2b300dc22198fcd2b6857ae4b68a04af4bde0fbdbca1a47d2d0598c47c326"},
+    {"path": "manifests/vlsa_distal_exact_group_boundary_canary.v1.jsonl", "file_sha256": "75bb3bbd3468d80cc9c6e077da2009cab2475a1ee72b201c918e250c5ad9f58a"},
+    {"path": "manifests/vlsa_distal_generic_l5_boundary_canary.v1.jsonl", "file_sha256": "bdc2e13fab7d09cb35af09920492eb8edd0f6e85e47183d161b49dec6f6eb278"},
+    {"path": "manifests/vlsa_distal_generic_l5_offset_coverage_canary.v1.jsonl", "file_sha256": "829cfdbfd73bcaa9c7c1706d0e410034b3366d9e2e37ddd697c30097c6ce07be"},
+    {"path": "manifests/vlsa_distal_generic_l5_timing_localization_canary.v1.jsonl", "file_sha256": "31179b6576751adcfcc92b47899e6d702461bbce2318140f2c9cbbbc1a3a276c"},
+    {"path": "manifests/vlsa_distal_l5_factorized_boundary.v1.jsonl", "file_sha256": "cd6b486d0981a434e829524812d988fa937774888f756148a79771ec522da2c7"},
+    {"path": "manifests/vlsa_distal_l5_moka_noise_boundary.v1.jsonl", "file_sha256": "c89f2217d88eeffb1bd2989d5f7c23f23671813f0138139b08cb964464aed96a"},
+    {"path": "manifests/vlsa_distal_l5_moka_noise_discovery.v1.jsonl", "file_sha256": "e599a944c693905d9a841b028905ea3fa4c90f7761bc3d5a937ba2a52265f8fe"},
+    {"path": "manifests/vlsa_distal_l5_targeted_extension.v1.jsonl", "file_sha256": "6824c1c239d881e7faf2a0e92d7e52fb426ea693b0dc517d82141df3ef28725f"},
+    {"path": "manifests/vlsa_distal_no_qp_l5_boundary_canary.v1.jsonl", "file_sha256": "312dae657026e13e109b82e7191832100b9d6e1675b4b3decfb6c9cbc7487e6b"},
+    {"path": "manifests/vlsa_distal_prospective_l5_boundary_population.v1.jsonl", "file_sha256": "d72ff5bf0b77ff835e53b85a099dbfab24d98be25739a766666c6d3d74bec51d"},
+    {"path": "manifests/vlsa_distal_repulsion_generalization_pilot.v1.jsonl", "file_sha256": "2f63d1513d8ffb333c2d73b83feef5523351aed809966ab379c81f2bbc427b16"},
+    {"path": "manifests/vlsa_distal_repulsion_task_valid_e38.v1.jsonl", "file_sha256": "a1b9f7e353d67ec323149adb4a2bfb56e2d17cf5336f606881d9ee1ee6a6ae89"},
+    {"path": "manifests/vlsa_distal_spatial_i_t3_e00_candidate_excitation.v1.jsonl", "file_sha256": "2831bb2f9f6318dc8818301d214e9fbf830d391749b82a20bb4731d0c56ba486"},
+    {"path": "manifests/vlsa_distal_spatial_i_t3_progressive_boundary_extension.v1.jsonl", "file_sha256": "71ae1be39395c012aae82edbaff71d4f63ccb84b85a5cfaabef3e976aab65203"},
+    {"path": "manifests/vlsa_distal_spatial_i_t3_timing_localization.v1.jsonl", "file_sha256": "a05a4b2959f57fbe0a47ac9d81182313bdcade0340af65e5316c711af624b613"},
+    {"path": "manifests/vlsa_distal_whole_body_progressive_extension.v1.jsonl", "file_sha256": "2edccf116afa7468c94e44fd875e3dc005d513fdd87c86cdb3c1e3f385b74cbe"},
+    {"path": "manifests/vlsa_distal_whole_body_prospective_population.v1.jsonl", "file_sha256": "81d81ac9702c8f8c8335cadfd495cd50ae95bbc06ca20ae393bfce13818b1d65"}
+  ],
+  "warning_state_rule": {
+    "one_state_per_root_episode": true,
+    "formula": "floor((first_target_raw_contact_step-5)/5)*5",
+    "interpretation": "latest_complete_five_action_query_prefix_ending_before_first_target_contact",
+    "initial_exact_safety_verified_during_candidate_collection": true,
+    "candidate_outcomes_accessed": false,
+    "multiple_warning_states_per_episode": false
+  },
+  "forbidden": [
+    "new_simulation_in_source_audit",
+    "counterfactual_candidate_outcome_access",
+    "reuse_of_previously_opened_candidate_episode",
+    "post_AEGIS_action_as_raw_pi05_nominal",
+    "QP_or_action_correction",
+    "training_or_checkpoint_selection",
+    "timeout_as_safe_or_unsafe",
+    "whole_body_or_CBF_claim"
+  ]
+}
