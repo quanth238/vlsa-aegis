@@ -5223,3 +5223,23 @@ validation/test outcomes out of fitting and normalization. Validation
 file/payload SHA-256 values are
 `f8339258611bb1c89678beb56f46fa9f1e800c816b944f4329640eb9014e29ed` and
 `55dc45efc1a44bd6b54eb86ce64ada5b72bdaeedcba399455be291f4bb6132c0`.
+
+## Prospective Q-only diagnostic exception (preregistered, 2026-08-16)
+
+The user authorizes one training diagnostic without relaxing ADR-0168's
+population NO-GO. Train the previously best 9D relative-endpoint three-output
+L5 MLP once on all known candidates from the six frozen training groups.
+Timeouts remain censored, training states are equally weighted, and input and
+target normalization use training states only. Architecture, `1e-4` weight
+decay, seed, optimizer, loss, and 2,000-epoch final checkpoint are frozen from
+ADR-0162; validation cannot select a checkpoint or hyperparameter. Evaluate
+the two frozen test groups exactly once only after the final model is fixed.
+
+This run asks whether the prospective natural-state population produces any
+unseen-state transfer signal. Report train/validation/test row and global
+RMSE, near-boundary RMSE, false-safes, safe recall, state support, ordering,
+and improvement direction. A diagnostic pass requires zero validation and
+test false-safes, at least 90% safe recall, support in both states of each
+split, and near-boundary RMSE at most 0.1 dimensionless. Regardless of result,
+the failed `4/2/2` population gate means correction, calibration, QP,
+denoising, closed loop, deployment, and a CBF claim remain forbidden.

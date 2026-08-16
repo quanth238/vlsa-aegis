@@ -1,0 +1,88 @@
+{
+  "schema_version": "vlsa_distal_prospective_l5_q_only_diagnostic.v1",
+  "protocol_id": "vlsa-distal-prospective-l5-q-only-diagnostic-v1",
+  "claim_scope": "frozen_Q_only_9D_future_risk_prediction_diagnostic_on_prospective_episode_group_split_not_a_safety_filter_not_control_not_QP_not_CBF",
+  "sources": {
+    "validation_file": "/mnt/data/quanth/experiments/vlsa-distal-prospective-l5-boundary/prospective-l5-boundary-20260816d/validation.json",
+    "validation_file_sha256": "f8339258611bb1c89678beb56f46fa9f1e800c816b944f4329640eb9014e29ed",
+    "validation_payload_sha256": "55dc45efc1a44bd6b54eb86ce64ada5b72bdaeedcba399455be291f4bb6132c0",
+    "producer_root": "/mnt/data/quanth/experiments/vlsa-distal-prospective-l5-boundary/prospective-l5-boundary-20260816d/producer",
+    "case_artifacts": {
+      "vlsa-t1-goal-ii-t2-e24": {"split": "train", "known_candidate_count": 5, "filename": "vlsa-t1-goal-ii-t2-e24.json", "file_sha256": "44825855d7c4e231b1ac8b6acc83d8d55b4d7ecef1f3414405158527d8ac7509", "payload_sha256": "33cce04ca4387b12f4895a6ab105220ae8a194e362b69a58b5a2312ecb60d807"},
+      "vlsa-t1-goal-ii-t2-e29": {"split": "train", "known_candidate_count": 6, "filename": "vlsa-t1-goal-ii-t2-e29.json", "file_sha256": "f049525193a8fda39126ad4dbee4b4bd11c1db8fa9335c9976496f32b387a8f9", "payload_sha256": "72173f7ab7c3d12741c79fc6e37982b0649b65a91212d49676d04560b4ee0764"},
+      "vlsa-t1-goal-ii-t2-e32": {"split": "train", "known_candidate_count": 4, "filename": "vlsa-t1-goal-ii-t2-e32.json", "file_sha256": "ffdc47797ffbfafbd8aaee669ec8ce394a3e8f5fdd9edde3aa3caae0df1b7e26", "payload_sha256": "2058dd4f887392d76311cd253d04f529391eb3640f97582adb9d6bdc3ff52c66"},
+      "vlsa-t1-goal-ii-t2-e34": {"split": "train", "known_candidate_count": 9, "filename": "vlsa-t1-goal-ii-t2-e34.json", "file_sha256": "434d15543cbabf6447cf303a29617b871c20b5a887638aec21ae5183c7d22517", "payload_sha256": "b1fcdb6c7cd98550bb6d6b271f5fa7986b633e1d1a7d406569f7019e507ae1e2"},
+      "vlsa-t1-goal-ii-t3-e38": {"split": "train", "known_candidate_count": 2, "filename": "vlsa-t1-goal-ii-t3-e38.json", "file_sha256": "1be3371eff58d14b3c1b85773bd7fa75798ef04cbc8187c5abd63b170da5a299", "payload_sha256": "21db040fbd71867d9ea5e8b0e78625437bf5df572c3817154ab99a6a9fd0ee4d"},
+      "vlsa-t1-spatial-i-t3-e09": {"split": "train", "known_candidate_count": 13, "filename": "vlsa-t1-spatial-i-t3-e09.json", "file_sha256": "1dd0eaa1597829ebd6e640922e07ab67dd47adc29afa4d8a389b7fbe8844d705", "payload_sha256": "0443a90093721308df80046fd74cc296bf27f10788b5c6e05c728be1dbef568c"},
+      "vlsa-t1-goal-ii-t2-e37": {"split": "validation", "known_candidate_count": 4, "filename": "vlsa-t1-goal-ii-t2-e37.json", "file_sha256": "c3a1dab729aa7e0a3335ddb8d9c1d1978863d0dbfaeffce3daf955feb1460fae", "payload_sha256": "4fa25a00359a363ca4a70c0e0c06a2abec9fd64feeaaf3e9dc9a83c40e5583c9"},
+      "vlsa-t1-spatial-i-t3-e27": {"split": "validation", "known_candidate_count": 13, "filename": "vlsa-t1-spatial-i-t3-e27.json", "file_sha256": "a96e299a7c9bcfc3482d61dde1e6cefeb92728bb2a2f2643f4acb801a040fc7a", "payload_sha256": "38755cf199500559bb5c8391d75aabf3385067b96cda539f44f80aa52fb7ed20"},
+      "vlsa-t1-goal-ii-t3-e48": {"split": "test", "known_candidate_count": 4, "filename": "vlsa-t1-goal-ii-t3-e48.json", "file_sha256": "f46f78de1b8ee33c02d2f29949a6b4c15032a02a94f6cdb1471b6f7329302e96", "payload_sha256": "c360d69520988251820690fba33bd9059318b46a90a3a7069daf60525ca7c8b2"},
+      "vlsa-t1-spatial-i-t3-e15": {"split": "test", "known_candidate_count": 13, "filename": "vlsa-t1-spatial-i-t3-e15.json", "file_sha256": "f27553e5da03ff88bbab73b488c34299b7d463eedd1edafb23c6120cfc049b28", "payload_sha256": "d44eb3e0da1661f103975e870cbdb97244da92fa871cd58295bd328c92ad98c4"}
+    }
+  },
+  "dataset": {
+    "split_case_ids": {
+      "train": ["vlsa-t1-goal-ii-t2-e24", "vlsa-t1-goal-ii-t2-e29", "vlsa-t1-goal-ii-t2-e32", "vlsa-t1-goal-ii-t2-e34", "vlsa-t1-goal-ii-t3-e38", "vlsa-t1-spatial-i-t3-e09"],
+      "validation": ["vlsa-t1-goal-ii-t2-e37", "vlsa-t1-spatial-i-t3-e27"],
+      "test": ["vlsa-t1-goal-ii-t3-e48", "vlsa-t1-spatial-i-t3-e15"]
+    },
+    "L5_row_indices": [0, 1, 2],
+    "target": "negative_minimum_dimensionless_compiled_box_radial_slack_for_each_L5_primitive_over_registered_candidate_plus_complete_fixed_continuation",
+    "unknown_timeouts": "masked_not_safe_not_unsafe",
+    "training_loss": "all_known_train_candidates_state_balanced",
+    "validation_use": "report_only_no_checkpoint_or_hyperparameter_selection",
+    "test_use": "exactly_once_after_fixed_final_epoch_model_is_frozen"
+  },
+  "features": {
+    "input_dimension": 9,
+    "definition": "P_start_minus_obstacle_center_P_commanded_end_minus_obstacle_center_and_obstacle_semiaxes",
+    "translation_scale_m_per_action_unit": 0.05,
+    "P_commanded_end": "P_start_plus_0.05_times_sum_of_five_exact_executed_XYZ_commands",
+    "future_executed_state_excluded": true
+  },
+  "model": {
+    "class": "three_output_relative_endpoint_MLP",
+    "input_dimension": 9,
+    "output_count": 3,
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale": 0.05,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale": 0.01,
+    "normalization": "training_states_only_state_balanced",
+    "checkpoint": "fixed_final_epoch_no_validation_model_selection"
+  },
+  "metrics": {
+    "near_boundary_abs_risk": 0.05,
+    "report_row_and_global_RMSE": true,
+    "report_false_safe_and_safe_support": true,
+    "report_within_state_ranking_and_improvement_direction": true
+  },
+  "decision": {
+    "maximum_false_safe_count": 0,
+    "minimum_safe_recall": 0.9,
+    "required_safe_support_state_count": {"validation": 2, "test": 2},
+    "maximum_near_boundary_global_RMSE": 0.1,
+    "pass_meaning": "diagnostic_transfer_signal_only_population_and_control_gates_remain_failed"
+  },
+  "forbidden": [
+    "V_targets_or_loss",
+    "timeout_relabeling",
+    "validation_or_test_normalization",
+    "validation_checkpoint_selection",
+    "hyperparameter_tuning",
+    "calibration_or_asymmetric_loss",
+    "candidate_selection_or_correction",
+    "QP_or_gradient_correction",
+    "denoising_guidance",
+    "closed_loop_execution",
+    "deployment_or_CBF_claim"
+  ]
+}

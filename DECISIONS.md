@@ -4835,3 +4835,26 @@ new collection decision must prospectively add independent boundary states or
 preregister a broader action bank; it must not outcome-retime or move any
 existing frozen episode between splits. Q-only training, V tuning, correction,
 QP, denoising, closed loop, deployment, and CBF claims remain blocked.
+
+## ADR-0169: Permit one frozen prospective Q-only diagnostic
+
+- Status: preregistered; control remains blocked
+- Date: 2026-08-16
+
+The user's explicit diagnostic exception permits training on ADR-0168 despite
+its population NO-GO. This is not permission to reinterpret missing boundary
+coverage as a passed data gate. It is a capacity/transfer measurement.
+
+Use the existing three-output 9D relative-endpoint MLP without architectural,
+loss, optimizer, seed, schedule, or weight-decay changes. Fit only known train
+candidates with equal total weight per physical state; fit normalization from
+training groups only. Validation is report-only, the checkpoint is the fixed
+final epoch, and test is evaluated once after freezing the model. Unknown
+timeouts remain excluded rather than relabeled.
+
+The diagnostic transfer signal passes only with zero false-safes, at least
+90% safe recall, both states supported, and near-boundary RMSE at most 0.1 on
+both validation and test. Even a pass cannot authorize candidate selection or
+control because each held-out split contains only one two-sided state. V
+targets, calibration, optimistic penalties, correction, QP, denoising, closed
+loop, deployment, and CBF claims remain forbidden.
