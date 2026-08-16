@@ -5764,3 +5764,26 @@ state to be initially safe, zero physical false-safes, exact replay/context,
 split counts `16/4/4`, per-claimed-group two-sided support `4/2/2`, and global
 physical-safe candidates in every initially-safe validation/test state. This
 audit performs no fitting and cannot silently discard unsafe or timeout data.
+
+## Train/validation-only whole-body Q diagnostic (preregistered, 2026-08-17)
+
+At the user's explicit request, ADR-0182 permits one capacity/state-transfer
+diagnostic before deployment coverage authorization. This does not weaken the
+coverage gate and does not access any test artifact. It reads only immutable
+ADR-0177/ADR-0180 producer cases assigned to train or validation, verifies the
+bound validation hashes and independent replay, retains UNKNOWN timeouts as
+censored, and excludes the two initially unsafe recovery states from ordinary
+prevention fitting and metrics while keeping their identities in the source
+record.
+
+Compare three fixed-final-epoch Q-only arms: the established relative endpoint
+9D L5 predictor, the causal direct-L5/OSC 33D predictor, and a shared
+constraint-conditioned 135D predictor for palm/L5/L6 rows. The shared feature
+contains row-local normalized obstacle geometry, semiaxes and initial slack,
+`q/qdot`, OSC position error, exact effective and nominal five-action chunks,
+their residual, and a row identity. Every arm uses the same two-layer SiLU
+MLP, train-only state/constraint-balanced normalization, symmetric Huber loss,
+AdamW weight decay `1e-4`, fixed seed, and 2,000 epochs. Validation labels do
+not choose a checkpoint or hyperparameter. Report RMSE, boundary error,
+false-safes, safe recall, ordering, and virtual safe support. Test, correction,
+QP, calibration, denoising, and closed-loop execution remain blocked.

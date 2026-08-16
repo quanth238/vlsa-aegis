@@ -5379,3 +5379,29 @@ contact authority. Keep L7 diagnostic because the availability audit found no
 clean natural boundary population. If any gate fails, authorize no Q-only
 training under this protocol and use the exact deficit to preregister additive
 states; do not tune a model on incomplete coverage.
+
+## ADR-0182: Permit a sealed-test-free MLP ability diagnostic
+
+- Status: preregistered; independent H100 retrain required
+- Date: 2026-08-17
+
+The user explicitly authorizes diagnostic training to measure whether the
+stored data contain learnable future-risk structure before the coverage gate
+passes. Do not reinterpret this as safety-filter authorization. Never read a
+test case artifact in the diagnostic. Fit normalization and all parameters on
+eligible training cases only, evaluate the fixed final model on train and
+validation, and keep the original test use unchanged.
+
+Exclude E21 and E02 from prevention fitting because their represented physical
+geometry is already unsafe at the frozen snapshot; retain them as recovery
+audit evidence. Censor UNKNOWN timeouts. Compare the established 9D endpoint
+and 33D L5/controller arms against one shared constraint-conditioned palm/L5/L6
+row predictor using causal current state, relative geometry, and exact action
+chunks. Hold architecture, seed, symmetric loss, 2,000 epochs, AdamW weight
+decay `1e-4`, and train-only normalization fixed. Run an independent H100
+retrain and require exact models/predictions before accepting metrics.
+
+This experiment may answer only whether the MLP fits training risk and
+transfers to the opened validation states. It cannot authorize test access,
+action selection, QP, calibration, denoising, closed loop, deployment, or a
+CBF/formal-safety claim irrespective of its metrics.
