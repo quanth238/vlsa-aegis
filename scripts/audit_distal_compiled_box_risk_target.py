@@ -73,7 +73,6 @@ def _evaluate_case(
         _build_environment,
         _contact_model_authority,
         _detailed_active_obstacle_contacts,
-        _eef_site_id,
         _runtime_imports,
         _settle,
         read_jsonl,
@@ -103,6 +102,7 @@ def _evaluate_case(
     )
     from main.multilink_ellipsoid.shadow import (
         MultilinkEllipsoidShadow,
+        _eef_site_id,
         _raw_model_data,
         load_shadow_config,
     )

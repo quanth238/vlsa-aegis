@@ -116,6 +116,20 @@ class ExactGroupBoundaryTest(unittest.TestCase):
         self.assertIn("data.xmat[body_id]", helper)
         self.assertNotIn("data.site_xmat[site_id]", helper)
 
+    def test_whole_body_audit_imports_eef_site_helper_from_shadow(self):
+        source = (
+            ROOT / "scripts/audit_distal_compiled_box_risk_target.py"
+        ).read_text()
+        evaluator_import = source.split(
+            "from main.multilink_ellipsoid.compiled_box_risk_target_audit",
+            1,
+        )[0]
+        shadow_import = source.split(
+            "from main.multilink_ellipsoid.shadow import (", 1,
+        )[1].split(")", 1)[0]
+        self.assertNotIn("_eef_site_id", evaluator_import)
+        self.assertIn("_eef_site_id", shadow_import)
+
     def test_frozen_contract_and_warning_steps(self):
         config = load_config(CONFIG)
         cases = load_cases(ROOT / config["selection_manifest"], config)

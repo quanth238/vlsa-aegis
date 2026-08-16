@@ -5531,3 +5531,11 @@ the legacy `get_body_xmat` convenience method. Validator `41010` is
 dependency-impossible. Replace only that API access with the equivalent
 site-body `xmat`/`xquat` arrays, keep every scientific setting fixed, and use a
 new immutable commit and artifact root.
+
+Replacement producer/replay `41011`/`41012` are also apparatus history only.
+Both passed all scoped tests and stopped before candidate simulation because
+the whole-body auditor imported `_eef_site_id` from
+`main.evaluate_safelibero_aegis`, although the established helper is owned by
+`main.multilink_ellipsoid.shadow`. Validator `41013` is dependency-impossible.
+The repair changes only that import binding and adds a structural regression;
+state, candidates, execution, geometry, labels, and all gates remain frozen.

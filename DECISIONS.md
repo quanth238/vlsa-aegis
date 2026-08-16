@@ -5155,3 +5155,11 @@ dependency-impossible. This is apparatus-only. Read the identical EEF site
 body orientation from indexed `data.xmat[body_id]` (and `xquat[body_id]` for
 the recorded quaternion), then rerun from a new immutable commit/root without
 changing any state, action, geometry, controller, continuation, or gate.
+
+Replacement jobs `41011`/`41012` also failed before candidate simulation after
+all scoped tests passed. The repaired auditor requested `_eef_site_id` from
+the evaluator module instead of its established owner,
+`main.multilink_ellipsoid.shadow`; `41013` is dependency-impossible. Preserve
+these jobs as apparatus history. Repair only the import owner, cover the
+binding with a structural test, and rerun from a new immutable commit/root with
+the complete ADR-0176 scientific contract unchanged.
