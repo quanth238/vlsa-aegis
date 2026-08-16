@@ -5482,3 +5482,20 @@ validator `40997` is dependency-impossible. The apparatus-only repair adds the
 alias (`0` for nominal, `2.0` for every grid candidate) without changing any
 action, state, target, rollout, or gate. The retry must use a new clean commit
 and artifact root.
+
+Clean replacement producer `40999`, independent replay `41000`, and validator
+`41001` completed from immutable commit
+`1676717c7bd7e8bacd41a8c6ee596b67e2aa8b52`. ADR-0175 passes its targeted
+mechanism gate. E00 step 65 remains initially exact-L5 safe with slack
+`0.305562`; among 27 candidates, 25 are known, four are exact-safe, 21 are
+unsafe, two are unknown timeouts, and four lie near the registered boundary.
+Independent replay and state hashes are exact, physical false-safes are zero,
+and the apparatus authorizes same-bank grouped collection. Nineteen of 26
+non-nominal proposals clip, so requested and effective correction norms must
+remain separate inputs/records.
+
+This is candidate-support evidence, not training authorization. Freeze the
+step-65 timing and local normal/tangent grid before prospectively splitting new
+episode groups. Validation file/payload SHA-256 values are
+`4421a5097e7b65cca2c1da1e4983096c83566849bd5da4a946d0ee794cc18c96`
+and `20d71b81f2d7335c7974d26e0a69f15766e09cf444d35b825e8a144183438f68`.

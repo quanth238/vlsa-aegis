@@ -5111,3 +5111,13 @@ Add that field as an exact alias of requested correction L2 norm; do not alter
 the candidates or reinterpret the failed runs. Validator `40997` cannot run.
 Submit replacements from a new immutable commit/root after local contract
 tests pass.
+
+Jobs `40999`/`41000`/`41001` validate the apparatus-only repair and pass
+ADR-0175. At E00 step 65, the exact local-frame grid yields `4 safe / 21
+unsafe / 2 unknown` with four near-boundary candidates, exact independent
+replay, positive initial L5 slack `0.305562`, and zero represented-geometry
+physical false-safes. Freeze this timing and candidate family for prospective
+grouped collection. Do not train on this opened development case or treat the
+nineteen clipped proposals as requested-norm examples; record both requested
+and effective post-clipping actions. Training remains conditional on an
+independently validated `4/2/2` two-sided train/validation/test population.
