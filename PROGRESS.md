@@ -6900,3 +6900,23 @@ A rule must select safely in all four validation roots without abstention or an
 L6 diagnostic failure before it is frozen and evaluated on the already-opened
 six-root diagnostic test. Only a 6/6 safe, non-abstaining diagnostic result can
 support one separately frozen opened full-episode mechanism pilot.
+
+Independent CPU audits `42065/42066` and validator `42067` pass ADR-0202 with
+exact scientific agreement and no simulation or retraining. Validation freezes
+`minimum_predicted_primary_risk`: it selects an exact-safe prefix in `4/4`
+validation roots with zero abstentions and zero diagnostic-L6 failures, then
+selects exact-safe prefixes in `6/6` already-opened diagnostic-test roots with
+the same zero-failure result. The zero-threshold least-intervention rule reaches
+`3/4` and `4/6`; the validation-margin rule is collision-free when it acts but
+abstains in `2/4` validation and `6/6` diagnostic-test roots.
+
+The frozen winning rule is a finite-bank ranker, not a calibrated safety gate or
+minimum-intervention result: its mean normalized correction is `2.0` on
+validation and `1.955090` on diagnostic test, and it frequently selects the
+strong `r2.0` branch. This supports one separately frozen opened full-episode
+mechanism pilot to measure collision-free task success. It does not authorize a
+generalization, safety, QP, denoising, CBF, or paper-scale claim. Producer,
+replay, and validation SHA-256 values are
+`9dcc3bad66fc3fa1a0ce998a38ce65e25f384c21708e944f28ddf283c04fc268`,
+`fd3245a75616800b5ff4e7b818799261ea3ed408c5a91054aab5499096964782`, and
+`17d70d24dc83deb2c98248b8e7f0c987ed43950c096717c7ffc4cf244c63b51e`.

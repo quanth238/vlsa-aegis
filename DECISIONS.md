@@ -6418,3 +6418,19 @@ rule then selects six safe diagnostic-test candidates with zero abstentions and
 zero L6 failures. This is an offline candidate-bank gate, not evidence that the
 five-action target anticipates later queries. No QP, denoising, execution,
 closed loop, generalization, safety or CBF claim is part of this audit.
+
+CPU audits `42065/42066` and validator `42067` reproduce the complete scientific
+view exactly. Freeze `minimum_predicted_primary_risk`, selected from validation
+only: it gives `4/4` exact-safe validation selections and `6/6` exact-safe
+already-opened diagnostic-test selections, with no abstention and no selected
+L6 failure. Do not substitute the zero-threshold rule (`3/4`, `4/6`) or the
+validation-margin rule, which abstains in `2/4` validation and all six test
+roots.
+
+Interpret this as evidence for finite-bank action ordering only. The winning
+rule is not least modifying and selects near-maximal registered corrections
+(mean normalized correction `2.0` validation, `1.955090` diagnostic test).
+Authorize one separately preregistered opened full-episode pilot using this
+exact rule and bank to test whether collision avoidance preserves native task
+success. Keep QP, denoising, continuous correction, calibration, generalization,
+safety and CBF claims blocked.
