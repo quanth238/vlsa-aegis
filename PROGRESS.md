@@ -6514,3 +6514,34 @@ creation because the inherited evaluator requires an explicit
 Retain the failed root.  Add only that receipt to the CPU replay Slurm script
 and use a new immutable run ID; scientific actions and outcomes remain bound to
 producer `41734`.
+
+## 2026-08-17: End-to-end task preservation after terminal selection
+
+The E05 selected-action artifact does not contain `task_success` or
+`goal_satisfied`; `SAFE_TERMINAL` records only the fixed safety continuation's
+clearance and stable-hold condition. The active ADR-0194 gate is therefore
+extended with one minimal opened task-preservation diagnostic rather than
+another candidate-data collection.
+
+The new opt-in protocol binds the immutable `41734` selected action bytes. For
+ordinary, post-hoc compact, and late-flow-terminalized compact arms it replays
+the same archived prefix through step 179, executes the registered five-action
+chunk at steps 180--184, and then uses raw frozen pi0.5 full-Cartesian
+reobserve/requery from query 37 through native task success or the registered
+300-action limit. No released EE-QP, learned QP, additional correction, exact
+inference-time rollout verifier, model update, or label collection is present.
+
+Task success, raw active-obstacle robot contacts, CAR, and timeout are separate
+outcomes. A lightweight read-only monitor records contacts at all 25 MuJoCo
+substeps per action, reports palm/L5/L6/L7 separately, retains unmapped robot
+geoms as `other_robot`, and records paper CAR. Producer videos are emitted for
+all three arms. A CPU exact-action replay must reproduce the producer's
+complete scientific view before the result is accepted.
+
+Local focused validation passes 41 tests with four optional NumPy/Pillow skips;
+the new task-success contract itself passes all five tests. The full `init.sh`
+gate runs 592 tests and reports only the 20 already known desktop-Python NumPy
+import errors, with 67 skips. Allocation preflight will rerun focused tests in
+the registered scientific runtime before execution. The next action is commit,
+remote source preparation, live Slurm preflight, and one H100 producer followed
+by CPU exact-action replay and validation.

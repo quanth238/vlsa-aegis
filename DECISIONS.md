@@ -6061,3 +6061,30 @@ risk evaluator correctly requires the explicit `QUERY_RISK_CPU_CANARY=1`
 receipt.  Set that receipt only in the CPU replay script and retry in a new
 immutable root.  This acknowledges the allocation mode; it does not change
 actions, simulator, controller, or gates.
+
+### ADR-0194 task-preservation extension
+
+The selected-action pilot's `SAFE_TERMINAL` result is a clearance-and-hold
+condition, not native SafeLIBERO task success. Add one opened E05 diagnostic
+without changing the model, candidate bank, selected chunks, controller, or
+selection rule. For each of the three frozen arms, replay the identical
+archived action prefix through step 179, execute the exact five selected action
+bytes at steps 180--184, then reobserve and requery raw frozen pi0.5 from query
+37 until native environment success or the registered 300-action Goal-suite
+horizon.
+
+Do not apply the released AEGIS EE-QP, learned QP, additional correction,
+calibration, or an exact rollout verifier. Preserve full Cartesian rotation
+and gripper values and clip only XYZ as in the terminal scorer. Report native
+task success, raw active-obstacle robot contact, paper CAR, timeout, and
+collision-free task success as separate outcomes. Raw contact monitoring is
+performed at every internal MuJoCo substep; palm/L5/L6/L7 geoms are reported
+separately and any other robot geom remains visible as `other_robot`.
+
+One H100 producer may run the three full episodes sequentially against one
+frozen policy server. An independent CPU run must replay the complete exact
+producer action bytes and reproduce the scientific view before any result is
+accepted. Producer videos are required so the task outcome can be inspected.
+This opened single case can establish task-preservation mechanism evidence
+only; it cannot establish a TSR/CAR population improvement, formal safety, or
+a CBF claim.

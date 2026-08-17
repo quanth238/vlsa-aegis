@@ -1,0 +1,58 @@
+{
+  "schema_version": "vlsa_terminalized_late_flow_task_success.v1",
+  "protocol_id": "vlsa-terminalized-late-flow-task-success-v1",
+  "claim_scope": "One opened E05 end-to-end task-preservation diagnostic. Replay the identical archived prefix, execute exactly one frozen five-action arm from ADR-0194, then reobserve and requery raw frozen pi0.5 through native task success or timeout. This is not population evidence, a safety guarantee, or a CBF claim.",
+  "registered_selected_action_pilot": {
+    "path": "/mnt/data/quanth/experiments/vlsa-terminalized-late-flow-pilot/terminalized-late-flow-pilot-20260817b/producer/result.json",
+    "file_sha256": "ccb48b8d338bfedda63ac6cc6b0caee3090d8d9588e63c7064df03832b08aa6b",
+    "payload_sha256": "3101e12f96824198b6e84f209e6edfc0f0f68435b49ee1e3d96f2e1b8894c1f1",
+    "source_commit": "d2cfb14a363b58af976a139d3d456560de732ff1",
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "source_snapshot_sha256": "81a2a29dc065715f5fb096b3e7fbf0443d126844eeaf9b2c0632c6557401682e"
+  },
+  "state_protocol": {
+    "archived_prefix_end_exclusive": 180,
+    "intervention_steps": [180, 181, 182, 183, 184],
+    "first_live_policy_query_index": 37,
+    "execute_actions_per_query": 5,
+    "model_action_horizon": 10,
+    "arms": [
+      "nominal",
+      "terminal_compact_selector",
+      "late_flow_terminalized_compact_selector"
+    ]
+  },
+  "control": {
+    "registered_first_chunk_source": "immutable_ADR_0194_selected_executable_action_bytes",
+    "post_intervention_policy": "raw_frozen_pi05_reobserve_requery",
+    "full_cartesian_action": true,
+    "translation_clip": [-1.0, 1.0],
+    "rotation_and_gripper_preserved": true,
+    "OSC": "unchanged_OSC_POSE",
+    "released_AEGIS_EE_QP_enabled": false,
+    "learned_QP_enabled": false,
+    "exact_rollout_verifier_at_inference": false,
+    "additional_correction_after_first_chunk": false
+  },
+  "task_evaluation": {
+    "success_authority": "native_environment_goal_done",
+    "timeout_authority": "registered_suite_max_steps",
+    "contact_authority": "raw_MuJoCo_active_obstacle_robot_contacts",
+    "CAR_authority": "active_obstacle_L1_displacement_gt_0.001_m",
+    "task_success_and_safety_reported_separately": true,
+    "producer_video_enabled": true,
+    "exact_action_replay_required": true
+  },
+  "physical_contact_groups": {
+    "palm": ["gripper0_hand_collision"],
+    "L5": ["robot0_link5_collision"],
+    "L6": ["robot0_link6_collision"],
+    "L7": ["robot0_link7_collision"]
+  },
+  "interpretation": {
+    "safe_terminal_is_not_task_success": true,
+    "primary_outcome": "collision_free_task_success",
+    "opened_single_case_mechanism_only": true,
+    "formal_safety_claim": false
+  }
+}
