@@ -5801,7 +5801,7 @@ pass and do not launch E46/E42 or any further simulation without a new request.
 
 ## ADR-0191: Test compact inference-only future-risk scoring without simulation
 
-- Status: preregistered; deterministic stored-artifact fit pending
+- Status: complete; compact prediction improves but model-only safety still fails
 - Date: 2026-08-17
 
 Stop new collection and fresh exact verification. Reuse the immutable 580
@@ -5830,3 +5830,29 @@ Run one H100 fit and one independent deterministic H100 retrain. Test artifacts
 are already opened, so all results are post-hoc diagnostics rather than fresh
 generalization evidence. No result from this gate authorizes simulation,
 correction execution, QP, denoising, deployment, or a CBF claim.
+
+H100 trainer `41587` and independent retrainer `41589` complete in 58/54
+seconds with zero simulator rollouts and exact scientific reproduction. The
+compact model has 1,345 parameters. Relative to the shared 135D arm, validation
+global RMSE falls from `0.520684` to `0.161441` and test global RMSE from
+`0.590234` to `0.361087`; validation/test rank Spearman rises from
+`0.114709/0.336843` to `0.704266/0.673485`. Training RMSE is deliberately worse
+(`0.129139` versus `0.028646`), consistent with reduced memorization rather
+than another tighter training fit.
+
+The inference-only minimum predicted EE/palm/L5 risk rule selects physically
+safe stored candidates in `6/6` validation and `7/9` test states, with zero
+UNKNOWN selections and no selected L6 failure. This improves the frozen 135D
+validation result from `5/6` and matches its `7/9` test result. The two remaining
+test collisions are both L5: Spatial-I task-3 E15 (row 3) and E42 (rows 3--4).
+The zero-threshold minimum-intervention rule remains poor because optimistic
+nominal predictions preserve unsafe/UNKNOWN proposals.
+
+Accept the compact representation as the best current inference feature and
+minimum-risk ranking as the correct first selector. Reject any claim that it is
+already a collision-free safety filter: two of nine test selections remain
+physically unsafe, the test is post-hoc, and selected corrections are often
+large. Do not add exact rollout verification inside inference. A later, small
+task-level empirical run may test whether this inference-only selector reduces
+CAR without harming success, but it requires a separate explicit execution
+protocol and user authorization.

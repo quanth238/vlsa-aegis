@@ -6255,3 +6255,27 @@ so any collision caused by the narrower scope remains visible. Local contract,
 feature, selector, syntax, and JSON checks pass; the numerical feature test is
 deferred to the registered allocation because the desktop runtime lacks NumPy.
 No simulation, collection, QP, denoising, or fresh exact verifier is scheduled.
+
+H100 fit `41587` and independent retrain `41589` finish in under one minute each
+and reproduce model SHA-256
+`d7c36e5a70aec7f0680d610093679af28a29b0c0a24597cd1f73dfa0268c76a8`
+exactly. Dataset use is unchanged: 18/6/9 eligible train/validation/test states,
+232/89/132 known candidates for error metrics, and 58/17/13 UNKNOWN candidates
+scored but never treated as safe. New simulator rollout count is zero.
+
+The compact global RMSE is `0.129139/0.161441/0.361087` on
+train/validation/test, versus `0.028646/0.520684/0.590234` for the shared 135D
+model. Compact near-boundary RMSE is `0.109961/0.161456/0.316331`, and rank
+Spearman is `0.823066/0.704266/0.673485`. Minimum predicted primary risk selects
+all-physical-safe candidates in `6/6` validation and `7/9` test states with no
+UNKNOWN or L6-failing selection. The remaining unsafe test selections are E15
+L5 row 3 and E42 L5 rows 3--4. Thus the compact representation substantially
+improves value transfer and validation action selection, but it does not remove
+test false-safes and cannot authorize model-only safety execution.
+
+Result/validation file SHA-256 values are
+`cb0fcf2e37761eb867fc222ea557d68812bdf192f9013f2adc93cfa790c8abb7` and
+`65ccce6018bd272a322ca93f18fe996298a4471a1c57f66cf2654e8908ae83e4`;
+payload SHA-256 values are
+`18cbafbdcd8f19b99a3f734bdf6d1e4f96bbbef241e923e65c29d33a5ec76191`
+and `ab772de0a347ca798aa929b947710f1dc31b6206920cf987a2a63c1d190edaea`.
