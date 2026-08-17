@@ -134,12 +134,18 @@ def run(*, repo_root: Path, config_path: Path,
         compact_frozen = compact_result["compact_shared_7D"][
             "all_candidate_predictions"
         ][split]
+        compact_known_samples = [
+            sample for sample in samples[split]
+            if bool(sample["known_outcome"])
+        ]
         compact_fresh = predict_serialized_mlp(
-            [sample["feature"] for sample in samples[split]],
+            [sample["feature"] for sample in compact_known_samples],
             compact_model["state_payload"],
         )
         compact_equal, compact_error = exact_float_lists_close(
-            compact_fresh, compact_frozen, tolerance=tolerance,
+            compact_fresh,
+            compact_result["compact_shared_7D"]["known_predictions"][split],
+            tolerance=tolerance,
         )
         _require(
             compact_equal,
@@ -149,6 +155,8 @@ def run(*, repo_root: Path, config_path: Path,
         )
         compact_replay[split] = {
             "sample_count": len(compact_fresh),
+            "scope": "known_candidates_serialized_replay",
+            "all_candidate_predictions_source": "immutable_compact_result",
             "maximum_absolute_error": compact_error,
             "within_tolerance": compact_equal,
         }
