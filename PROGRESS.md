@@ -6217,3 +6217,23 @@ are verifier rejections, never primary commands. The first candidate passing
 palm/L5/L6/L7 risk, raw-contact, CAR, and safe-terminal checks is the selected
 five-action chunk. Producer and independent replay must agree exactly. This is
 an exact-verified correction mechanism test, not late denoising or closed loop.
+
+The user stopped ADR-0190 after the first case because the initial apparatus
+re-executed the complete 27-bank once per ranked candidate. Jobs `41514/41515`
+were canceled only after both atomically completed their first fresh bank; no
+later-case simulation was launched. Apparatus-only commit `a227d75` replaces
+the redundant loop with one complete-bank execution followed by the unchanged
+logical top-five prefix scan. CPU finalizers `41565/41566` bind the preserved
+fresh banks and independently reproduce E39 exactly (scientific-view SHA-256
+`ac8dae59ac9cd8bf0664c9222fd213ec3d0fbc467216da3953f78724fb6c4e9c`).
+The MLP rank-1 candidate is freshly unsafe from positive L6 violation
+`0.0145145`; ranks 2--3 are also unsafe and have raw protected contacts. Rank
+4, `grid_z0_p1_m1_front_loaded_r2.0`, is known safe with palm/L5/L6/L7 future
+violations `-0.466478/-0.098516/-0.041459/-0.445327`, zero group/raw contacts,
+and no physical veto. Thus exact top-five verification avoids the E39
+false-safe choice in `1/1` executed cases. This is encouraging mechanism
+evidence only: the preregistered three-case gate is incomplete, and E46/E42,
+closed loop, model-only correction, QP, and denoising remain untested. Producer
+and replay file SHA-256 values are
+`797c339a4fc3f9e0892bdfcbed42dbe81696bbe1c23476404d1ba82533d83d4f` and
+`bdb9d90178930acd5b023e3e76dac4391fd551e23a52b4af7c3ffb122a624408`.

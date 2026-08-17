@@ -5765,7 +5765,7 @@ and must never execute an unverified, unsafe, or timeout candidate.
 
 ## ADR-0190: Execute top-five verification on the three false-safe states
 
-- Status: preregistered
+- Status: stopped after one independently reproduced case
 - Date: 2026-08-17
 
 Freeze Goal-II E39, Long-II E46, and Spatial-I E42 because they are exactly the
@@ -5787,3 +5787,14 @@ top-five selection in all three cases plus exact independent replay. A pass
 shows that MLP-ranked verification can recover from its own false-safe top-one
 proposal. It does not authorize model-only execution, late denoising, full-task
 closed loop, deployment, or a formal safety guarantee.
+
+The first implementation exposed an apparatus inefficiency: the historical
+27-bank source config ignored single-candidate sharding, so every logical rank
+already executed the full bank. Preserve the completed first producer/replay
+banks, cancel redundant repetitions, and derive the prefix decision from that
+single fresh bank. Commit `a227d75` implements and unit-tests this equivalent
+evaluation. At the user's stop request, only Goal-II E39 is interpreted:
+rank 1 is freshly L6-unsafe, ranks 2--3 are unsafe, and rank 4 is exactly safe
+with zero raw/group contacts. Independent scientific views match exactly.
+Record this as a `1/1` mechanism success but do not call the three-case gate a
+pass and do not launch E46/E42 or any further simulation without a new request.
