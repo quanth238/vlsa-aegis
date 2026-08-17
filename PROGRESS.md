@@ -6678,3 +6678,26 @@ three optional numerical skips. The repository-wide desktop gate still fails
 only because the desktop Python lacks NumPy in 20 historical test modules; the
 allocation preflight must run the new NumPy/OSQP case in the registered H100
 environment before inference.
+
+H100 job `41830` completes ADR-0197 on `worker-1` in `00:01:27` from
+immutable commit `ddf36cbf3e039dd23f458b83a2175e16c7b1e1bd`. All ten
+allocation tests pass, including the numerical Jacobian and tightened OSQP
+case. The exact Query-2 nominal EE/palm/L5 predictions are
+`[+0.0976876, -0.0569615, -1.8494414, -2.0890114, -4.3970320]`.
+The one hard multi-constraint QP is primal infeasible in the registered 0.25
+trust box, so no nonlinear proposal is terminalized and no action is executed.
+
+The cause is not conflict with palm/L5. For diagnostic EE row 0 the pullback
+Jacobian L1 norm is only `0.2740811`; even the unattainably optimistic corner
+bound `0.0976876 - 0.25 * 0.2740811 = +0.0291673` remains unsafe. Palm and all
+L5 rows are already predicted safe. Thus the current late-flow correction has
+insufficient authority to satisfy the oversized released-EE-proxy head at this
+state. Removing row 0 would make the unchanged nominal feasible and the QP
+would return zero; it would not demonstrate collision avoidance or task
+progress. No data, label, candidate future, or QP action was generated.
+
+The result file/payload SHA-256 values are
+`a7160ae4b938519f484382616f0806e5ea97091ead37829ffb85e43c8c173700`
+and `1db92e6de8f75e18e30254ab971d66001a34d56b49aa59b0efc42b4ade26542c`.
+This closes the one-query diagnostic as predicted-infeasible and does not
+authorize another simulator run.

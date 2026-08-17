@@ -6194,3 +6194,19 @@ the earlier Query-1 value `-0.2098709`: a minimum-intervention QP correctly
 returns zero whenever the critic already calls the nominal action safe. It also
 cannot establish task progress because the current target's fixed continuation
 certifies collision recovery, not future VLA task completion.
+
+Job `41830` answers the frozen question with NO-GO. Query-2 palm and L5 rows
+are already negative, while diagnostic released-EE-proxy row 0 is `+0.0976876`.
+Within the frozen 0.25 trust box, the strongest possible linearized EE decrease
+is only `0.0685203`, leaving a positive lower bound `+0.0291673`; OSQP therefore
+correctly reports primal infeasibility. This is insufficient late-flow authority
+against the diagnostic EE proxy, not a palm/L5 constraint conflict.
+
+Do not widen the trust region or drop EE post hoc using this opened outcome.
+The released EE ellipsoid was already registered as diagnostic and is not a
+raw-contact authority. A paper method that makes an EE claim needs a tight
+physical palm/finger/tool representation and matching learned target; the
+oversized released proxy should remain an AEGIS baseline diagnostic rather
+than a hard learned-QP deployment constraint. Conversely, constraining only
+palm/L5 at this state yields a zero correction and supplies no task-progress
+evidence. Stop here rather than running another control episode.
