@@ -6891,3 +6891,12 @@ paper-scale transfer and an EE-collision prediction claim remain blocked.
 Validation file/payload SHA-256 values are
 `1bf793a4f497d004ce9a4542b2bc427407e7c9d30f331183d5f203a6792f5bda`
 and `6a8aeed21494ce09c3129d77b9d001a0480de09a1e42b75677f11a86f5fa7ac0`.
+
+ADR-0202 freezes the requested offline action-selection test. It performs no
+training and no simulator step. Using the immutable model predictions and exact
+312-prefix labels, it compares minimum predicted primary risk, zero-threshold
+least intervention, and a maximum-optimism margin fitted from validation only.
+A rule must select safely in all four validation roots without abstention or an
+L6 diagnostic failure before it is frozen and evaluated on the already-opened
+six-root diagnostic test. Only a 6/6 safe, non-abstaining diagnostic result can
+support one separately frozen opened full-episode mechanism pilot.

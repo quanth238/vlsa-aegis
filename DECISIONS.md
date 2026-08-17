@@ -6401,3 +6401,20 @@ enable correction, QP, denoising or closed loop from ADR-0201. Any next
 inference-only experiment may use validation-only conservative ranking or
 abstention, but it must not reinterpret the already-opened test or create an EE
 claim without unsafe EE support.
+
+### ADR-0202 audit offline action selection before any full episode
+
+Use only the frozen ADR-0201 predictions and ADR-0200 exact candidate labels;
+do not retrain or simulate. Compare three fixed rules: validation-margin
+least-intervention, zero-threshold least-intervention, and minimum predicted
+primary risk. Compute the conservative margin as the maximum validation
+optimism `max(0, Q-primary - Qhat-primary)`. Select a rule from validation only,
+requiring four safe selections, zero unsafe selections, zero abstentions and
+zero selected L6 diagnostic failures. Apply only that frozen rule to the six
+already-opened diagnostic-test roots.
+
+A small opened full-episode mechanism pilot is supported only if the frozen
+rule then selects six safe diagnostic-test candidates with zero abstentions and
+zero L6 failures. This is an offline candidate-bank gate, not evidence that the
+five-action target anticipates later queries. No QP, denoising, execution,
+closed loop, generalization, safety or CBF claim is part of this audit.
