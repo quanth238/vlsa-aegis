@@ -60,6 +60,10 @@ class WholeBodyActionSelectionAuditTest(unittest.TestCase):
         self.assertEqual(result["maximum_candidates_checked"], 2)
         self.assertEqual(result["top_k_safe_support"]["1"], 0)
         self.assertEqual(result["top_k_safe_support"]["3"], 1)
+        self.assertEqual(
+            [row["candidate_name"] for row in result["states"][0]["ranked_candidate_prefix"]],
+            ["nominal", "corrected"],
+        )
 
     def test_ranked_verifier_counts_timeout_candidate(self):
         samples = []

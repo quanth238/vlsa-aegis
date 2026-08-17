@@ -270,6 +270,15 @@ def evaluate_ranked_exact_verification(
         preceding = ranked[:first - 1]
         states.append({
             "state_id": state_id,
+            "ranked_candidate_prefix": [
+                {
+                    "rank": rank,
+                    "candidate_name": row["candidate_name"],
+                    "predicted_global": row["predicted_global"],
+                    "correction": row["correction"],
+                }
+                for rank, row in enumerate(ranked[:max(top_ks)], start=1)
+            ],
             "first_exact_safe_rank": first,
             "first_exact_safe_candidate": ranked[first - 1]["candidate_name"],
             "first_exact_safe_correction": ranked[first - 1]["correction"],
