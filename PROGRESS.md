@@ -6755,6 +6755,15 @@ unreachable. No route is executed and no further simulation is authorized from
 this result. The unresolved Query-1/Query-2 failure requires a longer deployed-
 horizon target, not more waypoint samples at Query 2.
 
+Full tight-EE producer/replay arrays `41906/41907` complete all four frozen
+cases exactly. The contact-free E01 control has no raw EE-group contact and
+minimum normalized slacks palm/finger1-base/finger1-pad/finger2-base/
+finger2-pad of `0.753981/1.875621/4.037093/2.410093/4.194896`; the released
+proxy nevertheless overlaps on 858 contact-free internal samples. Validator
+`41908` fails before reading results because its Python environment requires
+unittest discovery rather than module-name loading. Repair only that test
+launcher and validate the immutable producer/replay artifacts in place.
+
 ## 2026-08-17: Contact-aligned tight end-effector geometry repair
 
 ADR-0199 removes the released AEGIS EE ellipsoid from physical-constraint

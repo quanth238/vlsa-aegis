@@ -6260,6 +6260,14 @@ The next principled method change is the already identified horizon issue: a
 critic trained to predict the current chunk plus the next frozen VLA re-query.
 That requires new offline labels and is not silently introduced here.
 
+Full tight-EE arrays `41906/41907` are immutable scientific evidence. Do not
+replay them again: all case shards are complete, exact, and the clean E01
+control retains positive clearance for every tight primitive. Validator
+`41908` fails before artifact inspection only because `python -m unittest
+tests...` does not resolve the repository test under the validator environment.
+Use the repository's registered `unittest discover` form and bind the same
+producer/replay roots.
+
 ### ADR-0199 replace the oversized EE proxy with separate compiled contact primitives
 
 Do not scale or relax the late-flow QP while diagnostic EE row 0 still denotes
