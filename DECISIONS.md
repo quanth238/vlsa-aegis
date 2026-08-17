@@ -5798,3 +5798,35 @@ rank 1 is freshly L6-unsafe, ranks 2--3 are unsafe, and rank 4 is exactly safe
 with zero raw/group contacts. Independent scientific views match exactly.
 Record this as a `1/1` mechanism success but do not call the three-case gate a
 pass and do not launch E46/E42 or any further simulation without a new request.
+
+## ADR-0191: Test compact inference-only future-risk scoring without simulation
+
+- Status: preregistered; deterministic stored-artifact fit pending
+- Date: 2026-08-17
+
+Stop new collection and fresh exact verification. Reuse the immutable 580
+candidate slots and their independently replayed labels to compare one compact
+shared constraint-conditioned model against the frozen 9D, 33D, and 135D
+baselines. This experiment performs no simulator step and cannot create a new
+safety label.
+
+For each represented row, freeze the causal 7D feature as current exact radial
+slack, the first nominal translation projected along the current outward
+primitive--obstacle direction, and the five effective candidate translations
+projected along the same direction. Normalize projections by the ellipsoid
+support radius. No future state, trace, target, contact, or exact verifier enters
+the feature or inference rule.
+
+Fit one shared 32--32 SiLU scalar Q model on known initially-safe training rows
+only, with the same train-only balanced normalization, symmetric Huber loss,
+AdamW `1e-4` weight decay, seed, and fixed final epoch as the prior diagnostic.
+Score every candidate at inference, including UNKNOWN timeouts. The primary
+selector aggregates rows 0--4 (diagnostic EE, palm, L5); L6 rows 5--6 remain an
+explicit post-hoc physical audit so ignoring L6 cannot be hidden. Compare
+minimum predicted primary risk and predicted-safe minimum intervention against
+nominal and the immutable 135D result.
+
+Run one H100 fit and one independent deterministic H100 retrain. Test artifacts
+are already opened, so all results are post-hoc diagnostics rather than fresh
+generalization evidence. No result from this gate authorizes simulation,
+correction execution, QP, denoising, deployment, or a CBF claim.

@@ -1,0 +1,80 @@
+{
+  "schema_version": "vlsa_distal_compact_safety_coordinate_q.v1",
+  "protocol_id": "vlsa-distal-compact-safety-coordinate-q-v1",
+  "claim_scope": "Prediction-only diagnostic of a compact shared per-constraint future-risk model and inference-only finite-bank selection. It reuses immutable labels and runs no simulator, QP, denoising, or exact verifier at inference.",
+  "base_protocol": {
+    "path": "configs/vlsa_distal_whole_body_q_only_prediction_protocol.v1.json",
+    "file_sha256": "c8820ddffa42f7fcf667999e594c972a15d272282abddfe6085f677e3b079d96"
+  },
+  "binding": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/q_prediction_binding.json",
+    "file_sha256": "ec6cd7874dcddc28bc7bd287b1f08189901860cb3f2e4631f5081bd61bc70a6f"
+  },
+  "baseline_prediction": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/q_prediction_result.json",
+    "file_sha256": "90a85e05f4d3927054073860bc76121cd28363c7bbd19a0509b3fc0b15368e25",
+    "payload_sha256": "097a01edd2ef0fdf2335334dcc99e604c6d63bd3c801b4828b5fbe4664d3a654"
+  },
+  "baseline_action_audit": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/action_selection_all_candidates_audit.json",
+    "file_sha256": "67d6560e17ed8e412d563bed525c9c2d7ceef3c55207dbcabcbffbde52be04b2",
+    "payload_sha256": "07455877d212e017820d2c0e9ac4b0cf6622a92fee52d2fc42c377aa15d9a17c"
+  },
+  "feature": {
+    "input_dimension": 7,
+    "model_rows": [0, 1, 2, 3, 4, 5, 6],
+    "definition": "[initial_exact_radial_slack,nominal_first_step_outward_projection,five_effective_step_outward_projections]",
+    "outward_direction": "closest_exact_pair_robot_center_minus_compiled_box_center",
+    "projection_normalization": "ellipsoid_support_radius_in_outward_direction",
+    "translation_scale_m_per_action_unit": 0.05,
+    "future_state_input": false
+  },
+  "group_rows": {
+    "end_effector": [0],
+    "palm": [1],
+    "L5": [2, 3, 4],
+    "L6_diagnostic": [5, 6]
+  },
+  "primary_inference_rows": [0, 1, 2, 3, 4],
+  "all_physical_audit_rows": [1, 2, 3, 4, 5, 6],
+  "selectors": [
+    "minimum_predicted_primary_risk",
+    "predicted_safe_minimum_intervention_else_minimum_risk"
+  ],
+  "model": {
+    "hidden_widths": [32, 32],
+    "activation": "silu",
+    "seed": 20260814,
+    "cpu_threads": 8,
+    "epochs": 2000,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "gradient_clip_norm": 10.0,
+    "huber_beta_normalized": 0.25,
+    "boundary_scale": 0.05,
+    "boundary_weight_multiplier": 4.0,
+    "minimum_target_scale": 0.01,
+    "normalization": "training_state_constraint_balanced_only",
+    "checkpoint": "fixed_final_epoch_no_selection"
+  },
+  "evaluation": {
+    "splits": ["train", "validation", "test"],
+    "known_labels_only_for_prediction_error": true,
+    "all_candidates_including_UNKNOWN_scored_for_selection": true,
+    "UNKNOWN_selected_reported_not_safe": true,
+    "test_is_reused_posthoc_diagnostic_not_untouched": true,
+    "near_boundary_abs_risk": 0.05
+  },
+  "simulation_rollouts": false,
+  "forbidden": [
+    "new_data_collection",
+    "simulator_step_or_fresh_exact_rollout",
+    "validation_or_test_normalization",
+    "validation_or_test_checkpoint_selection",
+    "UNKNOWN_timeout_as_safe_or_unsafe",
+    "QP",
+    "denoising",
+    "exact_verifier_at_inference",
+    "formal_safety_or_CBF_claim"
+  ]
+}

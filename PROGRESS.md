@@ -6237,3 +6237,21 @@ closed loop, model-only correction, QP, and denoising remain untested. Producer
 and replay file SHA-256 values are
 `797c339a4fc3f9e0892bdfcbed42dbe81696bbe1c23476404d1ba82533d83d4f` and
 `bdb9d90178930acd5b023e3e76dac4391fd551e23a52b4af7c3ffb122a624408`.
+
+## 2026-08-17: Compact inference-only Q diagnostic
+
+At the user's inference-only pivot, ADR-0191 stops new simulator collection and
+the unfinished top-five execution pilot. A compact 7D shared per-row feature is
+preregistered using only current exact radial slack and the nominal/effective
+five-action chunk projected into the current primitive--obstacle outward
+coordinate. It consumes no future state and scores the complete finite bank in
+one MLP pass.
+
+The experiment reuses the immutable 580 stored candidate slots, censors UNKNOWN
+labels from fitting/error metrics while still scoring them at inference, and
+keeps the established train/validation/test identities. Its primary learned
+aggregate is diagnostic EE/palm/L5; L6 is retained as a separate physical audit
+so any collision caused by the narrower scope remains visible. Local contract,
+feature, selector, syntax, and JSON checks pass; the numerical feature test is
+deferred to the registered allocation because the desktop runtime lacks NumPy.
+No simulation, collection, QP, denoising, or fresh exact verifier is scheduled.
