@@ -6872,3 +6872,22 @@ the H100-only allocation receipt on a CPU allocation. The two training results
 are immutable scientific inputs. Repair only the validator receipt and bind the
 accepted training commit explicitly; do not retrain or change data, features,
 loss, seed, epochs, or metrics.
+
+CPU validator `42045` passes the repaired receipt and confirms exact independent
+training. Model SHA-256 is
+`135a97ba840b3299f4e8cd74c2d7e76f6b5e5a0938a6af0379a5258a9aed2102`.
+L5 validation/test diagnostic RMSE is `0.342721/0.213667`, near-boundary RMSE
+`0.142140/0.179642`, and Spearman rank `0.754264/0.858285`. The model preserves
+useful action ordering but its zero threshold is optimistic: L5 false-safes are
+`2/6` validation-unsafe candidates and `14/23` test-unsafe candidates. The
+least-intervention predicted-safe rule yields exact-safe selections in `3/4`
+validation roots and `4/6` diagnostic-test roots.
+
+Every tight EE candidate in validation and test is actually safe, so its zero
+false-safes and high rank do not test collision-boundary transfer. L6 test is
+also safe-only. ADR-0201 therefore validates a deterministic compact prefix-risk
+ranker, not a safe acceptance gate. Correction, QP, denoising, closed loop,
+paper-scale transfer and an EE-collision prediction claim remain blocked.
+Validation file/payload SHA-256 values are
+`1bf793a4f497d004ce9a4542b2bc427407e7c9d30f331183d5f203a6792f5bda`
+and `6a8aeed21494ce09c3129d77b9d001a0480de09a1e42b75677f11a86f5fa7ac0`.

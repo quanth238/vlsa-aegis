@@ -6385,3 +6385,19 @@ never compares the results. Replace only that receipt with the existing strict
 Slurm CPU receipt, bind training commit `4817e6308256658cf6ba5284d6cd14126e94e951`
 separately from the validator source commit, and validate the immutable result
 files in place. No retraining is authorized by this repair.
+
+CPU validator `42045` confirms exact independent training and the same model
+hash in both replicas. The compact model learns L5 action ordering—validation
+and diagnostic-test Spearman are `0.754264` and `0.858285`—but does not learn a
+reliable zero crossing. It predicts safe for 2 of 6 actually unsafe validation
+candidates and 14 of 23 actually unsafe diagnostic-test candidates. The
+least-intervention threshold rule selects an exact-safe action in `3/4`
+validation roots and `4/6` diagnostic-test roots.
+
+Keep the critic as a ranker/capacity result only. Do not treat zero EE
+false-safes as transfer evidence: all 52 validation and all 78 test tight-EE
+candidates are actually safe, so those splits contain no EE boundary. Do not
+enable correction, QP, denoising or closed loop from ADR-0201. Any next
+inference-only experiment may use validation-only conservative ranking or
+abstention, but it must not reinterpret the already-opened test or create an EE
+claim without unsafe EE support.
