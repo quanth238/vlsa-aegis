@@ -88,6 +88,9 @@ class TerminalBranchingTests(unittest.TestCase):
         method = source[start:end]
         self.assertIn("offsets_model = residuals / scale", method)
         self.assertNotIn("residuals -", method)
+        self.assertIn("self._sample_actions(", method)
+        self.assertIn("ordinary_model, terminal_model[1:]", method)
+        self.assertIn("batched_zero_branch_max_abs_model_difference", method)
         self.assertIn('"actions": terminal_output[0]', method)
         self.assertIn('"risk_scored_inside_sampler": False', method)
 

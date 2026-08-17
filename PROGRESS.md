@@ -6433,3 +6433,15 @@ post-hoc compact selector, and late-flow terminalized compact selection from
 the identical state/observation/noise/controller horizon.  Released EE-QP,
 learned QP, exact rollout verification at inference, calibration, retraining,
 and CBF claims remain disabled.
+
+Initial paired H100 producer `41709`, replay `41710`, and validator `41711`
+complete with exact scientific replay but correctly return NO-GO.  All 13
+terminal branches are finite and diverse, names/count are exact, and the
+sampler performs no risk scoring, but the zero-residual first row of a batched
+13-branch JAX execution differs from the exact ordinary compiled sampler by
+`0.008584950775146427` output action units.  Do not weaken the `1e-6` parity
+gate.  Preserve these artifacts as apparatus evidence.  The repair evaluates
+branch zero through the exact ordinary sampler and batches only the twelve
+nonzero branches; it also retains the raw batched-zero model drift in every
+result.  This changes neither nonzero branch generation nor any controller,
+critic, candidate, state, seed, or scientific acceptance rule.

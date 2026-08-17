@@ -675,6 +675,17 @@ class Policy(BasePolicy):
             )
             self._sample_actions_with_terminal_branches = terminal_sampler
         sample_noise = None if noise is None else jnp.asarray(noise)
+        # Preserve branch zero through the exact ordinary compiled sampler.
+        # A larger batched matmul can have a different floating-point kernel
+        # and the first row is not a valid baseline regression even when its
+        # residual is exactly zero.  The nonzero branches remain batched; the
+        # raw batched-zero drift is retained below as apparatus evidence.
+        ordinary_model = np.asarray(
+            self._sample_actions(
+                rng, observation, noise=sample_noise
+            ),
+            dtype=np.float32,
+        )
         terminal_model = np.asarray(
             terminal_sampler(
                 rng,
@@ -692,6 +703,20 @@ class Policy(BasePolicy):
             np.isfinite(terminal_model)
         ):
             raise ValueError("terminal-branch model bank is invalid")
+        ordinary_expected = (
+            1, horizon, int(self._model.action_dim)
+        )
+        if ordinary_model.shape != ordinary_expected or not np.all(
+            np.isfinite(ordinary_model)
+        ):
+            raise ValueError("ordinary terminal branch is invalid")
+        batched_zero_model = terminal_model[0].copy()
+        batched_zero_drift = float(np.max(np.abs(
+            batched_zero_model - ordinary_model[0]
+        )))
+        terminal_model = np.concatenate(
+            [ordinary_model, terminal_model[1:]], axis=0
+        )
         terminal_output = np.stack(
             [
                 self._decode_model_actions(
@@ -711,6 +736,9 @@ class Policy(BasePolicy):
                 "candidate_output_residuals": residuals.tolist(),
                 "terminal_model_actions": terminal_model.tolist(),
                 "terminal_output_actions": terminal_output.tolist(),
+                "batched_zero_branch_max_abs_model_difference": (
+                    batched_zero_drift
+                ),
                 "risk_scored_inside_sampler": False,
                 "selected_candidate": None,
             },

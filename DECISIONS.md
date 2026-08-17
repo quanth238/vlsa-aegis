@@ -5989,3 +5989,13 @@ as a deterministic tie-break; do not introduce a risk/action lambda.  Preserve
 all failures and report empirical CAR/contacts/task outcome.  QP, exact rollout
 verification at inference, retraining, new labels, calibration, denoising
 gradients, deployment, formal safety, and CBF claims remain out of scope.
+
+Initial jobs `41709/41710/41711` validate the need for the branch-zero gate.
+Producer and replay agree exactly, but a zero-residual row inside the 13-way
+compiled batch differs from the exact ordinary sampler by `0.008584950775146427`
+action units.  Reject this as baseline parity rather than relaxing tolerance.
+Compute branch zero through the already compiled ordinary sampler with the same
+observation, seed, noise definition, schedule, and decoder; batch only the
+twelve nonzero branches and record the unused batched-zero drift.  This is an
+apparatus-only repair that makes the control arm authoritative and does not
+alter any proposed terminalized nonzero branch.

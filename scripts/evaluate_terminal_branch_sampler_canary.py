@@ -216,6 +216,14 @@ def evaluate(
             np.max(np.abs(terminal[0] - ordinary))
         )
         diversity = float(np.max(np.abs(terminal[1:] - terminal[0:1])))
+        batched_zero_model_drift = float(
+            diagnostic["batched_zero_branch_max_abs_model_difference"]
+        )
+        _require(
+            np.isfinite(batched_zero_model_drift)
+            and batched_zero_model_drift >= 0.0,
+            "batched zero-branch diagnostic differs",
+        )
         threshold = float(canary["require_branch_zero_ordinary_action_max_abs"])
         gates = {
             "branch_zero_matches_ordinary": bool(
@@ -244,6 +252,9 @@ def evaluate(
             "branch_zero_max_abs_difference": branch_zero_difference,
             "internal_branch_zero_max_abs_difference": internal_branch_zero_difference,
             "maximum_terminal_branch_diversity": diversity,
+            "batched_zero_branch_max_abs_model_difference": (
+                batched_zero_model_drift
+            ),
             "gates": gates,
         }
         result: dict[str, Any] = {
