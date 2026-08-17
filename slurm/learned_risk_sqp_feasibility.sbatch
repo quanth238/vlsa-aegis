@@ -28,7 +28,9 @@ case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 [[ -n "${SLURM_JOB_ID:-}" ]] || die "learned-risk SQP requires Slurm"
 POLICY_PORT=${POLICY_PORT:-$((20000 + SLURM_JOB_ID % 20000))}
 [[ "${SLURM_CPUS_PER_TASK:-}" == 8 && "${SLURM_MEM_PER_NODE:-}" == 65536 ]] || die "allocation differs"
-gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
+if ! gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits); then
+  die "nvidia-smi allocation receipt failed"
+fi
 [[ $(printf '%s\n' "$gpu_line" | wc -l) -eq 1 && "$gpu_line" == *H100* ]] || die "requires exactly one H100"
 [[ -x "$AEGIS_PYTHON" && -x "$OPENPI_PYTHON" ]] || die "Python missing"
 [[ -d "$PI05_CHECKPOINT" && ! -L "$PI05_CHECKPOINT" ]] || die "checkpoint missing"

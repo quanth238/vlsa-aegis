@@ -6159,3 +6159,9 @@ serialized predictions, and SQP trace. This diagnostic decides only whether an
 EE-only or multi-constraint learned-risk QP can produce a predicted-safe
 terminal chunk. It cannot authorize control, collision avoidance, formal CBF
 safety, or a paper-scale claim.
+
+Initial job `41817` is pre-simulation apparatus history: it exits in three
+seconds before creating an artifact root because the H100 receipt command
+returns nonzero under shell `set -e`. Make that receipt failure explicit and
+retry without changing the frozen E05 query, terminal nominal, critic, QP arms,
+bounds, solver, or no-execution gate.

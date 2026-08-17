@@ -6638,3 +6638,10 @@ and reproduce every serialized-critic prediction and SQP result. Local config,
 source, shell, and focused regression checks pass 14 tests with the synthetic
 OSQP case skipped only because desktop Python lacks allocation numerical
 dependencies. Allocation-backed producer/replay/validation are next.
+
+Initial producer `41817` is pre-simulation apparatus history. It exits before
+creating a run root or starting the policy server because the allocation-side
+`nvidia-smi` receipt command fails under `set -e` without reaching its explicit
+H100 diagnostic. Capture that command failure explicitly and retry from a new
+immutable source/run identifier; no state, model, nominal action, SQP setting,
+constraint, or scientific gate changes.
