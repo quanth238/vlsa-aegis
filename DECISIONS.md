@@ -5907,3 +5907,29 @@ compact inference improved this opened paired pilot from `0/4` to `2/4` safe.
 Reject model-only safety, untouched generalization, correction-safety, and
 closed-loop authorization.  Do not hide the two L5 failures or reinterpret the
 positive E46 released-EE proxy as physical contact.
+
+## ADR-0193: Audit validation-only margins and a frozen L5 specialist
+
+- Status: preregistered; allocation-backed audit pending
+- Date: 2026-08-17
+
+Before changing the dataset, model, or controller again, isolate the inference
+decision rule with zero new simulation and zero retraining.  Bind the immutable
+compact 7D and direct-L5/OSC 33D checkpoints and the complete immutable
+candidate population.  Reproduce their frozen predictions from serialized
+weights before interpreting any selector.
+
+Fit conservative margins only from known validation candidates, separately for
+EE, palm, and L5.  Compare the current compact minimum-risk rule against
+zero-margin abstention, all-group maximum-optimism margins, an L5-only margin,
+and a diagnostic L5 fusion that uses the maximum of the compact and 33D L5
+predictions.  A candidate passes a gated rule only when every modeled group is
+nonpositive after its registered margin; otherwise the method abstains.  L6 is
+not silently accepted: it remains a separately reported physical audit.
+
+Freeze both margins and the deterministic validation-only arm choice before
+evaluating the already opened test split.  Report false-safes, UNKNOWN
+selections, safe support, abstention, intervention magnitude, per-constraint
+failures, and E15/E42.  Treat any test improvement only as motivation for a new
+prospective paper evaluation.  This gate cannot authorize simulation,
+correction safety, QP, denoising, deployment, or a certified CBF claim.

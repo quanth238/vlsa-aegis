@@ -1,0 +1,48 @@
+{
+  "schema_version": "vlsa_distal_compact_selector_ablation.v1",
+  "protocol_id": "vlsa-distal-compact-selector-ablation-v1",
+  "claim_scope": "Post-hoc inference-only selector diagnostic over immutable candidate outcomes; no simulator, retraining, untouched-test, correction-safety, deployment, or CBF claim.",
+  "compact_config": {
+    "path": "configs/vlsa_distal_compact_safety_coordinate_q.v1.json",
+    "file_sha256": "7634134402849d97d1e76a0fb8690d1d5ab51725b46538e42305ad013e219e20"
+  },
+  "compact_result": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-compact-safety-coordinate-q/compact-safety-coordinate-q-20260817a/result.json",
+    "file_sha256": "cb0fcf2e37761eb867fc222ea557d68812bdf192f9013f2adc93cfa790c8abb7",
+    "payload_sha256": "18cbafbdcd8f19b99a3f734bdf6d1e4f96bbbef241e923e65c29d33a5ec76191",
+    "model_sha256": "d7c36e5a70aec7f0680d610093679af28a29b0c0a24597cd1f73dfa0268c76a8"
+  },
+  "L5_specialist_result": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/q_prediction_result.json",
+    "file_sha256": "90a85e05f4d3927054073860bc76121cd28363c7bbd19a0509b3fc0b15368e25",
+    "payload_sha256": "097a01edd2ef0fdf2335334dcc99e604c6d63bd3c801b4828b5fbe4664d3a654",
+    "model_sha256": "4a5e2ecc9ad5ba76cddd42310fe4bc78894330d56907d590429105c9fc821961",
+    "arm": "direct_L5_OSC_33D"
+  },
+  "margin": {
+    "fit_split": "validation",
+    "labels": "known_only_UNKNOWN_censored",
+    "definition": "max(0,max_candidate(actual_group-predicted_group))",
+    "test_access": "evaluation_only_after_validation_parameters_frozen"
+  },
+  "arms": [
+    "compact_minimum_risk",
+    "compact_zero_margin_safe_or_abstain",
+    "compact_all_group_margin_safe_or_abstain",
+    "compact_L5_margin_safe_or_abstain",
+    "compact_33D_L5_hybrid_safe_or_abstain"
+  ],
+  "evaluation": {
+    "splits": ["validation", "test"],
+    "new_simulator_rollout_count": 0,
+    "retraining": false,
+    "unknown_selected_is_not_safe": true,
+    "test_is_opened_posthoc_diagnostic": true,
+    "report_states": ["E15", "E42"],
+    "serialized_prediction_tolerance": 0.00001
+  },
+  "forbidden": [
+    "simulation", "retraining", "test_tuning", "QP", "denoising",
+    "gradient_correction", "closed_loop", "deployment", "CBF_claim"
+  ]
+}

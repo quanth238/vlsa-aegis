@@ -29,8 +29,9 @@ def _load_all_candidate_samples(
         payload_sha256 as source_payload_sha256,
     )
     from main.multilink_ellipsoid.whole_body_q_only_diagnostic import (
-        row_future_risk,
+        direct_l5_33d_feature, row_future_risk,
     )
+    from main.multilink_ellipsoid.generic_l5_9d_capacity import feature_vector
 
     output = {
         split: [] for split in training_config["dataset"]["evaluation_splits"]
@@ -101,6 +102,19 @@ def _load_all_candidate_samples(
                 known = bool(target["known_outcome"])
                 known_count += int(known)
                 unknown_count += int(not known)
+                context = exact["physical_context"]
+                base_9d = feature_vector(
+                    eef_position_m=context["eef_position_m"],
+                    candidate_actions=candidate["source_executed_actions"],
+                    obstacle_center_m=context["obstacle"]["center_m"],
+                    obstacle_semiaxes_m=context["obstacle"]["semiaxes_m"],
+                    translation_scale_m_per_action_unit=float(
+                        compact_config["feature"][
+                            "translation_scale_m_per_action_unit"
+                        ]
+                    ),
+                )
+                feature_33d = direct_l5_33d_feature(base_9d, exact)
                 common = {
                     "state_id": case_id,
                     "split": split,
@@ -111,6 +125,10 @@ def _load_all_candidate_samples(
                     ]),
                     "known_outcome": known,
                     "physical_veto": bool(candidate["replayed_physical_veto"]),
+                    # Additive frozen-specialist feature. The compact training
+                    # path ignores it; inference ablations use it without
+                    # retraining or generating a new simulator label.
+                    "feature_33d": feature_33d,
                 }
                 for row in MODEL_ROWS:
                     sample = {

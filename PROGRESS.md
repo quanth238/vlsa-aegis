@@ -6333,3 +6333,27 @@ but model-only safety fails.  Correction safety, closed loop, and untouched
 generalization remain unauthorized.  Validation file/payload SHA-256 values
 are `c03598f26cc1fa762b82d24e6ac9b2fbc34c2adcbb5b2a4eff81e58d188ce0c5`
 and `95230f86c0cce70b0c453747cf3a90fd37d8650b6981f7b848089b5a58725489`.
+
+## 2026-08-17: Frozen compact-selector inference ablation
+
+ADR-0193 preregisters a zero-simulation selector audit over the immutable 580
+candidate slots.  It does not train a new network.  It binds the compact shared
+7D model from ADR-0191 and the direct-L5/OSC 33D specialist from the fixed
+Q-only gate, replays both serialized checkpoints, and compares five inference
+rules: compact minimum risk, zero-margin safe-or-abstain, validation-conservative
+per-group safe-or-abstain, validation-conservative L5-only gating, and compact
+EE/palm plus max(7D,33D) L5 gating.
+
+For every conservative rule, the margin is the maximum observed positive
+residual `actual_group - predicted_group` over known validation candidates only.
+UNKNOWN timeouts do not fit a margin and are never counted as safe.  The test
+split is already opened and is evaluated only after margins and a deterministic
+validation-only arm choice are frozen; it therefore remains a post-hoc
+diagnostic.  Every selection reports EE, palm, L5, and L6 audit outcomes,
+abstention, correction magnitude, and the E15/E42 L5 failures explicitly.
+
+No simulator step, candidate recollection, retraining, QP, gradient correction,
+denoising, or closed loop is permitted.  This audit can determine whether the
+remaining failures are an inference-rule problem that merits a fresh
+prospective paper test.  It cannot authorize correction safety or a CBF claim
+from the already opened population.
