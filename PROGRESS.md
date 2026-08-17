@@ -6838,3 +6838,20 @@ proxy is absent. Local JSON, shell, Python 3.8 syntax, focused prefix/default-
 continuation regression and tight-geometry tests pass. The next step is a
 single-case sequential producer/replay Slurm canary; only exact equality
 authorizes the remaining 23 cases.
+
+Sequential canaries `41944/41945`, full producer/replay arrays `41954/41955`,
+and validator `41956` complete ADR-0200. All 24 cases and 312 five-action
+candidate prefixes reproduce exactly, every primitive certificate passes, and
+per-group represented-geometry physical false-safes are zero. Diagnostic
+Q-only training is authorized; action correction, QP, a paper-scale claim, and
+an untouched-test claim remain unauthorized.
+
+The prefix-only boundary evidence is concentrated in L5. Two-sided
+train/validation/diagnostic-test root counts are L5 `6/2/4`, palm `2/0/0`, and
+diagnostic L6 `1/1/0`; all four tight finger rows are safe-only. Global safe
+support is present in `12/14`, `4/4`, and `6/6` roots, respectively. Thus the
+clean next experiment is a matched diagnostic prefix-risk predictor with L5 as
+the supported head and the other rows reported as auxiliary diagnostics—not a
+multi-link action-correction claim. Validation file/payload SHA-256 values are
+`96b52b5a494351ca8e5f27d32908d4072cfbda8a5f63a4d37e38449ddfaf1ff5`
+and `85bc470ca24587d54b0b6cf622edb67c5ac1b7b69f217ea528023e5919721c42`.

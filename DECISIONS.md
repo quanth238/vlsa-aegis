@@ -6345,3 +6345,16 @@ Require exact scientific replay, 312 five-action candidate rollouts, verified
 primitive certificates and zero represented-geometry physical false-safes.
 A pass authorizes a diagnostic Q-only fit on these prefix labels, not a paper-
 scale generalization claim, QP, action correction or safety certificate.
+
+Sequential canaries `41944/41945`, producer/replay arrays `41954/41955`, and
+validator `41956` pass this frozen gate. All 24 roots, 312 candidate prefixes,
+state/action receipts and scientific views reproduce exactly; primitive
+certificates pass and every per-group physical false-safe count is zero.
+
+The relabeling isolates the mechanism rather than manufacturing whole-body
+support. L5 supplies `6/2/4` two-sided train/validation/already-opened-test
+roots. Palm supplies `2/0/0`, diagnostic L6 `1/1/0`, and every tight finger row
+is safe-only. Therefore authorize diagnostic Q-only prefix-risk training, with
+L5 the only currently supported boundary head. Keep palm/finger/L6 outcomes as
+auxiliary diagnostics. Do not authorize correction, QP, paper-scale transfer,
+an untouched-test claim, or a safety certificate from this population.
