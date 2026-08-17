@@ -6507,3 +6507,10 @@ scientific-pair claim.  The replay repair consumes the immutable `41734`
 producer action bytes and independently executes only those three arms on a
 CPU Slurm allocation.  Its full scientific view must byte-match the producer;
 there is no second VLA query, no server, and no new selection.
+
+Exact-action CPU replay `41742` failed in four seconds before environment
+creation because the inherited evaluator requires an explicit
+`QUERY_RISK_CPU_CANARY=1` allocation receipt for CPU execution on an H100 host.
+Retain the failed root.  Add only that receipt to the CPU replay Slurm script
+and use a new immutable run ID; scientific actions and outcomes remain bound to
+producer `41734`.

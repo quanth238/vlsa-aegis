@@ -6054,3 +6054,10 @@ the authority for terminal branch generation.  The action replay must reproduce
 the entire producer scientific view exactly; otherwise the pilot fails.  This
 repair does not change the producer inference, selected candidates, actions, or
 observed outcome and requires no second policy server.
+
+First exact-action CPU replay `41742` is pre-simulation apparatus history.  It
+was placed on the registered H100 host without a GPU but the inherited query-
+risk evaluator correctly requires the explicit `QUERY_RISK_CPU_CANARY=1`
+receipt.  Set that receipt only in the CPU replay script and retry in a new
+immutable root.  This acknowledges the allocation mode; it does not change
+actions, simulator, controller, or gates.
