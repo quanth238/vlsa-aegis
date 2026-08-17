@@ -6490,3 +6490,20 @@ correctly refused the immutable failed replay directory; validators
 `41730/41732` are dependency-impossible.  These are apparatus-only history.
 Use a new immutable run root and a per-job port derived from `SLURM_JOB_ID`;
 keep all scientific bindings and gates unchanged.
+
+Port-isolated producer `41734` completes in `00:09:34`.  Ordinary, post-hoc
+compact selection, and late-flow-terminalized compact selection are all known,
+raw-contact-free, CAR-free, and represented-geometry safe.  Post-hoc and late
+flow both select `grid_p1_m1_z0_front_loaded_r2.0`; their minimum L5 slacks are
+`0.0128093` and `0.0646268`, respectively.  Nominal is also safe with L5 slack
+`0.0854056`, so E05 tests executable terminalization but not collision-rate
+improvement.
+
+Regenerated-policy replay `41738` independently reaches the same selected
+names and three safe qualitative outcomes in `00:09:33`, but ordinary and
+terminal action hashes differ slightly from `41734` despite the exact same
+dynamic-state hash and RNG seed.  Preserve both as evidence and reject an exact
+scientific-pair claim.  The replay repair consumes the immutable `41734`
+producer action bytes and independently executes only those three arms on a
+CPU Slurm allocation.  Its full scientific view must byte-match the producer;
+there is no second VLA query, no server, and no new selection.

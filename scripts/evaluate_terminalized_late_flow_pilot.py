@@ -4,11 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from scripts.collect_distal_exact_group_boundary import collect
 from scripts.evaluate_terminal_branch_sampler_canary import _archived_action
@@ -155,6 +156,8 @@ def run(
     *, repo_root: Path, manifest_path: Path, table1_root: Path,
     archived_path: Path, config_path: Path, expected_commit: str,
     replica: str, host: str, port: int, run_root: Path,
+    frozen_producer_result_path: Optional[Path] = None,
+    accepted_producer_commit: Optional[str] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -254,6 +257,117 @@ def run(
     _require(len(matches) == 1, "pilot manifest case differs")
     case = matches[0]
     validate_case_row(case, repo_root)
+
+    source_config = repo_root / mechanism["source_config"]
+    _require(_file_sha256(source_config) == mechanism["source_config_file_sha256"],
+             "pilot source config differs")
+
+    if frozen_producer_result_path is not None:
+        _require(replica == "replay", "frozen pilot actions require replay replica")
+        _require(accepted_producer_commit is not None,
+                 "frozen pilot producer commit is missing")
+        producer_file_sha256 = _file_sha256(frozen_producer_result_path)
+        producer = _load(frozen_producer_result_path)
+        _require(
+            producer.get("schema_version") == PILOT_RESULT_SCHEMA
+            and producer.get("status") == "complete"
+            and producer.get("replica") == "producer"
+            and producer.get("source", {}).get("commit")
+            == accepted_producer_commit
+            and producer.get("config_file_sha256")
+            == config["config_file_sha256"]
+            and producer.get("config_payload_sha256")
+            == config["config_payload_sha256"]
+            and producer.get("result_payload_sha256")
+            == payload_sha256(producer, "result_payload_sha256"),
+            "frozen pilot producer result differs",
+        )
+        producer_view = producer["scientific_view"]
+        producer_candidates = producer[
+            "fresh_selected_arm_execution"
+        ]["exact_case"]["candidates"]
+        expected_names = [
+            "nominal", "terminal_compact_selector",
+            "late_flow_terminalized_compact_selector",
+        ]
+        _require(
+            [row["name"] for row in producer_candidates] == expected_names,
+            "frozen pilot producer arms differ",
+        )
+        ordinary_effective = np.asarray(
+            producer_candidates[0]["source_executed_actions"],
+            dtype=np.float64,
+        )
+        producer_outcomes = {
+            row["arm"]: row for row in producer_view["outcome"]["records"]
+        }
+        definitions = [
+            _selected_definition(
+                name=name, order=index,
+                actions=producer_candidates[index]["source_executed_actions"],
+                ordinary=ordinary_effective,
+                source_candidate=producer_outcomes[name]["selection"][
+                    "source_candidate"
+                ],
+            )
+            for index, name in enumerate(expected_names)
+        ]
+        fresh = collect(
+            repo_root=repo_root,
+            table1_root=table1_root,
+            config_path=source_config,
+            case_index=int(mechanism["source_case_index"]),
+            expected_commit=expected_commit,
+            run_root=run_root / "selected-arm-execution",
+            candidate_workers=1,
+            source_only=False,
+            candidate_definitions_override=definitions,
+        )
+        _require(
+            fresh.get("status") == "complete" and fresh["case_id"] == CASE_ID,
+            "frozen pilot selected-arm replay differs",
+        )
+        scores = {
+            name: copy.deepcopy(producer_outcomes[name]["selection"])
+            for name in expected_names
+        }
+        outcome = _physical_summary(fresh, scores)
+        scientific_view = copy.deepcopy(producer_view)
+        scientific_view["outcome"] = outcome
+        _require(
+            scientific_view == producer_view,
+            "frozen selected actions do not replay exactly",
+        )
+        result = {
+            "schema_version": PILOT_RESULT_SCHEMA,
+            "status": "complete",
+            "scientific_result": True,
+            "replica": replica,
+            "source": source,
+            "config_file_sha256": config["config_file_sha256"],
+            "config_payload_sha256": config["config_payload_sha256"],
+            "compact_model": compact_binding,
+            "validated_sampler_canary": config["validated_sampler_canary"],
+            "frozen_producer_binding": {
+                "path": str(frozen_producer_result_path),
+                "file_sha256": producer_file_sha256,
+                "result_payload_sha256": producer["result_payload_sha256"],
+                "source_commit": accepted_producer_commit,
+            },
+            "scientific_view": scientific_view,
+            "fresh_selected_arm_execution": fresh,
+            "timing": {
+                "total_wall_seconds": (
+                    time.perf_counter_ns() - started
+                ) * 1.0e-9,
+            },
+            "correction_safety_authorized": False,
+            "formal_safety_claim": False,
+        }
+        result["result_payload_sha256"] = payload_sha256(
+            result, "result_payload_sha256"
+        )
+        return result
 
     runtime = _runtime_imports(include_aegis=False)
     env = None
@@ -360,9 +474,6 @@ def run(
             except Exception:
                 pass
 
-    source_config = repo_root / mechanism["source_config"]
-    _require(_file_sha256(source_config) == mechanism["source_config_file_sha256"],
-             "pilot source config differs")
     fresh = collect(
         repo_root=repo_root,
         table1_root=table1_root,
@@ -452,6 +563,8 @@ def main() -> None:
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--frozen-producer-result", type=Path)
+    parser.add_argument("--accepted-producer-commit")
     args = parser.parse_args()
     result = run(
         repo_root=args.repo_root.resolve(), manifest_path=args.manifest.resolve(),
@@ -459,6 +572,11 @@ def main() -> None:
         config_path=args.config.resolve(), expected_commit=args.expected_commit,
         replica=args.replica, host=args.host, port=args.port,
         run_root=args.run_root.resolve(),
+        frozen_producer_result_path=(
+            None if args.frozen_producer_result is None
+            else args.frozen_producer_result.resolve()
+        ),
+        accepted_producer_commit=args.accepted_producer_commit,
     )
     _atomic_write(args.output.resolve(), result)
     print(json.dumps({

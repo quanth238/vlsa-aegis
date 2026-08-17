@@ -19,13 +19,15 @@ EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-terminalize
 [[ "$(git -C "$REMOTE_REPO" rev-parse HEAD)" == "$EXPECTED_GIT_COMMIT" ]] || { echo "source commit differs" >&2; exit 1; }
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || { echo "source tree is dirty" >&2; exit 1; }
 RUN_ROOT=$EXPERIMENT_ROOT/$RUN_ID
-[[ -f "$RUN_ROOT/producer/result.json" && -f "$RUN_ROOT/replay/result.json" ]] || { echo "pilot result missing" >&2; exit 1; }
+PRODUCER_RESULT=${PRODUCER_RESULT:-$RUN_ROOT/producer/result.json}
+REPLAY_RESULT=${REPLAY_RESULT:-$RUN_ROOT/replay/result.json}
+[[ -f "$PRODUCER_RESULT" && -f "$REPLAY_RESULT" ]] || { echo "pilot result missing" >&2; exit 1; }
 [[ ! -e "$RUN_ROOT/validation.json" ]] || { echo "immutable validation exists" >&2; exit 1; }
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONUNBUFFERED=1
 export PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_terminalized_late_flow_pilot.py \
-  --producer "$RUN_ROOT/producer/result.json" \
-  --replay "$RUN_ROOT/replay/result.json" \
+  --producer "$PRODUCER_RESULT" \
+  --replay "$REPLAY_RESULT" \
   --output "$RUN_ROOT/validation.json"

@@ -6037,3 +6037,20 @@ its server connection before any selected action execution.  Duplicate retry
 derives a deterministic port in `[20000,39999]` from each exact Slurm job ID so
 co-located allocations cannot collide.  It changes no state, action, model,
 flow branch, controller, outcome rule, or scientific gate.
+
+Port-isolated producer `41734` and independently regenerated replay `41738`
+both complete all three arms without collision, timeout, CAR veto, or
+represented-geometry violation.  They agree on the selected candidate names
+and qualitative outcomes, but their live pi0.5 terminal floats and therefore
+executed-action hashes differ slightly despite identical state hash and RNG
+seed.  Do not weaken exact action pairing or validate these as an exact pair.
+
+The principled replay unit for this control pilot is the executable action,
+not a second numerically different policy realization.  Bind the immutable
+`41734` producer result, extract its three exact selected five-action chunks,
+and independently replay those same bytes through a fresh simulator/OSC/fixed
+continuation on a CPU Slurm allocation.  The earlier H100 sampler canary remains
+the authority for terminal branch generation.  The action replay must reproduce
+the entire producer scientific view exactly; otherwise the pilot fails.  This
+repair does not change the producer inference, selected candidates, actions, or
+observed outcome and requires no second policy server.
