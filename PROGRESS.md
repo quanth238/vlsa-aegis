@@ -6701,3 +6701,23 @@ The result file/payload SHA-256 values are
 and `1db92e6de8f75e18e30254ab971d66001a34d56b49aa59b0efc42b4ade26542c`.
 This closes the one-query diagnostic as predicted-infeasible and does not
 authorize another simulator run.
+
+## 2026-08-17: Smooth late-flow waypoint authority diagnostic
+
+ADR-0198 freezes one inference-only follow-up at the exact ADR-0195 E05
+Query-2 abstention state. It does not recollect data, train a model, execute a
+candidate, or step candidate futures in the simulator. Instead it generates
+504 deterministic nonzero two-control-point cubic-Bezier waypoint deformations
+plus the authoritative ordinary pi0.5 nominal. Every route has zero endpoint
+correction, remains inside the `0.25` training-support trust box, passes through
+only the final two unchanged flow steps, and is scored only after decoding and
+clipping to executable terminal actions.
+
+The released oversized EE ellipsoid is recorded as a diagnostic proxy rather
+than a hard physical constraint. Predicted physical feasibility is defined by
+palm and the three L5 rows; L6 remains an explicit unsupported audit. Candidate
+selection is frozen before outcomes as predicted physical feasibility followed
+by minimum intervention and temporal roughness. Two independent H100 replicas
+must reproduce all candidate hashes, scores, and the selected route exactly.
+This diagnostic isolates nonlinear waypoint authority from the failed local QP;
+even a pass cannot authorize execution or a safety/task-success claim.

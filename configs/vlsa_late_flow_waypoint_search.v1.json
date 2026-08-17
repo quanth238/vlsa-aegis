@@ -1,0 +1,59 @@
+{
+  "schema_version": "vlsa_late_flow_waypoint_search.v1",
+  "protocol_id": "vlsa-late-flow-waypoint-search-v1",
+  "claim_scope": "One opened E05 Query-2 inference-only nonlinear search over 505 smooth two-control-point waypoint trajectories through the final two frozen pi0.5 Euler steps and frozen compact future-risk critic. No trajectory is executed or rolled out in MuJoCo.",
+  "case_id": "vlsa-t1-goal-ii-t0-e05",
+  "source_query": {
+    "result_path": "/mnt/data/quanth/experiments/vlsa-terminalized-full-episode/terminalized-full-episode-20260817a/producer/result.json",
+    "result_file_sha256": "68a00ee01eb2498b557aa58141cf331193634b6b79f7b32eb2d53bc097d0480f",
+    "result_payload_sha256": "ca1b9d86dc95c33a1576f6ac78103681ca6d192751963aaa578ff9fc8130cc98",
+    "query_index": 2,
+    "replay_action_count": 10,
+    "terminal_reason": "all_predicted_unsafe_abstention"
+  },
+  "registered_method": {
+    "config_path": "configs/vlsa_distal_terminalized_late_flow.v1.json",
+    "config_file_sha256": "715031411ae6eb9daf99c677e6fb1815c3269259333fde0910b0ef6e46ccc4bd",
+    "source_context_path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/vlsa-t1-goal-ii-t0-e05.json",
+    "source_context_file_sha256": "3a37480a5e64d0a5698ca61ba14c84b5155967c3b8d238722bbe4af882271bbb",
+    "source_context_payload_sha256": "55a3cce0899b6d5ee1b1873794a96f83081bf6c38a647e05c31d483172432717",
+    "source_geometry_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",
+    "source_geometry_config_file_sha256": "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d"
+  },
+  "waypoint_search": {
+    "control_point_count": 2,
+    "control_dimension": 6,
+    "parameterization": "zero_endpoint_cubic_bezier_cumulative_offset",
+    "unique_candidate_count": 505,
+    "nonzero_candidate_count": 504,
+    "server_batch_count": 42,
+    "branches_per_batch": 13,
+    "nonzero_branches_per_batch": 12,
+    "translation_scale_m_per_action_unit": 0.05,
+    "trust_region_action": 0.25,
+    "sampling_seed": 2026081701,
+    "sampling": "12_signed_axis_seeds_then_fixed_gaussian_six_dimensional_directions_at_four_trust_fractions",
+    "late_flow_step": 8,
+    "remaining_frozen_euler_steps": 2
+  },
+  "scoring": {
+    "critic": "frozen_ADR_0191_compact_shared_7D",
+    "physical_constraint_rows": [1, 2, 3, 4],
+    "physical_constraint_groups": ["palm", "L5"],
+    "diagnostic_proxy_rows": [0],
+    "diagnostic_proxy_groups": ["released_oversized_EE_proxy"],
+    "audit_rows": [5, 6],
+    "audit_groups": ["L6"],
+    "predicted_safe_threshold": 0.0,
+    "selection": "predicted_physical_safe_then_minimum_correction_then_smoothness",
+    "proxy_inclusive_feasibility_reported_separately": true
+  },
+  "forbidden": {
+    "new_data_collection": true,
+    "model_training": true,
+    "simulator_candidate_rollout": true,
+    "action_execution": true,
+    "QP": true,
+    "released_AEGIS_EE_QP": true
+  }
+}

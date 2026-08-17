@@ -6210,3 +6210,26 @@ oversized released proxy should remain an AEGIS baseline diagnostic rather
 than a hard learned-QP deployment constraint. Conversely, constraining only
 palm/L5 at this state yields a zero correction and supplies no task-progress
 evidence. Stop here rather than running another control episode.
+
+### ADR-0198 test smooth waypoint authority before another control rollout
+
+Replace the failed local-QP diagnostic with one bounded, inference-only search
+over smooth endpoint-preserving waypoint deformations at the same immutable
+ADR-0195 Query-2 state. Parameterize the five-action XYZ correction with two
+three-dimensional cubic-Bezier control points and zero correction at both chunk
+endpoints. Sample exactly 504 deterministic nonzero control pairs plus the exact
+ordinary pi0.5 nominal, all within a `0.25` infinity trust region. Terminalize
+the branches through only the final two unchanged pi0.5 flow steps and score the
+resulting executable chunks with the same frozen compact future-risk critic.
+
+This is not a simulator candidate bank and it does not execute an action. The
+search asks whether a nonlinear, low-dimensional route family exposes useful
+critic authority that the single local linearization missed. Treat palm and the
+three L5 rows as hard represented physical constraints. Report the released EE
+proxy separately as diagnostic, and report L6 rows as an unsupported audit;
+never silently include the oversized proxy in the physical feasibility gate.
+Select lexicographically: predicted physical feasibility, minimum intervention,
+then minimum temporal roughness. Run paired H100 replicas and require an exact
+scientific-view match. A positive result authorizes at most a separately frozen
+small exact replay of the best route; it does not establish collision avoidance,
+task success, safety, deployment, or a CBF claim.
