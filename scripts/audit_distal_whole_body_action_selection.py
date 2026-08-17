@@ -27,7 +27,8 @@ def run(
     expected_payload_sha256: str, expected_commit: str,
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.whole_body_action_selection_audit import (
-        candidate_records, evaluate_rule, validation_optimistic_margin,
+        candidate_records, evaluate_ranked_exact_verification, evaluate_rule,
+        validation_optimistic_margin,
     )
     from main.multilink_ellipsoid.whole_body_q_only_prediction import (
         combined_training_config,
@@ -91,6 +92,10 @@ def run(
     )
     original_prediction_pass = bool(prediction["heldout_prediction_gate_pass"])
     best_rule_pass = any(correction_rule_pass.values())
+    ranked_verification = {
+        split: evaluate_ranked_exact_verification(candidates[split])
+        for split in ("train", "validation", "test")
+    }
     value = {
         "schema_version": "vlsa_distal_whole_body_action_selection_audit.v1",
         "status": "complete",
@@ -110,6 +115,7 @@ def run(
         "validation_optimistic_margin": margin,
         "rules": rules,
         "correction_rule_pass": correction_rule_pass,
+        "ranked_exact_verification": ranked_verification,
         "original_coverage_gate_pass": original_coverage_pass,
         "original_prediction_gate_pass": original_prediction_pass,
         "offline_rule_identified": best_rule_pass,

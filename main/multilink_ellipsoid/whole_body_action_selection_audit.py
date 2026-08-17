@@ -160,3 +160,48 @@ def evaluate_rule(
         "false_safe_group_count": dict(sorted(witnesses.items())),
         "states": states,
     }
+
+
+def evaluate_ranked_exact_verification(
+    records: Sequence[Mapping[str, Any]], *, top_ks: Sequence[int] = (1, 3, 5),
+) -> dict[str, Any]:
+    """Measure how many MLP-ranked proposals precede the first exact-safe one."""
+
+    by_state: dict[str, list[Mapping[str, Any]]] = {}
+    for row in records:
+        by_state.setdefault(str(row["state_id"]), []).append(row)
+    states = []
+    for state_id, rows in sorted(by_state.items()):
+        ranked = sorted(
+            rows,
+            key=lambda row: (
+                float(row["predicted_global"]), float(row["correction"]),
+                int(row["candidate_order"]),
+            ),
+        )
+        safe_ranks = [
+            rank for rank, row in enumerate(ranked, start=1)
+            if float(row["actual_global"]) <= 0.0
+        ]
+        if not safe_ranks:
+            continue
+        first = int(safe_ranks[0])
+        states.append({
+            "state_id": state_id,
+            "first_exact_safe_rank": first,
+            "first_exact_safe_candidate": ranked[first - 1]["candidate_name"],
+            "first_exact_safe_correction": ranked[first - 1]["correction"],
+        })
+    ranks = [row["first_exact_safe_rank"] for row in states]
+    return {
+        "recoverable_state_count": len(states),
+        "maximum_candidates_checked": max(ranks, default=None),
+        "mean_candidates_checked": (
+            None if not ranks else sum(ranks) / len(ranks)
+        ),
+        "top_k_safe_support": {
+            str(int(k)): sum(rank <= int(k) for rank in ranks)
+            for k in top_ks
+        },
+        "states": states,
+    }
