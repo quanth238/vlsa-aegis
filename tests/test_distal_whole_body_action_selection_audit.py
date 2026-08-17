@@ -2,7 +2,7 @@ import unittest
 
 from main.multilink_ellipsoid.whole_body_action_selection_audit import (
     candidate_records, evaluate_ranked_exact_verification, evaluate_rule,
-    validation_optimistic_margin,
+    predict_serialized_mlp, validation_optimistic_margin,
 )
 
 
@@ -60,6 +60,40 @@ class WholeBodyActionSelectionAuditTest(unittest.TestCase):
         self.assertEqual(result["maximum_candidates_checked"], 2)
         self.assertEqual(result["top_k_safe_support"]["1"], 0)
         self.assertEqual(result["top_k_safe_support"]["3"], 1)
+
+    def test_ranked_verifier_counts_timeout_candidate(self):
+        samples = []
+        predictions = []
+        for name, order, known, risk, predicted in (
+            ("timeout", 0, False, None, -0.4),
+            ("unsafe", 1, True, 0.2, -0.3),
+            ("safe", 2, True, -0.2, -0.2),
+        ):
+            for row in range(1, 7):
+                row_sample = sample("s", name, order, float(order), row, risk or 0.0)
+                row_sample["known_outcome"] = known
+                if not known:
+                    row_sample.pop("risk")
+                samples.append(row_sample)
+                predictions.append([predicted])
+        records = candidate_records(samples, predictions)
+        result = evaluate_ranked_exact_verification(records)
+        self.assertEqual(result["maximum_candidates_checked"], 3)
+        self.assertEqual(result["unknown_checks_before_safe"], 1)
+        self.assertEqual(result["unsafe_checks_before_safe"], 1)
+
+    def test_serialized_mlp_prediction(self):
+        payload = {
+            "feature_mean": [0.0], "feature_scale": [1.0],
+            "target_mean": [0.0], "target_scale": [1.0],
+            "state_dict": {
+                "0.weight": [[1.0]], "0.bias": [0.0],
+                "2.weight": [[1.0]], "2.bias": [0.0],
+                "4.weight": [[1.0]], "4.bias": [0.0],
+            },
+        }
+        value = predict_serialized_mlp([[0.0]], payload)
+        self.assertEqual(value, [[0.0]])
 
 
 if __name__ == "__main__":

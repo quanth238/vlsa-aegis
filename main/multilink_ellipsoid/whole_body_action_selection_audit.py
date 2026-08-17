@@ -34,20 +34,28 @@ def candidate_records(
             "correction": float(sample["applied_correction_l2_action"]),
             "actual_by_row": {},
             "predicted_by_row": {},
+            "known_outcome": bool(sample.get("known_outcome", True)),
         })
+        _require(
+            record["known_outcome"] == bool(sample.get("known_outcome", True)),
+            "selection candidate outcome status differs by row",
+        )
         row = int(sample["row_index"])
         _require(row not in record["actual_by_row"], "selection row repeats")
-        record["actual_by_row"][row] = float(sample["risk"])
+        if record["known_outcome"]:
+            record["actual_by_row"][row] = float(sample["risk"])
         record["predicted_by_row"][row] = float(prediction[0])
     required = sorted(row for rows in GROUP_ROWS.values() for row in rows)
     output = []
     for record in records.values():
         _require(
-            sorted(record["actual_by_row"]) == required
-            and sorted(record["predicted_by_row"]) == required,
+            (
+                not record["known_outcome"]
+                or sorted(record["actual_by_row"]) == required
+            ) and sorted(record["predicted_by_row"]) == required,
             "selection candidate rows differ",
         )
-        actual_group = {
+        actual_group = None if not record["known_outcome"] else {
             group: max(record["actual_by_row"][row] for row in rows)
             for group, rows in GROUP_ROWS.items()
         }
@@ -59,12 +67,68 @@ def candidate_records(
             **record,
             "actual_by_group": actual_group,
             "predicted_by_group": predicted_group,
-            "actual_global": max(actual_group.values()),
+            "actual_global": (
+                None if actual_group is None else max(actual_group.values())
+            ),
             "predicted_global": max(predicted_group.values()),
         })
     return sorted(
         output, key=lambda row: (row["state_id"], row["candidate_order"])
     )
+
+
+def predict_serialized_mlp(
+    features: Sequence[Sequence[float]], state_payload: Mapping[str, Any],
+) -> list[list[float]]:
+    """Evaluate the frozen three-linear-layer SiLU MLP without retraining."""
+
+    import math
+
+    mean = [float(value) for value in state_payload["feature_mean"]]
+    scale = [float(value) for value in state_payload["feature_scale"]]
+    _require(len(mean) == len(scale), "selection serialized MLP scale differs")
+    state = state_payload["state_dict"]
+    target_mean = [float(value) for value in state_payload["target_mean"]]
+    target_scale = [float(value) for value in state_payload["target_scale"]]
+    output = []
+    for raw_row in features:
+        _require(len(raw_row) == len(mean),
+                 "selection serialized MLP feature shape differs")
+        value = [
+            (float(item) - mean[index]) / scale[index]
+            for index, item in enumerate(raw_row)
+        ]
+        for layer_index, key in enumerate(("0", "2", "4")):
+            weights = state[f"{key}.weight"]
+            biases = state[f"{key}.bias"]
+            _require(len(weights) == len(biases),
+                     "selection serialized MLP layer shape differs")
+            value = [
+                float(bias) + sum(
+                    float(left) * float(right)
+                    for left, right in zip(row, value)
+                )
+                for row, bias in zip(weights, biases)
+            ]
+            if layer_index < 2:
+                value = [
+                    item * (
+                        1.0 / (1.0 + math.exp(-item))
+                        if item >= 0.0 else
+                        math.exp(item) / (1.0 + math.exp(item))
+                    )
+                    for item in value
+                ]
+        _require(len(value) == len(target_mean) == len(target_scale),
+                 "selection serialized MLP output shape differs")
+        value = [
+            item * target_scale[index] + target_mean[index]
+            for index, item in enumerate(value)
+        ]
+        _require(all(math.isfinite(item) for item in value),
+                 "selection serialized MLP is non-finite")
+        output.append(value)
+    return output
 
 
 def validation_optimistic_margin(records: Sequence[Mapping[str, Any]]) -> float:
@@ -75,7 +139,7 @@ def validation_optimistic_margin(records: Sequence[Mapping[str, Any]]) -> float:
         0.0,
         max(
             float(row["actual_global"]) - float(row["predicted_global"])
-            for row in records
+            for row in records if row["actual_global"] is not None
         ),
     )
 
@@ -100,7 +164,11 @@ def _select(
             ),
         ) if eligible else None
     elif rule == "exact_oracle_minimum_intervention":
-        eligible = [row for row in rows if float(row["actual_global"]) <= 0.0]
+        eligible = [
+            row for row in rows
+            if row["actual_global"] is not None
+            and float(row["actual_global"]) <= 0.0
+        ]
     else:
         raise ValueError("unknown selection rule")
     return min(
@@ -118,12 +186,17 @@ def evaluate_rule(
     states = []
     witnesses: Counter[str] = Counter()
     for state_id, rows in sorted(by_state.items()):
-        actual_safe = [row for row in rows if float(row["actual_global"]) <= 0.0]
+        actual_safe = [
+            row for row in rows
+            if row["actual_global"] is not None
+            and float(row["actual_global"]) <= 0.0
+        ]
         selected = _select(rows, rule=rule, margin=margin)
         selected_safe = (
-            None if selected is None else float(selected["actual_global"]) <= 0.0
+            None if selected is None or selected["actual_global"] is None
+            else float(selected["actual_global"]) <= 0.0
         )
-        failed_groups = [] if selected is None else [
+        failed_groups = [] if selected is None or selected["actual_by_group"] is None else [
             group for group, risk in selected["actual_by_group"].items()
             if float(risk) > 0.0
         ]
@@ -134,6 +207,9 @@ def evaluate_rule(
             "actual_safe_candidate_count": len(actual_safe),
             "selected_candidate": None if selected is None else selected["candidate_name"],
             "selected_actual_safe": selected_safe,
+            "selected_outcome_known": (
+                None if selected is None else bool(selected["known_outcome"])
+            ),
             "selected_correction": None if selected is None else selected["correction"],
             "selected_actual_global": None if selected is None else selected["actual_global"],
             "selected_predicted_global": None if selected is None else selected["predicted_global"],
@@ -146,6 +222,9 @@ def evaluate_rule(
     false_safe = [
         row for row in selected_recoverable if row["selected_actual_safe"] is False
     ]
+    selected_unknown = [
+        row for row in selected_recoverable if row["selected_actual_safe"] is None
+    ]
     return {
         "rule": rule,
         "margin": float(margin),
@@ -156,6 +235,7 @@ def evaluate_rule(
             row["selected_actual_safe"] is True for row in selected_recoverable
         ),
         "false_safe_selected_state_count": len(false_safe),
+        "unknown_selected_state_count": len(selected_unknown),
         "abstained_recoverable_state_count": len(recoverable) - len(selected_recoverable),
         "false_safe_group_count": dict(sorted(witnesses.items())),
         "states": states,
@@ -181,16 +261,26 @@ def evaluate_ranked_exact_verification(
         )
         safe_ranks = [
             rank for rank, row in enumerate(ranked, start=1)
-            if float(row["actual_global"]) <= 0.0
+            if row["actual_global"] is not None
+            and float(row["actual_global"]) <= 0.0
         ]
         if not safe_ranks:
             continue
         first = int(safe_ranks[0])
+        preceding = ranked[:first - 1]
         states.append({
             "state_id": state_id,
             "first_exact_safe_rank": first,
             "first_exact_safe_candidate": ranked[first - 1]["candidate_name"],
             "first_exact_safe_correction": ranked[first - 1]["correction"],
+            "unknown_checks_before_safe": sum(
+                row["actual_global"] is None for row in preceding
+            ),
+            "unsafe_checks_before_safe": sum(
+                row["actual_global"] is not None
+                and float(row["actual_global"]) > 0.0
+                for row in preceding
+            ),
         })
     ranks = [row["first_exact_safe_rank"] for row in states]
     return {
@@ -198,6 +288,12 @@ def evaluate_ranked_exact_verification(
         "maximum_candidates_checked": max(ranks, default=None),
         "mean_candidates_checked": (
             None if not ranks else sum(ranks) / len(ranks)
+        ),
+        "unknown_checks_before_safe": sum(
+            row["unknown_checks_before_safe"] for row in states
+        ),
+        "unsafe_checks_before_safe": sum(
+            row["unsafe_checks_before_safe"] for row in states
         ),
         "top_k_safe_support": {
             str(int(k)): sum(rank <= int(k) for rank in ranks)
