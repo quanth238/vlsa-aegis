@@ -6445,3 +6445,19 @@ branch zero through the exact ordinary sampler and batches only the twelve
 nonzero branches; it also retains the raw batched-zero model drift in every
 result.  This changes neither nonzero branch generation nor any controller,
 critic, candidate, state, seed, or scientific acceptance rule.
+
+Clean repaired producer `41716`, replay `41717`, and validator `41718` pass
+every ADR-0194 sampler gate with exact independent scientific equality.  The
+ordinary and authoritative terminal branch-zero output are identical (maximum
+absolute difference `0.0`), all 13 terminal chunks are finite, maximum terminal
+branch diversity is `0.8216188234314321`, candidate names/count are exact, and
+the sampler neither scores risk nor selects a branch.  The unused raw batched
+zero path still differs by `0.0103302001953125` model units and is retained as
+diagnostic evidence.  Producer/replay/validation file SHA-256 values are
+`6279b3739a5986e2fb094ebc972c3b5b1c0278e3469345fa1eff2ed2175d28c6`,
+`317208b91fc7135405befeda74a62e1b3c78833f0884efd6309cd784935f637d`,
+and `0e97f798ec2c1d1138c06a5c102b85b80bd5e468603104ed1c739311d95bb181`;
+the validation payload SHA-256 is
+`65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b`.
+This authorizes binding the frozen compact scorer to terminal chunks, not a
+safety, collision-reduction, or control claim.

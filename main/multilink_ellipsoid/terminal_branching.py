@@ -112,3 +112,122 @@ def build_envelope(
         "candidate_output_residuals": residuals.tolist(),
         "branch_after_euler_step": int(branch_after_euler_step),
     }
+
+
+def score_terminal_bank(
+    *,
+    exact_case: Mapping[str, Any],
+    ordinary_terminal_actions: Sequence[Sequence[float]],
+    terminal_action_bank: Sequence[Sequence[Sequence[float]]],
+    candidate_names: Sequence[str],
+    state_payload: Mapping[str, Any],
+    primary_rows: Sequence[int] = (0, 1, 2, 3, 4),
+    translation_scale: float = 0.05,
+) -> dict[str, Any]:
+    """Score only clipped, terminal executable chunks with the frozen critic."""
+
+    import copy
+    import math
+    import numpy as np
+
+    from main.multilink_ellipsoid.compact_safety_coordinate_q import (
+        MODEL_ROWS,
+        safety_coordinate_feature,
+    )
+    from main.multilink_ellipsoid.compact_selector_ablation import (
+        predict_serialized_mlp_float32,
+    )
+
+    names = [str(name) for name in candidate_names]
+    if tuple(names) != FROZEN_CANDIDATE_NAMES:
+        raise ValueError("terminal scorer candidate names differ")
+    ordinary = np.asarray(ordinary_terminal_actions, dtype=np.float64)
+    terminal = np.asarray(terminal_action_bank, dtype=np.float64)
+    if ordinary.shape != (10, 7) or terminal.shape != (13, 10, 7):
+        raise ValueError("terminal scorer action shapes differ")
+    if not np.all(np.isfinite(ordinary)) or not np.all(np.isfinite(terminal)):
+        raise ValueError("terminal scorer actions are non-finite")
+    effective_ordinary = ordinary.copy()
+    effective_terminal = terminal.copy()
+    effective_ordinary[:, :3] = np.clip(effective_ordinary[:, :3], -1.0, 1.0)
+    effective_terminal[:, :, :3] = np.clip(
+        effective_terminal[:, :, :3], -1.0, 1.0
+    )
+    if float(translation_scale) != 0.05:
+        raise ValueError("terminal scorer translation scale differs")
+    rows = tuple(int(row) for row in MODEL_ROWS)
+    primary = tuple(int(row) for row in primary_rows)
+    if not primary or not set(primary).issubset(rows):
+        raise ValueError("terminal scorer primary rows differ")
+
+    feature_case = copy.deepcopy(dict(exact_case))
+    feature_case["source_nominal_five_action_chunk"] = (
+        effective_ordinary[:5].tolist()
+    )
+    features = []
+    metadata = []
+    for candidate_index, name in enumerate(names):
+        candidate = {
+            "source_executed_actions": effective_terminal[
+                candidate_index, :5
+            ].tolist(),
+        }
+        for row in rows:
+            features.append(safety_coordinate_feature(
+                feature_case,
+                candidate,
+                row,
+                translation_scale=float(translation_scale),
+            ))
+            metadata.append((candidate_index, row))
+    values = predict_serialized_mlp_float32(features, state_payload)
+    if len(values) != len(metadata) or any(len(value) != 1 for value in values):
+        raise ValueError("terminal scorer prediction shape differs")
+    predictions = np.empty((len(names), len(rows)), dtype=np.float64)
+    for (candidate_index, row), value in zip(metadata, values):
+        predictions[candidate_index, rows.index(row)] = float(value[0])
+    if not np.all(np.isfinite(predictions)):
+        raise ValueError("terminal scorer prediction is non-finite")
+    corrections = np.linalg.norm(
+        effective_terminal[:, :5, :3] - effective_ordinary[None, :5, :3],
+        axis=(1, 2),
+    )
+    records = []
+    for candidate_index, name in enumerate(names):
+        by_row = {
+            str(row): float(predictions[candidate_index, rows.index(row)])
+            for row in rows
+        }
+        predicted_primary = max(by_row[str(row)] for row in primary)
+        records.append({
+            "candidate_name": name,
+            "candidate_order": candidate_index,
+            "predicted_by_row": by_row,
+            "predicted_primary": float(predicted_primary),
+            "effective_correction_l2_action": float(corrections[candidate_index]),
+            "effective_first_five_actions": effective_terminal[
+                candidate_index, :5
+            ].tolist(),
+        })
+    selected = min(records, key=lambda record: (
+        float(record["predicted_primary"]),
+        float(record["effective_correction_l2_action"]),
+        int(record["candidate_order"]),
+    ))
+    if not math.isfinite(float(selected["predicted_primary"])):
+        raise ValueError("terminal scorer selection differs")
+    return {
+        "selection_rule": (
+            "minimum_predicted_primary_risk_then_intervention_tie_break"
+        ),
+        "primary_rows": list(primary),
+        "translation_scale_m_per_action_unit": float(translation_scale),
+        "candidate_count": len(records),
+        "selected_candidate": str(selected["candidate_name"]),
+        "selected_candidate_order": int(selected["candidate_order"]),
+        "selected_predicted_primary": float(selected["predicted_primary"]),
+        "selected_effective_first_five_actions": selected[
+            "effective_first_five_actions"
+        ],
+        "records": records,
+    }

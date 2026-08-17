@@ -5999,3 +5999,13 @@ observation, seed, noise definition, schedule, and decoder; batch only the
 twelve nonzero branches and record the unused batched-zero drift.  This is an
 apparatus-only repair that makes the control arm authoritative and does not
 alter any proposed terminalized nonzero branch.
+
+Repaired H100 jobs `41716/41717/41718` validate this architecture.  Branch-zero
+physical actions match ordinary pi0.5 exactly, all terminal branches are finite
+and non-identical, and producer/replay scientific views are equal.  Accept the
+terminalized branch bank as a valid proposal generator.  The sampler still has
+no permission to score risk or choose an action.  Next, clip the terminal XYZ
+chunks, construct the frozen per-row 7D features from current exact geometry
+and terminal five-action projections, replay the immutable ADR-0191 checkpoint,
+and select minimum predicted EE/palm/L5 risk with intervention only as a
+tie-break.  Execute only selected actions in the subsequent paired pilot.

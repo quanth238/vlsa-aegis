@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import tempfile
 import unittest
+from unittest import mock
 
 from tests.test_crfs_websocket_control import _load_server_module
 
@@ -126,6 +127,52 @@ class TerminalBranchingTests(unittest.TestCase):
             result = validate(producer_path, replay_path)
         self.assertEqual(result["status"], "passing")
         self.assertTrue(result["checks"]["scientific_view_exact"])
+
+    def test_terminal_scorer_uses_clipped_terminal_actions(self):
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            self.skipTest("desktop Python lacks optional NumPy")
+
+        from main.multilink_ellipsoid.terminal_branching import (
+            FROZEN_CANDIDATE_NAMES,
+            score_terminal_bank,
+        )
+
+        ordinary = np.zeros((10, 7), dtype=np.float64)
+        bank = np.zeros((13, 10, 7), dtype=np.float64)
+        bank[1, :5, 0] = 2.0
+        bank[2, :5, 0] = -0.5
+
+        def feature(_case, candidate, row, *, translation_scale):
+            self.assertEqual(translation_scale, 0.05)
+            return [candidate["source_executed_actions"][0][0], float(row)] + [0.0] * 5
+
+        def predict(features, _state):
+            # Candidate 2 has the lowest maximum over rows 0--4.
+            return [[value[0] + 0.01 * value[1]] for value in features]
+
+        with mock.patch(
+            "main.multilink_ellipsoid.compact_safety_coordinate_q.safety_coordinate_feature",
+            side_effect=feature,
+        ), mock.patch(
+            "main.multilink_ellipsoid.compact_selector_ablation.predict_serialized_mlp_float32",
+            side_effect=predict,
+        ):
+            result = score_terminal_bank(
+                exact_case={},
+                ordinary_terminal_actions=ordinary,
+                terminal_action_bank=bank,
+                candidate_names=FROZEN_CANDIDATE_NAMES,
+                state_payload={},
+            )
+        self.assertEqual(
+            result["selected_candidate"], FROZEN_CANDIDATE_NAMES[2]
+        )
+        self.assertEqual(
+            result["records"][1]["effective_first_five_actions"][0][0],
+            1.0,
+        )
 
 
 if __name__ == "__main__":
