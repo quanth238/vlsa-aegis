@@ -6259,3 +6259,23 @@ opened diagnostic evidence, but do not call ADR-0198 independently validated.
 The next principled method change is the already identified horizon issue: a
 critic trained to predict the current chunk plus the next frozen VLA re-query.
 That requires new offline labels and is not silently introduced here.
+
+### ADR-0199 replace the oversized EE proxy with separate compiled contact primitives
+
+Do not scale or relax the late-flow QP while diagnostic EE row 0 still denotes
+the released oversized proxy. Freeze that proxy as an AEGIS baseline comparator
+and represent the physical end effector as five distinct rows: palm, finger-1
+base, finger-1 pad, finger-2 base and finger-2 pad. Fit every row only from its
+own compiled contact geometry. This avoids enclosing the empty space between
+the fingers and keeps the active collision witness identifiable.
+
+Validate the repair before changing the learned method. Replay a frozen cohort
+that exposes all five raw MuJoCo geom groups plus one clean contact-free control,
+measure every internal substep against exact compiled obstacle boxes, and require
+zero per-group physical false-safes and exact independent replay. Render the
+five tight rows together with the old cyan proxy at a real raw-contact frame.
+This is geometry evidence only: it cannot retrofit the existing compact row-0
+MLP target, authorize inference correction, or establish a whole-EE safety
+claim. A passing gate authorizes replacing future EE labels/features with the
+tight per-primitive representation; it does not authorize new training by
+itself.

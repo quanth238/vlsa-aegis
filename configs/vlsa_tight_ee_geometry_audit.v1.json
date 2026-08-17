@@ -1,0 +1,87 @@
+{
+  "schema_version": "vlsa_tight_ee_geometry_audit.v1",
+  "protocol_id": "vlsa-tight-ee-geometry-audit-v1",
+  "claim_scope": "contact_aligned_tight_palm_and_finger_geometry_against_exact_compiled_obstacle_boxes_with_raw_MuJoCo_contact_authority",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "availability_result": "/mnt/data/quanth/experiments/vlsa-distal-ee-primitive-availability/ee-primitive-availability-20260815b/result.json",
+    "availability_result_file_sha256": "53533b4ec7a48e3fba7b5a6047f53cc1e06f8e821d26ee64356b1d0f053e58a1",
+    "availability_result_payload_sha256": "a8f41767e98d7c03076f626ce1471d7377883bfed5cb3c36871edd1f6fc12466",
+    "availability_validation": "/mnt/data/quanth/experiments/vlsa-distal-ee-primitive-availability/ee-primitive-availability-20260815b/validation.json",
+    "availability_validation_file_sha256": "af678a577cfc6de69209617fcbac0e0af72eb0d9a3dc125f8ef7194ddffac437",
+    "availability_validation_payload_sha256": "b62a81428d5e110e77a7fd1fb5a835048bb28c9c3df72c9fa151016c874cce88",
+    "table1_root": "/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a"
+  },
+  "tight_ee_primitives": {
+    "palm": "gripper0_hand_collision",
+    "finger1_base": "gripper0_finger1_collision",
+    "finger1_pad": "gripper0_finger1_pad_collision",
+    "finger2_base": "gripper0_finger2_collision",
+    "finger2_pad": "gripper0_finger2_pad_collision"
+  },
+  "cohort": {
+    "outcomes_used_for_primitive_fit": false,
+    "cases": [
+      {
+        "case_id": "vlsa-t1-spatial-i-t3-e09",
+        "expected_contact_groups": ["palm", "finger1_base"],
+        "classification": "clean_task_success_contact"
+      },
+      {
+        "case_id": "vlsa-t1-spatial-i-t0-e17",
+        "expected_contact_groups": ["palm", "finger1_base", "finger1_pad"],
+        "classification": "raw_contact_geometry_only_proxy_invalid_task_failure"
+      },
+      {
+        "case_id": "vlsa-t1-spatial-i-t3-e05",
+        "expected_contact_groups": ["finger2_base", "finger2_pad"],
+        "classification": "raw_contact_geometry_only_proxy_invalid"
+      },
+      {
+        "case_id": "vlsa-t1-spatial-i-t3-e01",
+        "expected_contact_groups": [],
+        "classification": "clean_task_success_contact_free_control"
+      }
+    ]
+  },
+  "fit": {
+    "source": "compiled_contact_geom_only_no_rollout_outcomes",
+    "relative_padding": 0.000001,
+    "khachiyan_tolerance": 0.000000001,
+    "khachiyan_max_iterations": 100000
+  },
+  "replay": {
+    "expected_mujoco_substeps_per_action": 5,
+    "state_tolerance": 0.000000001,
+    "scalar_tolerance": 0.000000000001
+  },
+  "geometry": {
+    "obstacle_representation": "exact_live_compiled_MuJoCo_collision_boxes",
+    "units": "dimensionless_normalized_radial_slack_not_metric_clearance",
+    "released_AEGIS_EE_proxy_role": "visual_and_false_unsafe_comparator_only"
+  },
+  "visualization": {
+    "case_id": "vlsa-t1-spatial-i-t3-e09",
+    "camera_name": "backview",
+    "resolution": 768,
+    "frame": "first_observed_tight_EE_raw_contact_internal_substep",
+    "show_released_proxy": true,
+    "show_five_tight_primitives": true
+  },
+  "gate": {
+    "radial_slack_contact_tolerance": 0.000001,
+    "contact_point_quadratic_tolerance": 0.000001,
+    "require_contact_free_control_positive_for_every_primitive": true,
+    "require_exact_independent_replay": true,
+    "require_zero_physical_false_safes": true
+  },
+  "forbidden": [
+    "contact_outcome_dependent_primitive_fit",
+    "single_ellipsoid_union_over_empty_finger_space",
+    "relabel_released_EE_proxy_as_physical_authority",
+    "model_training",
+    "QP",
+    "closed_loop_claim"
+  ]
+}

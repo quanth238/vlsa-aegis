@@ -6754,3 +6754,25 @@ blocker. Palm/L5 already accept nominal, while the diagnostic EE proxy remains
 unreachable. No route is executed and no further simulation is authorized from
 this result. The unresolved Query-1/Query-2 failure requires a longer deployed-
 horizon target, not more waypoint samples at Query 2.
+
+## 2026-08-17: Contact-aligned tight end-effector geometry repair
+
+ADR-0199 removes the released AEGIS EE ellipsoid from physical-constraint
+authority. The old grip-site ellipsoid with semiaxes `[0.06, 0.12, 0.11]` m
+remains only a visual/false-unsafe comparator. Its replacement is a union of
+five independently fitted, contact-aligned compiled collision primitives:
+`gripper0_hand_collision`, both finger-base collision geoms, and both finger-pad
+collision geoms. Meshes use certified compiled-vertex MVEEs; registered
+primitive geoms use their closed-form enclosing ellipsoids. Contact outcomes do
+not enter fitting, and the five rows are never collapsed into one ellipsoid over
+the empty finger space.
+
+The frozen real-simulator audit replays E09, E17, E05 and contact-free E01 from
+the immutable Table-1 action ledgers. It measures exact ellipsoid-versus-compiled
+box radial slack and raw MuJoCo contacts at every internal substep. Passing
+requires exact independent replay, all expected palm/finger contact groups,
+verified primitive enclosures, zero physical false-safe samples, and positive
+clearance for every tight primitive in the contact-free control. E09 also
+renders the released proxy and five tight primitives at the first observed raw
+EE contact frame. This geometry gate does not retrain the MLP or authorize QP
+or control.

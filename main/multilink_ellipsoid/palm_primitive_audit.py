@@ -1,9 +1,9 @@
-"""Certified compiled-palm primitive and immutable replay audit contracts.
+"""Certified compiled-contact primitives and immutable replay contracts.
 
-The released AEGIS end-effector ellipsoid is intentionally left unchanged.
-This opt-in diagnostic fits one minimum-volume enclosing ellipsoid to the
-compiled ``gripper0_hand_collision`` mesh and evaluates it against raw MuJoCo
-contacts on a frozen cohort.  Contact outcomes never enter the fit.
+The baseline released AEGIS end-effector ellipsoid remains byte-compatible.
+Opt-in geometry can replace its physical role with independent bounds fitted
+to the compiled palm and finger collision geoms. Contact outcomes never enter
+these fits.
 """
 
 from __future__ import annotations
@@ -172,6 +172,7 @@ class CompiledGeomEllipsoidTemplate:
     semiaxes_m: Any
     enclosure_certificate: Mapping[str, Any]
     geom_rbound_m: float
+    geom_kind: str = "mesh"
     bound_source: str = "certified_compiled_mesh_mvee"
 
     def to_record(self) -> dict[str, Any]:
@@ -184,6 +185,7 @@ class CompiledGeomEllipsoidTemplate:
             "rotation_local": self.rotation_local.tolist(),
             "semiaxes_m": self.semiaxes_m.tolist(),
             "geom_rbound_m": float(self.geom_rbound_m),
+            "geom_kind": self.geom_kind,
             "bound_source": self.bound_source,
             "volume_m3": float(
                 4.0 * math.pi * float(_numpy().prod(self.semiaxes_m)) / 3.0
@@ -268,6 +270,7 @@ def fit_compiled_mesh_geom(
         semiaxes_m=fitted.semiaxes_m,
         enclosure_certificate=dict(fitted.enclosure_certificate or {}),
         geom_rbound_m=rbound,
+        geom_kind=kind,
         bound_source="certified_compiled_mesh_mvee",
     )
 
@@ -309,8 +312,50 @@ def fit_compiled_primitive_geom(
         semiaxes_m=semiaxes,
         enclosure_certificate=certificate,
         geom_rbound_m=rbound,
+        geom_kind=kind,
         bound_source=source,
     )
+
+
+def fit_compiled_contact_geom(
+    env: Any,
+    geom_name: str,
+    *,
+    relative_padding: float,
+    tolerance: float,
+    max_iterations: int,
+) -> CompiledGeomEllipsoidTemplate:
+    """Fit one contact-capable compiled geom without using rollout labels.
+
+    Mesh geoms use the certified compiled-vertex MVEE. Registered primitive
+    geoms use their closed-form enclosing ellipsoid. Keeping this dispatch in
+    one place lets palm and each finger collision geom remain separate rather
+    than recreating the released, oversized one-ellipsoid EE proxy.
+    """
+
+    model, _ = _raw_model_data(env.sim)
+    matches = [
+        geom_id for geom_id in range(int(model.ngeom))
+        if _name(env.sim.model, "geom", geom_id) == geom_name
+    ]
+    if len(matches) != 1:
+        raise ValueError("compiled contact geom identity is not unique")
+    geom_id = int(matches[0])
+    if (
+        int(model.geom_contype[geom_id]) == 0
+        and int(model.geom_conaffinity[geom_id]) == 0
+    ):
+        raise ValueError("compiled geom is not contact capable")
+    kind = _geom_kind(int(model.geom_type[geom_id]))
+    if kind == "mesh":
+        return fit_compiled_mesh_geom(
+            env,
+            geom_name,
+            relative_padding=relative_padding,
+            tolerance=tolerance,
+            max_iterations=max_iterations,
+        )
+    return fit_compiled_primitive_geom(env, geom_name)
 
 
 def compiled_obstacle_templates(
@@ -382,7 +427,7 @@ def world_ellipsoid(
         geom_name=template.geom_name,
         bound_source=template.bound_source,
         source_rbound_m=template.geom_rbound_m,
-        source_geom_kind="mesh",
+        source_geom_kind=template.geom_kind,
         source_body_names=(template.body_name,),
         source_geom_names=(template.geom_name,),
         enclosure_certificate=template.enclosure_certificate,
