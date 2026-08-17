@@ -130,6 +130,7 @@ def _evaluate_case(
         minimum_ellipsoid_quadratics_over_boxes,
     )
     from main.multilink_ellipsoid.palm_primitive_audit import (
+        fit_compiled_contact_geom,
         fit_compiled_mesh_geom,
         world_ellipsoid,
     )
@@ -226,6 +227,7 @@ def _evaluate_case(
         exact_target = audit_config.get("exact_group_target")
         exact_shadow = None
         exact_palm_template = None
+        exact_contact_templates: list[Any] = []
         exact_group_order: list[str] = []
         exact_group_rows: dict[str, list[int]] = {}
         exact_geom_to_group: dict[str, str] = {}
@@ -247,14 +249,28 @@ def _evaluate_case(
                     "record": {"label": perception["obstacle_label"]},
                 },
             )
-            palm_fit = exact_target["palm_fit"]
-            exact_palm_template = fit_compiled_mesh_geom(
-                env,
-                str(exact_target["palm_geom_name"]),
-                relative_padding=float(palm_fit["relative_padding"]),
-                tolerance=float(palm_fit["khachiyan_tolerance"]),
-                max_iterations=int(palm_fit["khachiyan_max_iterations"]),
-            )
+            contact_primitives = exact_target.get("compiled_contact_primitives")
+            if contact_primitives is not None:
+                contact_fit = exact_target["compiled_contact_fit"]
+                exact_contact_templates = [
+                    fit_compiled_contact_geom(
+                        env,
+                        str(item["geom_name"]),
+                        relative_padding=float(contact_fit["relative_padding"]),
+                        tolerance=float(contact_fit["khachiyan_tolerance"]),
+                        max_iterations=int(contact_fit["khachiyan_max_iterations"]),
+                    )
+                    for item in contact_primitives
+                ]
+            else:
+                palm_fit = exact_target["palm_fit"]
+                exact_palm_template = fit_compiled_mesh_geom(
+                    env,
+                    str(exact_target["palm_geom_name"]),
+                    relative_padding=float(palm_fit["relative_padding"]),
+                    tolerance=float(palm_fit["khachiyan_tolerance"]),
+                    max_iterations=int(palm_fit["khachiyan_max_iterations"]),
+                )
             exact_include_released_ee = bool(
                 exact_target.get("include_released_aegis_end_effector_proxy", False)
             )
@@ -263,7 +279,18 @@ def _evaluate_case(
                 env, include_certificates=True
             )[:exact_distal_row_count]
             exact_certificate_pass = bool(
-                (exact_palm_template.enclosure_certificate or {}).get("verified")
+                all(
+                    bool((template.enclosure_certificate or {}).get("verified"))
+                    for template in exact_contact_templates
+                )
+                and (
+                    exact_palm_template is None
+                    or bool(
+                        (exact_palm_template.enclosure_certificate or {}).get(
+                            "verified"
+                        )
+                    )
+                )
                 and all(
                     bool((row.enclosure_certificate or {}).get("verified"))
                     for row in exact_distal
@@ -304,6 +331,16 @@ def _evaluate_case(
         clock = (int(base.timestep), float(base.cur_time), bool(base.done))
 
         empirical_proxy = audit_config.get("empirical_l6_proxy")
+        rollout_scope = str(
+            audit_config.get(
+                "rollout_scope", "complete_candidate_plus_continuation"
+            )
+        )
+        prefix_only = rollout_scope == "candidate_five_action_prefix_only"
+        _require(
+            prefix_only or rollout_scope == "complete_candidate_plus_continuation",
+            "compiled-box rollout scope differs",
+        )
         trajectory_value_config = audit_config.get("trajectory_policy_value")
         artifact_superset = audit_config.get("artifact_superset") or {}
         capture_action_boundaries = bool(
@@ -358,9 +395,13 @@ def _evaluate_case(
             }
 
         def exact_robot_rows() -> tuple[list[Any], Optional[dict[str, Any]]]:
-            palm = world_ellipsoid(env, exact_palm_template)
+            contact_rows = (
+                [world_ellipsoid(env, template) for template in exact_contact_templates]
+                if exact_contact_templates
+                else [world_ellipsoid(env, exact_palm_template)]
+            )
             distal = exact_shadow._slabbed_links(env)[:exact_distal_row_count]
-            rows = [palm] + distal
+            rows = contact_rows + distal
             ee_pose = None
             if exact_include_released_ee:
                 ee, ee_pose = released_ee_row()
@@ -417,11 +458,11 @@ def _evaluate_case(
                 "ee_pose": ee_pose,
                 "palm_pose": {
                     "center_m": np.asarray(
-                        robot_rows[1 if exact_include_released_ee else 0].center,
+                        robot_rows[exact_group_rows["palm"][0]].center,
                         dtype=np.float64,
                     ).tolist(),
                     "rotation": np.asarray(
-                        robot_rows[1 if exact_include_released_ee else 0].rotation,
+                        robot_rows[exact_group_rows["palm"][0]].rotation,
                         dtype=np.float64,
                     ).tolist(),
                 },
@@ -469,7 +510,9 @@ def _evaluate_case(
         candidate_records = []
         for candidate_name in case_config["candidate_names"]:
             candidate = by_name[candidate_name]
-            actions, phases = candidate_action_sequence(candidate)
+            actions, phases = candidate_action_sequence(
+                candidate, rollout_scope=rollout_scope,
+            )
             restore_source()
             observation = base._get_observations()
             proxy_trace = []
@@ -633,21 +676,40 @@ def _evaluate_case(
             overlap = np.asarray(exact_overlap_trace, dtype=bool)
             replayed_row_minimum = np.min(proxy, axis=0)
             source_row_minimum = np.asarray(
-                candidate["combined_row_minimum_clearance_m"], dtype=np.float64
+                candidate["prefix"]["row_minimum_clearance_m"]
+                if prefix_only
+                else candidate["combined_row_minimum_clearance_m"],
+                dtype=np.float64,
             )
             row_error = float(np.max(np.abs(replayed_row_minimum - source_row_minimum)))
             replay_car = float(max(displacements))
-            source_car = _candidate_source_car(candidate)
-            source_contacts = _candidate_source_contacts(candidate)
+            source_car = (
+                float(candidate["prefix"]["maximum_active_obstacle_l1_displacement_m"])
+                if prefix_only else _candidate_source_car(candidate)
+            )
+            source_contacts = (
+                int(candidate["prefix"]["protected_contact_count"])
+                if prefix_only else _candidate_source_contacts(candidate)
+            )
+            source_physical_veto = bool(
+                source_contacts > 0 or source_car > car_limit
+            ) if prefix_only else bool(candidate["physical_veto"])
             replay_physical_veto = bool(contacts or replay_car > car_limit)
             source_proxy_nonoverlap = bool(float(np.min(source_row_minimum)) >= 0.0)
-            source_proxy_buffer_safe = bool(max(candidate["combined_risk"]) <= 0.0)
+            source_proxy_buffer_safe = bool(max(
+                candidate["candidate_prefix_risk"]
+                if prefix_only else candidate["combined_risk"]
+            ) <= 0.0)
             any_exact_overlap = bool(np.any(overlap))
-            compiled_safe_terminal = bool(
-                candidate["terminal_status"] == "SAFE_TERMINAL"
-                and not any_exact_overlap
+            compiled_safe_horizon = bool(
+                not any_exact_overlap
                 and not contacts
                 and replay_car <= car_limit
+            )
+            compiled_safe_terminal = bool(
+                not prefix_only
+                and candidate["terminal_status"] == "SAFE_TERMINAL"
+                and compiled_safe_horizon
             )
             exact_group_record = None
             if exact_target is not None:
@@ -691,9 +753,14 @@ def _evaluate_case(
                     "phase_group_minimum_normalized_radial_slack": phase_minimum,
                     "group_contact_sample_count": group_contact_count,
                     "group_contact_events": exact_group_contacts,
-                    "known_outcome": candidate["terminal_status"] != "UNKNOWN_TIMEOUT",
+                    "known_outcome": bool(
+                        prefix_only
+                        or candidate["terminal_status"] != "UNKNOWN_TIMEOUT"
+                    ),
+                    "safe_horizon": compiled_safe_horizon,
                     "safe_terminal": bool(
-                        candidate["terminal_status"] == "SAFE_TERMINAL"
+                        not prefix_only
+                        and candidate["terminal_status"] == "SAFE_TERMINAL"
                         and min(group_minimum.values()) > 0.0
                         and sum(group_contact_count.values()) == 0
                         and replay_car <= car_limit
@@ -728,7 +795,8 @@ def _evaluate_case(
                 ),
                 "source_executed_actions": candidate["actions"],
                 "source_terminal_status": candidate["terminal_status"],
-                "source_physical_veto": bool(candidate["physical_veto"]),
+                "source_rollout_scope": rollout_scope,
+                "source_physical_veto": source_physical_veto,
                 "source_raw_protected_contact_count": source_contacts,
                 "source_proxy_nonoverlap": source_proxy_nonoverlap,
                 "source_proxy_buffer_safe": source_proxy_buffer_safe,
@@ -751,6 +819,7 @@ def _evaluate_case(
                 "compiled_box_risk": float(-np.min(slack)),
                 "compiled_box_any_exact_overlap": any_exact_overlap,
                 "compiled_box_safe_terminal": compiled_safe_terminal,
+                "compiled_box_safe_horizon": compiled_safe_horizon,
                 "exact_group_target": exact_group_record,
                 "empirical_l6_proxy": empirical_proxy,
                 "sample_count": int(len(proxy_trace)),
@@ -776,6 +845,7 @@ def _evaluate_case(
         return {
             "case_id": case_config["case_id"],
             "state_step": state_step,
+            "rollout_scope": rollout_scope,
             "source_result": str(source_path),
             "source_result_file_sha256": case_config["source_result_file_sha256"],
             "source_result_payload_sha256": case_config["source_result_payload_sha256"],

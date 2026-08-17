@@ -6320,3 +6320,28 @@ renaming it would be scientifically invalid. The next method step is a shared
 constraint-conditioned critic evaluated separately on the five tight rows (or
 a newly labeled compact diagnostic), followed by prediction validation before
 any action correction.
+
+### ADR-0200 isolate a five-action tight-geometry prefix-risk dataset
+
+Do not start another broad natural-episode search or reuse the compound
+candidate-plus-backup target for the deadline pilot. Reuse the immutable 24
+episode-grouped warning states from ADR-0177/0180 and their frozen action
+ledgers, preserving the observed 14/4/6 split. Reopen only the 13 candidate
+names selected from training-side development evidence. The six historical
+test roots are already opened and therefore remain diagnostic; they cannot be
+renamed an untouched paper test.
+
+Replay exactly five candidate actions through unchanged clipping and OSC, then
+stop. Do not execute the registered backup or terminal hold, query the policy,
+run a QP, search waypoints, or use candidate multiprocessing. Label every
+internal substep with five separate compiled palm/finger primitives, three L5
+slabs and two diagnostic L6 slabs against exact compiled obstacle boxes. The
+released AEGIS EE ellipsoid is excluded from the label.
+
+Run one sequential case per job. Producer and independent replay arrays may run
+one case each concurrently, which uses two independent states rather than four
+workers inside one state; the latter already measured only 0.9689x speedup.
+Require exact scientific replay, 312 five-action candidate rollouts, verified
+primitive certificates and zero represented-geometry physical false-safes.
+A pass authorizes a diagnostic Q-only fit on these prefix labels, not a paper-
+scale generalization claim, QP, action correction or safety certificate.

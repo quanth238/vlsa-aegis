@@ -56,11 +56,26 @@ def load_config(path: Path) -> dict[str, Any]:
     return output
 
 
-def candidate_action_sequence(candidate: Mapping[str, Any]) -> tuple[list[Any], list[str]]:
-    """Return the exact executed prefix, selected backup, and terminal hold ledger."""
+def candidate_action_sequence(
+    candidate: Mapping[str, Any],
+    *,
+    rollout_scope: str = "complete_candidate_plus_continuation",
+) -> tuple[list[Any], list[str]]:
+    """Return the registered executed ledger for the requested rollout scope.
+
+    The historical default remains byte-compatible.  The opt-in prefix-only
+    scope is used by the finite-horizon critic dataset and never executes the
+    registered backup or terminal hold.
+    """
 
     actions = [list(row) for row in candidate["actions"]]
     phases = ["prefix"] * len(actions)
+    if rollout_scope == "candidate_five_action_prefix_only":
+        if len(actions) != 5:
+            raise ValueError("compiled-box candidate prefix length differs")
+        return actions, phases
+    if rollout_scope != "complete_candidate_plus_continuation":
+        raise ValueError("compiled-box candidate rollout scope differs")
     backup = candidate["backup"]
     for decision in backup["decisions"]:
         actions.append(list(decision["selected_action"]))

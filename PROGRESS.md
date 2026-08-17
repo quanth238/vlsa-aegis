@@ -6821,3 +6821,20 @@ Validation file/payload SHA-256 values are
 and `5f6926c5c0c1d992cfd7aebfe221f9548ab9acabe80b1c3f63292d9a604ac03d`.
 The tight geometry replacement is authorized; retraining the old proxy-target
 critic and control remain separate, unperformed steps.
+
+## 2026-08-17: Tight five-action prefix-risk relabeling
+
+ADR-0200 is implemented as a new opt-in path without deleting or changing any
+historical artifact. The config binds all 24 immutable ADR-0177/0180 episode
+roots, preserves their 14 train / 4 validation / 6 already-opened diagnostic
+test split, and reuses the frozen 13-name bank. Each case restores the original
+state and executes only the candidate's five stored actions through unchanged
+OSC. Continuation, terminal hold, QP, waypoint search, new policy inference and
+candidate multiprocessing are excluded.
+
+The physical target contains independent palm, finger-1 base/pad, finger-2
+base/pad and L5 rows; L6 is retained as a diagnostic. The released oversized EE
+proxy is absent. Local JSON, shell, Python 3.8 syntax, focused prefix/default-
+continuation regression and tight-geometry tests pass. The next step is a
+single-case sequential producer/replay Slurm canary; only exact equality
+authorizes the remaining 23 cases.

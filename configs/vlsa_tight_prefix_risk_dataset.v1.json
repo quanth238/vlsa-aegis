@@ -1,0 +1,140 @@
+{
+  "schema_version": "vlsa_tight_prefix_risk_dataset.v1",
+  "protocol_id": "vlsa-tight-prefix-risk-dataset-v1",
+  "claim_scope": "Diagnostic five-action prefix-risk relabeling of 24 immutable episode-grouped states. It replays only the frozen executed candidate chunks with tight palm/finger/L5 geometry and an L6 diagnostic; it does not provide a new untouched paper test.",
+  "source": {
+    "population_manifest": "manifests/vlsa_table1_population.jsonl",
+    "population_manifest_file_sha256": "a2cb7308dced5fac5a311500fde31fe08440ee2fef425215ce9ed000c40cabe8",
+    "legacy_replay_geometry_config": "configs/vlsa_distal_slabbed_ellipsoid_shadow_generalization_pilot.v4.json",
+    "legacy_replay_geometry_config_file_sha256": "d2f558d120b331c6ed3a26a75618c534116197422d8a4d22c09d86a2a3dfd41a",
+    "state_and_action_source": "immutable_ADR_0177_and_ADR_0180_producer_source_curves",
+    "split_status": "preserved_14_train_4_validation_6_previously_opened_diagnostic_test"
+  },
+  "rollout_scope": "candidate_five_action_prefix_only",
+  "candidate_bank": {
+    "candidate_count": 13,
+    "candidate_names": [
+      "nominal",
+      "grid_m1_m1_m1_front_loaded_r2.0",
+      "grid_p1_p1_p1_front_loaded_r2.0",
+      "grid_m1_m1_z0_front_loaded_r2.0",
+      "grid_p1_p1_z0_front_loaded_r2.0",
+      "grid_m1_z0_m1_front_loaded_r2.0",
+      "grid_p1_z0_p1_front_loaded_r2.0",
+      "grid_m1_p1_z0_front_loaded_r2.0",
+      "grid_p1_m1_z0_front_loaded_r2.0",
+      "grid_z0_m1_m1_front_loaded_r2.0",
+      "grid_z0_p1_p1_front_loaded_r2.0",
+      "grid_z0_z0_m1_front_loaded_r2.0",
+      "grid_z0_z0_p1_front_loaded_r2.0"
+    ],
+    "execution": "direct_clipped_Cartesian_chunk_through_unchanged_OSC",
+    "released_AEGIS_EE_QP_enabled": false,
+    "learned_QP_enabled": false,
+    "continuation_enabled": false,
+    "candidate_workers": 1
+  },
+  "tight_geometry_validation": {
+    "path": "/mnt/data/quanth/experiments/vlsa-tight-ee-geometry/tight-ee-geometry-20260817d/validation-v3.json",
+    "file_sha256": "80a8e24e9664a48a3cbf944cb97e9a27d0624f3c860cdb20e22abe54ae470624",
+    "validation_payload_sha256": "5f6926c5c0c1d992cfd7aebfe221f9548ab9acabe80b1c3f63292d9a604ac03d",
+    "required_gate": "tight_ee_geometry_gate_pass"
+  },
+  "exact_group_target": {
+    "robot_geometry_config": "configs/vlsa_distal_clean_action_risk_geometry.v4.json",
+    "robot_geometry_config_file_sha256": "2aea4a4f019b3950e4876c0e74c0ad408cfb8e4e8c793d07248c3f699634c79e",
+    "compiled_contact_primitives": [
+      {"group": "palm", "geom_name": "gripper0_hand_collision"},
+      {"group": "finger1_base", "geom_name": "gripper0_finger1_collision"},
+      {"group": "finger1_pad", "geom_name": "gripper0_finger1_pad_collision"},
+      {"group": "finger2_base", "geom_name": "gripper0_finger2_collision"},
+      {"group": "finger2_pad", "geom_name": "gripper0_finger2_pad_collision"}
+    ],
+    "compiled_contact_fit": {
+      "relative_padding": 1e-9,
+      "khachiyan_tolerance": 0.0001,
+      "khachiyan_max_iterations": 20000
+    },
+    "include_released_aegis_end_effector_proxy": false,
+    "distal_row_count": 5,
+    "group_order": [
+      "palm", "finger1_base", "finger1_pad", "finger2_base",
+      "finger2_pad", "L5", "L6"
+    ],
+    "robot_rows": {
+      "palm": [0],
+      "finger1_base": [1],
+      "finger1_pad": [2],
+      "finger2_base": [3],
+      "finger2_pad": [4],
+      "L5": [5, 6, 7],
+      "L6": [8, 9]
+    },
+    "groups": {
+      "palm": ["gripper0_hand_collision"],
+      "finger1_base": ["gripper0_finger1_collision"],
+      "finger1_pad": ["gripper0_finger1_pad_collision"],
+      "finger2_base": ["gripper0_finger2_collision"],
+      "finger2_pad": ["gripper0_finger2_pad_collision"],
+      "L5": ["robot0_link5_collision"],
+      "L6": ["robot0_link6_collision"]
+    },
+    "group_representation": {
+      "palm": "tight_compiled_contact_primitive",
+      "finger1_base": "tight_compiled_contact_primitive",
+      "finger1_pad": "tight_compiled_contact_primitive",
+      "finger2_base": "tight_compiled_contact_primitive",
+      "finger2_pad": "tight_compiled_contact_primitive",
+      "L5": "three_certified_contiguous_slab_ellipsoids",
+      "L6": "two_certified_contiguous_slab_ellipsoids_diagnostic"
+    },
+    "value": "Q_j=max_over_five_action_internal_substeps_of_negative_normalized_radial_slack",
+    "units": "dimensionless_not_metric_clearance"
+  },
+  "cases": [
+    {"case_id":"vlsa-t1-goal-ii-t0-e39","state_step":185,"split":"validation","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-goal-ii-t0-e39/source-curve.json","source_result_file_sha256":"81a9d1e366b6ebd906b93d7a1aeb6a50a188ce4889ba458b7e8cbeb1a358c834","source_result_payload_sha256":"5e5f52e0d0753a8ac64cd7661b033f88a57a5a65248ad8246c94eee1288da6b9"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e09","state_step":25,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-goal-ii-t2-e09/source-curve.json","source_result_file_sha256":"0c77d77da4463499d82a5131518ccda0302c90d055fe5d9f81444ed757a49f0a","source_result_payload_sha256":"6882522912af7f6caf35ec7a6c7f6ca1b38b381a476e19305edcd521fac5a7cc"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e44","state_step":25,"split":"validation","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-goal-ii-t2-e44/source-curve.json","source_result_file_sha256":"c7fb4be84241d571866229a80e7909ab7d0984908bfbef0964e7e37830bc49ca","source_result_payload_sha256":"019b07a2383c297de20acb999a5df8709b5b263db82b5cfb0e5f0cc7febce532"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e35","state_step":130,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-goal-ii-t3-e35/source-curve.json","source_result_file_sha256":"15a4b5b11ea99cc8669333f215a05f0ed8e93569df1bf6713d1010b145ee3347","source_result_payload_sha256":"cf8395b1df027834bbc2f9448e01eb6b5dca6636c3c9a2a0e77e116445f6f564"},
+    {"case_id":"vlsa-t1-spatial-i-t1-e00","state_step":115,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-spatial-i-t1-e00/source-curve.json","source_result_file_sha256":"7f3a0eb5cf95137becb80ab7a37c6da44bf6c2225a69d1f3fbe13791145c0b81","source_result_payload_sha256":"353c282251f7f2a69b2d987703f128e9a908e34788912493f652f65986ec3f86"},
+    {"case_id":"vlsa-t1-spatial-i-t1-e20","state_step":70,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-spatial-i-t1-e20/source-curve.json","source_result_file_sha256":"a20ea56d4528849847ac347dc297def8b8f68da3b99f479e7bd303ef2b6733fb","source_result_payload_sha256":"c9669d6b2f68f2b648be589e7953bbea57f64c8c792a997cbc2218380f91443f"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e12","state_step":80,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-spatial-i-t3-e12/source-curve.json","source_result_file_sha256":"3378d543133dd6bce72fb6f2f63c8dbf8773169b98e0c40d95bfe9598a2ef28c","source_result_payload_sha256":"e3d020ce0568d37ddd5ee7a1b223fd90ae8bec784766536c720337befeaa20ea"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e42","state_step":65,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a/producer/.runtime-vlsa-t1-spatial-i-t3-e42/source-curve.json","source_result_file_sha256":"fad3a3331a3c915333b9cb4d76afc514a8c8538f9fd19e918cc0392f6617c28a","source_result_payload_sha256":"8e337c469588237b0e11e06b647a11607076dbf1efc2772eddb5400495f79ddc"},
+    {"case_id":"vlsa-t1-goal-i-t0-e02","state_step":220,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-i-t0-e02/source-curve.json","source_result_file_sha256":"fece9a3a0d645aa23bc04ab72e394f2093201953fd8200a49937524bbb73987d","source_result_payload_sha256":"38e92c3eb18d8899424f4453106ef886ef55433586f1c22e5ae442f3d351bb8e"},
+    {"case_id":"vlsa-t1-goal-i-t3-e21","state_step":130,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-i-t3-e21/source-curve.json","source_result_file_sha256":"8526ad8e71e4cf7b3f8cdc870c6985f49109e3522021bdef8b195b7408bde6cc","source_result_payload_sha256":"a04049b279df63b8cc4e7e5368ed930c873de94e8b1e1440e4e61ee77b377efb"},
+    {"case_id":"vlsa-t1-goal-ii-t0-e05","state_step":180,"split":"validation","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t0-e05/source-curve.json","source_result_file_sha256":"89deef21373bcbe2b0d13aa3154454a0c9f9ef076ba31aabee3220d8a7332670","source_result_payload_sha256":"027a6536b629fe1422c32f02b21ac6b074639dcb1cfa09e8a9f0c7979f6bea77"},
+    {"case_id":"vlsa-t1-goal-ii-t0-e10","state_step":150,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t0-e10/source-curve.json","source_result_file_sha256":"6fb9cad418aad36a18922f0266ad85faa83a69da40aa899eac842e21df0e8747","source_result_payload_sha256":"2e9140f387292ec1318b4ea8192271b8958943636b932f3506b870e4ae241810"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e19","state_step":20,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t2-e19/source-curve.json","source_result_file_sha256":"ddd125ffea744d2308ba98308300ce306b0384a7b260df79216762d5bc587792","source_result_payload_sha256":"9504806e8e70ab7613549f0f24938395065bcc3d19ed3d5fff2f0b75f34610e1"},
+    {"case_id":"vlsa-t1-goal-ii-t2-e32","state_step":25,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t2-e32/source-curve.json","source_result_file_sha256":"a0cd06cfe9baf477c30adb642f3dd9fca341b71b40ab42b522fc54bea7e8c9c1","source_result_payload_sha256":"7de19671ba20523c02094bd13b4c24f3a9ada668733dcb219e6b5d90267f6a73"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e04","state_step":105,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e04/source-curve.json","source_result_file_sha256":"83a63372e6a06760153571380c44f298835a0a441652803526fdf14358f7fbb7","source_result_payload_sha256":"e05546676d8b9eade5391ba3e93f542c148d588702d431a82a1c4ab8fa62eafd"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e09","state_step":110,"split":"validation","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e09/source-curve.json","source_result_file_sha256":"916a18f1e9429965a11285b1291f7c5b157bd41330a8f4dadadcf072e5bb1dfa","source_result_payload_sha256":"a89c12b4e704093371cf58f5881ae63bdd34f88abfed0df4ea15154b03fab448"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e17","state_step":105,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e17/source-curve.json","source_result_file_sha256":"22fceb5b4817519487e555e4e52279ad2e3e571603e225cc1523c056bfa92fc8","source_result_payload_sha256":"f3d3c41f1dc1b000ac0749032d605924f6f67044f39c80a26a4c9a172a9fc06f"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e29","state_step":100,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e29/source-curve.json","source_result_file_sha256":"bd573fd29ba6701ed2a26198fb38e25643d4c6b75ecfd2b82efe7b3a6b1893ba","source_result_payload_sha256":"fc857170b34186b9833169bd8f262b79d25dac41d172d5381c7a597f5a57ecb5"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e38","state_step":105,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e38/source-curve.json","source_result_file_sha256":"214dc7bc709b3f5bf1324e062ad390de5f7b12a1d2c1a95b6e961cf1f69fe796","source_result_payload_sha256":"aaa3da491c64d522c701a2f460094afc189bec4b7aa408788dc1cfbd6cc3ef82"},
+    {"case_id":"vlsa-t1-goal-ii-t3-e39","state_step":115,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-goal-ii-t3-e39/source-curve.json","source_result_file_sha256":"f568fb925db22fda33615782b4496c22edc3fd098146e598a8ab8f8fccf10584","source_result_payload_sha256":"6da9662756fbbddacd42c08f76e9896410cf53ed7540da48da88bdb23b0877ae"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e03","state_step":55,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-spatial-i-t3-e03/source-curve.json","source_result_file_sha256":"055efab8935a8061e7aeb201af6ca27ca5db4dd125dd7c92d1d7f79706054da1","source_result_payload_sha256":"686c783826d1faed52f93fd66335943f3482485f94e5a1d42ec0f130f522d532"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e09","state_step":20,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-spatial-i-t3-e09/source-curve.json","source_result_file_sha256":"08c0dd1f3d8ee9c59daca0b0e312d9d2cfd7a1c1e3f17e6aa34068bd1b0d2350","source_result_payload_sha256":"774ceede33434e23e6b5563b9e15c4ca3ff7554884dc74b1f553e74f249aed5c"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e15","state_step":65,"split":"test","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-spatial-i-t3-e15/source-curve.json","source_result_file_sha256":"879bbe235dcb2ef330f3ce49ff44a232dc6c4391e61ed88fd49b0a6878e0d944","source_result_payload_sha256":"b289a80d945b971cea2bfbe699731f05af661f0088c3c200260b590ce09580c0"},
+    {"case_id":"vlsa-t1-spatial-i-t3-e27","state_step":25,"split":"train","source_result":"/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/.runtime-vlsa-t1-spatial-i-t3-e27/source-curve.json","source_result_file_sha256":"8c2001ebeff5a1087dd4aca02c6a17f92cefe1437dbfc9416e0218b53f1cc4a9","source_result_payload_sha256":"4e005533d98fe047122294dccac9cd7816bc9783fd40cf07ca9335e4f598c99f"}
+  ],
+  "gate": {
+    "required_case_count": 24,
+    "required_candidates_per_case": 13,
+    "required_split_counts": {"train": 14, "validation": 4, "test": 6},
+    "source_replay_tolerance_m": 1e-9,
+    "paper_car_threshold_m": 0.001,
+    "compiled_overlap_tolerance": 1e-10,
+    "maximum_physical_false_safe_count": 0
+  },
+  "forbidden": [
+    "new_policy_query",
+    "backup_or_terminal_hold_execution",
+    "released_AEGIS_EE_proxy_as_label",
+    "released_or_learned_QP",
+    "free_waypoint_search",
+    "candidate_multiprocessing",
+    "candidate_outcome_driven_split_or_state_change",
+    "dropping_initially_unsafe_or_one_sided_cases",
+    "paper_scale_or_untouched_test_claim"
+  ]
+}
