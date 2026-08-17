@@ -6206,3 +6206,14 @@ model-only correction, QP, denoising, deployment, or a certified barrier claim.
 Result file/payload SHA-256 values are
 `67d6560e17ed8e412d563bed525c9c2d7ceef3c55207dbcabcbffbde52be04b2`
 and `07455877d212e017820d2c0e9ac4b0cf6622a92fee52d2fc42c377aa15d9a17c`.
+
+ADR-0190 now freezes the first execution test around exactly the three
+minimum-risk top-one false-safe states: Goal-II E39 (L6), Long-II E46 (palm),
+and Spatial-I E42 (L5). Their shared-MLP top-five names are copied unchanged
+from CPU rank-prefix audit `41510`; candidate outcomes do not alter their order.
+Each candidate is freshly executed from the identical saved state through
+clipping, unchanged OSC, and complete continuation. Unsafe and timeout results
+are verifier rejections, never primary commands. The first candidate passing
+palm/L5/L6/L7 risk, raw-contact, CAR, and safe-terminal checks is the selected
+five-action chunk. Producer and independent replay must agree exactly. This is
+an exact-verified correction mechanism test, not late denoising or closed loop.

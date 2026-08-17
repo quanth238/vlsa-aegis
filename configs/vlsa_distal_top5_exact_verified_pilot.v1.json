@@ -1,0 +1,76 @@
+{
+  "schema_version": "vlsa_distal_top5_exact_verified_pilot.v1",
+  "protocol_id": "vlsa-distal-top5-exact-verified-pilot-v1",
+  "claim_scope": "Three opened held-out top-one-false-safe states: frozen shared-MLP ranking followed by at most five fresh exact cloned-OSC candidate executions; mechanism evidence only, not model-only safety, closed-loop task success, deployment, or certification.",
+  "rank_source": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/action_selection_top5_prefix_audit.json",
+    "file_sha256": "8e93690bdb918df7b12e6d6e7a2dd8b3f5b964c716bcde66ca5c3c633044f526",
+    "payload_sha256": "d7333ad5bb317d19cc2c19c0273a91c9f9cac84326eeab33ce8da401cd7d10f6"
+  },
+  "maximum_ranked_candidates": 5,
+  "physical_acceptance_groups": ["palm", "L5", "L6", "L7"],
+  "diagnostic_only_groups": ["end_effector"],
+  "cases": [
+    {
+      "case_id": "vlsa-t1-goal-ii-t0-e39",
+      "split": "validation",
+      "source_config": "configs/vlsa_distal_whole_body_prospective_population.v1.json",
+      "source_config_file_sha256": "5bde1f7dea32b45fed09863973bc70e4950055a98714fe0f4afa8d5093e13367",
+      "source_case_index": 4,
+      "ranked_candidate_names": [
+        "grid_z0_p1_z0_front_loaded_r2.0",
+        "grid_m1_m1_p1_front_loaded_r2.0",
+        "grid_m1_z0_p1_front_loaded_r2.0",
+        "grid_z0_p1_m1_front_loaded_r2.0",
+        "grid_m1_p1_z0_front_loaded_r2.0"
+      ]
+    },
+    {
+      "case_id": "vlsa-t1-long-ii-t3-e46",
+      "split": "test",
+      "source_config": "configs/vlsa_distal_pi05_palm_l6_targeted_extension.v1.json",
+      "source_config_file_sha256": "49d3d3c0d3210ab2bd801d10ac3f46d2a24de18f99f9faefa7a5389882e896b6",
+      "source_case_index": 6,
+      "ranked_candidate_names": [
+        "grid_z0_m1_m1_front_loaded_r2.0",
+        "grid_m1_m1_m1_front_loaded_r2.0",
+        "grid_p1_z0_p1_front_loaded_r2.0",
+        "grid_z0_z0_m1_front_loaded_r2.0",
+        "grid_p1_p1_z0_front_loaded_r2.0"
+      ]
+    },
+    {
+      "case_id": "vlsa-t1-spatial-i-t3-e42",
+      "split": "test",
+      "source_config": "configs/vlsa_distal_whole_body_prospective_population.v1.json",
+      "source_config_file_sha256": "5bde1f7dea32b45fed09863973bc70e4950055a98714fe0f4afa8d5093e13367",
+      "source_case_index": 7,
+      "ranked_candidate_names": [
+        "grid_m1_z0_p1_front_loaded_r2.0",
+        "grid_m1_m1_p1_front_loaded_r2.0",
+        "grid_m1_p1_p1_front_loaded_r2.0",
+        "grid_m1_z0_z0_front_loaded_r2.0",
+        "grid_p1_z0_m1_front_loaded_r2.0"
+      ]
+    }
+  ],
+  "acceptance": {
+    "require_top_one_freshly_unsafe": true,
+    "require_selected_rank_at_most": 5,
+    "require_known_safe_terminal": true,
+    "require_zero_physical_group_violation": true,
+    "require_zero_raw_protected_contact": true,
+    "require_CAR_pass": true,
+    "require_exact_independent_replay": true
+  },
+  "forbidden": [
+    "candidate_outcome_used_to_change_MLP_rank",
+    "execution_of_unverified_unsafe_or_timeout_candidate",
+    "released_EE_QP",
+    "learned_QP_or_gradient_correction",
+    "denoising_guidance",
+    "closed_loop_VLA_requery",
+    "task_success_or_generalization_claim",
+    "deployment_or_formal_CBF_claim"
+  ]
+}

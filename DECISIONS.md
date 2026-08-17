@@ -5762,3 +5762,28 @@ research mechanism and tests whether learned ranking reduces oracle search
 cost; it is not model-only correction, deployment safety, a QP, or a CBF. The
 pilot must compare the ranked verifier against fixed bank order and exact oracle
 and must never execute an unverified, unsafe, or timeout candidate.
+
+## ADR-0190: Execute top-five verification on the three false-safe states
+
+- Status: preregistered
+- Date: 2026-08-17
+
+Freeze Goal-II E39, Long-II E46, and Spatial-I E42 because they are exactly the
+validation/test false-safes selected by minimum predicted whole-body risk. Copy
+their top-five candidate order from immutable rank-prefix audit `41510` without
+using fresh outcomes to reorder, replace, or retime anything. Run producer and
+independent replay from the original saved state.
+
+For each rank, freshly execute the candidate through the unchanged clipping,
+OSC, and complete continuation stack. Treat any timeout, positive palm/L5/L6/L7
+risk, protected contact, CAR veto, or failed terminal condition as rejection.
+Stop at and return the first verified-safe chunk, with an absolute cap of five;
+abstain if none passes. Keep the diagnostic released-EE proxy recorded but do
+not promote its conservative overlap to physical authority. Do not disable the
+L6 exact veto merely because the learned L6 head lacks held-out boundaries.
+
+The strict mechanism gate requires fresh top-one rejection and a verified-safe
+top-five selection in all three cases plus exact independent replay. A pass
+shows that MLP-ranked verification can recover from its own false-safe top-one
+proposal. It does not authorize model-only execution, late denoising, full-task
+closed loop, deployment, or a formal safety guarantee.
