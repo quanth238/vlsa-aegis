@@ -115,6 +115,9 @@ def collect(
     candidate_workers: int = 1, candidate_shard_name: Optional[str] = None,
     source_only: bool = False,
     candidate_subset_names: Optional[Sequence[str]] = None,
+    candidate_definitions_override: Optional[
+        Sequence[Mapping[str, Any]]
+    ] = None,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -311,6 +314,13 @@ def collect(
     )
 
     def definitions(nominal, frame, _base):
+        if candidate_definitions_override is not None:
+            rows = [dict(row) for row in candidate_definitions_override]
+            _require(
+                rows and rows[0].get("name") == "nominal",
+                "terminal inference nominal candidate differs",
+            )
+            return rows
         if grid_bank:
             if bank.get("selected_candidate_names") is not None:
                 rows = _frozen_grid_subset_candidates(nominal, frame, bank)
@@ -361,6 +371,17 @@ def collect(
         not (candidate_subset_names is not None and int(candidate_workers) != 1),
         "inference candidate subset must execute sequentially",
     )
+    _require(
+        not (
+            candidate_definitions_override is not None
+            and (
+                candidate_subset_names is not None
+                or candidate_shard_name is not None
+                or int(candidate_workers) != 1
+            )
+        ),
+        "terminal inference definitions must execute sequentially alone",
+    )
     source_path = run_root / "source-curve.json"
     parallel_started = time.perf_counter()
     try:
@@ -389,11 +410,15 @@ def collect(
                 candidate_definitions_override=definitions,
                 candidate_protocol_binding={
                     "candidate_basis": (
+                        "selected_terminalized_live_policy_arms"
+                        if candidate_definitions_override is not None else
                         "geometry_conditioned_normal_tangent_grid"
                         if grid_bank else "symmetric_world_Cartesian_axes"
                         if generic_bank else bank["direction"]
                     ),
                     "radii_or_alpha": (
+                        ["selected_only_no_candidate_rollout_search"]
+                        if candidate_definitions_override is not None else
                         [bank["correction_l2_action"]]
                         if grid_bank else bank["radii"]
                         if generic_bank else bank["requested_alpha"]
@@ -489,6 +514,17 @@ def collect(
             reason=str(error),
         )
     nominal = np.asarray(raw["nominal_five_action_chunk"], dtype=np.float64)
+    if candidate_definitions_override is not None:
+        nominal = np.asarray(
+            candidate_definitions_override[0]["actions"], dtype=np.float64
+        )
+        _require(
+            nominal.shape == (5, 7) and np.all(np.isfinite(nominal)),
+            "terminal inference nominal action differs",
+        )
+        raw["nominal_five_action_chunk"] = nominal.tolist()
+        raw["nominal_five_action_chunk_sha256"] = _sha256(nominal.tobytes())
+        raw["selected_terminal_inference_arms"] = True
     for candidate in raw["candidates"]:
         actions = np.asarray(candidate["actions"], dtype=np.float64)
         candidate["effective_post_AEGIS_correction_l2_action"] = float(

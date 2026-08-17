@@ -5958,7 +5958,7 @@ this selector ablation alone.
 
 ## ADR-0194: Score executable terminal branches, not denoising latents
 
-- Status: active; sampler canary pending
+- Status: active; sampler passed, selected-action pilot preregistered
 - Date: 2026-08-17
 
 Resolve the terminal-versus-denoising input question by separating proposal
@@ -6009,3 +6009,21 @@ chunks, construct the frozen per-row 7D features from current exact geometry
 and terminal five-action projections, replay the immutable ADR-0191 checkpoint,
 and select minimum predicted EE/palm/L5 risk with intervention only as a
 tie-break.  Execute only selected actions in the subsequent paired pilot.
+
+The selected-action pilot is frozen on opened mechanism case E05 at query
+boundary 180.  It compares exactly three scientific arms from the identical
+restored state and live pi0.5 query: ordinary pi0.5, post-hoc compact selection
+over terminal executable chunks, and compact selection over branches injected
+after flow step eight and terminalized through the last two frozen updates.
+The critic receives only clipped terminal first-five actions.  It chooses the
+minimum predicted maximum over diagnostic EE, palm, and L5 rows; intervention
+norm is only a tie-break, never combined with risk through a lambda.
+
+Only the three selected arms are executed.  The 13 proposal branches are not
+simulated and no future outcome enters selection.  Each replica retains two
+nominal determinism checks and one exact outcome replay per selected arm as
+apparatus evidence, and an independent producer/replay pair must have identical
+scientific views.  Report both raw MuJoCo collision outcomes and the stricter
+represented-geometry/terminal result.  Released EE-QP, learned QP, exact
+rollout verification at inference, retraining, new labels, and any safety or
+CBF claim remain disabled.

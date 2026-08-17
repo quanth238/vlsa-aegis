@@ -47,10 +47,31 @@
     "require_all_terminal_actions_finite": true,
     "require_nonzero_branch_diversity": true
   },
+  "validated_sampler_canary": {
+    "path": "/mnt/data/quanth/experiments/vlsa-terminal-branch-sampler-canary/terminal-branch-sampler-canary-20260817c/validation.json",
+    "file_sha256": "0e97f798ec2c1d1138c06a5c102b85b80bd5e468603104ed1c739311d95bb181",
+    "payload_sha256": "65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b"
+  },
+  "mechanism_case": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "state_step": 180,
+    "query_index": 36,
+    "source_config": "configs/vlsa_distal_whole_body_progressive_extension.v1.json",
+    "source_config_file_sha256": "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d",
+    "source_case_index": 11,
+    "exact_context_path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c/producer/vlsa-t1-goal-ii-t0-e05.json",
+    "exact_context_file_sha256": "3a37480a5e64d0a5698ca61ba14c84b5155967c3b8d238722bbe4af882271bbb",
+    "exact_context_payload_sha256": "55a3cce0899b6d5ee1b1873794a96f83081bf6c38a647e05c31d483172432717",
+    "source_snapshot_sha256": "81a2a29dc065715f5fb096b3e7fbf0443d126844eeaf9b2c0632c6557401682e"
+  },
   "paired_pilot": {
     "arms": ["ordinary_pi05", "terminal_compact_selector", "late_flow_terminalized_compact_selector"],
     "same_observation_noise_controller_and_horizon": true,
     "execute_only_one_selected_chunk_per_arm": true,
+    "selected_arm_count_per_replica": 3,
+    "independent_replica_count": 2,
+    "source_nominal_determinism_checks_per_replica": 2,
+    "exact_outcome_replay_each_selected_arm": true,
     "released_AEGIS_EE_QP_enabled": false,
     "learned_QP_enabled": false,
     "exact_rollout_verifier_at_inference": false,

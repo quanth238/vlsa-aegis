@@ -6461,3 +6461,23 @@ the validation payload SHA-256 is
 `65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b`.
 This authorizes binding the frozen compact scorer to terminal chunks, not a
 safety, collision-reduction, or control claim.
+
+The ADR-0194 selected-action mechanism pilot is now implemented and locally
+preregistered.  It binds the immutable sampler validation, immutable E05
+step-180 state, frozen 13 candidate names, and immutable ADR-0191 compact 7D
+checkpoint.  The scorer clips terminal XYZ actions, constructs causal 7D
+features only from current geometry and terminal first-five action projections,
+and selects minimum predicted EE/palm/L5 risk with correction norm only as a
+tie-break.  The sampler itself remains critic-free.
+
+The pilot executes only ordinary pi0.5, the post-hoc compact-selected terminal
+chunk, and the late-flow-terminalized compact-selected chunk.  It performs no
+13-way candidate future search, no inference-time exact verifier, no QP, and no
+training.  Producer/replay each retain three scientific selected-arm outcomes;
+the pre-existing source evaluator's two nominal determinism checks and exact
+per-arm replay are explicitly registered as apparatus checks rather than hidden
+scientific candidates.  Raw collision and represented-geometry/terminal safety
+are reported separately.  Local focused tests pass `29` tests with one NumPy-
+dependent test skipped; the full desktop gate ran `592` tests but the desktop
+Python lacks NumPy, so allocation preflight must run the focused and collector
+tests in the registered scientific environment before simulation.

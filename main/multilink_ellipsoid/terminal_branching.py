@@ -12,6 +12,8 @@ CONFIG_SCHEMA = "vlsa_distal_terminalized_late_flow.v1"
 ENVELOPE_SCHEMA = "crfs_terminal_branching.v1"
 RESULT_SCHEMA = "vlsa_distal_terminal_branch_sampler_canary_result.v1"
 VALIDATION_SCHEMA = "vlsa_distal_terminal_branch_sampler_canary_validation.v1"
+PILOT_RESULT_SCHEMA = "vlsa_distal_terminalized_late_flow_pilot_result.v1"
+PILOT_VALIDATION_SCHEMA = "vlsa_distal_terminalized_late_flow_pilot_validation.v1"
 
 
 FROZEN_CANDIDATE_NAMES = (
@@ -73,6 +75,40 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("terminalized late-flow scoring differs")
     if value.get("sampler_canary", {}).get("case_id") != "vlsa-t1-goal-ii-t0-e05":
         raise ValueError("terminalized late-flow canary case differs")
+    validated = value.get("validated_sampler_canary", {})
+    if not (
+        validated.get("file_sha256")
+        == "0e97f798ec2c1d1138c06a5c102b85b80bd5e468603104ed1c739311d95bb181"
+        and validated.get("payload_sha256")
+        == "65d8d293d7a8b5b50d313e5cf7cfb9b2165700c278e26034fe2cb2a7b1b22d2b"
+    ):
+        raise ValueError("terminalized late-flow sampler validation differs")
+    mechanism = value.get("mechanism_case", {})
+    if not (
+        mechanism.get("case_id") == "vlsa-t1-goal-ii-t0-e05"
+        and mechanism.get("state_step") == 180
+        and mechanism.get("query_index") == 36
+        and mechanism.get("source_case_index") == 11
+        and mechanism.get("source_snapshot_sha256")
+        == "81a2a29dc065715f5fb096b3e7fbf0443d126844eeaf9b2c0632c6557401682e"
+    ):
+        raise ValueError("terminalized late-flow mechanism case differs")
+    pilot = value.get("paired_pilot", {})
+    if not (
+        pilot.get("arms") == [
+            "ordinary_pi05", "terminal_compact_selector",
+            "late_flow_terminalized_compact_selector",
+        ]
+        and pilot.get("execute_only_one_selected_chunk_per_arm") is True
+        and pilot.get("selected_arm_count_per_replica") == 3
+        and pilot.get("independent_replica_count") == 2
+        and pilot.get("source_nominal_determinism_checks_per_replica") == 2
+        and pilot.get("exact_outcome_replay_each_selected_arm") is True
+        and pilot.get("released_AEGIS_EE_QP_enabled") is False
+        and pilot.get("learned_QP_enabled") is False
+        and pilot.get("exact_rollout_verifier_at_inference") is False
+    ):
+        raise ValueError("terminalized late-flow paired pilot differs")
     output = json.loads(canonical(value).decode("utf-8"))
     output["config_file_sha256"] = hashlib.sha256(raw).hexdigest()
     output["config_payload_sha256"] = hashlib.sha256(canonical(value)).hexdigest()

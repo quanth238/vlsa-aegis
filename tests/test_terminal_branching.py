@@ -43,6 +43,10 @@ class TerminalBranchingTests(unittest.TestCase):
             "effective_terminal_five_action_chunk_after_clipping",
         )
         self.assertFalse(config["scoring"]["risk_scored_inside_sampler"])
+        self.assertEqual(config["mechanism_case"]["source_case_index"], 11)
+        self.assertEqual(
+            config["paired_pilot"]["selected_arm_count_per_replica"], 3
+        )
 
     def test_reserved_envelope_is_strict_and_removed(self):
         server = _load_server_module()
@@ -81,6 +85,14 @@ class TerminalBranchingTests(unittest.TestCase):
         self.assertIn("jax.lax.while_loop", method)
         self.assertIn("(1, self.action_horizon, self.action_dim)", method)
         self.assertIn("jnp.repeat(base_noise, branch_count", method)
+
+    def test_collector_override_is_opt_in_and_sequential(self):
+        source = (
+            ROOT / "scripts/collect_distal_exact_group_boundary.py"
+        ).read_text()
+        self.assertIn("candidate_definitions_override", source)
+        self.assertIn("selected_terminalized_live_policy_arms", source)
+        self.assertIn("terminal inference definitions must execute sequentially alone", source)
 
     def test_policy_maps_residuals_with_scale_only(self):
         source = (ROOT / "openpi/src/openpi/policies/policy.py").read_text()
