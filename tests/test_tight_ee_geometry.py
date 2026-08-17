@@ -82,19 +82,23 @@ class TightEEGeometryTests(unittest.TestCase):
         env = mock.Mock()
         env.sim.model = SimModel()
         sentinel = object()
-        with (
-            mock.patch.object(audit, "_raw_model_data", return_value=(Model(), object())),
-            mock.patch.object(audit, "_geom_kind", return_value="mesh"),
-            mock.patch.object(audit, "fit_compiled_mesh_geom", return_value=sentinel) as mesh,
-            mock.patch.object(audit, "fit_compiled_primitive_geom") as primitive,
+        with mock.patch.object(
+            audit, "_raw_model_data", return_value=(Model(), object())
         ):
-            value = audit.fit_compiled_contact_geom(
-                env,
-                "gripper0_hand_collision",
-                relative_padding=1.0e-6,
-                tolerance=1.0e-9,
-                max_iterations=100,
-            )
+            with mock.patch.object(audit, "_geom_kind", return_value="mesh"):
+                with mock.patch.object(
+                    audit, "fit_compiled_mesh_geom", return_value=sentinel,
+                ) as mesh:
+                    with mock.patch.object(
+                        audit, "fit_compiled_primitive_geom",
+                    ) as primitive:
+                        value = audit.fit_compiled_contact_geom(
+                            env,
+                            "gripper0_hand_collision",
+                            relative_padding=1.0e-6,
+                            tolerance=1.0e-9,
+                            max_iterations=100,
+                        )
         self.assertIs(value, sentinel)
         mesh.assert_called_once()
         primitive.assert_not_called()
