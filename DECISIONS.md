@@ -6170,3 +6170,27 @@ Instrumented retry `41819` repeats the same empty-log, pre-artifact failure on
 `worker-2`. Exclude that exact node and retain both attempts as apparatus
 history. Do not alter the E05 state, critic, nominal query, SQP, or acceptance
 rules.
+
+### ADR-0197 pull the terminal critic through late denoising before the QP
+
+Do not treat a QP over an already decoded terminal action as the requested
+late-denoising method. Reuse the frozen terminal-action critic without new
+labels by composing it with the unchanged remaining flow,
+`V_tilde(x, delta) = V_phi(x, T_theta(A_8 + delta))`. For this first opened
+diagnostic, estimate the pullback Jacobian with centered terminalization probes
+in the 15 first-five-action XYZ coordinates. These probes are model inference,
+not simulator candidate rollouts or a discrete runtime selector.
+
+Apply one hard minimum-norm QP to EE row 0, palm row 1, and L5 rows 2--4
+separately. Keep a 0.25 infinity trust region and add `1e-4` only to the
+linearized constraint so solver tolerance cannot be mistaken for nonlinear
+safety. Terminalize and rescore the QP correction; predicted feasibility
+requires every constrained nonlinear output to be non-positive. Never execute
+this correction in the diagnostic.
+
+This decision answers only whether the frozen critic and continuous late-flow
+action space contain a predicted-safe correction at Query 2. It cannot repair
+the earlier Query-1 value `-0.2098709`: a minimum-intervention QP correctly
+returns zero whenever the critic already calls the nominal action safe. It also
+cannot establish task progress because the current target's fixed continuation
+certifies collision recovery, not future VLA task completion.

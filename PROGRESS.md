@@ -6651,3 +6651,30 @@ again on `worker-2`, with an empty exact Slurm log. Two consecutive node-local
 preflight failures are sufficient to exclude only `worker-2` for this small
 diagnostic. `worker-1` remains live and mixed. This is resource routing only;
 the frozen scientific protocol remains unchanged.
+
+## 2026-08-17: Late-flow pullback QP diagnostic
+
+ADR-0197 replaces the unfinished post-terminal ADR-0196 apparatus with the
+specific inference-only question required by the method. At the immutable E05
+Query-2 abstention state, replay only the ten already validated prefix actions,
+then numerically differentiate the frozen compact EE/palm/L5 future-risk critic
+through the final two unchanged pi0.5 Euler steps. The 15 variables are
+physical output-displacement coordinates for first-five-action XYZ at late
+flow step eight. Three 13-row terminal batches carry centered derivative probes
+only; they are not the frozen candidate bank and no discrete row is selected.
+
+Solve one minimum-L2 multi-constraint QP with rows 0--4 kept separate, a 0.25
+action-unit infinity trust region, zero risk margin, and a `1e-4` linearized
+tightening. Terminalize the proposed correction once and rescore the nonlinear
+frozen critic. Accept only predicted feasibility in all EE/palm/L5 rows. Do not
+execute the QP output, simulate a candidate future, collect a label, train a
+model, run the released EE-QP, or make a control/safety claim. This diagnostic
+tests whether continuous late-denoising authority can cross the critic's
+predicted boundary where the fixed bank abstained. It does not test Query-1
+foresight or task completion.
+
+Focused local contract and terminal-branch regression tests pass 18 tests with
+three optional numerical skips. The repository-wide desktop gate still fails
+only because the desktop Python lacks NumPy in 20 historical test modules; the
+allocation preflight must run the new NumPy/OSQP case in the registered H100
+environment before inference.
