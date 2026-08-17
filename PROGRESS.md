@@ -6618,3 +6618,23 @@ for the producer result file and
 for the validation payload. The producer video is copied locally to
 `/Users/quanth238/Downloads/vlsa-e05-true-full-episode-20260817.mp4` with
 SHA-256 `d791b106ec77fb7997d4215a1c97766cd8498bce58a8e7e11ff2945eeedf3af8`.
+
+## 2026-08-17: Learned future-risk SQP feasibility diagnostic
+
+ADR-0196 freezes one inference-only diagnostic at the exact E05 query-2 state
+where ADR-0195 abstained. Replay the immutable first ten executed actions,
+obtain one terminal pi0.5 chunk with the registered query seed, and compare two
+trust-region sequential QPs over its 15 five-step XYZ correction variables:
+EE row 0 only, and the complete EE/palm/L5 rows 0--4. Both arms use the same
+frozen compact 7D worst-future-violation predictor, zero risk margin, identical
+action bounds, six nonlinear relinearizations, central finite differences, and
+line search.
+
+This is a feasibility test, not control. No QP output or candidate future is
+executed, no simulator lookahead supplies a constraint, and there is no model
+training, new label, released AEGIS EE-QP, or safety claim. A CPU replica must
+reconstruct the same query state, replay the exact producer terminal nominal,
+and reproduce every serialized-critic prediction and SQP result. Local config,
+source, shell, and focused regression checks pass 14 tests with the synthetic
+OSQP case skipped only because desktop Python lacks allocation numerical
+dependencies. Allocation-backed producer/replay/validation are next.

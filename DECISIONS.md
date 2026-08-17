@@ -6136,3 +6136,26 @@ simultaneously preserves task completion. Any next inference-only improvement
 must increase candidate authority or define a safe replan/hold behavior at the
 all-unsafe query before another simulator run. Do not interpret this as a
 population safety or task-success result.
+
+### ADR-0196 learned-risk SQP feasibility
+
+Before changing the model or executing another correction, test whether the
+frozen compact future-risk predictor admits a continuous QP solution at the
+ADR-0195 all-unsafe query. Reconstruct the exact query-2 state from the ten
+immutable executed actions, request one terminal pi0.5 action chunk, and solve
+matched trust-region sequential QPs over only the five-by-three terminal XYZ
+correction. Preserve rotation and gripper and enforce terminal action bounds.
+
+The EE-only arm constrains row 0 and is a baseline. The intended multi-link arm
+constrains EE/palm/L5 rows 0--4 separately; never replace them with one
+linearized global maximum. After every QP step, reevaluate the nonlinear frozen
+MLP and accept feasibility only if all arm rows are non-positive. Use no slack
+for acceptance. Run at most six iterations with a 0.25-action trust region,
+0.75-action total-coordinate bound, 0.005 central differences, and fixed line
+search. Do not execute either output or simulate candidate futures.
+
+Require CPU exact replay of the query state, producer terminal nominal,
+serialized predictions, and SQP trace. This diagnostic decides only whether an
+EE-only or multi-constraint learned-risk QP can produce a predicted-safe
+terminal chunk. It cannot authorize control, collision avoidance, formal CBF
+safety, or a paper-scale claim.
