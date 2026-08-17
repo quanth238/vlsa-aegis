@@ -6805,3 +6805,19 @@ within this episode. The canary receipt is not yet a formal pass because the new
 config confused five actions per VLA chunk with the already registered 25
 MuJoCo substeps per executed action. Correct only that fidelity assertion before
 the remaining cohort; no geometry or outcome changes.
+
+Full producer `41906`, independent replay `41907`, and validator `41918` pass
+ADR-0199. All four scientific views are exact. Across the three contact cases,
+raw-contact sample counts are palm `866`, finger-1 base `1,139`, finger-1 pad
+`171`, finger-2 base `489`, and finger-2 pad `24`; every per-group physical
+false-safe count and every contact-point-outside count is zero. Contact-free E01
+keeps positive normalized slack for all five tight primitives, while the old
+released proxy overlaps on 858 contact-free samples. The five-piece volume sum
+is `0.4475704` of the released proxy volume. The exact E09 raw palm-contact
+frame is action 27/substep 21; its preview SHA-256 is
+`39e52577d6a26f51bbf8934c6ce7ac87e7ad6c71f7f2aff0f1f7c17854194cce`.
+Validation file/payload SHA-256 values are
+`80a8e24e9664a48a3cbf944cb97e9a27d0624f3c860cdb20e22abe54ae470624`
+and `5f6926c5c0c1d992cfd7aebfe221f9548ab9acabe80b1c3f63292d9a604ac03d`.
+The tight geometry replacement is authorized; retraining the old proxy-target
+critic and control remain separate, unperformed steps.

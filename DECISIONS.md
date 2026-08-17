@@ -6304,3 +6304,19 @@ show 25 internal MuJoCo substeps per action; five is the VLA chunk length, not
 the controller substep count. Correct that receipt constant without changing
 the completed state, action ledger, contact mapping, fitted primitives, exact
 box target or raw-contact gate.
+
+Jobs `41906/41907/41918` pass the frozen contact-aligned geometry gate. Promote
+the five separate compiled palm/finger primitives as the physical EE geometry
+for future labels and constraints. Keep the released `[0.06, 0.12, 0.11]` m
+ellipsoid only as an AEGIS comparator: the tight volume sum is 44.757% of it,
+and the old proxy overlaps 858 times in the clean contact-free control while
+every tight primitive remains positively separated. All 2,689 observed raw
+palm/finger contact samples are covered with zero per-group false-safes and
+independent replay is exact.
+
+Do not feed this replacement into the frozen compact critic or QP without a
+matched target/input change. Existing compact row 0 learned the old proxy, so
+renaming it would be scientifically invalid. The next method step is a shared
+constraint-conditioned critic evaluated separately on the five tight rows (or
+a newly labeled compact diagnostic), followed by prediction validation before
+any action correction.
