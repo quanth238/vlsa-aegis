@@ -52,7 +52,7 @@
     "khachiyan_max_iterations": 20000
   },
   "replay": {
-    "expected_mujoco_substeps_per_action": 5,
+    "expected_mujoco_substeps_per_action": 25,
     "state_tolerance": 0.000000001,
     "scalar_tolerance": 0.000000000001
   },

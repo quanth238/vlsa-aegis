@@ -6785,3 +6785,14 @@ unregistered `1e-9` Khachiyan convergence tolerance. The repair restores the
 already validated compiled-geometry fit settings (`1e-4`, 20,000 iterations,
 `1e-9` numerical padding) and the archived 1024-pixel pairing resolution. Both
 attempts are pre-replay apparatus history and provide no geometry outcome.
+
+Paired E09 canaries `41903/41904` then complete all 143 archived actions and
+3,575 internal physics steps with identical scientific hashes. They reproduce
+28 palm-contact and 24 finger-1-base-contact samples, all contact points lie
+inside their matching tight primitive, and every per-group physical false-safe
+count is zero. The tight five-piece volume sum is `0.4475704` of the released
+proxy volume; the released proxy overlaps on 762 contact-free internal samples
+within this episode. The canary receipt is not yet a formal pass because the new
+config confused five actions per VLA chunk with the already registered 25
+MuJoCo substeps per executed action. Correct only that fidelity assertion before
+the remaining cohort; no geometry or outcome changes.

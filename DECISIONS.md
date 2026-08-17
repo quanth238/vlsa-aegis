@@ -6288,3 +6288,11 @@ tolerance did not converge. Restore the same solver settings already validated
 for compiled palm/distal meshes and retain the same compiled geoms, cases,
 actions, contact authority, exact-box target and gates. Do not tune the fit from
 contact outcomes.
+
+Jobs `41903/41904` validate the substantive E09 geometry and independently
+match, but their fidelity Boolean is false only because the config registered
+five substeps per action. The trace and the established replay apparatus both
+show 25 internal MuJoCo substeps per action; five is the VLA chunk length, not
+the controller substep count. Correct that receipt constant without changing
+the completed state, action ledger, contact mapping, fitted primitives, exact
+box target or raw-contact gate.
