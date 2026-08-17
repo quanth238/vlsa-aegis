@@ -24,8 +24,9 @@ class TerminalizedTaskSuccessTest(unittest.TestCase):
         self.assertFalse(config["control"]["released_AEGIS_EE_QP_enabled"])
         self.assertEqual(
             config["control"]["post_intervention_policy"],
-            "raw_frozen_pi05_reobserve_requery",
+            "repeated_late_flow_terminalized_compact_selector_reobserve_requery",
         )
+        self.assertTrue(config["control"]["additional_correction_after_first_chunk"])
 
     def test_config_rejects_qp(self):
         source = ROOT / "configs/vlsa_distal_terminalized_late_flow_task_success.v1.json"
@@ -37,12 +38,16 @@ class TerminalizedTaskSuccessTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "forbidden control"):
                 load_config(path)
 
-    def test_selected_actions_preserve_three_frozen_arms(self):
+    def test_selected_actions_keep_only_our_late_flow_arm(self):
         import hashlib
 
         candidates = []
         outcomes = []
-        for index, name in enumerate(ARM_NAMES):
+        source_names = (
+            "nominal", "terminal_compact_selector",
+            "late_flow_terminalized_compact_selector",
+        )
+        for index, name in enumerate(source_names):
             actions = [[float(index)] * 7 for _ in range(5)]
             digest = hashlib.sha256(
                 json.dumps(actions, separators=(",", ":")).encode()
@@ -61,12 +66,22 @@ class TerminalizedTaskSuccessTest(unittest.TestCase):
         }
         selected = selected_arm_actions(pilot)
         self.assertEqual([row["arm"] for row in selected], list(ARM_NAMES))
-        self.assertEqual(selected[2]["actions"][0], [2.0] * 7)
+        self.assertEqual(selected[0]["actions"][0], [2.0] * 7)
 
     def test_contact_group_keeps_unmodeled_robot_contacts_visible(self):
         groups = {"palm": ["hand"], "L5": ["link5"]}
         self.assertEqual(contact_group("hand", groups), "palm")
         self.assertEqual(contact_group("finger", groups), "other_robot")
+
+    def test_evaluator_reapplies_our_method_instead_of_raw_continuation(self):
+        source = (
+            ROOT / "scripts/evaluate_terminalized_late_flow_task_success.py"
+        ).read_text()
+        self.assertIn("class LiveTerminalizedSelector", source)
+        self.assertIn(
+            "online_late_flow_terminalized_compact_selector_no_QP", source,
+        )
+        self.assertNotIn("fresh_raw_pi05_full_cartesian_no_QP", source)
 
     def test_scientific_view_keeps_task_and_safety_separate(self):
         rows = []
@@ -92,11 +107,14 @@ class TerminalizedTaskSuccessTest(unittest.TestCase):
                 "collision_free_task_success": False,
                 "terminal_dynamic_state_sha256": "d",
                 "goal_progress_summary_sha256": "e",
+                "online_selection_count": 3,
+                "online_selections_sha256": "f",
+                "terminal_reason": "raw_robot_contact",
             })
         view = scientific_view(
             case_id="case", source_snapshot_sha256="state", arm_records=rows,
         )
-        self.assertEqual(view["task_success_count"], 3)
+        self.assertEqual(view["task_success_count"], 1)
         self.assertEqual(view["collision_free_task_success_count"], 0)
 
 

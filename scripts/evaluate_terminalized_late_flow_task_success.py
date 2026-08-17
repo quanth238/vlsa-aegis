@@ -221,19 +221,262 @@ class RawRobotContactMonitor:
         }
 
 
-def _effective_pi05_chunk(raw: Any) -> Any:
-    import numpy as np
+class LiveTerminalizedSelector:
+    """Apply the frozen late-flow terminal selector at the current state."""
 
-    value = np.asarray(raw, dtype=np.float64)
-    if value.shape != (10, 7) or not np.all(np.isfinite(value)):
-        raise ValueError("task-success pi0.5 action chunk differs")
-    output = value.copy()
-    output[:, :3] = np.clip(output[:, :3], -1.0, 1.0)
-    return output
+    def __init__(
+        self, *, repo_root: Path, runtime: Mapping[str, Any], env: Any,
+        obstacle_name: str, archived: Mapping[str, Any],
+        config: Mapping[str, Any], client: Any,
+    ) -> None:
+        import numpy as np
+
+        from main.multilink_ellipsoid.compact_safety_coordinate_q import (
+            payload_sha256 as compact_payload_sha256,
+        )
+        from main.multilink_ellipsoid.exact_group_boundary import (
+            load_config as load_exact_group_config,
+        )
+        from main.multilink_ellipsoid.obstacle_proxy_audit import (
+            compiled_obstacle_boxes,
+            minimum_ellipsoid_quadratics_over_boxes,
+        )
+        from main.multilink_ellipsoid.palm_primitive_audit import (
+            fit_compiled_mesh_geom, world_ellipsoid,
+        )
+        from main.multilink_ellipsoid.shadow import (
+            MultilinkEllipsoidShadow,
+            _released_aegis_end_effector_ellipsoid,
+            load_shadow_config,
+        )
+        from main.multilink_ellipsoid.terminal_branching import (
+            FROZEN_CANDIDATE_NAMES, load_config as load_method_config,
+        )
+        from scripts.audit_distal_palm_primitive_case import (
+            _canonicalize_perception_ellipsoid_rotation,
+        )
+
+        binding = config["registered_method"]
+        method_path = repo_root / str(binding["config_path"])
+        _require(
+            _file_sha256(method_path) == binding["config_file_sha256"],
+            "task-success registered method config differs",
+        )
+        method = load_method_config(method_path)
+        source_config_path = repo_root / str(binding["source_geometry_config"])
+        _require(
+            _file_sha256(source_config_path)
+            == binding["source_geometry_config_file_sha256"],
+            "task-success source geometry config differs",
+        )
+        source_config = load_exact_group_config(source_config_path)
+        exact_cfg = source_config["exact_group_target"]
+        exact_geometry_path = repo_root / str(exact_cfg["robot_geometry_config"])
+        _require(
+            _file_sha256(exact_geometry_path)
+            == exact_cfg["robot_geometry_config_file_sha256"],
+            "task-success exact robot geometry differs",
+        )
+        context_path = Path(binding["source_context_path"])
+        _require(
+            _file_sha256(context_path) == binding["source_context_file_sha256"],
+            "task-success source context file differs",
+        )
+        context = _load(context_path)
+        _require(
+            context.get("result_payload_sha256")
+            == binding["source_context_payload_sha256"],
+            "task-success source context payload differs",
+        )
+        exact_case = context["exact_case"]
+        _require(
+            [row["name"] for row in exact_case["candidates"]]
+            == list(FROZEN_CANDIDATE_NAMES),
+            "task-success frozen residual bank differs",
+        )
+        compact_binding = method["terminal_risk_model"]
+        compact_path = Path(compact_binding["path"])
+        _require(
+            _file_sha256(compact_path) == compact_binding["file_sha256"],
+            "task-success compact critic file differs",
+        )
+        compact = _load(compact_path)
+        _require(
+            compact.get("result_payload_sha256")
+            == compact_binding["payload_sha256"]
+            == compact_payload_sha256(compact, "result_payload_sha256"),
+            "task-success compact critic payload differs",
+        )
+        self.state_payload = compact["compact_shared_7D"]["model"][
+            "state_payload"
+        ]
+        _require(
+            compact["compact_shared_7D"]["model"]["model_sha256"]
+            == compact_binding["model_sha256"],
+            "task-success compact critic model differs",
+        )
+        perception = archived.get("perception")
+        _require(isinstance(perception, dict), "task-success perception differs")
+        rotation, _ = _canonicalize_perception_ellipsoid_rotation(
+            perception["mvee_rotation"]
+        )
+        shadow_config = load_shadow_config(exact_geometry_path)
+        self.shadow = MultilinkEllipsoidShadow.from_aegis_geometry(
+            shadow_config,
+            {
+                "p2": perception["mvee_center"], "R2": rotation,
+                "Q2_diag": perception["mvee_semiaxes"],
+                "record": {"label": perception["obstacle_label"]},
+            },
+        )
+        palm_fit = exact_cfg["palm_fit"]
+        self.palm_template = fit_compiled_mesh_geom(
+            env, str(exact_cfg["palm_geom_name"]),
+            relative_padding=float(palm_fit["relative_padding"]),
+            tolerance=float(palm_fit["khachiyan_tolerance"]),
+            max_iterations=int(palm_fit["khachiyan_max_iterations"]),
+        )
+        certified = self.shadow._slabbed_links(
+            env, include_certificates=True,
+        )[:int(exact_cfg["distal_row_count"])]
+        _require(
+            bool((self.palm_template.enclosure_certificate or {}).get("verified"))
+            and all(bool((row.enclosure_certificate or {}).get("verified")) for row in certified),
+            "task-success robot primitive certificate differs",
+        )
+        self.runtime = runtime
+        self.env = env
+        self.obstacle_name = str(obstacle_name)
+        self.client = client
+        self.method = method
+        self.exact_cfg = exact_cfg
+        self.compiled_obstacle_boxes = compiled_obstacle_boxes
+        self.minimum_quadratics = minimum_ellipsoid_quadratics_over_boxes
+        self.world_ellipsoid = world_ellipsoid
+        self.released_ee = _released_aegis_end_effector_ellipsoid
+        stored_nominal = np.asarray(
+            exact_case["source_nominal_five_action_chunk"], dtype=np.float64,
+        )
+        self.residuals = np.asarray([
+            np.asarray(row["source_executed_actions"], dtype=np.float64)[:, :3]
+            - stored_nominal[:, :3]
+            for row in exact_case["candidates"]
+        ], dtype=np.float64)
+        _require(self.residuals.shape == (13, 5, 3),
+                 "task-success frozen residual shape differs")
+
+    @staticmethod
+    def _row_record(row: Any) -> dict[str, Any]:
+        import numpy as np
+
+        return {
+            "body_name": str(row.body_name), "geom_name": str(row.geom_name),
+            "bound_source": str(row.bound_source),
+            "center_m": np.asarray(row.center, dtype=np.float64).tolist(),
+            "rotation": np.asarray(row.rotation, dtype=np.float64).tolist(),
+            "semiaxes_m": np.asarray(row.semiaxes_m, dtype=np.float64).tolist(),
+        }
+
+    def _current_exact_case(self) -> dict[str, Any]:
+        import numpy as np
+
+        rows = [self.world_ellipsoid(self.env, self.palm_template)]
+        rows.extend(self.shadow._slabbed_links(self.env)[
+            :int(self.exact_cfg["distal_row_count"])
+        ])
+        if self.exact_cfg.get("include_released_aegis_end_effector_proxy") is True:
+            rows = [self.released_ee(self.env)] + rows
+        boxes = self.compiled_obstacle_boxes(self.env, self.obstacle_name)
+        quadratics = self.minimum_quadratics(rows, boxes)
+        slacks = np.sqrt(np.min(quadratics, axis=1)) - 1.0
+        _require(len(rows) >= 7 and len(boxes) >= 1,
+                 "task-success live exact context differs")
+        return {
+            "initial_exact_robot_rows": [self._row_record(row) for row in rows],
+            "initial_compiled_obstacle_boxes": [box.to_record() for box in boxes],
+            "source_nominal_five_action_chunk": [[0.0] * 7 for _ in range(5)],
+            "exact_group_target": {
+                "initial_row_normalized_radial_slack": slacks.tolist(),
+            },
+        }
+
+    def select(
+        self, *, observation: Mapping[str, Any], task_description: str,
+        rng_seed: int, query_index: int,
+    ) -> tuple[Any, dict[str, Any]]:
+        import numpy as np
+
+        from main.evaluate_safelibero_aegis import (
+            _policy_observation, array_sha256,
+        )
+        from main.multilink_ellipsoid.terminal_branching import (
+            FROZEN_CANDIDATE_NAMES, build_envelope, score_terminal_bank,
+        )
+
+        ordinary_input = _policy_observation(
+            self.runtime, observation, task_description=task_description,
+            resize_size=224, rng_seed=int(rng_seed),
+        )
+        ordinary_started = time.perf_counter_ns()
+        ordinary_response = self.client.infer(ordinary_input)
+        ordinary_wall = (time.perf_counter_ns() - ordinary_started) * 1.0e-9
+        ordinary = np.asarray(ordinary_response["actions"], dtype=np.float64)
+        _require(ordinary.shape == (10, 7), "task-success ordinary chunk differs")
+        posthoc_bank = np.repeat(ordinary[None, :, :], 13, axis=0)
+        posthoc_bank[:, :5, :3] = np.clip(
+            ordinary[None, :5, :3] + self.residuals, -1.0, 1.0,
+        )
+        envelope = build_envelope(
+            ordinary, posthoc_bank, FROZEN_CANDIDATE_NAMES,
+            branch_after_euler_step=int(
+                self.method["flow"]["branch_after_euler_step"]
+            ),
+        )
+        branch_input = _policy_observation(
+            self.runtime, observation, task_description=task_description,
+            resize_size=224, rng_seed=int(rng_seed),
+        )
+        branch_input["__crfs__"]["terminal_branching"] = envelope
+        branch_started = time.perf_counter_ns()
+        branch_response = self.client.infer(branch_input)
+        branch_wall = (time.perf_counter_ns() - branch_started) * 1.0e-9
+        diagnostic = branch_response["terminal_branching"]
+        late_bank = np.asarray(
+            diagnostic["terminal_output_actions"], dtype=np.float64,
+        )
+        _require(late_bank.shape == (13, 10, 7),
+                 "task-success late terminal bank differs")
+        _require(float(np.max(np.abs(late_bank[0] - ordinary))) == 0.0,
+                 "task-success late terminal nominal branch differs")
+        score = score_terminal_bank(
+            exact_case=self._current_exact_case(),
+            ordinary_terminal_actions=ordinary,
+            terminal_action_bank=late_bank,
+            candidate_names=FROZEN_CANDIDATE_NAMES,
+            state_payload=self.state_payload,
+        )
+        selected = np.asarray(
+            score["selected_effective_first_five_actions"], dtype=np.float64,
+        )
+        _require(selected.shape == (5, 7),
+                 "task-success online selected chunk differs")
+        return selected, {
+            "query_index": int(query_index), "rng_seed": int(rng_seed),
+            "ordinary_actions_sha256": array_sha256(ordinary),
+            "late_terminal_bank_sha256": array_sha256(late_bank),
+            "selected_candidate": score["selected_candidate"],
+            "selected_candidate_order": score["selected_candidate_order"],
+            "selected_predicted_primary": score["selected_predicted_primary"],
+            "selected_effective_first_five_sha256": array_sha256(selected),
+            "ordinary_wall_seconds": float(ordinary_wall),
+            "branch_wall_seconds": float(branch_wall),
+            "ordinary_server_timing": ordinary_response.get("server_timing"),
+            "branch_server_timing": branch_response.get("server_timing"),
+        }
 
 
 def _run_arm(
-    *, runtime: Mapping[str, Any], case: Mapping[str, Any],
+    *, repo_root: Path, runtime: Mapping[str, Any], case: Mapping[str, Any],
     archived: Mapping[str, Any], config: Mapping[str, Any],
     pilot_arm: Mapping[str, Any], client: Any,
     frozen_arm: Optional[Mapping[str, Any]], output_root: Path,
@@ -250,11 +493,8 @@ def _run_arm(
         _goal_progress_definition,
         _goal_progress_snapshot,
         _goal_progress_summary,
-        _policy_observation,
         _processed_image,
-        _server_identity,
         _settle,
-        array_sha256,
         max_steps_for_case,
         pairing_record,
         query_seed,
@@ -305,7 +545,7 @@ def _run_arm(
         )
         previous_goal = initial_goal["values"]
         action_records = []
-        policy_queries = []
+        online_selections = []
         plan: collections.deque[Any] = collections.deque()
         writer = None
         if frozen_arm is None:
@@ -330,6 +570,7 @@ def _run_arm(
                 "task-success frozen complete action ledger differs",
             )
             registered_query_count = int(frozen_arm["live_policy_query_count"])
+            online_selections = list(frozen_arm["online_selections"])
 
         selected = np.asarray(pilot_arm["actions"], dtype=np.float64)
         _require(selected.shape == (5, 7), "task-success intervention differs")
@@ -338,7 +579,15 @@ def _run_arm(
         done = False
         warning_state_hash = None
         max_steps = max_steps_for_case(case)
-        while step < max_steps and not done:
+        selector = None
+        if frozen_arm is None:
+            selector = LiveTerminalizedSelector(
+                repo_root=repo_root, runtime=runtime, env=env,
+                obstacle_name=obstacle_name, archived=archived,
+                config=config, client=client,
+            )
+        physical_failure = False
+        while step < max_steps and not done and not physical_failure:
             if step == int(config["state_protocol"]["archived_prefix_end_exclusive"]):
                 warning_state_hash = hashlib.sha256(
                     np.asarray(_dynamic_state_vector(env), dtype=np.float64).tobytes()
@@ -363,31 +612,19 @@ def _run_arm(
             else:
                 if not plan:
                     seed = query_seed(int(case["policy_noise_seed"]), query_index)
-                    policy_input = _policy_observation(
-                        runtime, observation, task_description=str(task.language),
-                        resize_size=224, rng_seed=seed,
+                    selected_online, selection = selector.select(
+                        observation=observation,
+                        task_description=str(task.language),
+                        rng_seed=seed, query_index=query_index,
                     )
-                    started = time.perf_counter_ns()
-                    response = client.infer(policy_input)
-                    wall = (time.perf_counter_ns() - started) * 1.0e-9
-                    returned = np.asarray(response["actions"], dtype=np.float64)
-                    effective = _effective_pi05_chunk(returned)
                     plan.extend(
-                        effective[index].copy()
-                        for index in range(
-                            int(config["state_protocol"]["execute_actions_per_query"])
-                        )
+                        selected_online[index].copy()
+                        for index in range(5)
                     )
-                    policy_queries.append({
-                        "query_index": int(query_index), "rng_seed": int(seed),
-                        "returned_actions_sha256": array_sha256(returned),
-                        "effective_first_five_sha256": array_sha256(effective[:5]),
-                        "wall_seconds": float(wall),
-                        "server_timing": response.get("server_timing"),
-                    })
+                    online_selections.append(selection)
                     query_index += 1
                 action = np.asarray(plan.popleft(), dtype=np.float64)
-                source_name = "fresh_raw_pi05_full_cartesian_no_QP"
+                source_name = "online_late_flow_terminalized_compact_selector_no_QP"
 
             observation, reward, done, _, internal = monitor.execute(
                 action, step=step,
@@ -414,6 +651,9 @@ def _run_arm(
                 "goal_progress": goal, "internal_physical_measurement": internal,
             })
             step += 1
+            physical_failure = bool(
+                monitor.first_contact is not None or monitor.first_car is not None
+            )
 
         _require(warning_state_hash is not None, "task-success warning state was not reached")
         if frozen_actions is not None:
@@ -436,8 +676,15 @@ def _run_arm(
             runtime["imageio"].imwrite(str(final_jpg), terminal_frame)
         goal_summary = _goal_progress_summary(initial_goal, action_records)
         task_success = goal_summary["first_all_satisfied_step"] is not None
-        timeout = bool(not task_success and step >= max_steps)
-        _require(task_success or timeout, "task-success episode stopped without terminal")
+        timeout = bool(not task_success and not physical_failure and step >= max_steps)
+        terminal_reason = (
+            "native_task_success" if task_success and not physical_failure
+            else "raw_robot_contact" if monitor.first_contact is not None
+            else "paper_CAR" if monitor.first_car is not None
+            else "timeout" if timeout else "invalid"
+        )
+        _require(terminal_reason != "invalid",
+                 "task-success episode stopped without terminal")
         physical = monitor.summary()
         contact_pass = int(physical["robot_contact_sample_count"]) == 0
         car_pass = (
@@ -457,12 +704,18 @@ def _run_arm(
                 canonical(complete_actions)
             ).hexdigest(),
             "action_count": len(action_records),
-            "runtime_live_policy_query_count": len(policy_queries),
+            "runtime_live_policy_query_count": (
+                0 if frozen_arm is not None else len(online_selections)
+            ),
             "live_policy_query_count": (
-                len(policy_queries)
+                len(online_selections)
                 if registered_query_count is None else registered_query_count
             ),
-            "policy_queries": policy_queries,
+            "online_selection_count": len(online_selections),
+            "online_selections": online_selections,
+            "online_selections_sha256": hashlib.sha256(
+                canonical(online_selections)
+            ).hexdigest(),
             "actions": action_records,
             "goal_progress": {
                 **goal_definition, "initial": initial_goal, "summary": goal_summary,
@@ -470,6 +723,7 @@ def _run_arm(
             "native_task_success": bool(task_success),
             "native_task_success_step": goal_summary["first_all_satisfied_step"],
             "timeout": timeout,
+            "terminal_reason": terminal_reason,
             "physical_safety": physical,
             "raw_robot_contact_pass": contact_pass,
             "first_raw_robot_contact": physical["first_robot_contact"],
@@ -486,7 +740,9 @@ def _run_arm(
             "maximum_active_obstacle_l1_displacement_m": float(
                 physical["maximum_active_obstacle_l1_displacement_m"]
             ),
-            "collision_free_task_success": bool(task_success and contact_pass and car_pass),
+            "collision_free_task_success": bool(
+                task_success and contact_pass and car_pass
+            ),
             "terminal_dynamic_state_sha256": hashlib.sha256(
                 np.asarray(_dynamic_state_vector(env), dtype=np.float64).tobytes()
             ).hexdigest(),
@@ -515,7 +771,8 @@ def _run_arm(
                 "robot_contact_events_sha256", "paper_CAR_pass",
                 "first_paper_CAR_step", "maximum_active_obstacle_l1_displacement_m",
                 "collision_free_task_success", "terminal_dynamic_state_sha256",
-                "goal_progress_summary_sha256",
+                "goal_progress_summary_sha256", "online_selection_count",
+                "online_selections_sha256", "terminal_reason",
             )}
             actual = {key: record[key] for key in expected}
             _require(actual == expected, "task-success exact action replay differs")
@@ -599,7 +856,8 @@ def evaluate(
     arm_records = []
     for pilot_arm in pilot_arms:
         arm_records.append(_run_arm(
-            runtime=runtime, case=case, archived=archived, config=config,
+            repo_root=repo_root, runtime=runtime, case=case,
+            archived=archived, config=config,
             pilot_arm=pilot_arm, client=client,
             frozen_arm=(
                 None if frozen_by_arm is None

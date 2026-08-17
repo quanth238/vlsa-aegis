@@ -77,7 +77,7 @@ def validate(
     )
     view = producer["scientific_view"]
     arms = view["arms"]
-    _require(view["arm_count"] == 3, "task-success arm count differs")
+    _require(view["arm_count"] == 1, "task-success arm count differs")
     _require([row["arm"] for row in arms] == list(ARM_NAMES), "task-success arm order differs")
     _require(all(isinstance(row["native_task_success"], bool) for row in arms),
              "task-success outcome is missing")
@@ -87,6 +87,11 @@ def validate(
              "task-success CAR outcome is missing")
     _require(all(row["action_count"] >= 185 for row in arms),
              "task-success continuation was not executed")
+    _require(all(row["online_selection_count"] >= 1 for row in arms),
+             "task-success repeated online selection was not executed")
+    _require(all(row["terminal_reason"] in (
+        "native_task_success", "raw_robot_contact", "paper_CAR", "timeout",
+    ) for row in arms), "task-success terminal reason differs")
     validation = {
         "schema_version": VALIDATION_SCHEMA,
         "status": "passing",
@@ -105,7 +110,8 @@ def validate(
         },
         "gates": {
             "exact_scientific_view_replay": True,
-            "three_frozen_arms_complete": True,
+            "our_method_only_complete": True,
+            "late_flow_selector_reapplied_at_every_replan": True,
             "native_task_outcome_recorded_for_every_arm": True,
             "raw_contact_and_CAR_recorded_for_every_arm": True,
             "task_success_not_inferred_from_safe_terminal": True,

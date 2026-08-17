@@ -8,14 +8,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 
-CONFIG_SCHEMA = "vlsa_terminalized_late_flow_task_success.v1"
-RESULT_SCHEMA = "vlsa_terminalized_late_flow_task_success_result.v1"
-VALIDATION_SCHEMA = "vlsa_terminalized_late_flow_task_success_validation.v1"
-ARM_NAMES = (
-    "nominal",
-    "terminal_compact_selector",
-    "late_flow_terminalized_compact_selector",
-)
+CONFIG_SCHEMA = "vlsa_terminalized_late_flow_task_success.v2"
+RESULT_SCHEMA = "vlsa_terminalized_late_flow_task_success_result.v2"
+VALIDATION_SCHEMA = "vlsa_terminalized_late_flow_task_success_validation.v2"
+ARM_NAMES = ("late_flow_terminalized_compact_selector",)
 
 
 def canonical(value: Any) -> bytes:
@@ -35,7 +31,7 @@ def load_config(path: Path) -> dict[str, Any]:
     value = json.loads(raw)
     if value.get("schema_version") != CONFIG_SCHEMA:
         raise ValueError("task-success config schema differs")
-    if value.get("protocol_id") != "vlsa-terminalized-late-flow-task-success-v1":
+    if value.get("protocol_id") != "vlsa-terminalized-late-flow-task-success-v2":
         raise ValueError("task-success protocol differs")
     state = value.get("state_protocol", {})
     if int(state.get("archived_prefix_end_exclusive", -1)) != 180:
@@ -50,17 +46,32 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("task-success model horizon differs")
     if tuple(state.get("arms", ())) != ARM_NAMES:
         raise ValueError("task-success arm order differs")
+    method = value.get("registered_method", {})
+    if not (
+        method.get("config_path")
+        == "configs/vlsa_distal_terminalized_late_flow.v1.json"
+        and method.get("config_file_sha256")
+        == "715031411ae6eb9daf99c677e6fb1815c3269259333fde0910b0ef6e46ccc4bd"
+        and method.get("source_context_payload_sha256")
+        == "55a3cce0899b6d5ee1b1873794a96f83081bf6c38a647e05c31d483172432717"
+        and method.get("source_geometry_config_file_sha256")
+        == "668bc7a1bf7401f705e0ae97a54158774f95227772de970067e09c934d2c6e2d"
+    ):
+        raise ValueError("task-success registered method differs")
     control = value.get("control", {})
     required_false = (
         "released_AEGIS_EE_QP_enabled",
         "learned_QP_enabled",
         "exact_rollout_verifier_at_inference",
-        "additional_correction_after_first_chunk",
     )
     if any(control.get(key) is not False for key in required_false):
         raise ValueError("task-success forbidden control is enabled")
-    if control.get("post_intervention_policy") != "raw_frozen_pi05_reobserve_requery":
+    if control.get("post_intervention_policy") != (
+        "repeated_late_flow_terminalized_compact_selector_reobserve_requery"
+    ):
         raise ValueError("task-success continuation policy differs")
+    if control.get("additional_correction_after_first_chunk") is not True:
+        raise ValueError("task-success repeated correction is disabled")
     if control.get("OSC") != "unchanged_OSC_POSE":
         raise ValueError("task-success OSC differs")
     task = value.get("task_evaluation", {})
@@ -93,12 +104,19 @@ def selected_arm_actions(
     candidates = pilot.get("fresh_selected_arm_execution", {}).get(
         "exact_case", {}
     ).get("candidates", [])
+    candidates = [
+        row for row in candidates
+        if row.get("name") == "late_flow_terminalized_compact_selector"
+    ]
     if [row.get("name") for row in candidates] != list(ARM_NAMES):
-        raise ValueError("task-success pilot arm order differs")
+        raise ValueError("task-success pilot late-flow arm differs")
     outcomes = pilot.get("scientific_view", {}).get("outcome", {}).get(
         "records", []
     )
-    by_arm = {str(row.get("arm")): row for row in outcomes}
+    by_arm = {
+        str(row.get("arm")): row for row in outcomes
+        if row.get("arm") == "late_flow_terminalized_compact_selector"
+    }
     if set(by_arm) != set(ARM_NAMES):
         raise ValueError("task-success pilot outcomes differ")
     output = []
@@ -188,6 +206,11 @@ def scientific_view(
             "goal_progress_summary_sha256": str(
                 row["goal_progress_summary_sha256"]
             ),
+            "online_selection_count": int(row["online_selection_count"]),
+            "online_selections_sha256": str(
+                row["online_selections_sha256"]
+            ),
+            "terminal_reason": str(row["terminal_reason"]),
         })
     return {
         "case_id": str(case_id),
