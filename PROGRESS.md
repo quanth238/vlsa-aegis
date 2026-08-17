@@ -6481,3 +6481,12 @@ are reported separately.  Local focused tests pass `29` tests with one NumPy-
 dependent test skipped; the full desktop gate ran `592` tests but the desktop
 Python lacks NumPy, so allocation preflight must run the focused and collector
 tests in the registered scientific environment before simulation.
+
+Initial selected-action producer `41728` and replay `41729` passed allocation
+preflights and restored E05, but neither reached selected-action simulation:
+both allocations were placed on worker-2 with policy port 8028.  The second
+server failed to bind and the first client's websocket closed.  Retry `41731`
+correctly refused the immutable failed replay directory; validators
+`41730/41732` are dependency-impossible.  These are apparatus-only history.
+Use a new immutable run root and a per-job port derived from `SLURM_JOB_ID`;
+keep all scientific bindings and gates unchanged.

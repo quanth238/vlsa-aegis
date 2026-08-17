@@ -6027,3 +6027,13 @@ scientific views.  Report both raw MuJoCo collision outcomes and the stricter
 represented-geometry/terminal result.  Released EE-QP, learned QP, exact
 rollout verification at inference, retraining, new labels, and any safety or
 CBF claim remain disabled.
+
+Initial selected-action jobs `41728/41729` are pre-simulation apparatus
+history.  Slurm co-located both allocations on worker-2 and both inherited
+policy port 8028; the second server could not bind and the first client lost
+its server connection before any selected action execution.  Duplicate retry
+`41731` then refused the already retained replay root, while validators
+`41730/41732` are dependency-impossible.  Preserve all roots.  The repair
+derives a deterministic port in `[20000,39999]` from each exact Slurm job ID so
+co-located allocations cannot collide.  It changes no state, action, model,
+flow branch, controller, outcome rule, or scientific gate.

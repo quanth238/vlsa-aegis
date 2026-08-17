@@ -23,12 +23,13 @@ EXPERIMENT_ROOT=${EXPERIMENT_ROOT:-/mnt/data/quanth/experiments/vlsa-terminalize
 EXPERIMENT_CONFIG=${EXPERIMENT_CONFIG:-$REMOTE_REPO/configs/vlsa_distal_terminalized_late_flow.v1.json}
 TABLE1_ROOT=${TABLE1_ROOT:-/mnt/data/quanth/experiments/vlsa-aegis-table1/vlsa-table1-contact-authority-population-20260718a}
 ARCHIVED_TABLE1_RESULT=${ARCHIVED_TABLE1_RESULT:-$TABLE1_ROOT/tasks/task-12/results/aegis/vlsa-t1-goal-ii-t0-e05/result.json}
-POLICY_PORT=${POLICY_PORT:-8028}
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 case "$RUN_ID" in ""|*[!A-Za-z0-9._-]*) die "unsafe RUN_ID" ;; esac
 case "$REPLICA" in producer|replay) ;; *) die "invalid REPLICA" ;; esac
 [[ -n "${SLURM_JOB_ID:-}" ]] || die "pilot requires Slurm"
+POLICY_PORT=${POLICY_PORT:-$((20000 + SLURM_JOB_ID % 20000))}
+[[ "$POLICY_PORT" =~ ^[0-9]+$ && "$POLICY_PORT" -ge 20000 && "$POLICY_PORT" -le 39999 ]] || die "invalid policy port"
 [[ "${SLURM_CPUS_PER_TASK:-}" == 8 ]] || die "expected exactly 8 CPUs"
 [[ "${SLURM_MEM_PER_NODE:-}" == 65536 ]] || die "expected 64 GiB"
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
