@@ -6305,3 +6305,13 @@ the default 13/27-candidate paths are unchanged.  Focused local contract tests,
 Python compilation, shell syntax, and `git diff --check` pass.  The desktop full
 `./init.sh` still reaches all tests but fails only where the desktop Python lacks
 NumPy; allocation-backed focused tests remain required before interpretation.
+
+Producer/replay arrays `41624/41625` validate E39 exactly, but indices 1--2
+reject before candidate simulation because the opt-in subset path regenerated
+the 27-grid after correctly reconstructing a frozen 13-bank.  Both replicas
+raise the same `active boundary search candidate count differs` exception; no
+case JSON is written for either failed index.  This is an apparatus branch bug,
+not a scientific outcome.  The repair keeps the reconstructed frozen 13 rows
+and selects the registered two names from them.  Existing valid shards remain
+immutable, and the validator explicitly accepts the preregistered and repair
+commits so only missing indices need rerun.

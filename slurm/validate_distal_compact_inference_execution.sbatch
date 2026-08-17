@@ -22,7 +22,15 @@ mkdir -p "$(dirname "$OUTPUT")"
 export PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=$REMOTE_REPO/main:$REMOTE_REPO
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest tests.test_distal_compact_inference_execution -v
+commit_args=()
+if [[ -n "${ACCEPTED_RESULT_COMMITS:-}" ]]; then
+  IFS=',' read -r -a accepted_commits <<<"$ACCEPTED_RESULT_COMMITS"
+  for commit in "${accepted_commits[@]}"; do
+    commit_args+=(--accepted-result-commit "$commit")
+  done
+fi
 "$AEGIS_PYTHON" -m scripts.validate_distal_compact_inference_execution \
   --repo-root "$REMOTE_REPO" --config "$CONFIG_PATH" \
   --producer-dir "$PRODUCER_DIR" --replay-dir "$REPLAY_DIR" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$OUTPUT"
+  --expected-commit "$EXPECTED_GIT_COMMIT" "${commit_args[@]}" \
+  --output "$OUTPUT"

@@ -26,6 +26,7 @@ def _failed_groups(pair: dict[str, Any], groups: Sequence[str]) -> list[str]:
 def run(
     *, repo_root: Path, config_path: Path, producer_dir: Path,
     replay_dir: Path, expected_commit: str,
+    accepted_result_commits: Sequence[str] = (),
 ) -> dict[str, Any]:
     from main.multilink_ellipsoid.compact_inference_execution import (
         RESULT_SCHEMA, VALIDATION_SCHEMA, load_config, payload_sha256,
@@ -33,6 +34,7 @@ def run(
     )
 
     config = load_config(config_path)
+    result_commits = {expected_commit, *accepted_result_commits}
     rows = []
     for case in config["cases"]:
         case_id = str(case["case_id"])
@@ -48,7 +50,7 @@ def run(
                 value.get("schema_version") == RESULT_SCHEMA
                 and value.get("status") == "complete"
                 and value.get("case_id") == case_id
-                and value.get("source", {}).get("commit") == expected_commit
+                and value.get("source", {}).get("commit") in result_commits
                 and value.get("result_payload_sha256")
                 == payload_sha256(value, "result_payload_sha256"),
                 "compact inference execution %s differs" % label,
@@ -120,6 +122,7 @@ def run(
         "scientific_result": True,
         "claim_scope": config["claim_scope"],
         "source": _git_identity(repo_root, expected_commit),
+        "accepted_result_commits": sorted(result_commits),
         "config_file_sha256": config["config_file_sha256"],
         "config_payload_sha256": config["config_payload_sha256"],
         "case_count": len(rows),
@@ -157,12 +160,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--producer-dir", type=Path, required=True)
     parser.add_argument("--replay-dir", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--accepted-result-commit", action="append", default=[])
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     value = run(
         repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
         producer_dir=args.producer_dir.resolve(), replay_dir=args.replay_dir.resolve(),
         expected_commit=args.expected_commit,
+        accepted_result_commits=args.accepted_result_commit,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps({

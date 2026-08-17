@@ -325,9 +325,11 @@ def collect(
                         if candidate_shard_name == "nominal"
                         else [by_name["nominal"], by_name[candidate_shard_name]]
                     )
-            rows = grid_candidate_definitions(
-                nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
-            )
+            else:
+                rows = grid_candidate_definitions(
+                    nominal, frame, {"finite_search": bank},
+                    bank["temporal_profile"],
+                )
         elif generic_bank:
             rows = generic_candidate_definitions(nominal, bank)
         else:

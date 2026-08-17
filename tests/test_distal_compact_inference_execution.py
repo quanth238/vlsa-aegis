@@ -106,6 +106,10 @@ class CompactInferenceExecutionTest(unittest.TestCase):
         source = inspect.getsource(collect)
         self.assertIn("candidate_subset_names", source)
         self.assertIn("inference candidate subset must execute sequentially", source)
+        self.assertIn(
+            'bank.get("selected_candidate_names") is not None', source,
+        )
+        self.assertIn("else:\n                rows = grid_candidate_definitions", source)
 
 
 if __name__ == "__main__":

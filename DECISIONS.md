@@ -5883,3 +5883,12 @@ for a mechanism pass.  Even that pass does not authorize a safety claim because
 the cohort is opened and deliberately includes the known failures.  Report all
 persistent collisions and do not add QP, gradients, denoising, VLA requery, or
 full-episode claims.
+
+Initial arrays `41624/41625` are progressive apparatus history.  Preserve their
+valid E39 producer/replay shards.  Their indices 1--2 fail before candidate
+simulation because the new opt-in subset branch falls through from the frozen
+13-bank reconstruction into the 27-grid generator.  Repair only that control
+flow, retain the same state, candidate names, OSC, continuation, labels, and
+gates, and rerun only missing indices.  Permit the final validator to bind the
+explicit preregistration and repair commits; differing code provenance must be
+reported, while scientific producer/replay equality remains exact.
