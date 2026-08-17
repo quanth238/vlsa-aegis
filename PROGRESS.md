@@ -6593,3 +6593,28 @@ suite timeout. An independent CPU run must replay the producer's exact action
 ledger and reproduce its complete scientific view. Local contract, evaluator,
 sampler-regression, shell, and JSON checks pass 46 focused tests with four
 optional desktop NumPy/Pillow skips. Allocation-backed execution is next.
+
+Producer `41806`, CPU exact-action replay `41808`, and validator `41810`
+complete ADR-0195 from immutable commit
+`24de03d0b65c884f2a07fef9aaaa11805d6e8235`. Exact scientific-view replay
+passes. The model is invoked at policy queries zero, one, and two. At the first
+two queries, all 13 terminal candidates are predicted safe and the
+least-modifying choice is nominal (predicted primary risks `-0.4642331` and
+`-0.2098709`). After ten executed actions, query two has zero predicted-safe
+candidates; its least predicted primary risk is `+0.0647544`. The method
+therefore abstains without executing an eleventh action.
+
+No raw robot contact occurs in any group, paper CAR passes with maximum active-
+obstacle L1 displacement `2.2748740e-11 m`, and the run neither times out nor
+uses a QP. Native task success is false because abstention occurs before any
+goal atom is satisfied. Thus this true inference loop fixes the prior unsafe-
+fallback failure and avoids collision, but it does not preserve task completion
+on E05. The limiting component is now candidate/intervention authority at the
+first all-unsafe query, not failure to call the model repeatedly. Validation
+file/payload SHA-256 values are
+`68a00ee01eb2498b557aa58141cf331193634b6b79f7b32eb2d53bc097d0480f`
+for the producer result file and
+`3648eedd0d5d8444182d46914486a57edcab323788b68b6a22748681b55105a6`
+for the validation payload. The producer video is copied locally to
+`/Users/quanth238/Downloads/vlsa-e05-true-full-episode-20260817.mp4` with
+SHA-256 `d791b106ec77fb7997d4215a1c97766cd8498bce58a8e7e11ff2945eeedf3af8`.

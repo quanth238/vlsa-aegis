@@ -6120,3 +6120,19 @@ and a CPU exact-action replay with identical scientific view. This test can
 show whether the actual inference loop avoids collision while preserving E05
 task success; it cannot establish a population, safety, deployment, or CBF
 claim.
+
+Jobs `41806/41808/41810` validate the exact ADR-0195 inference loop. The method
+runs from query zero, executes ten nominal actions selected as the least-
+modifying predicted-safe candidates, and then abstains at query two because all
+13 candidate risks are positive (minimum `+0.0647544`). Exact CPU action replay
+passes. There is no palm/L5/L6/L7/other robot contact and no paper-CAR
+violation, but there is also no task success or goal progress.
+
+Retain fail-closed abstention as the correct response to an all-unsafe bank; do
+not restore minimum-risk unsafe execution. This single opened case establishes
+that repeated model inference can stop the collision seen in the prior pilot,
+but it rejects the stronger claim that the current fixed candidate bank
+simultaneously preserves task completion. Any next inference-only improvement
+must increase candidate authority or define a safe replan/hold behavior at the
+all-unsafe query before another simulator run. Do not interpret this as a
+population safety or task-success result.
