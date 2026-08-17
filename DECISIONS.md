@@ -5688,3 +5688,8 @@ selected-action false-safes are zero, validation and test near-boundary RMSE are
 at most `0.1`, held-out rank Spearman is at least `0.5`, and independent
 retraining is exact. Report L5, palm, and L6 separately; no aggregate improvement
 may hide a failed constraint head.
+
+Treat CPU audit job `41469` as import-path apparatus history only. It passes the
+new unit tests and fails before reading the immutable Q result because the
+wrapper executes the script outside module mode. Repair only the invocation to
+`python -m`; all audit inputs and scientific expectations remain frozen.

@@ -17,5 +17,5 @@ AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 [[ -z "$(git -C "$REMOTE_REPO" status --porcelain=v1 --untracked-files=all)" ]] || exit 2
 cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" -m unittest discover -s tests -p 'test_distal_whole_body_false_safe_audit.py' -v
-"$AEGIS_PYTHON" scripts/audit_distal_whole_body_false_safe_selections.py \
+"$AEGIS_PYTHON" -m scripts.audit_distal_whole_body_false_safe_selections \
   --config "$CONFIG" --output "$OUTPUT"

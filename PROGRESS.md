@@ -6116,3 +6116,9 @@ reproduce exactly under four isolated simulator processes before the parallel
 path can be used for new producer/replay collection. The frozen 13-bank, no-QP
 execution, unchanged OSC, complete continuation, whole-body targets, contact/CAR
 authority, and UNKNOWN timeout handling do not change.
+
+Initial CPU audit job `41469` is apparatus history. Its scoped unit tests pass,
+but direct script execution omits the repository root from Python's module
+search path and fails before opening any immutable result. Invoke the identical
+auditor as a Python module; no data binding, expected selection, or attribution
+rule changes.
