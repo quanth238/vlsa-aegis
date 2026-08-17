@@ -4,8 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
 from typing import Any, Mapping, Optional, Sequence
 
 from scripts.audit_distal_compiled_box_risk_target import _evaluate_case
@@ -106,6 +112,8 @@ def _frozen_grid_subset_candidates(
 def collect(
     *, repo_root: Path, table1_root: Path, config_path: Path,
     case_index: int, expected_commit: str, run_root: Path,
+    candidate_workers: int = 1, candidate_shard_name: Optional[str] = None,
+    source_only: bool = False,
 ) -> dict[str, Any]:
     import numpy as np
 
@@ -304,7 +312,17 @@ def collect(
     def definitions(nominal, frame, _base):
         if grid_bank:
             if bank.get("selected_candidate_names") is not None:
-                return _frozen_grid_subset_candidates(nominal, frame, bank)
+                rows = _frozen_grid_subset_candidates(nominal, frame, bank)
+                if candidate_shard_name is None:
+                    return rows
+                by_name = {row["name"]: row for row in rows}
+                _require(candidate_shard_name in by_name,
+                         "parallel candidate shard name differs")
+                return (
+                    [by_name["nominal"]]
+                    if candidate_shard_name == "nominal"
+                    else [by_name["nominal"], by_name[candidate_shard_name]]
+                )
             rows = grid_candidate_definitions(
                 nominal, frame, {"finite_search": bank}, bank["temporal_profile"]
             )
@@ -313,64 +331,132 @@ def collect(
             return generic_candidate_definitions(nominal, bank)
         return candidate_definitions(nominal, frame, bank)
 
+    _require(int(candidate_workers) >= 1, "candidate worker count differs")
+    _require(
+        not (candidate_shard_name is not None and int(candidate_workers) != 1),
+        "candidate shard cannot recursively parallelize",
+    )
     source_path = run_root / "source-curve.json"
+    parallel_started = time.perf_counter()
     try:
-        raw = evaluate(
-            repo_root=repo_root,
-            population_manifest_path=population_path,
-            archived_path=archived_path,
-            geometry_config_path=source_geometry_path,
-            experiment_config_path=base_risk_path,
-            expected_commit=expected_commit,
-            output_path=source_path,
-            case_id_override=selected["case_id"],
-            state_step_override=state_step,
-            query_index_override=state_step // 5,
-            result_schema_override=CURVE_RESULT_SCHEMA,
-            claim_scope_override=config["claim_scope"],
-            population_binding={
-                "case_index": int(case_index),
-                "selection": selected,
-                "selection_manifest": str(selection_path),
-                "selection_manifest_sha256": _file_sha256(selection_path),
-                "split": selected["split"],
-                "sealed_test_access": False,
-            },
-            candidate_definitions_override=definitions,
-            candidate_protocol_binding={
-                "candidate_basis": (
-                    "geometry_conditioned_normal_tangent_grid"
-                    if grid_bank else "symmetric_world_Cartesian_axes"
-                    if generic_bank else bank["direction"]
-                ),
-                "radii_or_alpha": (
-                    [bank["correction_l2_action"]]
-                    if grid_bank else bank["radii"]
-                    if generic_bank else bank["requested_alpha"]
-                ),
-                "temporal_profile": bank["temporal_profile"],
-                "released_AEGIS_EE_applied_to_every_candidate": bool(
+        if int(candidate_workers) == 1:
+            raw = evaluate(
+                repo_root=repo_root,
+                population_manifest_path=population_path,
+                archived_path=archived_path,
+                geometry_config_path=source_geometry_path,
+                experiment_config_path=base_risk_path,
+                expected_commit=expected_commit,
+                output_path=source_path,
+                case_id_override=selected["case_id"],
+                state_step_override=state_step,
+                query_index_override=state_step // 5,
+                result_schema_override=CURVE_RESULT_SCHEMA,
+                claim_scope_override=config["claim_scope"],
+                population_binding={
+                    "case_index": int(case_index),
+                    "selection": selected,
+                    "selection_manifest": str(selection_path),
+                    "selection_manifest_sha256": _file_sha256(selection_path),
+                    "split": selected["split"],
+                    "sealed_test_access": False,
+                },
+                candidate_definitions_override=definitions,
+                candidate_protocol_binding={
+                    "candidate_basis": (
+                        "geometry_conditioned_normal_tangent_grid"
+                        if grid_bank else "symmetric_world_Cartesian_axes"
+                        if generic_bank else bank["direction"]
+                    ),
+                    "radii_or_alpha": (
+                        [bank["correction_l2_action"]]
+                        if grid_bank else bank["radii"]
+                        if generic_bank else bank["requested_alpha"]
+                    ),
+                    "temporal_profile": bank["temporal_profile"],
+                    "released_AEGIS_EE_applied_to_every_candidate": bool(
+                        bank["released_AEGIS_EE_applied_to_every_candidate"]
+                    ),
+                    "learned_correction_QP_enabled": False,
+                },
+                apply_released_aegis_ee_to_all_proposed_actions=bool(
                     bank["released_AEGIS_EE_applied_to_every_candidate"]
                 ),
-                "learned_correction_QP_enabled": False,
-            },
-            apply_released_aegis_ee_to_all_proposed_actions=bool(
-                bank["released_AEGIS_EE_applied_to_every_candidate"]
-            ),
-            capture_physical_context=True,
-            local_frame_provider=local_frame_provider,
-            nominal_action_source=config["state_selection"].get(
-                "nominal_action_source"
-            ),
-            perception_override=(
-                perception if perception_source_binding is not None else None
-            ),
-            perception_source_binding=perception_source_binding,
-            allow_initial_proxy_unsafe_for_empirical_relabel=True,
-            require_archived_task_success=bool(
-                config["state_selection"].get("require_archived_task_success", True)
-            ),
-        )
+                capture_physical_context=True,
+                local_frame_provider=local_frame_provider,
+                nominal_action_source=config["state_selection"].get(
+                    "nominal_action_source"
+                ),
+                perception_override=(
+                    perception if perception_source_binding is not None else None
+                ),
+                perception_source_binding=perception_source_binding,
+                allow_initial_proxy_unsafe_for_empirical_relabel=True,
+                require_archived_task_success=bool(
+                    config["state_selection"].get(
+                        "require_archived_task_success", True
+                    )
+                ),
+            )
+        else:
+            from main.multilink_ellipsoid.candidate_parallel import (
+                merge_candidate_curve_shards,
+            )
+
+            names = list(bank.get("selected_candidate_names") or [])
+            _require(
+                names and len(names) == int(bank["candidate_count_per_job"]),
+                "parallel collection requires the frozen candidate-name bank",
+            )
+            parent_libero = Path(os.environ["LIBERO_CONFIG_PATH"])
+            _require((parent_libero / "config.yaml").is_file(),
+                     "parallel parent LIBERO config differs")
+
+            def run_shard(name: str) -> dict[str, Any]:
+                shard_root = run_root / "candidate-shards" / name
+                shard_root.mkdir(parents=True, exist_ok=False)
+                child_libero = shard_root / "libero-config"
+                child_libero.mkdir()
+                shutil.copy2(parent_libero / "config.yaml", child_libero / "config.yaml")
+                output = shard_root / "source-shard.json"
+                command = [
+                    sys.executable, "-m", "scripts.collect_distal_exact_group_boundary",
+                    "--repo-root", str(repo_root), "--table1-root", str(table1_root),
+                    "--config", str(config_path), "--case-index", str(case_index),
+                    "--expected-commit", expected_commit,
+                    "--run-root", str(shard_root / "runtime"),
+                    "--output", str(output), "--candidate-shard-name", name,
+                    "--source-only",
+                ]
+                environment = dict(os.environ)
+                environment.update({
+                    "LIBERO_CONFIG_PATH": str(child_libero),
+                    "OMP_NUM_THREADS": "1",
+                    "OPENBLAS_NUM_THREADS": "1",
+                    "MKL_NUM_THREADS": "1",
+                    "NUMEXPR_NUM_THREADS": "1",
+                })
+                completed = subprocess.run(
+                    command, cwd=repo_root, env=environment,
+                    text=True, capture_output=True, check=False,
+                )
+                (shard_root / "stdout.log").write_text(completed.stdout)
+                (shard_root / "stderr.log").write_text(completed.stderr)
+                _require(completed.returncode == 0,
+                         "parallel candidate shard failed: %s" % name)
+                return _load(output)
+
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=int(candidate_workers)
+            ) as executor:
+                future_by_name = {
+                    name: executor.submit(run_shard, name) for name in names
+                }
+                shards = [future_by_name[name].result() for name in names]
+            raw = merge_candidate_curve_shards(
+                shards, names, worker_count=int(candidate_workers),
+                wall_seconds=time.perf_counter() - parallel_started,
+            )
     except ValueError as error:
         return _retained_initial_car_rejection(
             repo_root=repo_root, expected_commit=expected_commit, config=config,
@@ -389,6 +475,9 @@ def collect(
     raw.pop("result_payload_sha256", None)
     raw["result_payload_sha256"] = _sha256(_canonical(raw))
     _atomic_write(source_path, raw)
+
+    if source_only:
+        return raw
 
     exact_case = _evaluate_case(
         repo_root=repo_root,
@@ -450,6 +539,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--expected-commit", required=True)
     parser.add_argument("--run-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--candidate-workers", type=int, default=1)
+    parser.add_argument("--candidate-shard-name")
+    parser.add_argument("--source-only", action="store_true")
     args = parser.parse_args(argv)
     value = collect(
         repo_root=args.repo_root.resolve(),
@@ -458,19 +550,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         case_index=args.case_index,
         expected_commit=args.expected_commit,
         run_root=args.run_root.resolve(),
+        candidate_workers=args.candidate_workers,
+        candidate_shard_name=args.candidate_shard_name,
+        source_only=bool(args.source_only),
     )
     _atomic_write(args.output.resolve(), value)
-    summary = {
-        "status": value["status"],
-        "case_id": value["case_id"],
-        "target_group": value["selection"]["target_group"],
-        "state_step": value["state_step"],
-        "result_payload_sha256": value["result_payload_sha256"],
-    }
-    if value.get("exact_case") is not None:
-        summary["source_replay_exact"] = value["exact_case"]["source_replay_exact"]
+    if args.source_only:
+        summary = {
+            "status": value["status"],
+            "candidate_names": [row["name"] for row in value["candidates"]],
+            "source_snapshot_sha256": value["state"]["source_snapshot_sha256"],
+            "result_payload_sha256": value["result_payload_sha256"],
+        }
     else:
-        summary["rejection"] = value["rejection"]
+        summary = {
+            "status": value["status"],
+            "case_id": value["case_id"],
+            "target_group": value["selection"]["target_group"],
+            "state_step": value["state_step"],
+            "result_payload_sha256": value["result_payload_sha256"],
+        }
+        if value.get("exact_case") is not None:
+            summary["source_replay_exact"] = value["exact_case"]["source_replay_exact"]
+        else:
+            summary["rejection"] = value["rejection"]
     print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 

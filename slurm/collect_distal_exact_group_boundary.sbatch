@@ -13,6 +13,7 @@
 set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:?}; EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?}
 OUTPUT_DIR=${OUTPUT_DIR:?}; TABLE1_ROOT=${TABLE1_ROOT:?}
+CANDIDATE_WORKERS=${CANDIDATE_WORKERS:-1}
 AEGIS_PYTHON=${AEGIS_PYTHON:-/mnt/data/quanth/venvs/safety_vla/main/bin/python}
 CONFIG_PATH=${CONFIG_PATH:-$REMOTE_REPO/configs/vlsa_distal_exact_group_boundary_canary.v1.json}
 gpu_line=$(nvidia-smi --query-gpu=name,uuid --format=csv,noheader,nounits)
@@ -45,4 +46,5 @@ cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/collect_distal_exact_group_boundary.py \
   --repo-root "$REMOTE_REPO" --table1-root "$TABLE1_ROOT" \
   --config "$CONFIG_PATH" --case-index "$SLURM_ARRAY_TASK_ID" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --run-root "$run_root" --output "$output"
+  --expected-commit "$EXPECTED_GIT_COMMIT" --run-root "$run_root" --output "$output" \
+  --candidate-workers "$CANDIDATE_WORKERS"

@@ -5693,3 +5693,16 @@ Treat CPU audit job `41469` as import-path apparatus history only. It passes the
 new unit tests and fails before reading the immutable Q result because the
 wrapper executes the script outside module mode. Repair only the invocation to
 `python -m`; all audit inputs and scientific expectations remain frozen.
+
+Treat replacement audit `41470` as output-schema apparatus history. The frozen
+selection summary records candidate identity and actual safety, but not a
+selected predicted scalar. That unused display value is not part of the
+preregistered attribution question. Remove it without changing the selected
+population or any exact risk/contact join.
+
+Use frozen L6 training case `vlsa-t1-goal-ii-t3-e31` (targeted-cohort index 9)
+for the sequential-versus-four-process equivalence canary. It is already opened
+development evidence, so apparatus iteration cannot leak new validation/test
+candidate outcomes. Run the two collectors in separate one-H100/eight-CPU
+allocations and validate on CPU after both finish. A failed equality check
+disables the parallel path without altering the sequential collector.

@@ -6122,3 +6122,17 @@ but direct script execution omits the repository root from Python's module
 search path and fails before opening any immutable result. Invoke the identical
 auditor as a Python module; no data binding, expected selection, or attribution
 rule changes.
+
+Replacement CPU audit `41470` is also apparatus history. It opens the immutable
+Q result and exact cases, then rejects because the frozen state-selection summary
+does not serialize the selected candidate's predicted scalar. That scalar is not
+needed for the registered attribution table. Remove only the unsupported display
+field; selected identity, exact palm/L5/L6 risks, witnesses, and contacts remain
+unchanged.
+
+The opt-in process executor and equality validator are now locally prepared.
+The canary uses opened L6 training root `vlsa-t1-goal-ii-t3-e31` (frozen targeted
+cohort index 9), comparing the unchanged sequential collector with four external
+candidate processes. New collection remains blocked until its allocation-backed
+equality result passes every registered action, state, risk, contact/CAR, timeout,
+terminal-state, and order check.

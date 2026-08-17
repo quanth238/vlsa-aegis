@@ -69,9 +69,6 @@ def attribute_selection(
         "state_id": selection["state_id"],
         "split": selection["split"],
         "selected_candidate": selection["selected_candidate"],
-        "selected_predicted_global_risk": float(
-            selection["selected_predicted_global_risk"]
-        ),
         "selected_actual_safe": False,
         "future_risk": risks,
         "active_physical_witness": physical_witness,
