@@ -6092,3 +6092,27 @@ signal, but rejects the current model as an unseen-state whole-body safety
 filter. The next data priority, if continued, is prospectively frozen,
 initially-safe L6 boundary support in training and especially untouched test
 task groups; palm and L5 no longer need generic expansion for this gate.
+
+## 2026-08-17: Unseen per-constraint transfer follow-up
+
+ADR-0188 freezes the next experiment around the existing model and data
+contracts. A new allocation-backed audit is prepared to join the six shared
+model false-safe selections to their exact whole-body candidate artifacts. The
+preliminary exact join attributes the claimed physical witness to L6 once, L5
+three times, and palm twice. This makes the scientific test more precise: new
+L6 boundaries test the missing-L6 hypothesis, while unchanged L5/palm results
+measure whether whole-body transfer remains unsolved.
+
+No existing episode will be recollected. The validated natural-pi0.5 audit of
+all 1,600 immutable Table-1 roots has only five eligible L6 roots across two
+task-level groups, and all five are already frozen in the current evidence.
+Consequently the intended additive `6/2/4` L6 cohort requires a genuinely new
+prospective raw-pi0.5 source population and new task/obstacle groups. Candidate
+outcomes remain unopened until complete episode-group splits are frozen.
+
+The collection-speed change is isolated behind an opt-in equivalence gate.
+Sequential execution remains the reference. One opened training state must
+reproduce exactly under four isolated simulator processes before the parallel
+path can be used for new producer/replay collection. The frozen 13-bank, no-QP
+execution, unchanged OSC, complete continuation, whole-body targets, contact/CAR
+authority, and UNKNOWN timeout handling do not change.

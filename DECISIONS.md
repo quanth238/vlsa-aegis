@@ -5644,3 +5644,47 @@ external per-constraint coverage gate and the held-out prediction gate are
 false. If work continues, add only prospectively frozen, initially-safe,
 two-sided L6 roots—especially untouched test task groups—while preserving all
 current palm/L5, recovery, one-sided, timeout, and rejection evidence.
+
+## ADR-0188: Isolate unseen per-constraint boundary transfer
+
+- Status: preregistered; exact false-safe audit and worker-equivalence canary first
+- Date: 2026-08-17
+
+Keep the immutable 36-root dataset, frozen 13-candidate bank, 9D/33D/shared
+models, features, loss, normalization, seed, epochs, OSC, continuation, geometry,
+and timeout policy unchanged. First attribute all six frozen shared-model
+held-out selected-action false-safes to their exact per-constraint future-risk
+targets. This is a read-only audit and cannot authorize correction.
+
+The exact preliminary join shows that the active claimed physical witnesses are
+L6 in one selection, L5 in three, and palm in two. Therefore missing L6 test
+coverage is real, but an L6-only improvement cannot by itself explain or repair
+the other five transfer failures. The next experiment tests the narrower claim:
+whether adding independent L6 boundaries repairs L6 transfer while the frozen
+L5/palm results expose any remaining whole-body limitation.
+
+The immutable 1,600-root natural-pi0.5 source audit contains only five eligible
+L6 roots in two task-level groups, and every one already appears in the frozen
+counterfactual cohort. Do not recollect or relabel them as new evidence. A new
+raw-pi0.5 source population must be frozen before candidate outcomes, with new
+task/obstacle groups and an intended additive `6/2/4` train/validation/test L6
+cohort. Retain all safe-only, unsafe-only, initially-unsafe, timeout, contact,
+and failed roots. Select the warning boundary from the first raw L6 contact
+using the frozen earlier-query rule and require initial safety for prevention
+coverage.
+
+Before broad collection, validate one opt-in four-process candidate executor
+against the existing sequential path on an opened training state. Each worker
+must own an isolated MuJoCo environment, restored state, deterministic seed,
+temporary directory, and atomic candidate shard, with BLAS/OpenMP limited to
+one thread and a dynamic queue. Require equal requested/effective chunks, state
+hashes, per-constraint risks, contacts, CAR, timeout classes, and canonical
+merged candidate order. Failure leaves the sequential path authoritative.
+
+After independently replayed collection, retrain the unchanged 9D, 33D, and
+shared Q-only arms. Correction remains blocked unless L6 prevention two-sided
+coverage reaches `4/2/2`, every recoverable held-out state has safe support,
+selected-action false-safes are zero, validation and test near-boundary RMSE are
+at most `0.1`, held-out rank Spearman is at least `0.5`, and independent
+retraining is exact. Report L5, palm, and L6 separately; no aggregate improvement
+may hide a failed constraint head.

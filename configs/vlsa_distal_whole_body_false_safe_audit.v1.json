@@ -1,0 +1,26 @@
+{
+  "schema_version": "vlsa_distal_whole_body_false_safe_audit_config.v1",
+  "protocol_id": "vlsa-distal-whole-body-false-safe-audit-v1",
+  "claim_scope": "Read-only exact attribution of the six frozen shared-model held-out selected-action false-safes. This audit changes no data, model, split, candidate, geometry, or correction gate.",
+  "prediction_result": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-final-gate/whole-body-final-gate-20260817a/q_prediction_result.json",
+    "file_sha256": "90a85e05f4d3927054073860bc76121cd28363c7bbd19a0509b3fc0b15368e25",
+    "payload_sha256": "097a01edd2ef0fdf2335334dcc99e604c6d63bd3c801b4828b5fbe4664d3a654"
+  },
+  "source_roots": {
+    "ADR-0177-stage-0": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-prospective/whole-body-prospective-20260816a",
+    "ADR-0180-extension": "/mnt/data/quanth/experiments/vlsa-distal-whole-body-extension/whole-body-extension-20260816c",
+    "ADR-0186-targeted-palm-L6": "/mnt/data/quanth/experiments/vlsa-distal-pi05-palm-l6-extension/pi05-palm-l6-extension-20260817a"
+  },
+  "expected_selected_false_safe_state_ids": [
+    "vlsa-t1-goal-ii-t0-e39",
+    "vlsa-t1-long-ii-t2-e13",
+    "vlsa-t1-long-ii-t3-e46",
+    "vlsa-t1-spatial-i-t3-e12",
+    "vlsa-t1-spatial-i-t3-e15",
+    "vlsa-t1-spatial-i-t3-e42"
+  ],
+  "physical_prediction_heads": ["palm", "L5", "L6"],
+  "diagnostic_groups": ["end_effector", "L7"],
+  "correction_authorized": false
+}
