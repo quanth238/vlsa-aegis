@@ -6322,3 +6322,14 @@ diagnostic `41653` independently confirms one H100, the exact repair commit,
 and a clean source.  Preserve the failed runtime directories and use an
 opt-in retry suffix; final case JSON paths and all scientific settings remain
 unchanged.
+
+Final missing-index producer `41655`, replay `41657`, and validator `41659`
+complete ADR-0192.  All four nominal branches are physically unsafe; the
+frozen compact selections are physically safe for E39 and E46 and L5-unsafe
+for E15 and E42.  Thus selected safety improves from `0/4` to `2/4`, with two
+avoided collisions, two persistent L5 violations, zero UNKNOWN selections,
+and exact producer/replay equality.  Every registered mechanism gate passes,
+but model-only safety fails.  Correction safety, closed loop, and untouched
+generalization remain unauthorized.  Validation file/payload SHA-256 values
+are `c03598f26cc1fa762b82d24e6ac9b2fbc34c2adcbb5b2a4eff81e58d188ce0c5`
+and `95230f86c0cce70b0c453747cf3a90fd37d8650b6981f7b848089b5a58725489`.

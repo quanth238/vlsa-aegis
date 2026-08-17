@@ -5859,7 +5859,7 @@ protocol and user authorization.
 
 ## ADR-0192: Execute only nominal versus frozen compact minimum risk
 
-- Status: preregistered; allocation execution pending
+- Status: complete; mechanism pass, model-only safety NO-GO
 - Date: 2026-08-17
 
 At the user's explicit request, permit a small inference-only action-correction
@@ -5896,3 +5896,14 @@ reported, while scientific producer/replay equality remains exact.
 Do not delete or overwrite failed per-case runtime directories.  Allow a
 Slurm-only `RUNTIME_SUFFIX` for exact missing-index retries; this changes only
 temporary workspace identity, never the final case path or scientific result.
+
+Final H100 producer/replay jobs `41655/41657` and validator `41659` bind valid
+progressive shards from commits `1bc9d1020fb71aebac419cfef0355547fd1571b2`
+and `440d501f3be2502ac49cf63d2d567896ec3485ff`.  Exact replay passes.  Nominal
+is physically unsafe in `4/4`; compact minimum-risk selection avoids the E39
+L6 and E46 palm violations but retains positive L5 future violation in E15
+(`+0.029394`) and E42 (`+0.254179`).  Accept the narrow conclusion that frozen
+compact inference improved this opened paired pilot from `0/4` to `2/4` safe.
+Reject model-only safety, untouched generalization, correction-safety, and
+closed-loop authorization.  Do not hide the two L5 failures or reinterpret the
+positive E46 released-EE proxy as physical contact.
