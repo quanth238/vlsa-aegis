@@ -6233,3 +6233,29 @@ then minimum temporal roughness. Run paired H100 replicas and require an exact
 scientific-view match. A positive result authorizes at most a separately frozen
 small exact replay of the best route; it does not establish collision avoidance,
 task success, safety, deployment, or a CBF claim.
+
+Jobs `41851_0/41851_1` answer the diagnostic without executing a route. Both
+replicas reconstruct the same exact Query-2 simulator state, evaluate all 505
+routes, classify all 505 as palm/L5-predicted-safe, classify zero as safe when
+the diagnostic EE proxy is included, and identify `waypoint_0136` as the same
+minimum-risk route. The authoritative producer also reproduces the immutable
+ADR-0195 ordinary-action hash exactly. Its best proxy-inclusive risk is still
+positive at `+0.0954336`, only slightly below the nominal `+0.0976876`; its best
+physical risk is palm `-0.0667797`, versus nominal `-0.0569615`.
+
+The correct minimum-intervention choice over the physical rows is therefore the
+unchanged nominal action: it is already predicted safe. Smooth nonlinear route
+shape does not unlock the blocked method under the current critic. It neither
+crosses the diagnostic proxy boundary nor introduces any learned reason to
+avoid the future task dead end. Do not execute `waypoint_0136` merely because it
+slightly lowers predicted palm risk.
+
+Strict paired validation job `41852` fails rather than weakening reproducibility.
+The 504 nonzero effective candidate chunks and selected minimum-risk route are
+exactly equal, but independently regenerated ordinary terminal actions have
+different hashes; because the compact critic includes the nominal action in its
+features, maximum risk disagreement is `0.0031784`. Retain both artifacts as
+opened diagnostic evidence, but do not call ADR-0198 independently validated.
+The next principled method change is the already identified horizon issue: a
+critic trained to predict the current chunk plus the next frozen VLA re-query.
+That requires new offline labels and is not silently introduced here.

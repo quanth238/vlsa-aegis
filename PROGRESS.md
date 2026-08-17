@@ -6721,3 +6721,36 @@ by minimum intervention and temporal roughness. Two independent H100 replicas
 must reproduce all candidate hashes, scores, and the selected route exactly.
 This diagnostic isolates nonlinear waypoint authority from the failed local QP;
 even a pass cannot authorize execution or a safety/task-success claim.
+
+H100 array `41851` completes both 505-route inference replicas in about two
+minutes each with zero candidate simulator rollouts and zero executed actions.
+Both replicas produce the same qualitative and selection result:
+
+- palm/L5-predicted-safe routes: `505/505`;
+- diagnostic-EE-proxy-inclusive safe routes: `0/505`;
+- same minimum-risk route: `waypoint_0136`;
+- producer minimum per-row risks:
+  `[+0.0954336, -0.0667797, -1.8722836, -2.1029776, -4.4163186,
+  -1.6140208, -1.0726217]`;
+- producer best route effective correction: L2 `0.0659765`, Linf `0.0414299`;
+- minimum-intervention physical selection: unchanged nominal.
+
+The producer ordinary-terminal hash
+`d36d9c55c82f05dcc31a605f016a68ff345ffffa933f568eb75d02566ef54050`
+exactly matches the immutable ADR-0195 Query-2 record. The replica regenerates
+a slightly different ordinary hash even though all 504 stored nonzero effective
+candidate chunks are exactly equal. Since nominal action is part of the critic
+feature, the maximum per-row prediction disagreement is `0.0031784`. Strict
+validator `41852` therefore fails exact scientific-view equality. Producer and
+replica result file SHA-256 values are
+`da1242fb9dad3b3d1ba05b37f2177ae223107ca055ad6ada1e31d907f9662037`
+and `af1a2f6410750ebd333aca9cd1dbf96f3d0e9075bed5d0c66e302c03699b2a4f`;
+payload hashes are
+`7ea0e1deed1bf5a6c0735fa9166492de42145ffec302de67d05d104aacf1d575`
+and `1a7d69a7ed7dac9849479f792f5fc3b4cf0ab89934b8f4980eb59814dbd987c2`.
+
+Scientific decision: smooth waypoint parameterization is not the current
+blocker. Palm/L5 already accept nominal, while the diagnostic EE proxy remains
+unreachable. No route is executed and no further simulation is authorized from
+this result. The unresolved Query-1/Query-2 failure requires a longer deployed-
+horizon target, not more waypoint samples at Query 2.
