@@ -6089,3 +6089,15 @@ Producer video is required so the task outcome can be inspected.
 This opened single case can establish task-preservation mechanism evidence
 only; it cannot establish a TSR/CAR population improvement, formal safety, or
 a CBF claim.
+
+Jobs `41792/41799/41801` pass exact action-ledger replay and resolve the gate:
+the repeated method reaches native success at step 189, but L5 contacts the
+moka-pot obstacle at the same step. Collision-free task success is therefore
+false. The decisive detail is that the online selector's minimum predicted
+primary risk is `+0.3797674506`; every terminal candidate is predicted unsafe,
+yet the registered fallback executes the least risky candidate anyway. Reject
+that rule for closed-loop use. This result does not motivate retraining or more
+data collection: the predictor warned correctly. Any next control experiment
+must preregister either a fail-closed response or a candidate mechanism with
+greater intervention authority for the all-predicted-unsafe case. Do not run
+another simulator pilot until that inference-only decision is frozen.

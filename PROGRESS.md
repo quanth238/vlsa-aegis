@@ -6539,10 +6539,37 @@ geoms as `other_robot`, and records paper CAR. Producer videos are emitted for
 the method arm. A CPU exact-action replay must reproduce the producer's
 complete scientific view before the result is accepted.
 
-Local focused validation passes 41 tests with four optional NumPy/Pillow skips;
-the new task-success contract itself passes all five tests. The full `init.sh`
+Local focused validation passes 42 tests with four optional NumPy/Pillow skips;
+the new task-success contract itself passes all six tests. The full `init.sh`
 gate runs 592 tests and reports only the 20 already known desktop-Python NumPy
 import errors, with 67 skips. Allocation preflight will rerun focused tests in
 the registered scientific runtime before execution. The next action is commit,
 remote source preparation, live Slurm preflight, and one H100 producer followed
 by CPU exact-action replay and validation.
+
+Producer `41792`, exact-action CPU replay `41799`, and validator `41801`
+complete the corrected our-method-only experiment at immutable commit
+`a3a4213087edbc0792231326fac8e0b54eb9cef5`. Exact scientific-view replay
+passes. The method executes the validated late-flow-selected chunk at steps
+180--184 and performs one new terminalized 13-branch inference/compact scoring
+query at step 185. It selects `grid_z0_p1_p1_front_loaded_r2.0`; importantly,
+the minimum predicted EE/palm/L5 violation is already positive
+(`0.3797674506`), so the frozen minimum-risk fallback has no predicted-safe
+candidate.
+
+The episode reaches native task success at step 189, but the same step contains
+raw `robot0_link5_collision` contact with `moka_pot_obstacle_1_g13` beginning at
+internal substep 7 (19 contact samples, penetration `-0.0001266457 m`). Paper
+CAR still passes with maximum active-obstacle L1 displacement
+`0.0005931699 m`; there is no timeout. Therefore native task success is `1/1`
+but collision-free task success is `0/1`. This is a scientific failure of the
+current minimum-risk-when-all-unsafe control rule, not a predictor miss: the
+critic warned that even its best available candidate was unsafe.
+
+Validation file/payload SHA-256 values are
+`5f4ac4aa8d86d1755bbe925c7d425fc35c26a80f132361dc610de3b46f871ee4`
+and `dd7b3d1369558bb58ffe9de468d29c0f43960bbdde09b7948194cfac17eba523`.
+No further simulator run is authorized by this result. The next method decision
+is to define a fail-closed response or increase inference-time candidate
+authority when every candidate has predicted risk above zero; silently
+executing the minimum-risk unsafe candidate is rejected.
