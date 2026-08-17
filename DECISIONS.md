@@ -6453,3 +6453,19 @@ rollout, new label, or retraining. Record raw contacts per palm/finger/L5/L6/L7,
 CAR, native task success, goal progress, every selection, runtime, and video.
 Require exact CPU action replay. This opened one-case test can validate or reject
 collision-free task-preservation mechanism evidence only.
+
+Producer `42093`, exact-action replay `42095`, and validator `42099` reproduce
+the complete scientific view exactly. The method is collision-free for all
+`300` actions (`7,500` internal substeps), with zero raw contacts and paper CAR
+passing, but it times out with native task success false and no goal atom ever
+satisfied. It intervenes at all `60` queries using only strong `r2.0` branches;
+mean correction is `1.857941` despite positive active-row slack throughout.
+
+Reject unconditional minimum predicted risk as the deployed selector. The
+critic's useful ordering is not itself an objective for task execution:
+minimizing risk without a pass-through region rewards maximal escape forever.
+The next zero-retraining inference test, if run, must use the already evaluated
+validation-frozen safety information to choose the least-modifying supported
+candidate and pass nominal through when it is supported safe. It must not add
+new collection, QP, denoising, or model tuning, and it must remain an opened
+mechanism test until exact replay and native task success both pass.

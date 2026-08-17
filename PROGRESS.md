@@ -6937,3 +6937,26 @@ replay must reproduce the complete scientific view. The result answers only
 whether this frozen offline ranker can preserve collision-free native task
 success in one opened case; it cannot establish population generalization or a
 safety/CBF claim.
+
+H100 producer `42093`, CPU exact-action replay `42095`, and validator `42099`
+complete ADR-0203 from immutable commit
+`451501eb12a7aae77bb0b230738ddd369f17fbbe`. The scientific view reproduces
+exactly. Across all `300` executed actions and `7,500` internal substeps, the
+method records zero raw robot-obstacle contact samples, no paper-CAR event, and
+negligible active-obstacle displacement (`2.03e-12` m). It therefore remains
+collision-free in this opened episode.
+
+Task preservation fails: the run times out after `60` five-action selections,
+native task success is false, and native goal progress remains `0/1` throughout.
+Every query is modified; mean normalized correction is `1.857941` (range
+`1.173948` to `2.0`), and all selected branches are strong `r2.0` corrections.
+The current minimum-risk objective keeps driving predicted risk downward even
+when the minimum instantaneous tight slack is already positive (`>=0.758346` in
+the observed active rows), so it has no nominal pass-through or progress term.
+ADR-0203 is therefore a clean NO-GO for repeated unconditional minimum-risk
+selection: it avoids collision but destroys task progress. The next inference
+rule must be minimum intervention subject to a validation-frozen safety gate,
+with nominal pass-through when supported; do not collect new labels, retrain,
+or scale this unconditional rule. Validation file/payload SHA-256 values are
+`3e9319d19a8bb107469f5f6f0429c3eaed7ceb9d453909de43ddc9def74ab6fe` and
+`55e42667a30e1e3040150b2e3c7003ac9650bf8756b5697063c48a896a203a5f`.
