@@ -6865,3 +6865,10 @@ the fixed final epoch is selected without validation tuning. L5 is the only
 supported boundary head. Tight palm/fingers and L6 remain diagnostic, and the
 already-opened six-case test cannot become an untouched claim. The next step is
 two parallel independent H100 fits followed by a CPU exact-result validator.
+
+Independent H100 fits `42041/42042` complete in 24/23 seconds with identical
+model metrics. CPU validator `42043` fails before comparison because it calls
+the H100-only allocation receipt on a CPU allocation. The two training results
+are immutable scientific inputs. Repair only the validator receipt and bind the
+accepted training commit explicitly; do not retrain or change data, features,
+loss, seed, epochs, or metrics.

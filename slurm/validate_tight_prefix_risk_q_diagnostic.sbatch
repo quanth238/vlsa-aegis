@@ -12,6 +12,7 @@
 set -euo pipefail
 REMOTE_REPO=${REMOTE_REPO:?REMOTE_REPO is required}
 EXPECTED_GIT_COMMIT=${EXPECTED_GIT_COMMIT:?EXPECTED_GIT_COMMIT is required}
+ACCEPTED_TRAINING_COMMIT=${ACCEPTED_TRAINING_COMMIT:?ACCEPTED_TRAINING_COMMIT is required}
 PRODUCER=${PRODUCER:?PRODUCER is required}
 REPLAY=${REPLAY:?REPLAY is required}
 OUTPUT=${OUTPUT:?OUTPUT is required}
@@ -29,4 +30,5 @@ cd "$REMOTE_REPO"
 "$AEGIS_PYTHON" scripts/validate_tight_prefix_risk_q_diagnostic.py \
   --repo-root "$REMOTE_REPO" --config "$CONFIG" \
   --producer "$PRODUCER" --replay "$REPLAY" \
-  --expected-commit "$EXPECTED_GIT_COMMIT" --output "$OUTPUT"
+  --expected-commit "$EXPECTED_GIT_COMMIT" \
+  --accepted-training-commit "$ACCEPTED_TRAINING_COMMIT" --output "$OUTPUT"

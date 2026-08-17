@@ -15,9 +15,11 @@ from scripts.replay_distal_three_ellipsoid_multicbf import (
 
 def validate(
     *, repo_root: Path, config_path: Path, producer_path: Path,
-    replay_path: Path, expected_commit: str,
+    replay_path: Path, expected_commit: str, accepted_training_commit: str,
 ) -> dict:
-    from main.multilink_ellipsoid.shadow import allocation_record
+    from main.multilink_ellipsoid.pi05_palm_l6_source_selection import (
+        cpu_allocation_record,
+    )
     from main.multilink_ellipsoid.tight_prefix_risk_q_diagnostic import (
         RESULT_SCHEMA, VALIDATION_SCHEMA, canonical, load_config,
         payload_sha256, scientific_view,
@@ -29,7 +31,8 @@ def validate(
     for result in (producer, replay):
         _require(
             result.get("schema_version") == RESULT_SCHEMA
-            and result.get("source", {}).get("commit") == expected_commit
+            and result.get("source", {}).get("commit")
+            == accepted_training_commit
             and result.get("result_payload_sha256")
             == payload_sha256(result, "result_payload_sha256")
             and result.get("config") == config,
@@ -44,7 +47,8 @@ def validate(
         "status": "validated_exact_independent_training",
         "scientific_result": True,
         "validator_source": _git_identity(repo_root, expected_commit),
-        "allocation": allocation_record(),
+        "allocation": cpu_allocation_record(),
+        "accepted_training_commit": accepted_training_commit,
         "producer": {
             "path": str(producer_path),
             "file_sha256": _file_sha256(producer_path),
@@ -76,12 +80,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--producer", type=Path, required=True)
     parser.add_argument("--replay", type=Path, required=True)
     parser.add_argument("--expected-commit", required=True)
+    parser.add_argument("--accepted-training-commit", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     value = validate(
         repo_root=args.repo_root.resolve(), config_path=args.config.resolve(),
         producer_path=args.producer.resolve(), replay_path=args.replay.resolve(),
         expected_commit=args.expected_commit,
+        accepted_training_commit=args.accepted_training_commit,
     )
     _atomic_write(args.output.resolve(), value)
     print(json.dumps({

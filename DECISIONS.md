@@ -6377,3 +6377,11 @@ two-sided support. The six test roots are already opened and remain diagnostic.
 Run two independent H100 fits and require an exact scientific-view match. No
 simulator step, correction, QP, denoising, closed loop, paper-scale claim,
 untouched-test claim, or safety/CBF claim is authorized by this training run.
+
+The two frozen H100 fits `42041/42042` finish independently and report identical
+metrics. Validator `42043` is apparatus-only failure: it attempts `nvidia-smi`
+through an H100-only receipt helper despite being intentionally CPU-only and
+never compares the results. Replace only that receipt with the existing strict
+Slurm CPU receipt, bind training commit `4817e6308256658cf6ba5284d6cd14126e94e951`
+separately from the validator source commit, and validate the immutable result
+files in place. No retraining is authorized by this repair.
