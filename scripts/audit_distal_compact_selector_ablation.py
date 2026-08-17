@@ -65,7 +65,7 @@ def run(*, repo_root: Path, config_path: Path,
     from main.multilink_ellipsoid.compact_selector_ablation import (
         RESULT_SCHEMA, enrich_records, evaluate_arm, exact_float_lists_close,
         file_sha256, load_config, payload_sha256,
-        predict_serialized_mlp_float32, validation_margins,
+        predict_serialized_mlp_torch, validation_margins,
     )
     from main.multilink_ellipsoid.shadow import allocation_record
     from main.multilink_ellipsoid.whole_body_q_only_prediction import (
@@ -136,9 +136,9 @@ def run(*, repo_root: Path, config_path: Path,
             sample for sample in samples[split]
             if bool(sample["known_outcome"])
         ]
-        compact_fresh = predict_serialized_mlp_float32(
+        compact_fresh = predict_serialized_mlp_torch(
             [sample["feature"] for sample in compact_known_samples],
-            compact_model["state_payload"],
+            compact_model["state_payload"], device="cuda:0",
         )
         compact_equal, compact_error = exact_float_lists_close(
             compact_fresh,
@@ -160,9 +160,9 @@ def run(*, repo_root: Path, config_path: Path,
         }
 
         known_specialist_samples = established[split]["l5"]
-        known_specialist_fresh = predict_serialized_mlp_float32(
+        known_specialist_fresh = predict_serialized_mlp_torch(
             [sample["feature_33d"] for sample in known_specialist_samples],
-            specialist_arm["model"]["state_payload"],
+            specialist_arm["model"]["state_payload"], device="cuda:0",
         )
         specialist_equal, specialist_error = exact_float_lists_close(
             known_specialist_fresh, specialist_arm["predictions"][split],
@@ -178,9 +178,9 @@ def run(*, repo_root: Path, config_path: Path,
             sample for sample in samples[split]
             if int(sample["row_index"]) == 0
         ]
-        all_specialist = predict_serialized_mlp_float32(
+        all_specialist = predict_serialized_mlp_torch(
             [sample["feature_33d"] for sample in unique_candidates],
-            specialist_arm["model"]["state_payload"],
+            specialist_arm["model"]["state_payload"], device="cuda:0",
         )
         specialist_replay[split] = {
             "known_candidate_count": len(known_specialist_samples),

@@ -341,6 +341,42 @@ def predict_serialized_mlp_float32(
     return output
 
 
+def predict_serialized_mlp_torch(
+    features: Sequence[Sequence[float]], state_payload: Mapping[str, Any],
+    *, device: str,
+) -> list[list[float]]:
+    """Replay a frozen checkpoint through the original Torch model path."""
+    import numpy as np
+    import torch
+    from main.multilink_ellipsoid.whole_body_q_only_diagnostic import build_model
+
+    input_dimension = int(state_payload["input_dimension"])
+    output_dimension = int(state_payload["output_dimension"])
+    model = build_model(torch, input_dimension, output_dimension, [32, 32])
+    model.load_state_dict({
+        key: torch.as_tensor(value, dtype=torch.float32)
+        for key, value in state_payload["state_dict"].items()
+    })
+    model = model.to(torch.device(device))
+    model.eval()
+    raw = np.asarray(features, dtype=np.float64)
+    mean = np.asarray(state_payload["feature_mean"], dtype=np.float64)
+    scale = np.asarray(state_payload["feature_scale"], dtype=np.float64)
+    target_mean = np.asarray(state_payload["target_mean"], dtype=np.float64)
+    target_scale = np.asarray(state_payload["target_scale"], dtype=np.float64)
+    if raw.ndim != 2 or raw.shape[1] != input_dimension:
+        raise ValueError("compact selector Torch feature shape differs")
+    normalized = torch.as_tensor(
+        (raw - mean) / scale, dtype=torch.float32, device=torch.device(device),
+    )
+    with torch.no_grad():
+        value = model(normalized).detach().cpu().numpy()
+    physical = value * target_scale + target_mean
+    if physical.shape != (raw.shape[0], output_dimension):
+        raise ValueError("compact selector Torch output shape differs")
+    return physical.tolist()
+
+
 def scientific_view(result: Mapping[str, Any]) -> dict[str, Any]:
     return {
         key: value for key, value in result.items()
