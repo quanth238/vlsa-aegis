@@ -6315,3 +6315,10 @@ not a scientific outcome.  The repair keeps the reconstructed frozen 13 rows
 and selects the registered two names from them.  Existing valid shards remain
 immutable, and the validator explicitly accepts the preregistered and repair
 commits so only missing indices need rerun.
+
+The first missing-index retry exits at the Slurm preflight because the retained
+failed attempts already own the default per-case runtime directories.  H100
+diagnostic `41653` independently confirms one H100, the exact repair commit,
+and a clean source.  Preserve the failed runtime directories and use an
+opt-in retry suffix; final case JSON paths and all scientific settings remain
+unchanged.

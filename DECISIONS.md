@@ -5892,3 +5892,7 @@ flow, retain the same state, candidate names, OSC, continuation, labels, and
 gates, and rerun only missing indices.  Permit the final validator to bind the
 explicit preregistration and repair commits; differing code provenance must be
 reported, while scientific producer/replay equality remains exact.
+
+Do not delete or overwrite failed per-case runtime directories.  Allow a
+Slurm-only `RUNTIME_SUFFIX` for exact missing-index retries; this changes only
+temporary workspace identity, never the final case path or scientific result.

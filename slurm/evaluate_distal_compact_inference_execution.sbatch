@@ -26,7 +26,8 @@ print(json.load(open(sys.argv[1]))["cases"][int(sys.argv[2])]["case_id"])
 PY
 )
 output="$OUTPUT_DIR/$case_id.json"; test ! -e "$output" || exit 2
-run_root="$OUTPUT_DIR/.runtime-$case_id"; test ! -e "$run_root" || exit 2
+run_root="$OUTPUT_DIR/.runtime-$case_id${RUNTIME_SUFFIX:-}"
+test ! -e "$run_root" || exit 2
 mkdir -p "$OUTPUT_DIR" "$run_root"
 export LIBERO_CONFIG_PATH="$run_root/libero-config"; mkdir "$LIBERO_CONFIG_PATH"
 safelibero_root=$REMOTE_REPO/safelibero/libero/libero
