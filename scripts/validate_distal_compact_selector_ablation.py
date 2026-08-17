@@ -47,7 +47,19 @@ def run(*, repo_root: Path, config_path: Path, producer_path: Path,
         and margins["UNKNOWN_censored"] is True,
         "compact selector margin provenance differs",
     )
-    focus = producer["focus_states"]
+    # The first valid inference artifacts stored shorthand focus keys but used
+    # exact manifest state IDs internally. Resolve those rows read-only rather
+    # than rerunning an otherwise valid H100 audit.
+    focus = {}
+    for state_id in config["evaluation"]["report_states"]:
+        suffix = "-" + state_id.lower()
+        focus[state_id] = {
+            name: next((
+                row for row in producer["arms"]["test"][name]["states"]
+                if str(row["state_id"]).lower().endswith(suffix)
+            ), None)
+            for name in config["arms"]
+        }
     _require(
         set(focus) == {"E15", "E42"}
         and all(all(value is not None for value in rows.values())

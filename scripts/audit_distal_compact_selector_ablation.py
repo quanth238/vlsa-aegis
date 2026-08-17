@@ -256,10 +256,11 @@ def run(*, repo_root: Path, config_path: Path,
 
     focus = {}
     for state_id in config["evaluation"]["report_states"]:
+        suffix = "-" + state_id.lower()
         focus[state_id] = {
             name: next((
                 row for row in arms["test"][name]["states"]
-                if row["state_id"] == state_id
+                if str(row["state_id"]).lower().endswith(suffix)
             ), None)
             for name in config["arms"]
         }
