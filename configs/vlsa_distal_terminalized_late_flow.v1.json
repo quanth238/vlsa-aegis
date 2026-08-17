@@ -1,0 +1,72 @@
+{
+  "schema_version": "vlsa_distal_terminalized_late_flow.v1",
+  "protocol_id": "vlsa-distal-terminalized-late-flow-v1",
+  "claim_scope": "Resolve terminal versus denoising inputs without retraining or recollecting labels. Perturb one late pi0.5 latent, complete every branch through the frozen remaining flow, decode and clip terminal chunks, then score only terminal executable actions with the frozen compact 7D critic. This is an empirical mechanism test, not a safety certificate or CBF claim.",
+  "terminal_risk_model": {
+    "path": "/mnt/data/quanth/experiments/vlsa-distal-compact-safety-coordinate-q/compact-safety-coordinate-q-20260817a/result.json",
+    "file_sha256": "cb0fcf2e37761eb867fc222ea557d68812bdf192f9013f2adc93cfa790c8abb7",
+    "payload_sha256": "18cbafbdcd8f19b99a3f734bdf6d1e4f96bbbef241e923e65c29d33a5ec76191",
+    "model_sha256": "d7c36e5a70aec7f0680d610093679af28a29b0c0a24597cd1f73dfa0268c76a8"
+  },
+  "flow": {
+    "sampler_steps": 10,
+    "branch_after_euler_step": 8,
+    "remaining_euler_steps": 2,
+    "candidate_count": 13,
+    "candidate_names": [
+      "nominal",
+      "grid_m1_m1_m1_front_loaded_r2.0",
+      "grid_p1_p1_p1_front_loaded_r2.0",
+      "grid_m1_m1_z0_front_loaded_r2.0",
+      "grid_p1_p1_z0_front_loaded_r2.0",
+      "grid_m1_z0_m1_front_loaded_r2.0",
+      "grid_p1_z0_p1_front_loaded_r2.0",
+      "grid_m1_p1_z0_front_loaded_r2.0",
+      "grid_p1_m1_z0_front_loaded_r2.0",
+      "grid_z0_m1_m1_front_loaded_r2.0",
+      "grid_z0_p1_p1_front_loaded_r2.0",
+      "grid_z0_z0_m1_front_loaded_r2.0",
+      "grid_z0_z0_p1_front_loaded_r2.0"
+    ],
+    "residual_coordinates": "physical_output_action_displacement",
+    "residual_normalization": "scale_only_never_subtract_mean",
+    "terminalization": "complete_each_branch_through_frozen_pi05_to_t0"
+  },
+  "scoring": {
+    "critic": "frozen_ADR_0191_compact_shared_7D",
+    "critic_input": "effective_terminal_five_action_chunk_after_clipping",
+    "primary_rows": [0, 1, 2, 3, 4],
+    "selection": "minimum_predicted_primary_risk_then_intervention_tie_break",
+    "risk_scored_inside_sampler": false
+  },
+  "sampler_canary": {
+    "case_id": "vlsa-t1-goal-ii-t0-e05",
+    "query_step": 180,
+    "query_index": 36,
+    "require_branch_zero_ordinary_action_max_abs": 0.000001,
+    "require_all_terminal_actions_finite": true,
+    "require_nonzero_branch_diversity": true
+  },
+  "paired_pilot": {
+    "arms": ["ordinary_pi05", "terminal_compact_selector", "late_flow_terminalized_compact_selector"],
+    "same_observation_noise_controller_and_horizon": true,
+    "execute_only_one_selected_chunk_per_arm": true,
+    "released_AEGIS_EE_QP_enabled": false,
+    "learned_QP_enabled": false,
+    "exact_rollout_verifier_at_inference": false,
+    "unchanged_OSC": true,
+    "complete_fixed_continuation": true,
+    "timeout_rule": "UNKNOWN_not_safe_or_unsafe"
+  },
+  "forbidden": [
+    "critic_input_is_raw_denoising_latent",
+    "synthetic_noisy_action_labels",
+    "new_model_training_or_tuning",
+    "candidate_label_recollection",
+    "risk_plus_action_lambda_scalarization",
+    "released_EE_QP",
+    "learned_QP_or_gradient_correction",
+    "exact_rollout_verification_at_inference",
+    "formal_safety_or_CBF_claim"
+  ]
+}

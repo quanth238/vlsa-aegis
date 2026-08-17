@@ -106,6 +106,14 @@ class WebsocketPolicyServer:
                                 "scheduled_repulsive_flow_guidance"
                             ],
                         )
+                    elif "terminal_branching" in crfs_control:
+                        action = self._policy.infer(
+                            obs,
+                            rng_seed=crfs_control["rng_seed"],
+                            terminal_branching=crfs_control[
+                                "terminal_branching"
+                            ],
+                        )
                     else:
                         action = self._policy.infer(
                             obs, rng_seed=crfs_control["rng_seed"]
@@ -159,6 +167,7 @@ def _extract_crfs_control(obs):
             "flow_guidance",
             "repulsive_flow_guidance",
             "scheduled_repulsive_flow_guidance",
+            "terminal_branching",
             "embodisteer_guidance",
             "embodisteer_joint_denoising",
         }
@@ -172,6 +181,7 @@ def _extract_crfs_control(obs):
             "flow_guidance",
             "repulsive_flow_guidance",
             "scheduled_repulsive_flow_guidance",
+            "terminal_branching",
             "embodisteer_guidance",
             "embodisteer_joint_denoising",
         )
@@ -201,6 +211,10 @@ def _extract_crfs_control(obs):
                 control["scheduled_repulsive_flow_guidance"]
             )
         )
+    if "terminal_branching" in control:
+        output["terminal_branching"] = _validate_terminal_branching(
+            control["terminal_branching"]
+        )
     if "embodisteer_guidance" in control:
         output["embodisteer_guidance"] = _validate_embodisteer_guidance(
             control["embodisteer_guidance"]
@@ -212,6 +226,67 @@ def _extract_crfs_control(obs):
             )
         )
     return obs, output
+
+
+def _validate_terminal_branching(value):
+    """Validate one finite bank injected once during late pi0.5 flow."""
+
+    if not isinstance(value, Mapping):
+        raise TypeError("__crfs__.terminal_branching must be a mapping")
+    expected = {
+        "schema_version",
+        "action_horizon",
+        "action_dimensions",
+        "candidate_names",
+        "candidate_output_residuals",
+        "branch_after_euler_step",
+    }
+    if set(value) != expected:
+        raise ValueError("__crfs__.terminal_branching keys differ")
+    if value["schema_version"] != "crfs_terminal_branching.v1":
+        raise ValueError("terminal-branch schema differs")
+    if value["action_horizon"] != 10 or isinstance(
+        value["action_horizon"], bool
+    ):
+        raise ValueError("terminal-branch horizon must equal ten")
+    if value["action_dimensions"] != [0, 1, 2]:
+        raise ValueError("terminal branching must act on exactly XYZ")
+    names = value["candidate_names"]
+    if (
+        not isinstance(names, list)
+        or len(names) != 13
+        or names[0] != "nominal"
+        or len(set(names)) != len(names)
+        or not all(isinstance(name, str) and name for name in names)
+    ):
+        raise ValueError("terminal-branch candidate names differ")
+    residuals = value["candidate_output_residuals"]
+    if not isinstance(residuals, list) or len(residuals) != len(names):
+        raise ValueError("terminal-branch residual bank differs")
+    for index, residual in enumerate(residuals):
+        _validate_numeric_matrix(
+            residual, width=3, label="terminal_branch.residual"
+        )
+        if len(residual) != 10:
+            raise ValueError("terminal-branch residual horizon differs")
+        if any(abs(float(item)) > 2.0 for row in residual for item in row):
+            raise ValueError("terminal-branch residual exceeds frozen bound")
+        if index == 0 and any(float(item) != 0.0 for row in residual for item in row):
+            raise ValueError("terminal-branch nominal residual must be zero")
+    branch_step = value["branch_after_euler_step"]
+    if isinstance(branch_step, bool) or branch_step != 8:
+        raise ValueError("terminal branching must occur after Euler step eight")
+    return {
+        "schema_version": "crfs_terminal_branching.v1",
+        "action_horizon": 10,
+        "action_dimensions": [0, 1, 2],
+        "candidate_names": list(names),
+        "candidate_output_residuals": [
+            [[float(item) for item in row] for row in residual]
+            for residual in residuals
+        ],
+        "branch_after_euler_step": 8,
+    }
 
 
 def _validate_repulsive_flow_guidance(value):

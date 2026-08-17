@@ -5955,3 +5955,37 @@ paper instead uses safe-or-abstain language, preregister and evaluate the actual
 abstention behavior (stop, backup, or VLA requery); abstention itself is not a
 safe executed action.  No further candidate-data collection is motivated by
 this selector ablation alone.
+
+## ADR-0194: Score executable terminal branches, not denoising latents
+
+- Status: active; sampler canary pending
+- Date: 2026-08-17
+
+Resolve the terminal-versus-denoising input question by separating proposal
+generation from risk evaluation.  At registered late flow time, create the
+frozen 13 residual branches, complete every branch through the remaining
+unchanged pi0.5 Euler steps, decode terminal actions through the ordinary
+output transform, apply the normal action clipping at execution, and evaluate
+the frozen compact 7D risk ranker only on those executable terminal chunks.
+Do not train a critic on synthetic noisy latents and do not call a latent an
+action.
+
+The sampler itself returns all terminal branches and performs neither risk
+scoring nor selection.  Residuals are physical output-action displacements and
+map to normalized model coordinates by division by scale only; subtracting the
+normalization mean from a displacement is forbidden.  Branch zero is a strict
+ordinary-pi0.5 regression arm: draw the ordinary one-sample Gaussian noise,
+repeat it across branches, inject zero into branch zero, and require terminal
+output equality under the identical observation, seed, flow schedule, and
+decode path.
+
+Gate the apparatus first with paired H100 producer/replay queries at immutable
+E05 step 180 and an independent validator.  This canary executes no candidate
+future and cannot support a collision-reduction claim.  If it passes, bind the
+frozen ADR-0191 critic and compare ordinary pi0.5, post-hoc finite-bank compact
+selection, and late-flow terminalized compact selection in a minimal paired
+execution pilot.  Choose minimum predicted primary risk with intervention only
+as a deterministic tie-break; do not introduce a risk/action lambda.  Preserve
+all failures and report empirical CAR/contacts/task outcome.  QP, exact rollout
+verification at inference, retraining, new labels, calibration, denoising
+gradients, deployment, formal safety, and CBF claims remain out of scope.

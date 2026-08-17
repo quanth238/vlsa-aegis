@@ -74,6 +74,7 @@ class Policy(BasePolicy):
         flow_guidance: dict[str, Any] | None = None,
         repulsive_flow_guidance: dict[str, Any] | None = None,
         scheduled_repulsive_flow_guidance: dict[str, Any] | None = None,
+        terminal_branching: dict[str, Any] | None = None,
         embodisteer_guidance: dict[str, Any] | None = None,
         embodisteer_joint_denoising: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
@@ -109,6 +110,7 @@ class Policy(BasePolicy):
                 flow_guidance,
                 repulsive_flow_guidance,
                 scheduled_repulsive_flow_guidance,
+                terminal_branching,
                 embodisteer_guidance,
                 embodisteer_joint_denoising,
             )
@@ -122,6 +124,16 @@ class Policy(BasePolicy):
                 normalized_state=np.asarray(inputs["state"][0]),
                 rng=sample_rng_or_pytorch_device,
                 request=embodisteer_joint_denoising,
+            )
+        if terminal_branching is not None:
+            if self._is_pytorch_model:
+                raise ValueError("terminal branching requires JAX pi0.5")
+            return self._infer_terminal_branches(
+                observation,
+                normalized_state=np.asarray(inputs["state"][0]),
+                rng=sample_rng_or_pytorch_device,
+                request=terminal_branching,
+                noise=noise,
             )
         prepared_guidance = None
         guidance_kind = None
@@ -626,6 +638,87 @@ class Policy(BasePolicy):
             "policy_timing": {"infer_ms": (time.monotonic() - started) * 1000},
         }
 
+    def _infer_terminal_branches(
+        self,
+        observation: _model.Observation,
+        *,
+        normalized_state: np.ndarray,
+        rng: at.KeyArrayLike,
+        request: dict[str, Any],
+        noise: np.ndarray | None,
+    ) -> dict[str, Any]:
+        """Terminalize late-flow candidates before any external risk scoring."""
+
+        started = time.monotonic()
+        horizon = int(self._model.action_horizon)
+        residuals = np.asarray(
+            request["candidate_output_residuals"], dtype=np.float64
+        )
+        names = list(request["candidate_names"])
+        if residuals.shape != (len(names), horizon, 3):
+            raise ValueError("terminal-branch output residual shape differs")
+        branch_step = int(request["branch_after_euler_step"])
+        if branch_step != 8:
+            raise ValueError("terminal-branch registered Euler step differs")
+        _, scale = self._output_action_affine(
+            normalized_state=normalized_state
+        )
+        # A residual is a displacement: divide by scale only.  Never subtract
+        # the affine normalization offset from a physical displacement.
+        offsets_model = residuals / scale[None, :, :3]
+        terminal_sampler = getattr(
+            self, "_sample_actions_with_terminal_branches", None
+        )
+        if terminal_sampler is None:
+            terminal_sampler = nnx_utils.module_jit(
+                self._model.sample_actions_with_terminal_branches
+            )
+            self._sample_actions_with_terminal_branches = terminal_sampler
+        sample_noise = None if noise is None else jnp.asarray(noise)
+        terminal_model = np.asarray(
+            terminal_sampler(
+                rng,
+                observation,
+                terminal_branch_offsets_model=jnp.asarray(
+                    offsets_model, dtype=jnp.float32
+                ),
+                branch_after_euler_step=branch_step,
+                noise=sample_noise,
+            ),
+            dtype=np.float32,
+        )
+        expected = (len(names), horizon, int(self._model.action_dim))
+        if terminal_model.shape != expected or not np.all(
+            np.isfinite(terminal_model)
+        ):
+            raise ValueError("terminal-branch model bank is invalid")
+        terminal_output = np.stack(
+            [
+                self._decode_model_actions(
+                    item, normalized_state=normalized_state
+                )
+                for item in terminal_model
+            ],
+            axis=0,
+        )
+        return {
+            # The ordinary-compatible top-level action remains branch zero.
+            "actions": terminal_output[0],
+            "terminal_branching": {
+                "schema_version": "crfs_terminal_branching_result.v1",
+                "candidate_names": names,
+                "branch_after_euler_step": branch_step,
+                "candidate_output_residuals": residuals.tolist(),
+                "terminal_model_actions": terminal_model.tolist(),
+                "terminal_output_actions": terminal_output.tolist(),
+                "risk_scored_inside_sampler": False,
+                "selected_candidate": None,
+            },
+            "policy_timing": {
+                "infer_ms": (time.monotonic() - started) * 1000
+            },
+        }
+
     def _prepare_flow_guidance(
         self,
         guidance: dict[str, Any],
@@ -771,6 +864,7 @@ class PolicyRecorder(_base_policy.BasePolicy):
         flow_guidance: dict[str, Any] | None = None,
         embodisteer_guidance: dict[str, Any] | None = None,
         repulsive_flow_guidance: dict[str, Any] | None = None,
+        terminal_branching: dict[str, Any] | None = None,
     ) -> dict:  # type: ignore[misc]
         results = self._policy.infer(
             obs,
@@ -779,6 +873,7 @@ class PolicyRecorder(_base_policy.BasePolicy):
             flow_guidance=flow_guidance,
             embodisteer_guidance=embodisteer_guidance,
             repulsive_flow_guidance=repulsive_flow_guidance,
+            terminal_branching=terminal_branching,
         )
 
         data = {"inputs": obs, "outputs": results}

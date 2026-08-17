@@ -6403,3 +6403,33 @@ Producer/replay/validation file SHA-256 values are
 and `2829fee5427e69512a2765a7ca5849725445aae7d49fbd82772e22701ca43a69`;
 the validation payload SHA-256 is
 `21adfb6de379a8fbddce437d1f5ae6ca7281eb7fa5f1dedd1e1dc8a64bb50ca4`.
+
+## 2026-08-17: Terminalize late-flow branches before risk scoring
+
+ADR-0194 resolves the paper's terminal-versus-denoising ambiguity without
+retraining the critic or recollecting candidate labels.  The new path is
+strictly opt-in.  At Euler step eight of the frozen ten-step pi0.5 sampler it
+creates the frozen 13-branch bank in model coordinates using scale-only
+displacement normalization, completes every branch through the same final two
+velocity-field updates to `t=0`, then decodes each complete terminal action
+chunk through the ordinary output transform.  The frozen ADR-0191 compact 7D
+critic is outside the sampler and may receive only the clipped effective first
+five terminal actions.  It never receives a raw denoising latent.
+
+Branch zero has exactly zero residual and must reproduce an ordinary pi0.5
+query under the same real SafeLIBERO observation and RNG seed.  The first gate
+is therefore an allocation-backed paired producer/replay sampler canary at the
+immutable E05 step-180 query.  It performs one ordinary query and one batched
+13-branch terminal query per replica, but executes no candidate branch in
+MuJoCo, trains no model, and reads no new safety label.  Required gates are
+branch-zero parity, finite terminal chunks, nonzero branch diversity, exact
+candidate names/count, no risk scoring inside the sampler, and exact
+independent scientific replay.
+
+Only if this sampler canary passes may the already frozen compact critic score
+the executable terminal bank.  The next paired pilot will execute at most one
+selected five-action chunk per arm and compare ordinary pi0.5, the established
+post-hoc compact selector, and late-flow terminalized compact selection from
+the identical state/observation/noise/controller horizon.  Released EE-QP,
+learned QP, exact rollout verification at inference, calibration, retraining,
+and CBF claims remain disabled.

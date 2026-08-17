@@ -649,6 +649,122 @@ class Pi0(_model.BaseModel):
         )
         return x_0
 
+    def sample_actions_with_terminal_branches(
+        self,
+        rng: at.KeyArrayLike,
+        observation: _model.Observation,
+        *,
+        terminal_branch_offsets_model: jax.Array,
+        branch_after_euler_step: int,
+        num_steps: int | at.Int[at.Array, ""] = 10,
+        noise: at.Float[at.Array, "b ah ad"] | None = None,
+    ) -> _model.Actions:
+        """Complete a bank of late-flow branches to clean terminal actions.
+
+        The branch offsets are displacements in normalized model coordinates.
+        They are injected once after a registered ordinary Euler update.  Every
+        branch, including the zero-residual branch, then follows the unchanged
+        frozen velocity field to ``t=0``.  This method deliberately returns the
+        complete terminal bank; it does not score risk or select an action.
+        """
+
+        observation = _model.preprocess_observation(None, observation, train=False)
+        offsets_xyz = jnp.asarray(terminal_branch_offsets_model)
+        if offsets_xyz.ndim != 3 or offsets_xyz.shape[1:] != (
+            self.action_horizon,
+            3,
+        ):
+            raise ValueError("terminal-branch offset shape differs")
+        branch_count = int(offsets_xyz.shape[0])
+        if branch_count < 2:
+            raise ValueError("terminal-branch bank must contain at least two branches")
+        if observation.state.shape[0] != 1:
+            raise ValueError("terminal branching requires one observation")
+        # The strict policy/server contract validates the registered step
+        # before this jitted method is called.  Keep the value as a JAX scalar
+        # here; converting a dynamic keyword argument with ``int(...)`` would
+        # trigger a concretization error under ``module_jit``.
+        branch_step = jnp.asarray(branch_after_euler_step, dtype=jnp.int32)
+
+        # Draw the ordinary one-sample initialization first, then replicate it.
+        # Branch zero therefore starts from the exact ordinary pi0.5 noise for
+        # the same RNG key rather than from the first row of a larger draw.
+        if noise is None:
+            base_noise = jax.random.normal(
+                rng, (1, self.action_horizon, self.action_dim)
+            )
+        else:
+            base_noise = jnp.asarray(noise)
+            if base_noise.shape != (1, self.action_horizon, self.action_dim):
+                raise ValueError("terminal-branch supplied noise shape differs")
+        branch_noise = jnp.repeat(base_noise, branch_count, axis=0)
+        observation = jax.tree.map(
+            lambda value: jnp.repeat(value, branch_count, axis=0), observation
+        )
+        offsets = jnp.zeros_like(branch_noise).at[..., :3].set(
+            offsets_xyz.astype(branch_noise.dtype)
+        )
+
+        dt = -1.0 / num_steps
+        prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
+        prefix_attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+        positions = jnp.cumsum(prefix_mask, axis=1) - 1
+        _, kv_cache = self.PaliGemma.llm(
+            [prefix_tokens, None], mask=prefix_attn_mask, positions=positions
+        )
+
+        def step(carry):
+            x_t, time, step_index = carry
+            suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(
+                observation, x_t, jnp.broadcast_to(time, branch_count)
+            )
+            suffix_attn_mask = make_attn_mask(suffix_mask, suffix_ar_mask)
+            prefix_to_suffix = einops.repeat(
+                prefix_mask, "b p -> b s p", s=suffix_tokens.shape[1]
+            )
+            full_attn_mask = jnp.concatenate(
+                [prefix_to_suffix, suffix_attn_mask], axis=-1
+            )
+            positions = (
+                jnp.sum(prefix_mask, axis=-1)[:, None]
+                + jnp.cumsum(suffix_mask, axis=1)
+                - 1
+            )
+            (prefix_out, suffix_out), _ = self.PaliGemma.llm(
+                [None, suffix_tokens],
+                mask=full_attn_mask,
+                positions=positions,
+                kv_cache=kv_cache,
+                adarms_cond=[None, adarms_cond],
+            )
+            assert prefix_out is None
+            velocity = self.action_out_proj(
+                suffix_out[:, -self.action_horizon :]
+            )
+            x_next = x_t + dt * velocity
+            x_next = jax.lax.cond(
+                step_index + 1 == branch_step,
+                lambda value: value + offsets,
+                lambda value: value,
+                x_next,
+            )
+            return x_next, time + dt, step_index + 1
+
+        def cond(carry):
+            _, time, _ = carry
+            return time >= -dt / 2
+
+        terminal, _, _ = jax.lax.while_loop(
+            cond,
+            step,
+            (
+                branch_noise,
+                jnp.asarray(1.0, dtype=branch_noise.dtype),
+                jnp.asarray(0, dtype=jnp.int32),
+            ),
+        )
+        return terminal
+
     def sample_actions_flow_step(
         self,
         observation: _model.Observation,
