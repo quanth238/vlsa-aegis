@@ -6645,3 +6645,9 @@ creating a run root or starting the policy server because the allocation-side
 H100 diagnostic. Capture that command failure explicitly and retry from a new
 immutable source/run identifier; no state, model, nominal action, SQP setting,
 constraint, or scientific gate changes.
+
+Receipt-instrumented retry `41819` fails identically before artifact creation,
+again on `worker-2`, with an empty exact Slurm log. Two consecutive node-local
+preflight failures are sufficient to exclude only `worker-2` for this small
+diagnostic. `worker-1` remains live and mixed. This is resource routing only;
+the frozen scientific protocol remains unchanged.

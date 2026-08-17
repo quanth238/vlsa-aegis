@@ -6165,3 +6165,8 @@ seconds before creating an artifact root because the H100 receipt command
 returns nonzero under shell `set -e`. Make that receipt failure explicit and
 retry without changing the frozen E05 query, terminal nominal, critic, QP arms,
 bounds, solver, or no-execution gate.
+
+Instrumented retry `41819` repeats the same empty-log, pre-artifact failure on
+`worker-2`. Exclude that exact node and retain both attempts as apparatus
+history. Do not alter the E05 state, critic, nominal query, SQP, or acceptance
+rules.

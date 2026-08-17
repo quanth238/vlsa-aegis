@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=01:00:00
-#SBATCH --exclude=worker-0,worker-3
+#SBATCH --exclude=worker-0,worker-2,worker-3
 #SBATCH --no-requeue
 #SBATCH --output=/mnt/data/quanth/slurm_logs/%x-%j.out
 
