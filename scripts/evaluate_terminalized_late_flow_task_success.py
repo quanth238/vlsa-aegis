@@ -474,6 +474,102 @@ class LiveTerminalizedSelector:
             "branch_server_timing": branch_response.get("server_timing"),
         }
 
+    def select_safe_or_abstain(
+        self, *, observation: Mapping[str, Any], task_description: str,
+        rng_seed: int, query_index: int,
+    ) -> tuple[Optional[Any], dict[str, Any]]:
+        """Run one terminal-branch batch and select least intervention or abstain."""
+        import numpy as np
+
+        from main.evaluate_safelibero_aegis import (
+            _policy_observation, array_sha256,
+        )
+        from main.multilink_ellipsoid.terminal_branching import (
+            FROZEN_CANDIDATE_NAMES, build_envelope, score_terminal_bank,
+        )
+
+        zero = np.zeros((10, 7), dtype=np.float64)
+        residual_bank = np.repeat(zero[None, :, :], 13, axis=0)
+        residual_bank[:, :5, :3] = self.residuals
+        envelope = build_envelope(
+            zero, residual_bank, FROZEN_CANDIDATE_NAMES,
+            branch_after_euler_step=int(
+                self.method["flow"]["branch_after_euler_step"]
+            ),
+        )
+        branch_input = _policy_observation(
+            self.runtime, observation, task_description=task_description,
+            resize_size=224, rng_seed=int(rng_seed),
+        )
+        branch_input["__crfs__"]["terminal_branching"] = envelope
+        started = time.perf_counter_ns()
+        response = self.client.infer(branch_input)
+        wall_seconds = (time.perf_counter_ns() - started) * 1.0e-9
+        ordinary = np.asarray(response["actions"], dtype=np.float64)
+        late_bank = np.asarray(
+            response["terminal_branching"]["terminal_output_actions"],
+            dtype=np.float64,
+        )
+        _require(
+            ordinary.shape == (10, 7) and late_bank.shape == (13, 10, 7),
+            "full-episode terminal branch shape differs",
+        )
+        _require(float(np.max(np.abs(late_bank[0] - ordinary))) == 0.0,
+                 "full-episode terminal nominal branch differs")
+        score = score_terminal_bank(
+            exact_case=self._current_exact_case(),
+            ordinary_terminal_actions=ordinary,
+            terminal_action_bank=late_bank,
+            candidate_names=FROZEN_CANDIDATE_NAMES,
+            state_payload=self.state_payload,
+        )
+        safe = [
+            row for row in score["records"]
+            if float(row["predicted_primary"]) <= 0.0
+        ]
+        selected = None if not safe else min(safe, key=lambda row: (
+            float(row["effective_correction_l2_action"]),
+            int(row["candidate_order"]),
+        ))
+        action = None if selected is None else np.asarray(
+            selected["effective_first_five_actions"], dtype=np.float64,
+        )
+        if action is not None:
+            _require(action.shape == (5, 7),
+                     "full-episode selected action shape differs")
+        record = {
+            "query_index": int(query_index), "rng_seed": int(rng_seed),
+            "ordinary_actions_sha256": array_sha256(ordinary),
+            "late_terminal_bank_sha256": array_sha256(late_bank),
+            "safe_candidate_count": len(safe),
+            "minimum_predicted_primary": min(
+                float(row["predicted_primary"]) for row in score["records"]
+            ),
+            "maximum_predicted_primary": max(
+                float(row["predicted_primary"]) for row in score["records"]
+            ),
+            "abstained": selected is None,
+            "selected_candidate": (
+                None if selected is None else selected["candidate_name"]
+            ),
+            "selected_candidate_order": (
+                None if selected is None else selected["candidate_order"]
+            ),
+            "selected_predicted_primary": (
+                None if selected is None else selected["predicted_primary"]
+            ),
+            "selected_effective_correction_l2_action": (
+                None if selected is None
+                else selected["effective_correction_l2_action"]
+            ),
+            "selected_effective_first_five_sha256": (
+                None if action is None else array_sha256(action)
+            ),
+            "wall_seconds": float(wall_seconds),
+            "server_timing": response.get("server_timing"),
+        }
+        return action, record
+
 
 def _run_arm(
     *, repo_root: Path, runtime: Mapping[str, Any], case: Mapping[str, Any],

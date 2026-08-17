@@ -6101,3 +6101,22 @@ data collection: the predictor warned correctly. Any next control experiment
 must preregister either a fail-closed response or a candidate mechanism with
 greater intervention authority for the all-predicted-unsafe case. Do not run
 another simulator pilot until that inference-only decision is frozen.
+
+### ADR-0195 true full-episode fail-closed inference
+
+Run exactly one opened E05 episode with the frozen method active from the first
+policy query. At every query, generate the frozen 13 late-flow branches in one
+batched policy request, terminalize them to executable actions, evaluate the
+current-state compact 7D EE/palm/L5 risks, and choose the least-modifying row
+whose maximum predicted risk is at most zero. Execute five actions, reobserve,
+and repeat. If all 13 rows are predicted unsafe, abstain and stop; never fall
+back to a predicted-unsafe action.
+
+Forbid an archived prefix, released AEGIS EE-QP, learned QP, exact simulator
+rollout verification at inference, retraining, calibration, and new labels.
+Stop on native task success, raw contact, paper CAR, abstention, or registered
+timeout and report these outcomes separately. Require one H100 producer video
+and a CPU exact-action replay with identical scientific view. This test can
+show whether the actual inference loop avoids collision while preserving E05
+task success; it cannot establish a population, safety, deployment, or CBF
+claim.

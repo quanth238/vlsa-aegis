@@ -6573,3 +6573,23 @@ No further simulator run is authorized by this result. The next method decision
 is to define a fail-closed response or increase inference-time candidate
 authority when every candidate has predicted risk above zero; silently
 executing the minimum-risk unsafe candidate is rejected.
+
+## 2026-08-17: True full-episode model inference
+
+The user authorizes one narrower E05 run that fixes both limitations of the
+previous task pilot. The method is active from policy query zero, with no
+archived action prefix, and it is invoked again after every executed five-action
+chunk. Each query makes one batched pi0.5 terminal-branch request, scores the 13
+terminal executable chunks with the unchanged frozen compact 7D critic, and
+executes the least-modifying candidate whose predicted maximum EE/palm/L5 risk
+is non-positive. If no candidate passes, the episode abstains immediately; it
+must not execute a predicted-unsafe minimum-risk fallback.
+
+This remains one opened-case mechanism test. No AEGIS QP, learned QP,
+simulator lookahead, retraining, new label collection, calibration, or
+comparison arm is present. The producer stops at native task success, first raw
+robot contact, first paper-CAR violation, all-unsafe abstention, or the frozen
+suite timeout. An independent CPU run must replay the producer's exact action
+ledger and reproduce its complete scientific view. Local contract, evaluator,
+sampler-regression, shell, and JSON checks pass 46 focused tests with four
+optional desktop NumPy/Pillow skips. Allocation-backed execution is next.
