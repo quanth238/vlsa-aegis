@@ -141,7 +141,12 @@ def run(*, repo_root: Path, config_path: Path,
         compact_equal, compact_error = exact_float_lists_close(
             compact_fresh, compact_frozen, tolerance=tolerance,
         )
-        _require(compact_equal, "compact selector compact replay differs")
+        _require(
+            compact_equal,
+            "compact selector compact replay differs: "
+            f"maximum_absolute_error={compact_error:.17g}, "
+            f"tolerance={tolerance:.17g}",
+        )
         compact_replay[split] = {
             "sample_count": len(compact_fresh),
             "maximum_absolute_error": compact_error,
@@ -157,8 +162,12 @@ def run(*, repo_root: Path, config_path: Path,
             known_specialist_fresh, specialist_arm["predictions"][split],
             tolerance=tolerance,
         )
-        _require(specialist_equal,
-                 "compact selector 33D known replay differs")
+        _require(
+            specialist_equal,
+            "compact selector 33D known replay differs: "
+            f"maximum_absolute_error={specialist_error:.17g}, "
+            f"tolerance={tolerance:.17g}",
+        )
         unique_candidates = [
             sample for sample in samples[split]
             if int(sample["row_index"]) == 0
