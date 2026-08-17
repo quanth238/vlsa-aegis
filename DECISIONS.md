@@ -5706,3 +5706,59 @@ development evidence, so apparatus iteration cannot leak new validation/test
 candidate outcomes. Run the two collectors in separate one-H100/eight-CPU
 allocations and validate on CPU after both finish. A failed equality check
 disables the parallel path without altering the sequential collector.
+
+Accept worker-equivalence jobs `41473/41474/41475`: the four-process path is
+exact on every frozen scientific field and may remain as an opt-in apparatus
+arm. Do not use it for broad collection yet because its observed speedup is
+`0.9689x`; subprocess source reconstruction eliminates the intended benefit.
+Keep sequential collection authoritative rather than changing worker lifetime
+or simulator initialization during this fixed-model/fixed-data experiment.
+
+Accept exact attribution audit `41472`. Its six selected-action failures have
+physical witnesses L6/palm/L5=`1/2/3`. Retain the diagnostic EE overlap on E46
+without treating it as raw-contact authority. The new cohort tests a narrow L6
+coverage hypothesis; unchanged L5 and palm metrics remain mandatory so an L6
+gain cannot hide persistent transfer failures.
+
+Freeze the prospective L6 source-discovery manifest at SHA-256
+`eb393918bf96e8a00f08acb956818f3f111e28353624cbfc4378e320c2b9c0c5`
+before new natural-policy outcomes. It registers `12/8/8` stochastic raw-pi0.5
+roots in disjoint Object-I task-2 / Goal-II task-0 / Spatial-II task-2 groups
+for train/validation/test source discovery. Run producer and independent replay
+without candidate execution. Candidate collection is authorized only if the
+frozen eligibility rule yields at least `6/2/4` complete, initially contact-free
+L6 warning roots. Preserve all noncontacts, early contacts, task failures, and
+timeouts; never reassign groups or inspect candidate outcomes to fill a split.
+
+## ADR-0189: Use the current MLP as a proposal ranker, not a safety authority
+
+- Status: accepted for an exact-verified research pilot; model-only correction rejected
+- Date: 2026-08-17
+
+Pause the unlaunched prospective L6 discovery at the user's request and change
+no dataset, model, checkpoint, loss, feature, candidate, controller, or target.
+Audit finite-bank correction entirely from the frozen shared-model checkpoint
+and immutable candidate artifacts. Score timeout candidates too; their timeout
+identity may not be used as an input or ranking filter, and an exact verifier
+must reject `UNKNOWN` exactly as it rejects unsafe outcomes.
+
+Accept allocation-backed all-candidate audit `41483`. No direct learned rule
+passes. Minimum predicted risk is the strongest direct rule but remains unsafe
+in `1/6` validation and `2/9` test recoverable states. The zero threshold leaves
+`2/6` and `4/9` false-safes. A validation-derived optimism margin destroys safe
+support and still selects two unsafe test candidates. Therefore the current MLP
+is not an empirical safety certificate and must not directly execute a chunk.
+
+Accept the narrower ranking result: fresh exact verification of predictions in
+ascending global-risk order reaches an exact-safe candidate within top five in
+every `6/6` validation and `9/9` test recoverable state, requiring `1.50` and
+`1.67` mean checks. No held-out timeout is ranked before the first safe action.
+The next action-correction pilot may therefore use
+
+`frozen MLP ranking -> fresh exact candidate rollout -> first verified-safe`
+
+with a five-candidate cap and abstention otherwise. It is a simulator-privileged
+research mechanism and tests whether learned ranking reduces oracle search
+cost; it is not model-only correction, deployment safety, a QP, or a CBF. The
+pilot must compare the ranked verifier against fixed bank order and exact oracle
+and must never execute an unverified, unsafe, or timeout candidate.

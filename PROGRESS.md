@@ -6136,3 +6136,73 @@ cohort index 9), comparing the unchanged sequential collector with four external
 candidate processes. New collection remains blocked until its allocation-backed
 equality result passes every registered action, state, risk, contact/CAR, timeout,
 terminal-state, and order check.
+
+Allocation-backed audit `41472` completes the exact six-selection join. The
+validation false-safe is L6 at Goal-II task-0 E39. The remaining validation
+false-safe is palm at Long-II task-2 E13. The four test false-safes are palm at
+Long-II task-3 E46 and L5 at Spatial-I task-3 E12/E15/E42. Exact physical
+witness counts are therefore L6 `1`, palm `2`, and L5 `3`; the diagnostic EE
+proxy also overlaps for E46 but is not promoted to physical authority. This
+confirms that missing L6 support is a real isolated deficit while preventing an
+incorrect claim that L6 coverage explains all six failures. Audit result file
+and payload SHA-256 values are
+`d7895193e7d6617767c5f496cdab5d2bdf08c4f224b312e07c253d4cc48fa34e`
+and `defb68c5402ee0d3e4b4706e893ecdb7830353219bf5a6e9beae0060fb519450`.
+
+The prospective raw-pi0.5 discovery population is now frozen before any of its
+new outcomes. It contains 28 query-noise roots in three non-overlapping
+task-level groups: Object-I task-2 `12` train, Goal-II task-0 `8` validation,
+and Spatial-II task-2 `8` sealed test. These are source-discovery roots, not
+candidate states: all outcomes are retained and only roots with an initially
+contact-free, complete five-action boundary before a raw L6 contact may enter
+the intended additive `6/2/4` counterfactual cohort. Manifest SHA-256 is
+`eb393918bf96e8a00f08acb956818f3f111e28353624cbfc4378e320c2b9c0c5`.
+The frozen 13-bank is still unopened for this population; source discovery
+cannot train a model or authorize correction.
+
+Sequential job `41473`, four-process job `41474`, and CPU validator `41475`
+complete the candidate-worker equivalence canary. All requested/proposed/
+effective chunks, restored and terminal state hashes, per-constraint risks,
+contacts/CAR, timeout classes, and canonical candidate order agree exactly.
+The optional parallel executor is therefore scientifically equivalent on the
+opened state. Its measured speedup is only `0.9689x`, however, so it is not a
+performance win and will not be used broadly merely because it passed. The
+sequential collector remains the default for the new L6 cohort. Validation file
+and payload SHA-256 values are
+`62e2095cfc3c97c3a3c5cc5125aa7d1c7a9171b00af6b0954e9f59a07c836e64`
+and `da6f73dc6725da7d5e7e0b8fc8b7209c0b6c0d61403de6d5b246ea94394f0984`.
+
+## 2026-08-17: Frozen-MLP action-selection audit
+
+At the user's deadline-driven pivot, no prospective L6 source-discovery job was
+launched. The frozen manifest and draft apparatus remain provenance only; no
+new outcome or candidate label was collected. Work moved to the existing frozen
+shared 135D MLP, its serialized checkpoint, and the already validated candidate
+artifacts.
+
+CPU audit `41483` is the authoritative all-candidate action-selection result.
+It causally rebuilds shared-model features for every candidate, including the
+`UNKNOWN_TIMEOUT` candidates censored from training, and replays the serialized
+MLP with maximum known-row discrepancy `2.251e-6`. Thus no timeout identity or
+future label is used to rank candidates.
+
+Direct model-only correction remains a NO-GO. Minimum predicted global risk
+selects exact-safe actions in `5/6` validation and `7/9` test recoverable
+states, leaving one and two false-safe selections. Zero-threshold
+minimum-intervention selection leaves two validation and four test false-safes;
+the validation residual margin abstains in `5/6` validation and `7/9` test
+states and both selected test actions are unsafe. The exact minimum-intervention
+oracle has safe support in `6/6` validation and `9/9` test states, proving the
+candidate bank—not intervention authority—is sufficient at these snapshots.
+
+The useful result is ranking under mandatory exact verification. The first
+exact-safe candidate appears within ranks `4`/`5` for every validation/test
+state, with mean checks `1.50`/`1.67`. Top-1 support is `5/6` and `7/9`; top-3
+is `5/6` and `8/9`; top-5 is `6/6` and `9/9`. No held-out timeout candidate
+precedes the first exact-safe proposal. This authorizes only a research pilot
+in which the frozen MLP orders the bank and fresh cloned-rollout verification
+rejects unsafe or unknown proposals before execution. It does not authorize
+model-only correction, QP, denoising, deployment, or a certified barrier claim.
+Result file/payload SHA-256 values are
+`67d6560e17ed8e412d563bed525c9c2d7ceef3c55207dbcabcbffbde52be04b2`
+and `07455877d212e017820d2c0e9ac4b0cf6622a92fee52d2fc42c377aa15d9a17c`.
