@@ -295,6 +295,52 @@ def exact_float_lists_close(
     return error <= float(tolerance), error
 
 
+def predict_serialized_mlp_float32(
+    features: Sequence[Sequence[float]], state_payload: Mapping[str, Any],
+) -> list[list[float]]:
+    """Replay the frozen Torch MLP with float32 layer arithmetic.
+
+    Normalization and output de-normalization follow the original trainer:
+    float64 statistics bracket a float32 network. This matters for strongly
+    out-of-distribution candidates and is only an apparatus replay operation.
+    """
+    import numpy as np
+
+    mean = np.asarray(state_payload["feature_mean"], dtype=np.float64)
+    scale = np.asarray(state_payload["feature_scale"], dtype=np.float64)
+    target_mean = np.asarray(state_payload["target_mean"], dtype=np.float64)
+    target_scale = np.asarray(state_payload["target_scale"], dtype=np.float64)
+    state = state_payload["state_dict"]
+    output = []
+    for feature in features:
+        raw = np.asarray(feature, dtype=np.float64)
+        if raw.shape != mean.shape or scale.shape != mean.shape:
+            raise ValueError("compact selector serialized feature shape differs")
+        value = ((raw - mean) / scale).astype(np.float32)
+        for layer_index, key in enumerate(("0", "2", "4")):
+            weight = np.asarray(state[f"{key}.weight"], dtype=np.float32)
+            bias = np.asarray(state[f"{key}.bias"], dtype=np.float32)
+            value = (weight @ value + bias).astype(np.float32)
+            if layer_index < 2:
+                sigmoid = np.empty_like(value)
+                positive = value >= np.float32(0.0)
+                sigmoid[positive] = np.float32(1.0) / (
+                    np.float32(1.0) + np.exp(-value[positive])
+                )
+                negative_exp = np.exp(value[~positive])
+                sigmoid[~positive] = negative_exp / (
+                    np.float32(1.0) + negative_exp
+                )
+                value = (value * sigmoid).astype(np.float32)
+        if value.shape != target_mean.shape:
+            raise ValueError("compact selector serialized output shape differs")
+        physical = value.astype(np.float64) * target_scale + target_mean
+        if not np.all(np.isfinite(physical)):
+            raise ValueError("compact selector serialized output is non-finite")
+        output.append(physical.tolist())
+    return output
+
+
 def scientific_view(result: Mapping[str, Any]) -> dict[str, Any]:
     return {
         key: value for key, value in result.items()

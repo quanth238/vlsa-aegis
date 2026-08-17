@@ -6,7 +6,7 @@ from pathlib import Path
 
 from main.multilink_ellipsoid.compact_selector_ablation import (
     enrich_records, evaluate_arm, exact_float_lists_close, load_config,
-    validation_margins,
+    predict_serialized_mlp_float32, validation_margins,
 )
 
 
@@ -92,6 +92,23 @@ class CompactSelectorAblationTest(unittest.TestCase):
             exact_float_lists_close([[1.0]], [[1.1]], tolerance=1.0e-5)[0],
             False,
         )
+
+    def test_float32_serialized_linear_network(self) -> None:
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("NumPy is allocation-backed in this workspace")
+        state = {
+            "feature_mean": [1.0], "feature_scale": [2.0],
+            "target_mean": [3.0], "target_scale": [4.0],
+            "state_dict": {
+                "0.weight": [[1.0]], "0.bias": [0.0],
+                "2.weight": [[1.0]], "2.bias": [0.0],
+                "4.weight": [[2.0]], "4.bias": [0.0],
+            },
+        }
+        prediction = predict_serialized_mlp_float32([[1.0]], state)
+        self.assertEqual(prediction, [[3.0]])
 
 
 if __name__ == "__main__":

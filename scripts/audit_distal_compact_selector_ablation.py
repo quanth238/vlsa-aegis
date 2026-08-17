@@ -64,12 +64,10 @@ def run(*, repo_root: Path, config_path: Path,
     )
     from main.multilink_ellipsoid.compact_selector_ablation import (
         RESULT_SCHEMA, enrich_records, evaluate_arm, exact_float_lists_close,
-        file_sha256, load_config, payload_sha256, validation_margins,
+        file_sha256, load_config, payload_sha256,
+        predict_serialized_mlp_float32, validation_margins,
     )
     from main.multilink_ellipsoid.shadow import allocation_record
-    from main.multilink_ellipsoid.whole_body_action_selection_audit import (
-        predict_serialized_mlp,
-    )
     from main.multilink_ellipsoid.whole_body_q_only_prediction import (
         combined_training_config, load_binding, load_protocol,
     )
@@ -138,7 +136,7 @@ def run(*, repo_root: Path, config_path: Path,
             sample for sample in samples[split]
             if bool(sample["known_outcome"])
         ]
-        compact_fresh = predict_serialized_mlp(
+        compact_fresh = predict_serialized_mlp_float32(
             [sample["feature"] for sample in compact_known_samples],
             compact_model["state_payload"],
         )
@@ -162,7 +160,7 @@ def run(*, repo_root: Path, config_path: Path,
         }
 
         known_specialist_samples = established[split]["l5"]
-        known_specialist_fresh = predict_serialized_mlp(
+        known_specialist_fresh = predict_serialized_mlp_float32(
             [sample["feature_33d"] for sample in known_specialist_samples],
             specialist_arm["model"]["state_payload"],
         )
@@ -180,7 +178,7 @@ def run(*, repo_root: Path, config_path: Path,
             sample for sample in samples[split]
             if int(sample["row_index"]) == 0
         ]
-        all_specialist = predict_serialized_mlp(
+        all_specialist = predict_serialized_mlp_float32(
             [sample["feature_33d"] for sample in unique_candidates],
             specialist_arm["model"]["state_payload"],
         )
