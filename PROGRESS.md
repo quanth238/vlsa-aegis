@@ -6776,3 +6776,12 @@ clearance for every tight primitive in the contact-free control. E09 also
 renders the released proxy and five tight primitives at the first observed raw
 EE contact frame. This geometry gate does not retrain the MLP or authorize QP
 or control.
+
+Initial paired canaries `41889/41890` fail before simulator construction under
+Python 3.8 because one test used parenthesized context-manager syntax. Repaired
+canaries `41899/41900` pass the allocation tests and construct the exact E09
+simulator, then stop before replay because the new config accidentally used an
+unregistered `1e-9` Khachiyan convergence tolerance. The repair restores the
+already validated compiled-geometry fit settings (`1e-4`, 20,000 iterations,
+`1e-9` numerical padding) and the archived 1024-pixel pairing resolution. Both
+attempts are pre-replay apparatus history and provide no geometry outcome.

@@ -47,9 +47,9 @@
   },
   "fit": {
     "source": "compiled_contact_geom_only_no_rollout_outcomes",
-    "relative_padding": 0.000001,
-    "khachiyan_tolerance": 0.000000001,
-    "khachiyan_max_iterations": 100000
+    "relative_padding": 0.000000001,
+    "khachiyan_tolerance": 0.0001,
+    "khachiyan_max_iterations": 20000
   },
   "replay": {
     "expected_mujoco_substeps_per_action": 5,
@@ -64,7 +64,7 @@
   "visualization": {
     "case_id": "vlsa-t1-spatial-i-t3-e09",
     "camera_name": "backview",
-    "resolution": 768,
+    "resolution": 1024,
     "frame": "first_observed_tight_EE_raw_contact_internal_substep",
     "show_released_proxy": true,
     "show_five_tight_primitives": true

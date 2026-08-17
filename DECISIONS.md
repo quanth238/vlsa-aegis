@@ -6279,3 +6279,12 @@ MLP target, authorize inference correction, or establish a whole-EE safety
 claim. A passing gate authorizes replacing future EE labels/features with the
 tight per-primitive representation; it does not authorize new training by
 itself.
+
+The first two paired canary chains are apparatus-only. Jobs `41889/41890` never
+constructed a simulator because the allocation Python rejected modern test
+syntax. Jobs `41899/41900` constructed the frozen E09 simulator but stopped
+before action replay because an unnecessarily strict unregistered MVEE solver
+tolerance did not converge. Restore the same solver settings already validated
+for compiled palm/distal meshes and retain the same compiled geoms, cases,
+actions, contact authority, exact-box target and gates. Do not tune the fit from
+contact outcomes.
